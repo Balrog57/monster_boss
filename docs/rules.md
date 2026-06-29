@@ -1,7 +1,6 @@
-# Boss Monster - Complete Rules
+# Boss Monster - Regles Completes
 
-
-## rules_advanced_faq.pdf
+## Advanced Faq
 
 Advanced Rules Guide
 Greetings, Boss Monsters! If you’re eager to slay adventurers and build dungeons in Boss Monster, but the basic 
@@ -41,6 +40,8 @@ If you still have questions, read on! Sequence of Play
 Here is a more detailed look at the full sequence of play. While the turn order can be loose in a casual game, more 
 advanced gamers may appreciate following the more rigid official turn structure. This sequence may also answer 
 some questions about order of effect and priority. 
+
+
 Setup (No Spells or abilities can be played) 
 ●
 Deal each player 5 Room & 2 Spell cards. Set up the discard pile with 4 random Room and 2 random 
@@ -109,6 +110,8 @@ scoring area. It deals a number of Wounds equal to the blood drop icon on its ca
 Any Item attached to a surviving Hero is placed face-down in your scorekeeping area.
 Repeat steps 4a – 4c for every Hero at the active player’s dungeon entrance. 
 Repeat the Adventure Phase for each player in order of XP, even players without a Hero in their dungeon. 
+
+
 5. End of Turn Phase (No Spells or abilities can be played)
 a. Any “until end of turn” effects are resolved.
 b. Any deactivated Rooms are turned upright.
@@ -159,6 +162,8 @@ Bag of Holding
 This card’s Hero ability can affect multiple Rooms, if a Hero survives (exits without being killed) more than
 one Room with at least two treasure icons. The treasure icons may be the same (e.g. Dark Laboratory) or
 different (e.g. Dragon Hatchery).
+
+
 Barbarian 
 
 This Hero's ability may only be triggered once per turn. Multiple opponents cannot trigger this ability.
@@ -218,6 +223,8 @@ Centipede Tunnel
 
 When you move Rooms with this card’s effect, any Rooms beneath the affected Rooms are also affected.
 “Room stacks” always move together.
+
+
 Cerebellus, Father Brain 
 
 If you have Spell cards in your hand other than the ones drawn by this effect, you may choose one of those to
@@ -274,6 +281,8 @@ place an Advanced Room over it.
 
 If you use this ability on an opponent's Room and the player later builds over that Room, the new Room does
 not lose its treasure value.
+
+
 Demigod 
  
 If two or more players are tied for fewest Wounds, the Demigod stays in town until the tie is broken. 
@@ -344,6 +353,8 @@ Once the Room's damage is reduced to zero, later effects cannot increase its dam
  
 This effect ends if the Room is covered or destroyed. 
  
+
+
 Fear 
 
 This Spell cannot target a Hero in a player’s scorekeeping area, because the scorekeeping area is not part of a
@@ -400,6 +411,8 @@ When you move Rooms with this card’s effect, any Rooms beneath the affected Ro
 Hitman 
 
 This Hero's ability may only be triggered once per turn. Multiple opponents cannot trigger this ability.
+
+
 Ice Rod 
 
 Any Room that his Hero survives (exits without being killed) is deactivated until end of turn. For example, a
@@ -458,6 +471,8 @@ King Croak’s Level Up effects).
 Liger's Den 
 
 If a Spell is declared but canceled (with an effect like Counterspell), it does not trigger Liger’s Den.
+
+
 Magic Mirror 
 
 Just before this Hero enters the first Room of your dungeon, change the order of your Rooms so the last
@@ -516,6 +531,8 @@ declared and placed at the same time as your first Room.
 
 You may not place a new Room on a face-down Room, so you cannot use this card to play two Rooms on the
 same “Room stack” (such as a Room and an Advanced Room).
+
+
 Oh Yeah! 
  
 When you move Rooms with this card’s effect, any Rooms beneath the affected Rooms are also affected. 
@@ -582,6 +599,8 @@ Save Point
 You may only retrieve a Spell from the discard pile if it is already in the discard pile when you destroy Save 
 Point. 
  
+
+
 Secret Stash 
 
 Giving a Room a treasure icon with this Spell allows you to place a matching Advanced Room over that Room.
@@ -641,6 +660,8 @@ Super Effective!
 
 The first printing of this card is misprinted. The hearts on the card should be black, because a Room has
 damage (not Health).
+
+
 
 A Hero is only "lured" to a dungeon if it moved to a dungeon entrance during the Bait phase. If another effect,
 such as Princess in Peril, places a Hero at the entrance to a dungeon, it does not count against this card's
@@ -699,6 +720,8 @@ ability can be used in one turn.
 The Fool 
 
 If two or more players are tied for fewest Souls, the Fool stays in town until the tie is broken.
+
+
 The Smashinator 
 
 "Every other visible Room" means the top of every Room pile in your dungeon. It does not include
@@ -757,6 +780,8 @@ If a Hero with this Item survives your dungeon, it adds an additional Wound to y
 end of turn. If this would take you to five Wounds, you lose the game. (For example, if you had two Wounds
 and an Epic Hero with the Vorpal Blade survived your dungeon, you would lose the game.) If not, the extra
 Wound disappears before the beginning of the next turn.
+
+
 
 When using this Item’s Boss ability, you may target any Hero (even one who has been returned to town or a
 dungeon entrance). If you kill a Hero in town or in your dungeon, place that Hero face-down in your
@@ -797,11 +822,11 @@ www.facebook.com/BossMonsterGame. It’s our best way to stay in touch with Boss
 Thank you for your interest in Boss Monster. Good luck crushing puny adventurers! 
 
 
----
-
-## rules_base.pdf
+## Base
 
 Instruction Booklet
+
+
 Introduction
 Boss MonsterTM is the fast-paced card 
 game of strategic dungeon building! 
@@ -847,6 +872,8 @@ contents
 •	 Rulebook
 •	 Quick Start Guide
 2
+
+
 welcome to the dungeon
 Boss Monster, the Dungeon-Building card game, has been in stores since 2013. In the 
 decade since, the game has seen seven boxed expansions, been translated into over 10 
@@ -866,6 +893,8 @@ you’ll always be the good guys in our book.
 Johnny and Chris O’Neal 
 Brotherwise Games
 3
+
+
 how to play
 gameplay
 at a glance
@@ -917,6 +946,8 @@ therefore possible to be the player who
 ends the game with 10 Souls, but still loses 
 because you took too many Wounds. See 
 page 19 for tiebreaker rules.
+
+
 Each Room has a 
 TREASURE value 
 that lures Heroes...
@@ -949,6 +980,8 @@ Heroes who survive
 deal Wounds 
 3
 5
+
+
 card types - Bosses
 Your Boss card represents the ultimate villain waiting at 
 the end of your dungeon… you! While it has a treasure 
@@ -975,6 +1008,8 @@ B
 A
 D
 6
+
+
 card types - rooms
 Your dungeon’s Rooms attract and damage Heroes. Each turn, 
 you can build a new Room in your dungeon, up to a maximum 
@@ -1012,6 +1047,8 @@ F
 G
 H
 7
+
+
 Heroes appear “in town” every turn, waiting for 
 adventures. Ordinary Heroes are silver; Epic Heroes 
 are gold. Epic Heroes don’t show up in town until all the 
@@ -1037,6 +1074,8 @@ B
 A
 D
 8
+
+
 E
 F
 card types - spells
@@ -1063,6 +1102,8 @@ before the first one played. There’s no limit to how
 many effects can be played this way, with each new 
 Spell or ability resolving before the others.
 9
+
+
 Set Up
 Step 1: Prepare the Hero Decks
 The number of players determines the number of Hero cards 
@@ -1102,6 +1143,8 @@ At this point, Set Up is complete and the first turn begins.
 For a more challenging game, try the “Classic Mode” 
 Play Variant (see Page 20).
 10
+
+
 Game Set Up Example
 E
 A
@@ -1112,6 +1155,8 @@ C
 G
 H
 11
+
+
 Sequence of Play
 After the initial Set Up, each turn in Boss Monster consists of five phases (each discussed in detail on the following pages):
 1.	 Beginning of Turn: Reveal Heroes in town (one Hero per 
@@ -1147,6 +1192,8 @@ Active Player: The Active Player is the one currently
 building a room or “processing” heroes during the 
 Adventure phase.
 12
+
+
 Cards being built are always played face-
 down during the Build phase. This keeps your 
 opponents guessing what treasure type you 
@@ -1176,6 +1223,8 @@ You may choose not to play a Room, but you cannot
 change your choice once you are no longer the 
 “active player.”
 13
+
+
 During the Build phase, you may use card abilities and play 
 Spells marked with the Build (
  and 
@@ -1208,6 +1257,8 @@ HERE!
 NOT HERE!
 Build Phase, CONT’D
 14
+
+
 During the Bait phase, players have the chance to lure 
 Heroes to their dungeons. Take the following steps:
 1.	Compare Treasure Values: Count the amount of treasure 
@@ -1501,6 +1552,8 @@ dangerous castles and dungeons in search of
 the musical instruments stolen from his people.
 Tieg and the Magic Bubble
 15
+
+
 Bait Phase, CONT’D
 Here we see a snapshot of the play area for a two-player 
 game, focused on the ordinary Hero deck and the players’ 
@@ -1523,6 +1576,8 @@ and the Thief stays in town. Next turn, two new Heroes will
 arrive in town, and the situation may change as new Rooms 
 are built.
 16
+
+
 Adventure Phase
 •	 Heroes Enter: One at a time, starting with the first Hero 
 to arrive at an entrance to a player’s dungeon, each 
@@ -1560,6 +1615,8 @@ slide the newer cards toward the deck to take its place.
 Remember, new Heroes continue to arrive in town at the 
 beginning of each turn!
 17
+
+
 Adventure Phase, CONT’D
 It’s Draculord’s first Adventure phase, and he’s processing 
 Heroes through his dungeon. He’s only got two Rooms built at 
@@ -1590,6 +1647,8 @@ E
 F
 b
 18
+
+
 End of Turn & End of Game
 Once all players have had a chance to be the active player 
 during the Adventure phase, the turn ends. At the end of 
@@ -1624,6 +1683,8 @@ take it down a notch with Machinations: At the end of
 turn, if a player did not gain a Soul this turn, that player 
 may draw one card from the Room or Spell Deck.
 19
+
+
 Activated Ability: An activated ability is any effect that 
 requires the player to declare its use or pay a cost (for 
 example, “destroy this Room” abilities are activated 
@@ -1654,6 +1715,8 @@ Classic Mode: During Setup, each player draws five
 Room cards and two Spell cards, then discards two 
 cards of their choice.
 20
+
+
 Damage: Rooms deal damage (marked in the lower 
 left-hand corner of each room as a number in an empty 
 heart nohp} ). Damage equal to a Hero’s Health kills that Hero.
@@ -1695,6 +1758,8 @@ the Build phase before being revealed at the end of the
 Build phase. Additional Rooms cannot be built over face-
 down cards, and they cannot be destroyed.
 21
+
+
 Hand: The cards in your hand cannot be viewed by other 
 players unless a card effect specifically allows them to do 
 so. There is no minimum or maximum number of cards that 
@@ -1734,6 +1799,8 @@ Epic Hero” unless it specifies one or the other. Similarly,
 a specific descriptor. 
 GLOSSARY, CONT’D
 22
+
+
 Room Stack: Your dungeon holds five Rooms. As you 
 build over existing Rooms, the Rooms in each slot become 
 a Room stack. Any effect that moves a Room moves all 
@@ -1778,6 +1845,8 @@ Sanabria, Bertrand Dupuy
 Special Thanks: 	 Beverly O’Neal, Victoria O’Neal, 
 Quixotic Transmedia, David Gregg
 23
+
+
 Adventure 
 Phase
 Heroes travel 
@@ -1849,9 +1918,7 @@ are revealed.
 5
 
 
----
-
-## rules_crash_landing.pdf
+## Crash Landing
 
 ©2018 Brotherwise Games, LLC
      An alien vessel has crashed into the land 
@@ -1878,6 +1945,8 @@ appropriated by Arcadia’s Boss Monsters.
      A Room is “uncovered” when the Room above 
 it is destroyed, or when it is moved to the top of 
 its Room stack by another effect.
+
+
 Changes to Victory Conditions
      Unlike the 2-4 player game of Boss Monster, 
 players in a 5-6 player game of Boss Monster 
@@ -1926,11 +1995,11 @@ order). The most recent Explorer to arrive
 stays in town.
 
 
----
-
-## rules_minibosses.pdf
+## Minibosses
 
 INSTRUCTION BOOKLET
+
+
 Boss Monster: Rise of the Minibosses — 1st printing
 All rights reserved. Printed in China by Boda for Brotherwise Games, LLC. Reproduction of this rulebook in any form or medium is permitted for 
 non-commercial use only.
@@ -1939,6 +2008,8 @@ Published in 2018 in the United States of America by Brotherwise Games, LLC; Tor
 Find us on the World Wide Web at brotherwisegames.com.
 Boss Monster and the Boss Monster logo are trademarked 2012 by Brotherwise Games, LLC. Boss Monster: Rise of the Minibosses, is trade-
 marked 2018 by Brotherwise Games, LLC.
+
+
 1
 Since its launch in 2012, Boss Monster has taken the world by storm. Thanks 
 to our amazing Kickstarter backers and hundreds of thousands of fans since, 
@@ -1966,6 +2037,8 @@ Chris O'Neal.
 Pixel Art by Francisco Coda, Marcus Dewdney, 
 Katrina Guillermo, Rom Haviv, Kyle Merritt, 
 and Santiago Reinoso Muñoz.
+
+
 2
 Boss MonsterTM is the fast-paced card game of strategic dungeon building! As a Boss Monster, your goal is to lure 
 hapless adventurers into your dungeon and consume their Souls. But beware! Your dungeon must be as deadly 
@@ -2002,6 +2075,8 @@ Hero and Epic Hero Deck with 42 cards
 35 Coin tokens
 •	
 Rulebook and Quick Start Guide
+
+
 3
 The heart of Boss Monster is dungeon building!  Your Boss card (1) sits at the right end of a side-scrolling dungeon, 
 and each turn you can strengthen and refine it with Rooms (2). A Room’s treasure value determines what type of 
@@ -2031,6 +2106,8 @@ take 5 Wounds!
 Heroes who 
 survive deal 
 Wounds. 
+
+
 4
 Your Boss card represents the ultimate villain waiting at 
 the end of your dungeon…you! While it has a treasure 
@@ -2056,6 +2133,8 @@ A
 B
 C
 D
+
+
 5
 Your dungeon’s Rooms attract and damage Heroes. 
 Each turn, you can build a new Room in your dungeon, 
@@ -2084,6 +2163,8 @@ A
 B
 C
 D
+
+
 6
 While Minibosses are included in the Room deck, 
 they are not Rooms. Instead, Minibosses enhance the 
@@ -2111,6 +2192,8 @@ A
 B
 C
 D
+
+
 7
 Spells reflect the power of your Boss Monster to affect 
 what happens in your dungeon…and beyond! After the 
@@ -2134,6 +2217,8 @@ active players’ Spells and effects then resolve in order
 of XP value.
 A
 B
+
+
 8
 Heroes are the key resource of Boss Monster. Heroes 
 appear “in town” every turn, waiting for adventures. 
@@ -2160,6 +2245,8 @@ A
 B
 D
 C
+
+
 9
 Coins are a new mechanic introduced in Boss Monster: 
 Rise of the Minibosses. They represent the currency 
@@ -2178,6 +2265,8 @@ another Boss Monster set, we encourage you to use
 the following rule:
 “Once per turn, during their Build Phase, any Player 
 may discard one Room card to gain one Coin.”
+
+
 10
 The number of players determines the number of Hero 
 cards that should be used in a game:
@@ -2213,7 +2302,11 @@ taneously reveal the newly built Rooms. In XP order,
 resolve any “when you build this” effects.
 At this point, Set Up is complete and the first turn 
 begins.
+
+
 11
+
+
 12
 After the initial Set Up, each turn in Boss Monster consists of five phases:
 Beginning of Turn: Reveal Heroes in town (one Hero per player in the game), then each player draws a card 
@@ -2234,6 +2327,8 @@ highest-XP player is the first to “process” adventurers through her dungeon.
 Active Player: When you are the Active Player (i.e., when you are placing a Room or “processing” adventurers), 
 you have priority. You can use any number of Spells and abilities before any other player can respond (even higher-
 XP players).
+
+
 13
 During the Beginning of Turn phase, the following oc-
 curs:
@@ -2269,6 +2364,8 @@ Room with at least one matching treasure icon.
 face-down over any Room in your dungeon. You may 
 choose not to build, but you cannot change your 
 choice once you are no longer the “Active Player.”	
+
+
 14
 During the Build phase, you may use Room abilities 
 and play Spells marked with the Build (hammer) icon. 
@@ -2298,6 +2395,8 @@ Not here! Training Camp
 contains no Cleric treasure.Q
 R
 R
+
+
 15
 During the Bait phase, players have the chance to lure 
 Heroes to their dungeons. Take the following steps:
@@ -2329,6 +2428,8 @@ Heroes arrive as normal. If a tie is not broken, Heroes
 can really start to stack up in town! When the tie is 
 broken, all relevant Heroes go to the “winning” dun-
 geon, which means the stakes just keep getting higher. 
+
+
 16
   
  
@@ -2351,6 +2452,8 @@ The Mage is lured to Player 1, the Cleric is lured
 to Player 2, and the Thief stays in town. Next 
 turn, two new Heroes will arrive in town, and the 
 situation may change as new Rooms are built.
+
+
 17
        
 During the Adventure phase, Heroes “attack” dun-
@@ -2394,6 +2497,8 @@ has been in play longest. Once that Hero heads to a
 dungeon, slide the newer cards toward the deck to 
 take its place. Remember, new Heroes continue to ar-
 rive in town at the beginning of each turn!
+
+
 18
 Once all players have had a chance to be the active 
 player during the Adventure phase, the turn ends. At 
@@ -2433,6 +2538,8 @@ If the result above is still a tie, the player with
 the lowest XP value wins.
 Now shuffle the decks, deal out some new Boss cards, 
 and play again!
+
+
 19
 Classic Mode: During Setup, each player draws five 
 Room cards and two Spell cards, then discards two 
@@ -2476,6 +2583,8 @@ also be canceled if its target is destroyed (or other-
 wise rendered moot) by a higher-priority effect. Once 
 the target for a Spell has been declared, it cannot be 
 changed. 
+
+
 20
 close any gaps. You may only destroy a Room if a card 
 specifically allows you to do so.
@@ -2521,6 +2630,8 @@ Destroy: A Room that is “destroyed” is sent to the dis-
 card pile from play. If there is a Room under that Room, 
 it is Uncovered. If this creates a “hole” in the dungeon, 
 all the cards slide to the right (toward your Boss) to 
+
+
 21
 Heal: If an effect allows you to “heal” a Wound, you 
 may flip over one face-up Hero (ordinary or Epic) in 
@@ -2565,6 +2676,8 @@ it is destroyed, or when it is moved to the top of its
 Room stack by another effect.
 XP: A Boss card’s XP value determines which player 
 gets to go first during each phase of the game. 
+
+
 22
 Instead of doing your normal 
 build for your turn, you may 
@@ -2600,11 +2713,11 @@ can promote him next
 turn! 
 
 
----
-
-## rules_next_level.pdf
+## Next Level
 
 INSTRUCTION BOOKLET
+
+
 Boss Monster: The Next Level — 3rd printing
 All rights reserved. Printed in the United States of America by Cartamundi USA for Brotherwise Games, LLC. Reproduction of this rulebook in 
 any form or medium is permitted for non-commercial use only.
@@ -2613,6 +2726,8 @@ Published in 2017 in the United States of America by Brotherwise Games, LLC; Tor
 Find us on the World Wide Web at brotherwisegames.com.
 Boss Monster and the Boss Monster logo are trademarked 2012 by Brotherwise Games, LLC. Boss Monster: The Next Level, is trademarked 
 2015 by Brotherwise Games, LLC.
+
+
 1
 “Become a villain, build a dungeon, lure in adventurers, and destroy them!” 
 Since 2012, gamers around the world have heeded that call. Now it’s time to 
@@ -2645,6 +2760,8 @@ and David Nyari.
 Special thanks to Tremane "Scythe" Barclay, 
 Chandra Moore, Tori Becker Uzdavinis, John 
 Archer, Nic Hayes, and David Gregg.
+
+
 2
 Boss MonsterTM is the fast-paced card game of strategic dungeon building! As a Boss Monster, your goal is to lure 
 hapless adventurers into your dungeon and consume their Souls. But beware! Your dungeon must be as deadly 
@@ -2681,6 +2798,8 @@ Hero and Epic Hero Deck with 42 cards
 Rulebook
 •	
 Quick Start Guide
+
+
 3
 The heart of Boss Monster is dungeon building!  Your Boss card (1) sits at the right end of a side-scrolling dungeon, 
 and each turn you can strengthen and refine it with Rooms (2). A Room’s treasure value determines what type of 
@@ -2709,6 +2828,8 @@ Souls before you
 take 5 Wounds!
 Heroes who sur-
 vive deal Wounds. 
+
+
 4
 Your Boss card represents the ultimate villain waiting at 
 the end of your dungeon…you! While it has a treasure 
@@ -2734,6 +2855,8 @@ A
 B
 C
 D
+
+
 5
 Your dungeon’s Rooms attract and damage Heroes. 
 Each turn, you can build a new Room in your dungeon, 
@@ -2762,6 +2885,8 @@ A
 B
 C
 D
+
+
 6
 Heroes are the key resource of Boss Monster. Heroes 
 appear “in town” every turn, waiting for adventures. 
@@ -2788,6 +2913,8 @@ A
 B
 D
 C
+
+
 7
 Spells reflect the power of your Boss Monster to affect 
 what happens in your dungeon…and beyond! After the 
@@ -2811,6 +2938,8 @@ active players’ Spells and effects then resolve in order
 of XP value.
 A
 B
+
+
 8
 The number of players determines the number of Hero 
 cards that should be used in a game:
@@ -2845,6 +2974,8 @@ taneously reveal the newly built Rooms. In XP order,
 resolve any “when you build this” effects.
 At this point, Set Up is complete and the first turn 
 begins.
+
+
 9
 Room
 Deck
@@ -2880,6 +3011,8 @@ Entrance
 Dungeon
 Entrance
 "Town"
+
+
 10
 After the initial Set Up, each turn in Boss Monster consists of five phases:
 Beginning of Turn: Reveal Heroes in town (one Hero per player in the game), then each player draws a card 
@@ -2900,6 +3033,8 @@ highest-XP player is the first to “process” adventurers through her dungeon.
 Active Player: When you are the Active Player (i.e., when you are placing a Room or “processing” adventurers), 
 you have priority. You can use any number of Spells and abilities before any other player can respond (even higher-
 XP players).
+
+
 11
 During the Beginning of Turn phase, the following oc-
 curs:
@@ -2934,6 +3069,8 @@ Room with at least one matching treasure icon.
 You may choose not to play a Room, but you cannot 
 change your choice once you are no longer the “Active 
 Player.”	 	
+
+
 12
 During the Build phase, you may use Room abilities 
 and play Spells marked with the Build (hammer) icon. 
@@ -2963,6 +3100,8 @@ Not here! Fangroot Garden
 contains no Cleric treasure.Q
 R
 R
+
+
 13
 During the Bait phase, players have the chance to lure 
 Heroes to their dungeons. Take the following steps:
@@ -2996,6 +3135,8 @@ broken, all relevant Heroes go to the “winning” dun-
 geon, which means the stakes just keep getting higher. 
 Manipulating the Bait phase to make sure Heroes come 
 your way is the key to success in Boss Monster!
+
+
 14
   
  
@@ -3018,6 +3159,8 @@ The Mage is lured to Player 1, the Cleric is lured
 to Player 2, and the Thief stays in town. Next 
 turn, two new Heroes will arrive in town, and the 
 situation may change as new Rooms are built.
+
+
 15
        
 During the Adventure phase, Heroes “attack” dun-
@@ -3061,6 +3204,8 @@ has been in play longest. Once that Hero heads to a
 dungeon, slide the newer cards toward the deck to 
 take its place. Remember, new Heroes continue to ar-
 rive in town at the beginning of each turn!
+
+
 16
 Once all players have had a chance to be the active 
 player during the Adventure phase, the turn ends. At 
@@ -3100,6 +3245,8 @@ If the result above is still a tie, the player with
 the lowest XP value wins.
 Now shuffle the decks, deal out some new Boss cards, 
 and play again!
+
+
 17
 Classic Mode: During Setup, each player draws five 
 Room cards and two Spell cards, then discards two 
@@ -3143,6 +3290,8 @@ also be canceled if its target is destroyed (or other-
 wise rendered moot) by a higher-priority effect. Once 
 the target for a Spell has been declared, it cannot be 
 changed. 
+
+
 18
 close any gaps. You may only destroy a Room if a card 
 specifically allows you to do so.
@@ -3188,6 +3337,8 @@ Destroy: A Room that is “destroyed” is sent to the dis-
 card pile from play. If there is a Room under that Room, 
 it is Uncovered. If this creates a “hole” in the dungeon, 
 all the cards slide to the right (toward your Boss) to 
+
+
 19
 Heal: If an effect allows you to “heal” a Wound, you 
 may flip over one face-up Hero (ordinary or Epic) in 
@@ -3229,15 +3380,17 @@ Room stack by another effect.
 XP: A Boss card’s XP value determines which player 
 gets to go first during each phase of the game. See 
 page 10 for details.
+
+
 20
 ©2015 Brotherwise Games, LLC
 
 
----
-
-## rules_unofficial_guide.pdf
+## Unofficial Guide
 
 The Unofficially Official Guide
+
+
 1. Introduction and credits
 2. Acronyms
 3. Box contents
@@ -3284,6 +3437,8 @@ BMR / TNL: the e-rated combo
 Expansion mixing
 Hero mixing
 13. Glossary
+
+
 1. Introduction and credits
 I was amazed by how deep Boss Monster really is in terms of strategy and gameplay,
 and even though it’s easy to learn, it’s surprisingly difficult to master. Having numerous
@@ -3313,6 +3468,8 @@ I didn’t mention. Most of you probably won't read this, but I sincerely hope a
 vibrations reach you.
 Lastly, I’d like to thank all the game fans for keeping the game alive.
 Jaroslaw Kowalczyk
+
+
 2. Acronyms
 In this guide, I will not be using full game names that much. With this in mind, please refer to the
 following table of game acronyms of all the games listed in this guide. The acronyms are
@@ -3363,6 +3520,8 @@ Quick Start Guide
 Coin tokens
 Booklet
 Quick Start Guide
+
+
 Expansions:
 THK
 IOD
@@ -3459,6 +3618,8 @@ to spread out your cards. If you’re also playing with other Boss Monster sets,
 and Spell decks of all the sets together, but decide on just one Hero and Epic Hero deck to use.
 This is only the basic deck mixing idea. To read more on game mixing, have a look at the Deck
 mixing rules / hints section.
+
+
 The first time you play, allow yourself at least 45 minutes. Once players are familiar with the
 cards, a two-player game will typically take 20-30 minutes.
 Object of the Game
@@ -3475,6 +3636,8 @@ The heart of Boss Monster is dungeon building! Your Boss card (1) sits at the ri
 side-scrolling dungeon, and each turn you can strengthen and refine it with Rooms (2). A
 Room’s treasure value determines what type of Heroes it attracts, while its damage determines
 its ability to destroy Heroes (by depleting their Health)
+
+
 Your scorekeeping area (3) sits off to the side of your dungeon, where face-down Heroes add to
 your Souls (gold crystals), and face-up Heroes add to your Wounds (blood drops). Note that
 even though the Soul stack is face-down, any player can inspect it at any time. You may only
@@ -3485,6 +3648,8 @@ Bosses
 Your Boss card represents the ultimate villain waiting at the end of your dungeon… you! While it
 has treasure value, it does not count as a Room. It cannot deal damage, be deactivated, or be
 destroyed (more on these terms later).
+
+
 A. Boss Icon: This icon indicates that
 this is a Boss card
 B. Boss Ability: Each Boss card has a
@@ -3508,6 +3673,8 @@ Your dungeon’s Rooms attract and damage Heroes. Each turn, you can build a new
 your dungeon, up to a maximum of five visible Rooms. Ordinary Rooms can be built at the end
 of your dungeon, or over any other Room (without restrictions). Advanced Rooms are
 “upgrades” that can only be built on existing Rooms with at least one matching treasure icon.
+
+
 A. Room Icon: A silver icon is an
 ordinary Room, while Advanced
 Rooms have gold icons. This icon
@@ -3547,6 +3714,8 @@ disappears from gameplay, not contributing in any way to the top Room.
 -
 A stack of Rooms is effectively treated as one Room. If a card makes two Rooms swap
 places, whole stacks move.
+
+
 -
 You can have two identical Rooms in your dungeon at any time.
 -
@@ -3580,6 +3749,8 @@ visible, you may activate it whenever
 you can activate Room abilities or
 Spells, then reset the Miniboss to
 Level One.
+
+
 Building and Promoting Minibosses
 Instead of doing your normal build for the turn, you may choose to build a Miniboss. Minibosses
 are NOT restricted by treasure/type/subtype for building, but may not be built next to another
@@ -3627,6 +3798,8 @@ them, it naturally travels with the Room it’s attached to.
 -
 If a gap between Rooms opens, forcing a Room with a Miniboss to slide next to another
 Room that also has a Miniboss, neither of the Minibosses is affected in any way.
+
+
 -
 When a Miniboss is attached to a Room that’s deactivated, it itself is also deactivated
 until the Room reactivates.
@@ -3656,6 +3829,8 @@ phase, or while you are “processing” Heroes in your dungeon. If another play
 while you are the active player, you may play and resolve any number of Spells or effects
 before opponents’ Spells or abilities resolve. Non-active players’ Spells and effects then
 resolve in order of XP value.
+
+
 Heroes
 Heroes are the key resource of Boss Monster. Heroes appear “in town” every turn, waiting for
 adventures. Ordinary Heroes are silver; Epic Heroes are gold. Epic Heroes don’t show up in
@@ -3688,6 +3863,8 @@ Soul: When a Hero dies in your
 dungeon, turn it face-down. Ordinary
 Heroes count as one soul, while Epic
 Heroes count as two!.
+
+
 Additional rules and clarifications
 -
 There are card abilities that return Heroes to the dungeon entrance, or prevent Heroes,
@@ -3716,6 +3893,8 @@ If a Hero were to be dealt damage that would go below 0, it would have to be cou
 with negative numbers while processing them in that Room, i.e. a Hero with 2 HP would
 have -1HP after being dealt 3 damage in a Room. This impacts any attempts to boost
 Hero’s health above 0, to prevent them from dying after leaving this Room.
+
+
 Items
 A. Treasure icon: this indicates which
 Hero type the item attaches to.
@@ -3742,6 +3921,8 @@ are revealed, reveal the following number of Items:
 2-3 players: one Item
 4 players: two items
 5-6 players (with or without CRL): three items
+
+
 This part should be pretty straightforward. Every time you’d reveal Heroes, reveal an Item or two
 first. We recommend placing Items in a row above or below your Heroes.
 Each Item attaches to the first Hero in town that matches its Treasure icon (or the
@@ -3777,6 +3958,8 @@ scorekeeping area. However, you may only have one face-up Item. (You choose whic
 item to keep face-up.)
 If you kill an Item-equipped Hero, you get to claim the Item! However, you can only have one
 face-up Item at a time. Before you claim the new Item, you have a choice: A) immediately use
+
+
 your existing Item and turn it face-down, B) turn your existing Item face-down without using it, or
 C) leave the existing Item face-up and turn the new Item face-down.
 During the Build or Adventure phase (whenever you could use a Spell), you may expend
@@ -3816,6 +3999,8 @@ uncovered Explorer Item and draw a new one instead.
 -
 When playing a 3-6 player game, the number of Items drawn at the Beginning of Turn
 doesn’t change if one (or more) player loses and gets out of the game.
+
+
 Coins
 Coins are a new mechanic introduced in Boss
 Monster: Rise of the Minibosses. They
@@ -3843,6 +4028,8 @@ Tokens
 Even though the idea of +X tokens has been present in the game since the first Boss Monster
 base set, the rule was described in detail as part of the Paper & Pixels (Digital Boss Monster)
 expansion set.
+
+
 If a card has an ability that gives a Room a “+1” counter (or, respectively, any +X counter), place
 a marker on that Room. Treat the Room’s damage as one higher for each +1 counter on that
 Room. (Any effects that calculate a Room’s damage should use the modified value.)
@@ -3864,6 +4051,8 @@ games/expansions, refer to the Deck mixing rules / hints section.
 Hero setup for the game
 The number of players determines the number of Hero cards that should be used in a game.
 This is represented through icons at the bottom of Hero cards:
+
+
 Two players
 Three players
 Four players
@@ -3930,6 +4119,8 @@ Epic
 -
 16 / 17 +4
 16 / 17 +5
+
+
 6
 ordinary
 -
@@ -3960,12 +4151,16 @@ highest-XP player goes first, then each other player places a face-down Room. On
 have placed their cards, simultaneously reveal the newly built Rooms. In XP order, resolve any
 “when you build this” effects.
 At this point, Set Up is complete and the first turn begins.
+
+
 Game Set Up Example
 Bear in mind that this image of a 2-player scenario shows the optimal (and, in terms of players’
 dungeon tracks - recommended) placement of all possible elements that exist in all released
 Boss Monster products (as well as some mechanics used during gameplay), and not an actual
 gameplay situation. It also doesn’t depict Heroes travelling through players’ dungeons. Your
 choice of expansions will determine if some of these elements appear on the table.
+
+
 8. Phases in detail
 After the initial Set Up, each turn in Boss Monster consists of five phases:
 Beginning of Turn: Reveal Heroes in town (one Hero per player who
@@ -3995,6 +4190,8 @@ dungeon.
 Active Player: When you are the Active Player (i.e., when you are placing a Room or
 “processing” adventurers), you have priority. You can use any number of Spells and abilities
 before any other player can respond (even higher-XP players).
+
+
 Beginning of Turn
 During the Beginning of Turn phase, the following occurs in said order:
 ●
@@ -4027,6 +4224,8 @@ Alternately, you may build a Miniboss by placing it face-down over any Room in y
 You may choose not to build, but you cannot change your choice once you are no longer the
 “Active Player”.  Also, if you’re playing with cards from the POP expansion, you can return any
 previously built Room with the “Portable” keyword to hand - this is a bonus action.
+
+
 During the Build phase, you may use Room
 abilities, play Spells marked with the Build
 (hammer icon), use Boss Items or Miniboss
@@ -4050,6 +4249,8 @@ Advanced Rooms you’re allowed to play. Multi-treasure Rooms (with gold borders
 low-damage, but they give your dungeon versatility.
 Also keep in mind that ordinary Rooms can always be built over any Room, regardless of
 treasure type!
+
+
 Bait Phase
 During the Bait phase, players have the chance to lure Heroes to their dungeons. Take the
 following steps:
@@ -4081,6 +4282,8 @@ because all players have zero or all players are tied, that Hero stays in town. 
 new Heroes arrive as normal. If a tie is not broken, Heroes can really start to stack up in town!
 When the tie is broken, all relevant Heroes go to the “winning” dungeon, which means the
 stakes just keep getting higher.
+
+
 Bait phase example:
 Here we see a snapshot of the play area for a
 two-player game, focused on the ordinary
@@ -4122,6 +4325,8 @@ that Hero begins to move through that player’s dungeon.
 Rooms Deal Damage: As the Hero enters each Room, any Hero ability takes effect
 (and/or the ability of an Item attached to them), then the ongoing Room ability, then the
 Room deals its damage.
+
+
 ●
 Spells and Abilities: In each Room, after damage is dealt, players may play abilities,
 Spells marked with the Adventure (axe) icon, Miniboss lvl 3 abilities or Boss Items. The
@@ -4154,6 +4359,8 @@ End of Turn phase.
 Pro Tip: Multiplayer Games
 In a game with more than two players, when one player loses, that player’s cards are set
 aside and “removed from the game”. They do not go to the discard pile, and no effects can
+
+
 interact with those cards until the game concludes. The number of Heroes entering town does
 not change, so the pressure is on!
 End of Game
@@ -4186,6 +4393,8 @@ An extremely rare situation might happen when there’s still no winners yet the
 depleted (and any remaining Heroes can’t be distributed anymore, for any reason). Should this
 happen, apply the tiebreaker rules described just above this very paragraph.
 Now shuffle the decks, deal out some new Boss cards and play again!
+
+
 9. Top Five Rules
 In our experience, here are the top five rules clarifications requested by advanced gamers after
 an introductory session of Boss Monster:
@@ -4222,6 +4431,8 @@ Heroes Pause in Each Room: Each time a Hero enters a Room, apply any Hero
 abilities (and/or Item abilities) first, then any ongoing effects from the Room, then
 damage. Spells and abilities may not interrupt this process. Once a Hero has been
 damaged by a Room, any player may use Adventure Spells or other abilities. Then the
+
+
 Hero exits the Room and is either killed or survives. In a tournament setting, you should
 pause after each Room deals its damage to see if another player has an action to
 declare that will affect the Hero’s survival.
@@ -4258,6 +4469,8 @@ number of Activated abilities, Lvl3 Miniboss abilities or play the Boss-attached
 – place a single Room card face down on top of a chosen Room or empty
 space in his or her dungeon (paying attention to Room placing rules).
 OR
+
+
 - (RMB/VOV) place a Miniboss (Room) card face down on top of a chosen
 Room (treasure/Room type doesn’t matter), as long as the Miniboss is not placed on
 or directly next to a Room that already has an active Miniboss.
@@ -4295,6 +4508,8 @@ relevant treasure) the Hero remains in town.
 5-6 player CRL games: if one or more players are tied for a treasure type, Heroes
 split: oldest Hero in town travels to the matching treasure Player with most XP, then
 applying the same method to remaining Heroes, in descending XP order. Also, a
+
+
 split has to be possible, i.e. there has to be at least as many tied Heroes as there
 are Players tied for that treasure type. Extra Heroes remain in town, until there is
 enough for a split. If a split is not possible, all Heroes remain in town.
@@ -4332,6 +4547,8 @@ drop icon on its card back.
 scorekeeping area.
 Repeat all steps of this phase for every Hero at the active player’s dungeon
 entrance.
+
+
 End of turn
 X
 Any “until end of turn” effects expire.
@@ -4357,6 +4574,8 @@ experience an individual, playtested and balanced deck. Once you're ready to com
 another Boss Monster base deck, here's some rules on how to do it, starting with the simplest:
 •Set aside the Hero cards from one of the base games.
 •Shuffle together both Room decks.
+
+
 •Shuffle together both Spell decks.
 •Shuffle together both Boss decks.
 Once you’ve had a chance to experience any base set on its own or a full mashup of any base
@@ -4397,6 +4616,8 @@ additional 11-Health Cleric, Fighter, Mage and Thief (+8 cards total).
 ●
 6 players: set it up as for 5 players, then add one additional 11-Health Cleric, Fighter,
 Mage, and Thief (+12 cards total).
+
+
 BMR / TNL: the official Combo
 For a balanced Boss Monster experience featuring our favorite cards, follow this deck list. It
 preserves many of the most classic cards from the original, while sticking to the more consistent
@@ -4468,6 +4689,8 @@ All Heroes from TNL (none from BMR)
 2x Another Castle (TNL)
 2x Assassin (BMR)
 1x Cave-In (BMR)
+
+
 2x Dragon Hatchery (BMR)
 1x Hatchling’s Hoard (TNL)
 2x Mimic Vault (BMR)
@@ -4517,6 +4740,8 @@ Nicolius (TNL)
 Porkus (TNL)
 41 Heroes
 All Heroes from BMR (none from TNL)
+
+
 Smoake (TNL)
 Torix Uz'kali (TNL)
 Xyzax (BMR)
@@ -4584,6 +4809,8 @@ Xyzax (BMR)
 In addition to removing cards with pixelated blood or saucy innuendo, this combination avoids the
 wordiest and most complicated cards. That means it’s also a great set for teaching the game to more
 casual players!
+
+
 Expansion mixing
 At the end of the day, the general rule about combining Boss Monster sets is: there are no rules! The
 more expansions you mix, the more varied the decks will be. This will come at a cost though, as they
@@ -4615,6 +4842,8 @@ Base set + IOD (discard Explorer Items and Boss with Explorer icon)
 Base set + THK + IOD (discard Explorer Items and Boss with Explorer icon)
 The new Vault of Villains expansion is specifically designed to help players combine sets while
 maintaining gameplay balance. Here are some recommended combinations that include VOV:
+
+
 Hero mixing
 Some expansion packs include Heroes with the star symbol. You can use these Heroes to replace
 any Heroes of same type (ordinary/Epic), comparable Health and same treasure type, within one
@@ -4628,6 +4857,8 @@ Active Player: Click here to read more
 Build: Abilities that say “When you build this room” trigger when a Room is built, not if it is
 revealed for other reasons. You may build one Room per turn (unless a card states otherwise),
 you may not rearrange Rooms in your dungeon when building (unless a card states otherwise),
+
+
 you may not build over face-down Rooms, and you may only build a maximum of five visible
 Rooms in your dungeon.
 Cancel: Any Spell or ability that allows you to “cancel” a Spell, allows you to interrupt a declared
@@ -4664,6 +4895,8 @@ area as a Soul). If said Room is the last one before the Boss and the Hero is al
 Hero ends up in the scorekeeping area as a Wound.
 Discard: A card is “discarded” if a player must remove it from their hand and place it in the
 discard pile. By default, an effect that forces a player to discard a card allows the player to
+
+
 choose which card is discarded. When a card says “discard a card at random,” an opponent
 randomly chooses.
 Discard pile: This pile is created face-up, and all players can inspect the cards in the pile at any
@@ -4697,6 +4930,8 @@ Heroes”). When it specified “Epic Hero”, it only refers to an Epic Hero (i
 Heroes”). A card that just says “Hero” can refer to either type.
 Hero (dark): It’s a hero type introduced in The Next Level. Those heroes include a special
 ability.
+
+
 Hero (hybrid): It’s a hero type introduced in The Next Level. Those heroes have two treasure
 icons.
 Hoard (RMB/VOV): The stash of Coins that you own.
@@ -4730,6 +4965,8 @@ Pay: To “pay” a coin, remove it from your Hoard and return it to the pot of 
 Portable (POP): Portable cards are a part of the Power Pack addon, which is essentially a part
 of the Collector’s Box. Cards with the Portable keyword can be returned to hand during any
 moment of the Build phase, before built Rooms are revealed. Returned Portable card can be
+
+
 built in the same turn. This exhausts the build possibility for that player during that turn.
 Additionally, when a Portable card is returned to hand, a card underneath resolves a “When
 uncovered” effect, if it has such an effect.
@@ -4762,9 +4999,10 @@ v. 1.1
 -
 Updated Thief Room count in the BMR / TNL: the official Combo section.
 21.04.2021
+
+
 v. 1.0
 -
 BGG release
 
 
----
