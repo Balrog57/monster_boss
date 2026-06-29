@@ -1,0 +1,30 @@
+{
+  "dependencies": {
+    "boardgame.io": "^0.50.2",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "serve-static": "^2.2.1"
+  },
+  "name": "monster_boss",
+  "version": "1.0.0",
+  "description": "Convertir l'APK Android Boss Monster v2.4.12 en un jeu HTML jouable avec : - Toutes les images de l'APK - Toutes les données de cartes (JSON) - Jeu solo contre 1-3 IA (pas juste survie 14 manches) - Interface fidèle au jeu original",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Balrog57/monster_boss.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Balrog57/monster_boss/issues"
+  },
+  "homepage": "https://github.com/Balrog57/monster_boss#readme"
+}
