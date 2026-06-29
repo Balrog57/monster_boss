@@ -1,0 +1,12 @@
+{
+    "Name": "AITPCCards",
+    "SpellCards": [
+        {
+            "CardNumber": "KSA013",
+            "Name": "T.P.K.",
+            "Affects": "Player"
+        }
+    ],
+    "RoomCards": [
+    ]
+}

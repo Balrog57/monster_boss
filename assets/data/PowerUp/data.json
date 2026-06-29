@@ -1,0 +1,876 @@
+{
+  "Name": "PowerUpCards",
+  "BossCards": [
+    {
+      "XP": 499,
+      "IsMale": true,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInHand",
+                    "Parameters": [
+                      "True",
+                      "1",
+                      "Advanced",
+                      "Any",
+                      "Owner"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DiscardTargetRoomFromHand",
+                    "Parameters": []
+                  }
+                ]
+              },
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDungeon",
+                    "Parameters": [
+                      "True",
+                      "1",
+                      "Any",
+                      "Any",
+                      "Owner",
+                      "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "IncrementCounterRoom",
+                    "Parameters": [
+                      "1"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 25,
+        "Y": 310
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "TPU001",
+      "Name": "Chase",
+      "Subtitle": "Mentor of Monsters",
+      "Description": "Level Up: For the rest of game, once per turn you may discard an Advanced Room card to give one room a +1 counter.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "XP": 899,
+      "IsMale": true,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "LevelUpIsActive",
+                "Parameters": null
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "LastBuiltRoom",
+                    "Parameters": [
+                      "Ordinary",
+                      "Monster"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "IncrementCounterLastBuild",
+                    "Parameters": [
+                      "1"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenYouBuildThisRoom",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 25,
+        "Y": 310
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "TPU002",
+      "Name": "Greg",
+      "Subtitle": "The New Boss",
+      "Description": "Level Up: For the rest of game, whenever you build a Monster Room, you may give it a +1 counter.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "XP": 699,
+      "IsMale": true,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [              
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ActiveHeroInDungeon",
+                    "Parameters": [
+                      "Any",
+                      "Owner"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealRndToHero",
+                    "Parameters": [
+                      "6",
+                      "1"
+                    ]
+                  }
+                ]
+              },
+			  {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDungeon",
+                    "Parameters": [
+                      "False",
+                      "1",
+                      "Any",
+                      "Any",
+                      "Owner",
+                      "True"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DestroyRoom",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 55,
+        "Y": 315
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "TPU003",
+      "Name": "Explodo",
+      "Subtitle": "The Bombassador",
+      "Description": "Level Up: For the rest of game, once per turn you may destroy a Room to deal 1-6 damage to a Hero in that Room.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    }
+  ],
+  "SpellCards": [
+    {
+      "SpellCategory": 0,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "DuringPhase",
+                "Parameters": [
+                  "Build"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInTown",
+                    "Parameters": [
+                      "Any"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOpponent",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PlaceAtDungeonEntrance",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "TPU013",
+      "Name": "Agent of Evil",
+      "Subtitle": "-",
+      "Description": "Choose one Hero in town, Place it at the entrance to an Opponent's dungeon.",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "SpellCategory": 0,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "DuringPhase",
+                "Parameters": [
+                  "Adventure"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ActiveHeroInDungeon",
+                    "Parameters": [
+                      "Any",
+                      "Owner"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealRndToHero",
+                    "Parameters": [
+                      "6",
+                      "1"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          },
+          {
+            "AbilityUnitType": 1,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "SpellInHand",
+                    "Parameters": [
+                      "True",
+                      "1",
+                      "Owner"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DiscardTargetSpellFromHand",
+                    "Parameters": []
+                  }
+                ]
+              },
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealRndToDungeonEntrance",
+                    "Parameters": [
+                      "6",
+                      "1"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "TPU012",
+      "Name": "Fireball!",
+      "Subtitle": "-",
+      "Description": "Deal 1-6 damage to one Hero in your dungeon. AND If you discard another Spell card, deal 1-6 damage to each Hero at the entrance to your dungeon.",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 1
+    }
+  ],
+  "RoomCards": [
+    {
+      "IsAdvanced": false,
+      "RoomType": 0,
+      "Damage": 2,
+      "RoomCategory": 0,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ActiveHeroInDungeon",
+                    "Parameters": [
+                      "Epic",
+                      "Owner"
+                    ]
+                  },
+                  {
+                    "TypeName": "ThisRoom",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "CloneRoomDamage",
+                    "Parameters": ["2"]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "TPU008",
+      "Name": "Ghoulyard",
+      "Subtitle": "Monster Room",
+      "Description": "This room deals double damage to Epic Heroes.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 0,
+      "Damage": 2,
+      "RoomCategory": 0,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ActiveHeroInDungeon",
+                    "Parameters": [
+                      "Any",
+                      "Owner"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealHeroWhenIsHalfDead",
+                    "Parameters": [
+                      "2"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "TPU011",
+      "Name": "Shark Tank",
+      "Subtitle": "Monster Room",
+      "Description": "If a Hero has taken damage equal to half its Health before entering this room, this room deals +2 damage to that Hero.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 1,
+      "Damage": 1,
+      "RoomCategory": 0,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDungeon",
+                    "Parameters": [
+                      "True",
+                      "1",
+                      "Any",
+                      "Any",
+                      "Any",
+                      "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DeactivateRoom",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenYouBuildThisRoom",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "TPU009",
+      "Name": "Bone Crank",
+      "Subtitle": "Trap Room",
+      "Description": "When you build this room, deactivate one room in any Dungeon. (It is turned sideways until end of turn.)",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 1,
+      "Damage": 3,
+      "RoomCategory": 0,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisRoom",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DeactivateRoom",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroSurvivesThisRoom",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "TPU010",
+      "Name": "Trash Compactor",
+      "Subtitle": "Trap Room",
+      "Description": "If a Hero survives this room, this room deals no more damage until end of turn.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 1,
+      "Damage": 0,
+      "RoomCategory": 0,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisRoom",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "IncrementCounterRoom",
+                    "Parameters": [
+                      "-1"
+                    ]
+                  }
+                ]
+              },
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOpponent",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DiscardSomeCardFromHand",
+                    "Parameters": [
+                      "1",
+                      "Spell"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 2,
+      "ReplacesCardNumber": null,
+      "CardNumber": "TPU004",
+      "Name": "Elder Portal",
+      "Subtitle": "Trap Room",
+      "Description": "When you build this room, give it two +1 counters. Once per turn, you may remove one counter to make one opponent discard a Spell card.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 0,
+      "Damage": 1,
+      "RoomCategory": 0,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisRoom",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "IncrementCounterRoom",
+                    "Parameters": [
+                      "1"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroSurvivesThisRoom",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          },
+          {
+            "AbilityUnitType": 0,
+            "Conditions": null,
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisRoomWithCounter",
+                    "Parameters": ["4"]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DestroyRoom",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "AtEndOfTurn",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "TPU005",
+      "Name": "Hydra's Mire",
+      "Subtitle": "Monster Room",
+      "Description": "Once per turn, when a Hero survives this Room, give this Room a +1 counter. At the end of turn, destroy this Room if it has four counters.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 0,
+      "Damage": 0,
+      "RoomCategory": 0,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisRoom",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "IncrementCounterRoom",
+                    "Parameters": [
+                      "1"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "YouPlaySpellCard",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "TPU006",
+      "Name": "Spellslime Incubator",
+      "Subtitle": "Monster Room",
+      "Description": "Once per turn, when you cast a spell, give this Room a +1 counter.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 1,
+      "Damage": 0,
+      "RoomCategory": 0,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisRoom",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "IncrementCounterRoom",
+                    "Parameters": [
+                      "-1"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "AtEndOfTurn",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 4,
+      "ReplacesCardNumber": null,
+      "CardNumber": "TPU007",
+      "Name": "Clock Tower",
+      "Subtitle": "Trap Room",
+      "Description": "When you build this Room, give it four +1 counters. At the end of each turn, remove one counter.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    }
+  ],
+  "HeroCards": [
+    {
+      "HeroType": 1,
+      "Health": 16,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": true,
+      "LuredCondition": {
+        "TypeName": "LuredByCardsInHand",
+        "Parameters": null
+      },
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "AllBoss",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "ChooseCardToDraw",
+                    "Parameters": [
+                      "3"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": true
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 13,
+        "Y": -37
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "TPU014",
+      "Name": "The Princess",
+      "Subtitle": "Epic Hero",
+      "Description": "When the Princess appears in town, each player may draw up to three Spell or Room cards. During the Bait Phase, the Princess is lured to the dungeon of the player with the most cards in hand.",
+      "Treasures": [
+        0
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    }
+  ],
+  "ItemCards": []
+}

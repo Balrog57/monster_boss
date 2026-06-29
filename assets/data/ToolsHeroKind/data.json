@@ -1,0 +1,1934 @@
+{
+  "Name": "HeroKindCard",
+  "BossCards": [],
+  "SpellCards": [
+    {
+      "SpellCategory": 0,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ItemInScorekeep",
+                    "Parameters": [
+                      "Any",
+                      "Any"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "FlipItem",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK025",
+      "Name": "Excavation",
+      "Subtitle": "-",
+      "Description": "Choose one Item in any scorekeeping area. You may flip it face-down or face-up.",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 1
+    }
+  ],
+  "RoomCards": [
+    {
+      "IsAdvanced": true,
+      "RoomType": 0,
+      "Damage": 3,
+      "RoomCategory": 0,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              },
+              {
+                "TypeName": "DuringPhase",
+                "Parameters": [
+                  "Build"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInTownWithItem",
+                    "Parameters": [
+                      "UnAttached"
+                    ]
+                  },
+                  {
+                    "TypeName": "ItemInTown",
+                    "Parameters": [
+                      "UnAttached"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "AttachItemToHero",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK022",
+      "Name": "Orcish Smithy",
+      "Subtitle": "Advanced Monster Room",
+      "Description": "Once per turn during the Build phase, choose an unattached Item in town. You may attach it to any Hero, regardless of Treasure type.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": true,
+      "RoomType": 1,
+      "Damage": 3,
+      "RoomCategory": 0,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+			{
+				"Targets": [
+                  {
+                    "TypeName": "RoomInHand",
+                    "Parameters": [
+                      "True",
+                      "2",
+                      "Any",
+                      "Any",
+                      "Owner"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DiscardTargetRoomFromHand",
+                    "Parameters": []
+                  }
+                ]
+              },
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ItemInScorekeep",
+                    "Parameters": [
+                      "FaceDown",
+                      "Owner"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "FlipItem",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK021",
+      "Name": "Burial Mound",
+      "Subtitle": "Advanced Trap Room",
+      "Description": "Once per turn, you may discard two Room cards to flip over a face-down Item card in your scorekeeping area.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": true,
+      "RoomType": 1,
+      "Damage": 3,
+      "RoomCategory": 0,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ItemInScorekeep",
+                    "Parameters": [
+                      "FaceUp",
+                      "Owner"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "FlipItem",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "DrawCards",
+                    "Parameters": [
+                      "1",
+                      "Spell"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK023",
+      "Name": "Artificer's Workbench",
+      "Subtitle": "Advanced Trap Room",
+      "Description": "Once per turn, you may choose a face-up Item in your scorekeeping area and flip it face-down to draw a Spell card.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": true,
+      "RoomType": 1,
+      "Damage": 3,
+      "RoomCategory": 0,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInThisRoomWithItem",
+                    "Parameters": [
+                      "Attached"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PlaceItemAtScorekeep",
+                    "Parameters": [
+                      "FaceDown"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK024",
+      "Name": "Magnetic Ceiling",
+      "Subtitle": "Advanced Trap Room",
+      "Description": "Once per turn, if a Hero enters this Room with an attached Item, you may place that Item face-down in your scorekeeping area.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    }
+  ],
+  "HeroCards": [],
+  "ItemCards": [
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "CannotDieByWounds",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisHero",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PlaceAtTown",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroDiesInThisRoom",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByTreasures",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK001",
+      "Name": "Extra Life",
+      "Subtitle": "Cleric Item",
+      "Description": "Power-Up: If this Hero would be killed, it returns to town instead. (You get to keep this Item.)\nReward: This turn, you cannot lose due to Wounds. (Another player can still win due to Souls.)",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOpponents",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DiscardRandomCardFromHand",
+                    "Parameters": [
+                      "1",
+                      "Room"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DiscardRandomCardFromHand",
+                    "Parameters": [
+                      "2",
+                      "Room"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroSurvives",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByTreasures",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK002",
+      "Name": "Holy Hand Grenade",
+      "Subtitle": "Cleric Item",
+      "Description": "Power-Up: If this Hero survices your dungeon, you must discard two Room cards at random.\nReward: Each of your opponents must discard one Room card at random.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDungeon",
+                    "Parameters": [
+                      "True",
+                      "1",
+                      "Advanced",
+                      "Any",
+                      "Any",
+                      "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DestroyRoom",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisHero",
+                    "Parameters": []
+                  },
+				  {
+                    "TypeName": "RoomWithHero",
+                    "Parameters": [
+					  "Any",
+                      "Advanced",
+					  "Any"
+					  ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DestroyRoomWithHero",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroSurvivesThisRoom",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByTreasures",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK003",
+      "Name": "Inquisitor's Robes",
+      "Subtitle": "Cleric Item",
+      "Description": "Power-Up: Destroy the first Advanced Room that this Hero survives.\nReward: Choose and destroy an Advanced Room in any dungeon.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInScorekeep",
+                    "Parameters": [
+                      "Owner",
+                      "Alive",
+                      "Ordinary",
+                      "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "RemoveHeroFromTheGame",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealDungeonQueue",
+                    "Parameters": [
+                      "2"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "ThisHeroEntersDungeon",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByTreasures",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK004",
+      "Name": "Staff of Healing",
+      "Subtitle": "Cleric Item",
+      "Description": "Power-Up: Until end of turn, each Hero entering your dungeon has +2\nReward: Heal one ordinary Wound.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealDamageToDungeon",
+                    "Parameters": [
+                      "1",
+                      "Monster",
+                      "Ordinary"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisHero",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DisableDamageFromDungeon",
+                    "Parameters": [
+                      "Monster",
+                      "Ordinary"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByTreasures",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK005",
+      "Name": "Goblin Suit",
+      "Subtitle": "Fighter Item",
+      "Description": "Power-Up: This Hero takes no damage from ordinary Monster Rooms.\nReward: Until end of turn, give all your ordinary Monster Rooms +1",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInDungeon",
+                    "Parameters": [
+                      "Any",
+                      "Opponent"
+                    ]
+                  },
+				  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }                  
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealHeroIfDungeon",
+                    "Parameters": [
+                      "1",
+                      "Monster",
+                      "Any"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "ThisHero",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealHeroIfDungeon",
+                    "Parameters": [
+                      "1",
+                      "Monster",
+                      "Any"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "ThisHeroEntersDungeon",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByTreasures",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK006",
+      "Name": "Claws of the Berserker",
+      "Subtitle": "Fighter Item",
+      "Description": "Power-Up: For each Monster Room in your dungeon, this Hero has +1\nReward: Choose a Hero. Until end of turn, for each Monster Room in your dungeon, give that hero +1",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInDungeon",
+                    "Parameters": [
+                      "Any",
+                      "Any"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealHero",
+                    "Parameters": [
+                      "-5"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisHero",
+                    "Parameters": null
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealHero",
+                    "Parameters": [
+                      "-5"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroAppearsInQueue",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByTreasures",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK007",
+      "Name": "Oversized Sword",
+      "Subtitle": "Fighter Item",
+      "Description": "Power-Up: This Hero has +5\nReward: Choose a Hero in any dungeon. Until end of turn, it has +5",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HalfDeadHero",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "KillHero",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "AddToBossScoreKeepUntilEndOfTurn",
+                    "Parameters": [
+                      "1",
+                      "Wound"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroSurvives",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByTreasures",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK008",
+      "Name": "Vorpal Blade",
+      "Subtitle": "Fighter Item",
+      "Description": "Power-Up: If this Hero survives your dungeon, until end of turn you have +1 Wound.\nReward: Kill a Hero who has taken damage equal to at least half its Health.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOpponent",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DiscardRandomCardFromHand",
+                    "Parameters": [
+                      "1",
+                      "Spell"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DiscardRandomCardFromHand",
+                    "Parameters": [
+                      "2",
+                      "Spell"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroSurvives",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByTreasures",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK009",
+      "Name": "Antimagic Lizard",
+      "Subtitle": "Mage Item",
+      "Description": "Power-Up: If this Hero survives your dungeon, discard two random Spell Cards.\nReward: Choose an opponent. That opponent discards a random Spell Card.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDungeon",
+                    "Parameters": [
+                      "True",
+                      "1",
+                      "Any",
+                      "Any",
+                      "Opponent",
+                      "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DeactivateRoom",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomWithHero",
+                    "Parameters": [
+					  "Any",
+                      "Any",
+					  "Any"
+					  ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DeactivateRoom",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroSurvivesThisRoom",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByTreasures",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK010",
+      "Name": "Ice Rod",
+      "Subtitle": "Mage Item",
+      "Description": "Power-Up: Any Room that this Hero survives is deactivated until end of turn.\nReward: Choose a Room in an opponent's dungeon. It is deactivated until end of turn.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "PlayableFaceUpItemInGame",
+                    "Parameters": []
+                  }
+                ],
+				"Commands": []
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "ReverseDungeonOrder",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "ThisHeroEntersDungeon",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByTreasures",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK011",
+      "Name": "Magic Mirror",
+      "Subtitle": "Mage Item",
+      "Description": "Power-Up: Before this Hero enters your dungeon, rearrange your Rooms so their order is reversed.\nReward: Copy the Boss Ability of any face-up Item card.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DrawCards",
+                    "Parameters": [
+                      "1",
+                      "Spell"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOpponents",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DrawCards",
+                    "Parameters": [
+                      "1",
+                      "Spell"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroSurvives",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByTreasures",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK012",
+      "Name": "Necronomicon",
+      "Subtitle": "Mage Item",
+      "Description": "Power-Up: If this Hero survives your dungeon, each of your opponents draws one Spell card.\nReward: Draw a Spell card.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "RoomMultyTreasure",
+                    "Parameters": [
+                      "1",
+                      "DiscardPile"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PutCardInHand",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisHero",
+                    "Parameters": []
+                  },
+				  {
+                    "TypeName": "RoomWithHero",
+                    "Parameters": [
+					  "Any",
+                      "Any",
+					  "MultiTreasure"
+					  ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DestroyRoomWithHero",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroSurvivesThisRoom",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByTreasures",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK013",
+      "Name": "Bag of Holding",
+      "Subtitle": "Thief Item",
+      "Description": "Power-Up: When this Hero survives a ROom with at least two treasure icons, destroy that Room.\nReward: Search the discard pile for a Room with at least two treasure icons and put it into your hand.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDungeon",
+                    "Parameters": [
+                      "True",
+                      "1",
+                      "Any",
+                      "Any",
+                      "Any",
+                      "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DeactivateRoomAbility",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DeactivateDungeonAbility",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "ThisHeroEntersDungeon",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByTreasures",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK014",
+      "Name": "Cheat Code",
+      "Subtitle": "Thief Item",
+      "Description": "Power-Up: While this Hero is in your dungeon, ignore all Room ability text in your dungeon.\nReward: Choose a Room in any dungeon. Ignore its ability text until end of turn.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDungeon",
+                    "Parameters": [
+                      "True",
+                      "1",
+                      "Any",
+                      "Trap",
+                      "Any",
+                      "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DeactivateRoom",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomFirstTypeInDungeon",
+                    "Parameters": [
+                      "Any",
+                      "Trap"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DeactivateRoom",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "ThisHeroEntersDungeon",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByTreasures",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK015",
+      "Name": "Ten Foot Pole",
+      "Subtitle": "Thief Item",
+      "Description": "Power-Up: When this Hero enters your dungeon, deactivate the first Trap ROom in your dungeon.\nReward: Choose a Trap ROom in any dungeon. Deactivate that Room until end of turn.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                { 
+                    "TypeName": "ActiveHeroInDungeon",                   
+                    "Parameters": [ 
+                      "Any", 
+                      "Owner" 
+                    ] 
+                  } ,
+                   {
+                    "TypeName": "RoomInDungeon",
+                    "Parameters": [
+                      "True",
+                      "1",
+                      "Any",
+                      "Any",
+                      "Owner",
+                      "True"
+                    ]
+                  }                                    
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealHero",
+                    "Parameters": [
+                      "5"
+                    ]
+                  },
+                  {
+                    "TypeName": "DestroyRoomHero",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  },
+				  {
+                    "TypeName": "RoomWithHeroLast",
+                    "Parameters": []
+                  },
+				  {
+                    "TypeName": "ThisHero",
+                    "Parameters": []
+                  }  
+				  
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DestroyRoomWithHero",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "LastRoomTakesNoDamage",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroEnterThisRoom",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByTreasures",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK016",
+      "Name": "The Bomb",
+      "Subtitle": "Thief Item",
+      "Description": "Power-Up: If this Hero enters the last Room of your dungeon, destroy that Room. (It deals no damage.)\nReward: Destroy a ROom in your dungeon: Deal 5 damage to a Hero in that Room.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ActiveHeroInDungeon",
+                    "Parameters": [
+                      "Any",
+                      "Any"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "SkipNextRoom",
+                    "Parameters": [
+                      "-2"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisHero",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "SkipNextRoom",
+                    "Parameters": [
+                      "-2"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroSurvivesThisRoom",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByFirstUnAttached",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK017",
+      "Name": "Boots of Jumping",
+      "Subtitle": "Universal Item",
+      "Description": "Power-Up: Every time this Hero survives a Room, it ignores the next Room it would enter.\nReward: Choose a Hero in any dungeon. It ignores the next Room in that dungeon.",
+      "Treasures": [
+        0
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDungeon",
+                    "Parameters": [
+                      "True",
+                      "1",
+                      "Any",
+                      "Monster",
+                      "Any",
+                      "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DeactivateRoom",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomFirstTypeInDungeon",
+                    "Parameters": [
+                      "Any",
+                      "Monster"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DeactivateRoom",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "ThisHeroEntersDungeon",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByFirstUnAttached",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK018",
+      "Name": "Pet Monster",
+      "Subtitle": "Universal Item",
+      "Description": "Power-Up: When this Hero enters your dungeon, deactivate the first Monster Room in your dungeon.\nReward: Choose a Monster Room in any dungeon. Deactivate that Room until end of turn.",
+      "Treasures": [
+        0
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInScorekeep",
+                    "Parameters": [
+                      "Owner",
+                      "Alive",
+                      "Any",
+                      "True"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "RemoveHeroFromTheGame",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisHero",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DisableDamageFromFirstRooms",
+                    "Parameters": [
+                      "3"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByFirstUnAttached",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK019",
+      "Name": "Star of Invulnerability",
+      "Subtitle": "Universal Item",
+      "Description": "Power-Up: This Hero ignores any damage from the first three Rooms of your dungeon.\nReward: Choose a Hero that survived your dungeon this turn. Remove that Hero from the game.",
+      "Treasures": [
+        0
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "BossAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "DuringPhase",
+                "Parameters": [
+                  "Adventure"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "SpellCardJustPlayed",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "CancelSpellAbility",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "HeroAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DisablePlaySpells",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroAppearsInQueue",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "AttachCondition": {
+        "TypeName": "AttachedByFirstUnAttached",
+        "Parameters": null
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "THK020",
+      "Name": "Ring of Invisibility",
+      "Subtitle": "Universal Item",
+      "Description": "Power-Up: While this Hero is in your dungeon or at the entrance to your dungeon, you may not play Spells.\nReward: Cancel a Spell played during your Adventure Phase.",
+      "Treasures": [
+        0
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    }
+  ]
+}

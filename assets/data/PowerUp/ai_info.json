@@ -1,0 +1,73 @@
+{  
+   "Name":"AITPUCards",
+   "SpellCards":[  
+      {  
+         "CardNumber":"TPU012",
+         "Name":"Fireball!",
+         "Affects":"Player"
+      },
+      {  
+         "CardNumber":"TPU013",
+         "Name":"Agent of Evil",
+         "Affects":"Player"
+      }
+   ],
+   "RoomCards":[  
+      {  
+         "CardNumber":"TPU004",
+         "Name":"Elder Portal",
+         "Factors":[  
+            "Positive"
+         ]
+      },
+      {  
+         "CardNumber":"TPU005",
+         "Name":"Hydra's Mire",
+         "Factors":[  
+            "Destroy"
+         ]
+      },
+      {  
+         "CardNumber":"TPU006",
+         "Name":"Spellslime Incubator",
+         "Factors":[  
+            "Spell"
+         ]
+      },
+      {  
+         "CardNumber":"TPU007",
+         "Name":"Clock Tower",
+         "Factors":[  
+            "Destroy"
+         ]
+      },
+      {  
+         "CardNumber":"TPU008",
+         "Name":"Ghoulyard!",
+         "Factors":[  
+            "Positive"
+         ]
+      },
+      {  
+         "CardNumber":"TPU009",
+         "Name":"Bone Crank",
+         "Factors":[  
+            "Spell"
+         ]
+      },
+      {  
+         "CardNumber":"TPU010",
+         "Name":"Trash Compactor",
+         "Factors":[  
+            "Negative"
+         ]
+      },
+      {  
+         "CardNumber":"TPU011",
+         "Name":"Shark Tank",
+         "Factors":[  
+            "Negative"
+         ]
+      }
+   ]
+}

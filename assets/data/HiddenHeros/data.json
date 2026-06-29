@@ -1,0 +1,1116 @@
+{
+  "Name": "HiddenHeroes",
+  "BossCards": [],
+  "SpellCards": [],
+  "RoomCards": [],
+  "HeroCards": [
+    {
+      "HeroType": 0,
+      "Health": 4,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 20,
+        "Y": -42
+      },
+      "ReplacesCardNumber": "BMA056",
+      "CardNumber": "BMH056",
+      "Name": "Cleric",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 4,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 16,
+        "Y": -42
+      },
+      "ReplacesCardNumber": "BMA057",
+      "CardNumber": "BMH057",
+      "Name": "Cleric",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 6,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 16,
+        "Y": -42
+      },
+      "ReplacesCardNumber": "BMA058",
+      "CardNumber": "BMH058",
+      "Name": "Cleric",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 6,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 12,
+        "Y": -30
+      },
+      "ReplacesCardNumber": "BMA059",
+      "CardNumber": "BMH059",
+      "Name": "Cleric",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 3,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 8,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -19
+      },
+      "ReplacesCardNumber": "BMA060",
+      "CardNumber": "BMH060",
+      "Name": "Cleric",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 8,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -52,
+        "Y": -33
+      },
+      "ReplacesCardNumber": "BMA061",
+      "CardNumber": "BMH061",
+      "Name": "Cleric",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 4,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -30,
+        "Y": -9
+      },
+      "ReplacesCardNumber": "BMA062",
+      "CardNumber": "BMH062",
+      "Name": "Fighter",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 4,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 21,
+        "Y": -40
+      },
+      "ReplacesCardNumber": "BMA063",
+      "CardNumber": "BMH063",
+      "Name": "Fighter",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 6,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -15,
+        "Y": -33
+      },
+      "ReplacesCardNumber": "BMA064",
+      "CardNumber": "BMH064",
+      "Name": "Fighter",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 6,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -9,
+        "Y": -24
+      },
+      "ReplacesCardNumber": "BMA065",
+      "CardNumber": "BMH065",
+      "Name": "Fighter",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 3,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 8,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -24
+      },
+      "ReplacesCardNumber": "BMA066",
+      "CardNumber": "BMH066",
+      "Name": "Fighter",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 8,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -30
+      },
+      "ReplacesCardNumber": "BMA067",
+      "CardNumber": "BMH067",
+      "Name": "Fighter",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 4,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -27,
+        "Y": -57
+      },
+      "ReplacesCardNumber": "BMA068",
+      "CardNumber": "BMH068",
+      "Name": "Mage",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 4,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 24,
+        "Y": -36
+      },
+      "ReplacesCardNumber": "BMA069",
+      "CardNumber": "BMH069",
+      "Name": "Mage",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 6,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -24
+      },
+      "ReplacesCardNumber": "BMA070",
+      "CardNumber": "BMH070",
+      "Name": "Mage",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 6,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -65
+      },
+      "ReplacesCardNumber": "BMA071",
+      "CardNumber": "BMH071",
+      "Name": "Mage",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 3,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 8,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 3,
+        "Y": -40
+      },
+      "ReplacesCardNumber": "BMA072",
+      "CardNumber": "BMH072",
+      "Name": "Mage",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 8,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 3,
+        "Y": -34
+      },
+      "ReplacesCardNumber": "BMA073",
+      "CardNumber": "BMH073",
+      "Name": "Mage",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 4,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -46,
+        "Y": -24
+      },
+      "ReplacesCardNumber": "BMA074",
+      "CardNumber": "BMH074",
+      "Name": "Thief",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 4,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 6,
+        "Y": -33
+      },
+      "ReplacesCardNumber": "BMA075",
+      "CardNumber": "BMH075",
+      "Name": "Thief",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 6,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 22,
+        "Y": -9
+      },
+      "ReplacesCardNumber": "BMA076",
+      "CardNumber": "BMH076",
+      "Name": "Thief",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 6,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 20,
+        "Y": -59
+      },
+      "ReplacesCardNumber": "BMA077",
+      "CardNumber": "BMH077",
+      "Name": "Thief",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 3,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 8,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -33
+      },
+      "ReplacesCardNumber": "BMA078",
+      "CardNumber": "BMH078",
+      "Name": "Thief",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 8,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -39
+      },
+      "ReplacesCardNumber": "BMA079",
+      "CardNumber": "BMH079",
+      "Name": "Thief",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 2,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByFewerSouls",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -27
+      },
+      "ReplacesCardNumber": "BMA080",
+      "CardNumber": "BMH080",
+      "Name": "The Fool",
+      "Subtitle": "Ordinary Hero",
+      "Description": "",
+      "Treasures": [
+        0
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 11,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 15,
+        "Y": -15
+      },
+      "ReplacesCardNumber": "BMA081",
+      "CardNumber": "BMH081",
+      "Name": "Cleric",
+      "Subtitle": "Epic Hero",
+      "Description": "",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 11,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 6,
+        "Y": -72
+      },
+      "ReplacesCardNumber": "BMA082",
+      "CardNumber": "BMH082",
+      "Name": "Cleric",
+      "Subtitle": "Epic Hero",
+      "Description": "",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 3,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -7,
+        "Y": -24
+      },
+      "ReplacesCardNumber": "BMA083",
+      "CardNumber": "BMH083",
+      "Name": "Cleric",
+      "Subtitle": "Epic Hero",
+      "Description": "",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -50
+      },
+      "ReplacesCardNumber": "BMA084",
+      "CardNumber": "BMH084",
+      "Name": "Cleric",
+      "Subtitle": "Epic Hero",
+      "Description": "",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 11,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -23
+      },
+      "ReplacesCardNumber": "BMA085",
+      "CardNumber": "BMH085",
+      "Name": "Fighter",
+      "Subtitle": "Epic Hero",
+      "Description": "",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 11,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -15,
+        "Y": -42
+      },
+      "ReplacesCardNumber": "BMA086",
+      "CardNumber": "BMH086",
+      "Name": "Mage",
+      "Subtitle": "Epic Hero",
+      "Description": "",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 3,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 9,
+        "Y": -33
+      },
+      "ReplacesCardNumber": "BMA087",
+      "CardNumber": "BMH087",
+      "Name": "Mage",
+      "Subtitle": "Epic Hero",
+      "Description": "",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -9,
+        "Y": -57
+      },
+      "ReplacesCardNumber": "BMA088",
+      "CardNumber": "BMH088",
+      "Name": "Fighter",
+      "Subtitle": "Epic Hero",
+      "Description": "",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 11,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": 1
+      },
+      "ReplacesCardNumber": "BMA089",
+      "CardNumber": "BMH089",
+      "Name": "Mage",
+      "Subtitle": "Epic Hero",
+      "Description": "",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 11,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 24,
+        "Y": -62
+      },
+      "ReplacesCardNumber": "BMA090",
+      "CardNumber": "BMH090",
+      "Name": "Thief",
+      "Subtitle": "Epic Hero",
+      "Description": "",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 3,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 33,
+        "Y": -58
+      },
+      "ReplacesCardNumber": "BMA091",
+      "CardNumber": "BMH091",
+      "Name": "Thief",
+      "Subtitle": "Epic Hero",
+      "Description": "",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -36
+      },
+      "ReplacesCardNumber": "BMA092",
+      "CardNumber": "BMH092",
+      "Name": "Thief",
+      "Subtitle": "Epic Hero",
+      "Description": "",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 11,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 12,
+        "Y": -37
+      },
+      "ReplacesCardNumber": "BMA093",
+      "CardNumber": "BMH093",
+      "Name": "Thief",
+      "Subtitle": "Epic Hero",
+      "Description": "",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 11,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -9,
+        "Y": -53
+      },
+      "ReplacesCardNumber": "BMA094",
+      "CardNumber": "BMH094",
+      "Name": "Thief",
+      "Subtitle": "Epic Hero",
+      "Description": "",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 3,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -21
+      },
+      "ReplacesCardNumber": "BMA095",
+      "CardNumber": "BMH095",
+      "Name": "Thief",
+      "Subtitle": "Epic Hero",
+      "Description": "",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -15
+      },
+      "ReplacesCardNumber": "BMA096",
+      "CardNumber": "BMH096",
+      "Name": "Thief",
+      "Subtitle": "Epic Hero",
+      "Description": "",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    }
+  ],
+  "ItemCards": []
+}

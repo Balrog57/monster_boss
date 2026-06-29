@@ -1,0 +1,4072 @@
+{
+  "Name": "GameBaseCards",
+  "BossCards": [
+    {
+      "XP": 900,
+      "IsMale": true,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "CardInHand",
+                    "Parameters": [
+                      "1",
+                      "Opponent"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PutCardInHand",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenLevelUpActivated",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 110,
+        "Y": 260
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA001",
+      "Name": "Draculord",
+      "Subtitle": "Hypnotic Vampire",
+      "Description": "Level Up: Target opponent reveals his or her hand. Take one card and put it into your hand.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "XP": 750,
+      "IsMale": true,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "CardInDeck",
+                    "Parameters": [
+                      "2",
+                      "DiscardPile"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PutCardInHand",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenLevelUpActivated",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 53,
+        "Y": 320
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA002",
+      "Name": "Xyzax",
+      "Subtitle": "Progenitor Lich",
+      "Description": "Level Up: Choose two cards from the discard pile and put them into your hand.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "XP": 800,
+      "IsMale": true,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDeck",
+                    "Parameters": [
+                      "1",
+                      "Advanced",
+                      "Monster",
+                      "Any"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PutCardInHand",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "BuildRoomBy",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenLevelUpActivated",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 55,
+        "Y": 306
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA003",
+      "Name": "King Croak",
+      "Subtitle": "Sultan of the Sewers",
+      "Description": "Level Up: You may search the Room Deck or discard pile for an Advanced Monster Room. You may immediately build the room (over a room with a matching Treasure type).",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "XP": 400,
+      "IsMale": true,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOpponents",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "ChooseAndDestroyRoom",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenLevelUpActivated",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 75,
+        "Y": 306
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA004",
+      "Name": "Robobo",
+      "Subtitle": "Angry Golem",
+      "Description": "Level Up: Each opponent must choose and destroy one Room in his or her dungeon.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "XP": 650,
+      "IsMale": true,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DrawCards",
+                    "Parameters": [
+                      "3",
+                      "Spell"
+                    ]
+                  },
+                  {
+                    "TypeName": "DiscardSomeCardFromHand",
+                    "Parameters": [
+                      "1",
+                      "Spell"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenLevelUpActivated",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 55,
+        "Y": 306
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA005",
+      "Name": "Cerebellus",
+      "Subtitle": "Father Brain",
+      "Description": "Level Up: You may draw three Spell cards, then discard a Spell card.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "XP": 600,
+      "IsMale": false,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroUnassigned",
+                    "Parameters": [
+                      "Any"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PlaceAtDungeonEntrance",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenLevelUpActivated",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 100,
+        "Y": 285
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA006",
+      "Name": "Seducia",
+      "Subtitle": "Sorceress of Sexiness",
+      "Description": "Level Up: You may search through town or the Hero decks, choose one Hero, and put it at the entrance to your dungeon.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "XP": 850,
+      "IsMale": false,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDeck",
+                    "Parameters": [
+                      "1",
+                      "Advanced",
+                      "Trap",
+                      "Any"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PutCardInHand",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "BuildRoomBy",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenLevelUpActivated",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 60,
+        "Y": 289
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA007",
+      "Name": "Cleopatra",
+      "Subtitle": "Mother of Mummies",
+      "Description": "Level Up: You may search the Room Deck or discard pile for an Advanced Trap Room. You may immediately build the room (over a room with a matching Treasure type).",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "XP": 500,
+      "IsMale": false,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInTown",
+                    "Parameters": [
+                      "Any"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PlaceAtScorekeep",
+                    "Parameters": [
+                      "FaceDown"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenLevelUpActivated",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 50,
+        "Y": 306
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA008",
+      "Name": "Gorgona",
+      "Subtitle": "Queen of Medusia",
+      "Description": "Level Up: Choose a Hero in town. Immediately kill that Hero and place it face-down in your scorekeeping area.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    }
+  ],
+  "SpellCards": [
+    {
+      "SpellCategory": 3,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "DuringPhase",
+                "Parameters": [
+                  "Adventure"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDungeon",
+                    "Parameters": [
+                      "True",
+                      "1",
+                      "Any",
+                      "Trap",
+                      "Any",
+                      "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealDamageToRoom",
+                    "Parameters": [
+                      "3"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA040",
+      "Name": "Annihilator",
+      "Subtitle": "-",
+      "Description": "Give one Trap Room +3 damage until end of turn.",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 1
+    },
+    {
+      "SpellCategory": 3,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "DuringPhase",
+                "Parameters": [
+                  "Adventure"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInDungeon",
+                    "Parameters": [
+                      "Any",
+                      "Opponent"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealHero",
+                    "Parameters": [
+                      "-3"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA041",
+      "Name": "Assassin",
+      "Subtitle": "-",
+      "Description": "Choose a Hero in an opponent's dungeon. Give that Hero +3 Health until end of turn.",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "SpellCategory": 4,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "DuringPhase",
+                "Parameters": [
+                  "Adventure"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDungeon",
+                    "Parameters": [
+                      "True",
+                      "1",
+                      "Any",
+                      "Any",
+                      "Owner",
+                      "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "KillHeroInRoom",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "DestroyRoom",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA042",
+      "Name": "Cave-In",
+      "Subtitle": "-",
+      "Description": "Destroy a room in your dungeon. Any Hero in that room is destroyed.",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 1
+    },
+    {
+      "SpellCategory": 2,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "SpellCardJustPlayed",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "CancelSpellAbility",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA043",
+      "Name": "Counterspell",
+      "Subtitle": "-",
+      "Description": "Choose a Spell card that has just been played. Cancel the effects of that Spell card. (It is sent to the discard pile.)",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "SpellCategory": 4,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "DuringPhase",
+                "Parameters": [
+                  "Adventure"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInDungeon",
+                    "Parameters": [
+                      "Any",
+                      "Owner"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealRoomsCountToHero",
+                    "Parameters": [
+                      "Any",
+                      "Any"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA044",
+      "Name": "Exhaustion",
+      "Subtitle": "-",
+      "Description": "Deal X damage to one Hero in your dungeon, where X is equal to the number of Rooms in your dungeon.",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "SpellCategory": 1,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "DuringPhase",
+                "Parameters": [
+                  "Adventure"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInDungeon",
+                    "Parameters": [
+                      "Any",
+                      "Any"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PlaceAtTown",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA045",
+      "Name": "Fear",
+      "Subtitle": "-",
+      "Description": "Choose a Hero in any dungeon and put it back in town.",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "SpellCategory": 2,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDungeon",
+                    "Parameters": [
+                      "True",
+                      "1",
+                      "Any",
+                      "Any",
+                      "Any",
+                      "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DeactivateRoom",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA046",
+      "Name": "Freeze",
+      "Subtitle": "-",
+      "Description": "Choose and deactivate one Room in any dungeon. (It has no damage, treasure, or abilities until end of turn.)",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 4,
+      "AlternativeArts": 0
+    },
+    {
+      "SpellCategory": 3,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "DuringPhase",
+                "Parameters": [
+                  "Adventure"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDungeon",
+                    "Parameters": [
+                      "True",
+                      "1",
+                      "Any",
+                      "Monster",
+                      "Any",
+                      "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealDamageToRoom",
+                    "Parameters": [
+                      "3"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA047",
+      "Name": "Giant Size",
+      "Subtitle": "-",
+      "Description": "Give one Monster Room +3 damage until end of turn.",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "SpellCategory": 2,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "AllBoss",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DiscardAllHand",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "DrawCards",
+                    "Parameters": [
+                      "1",
+                      "Spell"
+                    ]
+                  },
+                  {
+                    "TypeName": "DrawCards",
+                    "Parameters": [
+                      "2",
+                      "Room"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA048",
+      "Name": "Jeopardy",
+      "Subtitle": "-",
+      "Description": "All players immediately discard their hands, then draw one Spell card and two Room cards.",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "SpellCategory": 2,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "DuringPhase",
+                "Parameters": [
+                  "Build"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "AllBoss",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "UndoBuildRoom",
+                    "Parameters": []
+                  }
+                ]
+              },
+              {
+                "Targets": [],
+                "Commands": [
+                  {
+                    "TypeName": "SkipBuildPhase",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA049",
+      "Name": "Kobold Strike",
+      "Subtitle": "-",
+      "Description": "No rooms can be built this turn. Any face-down room is returned to its owner's hand. (This spell cannot be played after rooms are revealed.)",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "SpellCategory": 3,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "DuringPhase",
+                "Parameters": [
+                  "Build"
+                ]
+              },
+              {
+                "TypeName": "OpponnentDungeonSizeMoreThan",
+                "Parameters": [
+                  "1"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "BuildExtraRoom",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA050",
+      "Name": "Motivation",
+      "Subtitle": "-",
+      "Description": "If you have fewer rooms than an opponent, you may build an extra room this turn.",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "SpellCategory": 1,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "DuringPhase",
+                "Parameters": [
+                  "Build"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInTown",
+                    "Parameters": [
+                      "Any"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PlaceAtDungeonEntrance",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA051",
+      "Name": "Princess in Peril",
+      "Subtitle": "-",
+      "Description": "Choose one Hero in town. Place it at the entrance to your dungeon.",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "SpellCategory": 1,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInScorekeep",
+                    "Parameters": [
+                      "Owner",
+                      "Dead",
+                      "Any",
+					  "False"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "RemoveHeroFromTheGame",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "DrawCards",
+                    "Parameters": [
+                      "2",
+                      "Spell"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA052",
+      "Name": "Soul Harvest",
+      "Subtitle": "-",
+      "Description": "Choose a face-down Hero in your scorekeeping area and remove it from the game. Draw two Spell cards.",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "SpellCategory": 1,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "DuringPhase",
+                "Parameters": [
+                  "Adventure"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ActiveHeroInDungeon",
+                    "Parameters": [
+                      "Any",
+                      "Owner"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "ReturnToDungeonEntrance",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA053",
+      "Name": "Teleportation",
+      "Subtitle": "-",
+      "Description": "Send a Hero in your dungeon back to the first room of your dungeon. (It continues to move through your dungeon this turn.)",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 1
+    },
+    {
+      "SpellCategory": 2,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "DuringPhase",
+                "Parameters": [
+                  "Adventure"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOpponentWithAtLeastScore",
+                    "Parameters": [
+                      "Dead",
+                      "2"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "SkipAdventurePhase",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA054",
+      "Name": "Trepidation",
+      "Subtitle": "-",
+      "Description": "Choose a player with at least two more Souls than you. No Hero enters that player's dungeon this turn. (Any Hero remain at the entrance to that dungeon.)",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "SpellCategory": 1,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "DuringPhase",
+                "Parameters": [
+                  "Build"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInScorekeep",
+                    "Parameters": [
+                      "Opponent",
+                      "Dead",
+                      "Any",
+					  "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "SendBackToDungeonEntrance",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "DealHero",
+                    "Parameters": [
+                      "-2"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA055",
+      "Name": "Zombie Attack",
+      "Subtitle": "-",
+      "Description": "Choose a dead Hero in an opponent's scorekeeping area. Send it back to the entrance of that player's dungeon. It has +2 Health until end of turn.",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    }
+  ],
+  "RoomCards": [
+    {
+      "IsAdvanced": false,
+      "RoomType": 1,
+      "Damage": 1,
+      "RoomCategory": 3,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisRoom",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DestroyRoom",
+                    "Parameters": []
+                  }
+                ]
+              },
+              {
+                "Targets": [
+                  {
+                    "TypeName": "CardInDeck",
+                    "Parameters": [
+                      "1",
+                      "DiscardPile"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PutCardInHand",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA009",
+      "Name": "Dark Altar",
+      "Subtitle": "Trap Room",
+      "Description": "Destroy this Room: Choose one card from the discard pile and put it into your hand.",
+      "Treasures": [
+        1,
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 3,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 1,
+      "Damage": 2,
+      "RoomCategory": 1,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDeck",
+                    "Parameters": [
+                      "1",
+                      "Any",
+                      "Any",
+                      "DiscardPile"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PutCardInHand",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroDiesInThisRoom",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA010",
+      "Name": "Open Grave",
+      "Subtitle": "Trap Room",
+      "Description": "Once per turn, if a Hero dies in this room, choose one Room card from the discard pile and put into your hand.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 0,
+      "Damage": 2,
+      "RoomCategory": 3,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOpponent",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DiscardRandomCardFromHand",
+                    "Parameters": [
+                      "1",
+                      "Spell"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenYouBuildThisRoom",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA011",
+      "Name": "Specter's Sanctum",
+      "Subtitle": "Monster Room",
+      "Description": "When you build this room, choose an opponent. That opponent discards a random Spell card.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 3,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 0,
+      "Damage": 1,
+      "RoomCategory": 2,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "BossOpponent",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PickRandomCardFromHand",
+                    "Parameters": [
+                      "1",
+                      "Any"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroDiesInThisRoom",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA012",
+      "Name": "Succubus Spa",
+      "Subtitle": "Monster Room",
+      "Description": "Once per turn, if a Hero Dies in this room, choose an opponent. Take a random Room or Spell card from that opponent's hand.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 3,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": true,
+      "RoomType": 0,
+      "Damage": 3,
+      "RoomCategory": 5,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInHand",
+                    "Parameters": [
+                      "True",
+                      "2",
+                      "Any",
+                      "Any",
+                      "Owner"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DiscardTargetRoomFromHand",
+                    "Parameters": []
+                  }
+                ]
+              },
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDeck",
+                    "Parameters": [
+                      "1",
+                      "Any",
+                      "Any",
+                      "DiscardPile"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PutCardInHand",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA013",
+      "Name": "Dracolich Lair",
+      "Subtitle": "Advanced Monster Room",
+      "Description": "Once per turn, you may discard two Room card to choose one Room card from the discard pile and put it into your hand.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": true,
+      "RoomType": 0,
+      "Damage": 3,
+      "RoomCategory": 3,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInScorekeep",
+                    "Parameters": [
+                      "Owner",
+                      "Alive",
+                      "Any",
+					  "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "FlipHero",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroDiesInThisRoom",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA014",
+      "Name": "Vampire Bordello",
+      "Subtitle": "Advanced Monster Room",
+      "Description": "Once per turn, if a Hero dies in this Room, you may heal one Wound. (Flip over one of your Wounds, adding its Soul value to your total.)",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 0,
+      "Damage": 1,
+      "RoomCategory": 2,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "AdjacentsRoom",
+                    "Parameters": [
+                      "Monster"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealDamageToRoom",
+                    "Parameters": [
+                      "1"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA015",
+      "Name": "Goblin Armory",
+      "Subtitle": "Monster Room",
+      "Description": "Monster Rooms adjacent to this room deal +1 damage.",
+      "Treasures": [
+        2,
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 3,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 0,
+      "Damage": 2,
+      "RoomCategory": 5,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DrawCards",
+                    "Parameters": [
+                      "1",
+                      "Room"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroDiesInThisRoom",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA016",
+      "Name": "Golem Factory",
+      "Subtitle": "Monster Room",
+      "Description": "Once per turn, if a hero dies in this room, draw a Room card.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 3,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 0,
+      "Damage": 0,
+      "RoomCategory": 5,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInThisRoom",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "MoveHeroToRelativeSlot",
+                    "Parameters": [
+                      "1"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "FirstTimeHeroEnterThisRoom",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA017",
+      "Name": "Minotaur's Maze",
+      "Subtitle": "Monster Room",
+      "Description": "The first time a Hero enters this room, send it back one room.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 1
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 0,
+      "Damage": 3,
+      "RoomCategory": 2,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [],
+                "Commands": [
+                  {
+                    "TypeName": "CanBuildRoom",
+                    "Parameters": [
+                      "Ordinary",
+                      "Any"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA018",
+      "Name": "Neanderthal Cave",
+      "Subtitle": "Monster Room",
+      "Description": "You cannot build an Advanced Room on Neanderthal Cave.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 3,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": true,
+      "RoomType": 0,
+      "Damage": 4,
+      "RoomCategory": 2,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              },
+              {
+                "TypeName": "LastBuiltRoomIs",
+                "Parameters": [
+                  "Any",
+                  "Monster"
+                ]
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DrawCards",
+                    "Parameters": [
+                      "1",
+                      "Room"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenYouBuildAnotherRoom",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA019",
+      "Name": "Beast Menagerie",
+      "Subtitle": "Advanced Monster Room",
+      "Description": "Once per turn when you build another Monster room, draw a Room card.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": true,
+      "RoomType": 0,
+      "Damage": 0,
+      "RoomCategory": 2,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisRoom",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "RoomDamageEqualToCount",
+                    "Parameters": [
+                      "Monster"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA020",
+      "Name": "Monster's Ballroom",
+      "Subtitle": "Advanced Monster Room",
+      "Description": "This room's damage is equal to the number of Monster rooms in your dungeon.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 0,
+      "Damage": 2,
+      "RoomCategory": 3,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DrawCards",
+                    "Parameters": [
+                      "1",
+                      "Spell"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "HeroDiesInThisRoom",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA021",
+      "Name": "Brainsucker Hive",
+      "Subtitle": "Monster Room",
+      "Description": "Once per turn, if a Hero dies in this room, you may draw a Spell card.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 3,
+      "AlternativeArts": 1
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 1,
+      "Damage": 1,
+      "RoomCategory": 3,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DrawCards",
+                    "Parameters": [
+                      "2",
+                      "Spell"
+                    ]
+                  },
+                  {
+                    "TypeName": "DiscardSomeCardFromHand",
+                    "Parameters": [
+                      "1",
+                      "Spell"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenYouBuildThisRoom",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA022",
+      "Name": "Dark Laboratory",
+      "Subtitle": "Trap Room",
+      "Description": "When you build this room, draw two spell cards, then discard a Spell card.",
+      "Treasures": [
+        3,
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 3,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 1,
+      "Damage": 1,
+      "RoomCategory": 6,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [],
+                "Commands": [
+                  {
+                    "TypeName": "ChooseCardToDraw",
+                    "Parameters": [
+                      "1"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "AtTheBeginingOfYourTurn",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA023",
+      "Name": "Haunted Library",
+      "Subtitle": "Trap Room",
+      "Description": "At the beginning of your turn, you may draw from the Spell deck instead of the Room deck.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 1
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 0,
+      "Damage": 1,
+      "RoomCategory": 6,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInHand",
+                    "Parameters": [
+                      "False",
+                      "1",
+                      "Any",
+                      "Monster",
+                      "Owner"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DiscardTargetRoomFromHand",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "DrawCards",
+                    "Parameters": [
+                      "1",
+                      "Spell"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA024",
+      "Name": "Witch's Kitchen",
+      "Subtitle": "Monster Room",
+      "Description": "Once per turn, you may discard a Monster Room card to draw a Spell card.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 3,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": true,
+      "RoomType": 1,
+      "Damage": 3,
+      "RoomCategory": 6,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "SpellInHand",
+                    "Parameters": [
+                      "True",
+                      "1",
+                      "Owner"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DiscardTargetSpellFromHand",
+                    "Parameters": []
+                  }
+                ]
+              },
+              {
+                "Targets": [
+                  {
+                    "TypeName": "LastSpellPlayed",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "CancelSpellAbility",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA025",
+      "Name": "All-Seeing Eye",
+      "Subtitle": "Advanced Trap Room",
+      "Description": "Once per turn when an opponent plays a Spell card, you may discard a Spell card to cancel its effect.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": true,
+      "RoomType": 0,
+      "Damage": 2,
+      "RoomCategory": 2,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [
+              {
+                "TypeName": "OncePerTurn",
+                "Parameters": []
+              }
+            ],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DrawCards",
+                    "Parameters": [
+                      "1",
+                      "Spell"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "YouPlaySpellCard",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA026",
+      "Name": "Liger's Den",
+      "Subtitle": "Advanced Monster Room",
+      "Description": "Once per turn when you play a Spell card, draw a Spell card.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 1,
+      "Damage": 1,
+      "RoomCategory": 1,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisRoom",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "HeroInThisRoom",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DestroyRoom",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "KillHero",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA027",
+      "Name": "Bottomless Pit",
+      "Subtitle": "Trap Room",
+      "Description": "Destroy this room: Kill a Hero in this room.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 3,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 1,
+      "Damage": 1,
+      "RoomCategory": 4,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "AnotherRoom",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "HeroInThisRoom",
+                    "Parameters": [
+                      "Any",
+                      "Owner"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DestroyRoom",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "DealHero",
+                    "Parameters": [
+                      "5"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA028",
+      "Name": "Boulder Ramp",
+      "Subtitle": "Trap Room",
+      "Description": "Destroy another room in your dungeon: Deal 5 damage to a hero in this room.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 1,
+      "Damage": 1,
+      "RoomCategory": 6,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "NextRoom",
+                    "Parameters": [
+                      "Trap"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DealDamageToRoom",
+                    "Parameters": [
+                      "2"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA029",
+      "Name": "Dizzygas Hallway",
+      "Subtitle": "Trap Room",
+      "Description": "If the next room in your dungeon is a Trap room, it deals +2 damage.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 3,
+      "AlternativeArts": 1
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 1,
+      "Damage": 1,
+      "RoomCategory": 4,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisRoom",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DestroyRoom",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "MultiplyTreasuresDungeon",
+                    "Parameters": [
+                      "2"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA030",
+      "Name": "Jackpot Stash",
+      "Subtitle": "Trap Room",
+      "Description": "Destroy this room: Double the treasure value of your other rooms until end of turn.",
+      "Treasures": [
+        4,
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 3,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": true,
+      "RoomType": 1,
+      "Damage": 3,
+      "RoomCategory": 4,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DrawCards",
+                    "Parameters": [
+                      "2",
+                      "Room"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenAnotherRoomIsDestroyed",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA031",
+      "Name": "Recycling Center",
+      "Subtitle": "Advanced Trap Room",
+      "Description": "When another room in your dungeon is destroyed, you may draw two Room cards.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": true,
+      "RoomType": 1,
+      "Damage": 2,
+      "RoomCategory": 4,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": null,
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "AnotherRoom",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DestroyRoom",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "DealDamageToDungeon",
+                    "Parameters": [
+                      "2",
+					  "Any",
+                      "Any"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA032",
+      "Name": "The Crushinator",
+      "Subtitle": "Advanced Trap Room",
+      "Description": "Destroy another room in your dungeon: Your rooms deal +2 damage until end of turn.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 0,
+      "Damage": 1,
+      "RoomCategory": 2,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossDungeon",
+                    "Parameters": [
+                      "False",
+                      "2",
+                      "Any",
+                      "Any",
+                      "Any",
+                      "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "SwapSlotInDungeon",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenYouBuildThisRoom",
+              "Parameters": null
+            },
+            "CanAvoid": true
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA033",
+      "Name": "Centipede Tunnel",
+      "Subtitle": "Monster Room",
+      "Description": "When you build this room, you may swap the placement of two Rooms in any dungeon.",
+      "Treasures": [
+        2,
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 1,
+      "Damage": 1,
+      "RoomCategory": 4,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "ExtraBuildTurn",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenYouBuildThisRoom",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA034",
+      "Name": "Construction Zone",
+      "Subtitle": "Trap Room",
+      "Description": "When you build this room, you may immediately build an additional Room.",
+      "Treasures": [
+        2,
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 0,
+      "Damage": 0,
+      "RoomCategory": 5,
+      "Ability": null,
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA035",
+      "Name": "Dragon Hatchery",
+      "Subtitle": "Monster Room",
+      "Description": "(This room contains all four treasure types.)",
+      "Treasures": [
+        1,
+        3,
+        2,
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 3,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 1,
+      "Damage": 1,
+      "RoomCategory": 2,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInTown",
+                    "Parameters": [
+                      "Ordinary"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PlaceAtDungeonEntrance",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenYouBuildThisRoom",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA036",
+      "Name": "Mimic Vault",
+      "Subtitle": "Trap Room",
+      "Description": "When you build this room. Choose one ordinary Hero in town and place it on the entrance to your dungeon.",
+      "Treasures": [
+        3,
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 1,
+      "Damage": 1,
+      "RoomCategory": 5,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "RoomInDeck",
+                    "Parameters": [
+                      "1",
+                      "Any",
+                      "Monster",
+                      "DiscardPile"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PutCardInHand",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenYouBuildThisRoom",
+              "Parameters": null
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA037",
+      "Name": "Monstrous Monument",
+      "Subtitle": "Trap Room",
+      "Description": "When you build this room, choose one Monster Room from the discard pile and put it in your hand.",
+      "Treasures": [
+        1,
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 1,
+      "Damage": 1,
+      "RoomCategory": 4,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisRoom",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "BossOpponent",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DestroyRoom",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "DiscardRandomCardFromHand",
+                    "Parameters": [
+                      "1",
+                      "Room"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA038",
+      "Name": "Torture Chamber",
+      "Subtitle": "Trap Room",
+      "Description": "Destroy this room: Choose an opponent. That opponent discards a random Room card.",
+      "Treasures": [
+        1,
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    },
+    {
+      "IsAdvanced": false,
+      "RoomType": 0,
+      "Damage": 1,
+      "RoomCategory": 3,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisRoom",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "HeroInScorekeep",
+                    "Parameters": [
+                      "Opponent",
+                      "Dead",
+                      "Any",
+					  "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DestroyRoom",
+                    "Parameters": []
+                  },
+                  {
+                    "TypeName": "SendBackToDungeonEntrance",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "Counter": 0,
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA039",
+      "Name": "Zombie Prison",
+      "Subtitle": "Monster Room",
+      "Description": "Destroy this room: Choose a dead Hero in an opponent's scorekeeping area. Send it back to the entrance of that player's dungeon",
+      "Treasures": [
+        1,
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 2,
+      "AlternativeArts": 0
+    }
+  ],
+  "HeroCards": [
+    {
+      "HeroType": 0,
+      "Health": 4,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -42
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA056",
+      "Name": "Cleric",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Nick the Masher The young cleric was well-armed, and brave enough to take on the Dragon King himself. His credo: \"I bash it with my mace.\"",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 4,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -34
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA057",
+      "Name": "Cleric",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Pugi the Druidess A defender of the wilderness, she wields the power of Nature. Flowers blossom in her footsteps, and life grows anew.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 6,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -7,
+        "Y": -44
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA058",
+      "Name": "Cleric",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Acacia, Warrior of Light Acacia is a carefree soul who makes her own luck. A strong defender of good, she is undeterred by even the darkest dungeons.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 6,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -33
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA059",
+      "Name": "Cleric",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Charles the Young Charles has mother's permission to go adventuring, but he has to return before sundown.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 3,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 8,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -69
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA060",
+      "Name": "Cleric",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Delatorious, Angel of Light",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 8,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -19,
+        "Y": -39
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA061",
+      "Name": "Cleric",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Romero, the Indigo Friar He is a dedicated man of the cloth who wants to see the world coated in blue. You might think he's depressed, but he's actually very, very happy.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 4,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 7,
+        "Y": -31
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA062",
+      "Name": "Fighter",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Boden the Pantless Boden's courage is matched only by his forgetfullness. The quest to find his misplaced armor continues!",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 4,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -18
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA063",
+      "Name": "Fighter",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Jarek, Squire to the Lion Knights As a squire, Jarek loved nothing more than stories and legends. He had no idea that he would someday become one.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 6,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -13
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA064",
+      "Name": "Fighter",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Fire's Breath, Heroine of Arcadia The scarlet-haired warrior woman known as Fire's Breath has pledged her deadly twin blades to the fight for liberty",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 6,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -34
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA065",
+      "Name": "Fighter",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Samurai Tom Not truly a samurai, this masterless ronin seeks honor and glory.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 3,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 8,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -46
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA066",
+      "Name": "Fighter",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Johnny of the Evening Watch A humble member of the Evening Watch, whose band o'brothers is sworn to forsake family, take the grey, and clear dungeons.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 8,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -24
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA067",
+      "Name": "Fighter",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Crystol and A'lan of Gerd Bound by the unbreakable Ring of Gerd, these lovers became the most dangerous husband-wife team in the adventuring business.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 4,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -62
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA068",
+      "Name": "Mage",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Tieg and the Magic Bubble Armed with his trusty bubble, Tieg braves dangerous castles and dungeons in search of the muscial instruments stolen from his people.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 4,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -6
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA069",
+      "Name": "Mage",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Brandork the Neverwrong Schooled in seven flavors of magic, Brandork follows the teachings of master Face, the Omniscient Celestial",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 6,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 31,
+        "Y": -21
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA070",
+      "Name": "Mage",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Mitchell, the Judge He has wandered the planes, hopelessly lost... ever since his wife, Nikki, sent him to the store for diamond dust sugar.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 6,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 20,
+        "Y": -8
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA071",
+      "Name": "Mage",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Kalish Ninefingers The worst thief ever, Kalish lost a finger and his freedom in one night. Taught magic in prison by his sorcerous cellmate, he now kills evil with fire.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 3,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 8,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 12,
+        "Y": -48
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA072",
+      "Name": "Mage",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Dartteon, Elf Pyromancer Some elves just want to watch the world burn.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 8,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -33
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA073",
+      "Name": "Mage",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Koey, The Last Dragon Mage The survivor of Drakonia vowed to save the world from Kirax's reign with the power bestowed to him by the last emerald dragon.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 4,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 18,
+        "Y": -21
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA074",
+      "Name": "Thief",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Joman Chimm, Cutpurse From the twinkle in his eye, you might think he comes bearing gifts... until you check your empty pockets.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 4,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -59,
+        "Y": -18
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA075",
+      "Name": "Thief",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Lance Uppercut, Treasure Hunter With a bent blade and a clenched fist, he gathers shining treasures for the glory of the Keonish Empire.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 6,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 31,
+        "Y": -44
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA076",
+      "Name": "Thief",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Jesta the Rogue \"Okay, so you take the big guy on the left with the axe, you've got the two little ones on the right with swords, and I'll take this dangerous-looking treasure chest with no lock over here...\"",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 6,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 29,
+        "Y": -33
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA077",
+      "Name": "Thief",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Kins Klauski, Mad Conquistador \"It's hard for me to think about death, how insects and worms will eat me... I never think about death. I haven't even properly started to live yet.\"",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 3,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 8,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 10,
+        "Y": -18
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA078",
+      "Name": "Thief",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Sir Digby Apple, Ace Detective He battles to keep the coffers filling, to keep his partners preening and to send a needless message of power to all of the unwilling.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 8,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -9,
+        "Y": -78
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA079",
+      "Name": "Thief",
+      "Subtitle": "Ordinary Hero",
+      "Description": "Jerome, Kung Fu Monkey A Visitor from a distant land, his hyperactive monkey studied martial arts under the legendar Sifu Wang.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 0,
+      "Health": 2,
+      "Wounds": 1,
+      "Souls": 1,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByFewerSouls",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -33,
+        "Y": -58
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA080",
+      "Name": "The Fool",
+      "Subtitle": "Ordinary Hero",
+      "Description": "The Fool is lured to the dungeon of the Boss Monster with the fewest Souls. (In the case of a tie, he waits in town until the tie is broken.)",
+      "Treasures": [
+        0
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 11,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -10
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA081",
+      "Name": "Cleric",
+      "Subtitle": "Epic Hero",
+      "Description": "Katelyn, Angelic Healer Among the most exalted defenders of righteousness, Katelyn is sometimes referred to as \"altissima luce\" -- highest light.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 11,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -45
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA082",
+      "Name": "Cleric",
+      "Subtitle": "Epic Hero",
+      "Description": "Kerberos Dirtbeard, Canine Cleric Hailing from the Highlands, this flea-bitten friar never turns down a fetch quest.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 3,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -15
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA083",
+      "Name": "Cleric",
+      "Subtitle": "Epic Hero",
+      "Description": "Lord Van Ette A prophet and collector of tithes for the omniscient Celestial, his \"miracles\" are enhanced by the brandewijn distilled by the monks of Nintehn.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -35
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA084",
+      "Name": "Cleric",
+      "Subtitle": "Epic Hero",
+      "Description": "Jejune & Everlea, Holy Sisters Tenacious and vivacious, each is a threat on her own. But woe betide any who stand against the sisters' united power.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 11,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 10,
+        "Y": -48
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA085",
+      "Name": "Fighter",
+      "Subtitle": "Epic Hero",
+      "Description": "Frankov, the Envoy This brave warrior stands alone against the evil that rules the world.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 11,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -58
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA086",
+      "Name": "Mage",
+      "Subtitle": "Epic Hero",
+      "Description": "Nate the Squidslayer This surly warrior defeated the mighty Squib, Lord of the Rocktopi. Now he seeks to destroy King Croak himself...",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 3,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -35
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA087",
+      "Name": "Mage",
+      "Subtitle": "Epic Hero",
+      "Description": "Antonius, the Rune Knight An elite dragoon, Sir Tony wears armor inscribed with magic runes of ancient and mysterious power.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 28,
+        "Y": -35
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA088",
+      "Name": "Fighter",
+      "Subtitle": "Epic Hero",
+      "Description": "Asmor the Aweless What Asmor lacks in tactical acuity, he more than makes up for in impulsiveness. There's no door he won't kick down, much to the frustration of Arcadia's innkeepers.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 11,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 18,
+        "Y": -27
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA089",
+      "Name": "Mage",
+      "Subtitle": "Epic Hero",
+      "Description": "Tempros the Time Marauder He would use his control over time to end all crime. In his hands, this world could be a utopia.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 11,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -20
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA090",
+      "Name": "Thief",
+      "Subtitle": "Epic Hero",
+      "Description": "Chia Kang, Mystical Warlock of Yu \"Hey, Listen! I think this Boss Monster is--\" \"Silence, fairy! I will crush him through fire and flames in the name of the Order!",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 3,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 28,
+        "Y": -34
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA091",
+      "Name": "Thief",
+      "Subtitle": "Epic Hero",
+      "Description": "Terric Warhelm, Half-Elf Archmage \"Weakened by an evil curse, this once-mighty warrior donned the red robes and turned to magic. His spells are chnneled through a magical helmet of untold power.\"",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 7,
+        "Y": -45
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA092",
+      "Name": "Thief",
+      "Subtitle": "Epic Hero",
+      "Description": "Wayward, the Drifter He is a traveler from a strange land whose only goal is to do whatever is right... whatever that means.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 11,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -9,
+        "Y": -60
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA093",
+      "Name": "Thief",
+      "Subtitle": "Epic Hero",
+      "Description": "Hya, Legendary Shinobi Arcadia's deadliest ninja,Hya lives by the proverb that revenge is a dish best served cold.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 11,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -22,
+        "Y": -45
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA094",
+      "Name": "Thief",
+      "Subtitle": "Epic Hero",
+      "Description": "Blackbeard Jake He hid the treasure he won from insult swordfighting in a booty-trap filled cave on the coast of a town called Astoria.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 3,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -9,
+        "Y": -41
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA095",
+      "Name": "Thief",
+      "Subtitle": "Epic Hero",
+      "Description": "Cecil Leoran, Master Factotum The ultimate jack-of-all-trades, Cecil isn't above taking mercenary work to earn gold and glory. But his real goal has never changed: to find a way to return his betrothed Nevra, sealed into a rapier, to her original form.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": false,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": 18,
+        "Y": -16
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "BMA096",
+      "Name": "Thief",
+      "Subtitle": "Epic Hero",
+      "Description": "Wallbanger Basketweaver This humble halfing world rather spend his days weaving baskets and eating crumbly cookies. But when adventure calls, he proves a first-rate burglar",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 4,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    }
+  ],
+  "ItemCards": []
+}

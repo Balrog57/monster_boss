@@ -1,0 +1,565 @@
+{
+  "Name": "PlayerChoiceCards",
+  "BossCards": [
+    {
+      "XP": 1000,
+         "IsMale":true,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "AddTreasuresToDungeon",
+                    "Parameters": [
+                      "Cleric",
+                      "Mage",
+                      "Fighter"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenLevelUpActivated",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 0,
+        "Y": 306
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "KSA001",
+      "Name": "Kirax",
+      "Subtitle": "The Gatekeeper",
+      "Description": "Level Up: For the rest of the game, this has Cleric, Fighter, and Mage treasure.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "XP": 950,
+      "IsMale": false,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossDungeon",
+                    "Parameters": [
+                      "False",
+                      "5",
+                      "Any",
+                      "Any",
+                      "Any",
+                      "False"
+                    ]
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "RearrangeDungeon",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenLevelUpActivated",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 50,
+        "Y": 291
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "KSA002",
+      "Name": "Hellcow",
+      "Subtitle": "Bossy Monster",
+      "Description": "Level Up: Choose any dungeon, You may rearrange the placement of the rooms in that dungeon.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "XP": 700,
+         "IsMale":true,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "SpellInDeck",
+                    "Parameters": [
+                      "1",
+                      "BoardDeck"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PutCardInHand",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenLevelUpActivated",
+              "Parameters": []
+            },
+            "CanAvoid": true
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 55,
+        "Y": 291
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "KSA003",
+      "Name": "The Brothers Wise",
+      "Subtitle": "Two-Headed Monstrocity",
+      "Description": "Level Up: You may search through the Spell deck, choose one Spell card, and put into your hand.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "XP": 575,
+         "IsMale":true,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "HeroInScorekeep",
+                    "Parameters": [
+                      "Opponent",
+                      "Dead",
+                      "Ordinary",
+					  "False"
+                    ]
+                  },
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "PlaceAtScorekeep",
+                    "Parameters": [
+                      "FaceDown"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenLevelUpActivated",
+              "Parameters": []
+            },
+            "CanAvoid": true
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 30,
+        "Y": 291
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "KSA004",
+      "Name": "Kaw'nee",
+      "Subtitle": "The Grave Robber",
+      "Description": "Level Up: You may choose an ordinary Hero in any opponent's scorekeeping area and place it face-down in your scorekeeping area.",
+      "Treasures": [
+        1
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "XP": 775,
+         "IsMale":true,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "LastRoomDealDamage",
+                    "Parameters": [
+                      "3"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenLevelUpActivated",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": -40,
+        "Y": 291
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "KSA005",
+      "Name": "Scythe",
+      "Subtitle": "The Ultimate Weapon",
+      "Description": "Level Up: For the rest of the game, the last room of your dungeon has +3 damage.",
+      "Treasures": [
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "XP": 675,
+         "IsMale":true,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "AddSoulsToBoss",
+                    "Parameters": [
+                      "1"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenLevelUpActivated",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 55,
+        "Y": 296
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "KSA006",
+      "Name": "Jarin",
+      "Subtitle": "The Soulseeker",
+      "Description": "Level Up: For the rest of the game, you have +1 Soul.",
+      "Treasures": [
+        3
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "XP": 875,
+         "IsMale":true,
+      "LevelUpAbility": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "MultiplyTreasuresDungeon",
+                    "Parameters": [
+                      "2"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "WhenLevelUpActivated",
+              "Parameters": []
+            },
+            "CanAvoid": true
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 50,
+        "Y": 316
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "KSA007",
+      "Name": "Elicon",
+      "Subtitle": "The Ant Cannon Dragontroll King",
+      "Description": "Level Up: Until end of turn, you may double the treasure value of every room in your dungeon.",
+      "Treasures": [
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    }
+  ],
+  "SpellCards": [
+    {
+      "SpellCategory": 2,
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "AddSoulsToBossIfTreasures",
+                    "Parameters": [
+                      "2",
+                      "Cleric",
+                      "Mage",
+                      "Fighter",
+                      "Thief"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "KSA013",
+      "Name": "T.P.K.",
+      "Subtitle": "-",
+      "Description": "Place this card in your scorekeeping area. If you also have at least one fighter, one Mage, one Cleric and one Thief face-down in your scorekeeping area, this card is worth two extra souls.",
+      "Treasures": null,
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    }
+  ],
+  "RoomCards": [],
+  "HeroCards": [
+    {
+      "HeroType": 1,
+      "Health": 20,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": true,
+      "LuredCondition": {
+        "TypeName": "LuredByWounds",
+        "Parameters": null
+      },
+      "Ability": null,
+      "CharacterOffset": {
+        "X": -3,
+        "Y": -48
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "KSA014",
+      "Name": "Demigod",
+      "Subtitle": "Epic Hero",
+      "Description": "The Demigod is lured to the dungeon of the Boss Monster with the fewest Wounds. (in the case of a tie, he waits in town until the tie is broken.)",
+      "Treasures": [
+        0
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": true,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "ThisHero",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "HeroResistDamageRoomType",
+                    "Parameters": [
+                      "-1",
+                      "Monster"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "Trigger": null,
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 22,
+        "Y": -41
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "KSA016",
+      "Name": "Monster Hunter",
+      "Subtitle": "Epic Multi Hero",
+      "Description": "This Hero is lured to the dungeon with the highest combined Fighter and Cleric treasure. Monster Rooms deal -1 damage to this hero.",
+      "Treasures": [
+        1,
+        2
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    },
+    {
+      "HeroType": 1,
+      "Health": 13,
+      "Wounds": 2,
+      "Souls": 2,
+      "HasStar": true,
+      "LuredCondition": {
+        "TypeName": "LuredByTreasures",
+        "Parameters": null
+      },
+      "Ability": {
+        "AbilityUnitInfo": [
+          {
+            "AbilityUnitType": 0,
+            "Conditions": [],
+            "Effects": [
+              {
+                "Targets": [
+                  {
+                    "TypeName": "BossOwner",
+                    "Parameters": []
+                  }
+                ],
+                "Commands": [
+                  {
+                    "TypeName": "DeactivateDungeonAbility",
+                    "Parameters": []
+                  }
+                ]
+              }
+            ],
+            "Trigger": {
+              "TypeName": "ThisHeroEntersDungeon",
+              "Parameters": []
+            },
+            "CanAvoid": false
+          }
+        ]
+      },
+      "CharacterOffset": {
+        "X": 0,
+        "Y": -13
+      },
+      "ReplacesCardNumber": null,
+      "CardNumber": "KSA017",
+      "Name": "Trap Master",
+      "Subtitle": "Epic Multi Hero",
+      "Description": "This Hero is lured to the dungeon with the highest combined Mage and Thief treasure. This Hero ignores all Room ability text. When it is in a dungeon, Room activated abilities cannot be used.",
+      "Treasures": [
+        3,
+        4
+      ],
+      "MinimumPlayers": 2,
+      "Quantity": 1,
+      "AlternativeArts": 0
+    }
+  ],
+  "ItemCards": []
+}

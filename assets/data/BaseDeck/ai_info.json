@@ -1,0 +1,242 @@
+{
+    "Name": "AIGameBaseCards",
+    "SpellCards": [
+        {
+            "CardNumber": "BMA040",
+            "Name": "Annihilator",
+            "Affects": "Player"
+        },
+        {
+            "CardNumber": "BMA041",
+            "Name": "Assassin",
+            "Affects": "Enemy"
+        },
+        {
+            "CardNumber": "BMA042",
+            "Name": "Cave-In",
+            "Affects": "Player"
+        },
+        {
+            "CardNumber": "BMA043",
+            "Name": "Counterspell",
+            "Affects": "Enemy"
+        },
+        {
+            "CardNumber": "BMA044",
+            "Name": "Exhaustion",
+            "Affects": "Player"
+        },
+        {
+            "CardNumber": "BMA045",
+            "Name": "Fear",
+            "Affects": "All"
+        },
+        {
+            "CardNumber": "BMA046",
+            "Name": "Freeze",
+            "Affects": "Enemy"
+        },
+        {
+            "CardNumber": "BMA047",
+            "Name": "Giant Size",
+            "Affects": "Player"
+        },
+        {
+            "CardNumber": "BMA048",
+            "Name": "Jeopardy",
+            "Affects": "All"
+        },
+        {
+            "CardNumber": "BMA049",
+            "Name": "Kobold Strike",
+            "Affects": "All"
+        },
+        {
+            "CardNumber": "BMA050",
+            "Name": "Motivation",
+            "Affects": "Player"
+        },
+        {
+            "CardNumber": "BMA051",
+            "Name": "Princess in Peril",
+            "Affects": "Player"
+        },
+        {
+            "CardNumber": "BMA052",
+            "Name": "Soul Harvest",
+            "Affects": "Player"
+        },
+        {
+            "CardNumber": "BMA053",
+            "Name": "Teleportation",
+            "Affects": "Player"
+        },
+        {
+            "CardNumber": "BMA054",
+            "Name": "Trepidation",
+            "Affects": "Enemy"
+        },
+        {
+            "CardNumber": "BMA055",
+            "Name": "Zombie Attack",
+            "Affects": "Enemy"
+        }
+    ],
+    "RoomCards": [
+        {
+            "CardNumber": "BMA009",
+            "Name": "Dark Altar",
+            "Factors": [ "Destroy" ]
+        },
+        {
+            "CardNumber": "BMA010",
+            "Name": "Open Grave",
+            "Factors": [ "Kill" ]
+        },
+        {
+            "CardNumber": "BMA011",
+            "Name": "Specter's Sanctum",
+            "Factors": [ "Positive" ]
+        },
+        {
+            "CardNumber": "BMA012",
+            "Name": "Succubus Spa",
+            "Factors": [ "Kill", "Spell" ]
+        },
+        {
+            "CardNumber": "BMA013",
+            "Name": "Dracolich Lair",
+            "Factors": [ "Positive", "Advanced" ]
+        },
+        {
+            "CardNumber": "BMA014",
+            "Name": "Vampire Bordello",
+            "Factors": [ "Kill", "Advanced" ]
+        },
+        {
+            "CardNumber": "BMA015",
+            "Name": "Goblin Armory",
+            "Factors": [ "Combo" ]
+        },
+        {
+            "CardNumber": "BMA016",
+            "Name": "Golem Factory",
+            "Factors": [ "Kill" ]
+        },
+        {
+            "CardNumber": "BMA017",
+            "Name": "Minotaur's Maze",
+            "Factors": [ "Combo" ]
+        },
+        {
+            "CardNumber": "BMA018",
+            "Name": "Neanderthal Cave",
+            "Factors": [ "Negative" ]
+        },
+        {
+            "CardNumber": "BMA019",
+            "Name": "Beast Menagerie",
+            "Factors": [ "Positive", "Advanced" ]
+        },
+        {
+            "CardNumber": "BMA020",
+            "Name": "Monster's Ballroom",
+            "Factors": [ "Advanced" ]
+        },
+        {
+            "CardNumber": "BMA021",
+            "Name": "Brainsucker Hive",
+            "Factors": [ "Kill", "Spell" ]
+        },
+        {
+            "CardNumber": "BMA022",
+            "Name": "Dark Laboratory",
+            "Factors": [ "Spell", "Spell" ]
+        },
+        {
+            "CardNumber": "BMA023",
+            "Name": "Haunted Library",
+            "Factors": [ "Spell" ]
+        },
+        {
+            "CardNumber": "BMA024",
+            "Name": "Witch's Kitchen",
+            "Factors": [ "Spell" ]
+        },
+        {
+            "CardNumber": "BMA025",
+            "Name": "All-Seeing Eye",
+            "Factors": [ "Positive", "Advanced" ]
+        },
+        {
+            "CardNumber": "BMA026",
+            "Name": "Liger's Den",
+            "Factors": [ "Spell", "Advanced" ]
+        },
+        {
+            "CardNumber": "BMA027",
+            "Name": "Bottomless Pit",
+            "Factors": [ "Destroy" ]
+        },
+        {
+            "CardNumber": "BMA028",
+            "Name": "Boulder Ramp",
+            "Factors": [ "Destroy", "Negative" ]
+        },
+        {
+            "CardNumber": "BMA029",
+            "Name": "Dizzygas Hallway",
+            "Factors": [ "Combo" ]
+        },
+        {
+            "CardNumber": "BMA030",
+            "Name": "Jackpot Stash",
+            "Factors": [ "Destroy" ]
+        },
+        {
+            "CardNumber": "BMA031",
+            "Name": "Recycling Center",
+            "Factors": [ "Positive", "Advanced" ]
+        },
+        {
+            "CardNumber": "BMA032",
+            "Name": "The Crushinator",
+            "Factors": [ "Destroy", "Combo", "Advanced" ]
+        },
+        {
+            "CardNumber": "BMA033",
+            "Name": "Centipede Tunnel",
+            "Factors": [ "Combo" ]
+        },
+        {
+            "CardNumber": "BMA034",
+            "Name": "Construction Zone",
+            "Factors": [ "Positive" ]
+        },
+        {
+            "CardNumber": "BMA035",
+            "Name": "Dragon Hatchery",
+            "Factors": [ ]
+        },
+        {
+            "CardNumber": "BMA036",
+            "Name": "Mimic Vault",
+            "Factors": [ "Lure" ]
+        },
+        {
+            "CardNumber": "BMA037",
+            "Name": "Monstrous Monument",
+            "Factors": [ "Positive" ]
+        },
+        {
+            "CardNumber": "BMA038",
+            "Name": "Torture Chamber",
+            "Factors": [ "Destroy" ]
+        },
+        {
+            "CardNumber": "BMA039",
+            "Name": "Zombie Prison",
+            "Factors": [ "Destroy" ]
+        }
+    ]
+}
