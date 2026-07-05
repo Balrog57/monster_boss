@@ -12,6 +12,29 @@ import {
   shuffle,
   drawCards
 } from './cardData.js';
+import {
+  castSpell,
+  emptyEffects,
+  roomDamageBonusFor,
+  heroHealthBonusFor,
+  isRoomDeactivated,
+  isBuildBlocked,
+  extraBuildsFor,
+  isNoEntry,
+} from './spellEffects.js';
+
+// Does a spell's category allow it in the given phase?
+// Combined categories (BUILD_BAIT=4, ADVENTURE_BUILD=5) are accepted in either
+// of their constituent phases; ANY=0 is accepted everywhere.
+function spellAllowedInPhase(category, phase) {
+  if (category === SPELL_CATEGORY.ANY) return true;
+  if (category === SPELL_CATEGORY.BUILD_BAIT) return phase === PHASE.BUILD || phase === PHASE.BAIT;
+  if (category === SPELL_CATEGORY.ADVENTURE_BUILD) return phase === PHASE.ADVENTURE || phase === PHASE.BUILD;
+  if (category === SPELL_CATEGORY.BUILD) return phase === PHASE.BUILD;
+  if (category === SPELL_CATEGORY.BAIT) return phase === PHASE.BAIT;
+  if (category === SPELL_CATEGORY.ADVENTURE) return phase === PHASE.ADVENTURE;
+  return false;
+}
 
 // ============================================================
 // AI HELPERS
@@ -124,16 +147,34 @@ function processAdventures(G, ctx) {
       });
     }
 
+    // Trepidation: a no-entry dungeon refuses the hero, who waits in town.
+    if (isNoEntry(G, targetPlayer)) {
+      G.logs.push(`${hero.name} waits at the entrance of player ${targetPlayer}'s dungeon (Trepidation).`);
+      G.adventureIndex++;
+      processNext();
+      return;
+    }
+
     const target = G.players[targetPlayer];
     G.logs.push(`${hero.name} enters ${targetPlayer === 0 ? 'your' : `AI ${targetPlayer}`}'s dungeon`);
 
     // Process through dungeon rooms
     let heroHP = hero.currentHP || hero.hp;
     let heroDefeated = false;
+    const heroRef = hero.id + '-' + G.adventureIndex; // stable ref for effect targeting
+    // Assassin: hero HP bonus from active effects.
+    heroHP += heroHealthBonusFor(G, heroRef);
 
     for (let i = 0; i < target.dungeon.length && heroHP > 0; i++) {
+      // Freeze: deactivated rooms deal no damage and grant no abilities this turn.
+      if (isRoomDeactivated(G, targetPlayer, i)) {
+        G.logs.push(`${target.dungeon[i].name} is deactivated (Freeze) — no effect.`);
+        continue;
+      }
       const room = target.dungeon[i];
-      const roomDamage = room.damage || 0;
+      let roomDamage = room.damage || 0;
+      // Annihilator / Giant Size: +damage bonus from active effects.
+      roomDamage += roomDamageBonusFor(G, targetPlayer, i);
 
       heroHP -= roomDamage;
       G.logs.push(`${room.name} deals ${roomDamage} damage to ${hero.name} (HP: ${heroHP})`);
@@ -273,7 +314,8 @@ export const BossMonster = {
       logs: ["Welcome to Boss Monster!"],
       gameOver: false,
       winner: null,
-      selectedCard: null
+      selectedCard: null,
+      effects: emptyEffects()
     };
   },
 
@@ -378,6 +420,20 @@ export const BossMonster = {
           const card = player.hand[handIndex];
           if (!card.isRoom) return INVALID_MOVE;
 
+          // Kobold Strike: no rooms can be built this turn.
+          if (isBuildBlocked(G)) {
+            G.logs.push("No rooms can be built this turn (Kobold Strike).");
+            return INVALID_MOVE;
+          }
+
+          // Per turn: normally 1 build. Motivation grants extras.
+          const buildsThisTurn = player.buildsThisTurn || 0;
+          const allowed = 1 + extraBuildsFor(G, pid);
+          if (buildsThisTurn >= allowed) {
+            G.logs.push("Already built the maximum rooms this turn.");
+            return INVALID_MOVE;
+          }
+
           // Check if advanced room
           if (card.advanced) {
             if (player.dungeon.length === 0) return INVALID_MOVE;
@@ -396,6 +452,7 @@ export const BossMonster = {
             if (player.dungeon.length >= 5) return INVALID_MOVE;
             player.dungeon.push(card);
           }
+          player.buildsThisTurn = buildsThisTurn + 1;
 
           player.hand.splice(handIndex, 1);
           G.selectedCard = null;
@@ -420,9 +477,8 @@ export const BossMonster = {
           const card = player.hand[handIndex];
           if (!card.isSpell) return INVALID_MOVE;
 
-          // Check spell category matches phase
-          const cat = card.category;
-          if (cat !== SPELL_CATEGORY.BUILD && cat !== SPELL_CATEGORY.ANY) {
+          // Check spell category matches phase (incl. combined categories)
+          if (!spellAllowedInPhase(card.category, PHASE.BUILD)) {
             G.logs.push("This spell cannot be played during Build phase!");
             return INVALID_MOVE;
           }
@@ -431,8 +487,7 @@ export const BossMonster = {
           G.decks.spellDiscard.push(card);
           G.selectedCard = null;
           G.logs.push(`${pid == 0 ? 'You' : `AI ${pid}`} cast ${card.name}`);
-
-          // TODO: Implement actual spell effects
+          castSpell(G, ctx, pid, card);
         },
 
         pass: ({ G, ctx, playerID }) => {
@@ -448,6 +503,10 @@ export const BossMonster = {
         G.turn++;
         G.logs.push(`--- Turn ${G.turn} - Build Phase ---`);
         G.phase = PHASE.BUILD;
+        // Clear all "until end of turn" effects from the previous turn.
+        G.effects = emptyEffects();
+        // Reset per-turn build counters.
+        Object.values(G.players).forEach(p => { p.buildsThisTurn = 0; });
 
         // Draw cards: 1 room + 1 spell each
         for (let i = 0; i < ctx.numPlayers; i++) {
@@ -484,8 +543,7 @@ export const BossMonster = {
           const card = player.hand[handIndex];
           if (!card.isSpell) return INVALID_MOVE;
 
-          const cat = card.category;
-          if (cat !== SPELL_CATEGORY.BAIT && cat !== SPELL_CATEGORY.ANY) {
+          if (!spellAllowedInPhase(card.category, PHASE.BAIT)) {
             G.logs.push("This spell cannot be played during Bait phase!");
             return INVALID_MOVE;
           }
@@ -494,6 +552,7 @@ export const BossMonster = {
           G.decks.spellDiscard.push(card);
           G.selectedCard = null;
           G.logs.push(`${pid == 0 ? 'You' : `AI ${pid}`} cast ${card.name}`);
+          castSpell(G, ctx, pid, card);
         },
 
         pass: ({ G, ctx, playerID }) => {
@@ -543,8 +602,7 @@ export const BossMonster = {
           const card = player.hand[handIndex];
           if (!card.isSpell) return INVALID_MOVE;
 
-          const cat = card.category;
-          if (cat !== SPELL_CATEGORY.ADVENTURE && cat !== SPELL_CATEGORY.ANY) {
+          if (!spellAllowedInPhase(card.category, PHASE.ADVENTURE)) {
             G.logs.push("This spell cannot be played during Adventure phase!");
             return INVALID_MOVE;
           }
@@ -553,6 +611,7 @@ export const BossMonster = {
           G.decks.spellDiscard.push(card);
           G.selectedCard = null;
           G.logs.push(`${pid == 0 ? 'You' : `AI ${pid}`} cast ${card.name}`);
+          castSpell(G, ctx, pid, card);
         },
 
         pass: ({ G, ctx, playerID }) => {
