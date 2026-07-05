@@ -3,10 +3,13 @@ import { Local } from 'boardgame.io/multiplayer';
 import { BossMonster } from './BossMonster.js';
 import AppBoard from './AppBoard.jsx';
 
+// Single shared Local() master so all clients connect to the same game state.
+const multiplayer = Local();
+
 const BossMonsterClient = Client({
   game: BossMonster,
   board: AppBoard,
-  multiplayer: Local(),
+  multiplayer,
   numPlayers: 2,
   debug: false
 });

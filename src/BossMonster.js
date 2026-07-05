@@ -1,4 +1,4 @@
-import { Game, INVALID_MOVE } from 'boardgame.io/core';
+import { INVALID_MOVE } from 'boardgame.io/core';
 import {
   BOSSES,
   ROOMS,
@@ -207,11 +207,11 @@ function checkWinConditions(G, ctx) {
 // ============================================================
 // MAIN GAME DEFINITION
 // ============================================================
-export const BossMonster = Game({
+export const BossMonster = {
   name: 'boss-monster',
 
-  setup: (ctx, setupData = {}) => {
-    const numPlayers = setupData.numPlayers || ctx.numPlayers || 2;
+  setup: ({ ctx }, setupData = {}) => {
+    const numPlayers = (setupData && setupData.numPlayers) || ctx.numPlayers || 2;
 
     // Build decks with quantities
     let roomDeck = getExpandedDeck(ROOMS).map(r => ({ ...r, isRoom: true }));
@@ -282,17 +282,20 @@ export const BossMonster = Game({
     [PHASE.BOSS]: {
       start: true,
       moves: {
-        pickBoss: (G, ctx, bossId) => {
+        pickBoss: ({ G, ctx, playerID }, bossId) => {
+          const pid = playerID != null ? playerID : ctx.playerID;
           const boss = G.bossPicks.find(b => b.id === bossId);
           if (!boss) return INVALID_MOVE;
 
-          G.players[ctx.playerID].boss = { ...boss };
-          G.logs.push(`${ctx.playerID === 0 ? 'You' : `AI ${ctx.playerID}`} chose ${boss.name}`);
+          G.players[pid].boss = { ...boss };
+          G.logs.push(`${pid === 0 ? 'You' : `AI ${pid}`} chose ${boss.name}`);
         }
       },
       next: PHASE.SETUP,
-      endIf: (G) => Object.values(G.players).every(p => p.boss !== null),
-      onEnd: (G, ctx) => {
+      // BOSS phase ends once the human (player 0) has picked; AI bosses are
+      // auto-assigned in onEnd.
+      endIf: ({ G }) => G.players && G.players[0] && G.players[0].boss !== null,
+      onEnd: ({ G, ctx }) => {
         // AI players pick bosses
         for (let i = 1; i < ctx.numPlayers; i++) {
           if (!G.players[i].boss) {
@@ -325,8 +328,9 @@ export const BossMonster = Game({
     // ==================== INITIAL BUILD (SETUP) ====================
     [PHASE.SETUP]: {
       moves: {
-        buildInitialRoom: (G, ctx, handIndex) => {
-          const player = G.players[ctx.playerID];
+        buildInitialRoom: ({ G, ctx, playerID }, handIndex) => {
+          const pid = playerID != null ? playerID : ctx.playerID;
+          const player = G.players[pid];
           if (!player || handIndex < 0 || handIndex >= player.hand.length) return INVALID_MOVE;
 
           const card = player.hand[handIndex];
@@ -335,12 +339,13 @@ export const BossMonster = Game({
 
           player.dungeon.push(card);
           player.hand.splice(handIndex, 1);
-          G.logs.push(`${ctx.playerID === 0 ? 'You' : `AI ${ctx.playerID}`} built ${card.name} face down`);
+          G.logs.push(`${pid == 0 ? 'You' : `AI ${pid}`} built ${card.name} face down`);
         }
       },
       next: PHASE.BUILD,
-      endIf: (G) => Object.values(G.players).every(p => p.dungeon.length >= 2),
-      onBegin: (G, ctx) => {
+      endIf: ({ G }) => G.players && Object.values(G.players).every(p => p.dungeon.length >= 2),
+      onBegin: ({ G, ctx }) => {
+        G.phase = PHASE.SETUP;
         G.logs.push("Build Phase: Each player builds 2 rooms face down");
         // AI builds initial rooms
         for (let i = 1; i < ctx.numPlayers; i++) {
@@ -361,12 +366,13 @@ export const BossMonster = Game({
     // ==================== BUILD PHASE ====================
     [PHASE.BUILD]: {
       moves: {
-        selectCard: (G, ctx, handIndex) => {
+        selectCard: ({ G, ctx }, handIndex) => {
           G.selectedCard = handIndex;
         },
 
-        buildRoom: (G, ctx, handIndex) => {
-          const player = G.players[ctx.playerID];
+        buildRoom: ({ G, ctx, playerID }, handIndex) => {
+          const pid = playerID != null ? playerID : ctx.playerID;
+          const player = G.players[pid];
           if (!player || handIndex < 0 || handIndex >= player.hand.length) return INVALID_MOVE;
 
           const card = player.hand[handIndex];
@@ -393,7 +399,7 @@ export const BossMonster = Game({
 
           player.hand.splice(handIndex, 1);
           G.selectedCard = null;
-          G.logs.push(`${ctx.playerID === 0 ? 'You' : `AI ${ctx.playerID}`} built ${card.name}`);
+          G.logs.push(`${pid == 0 ? 'You' : `AI ${pid}`} built ${card.name}`);
 
           // Check for level up (5th room built)
           if (player.dungeon.length >= 5 && !player.leveledUp) {
@@ -401,13 +407,14 @@ export const BossMonster = Game({
             const spell = G.decks.spells.pop();
             if (spell) {
               player.hand.push(spell);
-              G.logs.push(`${ctx.playerID === 0 ? 'You' : `AI ${ctx.playerID}`} LEVELED UP! Drew a spell.`);
+              G.logs.push(`${pid == 0 ? 'You' : `AI ${pid}`} LEVELED UP! Drew a spell.`);
             }
           }
         },
 
-        playSpell: (G, ctx, handIndex) => {
-          const player = G.players[ctx.playerID];
+        playSpell: ({ G, ctx, playerID }, handIndex) => {
+          const pid = playerID != null ? playerID : ctx.playerID;
+          const player = G.players[pid];
           if (!player || handIndex < 0 || handIndex >= player.hand.length) return INVALID_MOVE;
 
           const card = player.hand[handIndex];
@@ -423,19 +430,21 @@ export const BossMonster = Game({
           player.hand.splice(handIndex, 1);
           G.decks.spellDiscard.push(card);
           G.selectedCard = null;
-          G.logs.push(`${ctx.playerID === 0 ? 'You' : `AI ${ctx.playerID}`} cast ${card.name}`);
+          G.logs.push(`${pid == 0 ? 'You' : `AI ${pid}`} cast ${card.name}`);
 
           // TODO: Implement actual spell effects
         },
 
-        pass: (G, ctx) => {
-          G.players[ctx.playerID].passed = true;
-          G.logs.push(`${ctx.playerID === 0 ? 'You' : `AI ${ctx.playerID}`} passed`);
+        pass: ({ G, ctx, playerID }) => {
+          const pid = playerID != null ? playerID : ctx.playerID;
+          G.players[pid].passed = true;
+          G.logs.push(`${pid == 0 ? 'You' : `AI ${pid}`} passed`);
         }
       },
       next: PHASE.BAIT,
-      endIf: (G) => G.players.every(p => p.passed || p.isAI),
-      onBegin: (G, ctx) => {
+      // Build ends when the human (player 0) passes; AI is auto-resolved.
+      endIf: ({ G }) => G.players && G.players[0] && G.players[0].passed,
+      onBegin: ({ G, ctx }) => {
         G.turn++;
         G.logs.push(`--- Turn ${G.turn} - Build Phase ---`);
         G.phase = PHASE.BUILD;
@@ -451,25 +460,25 @@ export const BossMonster = Game({
 
         // Reset passed flags
         Object.values(G.players).forEach(p => p.passed = false);
-
-        // AI takes turn
-        ctx.events.setActivePlayers({ all: 'makeMove' });
       },
-      onEnd: (G, ctx) => {
+      onEnd: ({ G, ctx }) => {
         // Reveal dungeons (face up)
         Object.values(G.players).forEach(p => p.revealed = true);
+        // Reset passed flags so the next phase's endIf doesn't fire instantly.
+        Object.values(G.players).forEach(p => p.passed = false);
       }
     },
 
     // ==================== BAIT PHASE ====================
     [PHASE.BAIT]: {
       moves: {
-        selectCard: (G, ctx, handIndex) => {
+        selectCard: ({ G, ctx }, handIndex) => {
           G.selectedCard = handIndex;
         },
 
-        playSpell: (G, ctx, handIndex) => {
-          const player = G.players[ctx.playerID];
+        playSpell: ({ G, ctx, playerID }, handIndex) => {
+          const pid = playerID != null ? playerID : ctx.playerID;
+          const player = G.players[pid];
           if (!player || handIndex < 0 || handIndex >= player.hand.length) return INVALID_MOVE;
 
           const card = player.hand[handIndex];
@@ -484,17 +493,19 @@ export const BossMonster = Game({
           player.hand.splice(handIndex, 1);
           G.decks.spellDiscard.push(card);
           G.selectedCard = null;
-          G.logs.push(`${ctx.playerID === 0 ? 'You' : `AI ${ctx.playerID}`} cast ${card.name}`);
+          G.logs.push(`${pid == 0 ? 'You' : `AI ${pid}`} cast ${card.name}`);
         },
 
-        pass: (G, ctx) => {
-          G.players[ctx.playerID].passed = true;
-          G.logs.push(`${ctx.playerID === 0 ? 'You' : `AI ${ctx.playerID}`} done baiting`);
+        pass: ({ G, ctx, playerID }) => {
+          const pid = playerID != null ? playerID : ctx.playerID;
+          G.players[pid].passed = true;
+          G.logs.push(`${pid == 0 ? 'You' : `AI ${pid}`} done baiting`);
         }
       },
       next: PHASE.ADVENTURE,
-      endIf: (G) => G.players.every(p => p.passed || p.isAI),
-      onBegin: (G, ctx) => {
+      // Bait ends when the human (player 0) passes; AI is auto-resolved.
+      endIf: ({ G }) => G.players && G.players[0] && G.players[0].passed,
+      onBegin: ({ G, ctx }) => {
         G.logs.push(`--- Turn ${G.turn} - Bait Phase ---`);
         G.phase = PHASE.BAIT;
 
@@ -510,21 +521,23 @@ export const BossMonster = Game({
         }
 
         Object.values(G.players).forEach(p => p.passed = false);
-
-        // AI bait phase
-        ctx.events.setActivePlayers({ all: 'makeMove' });
+      },
+      onEnd: ({ G, ctx }) => {
+        // Reset passed flags for the adventure phase resolution.
+        Object.values(G.players).forEach(p => p.passed = false);
       }
     },
 
     // ==================== ADVENTURE PHASE ====================
     [PHASE.ADVENTURE]: {
       moves: {
-        selectCard: (G, ctx, handIndex) => {
+        selectCard: ({ G, ctx }, handIndex) => {
           G.selectedCard = handIndex;
         },
 
-        playSpell: (G, ctx, handIndex) => {
-          const player = G.players[ctx.playerID];
+        playSpell: ({ G, ctx, playerID }, handIndex) => {
+          const pid = playerID != null ? playerID : ctx.playerID;
+          const player = G.players[pid];
           if (!player || handIndex < 0 || handIndex >= player.hand.length) return INVALID_MOVE;
 
           const card = player.hand[handIndex];
@@ -539,17 +552,19 @@ export const BossMonster = Game({
           player.hand.splice(handIndex, 1);
           G.decks.spellDiscard.push(card);
           G.selectedCard = null;
-          G.logs.push(`${ctx.playerID === 0 ? 'You' : `AI ${ctx.playerID}`} cast ${card.name}`);
+          G.logs.push(`${pid == 0 ? 'You' : `AI ${pid}`} cast ${card.name}`);
         },
 
-        pass: (G, ctx) => {
-          G.players[ctx.playerID].passed = true;
-          G.logs.push(`${ctx.playerID === 0 ? 'You' : `AI ${ctx.playerID}`} passed`);
+        pass: ({ G, ctx, playerID }) => {
+          const pid = playerID != null ? playerID : ctx.playerID;
+          G.players[pid].passed = true;
+          G.logs.push(`${pid == 0 ? 'You' : `AI ${pid}`} passed`);
         }
       },
       next: PHASE.BUILD,
-      endIf: (G) => G.players.every(p => p.passed || p.isAI),
-      onBegin: (G, ctx) => {
+      // Adventure auto-resolves in onBegin, so end immediately after.
+      endIf: () => true,
+      onBegin: ({ G, ctx }) => {
         G.logs.push(`--- Turn ${G.turn} - Adventure Phase ---`);
         G.phase = PHASE.ADVENTURE;
 
@@ -579,47 +594,55 @@ export const BossMonster = Game({
   },
 
   turn: {
+    // Keep all players active in every phase so the human (and AI) can dispatch
+    // moves. Phase progression is driven by `endIf` + per-player `passed` flags.
+    activePlayers: { all: 'main' },
     order: {
-      first: (G, ctx) => G.adventureOrder[0] || 0,
-      next: (G, ctx) => {
+      first: ({ G, ctx }) => (G.adventureOrder && G.adventureOrder[0] !== undefined ? G.adventureOrder[0] : 0),
+      next: ({ G, ctx }) => {
+        if (!G.adventureOrder || G.adventureOrder.length === 0) return 0;
         const idx = G.adventureOrder.indexOf(ctx.currentPlayer);
         if (idx >= 0 && idx < G.adventureOrder.length - 1) {
           return G.adventureOrder[idx + 1];
         }
-        return G.adventureOrder[0] || 0;
+        return G.adventureOrder[0];
       }
     }
   },
 
   ai: {
-    enumerate: (G, ctx) => {
-      const player = G.players[ctx.playerID];
+    enumerate: ({ G, ctx }, playerID) => {
+      const pid = playerID != null ? playerID : ctx.playerID;
+      const player = G.players[pid];
       if (!player || !player.isAI) return [];
 
       const moves = [];
+      // Prefer ctx.phase (the authoritative boardgame.io phase); fall back to
+      // the custom G.phase mirror for safety.
+      const currentPhase = ctx.phase || G.phase;
 
-      if (G.phase === PHASE.BOSS) {
+      if (currentPhase === PHASE.BOSS) {
         const available = G.bossPicks.filter(b =>
           !Object.values(G.players).some(p => p.boss?.id === b.id)
         );
         available.forEach(b => moves.push({ move: 'pickBoss', args: [b.id] }));
-      } else if (G.phase === PHASE.SETUP) {
+      } else if (currentPhase === PHASE.SETUP) {
         const basicRooms = player.hand
           .map((c, idx) => ({ card: c, idx }))
           .filter(({ card }) => card.isRoom && !card.advanced);
         basicRooms.forEach(({ idx }) => moves.push({ move: 'buildInitialRoom', args: [idx] }));
-      } else if (G.phase === PHASE.BUILD) {
-        const buildIdx = aiBuildRoom(G, ctx, ctx.playerID);
+      } else if (currentPhase === PHASE.BUILD) {
+        const buildIdx = aiBuildRoom(G, ctx, pid);
         if (buildIdx !== null) moves.push({ move: 'buildRoom', args: [buildIdx] });
-        const spellIdx = aiPlaySpell(G, ctx, ctx.playerID);
+        const spellIdx = aiPlaySpell(G, ctx, pid);
         if (spellIdx !== null) moves.push({ move: 'playSpell', args: [spellIdx] });
         moves.push({ move: 'pass', args: [] });
-      } else if (G.phase === PHASE.BAIT) {
-        const spellIdx = aiPlaySpell(G, ctx, ctx.playerID);
+      } else if (currentPhase === PHASE.BAIT) {
+        const spellIdx = aiPlaySpell(G, ctx, pid);
         if (spellIdx !== null) moves.push({ move: 'playSpell', args: [spellIdx] });
         moves.push({ move: 'pass', args: [] });
-      } else if (G.phase === PHASE.ADVENTURE) {
-        const spellIdx = aiPlaySpell(G, ctx, ctx.playerID);
+      } else if (currentPhase === PHASE.ADVENTURE) {
+        const spellIdx = aiPlaySpell(G, ctx, pid);
         if (spellIdx !== null) moves.push({ move: 'playSpell', args: [spellIdx] });
         moves.push({ move: 'pass', args: [] });
       }
@@ -628,27 +651,30 @@ export const BossMonster = Game({
     }
   },
 
-  endIf: (G, ctx) => {
+  endIf: ({ G, ctx }) => {
     if (G.gameOver) return { winner: G.winner };
     return false;
   },
 
-  playerView: (G, ctx, playerID) => {
-    // Hide other players' hands
+  playerView: ({ G, ctx, playerID }) => {
+    // Hide other players' hands. playerID may arrive as string or number.
+    const me = String(playerID);
     const filtered = { ...G };
     if (filtered.players) {
       filtered.players = { ...filtered.players };
       Object.keys(filtered.players).forEach(pid => {
-        if (parseInt(pid) !== playerID) {
+        if (pid !== me) {
+          const p = filtered.players[pid];
+          const hand = (p && Array.isArray(p.hand)) ? p.hand : [];
           filtered.players[pid] = {
-            ...filtered.players[pid],
-            hand: filtered.players[pid].hand.map(() => ({ hidden: true }))
+            ...p,
+            hand: hand.map(() => ({ hidden: true }))
           };
         }
       });
     }
     return filtered;
   }
-});
+};
 
 export default BossMonster;

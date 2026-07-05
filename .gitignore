@@ -10,6 +10,9 @@ screenshot_*.png
 dist/
 *.log
 
+# Playwright MCP session snapshots
+.playwright-mcp/
+
 # Scratch / experiment images
 assets/perm_test_*.jpg
 assets/sample_*.jpg

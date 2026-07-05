@@ -67,9 +67,20 @@ function Wound({ n }) {
   );
 }
 
-export default function AppBoard({ G, ctx, moves, events, playerID }) {
-  const me = G.players[playerID];
-  const phase = G.phase;
+export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) {
+  // Guard against initial render before G is populated
+  if (!G || !G.players) {
+    return <div style={{ minHeight: '100vh', background: '#0E0E0E', color: '#9CA3AF', padding: 24 }}>Loading…</div>;
+  }
+  // playerID is a string from the Client ("0"); G.players is keyed by string.
+  const pidKey = String(playerID);
+  const me = G.players[pidKey];
+  if (!me) {
+    return <div style={{ minHeight: '100vh', background: '#0E0E0E', color: '#9CA3AF', padding: 24 }}>Loading… (no player for {pidKey})</div>;
+  }
+  // Use ctx.phase (the real boardgame.io phase) rather than the custom G.phase,
+  // which is only updated inside a subset of phase onBegin hooks.
+  const phase = ctx.phase || G.phase;
 
   // Boss selection
   if (phase === PHASE.BOSS) {
@@ -93,7 +104,7 @@ export default function AppBoard({ G, ctx, moves, events, playerID }) {
   }
 
   // Determine AI status text
-  const aiText = ctx.currentPlayer === playerID ? 'Your turn' : `Player ${ctx.currentPlayer} turn`;
+  const aiText = String(ctx.currentPlayer) === pidKey ? 'Your turn' : `Player ${ctx.currentPlayer} turn`;
 
   return (
     <div style={styles.screen}>
@@ -127,7 +138,7 @@ export default function AppBoard({ G, ctx, moves, events, playerID }) {
 
         {/* Opponent dungeons */}
         {Object.entries(G.players)
-          .filter(([pid]) => parseInt(pid) !== playerID)
+          .filter(([pid]) => pid !== pidKey)
           .map(([pid, p]) => (
             <div key={pid} style={styles.panel}>
               <div style={styles.panelTitle}>
@@ -195,7 +206,7 @@ export default function AppBoard({ G, ctx, moves, events, playerID }) {
                   kind={c.isRoom ? 'room' : c.isSpell ? 'spell' : 'hero'}
                   size="md"
                   selected={G.selectedCard === i}
-                  dim={ctx.currentPlayer !== playerID}
+                  dim={String(ctx.currentPlayer) !== pidKey}
                 />
               </button>
             ))}
@@ -205,8 +216,8 @@ export default function AppBoard({ G, ctx, moves, events, playerID }) {
 
       {/* Footer actions */}
       <div style={styles.footer}>
-        <button style={styles.btn} onClick={() => moves.pass()} disabled={ctx.currentPlayer !== playerID}>Passer</button>
-        <button style={styles.btn} onClick={() => moves.playSpell(G.selectedCard)} disabled={ctx.currentPlayer !== playerID || G.selectedCard === null}>Lancer Sort</button>
+        <button style={styles.btn} onClick={() => moves.pass()} disabled={String(ctx.currentPlayer) !== pidKey}>Passer</button>
+        <button style={styles.btn} onClick={() => moves.playSpell(G.selectedCard)} disabled={String(ctx.currentPlayer) !== pidKey || G.selectedCard === null}>Lancer Sort</button>
       </div>
 
       {/* Logs */}
@@ -219,8 +230,8 @@ export default function AppBoard({ G, ctx, moves, events, playerID }) {
       {G.gameOver && (
         <div style={styles.modal}>
           <div style={styles.modalBox}>
-            <h2>{G.winner === parseInt(playerID) ? 'Victoire !' : 'Défaite...'}</h2>
-            <p>{G.winner === parseInt(playerID) ? 'Vous avez gagné.' : `Joueur ${G.winner} gagne.`}</p>
+            <h2>{String(G.winner) === pidKey ? 'Victoire !' : 'Défaite...'}</h2>
+            <p>{String(G.winner) === pidKey ? 'Vous avez gagné.' : `Joueur ${G.winner} gagne.`}</p>
             <button style={styles.btn} onClick={() => window.location.reload()}>Rejouer</button>
           </div>
         </div>
