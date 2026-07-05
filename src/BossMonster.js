@@ -131,28 +131,55 @@ function processAdventures(G, ctx) {
     const hero = G.town[0];
     const heroClass = hero.class;
 
-    // Find target player (best matching treasure types)
+    // Heroes are lured to the dungeon with the most matching treasure icons
+    // for their class. Ties: fewest wounds, then fewest souls, then lowest XP.
+    // If no dungeon has a matching treasure, the hero goes to the player with
+    // the MOST wounds (then most souls).
     let targetPlayer = null;
-    let maxMatch = 0;
+    let best = null;
+    let anyMatch = false;
 
-    for (const [pid, p] of Object.entries(G.players)) {
+    for (const [pidStr, p] of Object.entries(G.players)) {
       if (p.eliminated) continue;
-      // Use dungeonTreasures so Dragon Hatchery's all-4-types lure applies.
-      const treasures = dungeonTreasures(G, parseInt(pid));
+      const pid = parseInt(pidStr);
+      const treasures = dungeonTreasures(G, pid);
       const matchCount = treasures.filter(t => t === heroClass).length;
-      if (matchCount > maxMatch) {
-        maxMatch = matchCount;
-        targetPlayer = parseInt(pid);
+      const candidate = {
+        pid,
+        matchCount,
+        wounds: totalWounds(p),
+        souls: totalSouls(p),
+        xp: p.boss?.xp || 0,
+      };
+      if (matchCount > 0) anyMatch = true;
+      const better = (cur, cand, attr) =>
+        attr === 'match' ? cand.matchCount > cur.matchCount
+        : attr === 'wounds' ? cand.wounds < cur.wounds
+        : attr === 'souls' ? cand.souls < cur.souls
+        : cand.xp < cur.xp;
+      if (best === null) {
+        best = candidate;
+      } else if (anyMatch && candidate.matchCount > 0) {
+        // Lure comparison: most matches, then fewest wounds/souls, low XP
+        if (better(best, candidate, 'match')) best = candidate;
+        else if (candidate.matchCount === best.matchCount) {
+          if (better(best, candidate, 'wounds')) best = candidate;
+          else if (candidate.wounds === best.wounds) {
+            if (better(best, candidate, 'souls')) best = candidate;
+            else if (candidate.souls === best.souls && better(best, candidate, 'xp')) best = candidate;
+          }
+        }
       }
     }
 
-    // If no match, hero goes to player with most wounds
-    if (targetPlayer === null) {
-      targetPlayer = G.adventureOrder.reduce((a, b) => {
-        const woundsA = G.players[a].wounds.reduce((sum, w) => sum + (w.wounds || 1), 0);
-        const woundsB = G.players[b].wounds.reduce((sum, w) => sum + (w.wounds || 1), 0);
-        return woundsB > woundsA ? b : a;
-      });
+    if (anyMatch) {
+      targetPlayer = best.pid;
+    } else {
+      // No luring treasure: hero goes to player with most wounds, then most souls.
+      targetPlayer = Object.entries(G.players)
+        .filter(([_, p]) => !p.eliminated)
+        .map(([pidStr, p]) => ({ pid: parseInt(pidStr), w: totalWounds(p), s: totalSouls(p) }))
+        .sort((a, b) => b.w - a.w || b.s - a.s)[0]?.pid;
     }
 
     // Trepidation: a no-entry dungeon refuses the hero, who waits in town.
@@ -164,7 +191,7 @@ function processAdventures(G, ctx) {
     }
 
     const target = G.players[targetPlayer];
-    G.logs.push(`${hero.name} enters ${targetPlayer === 0 ? 'your' : `AI ${targetPlayer}`}'s dungeon`);
+    G.logs.push(`${hero.name} enters ${targetPlayer === 0 ? 'your' : `AI ${targetPlayer}'s`} dungeon`);
 
     // Process through dungeon rooms
     let heroHP = hero.currentHP || hero.hp;
@@ -217,8 +244,7 @@ function processAdventures(G, ctx) {
     G.decks.heroDiscard.push(hero);
 
     // Check if target player eliminated (5 wounds)
-    const totalWounds = target.wounds.reduce((sum, w) => sum + (w.wounds || 1), 0);
-    if (totalWounds >= 5) {
+    if (totalWounds(target) >= 5) {
       target.eliminated = true;
       G.logs.push(`${targetPlayer === 0 ? 'You' : `AI ${targetPlayer}`} have been eliminated!`);
     }
@@ -230,30 +256,70 @@ function processAdventures(G, ctx) {
   processNext();
 }
 
-function checkWinConditions(G, ctx) {
-  const alivePlayers = Object.entries(G.players)
-    .filter(([_, p]) => !p.eliminated)
-    .map(([pid, _]) => parseInt(pid));
+function totalSouls(p) {
+  return p.souls.reduce((sum, s) => sum + (s.souls || 1), 0);
+}
+function totalWounds(p) {
+  return p.wounds.reduce((sum, w) => sum + (w.wounds || 1), 0);
+}
 
-  if (alivePlayers.length <= 1) {
-    if (alivePlayers.length === 1) {
+// Win conditions per docs/rules/rules.md (End of Turn Phase, lines 121-124):
+//   i.  5+ Wounds -> eliminated (loses regardless of Soul count)
+//   ii. 10+ Souls AND <5 Wounds -> wins
+//   iii.Tie-break: Souls minus Wounds, then lowest XP
+function checkWinConditions(G, ctx) {
+  // Mark eliminated (5+ wounds). Done inline during adventure too, but re-check
+  // here for safety.
+  for (const p of Object.values(G.players)) {
+    if (!p.eliminated && totalWounds(p) >= 5) {
+      p.eliminated = true;
+    }
+  }
+
+  // Look for an outright winner: 10+ souls and not eliminated.
+  const winners = Object.entries(G.players)
+    .filter(([_, p]) => !p.eliminated && totalSouls(p) >= 10)
+    .map(([pid]) => parseInt(pid));
+  if (winners.length === 1) {
+    G.gameOver = true;
+    G.winner = winners[0];
+    G.logs.push(`Game Over! ${G.winner === 0 ? 'You win' : `AI ${G.winner} wins`} with ${totalSouls(G.players[G.winner])} souls!`);
+    return;
+  }
+  if (winners.length > 1) {
+    // Tie-break: souls - wounds, then lowest XP
+    winners.sort((a, b) => {
+      const sa = totalSouls(G.players[a]) - totalWounds(G.players[a]);
+      const sb = totalSouls(G.players[b]) - totalWounds(G.players[b]);
+      if (sb !== sa) return sb - sa;
+      return (G.players[a].boss?.xp || 0) - (G.players[b].boss?.xp || 0);
+    });
+    G.gameOver = true;
+    G.winner = winners[0];
+    G.logs.push(`Game Over! ${G.winner === 0 ? 'You win' : `AI ${G.winner} wins`} on tie-break!`);
+    return;
+  }
+
+  // No soul winner. If all-but-one are eliminated, the survivor wins.
+  const alive = Object.entries(G.players)
+    .filter(([_, p]) => !p.eliminated)
+    .map(([pid]) => parseInt(pid));
+  if (alive.length <= 1) {
+    if (alive.length === 1) {
       G.gameOver = true;
-      G.winner = alivePlayers[0];
-      G.logs.push(`Game Over! ${G.winner === 0 ? 'You win!' : `AI ${G.winner} wins!`}`);
+      G.winner = alive[0];
+      G.logs.push(`Game Over! ${G.winner === 0 ? 'You win' : `AI ${G.winner} wins`} (last standing)!`);
     } else {
-      // All eliminated - most souls wins
-      let maxSouls = -1;
-      let winner = 0;
-      for (const [pid, p] of Object.entries(G.players)) {
-        const souls = p.souls.reduce((sum, s) => sum + (s.souls || 1), 0);
-        if (souls > maxSouls) {
-          maxSouls = souls;
-          winner = parseInt(pid);
-        }
-      }
+      // Everyone eliminated: most souls wins, tie-break by souls-wounds then XP.
+      const ranked = Object.entries(G.players).map(([pid, p]) => ({
+        pid: parseInt(pid),
+        s: totalSouls(p),
+        sw: totalSouls(p) - totalWounds(p),
+        xp: p.boss?.xp || 0,
+      })).sort((a, b) => b.sw - a.sw || a.xp - b.xp || b.s - a.s);
       G.gameOver = true;
-      G.winner = winner;
-      G.logs.push(`Game Over! ${G.winner === 0 ? 'You win!' : `AI ${G.winner} wins!`} with ${maxSouls} souls.`);
+      G.winner = ranked[0].pid;
+      G.logs.push(`Game Over! ${G.winner === 0 ? 'You win' : `AI ${G.winner} wins`} with ${ranked[0].s} souls.`);
     }
   }
 }
@@ -377,6 +443,19 @@ export const BossMonster = {
             if (card) player.hand.push(card);
           }
         }
+
+        // Seed the discard pile: 4 random Rooms + 2 random Spells face-up
+        // (per rules.md setup: "Set up the discard pile with 4 random Room
+        // and 2 random Spell cards face-up in the pile.")
+        for (let j = 0; j < 4; j++) {
+          const card = G.decks.rooms.pop();
+          if (card) G.decks.roomDiscard.push(card);
+        }
+        for (let j = 0; j < 2; j++) {
+          const card = G.decks.spells.pop();
+          if (card) G.decks.spellDiscard.push(card);
+        }
+        G.logs.push('Setup: discard pile seeded with 4 Rooms + 2 Spells.');
       }
     },
 
@@ -637,22 +716,21 @@ export const BossMonster = {
         }
       },
       next: PHASE.BUILD,
-      // Adventure auto-resolves in onBegin, so end immediately after.
-      endIf: () => true,
+      // Adventure auto-resolves in onBegin; end only after it has run.
+      endIf: ({ G }) => G.adventureResolved === true,
       onBegin: ({ G, ctx }) => {
         G.logs.push(`--- Turn ${G.turn} - Adventure Phase ---`);
         G.phase = PHASE.ADVENTURE;
+        G.adventureResolved = false;
 
         // Determine adventure order (most wounds first, tie = most souls)
         G.adventureOrder = Object.keys(G.players)
           .map(i => parseInt(i))
           .sort((a, b) => {
-            const woundsA = G.players[a].wounds.reduce((sum, w) => sum + (w.wounds || 1), 0);
-            const woundsB = G.players[b].wounds.reduce((sum, w) => sum + (w.wounds || 1), 0);
+            const woundsA = totalWounds(G.players[a]);
+            const woundsB = totalWounds(G.players[b]);
             if (woundsB !== woundsA) return woundsB - woundsA;
-            const soulsA = G.players[a].souls.reduce((sum, s) => sum + (s.souls || 1), 0);
-            const soulsB = G.players[b].souls.reduce((sum, s) => sum + (s.souls || 1), 0);
-            return soulsB - soulsA;
+            return totalSouls(G.players[b]) - totalSouls(G.players[a]);
           });
 
         G.adventureIndex = 0;
@@ -664,6 +742,8 @@ export const BossMonster = {
 
         // Check win conditions
         checkWinConditions(G, ctx);
+
+        G.adventureResolved = true;
       }
     }
   },
