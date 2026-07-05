@@ -22,6 +22,13 @@ import {
   extraBuildsFor,
   isNoEntry,
 } from './spellEffects.js';
+import {
+  roomDamageWithModifiers,
+  dungeonTreasures,
+  onBuildRoom,
+  onHeroDiedInRoom,
+  processLevelUp,
+} from './roomAbilities.js';
 
 // Does a spell's category allow it in the given phase?
 // Combined categories (BUILD_BAIT=4, ADVENTURE_BUILD=5) are accepted in either
@@ -130,7 +137,8 @@ function processAdventures(G, ctx) {
 
     for (const [pid, p] of Object.entries(G.players)) {
       if (p.eliminated) continue;
-      const treasures = p.boss?.treasures || [];
+      // Use dungeonTreasures so Dragon Hatchery's all-4-types lure applies.
+      const treasures = dungeonTreasures(G, parseInt(pid));
       const matchCount = treasures.filter(t => t === heroClass).length;
       if (matchCount > maxMatch) {
         maxMatch = matchCount;
@@ -164,6 +172,7 @@ function processAdventures(G, ctx) {
     const heroRef = hero.id + '-' + G.adventureIndex; // stable ref for effect targeting
     // Assassin: hero HP bonus from active effects.
     heroHP += heroHealthBonusFor(G, heroRef);
+    let deathRoom = null; // room that dealt the killing blow (for hero-death abilities)
 
     for (let i = 0; i < target.dungeon.length && heroHP > 0; i++) {
       // Freeze: deactivated rooms deal no damage and grant no abilities this turn.
@@ -173,13 +182,14 @@ function processAdventures(G, ctx) {
       }
       const room = target.dungeon[i];
       let roomDamage = room.damage || 0;
-      // Annihilator / Giant Size: +damage bonus from active effects.
+      // Passive room modifiers (Goblin Armory, Dizzygas Hallway, Monster's Ballroom).
+      roomDamage = roomDamageWithModifiers(G, targetPlayer, i, roomDamage);
+      // Annihilator / Giant Size: +damage bonus from active spell effects.
       roomDamage += roomDamageBonusFor(G, targetPlayer, i);
 
       heroHP -= roomDamage;
       G.logs.push(`${room.name} deals ${roomDamage} damage to ${hero.name} (HP: ${heroHP})`);
-
-      // Room abilities would trigger here (simplified)
+      if (heroHP <= 0) deathRoom = room;
     }
 
     if (heroHP <= 0) {
@@ -190,6 +200,9 @@ function processAdventures(G, ctx) {
       }
       G.logs.push(`${hero.name} defeated! ${targetPlayer === 0 ? 'You' : `AI ${targetPlayer}`} gain ${souls} soul(s).`);
       heroDefeated = true;
+      // "When a hero dies in this room" abilities (Open Grave, Golem Factory,
+      // Brainsucker Hive, Vampire Bordello, Succubus Spa).
+      if (deathRoom) onHeroDiedInRoom(G, ctx, targetPlayer, deathRoom, hero);
     } else {
       // Hero survives - player takes wounds
       const wounds = hero.wounds || 1;
@@ -458,14 +471,17 @@ export const BossMonster = {
           G.selectedCard = null;
           G.logs.push(`${pid == 0 ? 'You' : `AI ${pid}`} built ${card.name}`);
 
-          // Check for level up (5th room built)
+          // "When you build this room" abilities (Dark Laboratory, Specter's
+          // Sanctum, Mimic Vault, etc.) and Beast Menagerie's cross-trigger.
+          onBuildRoom(G, ctx, pid, card);
+
+          // Level Up at 5 rooms: trigger the Boss's unique ability.
           if (player.dungeon.length >= 5 && !player.leveledUp) {
             player.leveledUp = true;
             const spell = G.decks.spells.pop();
-            if (spell) {
-              player.hand.push(spell);
-              G.logs.push(`${pid == 0 ? 'You' : `AI ${pid}`} LEVELED UP! Drew a spell.`);
-            }
+            if (spell) player.hand.push(spell);
+            G.logs.push(`${pid == 0 ? 'You' : `AI ${pid}`} LEVELED UP!`);
+            processLevelUp(G, ctx, pid);
           }
         },
 
