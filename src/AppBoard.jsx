@@ -1,238 +1,300 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   BOSSES, ROOMS, SPELLS, HEROES, TREASURE_NAMES, PHASE, getCardImage
 } from './cardData.js';
 
-function Card({ card, kind = 'room', faceDown = false, size = 'md', onClick, selected = false, dim = false, style = {} }) {
-  const src = faceDown ? getCardImage('', `back-${kind}`) : getCardImage(card?.id, kind === 'epic-hero' ? 'epic-hero' : kind);
+// ---------------------------------------------------------------------------
+// Card image component. `kind` selects the folder; `faceDown` renders a back.
+// ---------------------------------------------------------------------------
+function Card({ card, kind = 'room', faceDown = false, size = 'md', onClick, onInspect, selected = false, dim = false, style = {} }) {
+  const src = faceDown
+    ? getCardImage('', `back-${kind === 'epic-hero' ? 'hero' : kind}`)
+    : getCardImage(card?.id, kind === 'epic-hero' ? 'epic-hero' : kind);
   const sizes = {
-    xs: { width: 50, font: 9 },
-    sm: { width: 70, font: 10 },
-    md: { width: 100, font: 11 },
-    lg: { width: 140, font: 12 },
-    xl: { width: 200, font: 13 }
+    xs: { width: 48 },
+    sm: { width: 76 },
+    md: { width: 110 },
+    lg: { width: 150 },
+    xl: { width: 210 }
   };
   const s = sizes[size] || sizes.md;
   const ratio = 1.4;
   return (
     <div
-      onClick={onClick}
       style={{
         width: s.width,
         height: s.width * ratio,
-        borderRadius: 8,
+        borderRadius: 6,
         overflow: 'hidden',
-        boxShadow: selected ? '0 0 0 3px #F59E0B, 0 4px 12px rgba(0,0,0,0.5)' : '0 4px 12px rgba(0,0,0,0.4)',
+        boxShadow: selected ? '0 0 0 3px #F59E0B, 0 6px 14px rgba(0,0,0,0.6)' : '0 4px 12px rgba(0,0,0,0.5)',
         opacity: dim ? 0.55 : 1,
         transition: 'transform 0.12s, box-shadow 0.12s',
         cursor: onClick ? 'pointer' : 'default',
         background: '#111',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        position: 'relative',
         ...style
       }}
+      onClick={onClick}
     >
       {src ? (
         <img
           src={src}
           alt={card?.name || 'card'}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }}
           loading="lazy"
           onError={(e) => { e.currentTarget.style.display = 'none'; }}
         />
       ) : (
-        <div style={{ color: '#fff', fontSize: s.font, textAlign: 'center', padding: 6 }}>{card?.name || '?'}</div>
+        <div style={{ color: '#fff', fontSize: 10, textAlign: 'center', padding: 6, position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {card?.name || '?'}
+        </div>
+      )}
+      {onInspect && card && !faceDown && (
+        <span
+          onClick={(e) => { e.stopPropagation(); onInspect(card, kind); }}
+          style={{
+            position: 'absolute', top: 3, right: 3,
+            width: 20, height: 20, borderRadius: '50%',
+            background: 'rgba(0,0,0,0.7)', color: '#FCD34D',
+            border: '1px solid #FCD34D', cursor: 'pointer',
+            fontSize: 12, lineHeight: '20px', padding: 0, textAlign: 'center',
+            fontWeight: 700, userSelect: 'none'
+          }}
+          title="Inspecter"
+        >i</span>
       )}
     </div>
   );
 }
 
+// ---------------------------------------------------------------------------
+// HUD counters
+// ---------------------------------------------------------------------------
 function Soul({ n }) {
-  const src = '/assets/ui/icons/soul.png';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-      <img src={src} width={18} height={18} alt="soul" />
-      <span style={{ color: '#FCD34D', fontWeight: 700, fontSize: 13 }}>{n}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <img src="/assets/ui/icons/soul.png" width={20} height={20} alt="soul" />
+      <span style={{ color: '#FCD34D', fontWeight: 700, fontSize: 16 }}>{n}</span>
     </div>
   );
 }
 function Wound({ n }) {
-  const src = '/assets/ui/icons/wound.png';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-      <img src={src} width={18} height={18} alt="wound" />
-      <span style={{ color: '#F87171', fontWeight: 700, fontSize: 13 }}>{n}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+      <img src="/assets/ui/icons/wound.png" width={20} height={20} alt="wound" />
+      <span style={{ color: '#F87171', fontWeight: 700, fontSize: 16 }}>{n}</span>
     </div>
   );
 }
 
+const TREASURE_ICON = { 1: 'cleric', 2: 'fighter', 3: 'mage', 4: 'thief' };
+
+// ---------------------------------------------------------------------------
+// Main board — landscape layout.
+// Grid:  [ opponent strip ]   (top)
+//        [ town | detail panel ]   (middle)
+//        [ my dungeon ]   (bottom)
+//        [ hand | HUD ]   (footer)
+// ---------------------------------------------------------------------------
 export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) {
-  // Guard against initial render before G is populated
+  const [inspect, setInspect] = useState(null); // { card, kind }
+
   if (!G || !G.players) {
-    return <div style={{ minHeight: '100vh', background: '#0E0E0E', color: '#9CA3AF', padding: 24 }}>Loading…</div>;
+    return <div style={S.screen}>Loading…</div>;
   }
-  // playerID is a string from the Client ("0"); G.players is keyed by string.
   const pidKey = String(playerID);
   const me = G.players[pidKey];
   if (!me) {
-    return <div style={{ minHeight: '100vh', background: '#0E0E0E', color: '#9CA3AF', padding: 24 }}>Loading… (no player for {pidKey})</div>;
+    return <div style={S.screen}>Loading… (no player for {pidKey})</div>;
   }
-  // Use ctx.phase (the real boardgame.io phase) rather than the custom G.phase,
-  // which is only updated inside a subset of phase onBegin hooks.
   const phase = ctx.phase || G.phase;
 
-  // Boss selection
+  const mySouls = me.souls.length;
+  const myWounds = me.wounds.length;
+
+  // ----- Boss selection -----
   if (phase === PHASE.BOSS) {
     return (
-      <div style={styles.screen}>
-        <h1 style={styles.title}>Choisir votre Boss</h1>
-        <div style={styles.rowCenter}>
+      <div style={S.screen}>
+        <h1 style={S.title}>Choisir votre Boss</h1>
+        <div style={S.rowCenter}>
           {G.bossPicks.map(b => (
             <button
               key={b.id}
               onClick={() => moves.pickBoss(b.id)}
-              style={{ ...styles.cardBtn, margin: 12 }}
+              onDoubleClick={() => setInspect({ card: b, kind: 'boss' })}
+              style={S.cardBtn}
             >
-              <Card card={b} kind="boss" size="xl" />
-              <div style={styles.label}>{b.name}</div>
+              <Card card={b} kind="boss" size="xl" onInspect={setInspect} onClick={() => setInspect({ card: b, kind: 'boss' })} />
+              <div style={S.label}>{b.name}</div>
+              <div style={S.subLabel}>XP {b.xp} · Trésor {b.treasures.map(t => TREASURE_NAMES[t]).join(', ')}</div>
             </button>
           ))}
         </div>
+        <DetailPanel inspect={inspect} onClose={() => setInspect(null)} />
       </div>
     );
   }
 
-  // Determine AI status text
-  const aiText = String(ctx.currentPlayer) === pidKey ? 'Your turn' : `Player ${ctx.currentPlayer} turn`;
+  const isMyTurn = String(ctx.currentPlayer) === pidKey;
+  const opponents = Object.entries(G.players).filter(([pid]) => pid !== pidKey);
 
   return (
-    <div style={styles.screen}>
-      {/* Header */}
-      <div style={styles.header}>
-        <div style={styles.phaseBadge}>{phase.toUpperCase()} — Tour {G.turn}</div>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-          <Soul n={me.souls.length} />
-          <Wound n={me.wounds.length} />
-          <span style={{ color: '#9CA3AF', fontSize: 13 }}>{aiText}</span>
+    <div style={S.screen}>
+      {/* ===== HUD strip ===== */}
+      <div style={S.hud}>
+        <div style={S.phaseBadge}>{(phase || '').toUpperCase()}</div>
+        <div style={S.hudStat}>Tour {G.turn}</div>
+        <div style={S.hudStat}>{isMyTurn ? 'À vous de jouer' : `Joueur ${ctx.currentPlayer}`}</div>
+        <div style={{ display: 'flex', gap: 18, marginLeft: 'auto', alignItems: 'center' }}>
+          <Soul n={mySouls} />
+          <Wound n={myWounds} />
+          <span style={S.hudStat}>{me.boss?.name || 'Boss'} ({me.boss?.xp || 0} XP)</span>
+          <span style={S.hudStat}>Donjon {me.dungeon.length}/5</span>
+          <span style={S.hudStat}>Pioche R:{G.decks.rooms.length} S:{G.decks.spells.length} H:{G.decks.heroes.length}</span>
         </div>
       </div>
 
-      <div style={styles.main}>
-        {/* Town */}
-        <div style={styles.panel}>
-          <div style={styles.panelTitle}>Ville / Town</div>
-          <div style={styles.row}>
-            {G.town.length === 0 && <div style={styles.empty}>Aucun héros</div>}
-            {G.town.map((h, i) => (
-              <Card
-                key={`${h.id}-${i}`}
-                card={h}
-                kind={h.epic ? 'epic-hero' : 'hero'}
-                size="md"
-                style={{ marginRight: -30 }}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Opponent dungeons */}
-        {Object.entries(G.players)
-          .filter(([pid]) => pid !== pidKey)
-          .map(([pid, p]) => (
-            <div key={pid} style={styles.panel}>
-              <div style={styles.panelTitle}>
-                Joueur {pid} — {p.boss?.name || 'Boss'} | <Soul n={p.souls.length} /> <Wound n={p.wounds.length} />
-              </div>
-              <div style={styles.dungeon}>
-                {p.dungeon.length === 0 && <div style={styles.empty}>Pas de donjon</div>}
-                {p.dungeon.map((r, i) => (
-                  <Card
-                    key={`${pid}-${r.id}-${i}`}
-                    card={r}
-                    kind="room"
-                    size="sm"
-                    faceDown={phase === PHASE.SETUP && !p.revealed}
-                    style={{ marginRight: -24 }}
-                  />
-                ))}
-              </div>
+      {/* ===== Opponent strip (top) ===== */}
+      <div style={S.oppStrip}>
+        {opponents.map(([pid, p]) => (
+          <div key={pid} style={S.oppPanel}>
+            <div style={S.oppHeader}>
+              <span style={S.oppName}>Joueur {pid} — {p.boss?.name || 'Boss'}</span>
+              <Soul n={p.souls.length} />
+              <Wound n={p.wounds.length} />
+              {p.eliminated && <span style={S.elimTag}>ÉLIMINÉ</span>}
             </div>
-          ))}
-
-        {/* My dungeon */}
-        <div style={styles.myPanel}>
-          <div style={styles.panelTitle}>Mon Donjon — {me.boss?.name || 'Boss'}</div>
-          <div style={styles.dungeon}>
-            {me.dungeon.length === 0 && <div style={styles.empty}>Construisez des salles</div>}
-            {me.dungeon.map((r, i) => (
-              <Card
-                key={`me-${r.id}-${i}`}
-                card={r}
-                kind="room"
-                size="lg"
-                selected={G.selectedCard === i}
-                style={{ marginRight: -36, zIndex: i }}
-              />
-            ))}
-            {me.dungeon.length < 5 && phase === PHASE.BUILD && (
-              <div style={{ ...styles.dropZone, width: 100, height: 140 }} onClick={() => {}}/>
-            )}
-          </div>
-        </div>
-
-        {/* Hand */}
-        <div style={styles.handPanel}>
-          <div style={styles.panelTitle}>Main</div>
-          <div style={styles.row}>
-            {me.hand.length === 0 && <div style={styles.empty}>Vide</div>}
-            {me.hand.map((c, i) => (
-              <button
-                key={`hand-${c.id}-${i}`}
-                onClick={() => {
-                  if (c.isRoom && (phase === PHASE.BUILD || phase === PHASE.SETUP)) {
-                    if (phase === PHASE.SETUP) moves.buildInitialRoom(i);
-                    else moves.buildRoom(i);
-                  } else if (c.isSpell) {
-                    moves.playSpell(i);
-                  } else {
-                    moves.selectCard(i);
-                  }
-                }}
-                style={{ ...styles.cardBtn, marginRight: -28 }}
-              >
+            <div style={S.dungeonRow}>
+              {p.dungeon.length === 0 && <div style={S.empty}>Donjon vide</div>}
+              {p.dungeon.map((r, i) => (
                 <Card
-                  card={c}
-                  kind={c.isRoom ? 'room' : c.isSpell ? 'spell' : 'hero'}
-                  size="md"
-                  selected={G.selectedCard === i}
-                  dim={String(ctx.currentPlayer) !== pidKey}
+                  key={`${pid}-${r.id}-${i}`}
+                  card={r}
+                  kind="room"
+                  size="sm"
+                  faceDown={phase === PHASE.SETUP && !p.revealed}
+                  onInspect={setInspect}
+                  style={{ marginRight: -28 }}
                 />
-              </button>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      </div>
-
-      {/* Footer actions */}
-      <div style={styles.footer}>
-        <button style={styles.btn} onClick={() => moves.pass()} disabled={String(ctx.currentPlayer) !== pidKey}>Passer</button>
-        <button style={styles.btn} onClick={() => moves.playSpell(G.selectedCard)} disabled={String(ctx.currentPlayer) !== pidKey || G.selectedCard === null}>Lancer Sort</button>
-      </div>
-
-      {/* Logs */}
-      <div style={styles.logs}>
-        {G.logs.slice(-12).map((l, i) => (
-          <div key={i} style={styles.log}>{l}</div>
         ))}
       </div>
 
+      {/* ===== Middle: town + detail panel ===== */}
+      <div style={S.middleRow}>
+        <div style={S.townPanel}>
+          <div style={S.panelTitle}>Ville / Town ({G.town.length})</div>
+          <div style={S.townRow}>
+            {G.town.length === 0 && <div style={S.empty}>Aucun héros en ville</div>}
+            {G.town.map((h, i) => (
+              <Card
+                key={`town-${h.id}-${i}`}
+                card={h}
+                kind={h.epic ? 'epic-hero' : 'hero'}
+                size="md"
+                onInspect={setInspect}
+                style={{ marginRight: -32 }}
+              />
+            ))}
+          </div>
+          {me.entrance.length > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <div style={S.panelTitle}>À votre entrée</div>
+              <div style={S.townRow}>
+                {me.entrance.map((h, i) => (
+                  <Card key={`entr-${i}`} card={h} kind={h.epic ? 'epic-hero' : 'hero'} size="sm" onInspect={setInspect} style={{ marginRight: -20 }} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+        <DetailPanel inspect={inspect} onClose={() => setInspect(null)} />
+      </div>
+
+      {/* ===== My dungeon (bottom) ===== */}
+      <div style={S.myDungeonPanel}>
+        <div style={S.panelTitle}>
+          Mon Donjon — {me.boss?.name || 'Boss'}
+          {me.leveledUp && <span style={S.levelTag}>LEVEL UP</span>}
+        </div>
+        <div style={S.myDungeonRow}>
+          {me.dungeon.length === 0 && <div style={S.empty}>Construisez des salles</div>}
+          {me.dungeon.map((r, i) => (
+            <Card
+              key={`me-${r.id}-${i}`}
+              card={r}
+              kind="room"
+              size="lg"
+              selected={G.selectedCard === i}
+              onInspect={setInspect}
+              style={{ marginRight: -40, zIndex: i }}
+            />
+          ))}
+          {me.dungeon.length < 5 && phase === PHASE.BUILD && (
+            <div style={S.dropZone}>+</div>
+          )}
+        </div>
+      </div>
+
+      {/* ===== Hand + actions ===== */}
+      <div style={S.handPanel}>
+        <div style={S.panelTitle}>
+          Main ({me.hand.length})
+          <span style={{ ...S.hint, marginLeft: 8 }}>clic pour jouer · bouton (i) pour inspecter</span>
+        </div>
+        <div style={S.handRow}>
+          {me.hand.length === 0 && <div style={S.empty}>Main vide</div>}
+          {me.hand.map((c, i) => (
+            <button
+              key={`hand-${c.id}-${i}`}
+              onClick={() => {
+                if (c.isRoom && (phase === PHASE.BUILD || phase === PHASE.SETUP)) {
+                  if (phase === PHASE.SETUP) moves.buildInitialRoom(i);
+                  else moves.buildRoom(i);
+                } else if (c.isSpell) {
+                  moves.playSpell(i);
+                } else {
+                  moves.selectCard(i);
+                }
+              }}
+              style={S.cardBtn}
+              title={c.name}
+            >
+              <Card
+                card={c}
+                kind={c.isRoom ? 'room' : c.isSpell ? 'spell' : 'hero'}
+                size="md"
+                selected={G.selectedCard === i}
+                dim={!isMyTurn}
+                onInspect={setInspect}
+                style={{ marginRight: -30 }}
+              />
+            </button>
+          ))}
+        </div>
+        <div style={S.actions}>
+          <button style={S.btn} onClick={() => moves.pass()} disabled={!isMyTurn}>Passer</button>
+          <button style={S.btn} onClick={() => { if (G.selectedCard !== null) moves.playSpell(G.selectedCard); }} disabled={!isMyTurn || G.selectedCard === null}>Lancer Sort</button>
+        </div>
+      </div>
+
+      {/* ===== Log (collapsible bottom strip) ===== */}
+      <div style={S.logStrip}>
+        {G.logs.slice(-6).map((l, i) => (
+          <div key={i} style={S.logLine}>{l}</div>
+        ))}
+      </div>
+
+      {/* ===== Game over ===== */}
       {G.gameOver && (
-        <div style={styles.modal}>
-          <div style={styles.modalBox}>
-            <h2>{String(G.winner) === pidKey ? 'Victoire !' : 'Défaite...'}</h2>
+        <div style={S.modal}>
+          <div style={S.modalBox}>
+            <h2 style={{ color: '#F59E0B' }}>{String(G.winner) === pidKey ? 'Victoire !' : 'Défaite...'}</h2>
             <p>{String(G.winner) === pidKey ? 'Vous avez gagné.' : `Joueur ${G.winner} gagne.`}</p>
-            <button style={styles.btn} onClick={() => window.location.reload()}>Rejouer</button>
+            <button style={S.btn} onClick={() => window.location.reload()}>Rejouer</button>
           </div>
         </div>
       )}
@@ -240,164 +302,216 @@ export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) 
   );
 }
 
-const styles = {
+// ---------------------------------------------------------------------------
+// Detail panel — shows a card's full image + name + effect text.
+// ---------------------------------------------------------------------------
+function DetailPanel({ inspect, onClose }) {
+  if (!inspect) return null;
+  const { card, kind } = inspect;
+  const src = getCardImage(card?.id, kind === 'epic-hero' ? 'epic-hero' : kind);
+  return (
+    <div style={S.detailPanel}>
+      <div style={S.detailHeader}>
+        <span style={S.detailTitle}>{card?.name || 'Carte'}</span>
+        <button style={S.closeBtn} onClick={onClose}>×</button>
+      </div>
+      <div style={S.detailImgWrap}>
+        {src && <img src={src} alt={card?.name} style={S.detailImg} />}
+      </div>
+      <div style={S.detailMeta}>
+        {card?.type && <div><strong>Type:</strong> {card.type}{card.advanced ? ' (avancée)' : ''}</div>}
+        {card?.damage != null && <div><strong>Dégât:</strong> {card.damage}</div>}
+        {card?.treasures && <div><strong>Trésor:</strong> {card.treasures.map(t => TREASURE_NAMES[t] || t).join(', ')}</div>}
+        {card?.category != null && <div><strong>Catégorie:</strong> {['ANY','BUILD','BAIT','ADVENTURE','BUILD_BAIT','ADV_BUILD'][card.category]}</div>}
+        {card?.xp != null && <div><strong>XP:</strong> {card.xp}</div>}
+        {card?.hp != null && <div><strong>HP:</strong> {card.hp}</div>}
+      </div>
+      {card?.description && <div style={S.detailDesc}>{card.description}</div>}
+      {card?.levelUpDesc && <div style={S.detailDesc}><em>{card.levelUpDesc}</em></div>}
+    </div>
+  );
+}
+
+// ===========================================================================
+// Styles
+// ===========================================================================
+const S = {
   screen: {
     minHeight: '100vh',
-    background: '#0E0E0E',
+    background: 'radial-gradient(ellipse at top, #1a1025 0%, #0a0a0f 70%)',
     color: '#F3F4F6',
-    fontFamily: "'Space Grotesk', sans-serif",
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  title: {
-    fontFamily: "'Space Grotesk', sans-serif",
-    fontSize: 36,
-    fontWeight: 700,
-    textAlign: 'center',
-    margin: '24px 0',
-    color: '#E11D48'
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '12px 20px',
-    borderBottom: '1px solid #27272A',
-    background: '#18181B'
-  },
-  phaseBadge: {
-    background: '#7C3AED',
-    color: '#fff',
-    padding: '6px 14px',
-    borderRadius: 999,
-    fontWeight: 700,
-    fontSize: 13,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5
-  },
-  main: {
-    flex: 1,
-    padding: 16,
+    fontFamily: "'Segoe UI', 'Space Grotesk', sans-serif",
     display: 'flex',
     flexDirection: 'column',
-    gap: 14,
-    overflowY: 'auto'
+    overflow: 'hidden'
   },
-  panel: {
-    background: '#18181B',
-    borderRadius: 12,
-    padding: 12,
-    border: '1px solid #27272A'
-  },
-  myPanel: {
-    background: '#24132A',
-    borderRadius: 12,
-    padding: 12,
-    border: '1px solid #4C1D95'
-  },
-  handPanel: {
-    background: '#111827',
-    borderRadius: 12,
-    padding: 12,
-    border: '1px solid #1F2937',
-    minHeight: 170
-  },
-  panelTitle: {
-    fontSize: 13,
-    fontWeight: 700,
-    color: '#A1A1AA',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    display: 'flex',
-    gap: 8,
-    alignItems: 'center'
-  },
-  row: {
-    display: 'flex',
-    gap: 6,
-    flexWrap: 'wrap',
-    alignItems: 'flex-start'
-  },
-  rowCenter: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 12
-  },
-  dungeon: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: 6,
-    alignItems: 'flex-start'
-  },
-  cardBtn: {
-    background: 'none',
-    border: 'none',
-    padding: 0,
-    margin: 0,
-    outline: 'none'
-  },
-  empty: {
-    color: '#6B7280',
-    fontSize: 13,
-    fontStyle: 'italic'
-  },
-  label: {
+  title: {
+    fontSize: 34,
+    fontWeight: 800,
     textAlign: 'center',
-    marginTop: 6,
+    margin: '20px 0',
+    color: '#E11D48',
+    textShadow: '0 2px 8px rgba(225,29,72,0.4)'
+  },
+  // HUD
+  hud: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 16,
+    padding: '8px 16px',
+    background: 'linear-gradient(180deg, #1f1a2e 0%, #15121f 100%)',
+    borderBottom: '1px solid #2d2540',
+    flexShrink: 0
+  },
+  phaseBadge: {
+    background: 'linear-gradient(135deg, #7C3AED, #5B21B6)',
+    color: '#fff',
+    padding: '6px 14px',
+    borderRadius: 6,
+    fontWeight: 800,
     fontSize: 13,
-    color: '#E4E4E7'
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    boxShadow: '0 2px 6px rgba(124,58,237,0.4)'
   },
-  dropZone: {
-    border: '2px dashed #4B5563',
+  hudStat: { fontSize: 13, color: '#A1A1AA', fontWeight: 600 },
+  // Opponent strip
+  oppStrip: {
+    display: 'flex',
+    gap: 10,
+    padding: '10px 16px',
+    flexShrink: 0
+  },
+  oppPanel: {
+    flex: 1,
+    background: 'rgba(30,27,46,0.6)',
     borderRadius: 8,
-    background: '#111827'
+    padding: 10,
+    border: '1px solid #2d2540'
   },
-  footer: {
+  oppHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 6,
+    fontSize: 13
+  },
+  oppName: { fontWeight: 700, color: '#E4E4E7' },
+  elimTag: { color: '#F87171', fontWeight: 700, fontSize: 11 },
+  dungeonRow: { display: 'flex', alignItems: 'flex-start' },
+  // Middle row: town + detail
+  middleRow: {
     display: 'flex',
     gap: 12,
-    padding: '12px 20px',
-    borderTop: '1px solid #27272A',
-    background: '#18181B'
+    padding: '0 16px',
+    flex: '1 1 auto',
+    minHeight: 0
+  },
+  townPanel: {
+    flex: '1 1 auto',
+    background: 'rgba(20,18,30,0.7)',
+    borderRadius: 8,
+    padding: 10,
+    border: '1px solid #2d2540'
+  },
+  townRow: { display: 'flex', alignItems: 'flex-start' },
+  // Detail panel
+  detailPanel: {
+    width: 240,
+    flexShrink: 0,
+    background: 'rgba(15,12,22,0.9)',
+    borderRadius: 8,
+    padding: 10,
+    border: '1px solid #3d3050',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 8
+  },
+  detailHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  detailTitle: { fontWeight: 700, fontSize: 14, color: '#FCD34D' },
+  closeBtn: {
+    background: 'none', border: 'none', color: '#9CA3AF',
+    fontSize: 22, cursor: 'pointer', lineHeight: 1, padding: '0 4px'
+  },
+  detailImgWrap: {
+    width: '100%', aspectRatio: '1.4', borderRadius: 6,
+    overflow: 'hidden', background: '#111'
+  },
+  detailImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
+  detailMeta: { fontSize: 12, color: '#D1D5DB', display: 'flex', flexDirection: 'column', gap: 2 },
+  detailDesc: {
+    fontSize: 12, color: '#A1A1AA', lineHeight: 1.4,
+    background: 'rgba(0,0,0,0.3)', padding: 8, borderRadius: 4,
+    fontStyle: 'normal'
+  },
+  // My dungeon
+  myDungeonPanel: {
+    padding: '8px 16px',
+    flexShrink: 0
+  },
+  myDungeonRow: { display: 'flex', alignItems: 'flex-start' },
+  levelTag: {
+    background: '#F59E0B', color: '#000', fontSize: 10, fontWeight: 800,
+    padding: '2px 6px', borderRadius: 4, marginLeft: 8
+  },
+  // Hand
+  handPanel: {
+    padding: '8px 16px',
+    background: 'linear-gradient(180deg, #14111e 0%, #0d0b14 100%)',
+    borderTop: '1px solid #2d2540',
+    flexShrink: 0
+  },
+  handRow: { display: 'flex', alignItems: 'flex-start', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: 4 },
+  actions: { display: 'flex', gap: 10, marginTop: 8 },
+  hint: { fontSize: 11, color: '#6B7280', fontWeight: 400, textTransform: 'none' },
+  // Misc
+  panelTitle: {
+    fontSize: 12, fontWeight: 700, color: '#A1A1AA',
+    marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.8,
+    display: 'flex', alignItems: 'center', gap: 8
+  },
+  rowCenter: {
+    display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
+    flexWrap: 'wrap', gap: 16
+  },
+  cardBtn: { background: 'none', border: 'none', padding: 0, margin: 0, outline: 'none', cursor: 'pointer' },
+  empty: { color: '#6B7280', fontSize: 12, fontStyle: 'italic' },
+  label: { textAlign: 'center', marginTop: 8, fontSize: 14, fontWeight: 700, color: '#E4E4E7' },
+  subLabel: { textAlign: 'center', fontSize: 11, color: '#9CA3AF' },
+  dropZone: {
+    width: 100, height: 140, borderRadius: 6,
+    border: '2px dashed #4B5563', background: 'rgba(30,41,59,0.4)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: '#6B7280', fontSize: 32
   },
   btn: {
-    background: '#7C3AED',
-    color: '#fff',
-    border: 'none',
-    borderRadius: 8,
-    padding: '10px 18px',
-    fontWeight: 700,
-    cursor: 'pointer',
-    fontFamily: "'Space Grotesk', sans-serif"
+    background: 'linear-gradient(135deg, #7C3AED, #5B21B6)',
+    color: '#fff', border: 'none', borderRadius: 6,
+    padding: '8px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer'
   },
-  logs: {
-    background: '#0B0B0C',
-    padding: '10px 16px',
-    maxHeight: 120,
+  // Log
+  logStrip: {
+    background: 'rgba(0,0,0,0.4)',
+    padding: '6px 16px',
+    maxHeight: 90,
     overflowY: 'auto',
-    fontFamily: "'JetBrains Mono', monospace",
+    fontFamily: "'Consolas', monospace",
     fontSize: 11,
-    color: '#9CA3AF'
+    color: '#9CA3AF',
+    flexShrink: 0
   },
-  log: {
-    marginBottom: 3
-  },
+  logLine: { marginBottom: 2, lineHeight: 1.4 },
+  // Modal
   modal: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.75)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 100
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100
   },
   modalBox: {
-    background: '#18181B',
-    padding: 32,
-    borderRadius: 16,
-    textAlign: 'center',
-    border: '1px solid #7C3AED'
+    background: '#1a1525', padding: 36, borderRadius: 12, textAlign: 'center',
+    border: '1px solid #7C3AED', boxShadow: '0 0 40px rgba(124,58,237,0.4)'
   }
 };
