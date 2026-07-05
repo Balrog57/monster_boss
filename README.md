@@ -54,21 +54,28 @@ Convertir l'APK Android Boss Monster v2.4.12 en un jeu HTML jouable avec :
 ## Ce qui manque / À faire
 
 ### Images
-- [ ] **Couleurs pas encore validées** : le format E_RBG (v5) donne des cartes vertes mais l'utilisateur n'a pas confirmé
-- [ ] Extraire TOUTES les cartes avec le bon format et les intégrer
+- [x] **Cartes téléchargées du wiki** (96 cartes, résolution 746×1039, couleurs authentiques)
+      — voir `tools/fetch_wiki_cards.py`. Couverture 100% (toutes les BMA001-BMA096).
+      Remplace l'extraction WPK qui donnait des couleurs vertes/bleues incorrectes.
 - [ ] Extraire les fonds d'écran (menu_bg, etc.) en RGB565 1920×1081
 - [ ] Extraire les éléments UI (boutons, HUD, logo) depuis les sprites Common/
 - [ ] Intégrer les icônes de type de trésor (Tutorial/)
+
+> **Note sur l'extraction WPK** : `tools/extract_wpk.py` décode les spritesheets WPK
+> (format E_RBG 16-bit) mais le décodage produit des couleurs inauthentiques
+> (verdâtres ou bleutées) quelle que soit l'interprétation des canaux. Les cartes
+> du wiki sont préférées car elles sont la référence couleur officielle.
 
 ### Gameplay
 - [ ] Reproduire le système de jeu EXACT de l'APK (pas le jeu solo modifié)
 - [ ] IA fonctionnelle qui joue comme le vrai jeu
 - [ ] Interface qui ressemble au jeu original (landscape, HUD en haut, donjon au centre)
-- [ ] Cartes assez grandes pour être lisibles
+- [x] Cartes assez grandes pour être lisibles (résolution wiki 746×1039)
 - [ ] Gestion correcte des sorts pendant les phases appropriées
+      (les 16 sorts n'ont actuellement aucun effet — TODO dans BossMonster.js)
 
 ### Interface
-- [ ] Utiliser boardgame.io ou refaire from scratch proprement
+- [x] Utiliser boardgame.io (0.50) — build fonctionnel
 - [ ] Layout landscape comme l'APK
 - [ ] HUD avec stats (âmes, blessures, salles, tour, pioche)
 - [ ] Donjon : 5 emplacements + boss avec les VRAIES images de cartes

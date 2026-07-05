@@ -13,6 +13,10 @@ dist/
 # Playwright MCP session snapshots
 .playwright-mcp/
 
+# Python
+__pycache__/
+*.pyc
+
 # Scratch / experiment images
 assets/perm_test_*.jpg
 assets/sample_*.jpg
