@@ -5,3 +5,11 @@ boss-monster-2-4-12/
 design_system/
 test/
 screenshot_*.png
+
+# Build artifacts & logs
+dist/
+*.log
+
+# Scratch / experiment images
+assets/perm_test_*.jpg
+assets/sample_*.jpg

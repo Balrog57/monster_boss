@@ -1,0 +1,1177 @@
+{
+  "bosses": [
+    {
+      "id": "BMA001",
+      "name": "Draculord",
+      "xp": 900,
+      "treasures": [
+        1
+      ],
+      "advanced": false,
+      "levelUpDesc": "Level Up: Target opponent reveals his or her hand. Take one card and put it into your hand."
+    },
+    {
+      "id": "BMA002",
+      "name": "Xyzax",
+      "xp": 750,
+      "treasures": [
+        1
+      ],
+      "advanced": false,
+      "levelUpDesc": "Level Up: Choose two cards from the discard pile and put them into your hand."
+    },
+    {
+      "id": "BMA003",
+      "name": "King Croak",
+      "xp": 800,
+      "treasures": [
+        2
+      ],
+      "advanced": false,
+      "levelUpDesc": "Level Up: You may search the Room Deck or discard pile for an Advanced Monster Room. You may immediately build the room (over a room with a matching Treasure type)."
+    },
+    {
+      "id": "BMA004",
+      "name": "Robobo",
+      "xp": 400,
+      "treasures": [
+        2
+      ],
+      "advanced": false,
+      "levelUpDesc": "Level Up: Each opponent must choose and destroy one Room in his or her dungeon."
+    },
+    {
+      "id": "BMA005",
+      "name": "Cerebellus",
+      "xp": 650,
+      "treasures": [
+        3
+      ],
+      "advanced": false,
+      "levelUpDesc": "Level Up: You may draw three Spell cards, then discard a Spell card."
+    },
+    {
+      "id": "BMA006",
+      "name": "Seducia",
+      "xp": 600,
+      "treasures": [
+        3
+      ],
+      "advanced": false,
+      "levelUpDesc": "Level Up: You may search through town or the Hero decks, choose one Hero, and put it at the entrance to your dungeon."
+    },
+    {
+      "id": "BMA007",
+      "name": "Cleopatra",
+      "xp": 850,
+      "treasures": [
+        4
+      ],
+      "advanced": false,
+      "levelUpDesc": "Level Up: You may search the Room Deck or discard pile for an Advanced Trap Room. You may immediately build the room (over a room with a matching Treasure type)."
+    },
+    {
+      "id": "BMA008",
+      "name": "Gorgona",
+      "xp": 500,
+      "treasures": [
+        4
+      ],
+      "advanced": false,
+      "levelUpDesc": "Level Up: Choose a Hero in town. Immediately kill that Hero and place it face-down in your scorekeeping area."
+    }
+  ],
+  "rooms": [
+    {
+      "id": "BMA009",
+      "name": "Dark Altar",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        1,
+        1
+      ],
+      "quantity": 3,
+      "description": "Destroy this Room: Choose one card from the discard pile and put it into your hand."
+    },
+    {
+      "id": "BMA010",
+      "name": "Open Grave",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+        1
+      ],
+      "quantity": 2,
+      "description": "Once per turn, if a Hero dies in this room, choose one Room card from the discard pile and put into your hand."
+    },
+    {
+      "id": "BMA011",
+      "name": "Specter's Sanctum",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        1
+      ],
+      "quantity": 3,
+      "description": "When you build this room, choose an opponent. That opponent discards a random Spell card."
+    },
+    {
+      "id": "BMA012",
+      "name": "Succubus Spa",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        1
+      ],
+      "quantity": 3,
+      "description": "Once per turn, if a Hero Dies in this room, choose an opponent. Take a random Room or Spell card from that opponent's hand."
+    },
+    {
+      "id": "BMA013",
+      "name": "Dracolich Lair",
+      "advanced": true,
+      "type": "trap",
+      "damage": 3,
+      "treasures": [
+        1
+      ],
+      "quantity": 2,
+      "description": "Once per turn, you may discard two Room card to choose one Room card from the discard pile and put it into your hand."
+    },
+    {
+      "id": "BMA014",
+      "name": "Vampire Bordello",
+      "advanced": true,
+      "type": "trap",
+      "damage": 3,
+      "treasures": [
+        1
+      ],
+      "quantity": 2,
+      "description": "Once per turn, if a Hero dies in this Room, you may heal one Wound. (Flip over one of your Wounds, adding its Soul value to your total.)"
+    },
+    {
+      "id": "BMA015",
+      "name": "Goblin Armory",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        2,
+        2
+      ],
+      "quantity": 3,
+      "description": "Monster Rooms adjacent to this room deal +1 damage."
+    },
+    {
+      "id": "BMA016",
+      "name": "Golem Factory",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        2
+      ],
+      "quantity": 3,
+      "description": "Once per turn, if a hero dies in this room, draw a Room card."
+    },
+    {
+      "id": "BMA017",
+      "name": "Minotaur's Maze",
+      "advanced": false,
+      "type": "trap",
+      "damage": 0,
+      "treasures": [
+        2
+      ],
+      "quantity": 2,
+      "description": "The first time a Hero enters this room, send it back one room."
+    },
+    {
+      "id": "BMA018",
+      "name": "Neanderthal Cave",
+      "advanced": false,
+      "type": "trap",
+      "damage": 3,
+      "treasures": [
+        2
+      ],
+      "quantity": 3,
+      "description": "You cannot build an Advanced Room on Neanderthal Cave."
+    },
+    {
+      "id": "BMA019",
+      "name": "Beast Menagerie",
+      "advanced": true,
+      "type": "trap",
+      "damage": 4,
+      "treasures": [
+        2
+      ],
+      "quantity": 2,
+      "description": "Once per turn when you build another Monster room, draw a Room card."
+    },
+    {
+      "id": "BMA020",
+      "name": "Monster's Ballroom",
+      "advanced": true,
+      "type": "trap",
+      "damage": 0,
+      "treasures": [
+        2
+      ],
+      "quantity": 2,
+      "description": "This room's damage is equal to the number of Monster rooms in your dungeon."
+    },
+    {
+      "id": "BMA021",
+      "name": "Brainsucker Hive",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        3
+      ],
+      "quantity": 3,
+      "description": "Once per turn, if a Hero dies in this room, you may draw a Spell card."
+    },
+    {
+      "id": "BMA022",
+      "name": "Dark Laboratory",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        3,
+        3
+      ],
+      "quantity": 3,
+      "description": "When you build this room, draw two spell cards, then discard a Spell card."
+    },
+    {
+      "id": "BMA023",
+      "name": "Haunted Library",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        3
+      ],
+      "quantity": 2,
+      "description": "At the beginning of your turn, you may draw from the Spell deck instead of the Room deck."
+    },
+    {
+      "id": "BMA024",
+      "name": "Witch's Kitchen",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        3
+      ],
+      "quantity": 3,
+      "description": "Once per turn, you may discard a Monster Room card to draw a Spell card."
+    },
+    {
+      "id": "BMA025",
+      "name": "All-Seeing Eye",
+      "advanced": true,
+      "type": "monster",
+      "damage": 3,
+      "treasures": [
+        3
+      ],
+      "quantity": 2,
+      "description": "Once per turn when an opponent plays a Spell card, you may discard a Spell card to cancel its effect."
+    },
+    {
+      "id": "BMA026",
+      "name": "Liger's Den",
+      "advanced": true,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        3
+      ],
+      "quantity": 2,
+      "description": "Once per turn when you play a Spell card, draw a Spell card."
+    },
+    {
+      "id": "BMA027",
+      "name": "Bottomless Pit",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        4
+      ],
+      "quantity": 3,
+      "description": "Destroy this room: Kill a Hero in this room."
+    },
+    {
+      "id": "BMA028",
+      "name": "Boulder Ramp",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        4
+      ],
+      "quantity": 2,
+      "description": "Destroy another room in your dungeon: Deal 5 damage to a hero in this room."
+    },
+    {
+      "id": "BMA029",
+      "name": "Dizzygas Hallway",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        4
+      ],
+      "quantity": 3,
+      "description": "If the next room in your dungeon is a Trap room, it deals +2 damage."
+    },
+    {
+      "id": "BMA030",
+      "name": "Jackpot Stash",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        4,
+        4
+      ],
+      "quantity": 3,
+      "description": "Destroy this room: Double the treasure value of your other rooms until end of turn."
+    },
+    {
+      "id": "BMA031",
+      "name": "Recycling Center",
+      "advanced": true,
+      "type": "monster",
+      "damage": 3,
+      "treasures": [
+        4
+      ],
+      "quantity": 2,
+      "description": "When another room in your dungeon is destroyed, you may draw two Room cards."
+    },
+    {
+      "id": "BMA032",
+      "name": "The Crushinator",
+      "advanced": true,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+        4
+      ],
+      "quantity": 2,
+      "description": "Destroy another room in your dungeon: Your rooms deal +2 damage until end of turn."
+    },
+    {
+      "id": "BMA033",
+      "name": "Centipede Tunnel",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        2,
+        3
+      ],
+      "quantity": 2,
+      "description": "When you build this room, you may swap the placement of two Rooms in any dungeon."
+    },
+    {
+      "id": "BMA034",
+      "name": "Construction Zone",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        2,
+        4
+      ],
+      "quantity": 2,
+      "description": "When you build this room, you may immediately build an additional Room."
+    },
+    {
+      "id": "BMA035",
+      "name": "Dragon Hatchery",
+      "advanced": false,
+      "type": "trap",
+      "damage": 0,
+      "treasures": [
+        1,
+        3,
+        2,
+        4
+      ],
+      "quantity": 3,
+      "description": "(This room contains all four treasure types.)"
+    },
+    {
+      "id": "BMA036",
+      "name": "Mimic Vault",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        3,
+        4
+      ],
+      "quantity": 2,
+      "description": "When you build this room. Choose one ordinary Hero in town and place it on the entrance to your dungeon."
+    },
+    {
+      "id": "BMA037",
+      "name": "Monstrous Monument",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        1,
+        2
+      ],
+      "quantity": 2,
+      "description": "When you build this room, choose one Monster Room from the discard pile and put it in your hand."
+    },
+    {
+      "id": "BMA038",
+      "name": "Torture Chamber",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        1,
+        4
+      ],
+      "quantity": 2,
+      "description": "Destroy this room: Choose an opponent. That opponent discards a random Room card."
+    },
+    {
+      "id": "BMA039",
+      "name": "Zombie Prison",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        1,
+        3
+      ],
+      "quantity": 2,
+      "description": "Destroy this room: Choose a dead Hero in an opponent's scorekeeping area. Send it back to the entrance of that player's dungeon"
+    }
+  ],
+  "spells": [
+    {
+      "id": "BMA040",
+      "name": "Annihilator",
+      "category": 3,
+      "quantity": 2,
+      "description": "Give one Trap Room +3 damage until end of turn."
+    },
+    {
+      "id": "BMA041",
+      "name": "Assassin",
+      "category": 3,
+      "quantity": 2,
+      "description": "Choose a Hero in an opponent's dungeon. Give that Hero +3 Health until end of turn."
+    },
+    {
+      "id": "BMA042",
+      "name": "Cave-In",
+      "category": 4,
+      "quantity": 2,
+      "description": "Destroy a room in your dungeon. Any Hero in that room is destroyed."
+    },
+    {
+      "id": "BMA043",
+      "name": "Counterspell",
+      "category": 2,
+      "quantity": 2,
+      "description": "Choose a Spell card that has just been played. Cancel the effects of that Spell card. (It is sent to the discard pile.)"
+    },
+    {
+      "id": "BMA044",
+      "name": "Exhaustion",
+      "category": 4,
+      "quantity": 1,
+      "description": "Deal X damage to one Hero in your dungeon, where X is equal to the number of Rooms in your dungeon."
+    },
+    {
+      "id": "BMA045",
+      "name": "Fear",
+      "category": 1,
+      "quantity": 2,
+      "description": "Choose a Hero in any dungeon and put it back in town."
+    },
+    {
+      "id": "BMA046",
+      "name": "Freeze",
+      "category": 2,
+      "quantity": 4,
+      "description": "Choose and deactivate one Room in any dungeon. (It has no damage, treasure, or abilities until end of turn.)"
+    },
+    {
+      "id": "BMA047",
+      "name": "Giant Size",
+      "category": 3,
+      "quantity": 2,
+      "description": "Give one Monster Room +3 damage until end of turn."
+    },
+    {
+      "id": "BMA048",
+      "name": "Jeopardy",
+      "category": 2,
+      "quantity": 2,
+      "description": "All players immediately discard their hands, then draw one Spell card and two Room cards."
+    },
+    {
+      "id": "BMA049",
+      "name": "Kobold Strike",
+      "category": 2,
+      "quantity": 1,
+      "description": "No rooms can be built this turn. Any face-down room is returned to its owner's hand. (This spell cannot be played after rooms are revealed.)"
+    },
+    {
+      "id": "BMA050",
+      "name": "Motivation",
+      "category": 3,
+      "quantity": 2,
+      "description": "If you have fewer rooms than an opponent, you may build an extra room this turn."
+    },
+    {
+      "id": "BMA051",
+      "name": "Princess in Peril",
+      "category": 1,
+      "quantity": 2,
+      "description": "Choose one Hero in town. Place it at the entrance to your dungeon."
+    },
+    {
+      "id": "BMA052",
+      "name": "Soul Harvest",
+      "category": 1,
+      "quantity": 1,
+      "description": "Choose a face-down Hero in your scorekeeping area and remove it from the game. Draw two Spell cards."
+    },
+    {
+      "id": "BMA053",
+      "name": "Teleportation",
+      "category": 1,
+      "quantity": 2,
+      "description": "Send a Hero in your dungeon back to the first room of your dungeon. (It continues to move through your dungeon this turn.)"
+    },
+    {
+      "id": "BMA054",
+      "name": "Trepidation",
+      "category": 2,
+      "quantity": 1,
+      "description": "Choose a player with at least two more Souls than you. No Hero enters that player's dungeon this turn. (Any Hero remain at the entrance to that dungeon.)"
+    },
+    {
+      "id": "BMA055",
+      "name": "Zombie Attack",
+      "category": 1,
+      "quantity": 2,
+      "description": "Choose a dead Hero in an opponent's scorekeeping area. Send it back to the entrance of that player's dungeon. It has +2 Health until end of turn."
+    }
+  ],
+  "heroes": [
+    {
+      "id": "BMA056",
+      "name": "Cleric",
+      "treasure": 1,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Nick the Masher The young cleric was well-armed, and brave enough to take on the Dragon King himself. His credo: \"I bash it with my mace.\"",
+      "class": "Cleric"
+    },
+    {
+      "id": "BMA057",
+      "name": "Cleric",
+      "treasure": 1,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Pugi the Druidess A defender of the wilderness, she wields the power of Nature. Flowers blossom in her footsteps, and life grows anew.",
+      "class": "Cleric"
+    },
+    {
+      "id": "BMA058",
+      "name": "Cleric",
+      "treasure": 1,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Acacia, Warrior of Light Acacia is a carefree soul who makes her own luck. A strong defender of good, she is undeterred by even the darkest dungeons.",
+      "class": "Cleric"
+    },
+    {
+      "id": "BMA059",
+      "name": "Cleric",
+      "treasure": 1,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Charles the Young Charles has mother's permission to go adventuring, but he has to return before sundown.",
+      "class": "Cleric"
+    },
+    {
+      "id": "BMA060",
+      "name": "Cleric",
+      "treasure": 1,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Delatorious, Angel of Light",
+      "class": "Cleric"
+    },
+    {
+      "id": "BMA061",
+      "name": "Cleric",
+      "treasure": 1,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Romero, the Indigo Friar He is a dedicated man of the cloth who wants to see the world coated in blue. You might think he's depressed, but he's actually very, very happy.",
+      "class": "Cleric"
+    },
+    {
+      "id": "BMA062",
+      "name": "Fighter",
+      "treasure": 2,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Boden the Pantless Boden's courage is matched only by his forgetfullness. The quest to find his misplaced armor continues!",
+      "class": "Fighter"
+    },
+    {
+      "id": "BMA063",
+      "name": "Fighter",
+      "treasure": 2,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Jarek, Squire to the Lion Knights As a squire, Jarek loved nothing more than stories and legends. He had no idea that he would someday become one.",
+      "class": "Fighter"
+    },
+    {
+      "id": "BMA064",
+      "name": "Fighter",
+      "treasure": 2,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Fire's Breath, Heroine of Arcadia The scarlet-haired warrior woman known as Fire's Breath has pledged her deadly twin blades to the fight for liberty",
+      "class": "Fighter"
+    },
+    {
+      "id": "BMA065",
+      "name": "Fighter",
+      "treasure": 2,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Samurai Tom Not truly a samurai, this masterless ronin seeks honor and glory.",
+      "class": "Fighter"
+    },
+    {
+      "id": "BMA066",
+      "name": "Fighter",
+      "treasure": 2,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Johnny of the Evening Watch A humble member of the Evening Watch, whose band o'brothers is sworn to forsake family, take the grey, and clear dungeons.",
+      "class": "Fighter"
+    },
+    {
+      "id": "BMA067",
+      "name": "Fighter",
+      "treasure": 2,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Crystol and A'lan of Gerd Bound by the unbreakable Ring of Gerd, these lovers became the most dangerous husband-wife team in the adventuring business.",
+      "class": "Fighter"
+    },
+    {
+      "id": "BMA068",
+      "name": "Mage",
+      "treasure": 3,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Tieg and the Magic Bubble Armed with his trusty bubble, Tieg braves dangerous castles and dungeons in search of the muscial instruments stolen from his people.",
+      "class": "Mage"
+    },
+    {
+      "id": "BMA069",
+      "name": "Mage",
+      "treasure": 3,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Brandork the Neverwrong Schooled in seven flavors of magic, Brandork follows the teachings of master Face, the Omniscient Celestial",
+      "class": "Mage"
+    },
+    {
+      "id": "BMA070",
+      "name": "Mage",
+      "treasure": 3,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Mitchell, the Judge He has wandered the planes, hopelessly lost... ever since his wife, Nikki, sent him to the store for diamond dust sugar.",
+      "class": "Mage"
+    },
+    {
+      "id": "BMA071",
+      "name": "Mage",
+      "treasure": 3,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Kalish Ninefingers The worst thief ever, Kalish lost a finger and his freedom in one night. Taught magic in prison by his sorcerous cellmate, he now kills evil with fire.",
+      "class": "Mage"
+    },
+    {
+      "id": "BMA072",
+      "name": "Mage",
+      "treasure": 3,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Dartteon, Elf Pyromancer Some elves just want to watch the world burn.",
+      "class": "Mage"
+    },
+    {
+      "id": "BMA073",
+      "name": "Mage",
+      "treasure": 3,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Koey, The Last Dragon Mage The survivor of Drakonia vowed to save the world from Kirax's reign with the power bestowed to him by the last emerald dragon.",
+      "class": "Mage"
+    },
+    {
+      "id": "BMA074",
+      "name": "Thief",
+      "treasure": 4,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Joman Chimm, Cutpurse From the twinkle in his eye, you might think he comes bearing gifts... until you check your empty pockets.",
+      "class": "Thief"
+    },
+    {
+      "id": "BMA075",
+      "name": "Thief",
+      "treasure": 4,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Lance Uppercut, Treasure Hunter With a bent blade and a clenched fist, he gathers shining treasures for the glory of the Keonish Empire.",
+      "class": "Thief"
+    },
+    {
+      "id": "BMA076",
+      "name": "Thief",
+      "treasure": 4,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Jesta the Rogue \"Okay, so you take the big guy on the left with the axe, you've got the two little ones on the right with swords, and I'll take this dangerous-looking treasure chest with no lock over here...\"",
+      "class": "Thief"
+    },
+    {
+      "id": "BMA077",
+      "name": "Thief",
+      "treasure": 4,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Kins Klauski, Mad Conquistador \"It's hard for me to think about death, how insects and worms will eat me... I never think about death. I haven't even properly started to live yet.\"",
+      "class": "Thief"
+    },
+    {
+      "id": "BMA078",
+      "name": "Thief",
+      "treasure": 4,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Sir Digby Apple, Ace Detective He battles to keep the coffers filling, to keep his partners preening and to send a needless message of power to all of the unwilling.",
+      "class": "Thief"
+    },
+    {
+      "id": "BMA079",
+      "name": "Thief",
+      "treasure": 4,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "Jerome, Kung Fu Monkey A Visitor from a distant land, his hyperactive monkey studied martial arts under the legendar Sifu Wang.",
+      "class": "Thief"
+    },
+    {
+      "id": "BMA080",
+      "name": "The Fool",
+      "treasure": 0,
+      "hp": 2,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "quantity": 1,
+      "description": "The Fool is lured to the dungeon of the Boss Monster with the fewest Souls. (In the case of a tie, he waits in town until the tie is broken.)",
+      "class": "The Fool"
+    },
+    {
+      "id": "BMA081",
+      "name": "Cleric",
+      "treasure": 1,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "Katelyn, Angelic Healer Among the most exalted defenders of righteousness, Katelyn is sometimes referred to as \"altissima luce\" -- highest light.",
+      "class": "Cleric"
+    },
+    {
+      "id": "BMA082",
+      "name": "Cleric",
+      "treasure": 1,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "Kerberos Dirtbeard, Canine Cleric Hailing from the Highlands, this flea-bitten friar never turns down a fetch quest.",
+      "class": "Cleric"
+    },
+    {
+      "id": "BMA083",
+      "name": "Cleric",
+      "treasure": 1,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "Lord Van Ette A prophet and collector of tithes for the omniscient Celestial, his \"miracles\" are enhanced by the brandewijn distilled by the monks of Nintehn.",
+      "class": "Cleric"
+    },
+    {
+      "id": "BMA084",
+      "name": "Cleric",
+      "treasure": 1,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "Jejune & Everlea, Holy Sisters Tenacious and vivacious, each is a threat on her own. But woe betide any who stand against the sisters' united power.",
+      "class": "Cleric"
+    },
+    {
+      "id": "BMA085",
+      "name": "Fighter",
+      "treasure": 2,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "Frankov, the Envoy This brave warrior stands alone against the evil that rules the world.",
+      "class": "Fighter"
+    },
+    {
+      "id": "BMA086",
+      "name": "Mage",
+      "treasure": 2,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "Nate the Squidslayer This surly warrior defeated the mighty Squib, Lord of the Rocktopi. Now he seeks to destroy King Croak himself...",
+      "class": "Mage"
+    },
+    {
+      "id": "BMA087",
+      "name": "Mage",
+      "treasure": 2,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "Antonius, the Rune Knight An elite dragoon, Sir Tony wears armor inscribed with magic runes of ancient and mysterious power.",
+      "class": "Mage"
+    },
+    {
+      "id": "BMA088",
+      "name": "Fighter",
+      "treasure": 2,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "Asmor the Aweless What Asmor lacks in tactical acuity, he more than makes up for in impulsiveness. There's no door he won't kick down, much to the frustration of Arcadia's innkeepers.",
+      "class": "Fighter"
+    },
+    {
+      "id": "BMA089",
+      "name": "Mage",
+      "treasure": 3,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "Tempros the Time Marauder He would use his control over time to end all crime. In his hands, this world could be a utopia.",
+      "class": "Mage"
+    },
+    {
+      "id": "BMA090",
+      "name": "Thief",
+      "treasure": 3,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "Chia Kang, Mystical Warlock of Yu \"Hey, Listen! I think this Boss Monster is--\" \"Silence, fairy! I will crush him through fire and flames in the name of the Order!",
+      "class": "Thief"
+    },
+    {
+      "id": "BMA091",
+      "name": "Thief",
+      "treasure": 3,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "Terric Warhelm, Half-Elf Archmage \"Weakened by an evil curse, this once-mighty warrior donned the red robes and turned to magic. His spells are chnneled through a magical helmet of untold power.\"",
+      "class": "Thief"
+    },
+    {
+      "id": "BMA092",
+      "name": "Thief",
+      "treasure": 3,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "Wayward, the Drifter He is a traveler from a strange land whose only goal is to do whatever is right... whatever that means.",
+      "class": "Thief"
+    },
+    {
+      "id": "BMA093",
+      "name": "Thief",
+      "treasure": 4,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "Hya, Legendary Shinobi Arcadia's deadliest ninja,Hya lives by the proverb that revenge is a dish best served cold.",
+      "class": "Thief"
+    },
+    {
+      "id": "BMA094",
+      "name": "Thief",
+      "treasure": 4,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "Blackbeard Jake He hid the treasure he won from insult swordfighting in a booty-trap filled cave on the coast of a town called Astoria.",
+      "class": "Thief"
+    },
+    {
+      "id": "BMA095",
+      "name": "Thief",
+      "treasure": 4,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "Cecil Leoran, Master Factotum The ultimate jack-of-all-trades, Cecil isn't above taking mercenary work to earn gold and glory. But his real goal has never changed: to find a way to return his betrothed Nevra, sealed into a rapier, to her original form.",
+      "class": "Thief"
+    },
+    {
+      "id": "BMA096",
+      "name": "Thief",
+      "treasure": 4,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "Wallbanger Basketweaver This humble halfing world rather spend his days weaving baskets and eating crumbly cookies. But when adventure calls, he proves a first-rate burglar",
+      "class": "Thief"
+    }
+  ],
+  "nameMap": {
+    "BMA001": "draculord",
+    "BMA002": "xyzax",
+    "BMA003": "king-croak",
+    "BMA004": "robobo",
+    "BMA005": "cerebellus",
+    "BMA006": "seducia",
+    "BMA007": "cleopatra",
+    "BMA008": "gorgona",
+    "BMA009": "dark-altar",
+    "BMA010": "open-grave",
+    "BMA011": "specters-sanctum",
+    "BMA012": "succubus-spa",
+    "BMA013": "dracolich-lair",
+    "BMA014": "vampire-bordello",
+    "BMA015": "goblin-armory",
+    "BMA016": "golem-factory",
+    "BMA017": "minotaurs-maze",
+    "BMA018": "neanderthal-cave",
+    "BMA019": "beast-menagerie",
+    "BMA020": "monsters-ballroom",
+    "BMA021": "brainsucker-hive",
+    "BMA022": "dark-laboratory",
+    "BMA023": "haunted-library",
+    "BMA024": "witchs-kitchen",
+    "BMA025": "all-seeing-eye",
+    "BMA026": "ligers-den",
+    "BMA027": "bottomless-pit",
+    "BMA028": "boulder-ramp",
+    "BMA029": "dizzygas-hallway",
+    "BMA030": "jackpot-stash",
+    "BMA031": "recycling-center",
+    "BMA032": "the-crushinator",
+    "BMA033": "centipede-tunnel",
+    "BMA034": "construction-zone",
+    "BMA035": "dragon-hatchery",
+    "BMA036": "mimic-vault",
+    "BMA037": "monstrous-monument",
+    "BMA038": "torture-chamber",
+    "BMA039": "zombie-prison",
+    "BMA040": "annihilator",
+    "BMA041": "assassin",
+    "BMA042": "cave-in",
+    "BMA043": "counterspell",
+    "BMA044": "exhaustion",
+    "BMA045": "fear",
+    "BMA046": "freeze",
+    "BMA047": "giant-size",
+    "BMA048": "jeopardy",
+    "BMA049": "kobold-strike",
+    "BMA050": "motivation",
+    "BMA051": "princess-in-peril",
+    "BMA052": "soul-harvest",
+    "BMA053": "teleportation",
+    "BMA054": "trepidation",
+    "BMA055": "zombie-attack",
+    "BMA056": "cleric",
+    "BMA057": "cleric",
+    "BMA058": "cleric",
+    "BMA059": "cleric",
+    "BMA060": "cleric",
+    "BMA061": "cleric",
+    "BMA062": "fighter",
+    "BMA063": "fighter",
+    "BMA064": "fighter",
+    "BMA065": "fighter",
+    "BMA066": "fighter",
+    "BMA067": "fighter",
+    "BMA068": "mage",
+    "BMA069": "mage",
+    "BMA070": "mage",
+    "BMA071": "mage",
+    "BMA072": "mage",
+    "BMA073": "mage",
+    "BMA074": "thief",
+    "BMA075": "thief",
+    "BMA076": "thief",
+    "BMA077": "thief",
+    "BMA078": "thief",
+    "BMA079": "thief",
+    "BMA080": "the-fool",
+    "BMA081": "cleric",
+    "BMA082": "cleric",
+    "BMA083": "cleric",
+    "BMA084": "cleric",
+    "BMA085": "fighter",
+    "BMA086": "mage",
+    "BMA087": "mage",
+    "BMA088": "fighter",
+    "BMA089": "mage",
+    "BMA090": "thief",
+    "BMA091": "thief",
+    "BMA092": "thief",
+    "BMA093": "thief",
+    "BMA094": "thief",
+    "BMA095": "thief",
+    "BMA096": "thief"
+  }
+}
