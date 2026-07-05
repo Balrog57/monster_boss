@@ -112,22 +112,20 @@ function aiPlaySpell(G, ctx, playerID) {
 // ADVENTURE PROCESSING
 // ============================================================
 function processAdventures(G, ctx) {
-  const processNext = () => {
-    if (G.adventureIndex >= G.adventureOrder.length) {
-      checkWinConditions(G, ctx);
-      return;
-    }
+  // Process every hero currently in town, one at a time. Each hero is lured to
+  // the dungeon that best matches its class (or, if none match, to the player
+  // with the most wounds), then walks that dungeon taking damage. Per the rules
+  // the adventure order is by player XP, but since heroes are independent we
+  // just drain the town queue.
+  const townCount = G.town.length;
 
-    const playerID = G.adventureOrder[G.adventureIndex];
-    const player = G.players[playerID];
+  for (let h = 0; h < townCount; h++) {
+    if (G.town.length === 0) break;
 
-    if (player.eliminated || G.town.length === 0) {
-      G.adventureIndex++;
-      processNext();
-      return;
-    }
+    // If every player is eliminated, stop.
+    const anyAlive = Object.values(G.players).some(p => !p.eliminated);
+    if (!anyAlive) break;
 
-    // Hero chooses dungeon based on treasure types
     const hero = G.town[0];
     const heroClass = hero.class;
 
@@ -185,9 +183,10 @@ function processAdventures(G, ctx) {
     // Trepidation: a no-entry dungeon refuses the hero, who waits in town.
     if (isNoEntry(G, targetPlayer)) {
       G.logs.push(`${hero.name} waits at the entrance of player ${targetPlayer}'s dungeon (Trepidation).`);
-      G.adventureIndex++;
-      processNext();
-      return;
+      // Hero stays in town for next turn: don't shift, move to next hero slot.
+      // Requeue: move this hero to the back of town so we don't loop on it.
+      G.town.push(G.town.shift());
+      continue;
     }
 
     const target = G.players[targetPlayer];
@@ -196,7 +195,7 @@ function processAdventures(G, ctx) {
     // Process through dungeon rooms
     let heroHP = hero.currentHP || hero.hp;
     let heroDefeated = false;
-    const heroRef = hero.id + '-' + G.adventureIndex; // stable ref for effect targeting
+    const heroRef = hero.id + '-' + h; // stable ref for effect targeting
     // Assassin: hero HP bonus from active effects.
     heroHP += heroHealthBonusFor(G, heroRef);
     let deathRoom = null; // room that dealt the killing blow (for hero-death abilities)
@@ -248,12 +247,9 @@ function processAdventures(G, ctx) {
       target.eliminated = true;
       G.logs.push(`${targetPlayer === 0 ? 'You' : `AI ${targetPlayer}`} have been eliminated!`);
     }
+  } // end for each hero in town
 
-    G.adventureIndex++;
-    processNext();
-  };
-
-  processNext();
+  checkWinConditions(G, ctx);
 }
 
 function totalSouls(p) {
@@ -723,25 +719,11 @@ export const BossMonster = {
         G.phase = PHASE.ADVENTURE;
         G.adventureResolved = false;
 
-        // Determine adventure order (most wounds first, tie = most souls)
-        G.adventureOrder = Object.keys(G.players)
-          .map(i => parseInt(i))
-          .sort((a, b) => {
-            const woundsA = totalWounds(G.players[a]);
-            const woundsB = totalWounds(G.players[b]);
-            if (woundsB !== woundsA) return woundsB - woundsA;
-            return totalSouls(G.players[b]) - totalSouls(G.players[a]);
-          });
-
-        G.adventureIndex = 0;
-
-        // Process all adventures
+        // Process every hero in town through the lured dungeon. processAdventures
+        // also runs checkWinConditions when done.
         processAdventures(G, ctx);
 
         Object.values(G.players).forEach(p => p.passed = false);
-
-        // Check win conditions
-        checkWinConditions(G, ctx);
 
         G.adventureResolved = true;
       }

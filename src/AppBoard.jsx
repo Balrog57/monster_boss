@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   BOSSES, ROOMS, SPELLS, HEROES, TREASURE_NAMES, PHASE, getCardImage
 } from './cardData.js';
+import { playMusic, playSfx, SFX } from './audio.js';
 
 // ---------------------------------------------------------------------------
 // Card image component. `kind` selects the folder; `faceDown` renders a back.
@@ -98,6 +99,16 @@ const TREASURE_ICON = { 1: 'cleric', 2: 'fighter', 3: 'mage', 4: 'thief' };
 // ---------------------------------------------------------------------------
 export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) {
   const [inspect, setInspect] = useState(null); // { card, kind }
+  const lastPhase = useRef(null);
+
+  // Start dungeon music once gameplay begins (after boss selection).
+  useEffect(() => {
+    const phase = ctx?.phase || G?.phase;
+    if (phase && phase !== PHASE.BOSS && lastPhase.current === null) {
+      playMusic('music_dungeon_v3', 0.3);
+    }
+    lastPhase.current = phase;
+  }, [ctx?.phase, G?.phase]);
 
   if (!G || !G.players) {
     return <div style={S.screen}>Loading…</div>;
@@ -288,16 +299,7 @@ export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) 
         ))}
       </div>
 
-      {/* ===== Game over ===== */}
-      {G.gameOver && (
-        <div style={S.modal}>
-          <div style={S.modalBox}>
-            <h2 style={{ color: '#F59E0B' }}>{String(G.winner) === pidKey ? 'Victoire !' : 'Défaite...'}</h2>
-            <p>{String(G.winner) === pidKey ? 'Vous avez gagné.' : `Joueur ${G.winner} gagne.`}</p>
-            <button style={S.btn} onClick={() => window.location.reload()}>Rejouer</button>
-          </div>
-        </div>
-      )}
+      {/* Game-over is handled by App.jsx's GameOverScreen overlay */}
     </div>
   );
 }
