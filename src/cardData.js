@@ -83,4 +83,18 @@ export function roomTypeIcon(type) {
   return `/assets/ui/icons/${type}.png`;
 }
 
+// Boss treasure type -> display theme (name + accent color). Used for dungeon
+// panel tinting and the boss portrait banner.
+export const TREASURE_THEME = {
+  1: { name: 'Cleric', color: '#FBBF24', glow: 'rgba(251,191,36,0.25)' },   // gold
+  2: { name: 'Fighter', color: '#EF4444', glow: 'rgba(239,68,68,0.25)' },   // red
+  3: { name: 'Mage', color: '#3B82F6', glow: 'rgba(59,130,246,0.25)' },     // blue
+  4: { name: 'Thief', color: '#10B981', glow: 'rgba(16,185,129,0.25)' },    // green
+};
+
+export function bossTheme(boss) {
+  if (!boss || !boss.treasures || !boss.treasures.length) return TREASURE_THEME[1];
+  return TREASURE_THEME[boss.treasures[0]] || TREASURE_THEME[1];
+}
+
 export default cardData;

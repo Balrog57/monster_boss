@@ -1,10 +1,13 @@
 // MainMenu.jsx - Welcome screen with logo, background, and Start button.
-import React, { useEffect } from 'react';
-import { playMusic, playSfx, SFX } from '../audio.js';
+import React, { useEffect, useState } from 'react';
+import { playMusic, playSfx, SFX, isMuted } from '../audio.js';
+import OptionsOverlay from './OptionsOverlay.jsx';
 
 export default function MainMenu({ onStart }) {
+  const [showOptions, setShowOptions] = useState(false);
+
   useEffect(() => {
-    playMusic('music_main', 0.35);
+    if (!isMuted()) playMusic('music_main', 0.35);
   }, []);
 
   return (
@@ -51,9 +54,15 @@ export default function MainMenu({ onStart }) {
           />
           <span style={S.btnText}>DÉMARRER</span>
         </button>
+
+        <button style={S.optionsBtn} onClick={() => { playSfx(SFX.BUTTON); setShowOptions(true); }}>
+          ⚙ Options
+        </button>
       </div>
 
       <div style={S.footer}>v1.0 · Fan recreation · Cartes © Brotherwise Games</div>
+
+      {showOptions && <OptionsOverlay onClose={() => setShowOptions(false)} />}
     </div>
   );
 }
@@ -134,6 +143,17 @@ const S = {
     letterSpacing: 2,
     pointerEvents: 'none',
     textShadow: '0 2px 4px rgba(0,0,0,0.8)'
+  },
+  optionsBtn: {
+    marginTop: 8,
+    background: 'rgba(0,0,0,0.5)',
+    border: '1px solid #4B5563',
+    color: '#D1D5DB',
+    padding: '8px 20px',
+    borderRadius: 6,
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 600
   },
   footer: {
     position: 'absolute',

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  BOSSES, ROOMS, SPELLS, HEROES, TREASURE_NAMES, PHASE, getCardImage
+  BOSSES, ROOMS, SPELLS, HEROES, TREASURE_NAMES, PHASE, getCardImage, bossTheme
 } from './cardData.js';
-import { playMusic, playSfx, SFX } from './audio.js';
+import { playMusic, playSfx, SFX, isMuted, setMuted } from './audio.js';
 
 // ---------------------------------------------------------------------------
 // Card image component. `kind` selects the folder; `faceDown` renders a back.
@@ -163,19 +163,25 @@ export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) 
           <span style={S.hudStat}>{me.boss?.name || 'Boss'} ({me.boss?.xp || 0} XP)</span>
           <span style={S.hudStat}>Donjon {me.dungeon.length}/5</span>
           <span style={S.hudStat}>Pioche R:{G.decks.rooms.length} S:{G.decks.spells.length} H:{G.decks.heroes.length}</span>
+          <button style={S.muteBtn} onClick={() => { const m = !isMuted(); setMuted(m); if (!m) playSfx(SFX.BUTTON, 0.4); }} title="Couper le son">
+            {isMuted() ? '🔇' : '🔊'}
+          </button>
         </div>
       </div>
 
       {/* ===== Opponent strip (top) ===== */}
       <div style={S.oppStrip}>
-        {opponents.map(([pid, p]) => (
-          <div key={pid} style={S.oppPanel}>
-            <div style={S.oppHeader}>
-              <span style={S.oppName}>Joueur {pid} — {p.boss?.name || 'Boss'}</span>
-              <Soul n={p.souls.length} />
-              <Wound n={p.wounds.length} />
-              {p.eliminated && <span style={S.elimTag}>ÉLIMINÉ</span>}
-            </div>
+        {opponents.map(([pid, p]) => {
+          const theme = bossTheme(p.boss);
+          return (
+            <div key={pid} style={{ ...S.oppPanel, borderLeft: `3px solid ${theme.color}`, background: `linear-gradient(90deg, ${theme.glow} 0%, rgba(30,27,46,0.6) 50%)` }}>
+              <div style={S.oppHeader}>
+                <BossBoss boss={p.boss} theme={theme} onInspect={setInspect} />
+                <span style={S.oppName}>Joueur {pid} — {p.boss?.name || 'Boss'}</span>
+                <Soul n={p.souls.length} />
+                <Wound n={p.wounds.length} />
+                {p.eliminated && <span style={S.elimTag}>ÉLIMINÉ</span>}
+              </div>
             <div style={S.dungeonRow}>
               {p.dungeon.length === 0 && <div style={S.empty}>Donjon vide</div>}
               {p.dungeon.map((r, i) => (
@@ -190,8 +196,9 @@ export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) 
                 />
               ))}
             </div>
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
 
       {/* ===== Middle: town + detail panel ===== */}
@@ -226,29 +233,35 @@ export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) 
       </div>
 
       {/* ===== My dungeon (bottom) ===== */}
-      <div style={S.myDungeonPanel}>
-        <div style={S.panelTitle}>
-          Mon Donjon — {me.boss?.name || 'Boss'}
-          {me.leveledUp && <span style={S.levelTag}>LEVEL UP</span>}
-        </div>
-        <div style={S.myDungeonRow}>
-          {me.dungeon.length === 0 && <div style={S.empty}>Construisez des salles</div>}
-          {me.dungeon.map((r, i) => (
-            <Card
-              key={`me-${r.id}-${i}`}
-              card={r}
-              kind="room"
-              size="lg"
-              selected={G.selectedCard === i}
-              onInspect={setInspect}
-              style={{ marginRight: -40, zIndex: i }}
-            />
-          ))}
-          {me.dungeon.length < 5 && phase === PHASE.BUILD && (
-            <div style={S.dropZone}>+</div>
-          )}
-        </div>
-      </div>
+      {(() => {
+        const theme = bossTheme(me.boss);
+        return (
+          <div style={{ ...S.myDungeonPanel, borderLeft: `4px solid ${theme.color}`, background: `linear-gradient(90deg, ${theme.glow} 0%, rgba(20,18,30,0.4) 60%)` }}>
+            <div style={{ ...S.panelTitle, color: theme.color }}>
+              <BossBoss boss={me.boss} theme={theme} onInspect={setInspect} />
+              <span>Mon Donjon — {me.boss?.name || 'Boss'}</span>
+              {me.leveledUp && <span style={S.levelTag}>LEVEL UP</span>}
+            </div>
+            <div style={S.myDungeonRow}>
+              {me.dungeon.length === 0 && <div style={S.empty}>Construisez des salles</div>}
+              {me.dungeon.map((r, i) => (
+                <Card
+                  key={`me-${r.id}-${i}`}
+                  card={r}
+                  kind="room"
+                  size="lg"
+                  selected={G.selectedCard === i}
+                  onInspect={setInspect}
+                  style={{ marginRight: -40, zIndex: i }}
+                />
+              ))}
+              {me.dungeon.length < 5 && phase === PHASE.BUILD && (
+                <div style={S.dropZone}>+</div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ===== Hand + actions ===== */}
       <div style={S.handPanel}>
@@ -300,6 +313,30 @@ export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) 
       </div>
 
       {/* Game-over is handled by App.jsx's GameOverScreen overlay */}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// BossBoss — small circular boss portrait shown beside a dungeon's title,
+// themed by the boss's treasure type color. Doubles as the dungeon's "bg".
+// ---------------------------------------------------------------------------
+function BossBoss({ boss, theme, onInspect }) {
+  if (!boss) return null;
+  const src = getCardImage(boss.id, 'boss');
+  return (
+    <div
+      onClick={() => onInspect({ card: boss, kind: 'boss' })}
+      style={{
+        width: 40, height: 40, borderRadius: '50%',
+        overflow: 'hidden', flexShrink: 0, cursor: 'pointer',
+        border: `2px solid ${theme.color}`,
+        boxShadow: `0 0 8px ${theme.glow}`,
+        background: '#111',
+      }}
+      title={boss.name}
+    >
+      {src && <img src={src} alt={boss.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
     </div>
   );
 }
@@ -377,6 +414,11 @@ const S = {
     boxShadow: '0 2px 6px rgba(124,58,237,0.4)'
   },
   hudStat: { fontSize: 13, color: '#A1A1AA', fontWeight: 600 },
+  muteBtn: {
+    background: 'rgba(0,0,0,0.3)', border: '1px solid #4B5563',
+    color: '#D1D5DB', width: 32, height: 32, borderRadius: 6,
+    cursor: 'pointer', fontSize: 16, padding: 0
+  },
   // Opponent strip
   oppStrip: {
     display: 'flex',

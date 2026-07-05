@@ -68,6 +68,7 @@ export const SFX = {
   CARD_PLAY: 'sfx_activatecard',
   CARD_FLIP: 'ui_card_flip',
   BUTTON: 'ui_button_select',
+  BUTTON_BACK: 'ui_button_goback',
   ROOM_FALL: 'sfx_room_fall',
   HERO_DEATH: 'char_hero_death',
   HERO_HURT: 'char_hero_hurt',
@@ -75,3 +76,22 @@ export const SFX = {
   WIN: 'sting_player_win',
   LOSE: 'sting_player_lose',
 };
+
+// ---------------------------------------------------------------------------
+// Global click SFX: attach a delegated listener that plays a button sound on
+// any <button> click (and a flip sound on hand-card buttons). Idempotent.
+// ---------------------------------------------------------------------------
+let clickListenerInstalled = false;
+export function installClickSounds() {
+  if (clickListenerInstalled) return;
+  clickListenerInstalled = true;
+  document.addEventListener('click', (e) => {
+    if (muted) return;
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    // Hand card buttons (cards in play) get the activate-card sound; others
+    // get the generic button-select sound.
+    const isCard = btn.querySelector('img[alt]') && (btn.title || '').length > 0;
+    playSfx(isCard ? SFX.CARD_PLAY : SFX.BUTTON, isCard ? 0.5 : 0.4);
+  }, true);
+}
