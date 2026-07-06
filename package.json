@@ -7,10 +7,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "serve": "vite-node server.js",
+    "start": "vite-node server.js",
     "test": "playwright test"
   },
   "dependencies": {
     "boardgame.io": "^0.50.2",
+    "koa-static": "^5.0.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
@@ -23,7 +26,11 @@
     "type": "git",
     "url": "git+https://github.com/Balrog57/monster_boss.git"
   },
-  "keywords": ["boardgame", "boss-monster", "boardgame.io"],
+  "keywords": [
+    "boardgame",
+    "boss-monster",
+    "boardgame.io"
+  ],
   "author": "",
   "license": "ISC",
   "bugs": {

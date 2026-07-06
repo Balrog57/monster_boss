@@ -171,6 +171,8 @@ function aiResolveBuild(G, ctx, pid) {
       }
     }
   }
+  // AI is done with its build turn.
+  player.passed = true;
 }
 
 function aiResolveBait(G, ctx, pid) {
@@ -189,6 +191,8 @@ function aiResolveBait(G, ctx, pid) {
       }
     }
   }
+  // AI is done baiting.
+  player.passed = true;
 }
 
 // ============================================================
@@ -492,9 +496,13 @@ export const BossMonster = {
         }
       },
       next: PHASE.SETUP,
-      // BOSS phase ends once the human (player 0) has picked; AI bosses are
-      // auto-assigned in onEnd.
-      endIf: ({ G }) => G.players && G.players[0] && G.players[0].boss !== null,
+      // BOSS phase ends when every non-AI player has picked a boss. In solo
+      // mode only player 0 is human, so it ends when player 0 picks (AI bosses
+      // are auto-assigned in onEnd). In online mode all seats are human, so all
+      // must pick.
+      endIf: ({ G }) => G.players && Object.values(G.players)
+        .filter(p => !p.isAI)
+        .every(p => p.boss !== null),
       onEnd: ({ G, ctx }) => {
         // AI players pick bosses
         for (let i = 1; i < ctx.numPlayers; i++) {
@@ -671,8 +679,9 @@ export const BossMonster = {
         }
       },
       next: PHASE.BAIT,
-      // Build ends when the human (player 0) passes; AI is auto-resolved.
-      endIf: ({ G }) => G.players && G.players[0] && G.players[0].passed,
+      // Build ends when every non-eliminated player has passed. AI players
+      // are auto-passed by aiResolveBuild in onBegin.
+      endIf: ({ G }) => G.players && Object.values(G.players).every(p => p.eliminated || p.passed),
       onBegin: ({ G, ctx }) => {
         G.turn++;
         G.logs.push(`--- Turn ${G.turn} - Build Phase ---`);
@@ -741,8 +750,9 @@ export const BossMonster = {
         }
       },
       next: PHASE.ADVENTURE,
-      // Bait ends when the human (player 0) passes; AI is auto-resolved.
-      endIf: ({ G }) => G.players && G.players[0] && G.players[0].passed,
+      // Bait ends when every non-eliminated player has passed. AI auto-passed
+      // by aiResolveBait in onBegin.
+      endIf: ({ G }) => G.players && Object.values(G.players).every(p => p.eliminated || p.passed),
       onBegin: ({ G, ctx }) => {
         G.logs.push(`--- Turn ${G.turn} - Bait Phase ---`);
         G.phase = PHASE.BAIT;
