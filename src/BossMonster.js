@@ -98,14 +98,97 @@ function aiPlaySpell(G, ctx, playerID) {
   const currentPhase = G.phase;
   const playableSpells = spells.filter(({ card }) => {
     const cat = card.category;
-    if (currentPhase === PHASE.BUILD) return cat === SPELL_CATEGORY.BUILD || cat === SPELL_CATEGORY.ANY;
-    if (currentPhase === PHASE.BAIT) return cat === SPELL_CATEGORY.BAIT || cat === SPELL_CATEGORY.ANY;
-    if (currentPhase === PHASE.ADVENTURE) return cat === SPELL_CATEGORY.ADVENTURE || cat === SPELL_CATEGORY.ANY;
+    if (currentPhase === PHASE.BUILD) return cat === SPELL_CATEGORY.BUILD || cat === SPELL_CATEGORY.ANY || cat === SPELL_CATEGORY.BUILD_BAIT || cat === SPELL_CATEGORY.ADVENTURE_BUILD;
+    if (currentPhase === PHASE.BAIT) return cat === SPELL_CATEGORY.BAIT || cat === SPELL_CATEGORY.ANY || cat === SPELL_CATEGORY.BUILD_BAIT;
+    if (currentPhase === PHASE.ADVENTURE) return cat === SPELL_CATEGORY.ADVENTURE || cat === SPELL_CATEGORY.ANY || cat === SPELL_CATEGORY.ADVENTURE_BUILD;
     return false;
   });
 
   if (playableSpells.length === 0) return null;
   return playableSpells[0].idx;
+}
+
+// ============================================================
+// AI TURN RESOLUTION (called from phase onBegin hooks)
+// ============================================================
+// Applies an AI player's build + spell actions directly to G. Used so AI
+// opponents actually construct dungeons and cast spells each turn (previously
+// the AI only acted via the debug-only enumerate bot, so it never built).
+
+function aiResolveBuild(G, ctx, pid) {
+  const player = G.players[pid];
+  if (!player || player.eliminated) return;
+  const allowed = 1 + extraBuildsFor(G, pid);
+
+  // Build up to `allowed` rooms: prefer high-damage, then advanced rooms that
+  // share a treasure type with the last built room.
+  for (let n = 0; n < allowed; n++) {
+    if (player.dungeon.length >= 5) break;
+    if (isBuildBlocked(G)) break;
+    const idx = aiBuildRoom(G, ctx, pid);
+    if (idx === null) break;
+    const card = player.hand[idx];
+    if (!card || !card.isRoom) break;
+
+    // Apply the build (mirror of the buildRoom move logic).
+    if (card.advanced && player.dungeon.length > 0) {
+      const lastRoom = player.dungeon[player.dungeon.length - 1];
+      const lastTreasures = lastRoom.treasures || [];
+      const cardTreasures = card.treasures || [];
+      if (cardTreasures.some(t => lastTreasures.includes(t))) {
+        G.decks.roomDiscard.push(lastRoom);
+        player.dungeon[player.dungeon.length - 1] = card;
+      } else {
+        break; // can't place advanced room, stop
+      }
+    } else {
+      player.dungeon.push(card);
+    }
+    player.hand.splice(idx, 1);
+    player.buildsThisTurn = (player.buildsThisTurn || 0) + 1;
+    G.logs.push(`AI ${pid} built ${card.name}`);
+    onBuildRoom(G, ctx, pid, card);
+    // Level up at 5 rooms.
+    if (player.dungeon.length >= 5 && !player.leveledUp) {
+      player.leveledUp = true;
+      const spell = G.decks.spells.pop();
+      if (spell) player.hand.push(spell);
+      G.logs.push(`AI ${pid} LEVELED UP!`);
+      processLevelUp(G, ctx, pid);
+    }
+  }
+
+  // Cast one build-phase spell if useful (50% chance to avoid over-spamming).
+  if (Math.random() < 0.5) {
+    const spellIdx = aiPlaySpell(G, ctx, pid);
+    if (spellIdx !== null) {
+      const card = player.hand[spellIdx];
+      if (card && card.isSpell && spellAllowedInPhase(card.category, PHASE.BUILD)) {
+        player.hand.splice(spellIdx, 1);
+        G.decks.spellDiscard.push(card);
+        G.logs.push(`AI ${pid} cast ${card.name}`);
+        castSpell(G, ctx, pid, card);
+      }
+    }
+  }
+}
+
+function aiResolveBait(G, ctx, pid) {
+  const player = G.players[pid];
+  if (!player || player.eliminated) return;
+  // Occasionally cast a bait-phase spell (30% chance).
+  if (Math.random() < 0.3) {
+    const spellIdx = aiPlaySpell(G, ctx, pid);
+    if (spellIdx !== null) {
+      const card = player.hand[spellIdx];
+      if (card && card.isSpell && spellAllowedInPhase(card.category, PHASE.BAIT)) {
+        player.hand.splice(spellIdx, 1);
+        G.decks.spellDiscard.push(card);
+        G.logs.push(`AI ${pid} cast ${card.name}`);
+        castSpell(G, ctx, pid, card);
+      }
+    }
+  }
 }
 
 // ============================================================
@@ -610,6 +693,11 @@ export const BossMonster = {
 
         // Reset passed flags
         Object.values(G.players).forEach(p => p.passed = false);
+
+        // AI opponents build rooms and cast build spells.
+        for (let i = 1; i < ctx.numPlayers; i++) {
+          aiResolveBuild(G, ctx, i);
+        }
       },
       onEnd: ({ G, ctx }) => {
         // Reveal dungeons (face up)
@@ -659,8 +747,12 @@ export const BossMonster = {
         G.logs.push(`--- Turn ${G.turn} - Bait Phase ---`);
         G.phase = PHASE.BAIT;
 
-        // Fill town with heroes
-        while (G.town.length < 5 && (G.decks.heroes.length > 0 || G.decks.epics.length > 0)) {
+        // Fill town with heroes: one hero per surviving player per turn
+        // (per the rules — town = #players, not a fixed 5). This balances the
+        // early game so a freshly-built dungeon isn't overwhelmed.
+        const aliveCount = Object.values(G.players).filter(p => !p.eliminated).length;
+        const target = Math.max(1, aliveCount);
+        while (G.town.length < target && (G.decks.heroes.length > 0 || G.decks.epics.length > 0)) {
           if (G.decks.heroes.length > 0 && Math.random() < 0.7) {
             G.town.push(G.decks.heroes.pop());
           } else if (G.decks.epics.length > 0) {
@@ -671,6 +763,11 @@ export const BossMonster = {
         }
 
         Object.values(G.players).forEach(p => p.passed = false);
+
+        // AI opponents may cast bait-phase spells.
+        for (let i = 1; i < ctx.numPlayers; i++) {
+          aiResolveBait(G, ctx, i);
+        }
       },
       onEnd: ({ G, ctx }) => {
         // Reset passed flags for the adventure phase resolution.
