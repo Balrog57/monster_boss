@@ -1,0 +1,26 @@
+# docker-compose.yml - Boss Monster on ZimaOS
+#
+# Deploy on ZimaOS (192.168.1.98):
+#   cd /DATA/AppData/boss-monster
+#   DOCKER_CONFIG=/DATA/.docker-root docker compose up -d --build
+#
+# Access: http://192.168.1.98:8090
+#
+services:
+  boss-monster:
+    build: .
+    image: boss-monster:latest
+    container_name: boss-monster
+    restart: unless-stopped
+    ports:
+      - "8090:8000"
+    environment:
+      - PORT=8000
+      - NODE_ENV=production
+      - TZ=Europe/Paris
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8000/games').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3

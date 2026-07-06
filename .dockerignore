@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+boss-monster-2-4-12
+boss-monster-2-4-12.apk
+*.log
+dev*.log
+.playwright-mcp
+test
+screenshot_*.png
+tools/validation
+.claude
+.zcode

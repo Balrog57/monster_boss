@@ -24,6 +24,8 @@ const server = Server({
     'http://localhost:3000',
     // Allow LAN access if you test from another device.
     /^http:\/\/192\.168\..*/,
+    // Allow any same-origin request (when the server also serves the client).
+    Origins.ANYWHERE,
   ],
 });
 
