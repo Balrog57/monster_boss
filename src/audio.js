@@ -2,8 +2,8 @@
 // Wraps HTMLAudioElement with cached instances and a mute toggle.
 // Sounds are stored under /assets/audio/{music,sfx}/ (APK-extracted, see tools/).
 
-const SFX_BASE = '/assets/audio/sfx/';
-const MUSIC_BASE = '/assets/audio/music/';
+const SFX_BASE = '/audio/sfx/';
+const MUSIC_BASE = '/audio/music/';
 
 const sfxCache = {};
 let musicEl = null;

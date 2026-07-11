@@ -18,7 +18,7 @@ export const SPELL_CATEGORY = {
 };
 export function getCardImage(id, kind) {
   // Map card id to actual extracted asset path
-  const base = '/assets/cards/';
+  const base = '/cards/';
   const prefix = (id || '').toString().toUpperCase();
   const mappedName = cardData.nameMap?.[prefix] || prefix;
   // Epic hero path uses folder epic-heroes
@@ -76,11 +76,11 @@ export function drawCards(deck, count) {
 }
 
 export function treasureIcon(treasure) {
-  return `/assets/ui/icons/treasure_${treasure}.png`;
+  return `/ui/icons/treasure_${treasure}.png`;
 }
 
 export function roomTypeIcon(type) {
-  return `/assets/ui/icons/${type}.png`;
+  return `/ui/icons/${type}.png`;
 }
 
 // Boss treasure type -> display theme (name + accent color). Used for dungeon

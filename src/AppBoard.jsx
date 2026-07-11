@@ -74,7 +74,7 @@ function Card({ card, kind = 'room', faceDown = false, size = 'md', onClick, onI
 function Soul({ n }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-      <img src="/assets/ui/icons/soul.png" width={20} height={20} alt="soul" />
+      <img src="/ui/icons/soul.png" width={20} height={20} alt="soul" />
       <span style={{ color: '#FCD34D', fontWeight: 700, fontSize: 16 }}>{n}</span>
     </div>
   );
@@ -82,7 +82,7 @@ function Soul({ n }) {
 function Wound({ n }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-      <img src="/assets/ui/icons/wound.png" width={20} height={20} alt="wound" />
+      <img src="/ui/icons/wound.png" width={20} height={20} alt="wound" />
       <span style={{ color: '#F87171', fontWeight: 700, fontSize: 16 }}>{n}</span>
     </div>
   );

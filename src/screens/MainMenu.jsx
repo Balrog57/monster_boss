@@ -14,7 +14,7 @@ export default function MainMenu({ onStart }) {
     <div style={S.screen}>
       {/* Background image (APK: Common/menu_bg.png.wpk) */}
       <img
-        src="/assets/ui/backgrounds/menu_bg.jpg"
+        src="/ui/backgrounds/menu_bg.jpg"
         alt=""
         style={S.bg}
         onError={(e) => { e.currentTarget.style.display = 'none'; }}
@@ -22,38 +22,29 @@ export default function MainMenu({ onStart }) {
       <div style={S.overlay} />
 
       <div style={S.content}>
-        {/* Boss Monster logo */}
-        <img
-          src="/assets/ui/logos/bm_logo.png"
-          alt="Boss Monster"
-          style={S.logo}
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-            e.currentTarget.nextSibling.style.display = 'block';
-          }}
-        />
-        <h1 style={S.logoFallback}>BOSS MONSTER</h1>
-
-        <p style={S.tagline}>Le jeu de construction de donjon</p>
-
+        {/* Boss Monster logo = START button (one clickable element) */}
         <button
-          style={S.startBtn}
+          style={S.logoBtn}
           onClick={() => { playSfx(SFX.BUTTON); onStart(); }}
-          onMouseDown={(e) => { e.currentTarget.src = '/assets/ui/buttons/intro_start_btn_pressed.png'; }}
-          onMouseUp={(e) => { e.currentTarget.src = '/assets/ui/buttons/intro_start_btn.png'; }}
-          onMouseLeave={(e) => { e.currentTarget.src = '/assets/ui/buttons/intro_start_btn.png'; }}
+          onMouseEnter={(e) => { e.currentTarget.firstChild.style.transform = 'scale(1.04)'; e.currentTarget.firstChild.style.filter = 'drop-shadow(0 4px 28px rgba(225,29,72,0.8))'; }}
+          onMouseLeave={(e) => { e.currentTarget.firstChild.style.transform = 'scale(1)'; e.currentTarget.firstChild.style.filter = S.logo.filter; }}
+          onMouseDown={(e) => { e.currentTarget.firstChild.style.transform = 'scale(0.98)'; }}
+          onMouseUp={(e) => { e.currentTarget.firstChild.style.transform = 'scale(1.04)'; }}
+          aria-label="Démarrer le jeu"
         >
           <img
-            src="/assets/ui/buttons/intro_start_btn.png"
-            alt="Démarrer"
-            style={S.btnImg}
+            src="/ui/logos/bm_logo.png"
+            alt="Boss Monster - Démarrer"
+            style={S.logo}
             onError={(e) => {
               e.currentTarget.style.display = 'none';
-              e.currentTarget.parentElement.classList.add('fallback');
+              e.currentTarget.parentElement.querySelector('[data-fallback]').style.display = 'block';
             }}
           />
-          <span style={S.btnText}>DÉMARRER</span>
+          <h1 style={S.logoFallback} data-fallback>BOSS MONSTER</h1>
         </button>
+
+        <p style={S.tagline}>Le jeu de construction de donjon</p>
 
         <button style={S.optionsBtn} onClick={() => { playSfx(SFX.BUTTON); setShowOptions(true); }}>
           ⚙ Options
@@ -98,10 +89,20 @@ const S = {
     alignItems: 'center',
     gap: 24
   },
+  logoBtn: {
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    cursor: 'pointer',
+    transition: 'transform 0.15s, filter 0.15s',
+    lineHeight: 0
+  },
   logo: {
     width: 'min(560px, 70vw)',
     height: 'auto',
-    filter: 'drop-shadow(0 4px 24px rgba(225,29,72,0.5))'
+    display: 'block',
+    filter: 'drop-shadow(0 4px 24px rgba(225,29,72,0.55))',
+    transition: 'transform 0.15s, filter 0.15s'
   },
   logoFallback: {
     display: 'none',
@@ -117,32 +118,6 @@ const S = {
     fontSize: 18,
     margin: 0,
     fontStyle: 'italic'
-  },
-  startBtn: {
-    background: 'none',
-    border: 'none',
-    padding: 0,
-    cursor: 'pointer',
-    position: 'relative',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 24
-  },
-  btnImg: {
-    width: 'min(360px, 50vw)',
-    height: 'auto',
-    display: 'block'
-  },
-  btnText: {
-    position: 'absolute',
-    color: '#FCD34D',
-    fontWeight: 800,
-    fontSize: 22,
-    fontFamily: "'arcadepix', sans-serif",
-    letterSpacing: 2,
-    pointerEvents: 'none',
-    textShadow: '0 2px 4px rgba(0,0,0,0.8)'
   },
   optionsBtn: {
     marginTop: 8,

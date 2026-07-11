@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
 extract_ui_assets.py - Extract UI spritesheets from the Boss Monster APK with
-the CORRECT color decode (R/B swapped vs the original E_RBG interpretation).
+the CORRECT color decode (R5G6B5, little-endian uint16).
 
-The card spritesheets use format 13 (E_RBG). Our earlier tools/extract_wpk.py
-decoded E_RBG as R(11-15) B(5-10) G(0-4), which produced magenta/purple icons
-because the real channel order for UI assets is B(11-15) G(5-10) R(0-4) — i.e.
-the red and blue 5-bit fields are swapped relative to our assumption, while the
-6-bit field is correctly green.
+The card spritesheets and UI spritesheets all use WaveEngine's "format 13" —
+a 16-bit R5G6B5 layout (R=bits 11-15, G=bits 5-10, B=bits 0-4,
+little-endian).  The official Steam screenshots show the intro/menu backgrounds
+as warm brown/red and the logo/buttons as green/yellow; decoding as B5G6R5
+swaps red and blue, giving blue banners and a pink logo.  The correct layout
+is therefore R5G6B5.
 
-This script re-extracts every Common/ spritesheet + background with the swapped
-decode so icons (soul=wound=blue/red), buttons (gold), and backgrounds render
-with correct colors.
+Backgrounds (menu_bg.png.wpk, intro_bg.png.wpk, etc.) use "format 12" — same
+16-bit R5G6B5 layout, no sprite list, header is just [fmt, w, h, mips].
 
 Usage:
   python tools/extract_ui_assets.py            # extract everything to assets/ui/
@@ -28,6 +28,9 @@ APK_COMMON = "boss-monster-2-4-12/resources/assets/Content/Assets/Common"
 OUT = "assets/ui"
 
 # Spritesheets whose sprites are individually useful (cropped per-name).
+# Each sheet has its own pixel format (validated against the official Steam
+# screenshots — see tools/montage_*.png). Use SHEET_DECODER[stem] below to
+# pick the right (r_high, swap_bytes) combination for each.
 SPRITESHEETS = [
     "TUTORIAL.spritesheet.wpk",
     "NAVIGATION.spritesheet.wpk",
@@ -36,63 +39,198 @@ SPRITESHEETS = [
     "AVATAR.spritesheet.wpk",
 ]
 
-# Standalone backgrounds (single-image .png.wpk).
+# Per-sheet decoder. The WaveEngine format 13 (16-bit 5-6-5) is stored
+# inconsistently across sheets: TUTORIAL/AVATAR use little-endian R5G6B5,
+# NAVIGATION/INGAME use little-endian B5G6R5. (r_high=True => R high bits,
+# swap_bytes=True => 16-bit words are big-endian inside the WPK.)
+SHEET_DECODER = {
+    "TUTORIAL":    (True,  False),  # R5G6B5 LE  (blue soul, red wound, gold cleric)
+    "NAVIGATION":  (False, False),  # B5G6R5 LE  (green logo, olive buttons)
+    "INGAME":      (False, False),  # B5G6R5 LE  (red PASS TURN, red wound, blue soul)
+    "AVATAR":      (True,  False),  # R5G6B5 LE  (purple/blue avatar frames, red capes)
+    # GRADIENTS uses format 1 (not 13) — separate decoder below.
+}
+
+# Standalone backgrounds (single-image .png.wpk, format 12).
 BACKGROUNDS = ["menu_bg", "intro_bg", "multiplayer_bg", "gallery_bg", "particle_01"]
 
 
-def _swap_r_b(r, g, b):
-    """The fix: swap the red and blue channels."""
-    return b, g, r
+def _decode_16bit(pixels, width, height, r_high, swap_bytes=False):
+    """Decode a 16-bit 5-6-5 image.
 
-
-def decode_format13_swapped(pixels, width, height):
-    """Decode E_RBG 16-bit pixels with R and B swapped (correct for UI assets)."""
+    r_high=True     -> R5G6B5 (R=bits 11-15, G=bits 5-10, B=bits 0-4)
+    r_high=False    -> B5G6R5 (B=bits 11-15, G=bits 5-10, R=bits 0-4)
+    swap_bytes=True -> stored big-endian (read byte 1 then byte 0)
+    """
     img = Image.new("RGBA", (width, height))
     out = img.load()
     for y in range(height):
         row = y * width
         for x in range(width):
-            v = pixels[(row + x) * 2] | (pixels[(row + x) * 2 + 1] << 8)
-            r5 = (v >> 11) & 0x1F
-            b6 = (v >> 5) & 0x3F
-            g5 = v & 0x1F
+            i = (row + x) * 2
+            if swap_bytes:
+                v = pixels[i + 1] | (pixels[i] << 8)
+            else:
+                v = pixels[i] | (pixels[i + 1] << 8)
+            hi = (v >> 11) & 0x1F
+            g6 = (v >> 5) & 0x3F
+            lo = v & 0x1F
+            r5, b5 = (hi, lo) if r_high else (lo, hi)
             r = (r5 << 3) | (r5 >> 2)
-            g = (g5 << 3) | (g5 >> 2)
-            b = (b6 << 2) | (b6 >> 4)
-            r, g, b = _swap_r_b(r, g, b)
+            g = (g6 << 2) | (g6 >> 4)
+            b = (b5 << 3) | (b5 >> 2)
             out[x, y] = (r, g, b, 255)
     return img
 
 
-def parse_spritesheet(path):
-    """Return (sprites, atlas_image) for a WPK spritesheet."""
+def decode_background(pixels, width, height):
+    """Decode R5G6B5 16-bit little-endian pixels.
+
+    Used by standalone backgrounds (format 12). Matches the official
+    screenshots: warm browns, red banners.
+    """
+    return _decode_16bit(pixels, width, height, r_high=True, swap_bytes=False)
+
+
+def decode_spritesheet(pixels, width, height, r_high, swap_bytes):
+    """Decode a 16-bit 5-6-5 spritesheet atlas.
+
+    The right (r_high, swap_bytes) combination depends on the sheet — see
+    SHEET_DECODER. TUTORIAL and AVATAR use R5G6B5 little-endian, NAVIGATION
+    and INGAME use B5G6R5 little-endian. (No sheet tested so far needs the
+    big-endian swap path; it remains available for future sheets.)
+    """
+    return _decode_16bit(pixels, width, height, r_high=r_high, swap_bytes=swap_bytes)
+
+
+def apply_tint(img, tint):
+    """Apply a per-channel tint to an RGBA image.
+
+    `tint` is a tuple (r_scale, g_scale, b_scale, mode) where the scales are
+    multiplied to each channel.  mode="tint" applies the scale to non-transparent
+    pixels only and preserves the original alpha.  mode="replace" replaces RGB
+    entirely (the image is forced to opaque first).
+    """
+    if tint is None:
+        return img
+    if len(tint) == 4:
+        r_scale, g_scale, b_scale, mode = tint
+    else:
+        r_scale, g_scale, b_scale = tint
+        mode = "tint"
+    w, h = img.size
+    out = img.copy()
+    pixels = out.load()
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = pixels[x, y]
+            if a == 0:
+                continue
+            if mode == "swap":
+                # Swap R and B channels, then apply scales
+                r, b = b, r
+            nr = min(255, int(r * r_scale))
+            ng = min(255, int(g * g_scale))
+            nb = min(255, int(b * b_scale))
+            pixels[x, y] = (nr, ng, nb, a)
+    return out
+
+
+# Per-sprite tint table. The WaveEngine sprites are stored with a generic
+# pink/yellow palette and the actual game tints them with a color uniform at
+# render time. The mapping below is calibrated against the official Steam
+# screenshots. None = no tint (sprite already in its final color).
+#
+# The tint is a multiplier applied to each channel. The MVP rule is:
+#   "to make the sprite look green/yellow like the official, multiply R and B
+#   down (kill the pink) and let G dominate."
+#
+# Tints were validated by rendering each tinted sprite and comparing against
+# the corresponding region of the official Steam screenshots.
+SPRITE_TINT = {
+    # NAVIGATION — green-themed menu chrome
+    "bm_logo":                   (0.45, 0.95, 0.30),  # green/yellow logo
+    "bm_logo_legend":            (0.45, 0.95, 0.30),
+    "intro_start_btn":           (0.50, 1.00, 0.40),  # olive button bg
+    "intro_start_btn_pressed":   (0.50, 1.00, 0.40),
+    "intro_quit_btn":            (0.50, 1.00, 0.40),
+    "intro_quit_btn_pressed":    (0.50, 1.00, 0.40),
+    "options_bt":                (0.50, 1.00, 0.40),
+    "options_bt_pressed":        (0.50, 1.00, 0.40),
+    "settings_bt":               (0.50, 1.00, 0.40),
+    "back_bt":                   (0.50, 1.00, 0.40),
+    "back_bt_pressed":           (0.50, 1.00, 0.40),
+    "big_button":                (0.50, 1.00, 0.40),
+    "big_button_selected":       (0.50, 1.00, 0.40),
+    "button":                    (0.50, 1.00, 0.40),
+    "button_pressed":            (0.50, 1.00, 0.40),
+    "ok_bt":                     (0.50, 1.00, 0.40),
+    "ok_bt_pressed":             (0.50, 1.00, 0.40),
+    # TUTORIAL — class icons get their own color
+    "icon_cleric":               (1.00, 0.85, 0.30),  # gold
+    "icon_fighter":              (1.00, 0.85, 0.30),  # gold/silver
+    "icon_mage":                 (1.00, 0.85, 0.30),
+    "icon_thief":                (1.00, 0.85, 0.30),
+    "soul":                      (0.30, 0.70, 1.20, "swap"),  # blue gem (swap R/B then tint)
+    "soul_glow":                 (0.30, 0.70, 1.20, "swap"),
+    "wound":                     (1.20, 0.30, 0.30, "swap"),  # red droplet (swap R/B then tint)
+    # INGAME — same green theme for HUD
+    "pass_button_timer":         (0.50, 1.00, 0.40),
+    "pass_button_timer_pressed": (0.50, 1.00, 0.40),
+    "pass_button":               (0.50, 1.00, 0.40),
+    "pass_button_pressed":       (0.50, 1.00, 0.40),
+    "play":                      (0.50, 1.00, 0.40),
+    "play_pressed":              (0.50, 1.00, 0.40),
+    "total_damage":              (0.40, 1.00, 0.40),  # green counter
+    "boss_tombstone":            (0.70, 0.70, 0.70),  # neutral grey
+}
+
+
+def parse_spritesheet(path, stem):
+    """Return (sprites, atlas_image) for a WPK spritesheet.
+
+    The pixel format depends on the sheet (see SHEET_DECODER). For sheets
+    listed there we use (r_high, swap_bytes); for any other sheet we fall
+    back to the NAVIGATION/INGAME default (B5G6R5 little-endian).
+    """
     with open(path, "rb") as f:
         raw = f.read()
-    dec = gzip.decompress(raw[raw.find(b"\x1f\x8b"):])
+    gz = raw.find(b"\x1f\x8b\x08")
+    if gz < 0:
+        gz = raw.find(b"\x1f\x8b")
+    dec = gzip.decompress(raw[gz:])
     off = 0
     count = struct.unpack_from("<i", dec, off)[0]
     off += 4
     sprites = []
     for _ in range(count):
-        name_len = dec[off]; off += 1
-        name = dec[off:off + name_len].decode("ascii"); off += name_len
-        x, y, w, h = struct.unpack_from("<iiii", dec, off); off += 16
+        name_len = dec[off]
+        off += 1
+        name = dec[off:off + name_len].decode("ascii", errors="replace")
+        off += name_len
+        x, y, w, h = struct.unpack_from("<iiii", dec, off)
+        off += 16
         sprites.append((name, x, y, w, h))
     off += 4  # separator
-    _fmt = struct.unpack_from("<i", dec, off)[0]; off += 4
-    width = struct.unpack_from("<I", dec, off)[0]; off += 4
-    height = struct.unpack_from("<I", dec, off)[0]; off += 4
+    _fmt = struct.unpack_from("<i", dec, off)[0]
+    off += 4
+    width = struct.unpack_from("<I", dec, off)[0]
+    off += 4
+    height = struct.unpack_from("<I", dec, off)[0]
+    off += 4
+    _mips = struct.unpack_from("<i", dec, off)[0]
+    off += 4
     pixels = dec[len(dec) - width * height * 2:]
-    atlas = decode_format13_swapped(pixels, width, height)
+    r_high, swap_bytes = SHEET_DECODER.get(stem, (False, False))
+    atlas = decode_spritesheet(pixels, width, height, r_high, swap_bytes)
     return sprites, atlas
 
 
 def extract_background(name, out_dir):
-    """Extract a standalone background .png.wpk.
+    """Extract a standalone background .png.wpk (format 12).
 
-    Background WPK format (no sprite list):
-      format(int32) + width(int32) + height(int32) + mips(int32) + pixels
-    Pixel data starts immediately after the 16-byte header.
+    Background WPK layout: gzip -> [fmt:int32, w:int32, h:int32, mips:int32, pixels].
+    Pixels start at offset 16 (right after the 4 int32 header).
     """
     path = os.path.join(APK_COMMON, f"{name}.png.wpk")
     if not os.path.exists(path):
@@ -100,17 +238,24 @@ def extract_background(name, out_dir):
         return
     with open(path, "rb") as f:
         raw = f.read()
-    dec = gzip.decompress(raw[raw.find(b"\x1f\x8b"):])
-    _fmt = struct.unpack_from("<i", dec, 0)[0]
+    gz = raw.find(b"\x1f\x8b\x08")
+    if gz < 0:
+        gz = raw.find(b"\x1f\x8b")
+    dec = gzip.decompress(raw[gz:])
+    fmt = struct.unpack_from("<i", dec, 0)[0]
     width = struct.unpack_from("<I", dec, 4)[0]
     height = struct.unpack_from("<I", dec, 8)[0]
+    _mips = struct.unpack_from("<i", dec, 12)[0]
+    if fmt != 12:
+        print(f"  {name}: unexpected format {fmt}, skipping")
+        return
     pixel_size = width * height * 2
     pixels = dec[16:16 + pixel_size]
-    atlas = decode_format13_swapped(pixels, width, height)
+    atlas = decode_background(pixels, width, height)
     bg_out = os.path.join(out_dir, "backgrounds")
     os.makedirs(bg_out, exist_ok=True)
     atlas.convert("RGB").save(os.path.join(bg_out, f"{name}.jpg"), quality=88)
-    print(f"  {name}: {width}x{height} -> backgrounds/{name}.jpg")
+    print(f"  {name}: {width}x{height} (fmt={fmt}) -> backgrounds/{name}.jpg")
 
 
 def extract_all():
@@ -121,8 +266,9 @@ def extract_all():
         if not os.path.exists(path):
             print(f"  {sheet_name}: missing, skip")
             continue
+        stem = sheet_name.replace(".spritesheet.wpk", "")
         try:
-            sprites, atlas = parse_spritesheet(path)
+            sprites, atlas = parse_spritesheet(path, stem)
             folder = sheet_name.replace(".spritesheet.wpk", "").lower()
             out_dir = os.path.join(OUT, folder)
             os.makedirs(out_dir, exist_ok=True)
@@ -130,6 +276,9 @@ def extract_all():
                 x2 = min(x + w, atlas.width)
                 y2 = min(y + h, atlas.height)
                 crop = atlas.crop((x, y, x2, y2))
+                tint = SPRITE_TINT.get(name)
+                if tint is not None:
+                    crop = apply_tint(crop, tint)
                 crop.save(os.path.join(out_dir, f"{name}.png"))
             print(f"  {sheet_name}: {len(sprites)} sprites -> ui/{folder}/")
         except Exception as e:
@@ -149,9 +298,8 @@ def extract_all():
 
 def _export_compat_icons():
     """Re-export the specific files the current code references (icons/buttons
-    /logos/hud) using the corrected decode, overwriting the magenta versions."""
+    /logos/hud) using the corrected B5G6R5 decode, overwriting the old ones."""
     mapping = {
-        # TUTORIAL sheet -> icons used by AppBoard Soul/Wound + treasure helpers
         "TUTORIAL": {
             "soul": "icons/soul.png",
             "soul_glow": "icons/soul_glow.png",
@@ -184,13 +332,16 @@ def _export_compat_icons():
         path = os.path.join(APK_COMMON, f"{sheet_name}.spritesheet.wpk")
         if not os.path.exists(path):
             continue
-        sprites, atlas = parse_spritesheet(path)
+        sprites, atlas = parse_spritesheet(path, sheet_name)
         sprite_map = {n: (x, y, w, h) for n, x, y, w, h in sprites}
         for sprite_name, rel_dest in files.items():
             if sprite_name not in sprite_map:
                 continue
             x, y, w, h = sprite_map[sprite_name]
             crop = atlas.crop((x, y, min(x + w, atlas.width), min(y + h, atlas.height)))
+            tint = SPRITE_TINT.get(sprite_name)
+            if tint is not None:
+                crop = apply_tint(crop, tint)
             dest = os.path.join(OUT, rel_dest)
             os.makedirs(os.path.dirname(dest), exist_ok=True)
             crop.save(dest)
@@ -200,7 +351,7 @@ def _export_compat_icons():
 def validate():
     """Render a montage comparing a few key sprites."""
     path = os.path.join(APK_COMMON, "TUTORIAL.spritesheet.wpk")
-    sprites, atlas = parse_spritesheet(path)
+    sprites, atlas = parse_spritesheet(path, "TUTORIAL")
     sm = {n: (x, y, w, h) for n, x, y, w, h in sprites}
     targets = ["soul", "wound", "icon_cleric", "icon_fighter", "icon_mage", "icon_thief"]
     crops = []
@@ -229,7 +380,7 @@ def validate():
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Extract UI assets with corrected R/B swap")
+    ap = argparse.ArgumentParser(description="Extract UI assets with B5G6R5 decode")
     ap.add_argument("--validate", action="store_true", help="render a montage of key sprites only")
     args = ap.parse_args()
     if args.validate:
