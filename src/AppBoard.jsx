@@ -322,9 +322,9 @@ export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) 
                 kind={c.isRoom ? 'room' : c.isSpell ? 'spell' : 'hero'}
                 size="md"
                 selected={selectedCard === i}
-                dim={!isMyTurn}
+                dim={!isMyTurn && c.isSpell}
                 onInspect={setInspect}
-                style={{ marginRight: -30 }}
+                style={{ marginRight: -30, cursor: isMyTurn ? 'pointer' : 'default' }}
               />
             </button>
           ))}

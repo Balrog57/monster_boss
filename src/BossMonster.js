@@ -432,7 +432,7 @@ export const BossMonster = {
         const order = G.xpOrder || [0, 1];
         for (let i = 1; i <= order.length; i++) {
           const candidate = order[(order.indexOf(cur) + i) % order.length];
-          if (candidate != null && !G.players[candidate]?.eliminated && !G.players[candidate]?.passed) {
+          if (candidate != null && !G.players[candidate]?.eliminated) {
             return candidate;
           }
         }
