@@ -14,9 +14,10 @@ export function aiChooseBoss(availableBosses) {
 }
 
 export function aiEnumerate(G, ctx, playerID) {
+  if (!G || !G.players) return [];
   const pid = parseInt(playerID);
   const p = G.players[pid];
-  const phase = ctx.phase || G.phase;
+  const phase = (ctx && ctx.phase) || G.phase;
   const moves = [];
 
   if (!p || p.eliminated) return moves;
