@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Client } from 'boardgame.io/react';
 import { Local, SocketIO } from 'boardgame.io/multiplayer';
+import { RandomBot } from 'boardgame.io/ai';
 import { BossMonster } from './BossMonster.js';
 import AppBoard from './AppBoard.jsx';
 import MainMenu from './screens/MainMenu.jsx';
@@ -95,7 +96,13 @@ function GameContainer({ mode, numPlayers, match, onExitToMenu, onReplay }) {
   if (clientRef.current === null) {
     const multiplayer = mode === 'online'
       ? SocketIO({ server: ONLINE_SERVER })
-      : Local();
+      : Local({
+          bots: {
+            1: RandomBot,
+            2: RandomBot,
+            3: RandomBot,
+          }
+        });
     clientRef.current = Client({
       game: BossMonster,
       board: BoardWithGameOver,
