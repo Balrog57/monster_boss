@@ -1,13 +1,9 @@
 // BossMonster.js - boardgame.io game definition with rule-correct base engine.
 //
-// Turn structure:
-//   1. BOSS selection
-//   2. SETUP: each player builds 1 room face-down, then reveal in XP order
-//   3. BEGINNING: reveal 1 hero per player, draw 1 room
-//   4. BUILD: players take turns in XP order via turn.order; each turn: build/spell/pass
-//   5. BAIT: heroes lured, tie or no match = stay in town
-//   6. ADVENTURE: each player (in XP order via turn.order) processes their heroes
-//   7. END: check win, clear effects
+// Uses standard boardgame.io turn ordering: `turn.order` drives ctx.currentPlayer
+// in descending XP order. `activePlayers: { currentPlayer: 'main' }` makes only
+// the current player active. The phase endIf checks that all non-eliminated
+// players have `passed === true`.
 
 import { INVALID_MOVE } from 'boardgame.io/core';
 import {
@@ -50,6 +46,19 @@ function spellAllowedInPhase(category, phase) {
   if (category === SPELL_CATEGORY.BAIT) return phase === PHASE.BAIT;
   if (category === SPELL_CATEGORY.ADVENTURE) return phase === PHASE.ADVENTURE;
   return false;
+}
+
+function nextXPActivePlayer(G, current) {
+  const order = G.xpOrder || [0, 1];
+  const cur = current != null ? current : order[0];
+  const idx = order.indexOf(cur);
+  for (let i = 1; i <= order.length; i++) {
+    const candidate = order[(idx + i) % order.length];
+    if (candidate != null && !G.players[candidate]?.eliminated && !G.players[candidate]?.passed) {
+      return candidate;
+    }
+  }
+  return null;
 }
 
 function resolveAdventureForPlayer(G, ctx, playerId) {
@@ -226,7 +235,7 @@ export const BossMonster = {
     [PHASE.BEGINNING]: {
       moves: { pass: ({ G, ctx, playerID }) => { G.players[playerID != null ? playerID : ctx.playerID].passed = true; } },
       next: PHASE.BUILD,
-      endIf: ({ G }) => G.beganThisTurn === true,
+      endIf: ({ G }) => true,
       onBegin: ({ G, ctx }) => {
         G.turn += 1;
         G.phase = PHASE.BEGINNING;
@@ -256,7 +265,6 @@ export const BossMonster = {
         }
         G.effects = emptyEffects();
         G.xpOrder = playerOrderByXP(G.players);
-        G.beganThisTurn = true;
       }
     },
 
@@ -278,6 +286,7 @@ export const BossMonster = {
         },
         playSpell: ({ G, ctx, playerID }, handIndex, target = null) => {
           const pid = playerID != null ? playerID : ctx.playerID;
+          if (String(pid) !== String(ctx.currentPlayer)) return INVALID_MOVE;
           const p = G.players[pid];
           const card = p.hand[handIndex];
           if (!card?.isSpell) return INVALID_MOVE;
@@ -298,7 +307,6 @@ export const BossMonster = {
       endIf: ({ G }) => G.players && Object.values(G.players).every(p => p.eliminated || p.passed),
       onBegin: ({ G, ctx }) => {
         G.phase = PHASE.BUILD;
-        G.beganThisTurn = false;
         G.logs.push(`--- Turn ${G.turn} - Build Phase ---`);
         G.xpOrder = playerOrderByXP(G.players);
         for (const p of Object.values(G.players)) p.passed = false;
@@ -323,6 +331,7 @@ export const BossMonster = {
       moves: {
         playSpell: ({ G, ctx, playerID }, handIndex, target = null) => {
           const pid = playerID != null ? playerID : ctx.playerID;
+          if (String(pid) !== String(ctx.currentPlayer)) return INVALID_MOVE;
           const p = G.players[pid];
           const card = p.hand[handIndex];
           if (!card?.isSpell) return INVALID_MOVE;
@@ -333,7 +342,9 @@ export const BossMonster = {
           castSpell(G, ctx, pid, card, target);
         },
         pass: ({ G, ctx, playerID }) => {
-          G.players[playerID != null ? playerID : ctx.playerID].passed = true;
+          const pid = playerID != null ? playerID : ctx.playerID;
+          if (String(pid) !== String(ctx.currentPlayer)) return INVALID_MOVE;
+          G.players[pid].passed = true;
         }
       },
       next: PHASE.ADVENTURE,
@@ -363,6 +374,7 @@ export const BossMonster = {
       moves: {
         playSpell: ({ G, ctx, playerID }, handIndex, target = null) => {
           const pid = playerID != null ? playerID : ctx.playerID;
+          if (String(pid) !== String(ctx.currentPlayer)) return INVALID_MOVE;
           const p = G.players[pid];
           const card = p.hand[handIndex];
           if (!card?.isSpell) return INVALID_MOVE;
@@ -376,10 +388,10 @@ export const BossMonster = {
           const pid = playerID != null ? playerID : ctx.playerID;
           if (String(pid) !== String(ctx.currentPlayer)) return INVALID_MOVE;
           resolveAdventureForPlayer(G, ctx, pid);
-          G.players[pid].passed = true;
         },
-        skipAdventure: ({ G, ctx, playerID }) => {
+        pass: ({ G, ctx, playerID }) => {
           const pid = playerID != null ? playerID : ctx.playerID;
+          if (String(pid) !== String(ctx.currentPlayer)) return INVALID_MOVE;
           G.players[pid].passed = true;
         }
       },
@@ -418,15 +430,15 @@ export const BossMonster = {
       next: ({ G, ctx }) => {
         const cur = parseInt(ctx.currentPlayer);
         const order = G.xpOrder || [0, 1];
-        const idx = order.indexOf(cur);
         for (let i = 1; i <= order.length; i++) {
-          const next = order[(idx + i) % order.length];
-          if (next != null && !G.players[next]?.eliminated) return next;
+          const candidate = order[(order.indexOf(cur) + i) % order.length];
+          if (candidate != null && !G.players[candidate]?.eliminated && !G.players[candidate]?.passed) {
+            return candidate;
+          }
         }
-        return order[0] ?? 0;
+        return cur;
       }
-    },
-    activePlayers: { currentPlayer: 'main' }
+    }
   },
 
   ai: {

@@ -151,7 +151,7 @@ export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) 
     );
   }
 
-  const activePid = G.currentOrder[G.currentIndex] != null ? String(G.currentOrder[G.currentIndex]) : ctx.currentPlayer;
+  const activePid = G.activePlayer != null ? String(G.activePlayer) : (ctx.currentPlayer != null ? String(ctx.currentPlayer) : '0');
   const isMyTurn = activePid === pidKey;
   const opponents = Object.entries(G.players).filter(([pid]) => pid !== pidKey);
 
