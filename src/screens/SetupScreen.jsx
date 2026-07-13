@@ -13,8 +13,7 @@ export default function SetupScreen({ onStartLocal, onStartOnline, onBack }) {
         <h1 style={S.title}>Nouvelle Partie</h1>
         <p style={S.subtitle}>Choisissez le mode de jeu</p>
 
-        {/* Solo / 1v1 vs AI (only mode the original APK shipped with) */}
-        <div style={S.sectionTitle}>Solo</div>
+        <div style={S.sectionTitle}>Solo / Local</div>
         <button
           style={S.soloBtn}
           onClick={() => { playSfx(SFX.BUTTON); onStartLocal(2); }}
@@ -22,15 +21,29 @@ export default function SetupScreen({ onStartLocal, onStartOnline, onBack }) {
           <div style={S.optionLabel}>1 contre 1</div>
           <div style={S.optionSub}>Vous contre 1 IA</div>
         </button>
+        <button
+          style={S.soloBtn}
+          onClick={() => { playSfx(SFX.BUTTON); onStartLocal(3); }}
+        >
+          <div style={S.optionLabel}>1 contre 2 IA</div>
+          <div style={S.optionSub}>3 joueurs total</div>
+        </button>
+        <button
+          style={S.soloBtn}
+          onClick={() => { playSfx(SFX.BUTTON); onStartLocal(4); }}
+        >
+          <div style={S.optionLabel}>1 contre 3 IA</div>
+          <div style={S.optionSub}>4 joueurs total</div>
+        </button>
 
-        {/* Online 1v1 lobby */}
+        {/* Online lobby */}
         <div style={S.sectionTitle}>En ligne</div>
         <button
           style={S.onlineBtn}
           onClick={() => { playSfx(SFX.BUTTON); onStartOnline(); }}
         >
-          <div style={S.optionLabel}>🌐 1 contre 1</div>
-          <div style={S.optionSub}>Humain vs Humain (lobby)</div>
+          <div style={S.optionLabel}>🌐 Multijoueur</div>
+          <div style={S.optionSub}>2 à 4 joueurs humains (lobby)</div>
         </button>
 
         <button style={S.backBtn} onClick={() => { playSfx(SFX.BUTTON); onBack(); }}>

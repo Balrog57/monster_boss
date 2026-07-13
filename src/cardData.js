@@ -42,11 +42,28 @@ export function getCardImage(id, kind) {
 export const PHASE = {
   BOSS: 'boss',
   SETUP: 'setup',
+  BEGINNING: 'beginning',
   BUILD: 'build',
   BAIT: 'bait',
   ADVENTURE: 'adventure',
   END: 'end'
 };
+
+export function playerOrderByXP(players) {
+  return Object.entries(players)
+    .map(([pid, p]) => ({ pid: parseInt(pid), xp: p.boss?.xp || 0, eliminated: p.eliminated }))
+    .filter(p => !p.eliminated)
+    .sort((a, b) => b.xp - a.xp || a.pid - b.pid)
+    .map(p => p.pid);
+}
+
+export function totalSouls(p) {
+  return p.souls.reduce((sum, s) => sum + (s.souls || 1), 0);
+}
+
+export function totalWounds(p) {
+  return p.wounds.reduce((sum, w) => sum + (w.wounds || 1), 0);
+}
 
 export function getExpandedDeck(cards) {
   const out = [];
@@ -73,6 +90,12 @@ export function drawCards(deck, count) {
     drawn.push(deck.pop());
   }
   return drawn;
+}
+
+export function refillDeckFromDiscard(deck, discard) {
+  if (deck.length > 0 || discard.length === 0) return;
+  while (discard.length > 0) deck.push(discard.pop());
+  deck = shuffle(deck);
 }
 
 export function treasureIcon(treasure) {

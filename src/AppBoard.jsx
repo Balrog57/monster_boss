@@ -88,7 +88,10 @@ function Wound({ n }) {
   );
 }
 
-const TREASURE_ICON = { 1: 'cleric', 2: 'fighter', 3: 'mage', 4: 'thief' };
+function countVisibleRooms(dungeon) {
+  return dungeon.reduce((n, stack) => n + (Array.isArray(stack) && stack.length > 0 ? 1 : 0), 0);
+}
+
 
 // ---------------------------------------------------------------------------
 // Main board — landscape layout.
@@ -99,6 +102,7 @@ const TREASURE_ICON = { 1: 'cleric', 2: 'fighter', 3: 'mage', 4: 'thief' };
 // ---------------------------------------------------------------------------
 export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) {
   const [inspect, setInspect] = useState(null); // { card, kind }
+  const [selectedCard, setSelectedCard] = useState(null);
   const lastPhase = useRef(null);
 
   // Start dungeon music once gameplay begins (after boss selection).
@@ -147,7 +151,8 @@ export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) 
     );
   }
 
-  const isMyTurn = String(ctx.currentPlayer) === pidKey;
+  const activePid = G.currentOrder[G.currentIndex] != null ? String(G.currentOrder[G.currentIndex]) : ctx.currentPlayer;
+  const isMyTurn = activePid === pidKey;
   const opponents = Object.entries(G.players).filter(([pid]) => pid !== pidKey);
 
   return (
@@ -156,7 +161,7 @@ export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) 
       <div style={S.hud}>
         <div style={S.phaseBadge}>{(phase || '').toUpperCase()}</div>
         <div style={S.hudStat}>Tour {G.turn}</div>
-        <div style={S.hudStat}>{isMyTurn ? 'À vous de jouer' : `Joueur ${ctx.currentPlayer}`}</div>
+        <div style={S.hudStat}>{isMyTurn ? 'À vous de jouer' : `Joueur ${activePid}`}</div>
         <div style={{ display: 'flex', gap: 18, marginLeft: 'auto', alignItems: 'center' }}>
           <Soul n={mySouls} />
           <Wound n={myWounds} />
@@ -184,17 +189,20 @@ export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) 
               </div>
             <div style={S.dungeonRow}>
               {p.dungeon.length === 0 && <div style={S.empty}>Donjon vide</div>}
-              {p.dungeon.map((r, i) => (
-                <Card
-                  key={`${pid}-${r.id}-${i}`}
-                  card={r}
-                  kind="room"
-                  size="sm"
-                  faceDown={phase === PHASE.SETUP && !p.revealed}
-                  onInspect={setInspect}
-                  style={{ marginRight: -28 }}
-                />
-              ))}
+              {p.dungeon.map((stack, i) => {
+                const r = Array.isArray(stack) ? stack[stack.length - 1] : stack;
+                return (
+                  <Card
+                    key={`${pid}-${r.id}-${i}`}
+                    card={r}
+                    kind="room"
+                    size="sm"
+                    faceDown={false}
+                    onInspect={setInspect}
+                    style={{ marginRight: -28 }}
+                  />
+                );
+              })}
             </div>
             </div>
           );
@@ -244,17 +252,31 @@ export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) 
             </div>
             <div style={S.myDungeonRow}>
               {me.dungeon.length === 0 && <div style={S.empty}>Construisez des salles</div>}
-              {me.dungeon.map((r, i) => (
-                <Card
-                  key={`me-${r.id}-${i}`}
-                  card={r}
-                  kind="room"
-                  size="lg"
-                  selected={G.selectedCard === i}
-                  onInspect={setInspect}
-                  style={{ marginRight: -40, zIndex: i }}
-                />
-              ))}
+              {me.dungeon.map((stack, i) => {
+                const r = Array.isArray(stack) ? stack[stack.length - 1] : stack;
+                const canTarget = phase === PHASE.BUILD && isMyTurn && r;
+                return (
+                  <Card
+                    key={`me-${r?.id}-${i}`}
+                    card={r}
+                    kind="room"
+                    size="lg"
+                    selected={G.selectedCard === i}
+                    onInspect={setInspect}
+                    onClick={canTarget ? () => {
+                      // Build selected hand room over/onto this stack if valid.
+                      if (G.selectedCard !== null && G.selectedCard >= 0) {
+                        const card = me.hand[G.selectedCard];
+                        if (card?.isRoom) {
+                          if (card.advanced) moves.buildRoom(G.selectedCard, i);
+                          else moves.buildRoom(G.selectedCard, i);
+                        }
+                      }
+                    } : undefined}
+                    style={{ marginRight: -40, zIndex: i }}
+                  />
+                );
+              })}
               {me.dungeon.length < 5 && phase === PHASE.BUILD && (
                 <div style={S.dropZone}>+</div>
               )}
@@ -271,13 +293,21 @@ export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) 
         </div>
         <div style={S.handRow}>
           {me.hand.length === 0 && <div style={S.empty}>Main vide</div>}
-          {me.hand.map((c, i) => (
+              {me.hand.map((c, i) => (
             <button
               key={`hand-${c.id}-${i}`}
               onClick={() => {
+                if (!isMyTurn) return;
                 if (c.isRoom && (phase === PHASE.BUILD || phase === PHASE.SETUP)) {
-                  if (phase === PHASE.SETUP) moves.buildInitialRoom(i);
-                  else moves.buildRoom(i);
+                  // If ordinary room and dungeon not full, build immediately at end.
+                  // If advanced room or explicit target, select and wait for stack click.
+                  if (phase === PHASE.SETUP) {
+                    moves.buildInitialRoom(i);
+                  } else if (c.advanced || countVisibleRooms(me.dungeon) >= 5) {
+                    setSelectedCard(i);
+                  } else {
+                    moves.buildRoom(i);
+                  }
                 } else if (c.isSpell) {
                   moves.playSpell(i);
                 } else {
@@ -291,7 +321,7 @@ export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) 
                 card={c}
                 kind={c.isRoom ? 'room' : c.isSpell ? 'spell' : 'hero'}
                 size="md"
-                selected={G.selectedCard === i}
+                selected={selectedCard === i}
                 dim={!isMyTurn}
                 onInspect={setInspect}
                 style={{ marginRight: -30 }}
@@ -300,8 +330,13 @@ export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) 
           ))}
         </div>
         <div style={S.actions}>
-          <button style={S.btn} onClick={() => moves.pass()} disabled={!isMyTurn}>Passer</button>
-          <button style={S.btn} onClick={() => { if (G.selectedCard !== null) moves.playSpell(G.selectedCard); }} disabled={!isMyTurn || G.selectedCard === null}>Lancer Sort</button>
+          <button style={S.btn} onClick={() => { setSelectedCard(null); moves.pass(); }} disabled={!isMyTurn}>Passer</button>
+          {phase === PHASE.ADVENTURE && isMyTurn && G.players[pidKey].entrance.length > 0 && (
+            <button style={S.btn} onClick={() => moves.resolveNextHero()}>Résoudre Aventure</button>
+          )}
+          {phase === PHASE.BAIT && isMyTurn && (
+            <button style={S.btn} onClick={() => { setSelectedCard(null); moves.pass(); }}>Confirmer Bait</button>
+          )}
         </div>
       </div>
 
