@@ -33,11 +33,9 @@ RUN npm ci --omit=dev || npm install --omit=dev
 COPY --from=build /app/dist ./dist
 COPY server.js ./
 COPY src ./src
-# The static assets (cards, ui, audio, fonts) must be under dist/assets/ so
-# the paths in the built JS (/assets/...) resolve when served by koa-static.
-# Vite's publicDir flattens them to dist root during build; we restore the
-# /assets/ prefix by copying the source assets dir into dist/assets/.
-COPY assets ./dist/assets
+# The static assets (cards, ui, audio, fonts) are already inside dist/ because
+# vite.config.js uses publicDir: 'assets'. Do NOT copy the source assets dir over
+# dist/assets/ or the compiled JS bundle would be overwritten.
 
 # vite-node is needed to run server.js (resolves ESM + boardgame.io paths)
 RUN npx --yes vite-node --version 2>/dev/null || npm install -g vite-node
