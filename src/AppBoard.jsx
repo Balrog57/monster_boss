@@ -146,15 +146,33 @@ export default function AppBoard({ G, ctx, moves, events, playerID, isActive }) 
         <div style={S.bossGrid}>
           {G.bossPicks.map(b => {
             const t = bossTheme(b);
+            const picked = me.boss?.id === b.id;
+            const taken = Object.values(G.players).some(p => p.boss?.id === b.id && p !== me);
             return (
               <button
                 key={b.id}
-                onClick={() => moves.pickBoss(b.id)}
-                style={{ ...S.bossCard, borderColor: t.color, boxShadow: `0 0 24px ${t.glow}` }}
+                onClick={() => { if (!taken && !me.boss) moves.pickBoss(b.id); }}
+                disabled={taken || !!me.boss}
+                style={{
+                  ...S.bossCard,
+                  borderColor: t.color,
+                  boxShadow: `0 0 24px ${t.glow}`,
+                  opacity: taken ? 0.4 : 1,
+                  cursor: taken || me.boss ? 'not-allowed' : 'pointer',
+                  borderWidth: 3
+                }}
               >
-                <Card card={b} kind="boss" size="xl" onInspect={setInspect} onClick={(e) => { e.stopPropagation(); setInspect({ card: b, kind: 'boss' }); }} />
+                <Card
+                  card={b}
+                  kind="boss"
+                  size="xl"
+                  onInspect={setInspect}
+                  onClick={undefined}
+                  style={{ pointerEvents: 'none' }}
+                />
                 <div style={{ ...S.bossName, color: t.color }}>{b.name}</div>
                 <div style={S.bossMeta}>XP {b.xp} · {b.treasures.map(t => TREASURE_NAMES[t]).join(', ')}</div>
+                {picked && <div style={S.bossPickedTag}>✓ Sélectionné</div>}
               </button>
             );
           })}
@@ -474,6 +492,11 @@ const S = {
   },
   bossName: { fontWeight: 800, fontSize: 16, marginTop: 10 },
   bossMeta: { fontSize: 12, color: '#A1A1AA', marginTop: 4 },
+  bossPickedTag: {
+    marginTop: 8, padding: '4px 12px', borderRadius: 4,
+    background: 'linear-gradient(135deg, #10B981, #059669)',
+    color: '#fff', fontWeight: 800, fontSize: 12, letterSpacing: 1
+  },
   // HUD
   hud: {
     display: 'flex', alignItems: 'center', gap: 14,
