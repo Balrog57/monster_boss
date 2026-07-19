@@ -21,7 +21,7 @@ import { castSpell, emptyEffects, isBuildBlocked, extraBuildsFor, isRoomDeactiva
 import { onBuildRoom, onHeroDiedInRoom, processLevelUp } from '../src/roomAbilities.js';
 import {
   activeRoom, allActiveRooms, countVisibleRooms, dungeonTreasures,
-  resolveBait, buildRoom, heroHealthWithModifiers,
+  resolveBait, buildRoom, canBuildRoom, heroHealthWithModifiers,
   roomDamageWithModifiers, checkEndGame
 } from '../src/engine.js';
 
@@ -142,6 +142,7 @@ function beginPhase(G, ctx, phase) {
   G.xpOrder = playerOrderByXP(G.players);
   ctx.activePlayer = G.xpOrder[0] ?? 0;
   ctx.currentPlayer = ctx.activePlayer;
+  G.activePlayer = ctx.activePlayer; // keep G.activePlayer in sync (legalMoves reads it)
   for (const p of Object.values(G.players)) p.passed = false;
 }
 
@@ -416,6 +417,8 @@ const MOVE_HANDLERS = {
   resolveNextHero: (G, ctx, pid) => {
     if (!isActivePlayer(G, pid)) return 'not your turn';
     resolveAdventureForPlayer(G, ctx, pid);
+    // After resolving all heroes, the player is done for the adventure phase.
+    G.players[pid].passed = true;
     return null;
   },
 
@@ -535,7 +538,11 @@ export function legalMoves(G, ctx, playerID) {
       const allowed = 1 + extraBuildsFor(G, pid);
       if (p.buildsThisTurn < allowed) {
         p.hand.forEach((c, i) => {
-          if (c.isRoom) moves.push({ type: 'buildRoom', args: [i, null] });
+          // Only offer rooms that can actually be built (respect dungeon
+          // capacity, advanced-room placement rules, etc.).
+          if (c.isRoom && canBuildRoom(G, pid, i, null)) {
+            moves.push({ type: 'buildRoom', args: [i, null] });
+          }
         });
       }
     }

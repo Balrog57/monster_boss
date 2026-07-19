@@ -24,7 +24,12 @@ export default function Hand({ me, phase, isMyTurn, selectedCard, onSelect, onBu
       <div className={s.row}>
         {me.hand.length === 0 && <div className={s.empty}>Main vide</div>}
         {me.hand.map((c, i) => {
-          const canBuild = isMyTurn && c.isRoom && (phase === PHASE.BUILD || phase === PHASE.SETUP);
+          // SETUP: only non-advanced rooms. BUILD: any room (advanced rooms
+          // are built over existing stacks via the select-then-target flow).
+          const canBuildRoom = phase === PHASE.SETUP
+            ? (c.isRoom && !c.advanced)
+            : c.isRoom;
+          const canBuild = isMyTurn && canBuildRoom && (phase === PHASE.BUILD || phase === PHASE.SETUP);
           const canSpell = isMyTurn && c.isSpell;
           return (
             <button

@@ -80,21 +80,26 @@ export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, onExitMatch })
       let s = current;
       const step = () => {
         const p = s.G.players[s.ctx.activePlayer];
-        if (!p || p.isAI && !p.eliminated && !s.G.gameOver) {
+        if (!p || (p.isAI && !p.eliminated && !s.G.gameOver)) {
           const moves = legalMoves(s.G, s.ctx, s.ctx.activePlayer);
           if (moves.length > 0) {
-            // aiEnumerate returns { move, args } (boardgame.io shape). Translate
-            // to our { type, args } and pick the first candidate. If the AI
-            // returned nothing actionable, fall back to the first legal move.
             const candidates = aiEnumerate(s.G, s.ctx, s.ctx.activePlayer);
             const pick = (candidates && candidates.length > 0)
               ? { type: candidates[0].move, args: candidates[0].args }
               : moves[0];
-            const { state: ns } = applyMove({ G: s.G, ctx: s.ctx }, pick, s.ctx.activePlayer);
-            s = ns;
+            const { state: ns, error } = applyMove({ G: s.G, ctx: s.ctx }, pick, s.ctx.activePlayer);
+            if (error) { return; }
+            s = { G: ns.G, ctx: ns.ctx };
             setState(s);
-            // continue driving
-            setTimeout(step, 250);
+            setTimeout(step, 300);
+            return;
+          }
+          // AI has no legal moves — pass to advance the phase.
+          if (p && p.isAI && !p.passed) {
+            const { state: ns } = applyMove({ G: s.G, ctx: s.ctx }, { type: 'pass', args: [] }, s.ctx.activePlayer);
+            s = { G: ns.G, ctx: ns.ctx };
+            setState(s);
+            setTimeout(step, 300);
             return;
           }
         }
@@ -109,7 +114,7 @@ export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, onExitMatch })
   for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'playSpell', 'resolveNextHero', 'pass']) {
     moves[type] = (...args) => {
       const { state: next, error } = applyMove({ G: state.G, ctx: state.ctx }, { type, args }, 0);
-      if (error) { console.warn('move rejected:', error); return; }
+      if (error) { console.warn(`[move] ${type} rejected:`, error); return; }
       applyAndDriveAI(next);
     };
   }

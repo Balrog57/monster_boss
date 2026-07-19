@@ -18,13 +18,16 @@ export function emptyEffects() {
   };
 }
 
-export function castSpell(G, ctx, casterId, card, target = {}) {
+export function castSpell(G, ctx, casterId, card, target) {
+  // Normalize null/undefined target to {} so spell handlers can safely read
+  // target.roomIndex, target.heroId, etc. without null checks.
+  const t = target || {};
   const handler = SPELL_EFFECTS[card.id];
   if (!handler) {
     G.logs.push(`${card.name}: no effect implemented yet.`);
     return false;
   }
-  return handler(G, ctx, casterId, target);
+  return handler(G, ctx, casterId, t);
 }
 
 function findRoom(G, playerId, roomIndex) {
@@ -34,7 +37,7 @@ function findRoom(G, playerId, roomIndex) {
 }
 
 function autoRoomIndex(G, playerId, target) {
-  if (target.roomIndex != null) return target.roomIndex;
+  if (target && target.roomIndex != null) return target.roomIndex;
   return G.players[playerId].dungeon.length - 1;
 }
 

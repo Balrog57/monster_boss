@@ -60,13 +60,14 @@ export function aiEnumerate(G, ctx, playerID) {
   }
 
   if (phase === PHASE.ADVENTURE) {
+    const spellAction = chooseSpell(G, pid, phase);
+    if (spellAction) moves.push(spellAction);
     if (p.entrance.length > 0) {
       moves.push({ move: 'resolveNextHero', args: [] });
     } else {
-      moves.push({ move: 'resolveNextHero', args: [] }); // still advance turn
+      // No heroes to resolve — pass to advance the phase.
+      moves.push({ move: 'pass', args: [] });
     }
-    const spellAction = chooseSpell(G, pid, phase);
-    if (spellAction) moves.push(spellAction);
     return moves;
   }
 
@@ -74,8 +75,12 @@ export function aiEnumerate(G, ctx, playerID) {
 }
 
 function isActivePlayer(G, pid) {
-  if (!G.currentOrder.length) return true;
-  return G.currentOrder[G.currentIndex] === pid;
+  // The custom reducer sets G.activePlayer (a single number). boardgame.io used
+  // to set G.currentOrder + G.currentIndex; fall back to those for any legacy
+  // code path that still uses boardgame.io.
+  if (G.activePlayer != null) return String(G.activePlayer) === String(pid);
+  if (G.currentOrder && G.currentOrder.length) return G.currentOrder[G.currentIndex] === pid;
+  return true;
 }
 
 function chooseBuild(G, pid) {
