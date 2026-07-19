@@ -1,158 +1,105 @@
-import React, { useState, useRef } from 'react';
-import { Client } from 'boardgame.io/react';
-import { Local, SocketIO } from 'boardgame.io/multiplayer';
-import { RandomBot } from 'boardgame.io/ai';
-import { BossMonster } from './BossMonster.js';
+import React, { useState } from 'react';
 import AppBoard from './AppBoard.jsx';
 import MainMenu from './screens/MainMenu.jsx';
 import SetupScreen from './screens/SetupScreen.jsx';
-import OnlineLobby from './screens/OnlineLobby.jsx';
-import GameOverScreen from './screens/GameOverScreen.jsx';
-import { playMusic, stopMusic } from './audio.js';
+import OnlineLobbyCustom from './screens/OnlineLobbyCustom.jsx';
+import { ErrorBoundary, Spinner, Button, Screen } from './components/ui';
+import { useOnlineMatch, useLocalMatch } from './client/useMatch.js';
+import { stopMusic } from './audio.js';
 
-// Screen states
 const MENU = 'menu';
 const SETUP = 'setup';
-const LOBBY = 'lobby';      // online lobby (create/join)
+const LOBBY = 'lobby';
 const GAME = 'game';
-
-const ONLINE_SERVER = window.location.hostname === 'localhost'
-  ? 'http://localhost:8000'
-  : window.location.origin;
 
 export default function App() {
   const [screen, setScreen] = useState(MENU);
-  const [mode, setMode] = useState('local'); // 'local' or 'online'
   const [numPlayers, setNumPlayers] = useState(2);
-  const [gameKey, setGameKey] = useState(0);
-  // Online match params (set by the lobby)
-  const [match, setMatch] = useState(null); // { matchID, playerID, credentials, numPlayers }
+  const [match, setMatch] = useState(null);
 
   const goMenu = () => { stopMusic(); setScreen(MENU); setMatch(null); };
 
-  if (screen === MENU) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0f' }}>
-        <MainMenu onStart={() => setScreen(SETUP)} />
-      </div>
-    );
-  }
-
-  if (screen === SETUP) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0f' }}>
-        <SetupScreen
-          onStartLocal={(n) => {
-            setMode('local');
-            setNumPlayers(n);
-            setGameKey((k) => k + 1);
-            setScreen(GAME);
-          }}
-          onStartOnline={() => {
-            setMode('online');
-            setScreen(LOBBY);
-          }}
-          onBack={() => setScreen(MENU)}
-        />
-      </div>
-    );
-  }
-
-  if (screen === LOBBY) {
-    return (
-      <div style={{ minHeight: '100vh', background: '#0a0a0f' }}>
-        <OnlineLobby
-          onJoined={(m) => {
-            setMatch(m);
-            setGameKey((k) => k + 1);
-            setScreen(GAME);
-          }}
-          onBack={() => setScreen(SETUP)}
-        />
-      </div>
-    );
-  }
-
-  // GAME screen
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0f' }}>
-      <GameContainer
-        key={gameKey}
-        mode={mode}
-        numPlayers={match?.numPlayers || numPlayers}
-        match={match}
-        onExitToMenu={goMenu}
-        onReplay={() => {
-          if (mode === 'online') { setScreen(LOBBY); setMatch(null); }
-          else { setGameKey((k) => k + 1); setScreen(SETUP); }
-        }}
-      />
-    </div>
-  );
-}
-
-function GameContainer({ mode, numPlayers, match, onExitToMenu, onReplay }) {
-  const clientRef = useRef(null);
-  if (clientRef.current === null) {
-    const multiplayer = mode === 'online'
-      ? SocketIO({ server: ONLINE_SERVER })
-      : Local({
-          bots: {
-            1: RandomBot,
-            2: RandomBot,
-            3: RandomBot,
-          }
-        });
-    clientRef.current = Client({
-      game: BossMonster,
-      board: BoardWithGameOver,
-      multiplayer,
-      numPlayers,
-      debug: false,
-    });
-  }
-  const BossMonsterClient = clientRef.current;
-
-  const [gameOverData, setGameOverData] = useState(null);
-  const firedRef = useRef(false);
-  gameOverCbRef.current = (G) => {
-    if (G && G.gameOver && !firedRef.current) {
-      firedRef.current = true;
-      const playersCopy = {};
-      for (const [pid, p] of Object.entries(G.players || {})) {
-        playersCopy[pid] = { boss: p.boss, souls: [...p.souls], wounds: [...p.wounds], eliminated: p.eliminated };
-      }
-      setGameOverData({ winner: G.winner, players: playersCopy });
-    }
-  };
-
-  const playerID = match?.playerID || '0';
-
-  return (
-    <>
-      <BossMonsterClient
-        playerID={playerID}
-        matchID={match?.matchID || 'default'}
-        credentials={match?.credentials}
-      />
-      {gameOverData && (
-        <GameOverScreen
-          winner={gameOverData.winner}
-          players={gameOverData.players}
-          playerID={playerID}
-          onReplay={() => { firedRef.current = false; setGameOverData(null); onReplay(); }}
-          onMenu={onExitToMenu}
-        />
+    <ErrorBoundary>
+      {screen === MENU && (
+        <div style={{ minHeight: '100vh', background: 'var(--bm-bg-800)' }}>
+          <MainMenu onStart={() => setScreen(SETUP)} />
+        </div>
       )}
-    </>
+
+      {screen === SETUP && (
+        <div style={{ minHeight: '100vh', background: 'var(--bm-bg-800)' }}>
+          <SetupScreen
+            onStartLocal={(n) => { setNumPlayers(n); setMatch(null); setScreen(GAME); }}
+            onStartOnline={() => setScreen(LOBBY)}
+            onBack={() => setScreen(MENU)}
+          />
+        </div>
+      )}
+
+      {screen === LOBBY && (
+        <div style={{ minHeight: '100vh', background: 'var(--bm-bg-800)' }}>
+          <OnlineLobbyCustom
+            onJoined={(m) => { setMatch(m); setScreen(GAME); }}
+            onBack={() => setScreen(SETUP)}
+          />
+        </div>
+      )}
+
+      {screen === GAME && (
+        <div style={{ minHeight: '100vh', background: 'var(--bm-bg-800)' }}>
+          <ErrorBoundary>
+            {match ? (
+              <OnlineGame match={match} onExitToMenu={goMenu} onReplay={() => setScreen(LOBBY)} />
+            ) : (
+              <LocalGame numPlayers={numPlayers} onExitToMenu={goMenu} onReplay={() => setScreen(SETUP)} />
+            )}
+          </ErrorBoundary>
+        </div>
+      )}
+    </ErrorBoundary>
   );
 }
 
-const gameOverCbRef = { current: null };
-
-function BoardWithGameOver(props) {
-  if (props && props.G) {
-    if (gameOverCbRef.current) gameOverCbRef.current(props.G);
+function LocalGame({ numPlayers, onExitToMenu, onReplay }) {
+  const m = useLocalMatch({ numPlayers, onExitMatch: onReplay });
+  if (!m.G) {
+    return (
+      <Screen width="narrow">
+        <Spinner label="Préparation de la partie…" />
+      </Screen>
+    );
   }
-  return <AppBoard {...props} />;
+  return <AppBoard {...m} />;
+}
+
+function OnlineGame({ match, onExitToMenu, onReplay }) {
+  const m = useOnlineMatch({
+    matchID: match.matchID,
+    playerID: String(match.playerID),
+    credentials: match.credentials,
+    onExitMatch: onReplay,
+  });
+
+  if (!m.G) {
+    return (
+      <Screen width="narrow" align="top">
+        <h1 style={{ color: 'var(--bm-gold)', fontFamily: 'var(--bm-font-display)', fontSize: 'var(--bm-text-3xl)' }}>
+          Connexion à la partie…
+        </h1>
+        <Spinner size="lg" />
+        {m.error && (
+          <div role="alert" style={{
+            color: 'var(--bm-danger)', fontSize: 'var(--bm-text-md)',
+            background: 'rgba(127,29,29,0.3)', padding: 'var(--bm-space-5)',
+            borderRadius: 'var(--bm-radius-md)', width: '100%', textAlign: 'center'
+          }}>
+            {m.error}
+          </div>
+        )}
+        <Button variant="ghost" onClick={onReplay}>Retour au lobby</Button>
+      </Screen>
+    );
+  }
+  return <AppBoard {...m} />;
 }

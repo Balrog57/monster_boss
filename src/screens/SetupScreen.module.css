@@ -1,0 +1,56 @@
+/* SetupScreen.module.css */
+.title {
+  font-size: var(--bm-text-5xl);
+  font-weight: 900;
+  color: var(--bm-gold);
+  font-family: var(--bm-font-display);
+  text-shadow: var(--bm-shadow-glow-gold);
+  text-align: center;
+}
+.subtitle { color: var(--bm-text-400); font-size: var(--bm-text-lg); text-align: center; }
+.sectionTitle {
+  font-size: var(--bm-text-sm);
+  font-weight: 700;
+  color: var(--bm-accent);
+  text-transform: uppercase;
+  letter-spacing: var(--bm-tracking-caps);
+  align-self: stretch;
+  margin-left: 10%;
+  margin-top: var(--bm-space-4);
+}
+
+/* Mode cards (solo + online) */
+.modeCard {
+  width: min(360px, 90vw);
+  padding: var(--bm-space-10) var(--bm-space-8);
+  background: linear-gradient(135deg, var(--bm-bg-600) 0%, var(--bm-bg-700) 100%);
+  border: 2px solid var(--bm-accent-dark);
+  border-radius: var(--bm-radius-2xl);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--bm-space-3);
+  color: var(--bm-text-900);
+  transition: transform var(--bm-duration-fast), box-shadow var(--bm-duration-fast);
+}
+.modeCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--bm-shadow-lg);
+}
+.modeCard.solo { border-color: var(--bm-accent-dark); }
+.modeCard.online {
+  border-color: var(--bm-success);
+  background: linear-gradient(135deg, #0f2a1f 0%, #1a3d2e 100%);
+}
+.optionLabel {
+  font-size: var(--bm-text-2xl);
+  font-weight: 800;
+  color: var(--bm-gold);
+}
+.optionSub { font-size: var(--bm-text-sm); color: var(--bm-text-500); }
+
+@media (max-width: 640px) {
+  .modeCard { width: 100%; padding: var(--bm-space-7) var(--bm-space-6); }
+  .sectionTitle { margin-left: 0; }
+}

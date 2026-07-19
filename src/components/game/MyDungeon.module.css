@@ -1,0 +1,69 @@
+/* MyDungeon.module.css */
+.wrap {
+  flex: 1 1 480px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bm-gradient-panel-soft);
+  border: 2px solid var(--bm-border-700);
+  border-radius: var(--bm-radius-xl);
+  padding: var(--bm-space-5);
+}
+.header { display: flex; align-items: center; gap: var(--bm-space-5); margin-bottom: var(--bm-space-3); flex-wrap: wrap; }
+.title { font-size: var(--bm-text-xl); font-weight: 800; text-transform: uppercase; letter-spacing: var(--bm-tracking-caps); }
+.level { background: var(--bm-gold-dark); color: #000; font-size: var(--bm-text-xs); font-weight: 800; padding: 2px var(--bm-space-3); border-radius: var(--bm-radius-sm); }
+.subtitle { font-size: var(--bm-text-xs); color: var(--bm-text-300); font-style: italic; }
+.body { display: flex; align-items: center; flex: 1; min-height: 0; padding: var(--bm-space-4) 0; gap: var(--bm-space-4); }
+.empty { color: var(--bm-text-300); font-size: var(--bm-text-lg); font-style: italic; padding: var(--bm-space-8); text-align: center; flex: 1; }
+.entrance {
+  width: 70px;
+  padding: var(--bm-space-4) var(--bm-space-3);
+  border: 2px dashed var(--bm-accent);
+  border-radius: var(--bm-radius-lg);
+  background: var(--bm-accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  flex-shrink: 0;
+}
+.entranceLabel { color: #a78bfa; font-size: var(--bm-text-xs); font-weight: 800; letter-spacing: var(--bm-tracking-wide); text-align: center; }
+.roomsRow { display: flex; align-items: center; flex: 1; gap: 0; }
+.roomSlot { position: relative; margin-right: var(--bm-space-5); }
+.stackBadge {
+  position: absolute;
+  top: -6px; right: -6px;
+  background: var(--bm-gold);
+  color: #000;
+  font-size: var(--bm-text-xs);
+  font-weight: 800;
+  padding: 2px var(--bm-space-3);
+  border-radius: var(--bm-radius-pill);
+  border: 2px solid #1a0a1a;
+  z-index: var(--bm-z-sticky);
+}
+.emptySlot {
+  width: 120px;
+  aspect-ratio: 1.4;
+  border-radius: var(--bm-radius-lg);
+  border: 2px dashed var(--bm-border-500);
+  background: rgba(30, 41, 59, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--bm-text-300);
+  cursor: pointer;
+  transition: border-color var(--bm-duration-fast), background var(--bm-duration-fast);
+  margin-left: var(--bm-space-4);
+}
+.emptySlot:hover { border-color: var(--bm-accent); background: var(--bm-accent-soft); }
+.emptySlotPlus { font-size: 48px; font-weight: 300; line-height: 1; }
+.emptySlotLabel { font-size: var(--bm-text-xs); margin-top: var(--bm-space-2); text-transform: uppercase; }
+.bossWrap { display: flex; align-items: center; margin-left: var(--bm-space-5); flex-shrink: 0; }
+
+@media (max-width: 768px) {
+  .wrap { padding: var(--bm-space-4); }
+  .entrance { width: 50px; }
+  .emptySlot { width: 90px; }
+}

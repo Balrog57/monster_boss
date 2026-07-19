@@ -1,0 +1,26 @@
+/* AppBoard.module.css - Orchestrator layout. */
+.screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100vw;
+  background: var(--bm-gradient-app);
+  color: var(--bm-text-900);
+  font-family: var(--bm-font-body);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.loading { padding: var(--bm-space-12); color: var(--bm-text-500); text-align: center; }
+.playArea {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--bm-space-4) var(--bm-space-8);
+  gap: var(--bm-space-5);
+  flex-wrap: nowrap;
+}
+
+/* Responsive: stack the town below the dungeon on narrow viewports */
+@media (max-width: 1024px) {
+  .playArea { flex-direction: column; padding: var(--bm-space-4) var(--bm-space-5); }
+}

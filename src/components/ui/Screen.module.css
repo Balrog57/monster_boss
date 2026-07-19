@@ -1,0 +1,50 @@
+/* Screen.module.css - Full-viewport screen wrapper with optional background image. */
+.screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;          /* mobile-friendly: accounts for browser chrome */
+  background: var(--bm-bg-800);
+  overflow: auto;
+  padding: var(--bm-space-8);
+}
+.bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.45;
+  z-index: 0;
+}
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(10, 10, 15, 0.4) 0%, rgba(10, 10, 15, 0.75) 100%);
+  z-index: 1;
+}
+.content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--bm-space-8);
+  width: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+}
+.narrow { max-width: 420px; }
+.wide { max-width: 720px; }
+.center-vert { justify-content: center; }
+.top { justify-content: flex-start; }
+
+/* Responsive: tighten padding on small screens */
+@media (max-width: 640px) {
+  .screen { padding: var(--bm-space-6); }
+  .content { gap: var(--bm-space-6); }
+}

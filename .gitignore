@@ -13,6 +13,12 @@ dist/
 # Playwright MCP session snapshots
 .playwright-mcp/
 
+# Test artifacts
+test-results/
+
+# Opencode session state
+.opencode/
+
 # Python
 __pycache__/
 *.pyc

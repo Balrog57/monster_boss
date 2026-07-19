@@ -1,0 +1,43 @@
+/* MainMenu.module.css */
+.logoBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: transform var(--bm-duration-base) var(--bm-ease-out);
+  line-height: 0;
+}
+.logo {
+  width: min(560px, 70vw);
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 4px 24px rgba(225, 29, 72, 0.55));
+  transition: transform var(--bm-duration-fast), filter var(--bm-duration-fast);
+}
+.logoBtn:hover .logo {
+  transform: scale(1.04);
+  filter: drop-shadow(0 4px 28px rgba(225, 29, 72, 0.8));
+}
+.logoBtn:active .logo { transform: scale(0.98); }
+.logoFallback {
+  display: none;
+  font-size: clamp(40px, 8vw, 80px);
+  font-weight: 900;
+  color: var(--bm-rust);
+  margin: 0;
+  text-shadow: 0 4px 20px rgba(225, 29, 72, 0.6);
+  font-family: var(--bm-font-display);
+}
+.tagline {
+  color: var(--bm-text-700);
+  font-size: var(--bm-text-xl);
+  font-style: italic;
+}
+.footer {
+  position: absolute;
+  bottom: var(--bm-space-5);
+  color: var(--bm-text-300);
+  font-size: var(--bm-text-sm);
+  z-index: 2;
+  pointer-events: none; /* purely decorative, must not intercept button clicks */
+}

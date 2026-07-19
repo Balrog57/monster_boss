@@ -1,21 +1,27 @@
 {
   "name": "monster_boss",
-  "version": "1.0.0",
-  "description": "Convertir l'APK Android Boss Monster v2.4.12 en un jeu HTML jouable avec boardgame.io",
+  "version": "2.0.0",
+  "description": "Boss Monster - turn-based dungeon-building card game, custom Node + Socket.IO + PostgreSQL",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "serve": "vite-node server.js",
-    "start": "vite-node server.js",
+    "start": "node server/index.js",
+    "serve": "node server/index.js",
     "test": "playwright test"
   },
   "dependencies": {
-    "boardgame.io": "^0.50.2",
+    "@koa/router": "^10.1.1",
+    "koa": "^2.16.4",
+    "koa-body": "^5.0.0",
     "koa-static": "^5.0.0",
+    "nanoid": "^3.3.15",
+    "pg": "^8.22.0",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
@@ -29,7 +35,9 @@
   "keywords": [
     "boardgame",
     "boss-monster",
-    "boardgame.io"
+    "multiplayer",
+    "socket.io",
+    "postgres"
   ],
   "author": "",
   "license": "ISC",

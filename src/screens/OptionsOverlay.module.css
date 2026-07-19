@@ -1,0 +1,46 @@
+/* OptionsOverlay.module.css */
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--bm-space-6) 0;
+  border-top: 1px solid var(--bm-border-900);
+}
+.rowLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--bm-space-6);
+  color: var(--bm-text-900);
+  font-size: var(--bm-text-xl);
+}
+.icon { font-size: 22px; }
+
+.toggle {
+  width: 60px;
+  height: 30px;
+  border-radius: var(--bm-radius-pill);
+  border: 2px solid;
+  cursor: pointer;
+  padding: 2px;
+  position: relative;
+  transition: background var(--bm-duration-base), border-color var(--bm-duration-base);
+}
+.toggle.on { background: #1f3a1f; border-color: var(--bm-success); }
+.toggle.off { background: #3a1f1f; border-color: var(--bm-danger); }
+.knob {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bm-text-900);
+  transition: transform var(--bm-duration-base) var(--bm-ease-out);
+  box-shadow: var(--bm-shadow-sm);
+}
+.knob.on { transform: translateX(28px); }
+.knob.off { transform: translateX(0); }
+
+.hint {
+  color: var(--bm-text-300);
+  font-size: var(--bm-text-sm);
+  margin: var(--bm-space-6) 0;
+}

@@ -1,0 +1,88 @@
+/* Button.module.css - Variant-driven button styles. */
+.base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bm-space-4);
+  padding: var(--bm-space-5) var(--bm-space-8);
+  border: 1px solid transparent;
+  border-radius: var(--bm-radius-md);
+  font-family: var(--bm-font-body);
+  font-weight: 700;
+  font-size: var(--bm-text-lg);
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  transition: transform var(--bm-duration-fast) var(--bm-ease-out),
+              box-shadow var(--bm-duration-fast) var(--bm-ease-out),
+              background var(--bm-duration-fast) var(--bm-ease-out),
+              opacity var(--bm-duration-fast) var(--bm-ease-out);
+  -webkit-tap-highlight-color: transparent;
+}
+.base:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.base:not(:disabled):active { transform: scale(0.97); }
+
+/* Sizes */
+.sm { padding: var(--bm-space-3) var(--bm-space-6); font-size: var(--bm-text-md); }
+.md { padding: var(--bm-space-5) var(--bm-space-8); font-size: var(--bm-text-lg); }
+.lg { padding: var(--bm-space-7) var(--bm-space-9); font-size: var(--bm-text-xl); }
+
+/* Variants */
+.primary {
+  background: var(--bm-gradient-violet);
+  color: var(--bm-text-900);
+  box-shadow: var(--bm-shadow-sm);
+}
+.primary:not(:disabled):hover { box-shadow: 0 4px 16px var(--bm-accent-glow); }
+
+.success {
+  background: var(--bm-gradient-success);
+  color: #fff;
+  box-shadow: var(--bm-shadow-sm);
+}
+.success:not(:disabled):hover { box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45); }
+
+.danger {
+  background: var(--bm-gradient-danger);
+  color: #fff;
+}
+.danger:not(:disabled):hover { box-shadow: 0 4px 16px rgba(220, 38, 38, 0.45); }
+
+.ghost {
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--bm-text-700);
+  border: 1px solid var(--bm-border-500);
+}
+.ghost:not(:disabled):hover {
+  background: rgba(124, 58, 237, 0.12);
+  border-color: var(--bm-accent);
+  color: var(--bm-text-900);
+}
+
+.outline {
+  background: transparent;
+  color: var(--bm-text-400);
+  border: 1px solid var(--bm-border-500);
+}
+.outline:not(:disabled):hover {
+  background: var(--bm-accent-soft);
+  border-color: var(--bm-accent);
+  color: var(--bm-text-900);
+}
+
+.block { width: 100%; }
+
+/* Loader dot shown when `loading` prop is true */
+.loader {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }

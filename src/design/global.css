@@ -1,0 +1,112 @@
+/* global.css - App-wide base styles, reset, and accessibility defaults.
+ *
+ * Imported once from main.jsx. Tokens come from tokens.css (imported first).
+ * No component-specific styles here — those live in *.module.css files.
+ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #app {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: var(--bm-bg-800);
+  color: var(--bm-text-900);
+  font-family: var(--bm-font-body);
+  font-size: var(--bm-text-md);
+  line-height: var(--bm-leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body { overflow-x: hidden; }
+
+h1, h2, h3, h4, h5, h6 { margin: 0; font-weight: 800; }
+p { margin: 0; }
+button { font-family: inherit; }
+img { display: block; max-width: 100%; }
+input, textarea, select { font-family: inherit; }
+
+/* ----- Focus ring: visible only on keyboard, not mouse ----- */
+:focus { outline: none; }
+:focus-visible {
+  outline: none;
+  box-shadow: var(--bm-focus-ring);
+  border-radius: var(--bm-radius-md);
+}
+/* Buttons and interactive elements get the gold ring on keyboard focus */
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+  box-shadow: var(--bm-focus-ring-gold);
+}
+
+/* ----- Scrollbars ----- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bm-border-900) transparent;
+}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--bm-border-900);
+  border-radius: var(--bm-radius-pill);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--bm-accent); }
+
+/* ----- Reduced motion preference ----- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ----- Accessibility utility: screen-reader-only ----- */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.visually-hidden:focus,
+.visually-hidden:focus-visible {
+  position: fixed !important;
+  top: 8px; left: 8px;
+  width: auto; height: auto;
+  padding: 8px 12px;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  background: var(--bm-bg-600);
+  color: var(--bm-text-900);
+  border: 1px solid var(--bm-border-500);
+  border-radius: var(--bm-radius-md);
+  z-index: var(--bm-z-modal);
+}
+
+/* ----- Skip-to-content link (keyboard users) ----- */
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 8px;
+  z-index: 9999;
+  padding: 8px 16px;
+  background: var(--bm-bg-600);
+  color: var(--bm-text-900);
+  border: 1px solid var(--bm-accent);
+  border-radius: var(--bm-radius-md);
+  text-decoration: none;
+  transition: top var(--bm-duration-fast) var(--bm-ease-out);
+}
+.skip-link:focus { top: 8px; }
+
+/* ----- App root container ----- */
+#app { isolation: isolate; }

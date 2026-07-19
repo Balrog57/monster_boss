@@ -1,0 +1,42 @@
+/* TownPanel.module.css */
+.col { display: flex; flex-direction: column; gap: var(--bm-space-4); width: 320px; flex-shrink: 0; }
+.entranceBox {
+  background: linear-gradient(180deg, rgba(127, 29, 29, 0.3) 0%, rgba(20, 18, 30, 0.9) 100%);
+  border: 2px solid var(--bm-danger-dark);
+  border-radius: var(--bm-radius-xl);
+  padding: var(--bm-space-4);
+}
+.entranceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--bm-space-3);
+}
+.entranceLabel { color: var(--bm-danger); font-weight: 800; font-size: var(--bm-text-sm); letter-spacing: var(--bm-tracking-wide); }
+.entranceRow { display: flex; align-items: center; }
+.townBox {
+  background: linear-gradient(180deg, rgba(20, 18, 30, 0.7) 0%, rgba(10, 8, 15, 0.9) 100%);
+  border: 2px solid var(--bm-border-500);
+  border-radius: var(--bm-radius-xl);
+  padding: var(--bm-space-4);
+  flex: 1;
+}
+.townHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--bm-space-3); }
+.townTitle { color: var(--bm-gold); font-weight: 800; font-size: var(--bm-text-sm); letter-spacing: var(--bm-tracking-caps); text-transform: uppercase; }
+.townCount { color: var(--bm-gold); font-weight: 800; font-size: var(--bm-text-xl); background: rgba(0, 0, 0, 0.4); padding: 0 var(--bm-space-4); border-radius: var(--bm-radius-pill); }
+.townRow { display: flex; align-items: center; }
+.empty { color: var(--bm-text-300); font-size: var(--bm-text-sm); font-style: italic; padding: var(--bm-space-4); }
+.resolveBtn {
+  background: var(--bm-gradient-violet);
+  color: #fff;
+  border: none;
+  border-radius: var(--bm-radius-md);
+  padding: var(--bm-space-3) var(--bm-space-5);
+  font-weight: 700;
+  font-size: var(--bm-text-xs);
+  cursor: pointer;
+}
+
+@media (max-width: 768px) {
+  .col { width: 100%; }
+}

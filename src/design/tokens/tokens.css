@@ -1,0 +1,141 @@
+/* tokens.css - Boss Monster design tokens (CSS custom properties).
+ *
+ * Extracted from the inline-style constants that were spread across
+ * AppBoard.jsx and the screen components. Every color, spacing, shadow,
+ * radius, and typography value lives here so the design language is single-
+ * sourced. Consumed by all *.module.css files via `var(--bm-*)`.
+ */
+
+:root {
+  /* ----- Color: surfaces ----- */
+  --bm-bg-900: #06040a;            /* deepest background */
+  --bm-bg-800: #0a0a0f;            /* app background */
+  --bm-bg-700: #15121f;            /* raised panel */
+  --bm-bg-600: #1f1a2e;            /* panel header */
+  --bm-bg-500: #1a1525;            /* input background */
+  --bm-bg-400: rgba(30, 27, 46, 0.6);  /* translucent panel */
+  --bm-bg-300: rgba(20, 18, 30, 0.8); /* card translucent */
+
+  /* ----- Color: borders / dividers ----- */
+  --bm-border-900: #2d2540;
+  --bm-border-700: #3d3050;
+  --bm-border-500: #4b5563;
+  --bm-border-300: #374151;
+
+  /* ----- Color: brand / accent ----- */
+  --bm-accent: #7c3aed;             /* violet */
+  --bm-accent-dark: #5b21b6;
+  --bm-accent-glow: rgba(124, 58, 237, 0.5);
+  --bm-accent-soft: rgba(124, 58, 237, 0.1);
+
+  /* ----- Color: semantic ----- */
+  --bm-gold: #fcd34d;
+  --bm-gold-dark: #f59e0b;
+  --bm-success: #10b981;
+  --bm-success-dark: #047857;
+  --bm-danger: #f87171;
+  --bm-danger-dark: #dc2626;
+  --bm-danger-darker: #991b1b;
+  --bm-rust: #e11d48;
+
+  /* ----- Color: text ----- */
+  --bm-text-900: #f3f4f6;           /* primary */
+  --bm-text-700: #d1d5db;           /* secondary */
+  --bm-text-500: #a1a1aa;           /* tertiary */
+  --bm-text-400: #9ca3af;            /* muted */
+  --bm-text-300: #6b7280;            /* faint */
+  --bm-text-muted: var(--bm-text-400);
+
+  /* ----- Treasure theme colors (game-specific, from cardData.js) ----- */
+  --bm-treasure-cleric: #fbbf24;
+  --bm-treasure-fighter: #ef4444;
+  --bm-treasure-mage: #3b82f6;
+  --bm-treasure-thief: #10b981;
+
+  /* ----- Typography ----- */
+  --bm-font-display: 'arcadepix', 'Segoe UI', sans-serif;
+  --bm-font-display-2: 'arcadepix2', 'Segoe UI', sans-serif;
+  --bm-font-body: 'Segoe UI', 'Space Grotesk', system-ui, sans-serif;
+  --bm-font-mono: 'Consolas', 'Monaco', monospace;
+  --bm-font-serif: 'bookman', 'Georgia', serif;
+
+  --bm-text-xs: 11px;
+  --bm-text-sm: 12px;
+  --bm-text-base: 13px;
+  --bm-text-md: 14px;
+  --bm-text-lg: 15px;
+  --bm-text-xl: 18px;
+  --bm-text-2xl: 20px;
+  --bm-text-3xl: 24px;
+  --bm-text-4xl: 32px;
+  --bm-text-5xl: 40px;
+  --bm-text-6xl: 56px;
+
+  --bm-leading-tight: 1.2;
+  --bm-leading-normal: 1.5;
+  --bm-tracking-wide: 1px;
+  --bm-tracking-wider: 1.5px;
+  --bm-tracking-caps: 1.5px;
+
+  /* ----- Spacing scale (4px base) ----- */
+  --bm-space-0: 0;
+  --bm-space-1: 2px;
+  --bm-space-2: 4px;
+  --bm-space-3: 6px;
+  --bm-space-4: 8px;
+  --bm-space-5: 12px;
+  --bm-space-6: 14px;
+  --bm-space-7: 16px;
+  --bm-space-8: 20px;
+  --bm-space-9: 24px;
+  --bm-space-10: 32px;
+  --bm-space-11: 40px;
+  --bm-space-12: 48px;
+
+  /* ----- Radii ----- */
+  --bm-radius-sm: 4px;
+  --bm-radius-md: 6px;
+  --bm-radius-lg: 8px;
+  --bm-radius-xl: 10px;
+  --bm-radius-2xl: 12px;
+  --bm-radius-pill: 9999px;
+
+  /* ----- Shadows ----- */
+  --bm-shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.4);
+  --bm-shadow-md: 0 6px 16px rgba(0, 0, 0, 0.6);
+  --bm-shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.6);
+  --bm-shadow-glow-gold: 0 3px 12px rgba(252, 211, 77, 0.4);
+  --bm-shadow-glow-rust: 0 4px 24px rgba(225, 29, 72, 0.55);
+  --bm-shadow-glow-accent: 0 0 40px var(--bm-accent-glow);
+  --bm-shadow-card-selected: 0 0 0 4px #f59e0b, 0 0 24px rgba(245, 158, 11, 0.6), 0 8px 20px rgba(0, 0, 0, 0.6);
+
+  /* ----- Gradients (semantic) ----- */
+  --bm-gradient-app: radial-gradient(ellipse at center, #1a1025 0%, #06040a 80%);
+  --bm-gradient-violet: linear-gradient(135deg, var(--bm-accent), var(--bm-accent-dark));
+  --bm-gradient-success: linear-gradient(135deg, var(--bm-success), var(--bm-success-dark));
+  --bm-gradient-danger: linear-gradient(135deg, var(--bm-danger-dark), var(--bm-danger-darker));
+  --bm-gradient-panel: linear-gradient(180deg, rgba(31, 26, 46, 0.95) 0%, rgba(21, 18, 31, 0.95) 100%);
+  --bm-gradient-panel-soft: linear-gradient(180deg, rgba(30, 27, 46, 0.5) 0%, rgba(15, 12, 22, 0.8) 100%);
+
+  /* ----- Motion ----- */
+  --bm-duration-fast: 0.15s;
+  --bm-duration-base: 0.2s;
+  --bm-duration-slow: 0.3s;
+  --bm-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* ----- Z-index scale ----- */
+  --bm-z-base: 1;
+  --bm-z-sticky: 10;
+  --bm-z-overlay: 50;
+  --bm-z-modal: 100;
+
+  /* ----- Layout breakpoints ----- */
+  --bm-bp-sm: 640px;
+  --bm-bp-md: 768px;
+  --bm-bp-lg: 1024px;
+  --bm-bp-xl: 1280px;
+
+  /* ----- Focus ring (accessibility) ----- */
+  --bm-focus-ring: 0 0 0 3px rgba(124, 58, 237, 0.6);
+  --bm-focus-ring-gold: 0 0 0 3px rgba(252, 211, 77, 0.7);
+}

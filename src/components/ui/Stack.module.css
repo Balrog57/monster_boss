@@ -1,0 +1,18 @@
+/* Stack.module.css - Vertical and horizontal layout primitives. */
+.stack { display: flex; flex-direction: column; }
+.cluster { display: flex; flex-direction: row; flex-wrap: wrap; }
+.center { align-items: center; justify-content: center; }
+.start { align-items: flex-start; }
+.end { align-items: flex-end; }
+.stretch { align-items: stretch; }
+.justify-between { justify-content: space-between; }
+.justify-end { justify-content: flex-end; }
+.wrap { flex-wrap: wrap; }
+.nowrap { flex-wrap: nowrap; }
+.gap-2 { gap: var(--bm-space-2); }
+.gap-3 { gap: var(--bm-space-3); }
+.gap-4 { gap: var(--bm-space-4); }
+.gap-5 { gap: var(--bm-space-5); }
+.gap-6 { gap: var(--bm-space-6); }
+.gap-8 { gap: var(--bm-space-8); }
+.grow { flex: 1 1 auto; }

@@ -1,0 +1,13 @@
+/* LogStrip.module.css */
+.strip {
+  background: rgba(0, 0, 0, 0.5);
+  padding: var(--bm-space-2) var(--bm-space-8);
+  max-height: 70px;
+  overflow-y: auto;
+  font-family: var(--bm-font-mono);
+  font-size: var(--bm-text-xs);
+  color: var(--bm-text-400);
+  border-top: 1px solid var(--bm-border-900);
+  flex-shrink: 0;
+}
+.line { margin-bottom: 1px; line-height: 1.4; }

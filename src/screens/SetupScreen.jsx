@@ -1,70 +1,58 @@
-// SetupScreen.jsx - Choose game mode: Solo (1v1 vs AI) or Online (human-vs-human).
+// SetupScreen.jsx - Choose game mode: Solo (1v1 vs AI) or Online (human vs human).
 import React from 'react';
+import { Screen, Button } from '../components/ui';
 import { playSfx, SFX } from '../audio.js';
+import s from './SetupScreen.module.css';
 
 export default function SetupScreen({ onStartLocal, onStartOnline, onBack }) {
   return (
-    <div style={S.screen}>
-      <img src="/ui/backgrounds/intro_bg.jpg" alt="" style={S.bg}
-        onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-      <div style={S.overlay} />
+    <Screen
+      id="main-content"
+      bg="/ui/backgrounds/intro_bg.jpg"
+      bgOpacity={0.5}
+    >
+      <h1 className={s.title}>Nouvelle Partie</h1>
+      <p className={s.subtitle}>Choisissez le mode de jeu</p>
 
-      <div style={S.content}>
-        <h1 style={S.title}>Nouvelle Partie</h1>
-        <p style={S.subtitle}>Choisissez le mode de jeu</p>
+      <div className={s.sectionTitle}>Solo / Local</div>
 
-        <div style={S.sectionTitle}>Solo / Local</div>
-        <button
-          style={S.soloBtn}
-          onClick={() => { playSfx(SFX.BUTTON); onStartLocal(2); }}
-        >
-          <div style={S.optionLabel}>1 contre 1</div>
-          <div style={S.optionSub}>Vous contre 1 IA</div>
-        </button>
-        <button
-          style={S.soloBtn}
-          onClick={() => { playSfx(SFX.BUTTON); onStartLocal(3); }}
-        >
-          <div style={S.optionLabel}>1 contre 2 IA</div>
-          <div style={S.optionSub}>3 joueurs total</div>
-        </button>
-        <button
-          style={S.soloBtn}
-          onClick={() => { playSfx(SFX.BUTTON); onStartLocal(4); }}
-        >
-          <div style={S.optionLabel}>1 contre 3 IA</div>
-          <div style={S.optionSub}>4 joueurs total</div>
-        </button>
+      <button className={`${s.modeCard} ${s.solo}`} type="button"
+        onClick={() => { playSfx(SFX.BUTTON); onStartLocal(2); }}
+        aria-label="1 contre 1, vous contre une IA"
+      >
+        <div className={s.optionLabel}>1 contre 1</div>
+        <div className={s.optionSub}>Vous contre 1 IA</div>
+      </button>
 
-        {/* Online lobby */}
-        <div style={S.sectionTitle}>En ligne</div>
-        <button
-          style={S.onlineBtn}
-          onClick={() => { playSfx(SFX.BUTTON); onStartOnline(); }}
-        >
-          <div style={S.optionLabel}>🌐 Multijoueur</div>
-          <div style={S.optionSub}>2 à 4 joueurs humains (lobby)</div>
-        </button>
+      <button className={`${s.modeCard} ${s.solo}`} type="button"
+        onClick={() => { playSfx(SFX.BUTTON); onStartLocal(3); }}
+        aria-label="1 contre 2 IA, 3 joueurs total"
+      >
+        <div className={s.optionLabel}>1 contre 2 IA</div>
+        <div className={s.optionSub}>3 joueurs total</div>
+      </button>
 
-        <button style={S.backBtn} onClick={() => { playSfx(SFX.BUTTON); onBack(); }}>
-          ← Retour
-        </button>
-      </div>
-    </div>
+      <button className={`${s.modeCard} ${s.solo}`} type="button"
+        onClick={() => { playSfx(SFX.BUTTON); onStartLocal(4); }}
+        aria-label="1 contre 3 IA, 4 joueurs total"
+      >
+        <div className={s.optionLabel}>1 contre 3 IA</div>
+        <div className={s.optionSub}>4 joueurs total</div>
+      </button>
+
+      <div className={s.sectionTitle}>En ligne</div>
+
+      <button className={`${s.modeCard} ${s.online}`} type="button"
+        onClick={() => { playSfx(SFX.BUTTON); onStartOnline(); }}
+        aria-label="Multijoueur en ligne, 2 à 4 joueurs humains via lobby"
+      >
+        <div className={s.optionLabel}>🌐 Multijoueur</div>
+        <div className={s.optionSub}>2 à 4 joueurs humains (lobby)</div>
+      </button>
+
+      <Button variant="ghost" onClick={() => { playSfx(SFX.BUTTON); onBack(); }}>
+        ← Retour
+      </Button>
+    </Screen>
   );
 }
-
-const S = {
-  screen: { position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0f', overflow: 'auto' },
-  bg: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5 },
-  overlay: { position: 'absolute', inset: 0, background: 'rgba(10,10,15,0.6)' },
-  content: { position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, maxWidth: 560, padding: 24 },
-  title: { fontSize: 40, fontWeight: 900, color: '#FCD34D', margin: 0, fontFamily: "'arcadepix', sans-serif", textShadow: '0 3px 12px rgba(252,211,77,0.4)' },
-  subtitle: { color: '#9CA3AF', fontSize: 15, margin: 0 },
-  sectionTitle: { fontSize: 12, fontWeight: 700, color: '#7C3AED', textTransform: 'uppercase', letterSpacing: 1.5, marginTop: 8, alignSelf: 'flex-start', marginLeft: '10%' },
-  soloBtn: { width: 360, padding: '24px 20px', background: 'linear-gradient(135deg, #1f1a2e 0%, #2d2540 100%)', border: '2px solid #4C1D95', borderRadius: 12, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: '#F3F4F6' },
-  onlineBtn: { width: 360, padding: '20px', background: 'linear-gradient(135deg, #0f2a1f 0%, #1a3d2e 100%)', border: '2px solid #10B981', borderRadius: 12, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: '#F3F4F6' },
-  optionLabel: { fontSize: 20, fontWeight: 800, color: '#FCD34D' },
-  optionSub: { fontSize: 12, color: '#A1A1AA' },
-  backBtn: { marginTop: 12, background: 'none', border: '1px solid #4B5563', color: '#9CA3AF', padding: '8px 20px', borderRadius: 6, cursor: 'pointer', fontSize: 14 },
-};

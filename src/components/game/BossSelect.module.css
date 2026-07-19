@@ -1,0 +1,51 @@
+/* BossSelect.module.css - BOSS phase screen. */
+.screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100vw;
+  background: var(--bm-gradient-app);
+  color: var(--bm-text-900);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: auto;
+  padding: var(--bm-space-9) var(--bm-space-8);
+}
+.title {
+  font-size: var(--bm-text-4xl);
+  font-weight: 900;
+  text-align: center;
+  margin: var(--bm-space-9) 0 var(--bm-space-4);
+  color: var(--bm-rust);
+  text-shadow: var(--bm-shadow-glow-rust);
+  font-family: var(--bm-font-display);
+}
+.subtitle { text-align: center; color: var(--bm-text-400); font-size: var(--bm-text-md); margin: 0 0 var(--bm-space-9); }
+.grid { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--bm-space-9); padding: 0 var(--bm-space-10); max-width: 100%; }
+.bossCard {
+  background: var(--bm-bg-300);
+  border: 2px solid;
+  border-radius: var(--bm-radius-2xl);
+  padding: var(--bm-space-5);
+  cursor: pointer;
+  transition: transform var(--bm-duration-fast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: inherit;
+  font: inherit;
+}
+.bossCard:disabled { cursor: not-allowed; opacity: 0.4; }
+.bossCard:hover:not(:disabled) { transform: translateY(-4px); }
+.bossName { font-weight: 800; font-size: var(--bm-text-xl); margin-top: var(--bm-space-5); }
+.bossMeta { font-size: var(--bm-text-sm); color: var(--bm-text-500); margin-top: var(--bm-space-2); }
+.pickedTag {
+  margin-top: var(--bm-space-4);
+  padding: var(--bm-space-2) var(--bm-space-5);
+  border-radius: var(--bm-radius-sm);
+  background: var(--bm-gradient-success);
+  color: #fff;
+  font-weight: 800;
+  font-size: var(--bm-text-sm);
+  letter-spacing: var(--bm-tracking-wide);
+}

@@ -1,0 +1,26 @@
+/* EmptyState.module.css - Friendly placeholder when there's nothing to show. */
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--bm-space-5);
+  padding: var(--bm-space-10) var(--bm-space-8);
+  text-align: center;
+  color: var(--bm-text-500);
+}
+.icon {
+  font-size: 40px;
+  opacity: 0.6;
+  line-height: 1;
+}
+.title {
+  font-size: var(--bm-text-lg);
+  font-weight: 700;
+  color: var(--bm-text-700);
+}
+.hint {
+  font-size: var(--bm-text-md);
+  color: var(--bm-text-400);
+  font-style: italic;
+  max-width: 360px;
+}

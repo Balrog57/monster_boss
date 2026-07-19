@@ -1,0 +1,25 @@
+/* OpponentRow.module.css */
+.row {
+  display: flex;
+  gap: var(--bm-space-5);
+  padding: var(--bm-space-4) var(--bm-space-8);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.dungeon {
+  flex: 1 1 320px;
+  min-width: 0;
+  border-radius: var(--bm-radius-lg);
+  padding: var(--bm-space-3) var(--bm-space-5);
+  border: 1px solid var(--bm-border-900);
+  display: flex;
+  align-items: center;
+  gap: var(--bm-space-5);
+}
+.header { display: flex; align-items: center; gap: var(--bm-space-4); min-width: 0; flex-shrink: 0; }
+.name { font-weight: 700; font-size: var(--bm-text-base); white-space: nowrap; }
+.meta { font-size: var(--bm-text-xs); color: var(--bm-text-500); }
+.elim { color: var(--bm-danger); font-weight: 800; font-size: var(--bm-text-xs); margin-left: var(--bm-space-3); }
+.level { background: var(--bm-gold-dark); color: #000; font-size: var(--bm-text-xs); font-weight: 800; padding: 2px var(--bm-space-3); border-radius: var(--bm-radius-sm); margin-left: var(--bm-space-3); }
+.rooms { display: flex; align-items: center; gap: 0; margin-left: auto; }
+.empty { color: var(--bm-text-300); font-size: var(--bm-text-sm); font-style: italic; padding: var(--bm-space-4); }

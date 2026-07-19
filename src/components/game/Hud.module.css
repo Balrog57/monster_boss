@@ -1,0 +1,52 @@
+/* Hud.module.css - Top status bar. */
+.hud {
+  display: flex;
+  align-items: center;
+  gap: var(--bm-space-6);
+  padding: var(--bm-space-4) var(--bm-space-8);
+  background: var(--bm-gradient-panel);
+  border-bottom: 2px solid var(--bm-accent);
+  box-shadow: 0 2px 12px var(--bm-accent-glow);
+  flex-shrink: 0;
+  z-index: var(--bm-z-sticky);
+  flex-wrap: wrap;
+}
+.phaseBadge {
+  color: #fff;
+  padding: var(--bm-space-3) var(--bm-space-6);
+  border-radius: var(--bm-radius-md);
+  font-weight: 800;
+  font-size: var(--bm-text-base);
+  text-transform: uppercase;
+  letter-spacing: var(--bm-tracking-caps);
+  box-shadow: var(--bm-shadow-sm);
+}
+.myTurn { background: linear-gradient(135deg, var(--bm-gold-dark), var(--bm-danger-dark)); }
+.theirTurn { background: var(--bm-gradient-violet); }
+.hudLabel { font-size: var(--bm-text-base); color: var(--bm-text-500); font-weight: 600; }
+.turnIndicator { font-weight: 700; }
+.myTurnText { color: var(--bm-gold); }
+.theirTurnText { color: var(--bm-text-500); }
+.spacer { flex: 1; }
+.stat { font-size: var(--bm-text-base); color: var(--bm-text-700); font-weight: 600; display: flex; align-items: center; }
+.stat .num { color: var(--bm-gold); font-weight: 800; margin-left: var(--bm-space-2); font-size: var(--bm-text-lg); }
+.stat .num.danger { color: var(--bm-danger); }
+.stat .sep { margin: 0 var(--bm-space-4); color: var(--bm-border-500); }
+.muteBtn {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--bm-border-500);
+  color: var(--bm-text-700);
+  width: 32px; height: 32px;
+  border-radius: var(--bm-radius-md);
+  cursor: pointer;
+  font-size: var(--bm-text-xl);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  .hud { gap: var(--bm-space-4); padding: var(--bm-space-3) var(--bm-space-5); }
+  .hudLabel, .stat { font-size: var(--bm-text-sm); }
+}

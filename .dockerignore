@@ -11,3 +11,9 @@ screenshot_*.png
 tools/validation
 .claude
 .zcode
+.opencode
+serve_*.txt
+serve_*.log
+*_smoke.png
+lobby_*.png
+test_*.txt

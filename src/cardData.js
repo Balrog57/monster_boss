@@ -1,5 +1,9 @@
 // cardData.js - loads the generated card data and provides game helpers
-import cardData from './cardData.json';
+//
+// The `with { type: 'json' }` import attribute works in both Vite 5+ (client
+// bundle) and Node 22+ (server, strict ESM). It is the standard way to import
+// JSON across both environments.
+import cardData from './cardData.json' with { type: 'json' };
 
 export const BOSSES = cardData.bosses;
 export const ROOMS = cardData.rooms;
