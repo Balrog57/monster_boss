@@ -1,5 +1,36 @@
 /* TownPanel.module.css */
 .col { display: flex; flex-direction: column; gap: var(--bm-space-4); width: 320px; flex-shrink: 0; }
+.heroWrap { position: relative; display: inline-block; animation: bm-hero-enter 0.35s var(--bm-ease-out) both; }
+.treasureIcon {
+  position: absolute;
+  bottom: -4px;
+  left: -4px;
+  width: 22px;
+  height: 22px;
+  image-rendering: pixelated;
+  border: 2px solid #1a1a1a;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 0;
+  z-index: var(--bm-z-sticky);
+  pointer-events: none;
+}
+.epicBadge {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bm-gold-500, #f1e17c);
+  color: #000;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: var(--bm-tracking-caps);
+  padding: 1px var(--bm-space-2);
+  border: 2px solid #1a1a1a;
+  border-radius: 0;
+  z-index: var(--bm-z-sticky);
+  white-space: nowrap;
+  pointer-events: none;
+}
 .entranceBox {
   background: linear-gradient(180deg, rgba(127, 29, 29, 0.3) 0%, rgba(20, 18, 30, 0.9) 100%);
   border: 2px solid var(--bm-danger-dark);
@@ -39,4 +70,8 @@
 
 @media (max-width: 768px) {
   .col { width: 100%; }
+  /* Hero rows scroll horizontally; shrink hero cards to fit small screens. */
+  .entranceRow, .townRow { overflow-x: auto; padding-bottom: var(--bm-space-3); }
+  .heroWrap > div:first-child { width: 72px !important; }
+  .treasureIcon { width: 18px; height: 18px; }
 }

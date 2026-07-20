@@ -2,12 +2,14 @@
 import React, { useEffect } from 'react';
 import { Button, ErrorBoundary } from '../components/ui';
 import { playSfx, SFX, stopMusic } from '../audio.js';
+import { getCardImage } from '../cardData.js';
 import s from './GameOverScreen.module.css';
 
 export default function GameOverScreen({ winner, players, playerID, onReplay, onMenu }) {
   const iWon = String(winner) === String(playerID);
   const winnerPlayer = players[winner];
   const winnerName = winnerPlayer?.boss?.name || `Joueur ${winner}`;
+  const winnerBossImg = winnerPlayer?.boss ? getCardImage(winnerPlayer.boss.id, 'boss') : null;
 
   useEffect(() => {
     stopMusic();
@@ -30,11 +32,23 @@ export default function GameOverScreen({ winner, players, playerID, onReplay, on
     <ErrorBoundary>
       <div className={`${s.screen} ${iWon ? s.winBg : s.loseBg}`} role="dialog" aria-live="assertive">
         <div className={s.content}>
+          {/* Winner boss portrait with APK shine effect */}
+          {winnerBossImg && (
+            <div className={s.bossShowcase}>
+              {iWon && <img src="/ui/gradients/winner_boss_shine.png" alt="" className={s.shine} aria-hidden="true" />}
+              <img
+                src={winnerBossImg}
+                alt={winnerName}
+                className={`${s.bossImg} ${iWon ? '' : s.bossDefeated}`}
+              />
+            </div>
+          )}
+
           <h1 className={`${s.title} ${iWon ? s.win : s.lose}`}>
             {iWon ? '🏆 VICTOIRE !' : '💀 DÉFAITE'}
           </h1>
           <p className={s.headline}>
-            {iWon ? 'Vous avez conquis le donjon !' : `${winnerName} a triomphé`}
+            {iWon ? `${winnerName} a conquis le donjon !` : `${winnerName} a triomphé`}
           </p>
 
           <div className={s.scoreboard} aria-label="Scores finaux">

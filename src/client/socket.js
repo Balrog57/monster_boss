@@ -19,10 +19,10 @@ export function getSocket() {
 export function joinMatch(matchID, playerID, credentials) {
   return new Promise((resolve, reject) => {
     const s = getSocket();
-    const onState = ({ G, ctx, matchID: mid }) => {
+    const onState = ({ G, ctx, matchID: mid, turnDeadline }) => {
       if (mid === matchID) {
         s.off('match:state', onState);
-        resolve({ G, ctx });
+        resolve({ G, ctx, turnDeadline });
       }
     };
     s.on('match:state', onState);
@@ -42,9 +42,16 @@ export function leaveMatch(matchID) {
 
 export function subscribeState(matchID, handler) {
   const s = getSocket();
-  const wrapped = ({ G, ctx, matchID: mid }) => { if (mid === matchID) handler({ G, ctx }); };
+  const wrapped = ({ G, ctx, matchID: mid, turnDeadline }) => { if (mid === matchID) handler({ G, ctx, turnDeadline }); };
   s.on('match:state', wrapped);
   return () => s.off('match:state', wrapped);
+}
+
+export function subscribeNotifications(matchID, handler) {
+  const s = getSocket();
+  const wrapped = ({ message, matchID: mid }) => { if (mid === matchID) handler(message); };
+  s.on('match:notification', wrapped);
+  return () => s.off('match:notification', wrapped);
 }
 
 export function subscribeEnded(matchID, handler) {

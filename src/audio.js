@@ -8,6 +8,13 @@ const MUSIC_BASE = '/audio/music/';
 const sfxCache = {};
 let musicEl = null;
 let muted = false;
+// Master volume (0..1), persisted across sessions.
+let volume = 0.8;
+try {
+  const stored = Number(localStorage.getItem('bm_volume'));
+  if (!Number.isNaN(stored) && stored >= 0 && stored <= 1) volume = stored;
+  muted = localStorage.getItem('bm_muted') === '1';
+} catch { /* storage unavailable */ }
 
 function path(kind, name) {
   const ext = kind === 'music' ? '.mp3' : '.wav';
@@ -15,7 +22,7 @@ function path(kind, name) {
 }
 
 // Play a one-shot sound effect. Returns the Audio node (for volume control).
-export function playSfx(name, volume = 0.6) {
+export function playSfx(name, vol = 0.6) {
   if (muted) return null;
   let el = sfxCache[name];
   if (!el) {
@@ -23,13 +30,13 @@ export function playSfx(name, volume = 0.6) {
     sfxCache[name] = el;
   }
   el.currentTime = 0;
-  el.volume = volume;
+  el.volume = Math.min(1, vol * volume);
   el.play().catch(() => { /* autoplay may block until user gesture */ });
   return el;
 }
 
 // Start looping background music. Replaces any current track.
-export function playMusic(name, volume = 0.4) {
+export function playMusic(name, vol = 0.4) {
   if (muted) return;
   if (!musicEl) {
     musicEl = new Audio();
@@ -39,7 +46,7 @@ export function playMusic(name, volume = 0.4) {
   if (musicEl.dataset.src !== src) {
     musicEl.src = src;
     musicEl.dataset.src = src;
-    musicEl.volume = volume;
+    musicEl.volume = Math.min(1, vol * volume);
     musicEl.play().catch(() => { /* will start after first gesture */ });
   }
 }
@@ -54,6 +61,7 @@ export function stopMusic() {
 
 export function setMuted(m) {
   muted = m;
+  try { localStorage.setItem('bm_muted', m ? '1' : '0'); } catch { /* ignore */ }
   if (muted) {
     if (musicEl) musicEl.pause();
   } else if (musicEl && musicEl.dataset.src) {
@@ -63,15 +71,36 @@ export function setMuted(m) {
 
 export function isMuted() { return muted; }
 
+// Master volume control (0..1). Applies to music immediately; SFX on next play.
+export function setVolume(v) {
+  volume = Math.max(0, Math.min(1, v));
+  try { localStorage.setItem('bm_volume', String(volume)); } catch { /* ignore */ }
+  if (musicEl) musicEl.volume = Math.min(1, musicEl.volume <= 0 ? 0 : volume * 0.4);
+}
+
+export function getVolume() { return volume; }
+
 // Named SFX constants (keep names in sync with files under assets/audio/sfx/)
 export const SFX = {
   CARD_PLAY: 'sfx_activatecard',
   CARD_FLIP: 'ui_card_flip',
+  CARD_SLIDE_UP: 'ui_card_slide_up',
+  CARD_SLIDE_DOWN: 'ui_card_slide_down',
   BUTTON: 'ui_button_select',
   BUTTON_BACK: 'ui_button_goback',
+  BUTTON_FINISH: 'ui_button_finish',
   ROOM_FALL: 'sfx_room_fall',
+  ROOM_MONSTER_LRG: 'sfx_room_monster_lrg',
+  ROOM_MONSTER_MED: 'sfx_room_monster_med',
+  ROOM_PHYSICAL: 'sfx_room_physical',
+  ROOM_MAGIC: 'sfx_room_magic',
   HERO_DEATH: 'char_hero_death',
   HERO_HURT: 'char_hero_hurt',
+  HERO_MOVE: 'char_hero_move',
+  HERO_ATTACK: 'char_hero_attack',
+  SPELL_BUFF: 'sfx_spell_buff',
+  SPELL_DEBUFF: 'sfx_spell_debuff',
+  SPELL_SUMMON: 'sfx_spell_summon',
   LEVEL_UP: 'sting_levelup',
   WIN: 'sting_player_win',
   LOSE: 'sting_player_lose',

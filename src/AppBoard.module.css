@@ -18,9 +18,15 @@
   padding: var(--bm-space-4) var(--bm-space-8);
   gap: var(--bm-space-5);
   flex-wrap: nowrap;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(241,225,124,0.03) 0%, transparent 60%),
+    radial-gradient(ellipse at 50% 120%, rgba(0,0,0,0.5) 0%, transparent 70%);
 }
 
 /* Responsive: stack the town below the dungeon on narrow viewports */
 @media (max-width: 1024px) {
   .playArea { flex-direction: column; padding: var(--bm-space-4) var(--bm-space-5); }
+}
+@media (max-width: 640px) {
+  .playArea { padding: var(--bm-space-3); gap: var(--bm-space-4); }
 }

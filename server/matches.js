@@ -17,8 +17,54 @@ import {
   wipeMatch as dbWipeMatch
 } from './db.js';
 
-// matchID -> { id, G, ctx, sockets: Map<socketID, {playerID, socket}>, dirty, status }
+// matchID -> { id, G, ctx, sockets: Map<socketID, {playerID, socket}>, dirty, status, turnTimer }
 const registry = new Map();
+
+// Timer configuration (milliseconds per build phase turn)
+const TURN_TIMEOUT_MS = Number(process.env.TURN_TIMEOUT_MS || 60000); // default 60s
+
+// ---------------------------------------------------------------------------
+// Turn timer: auto-pass when the active player's deadline expires.
+// The server is authoritative — checks every 5s.
+// ---------------------------------------------------------------------------
+let timerInterval = null;
+
+export function startTurnTimers() {
+  if (timerInterval) return;
+  timerInterval = setInterval(() => {
+    const now = Date.now();
+    for (const match of registry.values()) {
+      if (match.status === 'finished' || match.G.gameOver) continue;
+      if (!match.turnStartedAt) continue;
+      const deadline = match.turnStartedAt + TURN_TIMEOUT_MS;
+      if (now < deadline) continue;
+      // Timer expired: auto-pass for the active player (BUILD phase only).
+      const activePid = match.ctx.activePlayer;
+      const phase = match.ctx.phase || match.G.phase;
+      if (phase === 'BUILD' || phase === 'BOSS' || phase === 'SETUP') {
+        const { state, error } = applyMove({ G: match.G, ctx: match.ctx }, { type: 'pass', args: [] }, activePid);
+        if (!error) {
+          match.G = state.G;
+          match.ctx = state.ctx;
+          match.dirty = true;
+          match.turnStartedAt = Date.now();
+          match.G.logs.push(`Player ${activePid} ran out of time — auto-pass.`);
+          broadcastState(match.id);
+        } else {
+          // Move rejected (e.g. phase advanced) — reset timer.
+          match.turnStartedAt = Date.now();
+        }
+      } else {
+        // Non-build phases auto-advance on the server anyway; reset.
+        match.turnStartedAt = Date.now();
+      }
+    }
+  }, 5000);
+}
+
+export function stopTurnTimers() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+}
 
 export function listRegistry() {
   return Array.from(registry.values());
@@ -66,6 +112,8 @@ export function submitMove(matchID, playerID, move) {
   match.G = state.G;
   match.ctx = state.ctx;
   match.dirty = true;
+  // Reset turn timer on each move
+  match.turnStartedAt = Date.now();
 
   if (match.G.gameOver) {
     match.status = 'finished';
@@ -78,9 +126,10 @@ export function submitMove(matchID, playerID, move) {
 export function broadcastState(matchID) {
   const match = registry.get(matchID);
   if (!match) return;
+  const deadline = match.turnStartedAt ? match.turnStartedAt + TURN_TIMEOUT_MS : null;
   for (const [socketID, entry] of match.sockets) {
     const view = playerView(match.G, entry.playerID);
-    entry.socket.emit('match:state', { G: view, ctx: match.ctx, matchID });
+    entry.socket.emit('match:state', { G: view, ctx: match.ctx, matchID, turnDeadline: deadline });
   }
   if (match.G.gameOver) {
     for (const [, entry] of match.sockets) {
@@ -92,10 +141,21 @@ export function broadcastState(matchID) {
 export function addSocket(matchID, socket, playerID) {
   const match = registry.get(matchID);
   if (!match) return false;
+  const isReconnect = match.sockets.size > 0;
   match.sockets.set(socket.id, { socket, playerID });
   // On (re)join, send the current state immediately.
   const view = playerView(match.G, playerID);
-  socket.emit('match:state', { G: view, ctx: match.ctx, matchID });
+  const deadline = match.turnStartedAt ? match.turnStartedAt + TURN_TIMEOUT_MS : null;
+  socket.emit('match:state', { G: view, ctx: match.ctx, matchID, turnDeadline: deadline });
+  // Notify other players about the reconnection.
+  if (isReconnect) {
+    const playerName = match.G.players[playerID]?.boss?.name || `Joueur ${playerID}`;
+    for (const [sid, entry] of match.sockets) {
+      if (sid !== socket.id) {
+        entry.socket.emit('match:notification', { matchID, message: `${playerName} s'est reconnecté !` });
+      }
+    }
+  }
   return true;
 }
 

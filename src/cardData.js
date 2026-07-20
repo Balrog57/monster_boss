@@ -18,24 +18,26 @@ export const SPELL_CATEGORY = {
   ADVENTURE_BUILD: 5
 };
 export function getCardImage(id, kind) {
-  // Map card id to actual extracted asset path
+  // Map card id to actual extracted asset path. Card art is served as WebP
+  // (converted from the original JPGs for ~33% smaller payloads).
   const base = '/cards/';
+  const ext = '.webp';
   const prefix = (id || '').toString().toUpperCase();
   const mappedName = cardData.nameMap?.[prefix] || prefix;
   // Epic hero path uses folder epic-heroes
-  if (kind === 'epic-hero') return base + 'epic-heroes/' + prefix + '_' + mappedName + '.jpg';
-  const file = prefix + '_' + mappedName + '.jpg';
+  if (kind === 'epic-hero') return base + 'epic-heroes/' + prefix + '_' + mappedName + ext;
+  const file = prefix + '_' + mappedName + ext;
   switch (kind) {
     case 'boss': return base + 'bosses/' + file;
     case 'room': return base + 'rooms/' + file;
     case 'spell': return base + 'spells/' + file;
     case 'hero': return base + 'heroes/' + file;
     case 'epic-hero': return base + 'epic-heroes/' + file;
-    case 'back-room': return base + 'backs/back_room.jpg';
-    case 'back-boss': return base + 'backs/back_boss.jpg';
-    case 'back-spell': return base + 'backs/back_spell.jpg';
-    case 'back-hero': return base + 'backs/back_ordinary_hero.jpg';
-    case 'back-epic': return base + 'backs/back_epic_hero.jpg';
+    case 'back-room': return base + 'backs/back_room' + ext;
+    case 'back-boss': return base + 'backs/back_boss' + ext;
+    case 'back-spell': return base + 'backs/back_spell' + ext;
+    case 'back-hero': return base + 'backs/back_ordinary_hero' + ext;
+    case 'back-epic': return base + 'backs/back_epic_hero' + ext;
     default: return '';
   }
 }
@@ -104,8 +106,9 @@ export function refillDeckFromDiscard(deck, discard) {
   }
 }
 
+export const TREASURE_ICON_NAME = { 1: 'cleric', 2: 'fighter', 3: 'mage', 4: 'thief' };
 export function treasureIcon(treasure) {
-  return `/ui/icons/treasure_${treasure}.png`;
+  return `/ui/icons/icon_${TREASURE_ICON_NAME[treasure] || 'cleric'}.png`;
 }
 
 export function roomTypeIcon(type) {

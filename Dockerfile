@@ -4,7 +4,9 @@
 #   1. build stage: Node + npm install + vite build -> dist/
 #   2. runtime stage: Node + dist/ + server/ (serves client + lobby API + Socket.IO)
 #
-FROM node:20-slim AS build
+# NOTE: Node 22+ is required — src/cardData.js uses `import ... with { type:
+# 'json' }` (import attributes), which is only flag-free on Node 22+.
+FROM node:22-slim AS build
 WORKDIR /app
 
 # Install deps (cache layer)
@@ -16,7 +18,7 @@ COPY . .
 RUN npm run build
 
 # --- runtime stage ---
-FROM node:20-slim AS runtime
+FROM node:22-slim AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production

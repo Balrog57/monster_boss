@@ -1,8 +1,26 @@
 // TownPanel.jsx - Town column + player's entrance box.
 import React from 'react';
-import { PHASE } from '../../cardData.js';
+import { PHASE, treasureIcon, TREASURE_NAMES } from '../../cardData.js';
 import Card from './Card.jsx';
 import s from './TownPanel.module.css';
+
+// Hero card with its treasure-type icon overlaid (APK shows a small treasure
+// badge on every hero so you can tell at a glance which dungeon lures them).
+function HeroCard({ hero, onInspect }) {
+  return (
+    <div className={s.heroWrap}>
+      <Card card={hero} kind={hero.epic ? 'epic-hero' : 'hero'} size="sm" onInspect={onInspect} />
+      <img
+        className={s.treasureIcon}
+        src={treasureIcon(hero.treasure)}
+        alt={TREASURE_NAMES[hero.treasure] || ''}
+        title={TREASURE_NAMES[hero.treasure]}
+        loading="lazy"
+      />
+      {hero.epic && <span className={s.epicBadge}>ÉPIQUE</span>}
+    </div>
+  );
+}
 
 export default function TownPanel({ me, town, phase, isMyTurn, onResolve, onInspect }) {
   return (
@@ -19,7 +37,9 @@ export default function TownPanel({ me, town, phase, isMyTurn, onResolve, onInsp
           </div>
           <div className={s.entranceRow}>
             {me.entrance.map((h, i) => (
-              <Card key={`ent-${i}`} card={h} kind={h.epic ? 'epic-hero' : 'hero'} size="sm" onInspect={onInspect} style={{ marginRight: -20 }} />
+              <div key={`ent-${h.id}-${i}`} style={{ marginRight: -20 }}>
+                <HeroCard hero={h} onInspect={onInspect} />
+              </div>
             ))}
           </div>
         </div>
@@ -32,14 +52,9 @@ export default function TownPanel({ me, town, phase, isMyTurn, onResolve, onInsp
         <div className={s.townRow}>
           {town.length === 0 && <div className={s.empty}>Aucun héros en ville</div>}
           {town.map((h, i) => (
-            <Card
-              key={`town-${h.id}-${i}`}
-              card={h}
-              kind={h.epic ? 'epic-hero' : 'hero'}
-              size="sm"
-              onInspect={onInspect}
-              style={{ marginRight: -20 }}
-            />
+            <div key={`town-${h.id}-${i}`} style={{ marginRight: -20 }}>
+              <HeroCard hero={h} onInspect={onInspect} />
+            </div>
           ))}
         </div>
       </div>

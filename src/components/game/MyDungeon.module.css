@@ -1,53 +1,90 @@
-/* MyDungeon.module.css */
+/* MyDungeon.module.css - Dungeon Architect style */
 .wrap {
   flex: 1 1 480px;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  background: var(--bm-gradient-panel-soft);
-  border: 2px solid var(--bm-border-700);
-  border-radius: var(--bm-radius-xl);
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0 2px, transparent 2px 26px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,0.25) 0 2px, transparent 2px 52px),
+    linear-gradient(180deg, #1e1c1a 0%, #161412 60%, #100e0c 100%);
+  border: var(--bm-border-width, 4px) solid var(--bm-border-700, #555);
+  border-radius: 0;
   padding: var(--bm-space-5);
+  box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
 }
 .header { display: flex; align-items: center; gap: var(--bm-space-5); margin-bottom: var(--bm-space-3); flex-wrap: wrap; }
-.title { font-size: var(--bm-text-xl); font-weight: 800; text-transform: uppercase; letter-spacing: var(--bm-tracking-caps); }
-.level { background: var(--bm-gold-dark); color: #000; font-size: var(--bm-text-xs); font-weight: 800; padding: 2px var(--bm-space-3); border-radius: var(--bm-radius-sm); }
+.title { font-size: var(--bm-text-xl); font-weight: 800; text-transform: uppercase; letter-spacing: var(--bm-tracking-caps); color: var(--bm-text-100, #eee); }
+.level { background: var(--bm-gold-500, #f1e17c); color: #000; font-size: var(--bm-text-xs); font-weight: 800; padding: 2px var(--bm-space-3); border-radius: 0; }
 .subtitle { font-size: var(--bm-text-xs); color: var(--bm-text-300); font-style: italic; }
 .body { display: flex; align-items: center; flex: 1; min-height: 0; padding: var(--bm-space-4) 0; gap: var(--bm-space-4); }
 .empty { color: var(--bm-text-300); font-size: var(--bm-text-lg); font-style: italic; padding: var(--bm-space-8); text-align: center; flex: 1; }
 .entrance {
-  width: 70px;
+  width: 74px;
   padding: var(--bm-space-4) var(--bm-space-3);
-  border: 2px dashed var(--bm-accent);
-  border-radius: var(--bm-radius-lg);
-  background: var(--bm-accent-soft);
+  border: 3px solid var(--bm-gold-500, #f1e17c);
+  border-radius: 0;
+  background:
+    radial-gradient(ellipse at 50% 120%, rgba(241,225,124,0.22) 0%, rgba(241,225,124,0.04) 55%, transparent 75%),
+    linear-gradient(180deg, #0a0908 0%, #171310 100%);
+  box-shadow: inset 0 0 18px rgba(0,0,0,0.9), 0 0 10px rgba(241,225,124,0.15);
   display: flex;
   align-items: center;
   justify-content: center;
   align-self: stretch;
   flex-shrink: 0;
+  position: relative;
 }
-.entranceLabel { color: #a78bfa; font-size: var(--bm-text-xs); font-weight: 800; letter-spacing: var(--bm-tracking-wide); text-align: center; }
+.entrance::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px dashed rgba(241,225,124,0.35);
+  pointer-events: none;
+}
+.entranceLabel { color: var(--bm-gold-500, #f1e17c); font-size: var(--bm-text-xs); font-weight: 800; letter-spacing: var(--bm-tracking-wide); text-align: center; }
 .roomsRow { display: flex; align-items: center; flex: 1; gap: 0; }
 .roomSlot { position: relative; margin-right: var(--bm-space-5); }
+/* Construction animation: plays whenever a room slot mounts (new build/stack). */
+.roomEnter { animation: bm-card-enter 0.4s var(--bm-ease-out) both; }
+.roomSlotSource { outline: 3px solid var(--bm-gold-500, #f1e17c); outline-offset: 2px; }
+.roomSlotTarget { cursor: crosshair; }
+.roomSlotTarget:hover { outline: 3px solid var(--bm-red-500, #e05555); outline-offset: 2px; }
+.activateBtn {
+  position: absolute;
+  bottom: -8px; left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--bm-z-sticky);
+  width: 28px; height: 28px;
+  border-radius: 0;
+  border: 2px solid var(--bm-gold-500, #f1e17c);
+  background: var(--bm-bg-800, #131313);
+  color: var(--bm-gold-500, #f1e17c);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--bm-duration-fast), transform var(--bm-duration-fast);
+  box-shadow: 2px 2px 0px rgba(0,0,0,0.4);
+}
+.activateBtn:hover { background: var(--bm-gold-500, #f1e17c); color: #000; transform: translateX(-50%) scale(1.15); }
 .stackBadge {
   position: absolute;
   top: -6px; right: -6px;
-  background: var(--bm-gold);
+  background: var(--bm-gold-500, #f1e17c);
   color: #000;
   font-size: var(--bm-text-xs);
   font-weight: 800;
   padding: 2px var(--bm-space-3);
-  border-radius: var(--bm-radius-pill);
-  border: 2px solid #1a0a1a;
+  border-radius: 0;
+  border: 2px solid #1a1a1a;
   z-index: var(--bm-z-sticky);
 }
 .emptySlot {
   width: 120px;
   aspect-ratio: 1.4;
-  border-radius: var(--bm-radius-lg);
-  border: 2px dashed var(--bm-border-500);
-  background: rgba(30, 41, 59, 0.3);
+  border-radius: 0;
+  border: 3px dashed var(--bm-border-500, #555);
+  background: url('/ui/ingame/card_slot.png') center/cover no-repeat, rgba(30, 30, 30, 0.3);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -57,13 +94,21 @@
   transition: border-color var(--bm-duration-fast), background var(--bm-duration-fast);
   margin-left: var(--bm-space-4);
 }
-.emptySlot:hover { border-color: var(--bm-accent); background: var(--bm-accent-soft); }
+.emptySlot:hover { border-color: var(--bm-gold-500, #f1e17c); background-color: rgba(241,225,124,0.05); }
 .emptySlotPlus { font-size: 48px; font-weight: 300; line-height: 1; }
 .emptySlotLabel { font-size: var(--bm-text-xs); margin-top: var(--bm-space-2); text-transform: uppercase; }
-.bossWrap { display: flex; align-items: center; margin-left: var(--bm-space-5); flex-shrink: 0; }
+.bossWrap { display: flex; align-items: center; margin-left: var(--bm-space-5); flex-shrink: 0; border-radius: 0; }
+/* Damage: red flash when the boss takes a wound. */
+.bossHurt { animation: bm-damage-flash 0.6s var(--bm-ease-out); }
+/* Level-up: persistent golden glow pulse. */
+.bossLevelUp { animation: bm-levelup-glow 1.6s ease-in-out infinite; }
 
 @media (max-width: 768px) {
   .wrap { padding: var(--bm-space-4); }
   .entrance { width: 50px; }
   .emptySlot { width: 90px; }
+  /* Dungeon becomes horizontally scrollable; shrink room cards to fit. */
+  .roomsRow { overflow-x: auto; padding-bottom: var(--bm-space-3); }
+  .roomSlot > div:first-child { width: 118px !important; }
+  .bossWrap { margin-left: var(--bm-space-3); }
 }

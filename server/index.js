@@ -11,7 +11,7 @@ import { migrate, closePool, countActiveMatches, storageKind } from './db.js';
 import { lobbyRouter } from './lobby.js';
 import { createSocketIO, broadcastLobbyUpdate } from './socket.js';
 import { startCleanupCron } from './cleanup.js';
-import { flushDirty } from './matches.js';
+import { flushDirty, startTurnTimers, stopTurnTimers } from './matches.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -91,6 +91,9 @@ async function main() {
   // 6. Cleanup cron.
   const cleanup = startCleanupCron();
 
+  // 6b. Turn timers (auto-pass on expiry, server-authoritative).
+  startTurnTimers();
+
   // 7. Graceful shutdown.
   let shuttingDown = false;
   const shutdown = async (sig) => {
@@ -100,6 +103,7 @@ async function main() {
     clearInterval(flushTimer);
     clearInterval(lobbyTimer);
     clearInterval(cleanup.timer);
+    stopTurnTimers();
     await flushDirty();
     io.close();
     httpServer.close();

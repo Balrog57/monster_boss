@@ -1,61 +1,60 @@
 /* tokens.css - Boss Monster design tokens (CSS custom properties).
  *
- * Extracted from the inline-style constants that were spread across
- * AppBoard.jsx and the screen components. Every color, spacing, shadow,
- * radius, and typography value lives here so the design language is single-
- * sourced. Consumed by all *.module.css files via `var(--bm-*)`.
+ * "Dungeon Architect" style: retro-pixel / brutalist-tactile hybrid.
+ * Heavy structural borders, sharp corners (0px), chiseled 3D effects.
+ * Reference: design_system/stitch_monster_boss_design_system/dungeon_architect/DESIGN.md
  */
 
 :root {
   /* ----- Color: surfaces ----- */
-  --bm-bg-900: #06040a;            /* deepest background */
-  --bm-bg-800: #0a0a0f;            /* app background */
-  --bm-bg-700: #15121f;            /* raised panel */
-  --bm-bg-600: #1f1a2e;            /* panel header */
-  --bm-bg-500: #1a1525;            /* input background */
-  --bm-bg-400: rgba(30, 27, 46, 0.6);  /* translucent panel */
-  --bm-bg-300: rgba(20, 18, 30, 0.8); /* card translucent */
+  --bm-bg-900: #0e0e0e;            /* Deep Void — deepest background */
+  --bm-bg-800: #131313;            /* app background */
+  --bm-bg-700: #1b1b1b;            /* raised panel (Level 1) */
+  --bm-bg-600: #2a2a2a;            /* panel header / Level 2 */
+  --bm-bg-500: #20201f;            /* input background */
+  --bm-bg-400: rgba(27, 27, 27, 0.85);  /* translucent panel */
+  --bm-bg-300: rgba(14, 14, 14, 0.9);   /* card translucent */
 
   /* ----- Color: borders / dividers ----- */
-  --bm-border-900: #2d2540;
-  --bm-border-700: #3d3050;
-  --bm-border-500: #4b5563;
-  --bm-border-300: #374151;
+  --bm-border-900: #74787a;        /* Stone Gray — primary structural border */
+  --bm-border-700: #4a4738;        /* outline-variant */
+  --bm-border-500: #95917f;        /* outline */
+  --bm-border-300: #353535;        /* subtle divider */
 
   /* ----- Color: brand / accent ----- */
-  --bm-accent: #7c3aed;             /* violet */
-  --bm-accent-dark: #5b21b6;
-  --bm-accent-glow: rgba(124, 58, 237, 0.5);
-  --bm-accent-soft: rgba(124, 58, 237, 0.1);
+  --bm-accent: #f1e17c;            /* Primary Gold */
+  --bm-accent-dark: #d4c563;       /* primary-container */
+  --bm-accent-glow: rgba(241, 225, 124, 0.4);
+  --bm-accent-soft: rgba(241, 225, 124, 0.08);
 
   /* ----- Color: semantic ----- */
-  --bm-gold: #fcd34d;
-  --bm-gold-dark: #f59e0b;
-  --bm-success: #10b981;
-  --bm-success-dark: #047857;
-  --bm-danger: #f87171;
-  --bm-danger-dark: #dc2626;
-  --bm-danger-darker: #991b1b;
-  --bm-rust: #e11d48;
+  --bm-gold: #f1e17c;
+  --bm-gold-dark: #d7c866;
+  --bm-success: #d2eb6d;           /* Tertiary — poison green */
+  --bm-success-dark: #b7ce54;
+  --bm-danger: #ffb3ae;            /* Secondary — brick/blood red (light) */
+  --bm-danger-dark: #891c1f;       /* secondary-container */
+  --bm-danger-darker: #68000b;
+  --bm-rust: #891c1f;
 
   /* ----- Color: text ----- */
-  --bm-text-900: #f3f4f6;           /* primary */
-  --bm-text-700: #d1d5db;           /* secondary */
-  --bm-text-500: #a1a1aa;           /* tertiary */
-  --bm-text-400: #9ca3af;            /* muted */
-  --bm-text-300: #6b7280;            /* faint */
+  --bm-text-900: #e5e2e1;          /* on-surface — primary */
+  --bm-text-700: #ccc6b2;          /* on-surface-variant — secondary */
+  --bm-text-500: #95917f;          /* outline — tertiary */
+  --bm-text-400: #74787a;          /* stone-gray — muted */
+  --bm-text-300: #4a4738;          /* faint */
   --bm-text-muted: var(--bm-text-400);
 
-  /* ----- Treasure theme colors (game-specific, from cardData.js) ----- */
+  /* ----- Treasure theme colors (game-specific) ----- */
   --bm-treasure-cleric: #fbbf24;
   --bm-treasure-fighter: #ef4444;
   --bm-treasure-mage: #3b82f6;
   --bm-treasure-thief: #10b981;
 
   /* ----- Typography ----- */
-  --bm-font-display: 'arcadepix', 'Segoe UI', sans-serif;
-  --bm-font-display-2: 'arcadepix2', 'Segoe UI', sans-serif;
-  --bm-font-body: 'Segoe UI', 'Space Grotesk', system-ui, sans-serif;
+  --bm-font-display: 'arcadepix', 'Space Grotesk', sans-serif;
+  --bm-font-display-2: 'arcadepix2', 'Space Grotesk', sans-serif;
+  --bm-font-body: 'Space Mono', 'Consolas', monospace;
   --bm-font-mono: 'Consolas', 'Monaco', monospace;
   --bm-font-serif: 'bookman', 'Georgia', serif;
 
@@ -92,36 +91,36 @@
   --bm-space-11: 40px;
   --bm-space-12: 48px;
 
-  /* ----- Radii ----- */
-  --bm-radius-sm: 4px;
-  --bm-radius-md: 6px;
-  --bm-radius-lg: 8px;
-  --bm-radius-xl: 10px;
-  --bm-radius-2xl: 12px;
-  --bm-radius-pill: 9999px;
+  /* ----- Radii — Dungeon Architect uses SHARP corners (0px) ----- */
+  --bm-radius-sm: 0px;
+  --bm-radius-md: 0px;
+  --bm-radius-lg: 0px;
+  --bm-radius-xl: 0px;
+  --bm-radius-2xl: 0px;
+  --bm-radius-pill: 0px;
 
-  /* ----- Shadows ----- */
-  --bm-shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.4);
-  --bm-shadow-md: 0 6px 16px rgba(0, 0, 0, 0.6);
-  --bm-shadow-lg: 0 8px 20px rgba(0, 0, 0, 0.6);
-  --bm-shadow-glow-gold: 0 3px 12px rgba(252, 211, 77, 0.4);
-  --bm-shadow-glow-rust: 0 4px 24px rgba(225, 29, 72, 0.55);
-  --bm-shadow-glow-accent: 0 0 40px var(--bm-accent-glow);
-  --bm-shadow-card-selected: 0 0 0 4px #f59e0b, 0 0 24px rgba(245, 158, 11, 0.6), 0 8px 20px rgba(0, 0, 0, 0.6);
+  /* ----- Shadows — bold borders over soft shadows ----- */
+  --bm-shadow-sm: 2px 2px 0px rgba(0, 0, 0, 0.8);
+  --bm-shadow-md: 3px 3px 0px rgba(0, 0, 0, 0.8);
+  --bm-shadow-lg: 4px 4px 0px rgba(0, 0, 0, 0.9);
+  --bm-shadow-glow-gold: 0 0 0 4px var(--bm-accent);
+  --bm-shadow-glow-rust: 0 0 0 4px var(--bm-danger-dark);
+  --bm-shadow-glow-accent: 0 0 0 4px var(--bm-accent);
+  --bm-shadow-card-selected: 0 0 0 4px var(--bm-accent), 4px 4px 0px rgba(0, 0, 0, 0.9);
 
   /* ----- Gradients (semantic) ----- */
-  --bm-gradient-app: radial-gradient(ellipse at center, #1a1025 0%, #06040a 80%);
+  --bm-gradient-app: #0e0e0e;
   --bm-gradient-violet: linear-gradient(135deg, var(--bm-accent), var(--bm-accent-dark));
   --bm-gradient-success: linear-gradient(135deg, var(--bm-success), var(--bm-success-dark));
   --bm-gradient-danger: linear-gradient(135deg, var(--bm-danger-dark), var(--bm-danger-darker));
-  --bm-gradient-panel: linear-gradient(180deg, rgba(31, 26, 46, 0.95) 0%, rgba(21, 18, 31, 0.95) 100%);
-  --bm-gradient-panel-soft: linear-gradient(180deg, rgba(30, 27, 46, 0.5) 0%, rgba(15, 12, 22, 0.8) 100%);
+  --bm-gradient-panel: linear-gradient(180deg, #1b1b1b 0%, #131313 100%);
+  --bm-gradient-panel-soft: linear-gradient(180deg, #1b1b1b 0%, #0e0e0e 100%);
 
   /* ----- Motion ----- */
-  --bm-duration-fast: 0.15s;
-  --bm-duration-base: 0.2s;
-  --bm-duration-slow: 0.3s;
-  --bm-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --bm-duration-fast: 0.1s;
+  --bm-duration-base: 0.15s;
+  --bm-duration-slow: 0.25s;
+  --bm-ease-out: steps(3, end);
 
   /* ----- Z-index scale ----- */
   --bm-z-base: 1;
@@ -136,6 +135,12 @@
   --bm-bp-xl: 1280px;
 
   /* ----- Focus ring (accessibility) ----- */
-  --bm-focus-ring: 0 0 0 3px rgba(124, 58, 237, 0.6);
-  --bm-focus-ring-gold: 0 0 0 3px rgba(252, 211, 77, 0.7);
+  --bm-focus-ring: 0 0 0 3px var(--bm-accent);
+  --bm-focus-ring-gold: 0 0 0 3px var(--bm-accent);
+
+  /* ----- Dungeon Architect specific ----- */
+  --bm-border-width: 4px;
+  --bm-border-chiseled: 4px solid var(--bm-border-900);
+  --bm-chiseled-light: inset 2px 2px 0px rgba(255,255,255,0.1);
+  --bm-chiseled-dark: inset -2px -2px 0px rgba(0,0,0,0.6);
 }

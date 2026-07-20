@@ -1,32 +1,32 @@
-/* OnlineLobbyCustom.module.css */
+/* OnlineLobbyCustom.module.css - Dungeon Architect style */
 .title {
   margin: 0 0 var(--bm-space-2);
-  color: var(--bm-gold);
+  color: var(--bm-gold-500, #f1e17c);
   font-family: var(--bm-font-display);
   font-size: var(--bm-text-4xl);
   text-align: center;
-  text-shadow: var(--bm-shadow-glow-gold);
+  text-shadow: 2px 2px 0px rgba(0,0,0,0.8);
 }
 .subtitle { color: var(--bm-text-400); font-size: var(--bm-text-base); text-align: center; }
 
 .input {
   width: 100%;
   padding: var(--bm-space-5) var(--bm-space-7);
-  border-radius: var(--bm-radius-md);
-  border: 1px solid var(--bm-border-500);
-  background: var(--bm-bg-500);
+  border-radius: 0;
+  border: 3px solid var(--bm-border-500, #555);
+  background: var(--bm-bg-800, #131313);
   color: var(--bm-text-900);
   font-size: var(--bm-text-lg);
   transition: border-color var(--bm-duration-fast);
 }
 .input::placeholder { color: var(--bm-text-300); }
-.input:focus { border-color: var(--bm-accent); }
+.input:focus { border-color: var(--bm-gold-500, #f1e17c); outline: none; }
 
 .section { width: 100%; margin-top: var(--bm-space-4); }
 .sectionTitle {
   font-size: var(--bm-text-sm);
   font-weight: 700;
-  color: var(--bm-accent);
+  color: var(--bm-gold-500, #f1e17c);
   text-transform: uppercase;
   letter-spacing: var(--bm-tracking-caps);
   margin-bottom: var(--bm-space-4);
@@ -36,14 +36,14 @@
 }
 .refreshBtn {
   background: none;
-  border: 1px solid var(--bm-border-500);
+  border: 2px solid var(--bm-border-500);
   color: var(--bm-text-400);
-  border-radius: var(--bm-radius-sm);
+  border-radius: 0;
   cursor: pointer;
   padding: 2px var(--bm-space-4);
   transition: color var(--bm-duration-fast), border-color var(--bm-duration-fast);
 }
-.refreshBtn:hover { color: var(--bm-text-900); border-color: var(--bm-accent); }
+.refreshBtn:hover { color: var(--bm-text-900); border-color: var(--bm-gold-500, #f1e17c); }
 
 .divider {
   display: flex;
@@ -52,7 +52,7 @@
   width: 100%;
   margin: var(--bm-space-2) 0;
 }
-.dividerLine { flex: 1; height: 1px; background: var(--bm-border-300); }
+.dividerLine { flex: 1; height: 2px; background: var(--bm-border-700, #555); }
 .dividerText {
   color: var(--bm-text-300);
   font-size: var(--bm-text-sm);
@@ -65,34 +65,35 @@
   align-items: center;
   gap: var(--bm-space-5);
   padding: var(--bm-space-5) var(--bm-space-6);
-  background: rgba(30, 27, 46, 0.6);
-  border-radius: var(--bm-radius-md);
+  background: var(--bm-bg-700, #1b1b1b);
+  border-radius: 0;
   margin-bottom: var(--bm-space-3);
-  border: 1px solid transparent;
+  border: 2px solid var(--bm-border-700, #555);
   transition: border-color var(--bm-duration-fast);
 }
-.matchRow:hover { border-color: var(--bm-border-900); }
+.matchRow:hover { border-color: var(--bm-gold-500, #f1e17c); }
 .matchInfo { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .matchCode {
-  color: var(--bm-gold);
+  color: var(--bm-gold-500, #f1e17c);
   font-weight: 700;
   font-family: var(--bm-font-mono);
   font-size: var(--bm-text-md);
 }
 .matchSeats { color: var(--bm-text-500); font-size: var(--bm-text-sm); }
 .joinBtn {
-  background: #1f3a1f;
-  color: var(--bm-success);
-  border: 1px solid var(--bm-success);
-  border-radius: var(--bm-radius-sm);
+  background: url('/ui/buttons/button.png') center/cover no-repeat, #1b1b1b;
+  color: var(--bm-gold-500, #f1e17c);
+  border: 2px solid var(--bm-gold-500, #f1e17c);
+  border-radius: 0;
   padding: var(--bm-space-3) var(--bm-space-6);
   cursor: pointer;
   font-size: var(--bm-text-base);
   font-weight: 700;
-  transition: background var(--bm-duration-fast);
+  transition: background var(--bm-duration-fast), transform var(--bm-duration-fast);
 }
-.joinBtn:hover:not(:disabled) { background: rgba(16, 185, 129, 0.2); }
-.joinBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.joinBtn:hover:not(:disabled) { transform: translateY(-1px); }
+.joinBtn:active:not(:disabled) { background-image: url('/ui/buttons/button_pressed.png'); }
+.joinBtn:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.5); }
 .full {
   color: var(--bm-text-300);
   font-size: var(--bm-text-sm);

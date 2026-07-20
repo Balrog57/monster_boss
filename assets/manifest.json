@@ -1,0 +1,26 @@
+{
+  "name": "Boss Monster",
+  "short_name": "Boss Monster",
+  "description": "Dungeon-building card game — build your dungeon, lure heroes, steal their souls.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0e0e0e",
+  "theme_color": "#0e0e0e",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/ui/logos/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/ui/logos/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

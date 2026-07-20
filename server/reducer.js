@@ -18,7 +18,7 @@ import {
   getExpandedDeck, shuffle, drawCards, playerOrderByXP, totalSouls, totalWounds
 } from '../src/cardData.js';
 import { castSpell, emptyEffects, isBuildBlocked, extraBuildsFor, isRoomDeactivated, isNoEntry } from '../src/spellEffects.js';
-import { onBuildRoom, onHeroDiedInRoom, processLevelUp, activateRoomAbility } from '../src/roomAbilities.js';
+import { onBuildRoom, onHeroDiedInRoom, processLevelUp, activateRoomAbility, resolveLevelUpChoice, aiResolveLevelUpChoice } from '../src/roomAbilities.js';
 import {
   activeRoom, allActiveRooms, countVisibleRooms, dungeonTreasures,
   resolveBait, buildRoom, canBuildRoom, heroHealthWithModifiers,
@@ -172,24 +172,11 @@ function endPhaseSetup(G, ctx) {
       }
     }
   }
-  // Deal starting hands: 5 rooms + 2 spells, then discard 2 (per official rules).
+  // Deal starting hands: 5 rooms + 2 spells (official rules — no discard step).
   for (let i = 0; i < ctx.numPlayers; i++) {
     const p = G.players[i];
     drawCards(G.decks.rooms, 5).forEach(c => p.hand.push(c));
     drawCards(G.decks.spells, 2).forEach(c => p.hand.push(c));
-    // Discard 2 cards (simplification: AI discards 2 rooms; human auto-discards
-    // the 2 lowest-damage rooms). In a real game this is a player choice.
-    const rooms = p.hand.map((c, idx) => ({ c, idx })).filter(({ c }) => c.isRoom);
-    rooms.sort((a, b) => (a.c.damage || 0) - (b.c.damage || 0));
-    for (let d = 0; d < 2 && rooms.length > 0; d++) {
-      const card = rooms.shift();
-      const handIdx = p.hand.indexOf(card.c);
-      if (handIdx >= 0) {
-        const discarded = p.hand.splice(handIdx, 1)[0];
-        if (discarded.isRoom) G.decks.roomDiscard.push(discarded);
-        else G.decks.spellDiscard.push(discarded);
-      }
-    }
   }
   // Seed discard piles
   drawCards(G.decks.rooms, 4).forEach(c => G.decks.roomDiscard.push(c));
@@ -204,7 +191,11 @@ function endPhaseSetupBuild(G, ctx) {
     const room = activeRoom(G.players[pid].dungeon[0]);
     if (room) {
       G.logs.push(`Revealed ${room.name} for Player ${pid}`);
-      onBuildRoom(G, ctx, pid, room);
+      const choice = onBuildRoom(G, ctx, pid, room);
+      if (choice) {
+        G.pendingChoice = choice;
+        return; // wait for player choice before continuing
+      }
     }
   }
   G.effects = emptyEffects();
@@ -274,13 +265,21 @@ function endPhaseBuild(G, ctx) {
       if (room && room.faceDown) {
         room.faceDown = false;
         G.logs.push(`Revealed ${room.name} for Player ${pid}`);
-        onBuildRoom(G, ctx, pid, room);
+        const choice = onBuildRoom(G, ctx, pid, room);
+        if (choice) {
+          G.pendingChoice = choice;
+          return; // wait for player choice
+        }
       }
     }
     if (countVisibleRooms(p.dungeon) >= 5 && !p.leveledUp) {
       p.leveledUp = true;
       G.logs.push(`Player ${pid} LEVELED UP!`);
-      processLevelUp(G, ctx, pid);
+      const choice = processLevelUp(G, ctx, pid);
+      if (choice) {
+        G.pendingChoice = choice;
+        return; // wait for player choice
+      }
     }
   }
 }
@@ -342,6 +341,7 @@ function advancePhase(G, ctx) {
       break;
     case PHASE.SETUP:
       endPhaseSetupBuild(G, ctx);
+      if (G.pendingChoice) return; // wait for choice resolution
       beginPhaseBeginning(G, ctx);
       break;
     case PHASE.BEGINNING:
@@ -349,6 +349,7 @@ function advancePhase(G, ctx) {
       break;
     case PHASE.BUILD:
       endPhaseBuild(G, ctx);
+      if (G.pendingChoice) return; // wait for choice resolution
       beginPhaseBait(G, ctx);
       break;
     case PHASE.BAIT:
@@ -377,6 +378,7 @@ function resolveOneHero(G, ctx, playerId, entranceIndex) {
   G.logs.push(`${hero.name} enters Player ${playerId}'s dungeon`);
   let heroHP = heroHealthWithModifiers(G, hero);
   let deathRoom = null;
+  let mazeSentBack = false; // per-hero flag for Minotaur's Maze
 
   for (let i = 0; i < p.dungeon.length && heroHP > 0; i++) {
     if (isRoomDeactivated(G, playerId, i)) {
@@ -384,15 +386,13 @@ function resolveOneHero(G, ctx, playerId, entranceIndex) {
       continue;
     }
     const room = activeRoom(p.dungeon[i]);
-    // Minotaur's Maze (BMA017): first time a hero enters, send it back one room.
-    if (room && room.id === 'BMA017' && !room._mazeTriggered) {
-      room._mazeTriggered = true;
-      if (i > 0) {
-        G.logs.push(`Minotaur's Maze: ${hero.name} sent back one room!`);
-        // Re-process the previous room (hero goes back)
-        i -= 2; // -2 because the loop will do i++ at the end, so i becomes i-1
-        continue;
-      }
+    // Minotaur's Maze (BMA017): each hero is sent back one room the first
+    // time it encounters this room (per-hero, not per-room-permanent).
+    if (room && room.id === 'BMA017' && !mazeSentBack && i > 0) {
+      mazeSentBack = true;
+      G.logs.push(`Minotaur's Maze: ${hero.name} sent back one room!`);
+      i -= 2; // -2 because the loop will do i++, so i becomes i-1
+      continue;
     }
     const dmg = roomDamageWithModifiers(G, playerId, i, hero);
     heroHP -= dmg;
@@ -554,6 +554,25 @@ const MOVE_HANDLERS = {
     if (err) return err;
     // Activated abilities do NOT pass the turn.
     return null;
+  },
+
+  resolveLevelUpChoice: (G, ctx, pid, [optionIndex]) => {
+    if (!G.pendingChoice) return 'no pending choice';
+    if (Number(pid) !== G.pendingChoice.playerId) return 'not your choice to make';
+    const err = resolveLevelUpChoice(G, ctx, pid, optionIndex);
+    if (err) return err;
+    // After resolving, continue the phase transition that was paused.
+    // Re-run endPhaseBuild/endPhaseSetupBuild to process remaining level-ups.
+    if (G.phase === PHASE.BUILD || G.phase === PHASE.SETUP) {
+      if (G.phase === PHASE.BUILD) {
+        endPhaseBuild(G, ctx);
+        if (!G.pendingChoice) beginPhaseBait(G, ctx);
+      } else {
+        endPhaseSetupBuild(G, ctx);
+        if (!G.pendingChoice) beginPhaseBeginning(G, ctx);
+      }
+    }
+    return null;
   }
 };
 
@@ -575,10 +594,30 @@ export function applyMove(state, move, playerID) {
     return { state: { G, ctx }, error: 'game is over' };
   }
 
+  // Block all moves except resolveLevelUpChoice when a pending choice exists.
+  if (G.pendingChoice && move.type !== 'resolveLevelUpChoice') {
+    return { state: { G, ctx }, error: 'must resolve pending choice first' };
+  }
+
   const args = Array.isArray(move.args) ? move.args : [];
   const handler = MOVE_HANDLERS[move.type];
   const err = handler(G, ctx, Number(playerID), args);
   if (err) return { state: { G, ctx }, error: err };
+
+  // If a pending choice was just set by the handler (e.g. resolveLevelUpChoice
+  // triggered another level-up), return immediately and wait for the player.
+  if (G.pendingChoice) {
+    return { state: { G, ctx } };
+  }
+
+  // If the handler moved us into an auto-advance phase (BAIT/BEGINNING/END),
+  // auto-advance immediately (e.g. after resolveLevelUpChoice completes BUILD).
+  while ((G.phase === PHASE.BEGINNING || G.phase === PHASE.BAIT || G.phase === PHASE.END) && !G.gameOver) {
+    advancePhase(G, ctx);
+  }
+  if (G.pendingChoice) {
+    return { state: { G, ctx } };
+  }
 
   // BOSS phase is special: ends when all *human* players have picked. AI picks
   // are auto-filled in endPhaseSetup. Other phases end when all non-eliminated
@@ -653,12 +692,42 @@ function hasActivatedAbility(roomId) {
   return ACTIVATED_ABILITY_ROOMS.has(roomId);
 }
 
+// Rooms whose activated ability destroys ANOTHER room (needs a second target).
+const NEEDS_OTHER_TARGET_ROOMS = new Set(['BMA028', 'BMA032']);
+
+// Push legal activateRoom moves for a player's dungeon. Rooms that destroy
+// another room (Boulder Ramp, The Crushinator) require a valid other target;
+// they are only offered when at least one other room exists.
+function pushActivateMoves(G, p, moves) {
+  p.dungeon.forEach((stack, i) => {
+    const room = activeRoom(stack);
+    if (!room || !hasActivatedAbility(room.id)) return;
+    if (NEEDS_OTHER_TARGET_ROOMS.has(room.id)) {
+      p.dungeon.forEach((_, j) => {
+        if (j !== i && activeRoom(p.dungeon[j])) {
+          moves.push({ type: 'activateRoom', args: [i, j] });
+        }
+      });
+    } else {
+      moves.push({ type: 'activateRoom', args: [i, null] });
+    }
+  });
+}
+
 export function legalMoves(G, ctx, playerID) {
   const pid = Number(playerID);
   const p = G.players[pid];
   if (!p || p.eliminated || G.gameOver) return [];
   const phase = G.phase;
   const moves = [];
+
+  // If there's a pending choice for this player, that's the only legal move.
+  if (G.pendingChoice) {
+    if (G.pendingChoice.playerId === pid) {
+      G.pendingChoice.options.forEach((_, i) => moves.push({ type: 'resolveLevelUpChoice', args: [i] }));
+    }
+    return moves;
+  }
 
   if (phase === PHASE.BOSS) {
     const available = G.bossPicks.filter(b =>
@@ -694,12 +763,7 @@ export function legalMoves(G, ctx, playerID) {
       }
     });
     // Activated abilities (destroy this room: X) can be used during BUILD
-    p.dungeon.forEach((stack, i) => {
-      const room = activeRoom(stack);
-      if (room && hasActivatedAbility(room.id)) {
-        moves.push({ type: 'activateRoom', args: [i, null] });
-      }
-    });
+    pushActivateMoves(G, p, moves);
     moves.push({ type: 'pass', args: [] });
     return moves;
   }
@@ -720,12 +784,7 @@ export function legalMoves(G, ctx, playerID) {
     });
     if (p.entrance.length > 0) moves.push({ type: 'resolveNextHero', args: [] });
     // Activated abilities usable during ADVENTURE (e.g. Bottomless Pit, Boulder Ramp)
-    p.dungeon.forEach((stack, i) => {
-      const room = activeRoom(stack);
-      if (room && hasActivatedAbility(room.id)) {
-        moves.push({ type: 'activateRoom', args: [i, null] });
-      }
-    });
+    pushActivateMoves(G, p, moves);
     moves.push({ type: 'pass', args: [] });
     return moves;
   }

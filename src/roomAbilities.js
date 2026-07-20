@@ -54,19 +54,31 @@ export function dungeonTreasures(G, playerId) {
   return [...treasures];
 }
 
+// Returns null normally, or a pendingChoice object if a player choice is needed.
 export function onBuildRoom(G, ctx, playerId, room) {
   const player = G.players[playerId];
-  if (!player) return;
+  if (!player) return null;
 
   switch (room.id) {
-    case 'BMA022': { // Dark Laboratory: draw 2 spells, discard 1
+    case 'BMA022': { // Dark Laboratory: draw 2 spells, discard 1 (player chooses)
       const spells = drawCards(G.decks.spells, 2);
       player.hand.push(...spells);
-      const spellIdx = player.hand.findIndex(c => c.isSpell);
-      if (spellIdx >= 0) {
-        const discarded = player.hand.splice(spellIdx, 1)[0];
-        G.decks.spellDiscard.push(discarded);
-        G.logs.push(`Dark Laboratory: Player ${playerId} drew 2 spells, discarded ${discarded.name}.`);
+      if (spells.length >= 2) {
+        // Return a pending choice — the player must choose which spell to discard
+        return {
+          type: 'discard-spell',
+          playerId: Number(playerId),
+          bossId: 'BMA022',
+          bossName: 'Dark Laboratory',
+          message: 'Dark Laboratory: choose a spell to discard',
+          options: spells.map(c => ({ card: c })),
+        };
+      } else if (spells.length === 1) {
+        // Only 1 drawn — auto-discard it
+        const di = player.hand.indexOf(spells[0]);
+        if (di >= 0) player.hand.splice(di, 1);
+        G.decks.spellDiscard.push(spells[0]);
+        G.logs.push(`Dark Laboratory: drew 1 spell, auto-discarded ${spells[0].name}.`);
       }
       break;
     }
@@ -114,10 +126,14 @@ export function onBuildRoom(G, ctx, playerId, room) {
       // as a build trigger that draws a spell immediately (simplification).
       break;
     case 'BMA033': { // Centipede Tunnel: swap two rooms in any dungeon
-      // Simplification: swap the two leftmost rooms in the player's own dungeon
+      // Official: "Swap the positions of two Rooms in any dungeon."
+      // Auto-swap: swap the two leftmost rooms in the player's own dungeon
+      // (a full choice UI would let the player pick any two rooms in any dungeon).
       if (player.dungeon.length >= 2) {
         [player.dungeon[0], player.dungeon[1]] = [player.dungeon[1], player.dungeon[0]];
-        G.logs.push('Centipede Tunnel: swapped first two rooms.');
+        G.logs.push('Centipede Tunnel: swapped first two rooms in your dungeon.');
+      } else {
+        G.logs.push('Centipede Tunnel: not enough rooms to swap.');
       }
       break;
     }
@@ -219,15 +235,36 @@ function stealRandomCardFromOpponent(G, casterId) {
   }
 }
 
+// Returns null if auto-resolved, or a pendingChoice object if the player
+// must make a choice (the reducer will pause and wait for resolveLevelUpChoice).
 export function processLevelUp(G, ctx, playerId) {
   const player = G.players[playerId];
-  if (!player || !player.boss) return;
+  if (!player || !player.boss) return null;
 
   const bid = player.boss.id;
   switch (bid) {
-    case 'BMA001': // Draculord: take a card from an opponent
-      takeCardFromOpponentHand(G, playerId);
-      break;
+    case 'BMA001': { // Draculord: take a card from an opponent (player chooses)
+      const opponents = Object.entries(G.players).filter(
+        ([pid, p]) => pid !== String(playerId) && !p.eliminated && p.hand.length > 0
+      );
+      if (opponents.length === 0) { G.logs.push('Draculord: no opponent cards to take.'); return null; }
+      // Gather all opponent hand cards as options
+      const options = [];
+      for (const [pid, opp] of opponents) {
+        for (let i = 0; i < opp.hand.length; i++) {
+          options.push({ card: opp.hand[i], fromPid: Number(pid), handIndex: i });
+        }
+      }
+      if (options.length === 0) return null;
+      return {
+        type: 'steal-card',
+        playerId: Number(playerId),
+        bossId: 'BMA001',
+        bossName: 'Draculord',
+        message: 'Draculord: choose a card to steal from an opponent',
+        options,
+      };
+    }
     case 'BMA002': { // Xyzax: recover 2 cards from discard
       for (let i = 0; i < 2; i++) {
         const c = G.decks.spellDiscard.pop() || G.decks.roomDiscard.pop();
@@ -236,13 +273,12 @@ export function processLevelUp(G, ctx, playerId) {
           G.logs.push(`Xyzax: recovered ${c.name}.`);
         }
       }
-      break;
+      return null;
     }
     case 'BMA003': { // King Croak: search Advanced Monster Room, may immediately build it
       const idx = G.decks.rooms.findIndex(r => r.advanced && r.type === 'monster');
       if (idx >= 0) {
         const card = G.decks.rooms.splice(idx, 1)[0];
-        // Try to auto-build over a matching treasure room
         const targetIdx = player.dungeon.findIndex(stack => {
           const top = activeRoom(stack);
           return top && card.treasures?.some(t => (top.treasures || []).includes(t));
@@ -257,31 +293,45 @@ export function processLevelUp(G, ctx, playerId) {
           G.logs.push(`King Croak: found ${card.name} (no matching room to build on).`);
         }
       }
-      break;
+      return null;
     }
-    case 'BMA004': // Robobo: each opponent destroys one room (auto: last room, no choice UI)
-      for (const [pid, opp] of Object.entries(G.players)) {
-        if (pid === String(playerId) || opp.eliminated || opp.dungeon.length === 0) continue;
-        // Auto-destroy the last room (rightmost). In a real game the opponent
-        // chooses; without a choice UI, we pick the last room.
-        const stack = opp.dungeon[opp.dungeon.length - 1];
-        const destroyed = stack.pop();
-        G.decks.roomDiscard.push(destroyed);
-        if (stack.length === 0) opp.dungeon.pop();
-        G.logs.push(`Robobo: player ${pid} destroyed ${destroyed.name}.`);
-      }
-      break;
-    case 'BMA005': { // Cerebellus: draw 3 spells, discard 1
+    case 'BMA004': { // Robobo: each opponent destroys one room (opponent chooses)
+      const opponents = Object.entries(G.players).filter(
+        ([pid, opp]) => pid !== String(playerId) && !opp.eliminated && opp.dungeon.length > 0
+      );
+      if (opponents.length === 0) { G.logs.push('Robobo: no opponent rooms to destroy.'); return null; }
+      // For 2-player: only one opponent needs to choose
+      const [oppPid, opp] = opponents[0];
+      const options = opp.dungeon.map((stack, i) => ({ roomIndex: i, room: activeRoom(stack) })).filter(o => o.room);
+      if (options.length === 0) return null;
+      return {
+        type: 'destroy-room',
+        playerId: Number(oppPid),
+        bossId: 'BMA004',
+        bossName: 'Robobo',
+        message: `Robobo: Player ${oppPid} must choose a room to destroy`,
+        options,
+      };
+    }
+    case 'BMA005': { // Cerebellus: draw 3 spells, discard 1 (player chooses)
       const drawn = drawCards(G.decks.spells, 3);
       player.hand.push(...drawn);
-      if (drawn.length > 0) {
-        const discard = drawn[0];
-        const di = player.hand.indexOf(discard);
+      if (drawn.length >= 2) {
+        return {
+          type: 'discard-spell',
+          playerId: Number(playerId),
+          bossId: 'BMA005',
+          bossName: 'Cerebellus',
+          message: 'Cerebellus: choose a spell to discard',
+          options: drawn.map(c => ({ card: c })),
+        };
+      } else if (drawn.length === 1) {
+        const di = player.hand.indexOf(drawn[0]);
         if (di >= 0) player.hand.splice(di, 1);
-        G.decks.spellDiscard.push(discard);
-        G.logs.push(`Cerebellus: drew 3 spells, discarded ${discard.name}.`);
+        G.decks.spellDiscard.push(drawn[0]);
+        G.logs.push(`Cerebellus: drew 1 spell, auto-discarded ${drawn[0].name}.`);
       }
-      break;
+      return null;
     }
     case 'BMA006': { // Seducia: move hero from town/deck to entrance
       if (G.town.length > 0) {
@@ -293,7 +343,7 @@ export function processLevelUp(G, ctx, playerId) {
         player.entrance.push(hero);
         G.logs.push(`Seducia: searched the deck and found ${hero.name}.`);
       }
-      break;
+      return null;
     }
     case 'BMA007': { // Cleopatra: search Advanced Trap Room, may immediately build it
       const idx = G.decks.rooms.findIndex(r => r.advanced && r.type === 'trap');
@@ -313,7 +363,7 @@ export function processLevelUp(G, ctx, playerId) {
           G.logs.push(`Cleopatra: found ${card.name} (no matching room to build on).`);
         }
       }
-      break;
+      return null;
     }
     case 'BMA008': { // Gorgona: kill a hero in town
       if (G.town.length > 0) {
@@ -321,25 +371,87 @@ export function processLevelUp(G, ctx, playerId) {
         for (let i = 0; i < (hero.souls || 1); i++) player.souls.push({ souls: 1, name: hero.name });
         G.logs.push(`Gorgona: killed ${hero.name}.`);
       }
-      break;
+      return null;
     }
     default:
-      break;
+      return null;
   }
 }
 
-function takeCardFromOpponentHand(G, casterId) {
-  const opponents = Object.entries(G.players).filter(
-    ([pid, p]) => pid !== String(casterId) && !p.eliminated
-  );
-  for (const [pid, opp] of opponents) {
-    if (opp.hand.length > 0) {
-      const idx = Math.floor(Math.random() * opp.hand.length);
-      const stolen = opp.hand.splice(idx, 1)[0];
-      G.players[casterId].hand.push(stolen);
-      G.logs.push(`Draculord: took ${stolen.name} from player ${pid}.`);
-      return;
+// Resolve a pending level-up choice. Called by the reducer's resolveLevelUpChoice move.
+export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
+  const choice = G.pendingChoice;
+  if (!choice) return 'no pending choice';
+  if (Number(playerId) !== choice.playerId) return 'not your choice to make';
+  const option = choice.options[optionIndex];
+  if (!option) return 'invalid option';
+
+  switch (choice.type) {
+    case 'discard-spell': {
+      const player = G.players[playerId];
+      const card = option.card;
+      const idx = player.hand.findIndex(c => c.name === card.name && c.isSpell);
+      if (idx >= 0) {
+        const discarded = player.hand.splice(idx, 1)[0];
+        G.decks.spellDiscard.push(discarded);
+        G.logs.push(`${choice.bossName}: discarded ${discarded.name}.`);
+      }
+      break;
     }
+    case 'steal-card': {
+      const player = G.players[playerId];
+      const { fromPid, handIndex } = option;
+      const opp = G.players[fromPid];
+      if (opp && opp.hand[handIndex]) {
+        const stolen = opp.hand.splice(handIndex, 1)[0];
+        player.hand.push(stolen);
+        G.logs.push(`Draculord: took ${stolen.name} from player ${fromPid}.`);
+      }
+      break;
+    }
+    case 'destroy-room': {
+      const player = G.players[playerId];
+      const { roomIndex } = option;
+      const stack = player.dungeon[roomIndex];
+      if (stack && stack.length > 0) {
+        const destroyed = stack.pop();
+        G.decks.roomDiscard.push(destroyed);
+        if (stack.length === 0) player.dungeon.splice(roomIndex, 1);
+        G.logs.push(`Robobo: player ${playerId} destroyed ${destroyed.name}.`);
+      }
+      break;
+    }
+    default:
+      return 'unknown choice type';
+  }
+  G.pendingChoice = null;
+  return null;
+}
+
+// AI auto-resolve: returns the best option index for a pending choice.
+export function aiResolveLevelUpChoice(G, choice) {
+  if (!choice || !choice.options || choice.options.length === 0) return 0;
+  switch (choice.type) {
+    case 'discard-spell': {
+      // Discard the spell with lowest strategic value (first one is fine)
+      return 0;
+    }
+    case 'steal-card': {
+      // Steal the first available card (can't know value in real game either)
+      return Math.floor(Math.random() * choice.options.length);
+    }
+    case 'destroy-room': {
+      // Destroy the weakest room (lowest damage)
+      let weakest = 0;
+      let minDmg = Infinity;
+      choice.options.forEach((opt, i) => {
+        const dmg = opt.room?.damage || 0;
+        if (dmg < minDmg) { minDmg = dmg; weakest = i; }
+      });
+      return weakest;
+    }
+    default:
+      return 0;
   }
 }
 
@@ -394,9 +506,9 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
       return null;
     }
     case 'BMA030': { // Jackpot Stash: destroy this room → double treasure value this turn
-      // Simplification: add +1 to each treasure count for this player this turn
-      // (handled as a roomDamageBonus of 0 — the actual treasure doubling is
-      // complex; for now we just log it)
+      // Mark this player's treasures as doubled for bait resolution this turn.
+      if (!G.effects.treasureDoubled) G.effects.treasureDoubled = [];
+      G.effects.treasureDoubled.push(playerId);
       G.logs.push('Jackpot Stash: treasure values doubled until end of turn.');
       destroyRoom(G, playerId, roomIndex);
       return null;

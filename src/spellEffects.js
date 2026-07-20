@@ -17,6 +17,7 @@ export function emptyEffects() {
     noEntry: [],           // playerIds
     teleportHero: null,    // heroId — consumed by resolveOneHero
     counteredSpells: [],    // spell IDs that were countered
+    treasureDoubled: [],   // playerIds whose treasure counts are doubled this turn
   };
 }
 

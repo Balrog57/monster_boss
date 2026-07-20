@@ -18,11 +18,18 @@ export default function OpponentRow({ opponents, onInspect }) {
             aria-label={`Donjon de ${p.boss?.name || `joueur ${idx}`}`}
           >
             <div className={s.header}>
-              <BossPortrait boss={p.boss} theme={t} size={50} onInspect={onInspect} />
+              <BossPortrait boss={p.boss} theme={t} size={50} onInspect={onInspect} useAvatar />
               <div style={{ flex: 1 }}>
                 <div className={s.name} style={{ color: t.color }}>{p.boss?.name}</div>
                 <div className={s.meta}>
-                  {p.boss?.xp} XP · {p.souls.length} âmes · {p.wounds.length} blessures
+                  <span className={s.metaStat} title="Âmes">
+                    <img src="/ui/icons/soul.png" alt="" className={s.metaIcon} />{p.souls.length}
+                  </span>
+                  <span className={`${s.metaStat} ${s.metaWound}`} title="Blessures">
+                    <img src="/ui/icons/wound.png" alt="" className={s.metaIcon} />{p.wounds.length}
+                  </span>
+                  <span className={s.metaStat} title="Cartes en main">🂠 {p.hand?.length || 0}</span>
+                  <span className={s.metaStat}>{p.boss?.xp} XP</span>
                   {p.eliminated && <span className={s.elim}>ÉLIMINÉ</span>}
                   {p.leveledUp && <span className={s.level}>LVL UP</span>}
                 </div>

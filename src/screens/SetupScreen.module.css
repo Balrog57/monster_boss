@@ -1,17 +1,17 @@
-/* SetupScreen.module.css */
+/* SetupScreen.module.css - Dungeon Architect style */
 .title {
   font-size: var(--bm-text-5xl);
   font-weight: 900;
-  color: var(--bm-gold);
+  color: var(--bm-gold-500, #f1e17c);
   font-family: var(--bm-font-display);
-  text-shadow: var(--bm-shadow-glow-gold);
+  text-shadow: 2px 2px 0px rgba(0,0,0,0.8);
   text-align: center;
 }
 .subtitle { color: var(--bm-text-400); font-size: var(--bm-text-lg); text-align: center; }
 .sectionTitle {
   font-size: var(--bm-text-sm);
   font-weight: 700;
-  color: var(--bm-accent);
+  color: var(--bm-gold-500, #f1e17c);
   text-transform: uppercase;
   letter-spacing: var(--bm-tracking-caps);
   align-self: stretch;
@@ -23,30 +23,35 @@
 .modeCard {
   width: min(360px, 90vw);
   padding: var(--bm-space-10) var(--bm-space-8);
-  background: linear-gradient(135deg, var(--bm-bg-600) 0%, var(--bm-bg-700) 100%);
-  border: 2px solid var(--bm-accent-dark);
-  border-radius: var(--bm-radius-2xl);
+  background: url('/ui/buttons/big_button.png') center/cover no-repeat, var(--bm-bg-700, #1b1b1b);
+  border: 3px solid var(--bm-border-700, #555);
+  border-radius: 0;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--bm-space-3);
   color: var(--bm-text-900);
-  transition: transform var(--bm-duration-fast), box-shadow var(--bm-duration-fast);
+  transition: transform var(--bm-duration-fast), box-shadow var(--bm-duration-fast), border-color var(--bm-duration-fast);
 }
 .modeCard:hover {
   transform: translateY(-2px);
-  box-shadow: var(--bm-shadow-lg);
+  border-color: var(--bm-gold-500, #f1e17c);
+  box-shadow: 0 4px 0px rgba(241,225,124,0.3);
 }
-.modeCard.solo { border-color: var(--bm-accent-dark); }
+.modeCard:active {
+  background-image: url('/ui/buttons/big_button_selected.png');
+}
+.modeCard.solo { border-color: var(--bm-border-700, #555); }
 .modeCard.online {
-  border-color: var(--bm-success);
-  background: linear-gradient(135deg, #0f2a1f 0%, #1a3d2e 100%);
+  border-color: var(--bm-gold-500, #f1e17c);
+  background: url('/ui/buttons/big_button_selected.png') center/cover no-repeat, #1b1b1b;
 }
 .optionLabel {
   font-size: var(--bm-text-2xl);
   font-weight: 800;
-  color: var(--bm-gold);
+  color: var(--bm-gold-500, #f1e17c);
+  text-shadow: 1px 1px 2px #000;
 }
 .optionSub { font-size: var(--bm-text-sm); color: var(--bm-text-500); }
 

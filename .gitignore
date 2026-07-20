@@ -19,6 +19,9 @@ test-results/
 # Opencode session state
 .opencode/
 
+# IDE / agent session state
+.qoder/
+
 # Python
 __pycache__/
 *.pyc
@@ -26,3 +29,4 @@ __pycache__/
 # Scratch / experiment images
 assets/perm_test_*.jpg
 assets/sample_*.jpg
+test_*.webp

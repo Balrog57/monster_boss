@@ -27,12 +27,18 @@ async function api(path, opts = {}) {
 }
 
 export default function OnlineLobbyCustom({ onJoined, onBack }) {
-  const [name, setName] = useState('');
+  const [name, setName] = useState(() => localStorage.getItem('bm_player_name') || '');
   const [matches, setMatches] = useState([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Persist player name to localStorage
+  const updateName = (val) => {
+    setName(val);
+    localStorage.setItem('bm_player_name', val);
+  };
 
   const refresh = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
@@ -109,7 +115,7 @@ export default function OnlineLobbyCustom({ onJoined, onBack }) {
           className={s.input}
           placeholder="Votre nom"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => updateName(e.target.value)}
           maxLength={16}
           onKeyDown={(e) => { if (e.key === 'Enter') create(); }}
           disabled={busy}

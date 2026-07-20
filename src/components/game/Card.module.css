@@ -1,8 +1,8 @@
-/* Card.module.css - The card primitive used everywhere in the game. */
+/* Card.module.css - The card primitive with APK card border states. */
 .card {
   width: 130px;          /* default md size; overridden by size variants */
   aspect-ratio: 1.4;
-  border-radius: var(--bm-radius-lg);
+  border-radius: 0;
   position: relative;
   transition: transform var(--bm-duration-fast) var(--bm-ease-out),
               box-shadow var(--bm-duration-fast), opacity var(--bm-duration-fast);
@@ -16,15 +16,17 @@
 .inner {
   width: 100%;
   height: 100%;
-  border-radius: var(--bm-radius-lg);
+  border-radius: 0;
   overflow: hidden;
-  background: #1a0a1a;
-  box-shadow: var(--bm-shadow-md), inset 0 0 0 2px rgba(255, 255, 255, 0.08);
-  transition: transform var(--bm-duration-fast), box-shadow var(--bm-duration-fast);
+  background: #1a1a1a;
+  border: 3px solid var(--bm-border-700, #555);
+  box-shadow: 2px 2px 0px rgba(0,0,0,0.5);
+  transition: transform var(--bm-duration-fast), box-shadow var(--bm-duration-fast), border-color var(--bm-duration-fast);
   position: relative;
 }
 .selected .inner {
-  box-shadow: var(--bm-shadow-card-selected);
+  border-color: var(--bm-gold-500, #f1e17c);
+  box-shadow: 0 0 8px rgba(241,225,124,0.5), 2px 2px 0px rgba(0,0,0,0.5);
   transform: translateY(-8px);
 }
 
@@ -55,10 +57,10 @@
   right: -6px;
   width: 24px;
   height: 24px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--bm-gold), var(--bm-gold-dark));
+  border-radius: 0;
+  background: var(--bm-gold-500, #f1e17c);
   color: #000;
-  border: 2px solid #1a0a1a;
+  border: 2px solid #1a1a1a;
   cursor: pointer;
   font-size: 13px;
   line-height: 20px;
@@ -67,7 +69,7 @@
   font-weight: 900;
   user-select: none;
   z-index: 5;
-  box-shadow: var(--bm-shadow-sm);
+  box-shadow: 2px 2px 0px rgba(0,0,0,0.4);
 }
 .inspect:hover { transform: scale(1.1); }
 

@@ -1,0 +1,89 @@
+/* SpellTargetOverlay.module.css */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--bm-z-modal);
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(2px);
+}
+.panel {
+  background: var(--bm-bg-700);
+  border: 2px solid var(--bm-border-700);
+  border-radius: var(--bm-radius-xl);
+  padding: var(--bm-space-8);
+  max-width: 700px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: var(--bm-shadow-lg);
+}
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bm-space-2);
+  margin-bottom: var(--bm-space-7);
+  text-align: center;
+}
+.spellName {
+  font-size: var(--bm-text-2xl);
+  font-weight: 800;
+  color: var(--bm-gold);
+  text-transform: uppercase;
+  letter-spacing: var(--bm-tracking-caps);
+}
+.label {
+  font-size: var(--bm-text-md);
+  color: var(--bm-text-700);
+}
+.targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bm-space-5);
+  justify-content: center;
+  margin-bottom: var(--bm-space-7);
+}
+.targetBtn {
+  background: var(--bm-bg-600);
+  border: 2px solid var(--bm-border-500);
+  border-radius: var(--bm-radius-lg);
+  padding: var(--bm-space-3);
+  cursor: pointer;
+  transition: border-color var(--bm-duration-fast), transform var(--bm-duration-fast), box-shadow var(--bm-duration-fast);
+}
+.targetBtn:hover {
+  border-color: var(--bm-gold);
+  transform: translateY(-3px);
+  box-shadow: var(--bm-shadow-glow-gold);
+}
+.targetLabel {
+  display: block;
+  color: var(--bm-text-900);
+  font-size: var(--bm-text-md);
+  font-weight: 700;
+  padding: var(--bm-space-5) var(--bm-space-7);
+}
+.empty {
+  color: var(--bm-text-300);
+  font-style: italic;
+  padding: var(--bm-space-8);
+}
+.cancelBtn {
+  display: block;
+  margin: 0 auto;
+  background: transparent;
+  border: 2px solid var(--bm-danger);
+  color: var(--bm-danger);
+  font-size: var(--bm-text-md);
+  font-weight: 700;
+  padding: var(--bm-space-4) var(--bm-space-8);
+  border-radius: var(--bm-radius-md);
+  cursor: pointer;
+  transition: background var(--bm-duration-fast), color var(--bm-duration-fast);
+}
+.cancelBtn:hover {
+  background: var(--bm-danger);
+  color: #fff;
+}

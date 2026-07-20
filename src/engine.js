@@ -32,7 +32,10 @@ export function dungeonTreasures(G, playerId) {
 }
 
 export function treasureCount(G, playerId, treasure) {
-  return dungeonTreasures(G, playerId).filter(t => t === treasure).length;
+  let count = dungeonTreasures(G, playerId).filter(t => t === treasure).length;
+  // Jackpot Stash (BMA030): treasure values doubled this turn
+  if (G.effects?.treasureDoubled?.includes(playerId)) count *= 2;
+  return count;
 }
 
 export function resolveBait(G) {

@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "start": "node server/index.js",
     "serve": "node server/index.js",
-    "test": "playwright test"
+    "test": "playwright test",
+    "test:unit": "node --test test/reducer.test.js"
   },
   "dependencies": {
     "@koa/router": "^10.1.1",

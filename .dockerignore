@@ -1,19 +1,31 @@
+# .dockerignore - keep the Docker build context lean.
+# Only package.json, src/, server/, assets/, vite.config.js and index.html are
+# needed to build + run the game. Everything else is dev/design/source material.
+
+# Dependencies & build output (rebuilt inside the image)
 node_modules
 dist
-.git
+
+# Original APK extraction & design references (not needed at runtime)
 boss-monster-2-4-12
-boss-monster-2-4-12.apk
-*.log
-dev*.log
-.playwright-mcp
+design_system
+docs
+
+# Tests & tooling
 test
-screenshot_*.png
-tools/validation
-.claude
-.zcode
+test-results
+.playwright-mcp
 .opencode
-serve_*.txt
-serve_*.log
-*_smoke.png
-lobby_*.png
-test_*.txt
+tools
+playwright.config.*
+
+# Redundant JPG card art — cards are now served as WebP (see src/cardData.js).
+# Excluding the originals keeps them in the repo as a source archive while
+# dropping ~14MB from the image.
+assets/cards/**/*.jpg
+
+# VCS & misc
+.git
+.gitignore
+*.log
+.DS_Store

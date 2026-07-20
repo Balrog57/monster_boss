@@ -1,0 +1,41 @@
+/* PhaseBanner.module.css - Phase transition slam banner. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: var(--bm-z-overlay);
+}
+.banner {
+  display: flex;
+  align-items: center;
+  gap: var(--bm-space-6);
+  background: rgba(10, 9, 8, 0.92);
+  border: 4px solid var(--bm-gold-500, #f1e17c);
+  border-radius: 0;
+  padding: var(--bm-space-7) var(--bm-space-12);
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.9), inset 0 0 24px rgba(0, 0, 0, 0.7);
+  animation: bm-phase-banner 1.5s var(--bm-ease-out) both;
+}
+.img {
+  height: 44px;
+  width: auto;
+  image-rendering: pixelated;
+}
+.label {
+  font-family: var(--bm-font-display);
+  font-size: var(--bm-text-4xl);
+  font-weight: 900;
+  letter-spacing: var(--bm-tracking-caps);
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .banner { padding: var(--bm-space-5) var(--bm-space-8); gap: var(--bm-space-4); }
+  .img { height: 30px; }
+  .label { font-size: var(--bm-text-2xl); }
+}

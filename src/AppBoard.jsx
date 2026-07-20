@@ -7,19 +7,41 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PHASE } from './cardData.js';
 import { countVisibleRooms } from './engine.js';
-import { playMusic } from './audio.js';
+import { playMusic, playSfx, SFX } from './audio.js';
+import { useGameSfx } from './hooks/useGameSfx.js';
 import {
-  BossSelect, Hud, OpponentRow, MyDungeon, TownPanel, Hand, LogStrip, DetailPanel
+  BossSelect, Hud, OpponentRow, MyDungeon, TownPanel, Hand, LogStrip, DetailPanel,
+  SpellTargetOverlay, spellNeedsTarget, LevelUpChoiceOverlay, PhaseBanner, OptionsOverlay
 } from './components/game';
 import GameOverScreen from './screens/GameOverScreen.jsx';
 import s from './AppBoard.module.css';
 
-export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatch }) {
+// Rooms that require choosing ANOTHER room to destroy
+const NEEDS_OTHER_TARGET = new Set(['BMA028', 'BMA032']);
+
+export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatch, turnDeadline, notification }) {
   const [inspect, setInspect] = useState(null);        // { card, kind }
   const [selectedCard, setSelectedCard] = useState(null);
+  const [activateSourceRoom, setActivateSourceRoom] = useState(null); // room index awaiting target
+  const [spellTarget, setSpellTarget] = useState(null); // { handIndex, card } awaiting target
   const [gameOverData, setGameOverData] = useState(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const gameOverFired = useRef(false);
   const lastPhase = useRef(null);
+
+  // Contextual SFX: watch logs and play sounds at the right moments
+  useGameSfx(G);
+
+  // Notification sound when it becomes my turn
+  const wasMyTurn = useRef(false);
+  useEffect(() => {
+    const activePid = G?.activePlayer != null ? String(G.activePlayer) : (ctx?.currentPlayer != null ? String(ctx.currentPlayer) : '0');
+    const myTurnNow = activePid === String(playerID);
+    if (myTurnNow && !wasMyTurn.current && G && !G.gameOver) {
+      playSfx(SFX.BUTTON_FINISH, 0.5);
+    }
+    wasMyTurn.current = myTurnNow;
+  }, [G?.activePlayer, ctx?.currentPlayer]);
 
   useEffect(() => {
     const phase = ctx?.phase || G?.phase;
@@ -80,6 +102,9 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         activePid={activePid}
         me={me}
         dungeonCount={countVisibleRooms(me.dungeon)}
+        turnDeadline={turnDeadline}
+        notification={notification}
+        onOptions={() => setOptionsOpen(true)}
       />
 
       <OpponentRow opponents={opponents} onInspect={setInspect} />
@@ -90,12 +115,30 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
           phase={phase}
           isMyTurn={isMyTurn}
           selectedCard={selectedCard}
+          activateSourceRoom={activateSourceRoom}
           onSelectTarget={(targetIdx) => {
             if (selectedCard != null && selectedCard >= 0) {
               const c = me.hand[selectedCard];
               if (c?.isRoom) {
                 moves.buildRoom(selectedCard, targetIdx);
                 setSelectedCard(null);
+              }
+            }
+          }}
+          onActivateRoom={(roomIdx, otherIdx) => {
+            if (otherIdx != null) {
+              // Target selected — fire the ability
+              moves.activateRoom(roomIdx, otherIdx);
+              setActivateSourceRoom(null);
+            } else {
+              const stack = me.dungeon[roomIdx];
+              const r = Array.isArray(stack) ? stack[stack.length - 1] : stack;
+              if (r && NEEDS_OTHER_TARGET.has(r.id)) {
+                // Enter target selection mode
+                setActivateSourceRoom(roomIdx);
+              } else {
+                // No target needed — activate immediately
+                moves.activateRoom(roomIdx, null);
               }
             }
           }}
@@ -119,14 +162,46 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         onSelect={setSelectedCard}
         onBuild={(i) => moves.buildRoom(i)}
         onBuildInitial={(i) => moves.buildInitialRoom(i)}
-        onSpell={(i) => moves.playSpell(i)}
+        onSpell={(i) => {
+          const card = me.hand[i];
+          if (card && spellNeedsTarget(card.id)) {
+            setSpellTarget({ handIndex: i, card });
+          } else {
+            moves.playSpell(i);
+          }
+        }}
         onPass={() => moves.pass()}
         onInspect={setInspect}
       />
 
       <LogStrip logs={G.logs} />
 
+      <PhaseBanner phase={phase} />
+
+      <OptionsOverlay open={optionsOpen} onClose={() => setOptionsOpen(false)} />
+
       <DetailPanel inspect={inspect} onClose={() => setInspect(null)} />
+
+      {spellTarget && (
+        <SpellTargetOverlay
+          spell={spellTarget.card}
+          G={G}
+          me={me}
+          playerID={playerID}
+          onConfirm={(target) => {
+            moves.playSpell(spellTarget.handIndex, target);
+            setSpellTarget(null);
+          }}
+          onCancel={() => setSpellTarget(null)}
+        />
+      )}
+
+      {G.pendingChoice && G.pendingChoice.playerId === Number(playerID) && (
+        <LevelUpChoiceOverlay
+          choice={G.pendingChoice}
+          onResolve={(optionIndex) => moves.resolveLevelUpChoice(optionIndex)}
+        />
+      )}
 
       {gameOverData && (
         <GameOverScreen

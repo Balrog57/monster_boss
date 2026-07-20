@@ -1,0 +1,126 @@
+/* LevelUpChoiceOverlay.module.css */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--bm-z-modal);
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(3px);
+}
+.panel {
+  background: var(--bm-bg-700);
+  border: var(--bm-border-width, 4px) solid var(--bm-gold-500, #f1e17c);
+  border-radius: var(--bm-radius-xl);
+  padding: var(--bm-space-8);
+  max-width: 750px;
+  width: 92%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: var(--bm-shadow-lg);
+}
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bm-space-2);
+  margin-bottom: var(--bm-space-7);
+  text-align: center;
+}
+.bossName {
+  font-size: var(--bm-font-size-lg);
+  color: var(--bm-gold-500, #f1e17c);
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.message {
+  font-size: var(--bm-font-size-sm);
+  color: var(--bm-text-300, #c4c4c4);
+}
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bm-space-4);
+  justify-content: center;
+}
+.optionCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--bm-space-2);
+  padding: var(--bm-space-4);
+  border: 3px solid var(--bm-border-700, #555);
+  border-radius: var(--bm-radius-md);
+  background: var(--bm-bg-800, #131313);
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  min-width: 120px;
+  max-width: 160px;
+}
+.optionCard:hover {
+  border-color: var(--bm-gold-500, #f1e17c);
+  transform: translateY(-3px);
+  box-shadow: 0 4px 0 rgba(241, 225, 124, 0.3);
+}
+.cardImg {
+  width: 100px;
+  height: 140px;
+  object-fit: cover;
+  border-radius: var(--bm-radius-sm);
+  border: 2px solid var(--bm-border-500, #444);
+}
+.cardName {
+  font-size: var(--bm-font-size-xs);
+  color: var(--bm-text-100, #eee);
+  text-align: center;
+  font-weight: 600;
+}
+.cardMeta {
+  font-size: 10px;
+  color: var(--bm-text-500, #888);
+  text-align: center;
+}
+.roomOption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--bm-space-2);
+  padding: var(--bm-space-4);
+  border: 3px solid var(--bm-border-700, #555);
+  border-radius: var(--bm-radius-md);
+  background: var(--bm-bg-800, #131313);
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+  min-width: 110px;
+}
+.roomOption:hover {
+  border-color: var(--bm-red-500, #e05555);
+  transform: translateY(-3px);
+}
+.roomName {
+  font-size: var(--bm-font-size-xs);
+  color: var(--bm-text-100, #eee);
+  text-align: center;
+  font-weight: 600;
+}
+.roomDamage {
+  font-size: 11px;
+  color: var(--bm-red-400, #ff6b6b);
+  font-weight: bold;
+}
+.cancelBtn {
+  display: block;
+  margin: var(--bm-space-6) auto 0;
+  padding: var(--bm-space-2) var(--bm-space-6);
+  background: transparent;
+  border: 2px solid var(--bm-border-500, #555);
+  color: var(--bm-text-300, #aaa);
+  border-radius: var(--bm-radius-md);
+  cursor: pointer;
+  font-size: var(--bm-font-size-xs);
+}
+.cancelBtn:hover {
+  border-color: var(--bm-text-300);
+  color: var(--bm-text-100);
+}

@@ -1,25 +1,29 @@
-/* Hand.module.css */
+/* Hand.module.css - Bottom hand panel with APK bg_bottom and sprite buttons. */
 .panel {
   padding: var(--bm-space-4) var(--bm-space-8);
-  background: linear-gradient(180deg, rgba(20, 17, 30, 0.95) 0%, rgba(8, 6, 14, 0.98) 100%);
-  border-top: 2px solid var(--bm-accent);
+  background: url('/ui/ingame/bg_bottom.png') center bottom/cover no-repeat, linear-gradient(180deg, #1b1b1b 0%, #0e0e0e 100%);
+  border-top: 3px solid var(--bm-border-700, #555);
   flex-shrink: 0;
 }
 .header { display: flex; align-items: center; gap: var(--bm-space-5); margin-bottom: var(--bm-space-3); flex-wrap: wrap; }
 .title { color: var(--bm-text-500); font-weight: 800; font-size: var(--bm-text-base); letter-spacing: var(--bm-tracking-caps); text-transform: uppercase; }
 .passBtn {
-  background: var(--bm-gradient-danger);
+  background: url('/ui/ingame/pass_button.png') center/contain no-repeat;
   color: #fff;
   border: none;
-  border-radius: var(--bm-radius-md);
-  padding: var(--bm-space-3) var(--bm-space-6);
+  border-radius: 0;
+  padding: 10px 28px;
   font-weight: 700;
   font-size: var(--bm-text-base);
   cursor: pointer;
   margin-left: auto;
+  text-shadow: 1px 1px 2px #000;
+  min-width: 100px;
+  min-height: 38px;
 }
-.passBtn:disabled { opacity: 0.5; cursor: not-allowed; }
-.hint { color: var(--bm-gold); font-size: var(--bm-text-sm); font-style: italic; }
+.passBtn:active { background-image: url('/ui/ingame/pass_button_pressed.png'); }
+.passBtn:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.6); }
+.hint { color: var(--bm-gold-500, #f1e17c); font-size: var(--bm-text-sm); font-style: italic; }
 .row { display: flex; align-items: flex-start; flex-wrap: nowrap; overflow-x: auto; padding-bottom: var(--bm-space-2); min-height: 182px; }
 .cardBtn {
   background: none;
@@ -33,4 +37,7 @@
 
 @media (max-width: 640px) {
   .panel { padding: var(--bm-space-3) var(--bm-space-5); }
+  .row { min-height: 140px; }
+  /* Shrink hand cards on small screens (Card root is the button's only div child). */
+  .cardBtn > div { width: 96px !important; }
 }
