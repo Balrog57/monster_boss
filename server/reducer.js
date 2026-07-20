@@ -123,11 +123,10 @@ export function setupMatch(numPlayers, setupData = {}) {
 // -> BUILD -> BAIT -> ADVENTURE -> END -> BEGINNING ...)
 // ---------------------------------------------------------------------------
 function spellAllowedInPhase(category, phase) {
-  if (category === SPELL_CATEGORY.ANY) return true;
-  if (category === SPELL_CATEGORY.BUILD_BAIT) return phase === PHASE.BUILD || phase === PHASE.BAIT;
-  if (category === SPELL_CATEGORY.ADVENTURE_BUILD) return phase === PHASE.ADVENTURE || phase === PHASE.BUILD;
+  // Official rules: only Build (Hammer) and Adventure (Axe) phases allow spells.
+  // "Both" (ADVENTURE_BUILD) = either Build or Adventure. Bait phase has NO spells.
+  if (category === SPELL_CATEGORY.ADVENTURE_BUILD) return phase === PHASE.BUILD || phase === PHASE.ADVENTURE;
   if (category === SPELL_CATEGORY.BUILD) return phase === PHASE.BUILD;
-  if (category === SPELL_CATEGORY.BAIT) return phase === PHASE.BAIT;
   if (category === SPELL_CATEGORY.ADVENTURE) return phase === PHASE.ADVENTURE;
   return false;
 }
@@ -173,11 +172,24 @@ function endPhaseSetup(G, ctx) {
       }
     }
   }
-  // Deal starting hands
+  // Deal starting hands: 5 rooms + 2 spells, then discard 2 (per official rules).
   for (let i = 0; i < ctx.numPlayers; i++) {
     const p = G.players[i];
     drawCards(G.decks.rooms, 5).forEach(c => p.hand.push(c));
     drawCards(G.decks.spells, 2).forEach(c => p.hand.push(c));
+    // Discard 2 cards (simplification: AI discards 2 rooms; human auto-discards
+    // the 2 lowest-damage rooms). In a real game this is a player choice.
+    const rooms = p.hand.map((c, idx) => ({ c, idx })).filter(({ c }) => c.isRoom);
+    rooms.sort((a, b) => (a.c.damage || 0) - (b.c.damage || 0));
+    for (let d = 0; d < 2 && rooms.length > 0; d++) {
+      const card = rooms.shift();
+      const handIdx = p.hand.indexOf(card.c);
+      if (handIdx >= 0) {
+        const discarded = p.hand.splice(handIdx, 1)[0];
+        if (discarded.isRoom) G.decks.roomDiscard.push(discarded);
+        else G.decks.spellDiscard.push(discarded);
+      }
+    }
   }
   // Seed discard piles
   drawCards(G.decks.rooms, 4).forEach(c => G.decks.roomDiscard.push(c));
@@ -218,11 +230,22 @@ function beginPhaseBeginning(G, ctx) {
   }
   // Refill room deck from discard if empty.
   ensureDeck(G.decks, 'rooms');
+  ensureDeck(G.decks, 'spells');
   for (let i = 0; i < ctx.numPlayers; i++) {
     const p = G.players[i];
     if (p.eliminated) continue;
-    const room = G.decks.rooms.pop();
-    if (room) p.hand.push(room);
+    // Haunted Library (BMA023): draw from spell deck instead of room deck.
+    const hasHauntedLibrary = p.dungeon.some(stack => {
+      const r = activeRoom(stack);
+      return r && r.id === 'BMA023' && !r.faceDown;
+    });
+    if (hasHauntedLibrary) {
+      const spell = G.decks.spells.pop();
+      if (spell) p.hand.push(spell);
+    } else {
+      const room = G.decks.rooms.pop();
+      if (room) p.hand.push(room);
+    }
   }
   for (const p of Object.values(G.players)) {
     p.buildsThisTurn = 0;
@@ -360,8 +383,18 @@ function resolveOneHero(G, ctx, playerId, entranceIndex) {
       G.logs.push(`${activeRoom(p.dungeon[i]).name} is deactivated — skipped`);
       continue;
     }
+    const room = activeRoom(p.dungeon[i]);
+    // Minotaur's Maze (BMA017): first time a hero enters, send it back one room.
+    if (room && room.id === 'BMA017' && !room._mazeTriggered) {
+      room._mazeTriggered = true;
+      if (i > 0) {
+        G.logs.push(`Minotaur's Maze: ${hero.name} sent back one room!`);
+        // Re-process the previous room (hero goes back)
+        i -= 2; // -2 because the loop will do i++ at the end, so i becomes i-1
+        continue;
+      }
+    }
     const dmg = roomDamageWithModifiers(G, playerId, i, hero);
-    // Apply direct hero damage from spells (Exhaustion).
     heroHP -= dmg;
     G.logs.push(`${activeRoom(p.dungeon[i]).name} deals ${dmg} damage to ${hero.name} (HP ${heroHP})`);
     if (heroHP <= 0) {
@@ -481,7 +514,16 @@ const MOVE_HANDLERS = {
     G.decks.spellDiscard.push(card);
     G.logs.push(`${pid === 0 ? 'You' : `Player ${pid}`} cast ${card.name}`);
     castSpell(G, ctx, pid, card, target);
-    // Spells do NOT pass the turn — any number of spells can be played per turn.
+    // Liger's Den (BMA026): when you play a spell, draw a spell.
+    for (const stack of p.dungeon) {
+      const r = activeRoom(stack);
+      if (r && r.id === 'BMA026' && !r.faceDown) {
+        ensureDeck(G.decks, 'spells');
+        const drawn = G.decks.spells.pop();
+        if (drawn) { p.hand.push(drawn); G.logs.push(`Liger's Den: drew ${drawn.name}.`); }
+        break;
+      }
+    }
     return null;
   },
 
@@ -551,8 +593,8 @@ export function applyMove(state, move, playerID) {
 
   if (phaseEnded) {
     advancePhase(G, ctx);
-    // BEGINNING and END auto-advance immediately (their endIf is always true).
-    while ((G.phase === PHASE.BEGINNING || G.phase === PHASE.END) && !G.gameOver) {
+    // BEGINNING, BAIT, and END auto-advance immediately (no player moves).
+    while ((G.phase === PHASE.BEGINNING || G.phase === PHASE.BAIT || G.phase === PHASE.END) && !G.gameOver) {
       // BEGINNING and END have no moves; they transition straight on.
       advancePhase(G, ctx);
     }
@@ -663,12 +705,10 @@ export function legalMoves(G, ctx, playerID) {
   }
 
   if (phase === PHASE.BAIT) {
-    p.hand.forEach((c, i) => {
-      if (c.isSpell && spellAllowedInPhase(c.category, PHASE.BAIT)) {
-        moves.push({ type: 'playSpell', args: [i, null] });
-      }
-    });
-    moves.push({ type: 'pass', args: [] });
+    // Per official rules: "Spell cards cannot be used during the Bait phase."
+    // Bait is auto-advancing — no player actions. Return empty so the phase
+    // completes immediately via phaseComplete (all players have hasActed=false
+    // but BAIT auto-advances via the BEGINNING/END auto-advance loop).
     return moves;
   }
 

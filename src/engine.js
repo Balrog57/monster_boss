@@ -129,12 +129,14 @@ export function buildRoom(G, playerId, handIndex, targetIndex = null) {
   if (!canBuildRoom(G, playerId, handIndex, targetIndex)) return false;
   p.hand.splice(handIndex, 1);
   if (!card.advanced) {
-    // Ordinary: if targetIndex provided, push on stack; else append new stack at end.
+    // Ordinary: if targetIndex provided, push on stack; else insert new stack
+    // at the LEFT (entrance side) per official rules: "build additional new
+    // rooms to the left" (left = entrance = index 0).
     if (targetIndex != null) {
       if (!p.dungeon[targetIndex]) return false;
       p.dungeon[targetIndex].push(card);
     } else {
-      p.dungeon.push([card]);
+      p.dungeon.unshift([card]); // insert at entrance (left)
     }
   } else {
     const idx = targetIndex ?? p.dungeon.length - 1;
@@ -153,10 +155,18 @@ export function destroyRoom(G, playerId, roomIndex) {
   const destroyed = stack.pop();
   G.decks.roomDiscard.push(destroyed);
   if (stack.length === 0) {
-    // Remove empty stack and slide right rooms left? Per rules: hole closes, rooms slide right.
-    // In our left-to-right order, removing a stack means subsequent stacks shift left (slide right relative to entrance?).
-    // We model dungeon from entrance (left) to boss (right). A hole closes -> rooms to the right slide left.
     p.dungeon.splice(roomIndex, 1);
+  }
+  // Recycling Center (BMA031): when another room is destroyed, draw 2 rooms.
+  for (const s of p.dungeon) {
+    const r = activeRoom(s);
+    if (r && r.id === 'BMA031' && r !== destroyed) {
+      for (let i = 0; i < 2; i++) {
+        const card = G.decks.rooms.pop();
+        if (card) { p.hand.push(card); G.logs.push(`Recycling Center: drew ${card.name}.`); }
+      }
+      break;
+    }
   }
   return destroyed;
 }
@@ -218,23 +228,20 @@ export function checkEndGame(G) {
     return { gameOver: true, winner: parseInt(Object.keys(G.players).find(pid => G.players[pid] === soulWinners[0])) };
   }
   if (soulWinners.length > 1) {
-    soulWinners.sort((a, b) => {
-      const diff = (totalSouls(b) - totalWounds(b)) - (totalSouls(a) - totalWounds(a));
-      if (diff !== 0) return diff;
-      return (a.boss?.xp || 0) - (b.boss?.xp || 0);
-    });
+    // Official rules: "In the case of a tie, the Boss with the lowest XP value wins."
+    // No souls-wounds tiebreaker — just lowest XP.
+    soulWinners.sort((a, b) => (a.boss?.xp || 0) - (b.boss?.xp || 0));
     return { gameOver: true, winner: parseInt(Object.keys(G.players).find(pid => G.players[pid] === soulWinners[0])) };
   }
   if (stillAlive.length <= 1) {
     if (stillAlive.length === 1) {
       return { gameOver: true, winner: parseInt(Object.keys(G.players).find(pid => G.players[pid] === stillAlive[0])) };
     }
-    // everyone eliminated: tie-break by souls - wounds then xp
+    // everyone eliminated: tie-break by lowest XP (official: lowest XP wins)
     const ranked = players.map(p => ({
       pid: parseInt(Object.keys(G.players).find(pid => G.players[pid] === p)),
-      score: totalSouls(p) - totalWounds(p),
       xp: p.boss?.xp || 0
-    })).sort((a, b) => b.score - a.score || a.xp - b.xp);
+    })).sort((a, b) => a.xp - b.xp);
     return { gameOver: true, winner: ranked[0].pid };
   }
   return { gameOver: false, winner: null };

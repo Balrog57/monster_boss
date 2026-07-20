@@ -13,11 +13,8 @@ export const HEROES = cardData.heroes;
 export const TREASURE_NAMES = ['?', 'Cleric', 'Fighter', 'Mage', 'Thief'];
 export const ROOM_TYPE = { MONSTER: 'monster', TRAP: 'trap' };
 export const SPELL_CATEGORY = {
-  ANY: 0,
   BUILD: 1,
-  BAIT: 2,
   ADVENTURE: 3,
-  BUILD_BAIT: 4,
   ADVENTURE_BUILD: 5
 };
 export function getCardImage(id, kind) {

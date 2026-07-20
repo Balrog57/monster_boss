@@ -486,14 +486,14 @@
     {
       "id": "BMA042",
       "name": "Cave-In",
-      "category": 4,
+      "category": 5,
       "quantity": 2,
       "description": "Destroy a room in your dungeon. Any Hero in that room is destroyed."
     },
     {
       "id": "BMA043",
       "name": "Counterspell",
-      "category": 2,
+      "category": 5,
       "quantity": 2,
       "description": "Choose a Spell card that has just been played. Cancel the effects of that Spell card. (It is sent to the discard pile.)"
     },
@@ -514,7 +514,7 @@
     {
       "id": "BMA046",
       "name": "Freeze",
-      "category": 2,
+      "category": 5,
       "quantity": 4,
       "description": "Choose and deactivate one Room in any dungeon. (It has no damage, treasure, or abilities until end of turn.)"
     },
@@ -528,14 +528,14 @@
     {
       "id": "BMA048",
       "name": "Jeopardy",
-      "category": 2,
+      "category": 1,
       "quantity": 2,
       "description": "All players immediately discard their hands, then draw one Spell card and two Room cards."
     },
     {
       "id": "BMA049",
       "name": "Kobold Strike",
-      "category": 2,
+      "category": 1,
       "quantity": 1,
       "description": "No rooms can be built this turn. Any face-down room is returned to its owner's hand. (This spell cannot be played after rooms are revealed.)"
     },
@@ -570,7 +570,7 @@
     {
       "id": "BMA054",
       "name": "Trepidation",
-      "category": 2,
+      "category": 1,
       "quantity": 1,
       "description": "Choose a player with at least two more Souls than you. No Hero enters that player's dungeon this turn. (Any Hero remain at the entrance to that dungeon.)"
     },
