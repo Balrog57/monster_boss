@@ -29,6 +29,13 @@ cd /DATA/AppData/boss-monster
 DOCKER_CONFIG=/DATA/.docker-root docker compose up -d --build
 ```
 
+> **Note `DOCKER_CONFIG`** : si `/DATA/.docker-root` échoue avec une erreur de permission (`config.json` ou `buildx/instances` refusés via SSH), utiliser un répertoire accessible en écriture :
+>
+> ```bash
+> mkdir -p /tmp/dockercfg-bm
+> DOCKER_CONFIG=/tmp/dockercfg-bm docker compose up -d --build
+> ```
+
 Cette commande :
 - Build l'image `boss-monster:latest` (multi-stage : build Vite + runtime Node)
 - Démarre le service `db` (postgres:16-alpine) avec un volume persistant `boss_db`
@@ -70,6 +77,8 @@ git pull
 DOCKER_CONFIG=/DATA/.docker-root docker compose up -d --build
 ```
 
+> En cas d'erreur de permission sur `DOCKER_CONFIG`, appliquer le contournement de la section 2 (`/tmp/dockercfg-bm`).
+
 Le volume `boss_db` est conservé entre les redéploiements — les matches en cours et l'historique persistent.
 
 ## 6. Backup de la base de données
@@ -87,7 +96,7 @@ cat backup_YYYYMMDD.sql | docker exec -i boss-monster-db psql -U boss bossmonste
 ```
 ZimaOS (192.168.1.98)
 ├── boss-monster-db        (postgres:16-alpine, port 5432 interne, volume boss_db)
-└── boss-monster           (Node 20 + Koa + Socket.IO, port 8090 externe)
+└── boss-monster           (Node 22 + Koa + Socket.IO, port 8090 externe)
     ├── /lobby/*           REST API (create/join/leave matches)
     ├── /socket.io/         WebSocket (real-time game state)
     ├── /health            Healthcheck Docker
@@ -126,3 +135,4 @@ Si le multi online ne se connecte pas via le tunnel :
 | WebSocket ne se connecte pas | Tunnel pas configuré pour WS | Cloudflare Tunnel gère WS par défaut sur le même port |
 | Matches disparaissent après redémarrage | Volume `boss_db` supprimé | Ne jamais `docker volume rm boss_db` |
 | `npm ci` échoue dans le build | Lockfile désynchronisé | `git pull` puis `docker compose build --no-cache` |
+| `permission denied` sur `docker compose` | Config `/DATA/.docker*` non accessible en écriture via SSH | `mkdir -p /tmp/dockercfg-bm` puis `DOCKER_CONFIG=/tmp/dockercfg-bm docker compose ...` |
