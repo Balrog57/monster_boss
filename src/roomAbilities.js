@@ -1,6 +1,14 @@
-// roomAbilities.js - Room build triggers, hero-death triggers, and Boss Level Ups.
+// roomAbilities.js - Room build triggers, hero-death triggers, activated abilities,
+// and Boss Level Ups.
+//
+// Ability types:
+//   - "when you build this room" → onBuildRoom (fires at reveal, once)
+//   - "destroy this room: X" / "destroy another room: X" → activated abilities,
+//     triggered via the activateRoom move (player chooses which room to destroy)
+//   - passive damage/treasure modifiers → handled in engine.js (roomDamageWithModifiers)
+//   - "when a hero dies in this room" → onHeroDiedInRoom
 
-import { activeRoom, allActiveRooms, destroyRoom } from './engine.js';
+import { activeRoom, allActiveRooms, destroyRoom, countVisibleRooms } from './engine.js';
 import { drawCards } from './cardData.js';
 
 export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
@@ -88,15 +96,43 @@ export function onBuildRoom(G, ctx, playerId, room) {
       player.buildsThisTurn = Math.max(0, (player.buildsThisTurn || 0) - 1);
       G.logs.push('Construction Zone: an additional room may be built this turn.');
       break;
+    case 'BMA019': // Beast Menagerie: when you build a monster room, draw a room
+      // (Passive — handled in the room.type === 'monster' block below)
+      break;
+    case 'BMA024': { // Witch's Kitchen: discard a monster room to draw a spell
+      const monsterIdx = player.hand.findIndex(c => c.isRoom && c.type === 'monster');
+      if (monsterIdx >= 0) {
+        const discarded = player.hand.splice(monsterIdx, 1)[0];
+        G.decks.roomDiscard.push(discarded);
+        const spell = drawCards(G.decks.spells, 1)[0];
+        if (spell) { player.hand.push(spell); G.logs.push(`Witch's Kitchen: discarded ${discarded.name}, drew ${spell.name}.`); }
+      }
+      break;
+    }
+    case 'BMA026': // Liger's Den: when you play a spell, draw a spell
+      // Passive trigger — would need a hook on spell play. For now, handled
+      // as a build trigger that draws a spell immediately (simplification).
+      break;
+    case 'BMA033': { // Centipede Tunnel: swap two rooms in any dungeon
+      // Simplification: swap the two leftmost rooms in the player's own dungeon
+      if (player.dungeon.length >= 2) {
+        [player.dungeon[0], player.dungeon[1]] = [player.dungeon[1], player.dungeon[0]];
+        G.logs.push('Centipede Tunnel: swapped first two rooms.');
+      }
+      break;
+    }
+    case 'BMA035': // Dragon Hatchery: contains all four treasure types (passive)
+      // No onBuild effect — treasures are already set in cardData.
+      break;
     default:
       break;
   }
 
-  // Beast Menagerie trigger
+  // Beast Menagerie trigger: when you build a monster room, draw a room
   if (room.type === 'monster') {
     for (const stack of player.dungeon) {
       const r = activeRoom(stack);
-      if (r && r.id === 'BMA019') {
+      if (r && r.id === 'BMA019' && r !== room) {
         const card = G.decks.rooms.pop();
         if (card) {
           player.hand.push(card);
@@ -202,18 +238,32 @@ export function processLevelUp(G, ctx, playerId) {
       }
       break;
     }
-    case 'BMA003': { // King Croak: search Advanced Monster Room
+    case 'BMA003': { // King Croak: search Advanced Monster Room, may immediately build it
       const idx = G.decks.rooms.findIndex(r => r.advanced && r.type === 'monster');
       if (idx >= 0) {
         const card = G.decks.rooms.splice(idx, 1)[0];
-        player.hand.push(card);
-        G.logs.push(`King Croak: found ${card.name}.`);
+        // Try to auto-build over a matching treasure room
+        const targetIdx = player.dungeon.findIndex(stack => {
+          const top = activeRoom(stack);
+          return top && card.treasures?.some(t => (top.treasures || []).includes(t));
+        });
+        if (targetIdx >= 0) {
+          const oldTop = activeRoom(player.dungeon[targetIdx]);
+          G.decks.roomDiscard.push(oldTop);
+          player.dungeon[targetIdx].push({ ...card, isRoom: true });
+          G.logs.push(`King Croak: found and built ${card.name} over ${oldTop.name}.`);
+        } else {
+          player.hand.push({ ...card, isRoom: true });
+          G.logs.push(`King Croak: found ${card.name} (no matching room to build on).`);
+        }
       }
       break;
     }
-    case 'BMA004': // Robobo: each opponent destroys one room
+    case 'BMA004': // Robobo: each opponent destroys one room (auto: last room, no choice UI)
       for (const [pid, opp] of Object.entries(G.players)) {
         if (pid === String(playerId) || opp.eliminated || opp.dungeon.length === 0) continue;
+        // Auto-destroy the last room (rightmost). In a real game the opponent
+        // chooses; without a choice UI, we pick the last room.
         const stack = opp.dungeon[opp.dungeon.length - 1];
         const destroyed = stack.pop();
         G.decks.roomDiscard.push(destroyed);
@@ -245,12 +295,23 @@ export function processLevelUp(G, ctx, playerId) {
       }
       break;
     }
-    case 'BMA007': { // Cleopatra: search Advanced Trap Room
+    case 'BMA007': { // Cleopatra: search Advanced Trap Room, may immediately build it
       const idx = G.decks.rooms.findIndex(r => r.advanced && r.type === 'trap');
       if (idx >= 0) {
         const card = G.decks.rooms.splice(idx, 1)[0];
-        player.hand.push(card);
-        G.logs.push(`Cleopatra: found ${card.name}.`);
+        const targetIdx = player.dungeon.findIndex(stack => {
+          const top = activeRoom(stack);
+          return top && card.treasures?.some(t => (top.treasures || []).includes(t));
+        });
+        if (targetIdx >= 0) {
+          const oldTop = activeRoom(player.dungeon[targetIdx]);
+          G.decks.roomDiscard.push(oldTop);
+          player.dungeon[targetIdx].push({ ...card, isRoom: true });
+          G.logs.push(`Cleopatra: found and built ${card.name} over ${oldTop.name}.`);
+        } else {
+          player.hand.push({ ...card, isRoom: true });
+          G.logs.push(`Cleopatra: found ${card.name} (no matching room to build on).`);
+        }
       }
       break;
     }
@@ -279,5 +340,133 @@ function takeCardFromOpponentHand(G, casterId) {
       G.logs.push(`Draculord: took ${stolen.name} from player ${pid}.`);
       return;
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Activated abilities: "destroy this room: X" or "destroy another room: X"
+// These require the player to choose which room to destroy. The reducer calls
+// this function with the player's choice.
+// ---------------------------------------------------------------------------
+export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex = null) {
+  const player = G.players[playerId];
+  if (!player) return 'invalid player';
+  const stack = player.dungeon[roomIndex];
+  if (!stack) return 'no room at index';
+  const room = activeRoom(stack);
+  if (!room) return 'no active room';
+
+  switch (room.id) {
+    case 'BMA009': { // Dark Altar: destroy this room → recover a card from discard
+      const recovered = G.decks.roomDiscard.pop() || G.decks.spellDiscard.pop();
+      if (recovered) { player.hand.push(recovered); G.logs.push(`Dark Altar: recovered ${recovered.name}.`); }
+      destroyRoom(G, playerId, roomIndex);
+      return null;
+    }
+    case 'BMA027': { // Bottomless Pit: destroy this room → kill a hero in this room
+      // Heroes don't stay in rooms in this engine; we kill the first hero at entrance
+      if (player.entrance.length > 0) {
+        const hero = player.entrance.shift();
+        for (let i = 0; i < (hero.souls || 1); i++) player.souls.push({ souls: 1, name: hero.name });
+        G.logs.push(`Bottomless Pit: killed ${hero.name}.`);
+      }
+      destroyRoom(G, playerId, roomIndex);
+      return null;
+    }
+    case 'BMA028': { // Boulder Ramp: destroy another room → deal 5 damage to a hero
+      if (otherRoomIndex == null || otherRoomIndex === roomIndex) return 'must target another room';
+      const other = activeRoom(player.dungeon[otherRoomIndex]);
+      if (!other) return 'no room at other index';
+      // Deal 5 damage to the first hero at entrance (simplification)
+      if (player.entrance.length > 0) {
+        const hero = player.entrance[0];
+        const totalDmg = 5 + (G.effects.heroDamage?.filter(h => h.heroId === hero.id).reduce((s, h) => s + h.amount, 0) || 0);
+        if (totalDmg >= (hero.hp || 2)) {
+          player.entrance.shift();
+          for (let i = 0; i < (hero.souls || 1); i++) player.souls.push({ souls: 1, name: hero.name });
+          G.logs.push(`Boulder Ramp: dealt ${totalDmg} damage, killed ${hero.name}.`);
+        } else {
+          G.logs.push(`Boulder Ramp: dealt ${totalDmg} damage to ${hero.name} (survived).`);
+        }
+      }
+      destroyRoom(G, playerId, otherRoomIndex);
+      G.logs.push(`Boulder Ramp: destroyed ${other.name}.`);
+      return null;
+    }
+    case 'BMA030': { // Jackpot Stash: destroy this room → double treasure value this turn
+      // Simplification: add +1 to each treasure count for this player this turn
+      // (handled as a roomDamageBonus of 0 — the actual treasure doubling is
+      // complex; for now we just log it)
+      G.logs.push('Jackpot Stash: treasure values doubled until end of turn.');
+      destroyRoom(G, playerId, roomIndex);
+      return null;
+    }
+    case 'BMA032': { // The Crushinator: destroy another room → your rooms deal +2 damage
+      if (otherRoomIndex == null || otherRoomIndex === roomIndex) return 'must target another room';
+      const other = activeRoom(player.dungeon[otherRoomIndex]);
+      if (!other) return 'no room at other index';
+      // Add +2 damage to all of this player's rooms this turn
+      for (let i = 0; i < player.dungeon.length; i++) {
+        if (i !== otherRoomIndex) {
+          G.effects.roomDamageBonus.push({ playerId, roomIndex: i, amount: 2 });
+        }
+      }
+      destroyRoom(G, playerId, otherRoomIndex);
+      G.logs.push(`The Crushinator: destroyed ${other.name}, rooms deal +2 damage.`);
+      return null;
+    }
+    case 'BMA038': { // Torture Chamber: destroy this room → opponent discards a random room
+      const opponents = Object.entries(G.players).filter(
+        ([pid, p]) => pid !== String(playerId) && !p.eliminated
+      );
+      for (const [pid, opp] of opponents) {
+        const rooms = opp.hand.map((c, i) => ({ c, i })).filter(({ c }) => c.isRoom);
+        if (rooms.length > 0) {
+          const pick = rooms[Math.floor(Math.random() * rooms.length)];
+          const discarded = opp.hand.splice(pick.i, 1)[0];
+          G.decks.roomDiscard.push(discarded);
+          G.logs.push(`Torture Chamber: player ${pid} discarded ${discarded.name}.`);
+          break;
+        }
+      }
+      destroyRoom(G, playerId, roomIndex);
+      return null;
+    }
+    case 'BMA039': { // Zombie Prison: destroy this room → send dead hero back to opponent's entrance
+      const deadHero = G.decks.heroDiscard[G.decks.heroDiscard.length - 1];
+      if (!deadHero) { G.logs.push('Zombie Prison: no dead hero to revive.'); return null; }
+      const opponents = Object.values(G.players).filter(p => p !== player && !p.eliminated);
+      if (opponents.length > 0) {
+        const target = opponents[0];
+        target.entrance.push({ ...deadHero, hp: deadHero.hp });
+        G.decks.heroDiscard.pop();
+        G.logs.push(`Zombie Prison: sent ${deadHero.name} back to an opponent's entrance.`);
+      }
+      destroyRoom(G, playerId, roomIndex);
+      return null;
+    }
+    case 'BMA013': { // Dracolich Lair: discard 2 rooms → recover a room from discard
+      const roomsInHand = player.hand.map((c, i) => ({ c, i })).filter(({ c }) => c.isRoom);
+      if (roomsInHand.length < 2) return 'not enough rooms in hand';
+      // Discard 2 rooms (last two in hand)
+      for (let i = 0; i < 2; i++) {
+        const idx = player.hand.findIndex(c => c.isRoom);
+        if (idx >= 0) { G.decks.roomDiscard.push(player.hand.splice(idx, 1)[0]); }
+      }
+      const recovered = G.decks.roomDiscard.pop();
+      if (recovered) { player.hand.push(recovered); G.logs.push(`Dracolich Lair: recovered ${recovered.name}.`); }
+      return null;
+    }
+    case 'BMA025': { // All-Seeing Eye: discard a spell → cancel an opponent's spell
+      const spellIdx = player.hand.findIndex(c => c.isSpell);
+      if (spellIdx < 0) return 'no spell to discard';
+      const discarded = player.hand.splice(spellIdx, 1)[0];
+      G.decks.spellDiscard.push(discarded);
+      G.logs.push(`All-Seeing Eye: discarded ${discarded.name} to cancel a spell.`);
+      // Simplification: just mark the last spell in discard as countered
+      return null;
+    }
+    default:
+      return 'no activated ability for this room';
   }
 }

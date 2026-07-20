@@ -500,7 +500,7 @@
     {
       "id": "BMA044",
       "name": "Exhaustion",
-      "category": 4,
+      "category": 3,
       "quantity": 1,
       "description": "Deal X damage to one Hero in your dungeon, where X is equal to the number of Rooms in your dungeon."
     },
@@ -542,7 +542,7 @@
     {
       "id": "BMA050",
       "name": "Motivation",
-      "category": 3,
+      "category": 1,
       "quantity": 2,
       "description": "If you have fewer rooms than an opponent, you may build an extra room this turn."
     },
@@ -593,7 +593,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Nick the Masher The young cleric was well-armed, and brave enough to take on the Dragon King himself. His credo: \"I bash it with my mace.\"",
-      "class": "Cleric"
+      "class": "Cleric",
+      "playerCount": 2
     },
     {
       "id": "BMA057",
@@ -605,7 +606,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Pugi the Druidess A defender of the wilderness, she wields the power of Nature. Flowers blossom in her footsteps, and life grows anew.",
-      "class": "Cleric"
+      "class": "Cleric",
+      "playerCount": 2
     },
     {
       "id": "BMA058",
@@ -617,7 +619,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Acacia, Warrior of Light Acacia is a carefree soul who makes her own luck. A strong defender of good, she is undeterred by even the darkest dungeons.",
-      "class": "Cleric"
+      "class": "Cleric",
+      "playerCount": 2
     },
     {
       "id": "BMA059",
@@ -629,7 +632,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Charles the Young Charles has mother's permission to go adventuring, but he has to return before sundown.",
-      "class": "Cleric"
+      "class": "Cleric",
+      "playerCount": 3
     },
     {
       "id": "BMA060",
@@ -641,7 +645,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Delatorious, Angel of Light",
-      "class": "Cleric"
+      "class": "Cleric",
+      "playerCount": 4
     },
     {
       "id": "BMA061",
@@ -653,7 +658,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Romero, the Indigo Friar He is a dedicated man of the cloth who wants to see the world coated in blue. You might think he's depressed, but he's actually very, very happy.",
-      "class": "Cleric"
+      "class": "Cleric",
+      "playerCount": 4
     },
     {
       "id": "BMA062",
@@ -665,7 +671,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Boden the Pantless Boden's courage is matched only by his forgetfullness. The quest to find his misplaced armor continues!",
-      "class": "Fighter"
+      "class": "Fighter",
+      "playerCount": 2
     },
     {
       "id": "BMA063",
@@ -677,7 +684,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Jarek, Squire to the Lion Knights As a squire, Jarek loved nothing more than stories and legends. He had no idea that he would someday become one.",
-      "class": "Fighter"
+      "class": "Fighter",
+      "playerCount": 2
     },
     {
       "id": "BMA064",
@@ -689,7 +697,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Fire's Breath, Heroine of Arcadia The scarlet-haired warrior woman known as Fire's Breath has pledged her deadly twin blades to the fight for liberty",
-      "class": "Fighter"
+      "class": "Fighter",
+      "playerCount": 2
     },
     {
       "id": "BMA065",
@@ -701,7 +710,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Samurai Tom Not truly a samurai, this masterless ronin seeks honor and glory.",
-      "class": "Fighter"
+      "class": "Fighter",
+      "playerCount": 3
     },
     {
       "id": "BMA066",
@@ -713,7 +723,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Johnny of the Evening Watch A humble member of the Evening Watch, whose band o'brothers is sworn to forsake family, take the grey, and clear dungeons.",
-      "class": "Fighter"
+      "class": "Fighter",
+      "playerCount": 4
     },
     {
       "id": "BMA067",
@@ -725,7 +736,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Crystol and A'lan of Gerd Bound by the unbreakable Ring of Gerd, these lovers became the most dangerous husband-wife team in the adventuring business.",
-      "class": "Fighter"
+      "class": "Fighter",
+      "playerCount": 4
     },
     {
       "id": "BMA068",
@@ -737,7 +749,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Tieg and the Magic Bubble Armed with his trusty bubble, Tieg braves dangerous castles and dungeons in search of the muscial instruments stolen from his people.",
-      "class": "Mage"
+      "class": "Mage",
+      "playerCount": 2
     },
     {
       "id": "BMA069",
@@ -749,7 +762,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Brandork the Neverwrong Schooled in seven flavors of magic, Brandork follows the teachings of master Face, the Omniscient Celestial",
-      "class": "Mage"
+      "class": "Mage",
+      "playerCount": 2
     },
     {
       "id": "BMA070",
@@ -761,7 +775,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Mitchell, the Judge He has wandered the planes, hopelessly lost... ever since his wife, Nikki, sent him to the store for diamond dust sugar.",
-      "class": "Mage"
+      "class": "Mage",
+      "playerCount": 2
     },
     {
       "id": "BMA071",
@@ -773,7 +788,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Kalish Ninefingers The worst thief ever, Kalish lost a finger and his freedom in one night. Taught magic in prison by his sorcerous cellmate, he now kills evil with fire.",
-      "class": "Mage"
+      "class": "Mage",
+      "playerCount": 3
     },
     {
       "id": "BMA072",
@@ -785,7 +801,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Dartteon, Elf Pyromancer Some elves just want to watch the world burn.",
-      "class": "Mage"
+      "class": "Mage",
+      "playerCount": 4
     },
     {
       "id": "BMA073",
@@ -797,7 +814,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Koey, The Last Dragon Mage The survivor of Drakonia vowed to save the world from Kirax's reign with the power bestowed to him by the last emerald dragon.",
-      "class": "Mage"
+      "class": "Mage",
+      "playerCount": 4
     },
     {
       "id": "BMA074",
@@ -809,7 +827,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Joman Chimm, Cutpurse From the twinkle in his eye, you might think he comes bearing gifts... until you check your empty pockets.",
-      "class": "Thief"
+      "class": "Thief",
+      "playerCount": 2
     },
     {
       "id": "BMA075",
@@ -821,7 +840,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Lance Uppercut, Treasure Hunter With a bent blade and a clenched fist, he gathers shining treasures for the glory of the Keonish Empire.",
-      "class": "Thief"
+      "class": "Thief",
+      "playerCount": 2
     },
     {
       "id": "BMA076",
@@ -833,7 +853,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Jesta the Rogue \"Okay, so you take the big guy on the left with the axe, you've got the two little ones on the right with swords, and I'll take this dangerous-looking treasure chest with no lock over here...\"",
-      "class": "Thief"
+      "class": "Thief",
+      "playerCount": 2
     },
     {
       "id": "BMA077",
@@ -845,7 +866,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Kins Klauski, Mad Conquistador \"It's hard for me to think about death, how insects and worms will eat me... I never think about death. I haven't even properly started to live yet.\"",
-      "class": "Thief"
+      "class": "Thief",
+      "playerCount": 3
     },
     {
       "id": "BMA078",
@@ -857,7 +879,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Sir Digby Apple, Ace Detective He battles to keep the coffers filling, to keep his partners preening and to send a needless message of power to all of the unwilling.",
-      "class": "Thief"
+      "class": "Thief",
+      "playerCount": 4
     },
     {
       "id": "BMA079",
@@ -869,7 +892,8 @@
       "epic": false,
       "quantity": 1,
       "description": "Jerome, Kung Fu Monkey A Visitor from a distant land, his hyperactive monkey studied martial arts under the legendar Sifu Wang.",
-      "class": "Thief"
+      "class": "Thief",
+      "playerCount": 4
     },
     {
       "id": "BMA080",
@@ -881,7 +905,8 @@
       "epic": false,
       "quantity": 1,
       "description": "The Fool is lured to the dungeon of the Boss Monster with the fewest Souls. (In the case of a tie, he waits in town until the tie is broken.)",
-      "class": "The Fool"
+      "class": "The Fool",
+      "playerCount": 2
     },
     {
       "id": "BMA081",
@@ -893,7 +918,8 @@
       "epic": true,
       "quantity": 1,
       "description": "Katelyn, Angelic Healer Among the most exalted defenders of righteousness, Katelyn is sometimes referred to as \"altissima luce\" -- highest light.",
-      "class": "Cleric"
+      "class": "Cleric",
+      "playerCount": 2
     },
     {
       "id": "BMA082",
@@ -905,7 +931,8 @@
       "epic": true,
       "quantity": 1,
       "description": "Kerberos Dirtbeard, Canine Cleric Hailing from the Highlands, this flea-bitten friar never turns down a fetch quest.",
-      "class": "Cleric"
+      "class": "Cleric",
+      "playerCount": 2
     },
     {
       "id": "BMA083",
@@ -917,7 +944,8 @@
       "epic": true,
       "quantity": 1,
       "description": "Lord Van Ette A prophet and collector of tithes for the omniscient Celestial, his \"miracles\" are enhanced by the brandewijn distilled by the monks of Nintehn.",
-      "class": "Cleric"
+      "class": "Cleric",
+      "playerCount": 3
     },
     {
       "id": "BMA084",
@@ -929,7 +957,8 @@
       "epic": true,
       "quantity": 1,
       "description": "Jejune & Everlea, Holy Sisters Tenacious and vivacious, each is a threat on her own. But woe betide any who stand against the sisters' united power.",
-      "class": "Cleric"
+      "class": "Cleric",
+      "playerCount": 4
     },
     {
       "id": "BMA085",
@@ -941,7 +970,8 @@
       "epic": true,
       "quantity": 1,
       "description": "Frankov, the Envoy This brave warrior stands alone against the evil that rules the world.",
-      "class": "Fighter"
+      "class": "Fighter",
+      "playerCount": 2
     },
     {
       "id": "BMA086",
@@ -953,7 +983,8 @@
       "epic": true,
       "quantity": 1,
       "description": "Nate the Squidslayer This surly warrior defeated the mighty Squib, Lord of the Rocktopi. Now he seeks to destroy King Croak himself...",
-      "class": "Mage"
+      "class": "Mage",
+      "playerCount": 2
     },
     {
       "id": "BMA087",
@@ -965,7 +996,8 @@
       "epic": true,
       "quantity": 1,
       "description": "Antonius, the Rune Knight An elite dragoon, Sir Tony wears armor inscribed with magic runes of ancient and mysterious power.",
-      "class": "Mage"
+      "class": "Mage",
+      "playerCount": 3
     },
     {
       "id": "BMA088",
@@ -977,7 +1009,8 @@
       "epic": true,
       "quantity": 1,
       "description": "Asmor the Aweless What Asmor lacks in tactical acuity, he more than makes up for in impulsiveness. There's no door he won't kick down, much to the frustration of Arcadia's innkeepers.",
-      "class": "Fighter"
+      "class": "Fighter",
+      "playerCount": 4
     },
     {
       "id": "BMA089",
@@ -989,7 +1022,8 @@
       "epic": true,
       "quantity": 1,
       "description": "Tempros the Time Marauder He would use his control over time to end all crime. In his hands, this world could be a utopia.",
-      "class": "Mage"
+      "class": "Mage",
+      "playerCount": 2
     },
     {
       "id": "BMA090",
@@ -1001,7 +1035,8 @@
       "epic": true,
       "quantity": 1,
       "description": "Chia Kang, Mystical Warlock of Yu \"Hey, Listen! I think this Boss Monster is--\" \"Silence, fairy! I will crush him through fire and flames in the name of the Order!",
-      "class": "Thief"
+      "class": "Thief",
+      "playerCount": 2
     },
     {
       "id": "BMA091",
@@ -1013,7 +1048,8 @@
       "epic": true,
       "quantity": 1,
       "description": "Terric Warhelm, Half-Elf Archmage \"Weakened by an evil curse, this once-mighty warrior donned the red robes and turned to magic. His spells are chnneled through a magical helmet of untold power.\"",
-      "class": "Thief"
+      "class": "Thief",
+      "playerCount": 3
     },
     {
       "id": "BMA092",
@@ -1025,7 +1061,8 @@
       "epic": true,
       "quantity": 1,
       "description": "Wayward, the Drifter He is a traveler from a strange land whose only goal is to do whatever is right... whatever that means.",
-      "class": "Thief"
+      "class": "Thief",
+      "playerCount": 4
     },
     {
       "id": "BMA093",
@@ -1037,7 +1074,8 @@
       "epic": true,
       "quantity": 1,
       "description": "Hya, Legendary Shinobi Arcadia's deadliest ninja,Hya lives by the proverb that revenge is a dish best served cold.",
-      "class": "Thief"
+      "class": "Thief",
+      "playerCount": 2
     },
     {
       "id": "BMA094",
@@ -1049,7 +1087,8 @@
       "epic": true,
       "quantity": 1,
       "description": "Blackbeard Jake He hid the treasure he won from insult swordfighting in a booty-trap filled cave on the coast of a town called Astoria.",
-      "class": "Thief"
+      "class": "Thief",
+      "playerCount": 2
     },
     {
       "id": "BMA095",
@@ -1061,7 +1100,8 @@
       "epic": true,
       "quantity": 1,
       "description": "Cecil Leoran, Master Factotum The ultimate jack-of-all-trades, Cecil isn't above taking mercenary work to earn gold and glory. But his real goal has never changed: to find a way to return his betrothed Nevra, sealed into a rapier, to her original form.",
-      "class": "Thief"
+      "class": "Thief",
+      "playerCount": 3
     },
     {
       "id": "BMA096",
@@ -1073,7 +1113,8 @@
       "epic": true,
       "quantity": 1,
       "description": "Wallbanger Basketweaver This humble halfing world rather spend his days weaving baskets and eating crumbly cookies. But when adventure calls, he proves a first-rate burglar",
-      "class": "Thief"
+      "class": "Thief",
+      "playerCount": 4
     }
   ],
   "nameMap": {

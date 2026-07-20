@@ -10,11 +10,13 @@ export function emptyEffects() {
   return {
     roomDamageBonus: [],   // { playerId, roomIndex, amount }
     heroHealthBonus: [],   // { heroId, amount }
-    heroDamage: [],        // { heroId, amount }
+    heroDamage: [],        // { heroId, amount } — consumed by resolveOneHero
     deactivatedRooms: [],    // { playerId, roomIndex }
     buildBlocked: false,
     extraBuild: [],        // playerIds
     noEntry: [],           // playerIds
+    teleportHero: null,    // heroId — consumed by resolveOneHero
+    counteredSpells: [],    // spell IDs that were countered
   };
 }
 
@@ -280,7 +282,12 @@ const SPELL_EFFECTS = {
       return false;
     }
     const revived = victim.souls.pop();
-    victim.entrance.push({ ...revived, name: revived.name || 'Zombie', currentHP: 2, hp: 2, souls: 1, wounds: 1 });
+    // Revive with the hero's original HP + 2 (per official rules: "+2 Health
+    // until end of turn"). The soul entry stores the hero's name; we look up
+    // the original hero from the discard pile to get the base HP.
+    const origHero = G.decks.heroDiscard.find(h => h.name === (revived.name || ''));
+    const baseHP = origHero?.hp || 2;
+    victim.entrance.push({ ...revived, name: revived.name || 'Zombie', hp: baseHP + 2, souls: 1, wounds: 1 });
     G.logs.push('Zombie Attack: a dead hero returns to an opponent\'s dungeon (+2 HP).');
     return true;
   },

@@ -37,15 +37,53 @@ export function treasureCount(G, playerId, treasure) {
 
 export function resolveBait(G) {
   // For each hero in town (FIFO order), determine target dungeon.
-  // Rule: hero goes to dungeon with most matching treasure. Tie or no match = stays in town.
-  const lureAssignments = []; // { hero, targetPlayerId: number|null, stayInTown: boolean }
+  // Standard heroes: go to dungeon with the highest matching treasure count.
+  //   Tie-break: fewest wounds, then fewest souls. If still tied, stays in town.
+  // The Fool (class "The Fool", treasure 0): goes to the player with the fewest
+  //   souls. Tie = stays in town.
+  const lureAssignments = [];
   for (const hero of G.town) {
+    if (hero.class === 'The Fool' || hero.treasure === 0) {
+      // The Fool: lured to the player with the fewest souls.
+      const order = playerOrderByXP(G.players);
+      let fewestSouls = Infinity;
+      let target = null;
+      let tied = false;
+      for (const pid of order) {
+        const s = totalSouls(G.players[pid]);
+        if (s < fewestSouls) { fewestSouls = s; target = pid; tied = false; }
+        else if (s === fewestSouls) { tied = true; }
+      }
+      if (target != null && !tied) {
+        lureAssignments.push({ hero, targetPlayerId: target, stayInTown: false });
+      } else {
+        lureAssignments.push({ hero, targetPlayerId: null, stayInTown: true });
+      }
+      continue;
+    }
+
+    // Standard hero: highest treasure count wins.
     const order = playerOrderByXP(G.players);
     let best = null;
     for (const pid of order) {
       const count = treasureCount(G, pid, hero.class);
-      const candidate = { pid, count, wounds: totalWounds(G.players[pid]), souls: totalSouls(G.players[pid]) };
-      if (best === null || count > best.count) best = candidate;
+      if (best === null) {
+        best = { pid, count, wounds: totalWounds(G.players[pid]), souls: totalSouls(G.players[pid]) };
+      } else if (count > best.count) {
+        best = { pid, count, wounds: totalWounds(G.players[pid]), souls: totalSouls(G.players[pid]) };
+      } else if (count === best.count && count > 0) {
+        // Tie-break: fewest wounds, then fewest souls. If still tied, the hero
+        // stays in town (no one wins the tie).
+        const w = totalWounds(G.players[pid]);
+        const s = totalSouls(G.players[pid]);
+        if (w < best.wounds || (w === best.wounds && s < best.souls)) {
+          best = { pid, count, wounds: w, souls: s };
+        } else if (w === best.wounds && s === best.souls) {
+          // Exact tie — hero stays in town. Mark best as null to signal this.
+          best = null;
+          break;
+        }
+      }
     }
     if (best && best.count > 0) {
       lureAssignments.push({ hero, targetPlayerId: best.pid, stayInTown: false });
@@ -67,6 +105,9 @@ export function canBuildRoom(G, playerId, handIndex, targetIndex = null) {
   if (!card.advanced) {
     // Ordinary room: can build at end or over any existing stack.
     if (visible >= 5 && targetIndex === null) return false; // cannot extend beyond 5 visible
+    // Neanderthal Cave (BMA018): advanced rooms cannot be built on top of it,
+    // but ordinary rooms can (per official rules, ordinary rooms build over
+    // anything). No restriction needed here for ordinary rooms.
     return true;
   }
   // Advanced room: must be built over an active room with matching treasure.
@@ -74,6 +115,9 @@ export function canBuildRoom(G, playerId, handIndex, targetIndex = null) {
   const idx = targetIndex ?? p.dungeon.length - 1;
   const target = activeRoom(p.dungeon[idx]);
   if (!target) return false;
+  // Neanderthal Cave (BMA018): "You cannot build an Advanced Room on
+  // Neanderthal Cave."
+  if (target.id === 'BMA018') return false;
   const match = card.treasures?.some(t => (target.treasures || []).includes(t));
   if (!match) return false;
   return true;

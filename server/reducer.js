@@ -18,12 +18,21 @@ import {
   getExpandedDeck, shuffle, drawCards, playerOrderByXP, totalSouls, totalWounds
 } from '../src/cardData.js';
 import { castSpell, emptyEffects, isBuildBlocked, extraBuildsFor, isRoomDeactivated, isNoEntry } from '../src/spellEffects.js';
-import { onBuildRoom, onHeroDiedInRoom, processLevelUp } from '../src/roomAbilities.js';
+import { onBuildRoom, onHeroDiedInRoom, processLevelUp, activateRoomAbility } from '../src/roomAbilities.js';
 import {
   activeRoom, allActiveRooms, countVisibleRooms, dungeonTreasures,
   resolveBait, buildRoom, canBuildRoom, heroHealthWithModifiers,
   roomDamageWithModifiers, checkEndGame
 } from '../src/engine.js';
+import { refillDeckFromDiscard } from '../src/cardData.js';
+
+// Refill a deck from its discard pile if empty. Called before every draw.
+function ensureDeck(decks, name) {
+  const deck = decks[name];
+  const discardName = name + 'Discard';
+  const discard = decks[discardName];
+  if (deck && discard) refillDeckFromDiscard(deck, discard);
+}
 
 const HERO_COUNTS = {
   2: { ordinary: 13, epic: 8 },
@@ -129,7 +138,8 @@ function nextXPActivePlayer(G, current) {
   const idx = order.indexOf(cur);
   for (let i = 1; i <= order.length; i++) {
     const candidate = order[(idx + i) % order.length];
-    if (candidate != null && !G.players[candidate]?.eliminated && !G.players[candidate]?.passed) {
+    // Skip eliminated, passed, or players who have already acted (built).
+    if (candidate != null && !G.players[candidate]?.eliminated && !G.players[candidate]?.passed && !G.players[candidate]?.hasActed) {
       return candidate;
     }
   }
@@ -142,8 +152,11 @@ function beginPhase(G, ctx, phase) {
   G.xpOrder = playerOrderByXP(G.players);
   ctx.activePlayer = G.xpOrder[0] ?? 0;
   ctx.currentPlayer = ctx.activePlayer;
-  G.activePlayer = ctx.activePlayer; // keep G.activePlayer in sync (legalMoves reads it)
-  for (const p of Object.values(G.players)) p.passed = false;
+  G.activePlayer = ctx.activePlayer;
+  for (const p of Object.values(G.players)) {
+    p.passed = false;
+    p.hasActed = false;
+  }
 }
 
 function endPhaseSetup(G, ctx) {
@@ -191,6 +204,9 @@ function beginPhaseBeginning(G, ctx) {
   ctx.phase = PHASE.BEGINNING;
   G.logs.push(`--- Turn ${G.turn} - Beginning Phase ---`);
   const aliveCount = Object.values(G.players).filter(p => !p.eliminated).length;
+  // Refill hero/epic decks from discard if empty.
+  ensureDeck(G.decks, 'heroes');
+  ensureDeck(G.decks, 'epics');
   for (let i = 0; i < aliveCount; i++) {
     let hero = null;
     if (G.decks.heroes.length > 0) hero = G.decks.heroes.pop();
@@ -200,6 +216,8 @@ function beginPhaseBeginning(G, ctx) {
       G.logs.push(`${hero.name} arrives in town`);
     }
   }
+  // Refill room deck from discard if empty.
+  ensureDeck(G.decks, 'rooms');
   for (let i = 0; i < ctx.numPlayers; i++) {
     const p = G.players[i];
     if (p.eliminated) continue;
@@ -209,6 +227,7 @@ function beginPhaseBeginning(G, ctx) {
   for (const p of Object.values(G.players)) {
     p.buildsThisTurn = 0;
     p.passed = false;
+    p.hasActed = false;
   }
   G.effects = emptyEffects();
   G.xpOrder = playerOrderByXP(G.players);
@@ -220,11 +239,20 @@ function beginPhaseBuild(G, ctx) {
 }
 
 function endPhaseBuild(G, ctx) {
+  // Reveal face-down rooms and fire onBuildRoom for newly built rooms only.
+  // Per official rules: rooms are built face-down during BUILD, then revealed
+  // simultaneously at the end of the phase. "When you build this room" effects
+  // fire at reveal time, in XP order. Rooms that were already revealed from
+  // previous turns do NOT re-trigger.
   for (const pid of playerOrderByXP(G.players)) {
     const p = G.players[pid];
     for (const stack of p.dungeon) {
       const room = activeRoom(stack);
-      if (room) onBuildRoom(G, ctx, pid, room);
+      if (room && room.faceDown) {
+        room.faceDown = false;
+        G.logs.push(`Revealed ${room.name} for Player ${pid}`);
+        onBuildRoom(G, ctx, pid, room);
+      }
     }
     if (countVisibleRooms(p.dungeon) >= 5 && !p.leveledUp) {
       p.leveledUp = true;
@@ -274,7 +302,10 @@ function beginPhaseEnd(G, ctx) {
 
 // Check if all non-eliminated players have passed -> phase ends.
 function phaseComplete(G) {
-  return Object.values(G.players).every(p => p.eliminated || p.passed);
+  // A phase ends when all non-eliminated players have either passed or acted.
+  // `hasActed` is set by buildRoom (BUILD phase) and pass (all phases).
+  // `passed` is set only by pass. Either flag indicates the player is done.
+  return Object.values(G.players).every(p => p.eliminated || p.passed || p.hasActed);
 }
 
 function advancePhase(G, ctx) {
@@ -315,41 +346,75 @@ function advancePhase(G, ctx) {
 // ---------------------------------------------------------------------------
 // Adventure resolution (per-player)
 // ---------------------------------------------------------------------------
+// Resolve a single hero at the given entrance index through the player's dungeon.
+function resolveOneHero(G, ctx, playerId, entranceIndex) {
+  const p = G.players[playerId];
+  if (!p || entranceIndex >= p.entrance.length) return;
+  const hero = p.entrance[entranceIndex];
+  G.logs.push(`${hero.name} enters Player ${playerId}'s dungeon`);
+  let heroHP = heroHealthWithModifiers(G, hero);
+  let deathRoom = null;
+
+  for (let i = 0; i < p.dungeon.length && heroHP > 0; i++) {
+    if (isRoomDeactivated(G, playerId, i)) {
+      G.logs.push(`${activeRoom(p.dungeon[i]).name} is deactivated — skipped`);
+      continue;
+    }
+    const dmg = roomDamageWithModifiers(G, playerId, i, hero);
+    // Apply direct hero damage from spells (Exhaustion).
+    heroHP -= dmg;
+    G.logs.push(`${activeRoom(p.dungeon[i]).name} deals ${dmg} damage to ${hero.name} (HP ${heroHP})`);
+    if (heroHP <= 0) {
+      deathRoom = activeRoom(p.dungeon[i]);
+      break;
+    }
+  }
+
+  // Apply spell-based direct hero damage (Exhaustion: X = visible rooms).
+  if (G.effects.heroDamage && heroHP > 0) {
+    for (const hd of G.effects.heroDamage) {
+      if (hd.heroId === hero.id || hd.heroId === hero.name) {
+        heroHP -= hd.amount;
+        G.logs.push(`${hero.name} takes ${hd.amount} additional damage (HP ${heroHP})`);
+        if (heroHP <= 0) break;
+      }
+    }
+  }
+
+  // Teleportation: send hero back to the first room.
+  if (G.effects.teleportHero && heroHP > 0) {
+    if (G.effects.teleportHero === hero.id || G.effects.teleportHero === hero.name) {
+      G.logs.push(`${hero.name} teleported back to the first room!`);
+      // Re-traverse from room 0 with current HP.
+      for (let i = 0; i < p.dungeon.length && heroHP > 0; i++) {
+        if (isRoomDeactivated(G, playerId, i)) continue;
+        const dmg = roomDamageWithModifiers(G, playerId, i, hero);
+        heroHP -= dmg;
+        if (heroHP <= 0) { deathRoom = activeRoom(p.dungeon[i]); break; }
+      }
+    }
+  }
+
+  const souls = hero.souls || 1;
+  const wounds = hero.wounds || 1;
+  if (heroHP <= 0) {
+    for (let i = 0; i < souls; i++) p.souls.push({ souls: 1, name: hero.name });
+    G.logs.push(`${hero.name} defeated! Player ${playerId} gains ${souls} soul(s).`);
+    if (deathRoom) onHeroDiedInRoom(G, ctx, playerId, deathRoom, hero);
+  } else {
+    for (let i = 0; i < wounds; i++) p.wounds.push({ wounds: 1, name: hero.name });
+    G.logs.push(`${hero.name} survives! Player ${playerId} takes ${wounds} wound(s).`);
+  }
+  // Remove the hero from entrance and send to discard.
+  p.entrance.splice(entranceIndex, 1);
+  G.decks.heroDiscard.push(hero);
+}
+
 function resolveAdventureForPlayer(G, ctx, playerId) {
   const p = G.players[playerId];
   if (!p) return;
   while (p.entrance.length > 0) {
-    const hero = p.entrance[0];
-    G.logs.push(`${hero.name} enters Player ${playerId}'s dungeon`);
-    let heroHP = heroHealthWithModifiers(G, hero);
-    let deathRoom = null;
-
-    for (let i = 0; i < p.dungeon.length && heroHP > 0; i++) {
-      if (isRoomDeactivated(G, playerId, i)) {
-        G.logs.push(`${activeRoom(p.dungeon[i]).name} is deactivated — skipped`);
-        continue;
-      }
-      const dmg = roomDamageWithModifiers(G, playerId, i, hero);
-      heroHP -= dmg;
-      G.logs.push(`${activeRoom(p.dungeon[i]).name} deals ${dmg} damage to ${hero.name} (HP ${heroHP})`);
-      if (heroHP <= 0) {
-        deathRoom = activeRoom(p.dungeon[i]);
-        break;
-      }
-    }
-
-    const souls = hero.souls || 1;
-    const wounds = hero.wounds || 1;
-    if (heroHP <= 0) {
-      for (let i = 0; i < souls; i++) p.souls.push({ souls: 1, name: hero.name });
-      G.logs.push(`${hero.name} defeated! Player ${playerId} gains ${souls} soul(s).`);
-      if (deathRoom) onHeroDiedInRoom(G, ctx, playerId, deathRoom, hero);
-    } else {
-      for (let i = 0; i < wounds; i++) p.wounds.push({ wounds: 1, name: hero.name });
-      G.logs.push(`${hero.name} survives! Player ${playerId} takes ${wounds} wound(s).`);
-    }
-    const moved = p.entrance.shift();
-    G.decks.heroDiscard.push(moved);
+    resolveOneHero(G, ctx, playerId, 0);
   }
 }
 
@@ -394,9 +459,15 @@ const MOVE_HANDLERS = {
     const allowed = 1 + extraBuildsFor(G, pid);
     if (p.buildsThisTurn >= allowed) return 'no builds left';
     if (!buildRoom(G, pid, handIndex, targetIndex)) return 'cannot build here';
-    G.logs.push(`${pid === 0 ? 'You' : `Player ${pid}`} built ${card.name}`);
-    onBuildRoom(G, ctx, pid, activeRoom(p.dungeon[p.dungeon.length - 1]) || card);
-    p.passed = true;
+    // Mark the newly built room as face-down. It will be revealed at the end
+    // of the BUILD phase, at which point onBuildRoom fires.
+    const stack = p.dungeon[targetIndex != null ? targetIndex : p.dungeon.length - 1];
+    const newRoom = stack[stack.length - 1];
+    newRoom.faceDown = true;
+    G.logs.push(`${pid === 0 ? 'You' : `Player ${pid}`} built a room face down`);
+    // Building consumes the player's build action for this phase. The player
+    // has acted — mark it so the phase can end when all have acted.
+    p.hasActed = true;
     return null;
   },
 
@@ -410,22 +481,36 @@ const MOVE_HANDLERS = {
     G.decks.spellDiscard.push(card);
     G.logs.push(`${pid === 0 ? 'You' : `Player ${pid}`} cast ${card.name}`);
     castSpell(G, ctx, pid, card, target);
-    p.passed = true;
+    // Spells do NOT pass the turn — any number of spells can be played per turn.
     return null;
   },
 
   resolveNextHero: (G, ctx, pid) => {
     if (!isActivePlayer(G, pid)) return 'not your turn';
-    resolveAdventureForPlayer(G, ctx, pid);
-    // After resolving all heroes, the player is done for the adventure phase.
-    G.players[pid].passed = true;
+    const p = G.players[pid];
+    if (p.entrance.length === 0) return 'no heroes at entrance';
+    // Resolve exactly ONE hero (FIFO — first hero to arrive enters first).
+    // Per official rules, heroes enter one at a time, giving players a chance
+    // to play Adventure spells between hero resolutions.
+    resolveOneHero(G, ctx, pid, 0); // resolve entrance[0]
+    // If no more heroes remain, auto-pass (the player is done).
+    if (p.entrance.length === 0) p.passed = true;
     return null;
   },
 
   pass: (G, ctx, pid) => {
     if (!isActivePlayer(G, pid)) return 'not your turn';
     G.players[pid].passed = true;
+    G.players[pid].hasActed = true;
     G.logs.push(`${pid === 0 ? 'You' : `Player ${pid}`} passed`);
+    return null;
+  },
+
+  activateRoom: (G, ctx, pid, [roomIndex, otherRoomIndex = null]) => {
+    if (!isActivePlayer(G, pid)) return 'not your turn';
+    const err = activateRoomAbility(G, ctx, pid, roomIndex, otherRoomIndex);
+    if (err) return err;
+    // Activated abilities do NOT pass the turn.
     return null;
   }
 };
@@ -509,6 +594,23 @@ export function playerView(G, playerID) {
 // ---------------------------------------------------------------------------
 // legalMoves: enumerate legal moves for a player (used by AI bots in solo).
 // ---------------------------------------------------------------------------
+// Rooms with activated abilities ("destroy this room: X" or "destroy another room: X").
+const ACTIVATED_ABILITY_ROOMS = new Set([
+  'BMA009', // Dark Altar
+  'BMA013', // Dracolich Lair
+  'BMA025', // All-Seeing Eye
+  'BMA027', // Bottomless Pit
+  'BMA028', // Boulder Ramp
+  'BMA030', // Jackpot Stash
+  'BMA032', // The Crushinator
+  'BMA038', // Torture Chamber
+  'BMA039', // Zombie Prison
+]);
+
+function hasActivatedAbility(roomId) {
+  return ACTIVATED_ABILITY_ROOMS.has(roomId);
+}
+
 export function legalMoves(G, ctx, playerID) {
   const pid = Number(playerID);
   const p = G.players[pid];
@@ -538,8 +640,6 @@ export function legalMoves(G, ctx, playerID) {
       const allowed = 1 + extraBuildsFor(G, pid);
       if (p.buildsThisTurn < allowed) {
         p.hand.forEach((c, i) => {
-          // Only offer rooms that can actually be built (respect dungeon
-          // capacity, advanced-room placement rules, etc.).
           if (c.isRoom && canBuildRoom(G, pid, i, null)) {
             moves.push({ type: 'buildRoom', args: [i, null] });
           }
@@ -549,6 +649,13 @@ export function legalMoves(G, ctx, playerID) {
     p.hand.forEach((c, i) => {
       if (c.isSpell && spellAllowedInPhase(c.category, PHASE.BUILD)) {
         moves.push({ type: 'playSpell', args: [i, null] });
+      }
+    });
+    // Activated abilities (destroy this room: X) can be used during BUILD
+    p.dungeon.forEach((stack, i) => {
+      const room = activeRoom(stack);
+      if (room && hasActivatedAbility(room.id)) {
+        moves.push({ type: 'activateRoom', args: [i, null] });
       }
     });
     moves.push({ type: 'pass', args: [] });
@@ -572,6 +679,13 @@ export function legalMoves(G, ctx, playerID) {
       }
     });
     if (p.entrance.length > 0) moves.push({ type: 'resolveNextHero', args: [] });
+    // Activated abilities usable during ADVENTURE (e.g. Bottomless Pit, Boulder Ramp)
+    p.dungeon.forEach((stack, i) => {
+      const room = activeRoom(stack);
+      if (room && hasActivatedAbility(room.id)) {
+        moves.push({ type: 'activateRoom', args: [i, null] });
+      }
+    });
     moves.push({ type: 'pass', args: [] });
     return moves;
   }

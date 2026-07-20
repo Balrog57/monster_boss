@@ -99,7 +99,12 @@ export function drawCards(deck, count) {
 export function refillDeckFromDiscard(deck, discard) {
   if (deck.length > 0 || discard.length === 0) return;
   while (discard.length > 0) deck.push(discard.pop());
-  deck = shuffle(deck);
+  // Shuffle in place (don't reassign the local variable — the caller's array
+  // must be mutated).
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
 }
 
 export function treasureIcon(treasure) {

@@ -55,7 +55,7 @@ export function useOnlineMatch({ matchID, playerID, credentials, onExitMatch }) 
   // moves: thin wrappers that send socket events. The server applies the move
   // and broadcasts the new state back, which updates G/ctx via subscribeState.
   const moves = useRef({}).current;
-  for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'playSpell', 'resolveNextHero', 'pass']) {
+  for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'playSpell', 'resolveNextHero', 'pass', 'activateRoom']) {
     moves[type] = (...args) => sendMove(matchID, { type, args });
   }
 
@@ -111,7 +111,7 @@ export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, onExitMatch })
 
   // moves: apply locally via the reducer. playerID is always '0' for the human.
   const moves = useRef({}).current;
-  for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'playSpell', 'resolveNextHero', 'pass']) {
+  for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'playSpell', 'resolveNextHero', 'pass', 'activateRoom']) {
     moves[type] = (...args) => {
       const { state: next, error } = applyMove({ G: state.G, ctx: state.ctx }, { type, args }, 0);
       if (error) { console.warn(`[move] ${type} rejected:`, error); return; }
