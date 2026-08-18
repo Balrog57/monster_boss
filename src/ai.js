@@ -174,7 +174,7 @@ function chooseSpell(G, pid, phase) {
         if (G.town.length > 0 && p.dungeon.length > 0) {
           const hero = G.town.find(h => {
             const treasures = dungeonTreasures(G, pid);
-            return treasures.includes(h.class);
+            return treasures.includes(h.treasure);
           });
           if (hero) { target = { townIndex: G.town.indexOf(hero) }; score = 9; }
         }

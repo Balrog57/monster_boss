@@ -1,58 +1,42 @@
-// SetupScreen.jsx - Choose game mode: Solo (1v1 vs AI) or Online (human vs human).
-import React from 'react';
-import { Screen, Button } from '../components/ui';
+// SetupScreen.jsx - APK "HOW MANY PLAYERS?" (2 / 3 / 4) then OK.
+import React, { useState } from 'react';
 import { playSfx, SFX } from '../audio.js';
+import GameStage from '../components/game/GameStage.jsx';
 import s from './SetupScreen.module.css';
 
-export default function SetupScreen({ onStartLocal, onStartOnline, onBack }) {
+export default function SetupScreen({ onStartLocal, onBack }) {
+  const [n, setN] = useState(2);
+
   return (
-    <Screen
-      id="main-content"
-      bg="/ui/backgrounds/intro_bg.jpg"
-      bgOpacity={0.5}
-    >
-      <h1 className={s.title}>Nouvelle Partie</h1>
-      <p className={s.subtitle}>Choisissez le mode de jeu</p>
+    <GameStage bg="/ui/backgrounds/menu_bg.jpg">
+      <div className={s.layout} id="main-content">
+        <img src="/ui/logos/bm_logo.png" alt="" className={s.logo} />
+        <button className={s.back} onClick={() => { playSfx(SFX.BUTTON); onBack(); }} type="button" aria-label="Retour" />
 
-      <div className={s.sectionTitle}>Solo / Local</div>
+        <div className={s.prompt}>HOW MANY PLAYERS?</div>
+        <div className={s.nums} role="radiogroup" aria-label="Nombre de joueurs">
+          {[2, 3, 4].map((v) => (
+            <button
+              key={v}
+              className={`${s.num} ${n === v ? s.numOn : ''}`}
+              onClick={() => { playSfx(SFX.BUTTON); setN(v); }}
+              type="button"
+              role="radio"
+              aria-checked={n === v}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+        <div className={s.hint}>{n === 2 ? 'You vs 1 AI' : n === 3 ? 'You vs 2 AI' : 'You vs 3 AI'}</div>
 
-      <button className={`${s.modeCard} ${s.solo}`} type="button"
-        onClick={() => { playSfx(SFX.BUTTON); onStartLocal(2); }}
-        aria-label="1 contre 1, vous contre une IA"
-      >
-        <div className={s.optionLabel}>1 contre 1</div>
-        <div className={s.optionSub}>Vous contre 1 IA</div>
-      </button>
-
-      <button className={`${s.modeCard} ${s.solo}`} type="button"
-        onClick={() => { playSfx(SFX.BUTTON); onStartLocal(3); }}
-        aria-label="1 contre 2 IA, 3 joueurs total"
-      >
-        <div className={s.optionLabel}>1 contre 2 IA</div>
-        <div className={s.optionSub}>3 joueurs total</div>
-      </button>
-
-      <button className={`${s.modeCard} ${s.solo}`} type="button"
-        onClick={() => { playSfx(SFX.BUTTON); onStartLocal(4); }}
-        aria-label="1 contre 3 IA, 4 joueurs total"
-      >
-        <div className={s.optionLabel}>1 contre 3 IA</div>
-        <div className={s.optionSub}>4 joueurs total</div>
-      </button>
-
-      <div className={s.sectionTitle}>En ligne</div>
-
-      <button className={`${s.modeCard} ${s.online}`} type="button"
-        onClick={() => { playSfx(SFX.BUTTON); onStartOnline(); }}
-        aria-label="Multijoueur en ligne, 2 à 4 joueurs humains via lobby"
-      >
-        <div className={s.optionLabel}>🌐 Multijoueur</div>
-        <div className={s.optionSub}>2 à 4 joueurs humains (lobby)</div>
-      </button>
-
-      <Button variant="ghost" onClick={() => { playSfx(SFX.BUTTON); onBack(); }}>
-        ← Retour
-      </Button>
-    </Screen>
+        <button
+          className={s.ok}
+          onClick={() => { playSfx(SFX.BUTTON); onStartLocal(n); }}
+          type="button"
+          aria-label="OK"
+        />
+      </div>
+    </GameStage>
   );
 }

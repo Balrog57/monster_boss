@@ -15,10 +15,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 20,
-        "Y": -42
-      },
       "ReplacesCardNumber": "BMA056",
       "CardNumber": "BMH056",
       "Name": "Cleric",
@@ -42,10 +38,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 16,
-        "Y": -42
-      },
       "ReplacesCardNumber": "BMA057",
       "CardNumber": "BMH057",
       "Name": "Cleric",
@@ -69,10 +61,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 16,
-        "Y": -42
-      },
       "ReplacesCardNumber": "BMA058",
       "CardNumber": "BMH058",
       "Name": "Cleric",
@@ -96,10 +84,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 12,
-        "Y": -30
-      },
       "ReplacesCardNumber": "BMA059",
       "CardNumber": "BMH059",
       "Name": "Cleric",
@@ -123,10 +107,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -19
-      },
       "ReplacesCardNumber": "BMA060",
       "CardNumber": "BMH060",
       "Name": "Cleric",
@@ -150,10 +130,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -52,
-        "Y": -33
-      },
       "ReplacesCardNumber": "BMA061",
       "CardNumber": "BMH061",
       "Name": "Cleric",
@@ -177,10 +153,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -30,
-        "Y": -9
-      },
       "ReplacesCardNumber": "BMA062",
       "CardNumber": "BMH062",
       "Name": "Fighter",
@@ -204,10 +176,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 21,
-        "Y": -40
-      },
       "ReplacesCardNumber": "BMA063",
       "CardNumber": "BMH063",
       "Name": "Fighter",
@@ -231,10 +199,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -15,
-        "Y": -33
-      },
       "ReplacesCardNumber": "BMA064",
       "CardNumber": "BMH064",
       "Name": "Fighter",
@@ -258,10 +222,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -9,
-        "Y": -24
-      },
       "ReplacesCardNumber": "BMA065",
       "CardNumber": "BMH065",
       "Name": "Fighter",
@@ -285,10 +245,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -24
-      },
       "ReplacesCardNumber": "BMA066",
       "CardNumber": "BMH066",
       "Name": "Fighter",
@@ -312,10 +268,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -30
-      },
       "ReplacesCardNumber": "BMA067",
       "CardNumber": "BMH067",
       "Name": "Fighter",
@@ -339,10 +291,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -27,
-        "Y": -57
-      },
       "ReplacesCardNumber": "BMA068",
       "CardNumber": "BMH068",
       "Name": "Mage",
@@ -366,10 +314,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 24,
-        "Y": -36
-      },
       "ReplacesCardNumber": "BMA069",
       "CardNumber": "BMH069",
       "Name": "Mage",
@@ -393,10 +337,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -24
-      },
       "ReplacesCardNumber": "BMA070",
       "CardNumber": "BMH070",
       "Name": "Mage",
@@ -420,10 +360,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -65
-      },
       "ReplacesCardNumber": "BMA071",
       "CardNumber": "BMH071",
       "Name": "Mage",
@@ -447,10 +383,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 3,
-        "Y": -40
-      },
       "ReplacesCardNumber": "BMA072",
       "CardNumber": "BMH072",
       "Name": "Mage",
@@ -474,10 +406,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 3,
-        "Y": -34
-      },
       "ReplacesCardNumber": "BMA073",
       "CardNumber": "BMH073",
       "Name": "Mage",
@@ -501,10 +429,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -46,
-        "Y": -24
-      },
       "ReplacesCardNumber": "BMA074",
       "CardNumber": "BMH074",
       "Name": "Thief",
@@ -528,10 +452,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 6,
-        "Y": -33
-      },
       "ReplacesCardNumber": "BMA075",
       "CardNumber": "BMH075",
       "Name": "Thief",
@@ -555,10 +475,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 22,
-        "Y": -9
-      },
       "ReplacesCardNumber": "BMA076",
       "CardNumber": "BMH076",
       "Name": "Thief",
@@ -582,10 +498,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 20,
-        "Y": -59
-      },
       "ReplacesCardNumber": "BMA077",
       "CardNumber": "BMH077",
       "Name": "Thief",
@@ -609,10 +521,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -33
-      },
       "ReplacesCardNumber": "BMA078",
       "CardNumber": "BMH078",
       "Name": "Thief",
@@ -636,10 +544,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -39
-      },
       "ReplacesCardNumber": "BMA079",
       "CardNumber": "BMH079",
       "Name": "Thief",
@@ -663,10 +567,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -27
-      },
       "ReplacesCardNumber": "BMA080",
       "CardNumber": "BMH080",
       "Name": "The Fool",
@@ -690,10 +590,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 15,
-        "Y": -15
-      },
       "ReplacesCardNumber": "BMA081",
       "CardNumber": "BMH081",
       "Name": "Cleric",
@@ -717,10 +613,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 6,
-        "Y": -72
-      },
       "ReplacesCardNumber": "BMA082",
       "CardNumber": "BMH082",
       "Name": "Cleric",
@@ -744,10 +636,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -7,
-        "Y": -24
-      },
       "ReplacesCardNumber": "BMA083",
       "CardNumber": "BMH083",
       "Name": "Cleric",
@@ -771,10 +659,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -50
-      },
       "ReplacesCardNumber": "BMA084",
       "CardNumber": "BMH084",
       "Name": "Cleric",
@@ -798,10 +682,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -23
-      },
       "ReplacesCardNumber": "BMA085",
       "CardNumber": "BMH085",
       "Name": "Fighter",
@@ -825,10 +705,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -15,
-        "Y": -42
-      },
       "ReplacesCardNumber": "BMA086",
       "CardNumber": "BMH086",
       "Name": "Mage",
@@ -852,10 +728,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 9,
-        "Y": -33
-      },
       "ReplacesCardNumber": "BMA087",
       "CardNumber": "BMH087",
       "Name": "Mage",
@@ -879,10 +751,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -9,
-        "Y": -57
-      },
       "ReplacesCardNumber": "BMA088",
       "CardNumber": "BMH088",
       "Name": "Fighter",
@@ -906,10 +774,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": 1
-      },
       "ReplacesCardNumber": "BMA089",
       "CardNumber": "BMH089",
       "Name": "Mage",
@@ -933,10 +797,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 24,
-        "Y": -62
-      },
       "ReplacesCardNumber": "BMA090",
       "CardNumber": "BMH090",
       "Name": "Thief",
@@ -960,10 +820,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 33,
-        "Y": -58
-      },
       "ReplacesCardNumber": "BMA091",
       "CardNumber": "BMH091",
       "Name": "Thief",
@@ -987,10 +843,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -36
-      },
       "ReplacesCardNumber": "BMA092",
       "CardNumber": "BMH092",
       "Name": "Thief",
@@ -1014,10 +866,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 12,
-        "Y": -37
-      },
       "ReplacesCardNumber": "BMA093",
       "CardNumber": "BMH093",
       "Name": "Thief",
@@ -1041,10 +889,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -9,
-        "Y": -53
-      },
       "ReplacesCardNumber": "BMA094",
       "CardNumber": "BMH094",
       "Name": "Thief",
@@ -1068,10 +912,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -21
-      },
       "ReplacesCardNumber": "BMA095",
       "CardNumber": "BMH095",
       "Name": "Thief",
@@ -1095,10 +935,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -15
-      },
       "ReplacesCardNumber": "BMA096",
       "CardNumber": "BMH096",
       "Name": "Thief",

@@ -1,6 +1,6 @@
 /* OptionsOverlay.module.css - Options dialog with APK settings slider assets. */
 .backdrop {
-  position: fixed;
+  position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.7);
   display: flex;

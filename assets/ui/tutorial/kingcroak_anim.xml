@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with TexturePacker http://www.codeandweb.com/texturepacker-->
+<!-- $TexturePacker:SmartUpdate:71c07cb645ec619731c613fd83a55f06:802bbc32174479e63d985ece0a7e95ac:1ecd9f143d51f90e477cba0b5c8f651b$ -->
+<!--Format:
+n  => name of the sprite
+x  => sprite x pos in texture
+y  => sprite y pos in texture
+w  => sprite width (may be trimmed)
+h  => sprite height (may be trimmed)
+pX => x pos of the pivot point (relative to sprite width)
+pY => y pos of the pivot point (relative to sprite height)
+oX => sprite's x-corner offset (only available if trimmed)
+oY => sprite's y-corner offset (only available if trimmed)
+oW => sprite's original width (only available if trimmed)
+oH => sprite's original height (only available if trimmed)
+r => 'y' only set if sprite is rotated
+-->
+<TextureAtlas imagePath="kingcroak_anim.png" width="197" height="194">
+    <sprite n="01.png" x="2" y="2" w="63" h="62" pX="0.5" pY="0.5"/>
+    <sprite n="04.png" x="67" y="2" w="63" h="62" pX="0.5" pY="0.5"/>
+    <sprite n="07.png" x="132" y="2" w="63" h="62" pX="0.5" pY="0.5"/>
+    <sprite n="10.png" x="2" y="66" w="63" h="62" pX="0.5" pY="0.5"/>
+    <sprite n="13.png" x="67" y="66" w="63" h="62" pX="0.5" pY="0.5"/>
+    <sprite n="15.png" x="132" y="66" w="63" h="62" pX="0.5" pY="0.5"/>
+    <sprite n="18.png" x="2" y="130" w="63" h="62" pX="0.5" pY="0.5"/>
+    <sprite n="21.png" x="67" y="130" w="63" h="62" pX="0.5" pY="0.5"/>
+    <sprite n="24.png" x="132" y="130" w="63" h="62" pX="0.5" pY="0.5"/>
+</TextureAtlas>

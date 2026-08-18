@@ -1,43 +1,62 @@
-/* Hand.module.css - Bottom hand panel with APK bg_bottom and sprite buttons. */
 .panel {
-  padding: var(--bm-space-4) var(--bm-space-8);
-  background: url('/ui/ingame/bg_bottom.png') center bottom/cover no-repeat, linear-gradient(180deg, #1b1b1b 0%, #0e0e0e 100%);
-  border-top: 3px solid var(--bm-border-700, #555);
-  flex-shrink: 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  padding: 0 8px 4px;
+  background: url('/ui/ingame/bg_bottom.png') center bottom/100% 127px no-repeat;
+  image-rendering: pixelated;
+  position: relative;
 }
-.header { display: flex; align-items: center; gap: var(--bm-space-5); margin-bottom: var(--bm-space-3); flex-wrap: wrap; }
-.title { color: var(--bm-text-500); font-weight: 800; font-size: var(--bm-text-base); letter-spacing: var(--bm-tracking-caps); text-transform: uppercase; }
-.passBtn {
-  background: url('/ui/ingame/pass_button.png') center/contain no-repeat;
-  color: #fff;
+.tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-right: 6px;
+  margin-bottom: 4px;
+}
+.tab {
+  width: 168px;
+  height: 70px;
   border: none;
-  border-radius: 0;
-  padding: 10px 28px;
-  font-weight: 700;
-  font-size: var(--bm-text-base);
   cursor: pointer;
-  margin-left: auto;
-  text-shadow: 1px 1px 2px #000;
-  min-width: 100px;
-  min-height: 38px;
+  background: url('/ui/ingame/my_rooms_bt.png') center/contain no-repeat;
+  image-rendering: pixelated;
+  padding: 0;
 }
-.passBtn:active { background-image: url('/ui/ingame/pass_button_pressed.png'); }
-.passBtn:disabled { opacity: 0.4; cursor: not-allowed; filter: grayscale(0.6); }
-.hint { color: var(--bm-gold-500, #f1e17c); font-size: var(--bm-text-sm); font-style: italic; }
-.row { display: flex; align-items: flex-start; flex-wrap: nowrap; overflow-x: auto; padding-bottom: var(--bm-space-2); min-height: 182px; }
+.tabSpells {
+  background-image: url('/ui/ingame/my_spells_bt.png');
+}
+.tabOff.tab { background-image: url('/ui/ingame/my_rooms_bt_inactive.png'); }
+.tabOff.tabSpells { background-image: url('/ui/ingame/my_spells_bt_inactive.png'); }
+.tab:active { background-image: url('/ui/ingame/my_rooms_bt_pressed.png'); }
+.tabSpells:active { background-image: url('/ui/ingame/my_spells_bt_pressed.png'); }
+.row {
+  display: flex;
+  align-items: flex-end;
+  flex: 1;
+  gap: 6px;
+  overflow-x: auto;
+  height: 100%;
+  padding-top: 8px;
+}
 .cardBtn {
   background: none;
   border: none;
   padding: 0;
   margin: 0;
-  outline: none;
   display: flex;
+  align-items: flex-end;
 }
-.empty { color: var(--bm-text-300); font-size: var(--bm-text-sm); font-style: italic; padding: var(--bm-space-4); }
-
-@media (max-width: 640px) {
-  .panel { padding: var(--bm-space-3) var(--bm-space-5); }
-  .row { min-height: 140px; }
-  /* Shrink hand cards on small screens (Card root is the button's only div child). */
-  .cardBtn > div { width: 96px !important; }
+.passBtn, .doneBtn {
+  width: 180px;
+  height: 74px;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin: 0 8px 8px auto;
+  background: url('/ui/ingame/pass_button.png') center/contain no-repeat;
+  image-rendering: pixelated;
 }
+.passBtn:active { background-image: url('/ui/ingame/pass_button_pressed.png'); }
+.doneBtn { background-image: url('/ui/ingame/done_button_unlimited.png'); }
+.doneBtn:active { background-image: url('/ui/ingame/done_button_unlimited_pressed.png'); }

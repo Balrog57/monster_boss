@@ -15,18 +15,20 @@ const BOSS_AVATARS = {
   BMA008: '/ui/avatar/avatar_gorgona.png',
 };
 
-export default function BossPortrait({ boss, theme, size = 130, onInspect, useAvatar = false }) {
+export default function BossPortrait({ boss, theme, size = 130, onInspect, useAvatar = false, variant = 'card' }) {
   if (!boss) return null;
   const avatarSrc = BOSS_AVATARS[boss.id];
   const cardSrc = getCardImage(boss.id, 'boss');
-  const src = useAvatar && avatarSrc ? avatarSrc : cardSrc;
+  const charSrc = boss.id ? `/ui/characters/${String(boss.id).toLowerCase()}_character.png` : null;
+  const sprite = variant === 'sprite';
+  const src = sprite && charSrc ? charSrc : (useAvatar && avatarSrc ? avatarSrc : cardSrc);
   return (
     <div
-      className={s.portrait}
+      className={`${s.portrait} ${sprite ? s.sprite : ''}`}
       style={{
         width: size,
-        border: `3px solid ${theme?.color || '#f1e17c'}`,
-        boxShadow: `0 0 12px ${theme?.glow || 'rgba(241,225,124,0.3)'}, 2px 2px 0px rgba(0,0,0,0.5)`,
+        border: sprite ? 'none' : `3px solid ${theme?.color || '#f1e17c'}`,
+        boxShadow: sprite ? 'none' : `0 0 12px ${theme?.glow || 'rgba(241,225,124,0.3)'}, 2px 2px 0px rgba(0,0,0,0.5)`,
         cursor: onInspect ? 'pointer' : 'default',
       }}
       onClick={onInspect ? () => onInspect({ card: boss, kind: 'boss' }) : undefined}

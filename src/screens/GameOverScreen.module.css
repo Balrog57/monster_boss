@@ -1,6 +1,6 @@
 /* GameOverScreen.module.css - Dungeon Architect style with APK winner assets */
 .screen {
-  position: fixed;
+  position: absolute;
   inset: 0;
   display: flex;
   align-items: center;

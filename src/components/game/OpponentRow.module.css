@@ -1,35 +1,8 @@
-/* OpponentRow.module.css - Dungeon Architect style */
 .row {
   display: flex;
-  gap: var(--bm-space-5);
-  padding: var(--bm-space-4) var(--bm-space-8);
-  flex-shrink: 0;
-  flex-wrap: wrap;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
-.dungeon {
-  flex: 1 1 320px;
-  min-width: 0;
-  border-radius: 0;
-  padding: var(--bm-space-3) var(--bm-space-5);
-  border: 3px solid var(--bm-border-700, #555);
-  background: var(--bm-bg-800, #131313) !important;
-  display: flex;
-  align-items: center;
-  gap: var(--bm-space-5);
-}
-.header { display: flex; align-items: center; gap: var(--bm-space-4); min-width: 0; flex-shrink: 0; }
-.name { font-weight: 700; font-size: var(--bm-text-base); white-space: nowrap; color: var(--bm-gold-500, #f1e17c); }
-.meta { font-size: var(--bm-text-xs); color: var(--bm-text-500); display: flex; align-items: center; gap: var(--bm-space-4); flex-wrap: wrap; }
-.metaStat { display: inline-flex; align-items: center; gap: var(--bm-space-2); font-weight: 700; color: var(--bm-text-700); }
-.metaStat .metaIcon, .metaIcon { width: 14px; height: 14px; image-rendering: pixelated; }
-.metaWound { color: var(--bm-red-500, #e05555); }
-.elim { color: var(--bm-red-500, #e05555); font-weight: 800; font-size: var(--bm-text-xs); margin-left: var(--bm-space-3); }
-.level { background: var(--bm-gold-500, #f1e17c); color: #000; font-size: var(--bm-text-xs); font-weight: 800; padding: 2px var(--bm-space-3); border-radius: 0; margin-left: var(--bm-space-3); }
-.rooms { display: flex; align-items: center; gap: 0; margin-left: auto; }
-.empty { color: var(--bm-text-300); font-size: var(--bm-text-sm); font-style: italic; padding: var(--bm-space-4); }
-
-/* Mobile: opponent dungeons scroll horizontally instead of wrapping tall. */
-@media (max-width: 768px) {
-  .row { flex-wrap: nowrap; overflow-x: auto; padding: var(--bm-space-3) var(--bm-space-5); }
-  .dungeon { flex: 0 0 300px; }
-}
+.row > * { flex: 1; min-height: 0; }

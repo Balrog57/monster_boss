@@ -1,34 +1,35 @@
-// Hand.jsx - The player's hand strip + pass action.
-import React from 'react';
+// Hand.jsx - Bottom strip: ROOMS / SPELLS tabs, cards, DONE/PASS (APK chrome).
+import React, { useState } from 'react';
 import { PHASE } from '../../cardData.js';
 import { countVisibleRooms } from '../../engine.js';
 import Card from './Card.jsx';
 import s from './Hand.module.css';
 
-export default function Hand({ me, phase, isMyTurn, selectedCard, onSelect, onBuild, onBuildInitial, onSpell, onPass, onInspect }) {
+export default function Hand({ me, phase, isMyTurn, selectedCard, onSelect, onBuild, onBuildInitial, onSpell, onPass, onInspect, showPass = true }) {
+  const [tab, setTab] = useState('rooms');
+  const rooms = me.hand.map((c, i) => ({ c, i })).filter(({ c }) => c.isRoom);
+  const spells = me.hand.map((c, i) => ({ c, i })).filter(({ c }) => c.isSpell);
+  const shown = tab === 'spells' ? spells : rooms;
+
   return (
-    <div className={s.panel} aria-label="Votre main">
-      <div className={s.header}>
-        <span className={s.title}>Votre Main ({me.hand.length})</span>
-        {isMyTurn && phase !== PHASE.BOSS && (
-          <button className={s.passBtn} onClick={() => { onSelect(null); onPass(); }} type="button">
-            ⏭ Passer
-          </button>
-        )}
-        {selectedCard != null && (
-          <span className={s.hint}>
-            Cliquez sur une salle du donjon (avancée) ou sur + (ordinaire)
-          </span>
-        )}
+    <div className={s.panel} aria-label="Main">
+      <div className={s.tabs}>
+        <button
+          className={`${s.tab} ${tab === 'rooms' ? s.tabOn : s.tabOff}`}
+          onClick={() => setTab('rooms')}
+          type="button"
+          aria-pressed={tab === 'rooms'}
+        />
+        <button
+          className={`${s.tab} ${s.tabSpells} ${tab === 'spells' ? s.tabOn : s.tabOff}`}
+          onClick={() => setTab('spells')}
+          type="button"
+          aria-pressed={tab === 'spells'}
+        />
       </div>
       <div className={s.row}>
-        {me.hand.length === 0 && <div className={s.empty}>Main vide</div>}
-        {me.hand.map((c, i) => {
-          // SETUP: only non-advanced rooms. BUILD: any room (advanced rooms
-          // are built over existing stacks via the select-then-target flow).
-          const canBuildRoom = phase === PHASE.SETUP
-            ? (c.isRoom && !c.advanced)
-            : c.isRoom;
+        {shown.map(({ c, i }) => {
+          const canBuildRoom = phase === PHASE.SETUP ? (c.isRoom && !c.advanced) : c.isRoom;
           const canBuild = isMyTurn && canBuildRoom && (phase === PHASE.BUILD || phase === PHASE.SETUP);
           const canSpell = isMyTurn && c.isSpell;
           return (
@@ -51,22 +52,29 @@ export default function Hand({ me, phase, isMyTurn, selectedCard, onSelect, onBu
                 }
               }}
               title={c.name}
-              aria-label={c.name + (canBuild || canSpell ? '' : ' (non jouable)')}
+              aria-label={c.name}
               type="button"
             >
               <Card
                 card={c}
-                kind={c.isRoom ? 'room' : c.isSpell ? 'spell' : 'hero'}
+                kind={c.isRoom ? 'room' : 'spell'}
                 size="md"
                 selected={selectedCard === i}
                 onInspect={onInspect}
                 dim={!canBuild && !canSpell}
-                style={{ marginRight: -30 }}
               />
             </button>
           );
         })}
       </div>
+      {showPass && isMyTurn && phase !== PHASE.BOSS && (
+        <button
+          className={phase === PHASE.ADVENTURE ? s.doneBtn : s.passBtn}
+          onClick={() => { onSelect(null); onPass(); }}
+          type="button"
+          aria-label={phase === PHASE.ADVENTURE ? 'Done' : 'Pass'}
+        />
+      )}
     </div>
   );
 }

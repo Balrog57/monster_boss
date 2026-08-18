@@ -1,32 +1,70 @@
-/* AppBoard.module.css - Orchestrator layout. */
-.screen {
-  min-height: 100vh;
-  min-height: 100dvh;
-  width: 100vw;
-  background: var(--bm-gradient-app);
-  color: var(--bm-text-900);
-  font-family: var(--bm-font-body);
+/* AppBoard.module.css - 1920×1080 APK board: town | dungeons | stats. */
+.board {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 340px;
+  grid-template-rows: 77px minmax(0, 1fr) minmax(0, 1.15fr);
+  grid-template-areas:
+    "hud hud hud"
+    "town opponents stats"
+    "discard dungeon stats";
+}
+.hud { grid-area: hud; min-height: 0; }
+.town { grid-area: town; min-height: 0; overflow: hidden; }
+.opponents { grid-area: opponents; min-height: 0; overflow: hidden; }
+.dungeon {
+  grid-area: dungeon;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+.hand {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 168px;
+  z-index: 5;
+}
+.discard {
+  grid-area: discard;
+  position: relative;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 8px 8px 12px;
+  min-height: 0;
   overflow: hidden;
 }
-.loading { padding: var(--bm-space-12); color: var(--bm-text-500); text-align: center; }
-.playArea {
+.discardArt {
+  width: 120px;
+  height: auto;
+  image-rendering: pixelated;
+}
+.discardLabel {
+  width: 160px;
+  height: auto;
+  image-rendering: pixelated;
+  margin-top: 4px;
+}
+.stats { grid-area: stats; min-height: 0; overflow: hidden; }
+.log {
+  width: 100%;
+  max-height: 56px;
+  margin-top: 6px;
+  z-index: 6;
+  pointer-events: none;
+}
+.loading {
+  position: absolute;
+  inset: 0;
   display: flex;
-  flex: 1 1 auto;
-  min-height: 0;
-  padding: var(--bm-space-4) var(--bm-space-8);
-  gap: var(--bm-space-5);
-  flex-wrap: nowrap;
-  background:
-    radial-gradient(ellipse at 50% 0%, rgba(241,225,124,0.03) 0%, transparent 60%),
-    radial-gradient(ellipse at 50% 120%, rgba(0,0,0,0.5) 0%, transparent 70%);
-}
-
-/* Responsive: stack the town below the dungeon on narrow viewports */
-@media (max-width: 1024px) {
-  .playArea { flex-direction: column; padding: var(--bm-space-4) var(--bm-space-5); }
-}
-@media (max-width: 640px) {
-  .playArea { padding: var(--bm-space-3); gap: var(--bm-space-4); }
+  align-items: center;
+  justify-content: center;
+  color: #f1e17c;
+  font-size: 28px;
+  font-weight: 800;
+  text-shadow: 2px 2px 0 #000;
 }

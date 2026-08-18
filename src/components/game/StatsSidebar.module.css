@@ -1,0 +1,88 @@
+.side {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 12px 12px;
+  background: linear-gradient(180deg, rgba(8, 8, 10, 0.72) 0%, rgba(8, 8, 10, 0.88) 100%);
+  overflow: hidden;
+}
+.block {
+  padding: 8px;
+  background: url('/ui/ingame/bg_boss_profile_selected_yellow.png') center top/100% auto no-repeat;
+  image-rendering: pixelated;
+}
+.active {
+  background-image: url('/ui/ingame/bg_player_turn_panel.png');
+  background-size: 100% 100%;
+}
+.nameBtn {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  padding: 0 4px 6px;
+  cursor: pointer;
+  color: inherit;
+}
+.name {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  color: #f1e17c;
+  text-shadow: 2px 2px 0 #000;
+  text-transform: uppercase;
+}
+.title {
+  font-size: 13px;
+  color: #ddd;
+  text-shadow: 1px 1px 0 #000;
+  margin-top: 2px;
+}
+.decks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 8px;
+}
+.deck {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 14px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+}
+.deck img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.meWrap { margin-top: auto; }
+.woundsLabel, .soulsLabel {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #bbb;
+  text-shadow: 1px 1px 0 #000;
+  padding: 0 8px;
+}
+.levelUp {
+  width: 100%;
+  height: 72px;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  background: url('/ui/ingame/levelup_bt.png') center/contain no-repeat;
+  image-rendering: pixelated;
+  opacity: 0.55;
+}
+.levelUpReady { opacity: 1; }
+.levelUpDone {
+  opacity: 0.9;
+  filter: grayscale(0.2);
+}
+.levelUp:active { background-image: url('/ui/ingame/levelup_bt_pressed.png'); }

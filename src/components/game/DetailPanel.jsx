@@ -1,7 +1,7 @@
 // DetailPanel.jsx - Card inspection overlay.
 // Props: inspect: { card, kind } | null, onClose: () => void
 import React, { useEffect, useRef } from 'react';
-import { TREASURE_NAMES } from '../../cardData.js';
+import { TREASURE_NAMES, getCardImage } from '../../cardData.js';
 import s from './DetailPanel.module.css';
 
 export default function DetailPanel({ inspect, onClose }) {
@@ -18,7 +18,7 @@ export default function DetailPanel({ inspect, onClose }) {
 
   if (!inspect) return null;
   const { card, kind } = inspect;
-  const imgPath = `/cards/${kind === 'epic-hero' ? 'epic-heroes' : kind + 's'}/${(card?.id || '').toUpperCase()}_${(card?.name || '').replace(/\s+/g, '_')}.jpg`;
+  const imgPath = getCardImage(card?.id, kind === 'epic-hero' ? 'epic-hero' : kind);
 
   return (
     <div className={s.overlay} onClick={onClose} role="presentation">

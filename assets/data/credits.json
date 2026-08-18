@@ -1,0 +1,214 @@
+{  
+   "Logo":{  
+      "Path":"logo_small",
+      "Width":40,
+      "Height":40
+   },
+   "Element":[  
+      {  
+         "SeparatorImg":{  
+            "Path":"souls_icon",
+            "Width":40,
+            "Height":60
+         },
+         "H1":"Developed by: PLAIN CONCEPTS"
+      },
+      {  
+         "Paragraph":[  
+            {  
+               "H2":"Producer",
+               "Names":[  
+                  "Ingrid Babel"
+               ]
+            },
+            {  
+               "H2":"Associate Producer",
+               "Names":[  
+                  "Vicente Cartas"
+               ]
+            }
+         ]
+      },
+      {  
+         "Paragraph":[  
+            {  
+               "H2":"Project Manager",
+               "Names":[  
+                  "Javier Canton"
+               ]
+            },
+            {  
+               "H2":"Developers",
+               "Names":[  
+                  "Victor Ferrer",
+                  "Manuel Gomar",
+                  "Juan Antonio Cano"
+               ]
+            },
+            {  
+               "H2":"Additional Development",
+               "Names":[  
+                  "Antonio Avila",
+                  "David Avila",
+                  "Juan Maria Lao",
+                  "Javier Fernandez"
+               ]
+            }
+         ]
+      },
+      {  
+         "Paragraph":[  
+            {  
+               "H2":"Lead Artist",
+               "Names":[  
+                  "Moises Nunez"
+               ]
+            },
+            {  
+               "H2":"Artists",
+               "Names":[  
+                  "David Sanchez",
+                  "Mike Bonales"
+               ]
+            }
+         ]
+      },
+      {  
+         "Paragraph":[  
+            {  
+               "H2":"Test Team",
+               "Names":[  
+                  "Marisa Santos",
+                  "Rafael De Arana"
+               ]
+            },
+            {  
+               "H2":"Additional testers",
+               "Names":[  
+                  "Manuel Casal",
+                  "Enrique Nine"
+               ]
+            }
+         ]
+      },
+      {  
+         "Paragraph":[  
+            {  
+               "H2":"Web Development",
+               "Names":[  
+                  "Alejandro Hidalgo",
+                  "Jesus Pozo"
+               ]
+            }
+         ]
+      },
+      {  
+         "SeparatorImg":{  
+            "Path":"souls_icon",
+            "width":40,
+            "height":60
+         },
+         "H1":"Collaborators: POWER UP AUDIO"
+      },
+      {  
+         "Paragraph":[  
+            {  
+               "H2":"Sound & Music",
+               "Names":[  
+                  "Jeff Tangsoc",
+                  "Kevin Regamey"
+               ]
+            }
+         ]
+      },
+      {  
+         "SeparatorImg":{  
+            "Path":"souls_icon",
+            "width":40,
+            "height":60
+         },
+         "H1":"Based on the card game Boss Monster by: BROTHERWISE GAMES"
+      },
+      {  
+         "Paragraph":[  
+            {  
+               "H2":"Lead Designer",
+               "Names":[  
+                  "Johnny O'Neal"
+               ]
+            },
+            {  
+               "H2":"Co-Designer",
+               "Names":[  
+                  "Chris O'Neal"
+               ]
+            }
+         ]
+      },
+      {  
+         "Paragraph":[  
+            {  
+               "H2":"Playtest Leads",
+               "Names":[  
+                  "Dave Baker",
+                  "David Chang",
+                  "Zach Evans",
+                  "Will Oberkrom",
+                  "Keith Baker"
+               ]
+            }
+         ]
+      },
+      {  
+         "Paragraph":[  
+            {  
+               "H2":"Pixel Artists",
+               "Names":[  
+                  "Katrina Guillermo",
+                  "Francisco Coda",
+                  "Kyle Merritt",
+                  "Beau Buckley",
+                  "David Nyari",
+                  "Alexander Olsen",
+                  "Andres Sanabria"
+               ]
+            }
+         ]
+      },
+      {  
+         "Paragraph":[  
+            {  
+               "H2":"SPECIAL THANKS",
+               "Names":[  
+                  "",
+                  "Pablo Pelaez",
+                  "Anton Molleda",
+                  "Beverly O'Neal",
+                  "Victoria O'Neal",
+                  "Tremane Barclay",
+                  "Ara Barclay",
+                  "Brian Coppola",
+                  "Ethan Rex",
+                  "Brandan Haines",
+                  "William Shepherd"
+               ]
+            }
+         ]
+      },
+      {  
+         "SeparatorImg":{  
+            "Path":"souls_icon",
+            "width":40,
+            "height":60
+         }
+      }
+   ],
+   "Footer":{  
+      "H2":"POWERED BY",
+      "Img":{  
+         "Path":"wave_logo_creditos",
+         "Width":40,
+         "Height":190
+      }
+   }
+}

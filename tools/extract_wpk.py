@@ -264,10 +264,10 @@ def main():
     ap.add_argument("--all", action="store_true", help="extract every card spritesheet in the APK")
     args = ap.parse_args()
 
-    apk_assets = "boss-monster-2-4-12/resources/assets/Content/Assets/CardDecks/BaseDeck/Assets"
+    apk_assets = "boss-monster-2-2-6/assets/Content/CardDecks/BaseDeck/Assets"
 
     if args.all:
-        sheets = sorted(f for f in os.listdir(apk_assets) if f.endswith(".spritesheet.wpk") and f.startswith("bma"))
+        sheets = sorted(f for f in os.listdir(apk_assets) if f.endswith(".wpk") and f.startswith("bma"))
         print(f"Extracting {len(sheets)} spritesheets...")
         for s in sheets:
             path = os.path.join(apk_assets, s)

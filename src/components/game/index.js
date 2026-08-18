@@ -13,3 +13,7 @@ export { default as SpellTargetOverlay, spellNeedsTarget } from './SpellTargetOv
 export { default as LevelUpChoiceOverlay } from './LevelUpChoiceOverlay.jsx';
 export { default as PhaseBanner } from './PhaseBanner.jsx';
 export { default as OptionsOverlay } from './OptionsOverlay.jsx';
+export { default as GameStage } from './GameStage.jsx';
+export { default as TreasureReadout, SoulWoundPiles } from './TreasureReadout.jsx';
+export { default as DungeonTrack } from './DungeonTrack.jsx';
+export { default as StatsSidebar } from './StatsSidebar.jsx';

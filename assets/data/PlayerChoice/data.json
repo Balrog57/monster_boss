@@ -3,37 +3,29 @@
   "BossCards": [
     {
       "XP": 1000,
-         "IsMale":true,
+      "IsMale": false,
       "LevelUpAbility": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "AddTreasuresToDungeon",
-                    "Parameters": [
-                      "Cleric",
-                      "Mage",
-                      "Fighter"
-                    ]
-                  }
-                ]
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenLevelUpActivated",
-              "Parameters": []
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "AddTreasuresToDungeon",
+                "Parameters": [
+                  "Cleric",
+                  "Mage",
+                  "Fighter"
+                ]
+              }
+            ]
           }
         ]
       },
@@ -57,38 +49,29 @@
       "XP": 950,
       "IsMale": false,
       "LevelUpAbility": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossDungeon",
-                    "Parameters": [
-                      "False",
-                      "5",
-                      "Any",
-                      "Any",
-                      "Any",
-                      "False"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "RearrangeDungeon",
-                    "Parameters": []
-                  }
+                "TypeName": "BossDungeon",
+                "Parameters": [
+                  "False",
+                  "5",
+                  "Any",
+                  "Any",
+                  "Any"
                 ]
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenLevelUpActivated",
-              "Parameters": []
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "RearrangeDungeon",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
@@ -110,40 +93,32 @@
     },
     {
       "XP": 700,
-         "IsMale":true,
+      "IsMale": false,
       "LevelUpAbility": {
-        "AbilityUnitInfo": [
+        "CanAvoid": true,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "SpellInDeck",
-                    "Parameters": [
-                      "1",
-                      "BoardDeck"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PutCardInHand",
-                    "Parameters": []
-                  }
+                "TypeName": "SpellInDeck",
+                "Parameters": [
+                  "1",
+                  "BoardDeck"
                 ]
+              },
+              {
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenLevelUpActivated",
-              "Parameters": []
-            },
-            "CanAvoid": true
+            "Commands": [
+              {
+                "TypeName": "PutCardInHand",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
@@ -165,44 +140,35 @@
     },
     {
       "XP": 575,
-         "IsMale":true,
+      "IsMale": false,
       "LevelUpAbility": {
-        "AbilityUnitInfo": [
+        "CanAvoid": true,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInScorekeep",
-                    "Parameters": [
-                      "Opponent",
-                      "Dead",
-                      "Ordinary",
-					  "False"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PlaceAtScorekeep",
-                    "Parameters": [
-                      "FaceDown"
-                    ]
-                  }
+                "TypeName": "HeroInScorekeep",
+                "Parameters": [
+                  "Opponent",
+                  "Dead",
+				  "Ordinary"
                 ]
+              },
+              {
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenLevelUpActivated",
-              "Parameters": []
-            },
-            "CanAvoid": true
+            "Commands": [
+              {
+                "TypeName": "PlaceAtScorekeep",
+                "Parameters": [
+                  "FaceDown"
+                ]
+              }
+            ]
           }
         ]
       },
@@ -224,35 +190,27 @@
     },
     {
       "XP": 775,
-         "IsMale":true,
+      "IsMale": false,
       "LevelUpAbility": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "LastRoomDealDamage",
-                    "Parameters": [
-                      "3"
-                    ]
-                  }
-                ]
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenLevelUpActivated",
-              "Parameters": []
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "LastRoomDealDamage",
+                "Parameters": [
+                  "3"
+                ]
+              }
+            ]
           }
         ]
       },
@@ -274,35 +232,27 @@
     },
     {
       "XP": 675,
-         "IsMale":true,
+      "IsMale": false,
       "LevelUpAbility": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "AddSoulsToBoss",
-                    "Parameters": [
-                      "1"
-                    ]
-                  }
-                ]
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenLevelUpActivated",
-              "Parameters": []
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "AddSoulsToBoss",
+                "Parameters": [
+                  "1"
+                ]
+              }
+            ]
           }
         ]
       },
@@ -324,35 +274,27 @@
     },
     {
       "XP": 875,
-         "IsMale":true,
+      "IsMale": false,
       "LevelUpAbility": {
-        "AbilityUnitInfo": [
+        "CanAvoid": true,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "MultiplyTreasuresDungeon",
-                    "Parameters": [
-                      "2"
-                    ]
-                  }
-                ]
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenLevelUpActivated",
-              "Parameters": []
-            },
-            "CanAvoid": true
+            "Commands": [
+              {
+                "TypeName": "MultiplyTreasuresDungeon",
+                "Parameters": [
+                  "2"
+                ]
+              }
+            ]
           }
         ]
       },
@@ -377,34 +319,29 @@
     {
       "SpellCategory": 2,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "AddSoulsToBossIfTreasures",
-                    "Parameters": [
-                      "2",
-                      "Cleric",
-                      "Mage",
-                      "Fighter",
-                      "Thief"
-                    ]
-                  }
-                ]
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "AddSoulsToBossIfTreasures",
+                "Parameters": [
+                  "2",
+                  "Cleric",
+                  "Mage",
+                  "Fighter",
+                  "Thief"
+                ]
+              }
+            ]
           }
         ]
       },
@@ -432,10 +369,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -3,
-        "Y": -48
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "KSA014",
       "Name": "Demigod",
@@ -459,37 +392,31 @@
         "Parameters": null
       },
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "ThisHero",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "HeroResistDamageRoomType",
-                    "Parameters": [
-                      "-1",
-                      "Monster"
-                    ]
-                  }
+                "TypeName": "ActiveHeroInDungeon",
+                "Parameters": [
+                  "Any",
+                  "Owner"
                 ]
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "HeroResistDamageRoomType",
+                "Parameters": [
+                  "1",
+                  "Monster"
+                ]
+              }
+            ]
           }
         ]
-      },
-      "CharacterOffset": {
-        "X": 22,
-        "Y": -41
       },
       "ReplacesCardNumber": null,
       "CardNumber": "KSA016",
@@ -515,37 +442,28 @@
         "Parameters": null
       },
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": {
+          "TypeName": "ThisHeroEntersDungeon",
+          "Parameters": []
+        },
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DeactivateDungeonAbility",
-                    "Parameters": []
-                  }
-                ]
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "ThisHeroEntersDungeon",
-              "Parameters": []
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "DeactivateDungeonAbility",
+                "Parameters": []
+              }
+            ]
           }
         ]
-      },
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -13
       },
       "ReplacesCardNumber": null,
       "CardNumber": "KSA017",

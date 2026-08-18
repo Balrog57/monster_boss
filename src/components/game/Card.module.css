@@ -1,7 +1,7 @@
 /* Card.module.css - The card primitive with APK card border states. */
 .card {
-  width: 130px;          /* default md size; overridden by size variants */
-  aspect-ratio: 1.4;
+  width: 140px;
+  aspect-ratio: 350 / 488;
   border-radius: 0;
   position: relative;
   transition: transform var(--bm-duration-fast) var(--bm-ease-out),
@@ -19,8 +19,8 @@
   border-radius: 0;
   overflow: hidden;
   background: #1a1a1a;
-  border: 3px solid var(--bm-border-700, #555);
-  box-shadow: 2px 2px 0px rgba(0,0,0,0.5);
+  border: none;
+  box-shadow: 0 4px 0 rgba(0,0,0,0.55);
   transition: transform var(--bm-duration-fast), box-shadow var(--bm-duration-fast), border-color var(--bm-duration-fast);
   position: relative;
 }
@@ -33,7 +33,7 @@
 .img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: fill;
   display: block;
   pointer-events: none;
 }
@@ -74,12 +74,12 @@
 .inspect:hover { transform: scale(1.1); }
 
 /* Size variants — width is the only thing that changes */
-.xs { width: 56px; }
+.xs { width: 88px; }
 .xs .fallback { font-size: var(--bm-text-xs); }
-.sm { width: 90px; }
+.sm { width: 112px; }
 .sm .fallback { font-size: var(--bm-text-sm); }
-.md { width: 130px; }
-.lg { width: 170px; }
+.md { width: 140px; }
+.lg { width: 168px; }
 .lg .fallback { font-size: var(--bm-text-lg); }
-.xl { width: 220px; }
+.xl { width: 240px; }
 .xl .fallback { font-size: var(--bm-text-xl); }

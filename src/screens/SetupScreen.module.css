@@ -1,61 +1,84 @@
-/* SetupScreen.module.css - Dungeon Architect style */
-.title {
-  font-size: var(--bm-text-5xl);
-  font-weight: 900;
-  color: var(--bm-gold-500, #f1e17c);
-  font-family: var(--bm-font-display);
-  text-shadow: 2px 2px 0px rgba(0,0,0,0.8);
-  text-align: center;
+.layout { position: absolute; inset: 0; }
+.logo {
+  position: absolute;
+  top: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 720px;
+  height: auto;
+  pointer-events: none;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.75));
 }
-.subtitle { color: var(--bm-text-400); font-size: var(--bm-text-lg); text-align: center; }
-.sectionTitle {
-  font-size: var(--bm-text-sm);
-  font-weight: 700;
-  color: var(--bm-gold-500, #f1e17c);
-  text-transform: uppercase;
-  letter-spacing: var(--bm-tracking-caps);
-  align-self: stretch;
-  margin-left: 10%;
-  margin-top: var(--bm-space-4);
-}
-
-/* Mode cards (solo + online) */
-.modeCard {
-  width: min(360px, 90vw);
-  padding: var(--bm-space-10) var(--bm-space-8);
-  background: url('/ui/buttons/big_button.png') center/cover no-repeat, var(--bm-bg-700, #1b1b1b);
-  border: 3px solid var(--bm-border-700, #555);
-  border-radius: 0;
+.back {
+  position: absolute;
+  top: 28px;
+  left: 36px;
+  width: 121px;
+  height: 98px;
+  border: none;
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--bm-space-3);
-  color: var(--bm-text-900);
-  transition: transform var(--bm-duration-fast), box-shadow var(--bm-duration-fast), border-color var(--bm-duration-fast);
+  background: url('/ui/buttons/back_bt.png') center/contain no-repeat;
+  image-rendering: pixelated;
 }
-.modeCard:hover {
-  transform: translateY(-2px);
-  border-color: var(--bm-gold-500, #f1e17c);
-  box-shadow: 0 4px 0px rgba(241,225,124,0.3);
-}
-.modeCard:active {
-  background-image: url('/ui/buttons/big_button_selected.png');
-}
-.modeCard.solo { border-color: var(--bm-border-700, #555); }
-.modeCard.online {
-  border-color: var(--bm-gold-500, #f1e17c);
-  background: url('/ui/buttons/big_button_selected.png') center/cover no-repeat, #1b1b1b;
-}
-.optionLabel {
-  font-size: var(--bm-text-2xl);
+.back:active { background-image: url('/ui/buttons/back_bt_pressed.png'); }
+.prompt {
+  position: absolute;
+  top: 340px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 36px;
   font-weight: 800;
-  color: var(--bm-gold-500, #f1e17c);
-  text-shadow: 1px 1px 2px #000;
+  letter-spacing: 4px;
+  color: #f1e17c;
+  text-shadow: 3px 3px 0 #000;
 }
-.optionSub { font-size: var(--bm-text-sm); color: var(--bm-text-500); }
-
-@media (max-width: 640px) {
-  .modeCard { width: 100%; padding: var(--bm-space-7) var(--bm-space-6); }
-  .sectionTitle { margin-left: 0; }
+.nums {
+  position: absolute;
+  top: 430px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 48px;
 }
+.num {
+  width: 120px;
+  height: 120px;
+  border: 4px solid transparent;
+  background: none;
+  color: #ddd;
+  font-size: 72px;
+  font-weight: 900;
+  text-shadow: 3px 3px 0 #000;
+  cursor: pointer;
+}
+.numOn {
+  border: 4px solid #c9a227;
+  color: #fff;
+  box-shadow: 0 0 24px rgba(241, 225, 124, 0.55);
+  background: rgba(0, 0, 0, 0.45);
+}
+.hint {
+  position: absolute;
+  top: 580px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: #ccc;
+  font-size: 22px;
+  text-shadow: 2px 2px 0 #000;
+}
+.ok {
+  position: absolute;
+  right: 80px;
+  bottom: 48px;
+  width: 206px;
+  height: 99px;
+  border: none;
+  cursor: pointer;
+  background: url('/ui/buttons/ok_bt.png') center/contain no-repeat;
+  image-rendering: pixelated;
+}
+.ok:active { background-image: url('/ui/buttons/ok_bt_pressed.png'); }

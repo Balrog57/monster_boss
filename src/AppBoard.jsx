@@ -6,12 +6,13 @@
 // useOnlineMatch / useLocalMatch (see src/client/useMatch.js).
 import React, { useState, useEffect, useRef } from 'react';
 import { PHASE } from './cardData.js';
-import { countVisibleRooms } from './engine.js';
+import { treasureCountsByType } from './engine.js';
 import { playMusic, playSfx, SFX } from './audio.js';
 import { useGameSfx } from './hooks/useGameSfx.js';
 import {
   BossSelect, Hud, OpponentRow, MyDungeon, TownPanel, Hand, LogStrip, DetailPanel,
-  SpellTargetOverlay, spellNeedsTarget, LevelUpChoiceOverlay, PhaseBanner, OptionsOverlay
+  SpellTargetOverlay, spellNeedsTarget, LevelUpChoiceOverlay, PhaseBanner, OptionsOverlay,
+  GameStage, StatsSidebar
 } from './components/game';
 import GameOverScreen from './screens/GameOverScreen.jsx';
 import s from './AppBoard.module.css';
@@ -70,46 +71,65 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
   }, [G?.gameOver]);
 
   if (!G || !G.players) {
-    return <div className={s.screen}><div className={s.loading}>Chargement…</div></div>;
+    return <GameStage bg="/ui/backgrounds/gallery_bg.jpg"><div className={s.loading}>Chargement…</div></GameStage>;
   }
   const pidKey = String(playerID);
   const me = G.players[pidKey];
   if (!me) {
-    return <div className={s.screen}><div className={s.loading}>Chargement… (joueur {pidKey} introuvable)</div></div>;
+    return <GameStage bg="/ui/backgrounds/gallery_bg.jpg"><div className={s.loading}>Chargement…</div></GameStage>;
   }
   const phase = ctx.phase || G.phase;
   const activePid = G.activePlayer != null ? String(G.activePlayer) : (ctx.currentPlayer != null ? String(ctx.currentPlayer) : '0');
   const isMyTurn = activePid === pidKey;
-  const opponents = Object.values(G.players).filter(p => p !== me);
+  const opponentEntries = Object.entries(G.players).filter(([id]) => id !== pidKey);
+  const opponents = opponentEntries.map(([, p]) => p);
+  const oppIds = opponentEntries.map(([id]) => id);
 
   // BOSS phase: dedicated selection screen
   if (phase === PHASE.BOSS) {
     return (
-      <div className={s.screen}>
+      <GameStage bg="/ui/backgrounds/intro_bg.jpg">
         <BossSelect G={G} me={me} onPick={(id) => moves.pickBoss(id)} onInspect={setInspect} />
         <DetailPanel inspect={inspect} onClose={() => setInspect(null)} />
-      </div>
+      </GameStage>
     );
   }
 
-  // Main game layout
+  const myTreasures = treasureCountsByType(G, pidKey);
+  const oppTreasures = opponents.map((p) => {
+    const id = Object.keys(G.players).find((k) => G.players[k] === p);
+    return treasureCountsByType(G, id);
+  });
+
   return (
-    <div className={s.screen} id="main-content">
+    <GameStage bg="/ui/backgrounds/gallery_bg.jpg">
+      <div className={s.board} id="main-content">
+      <div className={s.hud}>
       <Hud
         phase={phase}
-        turn={G.turn}
         isMyTurn={isMyTurn}
-        activePid={activePid}
-        me={me}
-        dungeonCount={countVisibleRooms(me.dungeon)}
         turnDeadline={turnDeadline}
         notification={notification}
         onOptions={() => setOptionsOpen(true)}
       />
+      </div>
 
+      <div className={s.town}>
+        <TownPanel
+          me={me}
+          town={G.town}
+          phase={phase}
+          isMyTurn={isMyTurn}
+          onResolve={() => moves.resolveNextHero()}
+          onInspect={setInspect}
+        />
+      </div>
+
+      <div className={s.opponents}>
       <OpponentRow opponents={opponents} onInspect={setInspect} />
+      </div>
 
-      <div className={s.playArea}>
+        <div className={s.dungeon}>
         <MyDungeon
           me={me}
           phase={phase}
@@ -127,33 +147,21 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
           }}
           onActivateRoom={(roomIdx, otherIdx) => {
             if (otherIdx != null) {
-              // Target selected — fire the ability
               moves.activateRoom(roomIdx, otherIdx);
               setActivateSourceRoom(null);
             } else {
               const stack = me.dungeon[roomIdx];
               const r = Array.isArray(stack) ? stack[stack.length - 1] : stack;
               if (r && NEEDS_OTHER_TARGET.has(r.id)) {
-                // Enter target selection mode
                 setActivateSourceRoom(roomIdx);
               } else {
-                // No target needed — activate immediately
                 moves.activateRoom(roomIdx, null);
               }
             }
           }}
           onInspect={setInspect}
         />
-        <TownPanel
-          me={me}
-          town={G.town}
-          phase={phase}
-          isMyTurn={isMyTurn}
-          onResolve={() => moves.resolveNextHero()}
-          onInspect={setInspect}
-        />
-      </div>
-
+        <div className={s.hand}>
       <Hand
         me={me}
         phase={phase}
@@ -173,8 +181,29 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         onPass={() => moves.pass()}
         onInspect={setInspect}
       />
+        </div>
+        </div>
 
-      <LogStrip logs={G.logs} />
+      <div className={s.discard} aria-label="Discard pile">
+        <img src="/ui/ingame/discard_pile.png" alt="" className={s.discardArt} />
+        <img src="/ui/ingame/discard_pile_legend.png" alt="Discard pile" className={s.discardLabel} />
+        <div className={s.log}><LogStrip logs={G.logs} /></div>
+      </div>
+
+      <div className={s.stats}>
+        <StatsSidebar
+          me={me}
+          opponents={opponents}
+          oppIds={oppIds}
+          myTreasures={myTreasures}
+          oppTreasures={oppTreasures}
+          decks={G.decks}
+          activePid={activePid}
+          meId={pidKey}
+          onInspect={(payload) => setInspect(payload)}
+          onLevelUp={() => setInspect({ card: me.boss, kind: 'boss' })}
+        />
+      </div>
 
       <PhaseBanner phase={phase} />
 
@@ -212,6 +241,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
           onMenu={() => { gameOverFired.current = false; setGameOverData(null); if (onExitMatch) onExitMatch(); }}
         />
       )}
-    </div>
+      </div>
+    </GameStage>
   );
 }

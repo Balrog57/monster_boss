@@ -1,13 +1,11 @@
-/* LogStrip.module.css */
 .strip {
-  background: rgba(0, 0, 0, 0.5);
-  padding: var(--bm-space-2) var(--bm-space-8);
-  max-height: 70px;
-  overflow-y: auto;
-  font-family: var(--bm-font-mono);
-  font-size: var(--bm-text-xs);
-  color: var(--bm-text-400);
-  border-top: 1px solid var(--bm-border-900);
-  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 6px 12px;
+  max-height: 72px;
+  overflow: hidden;
+  font-size: 13px;
+  color: #ddd;
+  text-shadow: 1px 1px 0 #000;
+  pointer-events: none;
 }
-.line { margin-bottom: 1px; line-height: 1.4; }
+.line { margin-bottom: 1px; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

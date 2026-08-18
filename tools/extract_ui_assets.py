@@ -24,7 +24,7 @@ import struct
 
 from PIL import Image
 
-APK_COMMON = "boss-monster-2-4-12/resources/assets/Content/Assets/Common"
+APK_COMMON = "boss-monster-2-2-6/assets/Content/Common"
 OUT = "assets/ui"
 
 # Spritesheets whose sprites are individually useful (cropped per-name).
@@ -32,11 +32,11 @@ OUT = "assets/ui"
 # screenshots — see tools/montage_*.png). Use SHEET_DECODER[stem] below to
 # pick the right (r_high, swap_bytes) combination for each.
 SPRITESHEETS = [
-    "TUTORIAL.spritesheet.wpk",
-    "NAVIGATION.spritesheet.wpk",
-    "INGAME.spritesheet.wpk",
-    "GRADIENTS.spritesheet.wpk",
-    "AVATAR.spritesheet.wpk",
+    "TUTORIAL.wpk",
+    "NAVIGATION.wpk",
+    "INGAME.wpk",
+    "GRADIENTS.wpk",
+    "AVATAR.wpk",
 ]
 
 # Per-sheet decoder. The WaveEngine format 13 (16-bit 5-6-5) is stored
@@ -266,10 +266,10 @@ def extract_all():
         if not os.path.exists(path):
             print(f"  {sheet_name}: missing, skip")
             continue
-        stem = sheet_name.replace(".spritesheet.wpk", "")
+        stem = sheet_name.replace(".spritesheet.wpk", "").replace(".wpk", "")
         try:
             sprites, atlas = parse_spritesheet(path, stem)
-            folder = sheet_name.replace(".spritesheet.wpk", "").lower()
+            folder = sheet_name.replace(".spritesheet.wpk", "").replace(".wpk", "").lower()
             out_dir = os.path.join(OUT, folder)
             os.makedirs(out_dir, exist_ok=True)
             for name, x, y, w, h in sprites:
@@ -329,7 +329,7 @@ def _export_compat_icons():
         },
     }
     for sheet_name, files in mapping.items():
-        path = os.path.join(APK_COMMON, f"{sheet_name}.spritesheet.wpk")
+        path = os.path.join(APK_COMMON, f"{sheet_name}.wpk")
         if not os.path.exists(path):
             continue
         sprites, atlas = parse_spritesheet(path, sheet_name)

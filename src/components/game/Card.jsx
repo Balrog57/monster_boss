@@ -57,7 +57,7 @@ export default function Card({ card, kind = 'room', faceDown = false, size = 'md
       {onInspect && card && !faceDown && (
         <button
           className={s.inspect}
-          onClick={(e) => { e.stopPropagation(); onInspect(card, kind); }}
+          onClick={(e) => { e.stopPropagation(); onInspect({ card, kind }); }}
           aria-label={`Inspecter ${card.name}`}
           type="button"
         >

@@ -47,15 +47,15 @@ from PIL import Image
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 
-APK_FONTS = "boss-monster-2-4-12/resources/assets/Content/Assets/Fonts"
+APK_FONTS = "boss-monster-2-2-6/assets/Content/Fonts"
 OUT_DIR = "assets/fonts"
 
 # Each output font -> source WPK + friendly family name
 FONTS = {
-    "arcadepix": ("arcadepix.TTF.wpk", "ArcadePix"),
-    "arcadepix2": ("arcadepix2.TTF.wpk", "ArcadePix2"),
-    "bookman_old_style": ("bookman_old_style.TTF.wpk", "Bookman Old Style"),
-    "f04b03": ("f04b03.TTF.wpk", "04b03"),
+    "arcadepix": ("arcadepix.wpk", "ArcadePix"),
+    "arcadepix2": ("arcadepix2.wpk", "ArcadePix2"),
+    "bookman_old_style": ("bookman_old_style.wpk", "Bookman Old Style"),
+    "f04b03": ("f04b03.wpk", "04b03"),
 }
 
 SCALE = 64          # font units per atlas pixel

@@ -22,32 +22,29 @@ export default function App() {
   return (
     <ErrorBoundary>
       {screen === MENU && (
-        <div style={{ minHeight: '100vh', background: 'var(--bm-bg-800)' }}>
-          <MainMenu onStart={() => setScreen(SETUP)} />
-        </div>
+          <MainMenu
+            onStart={() => setScreen(SETUP)}
+            onMultiplayer={() => setScreen(LOBBY)}
+          />
       )}
 
       {screen === SETUP && (
-        <div style={{ minHeight: '100vh', background: 'var(--bm-bg-800)' }}>
           <SetupScreen
             onStartLocal={(n) => { setNumPlayers(n); setMatch(null); setScreen(GAME); }}
-            onStartOnline={() => setScreen(LOBBY)}
+            onBack={() => setScreen(MENU)}
+          />
+      )}
+
+      {screen === LOBBY && (
+        <div style={{ minHeight: '100vh', background: '#000' }}>
+          <OnlineLobbyCustom
+            onJoined={(m) => { setMatch(m); setScreen(GAME); }}
             onBack={() => setScreen(MENU)}
           />
         </div>
       )}
 
-      {screen === LOBBY && (
-        <div style={{ minHeight: '100vh', background: 'var(--bm-bg-800)' }}>
-          <OnlineLobbyCustom
-            onJoined={(m) => { setMatch(m); setScreen(GAME); }}
-            onBack={() => setScreen(SETUP)}
-          />
-        </div>
-      )}
-
       {screen === GAME && (
-        <div style={{ minHeight: '100vh', background: 'var(--bm-bg-800)' }}>
           <ErrorBoundary>
             {match ? (
               <OnlineGame match={match} onExitToMenu={goMenu} onReplay={() => setScreen(LOBBY)} />
@@ -55,7 +52,6 @@ export default function App() {
               <LocalGame numPlayers={numPlayers} onExitToMenu={goMenu} onReplay={() => setScreen(SETUP)} />
             )}
           </ErrorBoundary>
-        </div>
       )}
     </ErrorBoundary>
   );

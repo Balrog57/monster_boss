@@ -5,38 +5,30 @@
       "XP": 900,
       "IsMale": true,
       "LevelUpAbility": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "CardInHand",
-                    "Parameters": [
-                      "1",
-                      "Opponent"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PutCardInHand",
-                    "Parameters": []
-                  }
+                "TypeName": "CardInHand",
+                "Parameters": [
+                  "1",
+                  "Opponent"
                 ]
+              },
+              {
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenLevelUpActivated",
-              "Parameters": []
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "PutCardInHand",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
@@ -60,38 +52,30 @@
       "XP": 750,
       "IsMale": true,
       "LevelUpAbility": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "CardInDeck",
-                    "Parameters": [
-                      "2",
-                      "DiscardPile"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PutCardInHand",
-                    "Parameters": []
-                  }
+                "TypeName": "CardInDeck",
+                "Parameters": [
+                  "2",
+                  "DiscardPile"
                 ]
+              },
+              {
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenLevelUpActivated",
-              "Parameters": []
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "PutCardInHand",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
@@ -115,44 +99,36 @@
       "XP": 800,
       "IsMale": true,
       "LevelUpAbility": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "RoomInDeck",
-                    "Parameters": [
-                      "1",
-                      "Advanced",
-                      "Monster",
-                      "Any"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PutCardInHand",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "BuildRoomBy",
-                    "Parameters": []
-                  }
+                "TypeName": "RoomInDeck",
+                "Parameters": [
+                  "1",
+                  "Advanced",
+                  "Monster",
+                  "Any"
                 ]
+              },
+              {
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenLevelUpActivated",
-              "Parameters": []
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "PutCardInHand",
+                "Parameters": []
+              },
+              {
+                "TypeName": "BuildRoomBy",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
@@ -176,31 +152,23 @@
       "XP": 400,
       "IsMale": true,
       "LevelUpAbility": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOpponents",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "ChooseAndDestroyRoom",
-                    "Parameters": []
-                  }
-                ]
+                "TypeName": "BossOpponents",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenLevelUpActivated",
-              "Parameters": []
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "ChooseAndDestroyRoom",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
@@ -224,41 +192,33 @@
       "XP": 650,
       "IsMale": true,
       "LevelUpAbility": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DrawCards",
-                    "Parameters": [
-                      "3",
-                      "Spell"
-                    ]
-                  },
-                  {
-                    "TypeName": "DiscardSomeCardFromHand",
-                    "Parameters": [
-                      "1",
-                      "Spell"
-                    ]
-                  }
-                ]
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenLevelUpActivated",
-              "Parameters": []
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "DrawCards",
+                "Parameters": [
+                  "3",
+                  "Spell"
+                ]
+              },
+              {
+                "TypeName": "DiscardSomeCardFromHand",
+                "Parameters": [
+                  "1",
+                  "Spell"
+                ]
+              }
+            ]
           }
         ]
       },
@@ -282,37 +242,29 @@
       "XP": 600,
       "IsMale": false,
       "LevelUpAbility": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "HeroUnassigned",
-                    "Parameters": [
-                      "Any"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PlaceAtDungeonEntrance",
-                    "Parameters": []
-                  }
+                "TypeName": "HeroUnassigned",
+                "Parameters": [
+                  "Any"
                 ]
+              },
+              {
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenLevelUpActivated",
-              "Parameters": []
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "PlaceAtDungeonEntrance",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
@@ -336,44 +288,36 @@
       "XP": 850,
       "IsMale": false,
       "LevelUpAbility": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "RoomInDeck",
-                    "Parameters": [
-                      "1",
-                      "Advanced",
-                      "Trap",
-                      "Any"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PutCardInHand",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "BuildRoomBy",
-                    "Parameters": []
-                  }
+                "TypeName": "RoomInDeck",
+                "Parameters": [
+                  "1",
+                  "Advanced",
+                  "Trap",
+                  "Any"
                 ]
+              },
+              {
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenLevelUpActivated",
-              "Parameters": []
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "PutCardInHand",
+                "Parameters": []
+              },
+              {
+                "TypeName": "BuildRoomBy",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
@@ -397,39 +341,31 @@
       "XP": 500,
       "IsMale": false,
       "LevelUpAbility": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInTown",
-                    "Parameters": [
-                      "Any"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PlaceAtScorekeep",
-                    "Parameters": [
-                      "FaceDown"
-                    ]
-                  }
+                "TypeName": "HeroInTown",
+                "Parameters": [
+                  "Any"
                 ]
+              },
+              {
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenLevelUpActivated",
-              "Parameters": []
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "PlaceAtScorekeep",
+                "Parameters": [
+                  "FaceDown"
+                ]
+              }
+            ]
           }
         ]
       },
@@ -454,44 +390,38 @@
     {
       "SpellCategory": 3,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "DuringPhase",
+            "Parameters": [
+              "Adventure"
+            ]
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "DuringPhase",
+                "TypeName": "RoomInDungeon",
                 "Parameters": [
-                  "Adventure"
+                  "True",
+                  "1",
+                  "Any",
+                  "Trap",
+                  "Any"
                 ]
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "RoomInDungeon",
-                    "Parameters": [
-                      "True",
-                      "1",
-                      "Any",
-                      "Trap",
-                      "Any",
-                      "False"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DealDamageToRoom",
-                    "Parameters": [
-                      "3"
-                    ]
-                  }
+                "TypeName": "DealDamageToRoom",
+                "Parameters": [
+                  "3"
                 ]
               }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
+            ]
           }
         ]
       },
@@ -508,40 +438,35 @@
     {
       "SpellCategory": 3,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "DuringPhase",
+            "Parameters": [
+              "Adventure"
+            ]
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "DuringPhase",
+                "TypeName": "HeroInDungeon",
                 "Parameters": [
-                  "Adventure"
+                  "Any",
+                  "Opponent"
                 ]
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInDungeon",
-                    "Parameters": [
-                      "Any",
-                      "Opponent"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DealHero",
-                    "Parameters": [
-                      "-3"
-                    ]
-                  }
+                "TypeName": "DealHero",
+                "Parameters": [
+                  "-3"
                 ]
               }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
+            ]
           }
         ]
       },
@@ -558,46 +483,40 @@
     {
       "SpellCategory": 4,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "DuringPhase",
+            "Parameters": [
+              "Adventure"
+            ]
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "DuringPhase",
+                "TypeName": "RoomInDungeon",
                 "Parameters": [
-                  "Adventure"
+                  "True",
+                  "1",
+                  "Any",
+                  "Any",
+                  "Owner"
                 ]
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "RoomInDungeon",
-                    "Parameters": [
-                      "True",
-                      "1",
-                      "Any",
-                      "Any",
-                      "Owner",
-                      "False"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "KillHeroInRoom",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "DestroyRoom",
-                    "Parameters": []
-                  }
-                ]
+                "TypeName": "KillHeroInRoom",
+                "Parameters": []
+              },
+              {
+                "TypeName": "DestroyRoom",
+                "Parameters": []
               }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
+            ]
           }
         ]
       },
@@ -614,28 +533,23 @@
     {
       "SpellCategory": 2,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "SpellCardJustPlayed",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "CancelSpellAbility",
-                    "Parameters": []
-                  }
-                ]
+                "TypeName": "SpellCardJustPlayed",
+                "Parameters": []
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "CancelSpellAbility",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
@@ -652,41 +566,36 @@
     {
       "SpellCategory": 4,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "DuringPhase",
+            "Parameters": [
+              "Adventure"
+            ]
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "DuringPhase",
+                "TypeName": "HeroInDungeon",
                 "Parameters": [
-                  "Adventure"
+                  "Any",
+                  "Owner"
                 ]
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInDungeon",
-                    "Parameters": [
-                      "Any",
-                      "Owner"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DealRoomsCountToHero",
-                    "Parameters": [
-                      "Any",
-                      "Any"
-                    ]
-                  }
+                "TypeName": "DealRoomsCountToHero",
+                "Parameters": [
+                  "Any",
+                  "Any"
                 ]
               }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
+            ]
           }
         ]
       },
@@ -703,38 +612,33 @@
     {
       "SpellCategory": 1,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "DuringPhase",
+            "Parameters": [
+              "Adventure"
+            ]
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "DuringPhase",
+                "TypeName": "HeroInDungeon",
                 "Parameters": [
-                  "Adventure"
+                  "Any",
+                  "Any"
                 ]
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInDungeon",
-                    "Parameters": [
-                      "Any",
-                      "Any"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PlaceAtTown",
-                    "Parameters": []
-                  }
-                ]
+                "TypeName": "PlaceAtTown",
+                "Parameters": []
               }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
+            ]
           }
         ]
       },
@@ -751,35 +655,29 @@
     {
       "SpellCategory": 2,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "RoomInDungeon",
-                    "Parameters": [
-                      "True",
-                      "1",
-                      "Any",
-                      "Any",
-                      "Any",
-                      "False"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DeactivateRoom",
-                    "Parameters": []
-                  }
+                "TypeName": "RoomInDungeon",
+                "Parameters": [
+                  "True",
+                  "1",
+                  "Any",
+                  "Any",
+                  "Any"
                 ]
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "DeactivateRoom",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
@@ -796,44 +694,38 @@
     {
       "SpellCategory": 3,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "DuringPhase",
+            "Parameters": [
+              "Adventure"
+            ]
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "DuringPhase",
+                "TypeName": "RoomInDungeon",
                 "Parameters": [
-                  "Adventure"
+                  "True",
+                  "1",
+                  "Any",
+                  "Monster",
+                  "Any"
                 ]
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "RoomInDungeon",
-                    "Parameters": [
-                      "True",
-                      "1",
-                      "Any",
-                      "Monster",
-                      "Any",
-                      "False"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DealDamageToRoom",
-                    "Parameters": [
-                      "3"
-                    ]
-                  }
+                "TypeName": "DealDamageToRoom",
+                "Parameters": [
+                  "3"
                 ]
               }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
+            ]
           }
         ]
       },
@@ -841,7 +733,7 @@
       "CardNumber": "BMA047",
       "Name": "Giant Size",
       "Subtitle": "-",
-      "Description": "Give one Monster Room +3 damage until end of turn.",
+      "Description": "Give one Monster Rooom +3 damage until end of turn.",
       "Treasures": null,
       "MinimumPlayers": 2,
       "Quantity": 2,
@@ -850,42 +742,37 @@
     {
       "SpellCategory": 2,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "AllBoss",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DiscardAllHand",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "DrawCards",
-                    "Parameters": [
-                      "1",
-                      "Spell"
-                    ]
-                  },
-                  {
-                    "TypeName": "DrawCards",
-                    "Parameters": [
-                      "2",
-                      "Room"
-                    ]
-                  }
-                ]
+                "TypeName": "AllBoss",
+                "Parameters": []
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "DiscardAllHand",
+                "Parameters": []
+              },
+              {
+                "TypeName": "DrawCards",
+                "Parameters": [
+                  "1",
+                  "Spell"
+                ]
+              },
+              {
+                "TypeName": "DrawCards",
+                "Parameters": [
+                  "2",
+                  "Room"
+                ]
+              }
+            ]
           }
         ]
       },
@@ -902,44 +789,39 @@
     {
       "SpellCategory": 2,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "DuringPhase",
+            "Parameters": [
+              "Build"
+            ]
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "DuringPhase",
-                "Parameters": [
-                  "Build"
-                ]
+                "TypeName": "AllBoss",
+                "Parameters": []
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "AllBoss",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "UndoBuildRoom",
-                    "Parameters": []
-                  }
-                ]
-              },
-              {
-                "Targets": [],
-                "Commands": [
-                  {
-                    "TypeName": "SkipBuildPhase",
-                    "Parameters": []
-                  }
-                ]
+                "TypeName": "UndoBuildRoom",
+                "Parameters": []
               }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
+            ]
+          },
+          {
+            "Targets": [],
+            "Commands": [
+              {
+                "TypeName": "SkipBuildPhase",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
@@ -956,41 +838,36 @@
     {
       "SpellCategory": 3,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "DuringPhase",
+            "Parameters": [
+              "Build"
+            ]
+          },
+          {
+            "TypeName": "OpponnentDungeonSizeMoreThan",
+            "Parameters": [
+              "1"
+            ]
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "DuringPhase",
-                "Parameters": [
-                  "Build"
-                ]
-              },
-              {
-                "TypeName": "OpponnentDungeonSizeMoreThan",
-                "Parameters": [
-                  "1"
-                ]
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "BuildExtraRoom",
-                    "Parameters": []
-                  }
-                ]
+                "TypeName": "BuildExtraRoom",
+                "Parameters": []
               }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
+            ]
           }
         ]
       },
@@ -1007,41 +884,36 @@
     {
       "SpellCategory": 1,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "DuringPhase",
+            "Parameters": [
+              "Build"
+            ]
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "DuringPhase",
+                "TypeName": "HeroInTown",
                 "Parameters": [
-                  "Build"
+                  "Any"
                 ]
-              }
-            ],
-            "Effects": [
+              },
               {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInTown",
-                    "Parameters": [
-                      "Any"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PlaceAtDungeonEntrance",
-                    "Parameters": []
-                  }
-                ]
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "PlaceAtDungeonEntrance",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
@@ -1058,44 +930,38 @@
     {
       "SpellCategory": 1,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInScorekeep",
-                    "Parameters": [
-                      "Owner",
-                      "Dead",
-                      "Any",
-					  "False"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "RemoveHeroFromTheGame",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "DrawCards",
-                    "Parameters": [
-                      "2",
-                      "Spell"
-                    ]
-                  }
+                "TypeName": "HeroInScorekeep",
+                "Parameters": [
+                  "Owner",
+                  "Dead",
+				  "Any"
                 ]
+              },
+              {
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "RemoveHeroFromTheGame",
+                "Parameters": []
+              },
+              {
+                "TypeName": "DrawCards",
+                "Parameters": [
+                  "2",
+                  "Spell"
+                ]
+              }
+            ]
           }
         ]
       },
@@ -1112,42 +978,35 @@
     {
       "SpellCategory": 1,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "DuringPhase",
+            "Parameters": [
+              "Adventure"
+            ]
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "DuringPhase",
+                "TypeName": "ActiveHeroInDungeon",
                 "Parameters": [
-                  "Adventure"
+                  "Any",
+                  "Owner"
                 ]
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "ActiveHeroInDungeon",
-                    "Parameters": [
-                      "Any",
-                      "Owner"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "ReturnToDungeonEntrance",
-                    "Parameters": []
-                  }
+                "TypeName": "MoveHeroToRelativeSlot",
+                "Parameters": [
+                  "5"
                 ]
               }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
+            ]
           }
         ]
       },
@@ -1164,38 +1023,33 @@
     {
       "SpellCategory": 2,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "DuringPhase",
+            "Parameters": [
+              "Adventure"
+            ]
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "DuringPhase",
+                "TypeName": "BossOpponentWithAtLeastScore",
                 "Parameters": [
-                  "Adventure"
+                  "Dead",
+                  "2"
                 ]
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOpponentWithAtLeastScore",
-                    "Parameters": [
-                      "Dead",
-                      "2"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "SkipAdventurePhase",
-                    "Parameters": []
-                  }
-                ]
+                "TypeName": "SkipAdventurePhase",
+                "Parameters": []
               }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
+            ]
           }
         ]
       },
@@ -1212,46 +1066,40 @@
     {
       "SpellCategory": 1,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "DuringPhase",
+            "Parameters": [
+              "Build"
+            ]
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "DuringPhase",
+                "TypeName": "HeroInScorekeep",
                 "Parameters": [
-                  "Build"
+                  "Opponent",
+                  "Dead",
+				  "Any"
                 ]
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInScorekeep",
-                    "Parameters": [
-                      "Opponent",
-                      "Dead",
-                      "Any",
-					  "False"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "SendBackToDungeonEntrance",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "DealHero",
-                    "Parameters": [
-                      "-2"
-                    ]
-                  }
+                "TypeName": "SendBackToDungeonEntrance",
+                "Parameters": []
+              },
+              {
+                "TypeName": "DealHero",
+                "Parameters": [
+                  "-2"
                 ]
               }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
+            ]
           }
         ]
       },
@@ -1273,53 +1121,47 @@
       "Damage": 1,
       "RoomCategory": 3,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "ThisRoom",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DestroyRoom",
-                    "Parameters": []
-                  }
+                "TypeName": "ThisRoom",
+                "Parameters": []
+              }
+            ],
+            "Commands": [
+              {
+                "TypeName": "DestroyRoom",
+                "Parameters": []
+              }
+            ]
+          },
+          {
+            "Targets": [
+              {
+                "TypeName": "CardInDeck",
+                "Parameters": [
+                  "1",
+                  "DiscardPile"
                 ]
               },
               {
-                "Targets": [
-                  {
-                    "TypeName": "CardInDeck",
-                    "Parameters": [
-                      "1",
-                      "DiscardPile"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PutCardInHand",
-                    "Parameters": []
-                  }
-                ]
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "PutCardInHand",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA009",
       "Name": "Dark Altar",
@@ -1339,49 +1181,43 @@
       "Damage": 2,
       "RoomCategory": 1,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": {
+          "TypeName": "HeroDiesInThisRoom",
+          "Parameters": null
+        },
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "OncePerTurn",
+            "Parameters": []
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "OncePerTurn",
+                "TypeName": "RoomInDeck",
+                "Parameters": [
+                  "1",
+                  "Any",
+                  "Any",
+                  "DiscardPile"
+                ]
+              },
+              {
+                "TypeName": "BossOwner",
                 "Parameters": []
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "RoomInDeck",
-                    "Parameters": [
-                      "1",
-                      "Any",
-                      "Any",
-                      "DiscardPile"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PutCardInHand",
-                    "Parameters": []
-                  }
-                ]
+                "TypeName": "PutCardInHand",
+                "Parameters": []
               }
-            ],
-            "Trigger": {
-              "TypeName": "HeroDiesInThisRoom",
-              "Parameters": null
-            },
-            "CanAvoid": false
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA010",
       "Name": "Open Grave",
@@ -1400,38 +1236,32 @@
       "Damage": 2,
       "RoomCategory": 3,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": {
+          "TypeName": "WhenYouBuildThisRoom",
+          "Parameters": null
+        },
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOpponent",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DiscardRandomCardFromHand",
-                    "Parameters": [
-                      "1",
-                      "Spell"
-                    ]
-                  }
-                ]
+                "TypeName": "BossOpponent",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenYouBuildThisRoom",
-              "Parameters": null
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "DiscardRandomCardFromHand",
+                "Parameters": [
+                  "1",
+                  "Spell"
+                ]
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA011",
       "Name": "Specter's Sanctum",
@@ -1450,47 +1280,41 @@
       "Damage": 1,
       "RoomCategory": 2,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": {
+          "TypeName": "HeroDiesInThisRoom",
+          "Parameters": null
+        },
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "OncePerTurn",
+            "Parameters": []
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "OncePerTurn",
+                "TypeName": "BossOwner",
+                "Parameters": []
+              },
+              {
+                "TypeName": "BossOpponent",
                 "Parameters": []
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "BossOpponent",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PickRandomCardFromHand",
-                    "Parameters": [
-                      "1",
-                      "Any"
-                    ]
-                  }
+                "TypeName": "PickRandomCardFromHand",
+                "Parameters": [
+                  "1",
+                  "Any"
                 ]
               }
-            ],
-            "Trigger": {
-              "TypeName": "HeroDiesInThisRoom",
-              "Parameters": null
-            },
-            "CanAvoid": false
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA012",
       "Name": "Succubus Spa",
@@ -1509,66 +1333,60 @@
       "Damage": 3,
       "RoomCategory": 5,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "OncePerTurn",
+            "Parameters": []
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "OncePerTurn",
-                "Parameters": []
+                "TypeName": "RoomInHand",
+                "Parameters": [
+                  "True",
+                  "2",
+                  "Any",
+                  "Any",
+                  "Owner"
+                ]
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "RoomInHand",
-                    "Parameters": [
-                      "True",
-                      "2",
-                      "Any",
-                      "Any",
-                      "Owner"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DiscardTargetRoomFromHand",
-                    "Parameters": []
-                  }
+                "TypeName": "DiscardTargetRoomFromHand",
+                "Parameters": []
+              }
+            ]
+          },
+          {
+            "Targets": [
+              {
+                "TypeName": "RoomInDeck",
+                "Parameters": [
+                  "1",
+                  "Any",
+                  "Any",
+                  "DiscardPile"
                 ]
               },
               {
-                "Targets": [
-                  {
-                    "TypeName": "RoomInDeck",
-                    "Parameters": [
-                      "1",
-                      "Any",
-                      "Any",
-                      "DiscardPile"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PutCardInHand",
-                    "Parameters": []
-                  }
-                ]
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "PutCardInHand",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA013",
       "Name": "Dracolich Lair",
@@ -1587,45 +1405,38 @@
       "Damage": 3,
       "RoomCategory": 3,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": {
+          "TypeName": "HeroDiesInThisRoom",
+          "Parameters": null
+        },
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "OncePerTurn",
+            "Parameters": []
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "OncePerTurn",
-                "Parameters": []
-              }
-            ],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInScorekeep",
-                    "Parameters": [
-                      "Owner",
-                      "Alive",
-                      "Any",
-					  "False"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "FlipHero",
-                    "Parameters": []
-                  }
+                "TypeName": "HeroInScorekeep",
+                "Parameters": [
+                  "Owner",
+                  "Alive",
+				  "Any"
                 ]
               }
             ],
-            "Trigger": {
-              "TypeName": "HeroDiesInThisRoom",
-              "Parameters": null
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "FlipHero",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA014",
       "Name": "Vampire Bordello",
@@ -1644,36 +1455,30 @@
       "Damage": 1,
       "RoomCategory": 2,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "AdjacentsRoom",
-                    "Parameters": [
-                      "Monster"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DealDamageToRoom",
-                    "Parameters": [
-                      "1"
-                    ]
-                  }
+                "TypeName": "AdjacentsRoom",
+                "Parameters": [
+                  "Monster"
                 ]
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "DealDamageToRoom",
+                "Parameters": [
+                  "1"
+                ]
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA015",
       "Name": "Goblin Armory",
@@ -1693,43 +1498,37 @@
       "Damage": 2,
       "RoomCategory": 5,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": {
+          "TypeName": "HeroDiesInThisRoom",
+          "Parameters": null
+        },
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "OncePerTurn",
+            "Parameters": []
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "OncePerTurn",
+                "TypeName": "BossOwner",
                 "Parameters": []
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DrawCards",
-                    "Parameters": [
-                      "1",
-                      "Room"
-                    ]
-                  }
+                "TypeName": "DrawCards",
+                "Parameters": [
+                  "1",
+                  "Room"
                 ]
               }
-            ],
-            "Trigger": {
-              "TypeName": "HeroDiesInThisRoom",
-              "Parameters": null
-            },
-            "CanAvoid": false
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA016",
       "Name": "Golem Factory",
@@ -1748,37 +1547,31 @@
       "Damage": 0,
       "RoomCategory": 5,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": {
+          "TypeName": "FirstTimeHeroEnterThisRoom",
+          "Parameters": null
+        },
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInThisRoom",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "MoveHeroToRelativeSlot",
-                    "Parameters": [
-                      "1"
-                    ]
-                  }
-                ]
+                "TypeName": "HeroInThisRoom",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "FirstTimeHeroEnterThisRoom",
-              "Parameters": null
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "MoveHeroToRelativeSlot",
+                "Parameters": [
+                  "1"
+                ]
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA017",
       "Name": "Minotaur's Maze",
@@ -1797,30 +1590,24 @@
       "Damage": 3,
       "RoomCategory": 2,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [],
+            "Commands": [
               {
-                "Targets": [],
-                "Commands": [
-                  {
-                    "TypeName": "CanBuildRoom",
-                    "Parameters": [
-                      "Ordinary",
-                      "Any"
-                    ]
-                  }
+                "TypeName": "CannotBuildRoom",
+                "Parameters": [
+                  "Advanced",
+                  "Any"
                 ]
               }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA018",
       "Name": "Neanderthal Cave",
@@ -1839,50 +1626,43 @@
       "Damage": 4,
       "RoomCategory": 2,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": {
+          "TypeName": "WhenYouBuildAnotherRoom",
+          "Parameters": null
+        },
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "OncePerTurn",
+            "Parameters": []
+          },
+          {
+            "TypeName": "HasPendingRoomToBuild",
+            "Parameters": [
+              "Monster"
+            ]
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "OncePerTurn",
+                "TypeName": "BossOwner",
                 "Parameters": []
-              },
+              }
+            ],
+            "Commands": [
               {
-                "TypeName": "LastBuiltRoomIs",
+                "TypeName": "DrawCards",
                 "Parameters": [
-                  "Any",
-                  "Monster"
+                  "1",
+                  "Room"
                 ]
               }
-            ],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DrawCards",
-                    "Parameters": [
-                      "1",
-                      "Room"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "WhenYouBuildAnotherRoom",
-              "Parameters": null
-            },
-            "CanAvoid": false
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA019",
       "Name": "Beast Menagerie",
@@ -1901,38 +1681,32 @@
       "Damage": 0,
       "RoomCategory": 2,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "ThisRoom",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "RoomDamageEqualToCount",
-                    "Parameters": [
-                      "Monster"
-                    ]
-                  }
-                ]
+                "TypeName": "ThisRoom",
+                "Parameters": []
+              },
+              {
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "RoomDamageEqualToCount",
+                "Parameters": [
+                  "Monster"
+                ]
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA020",
       "Name": "Monster's Ballroom",
@@ -1951,43 +1725,37 @@
       "Damage": 2,
       "RoomCategory": 3,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": {
+          "TypeName": "HeroDiesInThisRoom",
+          "Parameters": null
+        },
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "OncePerTurn",
+            "Parameters": []
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "OncePerTurn",
+                "TypeName": "BossOwner",
                 "Parameters": []
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DrawCards",
-                    "Parameters": [
-                      "1",
-                      "Spell"
-                    ]
-                  }
+                "TypeName": "DrawCards",
+                "Parameters": [
+                  "1",
+                  "Spell"
                 ]
               }
-            ],
-            "Trigger": {
-              "TypeName": "HeroDiesInThisRoom",
-              "Parameters": null
-            },
-            "CanAvoid": false
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA021",
       "Name": "Brainsucker Hive",
@@ -2006,45 +1774,39 @@
       "Damage": 1,
       "RoomCategory": 3,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": {
+          "TypeName": "WhenYouBuildThisRoom",
+          "Parameters": null
+        },
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DrawCards",
-                    "Parameters": [
-                      "2",
-                      "Spell"
-                    ]
-                  },
-                  {
-                    "TypeName": "DiscardSomeCardFromHand",
-                    "Parameters": [
-                      "1",
-                      "Spell"
-                    ]
-                  }
-                ]
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenYouBuildThisRoom",
-              "Parameters": null
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "DrawCards",
+                "Parameters": [
+                  "2",
+                  "Spell"
+                ]
+              },
+              {
+                "TypeName": "DiscardSomeCardFromHand",
+                "Parameters": [
+                  "1",
+                  "Spell"
+                ]
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA022",
       "Name": "Dark Laboratory",
@@ -2064,32 +1826,24 @@
       "Damage": 1,
       "RoomCategory": 6,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": {
+          "TypeName": "AtTheBeginingOfYourTurn",
+          "Parameters": null
+        },
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [],
+            "Commands": [
               {
-                "Targets": [],
-                "Commands": [
-                  {
-                    "TypeName": "ChooseCardToDraw",
-                    "Parameters": [
-                      "1"
-                    ]
-                  }
-                ]
+                "TypeName": "ChooseCardToDraw",
+                "Parameters": []
               }
-            ],
-            "Trigger": {
-              "TypeName": "AtTheBeginingOfYourTurn",
-              "Parameters": null
-            },
-            "CanAvoid": false
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA023",
       "Name": "Haunted Library",
@@ -2108,54 +1862,48 @@
       "Damage": 1,
       "RoomCategory": 6,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "OncePerTurn",
+            "Parameters": []
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "OncePerTurn",
+                "TypeName": "RoomInHand",
+                "Parameters": [
+                  "False",
+                  "1",
+                  "Any",
+                  "Monster",
+                  "Owner"
+                ]
+              },
+              {
+                "TypeName": "BossOwner",
                 "Parameters": []
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "RoomInHand",
-                    "Parameters": [
-                      "False",
-                      "1",
-                      "Any",
-                      "Monster",
-                      "Owner"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DiscardTargetRoomFromHand",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "DrawCards",
-                    "Parameters": [
-                      "1",
-                      "Spell"
-                    ]
-                  }
+                "TypeName": "DiscardTargetRoomFromHand",
+                "Parameters": []
+              },
+              {
+                "TypeName": "DrawCards",
+                "Parameters": [
+                  "1",
+                  "Spell"
                 ]
               }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA024",
       "Name": "Witch's Kitchen",
@@ -2174,55 +1922,49 @@
       "Damage": 3,
       "RoomCategory": 6,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "OncePerTurn",
+            "Parameters": []
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "OncePerTurn",
+                "TypeName": "SpellInHand",
+                "Parameters": [
+                  "True",
+                  "1",
+                  "Owner"
+                ]
+              }
+            ],
+            "Commands": [
+              {
+                "TypeName": "DiscardTargetSpellFromHand",
+                "Parameters": []
+              }
+            ]
+          },
+          {
+            "Targets": [
+              {
+                "TypeName": "LastSpellPlayed",
                 "Parameters": []
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "SpellInHand",
-                    "Parameters": [
-                      "True",
-                      "1",
-                      "Owner"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DiscardTargetSpellFromHand",
-                    "Parameters": []
-                  }
-                ]
-              },
-              {
-                "Targets": [
-                  {
-                    "TypeName": "LastSpellPlayed",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "CancelSpellAbility",
-                    "Parameters": []
-                  }
-                ]
+                "TypeName": "CancelSpellAbility",
+                "Parameters": []
               }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA025",
       "Name": "All-Seeing Eye",
@@ -2241,43 +1983,37 @@
       "Damage": 2,
       "RoomCategory": 2,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": {
+          "TypeName": "YouPlaySpellCard",
+          "Parameters": null
+        },
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [
+            "TypeName": "OncePerTurn",
+            "Parameters": []
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "TypeName": "OncePerTurn",
+                "TypeName": "BossOwner",
                 "Parameters": []
               }
             ],
-            "Effects": [
+            "Commands": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DrawCards",
-                    "Parameters": [
-                      "1",
-                      "Spell"
-                    ]
-                  }
+                "TypeName": "DrawCards",
+                "Parameters": [
+                  "1",
+                  "Spell"
                 ]
               }
-            ],
-            "Trigger": {
-              "TypeName": "YouPlaySpellCard",
-              "Parameters": null
-            },
-            "CanAvoid": false
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA026",
       "Name": "Liger's Den",
@@ -2296,40 +2032,34 @@
       "Damage": 1,
       "RoomCategory": 1,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "ThisRoom",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "HeroInThisRoom",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DestroyRoom",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "KillHero",
-                    "Parameters": []
-                  }
-                ]
+                "TypeName": "ThisRoom",
+                "Parameters": []
+              },
+              {
+                "TypeName": "HeroInThisRoom",
+                "Parameters": []
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "DestroyRoom",
+                "Parameters": []
+              },
+              {
+                "TypeName": "KillHero",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA027",
       "Name": "Bottomless Pit",
@@ -2348,45 +2078,39 @@
       "Damage": 1,
       "RoomCategory": 4,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "AnotherRoom",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "HeroInThisRoom",
-                    "Parameters": [
-                      "Any",
-                      "Owner"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DestroyRoom",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "DealHero",
-                    "Parameters": [
-                      "5"
-                    ]
-                  }
+                "TypeName": "AnotherRoom",
+                "Parameters": []
+              },
+              {
+                "TypeName": "HeroInThisRoom",
+                "Parameters": [
+                  "Any",
+                  "Owner"
                 ]
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "DestroyRoom",
+                "Parameters": []
+              },
+              {
+                "TypeName": "DealHero",
+                "Parameters": [
+                  "5"
+                ]
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA028",
       "Name": "Boulder Ramp",
@@ -2405,36 +2129,30 @@
       "Damage": 1,
       "RoomCategory": 6,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "NextRoom",
-                    "Parameters": [
-                      "Trap"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DealDamageToRoom",
-                    "Parameters": [
-                      "2"
-                    ]
-                  }
+                "TypeName": "NextRoom",
+                "Parameters": [
+                  "Trap"
                 ]
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "DealDamageToRoom",
+                "Parameters": [
+                  "2"
+                ]
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA029",
       "Name": "Dizzygas Hallway",
@@ -2453,42 +2171,43 @@
       "Damage": 1,
       "RoomCategory": 4,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "TypeName": "DuringPhase",
+            "Parameters": [
+              "Build"
+            ]
+          }
+        ],
+        "Effects": [
+          {
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "ThisRoom",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DestroyRoom",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "MultiplyTreasuresDungeon",
-                    "Parameters": [
-                      "2"
-                    ]
-                  }
-                ]
+                "TypeName": "ThisRoom",
+                "Parameters": []
+              },
+              {
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "DestroyRoom",
+                "Parameters": []
+              },
+              {
+                "TypeName": "MultiplyTreasuresDungeon",
+                "Parameters": [
+                  "2"
+                ]
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA030",
       "Name": "Jackpot Stash",
@@ -2508,38 +2227,32 @@
       "Damage": 3,
       "RoomCategory": 4,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": {
+          "TypeName": "WhenAnotherRoomIsDestroyed",
+          "Parameters": null
+        },
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DrawCards",
-                    "Parameters": [
-                      "2",
-                      "Room"
-                    ]
-                  }
-                ]
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenAnotherRoomIsDestroyed",
-              "Parameters": null
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "DrawCards",
+                "Parameters": [
+                  "2",
+                  "Room"
+                ]
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA031",
       "Name": "Recycling Center",
@@ -2558,44 +2271,36 @@
       "Damage": 2,
       "RoomCategory": 4,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": null,
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "AnotherRoom",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DestroyRoom",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "DealDamageToDungeon",
-                    "Parameters": [
-                      "2",
-					  "Any",
-                      "Any"
-                    ]
-                  }
-                ]
+                "TypeName": "AnotherRoom",
+                "Parameters": []
+              },
+              {
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "DestroyRoom",
+                "Parameters": []
+              },
+              {
+                "TypeName": "DealDamageToDungeon",
+                "Parameters": [
+                  "2"
+                ]
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA032",
       "Name": "The Crushinator",
@@ -2614,42 +2319,35 @@
       "Damage": 1,
       "RoomCategory": 2,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": true,
+        "Trigger": {
+          "TypeName": "WhenYouBuildThisRoom",
+          "Parameters": null
+        },
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossDungeon",
-                    "Parameters": [
-                      "False",
-                      "2",
-                      "Any",
-                      "Any",
-                      "Any",
-                      "False"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "SwapSlotInDungeon",
-                    "Parameters": []
-                  }
+                "TypeName": "RoomInDungeon",
+                "Parameters": [
+                  "True",
+                  "2",
+                  "Any",
+                  "Any",
+                  "Any"
                 ]
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenYouBuildThisRoom",
-              "Parameters": null
-            },
-            "CanAvoid": true
+            "Commands": [
+              {
+                "TypeName": "SwapSlotInDungeon",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA033",
       "Name": "Centipede Tunnel",
@@ -2669,35 +2367,29 @@
       "Damage": 1,
       "RoomCategory": 4,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": {
+          "TypeName": "WhenYouBuildThisRoom",
+          "Parameters": null
+        },
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "ExtraBuildTurn",
-                    "Parameters": []
-                  }
-                ]
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenYouBuildThisRoom",
-              "Parameters": null
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "ExtraBuildTurn",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA034",
       "Name": "Construction Zone",
@@ -2717,7 +2409,6 @@
       "Damage": 0,
       "RoomCategory": 5,
       "Ability": null,
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA035",
       "Name": "Dragon Hatchery",
@@ -2739,41 +2430,35 @@
       "Damage": 1,
       "RoomCategory": 2,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": {
+          "TypeName": "WhenYouBuildThisRoom",
+          "Parameters": null
+        },
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInTown",
-                    "Parameters": [
-                      "Ordinary"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PlaceAtDungeonEntrance",
-                    "Parameters": []
-                  }
+                "TypeName": "HeroInTown",
+                "Parameters": [
+                  "Ordinary"
                 ]
+              },
+              {
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenYouBuildThisRoom",
-              "Parameters": null
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "PlaceAtDungeonEntrance",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA036",
       "Name": "Mimic Vault",
@@ -2793,44 +2478,38 @@
       "Damage": 1,
       "RoomCategory": 5,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": {
+          "TypeName": "WhenYouBuildThisRoom",
+          "Parameters": null
+        },
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "RoomInDeck",
-                    "Parameters": [
-                      "1",
-                      "Any",
-                      "Monster",
-                      "DiscardPile"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PutCardInHand",
-                    "Parameters": []
-                  }
+                "TypeName": "RoomInDeck",
+                "Parameters": [
+                  "1",
+                  "Any",
+                  "Monster",
+                  "DiscardPile"
                 ]
+              },
+              {
+                "TypeName": "BossOwner",
+                "Parameters": []
               }
             ],
-            "Trigger": {
-              "TypeName": "WhenYouBuildThisRoom",
-              "Parameters": null
-            },
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "PutCardInHand",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA037",
       "Name": "Monstrous Monument",
@@ -2850,43 +2529,37 @@
       "Damage": 1,
       "RoomCategory": 4,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "ThisRoom",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "BossOpponent",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DestroyRoom",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "DiscardRandomCardFromHand",
-                    "Parameters": [
-                      "1",
-                      "Room"
-                    ]
-                  }
-                ]
+                "TypeName": "ThisRoom",
+                "Parameters": []
+              },
+              {
+                "TypeName": "BossOpponent",
+                "Parameters": []
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "DestroyRoom",
+                "Parameters": []
+              },
+              {
+                "TypeName": "DiscardRandomCardFromHand",
+                "Parameters": [
+                  "1",
+                  "Room"
+                ]
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA038",
       "Name": "Torture Chamber",
@@ -2906,45 +2579,38 @@
       "Damage": 1,
       "RoomCategory": 3,
       "Ability": {
-        "AbilityUnitInfo": [
+        "CanAvoid": false,
+        "Trigger": null,
+        "Conditions": [],
+        "Effects": [
           {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
+            "Targets": [
               {
-                "Targets": [
-                  {
-                    "TypeName": "ThisRoom",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "HeroInScorekeep",
-                    "Parameters": [
-                      "Opponent",
-                      "Dead",
-                      "Any",
-					  "False"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DestroyRoom",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "SendBackToDungeonEntrance",
-                    "Parameters": []
-                  }
+                "TypeName": "ThisRoom",
+                "Parameters": []
+              },
+              {
+                "TypeName": "HeroInScorekeep",
+                "Parameters": [
+                  "Opponent",
+                  "Dead",
+				  "Any"
                 ]
               }
             ],
-            "Trigger": null,
-            "CanAvoid": false
+            "Commands": [
+              {
+                "TypeName": "DestroyRoom",
+                "Parameters": []
+              },
+              {
+                "TypeName": "SendBackToDungeonEntrance",
+                "Parameters": []
+              }
+            ]
           }
         ]
       },
-      "Counter": 0,
       "ReplacesCardNumber": null,
       "CardNumber": "BMA039",
       "Name": "Zombie Prison",
@@ -2971,10 +2637,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -42
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA056",
       "Name": "Cleric",
@@ -2998,10 +2660,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -34
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA057",
       "Name": "Cleric",
@@ -3025,10 +2683,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -7,
-        "Y": -44
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA058",
       "Name": "Cleric",
@@ -3052,10 +2706,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -33
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA059",
       "Name": "Cleric",
@@ -3079,10 +2729,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -69
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA060",
       "Name": "Cleric",
@@ -3106,10 +2752,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -19,
-        "Y": -39
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA061",
       "Name": "Cleric",
@@ -3133,10 +2775,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 7,
-        "Y": -31
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA062",
       "Name": "Fighter",
@@ -3160,10 +2798,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -18
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA063",
       "Name": "Fighter",
@@ -3187,10 +2821,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -13
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA064",
       "Name": "Fighter",
@@ -3214,10 +2844,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -34
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA065",
       "Name": "Fighter",
@@ -3241,10 +2867,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -46
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA066",
       "Name": "Fighter",
@@ -3268,10 +2890,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -24
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA067",
       "Name": "Fighter",
@@ -3295,10 +2913,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -62
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA068",
       "Name": "Mage",
@@ -3322,10 +2936,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -6
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA069",
       "Name": "Mage",
@@ -3349,10 +2959,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 31,
-        "Y": -21
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA070",
       "Name": "Mage",
@@ -3376,10 +2982,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 20,
-        "Y": -8
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA071",
       "Name": "Mage",
@@ -3403,10 +3005,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 12,
-        "Y": -48
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA072",
       "Name": "Mage",
@@ -3430,10 +3028,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -33
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA073",
       "Name": "Mage",
@@ -3457,10 +3051,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 18,
-        "Y": -21
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA074",
       "Name": "Thief",
@@ -3484,10 +3074,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -59,
-        "Y": -18
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA075",
       "Name": "Thief",
@@ -3511,10 +3097,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 31,
-        "Y": -44
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA076",
       "Name": "Thief",
@@ -3538,10 +3120,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 29,
-        "Y": -33
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA077",
       "Name": "Thief",
@@ -3565,10 +3143,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 10,
-        "Y": -18
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA078",
       "Name": "Thief",
@@ -3592,10 +3166,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -9,
-        "Y": -78
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA079",
       "Name": "Thief",
@@ -3619,10 +3189,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -33,
-        "Y": -58
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA080",
       "Name": "The Fool",
@@ -3646,10 +3212,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -10
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA081",
       "Name": "Cleric",
@@ -3673,10 +3235,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -45
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA082",
       "Name": "Cleric",
@@ -3700,10 +3258,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -15
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA083",
       "Name": "Cleric",
@@ -3727,10 +3281,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -35
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA084",
       "Name": "Cleric",
@@ -3754,10 +3304,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 10,
-        "Y": -48
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA085",
       "Name": "Fighter",
@@ -3781,10 +3327,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -58
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA086",
       "Name": "Mage",
@@ -3808,10 +3350,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -35
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA087",
       "Name": "Mage",
@@ -3835,10 +3373,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 28,
-        "Y": -35
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA088",
       "Name": "Fighter",
@@ -3862,10 +3396,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 18,
-        "Y": -27
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA089",
       "Name": "Mage",
@@ -3889,10 +3419,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 0,
-        "Y": -20
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA090",
       "Name": "Thief",
@@ -3916,10 +3442,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 28,
-        "Y": -34
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA091",
       "Name": "Thief",
@@ -3943,10 +3465,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 7,
-        "Y": -45
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA092",
       "Name": "Thief",
@@ -3970,10 +3488,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -9,
-        "Y": -60
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA093",
       "Name": "Thief",
@@ -3997,10 +3511,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -22,
-        "Y": -45
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA094",
       "Name": "Thief",
@@ -4024,10 +3534,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": -9,
-        "Y": -41
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA095",
       "Name": "Thief",
@@ -4051,10 +3557,6 @@
         "Parameters": null
       },
       "Ability": null,
-      "CharacterOffset": {
-        "X": 18,
-        "Y": -16
-      },
       "ReplacesCardNumber": null,
       "CardNumber": "BMA096",
       "Name": "Thief",

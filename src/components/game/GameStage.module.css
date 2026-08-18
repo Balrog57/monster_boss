@@ -1,0 +1,35 @@
+.letterbox {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.stage {
+  width: 1920px;
+  height: 1080px;
+  position: relative;
+  flex-shrink: 0;
+  transform-origin: center center;
+  overflow: hidden;
+  color: #fff;
+  font-family: var(--bm-font-body);
+}
+
+.bg {
+  position: absolute;
+  inset: 0;
+  width: 1920px;
+  height: 1080px;
+  object-fit: cover;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.stage > *:not(.bg) {
+  z-index: 1;
+}

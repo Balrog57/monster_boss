@@ -19,23 +19,46 @@ export function countVisibleRooms(dungeon) {
   return allActiveRooms(dungeon).filter(Boolean).length;
 }
 
+function playerOf(G, playerId) {
+  return G.players[playerId] || G.players[String(playerId)];
+}
+
+/** All treasure icons in a dungeon (boss + visible rooms). Duplicates count. */
 export function dungeonTreasures(G, playerId) {
-  const p = G.players[playerId];
+  const p = playerOf(G, playerId);
   if (!p || !p.boss) return [];
-  const treasures = new Set(p.boss.treasures || []);
-  for (const stack of p.dungeon) {
+  const treasures = [...(p.boss.treasures || [])];
+  for (const stack of p.dungeon || []) {
     const room = activeRoom(stack);
     if (!room) continue;
-    for (const t of room.treasures || []) treasures.add(t);
+    for (const t of room.treasures || []) treasures.push(t);
   }
-  return [...treasures];
+  return treasures;
+}
+
+function treasureKey(treasure) {
+  if (typeof treasure === 'number') return treasure;
+  const i = TREASURE_NAMES.indexOf(treasure);
+  return i > 0 ? i : treasure;
 }
 
 export function treasureCount(G, playerId, treasure) {
-  let count = dungeonTreasures(G, playerId).filter(t => t === treasure).length;
+  const key = treasureKey(treasure);
+  let count = dungeonTreasures(G, playerId).filter(t => t === key).length;
   // Jackpot Stash (BMA030): treasure values doubled this turn
-  if (G.effects?.treasureDoubled?.includes(playerId)) count *= 2;
+  const doubled = G.effects?.treasureDoubled;
+  if (doubled?.some(id => String(id) === String(playerId))) count *= 2;
   return count;
+}
+
+/** { 1: cleric, 2: fighter, 3: mage, 4: thief } counts for HUD readout. */
+export function treasureCountsByType(G, playerId) {
+  return {
+    1: treasureCount(G, playerId, 1),
+    2: treasureCount(G, playerId, 2),
+    3: treasureCount(G, playerId, 3),
+    4: treasureCount(G, playerId, 4),
+  };
 }
 
 export function resolveBait(G) {
@@ -69,7 +92,7 @@ export function resolveBait(G) {
     const order = playerOrderByXP(G.players);
     let best = null;
     for (const pid of order) {
-      const count = treasureCount(G, pid, hero.class);
+      const count = treasureCount(G, pid, hero.treasure ?? hero.class);
       if (best === null) {
         best = { pid, count, wounds: totalWounds(G.players[pid]), souls: totalSouls(G.players[pid]) };
       } else if (count > best.count) {

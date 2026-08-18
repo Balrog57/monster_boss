@@ -1,39 +1,9 @@
 {
-  "Name": "HeroKindCard",
+  "Name": "ToolsHeroKind",
   "BossCards": [],
   "SpellCards": [
     {
-      "SpellCategory": 0,
-      "Ability": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "ItemInScorekeep",
-                    "Parameters": [
-                      "Any",
-                      "Any"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "FlipItem",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "ReplacesCardNumber": null,
+      "Ability": null,
       "CardNumber": "THK025",
       "Name": "Excavation",
       "Subtitle": "-",
@@ -41,63 +11,16 @@
       "Treasures": null,
       "MinimumPlayers": 2,
       "Quantity": 2,
-      "AlternativeArts": 1
+      "AlternativeArts": 0
     }
   ],
   "RoomCards": [
     {
       "IsAdvanced": true,
       "RoomType": 0,
-      "Damage": 3,
-      "RoomCategory": 0,
-      "Ability": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [
-              {
-                "TypeName": "OncePerTurn",
-                "Parameters": []
-              },
-              {
-                "TypeName": "DuringPhase",
-                "Parameters": [
-                  "Build"
-                ]
-              }
-            ],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInTownWithItem",
-                    "Parameters": [
-                      "UnAttached"
-                    ]
-                  },
-                  {
-                    "TypeName": "ItemInTown",
-                    "Parameters": [
-                      "UnAttached"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "AttachItemToHero",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "Counter": 0,
-      "ReplacesCardNumber": null,
-      "CardNumber": "THK022",
+      "Damage": 0,
+      "Ability": null,
+      "CardNumber": "THK021",
       "Name": "Orcish Smithy",
       "Subtitle": "Advanced Monster Room",
       "Description": "Once per turn during the Build phase, choose an unattached Item in town. You may attach it to any Hero, regardless of Treasure type.",
@@ -111,65 +34,9 @@
     {
       "IsAdvanced": true,
       "RoomType": 1,
-      "Damage": 3,
-      "RoomCategory": 0,
-      "Ability": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [
-              {
-                "TypeName": "OncePerTurn",
-                "Parameters": []
-              }
-            ],
-            "Effects": [
-			{
-				"Targets": [
-                  {
-                    "TypeName": "RoomInHand",
-                    "Parameters": [
-                      "True",
-                      "2",
-                      "Any",
-                      "Any",
-                      "Owner"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DiscardTargetRoomFromHand",
-                    "Parameters": []
-                  }
-                ]
-              },
-              {
-                "Targets": [
-                  {
-                    "TypeName": "ItemInScorekeep",
-                    "Parameters": [
-                      "FaceDown",
-                      "Owner"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "FlipItem",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "Counter": 0,
-      "ReplacesCardNumber": null,
-      "CardNumber": "THK021",
+      "Damage": 0,
+      "Ability": null,
+      "CardNumber": "THK022",
       "Name": "Burial Mound",
       "Subtitle": "Advanced Trap Room",
       "Description": "Once per turn, you may discard two Room cards to flip over a face-down Item card in your scorekeeping area.",
@@ -183,55 +50,8 @@
     {
       "IsAdvanced": true,
       "RoomType": 1,
-      "Damage": 3,
-      "RoomCategory": 0,
-      "Ability": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [
-              {
-                "TypeName": "OncePerTurn",
-                "Parameters": []
-              }
-            ],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "ItemInScorekeep",
-                    "Parameters": [
-                      "FaceUp",
-                      "Owner"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "FlipItem",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "DrawCards",
-                    "Parameters": [
-                      "1",
-                      "Spell"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "Counter": 0,
-      "ReplacesCardNumber": null,
+      "Damage": 0,
+      "Ability": null,
       "CardNumber": "THK023",
       "Name": "Artificer's Workbench",
       "Subtitle": "Advanced Trap Room",
@@ -246,49 +66,8 @@
     {
       "IsAdvanced": true,
       "RoomType": 1,
-      "Damage": 3,
-      "RoomCategory": 0,
-      "Ability": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [
-              {
-                "TypeName": "OncePerTurn",
-                "Parameters": []
-              }
-            ],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInThisRoomWithItem",
-                    "Parameters": [
-                      "Attached"
-                    ]
-                  },
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PlaceItemAtScorekeep",
-                    "Parameters": [
-                      "FaceDown"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "Counter": 0,
-      "ReplacesCardNumber": null,
+      "Damage": 0,
+      "Ability": null,
       "CardNumber": "THK024",
       "Name": "Magnetic Ceiling",
       "Subtitle": "Advanced Trap Room",
@@ -304,66 +83,8 @@
   "HeroCards": [],
   "ItemCards": [
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "CannotDieByWounds",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "ThisHero",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PlaceAtTown",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "HeroDiesInThisRoom",
-              "Parameters": []
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByTreasures",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK001",
       "Name": "Extra Life",
       "Subtitle": "Cleric Item",
@@ -376,72 +97,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOpponents",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DiscardRandomCardFromHand",
-                    "Parameters": [
-                      "1",
-                      "Room"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DiscardRandomCardFromHand",
-                    "Parameters": [
-                      "2",
-                      "Room"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "HeroSurvives",
-              "Parameters": []
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByTreasures",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK002",
       "Name": "Holy Hand Grenade",
       "Subtitle": "Cleric Item",
@@ -454,86 +111,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "RoomInDungeon",
-                    "Parameters": [
-                      "True",
-                      "1",
-                      "Advanced",
-                      "Any",
-                      "Any",
-                      "False"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DestroyRoom",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [
-              {
-                "TypeName": "OncePerTurn",
-                "Parameters": []
-              }
-            ],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "ThisHero",
-                    "Parameters": []
-                  },
-				  {
-                    "TypeName": "RoomWithHero",
-                    "Parameters": [
-					  "Any",
-                      "Advanced",
-					  "Any"
-					  ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DestroyRoomWithHero",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "HeroSurvivesThisRoom",
-              "Parameters": []
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByTreasures",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK003",
       "Name": "Inquisitor's Robes",
       "Subtitle": "Cleric Item",
@@ -546,73 +125,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInScorekeep",
-                    "Parameters": [
-                      "Owner",
-                      "Alive",
-                      "Ordinary",
-                      "False"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "RemoveHeroFromTheGame",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DealDungeonQueue",
-                    "Parameters": [
-                      "2"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "ThisHeroEntersDungeon",
-              "Parameters": null
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByTreasures",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK004",
       "Name": "Staff of Healing",
       "Subtitle": "Cleric Item",
@@ -625,70 +139,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DealDamageToDungeon",
-                    "Parameters": [
-                      "1",
-                      "Monster",
-                      "Ordinary"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "ThisHero",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DisableDamageFromDungeon",
-                    "Parameters": [
-                      "Monster",
-                      "Ordinary"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByTreasures",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK005",
       "Name": "Goblin Suit",
       "Subtitle": "Fighter Item",
@@ -701,85 +153,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInDungeon",
-                    "Parameters": [
-                      "Any",
-                      "Opponent"
-                    ]
-                  },
-				  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }                  
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DealHeroIfDungeon",
-                    "Parameters": [
-                      "1",
-                      "Monster",
-                      "Any"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "ThisHero",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DealHeroIfDungeon",
-                    "Parameters": [
-                      "1",
-                      "Monster",
-                      "Any"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "ThisHeroEntersDungeon",
-              "Parameters": []
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByTreasures",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK006",
       "Name": "Claws of the Berserker",
       "Subtitle": "Fighter Item",
@@ -792,73 +167,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInDungeon",
-                    "Parameters": [
-                      "Any",
-                      "Any"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DealHero",
-                    "Parameters": [
-                      "-5"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "ThisHero",
-                    "Parameters": null
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DealHero",
-                    "Parameters": [
-                      "-5"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "HeroAppearsInQueue",
-              "Parameters": []
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByTreasures",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK007",
       "Name": "Oversized Sword",
       "Subtitle": "Fighter Item",
@@ -871,69 +181,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "HalfDeadHero",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "KillHero",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "AddToBossScoreKeepUntilEndOfTurn",
-                    "Parameters": [
-                      "1",
-                      "Wound"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "HeroSurvives",
-              "Parameters": []
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByTreasures",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK008",
       "Name": "Vorpal Blade",
       "Subtitle": "Fighter Item",
@@ -946,72 +195,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOpponent",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DiscardRandomCardFromHand",
-                    "Parameters": [
-                      "1",
-                      "Spell"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DiscardRandomCardFromHand",
-                    "Parameters": [
-                      "2",
-                      "Spell"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "HeroSurvives",
-              "Parameters": []
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByTreasures",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK009",
       "Name": "Antimagic Lizard",
       "Subtitle": "Mage Item",
@@ -1024,77 +209,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "RoomInDungeon",
-                    "Parameters": [
-                      "True",
-                      "1",
-                      "Any",
-                      "Any",
-                      "Opponent",
-                      "False"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DeactivateRoom",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "RoomWithHero",
-                    "Parameters": [
-					  "Any",
-                      "Any",
-					  "Any"
-					  ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DeactivateRoom",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "HeroSurvivesThisRoom",
-              "Parameters": []
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByTreasures",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK010",
       "Name": "Ice Rod",
       "Subtitle": "Mage Item",
@@ -1107,61 +223,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "PlayableFaceUpItemInGame",
-                    "Parameters": []
-                  }
-                ],
-				"Commands": []
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "ReverseDungeonOrder",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "ThisHeroEntersDungeon",
-              "Parameters": []
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByTreasures",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK011",
       "Name": "Magic Mirror",
       "Subtitle": "Mage Item",
@@ -1174,72 +237,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DrawCards",
-                    "Parameters": [
-                      "1",
-                      "Spell"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOpponents",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DrawCards",
-                    "Parameters": [
-                      "1",
-                      "Spell"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "HeroSurvives",
-              "Parameters": []
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByTreasures",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK012",
       "Name": "Necronomicon",
       "Subtitle": "Mage Item",
@@ -1252,81 +251,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "RoomMultyTreasure",
-                    "Parameters": [
-                      "1",
-                      "DiscardPile"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "PutCardInHand",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "ThisHero",
-                    "Parameters": []
-                  },
-				  {
-                    "TypeName": "RoomWithHero",
-                    "Parameters": [
-					  "Any",
-                      "Any",
-					  "MultiTreasure"
-					  ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DestroyRoomWithHero",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "HeroSurvivesThisRoom",
-              "Parameters": []
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByTreasures",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK013",
       "Name": "Bag of Holding",
       "Subtitle": "Thief Item",
@@ -1339,73 +265,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "RoomInDungeon",
-                    "Parameters": [
-                      "True",
-                      "1",
-                      "Any",
-                      "Any",
-                      "Any",
-                      "False"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DeactivateRoomAbility",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DeactivateDungeonAbility",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "ThisHeroEntersDungeon",
-              "Parameters": []
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByTreasures",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK014",
       "Name": "Cheat Code",
       "Subtitle": "Thief Item",
@@ -1418,81 +279,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "RoomInDungeon",
-                    "Parameters": [
-                      "True",
-                      "1",
-                      "Any",
-                      "Trap",
-                      "Any",
-                      "False"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DeactivateRoom",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [
-              {
-                "TypeName": "OncePerTurn",
-                "Parameters": []
-              }
-            ],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "RoomFirstTypeInDungeon",
-                    "Parameters": [
-                      "Any",
-                      "Trap"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DeactivateRoom",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "ThisHeroEntersDungeon",
-              "Parameters": []
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByTreasures",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK015",
       "Name": "Ten Foot Pole",
       "Subtitle": "Thief Item",
@@ -1505,99 +293,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                { 
-                    "TypeName": "ActiveHeroInDungeon",                   
-                    "Parameters": [ 
-                      "Any", 
-                      "Owner" 
-                    ] 
-                  } ,
-                   {
-                    "TypeName": "RoomInDungeon",
-                    "Parameters": [
-                      "True",
-                      "1",
-                      "Any",
-                      "Any",
-                      "Owner",
-                      "True"
-                    ]
-                  }                                    
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DealHero",
-                    "Parameters": [
-                      "5"
-                    ]
-                  },
-                  {
-                    "TypeName": "DestroyRoomHero",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  },
-				  {
-                    "TypeName": "RoomWithHeroLast",
-                    "Parameters": []
-                  },
-				  {
-                    "TypeName": "ThisHero",
-                    "Parameters": []
-                  }  
-				  
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DestroyRoomWithHero",
-                    "Parameters": []
-                  },
-                  {
-                    "TypeName": "LastRoomTakesNoDamage",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "HeroEnterThisRoom",
-              "Parameters": []
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByTreasures",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK016",
       "Name": "The Bomb",
       "Subtitle": "Thief Item",
@@ -1610,73 +307,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "ActiveHeroInDungeon",
-                    "Parameters": [
-                      "Any",
-                      "Any"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "SkipNextRoom",
-                    "Parameters": [
-                      "-2"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "ThisHero",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "SkipNextRoom",
-                    "Parameters": [
-                      "-2"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "HeroSurvivesThisRoom",
-              "Parameters": null
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByFirstUnAttached",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK017",
       "Name": "Boots of Jumping",
       "Subtitle": "Universal Item",
@@ -1689,81 +321,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "RoomInDungeon",
-                    "Parameters": [
-                      "True",
-                      "1",
-                      "Any",
-                      "Monster",
-                      "Any",
-                      "False"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DeactivateRoom",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [
-              {
-                "TypeName": "OncePerTurn",
-                "Parameters": []
-              }
-            ],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "RoomFirstTypeInDungeon",
-                    "Parameters": [
-                      "Any",
-                      "Monster"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DeactivateRoom",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "ThisHeroEntersDungeon",
-              "Parameters": []
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByFirstUnAttached",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK018",
       "Name": "Pet Monster",
       "Subtitle": "Universal Item",
@@ -1776,70 +335,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "HeroInScorekeep",
-                    "Parameters": [
-                      "Owner",
-                      "Alive",
-                      "Any",
-                      "True"
-                    ]
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "RemoveHeroFromTheGame",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "ThisHero",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DisableDamageFromFirstRooms",
-                    "Parameters": [
-                      "3"
-                    ]
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByFirstUnAttached",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK019",
       "Name": "Star of Invulnerability",
       "Subtitle": "Universal Item",
@@ -1852,73 +349,8 @@
       "AlternativeArts": 0
     },
     {
-      "BossAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [
-              {
-                "TypeName": "DuringPhase",
-                "Parameters": [
-                  "Adventure"
-                ]
-              }
-            ],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "SpellCardJustPlayed",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "CancelSpellAbility",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": null,
-            "CanAvoid": false
-          }
-        ]
-      },
-      "HeroAbility": {
-        "AbilityUnitInfo": [
-          {
-            "AbilityUnitType": 0,
-            "Conditions": [],
-            "Effects": [
-              {
-                "Targets": [
-                  {
-                    "TypeName": "BossOwner",
-                    "Parameters": []
-                  }
-                ],
-                "Commands": [
-                  {
-                    "TypeName": "DisablePlaySpells",
-                    "Parameters": []
-                  }
-                ]
-              }
-            ],
-            "Trigger": {
-              "TypeName": "HeroAppearsInQueue",
-              "Parameters": null
-            },
-            "CanAvoid": false
-          }
-        ]
-      },
-      "AttachCondition": {
-        "TypeName": "AttachedByFirstUnAttached",
-        "Parameters": null
-      },
-      "ReplacesCardNumber": null,
+      "BossAbility": null,
+      "HeroAbility": null,
       "CardNumber": "THK020",
       "Name": "Ring of Invisibility",
       "Subtitle": "Universal Item",

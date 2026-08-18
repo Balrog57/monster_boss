@@ -1,6 +1,6 @@
 /* SpellTargetOverlay.module.css */
 .overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: var(--bm-z-modal);
   background: rgba(0, 0, 0, 0.75);

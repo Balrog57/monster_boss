@@ -1,77 +1,47 @@
-/* TownPanel.module.css */
-.col { display: flex; flex-direction: column; gap: var(--bm-space-4); width: 320px; flex-shrink: 0; }
+.col {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 6px 0;
+  gap: 8px;
+  min-height: 0;
+}
+.banner {
+  width: 183px;
+  height: 48px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+.townCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
 .heroWrap { position: relative; display: inline-block; animation: bm-hero-enter 0.35s var(--bm-ease-out) both; }
 .treasureIcon {
   position: absolute;
-  bottom: -4px;
-  left: -4px;
+  bottom: -2px;
+  left: -2px;
   width: 22px;
   height: 22px;
   image-rendering: pixelated;
-  border: 2px solid #1a1a1a;
-  background: rgba(0, 0, 0, 0.7);
-  border-radius: 0;
-  z-index: var(--bm-z-sticky);
+  z-index: 3;
   pointer-events: none;
 }
-.epicBadge {
-  position: absolute;
-  top: -6px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--bm-gold-500, #f1e17c);
-  color: #000;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: var(--bm-tracking-caps);
-  padding: 1px var(--bm-space-2);
-  border: 2px solid #1a1a1a;
-  border-radius: 0;
-  z-index: var(--bm-z-sticky);
-  white-space: nowrap;
-  pointer-events: none;
-}
-.entranceBox {
-  background: linear-gradient(180deg, rgba(127, 29, 29, 0.3) 0%, rgba(20, 18, 30, 0.9) 100%);
-  border: 2px solid var(--bm-danger-dark);
-  border-radius: var(--bm-radius-xl);
-  padding: var(--bm-space-4);
-}
-.entranceHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--bm-space-3);
-}
-.entranceLabel { color: var(--bm-danger); font-weight: 800; font-size: var(--bm-text-sm); letter-spacing: var(--bm-tracking-wide); }
-.entranceRow { display: flex; align-items: center; }
-.townBox {
-  background: linear-gradient(180deg, rgba(20, 18, 30, 0.7) 0%, rgba(10, 8, 15, 0.9) 100%);
-  border: 2px solid var(--bm-border-500);
-  border-radius: var(--bm-radius-xl);
-  padding: var(--bm-space-4);
-  flex: 1;
-}
-.townHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--bm-space-3); }
-.townTitle { color: var(--bm-gold); font-weight: 800; font-size: var(--bm-text-sm); letter-spacing: var(--bm-tracking-caps); text-transform: uppercase; }
-.townCount { color: var(--bm-gold); font-weight: 800; font-size: var(--bm-text-xl); background: rgba(0, 0, 0, 0.4); padding: 0 var(--bm-space-4); border-radius: var(--bm-radius-pill); }
-.townRow { display: flex; align-items: center; }
-.empty { color: var(--bm-text-300); font-size: var(--bm-text-sm); font-style: italic; padding: var(--bm-space-4); }
 .resolveBtn {
-  background: var(--bm-gradient-violet);
-  color: #fff;
+  width: 75px;
+  height: 82px;
   border: none;
-  border-radius: var(--bm-radius-md);
-  padding: var(--bm-space-3) var(--bm-space-5);
-  font-weight: 700;
-  font-size: var(--bm-text-xs);
   cursor: pointer;
+  flex-shrink: 0;
+  background: url('/ui/ingame/go_button.png') center/contain no-repeat;
+  image-rendering: pixelated;
 }
-
-@media (max-width: 768px) {
-  .col { width: 100%; }
-  /* Hero rows scroll horizontally; shrink hero cards to fit small screens. */
-  .entranceRow, .townRow { overflow-x: auto; padding-bottom: var(--bm-space-3); }
-  .heroWrap > div:first-child { width: 72px !important; }
-  .treasureIcon { width: 18px; height: 18px; }
-}
+.resolveBtn:active { background-image: url('/ui/ingame/go_button_pressed.png'); }

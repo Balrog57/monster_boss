@@ -8,7 +8,8 @@
 //   - passive damage/treasure modifiers → handled in engine.js (roomDamageWithModifiers)
 //   - "when a hero dies in this room" → onHeroDiedInRoom
 
-import { activeRoom, allActiveRooms, destroyRoom, countVisibleRooms } from './engine.js';
+import { activeRoom, allActiveRooms, destroyRoom, countVisibleRooms, dungeonTreasures } from './engine.js';
+export { dungeonTreasures };
 import { drawCards } from './cardData.js';
 
 export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
@@ -40,18 +41,6 @@ export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
   }
 
   return Math.max(0, dmg);
-}
-
-export function dungeonTreasures(G, playerId) {
-  const p = G.players[playerId];
-  if (!p || !p.boss) return [];
-  const treasures = new Set(p.boss.treasures || []);
-  for (const stack of p.dungeon) {
-    const room = activeRoom(stack);
-    if (!room) continue;
-    for (const t of room.treasures || []) treasures.add(t);
-  }
-  return [...treasures];
 }
 
 // Returns null normally, or a pendingChoice object if a player choice is needed.
