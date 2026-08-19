@@ -10,9 +10,10 @@
 // The returned shape matches what AppBoard.jsx expects so the board works
 // unchanged in both modes.
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { setupMatch, applyMove, playerView, legalMoves } from '../../server/reducer.js';
-import { aiEnumerate } from '../ai.js';
+import { setupMatch, applyMove, playerView, legalMoves, pickOpeningDiscardIndices } from '../../server/reducer.js';
+import { aiEnumerate, aiPickMove } from '../ai.js';
 import { aiResolveLevelUpChoice } from '../roomAbilities.js';
+import { aiDelayMs } from '../audio.js';
 import {
   joinMatch, sendMove, subscribeState, subscribeEnded, subscribeErrors, subscribeNotifications, disconnect
 } from './socket.js';
@@ -68,7 +69,7 @@ export function useOnlineMatch({ matchID, playerID, credentials, onExitMatch }) 
   // moves: thin wrappers that send socket events. The server applies the move
   // and broadcasts the new state back, which updates G/ctx via subscribeState.
   const moves = useRef({}).current;
-  for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'playSpell', 'resolveNextHero', 'pass', 'activateRoom', 'resolveLevelUpChoice']) {
+  for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'playSpell', 'resolveNextHero', 'pass', 'activateRoom', 'resolveLevelUpChoice', 'openingDiscard']) {
     moves[type] = (...args) => sendMove(matchID, { type, args });
   }
 
@@ -80,8 +81,8 @@ export function useOnlineMatch({ matchID, playerID, credentials, onExitMatch }) 
   return { G, ctx, moves, isActive: isActive(), isConnected, error, playerID, onExitMatch, turnDeadline, notification };
 }
 
-export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, onExitMatch }) {
-  const [state, setState] = useState(() => setupMatch(numPlayers));
+export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, setupData = {}, onExitMatch }) {
+  const [state, setState] = useState(() => setupMatch(numPlayers, setupData));
   const [, forceTick] = useState(0);
 
   const applyAndDriveAI = useCallback((nextState) => {
@@ -97,12 +98,23 @@ export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, onExitMatch })
           const choicePid = s.G.pendingChoice.playerId;
           const choicePlayer = s.G.players[choicePid];
           if (choicePlayer && choicePlayer.isAI) {
+            if (s.G.pendingChoice.type === 'opening-discard') {
+              const pair = pickOpeningDiscardIndices(choicePlayer.hand);
+              if (!pair) return;
+              const { state: ns, error } = applyMove({ G: s.G, ctx: s.ctx }, { type: 'openingDiscard', args: pair }, choicePid);
+              if (!error) {
+                s = { G: ns.G, ctx: ns.ctx };
+                setState(s);
+                setTimeout(step, aiDelayMs());
+              }
+              return;
+            }
             const optIdx = aiResolveLevelUpChoice(s.G, s.G.pendingChoice);
             const { state: ns, error } = applyMove({ G: s.G, ctx: s.ctx }, { type: 'resolveLevelUpChoice', args: [optIdx] }, choicePid);
             if (!error) {
               s = { G: ns.G, ctx: ns.ctx };
               setState(s);
-              setTimeout(step, 300);
+              setTimeout(step, aiDelayMs());
               return;
             }
           }
@@ -113,15 +125,12 @@ export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, onExitMatch })
         if (!p || (p.isAI && !p.eliminated && !s.G.gameOver)) {
           const moves = legalMoves(s.G, s.ctx, s.ctx.activePlayer);
           if (moves.length > 0) {
-            const candidates = aiEnumerate(s.G, s.ctx, s.ctx.activePlayer);
-            const pick = (candidates && candidates.length > 0)
-              ? { type: candidates[0].move, args: candidates[0].args }
-              : moves[0];
+            const pick = aiPickMove(s.G, s.ctx, s.ctx.activePlayer) || moves[0];
             const { state: ns, error } = applyMove({ G: s.G, ctx: s.ctx }, pick, s.ctx.activePlayer);
             if (error) { return; }
             s = { G: ns.G, ctx: ns.ctx };
             setState(s);
-            setTimeout(step, 300);
+            setTimeout(step, aiDelayMs());
             return;
           }
           // AI has no legal moves — pass to advance the phase.
@@ -129,7 +138,7 @@ export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, onExitMatch })
             const { state: ns } = applyMove({ G: s.G, ctx: s.ctx }, { type: 'pass', args: [] }, s.ctx.activePlayer);
             s = { G: ns.G, ctx: ns.ctx };
             setState(s);
-            setTimeout(step, 300);
+            setTimeout(step, aiDelayMs());
             return;
           }
         }
@@ -141,7 +150,7 @@ export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, onExitMatch })
 
   // moves: apply locally via the reducer. playerID is always '0' for the human.
   const moves = useRef({}).current;
-  for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'playSpell', 'resolveNextHero', 'pass', 'activateRoom', 'resolveLevelUpChoice']) {
+  for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'playSpell', 'resolveNextHero', 'pass', 'activateRoom', 'resolveLevelUpChoice', 'openingDiscard']) {
     moves[type] = (...args) => {
       const { state: next, error } = applyMove({ G: state.G, ctx: state.ctx }, { type, args }, 0);
       if (error) { console.warn(`[move] ${type} rejected:`, error); return; }

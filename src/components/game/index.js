@@ -11,6 +11,7 @@ export { default as LogStrip } from './LogStrip.jsx';
 export { default as DetailPanel } from './DetailPanel.jsx';
 export { default as SpellTargetOverlay, spellNeedsTarget } from './SpellTargetOverlay.jsx';
 export { default as LevelUpChoiceOverlay } from './LevelUpChoiceOverlay.jsx';
+export { default as OpeningDiscardOverlay } from './OpeningDiscardOverlay.jsx';
 export { default as PhaseBanner } from './PhaseBanner.jsx';
 export { default as OptionsOverlay } from './OptionsOverlay.jsx';
 export { default as GameStage } from './GameStage.jsx';

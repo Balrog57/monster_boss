@@ -1,6 +1,7 @@
 // StatsSidebar.jsx - Right APK HUD: names, wounds/souls, treasures, decks, Level Up.
 import React from 'react';
 import { countVisibleRooms } from '../../engine.js';
+import { getCardImage } from '../../cardData.js';
 import TreasureReadout, { SoulWoundPiles } from './TreasureReadout.jsx';
 import s from './StatsSidebar.module.css';
 
@@ -17,6 +18,7 @@ const BOSS_TITLES = {
 
 function PlayerBlock({ player, treasures, active, compact, onInspect }) {
   if (!player?.boss) return null;
+  const portrait = getCardImage(player.boss.id, 'boss');
   return (
     <div className={`${s.block} ${active ? s.active : ''}`}>
       <button
@@ -24,8 +26,11 @@ function PlayerBlock({ player, treasures, active, compact, onInspect }) {
         type="button"
         onClick={onInspect ? () => onInspect({ card: player.boss, kind: 'boss' }) : undefined}
       >
-        <div className={s.name}>{player.boss.name}</div>
-        <div className={s.title}>{BOSS_TITLES[player.boss.id] || ''}</div>
+        {portrait && <img src={portrait} alt="" className={s.portrait} />}
+        <div className={s.nameWrap}>
+          <div className={s.name}>{player.boss.name}</div>
+          <div className={s.title}>{BOSS_TITLES[player.boss.id] || player.boss.subtitle || ''}</div>
+        </div>
       </button>
       <SoulWoundPiles souls={player.souls} wounds={player.wounds} />
       <TreasureReadout counts={treasures || {}} compact={compact} />
@@ -41,7 +46,7 @@ export default function StatsSidebar({
   const canLevel = countVisibleRooms(me.dungeon) >= 5 && !me.leveledUp;
 
   return (
-    <aside className={s.side} aria-label="Statistiques">
+    <aside className={s.side} aria-label="Statistics">
       {opponents.map((p, i) => (
         <PlayerBlock
           key={`opp-stat-${i}`}
@@ -55,11 +60,11 @@ export default function StatsSidebar({
 
       <div className={s.decks}>
         <div className={s.deck} title="Room deck">
-          <img src="/ui/ingame/rooms_icon.png" alt="" />
+          <img src="/ui/ingame/rooms_icon.webp" alt="" />
           <span>ROOM DECK ×{roomN}</span>
         </div>
         <div className={s.deck} title="Spell deck">
-          <img src="/ui/ingame/spells_icon.png" alt="" />
+          <img src="/ui/ingame/spells_icon.webp" alt="" />
           <span>SPELL DECK ×{spellN}</span>
         </div>
       </div>

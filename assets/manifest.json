@@ -11,15 +11,15 @@
   "lang": "fr",
   "icons": [
     {
-      "src": "/ui/logos/logo.png",
+      "src": "/ui/logos/bm_logo.webp",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/webp",
       "purpose": "any"
     },
     {
-      "src": "/ui/logos/logo.png",
+      "src": "/ui/logos/bm_logo.webp",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/webp",
       "purpose": "maskable"
     }
   ]

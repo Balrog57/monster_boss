@@ -15,6 +15,7 @@ const GAME = 'game';
 export default function App() {
   const [screen, setScreen] = useState(MENU);
   const [numPlayers, setNumPlayers] = useState(2);
+  const [expansions, setExpansions] = useState([]);
   const [match, setMatch] = useState(null);
 
   const goMenu = () => { stopMusic(); setScreen(MENU); setMatch(null); };
@@ -30,18 +31,21 @@ export default function App() {
 
       {screen === SETUP && (
           <SetupScreen
-            onStartLocal={(n) => { setNumPlayers(n); setMatch(null); setScreen(GAME); }}
+            onStartLocal={(n, packs) => {
+              setNumPlayers(n);
+              setExpansions(packs);
+              setMatch(null);
+              setScreen(GAME);
+            }}
             onBack={() => setScreen(MENU)}
           />
       )}
 
       {screen === LOBBY && (
-        <div style={{ minHeight: '100vh', background: '#000' }}>
-          <OnlineLobbyCustom
-            onJoined={(m) => { setMatch(m); setScreen(GAME); }}
-            onBack={() => setScreen(MENU)}
-          />
-        </div>
+        <OnlineLobbyCustom
+          onJoined={(m) => { setMatch(m); setScreen(GAME); }}
+          onBack={() => setScreen(MENU)}
+        />
       )}
 
       {screen === GAME && (
@@ -49,7 +53,7 @@ export default function App() {
             {match ? (
               <OnlineGame match={match} onExitToMenu={goMenu} onReplay={() => setScreen(LOBBY)} />
             ) : (
-              <LocalGame numPlayers={numPlayers} onExitToMenu={goMenu} onReplay={() => setScreen(SETUP)} />
+              <LocalGame numPlayers={numPlayers} expansions={expansions} onExitToMenu={goMenu} onReplay={() => setScreen(SETUP)} />
             )}
           </ErrorBoundary>
       )}
@@ -57,16 +61,16 @@ export default function App() {
   );
 }
 
-function LocalGame({ numPlayers, onExitToMenu, onReplay }) {
-  const m = useLocalMatch({ numPlayers, onExitMatch: onReplay });
+function LocalGame({ numPlayers, expansions, onExitToMenu, onReplay }) {
+  const m = useLocalMatch({ numPlayers, setupData: { expansions }, onExitMatch: onReplay });
   if (!m.G) {
     return (
       <Screen width="narrow">
-        <Spinner label="Préparation de la partie…" />
+        <Spinner label="Preparing game…" />
       </Screen>
     );
   }
-  return <AppBoard {...m} />;
+  return <AppBoard {...m} onExitToMenu={onExitToMenu} />;
 }
 
 function OnlineGame({ match, onExitToMenu, onReplay }) {
@@ -81,7 +85,7 @@ function OnlineGame({ match, onExitToMenu, onReplay }) {
     return (
       <Screen width="narrow" align="top">
         <h1 style={{ color: 'var(--bm-gold)', fontFamily: 'var(--bm-font-display)', fontSize: 'var(--bm-text-3xl)' }}>
-          Connexion à la partie…
+          Connecting…
         </h1>
         <Spinner size="lg" />
         {m.error && (
@@ -93,9 +97,9 @@ function OnlineGame({ match, onExitToMenu, onReplay }) {
             {m.error}
           </div>
         )}
-        <Button variant="ghost" onClick={onReplay}>Retour au lobby</Button>
+        <Button variant="ghost" onClick={onReplay}>Back to lobby</Button>
       </Screen>
     );
   }
-  return <AppBoard {...m} />;
+  return <AppBoard {...m} onExitToMenu={onExitToMenu} />;
 }

@@ -52,7 +52,7 @@
   appearance: none;
   flex: 1;
   height: 18px;
-  background: url('/ui/navigation/settings_slider_bar.png') center/100% 100% no-repeat;
+  background: url('/ui/navigation/settings_slider_bar.webp') center/100% 100% no-repeat;
   outline: none;
   cursor: pointer;
 }
@@ -61,7 +61,7 @@
   appearance: none;
   width: 22px;
   height: 26px;
-  background: url('/ui/navigation/settings_slider_button.png') center/contain no-repeat;
+  background: url('/ui/navigation/settings_slider_button.webp') center/contain no-repeat;
   image-rendering: pixelated;
   cursor: grab;
   border: none;
@@ -69,7 +69,7 @@
 .slider::-moz-range-thumb {
   width: 22px;
   height: 26px;
-  background: url('/ui/navigation/settings_slider_button.png') center/contain no-repeat;
+  background: url('/ui/navigation/settings_slider_button.webp') center/contain no-repeat;
   image-rendering: pixelated;
   cursor: grab;
   border: none;
@@ -91,15 +91,15 @@
 .ok {
   align-self: center;
   min-width: 140px;
-  padding: var(--bm-space-4) var(--bm-space-8);
-  background: url('/ui/buttons/ok_bt.png') center/100% 100% no-repeat;
+  padding: 0;
+  background: url('/ui/buttons/ok_bt.webp') center/contain no-repeat;
   border: none;
   border-radius: 0;
-  color: #fff;
-  font-weight: 800;
-  font-size: var(--bm-text-lg);
-  text-shadow: 1px 1px 2px #000;
+  color: transparent;
+  font-size: 0;
   cursor: pointer;
-  min-height: 44px;
+  width: 206px;
+  height: 99px;
+  image-rendering: pixelated;
 }
-.ok:active { background-image: url('/ui/buttons/ok_bt_pressed.png'); }
+.ok:active { background-image: url('/ui/buttons/ok_bt_pressed.webp'); }

@@ -1,28 +1,16 @@
 .col {
-  height: 100%;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 8px 6px 0;
+  flex-direction: row;
+  align-items: flex-end;
+  padding: 0;
   gap: 8px;
   min-height: 0;
-}
-.banner {
-  width: 183px;
-  height: 48px;
-  object-fit: contain;
-  image-rendering: pixelated;
-  flex-shrink: 0;
 }
 .townCol {
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  flex-direction: row;
+  align-items: flex-end;
   gap: 8px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-  width: 100%;
 }
 .heroWrap { position: relative; display: inline-block; animation: bm-hero-enter 0.35s var(--bm-ease-out) both; }
 .treasureIcon {
@@ -35,13 +23,14 @@
   z-index: 3;
   pointer-events: none;
 }
+.itemWrap { margin-top: 4px; }
 .resolveBtn {
   width: 75px;
   height: 82px;
   border: none;
   cursor: pointer;
   flex-shrink: 0;
-  background: url('/ui/ingame/go_button.png') center/contain no-repeat;
+  background: url('/ui/ingame/go_button.webp') center/contain no-repeat;
   image-rendering: pixelated;
 }
-.resolveBtn:active { background-image: url('/ui/ingame/go_button_pressed.png'); }
+.resolveBtn:active { background-image: url('/ui/ingame/go_button_pressed.webp'); }

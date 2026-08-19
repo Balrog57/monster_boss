@@ -69,16 +69,17 @@ export function resolveBait(G) {
   //   souls. Tie = stays in town.
   const lureAssignments = [];
   for (const hero of G.town) {
-    if (hero.class === 'The Fool' || hero.treasure === 0) {
-      // The Fool: lured to the player with the fewest souls.
+    if (hero.id === 'KSA014' || hero.class === 'The Fool' || hero.treasure === 0) {
+      // Demigod: fewest wounds. The Fool: fewest souls.
       const order = playerOrderByXP(G.players);
-      let fewestSouls = Infinity;
+      const useWounds = hero.id === 'KSA014';
+      let bestVal = Infinity;
       let target = null;
       let tied = false;
       for (const pid of order) {
-        const s = totalSouls(G.players[pid]);
-        if (s < fewestSouls) { fewestSouls = s; target = pid; tied = false; }
-        else if (s === fewestSouls) { tied = true; }
+        const v = useWounds ? totalWounds(G.players[pid]) : totalSouls(G.players[pid]);
+        if (v < bestVal) { bestVal = v; target = pid; tied = false; }
+        else if (v === bestVal) { tied = true; }
       }
       if (target != null && !tied) {
         lureAssignments.push({ hero, targetPlayerId: target, stayInTown: false });
@@ -209,6 +210,16 @@ export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
     dmg = monsterCount;
   }
 
+  // Goblin Suit: ignore ordinary Monster Rooms
+  if (hero?.item?.id === 'THK005' && room.type === 'monster' && !room.advanced) {
+    dmg = 0;
+  }
+
+  // Monster Hunter: Monster Rooms deal -1
+  if (hero?.id === 'KSA016' && room.type === 'monster') {
+    dmg = Math.max(0, dmg - 1);
+  }
+
   // Passive adjacency bonuses
   for (let i = 0; i < p.dungeon.length; i++) {
     if (i === roomIndex) continue;
@@ -225,6 +236,9 @@ export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
     }
   }
 
+  // Scythe (KSA005): last room +3 after level-up
+  if (p.scytheBoost && roomIndex === p.dungeon.length - 1) dmg += 3;
+
   return Math.max(0, dmg);
 }
 
@@ -234,6 +248,14 @@ export function heroHealthWithModifiers(G, hero) {
     for (const e of G.effects.heroHealthBonus) {
       if (e.heroId === hero.id) hp += e.amount;
     }
+  }
+  const itemId = hero.item?.id;
+  if (itemId === 'THK007') hp += 5; // Oversized Sword
+  if (itemId === 'THK004') hp += 2; // Staff of Healing (power-up)
+  if (itemId === 'THK006') {
+    const pid = G.adventure?.playerId;
+    const p = pid != null ? playerOf(G, pid) : null;
+    if (p) hp += allActiveRooms(p.dungeon).filter(r => r && r.type === 'monster').length;
   }
   return hp;
 }

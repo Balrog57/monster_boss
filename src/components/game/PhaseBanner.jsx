@@ -6,9 +6,9 @@ import { PHASE } from '../../cardData.js';
 import s from './PhaseBanner.module.css';
 
 const PHASE_META = {
-  [PHASE.BUILD]: { label: 'PHASE DE CONSTRUCTION', img: '/ui/ingame/build_phase.png', accent: 'var(--bm-gold-500, #f1e17c)' },
-  [PHASE.BAIT]: { label: 'PHASE D\u2019APP\u00c2T', img: '/ui/ingame/bait_phase.png', accent: 'var(--bm-success, #d2eb6d)' },
-  [PHASE.ADVENTURE]: { label: 'PHASE D\u2019AVENTURE', img: '/ui/ingame/adventure_phase.png', accent: 'var(--bm-danger, #ffb3ae)' },
+  [PHASE.BUILD]: { label: 'BUILD PHASE', img: '/ui/ingame/build_phase.webp', accent: 'var(--bm-gold-500, #f1e17c)' },
+  [PHASE.BAIT]: { label: 'BAIT PHASE', img: '/ui/ingame/bait_phase.webp', accent: 'var(--bm-success, #d2eb6d)' },
+  [PHASE.ADVENTURE]: { label: 'ADVENTURE PHASE', img: '/ui/ingame/adventure_phase.webp', accent: 'var(--bm-danger, #ffb3ae)' },
 };
 
 export default function PhaseBanner({ phase }) {

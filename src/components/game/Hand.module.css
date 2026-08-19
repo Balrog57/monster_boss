@@ -2,9 +2,8 @@
   height: 100%;
   display: flex;
   align-items: flex-end;
+  justify-content: center;
   padding: 0 8px 4px;
-  background: url('/ui/ingame/bg_bottom.png') center bottom/100% 127px no-repeat;
-  image-rendering: pixelated;
   position: relative;
 }
 .tabs {
@@ -19,20 +18,21 @@
   height: 70px;
   border: none;
   cursor: pointer;
-  background: url('/ui/ingame/my_rooms_bt.png') center/contain no-repeat;
+  background: url('/ui/ingame/my_rooms_bt.webp') center/contain no-repeat;
   image-rendering: pixelated;
   padding: 0;
 }
 .tabSpells {
-  background-image: url('/ui/ingame/my_spells_bt.png');
+  background-image: url('/ui/ingame/my_spells_bt.webp');
 }
-.tabOff.tab { background-image: url('/ui/ingame/my_rooms_bt_inactive.png'); }
-.tabOff.tabSpells { background-image: url('/ui/ingame/my_spells_bt_inactive.png'); }
-.tab:active { background-image: url('/ui/ingame/my_rooms_bt_pressed.png'); }
-.tabSpells:active { background-image: url('/ui/ingame/my_spells_bt_pressed.png'); }
+.tabOff.tab { background-image: url('/ui/ingame/my_rooms_bt_inactive.webp'); }
+.tabOff.tabSpells { background-image: url('/ui/ingame/my_spells_bt_inactive.webp'); }
+.tab:active { background-image: url('/ui/ingame/my_rooms_bt_pressed.webp'); }
+.tabSpells:active { background-image: url('/ui/ingame/my_spells_bt_pressed.webp'); }
 .row {
   display: flex;
   align-items: flex-end;
+  justify-content: center;
   flex: 1;
   gap: 6px;
   overflow-x: auto;
@@ -54,9 +54,9 @@
   cursor: pointer;
   flex-shrink: 0;
   margin: 0 8px 8px auto;
-  background: url('/ui/ingame/pass_button.png') center/contain no-repeat;
+  background: url('/ui/ingame/pass_button.webp') center/contain no-repeat;
   image-rendering: pixelated;
 }
-.passBtn:active { background-image: url('/ui/ingame/pass_button_pressed.png'); }
-.doneBtn { background-image: url('/ui/ingame/done_button_unlimited.png'); }
-.doneBtn:active { background-image: url('/ui/ingame/done_button_unlimited_pressed.png'); }
+.passBtn:active { background-image: url('/ui/ingame/pass_button_pressed.webp'); }
+.doneBtn { background-image: url('/ui/ingame/done_button_unlimited.webp'); }
+.doneBtn:active { background-image: url('/ui/ingame/done_button_unlimited_pressed.webp'); }

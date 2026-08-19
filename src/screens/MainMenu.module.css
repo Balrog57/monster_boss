@@ -2,6 +2,15 @@
   position: absolute;
   inset: 0;
 }
+.introHit {
+  position: absolute;
+  inset: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  color: inherit;
+}
 .logo {
   position: absolute;
   top: 36px;
@@ -11,6 +20,26 @@
   height: auto;
   pointer-events: none;
   filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.75));
+  image-rendering: pixelated;
+}
+.tap {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  transform: translate(-50%, -50%);
+  font-family: var(--bm-font-display);
+  font-size: 42px;
+  font-weight: 400;
+  letter-spacing: 6px;
+  color: rgba(255, 255, 255, 0.88);
+  text-shadow: 3px 3px 0 #000;
+  animation: tapPulse 1.6s ease-in-out infinite;
+  pointer-events: none;
+  white-space: nowrap;
+}
+@keyframes tapPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
 }
 .back {
   position: absolute;
@@ -20,11 +49,11 @@
   height: 98px;
   border: none;
   cursor: pointer;
-  background: url('/ui/buttons/back_bt.png') center/contain no-repeat;
+  background: url('/ui/buttons/back_bt.webp') center/contain no-repeat;
   image-rendering: pixelated;
   z-index: 2;
 }
-.back:active { background-image: url('/ui/buttons/back_bt_pressed.png'); }
+.back:active { background-image: url('/ui/buttons/back_bt_pressed.webp'); }
 
 .grid {
   position: absolute;
@@ -34,6 +63,7 @@
   height: 470px;
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
   gap: 36px 70px;
 }
 .cell {
@@ -42,27 +72,33 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  border: 4px solid #c9a227;
-  background: rgba(8, 8, 10, 0.78);
+  border: none;
+  background: url('/ui/buttons/big_button.webp') center/100% 100% no-repeat;
   color: #f3f0e4;
   cursor: pointer;
-  font-family: var(--bm-font-body);
+  font-family: var(--bm-font-display);
   font-size: 28px;
-  font-weight: 800;
+  font-weight: 400;
   letter-spacing: 2px;
   text-shadow: 2px 2px 0 #000;
-  box-shadow: 0 0 18px rgba(201, 162, 39, 0.35), inset 0 0 0 2px rgba(0,0,0,0.6);
+  image-rendering: pixelated;
 }
 .cell img {
   height: 64px;
   width: auto;
   image-rendering: pixelated;
 }
-.cell:hover { border-color: #f1e17c; }
-.cell:active { transform: translateY(2px); }
-.dead {
-  cursor: default;
-  opacity: 0.45;
+.cell:not(:disabled):hover,
+.cell:not(:disabled):focus-visible {
+  background-image: url('/ui/buttons/big_button_selected.webp');
+}
+.cell:not(:disabled):active { transform: translateY(2px); }
+.cellGhost { visibility: hidden; pointer-events: none; }
+.choiceOn {
+  background: url('/ui/buttons/choice_on.webp') center/100% 100% no-repeat;
+  color: #f1e17c;
+  text-shadow: 2px 2px 0 #000;
+  opacity: 1;
 }
 
 .stack {
@@ -77,17 +113,19 @@
 }
 .wide {
   height: 96px;
-  border: 4px solid #c9a227;
-  background: rgba(8, 8, 10, 0.82);
+  border: none;
+  background: url('/ui/buttons/settings_bt.webp') center/100% 100% no-repeat;
   color: #fff;
+  font-family: var(--bm-font-display);
   font-size: 32px;
-  font-weight: 800;
+  font-weight: 400;
   letter-spacing: 3px;
   text-shadow: 2px 2px 0 #000;
   cursor: pointer;
+  image-rendering: pixelated;
 }
 .wide:disabled { opacity: 0.4; cursor: default; }
-.wide:not(:disabled):hover { border-color: #f1e17c; }
+.wide:not(:disabled):hover { filter: brightness(1.12); }
 
 .settings {
   position: absolute;
@@ -106,26 +144,26 @@
 .setLabel {
   width: 280px;
   text-align: right;
+  font-family: var(--bm-font-display);
   font-size: 32px;
-  font-weight: 800;
+  font-weight: 400;
   letter-spacing: 3px;
   color: #fff;
   text-shadow: 2px 2px 0 #000;
 }
 .choice {
-  min-width: 160px;
+  min-width: 140px;
   height: 64px;
-  border: 3px solid #555;
-  background: rgba(0,0,0,0.5);
+  border: none;
+  background: url('/ui/buttons/button.webp') center/100% 100% no-repeat;
   color: #ccc;
-  font-size: 26px;
-  font-weight: 800;
+  font-family: var(--bm-font-display);
+  font-size: 22px;
+  font-weight: 400;
   letter-spacing: 2px;
   cursor: pointer;
+  text-transform: uppercase;
+  image-rendering: pixelated;
+  opacity: 0.45;
 }
-.choiceOn {
-  border-color: #c9a227;
-  background: url('/ui/buttons/button.png') center/cover no-repeat;
-  color: #fff;
-  text-shadow: 2px 2px 0 #000;
-}
+.choice.choiceOn { opacity: 1; }

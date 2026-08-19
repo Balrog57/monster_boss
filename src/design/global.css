@@ -15,9 +15,9 @@ html, body, #app {
   font-family: var(--bm-font-body);
   font-size: var(--bm-text-md);
   line-height: var(--bm-leading-normal);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  text-rendering: optimizeSpeed;
 }
 
 body { overflow-x: hidden; }

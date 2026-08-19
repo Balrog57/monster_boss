@@ -7,35 +7,137 @@
   justify-content: center;
   padding: 40px;
 }
+.logo {
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 560px;
+  height: auto;
+  pointer-events: none;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.75));
+}
 .title {
   font-size: 42px;
-  font-weight: 900;
+  font-weight: 400;
   text-align: center;
-  margin: 0 0 8px;
-  color: #fff;
+  margin: 88px 0 8px;
+  color: #f1e17c;
   text-shadow: 3px 3px 0 #000;
   font-family: var(--bm-font-display);
+  letter-spacing: 4px;
 }
-.subtitle { text-align: center; color: #ddd; font-size: 18px; margin: 0 0 28px; text-shadow: 1px 1px 0 #000; }
+.subtitle {
+  text-align: center;
+  color: #ddd;
+  font-size: 18px;
+  margin: 0 0 28px;
+  text-shadow: 1px 1px 0 #000;
+  font-family: var(--bm-font-display);
+}
 .grid { display: flex; justify-content: center; flex-wrap: wrap; gap: 28px; }
 .bossCard {
-  background: rgba(0, 0, 0, 0.45);
-  border: 3px solid;
-  padding: 12px;
+  background: url('/ui/buttons/big_button.webp') center/100% 100% no-repeat;
+  border: none;
+  padding: 18px 16px 12px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   color: inherit;
   font: inherit;
+  image-rendering: pixelated;
 }
-.bossCard:disabled { cursor: not-allowed; opacity: 0.4; }
-.bossName { font-weight: 800; font-size: 22px; margin-top: 10px; text-shadow: 1px 1px 0 #000; }
-.bossMeta { font-size: 14px; color: #ccc; margin-top: 4px; }
+.bossCard:not(:disabled):hover,
+.picked {
+  background-image: url('/ui/buttons/big_button_selected.webp');
+}
+.bossCard:disabled { cursor: not-allowed; }
+.taken { opacity: 0.4; }
+.bossName {
+  font-family: var(--bm-font-display);
+  font-weight: 400;
+  font-size: 22px;
+  margin-top: 10px;
+  text-shadow: 1px 1px 0 #000;
+}
+.bossMeta {
+  font-family: var(--bm-font-display);
+  font-size: 14px;
+  color: #ccc;
+  margin-top: 4px;
+}
 .pickedTag {
   margin-top: 8px;
-  padding: 4px 10px;
-  background: #2a7;
-  color: #fff;
-  font-weight: 800;
+  padding: 6px 14px;
+  background: url('/ui/buttons/button.webp') center/100% 100% no-repeat;
+  color: #f1e17c;
+  font-family: var(--bm-font-display);
+  font-weight: 400;
+  letter-spacing: 2px;
+  image-rendering: pixelated;
+}
+.inBoard {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.82);
+  padding: 24px;
+}
+.inBoardHeader {
+  font-family: var(--bm-font-display);
+  font-size: 36px;
+  color: #f1e17c;
+  text-shadow: 2px 2px 0 #000;
+  margin-bottom: 24px;
+  letter-spacing: 2px;
+}
+.inBoardRow {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.inBoardSlot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.backBoss {
+  width: 140px;
+  height: auto;
+  image-rendering: pixelated;
+}
+.playBossBtn {
+  margin-top: 8px;
+  width: 220px;
+  height: 64px;
+  border: none;
+  cursor: pointer;
+  background: url('/ui/buttons/button.webp') center/100% 100% no-repeat;
+  image-rendering: pixelated;
+  font-family: var(--bm-font-display);
+  font-size: 14px;
+  color: #f1e17c;
+  text-shadow: 1px 1px 0 #000;
+  letter-spacing: 0.5px;
+}
+.playBossBtn::after { content: none; }
+.playBossTag {
+  margin-top: 8px;
+  color: #d2eb6d;
+  font-family: var(--bm-font-display);
+  font-size: 18px;
+  text-shadow: 1px 1px 0 #000;
+}
+.inBoardHint {
+  margin-top: 16px;
+  color: #ccc;
+  font-size: 16px;
 }

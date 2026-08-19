@@ -1,71 +1,101 @@
-// MainMenu.jsx - APK main menu: 2x2 SINGLE PLAYER / MULTIPLAYER / OPTIONS.
+// MainMenu.jsx - APK flow: TAP TO START → 2×2 menu (no store / no IAP).
 import React, { useEffect, useState } from 'react';
-import { playMusic, playSfx, SFX, isMuted, setMuted } from '../audio.js';
+import {
+  playMusic, playSfx, SFX, isMusicMuted, isSfxMuted, setMusicMuted, setSfxMuted,
+  getGameSpeed, setGameSpeed,
+} from '../audio.js';
 import GameStage from '../components/game/GameStage.jsx';
 import s from './MainMenu.module.css';
 
 export default function MainMenu({ onStart, onMultiplayer }) {
-  const [view, setView] = useState('root'); // root | options | settings
-  const [muted, setMutedState] = useState(isMuted());
+  const [view, setView] = useState('intro'); // intro | root | options | settings
+  const [musicOff, setMusicOff] = useState(isMusicMuted());
+  const [sfxOff, setSfxOff] = useState(isSfxMuted());
+  const [speed, setSpeed] = useState(getGameSpeed());
 
   useEffect(() => {
-    if (!isMuted()) playMusic('music_main', 0.35);
+    if (!isMusicMuted()) playMusic('music_main', 0.35);
   }, []);
 
   const click = (fn) => () => { playSfx(SFX.BUTTON); fn(); };
 
-  const toggleMute = () => {
-    const next = !muted;
-    setMuted(next);
-    setMutedState(next);
-    if (!next) playSfx(SFX.BUTTON, 0.5);
-  };
+  if (view === 'intro') {
+    return (
+      <GameStage bg="/ui/backgrounds/intro_bg.webp">
+        <button
+          className={s.introHit}
+          type="button"
+          id="main-content"
+          onClick={click(() => setView('root'))}
+          aria-label="Tap to start"
+        >
+          <img src="/ui/logos/bm_logo.webp" alt="Boss Monster" className={s.logo} />
+          <span className={s.tap}>TAP TO START</span>
+        </button>
+      </GameStage>
+    );
+  }
 
   return (
-    <GameStage bg="/ui/backgrounds/menu_bg.jpg">
+    <GameStage bg="/ui/backgrounds/menu_bg.webp">
       <div className={s.layout} id="main-content">
-        <img src="/ui/logos/bm_logo.png" alt="Boss Monster" className={s.logo} />
+        <img src="/ui/logos/bm_logo.webp" alt="Boss Monster" className={s.logo} />
 
-        {view !== 'root' && (
-          <button className={s.back} onClick={click(() => setView(view === 'settings' ? 'options' : 'root'))} type="button" aria-label="Retour" />
-        )}
+        <button
+          className={s.back}
+          onClick={click(() => setView(view === 'settings' ? 'options' : view === 'options' ? 'root' : 'intro'))}
+          type="button"
+          aria-label="Back"
+        />
 
         {view === 'root' && (
           <div className={s.grid} role="navigation">
             <button className={s.cell} type="button" onClick={click(onStart)}>
-              <img src="/ui/buttons/boss_icon.png" alt="" />
+              <img src="/ui/buttons/boss_icon.webp" alt="" />
               <span>SINGLE PLAYER</span>
             </button>
             <button className={s.cell} type="button" onClick={click(onMultiplayer)}>
-              <img src="/ui/buttons/boss_multi_icon.png" alt="" />
+              <img src="/ui/buttons/boss_multi_icon.webp" alt="" />
               <span>MULTIPLAYER</span>
             </button>
             <button className={s.cell} type="button" onClick={click(() => setView('options'))}>
-              <img src="/ui/buttons/options_icon.png" alt="" />
+              <img src="/ui/buttons/options_icon.webp" alt="" />
               <span>OPTIONS</span>
             </button>
-            <div className={`${s.cell} ${s.dead}`} aria-hidden="true">
-              <img src="/ui/buttons/inapp_icon.png" alt="" />
-              <span>IN-APP STORE</span>
-            </div>
+            <div className={s.cellGhost} aria-hidden="true" />
           </div>
         )}
 
         {view === 'options' && (
           <div className={s.stack}>
             <button className={s.wide} type="button" onClick={click(() => setView('settings'))}>SETTINGS</button>
-            <button className={s.wide} type="button" onClick={click(() => setView('root'))}>TUTORIAL</button>
-            <button className={s.wide} type="button" disabled>CARD GALLERY</button>
-            <button className={s.wide} type="button" disabled>CREDITS</button>
           </div>
         )}
 
         {view === 'settings' && (
           <div className={s.settings}>
             <div className={s.setRow}>
-              <span className={s.setLabel}>MUSIC / SOUND</span>
-              <button className={`${s.choice} ${!muted ? s.choiceOn : ''}`} type="button" onClick={() => { if (muted) toggleMute(); }}>ON</button>
-              <button className={`${s.choice} ${muted ? s.choiceOn : ''}`} type="button" onClick={() => { if (!muted) toggleMute(); }}>OFF</button>
+              <span className={s.setLabel}>MUSIC</span>
+              <button className={`${s.choice} ${!musicOff ? s.choiceOn : ''}`} type="button" onClick={() => { setMusicMuted(false); setMusicOff(false); playSfx(SFX.BUTTON); }}>ON</button>
+              <button className={`${s.choice} ${musicOff ? s.choiceOn : ''}`} type="button" onClick={() => { setMusicMuted(true); setMusicOff(true); }}>OFF</button>
+            </div>
+            <div className={s.setRow}>
+              <span className={s.setLabel}>SOUND</span>
+              <button className={`${s.choice} ${!sfxOff ? s.choiceOn : ''}`} type="button" onClick={() => { setSfxMuted(false); setSfxOff(false); playSfx(SFX.BUTTON); }}>ON</button>
+              <button className={`${s.choice} ${sfxOff ? s.choiceOn : ''}`} type="button" onClick={() => { setSfxMuted(true); setSfxOff(true); }}>OFF</button>
+            </div>
+            <div className={s.setRow}>
+              <span className={s.setLabel}>GAME SPEED</span>
+              {['slow', 'normal', 'fast'].map((v) => (
+                <button
+                  key={v}
+                  className={`${s.choice} ${speed === v ? s.choiceOn : ''}`}
+                  type="button"
+                  onClick={() => { setGameSpeed(v); setSpeed(v); playSfx(SFX.BUTTON); }}
+                >
+                  {v.toUpperCase()}
+                </button>
+              ))}
             </div>
           </div>
         )}

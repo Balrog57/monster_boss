@@ -25,13 +25,13 @@ export default function OptionsOverlay({ open, onClose }) {
     <div className={s.backdrop} onClick={onClose} role="presentation">
       <div className={s.panel} onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Options">
         <div className={s.header}>
-          <img src="/ui/buttons/options_icon.png" alt="" className={s.headerIcon} />
+          <img src="/ui/buttons/options_icon.webp" alt="" className={s.headerIcon} />
           <span className={s.title}>OPTIONS</span>
-          <button className={s.close} onClick={onClose} aria-label="Fermer" type="button">✕</button>
+          <button className={s.close} onClick={onClose} aria-label="Close" type="button">X</button>
         </div>
 
         <div className={s.row}>
-          <span className={s.label}>🔊 Volume principal</span>
+          <span className={s.label}>MASTER VOLUME</span>
           <div className={s.sliderWrap}>
             <input
               type="range"
@@ -40,25 +40,25 @@ export default function OptionsOverlay({ open, onClose }) {
               value={vol}
               onChange={handleVol}
               className={s.slider}
-              aria-label="Volume principal"
+              aria-label="Master volume"
             />
             <span className={s.volVal}>{vol}%</span>
           </div>
         </div>
 
         <div className={s.row}>
-          <span className={s.label}>🔇 Couper le son</span>
+          <span className={s.label}>MUTE</span>
           <button
             className={`${s.toggle} ${mute ? s.toggleOn : ''}`}
             onClick={handleMute}
             aria-pressed={mute}
             type="button"
           >
-            {mute ? 'OUI' : 'NON'}
+            {mute ? 'ON' : 'OFF'}
           </button>
         </div>
 
-        <button className={s.ok} onClick={onClose} type="button">OK</button>
+        <button className={s.ok} onClick={onClose} type="button" aria-label="OK">OK</button>
       </div>
     </div>
   );

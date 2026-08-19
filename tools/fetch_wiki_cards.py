@@ -1,170 +1,401 @@
 #!/usr/bin/env python3
-"""
-fetch_wiki_cards.py - Download card art from the Boss Monster wiki.
+"""Build 2.2.6 cardData.json from APK JSON + wiki HQ art (BMA / BMH / THK / KSA)."""
+from __future__ import annotations
 
-The wiki hosts clean, correctly-colored scans of every card. This replaces the
-broken APK extraction (the WPK E_RBG decode produces greenish/blue-tinted cards)
-with the authoritative reference images.
-
-Sources, per category (mirrors src/cardData.json):
-  bosses       BMA001-BMA008  -> assets/cards/bosses/
-  rooms        BMA009-BMA039  -> assets/cards/rooms/
-  spells       BMA040-BMA055  -> assets/cards/spells/
-  heroes (ord) BMA056-BMA080  -> assets/cards/heroes/
-  heroes (epic)BMA081-BMA096  -> assets/cards/epic-heroes/
-
-Card backs are NOT on the wiki; they are kept from the existing APK extraction
-(assets/cards/backs/).
-
-Usage:
-  python tools/fetch_wiki_cards.py            # download all 96 cards
-  python tools/fetch_wiki_cards.py --dry-run  # show what would be downloaded
-  python tools/fetch_wiki_cards.py --only BMA001,BMA002  # specific cards
-"""
-import argparse
 import json
 import os
+import re
 import sys
 import time
+import urllib.error
+import urllib.parse
 import urllib.request
+from io import BytesIO
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-WIKI_JSON = os.path.join(REPO, "wiki_images.json")
-CARD_DATA = os.path.join(REPO, "src", "cardData.json")
-ASSETS = os.path.join(REPO, "assets", "cards")
+try:
+    from PIL import Image
+except ImportError:
+    print("Pillow is required: pip install pillow", file=sys.stderr)
+    sys.exit(1)
 
-# Category -> (folder, id-set) derived from cardData.json at runtime.
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DECKS = os.path.join(ROOT, "boss-monster-2-2-6", "assets", "Content", "CardDecks")
+OUT_JSON = os.path.join(ROOT, "src", "cardData.json")
+OUT_CARDS = os.path.join(ROOT, "assets", "cards")
+WIKI_API = "https://bossmonster.fandom.com/api.php"
+UA = "BossMonsterFanPort/2.2.6 (local educational rebuild)"
+
+ROOM_TYPE = {0: "monster", 1: "trap"}
+CLASS_FROM_TREASURE = {0: "The Fool", 1: "Cleric", 2: "Fighter", 3: "Mage", 4: "Thief"}
+SETS = {
+    "BMA": "base",
+    "BMH": "hidden-heroes",
+    "THK": "tools",
+    "KSA": "players-choice",
+}
 
 
-def slugify(name):
-    """Convert a card name to a filename slug (matches existing convention)."""
-    out = []
-    for ch in name.lower():
-        if ch.isalnum():
-            out.append(ch)
-        elif ch in " -":
-            out.append("-")
+def slug(name: str) -> str:
+    s = (name or "").lower().replace("'", "-").replace("'", "-")
+    s = re.sub(r"[^a-z0-9]+", "-", s)
+    return s.strip("-") or "card"
+
+
+def load_deck(folder: str) -> dict:
+    path = os.path.join(DECKS, folder, "data.json")
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def set_of(cid: str) -> str:
+    prefix = (cid or "")[:3].upper()
+    return SETS.get(prefix, "base")
+
+
+def map_boss(c: dict) -> dict:
+    cid = c["CardNumber"]
+    return {
+        "id": cid,
+        "name": c.get("Name") or cid,
+        "xp": int(c.get("XP") or 0),
+        "treasures": list(c.get("Treasures") or []),
+        "advanced": False,
+        "levelUpDesc": c.get("Description") or "",
+        "subtitle": c.get("Subtitle") or "",
+        "set": set_of(cid),
+        "quantity": int(c.get("Quantity") or 1),
+    }
+
+
+def map_room(c: dict) -> dict:
+    cid = c["CardNumber"]
+    return {
+        "id": cid,
+        "name": c.get("Name") or cid,
+        "advanced": bool(c.get("IsAdvanced")),
+        "type": ROOM_TYPE.get(int(c.get("RoomType") or 0), "monster"),
+        "damage": int(c.get("Damage") or 0),
+        "treasures": list(c.get("Treasures") or []),
+        "quantity": int(c.get("Quantity") or 1),
+        "description": c.get("Description") or "",
+        "set": set_of(cid),
+    }
+
+
+def map_spell(c: dict) -> dict:
+    cid = c["CardNumber"]
+    return {
+        "id": cid,
+        "name": c.get("Name") or cid,
+        "category": int(c.get("SpellCategory") or 1),
+        "quantity": int(c.get("Quantity") or 1),
+        "description": c.get("Description") or "",
+        "set": set_of(cid),
+    }
+
+
+def map_hero(c: dict) -> dict:
+    cid = c["CardNumber"]
+    treasures = list(c.get("Treasures") or [0])
+    treasure = treasures[0] if treasures else 0
+    epic = bool(c.get("HasStar")) or int(c.get("Wounds") or 1) >= 2 or int(c.get("HeroType") or 0) == 1
+    name = c.get("Name") or cid
+    cls = CLASS_FROM_TREASURE.get(treasure, name)
+    if name == "The Fool" or treasure == 0:
+        cls = "The Fool"
+    return {
+        "id": cid,
+        "name": name,
+        "treasure": treasure,
+        "hp": int(c.get("Health") or 4),
+        "wounds": int(c.get("Wounds") or (2 if epic else 1)),
+        "souls": int(c.get("Souls") or (2 if epic else 1)),
+        "epic": epic,
+        "quantity": int(c.get("Quantity") or 1),
+        "description": (c.get("Description") or "").strip(),
+        "class": cls,
+        "playerCount": int(c.get("MinimumPlayers") or 2),
+        "set": set_of(cid),
+        "replaces": c.get("ReplacesCardNumber"),
+    }
+
+
+def map_item(c: dict) -> dict:
+    cid = c["CardNumber"]
+    treasures = list(c.get("Treasures") or [])
+    return {
+        "id": cid,
+        "name": c.get("Name") or cid,
+        "subtitle": c.get("Subtitle") or "",
+        "treasures": treasures,
+        "treasure": treasures[0] if treasures else 0,
+        "quantity": int(c.get("Quantity") or 1),
+        "description": c.get("Description") or "",
+        "set": set_of(cid),
+        "isItem": True,
+    }
+
+
+def by_id(cards: list[dict]) -> dict[str, dict]:
+    return {c["id"]: c for c in cards}
+
+
+def merge_heroes(base: list[dict], extras: list[dict]) -> list[dict]:
+    """Hidden Heroes replace matching BMA numbers; KSA heroes are added."""
+    out = by_id(base)
+    for h in extras:
+        replaces = h.pop("replaces", None)
+        if replaces and replaces in out:
+            # Keep the named identity from the replacement card.
+            out.pop(replaces, None)
+            out[h["id"]] = h
+        elif h["id"] not in out:
+            out[h["id"]] = h
         else:
-            out.append("-")
-    s = "".join(out)
-    while "--" in s:
-        s = s.replace("--", "-")
-    return s.strip("-")
+            out[h["id"]] = h
+    # Drop leftover replaces field on base heroes
+    for h in out.values():
+        h.pop("replaces", None)
+    return sorted(out.values(), key=lambda c: c["id"])
 
 
-def build_target_map(wiki):
-    """Return {card_id: (folder, slug)} for every card the game needs.
-
-    Uses the wiki's authoritative card name for the filename slug, fixing the
-    placeholder class-only names ('Cleric', 'Fighter', etc.) in cardData.json.
-    """
-    with open(CARD_DATA, encoding="utf-8") as f:
-        data = json.load(f)
-    targets = {}
-    for c in data["bosses"]:
-        name = wiki.get(c["id"], {}).get("name", c["name"])
-        targets[c["id"]] = ("bosses", slugify(name), name)
-    for c in data["rooms"]:
-        name = wiki.get(c["id"], {}).get("name", c["name"])
-        targets[c["id"]] = ("rooms", slugify(name), name)
-    for c in data["spells"]:
-        name = wiki.get(c["id"], {}).get("name", c["name"])
-        targets[c["id"]] = ("spells", slugify(name), name)
-    for c in data["heroes"]:
-        name = wiki.get(c["id"], {}).get("name", c["name"])
-        folder = "epic-heroes" if c.get("epic") else "heroes"
-        targets[c["id"]] = (folder, slugify(name), name)
-    return targets, data
+def http_json(url: str) -> dict:
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=30) as res:
+        return json.loads(res.read().decode("utf-8"))
 
 
-def download(url, dest):
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        data = r.read()
-    with open(dest, "wb") as f:
-        f.write(data)
-    return len(data)
+def http_bytes(url: str) -> bytes | None:
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    try:
+        with urllib.request.urlopen(req, timeout=45) as res:
+            return res.read()
+    except urllib.error.HTTPError:
+        return None
+    except urllib.error.URLError:
+        return None
 
 
-def cleanup_old_files(targets):
-    """Remove old placeholder-named JPGs (e.g. BMA056_cleric.jpg) now that we
-    save under the real card name (e.g. BMA056_nick-the-masher.jpg).
-    Applies to all card folders.
-    """
-    removed = 0
-    valid_names = {f"{cid}_{slug}.jpg" for cid, (folder, slug, _) in targets.items()}
-    for folder in ("bosses", "rooms", "spells", "heroes", "epic-heroes"):
-        d = os.path.join(ASSETS, folder)
-        if not os.path.isdir(d):
+def wiki_allimages(prefix: str) -> list[dict]:
+    out = []
+    cont = None
+    while True:
+        params = {
+            "action": "query",
+            "list": "allimages",
+            "aiprefix": prefix,
+            "ailimit": "500",
+            "aisort": "name",
+            "format": "json",
+        }
+        if cont:
+            params["aicontinue"] = cont
+        data = http_json(WIKI_API + "?" + urllib.parse.urlencode(params))
+        out.extend(data.get("query", {}).get("allimages", []))
+        cont = data.get("continue", {}).get("aicontinue")
+        if not cont:
+            break
+        time.sleep(0.15)
+    return out
+
+
+def kind_dir(card: dict, section: str) -> str:
+    if section == "bosses":
+        return "bosses"
+    if section == "rooms":
+        return "rooms"
+    if section == "spells":
+        return "spells"
+    if section == "items":
+        return "items"
+    if section == "heroes":
+        return "epic-heroes" if card.get("epic") else "heroes"
+    return section
+
+
+def save_webp(raw: bytes, dest: str) -> bool:
+    try:
+        im = Image.open(BytesIO(raw)).convert("RGBA")
+    except Exception:
+        return False
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    im.save(dest, "WEBP", quality=90, method=4)
+    return True
+
+
+def _name_score(filename: str, card: dict) -> int:
+    fn = slug(filename)
+    name = slug(card.get("name") or "")
+    if not name:
+        return 0
+    if "tbd" in fn:
+        return -50
+    if name in fn:
+        return 100
+    tokens = {t for t in name.split("-") if len(t) > 2}
+    fnt = set(fn.split("-"))
+    hit = len(tokens & fnt)
+    if not hit:
+        return -1
+    return hit * 10
+
+
+def download_wiki_art(cards_by_section: dict[str, list[dict]], name_map: dict[str, str]) -> int:
+    wanted = {}
+    for section, cards in cards_by_section.items():
+        for c in cards:
+            wanted[c["id"].upper()] = (c, section)
+            if c["id"].upper().startswith("BMA"):
+                wanted["BMR" + c["id"][3:]] = (c, section)
+
+    files = []
+    for prefix in ("BMA", "BMR", "BMH", "THK", "KSA"):
+        print(f"  wiki allimages {prefix}*")
+        files.extend(wiki_allimages(prefix))
+        time.sleep(0.2)
+
+    candidates: dict[str, list[tuple[int, dict]]] = {}
+    for info in files:
+        title = info.get("name") or info.get("title") or ""
+        m = re.match(r"(BMA|BMR|BMH|THK|KSA)(\d{3})", title.upper())
+        if not m:
             continue
-        for fn in os.listdir(d):
-            if fn.endswith(".jpg") and fn not in valid_names:
-                os.remove(os.path.join(d, fn))
-                removed += 1
-    return removed
+        key = m.group(1) + m.group(2)
+        if key not in wanted:
+            continue
+        card, _section = wanted[key]
+        cid = card["id"].upper()
+        score = _name_score(title, card)
+        if score < 0:
+            continue
+        candidates.setdefault(cid, []).append((score, info))
+
+    saved = 0
+    for cid, opts in candidates.items():
+        opts.sort(key=lambda x: (-x[0], len(x[1].get("name") or "")))
+        score, info = opts[0]
+        card, section = wanted[cid]
+        url = info.get("url")
+        if not url:
+            continue
+        raw = http_bytes(url)
+        if not raw:
+            continue
+        mapped = name_map.get(cid, slug(card["name"]))
+        dest = os.path.join(OUT_CARDS, kind_dir(card, section), f"{cid}_{mapped}.webp")
+        if save_webp(raw, dest):
+            saved += 1
+            print(f"    {cid} ({score}) <- {info.get('name')}")
+        time.sleep(0.05)
+
+    # Direct FilePath guesses for cards the prefix listing missed (heroes, BMH).
+    for section, cards in cards_by_section.items():
+        for card in cards:
+            cid = card["id"].upper()
+            dest = os.path.join(OUT_CARDS, kind_dir(card, section), f"{cid}_{name_map.get(cid, slug(card['name']))}.webp")
+            if os.path.exists(dest):
+                continue
+            guesses = [
+                f"{cid}.jpg", f"{cid}.png",
+                f"{cid}_{card['name'].replace(' ', '_')}.jpg",
+                f"{cid}_{card['name'].replace(' ', '_')}.png",
+            ]
+            if cid.startswith("BMA"):
+                guesses += [f"BMR{cid[3:]}.jpg", f"BMR{cid[3:]}.png"]
+            for guess in guesses:
+                url = f"https://bossmonster.fandom.com/wiki/Special:FilePath/{urllib.parse.quote(guess)}"
+                raw = http_bytes(url)
+                if raw and raw[:15] != b"<!DOCTYPE html" and len(raw) > 4000:
+                    if save_webp(raw, dest):
+                        saved += 1
+                        print(f"    {cid} <- {guess}")
+                        break
+            time.sleep(0.05)
+    return saved
+
+
+def copy_wiki_backs():
+    """Keep APK backs as wiki-path fallbacks so getWikiCardImage always resolves."""
+    backs = os.path.join(OUT_CARDS, "backs")
+    os.makedirs(backs, exist_ok=True)
+    apk = os.path.join(ROOT, "assets", "apk_cards")
+    mapping = {
+        "back_room.webp": os.path.join(apk, "base", "back_room.webp"),
+        "back_boss.webp": os.path.join(apk, "base", "back_boss.webp"),
+        "back_spell.webp": os.path.join(apk, "base", "back_spell.webp"),
+        "back_ordinary_hero.webp": os.path.join(apk, "base", "back_ordinary_hero.webp"),
+        "back_epic_hero.webp": os.path.join(apk, "base", "back_epic_hero.webp"),
+        "back_item.webp": os.path.join(apk, "tools", "back_item.webp"),
+    }
+    for dest_name, src in mapping.items():
+        dest = os.path.join(backs, dest_name)
+        if os.path.exists(dest):
+            continue
+        if os.path.exists(src):
+            im = Image.open(src).convert("RGBA")
+            im.save(dest, "WEBP", quality=90, method=4)
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Download card art from the wiki")
-    ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--only", help="comma-separated list of card IDs to fetch")
-    args = ap.parse_args()
+    if not os.path.isdir(DECKS):
+        print("Missing unpacked APK decks at", DECKS, file=sys.stderr)
+        sys.exit(1)
 
-    with open(WIKI_JSON, encoding="utf-8") as f:
-        wiki = json.load(f)
-    targets, card_data = build_target_map(wiki)
+    base = load_deck("BaseDeck")
+    hh = load_deck("HiddenHeros")
+    thk = load_deck("ToolsHeroKind")
+    ksa = load_deck("PlayerChoice")
 
-    only = set(args.only.split(",")) if args.only else None
-    ok = fail = skip = 0
-    name_map_updates = {}
-    hero_name_updates = {}  # cid -> real name, for heroes whose name was a class placeholder
+    bosses = [map_boss(c) for c in base.get("BossCards", [])]
+    bosses += [map_boss(c) for c in ksa.get("BossCards", [])]
 
-    for cid in sorted(targets):
-        if only and cid not in only:
-            continue
-        folder, slug, real_name = targets[cid]
-        if cid not in wiki:
-            print(f"  {cid}: SKIP (no wiki URL)")
-            skip += 1
-            continue
-        url = wiki[cid]["imageUrl"]
-        fname = f"{cid}_{slug}.jpg"
-        dest = os.path.join(ASSETS, folder, fname)
-        if args.dry_run:
-            print(f"  {cid} -> {folder}/{fname}  ({real_name})")
-            continue
-        try:
-            size = download(url, dest)
-            print(f"  {cid}: OK {size//1024}KB -> {folder}/{fname}")
-            ok += 1
-            name_map_updates[cid] = slug
-            # Track heroes that need their real name written back to cardData.
-            for c in card_data["heroes"]:
-                if c["id"] == cid and c["name"] != real_name:
-                    hero_name_updates[cid] = real_name
-            time.sleep(0.15)  # be polite to the wiki
-        except Exception as e:
-            print(f"  {cid}: FAIL ({e})")
-            fail += 1
+    rooms = [map_room(c) for c in base.get("RoomCards", [])]
+    rooms += [map_room(c) for c in thk.get("RoomCards", [])]
+    rooms += [map_room(c) for c in ksa.get("RoomCards", [])]
 
-    if not args.dry_run and not only:
-        # 1. Update hero names to their real wiki names (fixes the
-        #    'Cleric'/'Fighter'/'Mage'/'Thief' placeholders).
-        for c in card_data["heroes"]:
-            if c["id"] in hero_name_updates:
-                c["name"] = hero_name_updates[c["id"]]
-        # 2. Update nameMap with the real filename slugs.
-        card_data["nameMap"] = {**card_data.get("nameMap", {}), **name_map_updates}
-        with open(CARD_DATA, "w", encoding="utf-8") as f:
-            json.dump(card_data, f, indent=2, ensure_ascii=False)
-        print(f"\nUpdated {len(hero_name_updates)} hero names + "
-              f"{len(name_map_updates)} nameMap entries in {CARD_DATA}")
-        # Clean up the old generically-named files (heroes + any renamed cards).
-        removed = cleanup_old_files(targets)
-        if removed:
-            print(f"Removed {removed} obsolete JPGs (old names)")
+    spells = [map_spell(c) for c in base.get("SpellCards", [])]
+    spells += [map_spell(c) for c in thk.get("SpellCards", [])]
+    spells += [map_spell(c) for c in ksa.get("SpellCards", [])]
 
-    print(f"\nSummary: {ok} ok, {fail} failed, {skip} skipped")
+    heroes = merge_heroes(
+        [map_hero(c) for c in base.get("HeroCards", [])],
+        [map_hero(c) for c in hh.get("HeroCards", [])] + [map_hero(c) for c in ksa.get("HeroCards", [])],
+    )
+
+    items = [map_item(c) for c in thk.get("ItemCards", [])]
+
+    name_map = {c["id"]: slug(c["name"]) for c in bosses + rooms + spells + heroes + items}
+
+    payload = {
+        "bosses": bosses,
+        "rooms": rooms,
+        "spells": spells,
+        "heroes": heroes,
+        "items": items,
+        "nameMap": name_map,
+    }
+    os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)
+    with open(OUT_JSON, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    print(
+        f"wrote {OUT_JSON}: "
+        f"{len(bosses)} bosses, {len(rooms)} rooms, {len(spells)} spells, "
+        f"{len(heroes)} heroes, {len(items)} items"
+    )
+
+    copy_wiki_backs()
+    saved = download_wiki_art(
+        {
+            "bosses": bosses,
+            "rooms": rooms,
+            "spells": spells,
+            "heroes": heroes,
+            "items": items,
+        },
+        name_map,
+    )
+    print(f"wiki art saved: {saved}")
 
 
 if __name__ == "__main__":

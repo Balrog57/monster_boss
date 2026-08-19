@@ -18,7 +18,7 @@ export default function Spinner({ size = 'md', label, className = '', ...rest })
     <div
       className={[s.spinner, SIZE[size], className].filter(Boolean).join(' ')}
       role="status"
-      aria-label="Chargement"
+      aria-label="Loading"
       {...rest}
     />
   );

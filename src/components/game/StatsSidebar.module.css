@@ -9,15 +9,17 @@
 }
 .block {
   padding: 8px;
-  background: url('/ui/ingame/bg_boss_profile_selected_yellow.png') center top/100% auto no-repeat;
+  background: url('/ui/ingame/bg_boss_profile_selected_yellow.webp') center top/100% auto no-repeat;
   image-rendering: pixelated;
 }
 .active {
-  background-image: url('/ui/ingame/bg_player_turn_panel.png');
+  background-image: url('/ui/ingame/bg_player_turn_panel.webp');
   background-size: 100% 100%;
 }
 .nameBtn {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   background: none;
   border: none;
@@ -26,6 +28,16 @@
   cursor: pointer;
   color: inherit;
 }
+.portrait {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 2px solid #3a3a3a;
+  flex-shrink: 0;
+  image-rendering: pixelated;
+}
+.nameWrap { min-width: 0; }
 .name {
   font-size: 20px;
   font-weight: 900;
@@ -76,7 +88,7 @@
   border: none;
   cursor: pointer;
   flex-shrink: 0;
-  background: url('/ui/ingame/levelup_bt.png') center/contain no-repeat;
+  background: url('/ui/ingame/levelup_bt.webp') center/contain no-repeat;
   image-rendering: pixelated;
   opacity: 0.55;
 }
@@ -85,4 +97,4 @@
   opacity: 0.9;
   filter: grayscale(0.2);
 }
-.levelUp:active { background-image: url('/ui/ingame/levelup_bt_pressed.png'); }
+.levelUp:active { background-image: url('/ui/ingame/levelup_bt_pressed.webp'); }

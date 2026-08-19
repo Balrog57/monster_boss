@@ -1,0 +1,45 @@
+.overlay {
+  position: absolute;
+  inset: 0;
+  z-index: var(--bm-z-modal, 40);
+  pointer-events: none;
+}
+.prompt {
+  pointer-events: none;
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 640px;
+  padding: 14px 36px;
+  text-align: center;
+  background: #2a1638;
+  border: 3px solid #e8c44a;
+  color: #f3e08a;
+  font-family: var(--bm-font-display);
+  font-size: 28px;
+  letter-spacing: 2px;
+  text-shadow: 2px 2px 0 #000;
+}
+.row {
+  pointer-events: auto;
+  position: absolute;
+  left: 50%;
+  top: 48%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.slot {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+.slot.on { filter: brightness(1.12); }
+.ok {
+  display: none;
+}
+.ok:disabled { opacity: 0.35; cursor: default; }
+.ok:not(:disabled):active { background-image: url('/ui/buttons/ok_bt_pressed.webp'); }

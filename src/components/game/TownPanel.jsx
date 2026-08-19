@@ -1,4 +1,4 @@
-// TownPanel.jsx - Left APK column: HEROES IN TOWN.
+// TownPanel.jsx - Left APK column: HEROES IN TOWN + items.
 import React from 'react';
 import { PHASE, treasureIcon, TREASURE_NAMES } from '../../cardData.js';
 import Card from './Card.jsx';
@@ -18,21 +18,24 @@ function HeroCard({ hero, onInspect }) {
   );
 }
 
-export default function TownPanel({ me, town, phase, isMyTurn, onResolve, onInspect }) {
+export default function TownPanel({ me, playerId, town, townItems = [], phase, isMyTurn, adventure, onResolve, onInspect }) {
+  const showGo = phase === PHASE.ADVENTURE && isMyTurn && (
+    me.entrance.length > 0 || (adventure && String(adventure.playerId) === String(playerId))
+  );
   return (
-    <div className={s.col} aria-label="Héros en ville">
-      <img
-        src={town.some((h) => h.epic) ? '/ui/ingame/epic_heroes_in_town_top.png' : '/ui/ingame/heroes_in_town_top.png'}
-        alt="Heroes in Town"
-        className={s.banner}
-      />
+    <div className={s.col} aria-label="Heroes in town">
       <div className={s.townCol}>
         {town.map((h, i) => (
           <HeroCard key={`town-${h.id}-${i}`} hero={h} onInspect={onInspect} />
         ))}
+        {townItems.map((it, i) => (
+          <div key={`item-${it.id}-${i}`} className={s.itemWrap} title={it.name}>
+            <Card card={it} kind="item" size="xs" onInspect={onInspect} />
+          </div>
+        ))}
       </div>
-      {me.entrance.length > 0 && phase === PHASE.ADVENTURE && isMyTurn && (
-        <button className={s.resolveBtn} onClick={onResolve} type="button" aria-label="Résoudre le héros" />
+      {showGo && (
+        <button className={s.resolveBtn} onClick={onResolve} type="button" aria-label="Continue adventure" />
       )}
     </div>
   );

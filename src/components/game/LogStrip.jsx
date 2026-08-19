@@ -4,7 +4,7 @@ import s from './LogStrip.module.css';
 
 export default function LogStrip({ logs }) {
   return (
-    <div className={s.strip} role="log" aria-live="polite" aria-label="Journal du jeu">
+    <div className={s.strip} role="log" aria-live="polite" aria-label="Game log">
       {(logs || []).slice(-5).map((l, i) => (
         <div key={i} className={s.line}>{l}</div>
       ))}

@@ -39,7 +39,7 @@ export function lobbyRouter() {
 
   // Get one match.
   router.get('/matches/:id', async (ctx) => {
-    const row = await fetchMatch(ctx.params.id);
+    const row = await fetchMatch(String(ctx.params.id || '').toUpperCase());
     if (!row) { ctx.throw(404, 'match not found'); return; }
     ctx.body = {
       id: row.id,
@@ -53,10 +53,10 @@ export function lobbyRouter() {
     };
   });
 
-  // Create a new match.
+  // Create a new match (private 1v1 salon, 6-character code).
   router.post('/matches', async (ctx) => {
     const numPlayers = Number(ctx.request.body.numPlayers) || 2;
-    const setupData = ctx.request.body.setupData || {};
+    const setupData = { ...(ctx.request.body.setupData || {}), online: true };
     if (numPlayers < GAME_META.minPlayers || numPlayers > GAME_META.maxPlayers) {
       ctx.throw(400, `numPlayers must be ${GAME_META.minPlayers}..${GAME_META.maxPlayers}`);
       return;
@@ -65,11 +65,12 @@ export function lobbyRouter() {
     ctx.body = { matchID: id };
   });
 
-  // Join a match (takes a free seat automatically).
+  // Join a match (takes a free seat automatically). Code is case-insensitive.
   router.post('/matches/:id/join', async (ctx) => {
     const playerName = (ctx.request.body.playerName || '').toString().trim();
     if (!playerName) { ctx.throw(400, 'playerName is required'); return; }
-    const res = await joinMatchSeat(ctx.params.id, playerName);
+    const id = String(ctx.params.id || '').toUpperCase();
+    const res = await joinMatchSeat(id, playerName);
     if (!res.ok) { ctx.throw(409, res.error); return; }
     ctx.body = { playerID: res.playerID, credentials: res.credentials };
   });

@@ -1,6 +1,6 @@
 // GameOverScreen.jsx - Victory or Defeat screen shown when the game ends.
 import React, { useEffect } from 'react';
-import { Button, ErrorBoundary } from '../components/ui';
+import { ErrorBoundary } from '../components/ui';
 import { playSfx, SFX, stopMusic } from '../audio.js';
 import { getCardImage } from '../cardData.js';
 import s from './GameOverScreen.module.css';
@@ -8,7 +8,7 @@ import s from './GameOverScreen.module.css';
 export default function GameOverScreen({ winner, players, playerID, onReplay, onMenu }) {
   const iWon = String(winner) === String(playerID);
   const winnerPlayer = players[winner];
-  const winnerName = winnerPlayer?.boss?.name || `Joueur ${winner}`;
+  const winnerName = winnerPlayer?.boss?.name || `Player ${winner}`;
   const winnerBossImg = winnerPlayer?.boss ? getCardImage(winnerPlayer.boss.id, 'boss') : null;
 
   useEffect(() => {
@@ -16,11 +16,10 @@ export default function GameOverScreen({ winner, players, playerID, onReplay, on
     playSfx(iWon ? SFX.WIN : SFX.LOSE, 0.7);
   }, [iWon]);
 
-  // Scoreboard: rank players by souls, then wounds (fewer = better)
   const ranked = Object.entries(players)
     .map(([pid, p]) => ({
       pid,
-      name: p.boss?.name || `Joueur ${pid}`,
+      name: p.boss?.name || `Player ${pid}`,
       souls: (p.souls || []).length,
       wounds: (p.wounds || []).length,
       eliminated: p.eliminated,
@@ -32,10 +31,9 @@ export default function GameOverScreen({ winner, players, playerID, onReplay, on
     <ErrorBoundary>
       <div className={`${s.screen} ${iWon ? s.winBg : s.loseBg}`} role="dialog" aria-live="assertive">
         <div className={s.content}>
-          {/* Winner boss portrait with APK shine effect */}
           {winnerBossImg && (
             <div className={s.bossShowcase}>
-              {iWon && <img src="/ui/gradients/winner_boss_shine.png" alt="" className={s.shine} aria-hidden="true" />}
+              {iWon && <img src="/ui/gradients/winner_boss_shine.webp" alt="" className={s.shine} aria-hidden="true" />}
               <img
                 src={winnerBossImg}
                 alt={winnerName}
@@ -45,14 +43,14 @@ export default function GameOverScreen({ winner, players, playerID, onReplay, on
           )}
 
           <h1 className={`${s.title} ${iWon ? s.win : s.lose}`}>
-            {iWon ? '🏆 VICTOIRE !' : '💀 DÉFAITE'}
+            {iWon ? 'VICTORY' : 'DEFEAT'}
           </h1>
           <p className={s.headline}>
-            {iWon ? `${winnerName} a conquis le donjon !` : `${winnerName} a triomphé`}
+            {iWon ? `${winnerName} conquered the dungeon!` : `${winnerName} triumphed`}
           </p>
 
-          <div className={s.scoreboard} aria-label="Scores finaux">
-            <div className={s.scoreHeader}>Scores finaux</div>
+          <div className={s.scoreboard} aria-label="Final scores">
+            <div className={s.scoreHeader}>FINAL SCORES</div>
             {ranked.map((p, idx) => (
               <div
                 key={p.pid}
@@ -60,19 +58,19 @@ export default function GameOverScreen({ winner, players, playerID, onReplay, on
               >
                 <span className={s.rank}>{idx + 1}.</span>
                 <span className={s.playerName}>
-                  {p.name}{p.isMe && ' (vous)'}{p.eliminated && ' †'}
+                  {p.name}{p.isMe ? ' (you)' : ''}{p.eliminated ? ' X' : ''}
                 </span>
-                <span className={s.statLabel}>âmes</span>
+                <span className={s.statLabel}>souls</span>
                 <span className={s.statVal}>{p.souls}</span>
-                <span className={s.statLabel}>blessures</span>
+                <span className={s.statLabel}>wounds</span>
                 <span className={`${s.statVal} ${s.wounds}`}>{p.wounds}</span>
               </div>
             ))}
           </div>
 
           <div className={s.actions}>
-            <Button variant="primary" onClick={onReplay}>Rejouer</Button>
-            <Button variant="ghost" onClick={onMenu}>Menu principal</Button>
+            <button className={s.ok} type="button" onClick={onReplay} aria-label="Play again" />
+            <button className={s.menuBtn} type="button" onClick={onMenu}>MAIN MENU</button>
           </div>
         </div>
       </div>

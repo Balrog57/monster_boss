@@ -108,7 +108,7 @@ export default function Modal({ open, onClose, title, width = 'default', closabl
           <div className={s.header}>
             {title && <h2 id="bm-modal-title" className={s.title}>{title}</h2>}
             {closable && (
-              <button className={s.close} onClick={close} aria-label="Fermer" type="button">×</button>
+              <button className={s.close} onClick={close} aria-label="Close" type="button">×</button>
             )}
           </div>
         )}

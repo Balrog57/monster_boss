@@ -62,16 +62,29 @@ const SPELL_EFFECTS = {
     return true;
   },
 
-  // BMA041: Assassin — target hero in any dungeon gains +3 HP
+  // BMA041: Assassin — target hero in any opponent's dungeon gains +3 HP
   BMA041: (G, ctx, casterId, target) => {
     const heroId = target.heroId;
     if (!heroId) {
       G.logs.push('Assassin: no target hero.');
       return false;
     }
-    G.effects.heroHealthBonus.push({ heroId, amount: 3 });
-    G.logs.push('Assassin: targeted hero gains +3 Health.');
-    return true;
+    for (const [opid, op] of Object.entries(G.players)) {
+      if (Number(opid) === Number(casterId)) continue;
+      if (op.entrance.some(h => h.id === heroId)) {
+        G.effects.heroHealthBonus.push({ heroId, amount: 3 });
+        G.logs.push('Assassin: targeted hero gains +3 Health.');
+        return true;
+      }
+      if (G.adventure && Number(G.adventure.playerId) === Number(opid) && G.adventure.hero?.id === heroId) {
+        G.effects.heroHealthBonus.push({ heroId, amount: 3 });
+        G.adventure.hp += 3;
+        G.logs.push('Assassin: targeted hero gains +3 Health.');
+        return true;
+      }
+    }
+    G.logs.push('Assassin: target hero not found in an opponent\'s dungeon.');
+    return false;
   },
 
   // BMA047: Giant Size — Monster Room +3 damage until end of turn
@@ -102,7 +115,7 @@ const SPELL_EFFECTS = {
     return true;
   },
 
-  // BMA042: Cave-In — destroy a room in your dungeon
+  // BMA042: Cave-In — destroy a room in your dungeon; heroes in that room die
   BMA042: (G, ctx, casterId, target) => {
     const p = G.players[casterId];
     const idx = target.roomIndex != null ? target.roomIndex : p.dungeon.length - 1;
@@ -110,10 +123,24 @@ const SPELL_EFFECTS = {
       G.logs.push('Cave-In: no room to destroy.');
       return false;
     }
+    if (G.adventure && Number(G.adventure.playerId) === Number(casterId) && G.adventure.roomIndex === idx) {
+      const hero = G.adventure.hero;
+      G.adventure = null;
+      const ei = p.entrance.findIndex(h => h.id === hero.id);
+      if (ei >= 0) p.entrance.splice(ei, 1);
+      for (let i = 0; i < (hero.souls || 1); i++) {
+        p.souls.push({ souls: 1, name: hero.name, class: hero.class });
+      }
+      G.decks.heroDiscard.push(hero);
+      G.logs.push(`Cave-In: ${hero.name} in that room is destroyed.`);
+    }
     const stack = p.dungeon[idx];
     const destroyed = stack.pop();
     G.decks.roomDiscard.push(destroyed);
     if (stack.length === 0) p.dungeon.splice(idx, 1);
+    if (G.adventure && Number(G.adventure.playerId) === Number(casterId) && G.adventure.roomIndex > idx) {
+      G.adventure.roomIndex -= 1;
+    }
     G.logs.push(`Cave-In: ${destroyed.name} destroyed.`);
     return true;
   },
@@ -207,7 +234,13 @@ const SPELL_EFFECTS = {
       G.logs.push('Fear: no target hero.');
       return false;
     }
-    // Find hero in an entrance and return to town.
+    if (G.adventure?.hero?.id === heroId) {
+      const hero = G.adventure.hero;
+      G.adventure = null;
+      G.town.unshift(hero);
+      G.logs.push(`Fear: ${hero.name} returned to town.`);
+      return true;
+    }
     for (const p of Object.values(G.players)) {
       const idx = p.entrance.findIndex(h => h.id === heroId);
       if (idx >= 0) {
@@ -256,13 +289,17 @@ const SPELL_EFFECTS = {
       G.logs.push('Teleportation: no target hero.');
       return false;
     }
+    if (G.adventure && Number(G.adventure.playerId) === Number(casterId) && G.adventure.hero?.id === heroId) {
+      G.adventure.roomIndex = -1;
+      G.logs.push('Teleportation: hero restarts at the first room.');
+      return true;
+    }
     const p = G.players[casterId];
     const idx = p.entrance.findIndex(h => h.id === heroId);
     if (idx < 0) {
-      G.logs.push('Teleportation: target hero not at your entrance.');
+      G.logs.push('Teleportation: target hero not in your dungeon.');
       return false;
     }
-    // Mark hero to restart from first room. We'll track via an effect flag.
     G.effects.teleportHero = heroId;
     G.logs.push('Teleportation: hero will restart at the first room.');
     return true;
@@ -292,6 +329,25 @@ const SPELL_EFFECTS = {
     G.logs.push('Zombie Attack: a dead hero returns to an opponent\'s dungeon (+2 HP).');
     return true;
   },
+
+  KSA013: (G, ctx, casterId) => {
+    const p = G.players[casterId];
+    p.souls.push({ souls: 0, name: 'T.P.K.', tpk: true });
+    G.logs.push('T.P.K. is placed in your scorekeeping area.');
+    return true;
+  },
+
+  THK025: (G, ctx, casterId) => {
+    const p = G.players[casterId];
+    if (p.items?.length) {
+      const it = p.items[0];
+      it.faceDown = !it.faceDown;
+      G.logs.push(`Excavation: flipped ${it.name} ${it.faceDown ? 'face-down' : 'face-up'}.`);
+    } else {
+      G.logs.push('Excavation: no item to flip.');
+    }
+    return true;
+  },
 };
 
 function countVisibleRooms(dungeon) {
@@ -319,6 +375,11 @@ export function heroDamageFor(G, heroId) {
   return G.effects.heroDamage
     .filter(e => e.heroId === heroId)
     .reduce((sum, e) => sum + e.amount, 0);
+}
+
+export function consumeHeroDamage(G, heroId) {
+  if (!G.effects?.heroDamage) return;
+  G.effects.heroDamage = G.effects.heroDamage.filter(e => e.heroId !== heroId);
 }
 
 export function isRoomDeactivated(G, playerId, roomIndex) {

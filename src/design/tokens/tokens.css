@@ -52,11 +52,11 @@
   --bm-treasure-thief: #10b981;
 
   /* ----- Typography ----- */
-  --bm-font-display: 'arcadepix', 'Space Grotesk', sans-serif;
-  --bm-font-display-2: 'arcadepix2', 'Space Grotesk', sans-serif;
-  --bm-font-body: 'Space Mono', 'Consolas', monospace;
-  --bm-font-mono: 'Consolas', 'Monaco', monospace;
-  --bm-font-serif: 'bookman', 'Georgia', serif;
+  --bm-font-display: 'arcadepix', 'ArcadePix', sans-serif;
+  --bm-font-display-2: 'arcadepix2', 'ArcadePix2', sans-serif;
+  --bm-font-body: 'arcadepix', 'ArcadePix', sans-serif;
+  --bm-font-mono: 'arcadepix', 'Consolas', monospace;
+  --bm-font-serif: 'bookman', 'Bookman Old Style', Georgia, serif;
 
   --bm-text-xs: 11px;
   --bm-text-sm: 12px;

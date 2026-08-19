@@ -1,41 +1,111 @@
-// SetupScreen.jsx - APK "HOW MANY PLAYERS?" (2 / 3 / 4) then OK.
+// SetupScreen.jsx - APK "HOW MANY PLAYERS?" then expansion pack select.
 import React, { useState } from 'react';
 import { playSfx, SFX } from '../audio.js';
+import { BOSSES, EXPANSION_PACKS } from '../cardData.js';
 import GameStage from '../components/game/GameStage.jsx';
+import Card from '../components/game/Card.jsx';
 import s from './SetupScreen.module.css';
 
+const FANS = [
+  { n: 4, bossId: 'BMA001' },
+  { n: 2, bossId: 'BMA006' },
+  { n: 3, bossId: 'BMA005' },
+];
+
 export default function SetupScreen({ onStartLocal, onBack }) {
+  const [step, setStep] = useState('players'); // players | expansions
   const [n, setN] = useState(2);
+  const [packs, setPacks] = useState([]);
+
+  const togglePack = (id) => {
+    playSfx(SFX.BUTTON);
+    setPacks((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  };
+
+  const onOkPlayers = () => {
+    playSfx(SFX.BUTTON);
+    setStep('expansions');
+  };
+
+  const onOkExpansions = () => {
+    playSfx(SFX.BUTTON);
+    onStartLocal(n, packs);
+  };
+
+  const onBackClick = () => {
+    playSfx(SFX.BUTTON);
+    if (step === 'expansions') setStep('players');
+    else onBack();
+  };
 
   return (
-    <GameStage bg="/ui/backgrounds/menu_bg.jpg">
+    <GameStage bg="/ui/backgrounds/menu_bg.webp">
       <div className={s.layout} id="main-content">
-        <img src="/ui/logos/bm_logo.png" alt="" className={s.logo} />
-        <button className={s.back} onClick={() => { playSfx(SFX.BUTTON); onBack(); }} type="button" aria-label="Retour" />
+        <img src="/ui/logos/bm_logo.webp" alt="" className={s.logo} />
+        <button className={s.back} onClick={onBackClick} type="button" aria-label="Back" />
 
-        <div className={s.prompt}>HOW MANY PLAYERS?</div>
-        <div className={s.nums} role="radiogroup" aria-label="Nombre de joueurs">
-          {[2, 3, 4].map((v) => (
+        {step === 'players' && (
+          <>
+            <div className={s.prompt}>HOW MANY PLAYERS?</div>
+            <div className={s.fans} role="radiogroup" aria-label="How many players">
+              {FANS.map(({ n: v, bossId }) => {
+                const boss = BOSSES.find((b) => b.id === bossId) || BOSSES[0];
+                const on = n === v;
+                return (
+                  <button
+                    key={v}
+                    className={`${s.fan} ${on ? s.fanOn : s.fanOff}`}
+                    onClick={() => { playSfx(SFX.BUTTON); setN(v); }}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                  >
+                    <span className={`${s.num} ${on ? s.numOn : ''}`}>{v}</span>
+                    <Card card={boss} kind="boss" size="lg" />
+                  </button>
+                );
+              })}
+            </div>
+            <div className={s.hint}>{n === 2 ? 'You vs 1 AI' : n === 3 ? 'You vs 2 AI' : 'You vs 3 AI'}</div>
+            <button className={s.ok} onClick={onOkPlayers} type="button" aria-label="OK" />
+          </>
+        )}
+
+        {step === 'expansions' && (
+          <>
+            <div className={s.prompt}>SELECT EXPANSIONS</div>
+            <div className={s.packs} role="group" aria-label="Expansion packs">
+              {EXPANSION_PACKS.map((pack) => {
+                const on = packs.includes(pack.id);
+                return (
+                  <button
+                    key={pack.id}
+                    className={`${s.pack} ${on ? s.packOn : ''}`}
+                    onClick={() => togglePack(pack.id)}
+                    type="button"
+                    aria-pressed={on}
+                    aria-label={pack.label}
+                  >
+                    <img src={pack.cover} alt="" draggable={false} />
+                  </button>
+                );
+              })}
+            </div>
+            <div className={s.hint}>
+              {packs.length === 0
+                ? 'Base set only'
+                : packs.length === 1
+                  ? '1 pack selected'
+                  : `${packs.length} packs selected`}
+            </div>
             <button
-              key={v}
-              className={`${s.num} ${n === v ? s.numOn : ''}`}
-              onClick={() => { playSfx(SFX.BUTTON); setN(v); }}
+              className={s.ok}
+              onClick={onOkExpansions}
               type="button"
-              role="radio"
-              aria-checked={n === v}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
-        <div className={s.hint}>{n === 2 ? 'You vs 1 AI' : n === 3 ? 'You vs 2 AI' : 'You vs 3 AI'}</div>
-
-        <button
-          className={s.ok}
-          onClick={() => { playSfx(SFX.BUTTON); onStartLocal(n); }}
-          type="button"
-          aria-label="OK"
-        />
+              aria-label="OK"
+            />
+          </>
+        )}
       </div>
     </GameStage>
   );

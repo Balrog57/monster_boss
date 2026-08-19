@@ -1,17 +1,12 @@
-// AppBoard.jsx - Game board orchestrator.
-//
-// Composes the focused game components (Hud, OpponentRow, MyDungeon, TownPanel,
-// Hand, LogStrip, BossSelect, DetailPanel) and wires their interactions. The
-// state shape { G, ctx, moves, playerID, isActive, onExitMatch } is provided by
-// useOnlineMatch / useLocalMatch (see src/client/useMatch.js).
+// AppBoard.jsx - Game board orchestrator (APK 2.2.6 layout).
 import React, { useState, useEffect, useRef } from 'react';
 import { PHASE } from './cardData.js';
 import { treasureCountsByType } from './engine.js';
 import { playMusic, playSfx, SFX } from './audio.js';
 import { useGameSfx } from './hooks/useGameSfx.js';
 import {
-  BossSelect, Hud, OpponentRow, MyDungeon, TownPanel, Hand, LogStrip, DetailPanel,
-  SpellTargetOverlay, spellNeedsTarget, LevelUpChoiceOverlay, PhaseBanner, OptionsOverlay,
+  BossSelect, Hud, OpponentRow, MyDungeon, TownPanel, Hand, DetailPanel, Card,
+  SpellTargetOverlay, spellNeedsTarget, LevelUpChoiceOverlay, OpeningDiscardOverlay, PhaseBanner, OptionsOverlay,
   GameStage, StatsSidebar
 } from './components/game';
 import GameOverScreen from './screens/GameOverScreen.jsx';
@@ -20,7 +15,7 @@ import s from './AppBoard.module.css';
 // Rooms that require choosing ANOTHER room to destroy
 const NEEDS_OTHER_TARGET = new Set(['BMA028', 'BMA032']);
 
-export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatch, turnDeadline, notification }) {
+export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatch, onExitToMenu, turnDeadline, notification }) {
   const [inspect, setInspect] = useState(null);        // { card, kind }
   const [selectedCard, setSelectedCard] = useState(null);
   const [activateSourceRoom, setActivateSourceRoom] = useState(null); // room index awaiting target
@@ -71,12 +66,12 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
   }, [G?.gameOver]);
 
   if (!G || !G.players) {
-    return <GameStage bg="/ui/backgrounds/gallery_bg.jpg"><div className={s.loading}>Chargement…</div></GameStage>;
+    return <GameStage bg="/ui/backgrounds/gallery_bg.webp"><div className={s.loading}>Loading…</div></GameStage>;
   }
   const pidKey = String(playerID);
   const me = G.players[pidKey];
   if (!me) {
-    return <GameStage bg="/ui/backgrounds/gallery_bg.jpg"><div className={s.loading}>Chargement…</div></GameStage>;
+    return <GameStage bg="/ui/backgrounds/gallery_bg.webp"><div className={s.loading}>Loading…</div></GameStage>;
   }
   const phase = ctx.phase || G.phase;
   const activePid = G.activePlayer != null ? String(G.activePlayer) : (ctx.currentPlayer != null ? String(ctx.currentPlayer) : '0');
@@ -85,24 +80,21 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
   const opponents = opponentEntries.map(([, p]) => p);
   const oppIds = opponentEntries.map(([id]) => id);
 
-  // BOSS phase: dedicated selection screen
-  if (phase === PHASE.BOSS) {
-    return (
-      <GameStage bg="/ui/backgrounds/intro_bg.jpg">
-        <BossSelect G={G} me={me} onPick={(id) => moves.pickBoss(id)} onInspect={setInspect} />
-        <DetailPanel inspect={inspect} onClose={() => setInspect(null)} />
-      </GameStage>
-    );
-  }
-
   const myTreasures = treasureCountsByType(G, pidKey);
   const oppTreasures = opponents.map((p) => {
     const id = Object.keys(G.players).find((k) => G.players[k] === p);
     return treasureCountsByType(G, id);
   });
 
+  const discarding = G.pendingChoice?.type === 'opening-discard';
+  const roomDiscard = G.decks?.roomDiscard || [];
+  const spellDiscard = G.decks?.spellDiscard || [];
+  const topDiscard = roomDiscard.length ? roomDiscard[roomDiscard.length - 1] : spellDiscard[spellDiscard.length - 1];
+  const discardCount = roomDiscard.length + spellDiscard.length;
+  const topDiscardKind = topDiscard?.isSpell ? 'spell' : topDiscard?.isRoom ? 'room' : 'room';
+
   return (
-    <GameStage bg="/ui/backgrounds/gallery_bg.jpg">
+    <GameStage>
       <div className={s.board} id="main-content">
       <div className={s.hud}>
       <Hud
@@ -114,59 +106,116 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
       />
       </div>
 
-      <div className={s.town}>
-        <TownPanel
-          me={me}
-          town={G.town}
-          phase={phase}
-          isMyTurn={isMyTurn}
-          onResolve={() => moves.resolveNextHero()}
-          onInspect={setInspect}
-        />
-      </div>
+      {phase === PHASE.BOSS && (
+        <div className={s.bossOverlay}>
+          <BossSelect G={G} me={me} onPick={(id) => moves.pickBoss(id)} onInspect={setInspect} inBoard />
+        </div>
+      )}
 
-      <div className={s.opponents}>
-      <OpponentRow opponents={opponents} onInspect={setInspect} />
-      </div>
-
+      <div className={s.play}>
+        {phase !== PHASE.BOSS && (
+        <>
+        <div className={s.town}>
+          <TownPanel
+            me={me}
+            playerId={pidKey}
+            town={G.town}
+            townItems={G.townItems || []}
+            phase={phase}
+            isMyTurn={isMyTurn}
+            adventure={G.adventure}
+            onResolve={() => moves.resolveNextHero()}
+            onInspect={setInspect}
+          />
+        </div>
+        <div className={s.opponents}>
+          <OpponentRow
+            opponents={opponents}
+            oppIds={oppIds}
+            treasures={oppTreasures}
+            adventure={G.adventure}
+            onInspect={setInspect}
+          />
+        </div>
         <div className={s.dungeon}>
-        <MyDungeon
-          me={me}
-          phase={phase}
-          isMyTurn={isMyTurn}
-          selectedCard={selectedCard}
-          activateSourceRoom={activateSourceRoom}
-          onSelectTarget={(targetIdx) => {
-            if (selectedCard != null && selectedCard >= 0) {
-              const c = me.hand[selectedCard];
-              if (c?.isRoom) {
-                moves.buildRoom(selectedCard, targetIdx);
-                setSelectedCard(null);
+          <MyDungeon
+            me={me}
+            playerId={pidKey}
+            phase={phase}
+            isMyTurn={isMyTurn}
+            adventure={G.adventure}
+            treasures={myTreasures}
+            selectedCard={selectedCard}
+            activateSourceRoom={activateSourceRoom}
+            onSelectTarget={(targetIdx) => {
+              if (selectedCard != null && selectedCard >= 0) {
+                const c = me.hand[selectedCard];
+                if (c?.isRoom) {
+                  moves.buildRoom(selectedCard, targetIdx);
+                  setSelectedCard(null);
+                }
               }
-            }
-          }}
-          onActivateRoom={(roomIdx, otherIdx) => {
-            if (otherIdx != null) {
-              moves.activateRoom(roomIdx, otherIdx);
-              setActivateSourceRoom(null);
-            } else {
-              const stack = me.dungeon[roomIdx];
-              const r = Array.isArray(stack) ? stack[stack.length - 1] : stack;
-              if (r && NEEDS_OTHER_TARGET.has(r.id)) {
-                setActivateSourceRoom(roomIdx);
+            }}
+            onActivateRoom={(roomIdx, otherIdx) => {
+              if (otherIdx != null) {
+                moves.activateRoom(roomIdx, otherIdx);
+                setActivateSourceRoom(null);
               } else {
-                moves.activateRoom(roomIdx, null);
+                const stack = me.dungeon[roomIdx];
+                const r = Array.isArray(stack) ? stack[stack.length - 1] : stack;
+                if (r && NEEDS_OTHER_TARGET.has(r.id)) {
+                  setActivateSourceRoom(roomIdx);
+                } else {
+                  moves.activateRoom(roomIdx, null);
+                }
               }
-            }
-          }}
-          onInspect={setInspect}
+            }}
+            onInspect={setInspect}
+          />
+        </div>
+        {isMyTurn && !discarding && (phase === PHASE.BUILD || phase === PHASE.ADVENTURE) && (
+          <button
+            className={s.passCenter}
+            type="button"
+            onClick={() => { setSelectedCard(null); moves.pass(); }}
+            aria-label="Pass turn"
+          />
+        )}
+        </>
+        )}
+      </div>
+
+      {discarding && G.pendingChoice.playerId === Number(playerID) && (
+        <OpeningDiscardOverlay
+          hand={me.hand}
+          onConfirm={(a, b) => moves.openingDiscard(a, b)}
         />
-        <div className={s.hand}>
+      )}
+
+      <div className={s.dock}>
+      <div className={s.discard} aria-label="Discard pile">
+        {discardCount > 0 && <span className={s.discardCount}>{discardCount}</span>}
+        {topDiscard && (
+          <button
+            type="button"
+            className={s.discardTop}
+            onClick={() => setInspect({ card: topDiscard, kind: topDiscardKind })}
+            aria-label={`Discard pile: ${topDiscard.name}`}
+          >
+            <Card card={topDiscard} kind={topDiscardKind} size="sm" />
+          </button>
+        )}
+        <img src="/ui/ingame/discard_pile.webp" alt="" className={s.discardArt} />
+        <img src="/ui/ingame/discard_pile_legend.webp" alt="Discard pile" className={s.discardLabel} />
+      </div>
+      <div className={s.hand}>
+      {!discarding && phase !== PHASE.BOSS && (
       <Hand
         me={me}
         phase={phase}
         isMyTurn={isMyTurn}
         selectedCard={selectedCard}
+        stackLength={G.stack?.length || 0}
         onSelect={setSelectedCard}
         onBuild={(i) => moves.buildRoom(i)}
         onBuildInitial={(i) => moves.buildInitialRoom(i)}
@@ -180,14 +229,10 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         }}
         onPass={() => moves.pass()}
         onInspect={setInspect}
+        showPass={false}
       />
-        </div>
-        </div>
-
-      <div className={s.discard} aria-label="Discard pile">
-        <img src="/ui/ingame/discard_pile.png" alt="" className={s.discardArt} />
-        <img src="/ui/ingame/discard_pile_legend.png" alt="Discard pile" className={s.discardLabel} />
-        <div className={s.log}><LogStrip logs={G.logs} /></div>
+      )}
+      </div>
       </div>
 
       <div className={s.stats}>
@@ -225,7 +270,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         />
       )}
 
-      {G.pendingChoice && G.pendingChoice.playerId === Number(playerID) && (
+      {G.pendingChoice && G.pendingChoice.type !== 'opening-discard' && G.pendingChoice.playerId === Number(playerID) && (
         <LevelUpChoiceOverlay
           choice={G.pendingChoice}
           onResolve={(optionIndex) => moves.resolveLevelUpChoice(optionIndex)}
@@ -238,7 +283,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
           players={gameOverData.players}
           playerID={pidKey}
           onReplay={() => { gameOverFired.current = false; setGameOverData(null); if (onExitMatch) onExitMatch(); }}
-          onMenu={() => { gameOverFired.current = false; setGameOverData(null); if (onExitMatch) onExitMatch(); }}
+          onMenu={() => { gameOverFired.current = false; setGameOverData(null); if (onExitToMenu) onExitToMenu(); else if (onExitMatch) onExitMatch(); }}
         />
       )}
       </div>

@@ -5,6 +5,7 @@ import { PHASE, bossTheme } from '../../cardData.js';
 import { allActiveRooms } from '../../engine.js';
 import Card from './Card.jsx';
 import BossPortrait from './BossPortrait.jsx';
+import TreasureReadout from './TreasureReadout.jsx';
 import s from './DungeonTrack.module.css';
 
 const SLOTS = 5;
@@ -15,6 +16,7 @@ const ACTIVATED_ROOMS = new Set([
 
 export default function DungeonTrack({
   player,
+  playerId,
   size = 'md',
   isMine = false,
   phase,
@@ -25,6 +27,8 @@ export default function DungeonTrack({
   onActivateRoom,
   onInspect,
   paddedBottom = false,
+  adventure = null,
+  treasures = {},
 }) {
   const theme = bossTheme(player.boss);
   const dungeon = player.dungeon || [];
@@ -33,7 +37,7 @@ export default function DungeonTrack({
   const damage = rooms.reduce((n, r) => n + (r?.damage || 0), 0);
   const canActivate = isMine && isMyTurn && (phase === PHASE.BUILD || phase === PHASE.ADVENTURE);
   const dungeonBg = player.boss?.id
-    ? `/ui/dungeon/${String(player.boss.id).toLowerCase()}_bg.jpg`
+    ? `/ui/dungeon/${String(player.boss.id).toLowerCase()}_bg.webp`
     : null;
 
   const [hurt, setHurt] = useState(false);
@@ -57,14 +61,16 @@ export default function DungeonTrack({
       style={{
         '--accent': theme.color,
         '--slot-w': size === 'sm' ? '112px' : '140px',
-        backgroundImage: dungeonBg ? `url(${dungeonBg})` : undefined,
       }}
-      aria-label={`Donjon de ${player.boss?.name || 'joueur'}`}
+      aria-label={`${player.boss?.name || 'Player'} dungeon`}
     >
+      {dungeonBg && (
+        <img src={`${dungeonBg}?v=etc1`} alt="" className={s.bgImg} draggable={false} />
+      )}
       <div className={s.meta}>
-        <span className={s.metaItem} title="Dégâts du donjon">{damage}</span>
+        <span className={s.metaItem} title="Dungeon damage">{damage}</span>
         <span className={s.metaXp}>{player.boss?.xp || 0} XP</span>
-        <span className={s.metaLv}>{dungeon.length}</span>
+        <TreasureReadout counts={treasures} compact />
       </div>
 
       <div className={s.body}>
@@ -82,7 +88,9 @@ export default function DungeonTrack({
             const isSource = activateSourceRoom === di;
             const isTargetCandidate = activateSourceRoom != null && di !== activateSourceRoom;
             const canTarget = isMine && phase === PHASE.BUILD && isMyTurn && activateSourceRoom == null;
-            const showHeroes = di === 0 && entranceHeroes.length > 0;
+            const inThisDungeon = adventure && String(adventure.playerId) === String(playerId);
+            const showHeroes = (di === 0 && entranceHeroes.length > 0 && !inThisDungeon)
+              || (inThisDungeon && (adventure.roomIndex === di || (adventure.roomIndex < 0 && di === 0)));
             return (
               <div
                 key={`room-${r.id}-${di}`}
@@ -92,14 +100,15 @@ export default function DungeonTrack({
                   card={r}
                   kind="room"
                   size={size}
+                  faceDown={!!r.faceDown}
                   selected={selectedCard === di || isSource}
                   onInspect={onInspect}
                   onClick={canTarget ? () => onSelectTarget(di) : isTargetCandidate ? () => onActivateRoom(activateSourceRoom, di) : undefined}
                 />
                 {stackDepth > 1 && <div className={s.stack}>×{stackDepth}</div>}
                 {showHeroes && (
-                  <div className={s.heroes} aria-label="Héros à l'entrée">
-                    {entranceHeroes.slice(0, 3).map((h, hi) => (
+                  <div className={s.heroes} aria-label="Heroes at entrance">
+                    {(inThisDungeon && adventure.hero ? [adventure.hero] : entranceHeroes).slice(0, 3).map((h, hi) => (
                       <Card
                         key={`ent-${h.id}-${hi}`}
                         card={h}

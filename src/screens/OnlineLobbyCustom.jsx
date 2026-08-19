@@ -1,13 +1,6 @@
-// OnlineLobbyCustom.jsx - Custom lobby UI for 1v1 online matches.
-//
-// Production states handled:
-//   - Loading: initial match list fetch shows spinner
-//   - Empty: no open matches shows friendly EmptyState
-//   - Error: server unreachable shows error banner with retry
-//   - Busy: create/join buttons show loading spinner and disable
-//   - Stale: refresh button + 3s polling keeps the list fresh
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Screen, Button, Badge, Spinner, EmptyState, ErrorBoundary } from '../components/ui';
+// OnlineLobbyCustom.jsx - Private 1v1 salon: create or join by 6-character code.
+import React, { useState, useEffect } from 'react';
+import GameStage from '../components/game/GameStage.jsx';
 import { playSfx, SFX } from '../audio.js';
 import s from './OnlineLobbyCustom.module.css';
 
@@ -28,159 +21,120 @@ async function api(path, opts = {}) {
 
 export default function OnlineLobbyCustom({ onJoined, onBack }) {
   const [name, setName] = useState(() => localStorage.getItem('bm_player_name') || '');
-  const [matches, setMatches] = useState([]);
+  const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [waiting, setWaiting] = useState(null); // { matchID, playerID, credentials }
 
-  // Persist player name to localStorage
   const updateName = (val) => {
     setName(val);
     localStorage.setItem('bm_player_name', val);
   };
 
-  const refresh = useCallback(async (silent = false) => {
-    if (!silent) setRefreshing(true);
-    try {
-      const list = await api('/matches?game=boss-monster');
-      setMatches(list.filter(m => m.status !== 'finished'));
-      setError('');
-    } catch (e) {
-      setError('Serveur injoignable. Lancez le serveur puis réessayez.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
-
   useEffect(() => {
-    refresh();
-    const interval = setInterval(() => refresh(true), 3000);
-    return () => clearInterval(interval);
-  }, [refresh]);
-
-  const canCreate = name.trim().length > 0 && !busy;
+    if (!waiting) return undefined;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const row = await api(`/matches/${waiting.matchID}`);
+        const filled = (row.seats || []).filter((seat) => seat.name).length;
+        if (!cancelled && filled >= 2) {
+          playSfx(SFX.BUTTON);
+          onJoined({ matchID: waiting.matchID, playerID: waiting.playerID, credentials: waiting.credentials, numPlayers: 2 });
+        }
+      } catch {
+        /* keep polling */
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1500);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [waiting, onJoined]);
 
   const create = async () => {
-    if (!canCreate) return;
+    if (!name.trim() || busy) return;
     setBusy(true); setError('');
     try {
-      const { matchID } = await api('/matches', { method: 'POST', body: { numPlayers: 2 } });
+      const { matchID } = await api('/matches', {
+        method: 'POST',
+        body: { numPlayers: 2, setupData: { online: true } },
+      });
       const { playerID, credentials } = await api(`/matches/${matchID}/join`, {
-        method: 'POST', body: { playerName: name.trim() }
+        method: 'POST', body: { playerName: name.trim() },
       });
       playSfx(SFX.BUTTON);
-      onJoined({ matchID, playerID, credentials, numPlayers: 2 });
+      setWaiting({ matchID, playerID, credentials });
     } catch (e) {
-      setError('Création échouée: ' + (e.message || e));
+      setError('Create failed: ' + (e.message || e));
     } finally { setBusy(false); }
   };
 
-  const join = async (matchID) => {
-    if (!name.trim()) { setError('Entrez votre nom'); return; }
+  const join = async () => {
+    const salon = code.trim().toUpperCase();
+    if (!name.trim()) { setError('Enter your name'); return; }
+    if (salon.length < 4) { setError('Enter the room code'); return; }
     setBusy(true); setError('');
     try {
-      const { playerID, credentials } = await api(`/matches/${matchID}/join`, {
-        method: 'POST', body: { playerName: name.trim() }
+      const { playerID, credentials } = await api(`/matches/${salon}/join`, {
+        method: 'POST', body: { playerName: name.trim() },
       });
       playSfx(SFX.BUTTON);
-      onJoined({ matchID, playerID, credentials, numPlayers: 2 });
+      onJoined({ matchID: salon, playerID, credentials, numPlayers: 2 });
     } catch (e) {
-      setError('Rejoindre échoué: ' + (e.message || e));
+      setError('Join failed: ' + (e.message || e));
     } finally { setBusy(false); }
   };
-
-  const openMatches = useMemo(() => matches, [matches]);
 
   return (
-    <ErrorBoundary>
-      <Screen id="main-content" bg="/ui/backgrounds/multiplayer_bg.jpg" bgOpacity={0.4}>
-        <h1 className={s.title}>Partie en ligne 1v1</h1>
-        <p className={s.subtitle}>Créez un lobby et attendez qu'un adversaire vous rejoigne</p>
+    <GameStage bg="/ui/backgrounds/multiplayer_bg.webp">
+      <div className={s.stage} id="main-content">
+        <button className={s.back} type="button" aria-label="Back" onClick={() => { playSfx(SFX.BUTTON); onBack(); }} />
+        <img src="/ui/logos/bm_logo.webp" alt="" className={s.logo} />
 
-        {error && (
-          <div role="alert" style={{
-            color: 'var(--bm-danger)', fontSize: 'var(--bm-text-base)',
-            background: 'rgba(127,29,29,0.4)', padding: 'var(--bm-space-3) var(--bm-space-6)',
-            borderRadius: 'var(--bm-radius-md)', width: '100%', textAlign: 'center'
-          }}>
-            {error}
+        {error && <div className={s.error} role="alert">{error}</div>}
+
+        {waiting ? (
+          <div className={s.waiting}>
+            <div className={s.kicker}>SEARCHING</div>
+            <div className={s.codeBox}>{waiting.matchID}</div>
+            <p className={s.hint}>Give this code to your opponent. The game starts when they join.</p>
           </div>
-        )}
+        ) : (
+          <div className={s.panel}>
+            <label className={s.label} htmlFor="lobby-name">YOUR NAME</label>
+            <input
+              id="lobby-name"
+              className={s.input}
+              placeholder="NAME"
+              value={name}
+              onChange={(e) => updateName(e.target.value)}
+              maxLength={16}
+              disabled={busy}
+            />
 
-        <label className="visually-hidden" htmlFor="lobby-name">Votre nom</label>
-        <input
-          id="lobby-name"
-          className={s.input}
-          placeholder="Votre nom"
-          value={name}
-          onChange={(e) => updateName(e.target.value)}
-          maxLength={16}
-          onKeyDown={(e) => { if (e.key === 'Enter') create(); }}
-          disabled={busy}
-        />
+            <button className={s.wide} type="button" disabled={!name.trim() || busy} onClick={create}>
+              CREATE ROOM
+            </button>
 
-        <div className={s.section}>
-          <div className={s.sectionTitle}>Créer un lobby 1v1</div>
-          <Button variant="success" block size="lg" loading={busy} disabled={!canCreate} onClick={create}>
-            + Créer la partie
-          </Button>
-        </div>
+            <div className={s.or}>OR</div>
 
-        <div className={s.divider}>
-          <span className={s.dividerLine} />
-          <span className={s.dividerText}>ou</span>
-          <span className={s.dividerLine} />
-        </div>
-
-        <div className={s.section}>
-          <div className={s.sectionTitle}>
-            Lobbies ouverts ({openMatches.length})
-            <button className={s.refreshBtn} onClick={() => refresh()} aria-label="Rafraîchir la liste" type="button">
-              ↻{refreshing ? '…' : ''}
+            <label className={s.label} htmlFor="lobby-code">JOIN BY CODE</label>
+            <input
+              id="lobby-code"
+              className={`${s.input} ${s.codeInput}`}
+              placeholder="ABC123"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              maxLength={6}
+              disabled={busy}
+              onKeyDown={(e) => { if (e.key === 'Enter') join(); }}
+            />
+            <button className={s.wide} type="button" disabled={!name.trim() || busy} onClick={join}>
+              JOIN
             </button>
           </div>
-
-          {loading ? (
-            <Spinner label="Chargement des parties…" />
-          ) : openMatches.length === 0 ? (
-            <EmptyState
-              icon="🏰"
-              title="Aucun lobby ouvert"
-              hint="Créez-en un et partagez le code à votre adversaire."
-            />
-          ) : (
-            openMatches.map((m) => {
-              const seats = m.seats || [];
-              const open = seats.filter(seat => !seat.name);
-              const full = open.length === 0;
-              return (
-                <div key={m.id} className={s.matchRow}>
-                  <div className={s.matchInfo}>
-                    <div className={s.matchCode}>Code: {m.id.slice(0, 6).toUpperCase()}</div>
-                    <div className={s.matchSeats}>
-                      {seats.filter(seat => seat.name).length}/{seats.length} joueurs
-                      {full ? ' · complet' : ''}
-                    </div>
-                  </div>
-                  {full ? (
-                    <Badge variant="outline">complet</Badge>
-                  ) : (
-                    <button className={s.joinBtn} disabled={busy} onClick={() => join(m.id)} type="button">
-                      Rejoindre
-                    </button>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-
-        <Button variant="ghost" onClick={() => { playSfx(SFX.BUTTON); onBack(); }}>
-          ← Retour
-        </Button>
-      </Screen>
-    </ErrorBoundary>
+        )}
+      </div>
+    </GameStage>
   );
 }

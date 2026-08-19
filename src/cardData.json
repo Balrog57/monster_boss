@@ -8,7 +8,10 @@
         1
       ],
       "advanced": false,
-      "levelUpDesc": "Level Up: Target opponent reveals his or her hand. Take one card and put it into your hand."
+      "levelUpDesc": "Level Up: Target opponent reveals his or her hand. Take one card and put it into your hand.",
+      "subtitle": "Hypnotic Vampire",
+      "set": "base",
+      "quantity": 1
     },
     {
       "id": "BMA002",
@@ -18,7 +21,10 @@
         1
       ],
       "advanced": false,
-      "levelUpDesc": "Level Up: Choose two cards from the discard pile and put them into your hand."
+      "levelUpDesc": "Level Up: Choose two cards from the discard pile and put them into your hand.",
+      "subtitle": "Progenitor Lich",
+      "set": "base",
+      "quantity": 1
     },
     {
       "id": "BMA003",
@@ -28,7 +34,10 @@
         2
       ],
       "advanced": false,
-      "levelUpDesc": "Level Up: You may search the Room Deck or discard pile for an Advanced Monster Room. You may immediately build the room (over a room with a matching Treasure type)."
+      "levelUpDesc": "Level Up: You may search the Room Deck or discard pile for an Advanced Monster Room. You may immediately build the room (over a room with a matching Treasure type).",
+      "subtitle": "Sultan of the Sewers",
+      "set": "base",
+      "quantity": 1
     },
     {
       "id": "BMA004",
@@ -38,7 +47,10 @@
         2
       ],
       "advanced": false,
-      "levelUpDesc": "Level Up: Each opponent must choose and destroy one Room in his or her dungeon."
+      "levelUpDesc": "Level Up: Each opponent must choose and destroy one Room in his or her dungeon.",
+      "subtitle": "Angry Golem",
+      "set": "base",
+      "quantity": 1
     },
     {
       "id": "BMA005",
@@ -48,7 +60,10 @@
         3
       ],
       "advanced": false,
-      "levelUpDesc": "Level Up: You may draw three Spell cards, then discard a Spell card."
+      "levelUpDesc": "Level Up: You may draw three Spell cards, then discard a Spell card.",
+      "subtitle": "Father Brain",
+      "set": "base",
+      "quantity": 1
     },
     {
       "id": "BMA006",
@@ -58,7 +73,10 @@
         3
       ],
       "advanced": false,
-      "levelUpDesc": "Level Up: You may search through town or the Hero decks, choose one Hero, and put it at the entrance to your dungeon."
+      "levelUpDesc": "Level Up: You may search through town or the Hero decks, choose one Hero, and put it at the entrance to your dungeon.",
+      "subtitle": "Sorceress of Sexiness",
+      "set": "base",
+      "quantity": 1
     },
     {
       "id": "BMA007",
@@ -68,7 +86,10 @@
         4
       ],
       "advanced": false,
-      "levelUpDesc": "Level Up: You may search the Room Deck or discard pile for an Advanced Trap Room. You may immediately build the room (over a room with a matching Treasure type)."
+      "levelUpDesc": "Level Up: You may search the Room Deck or discard pile for an Advanced Trap Room. You may immediately build the room (over a room with a matching Treasure type).",
+      "subtitle": "Mother of Mummies",
+      "set": "base",
+      "quantity": 1
     },
     {
       "id": "BMA008",
@@ -78,7 +99,101 @@
         4
       ],
       "advanced": false,
-      "levelUpDesc": "Level Up: Choose a Hero in town. Immediately kill that Hero and place it face-down in your scorekeeping area."
+      "levelUpDesc": "Level Up: Choose a Hero in town. Immediately kill that Hero and place it face-down in your scorekeeping area.",
+      "subtitle": "Queen of Medusia",
+      "set": "base",
+      "quantity": 1
+    },
+    {
+      "id": "KSA001",
+      "name": "Kirax",
+      "xp": 1000,
+      "treasures": [
+        4
+      ],
+      "advanced": false,
+      "levelUpDesc": "Level Up: For the rest of the game, this has Cleric, Fighter, and Mage treasure.",
+      "subtitle": "The Gatekeeper",
+      "set": "players-choice",
+      "quantity": 1
+    },
+    {
+      "id": "KSA002",
+      "name": "Hellcow",
+      "xp": 950,
+      "treasures": [
+        2
+      ],
+      "advanced": false,
+      "levelUpDesc": "Level Up: Choose any dungeon, You may rearrange the placement of the rooms in that dungeon.",
+      "subtitle": "Bossy Monster",
+      "set": "players-choice",
+      "quantity": 1
+    },
+    {
+      "id": "KSA003",
+      "name": "The Brothers Wise",
+      "xp": 700,
+      "treasures": [
+        3
+      ],
+      "advanced": false,
+      "levelUpDesc": "Level Up: You may search through the Spell deck, choose one Spell card, and put into your hand.",
+      "subtitle": "Two-Headed Monstrocity",
+      "set": "players-choice",
+      "quantity": 1
+    },
+    {
+      "id": "KSA004",
+      "name": "Kaw'nee",
+      "xp": 575,
+      "treasures": [
+        1
+      ],
+      "advanced": false,
+      "levelUpDesc": "Level Up: You may choose an ordinary Hero in any opponent's scorekeeping area and place it face-down in your scorekeeping area.",
+      "subtitle": "The Grave Robber",
+      "set": "players-choice",
+      "quantity": 1
+    },
+    {
+      "id": "KSA005",
+      "name": "Scythe",
+      "xp": 775,
+      "treasures": [
+        2
+      ],
+      "advanced": false,
+      "levelUpDesc": "Level Up: For the rest of the game, the last room of your dungeon has +3 damage.",
+      "subtitle": "The Ultimate Weapon",
+      "set": "players-choice",
+      "quantity": 1
+    },
+    {
+      "id": "KSA006",
+      "name": "Jarin",
+      "xp": 675,
+      "treasures": [
+        3
+      ],
+      "advanced": false,
+      "levelUpDesc": "Level Up: For the rest of the game, you have +1 Soul.",
+      "subtitle": "The Soulseeker",
+      "set": "players-choice",
+      "quantity": 1
+    },
+    {
+      "id": "KSA007",
+      "name": "Elicon",
+      "xp": 875,
+      "treasures": [
+        4
+      ],
+      "advanced": false,
+      "levelUpDesc": "Level Up: Until end of turn, you may double the treasure value of every room in your dungeon.",
+      "subtitle": "The Ant Cannon Dragontroll King",
+      "set": "players-choice",
+      "quantity": 1
     }
   ],
   "rooms": [
@@ -86,325 +201,351 @@
       "id": "BMA009",
       "name": "Dark Altar",
       "advanced": false,
-      "type": "monster",
+      "type": "trap",
       "damage": 1,
       "treasures": [
         1,
         1
       ],
       "quantity": 3,
-      "description": "Destroy this Room: Choose one card from the discard pile and put it into your hand."
+      "description": "Destroy this Room: Choose one card from the discard pile and put it into your hand.",
+      "set": "base"
     },
     {
       "id": "BMA010",
       "name": "Open Grave",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        1
+      ],
+      "quantity": 2,
+      "description": "Once per turn, if a Hero dies in this room, choose one Room card from the discard pile and put into your hand.",
+      "set": "base"
+    },
+    {
+      "id": "BMA011",
+      "name": "Specter's Sanctum",
       "advanced": false,
       "type": "monster",
       "damage": 2,
       "treasures": [
         1
       ],
-      "quantity": 2,
-      "description": "Once per turn, if a Hero dies in this room, choose one Room card from the discard pile and put into your hand."
-    },
-    {
-      "id": "BMA011",
-      "name": "Specter's Sanctum",
-      "advanced": false,
-      "type": "trap",
-      "damage": 2,
-      "treasures": [
-        1
-      ],
       "quantity": 3,
-      "description": "When you build this room, choose an opponent. That opponent discards a random Spell card."
+      "description": "When you build this room, choose an opponent. That opponent discards a random Spell card.",
+      "set": "base"
     },
     {
       "id": "BMA012",
       "name": "Succubus Spa",
       "advanced": false,
-      "type": "trap",
+      "type": "monster",
       "damage": 1,
       "treasures": [
         1
       ],
       "quantity": 3,
-      "description": "Once per turn, if a Hero Dies in this room, choose an opponent. Take a random Room or Spell card from that opponent's hand."
+      "description": "Once per turn, if a Hero Dies in this room, choose an opponent. Take a random Room or Spell card from that opponent's hand.",
+      "set": "base"
     },
     {
       "id": "BMA013",
       "name": "Dracolich Lair",
       "advanced": true,
-      "type": "trap",
+      "type": "monster",
       "damage": 3,
       "treasures": [
         1
       ],
       "quantity": 2,
-      "description": "Once per turn, you may discard two Room card to choose one Room card from the discard pile and put it into your hand."
+      "description": "Once per turn, you may discard two Room card to choose one Room card from the discard pile and put it into your hand.",
+      "set": "base"
     },
     {
       "id": "BMA014",
       "name": "Vampire Bordello",
       "advanced": true,
-      "type": "trap",
+      "type": "monster",
       "damage": 3,
       "treasures": [
         1
       ],
       "quantity": 2,
-      "description": "Once per turn, if a Hero dies in this Room, you may heal one Wound. (Flip over one of your Wounds, adding its Soul value to your total.)"
+      "description": "Once per turn, if a Hero dies in this Room, you may heal one Wound. (Flip over one of your Wounds, adding its Soul value to your total.)",
+      "set": "base"
     },
     {
       "id": "BMA015",
       "name": "Goblin Armory",
       "advanced": false,
-      "type": "trap",
+      "type": "monster",
       "damage": 1,
       "treasures": [
         2,
         2
       ],
       "quantity": 3,
-      "description": "Monster Rooms adjacent to this room deal +1 damage."
+      "description": "Monster Rooms adjacent to this room deal +1 damage.",
+      "set": "base"
     },
     {
       "id": "BMA016",
       "name": "Golem Factory",
       "advanced": false,
-      "type": "trap",
+      "type": "monster",
       "damage": 2,
       "treasures": [
         2
       ],
       "quantity": 3,
-      "description": "Once per turn, if a hero dies in this room, draw a Room card."
+      "description": "Once per turn, if a hero dies in this room, draw a Room card.",
+      "set": "base"
     },
     {
       "id": "BMA017",
       "name": "Minotaur's Maze",
       "advanced": false,
-      "type": "trap",
+      "type": "monster",
       "damage": 0,
       "treasures": [
         2
       ],
       "quantity": 2,
-      "description": "The first time a Hero enters this room, send it back one room."
+      "description": "The first time a Hero enters this room, send it back one room.",
+      "set": "base"
     },
     {
       "id": "BMA018",
       "name": "Neanderthal Cave",
       "advanced": false,
-      "type": "trap",
+      "type": "monster",
       "damage": 3,
       "treasures": [
         2
       ],
       "quantity": 3,
-      "description": "You cannot build an Advanced Room on Neanderthal Cave."
+      "description": "You cannot build an Advanced Room on Neanderthal Cave.",
+      "set": "base"
     },
     {
       "id": "BMA019",
       "name": "Beast Menagerie",
       "advanced": true,
-      "type": "trap",
+      "type": "monster",
       "damage": 4,
       "treasures": [
         2
       ],
       "quantity": 2,
-      "description": "Once per turn when you build another Monster room, draw a Room card."
+      "description": "Once per turn when you build another Monster room, draw a Room card.",
+      "set": "base"
     },
     {
       "id": "BMA020",
       "name": "Monster's Ballroom",
       "advanced": true,
-      "type": "trap",
+      "type": "monster",
       "damage": 0,
       "treasures": [
         2
       ],
       "quantity": 2,
-      "description": "This room's damage is equal to the number of Monster rooms in your dungeon."
+      "description": "This room's damage is equal to the number of Monster rooms in your dungeon.",
+      "set": "base"
     },
     {
       "id": "BMA021",
       "name": "Brainsucker Hive",
       "advanced": false,
-      "type": "trap",
+      "type": "monster",
       "damage": 2,
       "treasures": [
         3
       ],
       "quantity": 3,
-      "description": "Once per turn, if a Hero dies in this room, you may draw a Spell card."
+      "description": "Once per turn, if a Hero dies in this room, you may draw a Spell card.",
+      "set": "base"
     },
     {
       "id": "BMA022",
       "name": "Dark Laboratory",
       "advanced": false,
-      "type": "monster",
+      "type": "trap",
       "damage": 1,
       "treasures": [
         3,
         3
       ],
       "quantity": 3,
-      "description": "When you build this room, draw two spell cards, then discard a Spell card."
+      "description": "When you build this room, draw two spell cards, then discard a Spell card.",
+      "set": "base"
     },
     {
       "id": "BMA023",
       "name": "Haunted Library",
       "advanced": false,
-      "type": "monster",
+      "type": "trap",
       "damage": 1,
       "treasures": [
         3
       ],
       "quantity": 2,
-      "description": "At the beginning of your turn, you may draw from the Spell deck instead of the Room deck."
+      "description": "At the beginning of your turn, you may draw from the Spell deck instead of the Room deck.",
+      "set": "base"
     },
     {
       "id": "BMA024",
       "name": "Witch's Kitchen",
       "advanced": false,
-      "type": "trap",
+      "type": "monster",
       "damage": 1,
       "treasures": [
         3
       ],
       "quantity": 3,
-      "description": "Once per turn, you may discard a Monster Room card to draw a Spell card."
+      "description": "Once per turn, you may discard a Monster Room card to draw a Spell card.",
+      "set": "base"
     },
     {
       "id": "BMA025",
       "name": "All-Seeing Eye",
       "advanced": true,
-      "type": "monster",
+      "type": "trap",
       "damage": 3,
       "treasures": [
         3
       ],
       "quantity": 2,
-      "description": "Once per turn when an opponent plays a Spell card, you may discard a Spell card to cancel its effect."
+      "description": "Once per turn when an opponent plays a Spell card, you may discard a Spell card to cancel its effect.",
+      "set": "base"
     },
     {
       "id": "BMA026",
       "name": "Liger's Den",
       "advanced": true,
-      "type": "trap",
+      "type": "monster",
       "damage": 2,
       "treasures": [
         3
       ],
       "quantity": 2,
-      "description": "Once per turn when you play a Spell card, draw a Spell card."
+      "description": "Once per turn when you play a Spell card, draw a Spell card.",
+      "set": "base"
     },
     {
       "id": "BMA027",
       "name": "Bottomless Pit",
       "advanced": false,
-      "type": "monster",
+      "type": "trap",
       "damage": 1,
       "treasures": [
         4
       ],
       "quantity": 3,
-      "description": "Destroy this room: Kill a Hero in this room."
+      "description": "Destroy this room: Kill a Hero in this room.",
+      "set": "base"
     },
     {
       "id": "BMA028",
       "name": "Boulder Ramp",
       "advanced": false,
-      "type": "monster",
+      "type": "trap",
       "damage": 1,
       "treasures": [
         4
       ],
       "quantity": 2,
-      "description": "Destroy another room in your dungeon: Deal 5 damage to a hero in this room."
+      "description": "Destroy another room in your dungeon: Deal 5 damage to a hero in this room.",
+      "set": "base"
     },
     {
       "id": "BMA029",
       "name": "Dizzygas Hallway",
       "advanced": false,
-      "type": "monster",
+      "type": "trap",
       "damage": 1,
       "treasures": [
         4
       ],
       "quantity": 3,
-      "description": "If the next room in your dungeon is a Trap room, it deals +2 damage."
+      "description": "If the next room in your dungeon is a Trap room, it deals +2 damage.",
+      "set": "base"
     },
     {
       "id": "BMA030",
       "name": "Jackpot Stash",
       "advanced": false,
-      "type": "monster",
+      "type": "trap",
       "damage": 1,
       "treasures": [
         4,
         4
       ],
       "quantity": 3,
-      "description": "Destroy this room: Double the treasure value of your other rooms until end of turn."
+      "description": "Destroy this room: Double the treasure value of your other rooms until end of turn.",
+      "set": "base"
     },
     {
       "id": "BMA031",
       "name": "Recycling Center",
       "advanced": true,
-      "type": "monster",
+      "type": "trap",
       "damage": 3,
       "treasures": [
         4
       ],
       "quantity": 2,
-      "description": "When another room in your dungeon is destroyed, you may draw two Room cards."
+      "description": "When another room in your dungeon is destroyed, you may draw two Room cards.",
+      "set": "base"
     },
     {
       "id": "BMA032",
       "name": "The Crushinator",
       "advanced": true,
-      "type": "monster",
+      "type": "trap",
       "damage": 2,
       "treasures": [
         4
       ],
       "quantity": 2,
-      "description": "Destroy another room in your dungeon: Your rooms deal +2 damage until end of turn."
+      "description": "Destroy another room in your dungeon: Your rooms deal +2 damage until end of turn.",
+      "set": "base"
     },
     {
       "id": "BMA033",
       "name": "Centipede Tunnel",
       "advanced": false,
-      "type": "trap",
+      "type": "monster",
       "damage": 1,
       "treasures": [
         2,
         3
       ],
       "quantity": 2,
-      "description": "When you build this room, you may swap the placement of two Rooms in any dungeon."
+      "description": "When you build this room, you may swap the placement of two Rooms in any dungeon.",
+      "set": "base"
     },
     {
       "id": "BMA034",
       "name": "Construction Zone",
       "advanced": false,
-      "type": "monster",
+      "type": "trap",
       "damage": 1,
       "treasures": [
         2,
         4
       ],
       "quantity": 2,
-      "description": "When you build this room, you may immediately build an additional Room."
+      "description": "When you build this room, you may immediately build an additional Room.",
+      "set": "base"
     },
     {
       "id": "BMA035",
       "name": "Dragon Hatchery",
       "advanced": false,
-      "type": "trap",
+      "type": "monster",
       "damage": 0,
       "treasures": [
         1,
@@ -413,59 +554,116 @@
         4
       ],
       "quantity": 3,
-      "description": "(This room contains all four treasure types.)"
+      "description": "(This room contains all four treasure types.)",
+      "set": "base"
     },
     {
       "id": "BMA036",
       "name": "Mimic Vault",
       "advanced": false,
-      "type": "monster",
+      "type": "trap",
       "damage": 1,
       "treasures": [
         3,
         4
       ],
       "quantity": 2,
-      "description": "When you build this room. Choose one ordinary Hero in town and place it on the entrance to your dungeon."
+      "description": "When you build this room. Choose one ordinary Hero in town and place it on the entrance to your dungeon.",
+      "set": "base"
     },
     {
       "id": "BMA037",
       "name": "Monstrous Monument",
       "advanced": false,
-      "type": "monster",
+      "type": "trap",
       "damage": 1,
       "treasures": [
         1,
         2
       ],
       "quantity": 2,
-      "description": "When you build this room, choose one Monster Room from the discard pile and put it in your hand."
+      "description": "When you build this room, choose one Monster Room from the discard pile and put it in your hand.",
+      "set": "base"
     },
     {
       "id": "BMA038",
       "name": "Torture Chamber",
       "advanced": false,
-      "type": "monster",
+      "type": "trap",
       "damage": 1,
       "treasures": [
         1,
         4
       ],
       "quantity": 2,
-      "description": "Destroy this room: Choose an opponent. That opponent discards a random Room card."
+      "description": "Destroy this room: Choose an opponent. That opponent discards a random Room card.",
+      "set": "base"
     },
     {
       "id": "BMA039",
       "name": "Zombie Prison",
       "advanced": false,
-      "type": "trap",
+      "type": "monster",
       "damage": 1,
       "treasures": [
         1,
         3
       ],
       "quantity": 2,
-      "description": "Destroy this room: Choose a dead Hero in an opponent's scorekeeping area. Send it back to the entrance of that player's dungeon"
+      "description": "Destroy this room: Choose a dead Hero in an opponent's scorekeeping area. Send it back to the entrance of that player's dungeon",
+      "set": "base"
+    },
+    {
+      "id": "THK021",
+      "name": "Orcish Smithy",
+      "advanced": true,
+      "type": "monster",
+      "damage": 0,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "Once per turn during the Build phase, choose an unattached Item in town. You may attach it to any Hero, regardless of Treasure type.",
+      "set": "tools"
+    },
+    {
+      "id": "THK022",
+      "name": "Burial Mound",
+      "advanced": true,
+      "type": "trap",
+      "damage": 0,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "Once per turn, you may discard two Room cards to flip over a face-down Item card in your scorekeeping area.",
+      "set": "tools"
+    },
+    {
+      "id": "THK023",
+      "name": "Artificer's Workbench",
+      "advanced": true,
+      "type": "trap",
+      "damage": 0,
+      "treasures": [
+        3
+      ],
+      "quantity": 1,
+      "description": "Once per turn, you may choose a face-up Item in your scorekeeping area and flip it face-down to draw a Spell card.",
+      "set": "tools"
+    },
+    {
+      "id": "THK024",
+      "name": "Magnetic Ceiling",
+      "advanced": true,
+      "type": "trap",
+      "damage": 0,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "Once per turn, if a Hero enters this Room with an attached Item, you may place that Item face-down in your scorekeeping area.",
+      "set": "tools"
     }
   ],
   "spells": [
@@ -474,429 +672,485 @@
       "name": "Annihilator",
       "category": 3,
       "quantity": 2,
-      "description": "Give one Trap Room +3 damage until end of turn."
+      "description": "Give one Trap Room +3 damage until end of turn.",
+      "set": "base"
     },
     {
       "id": "BMA041",
       "name": "Assassin",
       "category": 3,
       "quantity": 2,
-      "description": "Choose a Hero in an opponent's dungeon. Give that Hero +3 Health until end of turn."
+      "description": "Choose a Hero in an opponent's dungeon. Give that Hero +3 Health until end of turn.",
+      "set": "base"
     },
     {
       "id": "BMA042",
       "name": "Cave-In",
-      "category": 5,
+      "category": 4,
       "quantity": 2,
-      "description": "Destroy a room in your dungeon. Any Hero in that room is destroyed."
+      "description": "Destroy a room in your dungeon. Any Hero in that room is destroyed.",
+      "set": "base"
     },
     {
       "id": "BMA043",
       "name": "Counterspell",
-      "category": 5,
+      "category": 2,
       "quantity": 2,
-      "description": "Choose a Spell card that has just been played. Cancel the effects of that Spell card. (It is sent to the discard pile.)"
+      "description": "Choose a Spell card that has just been played. Cancel the effects of that Spell card. (It is sent to the discard pile.)",
+      "set": "base"
     },
     {
       "id": "BMA044",
       "name": "Exhaustion",
-      "category": 3,
+      "category": 4,
       "quantity": 1,
-      "description": "Deal X damage to one Hero in your dungeon, where X is equal to the number of Rooms in your dungeon."
+      "description": "Deal X damage to one Hero in your dungeon, where X is equal to the number of Rooms in your dungeon.",
+      "set": "base"
     },
     {
       "id": "BMA045",
       "name": "Fear",
       "category": 1,
       "quantity": 2,
-      "description": "Choose a Hero in any dungeon and put it back in town."
+      "description": "Choose a Hero in any dungeon and put it back in town.",
+      "set": "base"
     },
     {
       "id": "BMA046",
       "name": "Freeze",
-      "category": 5,
+      "category": 2,
       "quantity": 4,
-      "description": "Choose and deactivate one Room in any dungeon. (It has no damage, treasure, or abilities until end of turn.)"
+      "description": "Choose and deactivate one Room in any dungeon. (It has no damage, treasure, or abilities until end of turn.)",
+      "set": "base"
     },
     {
       "id": "BMA047",
       "name": "Giant Size",
       "category": 3,
       "quantity": 2,
-      "description": "Give one Monster Room +3 damage until end of turn."
+      "description": "Give one Monster Rooom +3 damage until end of turn.",
+      "set": "base"
     },
     {
       "id": "BMA048",
       "name": "Jeopardy",
-      "category": 1,
+      "category": 2,
       "quantity": 2,
-      "description": "All players immediately discard their hands, then draw one Spell card and two Room cards."
+      "description": "All players immediately discard their hands, then draw one Spell card and two Room cards.",
+      "set": "base"
     },
     {
       "id": "BMA049",
       "name": "Kobold Strike",
-      "category": 1,
+      "category": 2,
       "quantity": 1,
-      "description": "No rooms can be built this turn. Any face-down room is returned to its owner's hand. (This spell cannot be played after rooms are revealed.)"
+      "description": "No rooms can be built this turn. Any face-down room is returned to its owner's hand. (This spell cannot be played after rooms are revealed.)",
+      "set": "base"
     },
     {
       "id": "BMA050",
       "name": "Motivation",
-      "category": 1,
+      "category": 3,
       "quantity": 2,
-      "description": "If you have fewer rooms than an opponent, you may build an extra room this turn."
+      "description": "If you have fewer rooms than an opponent, you may build an extra room this turn.",
+      "set": "base"
     },
     {
       "id": "BMA051",
       "name": "Princess in Peril",
       "category": 1,
       "quantity": 2,
-      "description": "Choose one Hero in town. Place it at the entrance to your dungeon."
+      "description": "Choose one Hero in town. Place it at the entrance to your dungeon.",
+      "set": "base"
     },
     {
       "id": "BMA052",
       "name": "Soul Harvest",
       "category": 1,
       "quantity": 1,
-      "description": "Choose a face-down Hero in your scorekeeping area and remove it from the game. Draw two Spell cards."
+      "description": "Choose a face-down Hero in your scorekeeping area and remove it from the game. Draw two Spell cards.",
+      "set": "base"
     },
     {
       "id": "BMA053",
       "name": "Teleportation",
       "category": 1,
       "quantity": 2,
-      "description": "Send a Hero in your dungeon back to the first room of your dungeon. (It continues to move through your dungeon this turn.)"
+      "description": "Send a Hero in your dungeon back to the first room of your dungeon. (It continues to move through your dungeon this turn.)",
+      "set": "base"
     },
     {
       "id": "BMA054",
       "name": "Trepidation",
-      "category": 1,
+      "category": 2,
       "quantity": 1,
-      "description": "Choose a player with at least two more Souls than you. No Hero enters that player's dungeon this turn. (Any Hero remain at the entrance to that dungeon.)"
+      "description": "Choose a player with at least two more Souls than you. No Hero enters that player's dungeon this turn. (Any Hero remain at the entrance to that dungeon.)",
+      "set": "base"
     },
     {
       "id": "BMA055",
       "name": "Zombie Attack",
       "category": 1,
       "quantity": 2,
-      "description": "Choose a dead Hero in an opponent's scorekeeping area. Send it back to the entrance of that player's dungeon. It has +2 Health until end of turn."
+      "description": "Choose a dead Hero in an opponent's scorekeeping area. Send it back to the entrance of that player's dungeon. It has +2 Health until end of turn.",
+      "set": "base"
+    },
+    {
+      "id": "THK025",
+      "name": "Excavation",
+      "category": 1,
+      "quantity": 2,
+      "description": "Choose one Item in any scorekeeping area. You may flip it face-down or face-up.",
+      "set": "tools"
+    },
+    {
+      "id": "KSA013",
+      "name": "T.P.K.",
+      "category": 2,
+      "quantity": 1,
+      "description": "Place this card in your scorekeeping area. If you also have at least one fighter, one Mage, one Cleric and one Thief face-down in your scorekeeping area, this card is worth two extra souls.",
+      "set": "players-choice"
     }
   ],
   "heroes": [
     {
-      "id": "BMA056",
-      "name": "Nick the Masher",
+      "id": "BMH056",
+      "name": "Cleric",
       "treasure": 1,
       "hp": 4,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Nick the Masher The young cleric was well-armed, and brave enough to take on the Dragon King himself. His credo: \"I bash it with my mace.\"",
+      "description": "",
       "class": "Cleric",
-      "playerCount": 2
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA057",
-      "name": "Pugi the Druidess",
+      "id": "BMH057",
+      "name": "Cleric",
       "treasure": 1,
       "hp": 4,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Pugi the Druidess A defender of the wilderness, she wields the power of Nature. Flowers blossom in her footsteps, and life grows anew.",
+      "description": "",
       "class": "Cleric",
-      "playerCount": 2
+      "playerCount": 4,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA058",
-      "name": "Acacia, Warrior of Light",
+      "id": "BMH058",
+      "name": "Cleric",
       "treasure": 1,
       "hp": 6,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Acacia, Warrior of Light Acacia is a carefree soul who makes her own luck. A strong defender of good, she is undeterred by even the darkest dungeons.",
+      "description": "",
       "class": "Cleric",
-      "playerCount": 2
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA059",
-      "name": "Charles the Young",
+      "id": "BMH059",
+      "name": "Cleric",
       "treasure": 1,
       "hp": 6,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Charles the Young Charles has mother's permission to go adventuring, but he has to return before sundown.",
+      "description": "",
       "class": "Cleric",
-      "playerCount": 3
+      "playerCount": 3,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA060",
-      "name": "Delatorious, Angel of Light",
+      "id": "BMH060",
+      "name": "Cleric",
       "treasure": 1,
       "hp": 8,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Delatorious, Angel of Light",
+      "description": "",
       "class": "Cleric",
-      "playerCount": 4
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA061",
-      "name": "Romero, the Indigo Friar",
+      "id": "BMH061",
+      "name": "Cleric",
       "treasure": 1,
       "hp": 8,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Romero, the Indigo Friar He is a dedicated man of the cloth who wants to see the world coated in blue. You might think he's depressed, but he's actually very, very happy.",
+      "description": "",
       "class": "Cleric",
-      "playerCount": 4
+      "playerCount": 4,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA062",
-      "name": "Boden the Pantless",
+      "id": "BMH062",
+      "name": "Fighter",
       "treasure": 2,
       "hp": 4,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Boden the Pantless Boden's courage is matched only by his forgetfullness. The quest to find his misplaced armor continues!",
+      "description": "",
       "class": "Fighter",
-      "playerCount": 2
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA063",
-      "name": "Jarek, Squire to the Lion Knights",
+      "id": "BMH063",
+      "name": "Fighter",
       "treasure": 2,
       "hp": 4,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Jarek, Squire to the Lion Knights As a squire, Jarek loved nothing more than stories and legends. He had no idea that he would someday become one.",
+      "description": "",
       "class": "Fighter",
-      "playerCount": 2
+      "playerCount": 4,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA064",
-      "name": "Fire's Breath, Heroine of Arcadia",
+      "id": "BMH064",
+      "name": "Fighter",
       "treasure": 2,
       "hp": 6,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Fire's Breath, Heroine of Arcadia The scarlet-haired warrior woman known as Fire's Breath has pledged her deadly twin blades to the fight for liberty",
+      "description": "",
       "class": "Fighter",
-      "playerCount": 2
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA065",
-      "name": "Samurai Tom",
+      "id": "BMH065",
+      "name": "Fighter",
       "treasure": 2,
       "hp": 6,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Samurai Tom Not truly a samurai, this masterless ronin seeks honor and glory.",
+      "description": "",
       "class": "Fighter",
-      "playerCount": 3
+      "playerCount": 3,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA066",
-      "name": "Johnny of the Evening Watch",
+      "id": "BMH066",
+      "name": "Fighter",
       "treasure": 2,
       "hp": 8,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Johnny of the Evening Watch A humble member of the Evening Watch, whose band o'brothers is sworn to forsake family, take the grey, and clear dungeons.",
+      "description": "",
       "class": "Fighter",
-      "playerCount": 4
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA067",
-      "name": "Crystol and A'lan of Gerd",
+      "id": "BMH067",
+      "name": "Fighter",
       "treasure": 2,
       "hp": 8,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Crystol and A'lan of Gerd Bound by the unbreakable Ring of Gerd, these lovers became the most dangerous husband-wife team in the adventuring business.",
+      "description": "",
       "class": "Fighter",
-      "playerCount": 4
+      "playerCount": 4,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA068",
-      "name": "Tieg and the Magic Bubble",
+      "id": "BMH068",
+      "name": "Mage",
       "treasure": 3,
       "hp": 4,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Tieg and the Magic Bubble Armed with his trusty bubble, Tieg braves dangerous castles and dungeons in search of the muscial instruments stolen from his people.",
+      "description": "",
       "class": "Mage",
-      "playerCount": 2
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA069",
-      "name": "Brandork the Neverwrong",
+      "id": "BMH069",
+      "name": "Mage",
       "treasure": 3,
       "hp": 4,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Brandork the Neverwrong Schooled in seven flavors of magic, Brandork follows the teachings of master Face, the Omniscient Celestial",
+      "description": "",
       "class": "Mage",
-      "playerCount": 2
+      "playerCount": 4,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA070",
-      "name": "Mitchell, the Judge",
+      "id": "BMH070",
+      "name": "Mage",
       "treasure": 3,
       "hp": 6,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Mitchell, the Judge He has wandered the planes, hopelessly lost... ever since his wife, Nikki, sent him to the store for diamond dust sugar.",
+      "description": "",
       "class": "Mage",
-      "playerCount": 2
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA071",
-      "name": "Kalish Ninefingers",
+      "id": "BMH071",
+      "name": "Mage",
       "treasure": 3,
       "hp": 6,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Kalish Ninefingers The worst thief ever, Kalish lost a finger and his freedom in one night. Taught magic in prison by his sorcerous cellmate, he now kills evil with fire.",
+      "description": "",
       "class": "Mage",
-      "playerCount": 3
+      "playerCount": 3,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA072",
-      "name": "Dartteon, Elf Pyromancer",
+      "id": "BMH072",
+      "name": "Mage",
       "treasure": 3,
       "hp": 8,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Dartteon, Elf Pyromancer Some elves just want to watch the world burn.",
+      "description": "",
       "class": "Mage",
-      "playerCount": 4
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA073",
-      "name": "Koey, the Last Dragon Mage",
+      "id": "BMH073",
+      "name": "Mage",
       "treasure": 3,
       "hp": 8,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Koey, The Last Dragon Mage The survivor of Drakonia vowed to save the world from Kirax's reign with the power bestowed to him by the last emerald dragon.",
+      "description": "",
       "class": "Mage",
-      "playerCount": 4
+      "playerCount": 4,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA074",
-      "name": "Joman Chimm, Cutpurse",
+      "id": "BMH074",
+      "name": "Thief",
       "treasure": 4,
       "hp": 4,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Joman Chimm, Cutpurse From the twinkle in his eye, you might think he comes bearing gifts... until you check your empty pockets.",
+      "description": "",
       "class": "Thief",
-      "playerCount": 2
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA075",
-      "name": "Lance Uppercut, Treasure Hunter",
+      "id": "BMH075",
+      "name": "Thief",
       "treasure": 4,
       "hp": 4,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Lance Uppercut, Treasure Hunter With a bent blade and a clenched fist, he gathers shining treasures for the glory of the Keonish Empire.",
+      "description": "",
       "class": "Thief",
-      "playerCount": 2
+      "playerCount": 4,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA076",
-      "name": "Jesta the Rogue",
+      "id": "BMH076",
+      "name": "Thief",
       "treasure": 4,
       "hp": 6,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Jesta the Rogue \"Okay, so you take the big guy on the left with the axe, you've got the two little ones on the right with swords, and I'll take this dangerous-looking treasure chest with no lock over here...\"",
+      "description": "",
       "class": "Thief",
-      "playerCount": 2
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA077",
-      "name": "Kins Klauski, Mad Conquistador",
+      "id": "BMH077",
+      "name": "Thief",
       "treasure": 4,
       "hp": 6,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Kins Klauski, Mad Conquistador \"It's hard for me to think about death, how insects and worms will eat me... I never think about death. I haven't even properly started to live yet.\"",
+      "description": "",
       "class": "Thief",
-      "playerCount": 3
+      "playerCount": 3,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA078",
-      "name": "Sir Digby Apple, Ace Detective",
+      "id": "BMH078",
+      "name": "Thief",
       "treasure": 4,
       "hp": 8,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Sir Digby Apple, Ace Detective He battles to keep the coffers filling, to keep his partners preening and to send a needless message of power to all of the unwilling.",
+      "description": "",
       "class": "Thief",
-      "playerCount": 4
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA079",
-      "name": "Jerome, Kung Fu Monkey",
+      "id": "BMH079",
+      "name": "Thief",
       "treasure": 4,
       "hp": 8,
       "wounds": 1,
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "Jerome, Kung Fu Monkey A Visitor from a distant land, his hyperactive monkey studied martial arts under the legendar Sifu Wang.",
+      "description": "",
       "class": "Thief",
-      "playerCount": 4
+      "playerCount": 4,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA080",
+      "id": "BMH080",
       "name": "The Fool",
       "treasure": 0,
       "hp": 2,
@@ -904,217 +1158,538 @@
       "souls": 1,
       "epic": false,
       "quantity": 1,
-      "description": "The Fool is lured to the dungeon of the Boss Monster with the fewest Souls. (In the case of a tie, he waits in town until the tie is broken.)",
+      "description": "",
       "class": "The Fool",
-      "playerCount": 2
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA081",
-      "name": "Katelyn, Angelic Healer",
+      "id": "BMH081",
+      "name": "Cleric",
       "treasure": 1,
       "hp": 11,
       "wounds": 2,
       "souls": 2,
       "epic": true,
       "quantity": 1,
-      "description": "Katelyn, Angelic Healer Among the most exalted defenders of righteousness, Katelyn is sometimes referred to as \"altissima luce\" -- highest light.",
+      "description": "",
       "class": "Cleric",
-      "playerCount": 2
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA082",
-      "name": "Kerberos Dirtbeard, Canine Cleric",
+      "id": "BMH082",
+      "name": "Cleric",
       "treasure": 1,
       "hp": 11,
       "wounds": 2,
       "souls": 2,
       "epic": true,
       "quantity": 1,
-      "description": "Kerberos Dirtbeard, Canine Cleric Hailing from the Highlands, this flea-bitten friar never turns down a fetch quest.",
+      "description": "",
       "class": "Cleric",
-      "playerCount": 2
+      "playerCount": 3,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA083",
-      "name": "Lord Van Ette",
+      "id": "BMH083",
+      "name": "Cleric",
       "treasure": 1,
       "hp": 13,
       "wounds": 2,
       "souls": 2,
       "epic": true,
       "quantity": 1,
-      "description": "Lord Van Ette A prophet and collector of tithes for the omniscient Celestial, his \"miracles\" are enhanced by the brandewijn distilled by the monks of Nintehn.",
+      "description": "",
       "class": "Cleric",
-      "playerCount": 3
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA084",
-      "name": "Jejune & Everlea, Holy Sisters",
+      "id": "BMH084",
+      "name": "Cleric",
       "treasure": 1,
       "hp": 13,
       "wounds": 2,
       "souls": 2,
       "epic": true,
       "quantity": 1,
-      "description": "Jejune & Everlea, Holy Sisters Tenacious and vivacious, each is a threat on her own. But woe betide any who stand against the sisters' united power.",
+      "description": "",
       "class": "Cleric",
-      "playerCount": 4
+      "playerCount": 4,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA085",
-      "name": "Frankov, the Envoy",
+      "id": "BMH085",
+      "name": "Fighter",
       "treasure": 2,
       "hp": 11,
       "wounds": 2,
       "souls": 2,
       "epic": true,
       "quantity": 1,
-      "description": "Frankov, the Envoy This brave warrior stands alone against the evil that rules the world.",
+      "description": "",
       "class": "Fighter",
-      "playerCount": 2
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA086",
-      "name": "Nate the Squidslayer",
+      "id": "BMH086",
+      "name": "Mage",
       "treasure": 2,
       "hp": 11,
       "wounds": 2,
       "souls": 2,
       "epic": true,
       "quantity": 1,
-      "description": "Nate the Squidslayer This surly warrior defeated the mighty Squib, Lord of the Rocktopi. Now he seeks to destroy King Croak himself...",
-      "class": "Mage",
-      "playerCount": 2
-    },
-    {
-      "id": "BMA087",
-      "name": "Antonius, the Rune Knight",
-      "treasure": 2,
-      "hp": 13,
-      "wounds": 2,
-      "souls": 2,
-      "epic": true,
-      "quantity": 1,
-      "description": "Antonius, the Rune Knight An elite dragoon, Sir Tony wears armor inscribed with magic runes of ancient and mysterious power.",
-      "class": "Mage",
-      "playerCount": 3
-    },
-    {
-      "id": "BMA088",
-      "name": "Asmor the Aweless",
-      "treasure": 2,
-      "hp": 13,
-      "wounds": 2,
-      "souls": 2,
-      "epic": true,
-      "quantity": 1,
-      "description": "Asmor the Aweless What Asmor lacks in tactical acuity, he more than makes up for in impulsiveness. There's no door he won't kick down, much to the frustration of Arcadia's innkeepers.",
+      "description": "",
       "class": "Fighter",
-      "playerCount": 4
+      "playerCount": 3,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA089",
-      "name": "Tempros the Time Marauder",
+      "id": "BMH087",
+      "name": "Mage",
+      "treasure": 2,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "",
+      "class": "Fighter",
+      "playerCount": 2,
+      "set": "hidden-heroes"
+    },
+    {
+      "id": "BMH088",
+      "name": "Fighter",
+      "treasure": 2,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "",
+      "class": "Fighter",
+      "playerCount": 4,
+      "set": "hidden-heroes"
+    },
+    {
+      "id": "BMH089",
+      "name": "Mage",
       "treasure": 3,
       "hp": 11,
       "wounds": 2,
       "souls": 2,
       "epic": true,
       "quantity": 1,
-      "description": "Tempros the Time Marauder He would use his control over time to end all crime. In his hands, this world could be a utopia.",
+      "description": "",
       "class": "Mage",
-      "playerCount": 2
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA090",
-      "name": "Chia Kang, Mystical Warlock of Yu",
+      "id": "BMH090",
+      "name": "Thief",
       "treasure": 3,
       "hp": 11,
       "wounds": 2,
       "souls": 2,
       "epic": true,
       "quantity": 1,
-      "description": "Chia Kang, Mystical Warlock of Yu \"Hey, Listen! I think this Boss Monster is--\" \"Silence, fairy! I will crush him through fire and flames in the name of the Order!",
-      "class": "Thief",
-      "playerCount": 2
+      "description": "",
+      "class": "Mage",
+      "playerCount": 3,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA091",
-      "name": "Terric Warhelm, Half-Elf Archmage",
+      "id": "BMH091",
+      "name": "Thief",
       "treasure": 3,
       "hp": 13,
       "wounds": 2,
       "souls": 2,
       "epic": true,
       "quantity": 1,
-      "description": "Terric Warhelm, Half-Elf Archmage \"Weakened by an evil curse, this once-mighty warrior donned the red robes and turned to magic. His spells are chnneled through a magical helmet of untold power.\"",
-      "class": "Thief",
-      "playerCount": 3
+      "description": "",
+      "class": "Mage",
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA092",
-      "name": "Wayward, the Drifter",
+      "id": "BMH092",
+      "name": "Thief",
       "treasure": 3,
       "hp": 13,
       "wounds": 2,
       "souls": 2,
       "epic": true,
       "quantity": 1,
-      "description": "Wayward, the Drifter He is a traveler from a strange land whose only goal is to do whatever is right... whatever that means.",
-      "class": "Thief",
-      "playerCount": 4
+      "description": "",
+      "class": "Mage",
+      "playerCount": 4,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA093",
-      "name": "Hya, Legendary Shinobi",
+      "id": "BMH093",
+      "name": "Thief",
       "treasure": 4,
       "hp": 11,
       "wounds": 2,
       "souls": 2,
       "epic": true,
       "quantity": 1,
-      "description": "Hya, Legendary Shinobi Arcadia's deadliest ninja,Hya lives by the proverb that revenge is a dish best served cold.",
+      "description": "",
       "class": "Thief",
-      "playerCount": 2
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA094",
-      "name": "Blackbeard Jake",
+      "id": "BMH094",
+      "name": "Thief",
       "treasure": 4,
       "hp": 11,
       "wounds": 2,
       "souls": 2,
       "epic": true,
       "quantity": 1,
-      "description": "Blackbeard Jake He hid the treasure he won from insult swordfighting in a booty-trap filled cave on the coast of a town called Astoria.",
+      "description": "",
       "class": "Thief",
-      "playerCount": 2
+      "playerCount": 3,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA095",
-      "name": "Cecil Leoran, Master Factotum",
+      "id": "BMH095",
+      "name": "Thief",
       "treasure": 4,
       "hp": 13,
       "wounds": 2,
       "souls": 2,
       "epic": true,
       "quantity": 1,
-      "description": "Cecil Leoran, Master Factotum The ultimate jack-of-all-trades, Cecil isn't above taking mercenary work to earn gold and glory. But his real goal has never changed: to find a way to return his betrothed Nevra, sealed into a rapier, to her original form.",
+      "description": "",
       "class": "Thief",
-      "playerCount": 3
+      "playerCount": 2,
+      "set": "hidden-heroes"
     },
     {
-      "id": "BMA096",
-      "name": "Wallbanger Basketweaver",
+      "id": "BMH096",
+      "name": "Thief",
       "treasure": 4,
       "hp": 13,
       "wounds": 2,
       "souls": 2,
       "epic": true,
       "quantity": 1,
-      "description": "Wallbanger Basketweaver This humble halfing world rather spend his days weaving baskets and eating crumbly cookies. But when adventure calls, he proves a first-rate burglar",
+      "description": "",
       "class": "Thief",
-      "playerCount": 4
+      "playerCount": 4,
+      "set": "hidden-heroes"
+    },
+    {
+      "id": "KSA014",
+      "name": "Demigod",
+      "treasure": 0,
+      "hp": 20,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "The Demigod is lured to the dungeon of the Boss Monster with the fewest Wounds. (in the case of a tie, he waits in town until the tie is broken.)",
+      "class": "The Fool",
+      "playerCount": 2,
+      "set": "players-choice"
+    },
+    {
+      "id": "KSA016",
+      "name": "Monster Hunter",
+      "treasure": 1,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "This Hero is lured to the dungeon with the highest combined Fighter and Cleric treasure. Monster Rooms deal -1 damage to this hero.",
+      "class": "Cleric",
+      "playerCount": 2,
+      "set": "players-choice"
+    },
+    {
+      "id": "KSA017",
+      "name": "Trap Master",
+      "treasure": 3,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "quantity": 1,
+      "description": "This Hero is lured to the dungeon with the highest combined Mage and Thief treasure. This Hero ignores all Room ability text. When it is in a dungeon, Room activated abilities cannot be used.",
+      "class": "Mage",
+      "playerCount": 2,
+      "set": "players-choice"
+    }
+  ],
+  "items": [
+    {
+      "id": "THK001",
+      "name": "Extra Life",
+      "subtitle": "Cleric Item",
+      "treasures": [
+        1
+      ],
+      "treasure": 1,
+      "quantity": 1,
+      "description": "Power-Up: If this Hero would be killed, it returns to town instead. (You get to keep this Item.)\nReward: This turn, you cannot lose due to Wounds. (Another player can still win due to Souls.)",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK002",
+      "name": "Holy Hand Grenade",
+      "subtitle": "Cleric Item",
+      "treasures": [
+        1
+      ],
+      "treasure": 1,
+      "quantity": 1,
+      "description": "Power-Up: If this Hero survices your dungeon, you must discard two Room cards at random.\nReward: Each of your opponents must discard one Room card at random.",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK003",
+      "name": "Inquisitor's Robes",
+      "subtitle": "Cleric Item",
+      "treasures": [
+        1
+      ],
+      "treasure": 1,
+      "quantity": 1,
+      "description": "Power-Up: Destroy the first Advanced Room that this Hero survives.\nReward: Choose and destroy an Advanced Room in any dungeon.",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK004",
+      "name": "Staff of Healing",
+      "subtitle": "Cleric Item",
+      "treasures": [
+        1
+      ],
+      "treasure": 1,
+      "quantity": 1,
+      "description": "Power-Up: Until end of turn, each Hero entering your dungeon has +2\nReward: Heal one ordinary Wound.",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK005",
+      "name": "Goblin Suit",
+      "subtitle": "Fighter Item",
+      "treasures": [
+        2
+      ],
+      "treasure": 2,
+      "quantity": 1,
+      "description": "Power-Up: This Hero takes no damage from ordinary Monster Rooms.\nReward: Until end of turn, give all your ordinary Monster Rooms +1",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK006",
+      "name": "Claws of the Berserker",
+      "subtitle": "Fighter Item",
+      "treasures": [
+        2
+      ],
+      "treasure": 2,
+      "quantity": 1,
+      "description": "Power-Up: For each Monster Room in your dungeon, this Hero has +1\nReward: Choose a Hero. Until end of turn, for each Monster Room in your dungeon, give that hero +1",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK007",
+      "name": "Oversized Sword",
+      "subtitle": "Fighter Item",
+      "treasures": [
+        2
+      ],
+      "treasure": 2,
+      "quantity": 1,
+      "description": "Power-Up: This Hero has +5\nReward: Choose a Hero in any dungeon. Until end of turn, it has +5",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK008",
+      "name": "Vorpal Blade",
+      "subtitle": "Fighter Item",
+      "treasures": [
+        2
+      ],
+      "treasure": 2,
+      "quantity": 1,
+      "description": "Power-Up: If this Hero survives your dungeon, until end of turn you have +1 Wound.\nReward: Kill a Hero who has taken damage equal to at least half its Health.",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK009",
+      "name": "Antimagic Lizard",
+      "subtitle": "Mage Item",
+      "treasures": [
+        3
+      ],
+      "treasure": 3,
+      "quantity": 1,
+      "description": "Power-Up: If this Hero survives your dungeon, discard two random Spell Cards.\nReward: Choose an opponent. That opponent discards a random Spell Card.",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK010",
+      "name": "Ice Rod",
+      "subtitle": "Mage Item",
+      "treasures": [
+        3
+      ],
+      "treasure": 3,
+      "quantity": 1,
+      "description": "Power-Up: Any Room that this Hero survives is deactivated until end of turn.\nReward: Choose a Room in an opponent's dungeon. It is deactivated until end of turn.",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK011",
+      "name": "Magic Mirror",
+      "subtitle": "Mage Item",
+      "treasures": [
+        3
+      ],
+      "treasure": 3,
+      "quantity": 1,
+      "description": "Power-Up: Before this Hero enters your dungeon, rearrange your Rooms so their order is reversed.\nReward: Copy the Boss Ability of any face-up Item card.",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK012",
+      "name": "Necronomicon",
+      "subtitle": "Mage Item",
+      "treasures": [
+        3
+      ],
+      "treasure": 3,
+      "quantity": 1,
+      "description": "Power-Up: If this Hero survives your dungeon, each of your opponents draws one Spell card.\nReward: Draw a Spell card.",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK013",
+      "name": "Bag of Holding",
+      "subtitle": "Thief Item",
+      "treasures": [
+        4
+      ],
+      "treasure": 4,
+      "quantity": 1,
+      "description": "Power-Up: When this Hero survives a ROom with at least two treasure icons, destroy that Room.\nReward: Search the discard pile for a Room with at least two treasure icons and put it into your hand.",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK014",
+      "name": "Cheat Code",
+      "subtitle": "Thief Item",
+      "treasures": [
+        4
+      ],
+      "treasure": 4,
+      "quantity": 1,
+      "description": "Power-Up: While this Hero is in your dungeon, ignore all Room ability text in your dungeon.\nReward: Choose a Room in any dungeon. Ignore its ability text until end of turn.",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK015",
+      "name": "Ten Foot Pole",
+      "subtitle": "Thief Item",
+      "treasures": [
+        4
+      ],
+      "treasure": 4,
+      "quantity": 1,
+      "description": "Power-Up: When this Hero enters your dungeon, deactivate the first Trap ROom in your dungeon.\nReward: Choose a Trap ROom in any dungeon. Deactivate that Room until end of turn.",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK016",
+      "name": "The Bomb",
+      "subtitle": "Thief Item",
+      "treasures": [
+        4
+      ],
+      "treasure": 4,
+      "quantity": 1,
+      "description": "Power-Up: If this Hero enters the last Room of your dungeon, destroy that Room. (It deals no damage.)\nReward: Destroy a ROom in your dungeon: Deal 5 damage to a Hero in that Room.",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK017",
+      "name": "Boots of Jumping",
+      "subtitle": "Universal Item",
+      "treasures": [
+        0
+      ],
+      "treasure": 0,
+      "quantity": 1,
+      "description": "Power-Up: Every time this Hero survives a Room, it ignores the next Room it would enter.\nReward: Choose a Hero in any dungeon. It ignores the next Room in that dungeon.",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK018",
+      "name": "Pet Monster",
+      "subtitle": "Universal Item",
+      "treasures": [
+        0
+      ],
+      "treasure": 0,
+      "quantity": 1,
+      "description": "Power-Up: When this Hero enters your dungeon, deactivate the first Monster Room in your dungeon.\nReward: Choose a Monster Room in any dungeon. Deactivate that Room until end of turn.",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK019",
+      "name": "Star of Invulnerability",
+      "subtitle": "Universal Item",
+      "treasures": [
+        0
+      ],
+      "treasure": 0,
+      "quantity": 1,
+      "description": "Power-Up: This Hero ignores any damage from the first three Rooms of your dungeon.\nReward: Choose a Hero that survived your dungeon this turn. Remove that Hero from the game.",
+      "set": "tools",
+      "isItem": true
+    },
+    {
+      "id": "THK020",
+      "name": "Ring of Invisibility",
+      "subtitle": "Universal Item",
+      "treasures": [
+        0
+      ],
+      "treasure": 0,
+      "quantity": 1,
+      "description": "Power-Up: While this Hero is in your dungeon or at the entrance to your dungeon, you may not play Spells.\nReward: Cancel a Spell played during your Adventure Phase.",
+      "set": "tools",
+      "isItem": true
     }
   ],
   "nameMap": {
@@ -1126,6 +1701,13 @@
     "BMA006": "seducia",
     "BMA007": "cleopatra",
     "BMA008": "gorgona",
+    "KSA001": "kirax",
+    "KSA002": "hellcow",
+    "KSA003": "the-brothers-wise",
+    "KSA004": "kaw-nee",
+    "KSA005": "scythe",
+    "KSA006": "jarin",
+    "KSA007": "elicon",
     "BMA009": "dark-altar",
     "BMA010": "open-grave",
     "BMA011": "specter-s-sanctum",
@@ -1157,6 +1739,10 @@
     "BMA037": "monstrous-monument",
     "BMA038": "torture-chamber",
     "BMA039": "zombie-prison",
+    "THK021": "orcish-smithy",
+    "THK022": "burial-mound",
+    "THK023": "artificer-s-workbench",
+    "THK024": "magnetic-ceiling",
     "BMA040": "annihilator",
     "BMA041": "assassin",
     "BMA042": "cave-in",
@@ -1173,46 +1759,71 @@
     "BMA053": "teleportation",
     "BMA054": "trepidation",
     "BMA055": "zombie-attack",
-    "BMA056": "nick-the-masher",
-    "BMA057": "pugi-the-druidess",
-    "BMA058": "acacia-warrior-of-light",
-    "BMA059": "charles-the-young",
-    "BMA060": "delatorious-angel-of-light",
-    "BMA061": "romero-the-indigo-friar",
-    "BMA062": "boden-the-pantless",
-    "BMA063": "jarek-squire-to-the-lion-knights",
-    "BMA064": "fire-s-breath-heroine-of-arcadia",
-    "BMA065": "samurai-tom",
-    "BMA066": "johnny-of-the-evening-watch",
-    "BMA067": "crystol-and-a-lan-of-gerd",
-    "BMA068": "tieg-and-the-magic-bubble",
-    "BMA069": "brandork-the-neverwrong",
-    "BMA070": "mitchell-the-judge",
-    "BMA071": "kalish-ninefingers",
-    "BMA072": "dartteon-elf-pyromancer",
-    "BMA073": "koey-the-last-dragon-mage",
-    "BMA074": "joman-chimm-cutpurse",
-    "BMA075": "lance-uppercut-treasure-hunter",
-    "BMA076": "jesta-the-rogue",
-    "BMA077": "kins-klauski-mad-conquistador",
-    "BMA078": "sir-digby-apple-ace-detective",
-    "BMA079": "jerome-kung-fu-monkey",
-    "BMA080": "the-fool",
-    "BMA081": "katelyn-angelic-healer",
-    "BMA082": "kerberos-dirtbeard-canine-cleric",
-    "BMA083": "lord-van-ette",
-    "BMA084": "jejune-everlea-holy-sisters",
-    "BMA085": "frankov-the-envoy",
-    "BMA086": "nate-the-squidslayer",
-    "BMA087": "antonius-the-rune-knight",
-    "BMA088": "asmor-the-aweless",
-    "BMA089": "tempros-the-time-marauder",
-    "BMA090": "chia-kang-mystical-warlock-of-yu",
-    "BMA091": "terric-warhelm-half-elf-archmage",
-    "BMA092": "wayward-the-drifter",
-    "BMA093": "hya-legendary-shinobi",
-    "BMA094": "blackbeard-jake",
-    "BMA095": "cecil-leoran-master-factotum",
-    "BMA096": "wallbanger-basketweaver"
+    "THK025": "excavation",
+    "KSA013": "t-p-k",
+    "BMH056": "cleric",
+    "BMH057": "cleric",
+    "BMH058": "cleric",
+    "BMH059": "cleric",
+    "BMH060": "cleric",
+    "BMH061": "cleric",
+    "BMH062": "fighter",
+    "BMH063": "fighter",
+    "BMH064": "fighter",
+    "BMH065": "fighter",
+    "BMH066": "fighter",
+    "BMH067": "fighter",
+    "BMH068": "mage",
+    "BMH069": "mage",
+    "BMH070": "mage",
+    "BMH071": "mage",
+    "BMH072": "mage",
+    "BMH073": "mage",
+    "BMH074": "thief",
+    "BMH075": "thief",
+    "BMH076": "thief",
+    "BMH077": "thief",
+    "BMH078": "thief",
+    "BMH079": "thief",
+    "BMH080": "the-fool",
+    "BMH081": "cleric",
+    "BMH082": "cleric",
+    "BMH083": "cleric",
+    "BMH084": "cleric",
+    "BMH085": "fighter",
+    "BMH086": "mage",
+    "BMH087": "mage",
+    "BMH088": "fighter",
+    "BMH089": "mage",
+    "BMH090": "thief",
+    "BMH091": "thief",
+    "BMH092": "thief",
+    "BMH093": "thief",
+    "BMH094": "thief",
+    "BMH095": "thief",
+    "BMH096": "thief",
+    "KSA014": "demigod",
+    "KSA016": "monster-hunter",
+    "KSA017": "trap-master",
+    "THK001": "extra-life",
+    "THK002": "holy-hand-grenade",
+    "THK003": "inquisitor-s-robes",
+    "THK004": "staff-of-healing",
+    "THK005": "goblin-suit",
+    "THK006": "claws-of-the-berserker",
+    "THK007": "oversized-sword",
+    "THK008": "vorpal-blade",
+    "THK009": "antimagic-lizard",
+    "THK010": "ice-rod",
+    "THK011": "magic-mirror",
+    "THK012": "necronomicon",
+    "THK013": "bag-of-holding",
+    "THK014": "cheat-code",
+    "THK015": "ten-foot-pole",
+    "THK016": "the-bomb",
+    "THK017": "boots-of-jumping",
+    "THK018": "pet-monster",
+    "THK019": "star-of-invulnerability",
+    "THK020": "ring-of-invisibility"
   }
 }

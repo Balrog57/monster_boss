@@ -8,12 +8,19 @@ const MUSIC_BASE = '/audio/music/';
 const sfxCache = {};
 let musicEl = null;
 let muted = false;
+let musicMuted = false;
+let sfxMuted = false;
+let gameSpeed = 'normal';
 // Master volume (0..1), persisted across sessions.
 let volume = 0.8;
 try {
   const stored = Number(localStorage.getItem('bm_volume'));
   if (!Number.isNaN(stored) && stored >= 0 && stored <= 1) volume = stored;
   muted = localStorage.getItem('bm_muted') === '1';
+  musicMuted = localStorage.getItem('bm_music_muted') === '1' || muted;
+  sfxMuted = localStorage.getItem('bm_sfx_muted') === '1' || muted;
+  const speed = localStorage.getItem('bm_speed');
+  if (speed === 'slow' || speed === 'normal' || speed === 'fast') gameSpeed = speed;
 } catch { /* storage unavailable */ }
 
 function path(kind, name) {
@@ -23,7 +30,7 @@ function path(kind, name) {
 
 // Play a one-shot sound effect. Returns the Audio node (for volume control).
 export function playSfx(name, vol = 0.6) {
-  if (muted) return null;
+  if (muted || sfxMuted) return null;
   let el = sfxCache[name];
   if (!el) {
     el = new Audio(path('sfx', name));
@@ -37,7 +44,7 @@ export function playSfx(name, vol = 0.6) {
 
 // Start looping background music. Replaces any current track.
 export function playMusic(name, vol = 0.4) {
-  if (muted) return;
+  if (muted || musicMuted) return;
   if (!musicEl) {
     musicEl = new Audio();
     musicEl.loop = true;
@@ -61,8 +68,14 @@ export function stopMusic() {
 
 export function setMuted(m) {
   muted = m;
-  try { localStorage.setItem('bm_muted', m ? '1' : '0'); } catch { /* ignore */ }
-  if (muted) {
+  musicMuted = m;
+  sfxMuted = m;
+  try {
+    localStorage.setItem('bm_muted', m ? '1' : '0');
+    localStorage.setItem('bm_music_muted', m ? '1' : '0');
+    localStorage.setItem('bm_sfx_muted', m ? '1' : '0');
+  } catch { /* ignore */ }
+  if (muted || musicMuted) {
     if (musicEl) musicEl.pause();
   } else if (musicEl && musicEl.dataset.src) {
     musicEl.play().catch(() => {});
@@ -70,6 +83,40 @@ export function setMuted(m) {
 }
 
 export function isMuted() { return muted; }
+
+export function setMusicMuted(m) {
+  musicMuted = m;
+  try { localStorage.setItem('bm_music_muted', m ? '1' : '0'); } catch { /* ignore */ }
+  muted = musicMuted && sfxMuted;
+  try { localStorage.setItem('bm_muted', muted ? '1' : '0'); } catch { /* ignore */ }
+  if (musicMuted) {
+    if (musicEl) musicEl.pause();
+  } else if (musicEl && musicEl.dataset.src) {
+    musicEl.play().catch(() => {});
+  }
+}
+
+export function setSfxMuted(m) {
+  sfxMuted = m;
+  try { localStorage.setItem('bm_sfx_muted', m ? '1' : '0'); } catch { /* ignore */ }
+  muted = musicMuted && sfxMuted;
+  try { localStorage.setItem('bm_muted', muted ? '1' : '0'); } catch { /* ignore */ }
+}
+
+export function isMusicMuted() { return musicMuted; }
+export function isSfxMuted() { return sfxMuted; }
+
+export function setGameSpeed(v) {
+  if (v !== 'slow' && v !== 'normal' && v !== 'fast') return;
+  gameSpeed = v;
+  try { localStorage.setItem('bm_speed', v); } catch { /* ignore */ }
+}
+
+export function getGameSpeed() { return gameSpeed; }
+
+export function aiDelayMs() {
+  return { slow: 700, normal: 300, fast: 80 }[gameSpeed] || 300;
+}
 
 // Master volume control (0..1). Applies to music immediately; SFX on next play.
 export function setVolume(v) {
@@ -115,7 +162,7 @@ export function installClickSounds() {
   if (clickListenerInstalled) return;
   clickListenerInstalled = true;
   document.addEventListener('click', (e) => {
-    if (muted) return;
+    if (muted || sfxMuted) return;
     const btn = e.target.closest('button');
     if (!btn) return;
     // Hand card buttons (cards in play) get the activate-card sound; others

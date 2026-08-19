@@ -1,29 +1,31 @@
-// Hand.jsx - Bottom strip: ROOMS / SPELLS tabs, cards, DONE/PASS (APK chrome).
+// Hand.jsx - Bottom APK strip with ROOMS / SPELLS tabs.
 import React, { useState } from 'react';
-import { PHASE } from '../../cardData.js';
+import { PHASE, spellAllowedInPhase, canPlaySpell } from '../../cardData.js';
 import { countVisibleRooms } from '../../engine.js';
 import Card from './Card.jsx';
 import s from './Hand.module.css';
 
-export default function Hand({ me, phase, isMyTurn, selectedCard, onSelect, onBuild, onBuildInitial, onSpell, onPass, onInspect, showPass = true }) {
+export default function Hand({ me, phase, isMyTurn, selectedCard, onSelect, onBuild, onBuildInitial, onSpell, onPass, onInspect, showPass = true, stackLength = 0 }) {
   const [tab, setTab] = useState('rooms');
   const rooms = me.hand.map((c, i) => ({ c, i })).filter(({ c }) => c.isRoom);
   const spells = me.hand.map((c, i) => ({ c, i })).filter(({ c }) => c.isSpell);
-  const shown = tab === 'spells' ? spells : rooms;
+  const shown = tab === 'rooms' ? rooms : spells;
 
   return (
-    <div className={s.panel} aria-label="Main">
+    <div className={s.panel} aria-label="Hand">
       <div className={s.tabs}>
         <button
-          className={`${s.tab} ${tab === 'rooms' ? s.tabOn : s.tabOff}`}
-          onClick={() => setTab('rooms')}
           type="button"
+          className={`${s.tab} ${tab !== 'rooms' ? s.tabOff : ''}`}
+          onClick={() => setTab('rooms')}
+          aria-label="Rooms"
           aria-pressed={tab === 'rooms'}
         />
         <button
-          className={`${s.tab} ${s.tabSpells} ${tab === 'spells' ? s.tabOn : s.tabOff}`}
-          onClick={() => setTab('spells')}
           type="button"
+          className={`${s.tab} ${s.tabSpells} ${tab !== 'spells' ? s.tabOff : ''}`}
+          onClick={() => setTab('spells')}
+          aria-label="Spells"
           aria-pressed={tab === 'spells'}
         />
       </div>
@@ -31,7 +33,7 @@ export default function Hand({ me, phase, isMyTurn, selectedCard, onSelect, onBu
         {shown.map(({ c, i }) => {
           const canBuildRoom = phase === PHASE.SETUP ? (c.isRoom && !c.advanced) : c.isRoom;
           const canBuild = isMyTurn && canBuildRoom && (phase === PHASE.BUILD || phase === PHASE.SETUP);
-          const canSpell = isMyTurn && c.isSpell;
+          const canSpell = isMyTurn && c.isSpell && canPlaySpell(c, phase, stackLength);
           return (
             <button
               key={`hand-${c.id}-${i}`}

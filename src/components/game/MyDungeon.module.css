@@ -39,10 +39,10 @@
   height: 40px;
   border: none;
   cursor: pointer;
-  background: url('/ui/ingame/go_button.png') center/contain no-repeat;
+  background: url('/ui/ingame/go_button.webp') center/contain no-repeat;
   image-rendering: pixelated;
 }
-.activateBtn:active { background-image: url('/ui/ingame/go_button_pressed.png'); }
+.activateBtn:active { background-image: url('/ui/ingame/go_button_pressed.webp'); }
 .stackBadge {
   position: absolute;
   top: -6px;
@@ -58,7 +58,7 @@
   width: 168px;
   aspect-ratio: 350 / 488;
   border: none;
-  background: url('/ui/ingame/card_slot.png') center/100% 100% no-repeat;
+  background: url('/ui/ingame/card_slot.webp') center/100% 100% no-repeat;
   image-rendering: pixelated;
   cursor: pointer;
   opacity: 0.85;

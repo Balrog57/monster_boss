@@ -357,9 +357,63 @@ export function processLevelUp(G, ctx, playerId) {
     case 'BMA008': { // Gorgona: kill a hero in town
       if (G.town.length > 0) {
         const hero = G.town.shift();
-        for (let i = 0; i < (hero.souls || 1); i++) player.souls.push({ souls: 1, name: hero.name });
+        for (let i = 0; i < (hero.souls || 1); i++) player.souls.push({ souls: 1, name: hero.name, class: hero.class });
         G.logs.push(`Gorgona: killed ${hero.name}.`);
       }
+      return null;
+    }
+    case 'KSA001': { // Kirax: extra Cleric/Fighter/Mage treasures
+      const extra = [1, 2, 3];
+      player.boss.treasures = [...(player.boss.treasures || []), ...extra];
+      G.logs.push('Kirax: dungeon now also has Cleric, Fighter, and Mage treasure.');
+      return null;
+    }
+    case 'KSA002': { // Hellcow: rearrange a dungeon (simplified: reverse own rooms)
+      if (player.dungeon.length > 1) {
+        player.dungeon.reverse();
+        G.logs.push('Hellcow: rearranged your dungeon rooms.');
+      }
+      return null;
+    }
+    case 'KSA003': { // The Brothers Wise: search spell deck
+      if (G.decks.spells.length === 0) { G.logs.push('The Brothers Wise: spell deck is empty.'); return null; }
+      return {
+        type: 'search-spell',
+        playerId: Number(playerId),
+        bossId: 'KSA003',
+        bossName: 'The Brothers Wise',
+        message: 'The Brothers Wise: choose a Spell from the deck',
+        options: G.decks.spells.map((card, i) => ({ card, deckIndex: i })),
+      };
+    }
+    case 'KSA004': { // Kaw'nee: steal an ordinary soul from an opponent
+      const opps = Object.entries(G.players).filter(([id, p]) => Number(id) !== Number(playerId) && !p.eliminated);
+      for (const [oid, opp] of opps) {
+        const idx = (opp.souls || []).findIndex(s => (s.souls || 1) === 1);
+        if (idx >= 0) {
+          const stolen = opp.souls.splice(idx, 1)[0];
+          player.souls.push(stolen);
+          G.logs.push(`Kaw'nee: stole ${stolen.name || 'a Hero'} from player ${oid}.`);
+          return null;
+        }
+      }
+      G.logs.push("Kaw'nee: no ordinary Hero to steal.");
+      return null;
+    }
+    case 'KSA005': { // Scythe: last room +3 forever
+      player.scytheBoost = true;
+      G.logs.push('Scythe: the last room of your dungeon has +3 damage.');
+      return null;
+    }
+    case 'KSA006': { // Jarin: +1 soul forever
+      player.bonusSouls = (player.bonusSouls || 0) + 1;
+      G.logs.push('Jarin: you have +1 Soul for the rest of the game.');
+      return null;
+    }
+    case 'KSA007': { // Elicon: double treasure until end of turn
+      G.effects.treasureDoubled = G.effects.treasureDoubled || [];
+      G.effects.treasureDoubled.push(Number(playerId));
+      G.logs.push('Elicon: your room treasures are doubled until end of turn.');
       return null;
     }
     default:
@@ -410,6 +464,17 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
       }
       break;
     }
+    case 'search-spell': {
+      const player = G.players[playerId];
+      const { deckIndex, card } = option;
+      const idx = deckIndex != null ? deckIndex : G.decks.spells.findIndex(c => c.id === card?.id);
+      if (idx >= 0) {
+        const taken = G.decks.spells.splice(idx, 1)[0];
+        player.hand.push(taken);
+        G.logs.push(`${choice.bossName}: took ${taken.name} from the Spell deck.`);
+      }
+      break;
+    }
     default:
       return 'unknown choice type';
   }
@@ -438,6 +503,9 @@ export function aiResolveLevelUpChoice(G, choice) {
         if (dmg < minDmg) { minDmg = dmg; weakest = i; }
       });
       return weakest;
+    }
+    case 'search-spell': {
+      return 0;
     }
     default:
       return 0;

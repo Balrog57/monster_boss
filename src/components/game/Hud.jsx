@@ -4,10 +4,10 @@ import { PHASE } from '../../cardData.js';
 import s from './Hud.module.css';
 
 const PHASE_IMAGES = {
-  [PHASE.SETUP]: '/ui/ingame/build_phase.png',
-  [PHASE.BUILD]: '/ui/ingame/build_phase.png',
-  [PHASE.BAIT]: '/ui/ingame/bait_phase.png',
-  [PHASE.ADVENTURE]: '/ui/ingame/adventure_phase.png',
+  [PHASE.SETUP]: '/ui/ingame/build_phase.webp',
+  [PHASE.BUILD]: '/ui/ingame/build_phase.webp',
+  [PHASE.BAIT]: '/ui/ingame/bait_phase.webp',
+  [PHASE.ADVENTURE]: '/ui/ingame/adventure_phase.webp',
 };
 
 function useCountdown(deadline) {
@@ -30,11 +30,16 @@ export default function Hud({ phase, isMyTurn, turnDeadline, notification, onOpt
   return (
     <div className={s.hud} role="status" aria-live="polite" aria-label={`Phase ${phase}`}>
       <div className={s.left}>
+        <img
+          src="/ui/ingame/heroes_in_town_top.webp"
+          alt="Heroes in Town"
+          className={s.townLabel}
+        />
         {showTimer && (
           <div
             className={`${s.timer} ${low ? s.timerLow : ''}`}
-            style={{ backgroundImage: 'url(/ui/ingame/done_button_timer.png)' }}
-            aria-label={`${remaining} secondes restantes`}
+            style={{ backgroundImage: 'url(/ui/ingame/done_button_timer.webp)' }}
+            aria-label={`${remaining} seconds remaining`}
           >
             {remaining}s
           </div>
@@ -49,10 +54,10 @@ export default function Hud({ phase, isMyTurn, turnDeadline, notification, onOpt
             className={s.optionsBtn}
             onClick={onOptions}
             title="Options"
-            aria-label="Ouvrir les options"
+            aria-label="Open options"
             type="button"
           >
-            <img src="/ui/ingame/bt_options.png" alt="" className={s.optionsIcon} />
+            <img src="/ui/ingame/bt_options.webp" alt="" className={s.optionsIcon} />
           </button>
         )}
       </div>

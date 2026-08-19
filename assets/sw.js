@@ -3,7 +3,7 @@
 // Strategy:
 //   - App shell (/, /index.html): network-first, fall back to cache (so a new
 //     deploy is picked up, but the game still loads offline).
-//   - Static assets (/cards, /ui, /audio, /fonts, hashed /assets): cache-first
+//   - Static assets (/apk_cards, /ui, /audio, /fonts, hashed /assets): cache-first
 //     with background fill — these are immutable local files, ideal for offline.
 //   - Socket.IO / lobby API: never cached (real-time + server authority).
 const CACHE = 'boss-monster-v1';
@@ -32,7 +32,7 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/socket.io') || url.pathname.startsWith('/lobby')) return;
 
   const isStatic =
-    url.pathname.startsWith('/cards/') ||
+    url.pathname.startsWith('/apk_cards/') ||
     url.pathname.startsWith('/ui/') ||
     url.pathname.startsWith('/audio/') ||
     url.pathname.startsWith('/fonts/') ||

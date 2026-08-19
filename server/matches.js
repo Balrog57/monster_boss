@@ -5,7 +5,7 @@
 // 1k concurrent) and broadcasts the resulting state to connected sockets.
 // State is snapshotted to Postgres via db.js on a debounce timer and on
 // terminal events (game over, abandoned).
-import { nanoid } from 'nanoid';
+import { nanoid, customAlphabet } from 'nanoid';
 import { setupMatch, applyMove, playerView, GAME_META } from './reducer.js';
 import {
   createMatch as dbCreateMatch,
@@ -19,6 +19,7 @@ import {
 
 // matchID -> { id, G, ctx, sockets: Map<socketID, {playerID, socket}>, dirty, status, turnTimer }
 const registry = new Map();
+const salonCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 6);
 
 // Timer configuration (milliseconds per build phase turn)
 const TURN_TIMEOUT_MS = Number(process.env.TURN_TIMEOUT_MS || 60000); // default 60s
@@ -79,7 +80,11 @@ export function hasMatch(id) {
 }
 
 export async function createNewMatch({ numPlayers, setupData } = {}) {
-  const id = nanoid(11);
+  let id = salonCode();
+  for (let i = 0; i < 8; i++) {
+    if (!registry.has(id) && !(await dbFetchMatch(id))) break;
+    id = salonCode();
+  }
   const { G, ctx } = setupMatch(numPlayers, setupData);
   await dbCreateMatch({
     id, gameName: GAME_META.name, numPlayers: G.numPlayers, state: G, ctx, setupData
@@ -189,7 +194,7 @@ export async function flushDirty() {
 
 // --- Seat management (delegates to db, mirrors boardgame.io semantics) ------
 export async function joinMatchSeat(matchID, playerName) {
-  const row = await dbFetchMatch(matchID);
+  const row = await dbFetchMatch(String(matchID || '').toUpperCase());
   if (!row) return { ok: false, error: 'match not found' };
   if (row.status === 'finished') return { ok: false, error: 'match is finished' };
   const seats = row.seats || [];
@@ -201,7 +206,7 @@ export async function joinMatchSeat(matchID, playerName) {
     return { ok: false, error: 'player already joined this match' };
   }
   const credentials = nanoid();
-  const ok = await dbJoinSeat(matchID, free.id, { playerName, credentials, isBot: false });
+  const ok = await dbJoinSeat(row.id, free.id, { playerName, credentials, isBot: false });
   if (!ok) return { ok: false, error: 'seat was taken concurrently' };
   return { ok: true, playerID: free.id, credentials };
 }
