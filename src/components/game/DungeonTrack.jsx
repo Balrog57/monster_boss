@@ -1,17 +1,17 @@
-// DungeonTrack.jsx - One dungeon row: empty entrance (left) → rooms packed
-// against the boss (right) → boss sprite. Matches the APK 2.2.6 board.
+// DungeonTrack.jsx - One dungeon row: 5 ghost slots, rooms packed against the
+// boss (right). Matches APK 2.2.6: tap a selected hand room, then tap a slot.
 import React, { useEffect, useRef, useState } from 'react';
 import { PHASE, bossTheme } from '../../cardData.js';
-import { allActiveRooms } from '../../engine.js';
+import { allActiveRooms, DUNGEON_SLOTS, extendVisualIndex, dungeonIndexFromVisual } from '../../engine.js';
 import Card from './Card.jsx';
 import BossPortrait from './BossPortrait.jsx';
 import TreasureReadout from './TreasureReadout.jsx';
 import s from './DungeonTrack.module.css';
 
-const SLOTS = 5;
 const ACTIVATED_ROOMS = new Set([
   'BMA009', 'BMA013', 'BMA025', 'BMA027', 'BMA028',
   'BMA030', 'BMA032', 'BMA038', 'BMA039',
+  'THK021', 'THK022', 'THK023',
 ]);
 
 export default function DungeonTrack({
@@ -26,13 +26,14 @@ export default function DungeonTrack({
   onSelectTarget,
   onActivateRoom,
   onInspect,
+  onHover,
   paddedBottom = false,
   adventure = null,
   treasures = {},
+  buildTargets = null,
 }) {
   const theme = bossTheme(player.boss);
   const dungeon = player.dungeon || [];
-  const offset = SLOTS - dungeon.length;
   const rooms = allActiveRooms(dungeon);
   const damage = rooms.reduce((n, r) => n + (r?.damage || 0), 0);
   const canActivate = isMine && isMyTurn && (phase === PHASE.BUILD || phase === PHASE.ADVENTURE);
@@ -54,6 +55,9 @@ export default function DungeonTrack({
   }, [player.wounds?.length]);
 
   const entranceHeroes = player.entrance || [];
+  const extendVis = extendVisualIndex(dungeon);
+  const placing = isMine && isMyTurn && selectedCard != null && activateSourceRoom == null
+    && (phase === PHASE.BUILD || phase === PHASE.SETUP);
 
   return (
     <div
@@ -75,35 +79,53 @@ export default function DungeonTrack({
 
       <div className={s.body}>
         <div className={s.rooms}>
-          {Array.from({ length: SLOTS }, (_, i) => {
-            const di = i - offset;
-            if (di < 0) {
-              return <div key={`empty-${i}`} className={s.empty} aria-hidden="true" />;
+          {Array.from({ length: DUNGEON_SLOTS }, (_, i) => {
+            const di = dungeonIndexFromVisual(dungeon, i);
+            if (di == null) {
+              const isExtend = extendVis === i;
+              const canPlace = placing && isExtend && (buildTargets?.extend !== false);
+              return (
+                <button
+                  key={`empty-${i}`}
+                  type="button"
+                  className={`${s.empty} ${canPlace ? s.emptyValid : ''}`}
+                  disabled={!canPlace}
+                  onClick={canPlace ? () => onSelectTarget(null) : undefined}
+                  aria-label={canPlace ? 'Build new room here' : 'Empty room slot'}
+                />
+              );
             }
             const stack = dungeon[di];
             const r = Array.isArray(stack) ? stack[stack.length - 1] : stack;
-            if (!r) return <div key={`empty-${i}`} className={s.empty} aria-hidden="true" />;
+            if (!r) {
+              return <div key={`empty-${i}`} className={s.empty} aria-hidden="true" />;
+            }
             const stackDepth = Array.isArray(stack) ? stack.length : 1;
             const hasAbility = ACTIVATED_ROOMS.has(r.id);
             const isSource = activateSourceRoom === di;
             const isTargetCandidate = activateSourceRoom != null && di !== activateSourceRoom;
-            const canTarget = isMine && phase === PHASE.BUILD && isMyTurn && activateSourceRoom == null;
+            const overwriteOk = placing && (buildTargets?.overwrites || []).includes(di);
             const inThisDungeon = adventure && String(adventure.playerId) === String(playerId);
             const showHeroes = (di === 0 && entranceHeroes.length > 0 && !inThisDungeon)
               || (inThisDungeon && (adventure.roomIndex === di || (adventure.roomIndex < 0 && di === 0)));
             return (
               <div
                 key={`room-${r.id}-${di}`}
-                className={`${s.slot} ${isSource ? s.source : ''} ${isTargetCandidate ? s.target : ''}`}
+                className={`${s.slot} ${isSource ? s.source : ''} ${isTargetCandidate || overwriteOk ? s.target : ''} ${overwriteOk ? s.emptyValid : ''}`}
               >
                 <Card
                   card={r}
                   kind="room"
                   size={size}
                   faceDown={!!r.faceDown}
-                  selected={selectedCard === di || isSource}
+                  selected={isSource || overwriteOk}
                   onInspect={onInspect}
-                  onClick={canTarget ? () => onSelectTarget(di) : isTargetCandidate ? () => onActivateRoom(activateSourceRoom, di) : undefined}
+                  onHover={onHover}
+                  onClick={
+                    overwriteOk ? () => onSelectTarget(di)
+                      : isTargetCandidate ? () => onActivateRoom(activateSourceRoom, di)
+                        : undefined
+                  }
                 />
                 {stackDepth > 1 && <div className={s.stack}>×{stackDepth}</div>}
                 {showHeroes && (
@@ -115,6 +137,7 @@ export default function DungeonTrack({
                         kind={h.epic ? 'epic-hero' : 'hero'}
                         size="xs"
                         onInspect={onInspect}
+                        onHover={onHover}
                       />
                     ))}
                   </div>

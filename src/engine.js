@@ -19,6 +19,24 @@ export function countVisibleRooms(dungeon) {
   return allActiveRooms(dungeon).filter(Boolean).length;
 }
 
+/** Always 5 APK dungeon frames; rooms pack against the boss (right). */
+export const DUNGEON_SLOTS = 5;
+
+/** Visual index of the only empty slot that may receive a new entrance room. */
+export function extendVisualIndex(dungeon) {
+  const len = dungeon?.length || 0;
+  if (len >= DUNGEON_SLOTS) return null;
+  if (len === 0) return DUNGEON_SLOTS - 1;
+  return DUNGEON_SLOTS - len - 1;
+}
+
+/** Map a visual slot (0 = far left) to a dungeon stack index, or null if empty. */
+export function dungeonIndexFromVisual(dungeon, visualIndex) {
+  const offset = DUNGEON_SLOTS - (dungeon?.length || 0);
+  const di = visualIndex - offset;
+  return di >= 0 ? di : null;
+}
+
 function playerOf(G, playerId) {
   return G.players[playerId] || G.players[String(playerId)];
 }
@@ -61,6 +79,28 @@ export function treasureCountsByType(G, playerId) {
   };
 }
 
+function lureByHighest(G, getCount) {
+  const order = playerOrderByXP(G.players);
+  let best = null;
+  for (const pid of order) {
+    const count = getCount(pid);
+    const wounds = totalWounds(G.players[pid]);
+    const souls = totalSouls(G.players[pid]);
+    if (best === null) {
+      best = { pid, count, wounds, souls };
+    } else if (count > best.count) {
+      best = { pid, count, wounds, souls };
+    } else if (count === best.count && count > 0) {
+      if (wounds < best.wounds || (wounds === best.wounds && souls < best.souls)) {
+        best = { pid, count, wounds, souls };
+      } else if (wounds === best.wounds && souls === best.souls) {
+        return null;
+      }
+    }
+  }
+  return best && best.count > 0 ? best.pid : null;
+}
+
 export function resolveBait(G) {
   // For each hero in town (FIFO order), determine target dungeon.
   // Standard heroes: go to dungeon with the highest matching treasure count.
@@ -69,7 +109,7 @@ export function resolveBait(G) {
   //   souls. Tie = stays in town.
   const lureAssignments = [];
   for (const hero of G.town) {
-    if (hero.id === 'KSA014' || hero.class === 'The Fool' || hero.treasure === 0) {
+    if (hero.id === 'KSA014' || hero.class === 'The Fool' || (hero.treasure === 0 && hero.id !== 'KSA016' && hero.id !== 'KSA017')) {
       // Demigod: fewest wounds. The Fool: fewest souls.
       const order = playerOrderByXP(G.players);
       const useWounds = hero.id === 'KSA014';
@@ -89,31 +129,18 @@ export function resolveBait(G) {
       continue;
     }
 
-    // Standard hero: highest treasure count wins.
-    const order = playerOrderByXP(G.players);
-    let best = null;
-    for (const pid of order) {
-      const count = treasureCount(G, pid, hero.treasure ?? hero.class);
-      if (best === null) {
-        best = { pid, count, wounds: totalWounds(G.players[pid]), souls: totalSouls(G.players[pid]) };
-      } else if (count > best.count) {
-        best = { pid, count, wounds: totalWounds(G.players[pid]), souls: totalSouls(G.players[pid]) };
-      } else if (count === best.count && count > 0) {
-        // Tie-break: fewest wounds, then fewest souls. If still tied, the hero
-        // stays in town (no one wins the tie).
-        const w = totalWounds(G.players[pid]);
-        const s = totalSouls(G.players[pid]);
-        if (w < best.wounds || (w === best.wounds && s < best.souls)) {
-          best = { pid, count, wounds: w, souls: s };
-        } else if (w === best.wounds && s === best.souls) {
-          // Exact tie — hero stays in town. Mark best as null to signal this.
-          best = null;
-          break;
-        }
-      }
+    let targetPid = null;
+    if (hero.id === 'KSA016') {
+      // Monster Hunter: highest combined Fighter + Cleric treasure.
+      targetPid = lureByHighest(G, (pid) => treasureCount(G, pid, 1) + treasureCount(G, pid, 2));
+    } else if (hero.id === 'KSA017') {
+      // Trap Master: highest combined Mage + Thief treasure.
+      targetPid = lureByHighest(G, (pid) => treasureCount(G, pid, 3) + treasureCount(G, pid, 4));
+    } else {
+      targetPid = lureByHighest(G, (pid) => treasureCount(G, pid, hero.treasure ?? hero.class));
     }
-    if (best && best.count > 0) {
-      lureAssignments.push({ hero, targetPlayerId: best.pid, stayInTown: false });
+    if (targetPid != null) {
+      lureAssignments.push({ hero, targetPlayerId: targetPid, stayInTown: false });
     } else {
       lureAssignments.push({ hero, targetPlayerId: null, stayInTown: true });
     }
@@ -122,7 +149,8 @@ export function resolveBait(G) {
 }
 
 export function canBuildRoom(G, playerId, handIndex, targetIndex = null) {
-  const p = G.players[playerId];
+  const p = playerOf(G, playerId);
+  if (!p) return false;
   const card = p.hand[handIndex];
   if (!card || !card.isRoom) return false;
   if (G.effects.buildBlocked) return false;
@@ -151,7 +179,8 @@ export function canBuildRoom(G, playerId, handIndex, targetIndex = null) {
 }
 
 export function buildRoom(G, playerId, handIndex, targetIndex = null) {
-  const p = G.players[playerId];
+  const p = playerOf(G, playerId);
+  if (!p) return false;
   const card = p.hand[handIndex];
   if (!canBuildRoom(G, playerId, handIndex, targetIndex)) return false;
   p.hand.splice(handIndex, 1);
@@ -198,14 +227,20 @@ export function destroyRoom(G, playerId, roomIndex) {
   return destroyed;
 }
 
+function ignoresRoomAbilityText(G, playerId, hero) {
+  if (hero?.id === 'KSA017' || hero?.item?.id === 'THK014') return true;
+  return G.effects?.ignoreAbilityPids?.some((id) => String(id) === String(playerId)) ?? false;
+}
+
 export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
-  const p = G.players[playerId];
+  const p = G.players[playerId] || G.players[String(playerId)];
   const room = activeRoom(p.dungeon[roomIndex]);
   if (!room) return 0;
   let dmg = room.damage || 0;
+  const skipAbilities = ignoresRoomAbilityText(G, playerId, hero);
 
-  // Monster's Ballroom: damage = number of active monster rooms
-  if (room.id === 'BMA020') {
+  // Monster's Ballroom: damage = number of active monster rooms (ability text)
+  if (room.id === 'BMA020' && !skipAbilities) {
     const monsterCount = allActiveRooms(p.dungeon).filter(r => r && r.type === 'monster').length;
     dmg = monsterCount;
   }
@@ -215,18 +250,25 @@ export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
     dmg = 0;
   }
 
+  // Star of Invulnerability: ignore damage from the first three rooms
+  if (hero?.item?.id === 'THK019' && roomIndex < 3) {
+    dmg = 0;
+  }
+
   // Monster Hunter: Monster Rooms deal -1
   if (hero?.id === 'KSA016' && room.type === 'monster') {
     dmg = Math.max(0, dmg - 1);
   }
 
-  // Passive adjacency bonuses
-  for (let i = 0; i < p.dungeon.length; i++) {
-    if (i === roomIndex) continue;
-    const other = activeRoom(p.dungeon[i]);
-    if (!other) continue;
-    if (other.id === 'BMA015' && Math.abs(i - roomIndex) === 1 && room.type === 'monster') dmg += 1; // Goblin Armory
-    if (other.id === 'BMA029' && i === roomIndex - 1 && room.type === 'trap') dmg += 2; // Dizzygas Hallway
+  // Passive adjacency bonuses (ability text)
+  if (!skipAbilities) {
+    for (let i = 0; i < p.dungeon.length; i++) {
+      if (i === roomIndex) continue;
+      const other = activeRoom(p.dungeon[i]);
+      if (!other) continue;
+      if (other.id === 'BMA015' && Math.abs(i - roomIndex) === 1 && room.type === 'monster') dmg += 1; // Goblin Armory
+      if (other.id === 'BMA029' && i === roomIndex - 1 && room.type === 'trap') dmg += 2; // Dizzygas Hallway
+    }
   }
 
   // Spell/ability damage bonuses
@@ -234,6 +276,10 @@ export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
     for (const e of G.effects.roomDamageBonus) {
       if (e.playerId === playerId && e.roomIndex === roomIndex) dmg += e.amount;
     }
+  }
+
+  if (G.effects.ordinaryMonsterBonus?.some((id) => String(id) === String(playerId)) && room.type === 'monster' && !room.advanced) {
+    dmg += 1;
   }
 
   // Scythe (KSA005): last room +3 after level-up
@@ -249,11 +295,11 @@ export function heroHealthWithModifiers(G, hero) {
       if (e.heroId === hero.id) hp += e.amount;
     }
   }
+  const pid = G.adventure?.playerId;
+  if (G.effects.staffHealingPids?.some((id) => String(id) === String(pid))) hp += 2;
   const itemId = hero.item?.id;
   if (itemId === 'THK007') hp += 5; // Oversized Sword
-  if (itemId === 'THK004') hp += 2; // Staff of Healing (power-up)
   if (itemId === 'THK006') {
-    const pid = G.adventure?.playerId;
     const p = pid != null ? playerOf(G, pid) : null;
     if (p) hp += allActiveRooms(p.dungeon).filter(r => r && r.type === 'monster').length;
   }
@@ -268,7 +314,7 @@ export function checkEndGame(G) {
   const players = Object.values(G.players);
   const alive = players.filter(p => !p.eliminated);
   for (const p of alive) {
-    if (totalWounds(p) >= 5) p.eliminated = true;
+    if (totalWounds(p) >= 5 && !p.woundImmuneThisTurn) p.eliminated = true;
   }
   const stillAlive = players.filter(p => !p.eliminated);
   const soulWinners = stillAlive.filter(p => totalSouls(p) >= 10);

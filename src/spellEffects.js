@@ -18,6 +18,9 @@ export function emptyEffects() {
     teleportHero: null,    // heroId — consumed by resolveOneHero
     counteredSpells: [],    // spell IDs that were countered
     treasureDoubled: [],   // playerIds whose treasure counts are doubled this turn
+    staffHealingPids: [],  // Staff of Healing: +2 HP to heroes entering these dungeons
+    ordinaryMonsterBonus: [], // Goblin Suit reward: +1 ordinary monster damage
+    ignoreAbilityPids: [], // Cheat Code reward: ignore room ability text
   };
 }
 

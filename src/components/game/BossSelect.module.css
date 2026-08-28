@@ -86,58 +86,78 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.82);
+  background: rgba(0, 0, 0, 0.55);
   padding: 24px;
 }
 .inBoardHeader {
   font-family: var(--bm-font-display);
   font-size: 36px;
-  color: #f1e17c;
+  color: #fff;
   text-shadow: 2px 2px 0 #000;
-  margin-bottom: 24px;
+  margin-bottom: 12px;
   letter-spacing: 2px;
+  z-index: 6;
 }
-.inBoardRow {
+.carousel {
+  position: relative;
+  width: 720px;
+  height: 420px;
   display: flex;
-  gap: 32px;
-  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
 }
-.inBoardSlot {
-  position: relative;
+.fan {
+  position: absolute;
+  inset: 0;
   display: flex;
-  flex-direction: column;
   align-items: center;
+  justify-content: center;
+  pointer-events: none;
 }
-.backBoss {
-  width: 140px;
+.fanBack {
+  position: absolute;
+  width: 160px;
   height: auto;
   image-rendering: pixelated;
+  opacity: 0.9;
 }
+.focusCard {
+  position: relative;
+  z-index: 8;
+}
+.carHit {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 160px;
+  left: 0;
+  z-index: 9;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+.carHitRight { left: auto; right: 0; }
 .playBossBtn {
   margin-top: 8px;
-  width: 220px;
-  height: 64px;
-  border: none;
+  z-index: 10;
+  min-width: 360px;
+  height: 72px;
+  padding: 0 24px;
+  border: 3px solid #e8c44a;
   cursor: pointer;
-  background: url('/ui/buttons/button.webp') center/100% 100% no-repeat;
+  background: #1a1410;
   image-rendering: pixelated;
   font-family: var(--bm-font-display);
-  font-size: 14px;
+  font-size: 22px;
   color: #f1e17c;
-  text-shadow: 1px 1px 0 #000;
-  letter-spacing: 0.5px;
+  text-shadow: 2px 2px 0 #000;
+  letter-spacing: 1px;
 }
-.playBossBtn::after { content: none; }
+.playBossBtn:active { transform: translateY(2px); }
 .playBossTag {
   margin-top: 8px;
   color: #d2eb6d;
   font-family: var(--bm-font-display);
   font-size: 18px;
   text-shadow: 1px 1px 0 #000;
-}
-.inBoardHint {
-  margin-top: 16px;
-  color: #ccc;
-  font-size: 16px;
 }

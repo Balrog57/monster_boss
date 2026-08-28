@@ -3,7 +3,7 @@ import React from 'react';
 import DungeonTrack from './DungeonTrack.jsx';
 
 export default function MyDungeon({
-  me, playerId, phase, isMyTurn, selectedCard, onSelectTarget, onInspect, onActivateRoom, activateSourceRoom, adventure, treasures,
+  me, playerId, phase, isMyTurn, selectedCard, onSelectTarget, onInspect, onHover, onActivateRoom, activateSourceRoom, adventure, treasures, buildTargets,
 }) {
   return (
     <DungeonTrack
@@ -18,8 +18,10 @@ export default function MyDungeon({
       onSelectTarget={onSelectTarget}
       onActivateRoom={onActivateRoom}
       onInspect={onInspect}
+      onHover={onHover}
       adventure={adventure}
       treasures={treasures}
+      buildTargets={buildTargets}
     />
   );
 }

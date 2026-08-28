@@ -33,6 +33,19 @@ function PlayerBlock({ player, treasures, active, compact, onInspect }) {
         </div>
       </button>
       <SoulWoundPiles souls={player.souls} wounds={player.wounds} />
+      {(player.items || []).length > 0 && (
+        <div className={s.items}>
+          {player.items.map((it, i) => (
+            <img
+              key={`item-${it.id}-${i}`}
+              src={getCardImage(it.id, 'item')}
+              alt={it.name}
+              title={it.faceDown ? `${it.name} (face-down)` : it.name}
+              className={`${s.item} ${it.faceDown ? s.itemDown : ''}`}
+            />
+          ))}
+        </div>
+      )}
       <TreasureReadout counts={treasures || {}} compact={compact} />
     </div>
   );

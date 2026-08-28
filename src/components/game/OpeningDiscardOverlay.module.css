@@ -38,8 +38,20 @@
   cursor: pointer;
 }
 .slot.on { filter: brightness(1.12); }
-.ok {
-  display: none;
+.continue {
+  margin-left: 12px;
+  align-self: center;
+  min-width: 140px;
+  height: 72px;
+  padding: 0 16px;
+  border: 3px solid #e8c44a;
+  background: #1a1410;
+  color: #f1e17c;
+  font-family: var(--bm-font-display);
+  font-size: 16px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  text-shadow: 2px 2px 0 #000;
 }
-.ok:disabled { opacity: 0.35; cursor: default; }
-.ok:not(:disabled):active { background-image: url('/ui/buttons/ok_bt_pressed.webp'); }
+.continue:disabled { opacity: 0.35; cursor: default; }
+.continue:not(:disabled):active { transform: translateY(2px); }

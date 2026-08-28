@@ -10,7 +10,8 @@
 
 import { activeRoom, allActiveRooms, destroyRoom, countVisibleRooms, dungeonTreasures } from './engine.js';
 export { dungeonTreasures };
-import { drawCards } from './cardData.js';
+import { drawCards, PHASE } from './cardData.js';
+import { dungeonIgnoresRoomAbilities, heroIgnoresRoomAbilities } from './items.js';
 
 export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
   const p = G.players[playerId];
@@ -168,6 +169,7 @@ function discardRandomSpellFromOpponent(G, casterId) {
 export function onHeroDiedInRoom(G, ctx, playerId, room, hero) {
   const player = G.players[playerId];
   if (!player) return;
+  if (heroIgnoresRoomAbilities(hero)) return;
 
   switch (room.id) {
     case 'BMA010': { // Open Grave: recover a Room from discard
@@ -524,6 +526,10 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
   if (!stack) return 'no room at index';
   const room = activeRoom(stack);
   if (!room) return 'no active room';
+  if (room.usedThisTurn) return 'already used this turn';
+  if (G.phase === PHASE.ADVENTURE && dungeonIgnoresRoomAbilities(G, playerId)) {
+    return 'activated abilities cannot be used';
+  }
 
   switch (room.id) {
     case 'BMA009': { // Dark Altar: destroy this room → recover a card from discard
@@ -633,6 +639,54 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
       G.decks.spellDiscard.push(discarded);
       G.logs.push(`All-Seeing Eye: discarded ${discarded.name} to cancel a spell.`);
       // Simplification: just mark the last spell in discard as countered
+      return null;
+    }
+    case 'THK021': { // Orcish Smithy: attach an unattached town Item to any Hero
+      if (G.phase !== PHASE.BUILD) return 'only during the Build phase';
+      const items = G.townItems || [];
+      if (!items.length) return 'no unattached item in town';
+      const item = items.shift();
+      const hero = (G.town || []).find((h) => !h.item)
+        || Object.values(G.players).flatMap((pl) => pl.entrance || []).find((h) => !h.item)
+        || (G.adventure?.hero && !G.adventure.hero.item ? G.adventure.hero : null);
+      if (!hero) {
+        G.townItems.unshift(item);
+        return 'no hero without an item';
+      }
+      hero.item = item;
+      room.usedThisTurn = true;
+      G.logs.push(`Orcish Smithy: attached ${item.name} to ${hero.name}.`);
+      return null;
+    }
+    case 'THK022': { // Burial Mound: discard 2 rooms, flip a face-down Item face-up
+      const roomsInHand = player.hand.filter((c) => c.isRoom);
+      if (roomsInHand.length < 2) return 'not enough rooms in hand';
+      for (let i = 0; i < 2; i++) {
+        const idx = player.hand.findIndex((c) => c.isRoom);
+        if (idx >= 0) G.decks.roomDiscard.push(player.hand.splice(idx, 1)[0]);
+      }
+      const item = (player.items || []).find((it) => it.faceDown);
+      if (item) {
+        item.faceDown = false;
+        G.logs.push(`Burial Mound: flipped ${item.name} face-up.`);
+      } else {
+        G.logs.push('Burial Mound: no face-down item to flip.');
+      }
+      room.usedThisTurn = true;
+      return null;
+    }
+    case 'THK023': { // Artificer's Workbench: flip a face-up Item face-down, draw a Spell
+      const item = (player.items || []).find((it) => !it.faceDown);
+      if (!item) return 'no face-up item';
+      item.faceDown = true;
+      const spell = drawCards(G.decks.spells, 1)[0];
+      if (spell) {
+        player.hand.push(spell);
+        G.logs.push(`Artificer's Workbench: flipped ${item.name} face-down, drew ${spell.name}.`);
+      } else {
+        G.logs.push(`Artificer's Workbench: flipped ${item.name} face-down.`);
+      }
+      room.usedThisTurn = true;
       return null;
     }
     default:

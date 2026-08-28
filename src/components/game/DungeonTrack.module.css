@@ -85,7 +85,16 @@
   flex-shrink: 0;
   background: url('/ui/ingame/card_slot.webp') center/100% 100% no-repeat;
   image-rendering: pixelated;
-  opacity: 0.4;
+  opacity: 0.45;
+  border: none;
+  padding: 0;
+  cursor: default;
+}
+.empty:disabled { cursor: default; }
+.emptyValid {
+  opacity: 1;
+  cursor: pointer;
+  filter: drop-shadow(0 0 8px rgba(241, 225, 124, 0.85));
 }
 .source { outline: 3px solid #f1e17c; outline-offset: 2px; }
 .target { cursor: crosshair; }

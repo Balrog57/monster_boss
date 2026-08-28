@@ -87,14 +87,12 @@ export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, setupData = {}
 
   const applyAndDriveAI = useCallback((nextState) => {
     setState(nextState);
-    // Drive AI moves sequentially until it's the human's turn again or the
-    // phase expects a human action. This is a simple loop with a microtask
-    // break to let React render the intermediate states.
     const driveAI = (current) => {
       let s = current;
+      let steps = 0;
       const step = () => {
-        // Handle pending level-up choices (AI auto-resolves, human waits)
-        if (s.G.pendingChoice && !s.G.gameOver) {
+        if (s.G.gameOver || steps++ > 80) return;
+        if (s.G.pendingChoice) {
           const choicePid = s.G.pendingChoice.playerId;
           const choicePlayer = s.G.players[choicePid];
           if (choicePlayer && choicePlayer.isAI) {
@@ -118,29 +116,35 @@ export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, setupData = {}
               return;
             }
           }
-          // Pending choice is for the human — stop driving AI
           return;
         }
         const p = s.G.players[s.ctx.activePlayer];
-        if (!p || (p.isAI && !p.eliminated && !s.G.gameOver)) {
-          const moves = legalMoves(s.G, s.ctx, s.ctx.activePlayer);
-          if (moves.length > 0) {
-            const pick = aiPickMove(s.G, s.ctx, s.ctx.activePlayer) || moves[0];
-            const { state: ns, error } = applyMove({ G: s.G, ctx: s.ctx }, pick, s.ctx.activePlayer);
-            if (error) { return; }
-            s = { G: ns.G, ctx: ns.ctx };
+        if (!p || !p.isAI || p.eliminated) return;
+        const moves = legalMoves(s.G, s.ctx, s.ctx.activePlayer);
+        if (moves.length > 0) {
+          const pick = aiPickMove(s.G, s.ctx, s.ctx.activePlayer) || moves[0];
+          const { state: ns, error } = applyMove({ G: s.G, ctx: s.ctx }, pick, s.ctx.activePlayer);
+          if (error) {
+            const fallback = moves.find((m) => m.type === 'pass') || moves.find((m) => JSON.stringify(m) !== JSON.stringify(pick));
+            if (!fallback) return;
+            const retry = applyMove({ G: s.G, ctx: s.ctx }, fallback, s.ctx.activePlayer);
+            if (retry.error) return;
+            s = { G: retry.state.G, ctx: retry.state.ctx };
             setState(s);
             setTimeout(step, aiDelayMs());
             return;
           }
-          // AI has no legal moves — pass to advance the phase.
-          if (p && p.isAI && !p.passed) {
-            const { state: ns } = applyMove({ G: s.G, ctx: s.ctx }, { type: 'pass', args: [] }, s.ctx.activePlayer);
-            s = { G: ns.G, ctx: ns.ctx };
-            setState(s);
-            setTimeout(step, aiDelayMs());
-            return;
-          }
+          s = { G: ns.G, ctx: ns.ctx };
+          setState(s);
+          setTimeout(step, aiDelayMs());
+          return;
+        }
+        if (!p.passed) {
+          const { state: ns, error } = applyMove({ G: s.G, ctx: s.ctx }, { type: 'pass', args: [] }, s.ctx.activePlayer);
+          if (error) return;
+          s = { G: ns.G, ctx: ns.ctx };
+          setState(s);
+          setTimeout(step, aiDelayMs());
         }
       };
       step();

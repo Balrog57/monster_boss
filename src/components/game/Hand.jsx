@@ -1,15 +1,21 @@
 // Hand.jsx - Bottom APK strip with ROOMS / SPELLS tabs.
+// Rooms are selected on tap, then placed on a dungeon slot (never auto-played).
 import React, { useState } from 'react';
-import { PHASE, spellAllowedInPhase, canPlaySpell } from '../../cardData.js';
-import { countVisibleRooms } from '../../engine.js';
+import { PHASE, canPlaySpell } from '../../cardData.js';
 import Card from './Card.jsx';
 import s from './Hand.module.css';
 
-export default function Hand({ me, phase, isMyTurn, selectedCard, onSelect, onBuild, onBuildInitial, onSpell, onPass, onInspect, showPass = true, stackLength = 0 }) {
+export default function Hand({
+  me, phase, isMyTurn, selectedCard, onSelect, onSpell, onPass, onInspect, onHover,
+  showPass = true, stackLength = 0,
+}) {
   const [tab, setTab] = useState('rooms');
   const rooms = me.hand.map((c, i) => ({ c, i })).filter(({ c }) => c.isRoom);
   const spells = me.hand.map((c, i) => ({ c, i })).filter(({ c }) => c.isSpell);
   const shown = tab === 'rooms' ? rooms : spells;
+
+  const canPickRoom = isMyTurn && (phase === PHASE.BUILD || phase === PHASE.SETUP);
+  const canPickSpell = isMyTurn && (phase === PHASE.BUILD || phase === PHASE.ADVENTURE);
 
   return (
     <div className={s.panel} aria-label="Hand">
@@ -31,25 +37,19 @@ export default function Hand({ me, phase, isMyTurn, selectedCard, onSelect, onBu
       </div>
       <div className={s.row}>
         {shown.map(({ c, i }) => {
-          const canBuildRoom = phase === PHASE.SETUP ? (c.isRoom && !c.advanced) : c.isRoom;
-          const canBuild = isMyTurn && canBuildRoom && (phase === PHASE.BUILD || phase === PHASE.SETUP);
-          const canSpell = isMyTurn && c.isSpell && canPlaySpell(c, phase, stackLength);
+          const canBuild = canPickRoom && c.isRoom && (phase === PHASE.SETUP ? !c.advanced : true);
+          const canSpell = canPickSpell && c.isSpell && canPlaySpell(c, phase, stackLength);
+          const live = canBuild || canSpell;
           return (
             <button
               key={`hand-${c.id}-${i}`}
               className={s.cardBtn}
-              disabled={!canBuild && !canSpell}
+              disabled={!live}
               onClick={() => {
-                if (canBuild && (phase === PHASE.BUILD || phase === PHASE.SETUP)) {
-                  if (phase === PHASE.SETUP) {
-                    onBuildInitial(i);
-                  } else if (c.advanced || countVisibleRooms(me.dungeon) >= 5) {
-                    onSelect(i);
-                  } else {
-                    onBuild(i);
-                    onSelect(null);
-                  }
+                if (canBuild) {
+                  onSelect(selectedCard === i ? null : i);
                 } else if (canSpell) {
+                  onSelect(null);
                   onSpell(i);
                 }
               }}
@@ -63,7 +63,8 @@ export default function Hand({ me, phase, isMyTurn, selectedCard, onSelect, onBu
                 size="md"
                 selected={selectedCard === i}
                 onInspect={onInspect}
-                dim={!canBuild && !canSpell}
+                onHover={onHover}
+                dim={!live}
               />
             </button>
           );

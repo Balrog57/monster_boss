@@ -103,3 +103,17 @@
   image-rendering: pixelated;
 }
 .ok:active { background-image: url('/ui/buttons/ok_bt_pressed.webp'); }
+.rules {
+  align-self: center;
+  min-width: 180px;
+  height: 56px;
+  border: none;
+  background: url('/ui/buttons/button.webp') center/100% 100% no-repeat;
+  color: #f1e17c;
+  font-family: var(--bm-font-display);
+  font-size: 20px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  image-rendering: pixelated;
+  text-shadow: 2px 2px 0 #000;
+}

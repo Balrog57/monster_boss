@@ -52,6 +52,20 @@
   text-shadow: 1px 1px 0 #000;
   margin-top: 2px;
 }
+.items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 4px 0;
+}
+.item {
+  width: 28px;
+  height: 40px;
+  object-fit: cover;
+  image-rendering: pixelated;
+  border: 1px solid #3a3a3a;
+}
+.itemDown { opacity: 0.45; filter: grayscale(0.4); }
 .decks {
   display: flex;
   flex-direction: column;

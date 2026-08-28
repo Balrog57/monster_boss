@@ -23,6 +23,15 @@
   z-index: 3;
   pointer-events: none;
 }
+.attachedItem {
+  position: absolute;
+  right: -10px;
+  bottom: -6px;
+  width: 36px;
+  z-index: 4;
+  transform: scale(0.72);
+  transform-origin: bottom right;
+}
 .itemWrap { margin-top: 4px; }
 .resolveBtn {
   width: 75px;

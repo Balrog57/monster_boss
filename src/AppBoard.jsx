@@ -1,13 +1,13 @@
 // AppBoard.jsx - Game board orchestrator (APK 2.2.6 layout).
 import React, { useState, useEffect, useRef } from 'react';
 import { PHASE } from './cardData.js';
-import { treasureCountsByType } from './engine.js';
+import { treasureCountsByType, canBuildRoom } from './engine.js';
 import { playMusic, playSfx, SFX } from './audio.js';
 import { useGameSfx } from './hooks/useGameSfx.js';
 import {
   BossSelect, Hud, OpponentRow, MyDungeon, TownPanel, Hand, DetailPanel, Card,
   SpellTargetOverlay, spellNeedsTarget, LevelUpChoiceOverlay, OpeningDiscardOverlay, PhaseBanner, OptionsOverlay,
-  GameStage, StatsSidebar
+  GameStage, StatsSidebar, CardPreview, RulesOverlay,
 } from './components/game';
 import GameOverScreen from './screens/GameOverScreen.jsx';
 import s from './AppBoard.module.css';
@@ -17,11 +17,13 @@ const NEEDS_OTHER_TARGET = new Set(['BMA028', 'BMA032']);
 
 export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatch, onExitToMenu, turnDeadline, notification }) {
   const [inspect, setInspect] = useState(null);        // { card, kind }
+  const [preview, setPreview] = useState(null);        // hover { card, kind }
   const [selectedCard, setSelectedCard] = useState(null);
   const [activateSourceRoom, setActivateSourceRoom] = useState(null); // room index awaiting target
   const [spellTarget, setSpellTarget] = useState(null); // { handIndex, card } awaiting target
   const [gameOverData, setGameOverData] = useState(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const gameOverFired = useRef(false);
   const lastPhase = useRef(null);
 
@@ -93,6 +95,33 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
   const discardCount = roomDiscard.length + spellDiscard.length;
   const topDiscardKind = topDiscard?.isSpell ? 'spell' : topDiscard?.isRoom ? 'room' : 'room';
 
+  const selectedHandCard = selectedCard != null ? me.hand[selectedCard] : null;
+  const buildTargets = (() => {
+    if (selectedCard == null || !selectedHandCard?.isRoom) return { extend: false, overwrites: [] };
+    if (phase === PHASE.SETUP) {
+      return { extend: !selectedHandCard.advanced && me.dungeon.length === 0, overwrites: [] };
+    }
+    const overwrites = [];
+    for (let ti = 0; ti < (me.dungeon || []).length; ti++) {
+      if (canBuildRoom(G, pidKey, selectedCard, ti)) overwrites.push(ti);
+    }
+    const extend = canBuildRoom(G, pidKey, selectedCard, null);
+    return { extend, overwrites };
+  })();
+
+  const hoverKind = (c) => {
+    if (!c) return 'room';
+    if (c.isSpell) return 'spell';
+    if (c.isRoom) return 'room';
+    if (c.epic) return 'epic-hero';
+    if (c.hp != null) return 'hero';
+    if (c.xp != null) return 'boss';
+    return 'room';
+  };
+  const previewInspect = preview
+    || (selectedHandCard ? { card: selectedHandCard, kind: hoverKind(selectedHandCard) } : null)
+    || (me.boss ? { card: me.boss, kind: 'boss' } : null);
+
   return (
     <GameStage>
       <div className={s.board} id="main-content">
@@ -135,6 +164,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             treasures={oppTreasures}
             adventure={G.adventure}
             onInspect={setInspect}
+            onHover={setPreview}
           />
         </div>
         <div className={s.dungeon}>
@@ -147,11 +177,17 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             treasures={myTreasures}
             selectedCard={selectedCard}
             activateSourceRoom={activateSourceRoom}
+            buildTargets={buildTargets}
+            onHover={setPreview}
             onSelectTarget={(targetIdx) => {
               if (selectedCard != null && selectedCard >= 0) {
                 const c = me.hand[selectedCard];
                 if (c?.isRoom) {
-                  moves.buildRoom(selectedCard, targetIdx);
+                  if (phase === PHASE.SETUP) {
+                    moves.buildInitialRoom(selectedCard);
+                  } else {
+                    moves.buildRoom(selectedCard, targetIdx);
+                  }
                   setSelectedCard(null);
                 }
               }
@@ -173,13 +209,20 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             onInspect={setInspect}
           />
         </div>
-        {isMyTurn && !discarding && (phase === PHASE.BUILD || phase === PHASE.ADVENTURE) && (
+        {isMyTurn && !discarding && (
+          phase === PHASE.BUILD
+          || phase === PHASE.ADVENTURE
+          || (phase === PHASE.SETUP && !(me.hand || []).some((c) => c.isRoom && !c.advanced))
+        ) && (
           <button
             className={s.passCenter}
             type="button"
             onClick={() => { setSelectedCard(null); moves.pass(); }}
             aria-label="Pass turn"
           />
+        )}
+        {phase !== PHASE.BOSS && !discarding && (
+          <CardPreview inspect={previewInspect} />
         )}
         </>
         )}
@@ -189,6 +232,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         <OpeningDiscardOverlay
           hand={me.hand}
           onConfirm={(a, b) => moves.openingDiscard(a, b)}
+          onHover={setPreview}
         />
       )}
 
@@ -217,8 +261,6 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         selectedCard={selectedCard}
         stackLength={G.stack?.length || 0}
         onSelect={setSelectedCard}
-        onBuild={(i) => moves.buildRoom(i)}
-        onBuildInitial={(i) => moves.buildInitialRoom(i)}
         onSpell={(i) => {
           const card = me.hand[i];
           if (card && spellNeedsTarget(card.id)) {
@@ -229,6 +271,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         }}
         onPass={() => moves.pass()}
         onInspect={setInspect}
+        onHover={setPreview}
         showPass={false}
       />
       )}
@@ -252,7 +295,12 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
 
       <PhaseBanner phase={phase} />
 
-      <OptionsOverlay open={optionsOpen} onClose={() => setOptionsOpen(false)} />
+      <OptionsOverlay
+        open={optionsOpen}
+        onClose={() => setOptionsOpen(false)}
+        onOpenRules={() => { setOptionsOpen(false); setRulesOpen(true); }}
+      />
+      <RulesOverlay open={rulesOpen} onClose={() => setRulesOpen(false)} />
 
       <DetailPanel inspect={inspect} onClose={() => setInspect(null)} />
 

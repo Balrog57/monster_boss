@@ -20,15 +20,27 @@
 .right { justify-content: flex-end; }
 .phaseBadge {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
+  gap: 0;
 }
 .phaseImg {
-  height: 70px;
+  height: 52px;
   width: auto;
   image-rendering: pixelated;
 }
+.yourTurn {
+  font-family: var(--bm-font-display);
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: #f1e17c;
+  text-shadow: 2px 2px 0 #000;
+  margin-top: -4px;
+}
+.myTurn .phaseImg { filter: drop-shadow(0 0 8px rgba(241, 225, 124, 0.55)); }
+.theirTurn { opacity: 0.85; }
 .timer {
   display: flex;
   align-items: center;

@@ -1,48 +1,72 @@
-// BossSelect.jsx - BOSS phase: pick a boss card (APK-style, full-screen or in-board).
-import React from 'react';
+// BossSelect.jsx - APK in-board carousel: one face-up boss, backs fanned, PLAY.
+import React, { useMemo, useState } from 'react';
 import { TREASURE_NAMES, bossTheme, getCardImage } from '../../cardData.js';
 import Card from './Card.jsx';
 import s from './BossSelect.module.css';
 
 export default function BossSelect({ G, me, onPick, onInspect, inBoard = false }) {
-  const available = G.bossPicks.filter(b =>
+  const available = useMemo(() => G.bossPicks.filter(b =>
     !Object.values(G.players).some(p => p.boss?.id === b.id)
-  );
+  ), [G.bossPicks, G.players]);
+
   const pickedBoss = me.boss;
+  const [focus, setFocus] = useState(0);
+  const focused = available[Math.min(focus, Math.max(0, available.length - 1))] || available[0];
+
+  const cycle = (dir) => {
+    if (!available.length) return;
+    setFocus((f) => (f + dir + available.length) % available.length);
+  };
 
   if (inBoard) {
+    const name = pickedBoss?.name || focused?.name || '...';
     return (
       <div className={s.inBoard} role="dialog" aria-label="Choose your boss">
-        <div className={s.inBoardHeader}>YOU ARE {pickedBoss ? pickedBoss.name.toUpperCase() : '...'}</div>
-        <div className={s.inBoardRow}>
-          {available.map((b) => {
-            const taken = Object.values(G.players).some(p => p.boss?.id === b.id && p !== me);
-            const isMine = me.boss?.id === b.id;
-            return (
-              <div key={b.id} className={`${s.inBoardSlot} ${taken ? s.taken : ''}`}>
-                {taken ? (
-                  <img src={getCardImage('', 'back-boss')} alt="" className={s.backBoss} />
-                ) : (
-                  <>
-                    <Card card={b} kind="boss" size="lg" onInspect={onInspect} onClick={undefined} />
-                    {!isMine && (
-                      <button
-                        type="button"
-                        className={s.playBossBtn}
-                        onClick={() => onPick(b.id)}
-                        aria-label={`Play ${b.name}`}
-                      >
-                        PLAY BOSS MONSTER!
-                      </button>
-                    )}
-                    {isMine && <div className={s.playBossTag}>YOUR BOSS</div>}
-                  </>
-                )}
-              </div>
-            );
-          })}
+        <div className={s.inBoardHeader}>YOU ARE {name.toUpperCase()}</div>
+        <div className={s.carousel}>
+          <button type="button" className={s.carHit} onClick={() => cycle(-1)} aria-label="Previous boss" />
+          <div className={s.fan} aria-hidden="true">
+            {available.map((b, i) => {
+              if (b.id === focused?.id) return null;
+              const side = i < (available.indexOf(focused) || 0) ? -1 : 1;
+              const dist = Math.abs(i - (available.indexOf(focused) || 0));
+              return (
+                <img
+                  key={b.id}
+                  src={getCardImage('', 'back-boss')}
+                  alt=""
+                  className={s.fanBack}
+                  style={{
+                    transform: `translateX(${side * dist * 48}px) scale(${1 - dist * 0.08})`,
+                    zIndex: 4 - dist,
+                  }}
+                />
+              );
+            })}
+          </div>
+          {focused && !pickedBoss && (
+            <div className={s.focusCard}>
+              <Card card={focused} kind="boss" size="xl" onInspect={onInspect} onClick={undefined} />
+            </div>
+          )}
+          {pickedBoss && (
+            <div className={s.focusCard}>
+              <Card card={pickedBoss} kind="boss" size="xl" onInspect={onInspect} onClick={undefined} />
+            </div>
+          )}
+          <button type="button" className={`${s.carHit} ${s.carHitRight}`} onClick={() => cycle(1)} aria-label="Next boss" />
         </div>
-        {!me.boss && <p className={s.inBoardHint}>Choose a boss and tap PLAY BOSS MONSTER!</p>}
+        {!pickedBoss && focused && (
+          <button
+            type="button"
+            className={s.playBossBtn}
+            onClick={() => onPick(focused.id)}
+            aria-label={`Play ${focused.name}`}
+          >
+            PLAY BOSS MONSTER!
+          </button>
+        )}
+        {pickedBoss && <div className={s.playBossTag}>YOUR BOSS</div>}
       </div>
     );
   }

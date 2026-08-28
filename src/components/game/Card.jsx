@@ -17,7 +17,7 @@ import s from './Card.module.css';
 
 const SIZE = { xs: s.xs, sm: s.sm, md: s.md, lg: s.lg, xl: s.xl };
 
-export default function Card({ card, kind = 'room', faceDown = false, size = 'md', selected = false, dim = false, onClick, onInspect, className = '', style }) {
+export default function Card({ card, kind = 'room', faceDown = false, size = 'md', selected = false, dim = false, onClick, onInspect, onHover, className = '', style }) {
   const imageKind = faceDown
     ? `back-${kind === 'epic-hero' ? 'hero' : kind}`
     : (kind === 'epic-hero' ? 'epic-hero' : kind);
@@ -38,6 +38,8 @@ export default function Card({ card, kind = 'room', faceDown = false, size = 'md
       className={cls}
       style={style}
       onClick={onClick}
+      onMouseEnter={onHover && card ? () => onHover({ card, kind }) : undefined}
+      onMouseLeave={onHover ? () => onHover(null) : undefined}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}

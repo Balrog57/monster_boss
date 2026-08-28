@@ -3,7 +3,7 @@ import React from 'react';
 import DungeonTrack from './DungeonTrack.jsx';
 import s from './OpponentRow.module.css';
 
-export default function OpponentRow({ opponents, oppIds = [], treasures = [], adventure, onInspect }) {
+export default function OpponentRow({ opponents, oppIds = [], treasures = [], adventure, onInspect, onHover }) {
   return (
     <div className={s.row} aria-label="Opponent dungeons">
       {opponents.map((p, idx) => (
@@ -15,6 +15,7 @@ export default function OpponentRow({ opponents, oppIds = [], treasures = [], ad
           treasures={treasures[idx]}
           adventure={adventure}
           onInspect={onInspect}
+          onHover={onHover}
         />
       ))}
     </div>

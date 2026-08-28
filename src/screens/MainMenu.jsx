@@ -5,10 +5,12 @@ import {
   getGameSpeed, setGameSpeed,
 } from '../audio.js';
 import GameStage from '../components/game/GameStage.jsx';
+import RulesOverlay from '../components/game/RulesOverlay.jsx';
 import s from './MainMenu.module.css';
 
 export default function MainMenu({ onStart, onMultiplayer }) {
   const [view, setView] = useState('intro'); // intro | root | options | settings
+  const [rulesOpen, setRulesOpen] = useState(false);
   const [musicOff, setMusicOff] = useState(isMusicMuted());
   const [sfxOff, setSfxOff] = useState(isSfxMuted());
   const [speed, setSpeed] = useState(getGameSpeed());
@@ -62,13 +64,17 @@ export default function MainMenu({ onStart, onMultiplayer }) {
               <img src="/ui/buttons/options_icon.webp" alt="" />
               <span>OPTIONS</span>
             </button>
-            <div className={s.cellGhost} aria-hidden="true" />
+            <button className={s.cell} type="button" onClick={click(() => setRulesOpen(true))} aria-label="Rules">
+              <img src="/ui/ingame/spells_icon.webp" alt="" />
+              <span>RULES</span>
+            </button>
           </div>
         )}
 
         {view === 'options' && (
           <div className={s.stack}>
             <button className={s.wide} type="button" onClick={click(() => setView('settings'))}>SETTINGS</button>
+            <button className={s.wide} type="button" onClick={click(() => setRulesOpen(true))}>RULES</button>
           </div>
         )}
 
@@ -100,6 +106,7 @@ export default function MainMenu({ onStart, onMultiplayer }) {
           </div>
         )}
       </div>
+      <RulesOverlay open={rulesOpen} onClose={() => setRulesOpen(false)} />
     </GameStage>
   );
 }

@@ -17,4 +17,6 @@ export { default as OptionsOverlay } from './OptionsOverlay.jsx';
 export { default as GameStage } from './GameStage.jsx';
 export { default as TreasureReadout, SoulWoundPiles } from './TreasureReadout.jsx';
 export { default as DungeonTrack } from './DungeonTrack.jsx';
+export { default as CardPreview } from './CardPreview.jsx';
+export { default as RulesOverlay } from './RulesOverlay.jsx';
 export { default as StatsSidebar } from './StatsSidebar.jsx';

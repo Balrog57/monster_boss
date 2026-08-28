@@ -111,11 +111,15 @@ function scoreSpell(G, pid, phase, card, target) {
 function scoreActivate(G, pid, roomIndex, otherIndex) {
   const p = G.players[pid];
   const room = activeRoom(p.dungeon[roomIndex]);
-  if (!room) return 0;
+  if (!room) return -20;
   if (room.id === 'BMA027' && (p.entrance.length > 0 || G.adventure)) return 9;
   if (room.id === 'BMA028' && otherIndex != null && p.entrance.length > 0) return 8;
-  if (room.id === 'BMA009' || room.id === 'BMA030') return 4;
-  return 3;
+  if (room.id === 'BMA025' && G.stack?.length) return 11;
+  if (room.id === 'THK021' && (G.townItems || []).length) return 6;
+  if (room.id === 'THK022' || room.id === 'THK023') return 5;
+  if (room.id === 'BMA009' && (G.decks.roomDiscard?.length || G.decks.spellDiscard?.length)) return 2;
+  // Destroying your own rooms is usually worse than passing.
+  return -8;
 }
 
 /** Legacy enumerate hook — returns scored moves for compatibility. */

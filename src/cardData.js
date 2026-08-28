@@ -148,6 +148,13 @@ export function cardsInSets(cards, sets) {
   return cards.filter((c) => !c.set || sets.has(c.set));
 }
 
+/** Hidden Heroes replaces the base BMA hero deck (same stats, new art). */
+export function heroesForSets(heroes, sets) {
+  const list = cardsInSets(heroes, sets);
+  if (sets.has('hidden-heroes')) return list.filter((h) => h.set !== 'base');
+  return list;
+}
+
 export function getExpandedDeck(cards) {
   const out = [];
   cards.forEach(c => {

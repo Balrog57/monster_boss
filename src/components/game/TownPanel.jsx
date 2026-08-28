@@ -14,6 +14,11 @@ function HeroCard({ hero, onInspect }) {
         alt={TREASURE_NAMES[hero.treasure] || ''}
         title={TREASURE_NAMES[hero.treasure]}
       />
+      {hero.item && (
+        <div className={s.attachedItem} title={hero.item.name}>
+          <Card card={hero.item} kind="item" size="xs" onInspect={onInspect} />
+        </div>
+      )}
     </div>
   );
 }

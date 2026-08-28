@@ -16,7 +16,7 @@
 import {
   BOSSES, ROOMS, SPELLS, HEROES, ITEMS, PHASE,
   getExpandedDeck, shuffle, drawCards, playerOrderByXP, totalSouls, totalWounds,
-  allowedCardSets, cardsInSets, EXPANSION_PACKS, spellAllowedInPhase, canPlaySpell,
+  allowedCardSets, cardsInSets, heroesForSets, EXPANSION_PACKS, spellAllowedInPhase, canPlaySpell,
 } from '../src/cardData.js';
 import { castSpell, emptyEffects, isBuildBlocked, extraBuildsFor, isRoomDeactivated, isNoEntry, heroDamageFor, consumeHeroDamage } from '../src/spellEffects.js';
 import { onBuildRoom, onHeroDiedInRoom, processLevelUp, activateRoomAbility, resolveLevelUpChoice, aiResolveLevelUpChoice } from '../src/roomAbilities.js';
@@ -28,6 +28,12 @@ import {
 import { refillDeckFromDiscard } from '../src/cardData.js';
 import { emptyStack, pushEffect, allPassed as stackAllPassed, resolveStack } from '../src/stack.js';
 import { spellTargetsFor } from '../src/spellTargeting.js';
+import {
+  itemRevealCount, tryAttachRevealedItem, tryAttachItemsToHero,
+  applyHeroEnterDungeon, onHeroEnterRoom, onHeroSurvivedRoom,
+  applyItemReward, applyItemSurvivePowerUp, takeHeroItem, spellsBlockedFor,
+  dungeonIgnoresRoomAbilities, heroIgnoresRoomAbilities,
+} from '../src/items.js';
 
 // Refill a deck from its discard pile if empty. Called before every draw.
 function ensureDeck(decks, name) {
@@ -77,12 +83,7 @@ export function setupMatch(numPlayers, setupData = {}) {
   const bosses = cardsInSets(BOSSES, sets);
   const rooms = cardsInSets(ROOMS, sets);
   const spells = cardsInSets(SPELLS, sets);
-  // Hidden Heroes replaced BMA056–096 in this data set. If HH is not selected
-  // the ordinary/epic hero lists would be empty, so fall back to that deck.
-  let heroes = cardsInSets(HEROES, sets);
-  if (!heroes.length) {
-    heroes = HEROES.filter((h) => h.set === 'hidden-heroes' || !h.set);
-  }
+  const heroes = heroesForSets(HEROES, sets);
   const items = cardsInSets(ITEMS, sets);
 
   const roomDeck = shuffle(getExpandedDeck(rooms).map(r => ({ ...r, isRoom: true })));
@@ -155,6 +156,7 @@ export function setupMatch(numPlayers, setupData = {}) {
 // -> BUILD -> BAIT -> ADVENTURE -> END -> BEGINNING ...)
 // ---------------------------------------------------------------------------
 function pushSpellMoves(G, p, pid, phase, moves) {
+  if (spellsBlockedFor(G, pid)) return;
   p.hand.forEach((c, i) => {
     if (!c.isSpell || !canPlaySpell(c, phase, G.stack?.length || 0)) return;
     const targets = spellTargetsFor(G, p, pid, c.id);
@@ -316,15 +318,17 @@ function beginPhaseBeginning(G, ctx) {
     if (hero) {
       G.town.push(hero);
       G.logs.push(`${hero.name} arrives in town`);
+      tryAttachItemsToHero(G, hero);
     }
   }
-  // Tools of Hero-Kind: reveal one Item per living player at the start of the turn.
+  // Tools of Hero-Kind: 1 Item (2 in a 4-player game), not one per player.
   ensureDeck(G.decks, 'items');
-  for (let i = 0; i < aliveCount; i++) {
+  const nItems = itemRevealCount(aliveCount);
+  for (let i = 0; i < nItems; i++) {
     const item = G.decks.items.pop();
     if (item) {
-      G.townItems.push(item);
       G.logs.push(`${item.name} revealed in town`);
+      tryAttachRevealedItem(G, item);
     }
   }
   // Refill room deck from discard if empty.
@@ -350,6 +354,13 @@ function beginPhaseBeginning(G, ctx) {
     p.buildsThisTurn = 0;
     p.passed = false;
     p.hasActed = false;
+    p.woundImmuneThisTurn = false;
+    p.wounds = (p.wounds || []).filter((w) => !w.temp);
+    for (const stack of p.dungeon || []) {
+      for (const room of stack || []) {
+        if (room) room.usedThisTurn = false;
+      }
+    }
   }
   G.effects = emptyEffects();
   G.xpOrder = playerOrderByXP(G.players);
@@ -480,11 +491,7 @@ function advancePhase(G, ctx) {
 // Adventure resolution (one room at a time, matching the APK pause)
 // ---------------------------------------------------------------------------
 function attachMatchingItem(G, hero) {
-  const items = G.townItems || [];
-  const idx = items.findIndex(it => it.treasure === hero.treasure);
-  if (idx < 0) return;
-  hero.item = items.splice(idx, 1)[0];
-  G.logs.push(`${hero.item.name} attaches to ${hero.name}`);
+  tryAttachItemsToHero(G, hero);
 }
 
 function otherPlayer(G, pid) {
@@ -515,34 +522,22 @@ function finishHero(G, ctx, playerId, hero, heroHP, deathRoom) {
   if (heroHP <= 0) {
     if (hero.item?.id === 'THK001') {
       G.logs.push(`Extra Life: ${hero.name} returns to town.`);
-      p.items = p.items || [];
-      p.items.push(hero.item);
-      hero.item = null;
+      applyItemReward(G, playerId, hero.item);
+      takeHeroItem(p, hero);
       G.town.push(hero);
+      tryAttachItemsToHero(G, hero);
     } else {
       for (let i = 0; i < souls; i++) p.souls.push({ souls: 1, name: hero.name, class: hero.class });
       if (hero.item) {
-        p.items = p.items || [];
-        p.items.push(hero.item);
-        G.logs.push(`Item reward: ${hero.item.name}`);
-        hero.item = null;
+        applyItemReward(G, playerId, hero.item);
+        takeHeroItem(p, hero);
       }
       G.logs.push(`${hero.name} defeated! Player ${playerId} gains ${souls} soul(s).`);
-      if (deathRoom) onHeroDiedInRoom(G, ctx, playerId, deathRoom, hero);
+      if (deathRoom && !heroIgnoresRoomAbilities(hero)) onHeroDiedInRoom(G, ctx, playerId, deathRoom, hero);
       G.decks.heroDiscard.push(hero);
     }
   } else {
-    if (hero.item?.id === 'THK002') {
-      const roomIdxs = p.hand.map((c, i) => (c.isRoom ? i : -1)).filter(i => i >= 0);
-      for (let n = 0; n < 2 && roomIdxs.length; n++) {
-        const pick = roomIdxs.splice(Math.floor(Math.random() * roomIdxs.length), 1)[0];
-        const discarded = p.hand.splice(pick, 1)[0];
-        if (discarded) {
-          G.decks.roomDiscard.push(discarded);
-          G.logs.push(`Holy Hand Grenade: discarded ${discarded.name}`);
-        }
-      }
-    }
+    applyItemSurvivePowerUp(G, playerId, hero);
     for (let i = 0; i < wounds; i++) p.wounds.push({ wounds: 1, name: hero.name });
     G.logs.push(`${hero.name} survives! Player ${playerId} takes ${wounds} wound(s).`);
     G.decks.heroDiscard.push(hero);
@@ -566,10 +561,21 @@ function advanceAdventureRoom(G, ctx) {
     return null;
   }
   const room = activeRoom(p.dungeon[i]);
-  if (room && room.id === 'BMA017' && !adv.mazeSentBack && i > 0) {
+  if (adv.skipNext) {
+    adv.skipNext = false;
+    adv.roomIndex = i;
+    G.logs.push(`Boots of Jumping: ${hero.name} ignores ${room?.name || 'a room'}.`);
+    return null;
+  }
+  if (room && room.id === 'BMA017' && !adv.mazeSentBack && i > 0 && !heroIgnoresRoomAbilities(hero)) {
     adv.mazeSentBack = true;
     adv.roomIndex = i - 1;
     G.logs.push(`Minotaur's Maze: ${hero.name} sent back one room!`);
+    return null;
+  }
+  const enter = onHeroEnterRoom(G, playerId, i, room, hero);
+  if (enter.skipDamage) {
+    adv.roomIndex = i;
     return null;
   }
   const dmg = roomDamageWithModifiers(G, playerId, i, hero);
@@ -577,6 +583,7 @@ function advanceAdventureRoom(G, ctx) {
   adv.roomIndex = i;
   G.logs.push(`${room?.name || 'Room'} deals ${dmg} damage to ${hero.name} (HP ${adv.hp})`);
   if (adv.hp <= 0) finishHero(G, ctx, playerId, hero, adv.hp, room);
+  else onHeroSurvivedRoom(G, playerId, i, room, hero, adv);
   return null;
 }
 
@@ -584,6 +591,15 @@ function startAdventure(G, ctx, playerId) {
   const p = G.players[playerId];
   if (!p || p.entrance.length === 0) return 'no heroes at entrance';
   const hero = p.entrance[0];
+  G.adventure = {
+    playerId,
+    hero,
+    roomIndex: -1,
+    hp: hero.hp,
+    mazeSentBack: false,
+  };
+  G.logs.push(`${hero.name} enters Player ${playerId}'s dungeon`);
+  applyHeroEnterDungeon(G, playerId, hero);
   let hp = heroHealthWithModifiers(G, hero);
   const pendingDmg = heroDamageFor(G, hero.id);
   if (pendingDmg > 0) {
@@ -591,18 +607,11 @@ function startAdventure(G, ctx, playerId) {
     consumeHeroDamage(G, hero.id);
     G.logs.push(`Exhaustion deals ${pendingDmg} damage to ${hero.name} (HP ${hp})`);
   }
+  G.adventure.hp = hp;
   if (hp <= 0) {
     finishHero(G, ctx, playerId, hero, hp, null);
     return null;
   }
-  G.adventure = {
-    playerId,
-    hero,
-    roomIndex: -1,
-    hp,
-    mazeSentBack: false,
-  };
-  G.logs.push(`${hero.name} enters Player ${playerId}'s dungeon`);
   if (G.effects.teleportHero === hero.id) {
     G.adventure.roomIndex = -1;
     G.effects.teleportHero = null;
@@ -692,6 +701,7 @@ const MOVE_HANDLERS = {
     const p = G.players[pid];
     const card = p.hand[handIndex];
     if (!card || !card.isSpell) return 'invalid card';
+    if (spellsBlockedFor(G, pid)) return 'cannot play spells while Ring of Invisibility is in your dungeon';
     if (!canPlaySpell(card, G.phase, G.stack?.length || 0)) return 'spell not allowed in this phase';
     p.hand.splice(handIndex, 1);
     G.logs.push(`${pid === 0 ? 'You' : `Player ${pid}`} cast ${card.name}`);
@@ -950,6 +960,9 @@ const ACTIVATED_ABILITY_ROOMS = new Set([
   'BMA032', // The Crushinator
   'BMA038', // Torture Chamber
   'BMA039', // Zombie Prison
+  'THK021', // Orcish Smithy
+  'THK022', // Burial Mound
+  'THK023', // Artificer's Workbench
 ]);
 
 function hasActivatedAbility(roomId) {
@@ -962,10 +975,32 @@ const NEEDS_OTHER_TARGET_ROOMS = new Set(['BMA028', 'BMA032']);
 // Push legal activateRoom moves for a player's dungeon. Rooms that destroy
 // another room (Boulder Ramp, The Crushinator) require a valid other target;
 // they are only offered when at least one other room exists.
+function canOfferActivatedRoom(G, p, room) {
+  if (!room || !hasActivatedAbility(room.id) || room.usedThisTurn || room.faceDown) return false;
+  if (G.phase === PHASE.ADVENTURE && dungeonIgnoresRoomAbilities(G, Object.keys(G.players).find((id) => G.players[id] === p))) {
+    return false;
+  }
+  if (room.id === 'THK021') {
+    return G.phase === PHASE.BUILD && (G.townItems || []).length > 0;
+  }
+  if (room.id === 'THK022') {
+    return p.hand.filter((c) => c.isRoom).length >= 2 && (p.items || []).some((it) => it.faceDown);
+  }
+  if (room.id === 'THK023') {
+    return (p.items || []).some((it) => !it.faceDown);
+  }
+  if (room.id === 'BMA013') return p.hand.filter((c) => c.isRoom).length >= 2;
+  if (room.id === 'BMA025') return p.hand.some((c) => c.isSpell) && (G.stack?.length || 0) > 0;
+  if (room.id === 'BMA027') {
+    return (p.entrance || []).length > 0 || (G.adventure && String(G.adventure.playerId) === String(Object.keys(G.players).find((id) => G.players[id] === p)));
+  }
+  return true;
+}
+
 function pushActivateMoves(G, p, moves) {
   p.dungeon.forEach((stack, i) => {
     const room = activeRoom(stack);
-    if (!room || !hasActivatedAbility(room.id)) return;
+    if (!canOfferActivatedRoom(G, p, room)) return;
     if (NEEDS_OTHER_TARGET_ROOMS.has(room.id)) {
       p.dungeon.forEach((_, j) => {
         if (j !== i && activeRoom(p.dungeon[j])) {
@@ -1024,6 +1059,7 @@ export function legalMoves(G, ctx, playerID) {
     p.hand.forEach((c, i) => {
       if (c.isRoom && !c.advanced) moves.push({ type: 'buildInitialRoom', args: [i] });
     });
+    if (!moves.length) moves.push({ type: 'pass', args: [] });
     return moves;
   }
 

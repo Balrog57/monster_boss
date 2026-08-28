@@ -3,24 +3,18 @@ import React, { useState } from 'react';
 import Card from './Card.jsx';
 import s from './OpeningDiscardOverlay.module.css';
 
-export default function OpeningDiscardOverlay({ hand, onConfirm }) {
+export default function OpeningDiscardOverlay({ hand, onConfirm, onHover }) {
   const [picked, setPicked] = useState([]);
 
   const toggle = (i) => {
     setPicked((cur) => {
-      let next;
-      if (cur.includes(i)) next = cur.filter((x) => x !== i);
-      else if (cur.length >= 2) next = [cur[1], i];
-      else next = [...cur, i];
-      if (next.length === 2) {
-        const [a, b] = next;
-        setTimeout(() => onConfirm(a, b), 0);
-      }
-      return next;
+      if (cur.includes(i)) return cur.filter((x) => x !== i);
+      if (cur.length >= 2) return [cur[1], i];
+      return [...cur, i];
     });
   };
 
-  const kindOf = (c) => (c?.isSpell ? 'spell' : c?.type === 'trap' ? 'trap' : 'room');
+  const kindOf = (c) => (c?.isSpell ? 'spell' : 'room');
 
   return (
     <div className={s.overlay}>
@@ -33,17 +27,25 @@ export default function OpeningDiscardOverlay({ hand, onConfirm }) {
             className={`${s.slot} ${picked.includes(i) ? s.on : ''}`}
             onClick={() => toggle(i)}
           >
-            <Card card={card} kind={kindOf(card)} size="md" selected={picked.includes(i)} />
+            <Card
+              card={card}
+              kind={kindOf(card)}
+              size="md"
+              selected={picked.includes(i)}
+              onHover={onHover}
+            />
           </button>
         ))}
+        <button
+          type="button"
+          className={s.continue}
+          disabled={picked.length !== 2}
+          onClick={() => picked.length === 2 && onConfirm(picked[0], picked[1])}
+          aria-label="Continue"
+        >
+          CONTINUE
+        </button>
       </div>
-      <button
-        type="button"
-        className={s.ok}
-        disabled={picked.length !== 2}
-        onClick={() => picked.length === 2 && onConfirm(picked[0], picked[1])}
-        aria-label="OK"
-      />
     </div>
   );
 }
