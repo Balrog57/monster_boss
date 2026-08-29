@@ -1,5 +1,6 @@
-// RulesOverlay.jsx - APK-styled reader for docs/rules/rules.md
-import React, { useMemo, useState } from 'react';
+// RulesOverlay.jsx - Full-stage rulebook: one scrollable page, close with X.
+import React, { useMemo } from 'react';
+import { playSfx, SFX } from '../../audio.js';
 import rulesMd from '../../../docs/rules/rules.md?raw';
 import s from './RulesOverlay.module.css';
 
@@ -114,39 +115,32 @@ function renderBody(lines) {
 
 export default function RulesOverlay({ open, onClose }) {
   const sections = useMemo(() => parseSections(rulesMd), []);
-  const [active, setActive] = useState(sections[0]?.id || 'base');
   if (!open) return null;
-  const current = sections.find((sec) => sec.id === active) || sections[0];
+
+  const close = () => {
+    playSfx(SFX.BUTTON);
+    onClose();
+  };
 
   return (
-    <div className={s.backdrop} role="dialog" aria-label="Rules" aria-modal="true">
-      <div className={s.panel}>
-        <div className={s.header}>
-          <img src="/ui/ingame/spells_icon.webp" alt="" className={s.headerIcon} />
-          <span className={s.title}>RULES</span>
-          <button className={s.close} type="button" onClick={onClose} aria-label="Close" />
-        </div>
-        <div className={s.body}>
-          <nav className={s.toc} aria-label="Rule sections">
-            {sections.map((sec) => (
-              <button
-                key={sec.id}
-                type="button"
-                className={`${s.tocBtn} ${sec.id === current.id ? s.tocOn : ''}`}
-                onClick={() => setActive(sec.id)}
-              >
-                {sec.title}
-              </button>
-            ))}
-          </nav>
-          <div className={s.article}>
-            <h2>{current.title}</h2>
+    <div className={s.page} role="dialog" aria-label="Rules" aria-modal="true">
+      <header className={s.header}>
+        <img src="/ui/ingame/spells_icon.webp" alt="" className={s.headerIcon} />
+        <h1 className={s.title}>RULES</h1>
+        <button className={s.close} type="button" onClick={close} aria-label="Close">
+          ×
+        </button>
+      </header>
+      <div className={s.scroll}>
+        {sections.map((sec) => (
+          <section key={sec.id} className={s.section}>
+            <h2>{sec.title}</h2>
             <div
               className={s.prose}
-              dangerouslySetInnerHTML={{ __html: renderBody(current.body || []) }}
+              dangerouslySetInnerHTML={{ __html: renderBody(sec.body || []) }}
             />
-          </div>
-        </div>
+          </section>
+        ))}
       </div>
     </div>
   );

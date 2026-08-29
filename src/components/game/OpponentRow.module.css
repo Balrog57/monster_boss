@@ -6,3 +6,5 @@
   overflow: hidden;
 }
 .row > * { flex: 1; min-height: 0; }
+.row[data-count="3"] > *,
+.row[data-count="4"] > * { flex: 1 1 0; }

@@ -10,8 +10,11 @@ export const SPELL_TARGETS = {
   BMA046: { type: 'any-room', label: 'Choose a room to deactivate' },
   BMA047: { type: 'own-room-monster', label: 'Choose a Monster Room' },
   BMA051: { type: 'hero-town', label: 'Choose a Hero in town' },
+  BMA052: { type: 'own-soul', label: 'Choose a face-down Hero' },
   BMA053: { type: 'hero-own-dungeon', label: 'Choose a Hero in your dungeon' },
-  BMA055: { type: 'opponent', label: 'Choose an opponent' },
+  BMA054: { type: 'trepidation-player', label: 'Choose a player with 2+ more Souls' },
+  BMA055: { type: 'opponent-soul', label: 'Choose a dead Hero' },
+  THK025: { type: 'any-item', label: 'Choose an Item to flip' },
 };
 
 export function spellNeedsTarget(spellId) {
@@ -90,6 +93,38 @@ export function enumerateTargets(type, G, me, playerId) {
       for (const [opid, op] of Object.entries(G.players)) {
         if (Number(opid) === pid || op.eliminated) continue;
         targets.push({ targetPlayerId: Number(opid) });
+      }
+      break;
+    case 'trepidation-player': {
+      const mySouls = (me.souls || []).reduce((s, x) => s + (x.souls || 1), 0);
+      for (const [opid, op] of Object.entries(G.players)) {
+        if (Number(opid) === pid || op.eliminated) continue;
+        const theirs = (op.souls || []).reduce((s, x) => s + (x.souls || 1), 0);
+        if (theirs >= mySouls + 2) targets.push({ targetPlayerId: Number(opid) });
+      }
+      break;
+    }
+    case 'own-soul':
+      (me.souls || []).forEach((s, i) => {
+        if (!s.tpk) targets.push({ soulIndex: i });
+      });
+      break;
+    case 'opponent-soul':
+      for (const [opid, op] of Object.entries(G.players)) {
+        if (Number(opid) === pid || op.eliminated) continue;
+        (op.souls || []).forEach((s, i) => {
+          if (!s.tpk) targets.push({ targetPlayerId: Number(opid), soulIndex: i, pile: 'souls' });
+        });
+        (op.wounds || []).forEach((s, i) => {
+          targets.push({ targetPlayerId: Number(opid), soulIndex: i, pile: 'wounds' });
+        });
+      }
+      break;
+    case 'any-item':
+      for (const [opid, op] of Object.entries(G.players)) {
+        (op.items || []).forEach((it, i) => {
+          targets.push({ targetPlayerId: Number(opid), itemIndex: i });
+        });
       }
       break;
     default:
@@ -197,6 +232,62 @@ export function getSpellTargetOptions(type, G, me, playerId) {
           key: `opp-${opid}`, card: op.boss, kind: 'boss',
           value: { targetPlayerId: Number(opid) },
           label: op.boss?.name || `Player ${opid}`,
+        });
+      }
+      break;
+    case 'trepidation-player': {
+      const mySouls = (me.souls || []).reduce((s, x) => s + (x.souls || 1), 0);
+      for (const [opid, op] of Object.entries(G.players)) {
+        if (Number(opid) === pid || op.eliminated) continue;
+        const theirs = (op.souls || []).reduce((s, x) => s + (x.souls || 1), 0);
+        if (theirs < mySouls + 2) continue;
+        targets.push({
+          key: `trep-${opid}`, card: op.boss, kind: 'boss',
+          value: { targetPlayerId: Number(opid) },
+          label: `${op.boss?.name || `Player ${opid}`} (${theirs} Souls)`,
+        });
+      }
+      break;
+    }
+    case 'own-soul':
+      (me.souls || []).forEach((s, i) => {
+        if (s.tpk) return;
+        targets.push({
+          key: `soul-${i}`, card: { name: s.name || 'Hero', class: s.class, hp: 1 }, kind: 'hero',
+          value: { soulIndex: i },
+          label: s.name || 'Hero',
+        });
+      });
+      break;
+    case 'opponent-soul':
+      for (const [opid, op] of Object.entries(G.players)) {
+        if (Number(opid) === pid || op.eliminated) continue;
+        (op.souls || []).forEach((s, i) => {
+          if (s.tpk) return;
+          targets.push({
+            key: `osoul-${opid}-${i}`, card: { name: s.name || 'Hero', class: s.class, hp: 1 }, kind: 'hero',
+            value: { targetPlayerId: Number(opid), soulIndex: i, pile: 'souls' },
+            label: `${s.name || 'Hero'} (P${opid} soul)`,
+          });
+        });
+        (op.wounds || []).forEach((s, i) => {
+          targets.push({
+            key: `owound-${opid}-${i}`, card: { name: s.name || 'Hero', class: s.class, hp: 1 }, kind: 'hero',
+            value: { targetPlayerId: Number(opid), soulIndex: i, pile: 'wounds' },
+            label: `${s.name || 'Hero'} (P${opid} wound)`,
+          });
+        });
+      }
+      break;
+    case 'any-item':
+      for (const [opid, op] of Object.entries(G.players)) {
+        (op.items || []).forEach((it, i) => {
+          const owner = Number(opid) === pid ? 'You' : `P${opid}`;
+          targets.push({
+            key: `item-${opid}-${i}`, card: it, kind: 'item',
+            value: { targetPlayerId: Number(opid), itemIndex: i },
+            label: `${it.name} (${owner}${it.faceDown ? ', face-down' : ''})`,
+          });
         });
       }
       break;

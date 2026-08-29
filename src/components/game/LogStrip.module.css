@@ -1,11 +1,18 @@
 .strip {
-  background: rgba(0, 0, 0, 0.55);
-  padding: 6px 12px;
-  max-height: 72px;
+  background: rgba(0, 0, 0, 0.62);
+  border: 2px solid #3a3220;
+  padding: 6px 10px;
+  max-height: 78px;
   overflow: hidden;
-  font-size: 13px;
-  color: #ddd;
+  font-size: 12px;
+  color: #e8e0c8;
   text-shadow: 1px 1px 0 #000;
   pointer-events: none;
 }
-.line { margin-bottom: 1px; line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.line {
+  margin-bottom: 1px;
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

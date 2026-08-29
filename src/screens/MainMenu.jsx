@@ -6,11 +6,19 @@ import {
 } from '../audio.js';
 import GameStage from '../components/game/GameStage.jsx';
 import RulesOverlay from '../components/game/RulesOverlay.jsx';
+import CardGallery from '../components/game/CardGallery.jsx';
+import TutorialOverlay, { TUTORIAL_STORAGE_KEY } from '../components/game/TutorialOverlay.jsx';
 import s from './MainMenu.module.css';
+
+function tutorialSeen() {
+  try { return localStorage.getItem(TUTORIAL_STORAGE_KEY) === '1'; } catch { return true; }
+}
 
 export default function MainMenu({ onStart, onMultiplayer }) {
   const [view, setView] = useState('intro'); // intro | root | options | settings
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
   const [musicOff, setMusicOff] = useState(isMusicMuted());
   const [sfxOff, setSfxOff] = useState(isSfxMuted());
   const [speed, setSpeed] = useState(getGameSpeed());
@@ -28,7 +36,10 @@ export default function MainMenu({ onStart, onMultiplayer }) {
           className={s.introHit}
           type="button"
           id="main-content"
-          onClick={click(() => setView('root'))}
+          onClick={click(() => {
+            setView('root');
+            if (!tutorialSeen()) setTutorialOpen(true);
+          })}
           aria-label="Tap to start"
         >
           <img src="/ui/logos/bm_logo.webp" alt="Boss Monster" className={s.logo} />
@@ -75,6 +86,8 @@ export default function MainMenu({ onStart, onMultiplayer }) {
           <div className={s.stack}>
             <button className={s.wide} type="button" onClick={click(() => setView('settings'))}>SETTINGS</button>
             <button className={s.wide} type="button" onClick={click(() => setRulesOpen(true))}>RULES</button>
+            <button className={s.wide} type="button" onClick={click(() => setGalleryOpen(true))}>CARD GALLERY</button>
+            <button className={s.wide} type="button" onClick={click(() => setTutorialOpen(true))}>HOW TO PLAY</button>
           </div>
         )}
 
@@ -107,6 +120,8 @@ export default function MainMenu({ onStart, onMultiplayer }) {
         )}
       </div>
       <RulesOverlay open={rulesOpen} onClose={() => setRulesOpen(false)} />
+      <CardGallery open={galleryOpen} onClose={() => setGalleryOpen(false)} />
+      <TutorialOverlay open={tutorialOpen} onClose={() => setTutorialOpen(false)} />
     </GameStage>
   );
 }

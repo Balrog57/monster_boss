@@ -9,7 +9,7 @@ import TreasureReadout from './TreasureReadout.jsx';
 import s from './DungeonTrack.module.css';
 
 const ACTIVATED_ROOMS = new Set([
-  'BMA009', 'BMA013', 'BMA025', 'BMA027', 'BMA028',
+  'BMA009', 'BMA013', 'BMA024', 'BMA025', 'BMA027', 'BMA028',
   'BMA030', 'BMA032', 'BMA038', 'BMA039',
   'THK021', 'THK022', 'THK023',
 ]);

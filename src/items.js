@@ -1,5 +1,5 @@
 // items.js - Tools of Hero-Kind: town attach, power-ups, rewards, room locks.
-import { activeRoom, destroyRoom } from './engine.js';
+import { activeRoom, destroyRoom, healOneWound } from './engine.js';
 import { drawCards } from './cardData.js';
 
 /** Official: 1 Item (2 in a 4-player game) when Heroes are revealed. */
@@ -76,6 +76,53 @@ function deactivateFirstOfType(G, playerId, type, label) {
       return;
     }
   }
+}
+
+function enqueuePending(G, choice) {
+  if (!choice) return;
+  if (G.pendingChoice) {
+    G.choiceQueue = G.choiceQueue || [];
+    G.choiceQueue.push(choice);
+  } else {
+    G.pendingChoice = choice;
+  }
+}
+
+function listRooms(G, pred) {
+  const opts = [];
+  for (const [pid, p] of Object.entries(G.players)) {
+    if (p.eliminated) continue;
+    (p.dungeon || []).forEach((stack, i) => {
+      const room = activeRoom(stack);
+      if (room && pred(room, Number(pid), i)) opts.push({ playerId: Number(pid), roomIndex: i, room });
+    });
+  }
+  return opts;
+}
+
+function deactivateRoomNow(G, opt, label) {
+  G.effects.deactivatedRooms = G.effects.deactivatedRooms || [];
+  G.effects.deactivatedRooms.push({ playerId: opt.playerId, roomIndex: opt.roomIndex });
+  G.logs.push(`${label}: ${opt.room?.name || 'a room'} deactivated.`);
+}
+
+function offerDeactivate(G, playerId, opts, bossName, message) {
+  if (!opts.length) {
+    G.logs.push(`${bossName}: no valid room.`);
+    return;
+  }
+  if (opts.length === 1) {
+    deactivateRoomNow(G, opts[0], bossName);
+    return;
+  }
+  enqueuePending(G, {
+    type: 'deactivate-room',
+    resume: false,
+    playerId: Number(playerId),
+    bossName,
+    message,
+    options: opts,
+  });
 }
 
 function otherPlayers(G, pid) {
@@ -197,23 +244,28 @@ export function applyItemReward(G, playerId, item) {
         if (names.length) G.logs.push(`Holy Hand Grenade: player ${oid} discarded ${names.join(', ')}.`);
       }
       break;
-    case 'THK003':
-      for (const oid of opps) {
-        const idx = G.players[oid].dungeon.findIndex((stack) => activeRoom(stack)?.advanced);
-        if (idx >= 0) {
-          const room = activeRoom(G.players[oid].dungeon[idx]);
-          destroyRoom(G, oid, idx);
-          G.logs.push(`Inquisitor's Robes: destroyed ${room.name} in player ${oid}'s dungeon.`);
-          break;
-        }
+    case 'THK003': {
+      const opts = listRooms(G, (room) => room.advanced);
+      if (!opts.length) {
+        G.logs.push("Inquisitor's Robes: no Advanced Room to destroy.");
+      } else if (opts.length === 1) {
+        destroyRoom(G, opts[0].playerId, opts[0].roomIndex);
+        G.logs.push(`Inquisitor's Robes: destroyed ${opts[0].room.name}.`);
+      } else {
+        enqueuePending(G, {
+          type: 'destroy-room',
+          resume: false,
+          playerId: Number(playerId),
+          bossName: "Inquisitor's Robes",
+          message: "Inquisitor's Robes: choose an Advanced Room to destroy",
+          options: opts,
+        });
       }
       break;
+    }
     case 'THK004': {
-      const wi = p.wounds.findIndex((w) => (w.wounds || 1) === 1);
-      if (wi >= 0) {
-        p.wounds.splice(wi, 1);
-        G.logs.push('Staff of Healing: healed an ordinary Wound.');
-      }
+      const soul = healOneWound(p);
+      if (soul) G.logs.push(`Staff of Healing: healed ${soul.name || 'a Wound'} (${soul.souls} soul).`);
       break;
     }
     case 'THK005':
@@ -228,14 +280,12 @@ export function applyItemReward(G, playerId, item) {
       }
       break;
     case 'THK010':
-      for (const oid of opps) {
-        if (G.players[oid].dungeon.length) {
-          G.effects.deactivatedRooms = G.effects.deactivatedRooms || [];
-          G.effects.deactivatedRooms.push({ playerId: oid, roomIndex: 0 });
-          G.logs.push(`Ice Rod: deactivated a room in player ${oid}'s dungeon.`);
-          break;
-        }
-      }
+      offerDeactivate(
+        G, playerId,
+        listRooms(G, (_, pid) => pid !== Number(playerId)),
+        'Ice Rod',
+        "Ice Rod: choose a Room in an opponent's dungeon"
+      );
       break;
     case 'THK012': {
       const spell = drawCards(G.decks.spells, 1)[0];
@@ -246,11 +296,24 @@ export function applyItemReward(G, playerId, item) {
       break;
     }
     case 'THK013': {
-      const idx = G.decks.roomDiscard.findIndex((r) => (r.treasures || []).length >= 2);
-      if (idx >= 0) {
-        const card = G.decks.roomDiscard.splice(idx, 1)[0];
+      const opts = (G.decks.roomDiscard || [])
+        .map((card, i) => ({ card, pile: 'room', pileIndex: i }))
+        .filter((o) => (o.card.treasures || []).length >= 2);
+      if (!opts.length) {
+        G.logs.push('Bag of Holding: no dual-treasure Room in the discard.');
+      } else if (opts.length === 1) {
+        const card = G.decks.roomDiscard.splice(opts[0].pileIndex, 1)[0];
         p.hand.push(card);
         G.logs.push(`Bag of Holding: took ${card.name} from the discard.`);
+      } else {
+        enqueuePending(G, {
+          type: 'recover-card',
+          resume: false,
+          playerId: Number(playerId),
+          bossName: 'Bag of Holding',
+          message: 'Bag of Holding: choose a Room with two or more treasures',
+          options: opts,
+        });
       }
       break;
     }
@@ -260,16 +323,20 @@ export function applyItemReward(G, playerId, item) {
       G.logs.push('Cheat Code: ignore room ability text until end of turn.');
       break;
     case 'THK015':
-      for (const oid of opps) {
-        deactivateFirstOfType(G, oid, 'trap', 'Ten Foot Pole');
-        break;
-      }
+      offerDeactivate(
+        G, playerId,
+        listRooms(G, (room) => room.type === 'trap'),
+        'Ten Foot Pole',
+        'Ten Foot Pole: choose a Trap Room to deactivate'
+      );
       break;
     case 'THK018':
-      for (const oid of opps) {
-        deactivateFirstOfType(G, oid, 'monster', 'Pet Monster');
-        break;
-      }
+      offerDeactivate(
+        G, playerId,
+        listRooms(G, (room) => room.type === 'monster'),
+        'Pet Monster',
+        'Pet Monster: choose a Monster Room to deactivate'
+      );
       break;
     default:
       G.logs.push(`Item reward: ${item.name}`);

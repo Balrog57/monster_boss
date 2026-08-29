@@ -5,7 +5,7 @@ import s from './OpponentRow.module.css';
 
 export default function OpponentRow({ opponents, oppIds = [], treasures = [], adventure, onInspect, onHover }) {
   return (
-    <div className={s.row} aria-label="Opponent dungeons">
+    <div className={s.row} data-count={opponents.length} aria-label="Opponent dungeons">
       {opponents.map((p, idx) => (
         <DungeonTrack
           key={`opp-${idx}`}

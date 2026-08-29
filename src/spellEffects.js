@@ -216,16 +216,19 @@ const SPELL_EFFECTS = {
   // BMA054: Trepidation — player with 2+ more souls cannot be entered
   BMA054: (G, ctx, casterId, target) => {
     const mySouls = totalSouls(G.players[casterId]);
-    let targetId = null;
-    for (const [pid, p] of Object.entries(G.players)) {
-      if (pid === String(casterId) || p.eliminated) continue;
-      if (totalSouls(p) >= mySouls + 2) { targetId = parseInt(pid); break; }
+    let targetId = target.targetPlayerId != null ? target.targetPlayerId : null;
+    if (targetId == null) {
+      for (const [pid, p] of Object.entries(G.players)) {
+        if (pid === String(casterId) || p.eliminated) continue;
+        if (totalSouls(p) >= mySouls + 2) { targetId = parseInt(pid); break; }
+      }
     }
-    if (targetId === null) {
+    const victim = targetId != null ? G.players[targetId] : null;
+    if (!victim || totalSouls(victim) < mySouls + 2) {
       G.logs.push('Trepidation: no opponent has 2+ more souls than you.');
       return false;
     }
-    G.effects.noEntry.push(targetId);
+    G.effects.noEntry.push(Number(targetId));
     G.logs.push(`Trepidation: no hero enters player ${targetId}'s dungeon this turn.`);
     return true;
   },
@@ -274,14 +277,15 @@ const SPELL_EFFECTS = {
   // BMA052: Soul Harvest — remove a soul, draw 2 spells
   BMA052: (G, ctx, casterId, target) => {
     const p = G.players[casterId];
-    if (p.souls.length === 0) {
+    const idx = target.soulIndex != null ? target.soulIndex : (p.souls.length ? p.souls.length - 1 : -1);
+    if (idx < 0 || !p.souls[idx] || p.souls[idx].tpk) {
       G.logs.push('Soul Harvest: no soul to remove.');
       return false;
     }
-    p.souls.pop();
+    const removed = p.souls.splice(idx, 1)[0];
     const spells = drawCards(G.decks.spells, 2);
     p.hand.push(...spells);
-    G.logs.push(`Soul Harvest: removed a soul, drew ${spells.length} spells.`);
+    G.logs.push(`Soul Harvest: removed ${removed.name || 'a Hero'}, drew ${spells.length} spells.`);
     return true;
   },
 
@@ -311,25 +315,42 @@ const SPELL_EFFECTS = {
   // BMA055: Zombie Attack — dead hero returns to opponent's entrance with +2 HP
   BMA055: (G, ctx, casterId, target) => {
     const targetId = target.targetPlayerId != null ? target.targetPlayerId : null;
-    let victim = null;
-    if (targetId !== null) victim = G.players[targetId];
-    else {
+    const pileName = target.pile || 'souls';
+    let victim = targetId !== null ? G.players[targetId] : null;
+    let soulIndex = target.soulIndex;
+    if (!victim) {
       for (const [pid, p] of Object.entries(G.players)) {
-        if (pid !== String(casterId) && !p.eliminated && p.souls.length > 0) { victim = p; break; }
+        if (pid === String(casterId) || p.eliminated) continue;
+        if ((p.souls || []).some((s) => !s.tpk)) {
+          victim = p;
+          soulIndex = p.souls.findIndex((s) => !s.tpk);
+          break;
+        }
+        if ((p.wounds || []).length) {
+          victim = p;
+          soulIndex = 0;
+          break;
+        }
       }
     }
-    if (!victim || victim.souls.length === 0) {
-      G.logs.push('Zombie Attack: no opponent has souls.');
+    const pile = victim?.[pileName] || victim?.souls;
+    if (!victim || soulIndex == null || !pile?.[soulIndex]) {
+      G.logs.push('Zombie Attack: no opponent has a dead Hero.');
       return false;
     }
-    const revived = victim.souls.pop();
-    // Revive with the hero's original HP + 2 (per official rules: "+2 Health
-    // until end of turn"). The soul entry stores the hero's name; we look up
-    // the original hero from the discard pile to get the base HP.
-    const origHero = G.decks.heroDiscard.find(h => h.name === (revived.name || ''));
-    const baseHP = origHero?.hp || 2;
-    victim.entrance.push({ ...revived, name: revived.name || 'Zombie', hp: baseHP + 2, souls: 1, wounds: 1 });
-    G.logs.push('Zombie Attack: a dead hero returns to an opponent\'s dungeon (+2 HP).');
+    const revived = pile.splice(soulIndex, 1)[0];
+    const origHero = G.decks.heroDiscard.find(h => h.name === (revived.name || ''))
+      || (G.decks.heroes || []).find(h => h.name === revived.name);
+    const baseHP = origHero?.hp || revived.hp || 4;
+    victim.entrance.push({
+      ...(origHero || {}),
+      ...revived,
+      name: revived.name || origHero?.name || 'Zombie',
+      hp: baseHP + 2,
+      souls: origHero?.souls || 1,
+      wounds: origHero?.wounds || 1,
+    });
+    G.logs.push(`Zombie Attack: ${revived.name || 'a dead Hero'} returns to player ${targetId ?? '?'}'s dungeon (+2 HP).`);
     return true;
   },
 
@@ -340,15 +361,17 @@ const SPELL_EFFECTS = {
     return true;
   },
 
-  THK025: (G, ctx, casterId) => {
-    const p = G.players[casterId];
-    if (p.items?.length) {
-      const it = p.items[0];
-      it.faceDown = !it.faceDown;
-      G.logs.push(`Excavation: flipped ${it.name} ${it.faceDown ? 'face-down' : 'face-up'}.`);
-    } else {
+  THK025: (G, ctx, casterId, target) => {
+    const pid = target.targetPlayerId != null ? target.targetPlayerId : casterId;
+    const idx = target.itemIndex != null ? target.itemIndex : 0;
+    const owner = G.players[pid];
+    const it = owner?.items?.[idx];
+    if (!it) {
       G.logs.push('Excavation: no item to flip.');
+      return true;
     }
+    it.faceDown = !it.faceDown;
+    G.logs.push(`Excavation: flipped ${it.name} ${it.faceDown ? 'face-down' : 'face-up'}.`);
     return true;
   },
 };

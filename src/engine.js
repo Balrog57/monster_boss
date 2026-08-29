@@ -212,6 +212,9 @@ export function destroyRoom(G, playerId, roomIndex) {
   G.decks.roomDiscard.push(destroyed);
   if (stack.length === 0) {
     p.dungeon.splice(roomIndex, 1);
+    if (G.adventure && Number(G.adventure.playerId) === Number(playerId) && G.adventure.roomIndex > roomIndex) {
+      G.adventure.roomIndex -= 1;
+    }
   }
   // Recycling Center (BMA031): when another room is destroyed, draw 2 rooms.
   for (const s of p.dungeon) {
@@ -339,4 +342,14 @@ export function checkEndGame(G) {
     return { gameOver: true, winner: ranked[0].pid };
   }
   return { gameOver: false, winner: null };
+}
+
+/** Flip a Wound face-down: it becomes a Soul (Vampire Bordello, Staff of Healing, etc.). */
+export function healOneWound(player) {
+  if (!player?.wounds?.length) return null;
+  const w = player.wounds.pop();
+  const soul = { souls: w.souls || 1, name: w.name, class: w.class };
+  player.souls = player.souls || [];
+  player.souls.push(soul);
+  return soul;
 }

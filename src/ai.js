@@ -1,6 +1,6 @@
 // ai.js - Rule-correct AI for Boss Monster (solo mode).
 import { activeRoom, countVisibleRooms, dungeonTreasures } from './engine.js';
-import { totalSouls, PHASE, canPlaySpell } from './cardData.js';
+import { PHASE, canPlaySpell } from './cardData.js';
 import { legalMoves } from '../server/reducer.js';
 
 export function aiChooseBoss(availableBosses) {
@@ -90,13 +90,11 @@ function scoreSpell(G, pid, phase, card, target) {
     case 'BMA051':
       return target?.townIndex != null ? 9 : 0;
     case 'BMA052':
-      return p.souls.length > 0 && p.hand.length < 4 ? 5 : 0;
-    case 'BMA054': {
-      const leader = Object.values(G.players)
-        .filter(op => !op.eliminated && op !== p)
-        .sort((a, b) => totalSouls(b) - totalSouls(a))[0];
-      return leader && totalSouls(leader) >= totalSouls(p) + 2 ? 8 : 0;
-    }
+      return target?.soulIndex != null && p.hand.length < 4 ? 5 : 0;
+    case 'BMA054':
+      return target?.targetPlayerId != null ? 8 : 0;
+    case 'BMA055':
+      return target?.soulIndex != null || target?.targetPlayerId != null ? 7 : 0;
     case 'BMA041':
       return target?.heroId != null ? 6 : 0;
     case 'BMA045':
@@ -112,9 +110,10 @@ function scoreActivate(G, pid, roomIndex, otherIndex) {
   const p = G.players[pid];
   const room = activeRoom(p.dungeon[roomIndex]);
   if (!room) return -20;
-  if (room.id === 'BMA027' && (p.entrance.length > 0 || G.adventure)) return 9;
-  if (room.id === 'BMA028' && otherIndex != null && p.entrance.length > 0) return 8;
+  if (room.id === 'BMA027' && G.adventure && Number(G.adventure.playerId) === Number(pid)) return 9;
+  if (room.id === 'BMA028' && otherIndex != null && G.adventure && Number(G.adventure.playerId) === Number(pid)) return 8;
   if (room.id === 'BMA025' && G.stack?.length) return 11;
+  if (room.id === 'BMA024' && G.phase === PHASE.BUILD) return 4;
   if (room.id === 'THK021' && (G.townItems || []).length) return 6;
   if (room.id === 'THK022' || room.id === 'THK023') return 5;
   if (room.id === 'BMA009' && (G.decks.roomDiscard?.length || G.decks.spellDiscard?.length)) return 2;

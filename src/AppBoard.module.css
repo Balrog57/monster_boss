@@ -124,3 +124,11 @@
   grid-area: play;
   z-index: 30;
 }
+.log {
+  position: absolute;
+  left: 12px;
+  bottom: 8px;
+  z-index: 9;
+  max-width: 460px;
+  pointer-events: none;
+}

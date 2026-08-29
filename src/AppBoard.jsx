@@ -7,7 +7,7 @@ import { useGameSfx } from './hooks/useGameSfx.js';
 import {
   BossSelect, Hud, OpponentRow, MyDungeon, TownPanel, Hand, DetailPanel, Card,
   SpellTargetOverlay, spellNeedsTarget, LevelUpChoiceOverlay, OpeningDiscardOverlay, PhaseBanner, OptionsOverlay,
-  GameStage, StatsSidebar, CardPreview, RulesOverlay,
+  GameStage, StatsSidebar, CardPreview, RulesOverlay, LogStrip, CardGallery,
 } from './components/game';
 import GameOverScreen from './screens/GameOverScreen.jsx';
 import s from './AppBoard.module.css';
@@ -24,6 +24,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
   const [gameOverData, setGameOverData] = useState(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const gameOverFired = useRef(false);
   const lastPhase = useRef(null);
 
@@ -224,6 +225,11 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         {phase !== PHASE.BOSS && !discarding && (
           <CardPreview inspect={previewInspect} />
         )}
+        {phase !== PHASE.BOSS && (
+          <div className={s.log}>
+            <LogStrip logs={G.logs} />
+          </div>
+        )}
         </>
         )}
       </div>
@@ -299,8 +305,10 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         open={optionsOpen}
         onClose={() => setOptionsOpen(false)}
         onOpenRules={() => { setOptionsOpen(false); setRulesOpen(true); }}
+        onOpenGallery={() => { setOptionsOpen(false); setGalleryOpen(true); }}
       />
       <RulesOverlay open={rulesOpen} onClose={() => setRulesOpen(false)} />
+      <CardGallery open={galleryOpen} onClose={() => setGalleryOpen(false)} />
 
       <DetailPanel inspect={inspect} onClose={() => setInspect(null)} />
 
