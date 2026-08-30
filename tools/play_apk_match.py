@@ -12,18 +12,19 @@ ACTIVITY = "com.dbm.project/md5399b08adcce2dcd4a96d41bd345c86c9.AndroidActivity"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "docs", "reference")
 
-OK = (1737, 983)
+OK = (1806, 1006)       # green OK button (expansions, dialogs)
+GAME_OVER_OK = (1552, 1007)
 CONTINUE = (1550, 540)
 TAP_START = (960, 626)
 SINGLE = (720, 430)
 PLAYERS_2 = (960, 560)
 SKIP = (960, 900)
-PLAY_BOSS = (960, 980)
+PLAY_BOSS = (945, 973)  # PLAY BOSS MONSTER button on boss reveal
 PASS_CENTER = (960, 500)
 HAND_1 = (700, 980)
 SLOT_1 = (620, 780)
-DISCARD_A = (492, 560)
-DISCARD_B = (604, 560)
+DISCARD_A = (500, 560)
+DISCARD_B = (620, 560)
 
 
 def adb(*args: str, timeout: int = 40) -> subprocess.CompletedProcess:
@@ -63,12 +64,14 @@ def start_match():
     tap(TAP_START, 2.5)
     tap(SINGLE, 2.0)
     tap(PLAYERS_2, 1.5)
+    tap(OK, 3.0)          # confirm 2 players
     tap(OK, 3.0)          # expansions
-    dismiss_dialogs()     # tutorial
+    tap(SKIP, 1.5)
+    tap(SKIP, 1.0)
     tap((700, 560), 2.0)  # pick boss in carousel
-    tap(PLAY_BOSS, 3.0)
-    dismiss_dialogs()
-    tap(PLAY_BOSS, 3.5)   # confirm / wait for opponent AI boss
+    tap(PLAY_BOSS, 3.0)   # confirm our boss
+    time.sleep(6.0)       # wait for AI opponent boss reveal
+    tap(PLAY_BOSS, 4.0)   # start match (do not tap OK here — opens credits)
 
 
 def opening_discard():

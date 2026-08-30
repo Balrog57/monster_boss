@@ -13,14 +13,15 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "docs", "reference")
 
 # 1920×1080 coordinates
-OK = (1737, 983)
+OK = (1806, 1006)
+GAME_OVER_OK = (1552, 1007)
 TAP_START = (960, 626)
 SINGLE = (720, 430)
 PLAYERS_2 = (960, 560)
 SKIP = (960, 900)
-PLAY_BOSS = (960, 980)
+PLAY_BOSS = (945, 973)
 CONTINUE = (1550, 540)
-PASS = (960, 540)          # center PASS TURN button
+PASS = (960, 500)
 PASS_ALT = (1730, 1000)
 HAND_CARD = (700, 980)
 GHOST_SLOT = (620, 780)
@@ -64,7 +65,7 @@ def main():
 
     tap((700, 560), 2.4)
     tap(PLAY_BOSS, 3.5)
-    tap(OK, 2.5)
+    time.sleep(6.0)
     tap(PLAY_BOSS, 4.0)
 
     # Opening discard: pick 2 cards + CONTINUE

@@ -12,16 +12,16 @@ ACTIVITY = "com.dbm.project/md5399b08adcce2dcd4a96d41bd345c86c9.AndroidActivity"
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "docs", "reference")
 
-OK = (1737, 983)
+OK = (1806, 1006)  # green OK (expansions, dialogs) — not (1737,983) which opens credits
 CONTINUE = (1550, 540)  # opening discard overlay (not OK — that opens credits)
 TAP_START = (960, 626)
 SINGLE = (720, 430)
 PLAYERS_2 = (960, 560)
 SKIP = (960, 900)
-PLAY_BOSS = (960, 980)
+PLAY_BOSS = (945, 973)
 HAND_CARD = (820, 980)   # first-ish hand card in bottom dock
 GHOST_SLOT = (620, 780)  # empty dungeon slot on player row
-PASS = (1730, 1000)
+PASS = (960, 500)
 
 
 def adb(*args: str, timeout: int = 40) -> subprocess.CompletedProcess:
@@ -76,9 +76,7 @@ def main():
     tap((700, 560), 2.4)
     screenshot("ingame_07_boss.png")
     tap(PLAY_BOSS, 3.5)
-    screenshot("ingame_08_after_boss.png")
-    tap(OK, 2.5)
-    screenshot("ingame_09.png")
+    time.sleep(6.0)
     tap(PLAY_BOSS, 4.0)
     screenshot("ingame_10_discard_or_board.png")
 
