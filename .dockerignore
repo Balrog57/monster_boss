@@ -10,6 +10,8 @@ dist
 boss-monster-2-4-12
 design_system
 docs
+!docs/rules
+!docs/rules/rules.md
 
 # Tests & tooling
 test
