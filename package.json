@@ -11,7 +11,12 @@
     "serve": "node server/index.js",
     "test": "playwright test",
     "test:e2e": "playwright test",
-    "test:unit": "node --test test/engine.test.js test/reducer.test.js test/ai.test.js",
+    "test:unit": "node --test test/engine.test.js test/reducer.test.js test/ai.test.js test/expansions.test.js test/card-matrix.test.js test/engine-invariants.test.js test/adventure-timing.test.js",
+    "card-matrix": "node tools/generate_card_matrix.js",
+    "merge:expansions": "python tools/merge_expansions.py",
+    "fetch:expansions": "python tools/fetch_expansion_packs.py && python tools/merge_expansions.py",
+    "fetch:expansion-art": "python tools/fetch_expansion_art.py",
+    "extract:music": "python tools/extract_music.py",
     "verify:assets": "node tools/verify_assets.js"
   },
   "dependencies": {

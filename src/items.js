@@ -1,5 +1,5 @@
 // items.js - Tools of Hero-Kind: town attach, power-ups, rewards, room locks.
-import { activeRoom, destroyRoom, healOneWound } from './engine.js';
+import { activeRoom, allActiveRooms, destroyRoom, healOneWound, heroHealthWithModifiers } from './engine.js';
 import { drawCards } from './cardData.js';
 
 /** Official: 1 Item (2 in a 4-player game) when Heroes are revealed. */
@@ -54,7 +54,7 @@ export function tryAttachRevealedItem(G, item) {
 
 /** When a Hero arrives in town, attach a matching (or Universal) unattached Item. */
 export function tryAttachItemsToHero(G, hero) {
-  if (!hero || hero.item) return;
+  if (!hero || hero.item || hero.dark) return;
   const items = G.townItems || [];
   let idx = items.findIndex((it) => it.treasure === hero.treasure);
   if (idx < 0) idx = items.findIndex((it) => it.treasure === 0);
@@ -123,6 +123,67 @@ function offerDeactivate(G, playerId, opts, bossName, message) {
     message,
     options: opts,
   });
+}
+
+function listHeroesInDungeons(G, pred = () => true) {
+  const opts = [];
+  for (const [pid, p] of Object.entries(G.players)) {
+    if (p.eliminated) continue;
+    if (G.adventure && String(G.adventure.playerId) === pid && G.adventure.hero && pred(G.adventure.hero, Number(pid), G.adventure)) {
+      opts.push({ hero: G.adventure.hero, playerId: Number(pid), inAdventure: true, heroId: G.adventure.hero.id });
+    }
+    (p.entrance || []).forEach((hero) => {
+      if (pred(hero, Number(pid), null)) opts.push({ hero, playerId: Number(pid), inAdventure: false, heroId: hero.id });
+    });
+  }
+  return opts;
+}
+
+function listFaceUpItems(G) {
+  const opts = [];
+  for (const [pid, p] of Object.entries(G.players)) {
+    (p.items || []).forEach((it, i) => {
+      if (!it.faceDown) opts.push({ item: it, playerId: Number(pid), itemIndex: i, label: `${it.name} (P${pid})` });
+    });
+  }
+  (G.townItems || []).forEach((it, i) => {
+    opts.push({ item: it, source: 'town', townItemIndex: i, label: `${it.name} (town)` });
+  });
+  for (const [pid, p] of Object.entries(G.players)) {
+    if (G.adventure && String(G.adventure.playerId) === pid && G.adventure.hero?.item && !G.adventure.hero.item.faceDown) {
+      opts.push({ item: G.adventure.hero.item, source: 'hero', playerId: Number(pid), label: `${G.adventure.hero.item.name} (on ${G.adventure.hero.name})` });
+    }
+    (p.entrance || []).forEach((hero) => {
+      if (hero.item && !hero.item.faceDown) {
+        opts.push({ item: hero.item, source: 'hero', playerId: Number(pid), heroId: hero.id, label: `${hero.item.name} (on ${hero.name})` });
+      }
+    });
+  }
+  return opts;
+}
+
+export function addHeroHealthBonus(G, heroId, amount) {
+  G.effects.heroHealthBonus = G.effects.heroHealthBonus || [];
+  G.effects.heroHealthBonus.push({ heroId, amount });
+}
+
+export function killHeroInDungeon(G, playerId, hero) {
+  const p = G.players[playerId];
+  if (G.adventure?.hero?.id === hero.id) {
+    const souls = hero.souls || 1;
+    for (let i = 0; i < souls; i++) p.souls.push({ souls: 1, name: hero.name, class: hero.class, faceDown: true });
+    G.adventure = null;
+    G.decks.heroDiscard.push(hero);
+    G.logs.push(`${hero.name} killed!`);
+    return;
+  }
+  const idx = p.entrance.findIndex((h) => h.id === hero.id);
+  if (idx >= 0) {
+    p.entrance.splice(idx, 1);
+    for (let i = 0; i < (hero.souls || 1); i++) p.souls.push({ souls: 1, name: hero.name, class: hero.class, faceDown: true });
+    G.decks.heroDiscard.push(hero);
+    G.logs.push(`${hero.name} killed!`);
+  }
 }
 
 function otherPlayers(G, pid) {
@@ -338,6 +399,130 @@ export function applyItemReward(G, playerId, item) {
         'Pet Monster: choose a Monster Room to deactivate'
       );
       break;
+    case 'THK006': {
+      const monsterCount = allActiveRooms(p.dungeon).filter((r) => r && r.type === 'monster').length;
+      const heroes = listHeroesInDungeons(G);
+      if (!heroes.length || !monsterCount) {
+        G.logs.push("Claws of the Berserker: no hero to empower.");
+        break;
+      }
+      if (heroes.length === 1) {
+        addHeroHealthBonus(G, heroes[0].heroId, monsterCount);
+        G.logs.push(`Claws of the Berserker: ${heroes[0].hero.name} +${monsterCount} Health.`);
+        break;
+      }
+      enqueuePending(G, {
+        type: 'hero-health-bonus',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'Claws of the Berserker',
+        message: 'Choose a Hero (+1 per Monster Room in your dungeon)',
+        bonus: monsterCount,
+        options: heroes,
+      });
+      break;
+    }
+    case 'THK007': {
+      const heroes = listHeroesInDungeons(G);
+      if (!heroes.length) {
+        G.logs.push('Oversized Sword: no hero in a dungeon.');
+        break;
+      }
+      if (heroes.length === 1) {
+        addHeroHealthBonus(G, heroes[0].heroId, 5);
+        G.logs.push(`Oversized Sword: ${heroes[0].hero.name} +5 Health.`);
+        break;
+      }
+      enqueuePending(G, {
+        type: 'hero-health-bonus',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'Oversized Sword',
+        message: 'Choose a Hero in any dungeon (+5 Health)',
+        bonus: 5,
+        options: heroes,
+      });
+      break;
+    }
+    case 'THK008': {
+      const wounded = listHeroesInDungeons(G, (hero, pid) => {
+        const maxHp = heroHealthWithModifiers(G, hero);
+        const adv = G.adventure?.hero?.id === hero.id ? G.adventure : null;
+        const current = adv ? adv.hp : maxHp;
+        const taken = maxHp - current;
+        return taken >= Math.ceil(maxHp / 2);
+      });
+      if (!wounded.length) {
+        G.logs.push('Vorpal Blade: no wounded Hero to kill.');
+        break;
+      }
+      if (wounded.length === 1) {
+        killHeroInDungeon(G, wounded[0].playerId, wounded[0].hero);
+        G.logs.push(`Vorpal Blade: killed ${wounded[0].hero.name}.`);
+        break;
+      }
+      enqueuePending(G, {
+        type: 'kill-wounded-hero',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'Vorpal Blade',
+        message: 'Kill a Hero who has taken at least half its Health',
+        options: wounded,
+      });
+      break;
+    }
+    case 'THK011': {
+      const items = listFaceUpItems(G);
+      if (!items.length) {
+        G.logs.push('Magic Mirror: no face-up Item to copy.');
+        break;
+      }
+      if (items.length === 1) {
+        applyItemReward(G, playerId, items[0].item);
+        G.logs.push(`Magic Mirror: copied ${items[0].item.name}.`);
+        break;
+      }
+      enqueuePending(G, {
+        type: 'copy-item-reward',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'Magic Mirror',
+        message: 'Copy the Boss Ability of a face-up Item',
+        options: items,
+      });
+      break;
+    }
+    case 'THK019': {
+      const survivors = (G.survivorsThisTurn?.[playerId] || G.survivorsThisTurn?.[String(playerId)] || []);
+      if (!survivors.length) {
+        G.logs.push('Star of Invulnerability: no Hero survived your dungeon this turn.');
+        break;
+      }
+      if (survivors.length === 1) {
+        G.logs.push(`Star of Invulnerability: ${survivors[0].name} removed from the game.`);
+        break;
+      }
+      enqueuePending(G, {
+        type: 'remove-survivor',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'Star of Invulnerability',
+        message: 'Remove a Hero that survived your dungeon this turn',
+        options: survivors.map((h) => ({ hero: h })),
+      });
+      break;
+    }
+    case 'THK020': {
+      const top = G.stack?.[G.stack.length - 1];
+      if (!top?.card) {
+        G.logs.push('Ring of Invisibility: no Spell to cancel.');
+        break;
+      }
+      G.stack.pop();
+      G.decks.spellDiscard.push(top.card);
+      G.logs.push(`Ring of Invisibility: cancelled ${top.card.name}.`);
+      break;
+    }
     default:
       G.logs.push(`Item reward: ${item.name}`);
       break;

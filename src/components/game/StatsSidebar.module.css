@@ -38,6 +38,26 @@
   image-rendering: pixelated;
 }
 .nameWrap { min-width: 0; }
+.coins {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 8px 0;
+  font-weight: 800;
+  font-size: 16px;
+  color: #f1e17c;
+}
+.coinIcon { font-size: 18px; }
+.coins {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 8px 0;
+  font-weight: 800;
+  font-size: 16px;
+  color: #f1e17c;
+}
+.coinIcon { font-size: 18px; }
 .name {
   font-size: 20px;
   font-weight: 900;

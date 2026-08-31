@@ -48,6 +48,21 @@
   image-rendering: pixelated;
 }
 .passCenter:active { background-image: url('/ui/ingame/pass_button_pressed.webp'); }
+.darkPayBtn {
+  position: absolute;
+  left: calc(50% - 200px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 12;
+  padding: 10px 14px;
+  border: 2px solid #c9a84c;
+  border-radius: 6px;
+  background: rgba(20, 10, 30, 0.92);
+  color: #f1e17c;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+}
 .dock {
   grid-area: dock;
   display: grid;

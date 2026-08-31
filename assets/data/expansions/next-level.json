@@ -1,0 +1,1391 @@
+{
+  "bosses": [
+    {
+      "id": "TNL000",
+      "name": "Mirrax",
+      "xp": 2000,
+      "treasures": [
+        4
+      ],
+      "levelUpDesc": "Choose another Boss. For the rest of the game, this boss also has that Boss's treasure icon. (The icon remains even if that boss dies.)",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL001",
+      "name": "Doc Scarecrow",
+      "xp": 375,
+      "treasures": [
+        1
+      ],
+      "levelUpDesc": "For the rest of the game, during the Build phase you may discard one card to choose one Hero in town. That Hero cannot be lured this turn.",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL002",
+      "name": "Belladonna",
+      "xp": 350,
+      "treasures": [
+        1
+      ],
+      "levelUpDesc": "Heal a Wound. (Turn one face-down Hero face-up.)",
+      "set": "next-level",
+      "quantity": 1,
+      "genericLevelUp": true
+    },
+    {
+      "id": "TNL003",
+      "name": "Torix Uz'Kali",
+      "xp": 725,
+      "treasures": [
+        1
+      ],
+      "levelUpDesc": "For the rest of the game, whenever any Monster Room is discarded or destroyed, you may put it into your hand.",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL004",
+      "name": "Killa",
+      "xp": 825,
+      "treasures": [
+        2
+      ],
+      "levelUpDesc": "For the rest of the game, if you have 3 Wounds or more, give the last Room of your dungeon +3",
+      "set": "next-level",
+      "quantity": 1,
+      "genericLevelUp": true
+    },
+    {
+      "id": "TNL005",
+      "name": "Shellda",
+      "xp": 425,
+      "treasures": [
+        2
+      ],
+      "levelUpDesc": "For the rest of the game, at end of turn you may swap the placement of two Rooms in one dungeon.",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL006",
+      "name": "Smoake",
+      "xp": 625,
+      "treasures": [
+        2
+      ],
+      "levelUpDesc": "For the rest of the game, whenever you build a Monster Room, you may Draw a Room card.",
+      "set": "next-level",
+      "quantity": 1,
+      "genericLevelUp": true
+    },
+    {
+      "id": "TNL007",
+      "name": "Kazanna",
+      "xp": 550,
+      "treasures": [
+        3
+      ],
+      "levelUpDesc": "Discard your hand, then draw 3 Spell cards.",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL008",
+      "name": "Dr. Timebender",
+      "xp": 925,
+      "treasures": [
+        3
+      ],
+      "levelUpDesc": "For the rest of the game, once per turn you may discard a Spell card to cancel an opponent's Spell.",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL009",
+      "name": "Nicolius",
+      "xp": 975,
+      "treasures": [
+        3
+      ],
+      "levelUpDesc": "For the rest of the game, you may draw a Spell card at the end of turn if any player has gained two more souls than you that turn.",
+      "set": "next-level",
+      "quantity": 1,
+      "genericLevelUp": true
+    },
+    {
+      "id": "TNL010",
+      "name": "Porkus",
+      "xp": 450,
+      "treasures": [
+        4
+      ],
+      "levelUpDesc": "Choose one face-down Hero from your scorekeeping area and remove it from the game. Search the Hero decks, choose one Hero, and place it face-down in your scorekeeping area.",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL011",
+      "name": "Angstigoth",
+      "xp": 475,
+      "treasures": [
+        4
+      ],
+      "levelUpDesc": "For the rest of the game, once per turn when you kill a Hero, draw a Room card.",
+      "set": "next-level",
+      "quantity": 1,
+      "genericLevelUp": true
+    },
+    {
+      "id": "TNL012",
+      "name": "Eclipse",
+      "xp": 525,
+      "treasures": [
+        1
+      ],
+      "levelUpDesc": "For the rest of the game, when you destroy a Room in your dungeon, the uncovered Room gains +3 until end of turn.",
+      "set": "next-level",
+      "quantity": 1
+    }
+  ],
+  "rooms": [
+    {
+      "id": "TNL014",
+      "name": "Imp Temple",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "Once per turn, when you force an opponent to discard a card, put that card into your hand instead.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL017",
+      "name": "Haunted Hall",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "You may destroy this Room to send a Hero in this Room back to town.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL018",
+      "name": "Inner Sanctum",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "At the end of each turn, if no Heroes entered this Room, you may draw a Room card.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL019",
+      "name": "Incubus Gym",
+      "advanced": true,
+      "type": "monster",
+      "damage": 4,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "When you build this Room, each opponent must discard a Room card.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL020",
+      "name": "Dragon Graveyard",
+      "advanced": true,
+      "type": "trap",
+      "damage": 4,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "Once per turn, if you take a card from the discard pile, draw a Room card.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL022",
+      "name": "Rust Monster Pen",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "Once per turn, you may discard a Monster Room to give one Trap Room -1 until end of turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL023",
+      "name": "Goblin Nursery",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "If the Room to the left of this is a Monster Room, give that Room +2",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL025",
+      "name": "Spawn Point",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "Once per turn, if a Hero dies in this Room, draw two Room cards.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL026",
+      "name": "Fangroot Garden",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "Once per turn, if a Hero dies in this Room, you may immediately build another Room in your dunegon.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL027",
+      "name": "Shrooman Cave",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "When you build or uncover this Room, give another Monster Room +3 until end of turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL028",
+      "name": "Goblin Mess Hall",
+      "advanced": true,
+      "type": "monster",
+      "damage": 3,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "Give ever other Monster Room in your dungeon +1",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL029",
+      "name": "Megaworm Burrow",
+      "advanced": true,
+      "type": "monster",
+      "damage": 4,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "When you build this Room, choose and destroy one Advanced Room in any dungeon.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL030",
+      "name": "The Arena",
+      "advanced": true,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "Once per turn, you may reveal a Monster Room from your hand to give this Room +X, where X is that Room's power.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL033",
+      "name": "Frostbat Cave",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+        3
+      ],
+      "quantity": 1,
+      "description": "You may destroy this Room to deactivate one Room in any dungeon.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL040",
+      "name": "Bullet Builder",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "Once per turn, you may discard a Trap Room to give one Monster Room -1 until end of turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL041",
+      "name": "Wreck Room",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "Once per turn, you may destroy another Room in your dungeon to draw a Room card.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL042",
+      "name": "Deadly Treadmill",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "Once per turn, you may discard a Room card to draw a Room card.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL043",
+      "name": "Collapsing Bridge",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "If a Hero survives this Room, until the end of turn this Room deals +3\n\nRevised: Once per turn, if a Hero survives this Room, until end of turn this Room deals +3.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL044",
+      "name": "Spiked Pit",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "When you build or uncover this Room, give this Room +3 until end of turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL045",
+      "name": "Decapitator",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "During the Build phase, you may destroy this Room to choose one Room in any dungeon and remove its treasure value until end of turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL046",
+      "name": "Chump Chomper",
+      "advanced": true,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "Once per turn, you may destroy another Room in your dungeon to give this Room +4 until end of turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL047",
+      "name": "Blockpile Puzzle",
+      "advanced": true,
+      "type": "trap",
+      "damage": 5,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "At the end of each turn, destroy one Room in your dungeon.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL048",
+      "name": "The Smashinator",
+      "advanced": true,
+      "type": "trap",
+      "damage": 3,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "Once per turn, you may destroy every other visible Room in your dungeon to give this Room +6 until end of turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL049",
+      "name": "Warp Tube",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        2,
+        3
+      ],
+      "quantity": 1,
+      "description": "You may destroy this Room to send a Hero in this Room back to the first Room of your dungeon.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL050",
+      "name": "Bom-Boy Factory",
+      "advanced": false,
+      "type": "trap",
+      "damage": 3,
+      "treasures": [
+        2,
+        4
+      ],
+      "quantity": 1,
+      "description": "When a Hero dies in this Room or survives this Room, destroy this Room.",
+      "set": "next-level",
+      "destroyOnHeroDie": true,
+      "destroyOnHeroSurvive": true
+    },
+    {
+      "id": "TNL051",
+      "name": "Hatchling's Hoard",
+      "advanced": true,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "quantity": 1,
+      "description": "(You may build this over a room with Cleric, Fighter, Mage, or Thief treasure.)",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL053",
+      "name": "Werewolf Den",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        1,
+        2
+      ],
+      "quantity": 1,
+      "description": "Once per turn, you may discard a card from your hand to give one Hero +1 until end of turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL054",
+      "name": "Cursed Tomb",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        1,
+        4
+      ],
+      "quantity": 1,
+      "description": "If an effect from another card causes this Room to be destroyed, each opponent must discard two Room cards.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL077",
+      "name": "Vampire",
+      "advanced": false,
+      "type": "monster",
+      "damage": 6,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "Once per turn, any opponent may discard a Room with Cleric to give this Hero +3 until end of turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL083",
+      "name": "Barbarian",
+      "advanced": false,
+      "type": "monster",
+      "damage": 6,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "Once per turn, any opponent may discard a Room with Fighter to give this Hero +3 until end of turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL089",
+      "name": "Witch",
+      "advanced": false,
+      "type": "monster",
+      "damage": 6,
+      "treasures": [
+        3
+      ],
+      "quantity": 1,
+      "description": "Once per turn, any opponent may discard a Room with Mage to give this Hero +3 until end of turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL095",
+      "name": "Hitman",
+      "advanced": false,
+      "type": "monster",
+      "damage": 6,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "Once per turn, any opponent may discard a Room with Thief to give this Hero +3 until end of turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL101",
+      "name": "Dragon's Hoard",
+      "advanced": true,
+      "type": "monster",
+      "damage": 5,
+      "treasures": [
+        2
+      ],
+      "quantity": 2,
+      "description": "When you build this Room, draw a Room card.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL102",
+      "name": "Shadow Corridor",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        4
+      ],
+      "quantity": 3,
+      "description": "Ordinary Trap Rooms in your dungeon have +1 damage.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL103",
+      "name": "Crypt of Souls",
+      "advanced": false,
+      "type": "monster",
+      "damage": 3,
+      "treasures": [
+        1
+      ],
+      "quantity": 2,
+      "description": "When a Hero dies in this Room, draw a Spell card.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL112",
+      "name": "Archer",
+      "advanced": false,
+      "type": "monster",
+      "damage": 12,
+      "treasures": [
+        2,
+        4
+      ],
+      "quantity": 1,
+      "description": "This Hero is lured to the dungeon with the highest combined Fighter and Thief treasure. This Hero ignores the last Room of your dungeon.\n\nRevised: This Hero is lured to the dungeon with the highest combined Fighter and Thief treasure. This Hero skips the last Room of your dungeon.",
+      "set": "next-level"
+    }
+  ],
+  "spells": [
+    {
+      "id": "TNL013",
+      "name": "Dark Portal",
+      "category": 1,
+      "quantity": 1,
+      "description": "Once per turn, you may discard a Spell card to choose one Room card from the discard pile and put it into your hand.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL015",
+      "name": "Madman's Manor",
+      "category": 1,
+      "quantity": 1,
+      "description": "Once per turn, if a Hero dies in this Room, choose one Spell card from the discard pile and put it into your hand.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL016",
+      "name": "Arcane Crypt",
+      "category": 1,
+      "quantity": 1,
+      "description": "When you build or uncover this Room, you may choose one Spell card from the discard pile and put it into your hand.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL021",
+      "name": "Wraith's Throne",
+      "category": 1,
+      "quantity": 1,
+      "description": "Once per turn, if a Hero dies in this Room, each opponent must discard a Spell card.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL024",
+      "name": "Barbarian Hall",
+      "category": 1,
+      "quantity": 1,
+      "description": "When you build this Room, choose and discard one Spell card (if you have any Spell cards in your hand).",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL031",
+      "name": "Antimagic Zone",
+      "category": 1,
+      "quantity": 1,
+      "description": "You may discard this from your hand to cancel an opponent's Spell. (The Spell is not cast. Place it in the discard pile.)",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL032",
+      "name": "Lost Library",
+      "category": 1,
+      "quantity": 1,
+      "description": "You may destroy this Room to draw two Spell cards, then discard a Spell card.",
+      "set": "next-level",
+      "genericSpell": true
+    },
+    {
+      "id": "TNL034",
+      "name": "Spellslime Pit",
+      "category": 1,
+      "quantity": 1,
+      "description": "Whenever you play a Spell, this Room gains +1 until end of turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL035",
+      "name": "Observatory",
+      "category": 1,
+      "quantity": 1,
+      "description": "Once per turn, you may discard a Spell card to draw a Spell card.",
+      "set": "next-level",
+      "genericSpell": true
+    },
+    {
+      "id": "TNL036",
+      "name": "Sorcerobe School",
+      "category": 1,
+      "quantity": 1,
+      "description": "When you build or uncover this Room, draw a Spell card.",
+      "set": "next-level",
+      "genericSpell": true
+    },
+    {
+      "id": "TNL037",
+      "name": "Hall of Mirrors",
+      "category": 1,
+      "quantity": 1,
+      "description": "Once per turn when an opponent plays a Spell card, draw a Spell card.",
+      "set": "next-level",
+      "genericSpell": true
+    },
+    {
+      "id": "TNL038",
+      "name": "Elemental Generator",
+      "category": 1,
+      "quantity": 1,
+      "description": "This Room has +X, where X equals the number of Spell cards in your hand.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL039",
+      "name": "Brainsucker Queen",
+      "category": 1,
+      "quantity": 1,
+      "description": "Once per turn, if a Hero dies in this Room, draw two Spell cards, then discard a Spell card.",
+      "set": "next-level",
+      "genericSpell": true
+    },
+    {
+      "id": "TNL052",
+      "name": "Genie Lounge",
+      "category": 1,
+      "quantity": 1,
+      "description": "When you build this Room, if you have no Spell cards in your hand, draw a Spell card.",
+      "set": "next-level",
+      "genericSpell": true
+    },
+    {
+      "id": "TNL055",
+      "name": "Save Point",
+      "category": 1,
+      "quantity": 1,
+      "description": "You may destroy this Room to retrieve one Spell card from the discard pile that you played this turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL056",
+      "name": "All Your Base",
+      "category": 1,
+      "quantity": 1,
+      "description": "View an opponent's hand. You may take one Room card from that opponent.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL057",
+      "name": "Another Castle",
+      "category": 2,
+      "quantity": 1,
+      "description": "Choose a Hero in your dungeon. Send that Hero to the entrance of an opponent's dungeon.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL058",
+      "name": "Fairy Fountain",
+      "category": 1,
+      "quantity": 1,
+      "description": "Choose a Room. Until end of turn, it does zero damage and each Hero entering it gains +1.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL059",
+      "name": "It's On!",
+      "category": 2,
+      "quantity": 1,
+      "description": "Kill one Hero in your dungeon who has 3 or less Health. OR If you have 3 wounds or more, kill one Hero in your dungeon.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL060",
+      "name": "Hiring Spree",
+      "category": 1,
+      "quantity": 1,
+      "description": "Draw three Room cards, then give another player one of your Room cards.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL061",
+      "name": "Lightning Bolt!",
+      "category": 2,
+      "quantity": 1,
+      "description": "Deal 3 damage to one Hero in your dungeon. AND If you discard another Spell card, deal 3 damage to each Hero at the entrance to your dungeon.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL062",
+      "name": "Meddling Kids!",
+      "category": 1,
+      "quantity": 1,
+      "description": "Choose a Room. Until the end of turn, it has no ability text. OR Choose a player. If three or more Heroes entered that player's dungeon this turn, that player cannot win this turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL063",
+      "name": "Oh, Yeah!",
+      "category": 1,
+      "quantity": 1,
+      "description": "Swap the placement of two Rooms in your dungeon. OR If two or more of your Rooms have been destroyed this turn, choose and destroy one Room in any dungeon.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL064",
+      "name": "Party Up",
+      "category": 2,
+      "quantity": 1,
+      "description": "Choose a dungeon. Until the end of turn, each Hero entering that dungeon gains +1",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL065",
+      "name": "Pause",
+      "category": 2,
+      "quantity": 1,
+      "description": "If there is a Hero in your dungeon, return it to the entrance and restore it to full Health. No Heroes may enter your dungeon until next turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL066",
+      "name": "Pity",
+      "category": 2,
+      "quantity": 1,
+      "description": "Choose a Hero in an opponent's dungeon. Remove that Hero from the game.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL067",
+      "name": "Secret Stash",
+      "category": 1,
+      "quantity": 1,
+      "description": "Choose a Room in your dungeon. Until end of turn, give it one extra Cleric, Fighter, Mage or Thief.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL068",
+      "name": "Shortcut!",
+      "category": 2,
+      "quantity": 1,
+      "description": "Choose a Hero in any dungeon. It skips the next Room it would enter. OR If that dungeon has five Rooms, the Hero skips the next two Rooms it would enter.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL069",
+      "name": "Super Effective!",
+      "category": 2,
+      "quantity": 1,
+      "description": "Choose a Room in your dungeon. It deals +2 until end of turn. OR If only one Hero was lured to your dungeon this turn, that Room does +4 until end of turn.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL070",
+      "name": "Surprise Gift",
+      "category": 1,
+      "quantity": 1,
+      "description": "During the Build phase, you may place a Room in an opponent's dungeon instead of your own. (Place it face-down over a face-up Room. Opponent may still place another Room. Any build effects apply to the opponent.)",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL071",
+      "name": "Undead Minion",
+      "category": 2,
+      "quantity": 1,
+      "description": "Choose one face-down Hero in your scorekeeping area and remove it from the game. Deal damage equal to that Hero's Health to one Hero in your dungeon.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL072",
+      "name": "Wild Monster",
+      "category": 2,
+      "quantity": 1,
+      "description": "You may immediately build a Monster Room over an existing Room in your dungeon.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL087",
+      "name": "Mage",
+      "category": 1,
+      "quantity": 1,
+      "description": "A Kid and His Spellslime|A Kid and His Spellslime] When an ordinary kid discovered a wounded spellslime, he nursed it back to health with candy. The spellslime rewarded his kindness with an adventure to a world of magic.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL100",
+      "name": "Necromancer",
+      "category": 1,
+      "quantity": 1,
+      "description": "This Hero is lured to the dungeon with the highest combined Mage and Fighter treasure. Each time a player plays a Spell while this Hero is in your dungeon, give this Hero +2.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL104",
+      "name": "Swordmage",
+      "category": 1,
+      "quantity": 1,
+      "description": "This Hero is lured to the dungeon with the highest combined Mage and Fighter treasure. Each time a player plays a Spell while this Hero is in your dungeon, give this Hero +2",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL108",
+      "name": "Druid",
+      "category": 1,
+      "quantity": 1,
+      "description": "This Hero is lured to the dungeon with the highest combined Cleric and Mage treasure. Give this Hero +X, where X equals the number of Spell cards in your hand.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL201",
+      "name": "Dark Pact",
+      "category": 1,
+      "quantity": 2,
+      "description": "Draw 2 Spell cards.",
+      "set": "next-level"
+    },
+    {
+      "id": "TNL202",
+      "name": "Dungeon Shift",
+      "category": 2,
+      "quantity": 1,
+      "description": "Rearrange the Rooms in your dungeon.",
+      "set": "next-level"
+    }
+  ],
+  "heroes": [
+    {
+      "id": "TNL073",
+      "name": "Elfstar] Once an acolyte limited to simple orisons, Elfstar is now a true priestess who has mastered the mind bondage spell",
+      "treasure": 1,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Cleric",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL074",
+      "name": "Kyle the Incorruptible] This acolyte of the Order declared himself free from sin and immune to temptation",
+      "treasure": 1,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Cleric",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL075",
+      "name": "Danae the Slayer] A woman of few words, Danae is relentlessly focused on her mission: to eliminate every undead abomination in Arcadia",
+      "treasure": 1,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Cleric",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL076",
+      "name": "Solemn Caine, Pilgrim of Pain|Solemn Caine, Pilgrim of Pain] This zealot has mounted a one-man inquisition into the darkest depths of Arcadia's dungeons",
+      "treasure": 1,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Cleric",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL078",
+      "name": "Adynn, Cleric of Love|Adynn, Cleric of Love] The son of a philandering elf, Adynn inherited his father's charm and beauty",
+      "treasure": 1,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Cleric",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL079",
+      "name": "Hookshot Joe|Hookshot Joe] Once the commander of an elite fighting unit, he lost his left hand in battle",
+      "treasure": 2,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Fighter",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL080",
+      "name": "Tarka, Eskimo Warrior|Tarka, Eskimo Warrior] This northern warrior will not rest until he finds his best friend",
+      "treasure": 2,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Fighter",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL081",
+      "name": "Lady Samantha|Lady Samantha] Her skills as a weaponsmith made Lady Samantha one of the wealthiest nobles in Arcadia",
+      "treasure": 2,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Fighter",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL082",
+      "name": "Ampersand the Galled|Ampersand the Galled] This dwarven warrior is legendary for his prodigious appetite, his puissant skill at arms, and his crazy temper",
+      "treasure": 2,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Fighter",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL084",
+      "name": "Damok, Dragon Hunter|Damok, Dragon Hunter] Some regard him as a savage for his primitive weaponry, and his speech consists of cryptic phrases like \"Scythe, his face black, his eyes red",
+      "treasure": 2,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Fighter",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL085",
+      "name": "Megan the Missile Mage|Megan the Missile Mage] This intrepid adventuress, also known as \"the Azure Evoker,\" is not your typical wizard",
+      "treasure": 3,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Mage",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL086",
+      "name": "Otus the Occult|Otus the Occult] Otus has seen things that the would drive most mortal men to madness",
+      "treasure": 3,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Mage",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL088",
+      "name": "Wink the Probably Magical|Wink the Probably Magical] Wink's apparent lack of magical talent has not stopped him from going on adventures, or referring to his pet chameleon as his \"familiar",
+      "treasure": 3,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Mage",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL090",
+      "name": "Iskandar, Ice Mage|Iskandar, Ice Mage] Once a small-town librarian, Iskandar became a hero when he defended his town against a dragon attack",
+      "treasure": 3,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Mage",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL091",
+      "name": "Black Leaf|Black Leaf] Black Leaf is always the first to scout ahead, swing across a chasm, or disable a poins trap",
+      "treasure": 4,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Thief",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL092",
+      "name": "Murphy the Magnificent|Murphy the Magnificent] He was a charlatan, a carnival performer, and a con man",
+      "treasure": 4,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Thief",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL093",
+      "name": "Colgar, Fugitive Prince|Colgar, Fugitive Prince] He lost his kingdom to Cerebellus, but he retains his ancestral weapon",
+      "treasure": 4,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Thief",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL094",
+      "name": "Francisco the Endbringer|Francisco the Endbringer]\nThis highly trained assassin from the southern Silver Kingdom is known as the \"painter or blood",
+      "treasure": 4,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Thief",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL096",
+      "name": "Raymond Two-Chains|Raymond Two-Chains] Once he was an outlaw, notorious for wielding his chain-whips with deadly precision",
+      "treasure": 4,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Thief",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL097",
+      "name": "The Fool",
+      "treasure": 1,
+      "hp": 5,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "?",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL098",
+      "name": "Tyrone, Pharaoh Ascendant|Tyrone, Pharaoh Ascendant] When Tyrone was young, the temple elders praised his hieroglyphics",
+      "treasure": 1,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Cleric",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL099",
+      "name": "Branadin Wordblessed|Branadin Wordblessed] This cosmic chronicler travels tirelessly from world to world, inscribing each people's histories and magics on plates of copper",
+      "treasure": 1,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Cleric",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL101",
+      "name": "Heavenboy|Heavenboy]\nThis son of an angel and a mortal woman was born with clipped wings and half a halo",
+      "treasure": 1,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Cleric",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL102",
+      "name": "Lone Fox and Kit|Lone Fox and Kit]\nFew know that this mysterious beauty was once a princess",
+      "treasure": 2,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Fighter",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL103",
+      "name": "Ser Mortin the Deadly|Ser Mortin the Deadly]\nNo knight is more celebrated, but do not invite Ser Mortin to your wedding feast",
+      "treasure": 2,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Fighter",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL105",
+      "name": "O'Brien the Destroyer|O'Brien the Destroyer]\nEvery night, he begins a new quest for glory",
+      "treasure": 2,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Fighter",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL106",
+      "name": "Dumbledalf the Blue|Dumbledalf the Blue]\nIn a world of punk-rock pyromancers and spiky haired sorcerers, one man believes in keeping things classic",
+      "treasure": 3,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Mage",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL107",
+      "name": "Wrathfuss the Namer|Wrathfuss the Namer]\nWrathfuss knew the names of most things, and so most things were his to command",
+      "treasure": 3,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Mage",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL109",
+      "name": "Markus, Geomancer Supreme|Markus, Geomancer Supreme]\nOnce, he lived alone in a flat, infinite world",
+      "treasure": 3,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Mage",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL110",
+      "name": "Rom the Reaver|Rom the Reaver]\nNo one is faster with a blade, but Rom is a tortured soul",
+      "treasure": 4,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Thief",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL111",
+      "name": "Gaimina, Thief of Dreams|Gaimina, Thief of Dreams]\nNo door is closed to her, nor any dreaming mind, and she does not fear death",
+      "treasure": 4,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Thief",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL113",
+      "name": "Roberta, Dreaded Outlaw|Roberta, Dreaded Outlaw]\nHer life became a nightmare when she was wedded to an evil prince and her true love was slain by a pirate",
+      "treasure": 4,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Thief",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL114",
+      "name": "The Brothers",
+      "treasure": 1,
+      "hp": 20,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "?",
+      "set": "next-level",
+      "quantity": 1
+    },
+    {
+      "id": "TNL301",
+      "name": "Dark Cleric",
+      "treasure": 1,
+      "treasures": [
+        1
+      ],
+      "hp": 5,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "dark": true,
+      "class": "Cleric",
+      "set": "next-level",
+      "quantity": 2
+    },
+    {
+      "id": "TNL302",
+      "name": "Hybrid Knight",
+      "treasure": 2,
+      "treasures": [
+        1,
+        2
+      ],
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "hybrid": true,
+      "class": "Fighter",
+      "set": "next-level",
+      "quantity": 2
+    },
+    {
+      "id": "TNL303",
+      "name": "Dark Mage",
+      "treasure": 3,
+      "treasures": [
+        3
+      ],
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "dark": true,
+      "class": "Mage",
+      "set": "next-level",
+      "quantity": 2
+    }
+  ]
+}

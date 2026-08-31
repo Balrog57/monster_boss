@@ -5,7 +5,6 @@ boss-monster-2-4-12/
 boss-monster-2-2-6-android.apk
 boss-monster-2-2-6/
 design_system/
-test/
 screenshot_*.png
 
 # Build artifacts & logs
@@ -32,3 +31,6 @@ __pycache__/
 assets/perm_test_*.jpg
 assets/sample_*.jpg
 test_*.webp
+
+# Playwright / automation reference captures (local QA only)
+docs/reference/

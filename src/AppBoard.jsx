@@ -2,13 +2,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { PHASE } from './cardData.js';
 import { treasureCountsByType, canBuildRoom } from './engine.js';
+import { canBuildMiniboss, canPromoteMiniboss, canActivateMiniboss } from './minibosses.js';
 import { playMusic, playSfx, SFX } from './audio.js';
 import { useGameSfx } from './hooks/useGameSfx.js';
 import {
   BossSelect, Hud, OpponentRow, MyDungeon, TownPanel, Hand, DetailPanel, Card,
   SpellTargetOverlay, spellNeedsTarget, LevelUpChoiceOverlay, OpeningDiscardOverlay, PhaseBanner, OptionsOverlay,
-  GameStage, StatsSidebar, CardPreview, RulesOverlay, LogStrip, CardGallery,
+  GameStage, StatsSidebar, CardPreview, RulesOverlay, LogStrip, CardGallery, DarkHeroPayOverlay,
 } from './components/game';
+import { listDarkHeroPayTargets, canPayDarkHero } from './darkHeroes.js';
 import GameOverScreen from './screens/GameOverScreen.jsx';
 import s from './AppBoard.module.css';
 
@@ -21,6 +23,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
   const [selectedCard, setSelectedCard] = useState(null);
   const [activateSourceRoom, setActivateSourceRoom] = useState(null); // room index awaiting target
   const [spellTarget, setSpellTarget] = useState(null); // { handIndex, card } awaiting target
+  const [darkHeroPay, setDarkHeroPay] = useState(null); // { handIndex, card }
   const [gameOverData, setGameOverData] = useState(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -97,6 +100,11 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
   const topDiscardKind = topDiscard?.isSpell ? 'spell' : topDiscard?.isRoom ? 'room' : 'room';
 
   const selectedHandCard = selectedCard != null ? me.hand[selectedCard] : null;
+  const darkPayTargets = (() => {
+    if (!isMyTurn || selectedCard == null || !selectedHandCard?.isRoom) return [];
+    if (phase !== PHASE.BUILD && phase !== PHASE.ADVENTURE) return [];
+    return listDarkHeroPayTargets(G).filter((t) => canPayDarkHero(G, pidKey, selectedCard, t));
+  })();
   const buildTargets = (() => {
     if (selectedCard == null || !selectedHandCard?.isRoom) return { extend: false, overwrites: [] };
     if (phase === PHASE.SETUP) {
@@ -108,6 +116,26 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
     }
     const extend = canBuildRoom(G, pidKey, selectedCard, null);
     return { extend, overwrites };
+  })();
+
+  const minibossActions = (() => {
+    if (!isMyTurn || phase !== PHASE.BUILD && phase !== PHASE.ADVENTURE) {
+      return { build: [], promote: [], activate: [] };
+    }
+    const build = [];
+    const promote = [];
+    const activate = [];
+    if (phase === PHASE.BUILD && canBuildMiniboss(G, pidKey)) {
+      (me.dungeon || []).forEach((stack, i) => {
+        const top = Array.isArray(stack) ? stack[stack.length - 1] : stack;
+        if (top && !stack.miniboss) build.push(i);
+      });
+    }
+    (me.dungeon || []).forEach((_, i) => {
+      if (canPromoteMiniboss(G, pidKey, i)) promote.push(i);
+      if (canActivateMiniboss(G, pidKey, i)) activate.push(i);
+    });
+    return { build, promote, activate };
   })();
 
   const hoverKind = (c) => {
@@ -179,6 +207,10 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             selectedCard={selectedCard}
             activateSourceRoom={activateSourceRoom}
             buildTargets={buildTargets}
+            minibossActions={minibossActions}
+            onBuildMiniboss={(i) => moves.buildMiniboss(i)}
+            onPromoteMiniboss={(i) => moves.promoteMiniboss(i)}
+            onActivateMiniboss={(i) => moves.activateMiniboss(i)}
             onHover={setPreview}
             onSelectTarget={(targetIdx) => {
               if (selectedCard != null && selectedCard >= 0) {
@@ -210,6 +242,15 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             onInspect={setInspect}
           />
         </div>
+        {isMyTurn && !discarding && darkPayTargets.length > 0 && (
+          <button
+            className={s.darkPayBtn}
+            type="button"
+            onClick={() => setDarkHeroPay({ handIndex: selectedCard, card: selectedHandCard })}
+          >
+            PAY DARK HERO
+          </button>
+        )}
         {isMyTurn && !discarding && (
           phase === PHASE.BUILD
           || phase === PHASE.ADVENTURE
@@ -306,6 +347,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         onClose={() => setOptionsOpen(false)}
         onOpenRules={() => { setOptionsOpen(false); setRulesOpen(true); }}
         onOpenGallery={() => { setOptionsOpen(false); setGalleryOpen(true); }}
+        onQuit={onExitToMenu}
       />
       <RulesOverlay open={rulesOpen} onClose={() => setRulesOpen(false)} />
       <CardGallery open={galleryOpen} onClose={() => setGalleryOpen(false)} />
@@ -323,6 +365,24 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             setSpellTarget(null);
           }}
           onCancel={() => setSpellTarget(null)}
+        />
+      )}
+
+      {darkHeroPay && (
+        <DarkHeroPayOverlay
+          room={darkHeroPay.card}
+          targets={listDarkHeroPayTargets(G).filter((t) => canPayDarkHero(G, pidKey, darkHeroPay.handIndex, t))}
+          onConfirm={(target) => {
+            moves.payDarkHero(
+              darkHeroPay.handIndex,
+              target.kind,
+              target.ownerId,
+              target.index ?? -1,
+            );
+            setDarkHeroPay(null);
+            setSelectedCard(null);
+          }}
+          onCancel={() => setDarkHeroPay(null)}
         />
       )}
 

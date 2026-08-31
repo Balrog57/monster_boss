@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { getVolume, setVolume, isMuted, setMuted, playSfx, SFX } from '../../audio.js';
 import s from './OptionsOverlay.module.css';
 
-export default function OptionsOverlay({ open, onClose, onOpenRules, onOpenGallery }) {
+export default function OptionsOverlay({ open, onClose, onOpenRules, onOpenGallery, onQuit }) {
   const [vol, setVol] = useState(() => Math.round(getVolume() * 100));
   const [mute, setMute] = useState(() => isMuted());
   if (!open) return null;
@@ -75,6 +75,11 @@ export default function OptionsOverlay({ open, onClose, onOpenRules, onOpenGalle
             onClick={() => { playSfx(SFX.BUTTON); onOpenGallery(); }}
           >
             CARD GALLERY
+          </button>
+        )}
+        {onQuit && (
+          <button className={s.rules} type="button" onClick={() => { playSfx(SFX.BUTTON); onQuit(); }}>
+            QUIT TO MENU
           </button>
         )}
       </div>

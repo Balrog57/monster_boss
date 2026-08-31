@@ -11,38 +11,18 @@
 import { activeRoom, allActiveRooms, destroyRoom, countVisibleRooms, dungeonTreasures, healOneWound } from './engine.js';
 export { dungeonTreasures };
 import { drawCards, PHASE, HEROES } from './cardData.js';
-import { dungeonIgnoresRoomAbilities, heroIgnoresRoomAbilities } from './items.js';
-
-export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
-  const p = G.players[playerId];
-  const room = activeRoom(p.dungeon[roomIndex]);
-  if (!room) return 0;
-  let dmg = room.damage || 0;
-
-  // Monster's Ballroom: damage = number of active monster rooms
-  if (room.id === 'BMA020') {
-    const monsterCount = allActiveRooms(p.dungeon).filter(r => r && r.type === 'monster').length;
-    dmg = monsterCount;
-  }
-
-  // Passive adjacency bonuses
-  for (let i = 0; i < p.dungeon.length; i++) {
-    if (i === roomIndex) continue;
-    const other = activeRoom(p.dungeon[i]);
-    if (!other) continue;
-    if (other.id === 'BMA015' && Math.abs(i - roomIndex) === 1 && room.type === 'monster') dmg += 1; // Goblin Armory
-    if (other.id === 'BMA029' && i === roomIndex - 1 && room.type === 'trap') dmg += 2; // Dizzygas Hallway
-  }
-
-  // Spell damage bonuses
-  if (G.effects?.roomDamageBonus) {
-    for (const e of G.effects.roomDamageBonus) {
-      if (e.playerId === playerId && e.roomIndex === roomIndex) dmg += e.amount;
-    }
-  }
-
-  return Math.max(0, dmg);
-}
+import { dungeonIgnoresRoomAbilities, heroIgnoresRoomAbilities, applyItemReward, addHeroHealthBonus, killHeroInDungeon } from './items.js';
+import { gainCoin, resolveGrukTarget } from './minibosses.js';
+import {
+  applyTaggedOnBuild,
+  applyTaggedOnHeroDie,
+  applyTaggedLevelUp,
+} from './expansionEffects.js';
+import {
+  processExpansionLevelUp,
+  resolveExpansionLevelUpChoice,
+  onExpansionBuildMonster,
+} from './expansionBosses.js';
 
 // Returns null normally, or a pendingChoice object if a player choice is needed.
 export function onBuildRoom(G, ctx, playerId, room) {
@@ -121,6 +101,14 @@ export function onBuildRoom(G, ctx, playerId, room) {
       player.buildsThisTurn = Math.max(0, (player.buildsThisTurn || 0) - 1);
       G.logs.push('Construction Zone: an additional room may be built this turn.');
       break;
+    case 'TNL101': {
+      const card = G.decks.rooms.pop();
+      if (card) { player.hand.push(card); G.logs.push(`Dragon's Hoard: drew ${card.name}.`); }
+      break;
+    }
+    case 'RMB101':
+      gainCoin(G, playerId, 1, room.name);
+      break;
     case 'BMA019': // Beast Menagerie: when you build a monster room, draw a room
       // (Passive — handled in the room.type === 'monster' block below)
       break;
@@ -146,7 +134,6 @@ export function onBuildRoom(G, ctx, playerId, room) {
       };
     }
     case 'BMA035': // Dragon Hatchery: contains all four treasure types (passive)
-      // No onBuild effect — treasures are already set in cardData.
       break;
     default:
       break;
@@ -166,6 +153,10 @@ export function onBuildRoom(G, ctx, playerId, room) {
       }
     }
   }
+
+  applyTaggedOnBuild(G, playerId, room);
+  onExpansionBuildMonster(G, playerId, room);
+  return null;
 }
 
 export function onHeroDiedInRoom(G, ctx, playerId, room, hero) {
@@ -212,6 +203,14 @@ export function onHeroDiedInRoom(G, ctx, playerId, room, hero) {
       if (soul) G.logs.push(`Vampire Bordello: healed ${soul.name || 'a Wound'} (${soul.souls} soul).`);
       break;
     }
+    case 'TNL103': {
+      const spell = G.decks.spells.pop();
+      if (spell) {
+        player.hand.push(spell);
+        G.logs.push(`Crypt of Souls: drew ${spell.name}.`);
+      }
+      break;
+    }
     case 'BMA012': { // Succubus Spa: choose an opponent → steal a random card
       const opps = opponentsWith(G, playerId, (p) => (p.hand || []).length > 0);
       if (!opps.length) {
@@ -230,6 +229,8 @@ export function onHeroDiedInRoom(G, ctx, playerId, room, hero) {
     default:
       break;
   }
+
+  applyTaggedOnHeroDie(G, ctx, playerId, room);
 }
 
 function opponentsWith(G, playerId, pred) {
@@ -285,14 +286,45 @@ function stealRandomCardFrom(G, casterId, pid, label) {
   G.logs.push(`${label}: took ${stolen.name} from player ${pid}.`);
 }
 
-function discardRandomRoomFromHand(G, pid, label) {
-  const opp = G.players[pid];
-  const rooms = (opp?.hand || []).map((c, i) => ({ c, i })).filter(({ c }) => c.isRoom);
-  if (!rooms.length) return;
-  const pick = rooms[Math.floor(Math.random() * rooms.length)];
-  const discarded = opp.hand.splice(pick.i, 1)[0];
-  G.decks.roomDiscard.push(discarded);
-  G.logs.push(`${label}: player ${pid} discarded ${discarded.name}.`);
+function offerRoomDiscardFromHand(G, targetId, label, destroyPlayerId = null, destroyRoomIndex = null) {
+  const opp = G.players[targetId];
+  const roomOpts = (opp?.hand || []).map((c, i) => ({ card: c, handIndex: i })).filter((o) => o.card.isRoom);
+  if (!roomOpts.length) {
+    G.logs.push(`${label}: no Room to discard.`);
+    if (destroyRoomIndex != null && destroyPlayerId != null) destroyRoom(G, destroyPlayerId, destroyRoomIndex);
+    return;
+  }
+  if (roomOpts.length === 1) {
+    const discarded = opp.hand.splice(roomOpts[0].handIndex, 1)[0];
+    G.decks.roomDiscard.push(discarded);
+    G.logs.push(`${label}: player ${targetId} discarded ${discarded.name}.`);
+    if (destroyRoomIndex != null && destroyPlayerId != null) destroyRoom(G, destroyPlayerId, destroyRoomIndex);
+    return;
+  }
+  if (G.pendingChoice) {
+    G.choiceQueue = G.choiceQueue || [];
+    G.choiceQueue.push({
+      type: 'discard-room-hand',
+      resume: false,
+      playerId: Number(targetId),
+      bossName: label,
+      message: `${label}: choose a Room to discard`,
+      destroyPlayerId,
+      destroyRoomIndex,
+      options: roomOpts,
+    });
+  } else {
+    G.pendingChoice = {
+      type: 'discard-room-hand',
+      resume: false,
+      playerId: Number(targetId),
+      bossName: label,
+      message: `${label}: choose a Room to discard`,
+      destroyPlayerId,
+      destroyRoomIndex,
+      options: roomOpts,
+    };
+  }
 }
 
 function searchAdvancedChoice(G, playerId, roomType, bossName) {
@@ -568,7 +600,7 @@ export function processLevelUp(G, ctx, playerId) {
       }
       if (G.town.length === 1) {
         const hero = G.town.shift();
-        for (let i = 0; i < (hero.souls || 1); i++) player.souls.push({ souls: 1, name: hero.name, class: hero.class });
+        for (let i = 0; i < (hero.souls || 1); i++) player.souls.push({ souls: 1, name: hero.name, class: hero.class, faceDown: true });
         G.logs.push(`Gorgona: killed ${hero.name}.`);
       }
       return null;
@@ -631,8 +663,16 @@ export function processLevelUp(G, ctx, playerId) {
       G.logs.push('Elicon: your room treasures are doubled until end of turn.');
       return null;
     }
-    default:
+    default: {
+      const boss = player.boss;
+      const expansion = processExpansionLevelUp(G, playerId, boss);
+      if (expansion) return expansion;
+      if (applyTaggedLevelUp(G, playerId, boss)) return null;
+      if (boss.genericLevelUp || boss.levelUpDesc) {
+        G.logs.push(`${boss.name}: level up (${boss.levelUpDesc || 'see rules'}) not fully implemented.`);
+      }
       return null;
+    }
   }
 }
 
@@ -888,12 +928,16 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
       G.logs.push(`${choice.bossName}: ${hero.name} moved to your entrance.`);
       break;
     }
+    case 'gruk-target': {
+      resolveGrukTarget(G, playerId, choice.roomIndex, option);
+      break;
+    }
     case 'kill-hero': {
       const player = G.players[playerId];
       const idx = option.townIndex;
       if (idx == null || !G.town[idx]) return 'invalid hero';
       const hero = G.town.splice(idx, 1)[0];
-      for (let i = 0; i < (hero.souls || 1); i++) player.souls.push({ souls: 1, name: hero.name, class: hero.class });
+      for (let i = 0; i < (hero.souls || 1); i++) player.souls.push({ souls: 1, name: hero.name, class: hero.class, faceDown: true });
       G.logs.push(`Gorgona: killed ${hero.name}.`);
       break;
     }
@@ -939,8 +983,7 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
       const targetId = option.targetPlayerId;
       if (choice.action === 'discard-spell') discardRandomSpellFrom(G, targetId, choice.bossName);
       else if (choice.action === 'steal-random') stealRandomCardFrom(G, playerId, targetId, choice.bossName);
-      else if (choice.action === 'discard-room') discardRandomRoomFromHand(G, targetId, choice.bossName);
-      if (choice.destroyRoomIndex != null) destroyRoom(G, playerId, choice.destroyRoomIndex);
+      else if (choice.action === 'discard-room') offerRoomDiscardFromHand(G, targetId, choice.bossName, choice.destroyPlayerId, choice.destroyRoomIndex);
       break;
     }
     case 'search-advanced': {
@@ -1096,6 +1139,48 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
     }
     case 'smithy-hero': {
       attachSmithyItem(G, playerId, choice.itemIndex, option, choice.roomIndex);
+      break;
+    }
+    case 'hero-health-bonus': {
+      addHeroHealthBonus(G, option.heroId, choice.bonus || 1);
+      G.logs.push(`${choice.bossName}: ${option.hero.name} +${choice.bonus || 1} Health.`);
+      break;
+    }
+    case 'kill-wounded-hero': {
+      killHeroInDungeon(G, option.playerId, option.hero);
+      G.logs.push(`${choice.bossName}: killed ${option.hero.name}.`);
+      break;
+    }
+    case 'copy-item-reward': {
+      applyItemReward(G, playerId, option.item);
+      G.logs.push(`${choice.bossName}: copied ${option.item.name}.`);
+      break;
+    }
+    case 'remove-survivor': {
+      const key = String(choice.playerId);
+      G.survivorsThisTurn = G.survivorsThisTurn || {};
+      G.survivorsThisTurn[key] = (G.survivorsThisTurn[key] || []).filter(
+        (h) => h.id !== option.hero.id || h.name !== option.hero.name,
+      );
+      G.logs.push(`${choice.bossName}: ${option.hero.name} removed from the game.`);
+      break;
+    }
+    case 'pick-boss-treasure':
+    case 'pick-boss-levelup':
+    case 'uncover-room': {
+      resolveExpansionLevelUpChoice(G, choice, optionIndex);
+      break;
+    }
+    case 'discard-room-hand': {
+      const opp = G.players[playerId];
+      const idx = option.handIndex;
+      if (idx == null || !opp?.hand[idx]?.isRoom) return 'invalid room';
+      const discarded = opp.hand.splice(idx, 1)[0];
+      G.decks.roomDiscard.push(discarded);
+      G.logs.push(`${choice.bossName}: discarded ${discarded.name}.`);
+      if (choice.destroyRoomIndex != null && choice.destroyPlayerId != null) {
+        destroyRoom(G, choice.destroyPlayerId, choice.destroyRoomIndex);
+      }
       break;
     }
     default:
@@ -1265,13 +1350,12 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
         return null;
       }
       if (opps.length === 1) {
-        discardRandomRoomFromHand(G, opps[0][0], 'Torture Chamber');
-        destroyRoom(G, playerId, roomIndex);
+        offerRoomDiscardFromHand(G, opps[0][0], 'Torture Chamber', playerId, roomIndex);
         return null;
       }
       G.pendingChoice = pickOpponentChoice(
-        G, playerId, 'Torture Chamber', 'Choose an opponent to discard a random Room', 'discard-room', opps,
-        { resume: false, destroyRoomIndex: roomIndex }
+        G, playerId, 'Torture Chamber', 'Choose an opponent to discard a Room', 'discard-room', opps,
+        { resume: false, destroyRoomIndex: roomIndex, destroyPlayerId: playerId }
       );
       return null;
     }

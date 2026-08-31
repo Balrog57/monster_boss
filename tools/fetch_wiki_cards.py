@@ -32,6 +32,9 @@ SETS = {
     "BMH": "hidden-heroes",
     "THK": "tools",
     "KSA": "players-choice",
+    "TNL": "next-level",
+    "RMB": "minibosses",
+    "CRL": "crash-landing",
 }
 
 
@@ -249,7 +252,7 @@ def download_wiki_art(cards_by_section: dict[str, list[dict]], name_map: dict[st
                 wanted["BMR" + c["id"][3:]] = (c, section)
 
     files = []
-    for prefix in ("BMA", "BMR", "BMH", "THK", "KSA"):
+    for prefix in ("BMA", "BMR", "BMH", "THK", "KSA", "TNL", "RMB", "CRL"):
         print(f"  wiki allimages {prefix}*")
         files.extend(wiki_allimages(prefix))
         time.sleep(0.2)

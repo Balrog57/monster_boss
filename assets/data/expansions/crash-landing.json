@@ -1,0 +1,456 @@
+{
+  "bosses": [
+    {
+      "id": "CRL001",
+      "name": "Imperiatrix",
+      "xp": 475,
+      "treasures": [
+        5
+      ],
+      "levelUpDesc": "For the rest of the game, Rooms in your dungeon have +1 for each Explorer treasure they have.",
+      "set": "crash-landing",
+      "quantity": 1
+    },
+    {
+      "id": "CRL002",
+      "name": "Klonos",
+      "xp": 175,
+      "treasures": [
+        5
+      ],
+      "levelUpDesc": "Choose another Boss. For the rest of the game, this Boss also has that Boss's Level Up ability. (The ability remains even if that Boss dies.)",
+      "set": "crash-landing",
+      "quantity": 1
+    },
+    {
+      "id": "CRL003",
+      "name": "Mando",
+      "xp": 855,
+      "treasures": [
+        5
+      ],
+      "levelUpDesc": "You may bring one covered Room to the top of a Room stack in each opponent's dungeon. (This uncovers those rooms.)",
+      "set": "crash-landing",
+      "quantity": 1
+    }
+  ],
+  "rooms": [
+    {
+      "id": "CRL004",
+      "name": "Alien Excavator",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        5
+      ],
+      "quantity": 1,
+      "description": "When you build this Room, you may move one covered Room in your dungeon to the top of its stack. (This uncovers that Room.)",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL005",
+      "name": "Alien Ooze",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        5
+      ],
+      "quantity": 1,
+      "description": "If you have at least one other Explorer treasure Room in your dungeon, give this Room +1. (Note that Bosses do not count as Rooms.)",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL006",
+      "name": "Decoy Garden",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        5
+      ],
+      "quantity": 1,
+      "description": "When you build this Room, until end of turn it gains Explorer*2 treasure.",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL007",
+      "name": "Frostman Lander",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+        5
+      ],
+      "quantity": 1,
+      "description": "You may discard this Room from your hand to deactivate an Advanced Room in any dungeon until end of turn.",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL008",
+      "name": "Invasion Swarm",
+      "advanced": false,
+      "type": "monster",
+      "damage": 0,
+      "treasures": [
+        5
+      ],
+      "quantity": 1,
+      "description": "Rooms adjacent to this Room have +1.",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL009",
+      "name": "Reactor Core",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        5
+      ],
+      "quantity": 2,
+      "description": "Advanced Rooms in your dungeon have +1.",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL011",
+      "name": "Hypercube",
+      "advanced": true,
+      "type": "trap",
+      "damage": 4,
+      "treasures": [
+        5
+      ],
+      "quantity": 2,
+      "description": "You may build this Room over any Room, regardless of treasure type.",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL012",
+      "name": "The Omega 42",
+      "advanced": true,
+      "type": "trap",
+      "damage": 3,
+      "treasures": [
+        5
+      ],
+      "quantity": 1,
+      "description": "Once per turn, you may discard an Advanced Room to activate one \"when you build this Room\" or \"when you uncover this room\" effect on any Room in your dungeon.",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL013",
+      "name": "Crash Site",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        1,
+        5
+      ],
+      "quantity": 1,
+      "description": "When you uncover this Room, search the discard pile for an Advanced Room card and add it to your hand.",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL014",
+      "name": "Caged Gundarf",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        2,
+        5
+      ],
+      "quantity": 1,
+      "description": "When you uncover this Room, until end of turn its damage is doubled.",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL016",
+      "name": "Darkling Lair",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        4,
+        5
+      ],
+      "quantity": 1,
+      "description": "When you uncover this Room, deal 3 damage to a Hero in your dungeon or at the entrance to your dungeon.",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL101",
+      "name": "Alien Reactor",
+      "advanced": false,
+      "type": "monster",
+      "damage": 4,
+      "treasures": [
+        5
+      ],
+      "quantity": 3,
+      "description": "Alien Artifact Room.",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL102",
+      "name": "Crash Site",
+      "advanced": false,
+      "type": "trap",
+      "damage": 3,
+      "treasures": [
+        5
+      ],
+      "quantity": 2,
+      "description": "When uncovered, draw a Room card.",
+      "set": "crash-landing",
+      "onUncover": "draw-room"
+    }
+  ],
+  "spells": [
+    {
+      "id": "CRL010",
+      "name": "Digicron Library",
+      "category": 1,
+      "quantity": 1,
+      "description": "When you build this Room, if you have at least one other Advanced Room in your dungeon, (including this one), draw two Spell cards.",
+      "set": "crash-landing",
+      "genericSpell": true
+    },
+    {
+      "id": "CRL015",
+      "name": "Celestial Map",
+      "category": 1,
+      "quantity": 1,
+      "description": "When you uncover this Room, draw a Spell Card, then destroy this Room.",
+      "set": "crash-landing",
+      "genericSpell": true
+    },
+    {
+      "id": "CRL029",
+      "name": "Finish Him!",
+      "category": 2,
+      "quantity": 1,
+      "description": "Kill a Hero with 2 or less Health. OR If you have fewer Souls than any player, choose a Hero that survived another player's dungeon this turn. Move it to your scorekeeping area face-down.",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL030",
+      "name": "Essence Transfer",
+      "category": 2,
+      "quantity": 2,
+      "description": "Add +X to a Hero in an opponent's dungeon, where X equals the number of wounds you have.",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL031",
+      "name": "Healing Tank",
+      "category": 2,
+      "quantity": 1,
+      "description": "If no Heroes were lured to your dungeon during the Bait Phase, heal one ordinary Wound.",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL032",
+      "name": "Meteorite",
+      "category": 1,
+      "quantity": 1,
+      "description": "Choose one Room in any dungeon. Until end of turn, it gains Explorer treasure.",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL033",
+      "name": "Not Dead Yet",
+      "category": 2,
+      "quantity": 1,
+      "description": "}\n\n==Implements of Destruction==\n\n[Implements Of Destruction] is a mini-expansion released in 2017 as a add-on to the Boss Monster with powerful new items, including items compatible with [Crash Landing].\n\nIt features a total of 29 cards. This consists of 5 Boss cards and 24 Item cards.\nClick here to show/hide the list of cards\n{| class=\"mw-collapsible mw-collapsed wikitable\" id=\"mw-customcollapsible-Implements\"\n!Card №\n!Name\n!Subtitle\n!XP/Dam/HP/Phase\n!Treasure\n!Type\n!Effect/Description\n!Minimum Players\n!Quantity",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL201",
+      "name": "Abduction",
+      "category": 3,
+      "quantity": 2,
+      "description": "Move a Hero from town to your entrance.",
+      "set": "crash-landing"
+    }
+  ],
+  "heroes": [
+    {
+      "id": "CRL017",
+      "name": "The Prince",
+      "treasure": 1,
+      "hp": 3,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "?",
+      "set": "crash-landing",
+      "quantity": 1
+    },
+    {
+      "id": "CRL018",
+      "name": "Crash Dodgers|Crash Dodgers] Hailing from a small blue planet in the galactic backwater, Crash has long been the bane of the alien bosses",
+      "treasure": 5,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Explorer",
+      "set": "crash-landing",
+      "quantity": 1
+    },
+    {
+      "id": "CRL019",
+      "name": "Corbin Crickton|Corbin Crickton] An interstellar taxi driver who took one too many lefts at the grand wormhole: now, he's looking through the wreckage of the Crash Landing for a possible way home",
+      "treasure": 5,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Explorer",
+      "set": "crash-landing",
+      "quantity": 1
+    },
+    {
+      "id": "CRL020",
+      "name": "T'Matha|T'Matha] A shapeshifting squidopod, T\"Matha braves the crash site again and again looking for the Omega 42, the legendary weapon that might free her people from their greatest mistake",
+      "treasure": 5,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Explorer",
+      "set": "crash-landing",
+      "quantity": 1
+    },
+    {
+      "id": "CRL021",
+      "name": "Lindo Callari|Lindo Callari] Wanted space vampire, failed ambassador, inveterate gambler",
+      "treasure": 5,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Explorer",
+      "set": "crash-landing",
+      "quantity": 1
+    },
+    {
+      "id": "CRL022",
+      "name": "Doug O'Shibe, Ace Pilot|Doug O'Shibe, Ace Pilot] Doug has demonstrated such heroism, so frequently, that he is the most famous starfighter pilot in his galaxy",
+      "treasure": 5,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Explorer",
+      "set": "crash-landing",
+      "quantity": 1
+    },
+    {
+      "id": "CRL023",
+      "name": "Guy the Redrobe|Guy the Redrobe] IT support for his clan of saber wielding space monks, Guy did not understand why he had to go on this away mission",
+      "treasure": 5,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Explorer",
+      "set": "crash-landing",
+      "quantity": 1
+    },
+    {
+      "id": "CRL024",
+      "name": "Andromeda James|Andromeda James] This intrepid worm-o-naut has burrowed into the galaxy's darkest crypts looking for lost relics, but tales of a crystal skeleton lost in the Crash Landing have brought him to Arcadia",
+      "treasure": 5,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Explorer",
+      "set": "crash-landing",
+      "quantity": 1
+    },
+    {
+      "id": "CRL025",
+      "name": "Morgan Fragman|Morgan Fragman] Morgan is a man of many talents: soldier, master chef, and interdimensional physicist",
+      "treasure": 5,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Explorer",
+      "set": "crash-landing",
+      "quantity": 1
+    },
+    {
+      "id": "CRL026",
+      "name": "Banzai Barb|Banzai Barb] Intergalactic Jane-of-all-trades, Banzai Barb leads her ragtag group of cavaliers in a neverending war to kick the invaders out of Arcadia",
+      "treasure": 5,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Explorer",
+      "set": "crash-landing",
+      "quantity": 1
+    },
+    {
+      "id": "CRL027",
+      "name": "Aliff|Aliff] Orbital Spaceman Aliff couldn't save his world from the Frostmen, but by Mallmax he swore he'd protect this planet, as long as his trusty saber cat Hob'x was by his side",
+      "treasure": 5,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Explorer",
+      "set": "crash-landing",
+      "quantity": 1
+    },
+    {
+      "id": "CRL028",
+      "name": "The King",
+      "treasure": 1,
+      "hp": 20,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "?",
+      "set": "crash-landing",
+      "quantity": 1
+    },
+    {
+      "id": "CRL301",
+      "name": "Explorer",
+      "treasure": 5,
+      "treasures": [
+        5
+      ],
+      "hp": 5,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Explorer",
+      "set": "crash-landing",
+      "quantity": 6
+    },
+    {
+      "id": "CRL302",
+      "name": "Chief Explorer",
+      "treasure": 5,
+      "treasures": [
+        5
+      ],
+      "hp": 8,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Explorer",
+      "set": "crash-landing",
+      "quantity": 2
+    }
+  ]
+}

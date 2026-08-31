@@ -7,14 +7,17 @@ import Card from '../components/game/Card.jsx';
 import s from './SetupScreen.module.css';
 
 const FANS = [
-  { n: 4, bossId: 'BMA001' },
   { n: 2, bossId: 'BMA006' },
   { n: 3, bossId: 'BMA005' },
+  { n: 4, bossId: 'BMA001' },
+  { n: 5, bossId: 'CRL001' },
+  { n: 6, bossId: 'CRL001' },
 ];
 
 export default function SetupScreen({ onStartLocal, onBack }) {
   const [step, setStep] = useState('players'); // players | expansions
   const [n, setN] = useState(2);
+  const [humans, setHumans] = useState(1);
   const [packs, setPacks] = useState([]);
 
   const togglePack = (id) => {
@@ -29,7 +32,11 @@ export default function SetupScreen({ onStartLocal, onBack }) {
 
   const onOkExpansions = () => {
     playSfx(SFX.BUTTON);
-    onStartLocal(n, packs);
+    let selected = [...packs];
+    if (n >= 5 && !selected.includes('crash-landing')) {
+      selected = [...selected, 'crash-landing'];
+    }
+    onStartLocal(n, selected, humans);
   };
 
   const onBackClick = () => {
@@ -66,7 +73,21 @@ export default function SetupScreen({ onStartLocal, onBack }) {
                 );
               })}
             </div>
-            <div className={s.hint}>{n === 2 ? 'You vs 1 AI' : n === 3 ? 'You vs 2 AI' : 'You vs 3 AI'}</div>
+            <div className={s.hint}>
+              {n === 2 && humans === 1 ? 'You vs 1 AI' : `${humans} human(s), ${Math.max(0, n - humans)} AI`}
+              {n >= 5 ? ' — Crash Landing enabled' : ''}
+            </div>
+            <label className={s.label} htmlFor="setup-humans">HUMAN PLAYERS</label>
+            <select
+              id="setup-humans"
+              className={s.input}
+              value={humans}
+              onChange={(e) => setHumans(Number(e.target.value))}
+            >
+              {Array.from({ length: n }, (_, i) => i + 1).map((v) => (
+                <option key={v} value={v}>{v}</option>
+              ))}
+            </select>
             <button className={s.ok} onClick={onOkPlayers} type="button" aria-label="OK" />
           </>
         )}

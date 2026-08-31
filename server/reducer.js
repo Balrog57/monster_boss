@@ -14,7 +14,7 @@
 // A move is { type: 'pickBoss'|'buildInitialRoom'|'buildRoom'|'playSpell'|'pass'|'resolveNextHero', args: [...] }.
 
 import {
-  BOSSES, ROOMS, SPELLS, HEROES, ITEMS, PHASE,
+  BOSSES, ROOMS, SPELLS, HEROES, ITEMS, MINIBOSSES, PHASE,
   getExpandedDeck, shuffle, drawCards, playerOrderByXP, totalSouls, totalWounds,
   allowedCardSets, cardsInSets, heroesForSets, EXPANSION_PACKS, spellAllowedInPhase, canPlaySpell,
 } from '../src/cardData.js';
@@ -34,6 +34,17 @@ import {
   applyItemReward, applyItemSurvivePowerUp, takeHeroItem, spellsBlockedFor,
   dungeonIgnoresRoomAbilities, heroIgnoresRoomAbilities,
 } from '../src/items.js';
+import {
+  initPlayerCoins, revealMinibosses, beginningPhaseCoins,
+  buildMiniboss, promoteMiniboss, canBuildMiniboss, canPromoteMiniboss,
+  canActivateMiniboss, activateMiniboss,
+} from '../src/minibosses.js';
+import {
+  applyTaggedOnHeroDeathDestroy,
+  applyTaggedOnHeroSurvive,
+} from '../src/expansionEffects.js';
+import { onExpansionBossKill } from '../src/expansionBosses.js';
+import { listDarkHeroPayTargets, payDarkHero, canPayDarkHero } from '../src/darkHeroes.js';
 
 // Refill a deck from its discard pile if empty. Called before every draw.
 function ensureDeck(decks, name) {
@@ -51,7 +62,7 @@ const HERO_COUNTS = {
 
 const GAME_NAME = 'boss-monster';
 const MIN_PLAYERS = 2;
-const MAX_PLAYERS = 4;
+const MAX_PLAYERS = 6;
 
 function welcomeLog(expansions) {
   const packs = expansions == null ? EXPANSION_PACKS.map((p) => p.id) : expansions;
@@ -78,16 +89,19 @@ function filterHeroesByPlayerCount(heroes, count) {
 }
 
 export function setupMatch(numPlayers, setupData = {}) {
-  const n = Math.min(Math.max(numPlayers || 2, MIN_PLAYERS), MAX_PLAYERS);
   const sets = allowedCardSets(setupData.expansions);
+  const maxP = sets.has('crash-landing') ? 6 : 4;
+  const n = Math.min(Math.max(numPlayers || 2, MIN_PLAYERS), maxP);
   const bosses = cardsInSets(BOSSES, sets);
   const rooms = cardsInSets(ROOMS, sets);
   const spells = cardsInSets(SPELLS, sets);
   const heroes = heroesForSets(HEROES, sets);
   const items = cardsInSets(ITEMS, sets);
+  const minibossCards = cardsInSets(MINIBOSSES, sets);
 
   const roomDeck = shuffle(getExpandedDeck(rooms).map(r => ({ ...r, isRoom: true })));
   const spellDeck = shuffle(getExpandedDeck(spells).map(s => ({ ...s, isSpell: true })));
+  const minibossDeck = shuffle(getExpandedDeck(minibossCards));
   const ordinaryHeroes = shuffle(getExpandedDeck(filterHeroesByPlayerCount(heroes.filter(h => !h.epic), n)).map(h => ({ ...h, epic: false, wounds: 1, souls: 1 })));
   const epicHeroes = shuffle(getExpandedDeck(filterHeroesByPlayerCount(heroes.filter(h => h.epic), n)).map(h => ({ ...h, epic: true, wounds: 2, souls: 2 })));
 
@@ -106,15 +120,20 @@ export function setupMatch(numPlayers, setupData = {}) {
       eliminated: false,
       leveledUp: false,
       buildsThisTurn: 0,
-      isAI: setupData.online ? false : i > 0,
-      passed: false
+      isAI: setupData.online ? false : i >= (setupData.humanCount ?? 1),
+      passed: false,
+      coins: 0,
     };
+    initPlayerCoins(players[i]);
+    if (sets.has('minibosses')) players[i].coins = 3;
   }
 
   const G = {
     players,
     bossPicks: dealBossCards(n, bosses),
     numPlayers: n,
+    largeGame: n >= 5 && sets.has('crash-landing'),
+    expansionSets: [...sets],
     xpOrder: playerOrderByXP(players),
     decks: {
       rooms: roomDeck,
@@ -122,6 +141,8 @@ export function setupMatch(numPlayers, setupData = {}) {
       heroes: ordinaryHeroes,
       epics: epicHeroes,
       items: itemDeck,
+      minibosses: minibossDeck,
+      minibossDiscard: [],
       roomDiscard: [],
       spellDiscard: [],
       heroDiscard: [],
@@ -268,11 +289,14 @@ function endPhaseSetup(G, ctx) {
       }
     }
   }
-  // Deal 5 rooms + 2 spells, then discard 2 (APK + physical rules → 5 in hand).
+  // Deal opening hand (Next Level: 7 rooms + 3 spells, discard 2).
+  const nextLevel = G.expansionSets?.includes('next-level');
+  const roomDeal = nextLevel ? 7 : 5;
+  const spellDeal = nextLevel ? 3 : 2;
   for (let i = 0; i < ctx.numPlayers; i++) {
     const p = G.players[i];
-    drawCards(G.decks.rooms, 5).forEach(c => p.hand.push(c));
-    drawCards(G.decks.spells, 2).forEach(c => p.hand.push(c));
+    drawCards(G.decks.rooms, roomDeal).forEach(c => p.hand.push(c));
+    drawCards(G.decks.spells, spellDeal).forEach(c => p.hand.push(c));
     if (p.isAI) {
       const pair = pickOpeningDiscardIndices(p.hand);
       if (pair) applyOpeningDiscard(G, i, pair[0], pair[1]);
@@ -308,7 +332,9 @@ function beginPhaseBeginning(G, ctx) {
   G.turn += 1;
   G.phase = PHASE.BEGINNING;
   ctx.phase = PHASE.BEGINNING;
+  G.survivorsThisTurn = {};
   G.logs.push(`--- Turn ${G.turn} - Beginning Phase ---`);
+  beginningPhaseCoins(G);
   const aliveCount = Object.values(G.players).filter(p => !p.eliminated).length;
   // Refill hero/epic decks from discard if empty.
   ensureDeck(G.decks, 'heroes');
@@ -412,6 +438,7 @@ function endPhaseBuild(G, ctx) {
       }
     }
   }
+  revealMinibosses(G, ctx);
 }
 
 function beginPhaseBait(G, ctx) {
@@ -512,12 +539,98 @@ function otherPlayer(G, pid) {
     .find(id => id !== Number(pid) && !G.players[id]?.eliminated);
 }
 
+function stackResponseOrder(G) {
+  const caster = String(G.stackReturnPlayer);
+  const anchor = String(G.stackActivePlayer ?? G.activePlayer ?? '');
+  const order = playerOrderByXP(G.players)
+    .map(String)
+    .filter((pid) => pid !== caster && !G.players[pid]?.eliminated);
+  if (anchor && anchor !== caster && order.includes(anchor)) {
+    return [anchor, ...order.filter((pid) => pid !== anchor)];
+  }
+  return order;
+}
+
+function nextStackResponder(G) {
+  for (const pid of stackResponseOrder(G)) {
+    if (!G.stackPassed?.[pid]) return Number(pid);
+  }
+  return null;
+}
+
+function stackAllRespondersPassed(G) {
+  return stackResponseOrder(G).every((pid) => G.stackPassed?.[pid]);
+}
+
+function adventureResponders(G) {
+  return playerOrderByXP(G.players)
+    .map(String)
+    .filter((pid) => !G.players[pid]?.eliminated);
+}
+
+function allAdventurePausePassed(G) {
+  return adventureResponders(G).every((pid) => G.adventurePausePassed?.[pid]);
+}
+
+function startAdventurePause(G, kind) {
+  if (!G.adventure) return;
+  G.adventure.pause = kind;
+  G.adventurePausePassed = {};
+  G.logs.push(`Adventure pause (${kind}): players may respond.`);
+}
+
+function continueAfterAdventurePause(G, ctx) {
+  const adv = G.adventure;
+  if (!adv?.pause) return;
+  const kind = adv.pause;
+  adv.pause = null;
+  G.adventurePausePassed = null;
+  const playerId = adv.playerId;
+  const p = G.players[playerId];
+  const hero = adv.hero;
+  const i = adv.roomIndex;
+  const room = activeRoom(p?.dungeon?.[i]);
+  const deathRoom = G._deathRoom || room;
+
+  if (kind === 'post-damage') {
+    if (adv.hp <= 0) {
+      G._deathRoom = null;
+      finishHero(G, ctx, playerId, hero, adv.hp, deathRoom);
+    } else {
+      onHeroSurvivedRoom(G, playerId, i, room, hero, adv);
+      applyTaggedOnHeroSurvive(G, playerId, i, room);
+      startAdventurePause(G, 'pre-exit');
+    }
+    return;
+  }
+  if (kind === 'pre-exit') {
+    G.logs.push(`${hero.name} leaves ${room?.name || 'the room'}.`);
+  }
+}
+
 function resolvePendingStack(G, ctx) {
   resolveStack(G, ctx, (effect) => {
     if (effect.type === 'spell' && effect.card) {
       G.decks.spellDiscard.push(effect.card);
       G.logs.push(`${effect.card.name} resolves.`);
       castSpell(G, ctx, effect.playerId, effect.card, effect.target);
+      // Liger's Den (BMA026): triggers only when a spell actually resolves.
+      const caster = G.players[effect.playerId];
+      if (caster) {
+        for (const stack of caster.dungeon || []) {
+          const r = activeRoom(stack);
+          if (r && r.id === 'BMA026' && !r.faceDown && !r.usedThisTurn) {
+            ensureDeck(G.decks, 'spells');
+            const drawn = G.decks.spells.pop();
+            if (drawn) {
+              caster.hand.push(drawn);
+              G.logs.push(`Liger's Den: drew ${drawn.name}.`);
+            }
+            r.usedThisTurn = true;
+            break;
+          }
+        }
+      }
     }
   });
   G.stackReturnPlayer = null;
@@ -539,18 +652,29 @@ function finishHero(G, ctx, playerId, hero, heroHP, deathRoom) {
       G.town.push(hero);
       tryAttachItemsToHero(G, hero);
     } else {
-      for (let i = 0; i < souls; i++) p.souls.push({ souls: 1, name: hero.name, class: hero.class });
+      for (let i = 0; i < souls; i++) p.souls.push({ souls: 1, name: hero.name, class: hero.class, faceDown: true });
       if (hero.item) {
         applyItemReward(G, playerId, hero.item);
         takeHeroItem(p, hero);
       }
       G.logs.push(`${hero.name} defeated! Player ${playerId} gains ${souls} soul(s).`);
-      if (deathRoom && !heroIgnoresRoomAbilities(hero)) onHeroDiedInRoom(G, ctx, playerId, deathRoom, hero);
+      onExpansionBossKill(G, playerId);
+      const deathRoomIndex = G.adventure?.roomIndex;
+      if (deathRoom && !heroIgnoresRoomAbilities(hero)) {
+        onHeroDiedInRoom(G, ctx, playerId, deathRoom, hero);
+        if (deathRoomIndex != null && deathRoomIndex >= 0) {
+          applyTaggedOnHeroDeathDestroy(G, playerId, deathRoomIndex, deathRoom);
+        }
+      }
       G.decks.heroDiscard.push(hero);
     }
   } else {
     applyItemSurvivePowerUp(G, playerId, hero);
-    for (let i = 0; i < wounds; i++) p.wounds.push({ wounds: 1, souls: 1, name: hero.name, class: hero.class });
+    G.survivorsThisTurn = G.survivorsThisTurn || {};
+    const key = String(playerId);
+    G.survivorsThisTurn[key] = G.survivorsThisTurn[key] || [];
+    G.survivorsThisTurn[key].push({ ...hero });
+    for (let i = 0; i < wounds; i++) p.wounds.push({ wounds: 1, souls: 1, name: hero.name, class: hero.class, faceDown: false });
     G.logs.push(`${hero.name} survives! Player ${playerId} takes ${wounds} wound(s).`);
     G.decks.heroDiscard.push(hero);
   }
@@ -579,11 +703,15 @@ function advanceAdventureRoom(G, ctx) {
     G.logs.push(`Boots of Jumping: ${hero.name} ignores ${room?.name || 'a room'}.`);
     return null;
   }
-  if (room && room.id === 'BMA017' && !adv.mazeSentBack && i > 0 && !heroIgnoresRoomAbilities(hero)) {
-    adv.mazeSentBack = true;
-    adv.roomIndex = i - 1;
-    G.logs.push(`Minotaur's Maze: ${hero.name} sent back one room!`);
-    return null;
+  if (room && room.id === 'BMA017' && !adv.mazeSentBack?.[i] && i > 0 && !heroIgnoresRoomAbilities(hero)) {
+    const leftRoom = activeRoom(p.dungeon[i - 1]);
+    if (leftRoom && !isRoomDeactivated(G, playerId, i - 1)) {
+      adv.mazeSentBack = adv.mazeSentBack || {};
+      adv.mazeSentBack[i] = true;
+      adv.roomIndex = i - 1;
+      G.logs.push(`Minotaur's Maze: ${hero.name} sent back one room!`);
+      return null;
+    }
   }
   const enter = onHeroEnterRoom(G, playerId, i, room, hero);
   if (enter.skipDamage) {
@@ -594,8 +722,8 @@ function advanceAdventureRoom(G, ctx) {
   adv.hp -= dmg;
   adv.roomIndex = i;
   G.logs.push(`${room?.name || 'Room'} deals ${dmg} damage to ${hero.name} (HP ${adv.hp})`);
-  if (adv.hp <= 0) finishHero(G, ctx, playerId, hero, adv.hp, room);
-  else onHeroSurvivedRoom(G, playerId, i, room, hero, adv);
+  if (adv.hp <= 0) G._deathRoom = room;
+  startAdventurePause(G, 'post-damage');
   return null;
 }
 
@@ -607,12 +735,12 @@ function startAdventure(G, ctx, playerId) {
     playerId,
     hero,
     roomIndex: -1,
-    hp: hero.hp,
-    mazeSentBack: false,
+    hp: hero._entranceHp ?? hero.hp,
+    mazeSentBack: {},
   };
   G.logs.push(`${hero.name} enters Player ${playerId}'s dungeon`);
   applyHeroEnterDungeon(G, playerId, hero);
-  let hp = heroHealthWithModifiers(G, hero);
+  let hp = hero._entranceHp ?? heroHealthWithModifiers(G, hero);
   const pendingDmg = heroDamageFor(G, hero.id);
   if (pendingDmg > 0) {
     hp -= pendingDmg;
@@ -659,6 +787,12 @@ function isActivePlayer(G, pid) {
   return String(pid) === String(G.activePlayer ?? null);
 }
 
+function mayActNow(G, pid) {
+  if (G.adventure?.pause) return true;
+  if (G.stack?.length) return isActivePlayer(G, pid);
+  return isActivePlayer(G, pid);
+}
+
 const MOVE_HANDLERS = {
   pickBoss: (G, ctx, pid, [bossId]) => {
     const p = G.players[pid];
@@ -681,7 +815,10 @@ const MOVE_HANDLERS = {
     buildRoom(G, pid, handIndex, null);
     const stack = p.dungeon[p.dungeon.length - 1];
     const newRoom = stack?.[stack.length - 1];
-    if (newRoom) newRoom.faceDown = true;
+    if (newRoom) {
+      newRoom.faceDown = true;
+      newRoom.builtThisTurn = true;
+    }
     G.logs.push(`${pid === 0 ? 'You' : `Player ${pid}`} built ${card.name} face down`);
     p.passed = true;
     return null;
@@ -701,6 +838,7 @@ const MOVE_HANDLERS = {
     const stack = p.dungeon[targetIndex != null ? targetIndex : p.dungeon.length - 1];
     const newRoom = stack[stack.length - 1];
     newRoom.faceDown = true;
+    newRoom.builtThisTurn = true;
     G.logs.push(`${pid === 0 ? 'You' : `Player ${pid}`} built a room face down`);
     // Building consumes the player's build action for this phase. The player
     // has acted — mark it so the phase can end when all have acted.
@@ -708,8 +846,40 @@ const MOVE_HANDLERS = {
     return null;
   },
 
-  playSpell: (G, ctx, pid, [handIndex, target = null]) => {
+  buildMiniboss: (G, ctx, pid, [roomIndex]) => {
     if (!isActivePlayer(G, pid)) return 'not your turn';
+    if (!canBuildMiniboss(G, pid)) return 'cannot build miniboss';
+    const idx = roomIndex != null ? roomIndex : 0;
+    if (!buildMiniboss(G, pid, null, idx)) return 'cannot attach miniboss';
+    G.players[pid].hasActed = true;
+    return null;
+  },
+
+  promoteMiniboss: (G, ctx, pid, [roomIndex]) => {
+    if (!isActivePlayer(G, pid)) return 'not your turn';
+    const err = promoteMiniboss(G, pid, roomIndex != null ? roomIndex : 0);
+    return err;
+  },
+
+  activateMiniboss: (G, ctx, pid, [roomIndex]) => {
+    if (!isActivePlayer(G, pid)) return 'not your turn';
+    const err = activateMiniboss(G, ctx, pid, roomIndex != null ? roomIndex : 0);
+    return err;
+  },
+
+  payDarkHero: (G, ctx, pid, [handIndex, kind, ownerId, heroIndex]) => {
+    const targets = listDarkHeroPayTargets(G);
+    const target = targets.find((t) => {
+      if (t.kind !== kind || t.ownerId !== Number(ownerId)) return false;
+      if (kind === 'entrance') return t.index === Number(heroIndex);
+      return kind === 'adventure';
+    });
+    if (!target) return 'invalid dark hero target';
+    return payDarkHero(G, pid, handIndex, target);
+  },
+
+  playSpell: (G, ctx, pid, [handIndex, target = null]) => {
+    if (!mayActNow(G, pid)) return 'not your turn';
     const p = G.players[pid];
     const card = p.hand[handIndex];
     if (!card || !card.isSpell) return 'invalid card';
@@ -735,37 +905,32 @@ const MOVE_HANDLERS = {
       }
     } else {
       if (!G.stack) G.stack = emptyStack();
+      G.stackActivePlayer = G.activePlayer;
       pushEffect(G, pid, 'spell', card, target);
       G.stackPassed = { [String(pid)]: true };
       G.stackReturnPlayer = pid;
-      const opp = otherPlayer(G, pid);
-      if (opp != null) {
-        ctx.activePlayer = opp;
-        ctx.currentPlayer = opp;
-        G.activePlayer = opp;
+      const next = nextStackResponder(G);
+      if (next != null) {
+        ctx.activePlayer = next;
+        ctx.currentPlayer = next;
+        G.activePlayer = next;
         G.skipAdvance = true;
       } else {
         resolvePendingStack(G, ctx);
       }
     }
 
-    // Liger's Den (BMA026): once per turn when you play a spell, draw a spell.
-    for (const stack of p.dungeon) {
-      const r = activeRoom(stack);
-      if (r && r.id === 'BMA026' && !r.faceDown && !r.usedThisTurn) {
-        ensureDeck(G.decks, 'spells');
-        const drawn = G.decks.spells.pop();
-        if (drawn) { p.hand.push(drawn); G.logs.push(`Liger's Den: drew ${drawn.name}.`); }
-        r.usedThisTurn = true;
-        break;
-      }
-    }
     return null;
   },
 
   resolveNextHero: (G, ctx, pid) => {
     if (!isActivePlayer(G, pid)) return 'not your turn';
     if (G.stack?.length) return 'stack must resolve first';
+    if (G.adventure?.pause) {
+      if (!allAdventurePausePassed(G)) return 'waiting for adventure responses';
+      continueAfterAdventurePause(G, ctx);
+      if (!G.adventure) return null;
+    }
     let err;
     if (G.adventure) {
       if (Number(G.adventure.playerId) !== Number(pid)) return 'another hero is in a dungeon';
@@ -785,17 +950,35 @@ const MOVE_HANDLERS = {
   },
 
   pass: (G, ctx, pid) => {
-    if (!isActivePlayer(G, pid)) return 'not your turn';
+    if (!mayActNow(G, pid)) return 'not your turn';
+    if (G.adventure?.pause) {
+      G.adventurePausePassed = G.adventurePausePassed || {};
+      G.adventurePausePassed[String(pid)] = true;
+      if (allAdventurePausePassed(G)) {
+        continueAfterAdventurePause(G, ctx);
+      }
+      G.skipAdvance = true;
+      return null;
+    }
     if (G.stack?.length) {
       G.stackPassed = G.stackPassed || {};
       G.stackPassed[String(pid)] = true;
-      if (stackAllPassed(G, G.players)) resolvePendingStack(G, ctx);
-      G.skipAdvance = true;
-      if (G.stackReturnPlayer != null) {
-        ctx.activePlayer = G.stackReturnPlayer;
-        ctx.currentPlayer = G.stackReturnPlayer;
-        G.activePlayer = G.stackReturnPlayer;
+      if (stackAllRespondersPassed(G)) {
+        resolvePendingStack(G, ctx);
+        if (G.stackReturnPlayer != null) {
+          ctx.activePlayer = G.stackReturnPlayer;
+          ctx.currentPlayer = G.stackReturnPlayer;
+          G.activePlayer = G.stackReturnPlayer;
+        }
+      } else {
+        const next = nextStackResponder(G);
+        if (next != null) {
+          ctx.activePlayer = next;
+          ctx.currentPlayer = next;
+          G.activePlayer = next;
+        }
       }
+      G.skipAdvance = true;
       return null;
     }
     G.players[pid].passed = true;
@@ -814,7 +997,7 @@ const MOVE_HANDLERS = {
   },
 
   activateRoom: (G, ctx, pid, [roomIndex, otherRoomIndex = null]) => {
-    if (!isActivePlayer(G, pid)) return 'not your turn';
+    if (!mayActNow(G, pid)) return 'not your turn';
     const err = activateRoomAbility(G, ctx, pid, roomIndex, otherRoomIndex);
     if (err) return err;
     if (G.adventure && Number(G.adventure.playerId) === Number(pid) && G.adventure.hp <= 0) {
@@ -1041,6 +1224,38 @@ function canOfferActivatedRoom(G, p, room, roomIndex) {
   return true;
 }
 
+function pushDarkHeroPayMoves(G, pid, p, moves) {
+  if (G.phase !== PHASE.BUILD && G.phase !== PHASE.ADVENTURE) return;
+  for (const target of listDarkHeroPayTargets(G)) {
+    p.hand.forEach((c, hi) => {
+      if (canPayDarkHero(G, pid, hi, target)) {
+        moves.push({
+          type: 'payDarkHero',
+          args: [hi, target.kind, target.ownerId, target.index ?? -1],
+        });
+      }
+    });
+  }
+}
+
+function pushMinibossMoves(G, pid, p, moves) {
+  if (canBuildMiniboss(G, pid)) {
+    p.dungeon.forEach((stack, i) => {
+      if (activeRoom(stack) && !stack.miniboss) {
+        moves.push({ type: 'buildMiniboss', args: [i] });
+      }
+    });
+  }
+  p.dungeon.forEach((stack, i) => {
+    if (canPromoteMiniboss(G, pid, i)) {
+      moves.push({ type: 'promoteMiniboss', args: [i] });
+    }
+    if (canActivateMiniboss(G, pid, i)) {
+      moves.push({ type: 'activateMiniboss', args: [i] });
+    }
+  });
+}
+
 function pushActivateMoves(G, p, moves) {
   p.dungeon.forEach((stack, i) => {
     const room = activeRoom(stack);
@@ -1098,7 +1313,7 @@ export function legalMoves(G, ctx, playerID) {
     return moves;
   }
 
-  if (!isActivePlayer(G, pid)) return moves;
+  if (!isActivePlayer(G, pid) && !G.adventure?.pause) return moves;
 
   if (phase === PHASE.SETUP) {
     p.hand.forEach((c, i) => {
@@ -1110,6 +1325,8 @@ export function legalMoves(G, ctx, playerID) {
 
   if (phase === PHASE.BUILD) {
     pushBuildMoves(G, pid, p, moves);
+    pushMinibossMoves(G, pid, p, moves);
+    pushDarkHeroPayMoves(G, pid, p, moves);
     pushSpellMoves(G, p, pid, PHASE.BUILD, moves);
     pushActivateMoves(G, p, moves);
     moves.push({ type: 'pass', args: [] });
@@ -1126,12 +1343,16 @@ export function legalMoves(G, ctx, playerID) {
 
   if (phase === PHASE.ADVENTURE) {
     pushSpellMoves(G, p, pid, PHASE.ADVENTURE, moves);
-    if (G.adventure && Number(G.adventure.playerId) === Number(pid)) {
-      moves.push({ type: 'resolveNextHero', args: [] });
-    } else if (!G.adventure && p.entrance.length > 0) {
-      moves.push({ type: 'resolveNextHero', args: [] });
+    if (!G.adventure?.pause) {
+      if (G.adventure && Number(G.adventure.playerId) === Number(pid)) {
+        moves.push({ type: 'resolveNextHero', args: [] });
+      } else if (!G.adventure && p.entrance.length > 0) {
+        moves.push({ type: 'resolveNextHero', args: [] });
+      }
     }
     pushActivateMoves(G, p, moves);
+    pushMinibossMoves(G, pid, p, moves);
+    pushDarkHeroPayMoves(G, pid, p, moves);
     moves.push({ type: 'pass', args: [] });
     return moves;
   }

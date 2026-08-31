@@ -31,6 +31,10 @@ export default function DungeonTrack({
   adventure = null,
   treasures = {},
   buildTargets = null,
+  minibossActions = null,
+  onBuildMiniboss,
+  onPromoteMiniboss,
+  onActivateMiniboss,
 }) {
   const theme = bossTheme(player.boss);
   const dungeon = player.dungeon || [];
@@ -97,6 +101,7 @@ export default function DungeonTrack({
             }
             const stack = dungeon[di];
             const r = Array.isArray(stack) ? stack[stack.length - 1] : stack;
+            const mb = stack?.miniboss;
             if (!r) {
               return <div key={`empty-${i}`} className={s.empty} aria-hidden="true" />;
             }
@@ -128,6 +133,49 @@ export default function DungeonTrack({
                   }
                 />
                 {stackDepth > 1 && <div className={s.stack}>×{stackDepth}</div>}
+                {mb && (
+                  <button
+                    type="button"
+                    className={`${s.miniboss} ${mb.faceDown ? s.minibossDown : ''}`}
+                    title={mb.faceDown ? 'Face-down Miniboss' : `${mb.card?.name || 'Miniboss'} Lv${mb.level}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (mb.card) onInspect?.({ card: mb.card, kind: 'miniboss' });
+                    }}
+                  >
+                    {mb.faceDown ? '?' : `MB${mb.level}`}
+                  </button>
+                )}
+                {isMine && isMyTurn && minibossActions?.build?.includes(di) && (
+                  <button
+                    type="button"
+                    className={s.mbBuild}
+                    title="Build Miniboss on this Room"
+                    onClick={(e) => { e.stopPropagation(); onBuildMiniboss?.(di); }}
+                  >
+                    +MB
+                  </button>
+                )}
+                {isMine && isMyTurn && minibossActions?.promote?.includes(di) && (
+                  <button
+                    type="button"
+                    className={s.mbPromote}
+                    title="Promote Miniboss (1 Coin)"
+                    onClick={(e) => { e.stopPropagation(); onPromoteMiniboss?.(di); }}
+                  >
+                    ↑
+                  </button>
+                )}
+                {isMine && isMyTurn && minibossActions?.activate?.includes(di) && (
+                  <button
+                    type="button"
+                    className={s.mbActivate}
+                    title="Activate Level 3 Miniboss"
+                    onClick={(e) => { e.stopPropagation(); onActivateMiniboss?.(di); }}
+                  >
+                    L3
+                  </button>
+                )}
                 {showHeroes && (
                   <div className={s.heroes} aria-label="Heroes at entrance">
                     {(inThisDungeon && adventure.hero ? [adventure.hero] : entranceHeroes).slice(0, 3).map((h, hi) => (

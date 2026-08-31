@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AppBoard from './AppBoard.jsx';
 import MainMenu from './screens/MainMenu.jsx';
 import SetupScreen from './screens/SetupScreen.jsx';
@@ -16,9 +16,28 @@ export default function App() {
   const [screen, setScreen] = useState(MENU);
   const [numPlayers, setNumPlayers] = useState(2);
   const [expansions, setExpansions] = useState([]);
+  const [humanCount, setHumanCount] = useState(1);
   const [match, setMatch] = useState(null);
 
-  const goMenu = () => { stopMusic(); setScreen(MENU); setMatch(null); };
+  const goMenu = () => {
+    stopMusic();
+    localStorage.removeItem('bm_online_session');
+    setScreen(MENU);
+    setMatch(null);
+  };
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('bm_online_session');
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved?.matchID && saved.credentials) {
+          setMatch(saved);
+          setScreen(GAME);
+        }
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   return (
     <ErrorBoundary>
@@ -31,9 +50,10 @@ export default function App() {
 
       {screen === SETUP && (
           <SetupScreen
-            onStartLocal={(n, packs) => {
+            onStartLocal={(n, packs, humanCount) => {
               setNumPlayers(n);
               setExpansions(packs);
+              setHumanCount(humanCount ?? 1);
               setMatch(null);
               setScreen(GAME);
             }}
@@ -53,7 +73,7 @@ export default function App() {
             {match ? (
               <OnlineGame match={match} onExitToMenu={goMenu} onReplay={() => setScreen(LOBBY)} />
             ) : (
-              <LocalGame numPlayers={numPlayers} expansions={expansions} onExitToMenu={goMenu} onReplay={() => setScreen(SETUP)} />
+              <LocalGame numPlayers={numPlayers} expansions={expansions} humanCount={humanCount} onExitToMenu={goMenu} onReplay={() => setScreen(SETUP)} />
             )}
           </ErrorBoundary>
       )}
@@ -61,8 +81,14 @@ export default function App() {
   );
 }
 
-function LocalGame({ numPlayers, expansions, onExitToMenu, onReplay }) {
-  const m = useLocalMatch({ numPlayers, setupData: { expansions }, onExitMatch: onReplay });
+function LocalGame({ numPlayers, expansions, humanCount = 1, onExitToMenu, onReplay }) {
+  const [viewingPlayer, setViewingPlayer] = useState('0');
+  const m = useLocalMatch({
+    numPlayers,
+    setupData: { expansions, humanCount },
+    viewingPlayer,
+    onExitMatch: onReplay,
+  });
   if (!m.G) {
     return (
       <Screen width="narrow">
@@ -70,7 +96,26 @@ function LocalGame({ numPlayers, expansions, onExitToMenu, onReplay }) {
       </Screen>
     );
   }
-  return <AppBoard {...m} onExitToMenu={onExitToMenu} />;
+  const active = String(m.ctx?.activePlayer ?? '0');
+  const showPass = Number(viewingPlayer) !== Number(active) && !m.G.players[active]?.isAI;
+  return (
+    <>
+      {showPass && (
+        <Screen width="narrow">
+          <h2 style={{ color: 'var(--bm-gold)' }}>Pass device to Player {Number(active) + 1}</h2>
+          <Button onClick={() => setViewingPlayer(active)}>I am Player {Number(active) + 1}</Button>
+        </Screen>
+      )}
+      {!showPass && (
+        <AppBoard
+          {...m}
+          playerID={viewingPlayer}
+          onExitToMenu={onExitToMenu}
+          onSwitchPlayer={humanCount > 1 ? setViewingPlayer : undefined}
+        />
+      )}
+    </>
+  );
 }
 
 function OnlineGame({ match, onExitToMenu, onReplay }) {

@@ -69,7 +69,7 @@ export function useOnlineMatch({ matchID, playerID, credentials, onExitMatch }) 
   // moves: thin wrappers that send socket events. The server applies the move
   // and broadcasts the new state back, which updates G/ctx via subscribeState.
   const moves = useRef({}).current;
-  for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'playSpell', 'resolveNextHero', 'pass', 'activateRoom', 'resolveLevelUpChoice', 'openingDiscard']) {
+  for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'buildMiniboss', 'promoteMiniboss', 'activateMiniboss', 'payDarkHero', 'playSpell', 'resolveNextHero', 'pass', 'activateRoom', 'resolveLevelUpChoice', 'openingDiscard']) {
     moves[type] = (...args) => sendMove(matchID, { type, args });
   }
 
@@ -81,7 +81,7 @@ export function useOnlineMatch({ matchID, playerID, credentials, onExitMatch }) 
   return { G, ctx, moves, isActive: isActive(), isConnected, error, playerID, onExitMatch, turnDeadline, notification };
 }
 
-export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, setupData = {}, onExitMatch }) {
+export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, setupData = {}, viewingPlayer = '0', onExitMatch }) {
   const [state, setState] = useState(() => setupMatch(numPlayers, setupData));
   const [, forceTick] = useState(0);
 
@@ -115,6 +115,23 @@ export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, setupData = {}
               setTimeout(step, aiDelayMs());
               return;
             }
+          }
+          return;
+        }
+        if (s.G.adventure?.pause) {
+          let progressed = false;
+          for (const pid of Object.keys(s.G.players)) {
+            const pl = s.G.players[pid];
+            if (!pl?.isAI || pl.eliminated || s.G.adventurePausePassed?.[pid]) continue;
+            const { state: ns, error } = applyMove({ G: s.G, ctx: s.ctx }, { type: 'pass', args: [] }, Number(pid));
+            if (!error) {
+              s = { G: ns.G, ctx: ns.ctx };
+              setState(s);
+              progressed = true;
+            }
+          }
+          if (progressed) {
+            setTimeout(step, aiDelayMs());
           }
           return;
         }
@@ -154,19 +171,22 @@ export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, setupData = {}
 
   // moves: apply locally via the reducer. playerID is always '0' for the human.
   const moves = useRef({}).current;
-  for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'playSpell', 'resolveNextHero', 'pass', 'activateRoom', 'resolveLevelUpChoice', 'openingDiscard']) {
+  for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'buildMiniboss', 'promoteMiniboss', 'activateMiniboss', 'payDarkHero', 'playSpell', 'resolveNextHero', 'pass', 'activateRoom', 'resolveLevelUpChoice', 'openingDiscard']) {
     moves[type] = (...args) => {
-      const { state: next, error } = applyMove({ G: state.G, ctx: state.ctx }, { type, args }, 0);
+      const pause = state.G.adventure?.pause;
+      const actor = pause && ['pass', 'playSpell', 'activateRoom', 'activateMiniboss'].includes(type)
+        ? Number(viewingPlayer)
+        : Number(state.ctx.activePlayer);
+      if (String(viewingPlayer) !== String(actor) && !pause) return;
+      const { state: next, error } = applyMove({ G: state.G, ctx: state.ctx }, { type, args }, actor);
       if (error) { console.warn(`[move] ${type} rejected:`, error); return; }
       applyAndDriveAI(next);
     };
   }
 
-  const isActive = String(state.ctx.activePlayer) === '0';
+  const isActive = String(state.ctx.activePlayer) === String(viewingPlayer);
 
-  // playerView-filter the state for the human so opponent hands are hidden,
-  // mirroring the online behavior.
-  const G = playerView(state.G, '0');
+  const G = playerView(state.G, viewingPlayer);
 
-  return { G, ctx: state.ctx, moves, isActive, isConnected: true, error: '', playerID: '0', onExitMatch };
+  return { G, ctx: state.ctx, moves, isActive, isConnected: true, error: '', playerID: viewingPlayer, onExitMatch };
 }

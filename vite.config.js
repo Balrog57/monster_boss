@@ -8,11 +8,16 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
-    open: true
+    open: true,
+    proxy: {
+      '/lobby': 'http://localhost:8000',
+      '/socket.io': { target: 'http://localhost:8000', ws: true },
+      '/health': 'http://localhost:8000',
+    },
   },
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    emptyOutDir: true
-  }
+    emptyOutDir: true,
+  },
 });

@@ -133,6 +133,39 @@
 }
 .activateBtn:active { background-image: url('/ui/ingame/go_button_pressed.webp'); }
 
+.miniboss {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  z-index: 6;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 4px;
+  border: 2px solid #f1e17c;
+  border-radius: 4px;
+  background: #4a2f6b;
+  color: #f1e17c;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.minibossDown { background: #333; color: #aaa; border-color: #666; }
+.mbBuild, .mbPromote, .mbActivate {
+  position: absolute;
+  z-index: 6;
+  border: 2px solid #f1e17c;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.75);
+  color: #f1e17c;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 4px;
+  cursor: pointer;
+}
+.mbBuild { top: -8px; right: -8px; }
+.mbPromote { bottom: -8px; right: -4px; }
+.mbActivate { bottom: -8px; left: -4px; background: #5a1a1a; }
+
 .boss {
   flex-shrink: 0;
   display: flex;

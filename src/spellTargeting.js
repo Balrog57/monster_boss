@@ -15,6 +15,8 @@ export const SPELL_TARGETS = {
   BMA054: { type: 'trepidation-player', label: 'Choose a player with 2+ more Souls' },
   BMA055: { type: 'opponent-soul', label: 'Choose a dead Hero' },
   THK025: { type: 'any-item', label: 'Choose an Item to flip' },
+  CRL201: { type: 'hero-town', label: 'Choose a Hero in town' },
+  TNL057: { type: 'hero-own-dungeon', label: 'Choose a Hero in your dungeon' },
 };
 
 export function spellNeedsTarget(spellId) {
@@ -106,7 +108,7 @@ export function enumerateTargets(type, G, me, playerId) {
     }
     case 'own-soul':
       (me.souls || []).forEach((s, i) => {
-        if (!s.tpk) targets.push({ soulIndex: i });
+        if (!s.tpk && s.faceDown !== false) targets.push({ soulIndex: i });
       });
       break;
     case 'opponent-soul':
@@ -125,6 +127,13 @@ export function enumerateTargets(type, G, me, playerId) {
         (op.items || []).forEach((it, i) => {
           targets.push({ targetPlayerId: Number(opid), itemIndex: i });
         });
+      }
+      break;
+    case 'swap-rooms':
+      for (let i = 0; i < me.dungeon.length; i++) {
+        for (let j = i + 1; j < me.dungeon.length; j++) {
+          targets.push({ roomA: i, roomB: j });
+        }
       }
       break;
     default:
@@ -289,6 +298,22 @@ export function getSpellTargetOptions(type, G, me, playerId) {
             label: `${it.name} (${owner}${it.faceDown ? ', face-down' : ''})`,
           });
         });
+      }
+      break;
+    case 'swap-rooms':
+      for (let i = 0; i < me.dungeon.length; i++) {
+        for (let j = i + 1; j < me.dungeon.length; j++) {
+          const a = stackTop(me.dungeon[i]);
+          const b = stackTop(me.dungeon[j]);
+          if (!a || !b) continue;
+          targets.push({
+            key: `swap-${i}-${j}`,
+            card: a,
+            kind: 'room',
+            value: { roomA: i, roomB: j },
+            label: `Swap ${a.name} ↔ ${b.name}`,
+          });
+        }
       }
       break;
     default:

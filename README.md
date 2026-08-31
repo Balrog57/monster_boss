@@ -21,13 +21,15 @@ Solo : menu → **SOLO** → 2 joueurs → partie complète (boss, setup, discar
 ## Tests & assets
 
 ```bash
-npm run test:unit    # moteur, reducer, IA (21 tests)
+npm run test:unit    # moteur, reducer, IA, extensions, matrice (48 tests)
+npm run card-matrix  # génère docs/card-matrix.json (validation texte)
+npm run fetch:expansion-art   # art TNL/RMB/CRL depuis le wiki
 npm run verify:assets
 ```
 
-## Règles implémentées (base set)
+## Règles implémentées (base set + extensions)
 
-- Phases : BOSS → SETUP → BUILD → BAIT → ADVENTURE → END
+- Phases : BOSS → SETUP → BEGINNING → BUILD → BAIT → ADVENTURE → END
 - 16 sorts avec ciblage (`src/spellTargeting.js`) et phases (cat. 1–5 dont Cave-In / Exhaustion)
 - Aventure pas à pas (`resolveNextHero`), effets Exhaustion / Teleport / Cave-In héros
 - Salles activables, level-up boss, opening discard 7→5

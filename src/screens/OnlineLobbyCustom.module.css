@@ -131,3 +131,11 @@
   font-size: 22px;
   text-shadow: 2px 2px 0 #000;
 }
+.expLabel {
+  color: #f1e17c;
+  font-family: var(--bm-font-display);
+  font-size: 14px;
+  letter-spacing: 2px;
+}
+.expPacks { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.expItem { color: #ddd; font-size: 14px; display: flex; align-items: center; gap: 6px; }

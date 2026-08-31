@@ -5,6 +5,8 @@
 
 import { activeRoom, buildRoom } from './engine.js';
 import { drawCards } from './cardData.js';
+import { gainCoin } from './minibosses.js';
+import { applyGenericSpell } from './expansionEffects.js';
 
 export function emptyEffects() {
   return {
@@ -29,11 +31,14 @@ export function castSpell(G, ctx, casterId, card, target) {
   // target.roomIndex, target.heroId, etc. without null checks.
   const t = target || {};
   const handler = SPELL_EFFECTS[card.id];
-  if (!handler) {
-    G.logs.push(`${card.name}: no effect implemented yet.`);
-    return false;
+  if (handler) {
+    return handler(G, ctx, casterId, t);
   }
-  return handler(G, ctx, casterId, t);
+  if (applyGenericSpell(G, ctx, casterId, card, t)) {
+    return true;
+  }
+  G.logs.push(`${card.name}: no effect implemented yet.`);
+  return false;
 }
 
 function findRoom(G, playerId, roomIndex) {
@@ -132,7 +137,7 @@ const SPELL_EFFECTS = {
       const ei = p.entrance.findIndex(h => h.id === hero.id);
       if (ei >= 0) p.entrance.splice(ei, 1);
       for (let i = 0; i < (hero.souls || 1); i++) {
-        p.souls.push({ souls: 1, name: hero.name, class: hero.class });
+        p.souls.push({ souls: 1, name: hero.name, class: hero.class, faceDown: true });
       }
       G.decks.heroDiscard.push(hero);
       G.logs.push(`Cave-In: ${hero.name} in that room is destroyed.`);
@@ -161,20 +166,7 @@ const SPELL_EFFECTS = {
     return true;
   },
 
-  // BMA043: Counterspell — cancel the last spell played
-  BMA043: (G, ctx, casterId, target) => {
-    const last = G.decks.spellDiscard[G.decks.spellDiscard.length - 1];
-    if (!last) {
-      G.logs.push('Counterspell: no spell to counter.');
-      return false;
-    }
-    // Remove the last applied effect of that spell if possible (simplified).
-    G.effects.counteredSpells = (G.effects.counteredSpells || []);
-    G.effects.counteredSpells.push(last.id);
-    G.logs.push(`Counterspell: ${last.name} is canceled.`);
-    return true;
-  },
-
+  // BMA043 is handled directly in reducer playSpell (stack cancel) — not via castSpell.
   // BMA046: Freeze — deactivate one room until end of turn
   BMA046: (G, ctx, casterId, target) => {
     const targetId = target.targetPlayerId != null ? target.targetPlayerId : casterId;
@@ -204,11 +196,26 @@ const SPELL_EFFECTS = {
     return true;
   },
 
-  // BMA049: Kobold Strike — no rooms can be built this turn
+  // BMA049: Kobold Strike — no rooms can be built this turn; undo face-down builds this turn
   BMA049: (G, ctx, casterId, target) => {
     G.effects.buildBlocked = true;
-    // Return any face-down rooms to hand? In our engine rooms are built immediately on stack.
-    // Simplified: just block future builds.
+    for (const p of Object.values(G.players)) {
+      const returned = [];
+      for (let i = p.dungeon.length - 1; i >= 0; i--) {
+        const stack = p.dungeon[i];
+        while (stack.length > 0) {
+          const top = stack[stack.length - 1];
+          if (!top?.faceDown || !top?.builtThisTurn) break;
+          returned.push(stack.pop());
+        }
+        if (stack.length === 0) p.dungeon.splice(i, 1);
+      }
+      if (returned.length) {
+        p.hand.push(...returned);
+        p.buildsThisTurn = Math.max(0, (p.buildsThisTurn || 0) - returned.length);
+        G.logs.push(`Kobold Strike: ${returned.length} room(s) returned to hand.`);
+      }
+    }
     G.logs.push('Kobold Strike: no rooms can be built this turn.');
     return true;
   },
@@ -278,7 +285,7 @@ const SPELL_EFFECTS = {
   BMA052: (G, ctx, casterId, target) => {
     const p = G.players[casterId];
     const idx = target.soulIndex != null ? target.soulIndex : (p.souls.length ? p.souls.length - 1 : -1);
-    if (idx < 0 || !p.souls[idx] || p.souls[idx].tpk) {
+    if (idx < 0 || !p.souls[idx] || p.souls[idx].tpk || p.souls[idx].faceDown === false) {
       G.logs.push('Soul Harvest: no soul to remove.');
       return false;
     }
@@ -298,6 +305,7 @@ const SPELL_EFFECTS = {
     }
     if (G.adventure && Number(G.adventure.playerId) === Number(casterId) && G.adventure.hero?.id === heroId) {
       G.adventure.roomIndex = -1;
+      G.adventure.mazeSentBack = {};
       G.logs.push('Teleportation: hero restarts at the first room.');
       return true;
     }
@@ -372,6 +380,73 @@ const SPELL_EFFECTS = {
     }
     it.faceDown = !it.faceDown;
     G.logs.push(`Excavation: flipped ${it.name} ${it.faceDown ? 'face-down' : 'face-up'}.`);
+    return true;
+  },
+
+  TNL201: (G, ctx, casterId) => {
+    const p = G.players[casterId];
+    const spells = drawCards(G.decks.spells, 2);
+    p.hand.push(...spells);
+    G.logs.push(`Dark Pact: drew ${spells.length} Spell(s).`);
+    return true;
+  },
+
+  TNL057: (G, ctx, casterId, target) => {
+    const p = G.players[casterId];
+    let hero = null;
+    if (G.adventure && Number(G.adventure.playerId) === Number(casterId) && G.adventure.hero?.id === target?.heroId) {
+      hero = G.adventure.hero;
+      G.adventure = null;
+    } else {
+      const idx = p.entrance.findIndex((h) => h.id === target?.heroId);
+      if (idx >= 0) hero = p.entrance.splice(idx, 1)[0];
+    }
+    if (!hero) {
+      G.logs.push('Another Castle: no Hero in your dungeon.');
+      return false;
+    }
+    const opps = Object.keys(G.players).filter((id) => Number(id) !== Number(casterId) && !G.players[id].eliminated);
+    const dest = target?.targetPlayerId != null ? target.targetPlayerId : opps[0];
+    if (dest == null) {
+      G.town.push(hero);
+      G.logs.push('Another Castle: no opponent — Hero returned to town.');
+      return true;
+    }
+    G.players[dest].entrance.push(hero);
+    G.logs.push(`Another Castle: ${hero.name} sent to Player ${dest}'s entrance.`);
+    return true;
+  },
+
+  CRL201: (G, ctx, casterId, target) => {
+    const townIdx = target.townIndex != null ? target.townIndex : 0;
+    const hero = G.town[townIdx];
+    if (!hero) {
+      G.logs.push('Abduction: no hero in town.');
+      return false;
+    }
+    G.town.splice(townIdx, 1);
+    G.players[casterId].entrance.push(hero);
+    G.logs.push(`Abduction: ${hero.name} placed at your entrance.`);
+    return true;
+  },
+
+  TNL202: (G, ctx, casterId, target) => {
+    const p = G.players[casterId];
+    const a = target?.roomA ?? 0;
+    const b = target?.roomB ?? 1;
+    if (!p.dungeon[a] || !p.dungeon[b] || a === b) {
+      G.logs.push('Dungeon Shift: invalid rooms.');
+      return false;
+    }
+    const tmp = p.dungeon[a];
+    p.dungeon[a] = p.dungeon[b];
+    p.dungeon[b] = tmp;
+    G.logs.push('Dungeon Shift: swapped two Rooms in your dungeon.');
+    return true;
+  },
+
+  RMB301: (G, ctx, casterId) => {
+    gainCoin(G, casterId, 2, 'Mint Condition');
     return true;
   },
 };

@@ -97,6 +97,27 @@
   font-size: 22px;
   text-shadow: 2px 2px 0 #000;
 }
+.label {
+  position: absolute;
+  top: 820px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--bm-font-display);
+  color: #f1e17c;
+  font-size: 20px;
+}
+.input {
+  position: absolute;
+  top: 860px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 200px;
+  padding: 8px 12px;
+  font-size: 18px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: 2px solid #f1e17c;
+}
 .ok {
   position: absolute;
   right: 80px;

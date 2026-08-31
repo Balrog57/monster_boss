@@ -48,3 +48,6 @@
   object-fit: contain;
   image-rendering: pixelated;
 }
+.tpk {
+  filter: hue-rotate(90deg);
+}

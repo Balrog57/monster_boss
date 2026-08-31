@@ -33,6 +33,7 @@ self.addEventListener('fetch', (event) => {
 
   const isStatic =
     url.pathname.startsWith('/apk_cards/') ||
+    url.pathname.startsWith('/cards/') ||
     url.pathname.startsWith('/ui/') ||
     url.pathname.startsWith('/audio/') ||
     url.pathname.startsWith('/fonts/') ||

@@ -11,8 +11,9 @@ export const ROOMS = cardData.rooms;
 export const SPELLS = cardData.spells;
 export const HEROES = cardData.heroes;
 export const ITEMS = cardData.items || [];
+export const MINIBOSSES = cardData.minibosses || [];
 
-export const TREASURE_NAMES = ['?', 'Cleric', 'Fighter', 'Mage', 'Thief'];
+export const TREASURE_NAMES = ['?', 'Cleric', 'Fighter', 'Mage', 'Thief', 'Explorer'];
 export const ROOM_TYPE = { MONSTER: 'monster', TRAP: 'trap' };
 export const SPELL_CATEGORY = {
   BUILD: 1,
@@ -112,11 +113,15 @@ export function playerOrderByXP(players) {
 }
 
 export function totalSouls(p) {
-  let n = (p.souls || []).reduce((sum, s) => sum + (s.souls || 1), 0);
+  let n = (p.souls || []).reduce((sum, s) => {
+    if (s.tpk) return sum;
+    return sum + (s.souls || 1);
+  }, 0);
   if (p.bonusSouls) n += p.bonusSouls;
   const tpk = (p.souls || []).find(s => s.tpk);
   if (tpk) {
-    const classes = new Set((p.souls || []).map(s => s.class).filter(Boolean));
+    const faceDown = (p.souls || []).filter(s => !s.tpk && s.faceDown !== false);
+    const classes = new Set(faceDown.map(s => s.class).filter(Boolean));
     if (['Cleric', 'Fighter', 'Mage', 'Thief'].every(c => classes.has(c))) n += 2;
   }
   return n;
@@ -133,6 +138,9 @@ export const EXPANSION_PACKS = [
   { id: 'hidden-heroes', label: 'HIDDEN HEROES', cover: '/ui/expansions/hh_cover_unlocked.webp' },
   { id: 'tools', label: 'TOOLS OF HERO-KIND', cover: '/ui/expansions/thk_cover_unlocked.webp' },
   { id: 'players-choice', label: "PLAYER'S CHOICE", cover: '/ui/expansions/pc_cover_unlocked.webp' },
+  { id: 'next-level', label: 'THE NEXT LEVEL', cover: '/ui/expansions/tnl_cover_unlocked.webp' },
+  { id: 'minibosses', label: 'RISE OF THE MINIBOSSES', cover: '/ui/expansions/rmb_cover_unlocked.webp' },
+  { id: 'crash-landing', label: 'CRASH LANDING', cover: '/ui/expansions/crl_cover_unlocked.webp' },
 ];
 
 export function allowedCardSets(expansions) {

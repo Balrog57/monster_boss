@@ -82,4 +82,20 @@ if (missing.length || dataIssues.length) {
 }
 
 console.log(`[verify_assets] OK — base set ${bosses.length} bosses, ${rooms.length} rooms, ${spells.length} spells, ${heroes.length} heroes; all APK faces present.`);
+
+const expSets = ['next-level', 'minibosses', 'crash-landing'];
+let expCards = 0;
+let expMissingArt = 0;
+const cardsRoot = path.join(assetsDir, 'cards');
+for (const section of ['bosses', 'rooms', 'spells', 'heroes']) {
+  for (const c of cardData[section] || []) {
+    if (!expSets.includes(c.set)) continue;
+    expCards += 1;
+    const slug = (cardData.nameMap || {})[c.id] || c.id.toLowerCase();
+    const dir = section === 'heroes' && c.epic ? 'epic-heroes' : section;
+    const art = path.join(cardsRoot, dir, `${c.id}_${slug}.webp`);
+    if (!fs.existsSync(art)) expMissingArt += 1;
+  }
+}
+console.log(`[verify_assets] expansions: ${expCards} cards, ${expMissingArt} missing wiki art (non-fatal).`);
 process.exit(0);

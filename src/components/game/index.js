@@ -10,6 +10,7 @@ export { default as Hand } from './Hand.jsx';
 export { default as LogStrip } from './LogStrip.jsx';
 export { default as DetailPanel } from './DetailPanel.jsx';
 export { default as SpellTargetOverlay, spellNeedsTarget } from './SpellTargetOverlay.jsx';
+export { default as DarkHeroPayOverlay } from './DarkHeroPayOverlay.jsx';
 export { default as LevelUpChoiceOverlay } from './LevelUpChoiceOverlay.jsx';
 export { default as OpeningDiscardOverlay } from './OpeningDiscardOverlay.jsx';
 export { default as PhaseBanner } from './PhaseBanner.jsx';

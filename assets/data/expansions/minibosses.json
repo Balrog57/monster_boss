@@ -1,0 +1,1482 @@
+{
+  "bosses": [
+    {
+      "id": "RMB001",
+      "name": "Gregore",
+      "xp": 365,
+      "treasures": [
+        1
+      ],
+      "levelUpDesc": "For the rest of the game, once per turn gain (c) when you kill a hero.",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB002",
+      "name": "Calabeza",
+      "xp": 205,
+      "treasures": [
+        1
+      ],
+      "levelUpDesc": "For the rest of the game, once per turn you may discard a Monster Room to promote a Miniboss instead of paying (c).",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB003",
+      "name": "Belladonna",
+      "xp": 860,
+      "treasures": [
+        1
+      ],
+      "levelUpDesc": "For the rest of the game, once per turn you may pay (c)(c) to force an opponent to discard a randon Spell card.",
+      "set": "minibosses",
+      "quantity": 1
+    }
+  ],
+  "rooms": [
+    {
+      "id": "RMB004",
+      "name": "Lamia",
+      "advanced": false,
+      "type": "monster",
+      "damage": 255,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "Level Up: For the rest of the game, gain (c) whenever you build a Monster Room.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB006",
+      "name": "Ravenus",
+      "advanced": false,
+      "type": "monster",
+      "damage": 760,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "Level Up: For the rest of the game, once per turn you may pay (c)(c) to double the damage value of a Monster Room.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB010",
+      "name": "Dr. Deadly",
+      "advanced": false,
+      "type": "monster",
+      "damage": 300,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "Level Up: For the rest of the game, gain (c) whenever you build a Trap Room.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB011",
+      "name": "Scott",
+      "advanced": false,
+      "type": "monster",
+      "damage": 780,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "Level Up: For the rest of the game, your Trap Rooms have +1. Any opponents may give you (c) to cancel this ability until the end of your turn.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB014",
+      "name": "Monster Academy",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        1
+      ],
+      "quantity": 2,
+      "description": "When you build or uncover this Room, gain (c) (c) for every miniboss you reveal from your hand.",
+      "set": "minibosses",
+      "gainCoin": 2
+    },
+    {
+      "id": "RMB016",
+      "name": "Tomb of Terrors",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        1
+      ],
+      "quantity": 2,
+      "description": "You may discard this from your hand to draw a room or spell card from the Discard pile.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB017",
+      "name": "Imp Hoard",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        1
+      ],
+      "quantity": 2,
+      "description": "Once per turn when an opponent discards a card, you may put it in your hand.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB018",
+      "name": "Vampire Lab",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+        1
+      ],
+      "quantity": 2,
+      "description": "When you build or uncover this Room, you may discard a Miniboss to heal a Wound.",
+      "set": "minibosses",
+      "onBuildHealWound": true
+    },
+    {
+      "id": "RMB019",
+      "name": "Haunted Cavern",
+      "advanced": true,
+      "type": "monster",
+      "damage": 3,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "Once per turn, You may pay (c) and choose a hero at the entrance to your dungeon. It cannot enter your dungeon until next turn.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB020",
+      "name": "Minion Clinic",
+      "advanced": true,
+      "type": "monster",
+      "damage": 3,
+      "treasures": [
+        1
+      ],
+      "quantity": 2,
+      "description": "When you build this Room, place up to three (c) on it. For each (c) you place, choose one card from the discard pile and put it in your hand. This Room has -1 for every (c) on it.",
+      "set": "minibosses",
+      "gainCoin": 3
+    },
+    {
+      "id": "RMB021",
+      "name": "Robber's Vault",
+      "advanced": true,
+      "type": "trap",
+      "damage": 3,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "When you build this room, exchange your Hoard with another player's, even if you have no coins.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB022",
+      "name": "Minotaur Catacombs",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "Destroy this Room to return a Hero in it to the beginning of your Dungeon.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB023",
+      "name": "Goblin Market",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        2
+      ],
+      "quantity": 2,
+      "description": "Whenever you build a Room next to this Room, gain (c)(c).",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB024",
+      "name": "Power Leech",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        2
+      ],
+      "quantity": 2,
+      "description": "If the Room to the right of this is a Monster Room, give that room +2.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB025",
+      "name": "Fetid Beast",
+      "advanced": false,
+      "type": "monster",
+      "damage": 3,
+      "treasures": [
+        2
+      ],
+      "quantity": 2,
+      "description": "Monster Rooms may not be built adjacent to this room. (But this Room may be built adjacent to other Monster Rooms.)",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB026",
+      "name": "Training Camp",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+        2
+      ],
+      "quantity": 2,
+      "description": "Once per turn, you may discard a Miniboss to double the damage of one of your Monster Rooms until end of turn.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB027",
+      "name": "Shrooman Aviary",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+        2
+      ],
+      "quantity": 2,
+      "description": "You may discard this from your hand to give one hero +3 until end of turn.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB028",
+      "name": "Dragon's Nest",
+      "advanced": true,
+      "type": "monster",
+      "damage": 4,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "When you build or uncover this Room, until end of turn, give every other Monster Room in your dungeon +1 for every treasure icon that room has.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB029",
+      "name": "Doppelganger Hive",
+      "advanced": true,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+        2
+      ],
+      "quantity": 2,
+      "description": "This room has +1 for every Hero that was lured to your dungeon this turn.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB030",
+      "name": "Foyer Elemental",
+      "advanced": true,
+      "type": "monster",
+      "damage": 4,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "Once per turn when a Hero survives this Room, gain (c) (c).",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB033",
+      "name": "Black Market",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        3
+      ],
+      "quantity": 2,
+      "description": "Once per turn, when a Room in any dungeon is destroyed, pay (c) to draw a spell card.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB040",
+      "name": "Delver's Quarry",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "When you build or uncover this Room, draw a Room card.",
+      "set": "minibosses",
+      "onBuildDrawRoom": true,
+      "onUncover": "draw-room"
+    },
+    {
+      "id": "RMB041",
+      "name": "Garbage Chute",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        4
+      ],
+      "quantity": 2,
+      "description": "Once per turn when a Room is destroyed, gain (c) (c).",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB042",
+      "name": "Unstable Mine",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        4
+      ],
+      "quantity": 2,
+      "description": "You may destroy this Room to gain (c) (c) (c).",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB043",
+      "name": "Sawtooth Pendulum",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        4
+      ],
+      "quantity": 2,
+      "description": "Once per turn, you may pay (c) to kill a Hero in this Room with 3 or less Health.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB044",
+      "name": "The Catapult",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        4
+      ],
+      "quantity": 2,
+      "description": "Once per turn, you may discard a Miniboss to deactivate a Room in an opponent's dungeon.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB045",
+      "name": "Endless Gallery",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        4
+      ],
+      "quantity": 2,
+      "description": "You can destroy this room to add one treasure of any type to any player's dungeon until end of turn.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB046",
+      "name": "Paywall",
+      "advanced": true,
+      "type": "trap",
+      "damage": 4,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "Each turn, any player may give you any number of (c). For every (c) they give you, give this Room -1 until end of turn.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB047",
+      "name": "Living Trap",
+      "advanced": true,
+      "type": "trap",
+      "damage": 3,
+      "treasures": [
+        4
+      ],
+      "quantity": 2,
+      "description": "You may destroy a Monster room in your dungeon to kill a hero in this Room.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB048",
+      "name": "The Dreadmill",
+      "advanced": true,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "Once per Build phase, place a (c) on this Room. This Room has +1 for every (c) on it. If you cannot place a coin on this Room, destroy it.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB049",
+      "name": "Personnel Office",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        2,
+        3
+      ],
+      "quantity": 2,
+      "description": "Once per turn gain (c) when an opponent plays or promotes a Miniboss.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB050",
+      "name": "Trophy Room",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        2,
+        4
+      ],
+      "quantity": 2,
+      "description": "When you build or uncover this Room, Gain (c) for every multi-treasure Room in your dungeon, including this one.",
+      "set": "minibosses",
+      "gainCoin": 1
+    },
+    {
+      "id": "RMB051",
+      "name": "Lightning Rod",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        3,
+        4
+      ],
+      "quantity": 2,
+      "description": "Once per turn, if a Hero dies in this Room, gain (c)(c)(c).",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB052",
+      "name": "Pixie Fountain",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        1,
+        2
+      ],
+      "quantity": 2,
+      "description": "You may destroy this Room to gain (c) for every Wound you have.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB053",
+      "name": "The Keystone",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        1,
+        4
+      ],
+      "quantity": 2,
+      "description": "You may destroy this Room to gain (c) for every Room remaining in your dungeon.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB055",
+      "name": "Spike",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "Level 1: This Room has +1.\n\nLevel 2: Once per turn, discard a card to do 2 damage to a Hero in this Room.\n\nLevel 3: Choose a Miniboss. Return that card to its owner's hand. Reset to Level One.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB056",
+      "name": "Kid Croak",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "Level 1: This Room gains +1 Fighter.\n\nLevel 2: Once per turn during the Build phase, you may switch the position of two Rooms in any dungeon.\n\nLevel 3: Give all Monster Rooms in one dungeon +1 or -1 until end of turn. Reset to Level One.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB058",
+      "name": "Rocky",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "Level 1: You may build any Room on top of this one, regardless of treasure icon.\nLevel 2: When a Hero dies in this Room, you may treat another Room in your dungeon as just built.\n\nLevel 3: Give a Hero in any dungeon +5 until end of turn. Reset to Level One.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB060",
+      "name": "Paddywhack",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "Level 1: This Room gains +1 Thief.\n\nLevel 2: Once per turn when you gain one or more coins, gain one extra coin.\n\nLevel 3: Kill a Hero in this Room. Reset to Level One.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB061",
+      "name": "Icicle Man",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "Level 1: This Room has +1.\n\nLevel 2: Ignore the ability text of any Heroes or Epic Heroes in, or at the entrance to, your dungeon.\n\nLevel 3: Deactivate a Room in any dungeon until end of turn. Reset to Level One.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB063",
+      "name": "Brassknuckle",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "Level 1: This Room has +1.\n\nLevel 2: Once per turn when a Hero dies in this Room, draw a Room card. You may immediately build that Room.\n\nLevel 3: Double this Room's damage until end of turn. Reset to Level One.",
+      "set": "minibosses",
+      "onHeroDieDrawRoom": true
+    },
+    {
+      "id": "RMB064",
+      "name": "Jinx",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "Level 1: Draw an extra Room at the beginning of the Build phase, then discard a Room.\n\nLevel 2: Double this Room's treasure value. (It has one extra copy of each printed treasure icon it has.)\n\nLevel 3: Choose a Hero in town. Place it at the entrance to your dungeon. Reset to Level One.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB101",
+      "name": "Treasury Vault",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        4
+      ],
+      "quantity": 2,
+      "description": "When you build this Room, gain 1 Coin.",
+      "set": "minibosses",
+      "gainCoin": true
+    },
+    {
+      "id": "RMB102",
+      "name": "Goblin Mint",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+        2
+      ],
+      "quantity": 2,
+      "description": "At the beginning of your turn, gain 1 Coin.",
+      "set": "minibosses",
+      "coinPerTurn": true
+    },
+    {
+      "id": "RMB111",
+      "name": "Relic Hunter",
+      "advanced": false,
+      "type": "monster",
+      "damage": 12,
+      "treasures": [
+        3,
+        4
+      ],
+      "quantity": 1,
+      "description": "This Hero skips every Room in your dungeon that has more than one treasure type.",
+      "set": "minibosses"
+    }
+  ],
+  "minibosses": [
+    {
+      "id": "RMB005",
+      "name": "King Croak",
+      "quantity": 1,
+      "set": "minibosses",
+      "levels": [
+        {
+          "level": 1,
+          "description": "Level Up: For the rest of the game, Minibosses that you build start on Level 2."
+        }
+      ]
+    },
+    {
+      "id": "RMB201",
+      "name": "Gruk the Greedy",
+      "quantity": 4,
+      "set": "minibosses",
+      "levels": [
+        {
+          "level": 1,
+          "description": "Attached Room has +1 damage."
+        },
+        {
+          "level": 2,
+          "description": "Attached Room has +2 damage."
+        },
+        {
+          "level": 3,
+          "description": "Destroy this Miniboss: deal 5 damage to a Hero in your dungeon.",
+          "activated": true
+        }
+      ]
+    },
+    {
+      "id": "RMB202",
+      "name": "Zara the Zealous",
+      "quantity": 4,
+      "set": "minibosses",
+      "levels": [
+        {
+          "level": 1,
+          "description": "Attached Room's treasure counts as all four types."
+        },
+        {
+          "level": 2,
+          "description": "Draw a Room when promoted."
+        },
+        {
+          "level": 3,
+          "description": "All opponents discard a random Room.",
+          "activated": true
+        }
+      ]
+    }
+  ],
+  "spells": [
+    {
+      "id": "RMB007",
+      "name": "Baron Hex",
+      "category": 1,
+      "quantity": 1,
+      "description": "Level Up: For the rest of the game, gain (c) whenever you cast a Spell.",
+      "set": "minibosses",
+      "genericSpell": true
+    },
+    {
+      "id": "RMB008",
+      "name": "Oculus",
+      "category": 1,
+      "quantity": 1,
+      "description": "Level Up: For the rest of the game, draw a Spell when a Hero dies in a room with a Miniboss.",
+      "set": "minibosses",
+      "genericSpell": true
+    },
+    {
+      "id": "RMB009",
+      "name": "Kazanna",
+      "category": 1,
+      "quantity": 1,
+      "description": "Level Up: For the rest of the game, once per turn you may pay (c)(c) to draw a Spell card.",
+      "set": "minibosses",
+      "genericSpell": true
+    },
+    {
+      "id": "RMB013",
+      "name": "Spectral Bomb",
+      "category": 1,
+      "quantity": 1,
+      "description": "You may destroy this Room to force an opponent to discard a random Spell card.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB015",
+      "name": "Ancient Guardtower",
+      "category": 1,
+      "quantity": 2,
+      "description": "When you build this Room, choose one opponent. Once this turn you may give them (c) to take one random Spell card from them.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB031",
+      "name": "Mysterious Portal",
+      "category": 1,
+      "quantity": 1,
+      "description": "When you build or uncover this Room, you may discard a Miniboss to draw a Spell card.",
+      "set": "minibosses",
+      "genericSpell": true
+    },
+    {
+      "id": "RMB032",
+      "name": "Alchemist's Lab",
+      "category": 1,
+      "quantity": 2,
+      "description": "Once per turn, when you cast a Spell, gain (c) (c). (Cancelled spells are not cast.)",
+      "set": "minibosses",
+      "genericSpell": true
+    },
+    {
+      "id": "RMB034",
+      "name": "Mind Thresher",
+      "category": 1,
+      "quantity": 2,
+      "description": "Once per turn if a Hero dies in this Room, you may remove that Hero from the game to draw two Spell cards.",
+      "set": "minibosses",
+      "genericSpell": true
+    },
+    {
+      "id": "RMB035",
+      "name": "Cursed Well",
+      "category": 1,
+      "quantity": 2,
+      "description": "You may discard this from your hand to draw a Spell card or gain (c) (c).",
+      "set": "minibosses",
+      "genericSpell": true
+    },
+    {
+      "id": "RMB036",
+      "name": "Loot Box",
+      "category": 1,
+      "quantity": 2,
+      "description": "When you build this Room, pay (c)(c) and draw two Spell cards.",
+      "set": "minibosses",
+      "genericSpell": true
+    },
+    {
+      "id": "RMB037",
+      "name": "Crystal Ballroom",
+      "category": 1,
+      "quantity": 1,
+      "description": "When you build this Room, place up to three (c) on it. For each (c) you place, draw one Spell card. This Room has -1 for every (c) on it.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB038",
+      "name": "Efreet's Chamber",
+      "category": 1,
+      "quantity": 2,
+      "description": "Once per turn when a Hero is at the entrance to your dungeon, you may draw a Spell card to give this room -2 OR discard a Spell to give this room +2.",
+      "set": "minibosses",
+      "genericSpell": true
+    },
+    {
+      "id": "RMB039",
+      "name": "Magipede",
+      "category": 1,
+      "quantity": 1,
+      "description": "This room has +1 for every Spell card in your hand.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB054",
+      "name": "Pool of Shadows",
+      "category": 1,
+      "quantity": 2,
+      "description": "Once per turn, you may discard a Spell to gain (c) (c).",
+      "set": "minibosses",
+      "genericSpell": true
+    },
+    {
+      "id": "RMB057",
+      "name": "Draculad",
+      "category": 1,
+      "quantity": 1,
+      "description": "Level 1: This Room gains +1 Cleric.\n\nLevel 2: Once per turn, you may return a Hero in your dungeon to town.\n\nLevel 3: Look at one opponent's hand. You may take one Spell or Room card from them. Reset to Level One.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB059",
+      "name": "Cerebella",
+      "category": 1,
+      "quantity": 1,
+      "description": "Level 1: This Room gains +1 Mage.\nLevel 2: When a Hero dies in this Room, you may draw a Spell card.\n\nLevel 3: Choose a dungeon. Heroes ignore all ability text in that dungeon until end of turn. Reset to Level One.",
+      "set": "minibosses",
+      "genericSpell": true
+    },
+    {
+      "id": "RMB062",
+      "name": "Mageseeker",
+      "category": 1,
+      "quantity": 1,
+      "description": "Level 1: This Room has +1 for every treasure icon it has.\n\nLevel 2: Once per turn, you may discard a Spell card to cancel an opponent's Spell.\n\nLevel 3: Choose a dungeon. Until end of turn, Heroes entering that dungeon skip its first room. Reset to Level One.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB065",
+      "name": "Windfall",
+      "category": 1,
+      "quantity": 2,
+      "description": "If you have no coins in your Hoard, gain (c)(c)(c).",
+      "set": "minibosses",
+      "genericSpell": true
+    },
+    {
+      "id": "RMB066",
+      "name": "Internship",
+      "category": 1,
+      "quantity": 2,
+      "description": "Place the top three cards of the Room deck in the discard pile. If one of these cards is a Miniboss, you may immediately build it. (In addition to your normal build turn.)",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB067",
+      "name": "Spirit Dragon",
+      "category": 1,
+      "quantity": 2,
+      "description": "Choose a Room in any dungeon. Until end of turn, it has one of each treasure type instead of its normal treasure.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB068",
+      "name": "Sabotage!",
+      "category": 1,
+      "quantity": 2,
+      "description": "Choose a Room. Until end of turn it has no ability text.\nOR, if if you have more Minibosses than your opponent, deactivate that Room until end of turn.|",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB069",
+      "name": "Rage!",
+      "category": 1,
+      "quantity": 2,
+      "description": "Choose a Miniboss. For every level that Miniboss has, give its Room +1 until end of turn. AND, if you have only one Miniboss, you may then double the damage of that Room.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB070",
+      "name": "Ambush",
+      "category": 2,
+      "quantity": 2,
+      "description": "Yo may discard two Monster Room cards or one Miniboss card to kill one Hero in your dungeon.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB071",
+      "name": "Rebirth",
+      "category": 1,
+      "quantity": 2,
+      "description": "Chose a player (including yourself). That playwe discards their hand and draws Rooms and Spells equal to the number of each they discarded.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB072",
+      "name": "Smash!",
+      "category": 1,
+      "quantity": 2,
+      "description": "Deal 2 damage to a Hero in your dungeon.\nOR deal 4 damage to a Hero in a Room that contains a Miniboss.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB073",
+      "name": "Pay to Win",
+      "category": 1,
+      "quantity": 2,
+      "description": "Choose a Room to gain +1 until end of turn, plus an additional +1 for each (c) you pay when you cast this spell.",
+      "set": "minibosses",
+      "genericSpell": true
+    },
+    {
+      "id": "RMB074",
+      "name": "Zoning Board",
+      "category": 1,
+      "quantity": 2,
+      "description": "For your build turn, you may build an Advanced Room on top of any other Room, ignoring matching treasure icon requirements.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB075",
+      "name": "Respawn",
+      "category": 1,
+      "quantity": 2,
+      "description": "Treat all of your Rooms as if they were just built.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB076",
+      "name": "Heist",
+      "category": 1,
+      "quantity": 2,
+      "description": "Choose a Room in any dungeon. Until end of turn end that Room's treasure icons.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB077",
+      "name": "Short Circuit",
+      "category": 1,
+      "quantity": 2,
+      "description": "Choose an opponent casting a spell. Until end of turn, that opponent must pay (c) for each spell they wish to cast. If they don't, that spell is cancelled.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB078",
+      "name": "Traitor",
+      "category": 1,
+      "quantity": 2,
+      "description": "Choose an opponent's Miniboss. You may pay that opponent one (c) per that Miniboss's Level to take it and immediatly build it at that same level. You may not build a room this turn.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB079",
+      "name": "Armor Up!",
+      "category": 1,
+      "quantity": 2,
+      "description": "Give a Hero +1 until end of turn AND give this Hero an additional +2 until end of turn for every (c) you spend when casting this spell.",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB115",
+      "name": "Warlock",
+      "category": 1,
+      "quantity": 1,
+      "description": "When this Hero is in your dungeon, you may discard X Spells to give this Hero -X",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB116",
+      "name": "Mage",
+      "category": 1,
+      "quantity": 1,
+      "description": "Shigeru the Spellbinder",
+      "set": "minibosses"
+    },
+    {
+      "id": "RMB301",
+      "name": "Mint Condition",
+      "category": 1,
+      "quantity": 2,
+      "description": "Gain 2 Coins.",
+      "set": "minibosses"
+    }
+  ],
+  "heroes": [
+    {
+      "id": "RMB080",
+      "name": "Felicity, Joyful Nurse Felicity is an accomplished hero and sworn pacifist",
+      "treasure": 1,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Cleric",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB081",
+      "name": "RMB081",
+      "treasure": 1,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Cleric",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB082",
+      "name": "Holkin, Propheteer Holkin plays many roles -- cleric, writer, dungeon delver, employer and freestyle rapper -- but he prefers to think of himself as an \"adventurepeneur",
+      "treasure": 1,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Cleric",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB083",
+      "name": "Luz, Merciful Healer Luz is a fast-paced heroine who brings good vibrations an pwerful healing to any battle",
+      "treasure": 1,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Cleric",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB084",
+      "name": "Inquisitor",
+      "treasure": 1,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Cleric",
+      "set": "minibosses",
+      "quantity": 1,
+      "dark": true
+    },
+    {
+      "id": "RMB085",
+      "name": "Josie, Vampire Slayer Josie claims to have vanquished hundreds of vampires",
+      "treasure": 1,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Cleric",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB086",
+      "name": "Tess, Dwarven Shieldmaiden Tess risked banishment to become an adventurer",
+      "treasure": 2,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Fighter",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB087",
+      "name": "Steven the Human For Steve, anytime is the right time to go on an adventure! He may seem like a normal kid, but Steve and his friends will always find a way to save the day",
+      "treasure": 2,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Fighter",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB088",
+      "name": "Rotgut, Half-Giant Berserker Rotgut has the strength of his giantess mother, the courage of his human father, and the drinking skills that brought the unlikely pair together",
+      "treasure": 2,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Fighter",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB089",
+      "name": "Maxine, Sister of Steel  When her homeland was destroyed by apocalyptic magic, Maxine donned the sealed armor of her ancestors and set out to return order to the land",
+      "treasure": 2,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Fighter",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB090",
+      "name": "Sellsword",
+      "treasure": 2,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Fighter",
+      "set": "minibosses",
+      "quantity": 1,
+      "dark": true
+    },
+    {
+      "id": "RMB091",
+      "name": "Joe the Smith From training dragons to building golems, this blacksmith is up for any adventure",
+      "treasure": 2,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Fighter",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB092",
+      "name": "Eloi Marlborn",
+      "treasure": 3,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Mage",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB093",
+      "name": "Exai, Mindmage",
+      "treasure": 3,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Mage",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB094",
+      "name": "Clebrina, Familiar",
+      "treasure": 3,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Mage",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB095",
+      "name": "Bross, Illusionist Adept",
+      "treasure": 3,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Mage",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB096",
+      "name": "Alchemist",
+      "treasure": 3,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Mage",
+      "set": "minibosses",
+      "quantity": 1,
+      "dark": true
+    },
+    {
+      "id": "RMB097",
+      "name": "Dovkro, Born of the Dragon",
+      "treasure": 3,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Mage",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB098",
+      "name": "K'Bothi the Spy",
+      "treasure": 4,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Thief",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB099",
+      "name": "The Steel Mouser",
+      "treasure": 4,
+      "hp": 4,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Thief",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB100",
+      "name": "Ofcroak, Vengeful Handmaid",
+      "treasure": 4,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Thief",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB101",
+      "name": "Koko the Piper",
+      "treasure": 4,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Thief",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB102",
+      "name": "Scoundrel",
+      "treasure": 4,
+      "hp": 6,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Thief",
+      "set": "minibosses",
+      "quantity": 1,
+      "dark": true
+    },
+    {
+      "id": "RMB103",
+      "name": "Marmo, Master of Dreams",
+      "treasure": 4,
+      "hp": 8,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Thief",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB104",
+      "name": "The Fool",
+      "treasure": 1,
+      "hp": 5,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "?",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB105",
+      "name": "Haize, Half-angel",
+      "treasure": 1,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Cleric",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB106",
+      "name": "The Overseer",
+      "treasure": 1,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Cleric",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB107",
+      "name": "Paladin",
+      "treasure": 1,
+      "hp": 12,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Cleric + Fighter",
+      "set": "minibosses",
+      "quantity": 1,
+      "treasures": [
+        1,
+        2
+      ],
+      "hybrid": true
+    },
+    {
+      "id": "RMB108",
+      "name": "Koverian, Executioner",
+      "treasure": 1,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Cleric",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB109",
+      "name": "Varraka, Combat Instructor",
+      "treasure": 2,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Fighter",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB110",
+      "name": "Zheng-Yi, One Kick Woman",
+      "treasure": 2,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Fighter",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB112",
+      "name": "Unseena, Invisible Wrestler",
+      "treasure": 2,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Fighter",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB113",
+      "name": "Zutara, Elemental Master",
+      "treasure": 3,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Mage",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB114",
+      "name": "Mortimer, Evil Genius",
+      "treasure": 3,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Mage",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB117",
+      "name": "Moran, Master of Keys",
+      "treasure": 4,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Thief",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB118",
+      "name": "Marsden, Reformed Outlaw",
+      "treasure": 4,
+      "hp": 11,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Thief",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB119",
+      "name": "Tax Collector",
+      "treasure": 4,
+      "hp": 12,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Coin + Thief",
+      "set": "minibosses",
+      "quantity": 1,
+      "hybrid": true
+    },
+    {
+      "id": "RMB120",
+      "name": "Petros, Dwarven Noble",
+      "treasure": 4,
+      "hp": 13,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "Thief",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB121",
+      "name": "The Progenitors",
+      "treasure": 1,
+      "hp": 20,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "class": "?",
+      "set": "minibosses",
+      "quantity": 1
+    },
+    {
+      "id": "RMB401",
+      "name": "Adventurer",
+      "treasure": 2,
+      "hp": 5,
+      "wounds": 1,
+      "souls": 1,
+      "epic": false,
+      "class": "Fighter",
+      "set": "minibosses",
+      "quantity": 4
+    }
+  ]
+}

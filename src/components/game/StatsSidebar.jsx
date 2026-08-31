@@ -33,6 +33,12 @@ function PlayerBlock({ player, treasures, active, compact, onInspect }) {
         </div>
       </button>
       <SoulWoundPiles souls={player.souls} wounds={player.wounds} />
+      {(player.coins || 0) > 0 && (
+        <div className={s.coins} title="Coins">
+          <span className={s.coinIcon} aria-hidden>◎</span>
+          <span>{player.coins}</span>
+        </div>
+      )}
       {(player.items || []).length > 0 && (
         <div className={s.items}>
           {player.items.map((it, i) => (
