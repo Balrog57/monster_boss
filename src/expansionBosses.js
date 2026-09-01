@@ -114,6 +114,42 @@ export function processExpansionLevelUp(G, playerId, boss) {
       p.belladonnaForce = true;
       G.logs.push('Belladonna: may pay 2 Coins to force an opponent to discard a Spell.');
       return null;
+    case 'RMB004': // Lamia
+      p.lamiaCoin = true;
+      G.logs.push('Lamia: gain (c) whenever you build a Monster Room.');
+      return null;
+    case 'RMB005': // King Croak
+      p.croakMinibossLevel2 = true;
+      G.logs.push('King Croak: Minibosses that you build start on Level 2.');
+      return null;
+    case 'RMB006': // Ravenus
+      p.ravenusDouble = true;
+      G.logs.push('Ravenus: may pay 2 Coins to double the damage of a Monster Room.');
+      return null;
+    case 'RMB007': // Baron Hex
+      p.baronHexCoin = true;
+      G.logs.push('Baron Hex: gain (c) whenever you cast a Spell.');
+      return null;
+    case 'RMB008': // Oculus
+      p.oculusSpell = true;
+      G.logs.push('Oculus: draw a Spell when a Hero dies in a room with a Miniboss.');
+      return null;
+    case 'RMB009': // Kazanna
+      p.kazannaSpell = true;
+      G.logs.push('Kazanna: may pay 2 Coins to draw a Spell.');
+      return null;
+    case 'RMB010': // Dr. Deadly
+      p.deadlyTrapCoin = true;
+      G.logs.push('Dr. Deadly: gain (c) whenever you build a Trap Room.');
+      return null;
+    case 'RMB011': // Scott
+      p.scottTrapBonus = true;
+      G.logs.push('Scott: your Trap Rooms have +1 damage.');
+      return null;
+    case 'RMB012': // Kirax
+      p.kiraxKillCoin = true;
+      G.logs.push('Kirax: gain (c) when a Hero dies in your dungeon (once per turn).');
+      return null;
     case 'CRL001':
       p.imperiatrix = true;
       G.logs.push('Imperiatrix: Rooms gain +1 per Explorer treasure icon.');
@@ -163,12 +199,23 @@ export function processExpansionLevelUp(G, playerId, boss) {
   }
 }
 
-export function onExpansionBossKill(G, playerId) {
+export function onExpansionBossKill(G, playerId, deathRoom = null) {
   const p = player(G, playerId);
   if (!p) return;
   if (p.gregoreCoin && !p._gregoreUsed) {
     p._gregoreUsed = true;
     gainCoin(G, playerId, 1, 'Gregore');
+  }
+  if (p.kiraxKillCoin && !p._kiraxUsed) {
+    p._kiraxUsed = true;
+    gainCoin(G, playerId, 1, 'Kirax');
+  }
+  if (p.oculusSpell && (deathRoom?.miniboss || G.adventure?.room?.miniboss)) {
+    const card = G.decks.spells.pop();
+    if (card) {
+      p.hand.push(card);
+      G.logs.push(`Oculus: drew ${card.name}.`);
+    }
   }
   if (p.drawRoomOnKill) {
     const card = G.decks.rooms.pop();
@@ -189,6 +236,34 @@ export function onExpansionBuildMonster(G, playerId, room) {
       G.logs.push(`Smoake: drew ${card.name}.`);
     }
   }
+  if (p.lamiaCoin) {
+    gainCoin(G, playerId, 1, 'Lamia');
+  }
+}
+
+export function onExpansionBuildRoom(G, playerId, room) {
+  const p = player(G, playerId);
+  if (!p || !room) return;
+  if (room.type === 'monster') {
+    onExpansionBuildMonster(G, playerId, room);
+  }
+  if (room.type === 'trap' && p.deadlyTrapCoin) {
+    gainCoin(G, playerId, 1, 'Dr. Deadly');
+  }
+}
+
+export function onExpansionCastSpell(G, playerId) {
+  const p = player(G, playerId);
+  if (!p) return;
+  if (p.baronHexCoin) {
+    gainCoin(G, playerId, 1, 'Baron Hex');
+  }
+}
+
+export function scottDamageBonus(G, playerId, room) {
+  const p = player(G, playerId);
+  if (!p?.scottTrapBonus || !room || room.type !== 'trap' || p._scottCanceledThisTurn) return 0;
+  return 1;
 }
 
 export function imperiatrixDamageBonus(G, playerId, room) {

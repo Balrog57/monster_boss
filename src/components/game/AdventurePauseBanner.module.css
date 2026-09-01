@@ -1,0 +1,86 @@
+.banner {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: rgba(18, 12, 28, 0.94);
+  border: 2px solid var(--bm-gold-500, #f1e17c);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8), 0 0 12px rgba(241, 225, 124, 0.3);
+  padding: 8px 16px;
+  animation: slideDown 0.25s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    transform: translate(-50%, -20px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+.content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.badge {
+  background: var(--bm-danger, #e74c3c);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.heroName {
+  font-weight: 700;
+  color: var(--bm-gold-400, #ffd700);
+  font-size: 0.95rem;
+}
+
+.hp {
+  font-size: 0.8rem;
+  color: #fff;
+  font-weight: 600;
+}
+
+.prompt {
+  font-size: 0.75rem;
+  color: #aaa;
+}
+
+.passBtn {
+  background: linear-gradient(135deg, #f39c12, #d35400);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.8rem;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s, filter 0.1s;
+}
+
+.passBtn:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
+.passBtn:active {
+  transform: translateY(1px);
+}

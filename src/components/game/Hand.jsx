@@ -6,7 +6,7 @@ import Card from './Card.jsx';
 import s from './Hand.module.css';
 
 export default function Hand({
-  me, phase, isMyTurn, selectedCard, onSelect, onSpell, onPass, onInspect, onHover,
+  me, phase, isMyTurn, canAct = isMyTurn, selectedCard, onSelect, onSpell, onPass, onInspect, onHover,
   showPass = true, stackLength = 0,
 }) {
   const [tab, setTab] = useState('rooms');
@@ -15,7 +15,7 @@ export default function Hand({
   const shown = tab === 'rooms' ? rooms : spells;
 
   const canPickRoom = isMyTurn && (phase === PHASE.BUILD || phase === PHASE.SETUP);
-  const canPickSpell = isMyTurn && (phase === PHASE.BUILD || phase === PHASE.ADVENTURE);
+  const canPickSpell = canAct && (phase === PHASE.BUILD || phase === PHASE.ADVENTURE);
 
   return (
     <div className={s.panel} aria-label="Hand">

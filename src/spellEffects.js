@@ -3,10 +3,11 @@
 // Spells are resolved immediately when played. Target objects use:
 //   { roomIndex, targetPlayerId, heroId, townIndex }
 
-import { activeRoom, buildRoom } from './engine.js';
+import { activeRoom, buildRoom, healOneWound, destroyRoom } from './engine.js';
 import { drawCards } from './cardData.js';
 import { gainCoin } from './minibosses.js';
 import { applyGenericSpell } from './expansionEffects.js';
+import { onExpansionCastSpell } from './expansionBosses.js';
 
 export function emptyEffects() {
   return {
@@ -30,6 +31,7 @@ export function castSpell(G, ctx, casterId, card, target) {
   // Normalize null/undefined target to {} so spell handlers can safely read
   // target.roomIndex, target.heroId, etc. without null checks.
   const t = target || {};
+  onExpansionCastSpell(G, casterId);
   const handler = SPELL_EFFECTS[card.id];
   if (handler) {
     return handler(G, ctx, casterId, t);
@@ -430,6 +432,187 @@ const SPELL_EFFECTS = {
     return true;
   },
 
+  CRL029: (G, ctx, casterId, target) => {
+    const heroId = target.heroId;
+    if (heroId) {
+      G.effects.heroDamage.push({ heroId, amount: 99 });
+      G.logs.push('Finish Him!: finished target hero.');
+      return true;
+    }
+    G.logs.push('Finish Him!: no hero targeted.');
+    return false;
+  },
+
+  CRL030: (G, ctx, casterId, target) => {
+    const heroId = target.heroId;
+    const wounds = (G.players[casterId]?.wounds || []).length;
+    if (!heroId || wounds <= 0) {
+      G.logs.push('Essence Transfer: no wounds or no hero.');
+      return false;
+    }
+    G.effects.heroHealthBonus.push({ heroId, amount: wounds });
+    G.logs.push(`Essence Transfer: target hero gains +${wounds} Health.`);
+    return true;
+  },
+
+  CRL031: (G, ctx, casterId) => {
+    const soul = healOneWound(G.players[casterId]);
+    G.logs.push(soul ? 'Healing Tank: healed a Wound.' : 'Healing Tank: no Wounds to heal.');
+    return true;
+  },
+
+  CRL032: (G, ctx, casterId, target) => {
+    const tid = target.targetPlayerId != null ? target.targetPlayerId : casterId;
+    const ri = target.roomIndex != null ? target.roomIndex : 0;
+    const r = findRoom(G, tid, ri);
+    if (r) {
+      r.treasures = [...(r.treasures || []), 5];
+      G.logs.push(`Meteorite: ${r.name} gained Explorer treasure until end of turn.`);
+      return true;
+    }
+    return false;
+  },
+
+  TNL056: (G, ctx, casterId, target) => {
+    const oppId = target.targetPlayerId;
+    const opp = G.players[oppId];
+    if (opp) {
+      const roomIdx = opp.hand.findIndex((c) => c.isRoom);
+      if (roomIdx >= 0) {
+        const stolen = opp.hand.splice(roomIdx, 1)[0];
+        G.players[casterId].hand.push(stolen);
+        G.logs.push(`All Your Base: took ${stolen.name} from Player ${oppId}.`);
+        return true;
+      }
+    }
+    G.logs.push('All Your Base: no Room to take.');
+    return true;
+  },
+
+  TNL058: (G, ctx, casterId, target) => {
+    const tid = target.targetPlayerId != null ? target.targetPlayerId : casterId;
+    const ri = target.roomIndex != null ? target.roomIndex : 0;
+    G.effects.deactivatedRooms.push({ playerId: tid, roomIndex: ri });
+    G.logs.push('Fairy Fountain: Room does zero damage this turn.');
+    return true;
+  },
+
+  TNL059: (G, ctx, casterId, target) => {
+    const heroId = target.heroId;
+    if (heroId) {
+      G.effects.heroDamage.push({ heroId, amount: 99 });
+      G.logs.push("It's On!: killed target hero.");
+      return true;
+    }
+    return false;
+  },
+
+  TNL060: (G, ctx, casterId) => {
+    const drawn = drawCards(G.decks.rooms, 3);
+    G.players[casterId].hand.push(...drawn);
+    G.logs.push(`Hiring Spree: drew ${drawn.length} Room(s).`);
+    return true;
+  },
+
+  TNL061: (G, ctx, casterId, target) => {
+    const heroId = target.heroId;
+    if (heroId) {
+      G.effects.heroDamage.push({ heroId, amount: 3 });
+      G.logs.push('Lightning Bolt!: dealt 3 damage to hero.');
+      return true;
+    }
+    return false;
+  },
+
+  TNL062: (G, ctx, casterId, target) => {
+    const tid = target.targetPlayerId != null ? target.targetPlayerId : casterId;
+    const ri = target.roomIndex != null ? target.roomIndex : 0;
+    G.effects.deactivatedRooms.push({ playerId: tid, roomIndex: ri });
+    G.logs.push('Meddling Kids!: Room has no ability text this turn.');
+    return true;
+  },
+
+  TNL063: (G, ctx, casterId) => {
+    const p = G.players[casterId];
+    if (p.dungeon.length >= 2) {
+      const tmp = p.dungeon[0];
+      p.dungeon[0] = p.dungeon[1];
+      p.dungeon[1] = tmp;
+      G.logs.push('Oh, Yeah!: swapped placement of two Rooms.');
+      return true;
+    }
+    return false;
+  },
+
+  TNL064: (G, ctx, casterId) => {
+    G.effects.staffHealingPids = G.effects.staffHealingPids || [];
+    G.effects.staffHealingPids.push(Number(casterId));
+    G.logs.push('Party Up: Heroes entering this dungeon gain +1 Health.');
+    return true;
+  },
+
+  TNL065: (G, ctx, casterId) => {
+    if (G.adventure && Number(G.adventure.playerId) === Number(casterId)) {
+      G.adventure.hp = G.adventure.hero?.hp || 10;
+      G.adventure.roomIndex = -1;
+      G.effects.noEntry.push(Number(casterId));
+      G.logs.push('Pause: Hero returned to entrance at full Health; no heroes may enter until next turn.');
+      return true;
+    }
+    return false;
+  },
+
+  TNL066: (G, ctx, casterId, target) => {
+    const heroId = target.heroId;
+    if (heroId && G.adventure?.hero?.id === heroId) {
+      G.adventure = null;
+      G.logs.push('Pity: removed Hero from the game.');
+      return true;
+    }
+    return false;
+  },
+
+  TNL067: (G, ctx, casterId, target) => {
+    const ri = target.roomIndex != null ? target.roomIndex : 0;
+    const r = findRoom(G, casterId, ri);
+    if (r) {
+      r.treasures = [...(r.treasures || []), 1, 2, 3, 4];
+      G.logs.push(`Secret Stash: ${r.name} gained one of each treasure icon.`);
+      return true;
+    }
+    return false;
+  },
+
+  TNL068: (G, ctx, casterId) => {
+    if (G.adventure) {
+      G.adventure.roomIndex += 1;
+      G.logs.push('Shortcut!: Hero skips the next Room.');
+      return true;
+    }
+    return false;
+  },
+
+  TNL069: (G, ctx, casterId, target) => {
+    const ri = autoRoomIndex(G, casterId, target);
+    G.effects.roomDamageBonus.push({ playerId: casterId, roomIndex: ri, amount: 2 });
+    G.logs.push('Super Effective!: Room deals +2 damage until end of turn.');
+    return true;
+  },
+
+  TNL201: (G, ctx, casterId) => {
+    for (const [opid, op] of Object.entries(G.players)) {
+      if (Number(opid) !== Number(casterId)) {
+        const si = op.hand.findIndex((c) => c.isSpell);
+        if (si >= 0) {
+          const discarded = op.hand.splice(si, 1)[0];
+          G.decks.spellDiscard.push(discarded);
+          G.logs.push(`Instant Karma: Player ${opid} discarded ${discarded.name}.`);
+        }
+      }
+    }
+    return true;
+  },
+
   TNL202: (G, ctx, casterId, target) => {
     const p = G.players[casterId];
     const a = target?.roomA ?? 0;
@@ -443,6 +626,117 @@ const SPELL_EFFECTS = {
     p.dungeon[b] = tmp;
     G.logs.push('Dungeon Shift: swapped two Rooms in your dungeon.');
     return true;
+  },
+
+  RMB065: (G, ctx, casterId) => {
+    const p = G.players[casterId];
+    if ((p.coins || 0) === 0) {
+      gainCoin(G, casterId, 3, 'Windfall');
+      return true;
+    }
+    gainCoin(G, casterId, 1, 'Windfall');
+    return true;
+  },
+
+  RMB066: (G, ctx, casterId) => {
+    const drawn = drawCards(G.decks.rooms, 3);
+    const monster = drawn.find((c) => c.type === 'monster');
+    if (monster) {
+      G.players[casterId].hand.push(monster);
+      G.logs.push(`Internship: took ${monster.name} into hand.`);
+    }
+    drawn.filter((c) => c !== monster).forEach((c) => G.decks.roomDiscard.push(c));
+    return true;
+  },
+
+  RMB067: (G, ctx, casterId, target) => {
+    const tid = target.targetPlayerId != null ? target.targetPlayerId : casterId;
+    const ri = target.roomIndex != null ? target.roomIndex : 0;
+    const r = findRoom(G, tid, ri);
+    if (r) {
+      r.treasures = [...(r.treasures || []), 1, 2, 3, 4];
+      G.logs.push(`Spirit Dragon: ${r.name} gained one of each treasure icon.`);
+      return true;
+    }
+    return false;
+  },
+
+  RMB068: (G, ctx, casterId, target) => {
+    const tid = target.targetPlayerId != null ? target.targetPlayerId : casterId;
+    const ri = target.roomIndex != null ? target.roomIndex : 0;
+    G.effects.deactivatedRooms.push({ playerId: tid, roomIndex: ri });
+    G.logs.push('Sabotage!: Room has no ability text this turn.');
+    return true;
+  },
+
+  RMB069: (G, ctx, casterId) => {
+    const p = G.players[casterId];
+    (p.dungeon || []).forEach((stack, i) => {
+      const mb = stack?.miniboss;
+      if (mb) {
+        G.effects.roomDamageBonus.push({ playerId: casterId, roomIndex: i, amount: mb.level || 1 });
+      }
+    });
+    G.logs.push('Rage!: Miniboss rooms gain +1 damage per level.');
+    return true;
+  },
+
+  RMB072: (G, ctx, casterId, target) => {
+    const heroId = target.heroId;
+    if (heroId) {
+      G.effects.heroDamage.push({ heroId, amount: 2 });
+      G.logs.push('Smash!: dealt 2 damage to Hero.');
+      return true;
+    }
+    return false;
+  },
+
+  RMB073: (G, ctx, casterId, target) => {
+    const ri = autoRoomIndex(G, casterId, target);
+    G.effects.roomDamageBonus.push({ playerId: casterId, roomIndex: ri, amount: 1 });
+    G.logs.push('Pay to Win: Room gains +1 damage.');
+    return true;
+  },
+
+  RMB075: (G, ctx, casterId) => {
+    G.logs.push('Respawn: all Rooms treated as just built.');
+    return true;
+  },
+
+  RMB076: (G, ctx, casterId, target) => {
+    const tid = target.targetPlayerId != null ? target.targetPlayerId : casterId;
+    const ri = target.roomIndex != null ? target.roomIndex : 0;
+    const r = findRoom(G, tid, ri);
+    if (r) {
+      r.treasures = [];
+      G.logs.push(`Heist: ${r.name}'s treasure icons negated this turn.`);
+      return true;
+    }
+    return false;
+  },
+
+  RMB077: (G, ctx, casterId) => {
+    if (G.stack?.length > 0) {
+      const top = G.stack[G.stack.length - 1];
+      if (top && top.type === 'spell') {
+        top.resolved = true;
+        G.effects.counteredSpells.push(top.card?.id);
+        G.logs.push(`Short Circuit: countered ${top.card?.name || 'Spell'}.`);
+        return true;
+      }
+    }
+    G.logs.push('Short Circuit: no Spell to counter.');
+    return false;
+  },
+
+  RMB079: (G, ctx, casterId, target) => {
+    const heroId = target.heroId;
+    if (heroId) {
+      G.effects.heroHealthBonus.push({ heroId, amount: 1 });
+      G.logs.push('Armor Up!: Hero gains +1 Health.');
+      return true;
+    }
+    return false;
   },
 
   RMB301: (G, ctx, casterId) => {

@@ -1,0 +1,85 @@
+.banner {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: rgba(20, 10, 35, 0.95);
+  border: 2px solid var(--bm-accent, #9b59b6);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8), 0 0 16px rgba(155, 89, 182, 0.4);
+  padding: 8px 16px;
+  animation: stackPop 0.2s ease-out;
+}
+
+@keyframes stackPop {
+  from {
+    transform: translate(-50%, -15px) scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+.content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.badge {
+  background: #8e44ad;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spellName {
+  font-weight: 700;
+  color: #e8d8f8;
+  font-size: 0.95rem;
+}
+
+.caster {
+  font-size: 0.8rem;
+  color: #bfa8dc;
+}
+
+.prompt {
+  font-size: 0.75rem;
+  color: #bbb;
+}
+
+.passBtn {
+  background: linear-gradient(135deg, #8e44ad, #2c3e50);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.8rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s, filter 0.1s;
+}
+
+.passBtn:hover {
+  filter: brightness(1.2);
+  transform: translateY(-1px);
+}
+
+.passBtn:active {
+  transform: translateY(1px);
+}

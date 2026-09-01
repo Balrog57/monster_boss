@@ -15,7 +15,7 @@ UA = "BossMonsterFanPort/expansion-fetch"
 
 PREFIX_TO_PACK = {"TNL": "next-level", "RMB": "minibosses", "CRL": "crash-landing"}
 TREASURE = {"Cleric": 1, "Fighter": 2, "Mage": 3, "Thief": 4, "Explorer": 5}
-SPELL_PHASE = {"Build": 1, "Adventure": 2, "Both": 3}
+SPELL_PHASE = {"Build": 1, "Adventure": 2, "Both": 3, "Either": 3}
 
 
 def wiki_wikitext(page: str) -> str:
@@ -33,7 +33,7 @@ def clean_cell(raw: str) -> str:
     s = s.replace("'''", "").replace("''", "")
     m = re.search(r"\[\[(?:[^|\]]*\|)?([^\]]+)\]\]", s)
     if m:
-        return m.group(1).strip()
+        s = m.group(1).strip()
     s = re.sub(r"^\[+|\]+$", "", s)
     return s.strip()
 
@@ -95,45 +95,6 @@ def split_table_row(row: str) -> list[str]:
     if buf:
         cells.append("".join(buf))
     return cells
-
-
-def row_cells(row: str) -> list[str]:
-    return [clean_cell(c) for c in split_table_row(row) if c.strip()]
-
-
-def card_id(cells: list[str]) -> str | None:
-    for c in cells:
-        if re.fullmatch(r"(?:TNL|RMB|CRL)\d{3}", c):
-            return c
-    return None
-
-
-def map_boss(cid: str, cells: list[str], row: str = "") -> dict:
-    # ID, name, subtitle, xp, treasure, Boss, levelUp, -, qty
-    name = cells[1] if len(cells) > 1 else cid
-    xp = int(re.search(r"\d+", cells[3]).group()) if len(cells) > 3 and re.search(r"\d+", cells[3]) else 500
-    treasures = parse_treasures(cells[4]) if len(cells) > 4 else [1]
-    level = ""
-    for c in cells:
-        if "level up" in c.lower():
-            level = re.sub(r"^.*?level up:?\s*", "", c, flags=re.I).strip()
-            break
-    if not level:
-        m = re.search(r"Level Up:?\s*(.+?)(?:\|\||\n|$)", row, re.I | re.S)
-        if m:
-            level = clean_cell(m.group(1))
-    qty = int(cells[-1]) if cells[-1].isdigit() else 1
-    card = {
-        "id": cid,
-        "name": name,
-        "xp": xp,
-        "treasures": treasures[:1] or [1],
-        "levelUpDesc": level,
-        "set": PREFIX_TO_PACK[cid[:3]],
-        "quantity": qty,
-    }
-    tag_boss(card)
-    return card
 
 
 def count_coins(text: str) -> int:
@@ -209,24 +170,59 @@ def tag_boss(card: dict) -> None:
         card["genericLevelUp"] = True
 
 
+def map_boss(cid: str, cells: list[str], row: str = "") -> dict:
+    name = clean_cell(cells[1]) if len(cells) > 1 else cid
+    xp_match = re.search(r"\d+", clean_cell(cells[3])) if len(cells) > 3 else None
+    xp = int(xp_match.group()) if xp_match else 500
+    treasures = parse_treasures(clean_cell(cells[4])) if len(cells) > 4 else [1]
+    
+    level = ""
+    for c in cells[5:]:
+        clean_c = clean_cell(c)
+        if "level up" in clean_c.lower():
+            level = re.sub(r"^.*?level up:?\s*", "", clean_c, flags=re.I).strip()
+            break
+    if not level:
+        m = re.search(r"Level Up:?\s*(.+?)(?:\|\||\n|$)", row, re.I | re.S)
+        if m:
+            level = clean_cell(m.group(1))
+            
+    qty_match = re.search(r"\d+", clean_cell(cells[-1])) if cells else None
+    qty = int(qty_match.group()) if qty_match else 1
+    
+    card = {
+        "id": cid,
+        "name": name,
+        "xp": xp,
+        "treasures": treasures[:1] or [1],
+        "levelUpDesc": level,
+        "set": PREFIX_TO_PACK[cid[:3]],
+        "quantity": qty,
+    }
+    tag_boss(card)
+    return card
+
+
 def map_room(cid: str, cells: list[str], row: str = "") -> dict:
-    name = cells[1] if len(cells) > 1 else cid
-    subtype = cells[2] if len(cells) > 2 else "Monster Room"
-    dmg = int(re.search(r"\d+", cells[3]).group()) if len(cells) > 3 and re.search(r"\d+", cells[3]) else 1
-    treasures = parse_treasures(cells[4]) if len(cells) > 4 else [1]
-    desc = ""
-    for c in cells:
-        if c in (cid, name, subtype) or re.fullmatch(r"\d+", c):
-            continue
-        if "room" in c.lower() and len(c) < 12:
-            continue
-        if c in ("-", "–") or c.isdigit():
-            continue
-        if len(c) > len(desc):
-            desc = c
-    qty = int(cells[-1]) if cells and cells[-1].isdigit() else 1
+    name = clean_cell(cells[1]) if len(cells) > 1 else cid
+    subtype = clean_cell(cells[2]) if len(cells) > 2 else "Monster Room"
+    dmg_match = re.search(r"\d+", clean_cell(cells[3])) if len(cells) > 3 else None
+    dmg = int(dmg_match.group()) if dmg_match else 1
+    treasures = parse_treasures(clean_cell(cells[4])) if len(cells) > 4 else [1]
+    
+    desc = clean_cell(cells[6]) if len(cells) > 6 else ""
+    if not desc or len(desc) < 3:
+        for c in cells[5:]:
+            clean_c = clean_cell(c)
+            if len(clean_c) > len(desc) and not clean_c.isdigit() and "room" not in clean_c.lower()[:8]:
+                desc = clean_c
+                
+    qty_match = re.search(r"\d+", clean_cell(cells[-1])) if cells else None
+    qty = int(qty_match.group()) if qty_match else 1
+    
     advanced = "Advanced" in subtype
     rtype = "trap" if "Trap" in subtype else "monster"
+    
     card = {
         "id": cid,
         "name": name,
@@ -243,20 +239,20 @@ def map_room(cid: str, cells: list[str], row: str = "") -> dict:
 
 
 def map_spell(cid: str, cells: list[str], row: str = "") -> dict:
-    name = cells[1] if len(cells) > 1 else cid
-    phase_raw = next((c for c in cells if c in SPELL_PHASE), cells[3] if len(cells) > 3 else "Build")
-    phase = SPELL_PHASE.get(phase_raw, 1)
-    desc = ""
-    for c in cells:
-        if c in (cid, name, phase_raw) or c in SPELL_PHASE:
-            continue
-        if "spell" in c.lower() and len(c) < 12:
-            continue
-        if c in ("-", "–") or c.isdigit():
-            continue
-        if len(c) > len(desc):
-            desc = c
-    qty = int(cells[-1]) if cells and cells[-1].isdigit() else 1
+    name = clean_cell(cells[1]) if len(cells) > 1 else cid
+    phase_str = clean_cell(cells[3]) if len(cells) > 3 else "Build"
+    phase = SPELL_PHASE.get(phase_str, 1)
+    
+    desc = clean_cell(cells[6]) if len(cells) > 6 else ""
+    if not desc or len(desc) < 3:
+        for c in cells[4:]:
+            clean_c = clean_cell(c)
+            if len(clean_c) > len(desc) and not clean_c.isdigit() and clean_c not in SPELL_PHASE:
+                desc = clean_c
+                
+    qty_match = re.search(r"\d+", clean_cell(cells[-1])) if cells else None
+    qty = int(qty_match.group()) if qty_match else 1
+    
     card = {
         "id": cid,
         "name": name,
@@ -270,27 +266,29 @@ def map_spell(cid: str, cells: list[str], row: str = "") -> dict:
 
 
 def map_hero(cid: str, cells: list[str]) -> dict:
-    # treasure label, subtype, hp?, treasure, Hero, name block, hp, qty
-    subtype = next((c for c in cells if "Hero" in c), "Ordinary Hero")
-    treasure_label = cells[0] if cells and cells[0] not in (cid,) else (cells[4] if len(cells) > 4 else "Fighter")
-    treasures = parse_treasures(treasure_label)
-    if len(cells) > 4 and "/" in cells[4]:
-        treasures = parse_treasures(cells[4])
-    epic = "Epic" in subtype
-    dark = "Dark" in subtype
-    hybrid = "Hybrid" in subtype
-    hp = 5
-    for c in cells:
-        if c.isdigit() and int(c) >= 3:
-            hp = int(c)
-            break
-    name = cid
-    for c in cells:
-        if c not in (cid,) and "Hero" not in c and not c.isdigit() and len(c) > 2 and c not in TREASURE:
-            if not re.fullmatch(r"(?:TNL|RMB|CRL)\d{3}", c):
-                name = c.split(".")[0].strip()
-                break
-    qty = int(cells[-1]) if cells[-1].isdigit() else 1
+    subtype = clean_cell(cells[2]) if len(cells) > 2 else "Ordinary Hero"
+    name_col = clean_cell(cells[1]) if len(cells) > 1 else cid
+    desc_col = clean_cell(cells[6]) if len(cells) > 6 else ""
+    
+    name = name_col
+    if name_col in ("Cleric", "Fighter", "Mage", "Thief", "Explorer", "Ordinary Hero", "Epic Hero", "Dark Hero"):
+        if desc_col and len(desc_col) > 3:
+            name = desc_col.split(".")[0].split(" -- ")[0].split(" - ")[0].strip()
+            
+    hp_match = re.search(r"\d+", clean_cell(cells[3])) if len(cells) > 3 else None
+    hp = int(hp_match.group()) if hp_match else 5
+    
+    treasure_col = clean_cell(cells[4]) if len(cells) > 4 else "Fighter"
+    treasures = parse_treasures(treasure_col)
+    
+    type_col = clean_cell(cells[5]) if len(cells) > 5 else ""
+    epic = "Epic" in subtype or "Epic" in type_col
+    dark = "Dark" in subtype or "Dark" in type_col or "Dark" in desc_col
+    hybrid = "Hybrid" in subtype or "Hybrid" in type_col or len(treasures) > 1
+    
+    qty_match = re.search(r"\d+", clean_cell(cells[-1])) if cells else None
+    qty = int(qty_match.group()) if qty_match else 1
+    
     card = {
         "id": cid,
         "name": name,
@@ -299,7 +297,7 @@ def map_hero(cid: str, cells: list[str]) -> dict:
         "wounds": 2 if epic else 1,
         "souls": 2 if epic else 1,
         "epic": epic,
-        "class": treasure_label.split("/")[0].strip() if "/" not in treasure_label else list(TREASURE.keys())[treasures[0] - 1],
+        "class": list(TREASURE.keys())[treasures[0] - 1] if treasures else "Fighter",
         "set": PREFIX_TO_PACK[cid[:3]],
         "quantity": qty,
     }
@@ -313,24 +311,46 @@ def map_hero(cid: str, cells: list[str]) -> dict:
     return card
 
 
+def map_miniboss(cid: str, cells: list[str]) -> dict:
+    name = clean_cell(cells[1]) if len(cells) > 1 else cid
+    desc = clean_cell(cells[6]) if len(cells) > 6 else ""
+    
+    levels = []
+    parts = re.split(r"Level\s+(\d+):\s*", desc, flags=re.I)
+    if len(parts) >= 3:
+        for k in range(1, len(parts), 2):
+            lvl_num = int(parts[k])
+            lvl_desc = parts[k+1].strip()
+            levels.append({"level": lvl_num, "description": lvl_desc})
+    else:
+        levels.append({"level": 1, "description": desc})
+        
+    qty_match = re.search(r"\d+", clean_cell(cells[-1])) if cells else None
+    qty = int(qty_match.group()) if qty_match else 1
+    
+    return {
+        "id": cid,
+        "name": name,
+        "quantity": qty,
+        "set": PREFIX_TO_PACK[cid[:3]],
+        "levels": levels,
+    }
+
+
 def classify_and_map(cid: str, cells: list[str], row: str) -> tuple[str, dict] | None:
-    blob = " | ".join(cells)
-    if re.search(r"\[\[Bosses\|Boss\]\]", row):
+    type_col = clean_cell(cells[5]) if len(cells) > 5 else ""
+    sub_col = clean_cell(cells[2]) if len(cells) > 2 else ""
+    
+    if type_col in ("Boss", "Bosses|Boss") or "Bosses|Boss" in row or (sub_col not in ("Monster Room", "Trap Room", "Advanced Monster Room", "Advanced Trap Room", "Spell") and any(re.search(r"\b" + re.escape(k) + r"\b", type_col, re.I) for k in ["boss"])):
         return "bosses", map_boss(cid, cells, row)
-    if "Spell" in blob:
-        return "spells", map_spell(cid, cells, row)
-    if "Room" in blob:
+    if "miniboss" in type_col.lower() or "miniboss" in sub_col.lower() or (cid.startswith("RMB") and 55 <= int(cid[3:]) <= 64):
+        return "minibosses", map_miniboss(cid, cells)
+    if "room" in type_col.lower() or "room" in sub_col.lower() or "monster" in sub_col.lower() or "trap" in sub_col.lower():
         return "rooms", map_room(cid, cells, row)
-    if "Hero" in blob or "hero" in blob.lower():
+    if "spell" in type_col.lower() or "spell" in sub_col.lower():
+        return "spells", map_spell(cid, cells, row)
+    if "hero" in type_col.lower() or "hero" in sub_col.lower():
         return "heroes", map_hero(cid, cells)
-    if "Miniboss" in blob:
-        return "minibosses", {
-            "id": cid,
-            "name": cells[1] if len(cells) > 1 else cid,
-            "quantity": int(cells[-1]) if cells[-1].isdigit() else 1,
-            "set": PREFIX_TO_PACK[cid[:3]],
-            "levels": [{"level": 1, "description": cells[6] if len(cells) > 6 else ""}],
-        }
     return None
 
 
@@ -346,11 +366,16 @@ def parse_pack(prefix: str, text: str) -> dict:
     for row in split_rows(text):
         if prefix not in row:
             continue
-        cells = row_cells(row)
-        cid = card_id(cells)
+        raw_cells = split_table_row(row)
+        clean_cells = [clean_cell(c) for c in raw_cells]
+        cid = None
+        for c in clean_cells:
+            if re.fullmatch(rf"{prefix}\d{{3}}", c):
+                cid = c
+                break
         if not cid or not cid.startswith(prefix) or cid in seen:
             continue
-        mapped = classify_and_map(cid, cells, row)
+        mapped = classify_and_map(cid, raw_cells, row)
         if not mapped:
             continue
         key, card = mapped
@@ -361,20 +386,14 @@ def parse_pack(prefix: str, text: str) -> dict:
 
 def write_pack(pack_id: str, data: dict) -> None:
     path = os.path.join(EXP_DIR, f"{pack_id}.json")
-    existing = {}
-    if os.path.exists(path):
-        with open(path, encoding="utf-8") as f:
-            existing = json.load(f)
+    out = {}
     for key, cards in data.items():
-        if not cards:
-            continue
-        by_id = {c["id"]: c for c in existing.get(key, [])}
-        by_id.update({c["id"]: c for c in cards})
-        existing[key] = sorted(by_id.values(), key=lambda c: c["id"])
+        if cards:
+            out[key] = sorted(cards, key=lambda c: c["id"])
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(existing, f, indent=2, ensure_ascii=False)
+        json.dump(out, f, indent=2, ensure_ascii=False)
         f.write("\n")
-    totals = ", ".join(f"{k}={len(existing.get(k, []))}" for k in sorted(existing))
+    totals = ", ".join(f"{k}={len(out.get(k, []))}" for k in sorted(out))
     print(f"wrote {path} ({totals})")
 
 

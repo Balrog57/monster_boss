@@ -69,7 +69,9 @@ export default function OnlineLobbyCustom({ onJoined, onBack }) {
         method: 'POST', body: { playerName: name.trim() },
       });
       playSfx(SFX.BUTTON);
-      setWaiting({ matchID, playerID, credentials, numPlayers });
+      const session = { matchID, playerID, credentials, numPlayers };
+      localStorage.setItem('bm_online_session', JSON.stringify(session));
+      setWaiting(session);
     } catch (e) {
       setError('Create failed: ' + (e.message || e));
     } finally { setBusy(false); }

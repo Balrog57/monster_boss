@@ -43,7 +43,8 @@ export function buildMiniboss(G, playerId, handIndex, targetRoomIndex) {
   if (!stack || stack.miniboss || !activeRoom(stack)) return false;
   const mbCard = G.decks.minibosses?.pop();
   if (!mbCard) return false;
-  attachMiniboss(stack, mbCard);
+  const initLevel = p?.croakMinibossLevel2 ? 2 : 1;
+  attachMiniboss(stack, mbCard, initLevel);
   p.buildsThisTurn = (p.buildsThisTurn || 0) + 1;
   p.hasActed = true;
   G.logs.push(`Player ${playerId} built ${mbCard.name} face-down on a Room.`);

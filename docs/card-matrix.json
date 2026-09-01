@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-31T09:01:42.402Z",
+  "generatedAt": "2026-09-01T19:56:18.166Z",
   "cards": {
     "BMA001": {
       "id": "BMA001",
@@ -97,7 +97,7 @@
       "text": "For the rest of the game, Rooms in your dungeon have +1 for each Explorer treasure they have.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL002": {
@@ -119,7 +119,7 @@
       "text": "You may bring one covered Room to the top of a Room stack in each opponent's dungeon. (This uncovers those rooms.)",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "KSA001": {
@@ -207,7 +207,7 @@
       "text": "For the rest of the game, once per turn gain (c) when you kill a hero.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB002": {
@@ -218,7 +218,7 @@
       "text": "For the rest of the game, once per turn you may discard a Monster Room to promote a Miniboss instead of paying (c).",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB003": {
@@ -227,6 +227,109 @@
       "section": "bosses",
       "set": "minibosses",
       "text": "For the rest of the game, once per turn you may pay (c)(c) to force an opponent to discard a randon Spell card.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
+    "RMB004": {
+      "id": "RMB004",
+      "name": "Lamia",
+      "section": "bosses",
+      "set": "minibosses",
+      "text": "For the rest of the game, gain (c) whenever you build a Monster Room.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
+    "RMB005": {
+      "id": "RMB005",
+      "name": "King Croak",
+      "section": "bosses",
+      "set": "minibosses",
+      "text": "For the rest of the game, Minibosses that you build start on Level 2.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
+    "RMB006": {
+      "id": "RMB006",
+      "name": "Ravenus",
+      "section": "bosses",
+      "set": "minibosses",
+      "text": "For the rest of the game, once per turn you may pay (c)(c) to double the damage value of a Monster Room.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
+    "RMB007": {
+      "id": "RMB007",
+      "name": "Baron Hex",
+      "section": "bosses",
+      "set": "minibosses",
+      "text": "For the rest of the game, gain (c) whenever you cast a Spell.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
+    "RMB008": {
+      "id": "RMB008",
+      "name": "Oculus",
+      "section": "bosses",
+      "set": "minibosses",
+      "text": "For the rest of the game, draw a Spell when a Hero dies in a room with a Miniboss.",
+      "textCorrupt": false,
+      "status": "tagged",
+      "hasArt": true,
+      "tags": [
+        "genericLevelUp"
+      ]
+    },
+    "RMB009": {
+      "id": "RMB009",
+      "name": "Kazanna",
+      "section": "bosses",
+      "set": "minibosses",
+      "text": "For the rest of the game, once per turn you may pay (c)(c) to draw a Spell card.",
+      "textCorrupt": false,
+      "status": "tagged",
+      "hasArt": true,
+      "tags": [
+        "genericLevelUp"
+      ]
+    },
+    "RMB010": {
+      "id": "RMB010",
+      "name": "Dr. Deadly",
+      "section": "bosses",
+      "set": "minibosses",
+      "text": "For the rest of the game, gain (c) whenever you build a Trap Room.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "RMB011": {
+      "id": "RMB011",
+      "name": "Scott",
+      "section": "bosses",
+      "set": "minibosses",
+      "text": "For the rest of the game, your Trap Rooms have +1. Any opponents may give you (c) to cancel this ability until the end of your turn.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
+    "RMB012": {
+      "id": "RMB012",
+      "name": "Kirax",
+      "section": "bosses",
+      "set": "minibosses",
+      "text": "For the rest of the game, once per turn you may pay (c)(c) to add one of any treasure type to any player's dungeon",
       "textCorrupt": false,
       "status": "expansion-pending",
       "hasArt": false,
@@ -240,7 +343,7 @@
       "text": "Choose another Boss. For the rest of the game, this boss also has that Boss's treasure icon. (The icon remains even if that boss dies.)",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL001": {
@@ -251,7 +354,7 @@
       "text": "For the rest of the game, during the Build phase you may discard one card to choose one Hero in town. That Hero cannot be lured this turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL002": {
@@ -262,7 +365,7 @@
       "text": "Heal a Wound. (Turn one face-down Hero face-up.)",
       "textCorrupt": false,
       "status": "tagged",
-      "hasArt": false,
+      "hasArt": true,
       "tags": [
         "genericLevelUp"
       ]
@@ -286,7 +389,7 @@
       "text": "For the rest of the game, if you have 3 Wounds or more, give the last Room of your dungeon +3",
       "textCorrupt": false,
       "status": "tagged",
-      "hasArt": false,
+      "hasArt": true,
       "tags": [
         "genericLevelUp"
       ]
@@ -299,7 +402,7 @@
       "text": "For the rest of the game, at end of turn you may swap the placement of two Rooms in one dungeon.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL006": {
@@ -323,7 +426,7 @@
       "text": "Discard your hand, then draw 3 Spell cards.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL008": {
@@ -334,7 +437,7 @@
       "text": "For the rest of the game, once per turn you may discard a Spell card to cancel an opponent's Spell.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL009": {
@@ -345,7 +448,7 @@
       "text": "For the rest of the game, you may draw a Spell card at the end of turn if any player has gained two more souls than you that turn.",
       "textCorrupt": false,
       "status": "tagged",
-      "hasArt": false,
+      "hasArt": true,
       "tags": [
         "genericLevelUp"
       ]
@@ -358,7 +461,7 @@
       "text": "Choose one face-down Hero from your scorekeeping area and remove it from the game. Search the Hero decks, choose one Hero, and place it face-down in your scorekeeping area.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL011": {
@@ -369,7 +472,7 @@
       "text": "For the rest of the game, once per turn when you kill a Hero, draw a Room card.",
       "textCorrupt": false,
       "status": "tagged",
-      "hasArt": false,
+      "hasArt": true,
       "tags": [
         "genericLevelUp"
       ]
@@ -382,7 +485,7 @@
       "text": "For the rest of the game, when you destroy a Room in your dungeon, the uncovered Room gains +3 until end of turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "BMA009": {
@@ -734,7 +837,7 @@
       "text": "When you build this Room, you may move one covered Room in your dungeon to the top of its stack. (This uncovers that Room.)",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL005": {
@@ -745,7 +848,7 @@
       "text": "If you have at least one other Explorer treasure Room in your dungeon, give this Room +1. (Note that Bosses do not count as Rooms.)",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL006": {
@@ -756,7 +859,7 @@
       "text": "When you build this Room, until end of turn it gains Explorer*2 treasure.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL007": {
@@ -767,7 +870,7 @@
       "text": "You may discard this Room from your hand to deactivate an Advanced Room in any dungeon until end of turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL008": {
@@ -778,7 +881,7 @@
       "text": "Rooms adjacent to this Room have +1.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL009": {
@@ -789,7 +892,18 @@
       "text": "Advanced Rooms in your dungeon have +1.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
+      "tags": []
+    },
+    "CRL010": {
+      "id": "CRL010",
+      "name": "Digicron Library",
+      "section": "rooms",
+      "set": "crash-landing",
+      "text": "When you build this Room, if you have at least one other Advanced Room in your dungeon, (including this one), draw two Spell cards.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
       "tags": []
     },
     "CRL011": {
@@ -800,7 +914,7 @@
       "text": "You may build this Room over any Room, regardless of treasure type.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL012": {
@@ -811,7 +925,7 @@
       "text": "Once per turn, you may discard an Advanced Room to activate one \"when you build this Room\" or \"when you uncover this room\" effect on any Room in your dungeon.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL013": {
@@ -822,7 +936,7 @@
       "text": "When you uncover this Room, search the discard pile for an Advanced Room card and add it to your hand.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL014": {
@@ -833,7 +947,18 @@
       "text": "When you uncover this Room, until end of turn its damage is doubled.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
+      "tags": []
+    },
+    "CRL015": {
+      "id": "CRL015",
+      "name": "Celestial Map",
+      "section": "rooms",
+      "set": "crash-landing",
+      "text": "When you uncover this Room, draw a Spell Card, then destroy this Room.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
       "tags": []
     },
     "CRL016": {
@@ -844,72 +969,15 @@
       "text": "When you uncover this Room, deal 3 damage to a Hero in your dungeon or at the entrance to your dungeon.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
-    "CRL101": {
-      "id": "CRL101",
-      "name": "Alien Reactor",
-      "section": "rooms",
-      "set": "crash-landing",
-      "text": "Alien Artifact Room.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "CRL102": {
-      "id": "CRL102",
-      "name": "Crash Site",
-      "section": "rooms",
-      "set": "crash-landing",
-      "text": "When uncovered, draw a Room card.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "onUncover"
-      ]
-    },
-    "RMB004": {
-      "id": "RMB004",
-      "name": "Lamia",
+    "RMB013": {
+      "id": "RMB013",
+      "name": "Spectral Bomb",
       "section": "rooms",
       "set": "minibosses",
-      "text": "Level Up: For the rest of the game, gain (c) whenever you build a Monster Room.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB006": {
-      "id": "RMB006",
-      "name": "Ravenus",
-      "section": "rooms",
-      "set": "minibosses",
-      "text": "Level Up: For the rest of the game, once per turn you may pay (c)(c) to double the damage value of a Monster Room.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB010": {
-      "id": "RMB010",
-      "name": "Dr. Deadly",
-      "section": "rooms",
-      "set": "minibosses",
-      "text": "Level Up: For the rest of the game, gain (c) whenever you build a Trap Room.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB011": {
-      "id": "RMB011",
-      "name": "Scott",
-      "section": "rooms",
-      "set": "minibosses",
-      "text": "Level Up: For the rest of the game, your Trap Rooms have +1. Any opponents may give you (c) to cancel this ability until the end of your turn.",
+      "text": "You may destroy this Room to force an opponent to discard a random Spell card.",
       "textCorrupt": false,
       "status": "expansion-pending",
       "hasArt": false,
@@ -921,6 +989,19 @@
       "section": "rooms",
       "set": "minibosses",
       "text": "When you build or uncover this Room, gain (c) (c) for every miniboss you reveal from your hand.",
+      "textCorrupt": false,
+      "status": "tagged",
+      "hasArt": false,
+      "tags": [
+        "gainCoin"
+      ]
+    },
+    "RMB015": {
+      "id": "RMB015",
+      "name": "Ancient Guardtower",
+      "section": "rooms",
+      "set": "minibosses",
+      "text": "When you build this Room, choose one opponent. Once this turn you may give them (c) to take one random Spell card from them.",
       "textCorrupt": false,
       "status": "tagged",
       "hasArt": false,
@@ -1097,12 +1178,106 @@
       "hasArt": false,
       "tags": []
     },
+    "RMB031": {
+      "id": "RMB031",
+      "name": "Mysterious Portal",
+      "section": "rooms",
+      "set": "minibosses",
+      "text": "When you build or uncover this Room, you may discard a Miniboss to draw a Spell card.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": [
+        "onBuildDrawSpell"
+      ]
+    },
+    "RMB032": {
+      "id": "RMB032",
+      "name": "Alchemist's Lab",
+      "section": "rooms",
+      "set": "minibosses",
+      "text": "Once per turn, when you cast a Spell, gain (c) (c). (Cancelled spells are not cast.)",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
     "RMB033": {
       "id": "RMB033",
       "name": "Black Market",
       "section": "rooms",
       "set": "minibosses",
       "text": "Once per turn, when a Room in any dungeon is destroyed, pay (c) to draw a spell card.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "RMB034": {
+      "id": "RMB034",
+      "name": "Mind Thresher",
+      "section": "rooms",
+      "set": "minibosses",
+      "text": "Once per turn if a Hero dies in this Room, you may remove that Hero from the game to draw two Spell cards.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "RMB035": {
+      "id": "RMB035",
+      "name": "Cursed Well",
+      "section": "rooms",
+      "set": "minibosses",
+      "text": "You may discard this from your hand to draw a Spell card or gain (c) (c).",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "RMB036": {
+      "id": "RMB036",
+      "name": "Loot Box",
+      "section": "rooms",
+      "set": "minibosses",
+      "text": "When you build this Room, pay (c)(c) and draw two Spell cards.",
+      "textCorrupt": false,
+      "status": "tagged",
+      "hasArt": false,
+      "tags": [
+        "gainCoin"
+      ]
+    },
+    "RMB037": {
+      "id": "RMB037",
+      "name": "Crystal Ballroom",
+      "section": "rooms",
+      "set": "minibosses",
+      "text": "When you build this Room, place up to three (c) on it. For each (c) you place, draw one Spell card. This Room has -1 for every (c) on it.",
+      "textCorrupt": false,
+      "status": "tagged",
+      "hasArt": false,
+      "tags": [
+        "gainCoin"
+      ]
+    },
+    "RMB038": {
+      "id": "RMB038",
+      "name": "Efreet's Chamber",
+      "section": "rooms",
+      "set": "minibosses",
+      "text": "Once per turn when a Hero is at the entrance to your dungeon, you may draw a Spell card to give this room -2 OR discard a Spell to give this room +2.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "RMB039": {
+      "id": "RMB039",
+      "name": "Magipede",
+      "section": "rooms",
+      "set": "minibosses",
+      "text": "This room has +1 for every Spell card in your hand.",
       "textCorrupt": false,
       "status": "expansion-pending",
       "hasArt": false,
@@ -1267,113 +1442,12 @@
       "hasArt": false,
       "tags": []
     },
-    "RMB055": {
-      "id": "RMB055",
-      "name": "Spike",
+    "RMB054": {
+      "id": "RMB054",
+      "name": "Pool of Shadows",
       "section": "rooms",
       "set": "minibosses",
-      "text": "Level 1: This Room has +1.\n\nLevel 2: Once per turn, discard a card to do 2 damage to a Hero in this Room.\n\nLevel 3: Choose a Miniboss. Return that card to its owner's hand. Reset to Level One.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB056": {
-      "id": "RMB056",
-      "name": "Kid Croak",
-      "section": "rooms",
-      "set": "minibosses",
-      "text": "Level 1: This Room gains +1 Fighter.\n\nLevel 2: Once per turn during the Build phase, you may switch the position of two Rooms in any dungeon.\n\nLevel 3: Give all Monster Rooms in one dungeon +1 or -1 until end of turn. Reset to Level One.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB058": {
-      "id": "RMB058",
-      "name": "Rocky",
-      "section": "rooms",
-      "set": "minibosses",
-      "text": "Level 1: You may build any Room on top of this one, regardless of treasure icon.\nLevel 2: When a Hero dies in this Room, you may treat another Room in your dungeon as just built.\n\nLevel 3: Give a Hero in any dungeon +5 until end of turn. Reset to Level One.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB060": {
-      "id": "RMB060",
-      "name": "Paddywhack",
-      "section": "rooms",
-      "set": "minibosses",
-      "text": "Level 1: This Room gains +1 Thief.\n\nLevel 2: Once per turn when you gain one or more coins, gain one extra coin.\n\nLevel 3: Kill a Hero in this Room. Reset to Level One.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB061": {
-      "id": "RMB061",
-      "name": "Icicle Man",
-      "section": "rooms",
-      "set": "minibosses",
-      "text": "Level 1: This Room has +1.\n\nLevel 2: Ignore the ability text of any Heroes or Epic Heroes in, or at the entrance to, your dungeon.\n\nLevel 3: Deactivate a Room in any dungeon until end of turn. Reset to Level One.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB063": {
-      "id": "RMB063",
-      "name": "Brassknuckle",
-      "section": "rooms",
-      "set": "minibosses",
-      "text": "Level 1: This Room has +1.\n\nLevel 2: Once per turn when a Hero dies in this Room, draw a Room card. You may immediately build that Room.\n\nLevel 3: Double this Room's damage until end of turn. Reset to Level One.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": [
-        "onHeroDieDrawRoom"
-      ]
-    },
-    "RMB064": {
-      "id": "RMB064",
-      "name": "Jinx",
-      "section": "rooms",
-      "set": "minibosses",
-      "text": "Level 1: Draw an extra Room at the beginning of the Build phase, then discard a Room.\n\nLevel 2: Double this Room's treasure value. (It has one extra copy of each printed treasure icon it has.)\n\nLevel 3: Choose a Hero in town. Place it at the entrance to your dungeon. Reset to Level One.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB101": {
-      "id": "RMB101",
-      "name": "Koko the Piper",
-      "section": "heroes",
-      "set": "minibosses",
-      "text": "",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB102": {
-      "id": "RMB102",
-      "name": "Scoundrel",
-      "section": "heroes",
-      "set": "minibosses",
-      "text": "",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB111": {
-      "id": "RMB111",
-      "name": "Relic Hunter",
-      "section": "rooms",
-      "set": "minibosses",
-      "text": "This Hero skips every Room in your dungeon that has more than one treasure type.",
+      "text": "Once per turn, you may discard a Spell to gain (c) (c).",
       "textCorrupt": false,
       "status": "expansion-pending",
       "hasArt": false,
@@ -1423,6 +1497,17 @@
       "hasArt": false,
       "tags": []
     },
+    "TNL013": {
+      "id": "TNL013",
+      "name": "Dark Portal",
+      "section": "rooms",
+      "set": "next-level",
+      "text": "Once per turn, you may discard a Spell card to choose one Room card from the discard pile and put it into your hand.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
     "TNL014": {
       "id": "TNL014",
       "name": "Imp Temple",
@@ -1431,7 +1516,29 @@
       "text": "Once per turn, when you force an opponent to discard a card, put that card into your hand instead.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
+      "tags": []
+    },
+    "TNL015": {
+      "id": "TNL015",
+      "name": "Madman's Manor",
+      "section": "rooms",
+      "set": "next-level",
+      "text": "Once per turn, if a Hero dies in this Room, choose one Spell card from the discard pile and put it into your hand.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
+    "TNL016": {
+      "id": "TNL016",
+      "name": "Arcane Crypt",
+      "section": "rooms",
+      "set": "next-level",
+      "text": "When you build or uncover this Room, you may choose one Spell card from the discard pile and put it into your hand.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
       "tags": []
     },
     "TNL017": {
@@ -1442,7 +1549,7 @@
       "text": "You may destroy this Room to send a Hero in this Room back to town.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL018": {
@@ -1453,7 +1560,7 @@
       "text": "At the end of each turn, if no Heroes entered this Room, you may draw a Room card.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL019": {
@@ -1464,7 +1571,7 @@
       "text": "When you build this Room, each opponent must discard a Room card.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL020": {
@@ -1475,7 +1582,18 @@
       "text": "Once per turn, if you take a card from the discard pile, draw a Room card.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
+      "tags": []
+    },
+    "TNL021": {
+      "id": "TNL021",
+      "name": "Wraith's Throne",
+      "section": "rooms",
+      "set": "next-level",
+      "text": "Once per turn, if a Hero dies in this Room, each opponent must discard a Spell card.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
       "tags": []
     },
     "TNL022": {
@@ -1486,7 +1604,7 @@
       "text": "Once per turn, you may discard a Monster Room to give one Trap Room -1 until end of turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL023": {
@@ -1497,7 +1615,18 @@
       "text": "If the Room to the left of this is a Monster Room, give that Room +2",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
+      "tags": []
+    },
+    "TNL024": {
+      "id": "TNL024",
+      "name": "Barbarian Hall",
+      "section": "rooms",
+      "set": "next-level",
+      "text": "When you build this Room, choose and discard one Spell card (if you have any Spell cards in your hand).",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
       "tags": []
     },
     "TNL025": {
@@ -1508,7 +1637,7 @@
       "text": "Once per turn, if a Hero dies in this Room, draw two Room cards.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL026": {
@@ -1519,7 +1648,7 @@
       "text": "Once per turn, if a Hero dies in this Room, you may immediately build another Room in your dunegon.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL027": {
@@ -1530,7 +1659,7 @@
       "text": "When you build or uncover this Room, give another Monster Room +3 until end of turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL028": {
@@ -1541,7 +1670,7 @@
       "text": "Give ever other Monster Room in your dungeon +1",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL029": {
@@ -1552,7 +1681,7 @@
       "text": "When you build this Room, choose and destroy one Advanced Room in any dungeon.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL030": {
@@ -1563,7 +1692,29 @@
       "text": "Once per turn, you may reveal a Monster Room from your hand to give this Room +X, where X is that Room's power.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
+      "tags": []
+    },
+    "TNL031": {
+      "id": "TNL031",
+      "name": "Antimagic Zone",
+      "section": "rooms",
+      "set": "next-level",
+      "text": "You may discard this from your hand to cancel an opponent's Spell. (The Spell is not cast. Place it in the discard pile.)",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
+    "TNL032": {
+      "id": "TNL032",
+      "name": "Lost Library",
+      "section": "rooms",
+      "set": "next-level",
+      "text": "You may destroy this Room to draw two Spell cards, then discard a Spell card.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
       "tags": []
     },
     "TNL033": {
@@ -1574,7 +1725,75 @@
       "text": "You may destroy this Room to deactivate one Room in any dungeon.",
       "textCorrupt": false,
       "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
+    "TNL034": {
+      "id": "TNL034",
+      "name": "Spellslime Pit",
+      "section": "rooms",
+      "set": "next-level",
+      "text": "Whenever you play a Spell, this Room gains +1 until end of turn.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
+    "TNL035": {
+      "id": "TNL035",
+      "name": "Observatory",
+      "section": "rooms",
+      "set": "next-level",
+      "text": "Once per turn, you may discard a Spell card to draw a Spell card.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
+    "TNL036": {
+      "id": "TNL036",
+      "name": "Sorcerobe School",
+      "section": "rooms",
+      "set": "next-level",
+      "text": "When you build or uncover this Room, draw a Spell card.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": [
+        "onBuildDrawSpell"
+      ]
+    },
+    "TNL037": {
+      "id": "TNL037",
+      "name": "Hall of Mirrors",
+      "section": "rooms",
+      "set": "next-level",
+      "text": "Once per turn when an opponent plays a Spell card, draw a Spell card.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
+    "TNL038": {
+      "id": "TNL038",
+      "name": "Elemental Generator",
+      "section": "rooms",
+      "set": "next-level",
+      "text": "This Room has +X, where X equals the number of Spell cards in your hand.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
       "hasArt": false,
+      "tags": []
+    },
+    "TNL039": {
+      "id": "TNL039",
+      "name": "Brainsucker Queen",
+      "section": "rooms",
+      "set": "next-level",
+      "text": "Once per turn, if a Hero dies in this Room, draw two Spell cards, then discard a Spell card.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
       "tags": []
     },
     "TNL040": {
@@ -1585,7 +1804,7 @@
       "text": "Once per turn, you may discard a Trap Room to give one Monster Room -1 until end of turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL041": {
@@ -1596,7 +1815,7 @@
       "text": "Once per turn, you may destroy another Room in your dungeon to draw a Room card.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL042": {
@@ -1607,7 +1826,7 @@
       "text": "Once per turn, you may discard a Room card to draw a Room card.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL043": {
@@ -1618,7 +1837,7 @@
       "text": "If a Hero survives this Room, until the end of turn this Room deals +3\n\nRevised: Once per turn, if a Hero survives this Room, until end of turn this Room deals +3.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL044": {
@@ -1629,7 +1848,7 @@
       "text": "When you build or uncover this Room, give this Room +3 until end of turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL045": {
@@ -1640,7 +1859,7 @@
       "text": "During the Build phase, you may destroy this Room to choose one Room in any dungeon and remove its treasure value until end of turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL046": {
@@ -1651,7 +1870,7 @@
       "text": "Once per turn, you may destroy another Room in your dungeon to give this Room +4 until end of turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL047": {
@@ -1662,7 +1881,7 @@
       "text": "At the end of each turn, destroy one Room in your dungeon.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL048": {
@@ -1673,7 +1892,7 @@
       "text": "Once per turn, you may destroy every other visible Room in your dungeon to give this Room +6 until end of turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL049": {
@@ -1684,7 +1903,7 @@
       "text": "You may destroy this Room to send a Hero in this Room back to the first Room of your dungeon.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL050": {
@@ -1695,7 +1914,7 @@
       "text": "When a Hero dies in this Room or survives this Room, destroy this Room.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL051": {
@@ -1706,8 +1925,21 @@
       "text": "(You may build this over a room with Cleric, Fighter, Mage, or Thief treasure.)",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
+    },
+    "TNL052": {
+      "id": "TNL052",
+      "name": "Genie Lounge",
+      "section": "rooms",
+      "set": "next-level",
+      "text": "When you build this Room, if you have no Spell cards in your hand, draw a Spell card.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": [
+        "onBuildDrawSpell"
+      ]
     },
     "TNL053": {
       "id": "TNL053",
@@ -1717,7 +1949,7 @@
       "text": "Once per turn, you may discard a card from your hand to give one Hero +1 until end of turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL054": {
@@ -1728,95 +1960,18 @@
       "text": "If an effect from another card causes this Room to be destroyed, each opponent must discard two Room cards.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
-    "TNL077": {
-      "id": "TNL077",
-      "name": "Vampire",
+    "TNL055": {
+      "id": "TNL055",
+      "name": "Save Point",
       "section": "rooms",
       "set": "next-level",
-      "text": "Once per turn, any opponent may discard a Room with Cleric to give this Hero +3 until end of turn.",
+      "text": "You may destroy this Room to retrieve one Spell card from the discard pile that you played this turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL083": {
-      "id": "TNL083",
-      "name": "Barbarian",
-      "section": "rooms",
-      "set": "next-level",
-      "text": "Once per turn, any opponent may discard a Room with Fighter to give this Hero +3 until end of turn.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL089": {
-      "id": "TNL089",
-      "name": "Witch",
-      "section": "rooms",
-      "set": "next-level",
-      "text": "Once per turn, any opponent may discard a Room with Mage to give this Hero +3 until end of turn.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL095": {
-      "id": "TNL095",
-      "name": "Hitman",
-      "section": "rooms",
-      "set": "next-level",
-      "text": "Once per turn, any opponent may discard a Room with Thief to give this Hero +3 until end of turn.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL101": {
-      "id": "TNL101",
-      "name": "Heavenboy|Heavenboy]\nThis son of an angel and a mortal woman was born with clipped wings and half a halo",
-      "section": "heroes",
-      "set": "next-level",
-      "text": "",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL102": {
-      "id": "TNL102",
-      "name": "Lone Fox and Kit|Lone Fox and Kit]\nFew know that this mysterious beauty was once a princess",
-      "section": "heroes",
-      "set": "next-level",
-      "text": "",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL103": {
-      "id": "TNL103",
-      "name": "Ser Mortin the Deadly|Ser Mortin the Deadly]\nNo knight is more celebrated, but do not invite Ser Mortin to your wedding feast",
-      "section": "heroes",
-      "set": "next-level",
-      "text": "",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL112": {
-      "id": "TNL112",
-      "name": "Archer",
-      "section": "rooms",
-      "set": "next-level",
-      "text": "This Hero is lured to the dungeon with the highest combined Fighter and Thief treasure. This Hero ignores the last Room of your dungeon.\n\nRevised: This Hero is lured to the dungeon with the highest combined Fighter and Thief treasure. This Hero skips the last Room of your dungeon.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "BMA040": {
@@ -1995,32 +2150,6 @@
       "hasArt": true,
       "tags": []
     },
-    "CRL010": {
-      "id": "CRL010",
-      "name": "Digicron Library",
-      "section": "spells",
-      "set": "crash-landing",
-      "text": "When you build this Room, if you have at least one other Advanced Room in your dungeon, (including this one), draw two Spell cards.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "CRL015": {
-      "id": "CRL015",
-      "name": "Celestial Map",
-      "section": "spells",
-      "set": "crash-landing",
-      "text": "When you uncover this Room, draw a Spell Card, then destroy this Room.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
     "CRL029": {
       "id": "CRL029",
       "name": "Finish Him!",
@@ -2029,7 +2158,7 @@
       "text": "Kill a Hero with 2 or less Health. OR If you have fewer Souls than any player, choose a Hero that survived another player's dungeon this turn. Move it to your scorekeeping area face-down.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL030": {
@@ -2040,7 +2169,7 @@
       "text": "Add +X to a Hero in an opponent's dungeon, where X equals the number of wounds you have.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL031": {
@@ -2051,7 +2180,7 @@
       "text": "If no Heroes were lured to your dungeon during the Bait Phase, heal one ordinary Wound.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL032": {
@@ -2062,7 +2191,7 @@
       "text": "Choose one Room in any dungeon. Until end of turn, it gains Explorer treasure.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL033": {
@@ -2070,21 +2199,10 @@
       "name": "Not Dead Yet",
       "section": "spells",
       "set": "crash-landing",
-      "text": "}\n\n==Implements of Destruction==\n\n[Implements Of Destruction] is a mini-expansion released in 2017 as a add-on to the Boss Monster with powerful new items, including items compatible with [Crash Landing].\n\nIt features a total of 29 cards. This consists of 5 Boss cards and 24 Item cards.\nClick here to show/hide the list of cards\n{| class=\"mw-collapsible mw-collapsed wikitable\" id=\"mw-customcollapsible-Implements\"\n!Card №\n!Name\n!Subtitle\n!XP/Dam/HP/Phase\n!Treasure\n!Type\n!Effect/Description\n!Minimum Players\n!Quantity",
+      "text": "Do X damage to each Hero in your dungeon or at the entrance to your dungeon, where X equals the number of Wounds you have.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "CRL201": {
-      "id": "CRL201",
-      "name": "Abduction",
-      "section": "spells",
-      "set": "crash-landing",
-      "text": "Move a Hero from town to your entrance.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "KSA013": {
@@ -2095,215 +2213,6 @@
       "text": "Place this card in your scorekeeping area. If you also have at least one fighter, one Mage, one Cleric and one Thief face-down in your scorekeeping area, this card is worth two extra souls.",
       "textCorrupt": false,
       "status": "base-implicit",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB007": {
-      "id": "RMB007",
-      "name": "Baron Hex",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "Level Up: For the rest of the game, gain (c) whenever you cast a Spell.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "RMB008": {
-      "id": "RMB008",
-      "name": "Oculus",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "Level Up: For the rest of the game, draw a Spell when a Hero dies in a room with a Miniboss.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "RMB009": {
-      "id": "RMB009",
-      "name": "Kazanna",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "Level Up: For the rest of the game, once per turn you may pay (c)(c) to draw a Spell card.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "RMB013": {
-      "id": "RMB013",
-      "name": "Spectral Bomb",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "You may destroy this Room to force an opponent to discard a random Spell card.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB015": {
-      "id": "RMB015",
-      "name": "Ancient Guardtower",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "When you build this Room, choose one opponent. Once this turn you may give them (c) to take one random Spell card from them.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB031": {
-      "id": "RMB031",
-      "name": "Mysterious Portal",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "When you build or uncover this Room, you may discard a Miniboss to draw a Spell card.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "RMB032": {
-      "id": "RMB032",
-      "name": "Alchemist's Lab",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "Once per turn, when you cast a Spell, gain (c) (c). (Cancelled spells are not cast.)",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "RMB034": {
-      "id": "RMB034",
-      "name": "Mind Thresher",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "Once per turn if a Hero dies in this Room, you may remove that Hero from the game to draw two Spell cards.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "RMB035": {
-      "id": "RMB035",
-      "name": "Cursed Well",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "You may discard this from your hand to draw a Spell card or gain (c) (c).",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "RMB036": {
-      "id": "RMB036",
-      "name": "Loot Box",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "When you build this Room, pay (c)(c) and draw two Spell cards.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "RMB037": {
-      "id": "RMB037",
-      "name": "Crystal Ballroom",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "When you build this Room, place up to three (c) on it. For each (c) you place, draw one Spell card. This Room has -1 for every (c) on it.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB038": {
-      "id": "RMB038",
-      "name": "Efreet's Chamber",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "Once per turn when a Hero is at the entrance to your dungeon, you may draw a Spell card to give this room -2 OR discard a Spell to give this room +2.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "RMB039": {
-      "id": "RMB039",
-      "name": "Magipede",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "This room has +1 for every Spell card in your hand.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB054": {
-      "id": "RMB054",
-      "name": "Pool of Shadows",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "Once per turn, you may discard a Spell to gain (c) (c).",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "RMB057": {
-      "id": "RMB057",
-      "name": "Draculad",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "Level 1: This Room gains +1 Cleric.\n\nLevel 2: Once per turn, you may return a Hero in your dungeon to town.\n\nLevel 3: Look at one opponent's hand. You may take one Spell or Room card from them. Reset to Level One.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB059": {
-      "id": "RMB059",
-      "name": "Cerebella",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "Level 1: This Room gains +1 Mage.\nLevel 2: When a Hero dies in this Room, you may draw a Spell card.\n\nLevel 3: Choose a dungeon. Heroes ignore all ability text in that dungeon until end of turn. Reset to Level One.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "RMB062": {
-      "id": "RMB062",
-      "name": "Mageseeker",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "Level 1: This Room has +1 for every treasure icon it has.\n\nLevel 2: Once per turn, you may discard a Spell card to cancel an opponent's Spell.\n\nLevel 3: Choose a dungeon. Until end of turn, Heroes entering that dungeon skip its first room. Reset to Level One.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
       "hasArt": false,
       "tags": []
     },
@@ -2476,39 +2385,6 @@
       "hasArt": false,
       "tags": []
     },
-    "RMB115": {
-      "id": "RMB115",
-      "name": "Warlock",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "When this Hero is in your dungeon, you may discard X Spells to give this Hero -X",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB116": {
-      "id": "RMB116",
-      "name": "Mage",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "Shigeru the Spellbinder",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "RMB301": {
-      "id": "RMB301",
-      "name": "Mint Condition",
-      "section": "spells",
-      "set": "minibosses",
-      "text": "Gain 2 Coins.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
     "THK025": {
       "id": "THK025",
       "name": "Excavation",
@@ -2520,183 +2396,6 @@
       "hasArt": true,
       "tags": []
     },
-    "TNL013": {
-      "id": "TNL013",
-      "name": "Dark Portal",
-      "section": "spells",
-      "set": "next-level",
-      "text": "Once per turn, you may discard a Spell card to choose one Room card from the discard pile and put it into your hand.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL015": {
-      "id": "TNL015",
-      "name": "Madman's Manor",
-      "section": "spells",
-      "set": "next-level",
-      "text": "Once per turn, if a Hero dies in this Room, choose one Spell card from the discard pile and put it into your hand.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL016": {
-      "id": "TNL016",
-      "name": "Arcane Crypt",
-      "section": "spells",
-      "set": "next-level",
-      "text": "When you build or uncover this Room, you may choose one Spell card from the discard pile and put it into your hand.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL021": {
-      "id": "TNL021",
-      "name": "Wraith's Throne",
-      "section": "spells",
-      "set": "next-level",
-      "text": "Once per turn, if a Hero dies in this Room, each opponent must discard a Spell card.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL024": {
-      "id": "TNL024",
-      "name": "Barbarian Hall",
-      "section": "spells",
-      "set": "next-level",
-      "text": "When you build this Room, choose and discard one Spell card (if you have any Spell cards in your hand).",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL031": {
-      "id": "TNL031",
-      "name": "Antimagic Zone",
-      "section": "spells",
-      "set": "next-level",
-      "text": "You may discard this from your hand to cancel an opponent's Spell. (The Spell is not cast. Place it in the discard pile.)",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL032": {
-      "id": "TNL032",
-      "name": "Lost Library",
-      "section": "spells",
-      "set": "next-level",
-      "text": "You may destroy this Room to draw two Spell cards, then discard a Spell card.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "TNL034": {
-      "id": "TNL034",
-      "name": "Spellslime Pit",
-      "section": "spells",
-      "set": "next-level",
-      "text": "Whenever you play a Spell, this Room gains +1 until end of turn.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL035": {
-      "id": "TNL035",
-      "name": "Observatory",
-      "section": "spells",
-      "set": "next-level",
-      "text": "Once per turn, you may discard a Spell card to draw a Spell card.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "TNL036": {
-      "id": "TNL036",
-      "name": "Sorcerobe School",
-      "section": "spells",
-      "set": "next-level",
-      "text": "When you build or uncover this Room, draw a Spell card.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "TNL037": {
-      "id": "TNL037",
-      "name": "Hall of Mirrors",
-      "section": "spells",
-      "set": "next-level",
-      "text": "Once per turn when an opponent plays a Spell card, draw a Spell card.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "TNL038": {
-      "id": "TNL038",
-      "name": "Elemental Generator",
-      "section": "spells",
-      "set": "next-level",
-      "text": "This Room has +X, where X equals the number of Spell cards in your hand.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL039": {
-      "id": "TNL039",
-      "name": "Brainsucker Queen",
-      "section": "spells",
-      "set": "next-level",
-      "text": "Once per turn, if a Hero dies in this Room, draw two Spell cards, then discard a Spell card.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "TNL052": {
-      "id": "TNL052",
-      "name": "Genie Lounge",
-      "section": "spells",
-      "set": "next-level",
-      "text": "When you build this Room, if you have no Spell cards in your hand, draw a Spell card.",
-      "textCorrupt": false,
-      "status": "tagged",
-      "hasArt": false,
-      "tags": [
-        "genericSpell"
-      ]
-    },
-    "TNL055": {
-      "id": "TNL055",
-      "name": "Save Point",
-      "section": "spells",
-      "set": "next-level",
-      "text": "You may destroy this Room to retrieve one Spell card from the discard pile that you played this turn.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
     "TNL056": {
       "id": "TNL056",
       "name": "All Your Base",
@@ -2705,7 +2404,7 @@
       "text": "View an opponent's hand. You may take one Room card from that opponent.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL057": {
@@ -2716,7 +2415,7 @@
       "text": "Choose a Hero in your dungeon. Send that Hero to the entrance of an opponent's dungeon.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL058": {
@@ -2727,7 +2426,7 @@
       "text": "Choose a Room. Until end of turn, it does zero damage and each Hero entering it gains +1.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL059": {
@@ -2738,7 +2437,7 @@
       "text": "Kill one Hero in your dungeon who has 3 or less Health. OR If you have 3 wounds or more, kill one Hero in your dungeon.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL060": {
@@ -2749,7 +2448,7 @@
       "text": "Draw three Room cards, then give another player one of your Room cards.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL061": {
@@ -2760,7 +2459,7 @@
       "text": "Deal 3 damage to one Hero in your dungeon. AND If you discard another Spell card, deal 3 damage to each Hero at the entrance to your dungeon.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL062": {
@@ -2771,7 +2470,7 @@
       "text": "Choose a Room. Until the end of turn, it has no ability text. OR Choose a player. If three or more Heroes entered that player's dungeon this turn, that player cannot win this turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL063": {
@@ -2782,7 +2481,7 @@
       "text": "Swap the placement of two Rooms in your dungeon. OR If two or more of your Rooms have been destroyed this turn, choose and destroy one Room in any dungeon.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL064": {
@@ -2793,7 +2492,7 @@
       "text": "Choose a dungeon. Until the end of turn, each Hero entering that dungeon gains +1",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL065": {
@@ -2804,7 +2503,7 @@
       "text": "If there is a Hero in your dungeon, return it to the entrance and restore it to full Health. No Heroes may enter your dungeon until next turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL066": {
@@ -2815,7 +2514,7 @@
       "text": "Choose a Hero in an opponent's dungeon. Remove that Hero from the game.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL067": {
@@ -2826,7 +2525,7 @@
       "text": "Choose a Room in your dungeon. Until end of turn, give it one extra Cleric, Fighter, Mage or Thief.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL068": {
@@ -2837,7 +2536,7 @@
       "text": "Choose a Hero in any dungeon. It skips the next Room it would enter. OR If that dungeon has five Rooms, the Hero skips the next two Rooms it would enter.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL069": {
@@ -2848,7 +2547,7 @@
       "text": "Choose a Room in your dungeon. It deals +2 until end of turn. OR If only one Hero was lured to your dungeon this turn, that Room does +4 until end of turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL070": {
@@ -2859,7 +2558,7 @@
       "text": "During the Build phase, you may place a Room in an opponent's dungeon instead of your own. (Place it face-down over a face-up Room. Opponent may still place another Room. Any build effects apply to the opponent.)",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL071": {
@@ -2870,7 +2569,7 @@
       "text": "Choose one face-down Hero in your scorekeeping area and remove it from the game. Deal damage equal to that Hero's Health to one Hero in your dungeon.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL072": {
@@ -2881,73 +2580,7 @@
       "text": "You may immediately build a Monster Room over an existing Room in your dungeon.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL087": {
-      "id": "TNL087",
-      "name": "Mage",
-      "section": "spells",
-      "set": "next-level",
-      "text": "A Kid and His Spellslime|A Kid and His Spellslime] When an ordinary kid discovered a wounded spellslime, he nursed it back to health with candy. The spellslime rewarded his kindness with an adventure to a world of magic.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL100": {
-      "id": "TNL100",
-      "name": "Necromancer",
-      "section": "spells",
-      "set": "next-level",
-      "text": "This Hero is lured to the dungeon with the highest combined Mage and Fighter treasure. Each time a player plays a Spell while this Hero is in your dungeon, give this Hero +2.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL104": {
-      "id": "TNL104",
-      "name": "Swordmage",
-      "section": "spells",
-      "set": "next-level",
-      "text": "This Hero is lured to the dungeon with the highest combined Mage and Fighter treasure. Each time a player plays a Spell while this Hero is in your dungeon, give this Hero +2",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL108": {
-      "id": "TNL108",
-      "name": "Druid",
-      "section": "spells",
-      "set": "next-level",
-      "text": "This Hero is lured to the dungeon with the highest combined Cleric and Mage treasure. Give this Hero +X, where X equals the number of Spell cards in your hand.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL201": {
-      "id": "TNL201",
-      "name": "Dark Pact",
-      "section": "spells",
-      "set": "next-level",
-      "text": "Draw 2 Spell cards.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL202": {
-      "id": "TNL202",
-      "name": "Dungeon Shift",
-      "section": "spells",
-      "set": "next-level",
-      "text": "Rearrange the Rooms in your dungeon.",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "BMA056": {
@@ -3860,7 +3493,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL018": {
@@ -3981,29 +3614,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "CRL301": {
-      "id": "CRL301",
-      "name": "Explorer",
-      "section": "heroes",
-      "set": "crash-landing",
-      "text": "",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "CRL302": {
-      "id": "CRL302",
-      "name": "Chief Explorer",
-      "section": "heroes",
-      "set": "crash-landing",
-      "text": "",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "KSA014": {
@@ -4052,7 +3663,7 @@
     },
     "RMB081": {
       "id": "RMB081",
-      "name": "RMB081",
+      "name": "Wolfhard, Teen Hero This young paladin fights all evil things, both ordinary and strange",
       "section": "heroes",
       "set": "minibosses",
       "text": "",
@@ -4063,7 +3674,7 @@
     },
     "RMB082": {
       "id": "RMB082",
-      "name": "Holkin, Propheteer Holkin plays many roles -- cleric, writer, dungeon delver, employer and freestyle rapper -- but he prefers to think of himself as an \"adventurepeneur",
+      "name": "Holkin, Propheteer Holkin plays many roles",
       "section": "heroes",
       "set": "minibosses",
       "text": "",
@@ -4270,6 +3881,28 @@
       "hasArt": false,
       "tags": []
     },
+    "RMB101": {
+      "id": "RMB101",
+      "name": "Koko the Piper",
+      "section": "heroes",
+      "set": "minibosses",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "RMB102": {
+      "id": "RMB102",
+      "name": "Scoundrel",
+      "section": "heroes",
+      "set": "minibosses",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
     "RMB103": {
       "id": "RMB103",
       "name": "Marmo, Master of Dreams",
@@ -4289,7 +3922,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB105": {
@@ -4322,7 +3955,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB108": {
@@ -4358,6 +3991,17 @@
       "hasArt": false,
       "tags": []
     },
+    "RMB111": {
+      "id": "RMB111",
+      "name": "Relic Hunter",
+      "section": "heroes",
+      "set": "minibosses",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
     "RMB112": {
       "id": "RMB112",
       "name": "Unseena, Invisible Wrestler",
@@ -4383,6 +4027,28 @@
     "RMB114": {
       "id": "RMB114",
       "name": "Mortimer, Evil Genius",
+      "section": "heroes",
+      "set": "minibosses",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "RMB115": {
+      "id": "RMB115",
+      "name": "Warlock",
+      "section": "heroes",
+      "set": "minibosses",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
+    "RMB116": {
+      "id": "RMB116",
+      "name": "Shigeru the Spellbinder",
       "section": "heroes",
       "set": "minibosses",
       "text": "",
@@ -4446,17 +4112,6 @@
       "hasArt": false,
       "tags": []
     },
-    "RMB401": {
-      "id": "RMB401",
-      "name": "Adventurer",
-      "section": "heroes",
-      "set": "minibosses",
-      "text": "",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
     "TNL073": {
       "id": "TNL073",
       "name": "Elfstar] Once an acolyte limited to simple orisons, Elfstar is now a true priestess who has mastered the mind bondage spell",
@@ -4501,6 +4156,17 @@
       "hasArt": false,
       "tags": []
     },
+    "TNL077": {
+      "id": "TNL077",
+      "name": "Vampire",
+      "section": "heroes",
+      "set": "next-level",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
     "TNL078": {
       "id": "TNL078",
       "name": "Adynn, Cleric of Love|Adynn, Cleric of Love] The son of a philandering elf, Adynn inherited his father's charm and beauty",
@@ -4509,7 +4175,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL079": {
@@ -4556,6 +4222,17 @@
       "hasArt": false,
       "tags": []
     },
+    "TNL083": {
+      "id": "TNL083",
+      "name": "Barbarian",
+      "section": "heroes",
+      "set": "next-level",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
     "TNL084": {
       "id": "TNL084",
       "name": "Damok, Dragon Hunter|Damok, Dragon Hunter] Some regard him as a savage for his primitive weaponry, and his speech consists of cryptic phrases like \"Scythe, his face black, his eyes red",
@@ -4589,6 +4266,17 @@
       "hasArt": false,
       "tags": []
     },
+    "TNL087": {
+      "id": "TNL087",
+      "name": "A Kid and His Spellslime|A Kid and His Spellslime] When an ordinary kid discovered a wounded spellslime, he nursed it back to health with candy",
+      "section": "heroes",
+      "set": "next-level",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
     "TNL088": {
       "id": "TNL088",
       "name": "Wink the Probably Magical|Wink the Probably Magical] Wink's apparent lack of magical talent has not stopped him from going on adventures, or referring to his pet chameleon as his \"familiar",
@@ -4600,6 +4288,17 @@
       "hasArt": false,
       "tags": []
     },
+    "TNL089": {
+      "id": "TNL089",
+      "name": "Witch",
+      "section": "heroes",
+      "set": "next-level",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
     "TNL090": {
       "id": "TNL090",
       "name": "Iskandar, Ice Mage|Iskandar, Ice Mage] Once a small-town librarian, Iskandar became a hero when he defended his town against a dragon attack",
@@ -4608,7 +4307,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL091": {
@@ -4655,6 +4354,17 @@
       "hasArt": false,
       "tags": []
     },
+    "TNL095": {
+      "id": "TNL095",
+      "name": "Hitman",
+      "section": "heroes",
+      "set": "next-level",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
     "TNL096": {
       "id": "TNL096",
       "name": "Raymond Two-Chains|Raymond Two-Chains] Once he was an outlaw, notorious for wielding his chain-whips with deadly precision",
@@ -4674,7 +4384,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL098": {
@@ -4697,6 +4407,61 @@
       "textCorrupt": false,
       "status": "expansion-pending",
       "hasArt": false,
+      "tags": []
+    },
+    "TNL100": {
+      "id": "TNL100",
+      "name": "Necromancer",
+      "section": "heroes",
+      "set": "next-level",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
+    "TNL101": {
+      "id": "TNL101",
+      "name": "Heavenboy|Heavenboy]\nThis son of an angel and a mortal woman was born with clipped wings and half a halo",
+      "section": "heroes",
+      "set": "next-level",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "TNL102": {
+      "id": "TNL102",
+      "name": "Lone Fox and Kit|Lone Fox and Kit]\nFew know that this mysterious beauty was once a princess",
+      "section": "heroes",
+      "set": "next-level",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "TNL103": {
+      "id": "TNL103",
+      "name": "Ser Mortin the Deadly|Ser Mortin the Deadly]\nNo knight is more celebrated, but do not invite Ser Mortin to your wedding feast",
+      "section": "heroes",
+      "set": "next-level",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "TNL104": {
+      "id": "TNL104",
+      "name": "Swordmage",
+      "section": "heroes",
+      "set": "next-level",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
       "tags": []
     },
     "TNL105": {
@@ -4732,6 +4497,17 @@
       "hasArt": false,
       "tags": []
     },
+    "TNL108": {
+      "id": "TNL108",
+      "name": "Druid",
+      "section": "heroes",
+      "set": "next-level",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
     "TNL109": {
       "id": "TNL109",
       "name": "Markus, Geomancer Supreme|Markus, Geomancer Supreme]\nOnce, he lived alone in a flat, infinite world",
@@ -4765,6 +4541,17 @@
       "hasArt": false,
       "tags": []
     },
+    "TNL112": {
+      "id": "TNL112",
+      "name": "Archer",
+      "section": "heroes",
+      "set": "next-level",
+      "text": "",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": true,
+      "tags": []
+    },
     "TNL113": {
       "id": "TNL113",
       "name": "Roberta, Dreaded Outlaw|Roberta, Dreaded Outlaw]\nHer life became a nightmare when she was wedded to an evil prince and her true love was slain by a pirate",
@@ -4784,40 +4571,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL301": {
-      "id": "TNL301",
-      "name": "Dark Cleric",
-      "section": "heroes",
-      "set": "next-level",
-      "text": "",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL302": {
-      "id": "TNL302",
-      "name": "Hybrid Knight",
-      "section": "heroes",
-      "set": "next-level",
-      "text": "",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
-      "tags": []
-    },
-    "TNL303": {
-      "id": "TNL303",
-      "name": "Dark Mage",
-      "section": "heroes",
-      "set": "next-level",
-      "text": "",
-      "textCorrupt": false,
-      "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "THK001": {
@@ -5040,34 +4794,111 @@
       "hasArt": true,
       "tags": []
     },
-    "RMB005": {
-      "id": "RMB005",
-      "name": "King Croak",
+    "RMB055": {
+      "id": "RMB055",
+      "name": "Spike",
       "section": "minibosses",
       "set": "minibosses",
-      "text": "Level Up: For the rest of the game, Minibosses that you build start on Level 2.",
+      "text": "This Room has +1. Once per turn, discard a card to do 2 damage to a Hero in this Room. Choose a Miniboss. Return that card to its owner's hand. Reset to Level One.",
       "textCorrupt": false,
       "status": "expansion-pending",
       "hasArt": false,
       "tags": []
     },
-    "RMB201": {
-      "id": "RMB201",
-      "name": "Gruk the Greedy",
+    "RMB056": {
+      "id": "RMB056",
+      "name": "Kid Croak",
       "section": "minibosses",
       "set": "minibosses",
-      "text": "Attached Room has +1 damage. Attached Room has +2 damage. Destroy this Miniboss: deal 5 damage to a Hero in your dungeon.",
+      "text": "This Room gains +1 Fighter. Once per turn during the Build phase, you may switch the position of two Rooms in any dungeon. Give all Monster Rooms in one dungeon +1 or -1 until end of turn. Reset to Level One.",
       "textCorrupt": false,
       "status": "expansion-pending",
       "hasArt": false,
       "tags": []
     },
-    "RMB202": {
-      "id": "RMB202",
-      "name": "Zara the Zealous",
+    "RMB057": {
+      "id": "RMB057",
+      "name": "Draculad",
       "section": "minibosses",
       "set": "minibosses",
-      "text": "Attached Room's treasure counts as all four types. Draw a Room when promoted. All opponents discard a random Room.",
+      "text": "This Room gains +1 Cleric. Once per turn, you may return a Hero in your dungeon to town. Look at one opponent's hand. You may take one Spell or Room card from them. Reset to Level One.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "RMB058": {
+      "id": "RMB058",
+      "name": "Rocky",
+      "section": "minibosses",
+      "set": "minibosses",
+      "text": "You may build any Room on top of this one, regardless of treasure icon. When a Hero dies in this Room, you may treat another Room in your dungeon as just built. Give a Hero in any dungeon +5 until end of turn. Reset to Level One.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "RMB059": {
+      "id": "RMB059",
+      "name": "Cerebella",
+      "section": "minibosses",
+      "set": "minibosses",
+      "text": "This Room gains +1 Mage. When a Hero dies in this Room, you may draw a Spell card. Choose a dungeon. Heroes ignore all ability text in that dungeon until end of turn. Reset to Level One.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "RMB060": {
+      "id": "RMB060",
+      "name": "Paddywhack",
+      "section": "minibosses",
+      "set": "minibosses",
+      "text": "This Room gains +1 Thief. Once per turn when you gain one or more coins, gain one extra coin. Kill a Hero in this Room. Reset to Level One.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "RMB061": {
+      "id": "RMB061",
+      "name": "Icicle Man",
+      "section": "minibosses",
+      "set": "minibosses",
+      "text": "This Room has +1. Ignore the ability text of any Heroes or Epic Heroes in, or at the entrance to, your dungeon. Deactivate a Room in any dungeon until end of turn. Reset to Level One.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "RMB062": {
+      "id": "RMB062",
+      "name": "Mageseeker",
+      "section": "minibosses",
+      "set": "minibosses",
+      "text": "This Room has +1 for every treasure icon it has. Once per turn, you may discard a Spell card to cancel an opponent's Spell. Choose a dungeon. Until end of turn, Heroes entering that dungeon skip its first room. Reset to Level One.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "RMB063": {
+      "id": "RMB063",
+      "name": "Brassknuckle",
+      "section": "minibosses",
+      "set": "minibosses",
+      "text": "This Room has +1. Once per turn when a Hero dies in this Room, draw a Room card. You may immediately build that Room. Double this Room's damage until end of turn. Reset to Level One.",
+      "textCorrupt": false,
+      "status": "expansion-pending",
+      "hasArt": false,
+      "tags": []
+    },
+    "RMB064": {
+      "id": "RMB064",
+      "name": "Jinx",
+      "section": "minibosses",
+      "set": "minibosses",
+      "text": "Draw an extra Room at the beginning of the Build phase, then discard a Room. Double this Room's treasure value. (It has one extra copy of each printed treasure icon it has.) Choose a Hero in town. Place it at the entrance to your dungeon. Reset to Level One.",
       "textCorrupt": false,
       "status": "expansion-pending",
       "hasArt": false,
@@ -5075,9 +4906,9 @@
     }
   },
   "summary": {
-    "total": 455,
+    "total": 442,
     "corrupt": 0,
-    "missingArt": 282,
-    "expansionPending": 251
+    "missingArt": 152,
+    "expansionPending": 253
   }
 }

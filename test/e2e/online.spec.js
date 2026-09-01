@@ -3,6 +3,9 @@ import { test, expect } from '@playwright/test';
 async function enterMultiplayer(page) {
   await page.goto('/');
   await page.getByRole('button', { name: /tap to start/i }).click();
+  const skip = page.getByRole('button', { name: 'SKIP' });
+  await skip.waitFor({ state: 'visible', timeout: 2000 }).catch(() => {});
+  if (await skip.isVisible()) await skip.click();
   await page.getByRole('button', { name: /multiplayer/i }).click();
 }
 

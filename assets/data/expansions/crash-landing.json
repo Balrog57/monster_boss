@@ -44,7 +44,7 @@
       "treasures": [
         5
       ],
-      "quantity": 1,
+      "quantity": 2,
       "description": "When you build this Room, you may move one covered Room in your dungeon to the top of its stack. (This uncovers that Room.)",
       "set": "crash-landing"
     },
@@ -57,7 +57,7 @@
       "treasures": [
         5
       ],
-      "quantity": 1,
+      "quantity": 2,
       "description": "If you have at least one other Explorer treasure Room in your dungeon, give this Room +1. (Note that Bosses do not count as Rooms.)",
       "set": "crash-landing"
     },
@@ -83,7 +83,7 @@
       "treasures": [
         5
       ],
-      "quantity": 1,
+      "quantity": 2,
       "description": "You may discard this Room from your hand to deactivate an Advanced Room in any dungeon until end of turn.",
       "set": "crash-landing"
     },
@@ -96,7 +96,7 @@
       "treasures": [
         5
       ],
-      "quantity": 1,
+      "quantity": 2,
       "description": "Rooms adjacent to this Room have +1.",
       "set": "crash-landing"
     },
@@ -111,6 +111,19 @@
       ],
       "quantity": 2,
       "description": "Advanced Rooms in your dungeon have +1.",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL010",
+      "name": "Digicron Library",
+      "advanced": true,
+      "type": "trap",
+      "damage": 3,
+      "treasures": [
+        5
+      ],
+      "quantity": 1,
+      "description": "When you build this Room, if you have at least one other Advanced Room in your dungeon, (including this one), draw two Spell cards.",
       "set": "crash-landing"
     },
     {
@@ -149,7 +162,7 @@
         1,
         5
       ],
-      "quantity": 1,
+      "quantity": 2,
       "description": "When you uncover this Room, search the discard pile for an Advanced Room card and add it to your hand.",
       "set": "crash-landing"
     },
@@ -163,8 +176,22 @@
         2,
         5
       ],
-      "quantity": 1,
+      "quantity": 2,
       "description": "When you uncover this Room, until end of turn its damage is doubled.",
+      "set": "crash-landing"
+    },
+    {
+      "id": "CRL015",
+      "name": "Celestial Map",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        3,
+        5
+      ],
+      "quantity": 2,
+      "description": "When you uncover this Room, draw a Spell Card, then destroy this Room.",
       "set": "crash-landing"
     },
     {
@@ -177,57 +204,12 @@
         4,
         5
       ],
-      "quantity": 1,
+      "quantity": 2,
       "description": "When you uncover this Room, deal 3 damage to a Hero in your dungeon or at the entrance to your dungeon.",
       "set": "crash-landing"
-    },
-    {
-      "id": "CRL101",
-      "name": "Alien Reactor",
-      "advanced": false,
-      "type": "monster",
-      "damage": 4,
-      "treasures": [
-        5
-      ],
-      "quantity": 3,
-      "description": "Alien Artifact Room.",
-      "set": "crash-landing"
-    },
-    {
-      "id": "CRL102",
-      "name": "Crash Site",
-      "advanced": false,
-      "type": "trap",
-      "damage": 3,
-      "treasures": [
-        5
-      ],
-      "quantity": 2,
-      "description": "When uncovered, draw a Room card.",
-      "set": "crash-landing",
-      "onUncover": "draw-room"
     }
   ],
   "spells": [
-    {
-      "id": "CRL010",
-      "name": "Digicron Library",
-      "category": 1,
-      "quantity": 1,
-      "description": "When you build this Room, if you have at least one other Advanced Room in your dungeon, (including this one), draw two Spell cards.",
-      "set": "crash-landing",
-      "genericSpell": true
-    },
-    {
-      "id": "CRL015",
-      "name": "Celestial Map",
-      "category": 1,
-      "quantity": 1,
-      "description": "When you uncover this Room, draw a Spell Card, then destroy this Room.",
-      "set": "crash-landing",
-      "genericSpell": true
-    },
     {
       "id": "CRL029",
       "name": "Finish Him!",
@@ -264,16 +246,8 @@
       "id": "CRL033",
       "name": "Not Dead Yet",
       "category": 2,
-      "quantity": 1,
-      "description": "}\n\n==Implements of Destruction==\n\n[Implements Of Destruction] is a mini-expansion released in 2017 as a add-on to the Boss Monster with powerful new items, including items compatible with [Crash Landing].\n\nIt features a total of 29 cards. This consists of 5 Boss cards and 24 Item cards.\nClick here to show/hide the list of cards\n{| class=\"mw-collapsible mw-collapsed wikitable\" id=\"mw-customcollapsible-Implements\"\n!Card №\n!Name\n!Subtitle\n!XP/Dam/HP/Phase\n!Treasure\n!Type\n!Effect/Description\n!Minimum Players\n!Quantity",
-      "set": "crash-landing"
-    },
-    {
-      "id": "CRL201",
-      "name": "Abduction",
-      "category": 3,
-      "quantity": 2,
-      "description": "Move a Hero from town to your entrance.",
+      "quantity": 2017,
+      "description": "Do X damage to each Hero in your dungeon or at the entrance to your dungeon, where X equals the number of Wounds you have.",
       "set": "crash-landing"
     }
   ],
@@ -286,7 +260,7 @@
       "wounds": 1,
       "souls": 1,
       "epic": false,
-      "class": "?",
+      "class": "Cleric",
       "set": "crash-landing",
       "quantity": 1
     },
@@ -418,39 +392,9 @@
       "wounds": 2,
       "souls": 2,
       "epic": true,
-      "class": "?",
+      "class": "Cleric",
       "set": "crash-landing",
       "quantity": 1
-    },
-    {
-      "id": "CRL301",
-      "name": "Explorer",
-      "treasure": 5,
-      "treasures": [
-        5
-      ],
-      "hp": 5,
-      "wounds": 1,
-      "souls": 1,
-      "epic": false,
-      "class": "Explorer",
-      "set": "crash-landing",
-      "quantity": 6
-    },
-    {
-      "id": "CRL302",
-      "name": "Chief Explorer",
-      "treasure": 5,
-      "treasures": [
-        5
-      ],
-      "hp": 8,
-      "wounds": 2,
-      "souls": 2,
-      "epic": true,
-      "class": "Explorer",
-      "set": "crash-landing",
-      "quantity": 2
     }
   ]
 }

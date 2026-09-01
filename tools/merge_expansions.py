@@ -19,16 +19,21 @@ def load(path: str) -> dict:
         return json.load(f)
 
 
-def merge_list(existing: list, extra: list, key="id") -> list:
-    by_id = {c[key]: c for c in existing}
-    for c in extra:
-        by_id[c[key]] = c
-    return sorted(by_id.values(), key=lambda c: c[key])
+EXP_PREFIXES = ("TNL", "RMB", "CRL")
+
+
+def filter_base(cards: list, key="id") -> list:
+    return [c for c in cards if not any(c[key].startswith(p) for p in EXP_PREFIXES)]
 
 
 def main():
     with open(OUT, encoding="utf-8") as f:
         data = json.load(f)
+
+    # Clean previous expansion entries from all sections so moved cards do not linger
+    for section in ("bosses", "rooms", "spells", "heroes", "items", "minibosses"):
+        if section in data:
+            data[section] = filter_base(data[section])
 
     for name in ("next-level", "minibosses", "crash-landing"):
         path = os.path.join(EXP_DIR, f"{name}.json")
@@ -36,15 +41,13 @@ def main():
             print(f"skip missing {path}")
             continue
         pack = load(path)
-        data["bosses"] = merge_list(data.get("bosses", []), pack.get("bosses", []))
-        data["rooms"] = merge_list(data.get("rooms", []), pack.get("rooms", []))
-        data["spells"] = merge_list(data.get("spells", []), pack.get("spells", []))
-        data["heroes"] = merge_list(data.get("heroes", []), pack.get("heroes", []))
-        data["items"] = merge_list(data.get("items", []), pack.get("items", []))
-        if pack.get("minibosses"):
-            data["minibosses"] = merge_list(data.get("minibosses", []), pack.get("minibosses", []))
+        for section in ("bosses", "rooms", "spells", "heroes", "items", "minibosses"):
+            if pack.get(section):
+                existing = data.setdefault(section, [])
+                existing.extend(pack[section])
+                data[section] = sorted(existing, key=lambda c: c["id"])
         nm = data.setdefault("nameMap", {})
-        for section in ("bosses", "rooms", "spells", "heroes", "items"):
+        for section in ("bosses", "rooms", "spells", "heroes", "items", "minibosses"):
             for c in pack.get(section, []):
                 cid = c["id"]
                 slug = c["name"].lower().replace("'", "-")

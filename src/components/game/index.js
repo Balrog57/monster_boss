@@ -23,3 +23,5 @@ export { default as RulesOverlay } from './RulesOverlay.jsx';
 export { default as CardGallery } from './CardGallery.jsx';
 export { default as TutorialOverlay, TUTORIAL_STORAGE_KEY } from './TutorialOverlay.jsx';
 export { default as StatsSidebar } from './StatsSidebar.jsx';
+export { default as AdventurePauseBanner } from './AdventurePauseBanner.jsx';
+export { default as StackBanner } from './StackBanner.jsx';

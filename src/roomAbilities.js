@@ -22,6 +22,7 @@ import {
   processExpansionLevelUp,
   resolveExpansionLevelUpChoice,
   onExpansionBuildMonster,
+  onExpansionBuildRoom,
 } from './expansionBosses.js';
 
 // Returns null normally, or a pendingChoice object if a player choice is needed.
@@ -97,6 +98,101 @@ export function onBuildRoom(G, ctx, playerId, room) {
       }
       break;
     }
+    case 'CRL010': { // Digicron Library: if >= 1 other advanced room, draw 2 spells
+      const advCount = player.dungeon.filter(s => activeRoom(s)?.advanced).length;
+      if (advCount >= 2) {
+        const spells = drawCards(G.decks.spells, 2);
+        player.hand.push(...spells);
+        G.logs.push(`Digicron Library: drew ${spells.length} Spell(s).`);
+      }
+      break;
+    }
+    case 'TNL016': { // Arcane Crypt: choose a spell from discard
+      const opts = discardCardOptions(G, 'spell');
+      if (opts.length === 1) {
+        takeDiscardCard(G, player, opts[0]);
+        G.logs.push(`Arcane Crypt: recovered ${opts[0].card.name}.`);
+      } else if (opts.length > 1) {
+        return {
+          type: 'recover-card',
+          playerId: Number(playerId),
+          bossName: 'Arcane Crypt',
+          message: 'Arcane Crypt: choose a Spell from the discard',
+          options: opts,
+        };
+      }
+      break;
+    }
+    case 'TNL024': { // Barbarian Hall: discard a spell
+      const spells = player.hand.map((c, i) => ({ card: c, handIndex: i })).filter((o) => o.card.isSpell);
+      if (spells.length === 1) {
+        const discarded = player.hand.splice(spells[0].handIndex, 1)[0];
+        G.decks.spellDiscard.push(discarded);
+        G.logs.push(`Barbarian Hall: discarded ${discarded.name}.`);
+      } else if (spells.length > 1) {
+        return {
+          type: 'discard-spell',
+          playerId: Number(playerId),
+          bossName: 'Barbarian Hall',
+          message: 'Barbarian Hall: choose a Spell to discard',
+          options: spells,
+        };
+      }
+      break;
+    }
+    case 'TNL036': { // Sorcerobe School: draw a spell
+      const spells = drawCards(G.decks.spells, 1);
+      player.hand.push(...spells);
+      G.logs.push(`Sorcerobe School: drew ${spells[0]?.name || 'a Spell'}.`);
+      break;
+    }
+    case 'TNL052': { // Genie Lounge: if no spells in hand, draw a spell
+      const hasSpell = player.hand.some((c) => c.isSpell);
+      if (!hasSpell) {
+        const spells = drawCards(G.decks.spells, 1);
+        player.hand.push(...spells);
+        G.logs.push(`Genie Lounge: drew ${spells[0]?.name || 'a Spell'}.`);
+      }
+      break;
+    }
+    case 'RMB031': { // Mysterious Portal: may discard a miniboss to draw a spell
+      const mbIdx = player.hand.findIndex((c) => c.isMiniboss || c.levels);
+      if (mbIdx >= 0) {
+        const discarded = player.hand.splice(mbIdx, 1)[0];
+        G.decks.minibossDiscard = G.decks.minibossDiscard || [];
+        G.decks.minibossDiscard.push(discarded);
+        const spells = drawCards(G.decks.spells, 1);
+        player.hand.push(...spells);
+        G.logs.push(`Mysterious Portal: discarded ${discarded.name} to draw a Spell.`);
+      }
+      break;
+    }
+    case 'RMB036': { // Loot Box: pay 2 coins to draw 2 spells
+      if ((player.coins || 0) >= 2) {
+        player.coins -= 2;
+        const spells = drawCards(G.decks.spells, 2);
+        player.hand.push(...spells);
+        G.logs.push(`Loot Box: paid 2 Coins and drew ${spells.length} Spell(s).`);
+      }
+      break;
+    }
+    case 'RMB037': { // Crystal Ballroom: place up to 3 coins on it, draw 1 spell per coin
+      const spend = Math.min(player.coins || 0, 3);
+      if (spend > 0) {
+        player.coins -= spend;
+        const spells = drawCards(G.decks.spells, spend);
+        player.hand.push(...spells);
+        G.logs.push(`Crystal Ballroom: placed ${spend} Coin(s) and drew ${spells.length} Spell(s).`);
+      }
+      break;
+    }
+    case 'RMB050': { // Trophy Room: gain 1 coin for each face-down hero in score area
+      const fd = (player.souls || []).filter((s) => s.faceDown !== false).length;
+      if (fd > 0) {
+        gainCoin(G, playerId, fd, 'Trophy Room');
+      }
+      break;
+    }
     case 'BMA034': // Construction Zone: build an additional room this turn
       player.buildsThisTurn = Math.max(0, (player.buildsThisTurn || 0) - 1);
       G.logs.push('Construction Zone: an additional room may be built this turn.');
@@ -155,7 +251,7 @@ export function onBuildRoom(G, ctx, playerId, room) {
   }
 
   applyTaggedOnBuild(G, playerId, room);
-  onExpansionBuildMonster(G, playerId, room);
+  onExpansionBuildRoom(G, playerId, room);
   return null;
 }
 
@@ -203,27 +299,60 @@ export function onHeroDiedInRoom(G, ctx, playerId, room, hero) {
       if (soul) G.logs.push(`Vampire Bordello: healed ${soul.name || 'a Wound'} (${soul.souls} soul).`);
       break;
     }
-    case 'TNL103': {
-      const spell = G.decks.spells.pop();
-      if (spell) {
-        player.hand.push(spell);
-        G.logs.push(`Crypt of Souls: drew ${spell.name}.`);
+    case 'TNL015': { // Madman's Manor: choose one Spell from discard
+      const opts = discardCardOptions(G, 'spell');
+      if (opts.length === 1) {
+        takeDiscardCard(G, player, opts[0]);
+        G.logs.push(`Madman's Manor: recovered ${opts[0].card.name}.`);
+      } else if (opts.length > 1) {
+        enqueuePending(G, {
+          type: 'recover-card',
+          resume: false,
+          playerId: Number(playerId),
+          bossName: "Madman's Manor",
+          message: "Madman's Manor: choose a Spell from the discard pile",
+          options: opts,
+        });
       }
       break;
     }
-    case 'BMA012': { // Succubus Spa: choose an opponent → steal a random card
-      const opps = opponentsWith(G, playerId, (p) => (p.hand || []).length > 0);
-      if (!opps.length) {
-        G.logs.push('Succubus Spa: no opponent has a card.');
-        break;
+    case 'TNL021': { // Wraith's Throne: each opponent must discard a Spell
+      for (const [opid, op] of Object.entries(G.players)) {
+        if (Number(opid) !== Number(playerId) && !op.eliminated) {
+          const si = (op.hand || []).findIndex((c) => c.isSpell);
+          if (si >= 0) {
+            const discarded = op.hand.splice(si, 1)[0];
+            G.decks.spellDiscard.push(discarded);
+            G.logs.push(`Wraith's Throne: Player ${opid} discarded ${discarded.name}.`);
+          }
+        }
       }
-      if (opps.length === 1) {
-        stealRandomCardFrom(G, playerId, opps[0][0], 'Succubus Spa');
-        break;
+      break;
+    }
+    case 'TNL039': { // Brainsucker Queen: draw 2 spells, discard 1
+      const spells = drawCards(G.decks.spells, 2);
+      player.hand.push(...spells);
+      if (spells.length >= 2) {
+        enqueuePending(G, {
+          type: 'discard-spell',
+          resume: false,
+          playerId: Number(playerId),
+          bossName: 'Brainsucker Queen',
+          message: 'Brainsucker Queen: choose a Spell to discard',
+          options: spells.map((c) => ({ card: c })),
+        });
       }
-      enqueuePending(G, pickOpponentChoice(
-        G, playerId, 'Succubus Spa', 'Choose an opponent to steal a random card from', 'steal-random', opps, { resume: false }
-      ));
+      break;
+    }
+    case 'RMB034': { // Mind Thresher: remove hero from game
+      if (G.adventure?.hero) {
+        G.adventure.hero._removedFromGame = true;
+        G.logs.push(`Mind Thresher: ${G.adventure.hero.name} removed from the game.`);
+      }
+      break;
+    }
+    case 'RMB051': { // Lightning Rod: gain 1 coin
+      gainCoin(G, playerId, 1, 'Lightning Rod');
       break;
     }
     default:
@@ -1525,6 +1654,109 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
         options: items,
         roomIndex,
       };
+      return null;
+    }
+    case 'TNL013': { // Dark Portal: discard a Spell to recover a Room from discard
+      const spells = player.hand.map((c, i) => ({ card: c, handIndex: i })).filter((o) => o.card.isSpell);
+      if (!spells.length) return 'no spell to discard';
+      const discarded = player.hand.splice(spells[0].handIndex, 1)[0];
+      G.decks.spellDiscard.push(discarded);
+      const opts = discardCardOptions(G, 'room');
+      if (opts.length > 0) {
+        takeDiscardCard(G, player, opts[0]);
+        G.logs.push(`Dark Portal: discarded ${discarded.name}, recovered ${opts[0].card.name}.`);
+      }
+      room.usedThisTurn = true;
+      return null;
+    }
+    case 'TNL032': { // Lost Library: destroy this room -> draw 2 spells, discard 1
+      destroyRoom(G, playerId, roomIndex);
+      const spells = drawCards(G.decks.spells, 2);
+      player.hand.push(...spells);
+      if (spells.length >= 2) {
+        G.pendingChoice = {
+          type: 'discard-spell',
+          resume: false,
+          playerId: Number(playerId),
+          bossName: 'Lost Library',
+          message: 'Lost Library: choose a Spell to discard',
+          options: spells.map((c) => ({ card: c })),
+        };
+      }
+      return null;
+    }
+    case 'TNL035': { // Observatory: discard a Spell to draw a Spell
+      const spells = player.hand.map((c, i) => ({ card: c, handIndex: i })).filter((o) => o.card.isSpell);
+      if (!spells.length) return 'no spell to discard';
+      const discarded = player.hand.splice(spells[0].handIndex, 1)[0];
+      G.decks.spellDiscard.push(discarded);
+      const drawn = drawCards(G.decks.spells, 1);
+      player.hand.push(...drawn);
+      G.logs.push(`Observatory: discarded ${discarded.name}, drew ${drawn[0]?.name || 'a Spell'}.`);
+      room.usedThisTurn = true;
+      return null;
+    }
+    case 'TNL055': { // Save Point: destroy this room -> recover a spell from discard
+      destroyRoom(G, playerId, roomIndex);
+      const opts = discardCardOptions(G, 'spell');
+      if (opts.length > 0) {
+        takeDiscardCard(G, player, opts[0]);
+        G.logs.push(`Save Point: recovered ${opts[0].card.name}.`);
+      }
+      return null;
+    }
+    case 'RMB013': { // Spectral Bomb: destroy this room -> force opponent to discard a random spell
+      destroyRoom(G, playerId, roomIndex);
+      const opps = opponentsWith(G, playerId, (p) => (p.hand || []).some((c) => c.isSpell));
+      if (opps.length > 0) {
+        discardRandomSpellFrom(G, opps[0][0], 'Spectral Bomb');
+      }
+      return null;
+    }
+    case 'RMB042': { // Unstable Mine: destroy this room -> gain 3 coins
+      destroyRoom(G, playerId, roomIndex);
+      gainCoin(G, playerId, 3, 'Unstable Mine');
+      return null;
+    }
+    case 'RMB045': { // Endless Gallery: destroy this room -> universal treasure until EOT
+      destroyRoom(G, playerId, roomIndex);
+      if (!G.effects.treasureDoubled) G.effects.treasureDoubled = [];
+      G.effects.treasureDoubled.push(playerId);
+      G.logs.push('Endless Gallery: universal treasure granted until end of turn.');
+      return null;
+    }
+    case 'RMB047': { // Living Trap: destroy another monster room -> kill hero in this room
+      if (otherRoomIndex == null || otherRoomIndex === roomIndex) return 'must target another room';
+      const other = activeRoom(player.dungeon[otherRoomIndex]);
+      if (!other || other.type !== 'monster') return 'must target another monster room';
+      destroyRoom(G, playerId, otherRoomIndex);
+      if (heroIsInRoom(G, playerId, roomIndex)) {
+        G.adventure.hp = 0;
+        G._deathRoom = room;
+        G.logs.push(`Living Trap: killed ${G.adventure.hero.name}.`);
+      }
+      room.usedThisTurn = true;
+      return null;
+    }
+    case 'RMB052': { // Pixie Fountain: destroy this room -> gain 1 coin per wound
+      destroyRoom(G, playerId, roomIndex);
+      const wounds = (player.wounds || []).length;
+      gainCoin(G, playerId, Math.max(1, wounds), 'Pixie Fountain');
+      return null;
+    }
+    case 'RMB053': { // The Keystone: destroy this room -> gain 1 coin per room in dungeon
+      const roomCount = countVisibleRooms(player.dungeon);
+      destroyRoom(G, playerId, roomIndex);
+      gainCoin(G, playerId, roomCount, 'The Keystone');
+      return null;
+    }
+    case 'RMB054': { // Pool of Shadows: discard a Spell to gain 2 coins
+      const spells = player.hand.map((c, i) => ({ card: c, handIndex: i })).filter((o) => o.card.isSpell);
+      if (!spells.length) return 'no spell to discard';
+      const discarded = player.hand.splice(spells[0].handIndex, 1)[0];
+      G.decks.spellDiscard.push(discarded);
+      gainCoin(G, playerId, 2, 'Pool of Shadows');
+      room.usedThisTurn = true;
       return null;
     }
     default:

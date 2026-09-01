@@ -21,7 +21,7 @@ Solo : menu → **SOLO** → 2 joueurs → partie complète (boss, setup, discar
 ## Tests & assets
 
 ```bash
-npm run test:unit    # moteur, reducer, IA, extensions, matrice (48 tests)
+npm run test:unit    # moteur, reducer, IA, extensions, matrice (50 tests)
 npm run card-matrix  # génère docs/card-matrix.json (validation texte)
 npm run fetch:expansion-art   # art TNL/RMB/CRL depuis le wiki
 npm run verify:assets

@@ -1177,6 +1177,17 @@ const ACTIVATED_ABILITY_ROOMS = new Set([
   'THK021', // Orcish Smithy
   'THK022', // Burial Mound
   'THK023', // Artificer's Workbench
+  'TNL013', // Dark Portal
+  'TNL032', // Lost Library
+  'TNL035', // Observatory
+  'TNL055', // Save Point
+  'RMB013', // Spectral Bomb
+  'RMB042', // Unstable Mine
+  'RMB045', // Endless Gallery
+  'RMB047', // Living Trap
+  'RMB052', // Pixie Fountain
+  'RMB053', // The Keystone
+  'RMB054', // Pool of Shadows
 ]);
 
 function hasActivatedAbility(roomId) {
@@ -1184,7 +1195,7 @@ function hasActivatedAbility(roomId) {
 }
 
 // Rooms whose activated ability destroys ANOTHER room (needs a second target).
-const NEEDS_OTHER_TARGET_ROOMS = new Set(['BMA028', 'BMA032']);
+const NEEDS_OTHER_TARGET_ROOMS = new Set(['BMA028', 'BMA032', 'RMB047']);
 
 // Push legal activateRoom moves for a player's dungeon. Rooms that destroy
 // another room (Boulder Ramp, The Crushinator) require a valid other target;
@@ -1220,6 +1231,12 @@ function canOfferActivatedRoom(G, p, room, roomIndex) {
   if (room.id === 'BMA025') return p.hand.some((c) => c.isSpell) && (G.stack?.length || 0) > 0;
   if (room.id === 'BMA027' || room.id === 'BMA028') {
     return heroIsInRoom(G, pid, roomIndex);
+  }
+  if (room.id === 'TNL013' || room.id === 'TNL035' || room.id === 'RMB054') {
+    return p.hand.some((c) => c.isSpell);
+  }
+  if (room.id === 'RMB047') {
+    return heroIsInRoom(G, pid, roomIndex) && p.dungeon.some((s, idx) => idx !== roomIndex && activeRoom(s)?.type === 'monster');
   }
   return true;
 }
@@ -1299,8 +1316,11 @@ export function legalMoves(G, ctx, playerID) {
 
   if (G.stack?.length) {
     p.hand.forEach((c, i) => {
-      if (c.isSpell && c.id === 'BMA043') moves.push({ type: 'playSpell', args: [i, null] });
+      if (c.isSpell && (c.id === 'BMA043' || c.id === 'RMB077')) {
+        moves.push({ type: 'playSpell', args: [i, null] });
+      }
     });
+    pushActivateMoves(G, p, moves);
     moves.push({ type: 'pass', args: [] });
     return moves;
   }

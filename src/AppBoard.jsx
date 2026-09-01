@@ -9,13 +9,14 @@ import {
   BossSelect, Hud, OpponentRow, MyDungeon, TownPanel, Hand, DetailPanel, Card,
   SpellTargetOverlay, spellNeedsTarget, LevelUpChoiceOverlay, OpeningDiscardOverlay, PhaseBanner, OptionsOverlay,
   GameStage, StatsSidebar, CardPreview, RulesOverlay, LogStrip, CardGallery, DarkHeroPayOverlay,
+  AdventurePauseBanner, StackBanner,
 } from './components/game';
 import { listDarkHeroPayTargets, canPayDarkHero } from './darkHeroes.js';
 import GameOverScreen from './screens/GameOverScreen.jsx';
 import s from './AppBoard.module.css';
 
 // Rooms that require choosing ANOTHER room to destroy
-const NEEDS_OTHER_TARGET = new Set(['BMA028', 'BMA032']);
+const NEEDS_OTHER_TARGET = new Set(['BMA028', 'BMA032', 'RMB047']);
 
 export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatch, onExitToMenu, turnDeadline, notification }) {
   const [inspect, setInspect] = useState(null);        // { card, kind }
@@ -82,6 +83,9 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
   const phase = ctx.phase || G.phase;
   const activePid = G.activePlayer != null ? String(G.activePlayer) : (ctx.currentPlayer != null ? String(ctx.currentPlayer) : '0');
   const isMyTurn = activePid === pidKey;
+  const isPauseActive = !!(G.adventure?.pause && !G.adventurePausePassed?.[pidKey]);
+  const isStackActive = !!(G.stack?.length && Number(G.stackActivePlayer ?? G.activePlayer) === Number(playerID));
+  const canAct = isMyTurn || isPauseActive || isStackActive;
   const opponentEntries = Object.entries(G.players).filter(([id]) => id !== pidKey);
   const opponents = opponentEntries.map(([, p]) => p);
   const oppIds = opponentEntries.map(([id]) => id);
@@ -305,6 +309,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         me={me}
         phase={phase}
         isMyTurn={isMyTurn}
+        canAct={canAct}
         selectedCard={selectedCard}
         stackLength={G.stack?.length || 0}
         onSelect={setSelectedCard}
@@ -341,6 +346,18 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
       </div>
 
       <PhaseBanner phase={phase} />
+      <AdventurePauseBanner
+        adventure={G.adventure}
+        adventurePausePassed={G.adventurePausePassed}
+        playerId={pidKey}
+        onPass={() => moves.pass()}
+      />
+      <StackBanner
+        stack={G.stack}
+        activePlayer={G.stackActivePlayer ?? G.activePlayer}
+        playerId={pidKey}
+        onPass={() => moves.pass()}
+      />
 
       <OptionsOverlay
         open={optionsOpen}

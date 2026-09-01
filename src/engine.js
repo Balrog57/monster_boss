@@ -5,7 +5,7 @@
 
 import { PHASE, TREASURE_NAMES, playerOrderByXP, totalSouls, totalWounds, drawCards, refillDeckFromDiscard } from './cardData.js';
 import { onRoomDestroyed } from './minibosses.js';
-import { imperiatrixDamageBonus, killaDamageBonus } from './expansionBosses.js';
+import { imperiatrixDamageBonus, killaDamageBonus, scottDamageBonus } from './expansionBosses.js';
 
 function zaraCountsAllTreasures(stack) {
   const mb = stack?.miniboss;
@@ -433,6 +433,7 @@ export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
 
   dmg += imperiatrixDamageBonus(G, playerId, room);
   dmg += killaDamageBonus(G, playerId, roomIndex);
+  dmg += scottDamageBonus(G, playerId, room);
 
   const stack = p.dungeon[roomIndex];
   const mb = stack?.miniboss;

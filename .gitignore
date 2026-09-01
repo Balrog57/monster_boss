@@ -1,4 +1,4 @@
-﻿node_modules
+node_modules
 
 boss-monster-2-4-12.apk
 boss-monster-2-4-12/
@@ -16,6 +16,7 @@ dist/
 
 # Test artifacts
 test-results/
+test/*.png
 
 # Opencode session state
 .opencode/
