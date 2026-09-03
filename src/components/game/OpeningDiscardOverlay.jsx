@@ -17,7 +17,7 @@ export default function OpeningDiscardOverlay({ hand, onConfirm, onHover }) {
   const kindOf = (c) => (c?.isSpell ? 'spell' : 'room');
 
   return (
-    <div className={s.overlay}>
+    <div className={s.overlay} role="dialog" aria-label="Select 2 cards to discard">
       <div className={s.prompt}>SELECT 2 CARDS TO DISCARD</div>
       <div className={s.row}>
         {(hand || []).map((card, i) => (
@@ -26,6 +26,8 @@ export default function OpeningDiscardOverlay({ hand, onConfirm, onHover }) {
             type="button"
             className={`${s.slot} ${picked.includes(i) ? s.on : ''}`}
             onClick={() => toggle(i)}
+            aria-label={`Select ${card.name} to discard`}
+            aria-pressed={picked.includes(i)}
           >
             <Card
               card={card}

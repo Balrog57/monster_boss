@@ -169,15 +169,11 @@ export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, setupData = {}
     driveAI(nextState);
   }, []);
 
-  // moves: apply locally via the reducer. playerID is always '0' for the human.
+  // moves: apply locally via the reducer.
   const moves = useRef({}).current;
   for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'buildMiniboss', 'promoteMiniboss', 'activateMiniboss', 'payDarkHero', 'playSpell', 'resolveNextHero', 'pass', 'activateRoom', 'resolveLevelUpChoice', 'openingDiscard']) {
     moves[type] = (...args) => {
-      const pause = state.G.adventure?.pause;
-      const actor = pause && ['pass', 'playSpell', 'activateRoom', 'activateMiniboss'].includes(type)
-        ? Number(viewingPlayer)
-        : Number(state.ctx.activePlayer);
-      if (String(viewingPlayer) !== String(actor) && !pause) return;
+      const actor = Number(viewingPlayer);
       const { state: next, error } = applyMove({ G: state.G, ctx: state.ctx }, { type, args }, actor);
       if (error) { console.warn(`[move] ${type} rejected:`, error); return; }
       applyAndDriveAI(next);

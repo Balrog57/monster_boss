@@ -41,32 +41,25 @@ export default function Hand({
           const canSpell = canPickSpell && c.isSpell && canPlaySpell(c, phase, stackLength);
           const live = canBuild || canSpell;
           return (
-            <button
-              key={`hand-${c.id}-${i}`}
-              className={s.cardBtn}
-              disabled={!live}
-              onClick={() => {
-                if (canBuild) {
-                  onSelect(selectedCard === i ? null : i);
-                } else if (canSpell) {
-                  onSelect(null);
-                  onSpell(i);
-                }
-              }}
-              title={c.name}
-              aria-label={c.name}
-              type="button"
-            >
+            <div key={`hand-${c.id}-${i}`} className={s.cardBtn}>
               <Card
                 card={c}
                 kind={c.isRoom ? 'room' : 'spell'}
                 size="md"
                 selected={selectedCard === i}
+                onClick={live ? () => {
+                  if (canBuild) {
+                    onSelect(selectedCard === i ? null : i);
+                  } else if (canSpell) {
+                    onSelect(null);
+                    onSpell(i);
+                  }
+                } : undefined}
                 onInspect={onInspect}
                 onHover={onHover}
                 dim={!live}
               />
-            </button>
+            </div>
           );
         })}
       </div>
