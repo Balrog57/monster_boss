@@ -52,19 +52,26 @@ test.describe('Complete Playthrough and UI Verification', () => {
     await expect(gallery).toBeVisible();
     await expect(page.getByRole('tab', { name: 'BOSSES' })).toBeVisible();
     await page.getByRole('tab', { name: 'ROOMS' }).click();
+    // Close Card Gallery
     await page.getByRole('button', { name: 'Close' }).click();
     await expect(gallery).toBeHidden();
 
-    // Open Rules
+    // Back to Home Menu
+    await page.locator('button[aria-label="Back"]').click();
+    await expect(page.getByText('SINGLE PLAYER')).toBeVisible();
+
+    // Open Rules from Home Menu
     await page.getByRole('button', { name: 'RULES' }).click();
     const rules = page.getByRole('dialog', { name: 'Rules' });
     await expect(rules).toBeVisible();
+    await expect(rules.getByRole('heading', { name: 'Base Set' })).toBeVisible();
+    await shot('play_rules_base.png');
+    // Test tab navigation
+    await page.getByRole('tab', { name: 'Advanced FAQ' }).click();
+    await expect(rules.getByRole('heading', { name: 'Advanced FAQ' })).toBeVisible();
+    await shot('play_rules_faq.png');
     await page.getByRole('button', { name: 'Close' }).click();
     await expect(rules).toBeHidden();
-
-    // Back to Menu
-    await page.locator('button[aria-label="Back"]').click();
-    await expect(page.getByText('SINGLE PLAYER')).toBeVisible();
 
     // 4. Enter Solo Setup
     await page.getByText('SINGLE PLAYER').click();

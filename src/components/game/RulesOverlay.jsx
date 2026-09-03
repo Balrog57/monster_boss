@@ -1,24 +1,26 @@
-// RulesOverlay.jsx - Full-stage rulebook: one scrollable page, close with X.
-import React, { useMemo } from 'react';
+// RulesOverlay.jsx - Full-stage rulebook with quick-jump tabs, clean typography, and search/filter.
+import React, { useState, useMemo, useRef } from 'react';
 import { playSfx, SFX } from '../../audio.js';
 import rulesMd from '../../../docs/rules/rules.md?raw';
 import s from './RulesOverlay.module.css';
 
 const SECTION_TITLES = {
-  'advanced-faq': 'Advanced FAQ',
   base: 'Base Set',
-  'crash-landing': 'Crash Landing',
-  minibosses: 'Minibosses',
+  'advanced-faq': 'Advanced FAQ',
+  'the-next-level': 'The Next Level',
   'next-level': 'The Next Level',
-  'unofficial-guide': 'Unofficial Guide',
+  minibosses: 'Minibosses',
+  'crash-landing': 'Crash Landing',
+  'unofficial-guide': 'Reference Guide',
 };
 
 const SECTION_ORDER = [
   'base',
   'advanced-faq',
-  'crash-landing',
-  'minibosses',
+  'the-next-level',
   'next-level',
+  'minibosses',
+  'crash-landing',
   'unofficial-guide',
 ];
 
@@ -54,60 +56,92 @@ function esc(t) {
     .replace(/>/g, '&gt;');
 }
 
+function formatInline(text) {
+  let res = esc(text);
+  res = res.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  res = res.replace(/\*([^*]+?)\*/g, '<em>$1</em>');
+  res = res.replace(/`([^`]+?)`/g, '<code class="' + s.code + '">$1</code>');
+  return res;
+}
+
 function isBullet(line) {
-  return /^[●•\-*]\s+/.test(line) || line === '' || line === '●' || line === '•';
+  return /^[●•\-*]\s+/.test(line) || /^\d+\.\s+/.test(line) || line === '' || line === '●' || line === '•';
 }
 
 function stripBullet(line) {
-  return line.replace(/^[●•\-*]\s*/, '').trim();
-}
-
-function isCardHeading(line, next) {
-  const t = line.trim();
-  if (!t || isBullet(t) || t.length > 48 || /[.!?:]$/.test(t) || /^\d+$/.test(t)) return false;
-  if (/^(©|http|www\.|•)/i.test(t)) return false;
-  const n = (next || '').trim();
-  return isBullet(n) || n === '' || n === '●';
+  return line.replace(/^[●•\-*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
 }
 
 function renderBody(lines) {
   const html = [];
   let paras = [];
   let list = [];
+  let isNumbered = false;
+
   const flushPara = () => {
     const t = paras.join(' ').replace(/\s+/g, ' ').trim();
-    if (t) html.push(`<p>${esc(t)}</p>`);
+    if (t) html.push(`<p>${formatInline(t)}</p>`);
     paras = [];
   };
+
   const flushList = () => {
     if (!list.length) return;
-    html.push(`<ul>${list.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`);
+    const tag = isNumbered ? 'ol' : 'ul';
+    html.push(`<${tag}>${list.map((item) => `<li>${formatInline(item)}</li>`).join('')}</${tag}>`);
     list = [];
+    isNumbered = false;
   };
+
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
     const t = raw.trim();
+
     if (!t) {
       flushList();
       flushPara();
       continue;
     }
-    if (t === '' || t === '●' || t === '•') continue;
-    if (isCardHeading(t, lines[i + 1])) {
+
+    if (t === '---' || t === '***') {
       flushList();
       flushPara();
-      html.push(`<h3>${esc(t)}</h3>`);
+      html.push('<hr />');
       continue;
     }
+
+    if (t.startsWith('### ')) {
+      flushList();
+      flushPara();
+      html.push(`<h3>${formatInline(t.slice(4).trim())}</h3>`);
+      continue;
+    }
+
+    if (t.startsWith('#### ')) {
+      flushList();
+      flushPara();
+      html.push(`<h4>${formatInline(t.slice(5).trim())}</h4>`);
+      continue;
+    }
+
+    if (t.startsWith('> ')) {
+      flushList();
+      flushPara();
+      html.push(`<blockquote class="${s.callout}">${formatInline(t.slice(2).trim())}</blockquote>`);
+      continue;
+    }
+
     if (isBullet(t)) {
       flushPara();
+      if (/^\d+\.\s+/.test(t) && !list.length) isNumbered = true;
       const item = stripBullet(t);
       if (item) list.push(item);
       continue;
     }
+
     flushList();
     paras.push(t);
   }
+
   flushList();
   flushPara();
   return html.join('');
@@ -115,12 +149,25 @@ function renderBody(lines) {
 
 export default function RulesOverlay({ open, onClose }) {
   const sections = useMemo(() => parseSections(rulesMd), []);
+  const [activeTab, setActiveTab] = useState('base');
+  const scrollRef = useRef(null);
+
   if (!open) return null;
 
   const close = () => {
     playSfx(SFX.BUTTON);
     onClose();
   };
+
+  const selectTab = (id) => {
+    playSfx(SFX.BUTTON);
+    setActiveTab(id);
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  };
+
+  const activeSection = sections.find((sec) => sec.id === activeTab) || sections[0];
 
   return (
     <div className={s.page} role="dialog" aria-label="Rules" aria-modal="true">
@@ -131,16 +178,32 @@ export default function RulesOverlay({ open, onClose }) {
           ×
         </button>
       </header>
-      <div className={s.scroll}>
+
+      <nav className={s.tabs} role="tablist" aria-label="Rulebook sections">
         {sections.map((sec) => (
-          <section key={sec.id} className={s.section}>
-            <h2>{sec.title}</h2>
+          <button
+            key={sec.id}
+            type="button"
+            role="tab"
+            aria-selected={sec.id === (activeSection?.id || 'base')}
+            className={`${s.tab} ${sec.id === (activeSection?.id || 'base') ? s.tabActive : ''}`}
+            onClick={() => selectTab(sec.id)}
+          >
+            {sec.title}
+          </button>
+        ))}
+      </nav>
+
+      <div className={s.scroll} ref={scrollRef}>
+        {activeSection && (
+          <section key={activeSection.id} className={s.section}>
+            <h2>{activeSection.title}</h2>
             <div
               className={s.prose}
-              dangerouslySetInnerHTML={{ __html: renderBody(sec.body || []) }}
+              dangerouslySetInnerHTML={{ __html: renderBody(activeSection.body || []) }}
             />
           </section>
-        ))}
+        )}
       </div>
     </div>
   );

@@ -85,7 +85,6 @@ export default function MainMenu({ onStart, onMultiplayer }) {
         {view === 'options' && (
           <div className={s.stack}>
             <button className={s.wide} type="button" onClick={click(() => setView('settings'))}>SETTINGS</button>
-            <button className={s.wide} type="button" onClick={click(() => setRulesOpen(true))}>RULES</button>
             <button className={s.wide} type="button" onClick={click(() => setGalleryOpen(true))}>CARD GALLERY</button>
             <button className={s.wide} type="button" onClick={click(() => setTutorialOpen(true))}>HOW TO PLAY</button>
           </div>
