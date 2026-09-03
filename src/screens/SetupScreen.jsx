@@ -17,7 +17,6 @@ const FANS = [
 export default function SetupScreen({ onStartLocal, onBack }) {
   const [step, setStep] = useState('players'); // players | expansions
   const [n, setN] = useState(2);
-  const [humans, setHumans] = useState(1);
   const [packs, setPacks] = useState([]);
 
   const togglePack = (id) => {
@@ -36,7 +35,7 @@ export default function SetupScreen({ onStartLocal, onBack }) {
     if (n >= 5 && !selected.includes('crash-landing')) {
       selected = [...selected, 'crash-landing'];
     }
-    onStartLocal(n, selected, humans);
+    onStartLocal(n, selected, 1);
   };
 
   const onBackClick = () => {
@@ -74,20 +73,9 @@ export default function SetupScreen({ onStartLocal, onBack }) {
               })}
             </div>
             <div className={s.hint}>
-              {n === 2 && humans === 1 ? 'You vs 1 AI' : `${humans} human(s), ${Math.max(0, n - humans)} AI`}
-              {n >= 5 ? ' — Crash Landing enabled' : ''}
+              {n === 2 ? 'YOU VS 1 AI' : `YOU VS ${n - 1} AI`}
+              {n >= 5 ? ' — CRASH LANDING ENABLED' : ''}
             </div>
-            <label className={s.label} htmlFor="setup-humans">HUMAN PLAYERS</label>
-            <select
-              id="setup-humans"
-              className={s.input}
-              value={humans}
-              onChange={(e) => setHumans(Number(e.target.value))}
-            >
-              {Array.from({ length: n }, (_, i) => i + 1).map((v) => (
-                <option key={v} value={v}>{v}</option>
-              ))}
-            </select>
             <button className={s.ok} onClick={onOkPlayers} type="button" aria-label="OK" />
           </>
         )}
