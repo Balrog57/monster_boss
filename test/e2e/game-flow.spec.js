@@ -25,7 +25,6 @@ test.describe('Boss Monster game flow', () => {
     await tapToStart(page);
     await page.getByText(/single player|solo/i).first().click();
     await page.locator('.ok, button[aria-label="OK"]').first().click();
-    await page.locator('button[aria-label="OK"]').click();
     await expect(page.getByText(/PLAY BOSS|HOW MANY|boss/i).first()).toBeVisible({ timeout: 15000 });
   });
 });

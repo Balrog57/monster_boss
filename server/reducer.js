@@ -264,9 +264,10 @@ function applyOpeningDiscard(G, pid, a, b) {
 }
 
 function queueNextOpeningDiscard(G) {
+  const targetHand = G.expansionSets?.includes('next-level') ? 8 : 5;
   const next = Object.keys(G.players).map(Number).find((id) => {
     const p = G.players[id];
-    return p && !p.eliminated && !p.isAI && p.hand.length > 5;
+    return p && !p.eliminated && !p.isAI && p.hand.length > targetHand;
   });
   G.pendingChoice = next == null ? null : {
     type: 'opening-discard',

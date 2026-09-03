@@ -18,7 +18,6 @@ test('solo flow reaches boss selection overlay', async ({ page }) => {
   await tapToStart(page);
   await page.getByText('SINGLE PLAYER').click();
   await page.getByRole('button', { name: 'OK' }).click();
-  await page.getByRole('button', { name: 'OK' }).click();
   await expect(page.getByRole('dialog', { name: 'Choose your boss' })).toBeVisible({ timeout: 15000 });
 });
 
@@ -47,7 +46,6 @@ test('options opens card gallery', async ({ page }) => {
 test('solo game shows the log after discard', async ({ page }) => {
   await tapToStart(page);
   await page.getByText('SINGLE PLAYER').click();
-  await page.getByRole('button', { name: 'OK' }).click();
   await page.getByRole('button', { name: 'OK' }).click();
   await expect(page.getByRole('dialog', { name: 'Choose your boss' })).toBeVisible({ timeout: 15000 });
   await page.getByRole('button', { name: /Play / }).click();

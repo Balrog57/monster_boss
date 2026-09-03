@@ -1,6 +1,5 @@
 // OnlineLobbyCustom.jsx - Private 1v1 salon: create or join by 6-character code.
 import React, { useState, useEffect } from 'react';
-import { EXPANSION_PACKS } from '../cardData.js';
 import GameStage from '../components/game/GameStage.jsx';
 import { playSfx, SFX } from '../audio.js';
 import s from './OnlineLobbyCustom.module.css';
@@ -24,7 +23,6 @@ export default function OnlineLobbyCustom({ onJoined, onBack }) {
   const [name, setName] = useState(() => localStorage.getItem('bm_player_name') || '');
   const [code, setCode] = useState('');
   const [numPlayers, setNumPlayers] = useState(2);
-  const [expansionPacks, setExpansionPacks] = useState([]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(null); // { matchID, playerID, credentials, numPlayers }
@@ -63,7 +61,7 @@ export default function OnlineLobbyCustom({ onJoined, onBack }) {
     try {
       const { matchID } = await api('/matches', {
         method: 'POST',
-        body: { numPlayers, setupData: { online: true, expansions: expansionPacks } },
+        body: { numPlayers, setupData: { online: true, expansions: null } },
       });
       const { playerID, credentials } = await api(`/matches/${matchID}/join`, {
         method: 'POST', body: { playerName: name.trim() },
@@ -135,23 +133,6 @@ export default function OnlineLobbyCustom({ onJoined, onBack }) {
                 <option key={n} value={n}>{n} players</option>
               ))}
             </select>
-
-            <div className={s.expLabel}>EXPANSIONS</div>
-            <div className={s.expPacks}>
-              {EXPANSION_PACKS.map((pack) => (
-                <label key={pack.id} className={s.expItem}>
-                  <input
-                    type="checkbox"
-                    checked={expansionPacks.includes(pack.id)}
-                    onChange={() => setExpansionPacks((cur) => (
-                      cur.includes(pack.id) ? cur.filter((x) => x !== pack.id) : [...cur, pack.id]
-                    ))}
-                    disabled={busy}
-                  />
-                  {pack.label}
-                </label>
-              ))}
-            </div>
 
             <button className={s.wide} type="button" disabled={!name.trim() || busy} onClick={create}>
               CREATE ROOM

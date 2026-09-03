@@ -80,10 +80,6 @@ test.describe('Complete Playthrough and UI Verification', () => {
 
     // Confirm 2 players (OK)
     await page.locator('button[aria-label="OK"]').click();
-    await expect(page.getByText('SELECT EXPANSIONS')).toBeVisible();
-
-    // Confirm Expansions (OK)
-    await page.locator('button[aria-label="OK"]').click();
 
     // 5. In-Board Boss Selection
     const bossSelect = page.getByRole('dialog', { name: 'Choose your boss' });

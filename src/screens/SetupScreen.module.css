@@ -110,33 +110,3 @@
   image-rendering: pixelated;
 }
 .ok:active { background-image: url('/ui/buttons/ok_bt_pressed.webp'); }
-
-.packs {
-  position: absolute;
-  top: 390px;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  gap: 48px;
-}
-.pack {
-  width: 296px;
-  height: 471px;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  background: url('/ui/expansions/bg_expansion.webp') center/contain no-repeat;
-  image-rendering: pixelated;
-}
-.packOn {
-  background-image: url('/ui/expansions/bg_expansion_selected.webp');
-}
-.pack img {
-  width: 265px;
-  height: 369px;
-  margin-top: 42px;
-  pointer-events: none;
-  image-rendering: pixelated;
-}

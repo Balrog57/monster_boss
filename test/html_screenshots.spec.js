@@ -66,12 +66,6 @@ test('capture HTML screens at 1920x1080', async ({ page }) => {
   await shot('html_12_setup.png');
 
   await page.locator('button[aria-label="OK"]').click();
-  await page.getByText('SELECT EXPANSIONS').waitFor({ timeout: 15000 });
-  await page.getByText('Base set only').waitFor({ timeout: 10000 });
-  await page.waitForTimeout(400);
-  await shot('html_12b_expansions.png');
-
-  await page.locator('button[aria-label="OK"]').click();
   await page.getByText('CHOOSE YOUR BOSS').waitFor({ timeout: 30000 });
   flags.bossAppeared = true;
   await page.waitForTimeout(600);
