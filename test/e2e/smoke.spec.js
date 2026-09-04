@@ -43,6 +43,34 @@ test('options opens card gallery', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Goblin Armory' })).toBeVisible();
 });
 
+test('card gallery displays hero and room details with resources and stats', async ({ page }, testInfo) => {
+  await tapToStart(page);
+  await page.getByText('OPTIONS').click();
+  await page.getByText('CARD GALLERY').click();
+  await expect(page.getByRole('dialog', { name: 'Card gallery' })).toBeVisible();
+
+  // Test Hero details
+  await page.getByRole('tab', { name: 'HEROES' }).click();
+  await page.getByRole('button', { name: 'BASE' }).click();
+  await page.locator('button[aria-label="Cleric"]').first().click();
+  const heroDialog = page.getByRole('dialog', { name: /Cleric/i });
+  await expect(heroDialog).toBeVisible();
+  await expect(page.getByText('PV (Health)')).toBeVisible();
+  await expect(page.getByText(/Ressource cherch/i)).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('hero_detail.png') });
+  await page.keyboard.press('Escape');
+
+  // Test Room details
+  await page.getByRole('tab', { name: 'ROOMS' }).click();
+  await page.getByRole('button', { name: 'BASE' }).click();
+  await page.getByRole('button', { name: 'Goblin Armory' }).click();
+  const roomDialog = page.getByRole('dialog', { name: /Goblin Armory/i });
+  await expect(roomDialog).toBeVisible();
+  await expect(page.getByText('Dégâts (Damage)')).toBeVisible();
+  await expect(page.getByText(/Trésors offerts/i)).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('room_detail.png') });
+});
+
 test('solo game shows the log after discard', async ({ page }) => {
   await tapToStart(page);
   await page.getByText('SINGLE PLAYER').click();

@@ -39,7 +39,6 @@ export default function CardGallery({ open, onClose }) {
   if (!open) return null;
 
   return (
-    <>
     <div className={s.backdrop} onClick={onClose} role="presentation">
       <div
         className={s.panel}
@@ -102,8 +101,7 @@ export default function CardGallery({ open, onClose }) {
           {cards.length === 0 && <div className={s.empty}>No cards in this filter.</div>}
         </div>
       </div>
+      <DetailPanel inspect={inspect} onClose={() => setInspect(null)} />
     </div>
-    <DetailPanel inspect={inspect} onClose={() => setInspect(null)} />
-    </>
   );
 }

@@ -24,7 +24,7 @@ function HeroCard({ hero, onInspect }) {
 }
 
 export default function TownPanel({ me, playerId, town, townItems = [], phase, isMyTurn, adventure, onResolve, onInspect }) {
-  const showGo = phase === PHASE.ADVENTURE && isMyTurn && (
+  const showGo = phase === PHASE.ADVENTURE && isMyTurn && !adventure?.pause && (
     me.entrance.length > 0 || (adventure && String(adventure.playerId) === String(playerId))
   );
   return (

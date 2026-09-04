@@ -13,7 +13,7 @@ export default function LevelUpChoiceOverlay({ choice, onResolve }) {
   const title = choice.bossName || 'Choose';
 
   return (
-    <div className={s.overlay}>
+    <div className={s.overlay} role="dialog" aria-label="Level up choice" aria-modal="true">
       <div className={s.panel}>
         <div className={s.header}>
           <span className={s.bossName}>{title}</span>
