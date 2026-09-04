@@ -213,7 +213,7 @@
     {
       "id": "CRL029",
       "name": "Finish Him!",
-      "category": 2,
+      "category": 3,
       "quantity": 1,
       "description": "Kill a Hero with 2 or less Health. OR If you have fewer Souls than any player, choose a Hero that survived another player's dungeon this turn. Move it to your scorekeeping area face-down.",
       "set": "crash-landing"
@@ -221,7 +221,7 @@
     {
       "id": "CRL030",
       "name": "Essence Transfer",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Add +X to a Hero in an opponent's dungeon, where X equals the number of wounds you have.",
       "set": "crash-landing"
@@ -229,7 +229,7 @@
     {
       "id": "CRL031",
       "name": "Healing Tank",
-      "category": 2,
+      "category": 3,
       "quantity": 1,
       "description": "If no Heroes were lured to your dungeon during the Bait Phase, heal one ordinary Wound.",
       "set": "crash-landing"
@@ -245,8 +245,8 @@
     {
       "id": "CRL033",
       "name": "Not Dead Yet",
-      "category": 2,
-      "quantity": 2017,
+      "category": 3,
+      "quantity": 2,
       "description": "Do X damage to each Hero in your dungeon or at the entrance to your dungeon, where X equals the number of Wounds you have.",
       "set": "crash-landing"
     }

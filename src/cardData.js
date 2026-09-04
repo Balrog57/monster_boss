@@ -14,6 +14,13 @@ export const ITEMS = cardData.items || [];
 export const MINIBOSSES = cardData.minibosses || [];
 
 export const TREASURE_NAMES = ['?', 'Cleric', 'Fighter', 'Mage', 'Thief', 'Explorer'];
+export const TREASURE_RESOURCE_LABEL = {
+  1: 'Foi / Holy',
+  2: 'Force / Weapon',
+  3: 'Connaissance / Book',
+  4: 'Or / Coin',
+  5: 'Exploration',
+};
 export const ROOM_TYPE = { MONSTER: 'monster', TRAP: 'trap' };
 export const SPELL_CATEGORY = {
   BUILD: 1,
@@ -91,7 +98,7 @@ export function getApkCardImage(id, kind) {
 }
 
 export function getCardImage(id, kind) {
-  return getWikiCardImage(id, kind) || getApkCardImage(id, kind);
+  return getApkCardImage(id, kind) || getWikiCardImage(id, kind);
 }
 
 export const PHASE = {

@@ -703,7 +703,7 @@
     {
       "id": "RMB065",
       "name": "Windfall",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "If you have no coins in your Hoard, gain (c)(c)(c).",
       "set": "minibosses",
@@ -728,7 +728,7 @@
     {
       "id": "RMB068",
       "name": "Sabotage!",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "Choose a Room. Until end of turn it has no ability text.\nOR, if if you have more Minibosses than your opponent, deactivate that Room until end of turn.|",
       "set": "minibosses"
@@ -736,7 +736,7 @@
     {
       "id": "RMB069",
       "name": "Rage!",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "Choose a Miniboss. For every level that Miniboss has, give its Room +1 until end of turn. AND, if you have only one Miniboss, you may then double the damage of that Room.",
       "set": "minibosses"
@@ -744,7 +744,7 @@
     {
       "id": "RMB070",
       "name": "Ambush",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Yo may discard two Monster Room cards or one Miniboss card to kill one Hero in your dungeon.",
       "set": "minibosses"
@@ -752,7 +752,7 @@
     {
       "id": "RMB071",
       "name": "Rebirth",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "Chose a player (including yourself). That playwe discards their hand and draws Rooms and Spells equal to the number of each they discarded.",
       "set": "minibosses"
@@ -760,7 +760,7 @@
     {
       "id": "RMB072",
       "name": "Smash!",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "Deal 2 damage to a Hero in your dungeon.\nOR deal 4 damage to a Hero in a Room that contains a Miniboss.",
       "set": "minibosses"
@@ -768,7 +768,7 @@
     {
       "id": "RMB073",
       "name": "Pay to Win",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "Choose a Room to gain +1 until end of turn, plus an additional +1 for each (c) you pay when you cast this spell.",
       "set": "minibosses",
@@ -785,7 +785,7 @@
     {
       "id": "RMB075",
       "name": "Respawn",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "Treat all of your Rooms as if they were just built.",
       "set": "minibosses"
@@ -801,7 +801,7 @@
     {
       "id": "RMB077",
       "name": "Short Circuit",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "Choose an opponent casting a spell. Until end of turn, that opponent must pay (c) for each spell they wish to cast. If they don't, that spell is cancelled.",
       "set": "minibosses"
@@ -817,7 +817,7 @@
     {
       "id": "RMB079",
       "name": "Armor Up!",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "Give a Hero +1 until end of turn AND give this Hero an additional +2 until end of turn for every (c) you spend when casting this spell.",
       "set": "minibosses"

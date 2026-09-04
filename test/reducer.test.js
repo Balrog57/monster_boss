@@ -48,6 +48,14 @@ function playUntil(pred, start, max = 8000) {
     const pick = (moves.length ? (aiPickMove(G, ctx, pid) || moves[0]) : { type: 'pass', args: [] });
     const r = applyMove(state, pick, pid);
     if (r.error) {
+      const resolve = moves.find((m) => m.type === 'resolveNextHero');
+      if (resolve) {
+        const retry = applyMove(state, resolve, pid);
+        assert.equal(retry.error, undefined, retry.error);
+        state = retry.state;
+        phases.add(state.G.phase);
+        continue;
+      }
       const pass = applyMove(state, { type: 'pass', args: [] }, pid);
       if (pass.error) throw new Error(`stuck: ${r.error} / ${pass.error} phase=${G.phase} pid=${pid}`);
       state = pass.state;
@@ -57,6 +65,127 @@ function playUntil(pred, start, max = 8000) {
     phases.add(state.G.phase);
   }
   throw new Error(`did not finish in ${max} moves (phase=${state.G.phase})`);
+}
+
+function driveAI(state, max = 500) {
+  let s = state;
+  for (let steps = 0; steps < max; steps++) {
+    if (s.G.gameOver) return s;
+    const G = s.G;
+    const ctx = s.ctx;
+    if (G.pendingChoice) {
+      const pid = G.pendingChoice.playerId;
+      const p = G.players[pid];
+      if (!p?.isAI) return s;
+      if (G.pendingChoice.type === 'opening-discard') {
+        const pair = pickOpeningDiscardIndices(p.hand);
+        const r = applyMove(s, { type: 'openingDiscard', args: pair }, pid);
+        assert.equal(r.error, undefined, r.error);
+        s = r.state;
+        continue;
+      }
+      const optIdx = aiResolveLevelUpChoice(G, G.pendingChoice);
+      const r = applyMove(s, { type: 'resolveLevelUpChoice', args: [optIdx] }, pid);
+      assert.equal(r.error, undefined, r.error);
+      s = r.state;
+      continue;
+    }
+    if (G.adventure?.pause) {
+      let progressed = false;
+      for (const pid of Object.keys(G.players)) {
+        const pl = G.players[pid];
+        if (!pl?.isAI || pl.eliminated || G.adventurePausePassed?.[pid]) continue;
+        const r = applyMove(s, { type: 'pass', args: [] }, Number(pid));
+        assert.equal(r.error, undefined, r.error);
+        s = r.state;
+        progressed = true;
+      }
+      if (progressed) continue;
+      return s;
+    }
+    const p = G.players[ctx.activePlayer];
+    if (!p?.isAI || p.eliminated) return s;
+    const moves = legalMoves(G, ctx, ctx.activePlayer);
+    const pick = moves.length ? (aiPickMove(G, ctx, ctx.activePlayer) || moves[0]) : { type: 'pass', args: [] };
+    const r = applyMove(s, pick, ctx.activePlayer);
+    if (r.error) {
+      const resolve = moves.find((m) => m.type === 'resolveNextHero');
+      if (resolve) {
+        const retry = applyMove(s, resolve, ctx.activePlayer);
+        assert.equal(retry.error, undefined, retry.error);
+        s = retry.state;
+        continue;
+      }
+      const pass = applyMove(s, { type: 'pass', args: [] }, ctx.activePlayer);
+      if (pass.error) throw new Error(`AI stuck: ${r.error} / ${pass.error}`);
+      s = pass.state;
+    } else {
+      s = r.state;
+    }
+  }
+  return s;
+}
+
+function playHumanVsAI(start, max = 8000) {
+  let state = start;
+  for (let n = 0; n < max; n++) {
+    if (state.G.gameOver) return { state, steps: n };
+    const G = state.G;
+    const ctx = state.ctx;
+    const pid = 0;
+    if (G.pendingChoice?.playerId === pid) {
+      if (G.pendingChoice.type === 'opening-discard') {
+        const pair = pickOpeningDiscardIndices(G.players[pid].hand);
+        const r = applyMove(state, { type: 'openingDiscard', args: pair }, pid);
+        assert.equal(r.error, undefined, r.error);
+        state = driveAI(r.state);
+        continue;
+      }
+      const optIdx = aiResolveLevelUpChoice(G, G.pendingChoice);
+      const r = applyMove(state, { type: 'resolveLevelUpChoice', args: [optIdx] }, pid);
+      assert.equal(r.error, undefined, r.error);
+      state = driveAI(r.state);
+      continue;
+    }
+    if (G.adventure?.pause && !G.adventurePausePassed?.['0']) {
+      const r = applyMove(state, { type: 'pass', args: [] }, 0);
+      assert.equal(r.error, undefined, r.error);
+      state = driveAI(r.state);
+      continue;
+    }
+    if (G.stack?.length && Number(G.stackActivePlayer ?? G.activePlayer) === 0) {
+      const r = applyMove(state, { type: 'pass', args: [] }, 0);
+      assert.equal(r.error, undefined, r.error);
+      state = driveAI(r.state);
+      continue;
+    }
+    if (Number(ctx.activePlayer) === 0) {
+      const moves = legalMoves(G, ctx, 0);
+      const resolve = moves.find((m) => m.type === 'resolveNextHero');
+      if (resolve) {
+        const r = applyMove(state, resolve, 0);
+        assert.equal(r.error, undefined, r.error);
+        state = driveAI(r.state);
+        continue;
+      }
+      const build = moves.find((m) => m.type === 'buildInitialRoom' || m.type === 'buildRoom');
+      if (build) {
+        const r = applyMove(state, build, 0);
+        assert.equal(r.error, undefined, r.error);
+        state = driveAI(r.state);
+        continue;
+      }
+      const pass = moves.find((m) => m.type === 'pass');
+      if (pass) {
+        const r = applyMove(state, pass, 0);
+        assert.equal(r.error, undefined, r.error);
+        state = driveAI(r.state);
+        continue;
+      }
+    }
+    state = driveAI(state);
+  }
+  throw new Error(`human vs AI did not finish (phase=${state.G.phase})`);
 }
 
 describe('reducer base match', () => {
@@ -77,6 +206,33 @@ describe('reducer base match', () => {
     for (const p of [PHASE.BOSS, PHASE.SETUP, PHASE.BUILD, PHASE.ADVENTURE]) {
       assert.ok(phases.has(p), `missing phase ${p}`);
     }
+  });
+
+  it('plays a complete human vs AI game without adventure pass deadlock', () => {
+    let state = setupMatch(2, { expansions: [] });
+    const bossMove = legalMoves(state.G, state.ctx, 0).find((m) => m.type === 'pickBoss');
+    state = applyMove(state, bossMove, 0).state;
+    state = driveAI(state);
+    const { state: end, steps } = playHumanVsAI(state);
+    assert.equal(end.G.gameOver, true);
+    assert.ok(end.G.winner === 0 || end.G.winner === 1);
+    assert.ok(steps < 4000, `took too long (${steps} steps)`);
+  });
+
+  it('rejects passing during adventure when heroes wait at entrance', () => {
+    let state = setupMatch(2, { expansions: [] });
+    const G = state.G;
+    const ctx = state.ctx;
+    G.phase = PHASE.ADVENTURE;
+    ctx.phase = PHASE.ADVENTURE;
+    G.activePlayer = 0;
+    ctx.activePlayer = 0;
+    G.players[0].entrance = [{ id: 'BMA056', name: 'Fighter', hp: 3, treasure: 1 }];
+    G.players[0].passed = false;
+    G.adventure = null;
+    const pass = applyMove(state, { type: 'pass', args: [] }, 0);
+    assert.match(pass.error, /must start adventure/);
+    assert.ok(!legalMoves(G, ctx, 0).some((m) => m.type === 'pass'));
   });
 
   it('deals Hidden Heroes instead of BMA when that pack is on', () => {

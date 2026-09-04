@@ -8,12 +8,6 @@ import BossPortrait from './BossPortrait.jsx';
 import TreasureReadout from './TreasureReadout.jsx';
 import s from './DungeonTrack.module.css';
 
-const ACTIVATED_ROOMS = new Set([
-  'BMA009', 'BMA013', 'BMA024', 'BMA025', 'BMA027', 'BMA028',
-  'BMA030', 'BMA032', 'BMA038', 'BMA039',
-  'THK021', 'THK022', 'THK023',
-]);
-
 export default function DungeonTrack({
   player,
   playerId,
@@ -23,6 +17,7 @@ export default function DungeonTrack({
   isMyTurn = false,
   selectedCard = null,
   activateSourceRoom = null,
+  roomAbilityMoves = [],
   onSelectTarget,
   onActivateRoom,
   onInspect,
@@ -40,7 +35,7 @@ export default function DungeonTrack({
   const dungeon = player.dungeon || [];
   const rooms = allActiveRooms(dungeon);
   const damage = rooms.reduce((n, r) => n + (r?.damage || 0), 0);
-  const canActivate = isMine && isMyTurn && (phase === PHASE.BUILD || phase === PHASE.ADVENTURE);
+  const canActivate = isMine && (phase === PHASE.BUILD || phase === PHASE.ADVENTURE);
   const dungeonBg = player.boss?.id
     ? `/ui/dungeon/${String(player.boss.id).toLowerCase()}_bg.webp`
     : null;
@@ -106,9 +101,9 @@ export default function DungeonTrack({
               return <div key={`empty-${i}`} className={s.empty} aria-hidden="true" />;
             }
             const stackDepth = Array.isArray(stack) ? stack.length : 1;
-            const hasAbility = ACTIVATED_ROOMS.has(r.id);
+            const hasAbility = roomAbilityMoves.some(m => m.args[0] === di);
             const isSource = activateSourceRoom === di;
-            const isTargetCandidate = activateSourceRoom != null && di !== activateSourceRoom;
+            const isTargetCandidate = activateSourceRoom != null && roomAbilityMoves.some(m => m.args[0] === activateSourceRoom && m.args[1] === di);
             const overwriteOk = placing && (buildTargets?.overwrites || []).includes(di);
             const inThisDungeon = adventure && String(adventure.playerId) === String(playerId);
             const showHeroes = (di === 0 && entranceHeroes.length > 0 && !inThisDungeon)
@@ -195,6 +190,7 @@ export default function DungeonTrack({
                     className={s.activateBtn}
                     onClick={(e) => { e.stopPropagation(); onActivateRoom(di, null); }}
                     title={`Activer: ${r.name}`}
+                    aria-label={`Activate ${r.name}`}
                     type="button"
                   />
                 )}

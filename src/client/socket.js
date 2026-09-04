@@ -8,10 +8,14 @@ import { io } from 'socket.io-client';
 const SERVER = window.location.origin;
 
 let socket = null;
+let session = null;
 
 export function getSocket() {
   if (!socket) {
     socket = io(SERVER, { path: '/socket.io', transports: ['websocket', 'polling'] });
+    socket.on('connect', () => {
+      if (session) socket.emit('match:join', session);
+    });
   }
   return socket;
 }
@@ -19,15 +23,23 @@ export function getSocket() {
 export function joinMatch(matchID, playerID, credentials) {
   return new Promise((resolve, reject) => {
     const s = getSocket();
+    session = { matchID, playerID, credentials };
+    const onError = ({ message, matchID: mid }) => {
+      if (mid && mid !== matchID) return;
+      s.off('match:state', onState);
+      s.off('match:error', onError);
+      reject(new Error(message));
+    };
     const onState = ({ G, ctx, matchID: mid, turnDeadline }) => {
       if (mid === matchID) {
         s.off('match:state', onState);
+        s.off('match:error', onError);
         resolve({ G, ctx, turnDeadline });
       }
     };
     s.on('match:state', onState);
-    s.on('match:error', ({ message }) => reject(new Error(message)));
-    s.emit('match:join', { matchID, playerID, credentials });
+    s.on('match:error', onError);
+    if (s.connected) s.emit('match:join', session);
   });
 }
 
@@ -69,5 +81,6 @@ export function subscribeErrors(matchID, handler) {
 }
 
 export function disconnect() {
+  session = null;
   if (socket) { socket.disconnect(); socket = null; }
 }

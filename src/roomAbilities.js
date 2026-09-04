@@ -578,7 +578,7 @@ function handRoomOptions(player) {
   return (player.hand || []).map((c, i) => ({ card: c, handIndex: i })).filter((o) => o.card.isRoom);
 }
 
-function heroesWithoutItem(G) {
+export function heroesWithoutItem(G) {
   const opts = [];
   (G.town || []).forEach((h, i) => {
     if (!h.item) opts.push({ card: h, source: 'town', index: i });

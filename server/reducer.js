@@ -19,7 +19,7 @@ import {
   allowedCardSets, cardsInSets, heroesForSets, EXPANSION_PACKS, spellAllowedInPhase, canPlaySpell,
 } from '../src/cardData.js';
 import { castSpell, emptyEffects, isBuildBlocked, extraBuildsFor, isRoomDeactivated, isNoEntry, heroDamageFor, consumeHeroDamage } from '../src/spellEffects.js';
-import { onBuildRoom, onHeroDiedInRoom, processLevelUp, activateRoomAbility, resolveLevelUpChoice, aiResolveLevelUpChoice, hauntedLibraryChoice } from '../src/roomAbilities.js';
+import { onBuildRoom, onHeroDiedInRoom, processLevelUp, activateRoomAbility, resolveLevelUpChoice, aiResolveLevelUpChoice, hauntedLibraryChoice, heroesWithoutItem } from '../src/roomAbilities.js';
 import {
   activeRoom, countVisibleRooms,
   resolveBait, buildRoom, canBuildRoom, heroHealthWithModifiers,
@@ -610,6 +610,7 @@ function continueAfterAdventurePause(G, ctx) {
 }
 
 function resolvePendingStack(G, ctx) {
+  const returnPlayer = G.stackReturnPlayer;
   resolveStack(G, ctx, (effect) => {
     if (effect.type === 'spell' && effect.card) {
       G.decks.spellDiscard.push(effect.card);
@@ -634,6 +635,11 @@ function resolvePendingStack(G, ctx) {
       }
     }
   });
+  if (returnPlayer != null) {
+    ctx.activePlayer = returnPlayer;
+    ctx.currentPlayer = returnPlayer;
+    G.activePlayer = returnPlayer;
+  }
   G.stackReturnPlayer = null;
 }
 
@@ -789,8 +795,8 @@ function isActivePlayer(G, pid) {
 }
 
 function mayActNow(G, pid) {
-  if (G.adventure?.pause) return true;
   if (G.stack?.length) return isActivePlayer(G, pid);
+  if (G.adventure?.pause) return true;
   return isActivePlayer(G, pid);
 }
 
@@ -952,7 +958,17 @@ const MOVE_HANDLERS = {
 
   pass: (G, ctx, pid) => {
     if (!mayActNow(G, pid)) return 'not your turn';
-    if (G.adventure?.pause) {
+    if (G.phase === PHASE.ADVENTURE && !G.adventure?.pause && !G.stack?.length) {
+      const p = G.players[pid];
+      if (G.adventure && Number(G.adventure.playerId) === Number(pid)) {
+        return 'must continue adventure';
+      }
+      if (!G.adventure && p?.entrance?.length > 0) {
+        return 'must start adventure';
+      }
+    }
+    if (G.adventure?.pause && !G.stack?.length) {
+      if (G.adventurePausePassed?.[String(pid)]) return 'already passed this response window';
       G.adventurePausePassed = G.adventurePausePassed || {};
       G.adventurePausePassed[String(pid)] = true;
       if (allAdventurePausePassed(G)) {
@@ -1217,7 +1233,7 @@ function canOfferActivatedRoom(G, p, room, roomIndex) {
     return false;
   }
   if (room.id === 'THK021') {
-    return G.phase === PHASE.BUILD && (G.townItems || []).length > 0;
+    return G.phase === PHASE.BUILD && (G.townItems || []).length > 0 && heroesWithoutItem(G).length > 0;
   }
   if (room.id === 'THK022') {
     return p.hand.filter((c) => c.isRoom).length >= 2 && (p.items || []).some((it) => it.faceDown);
@@ -1316,6 +1332,7 @@ export function legalMoves(G, ctx, playerID) {
   }
 
   if (G.stack?.length) {
+    if (!isActivePlayer(G, pid)) return moves;
     p.hand.forEach((c, i) => {
       if (c.isSpell && (c.id === 'BMA043' || c.id === 'RMB077')) {
         moves.push({ type: 'playSpell', args: [i, null] });
@@ -1374,7 +1391,13 @@ export function legalMoves(G, ctx, playerID) {
     pushActivateMoves(G, p, moves);
     pushMinibossMoves(G, pid, p, moves);
     pushDarkHeroPayMoves(G, pid, p, moves);
-    moves.push({ type: 'pass', args: [] });
+    const mustContinueAdventure = !G.adventure?.pause && (
+      (G.adventure && Number(G.adventure.playerId) === Number(pid))
+      || (!G.adventure && p.entrance.length > 0)
+    );
+    if (!mustContinueAdventure) {
+      moves.push({ type: 'pass', args: [] });
+    }
     return moves;
   }
 

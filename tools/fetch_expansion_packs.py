@@ -15,7 +15,7 @@ UA = "BossMonsterFanPort/expansion-fetch"
 
 PREFIX_TO_PACK = {"TNL": "next-level", "RMB": "minibosses", "CRL": "crash-landing"}
 TREASURE = {"Cleric": 1, "Fighter": 2, "Mage": 3, "Thief": 4, "Explorer": 5}
-SPELL_PHASE = {"Build": 1, "Adventure": 2, "Both": 3, "Either": 3}
+SPELL_PHASE = {"Build": 1, "Adventure": 3, "Both": 4, "Either": 4}
 
 
 def wiki_wikitext(page: str) -> str:
@@ -250,8 +250,12 @@ def map_spell(cid: str, cells: list[str], row: str = "") -> dict:
             if len(clean_c) > len(desc) and not clean_c.isdigit() and clean_c not in SPELL_PHASE:
                 desc = clean_c
                 
-    qty_match = re.search(r"\d+", clean_cell(cells[-1])) if cells else None
-    qty = int(qty_match.group()) if qty_match else 1
+    # The quantity is column 9; trailing table/footer text may contain a year.
+    qty_text = clean_cell(cells[8]) if len(cells) > 8 else "1"
+    qty_match = re.match(r"^(\d+)(?:\s*[‡*])?\s*$", qty_text)
+    if not qty_match:
+        raise ValueError(f"{cid}: invalid spell quantity {qty_text!r}")
+    qty = int(qty_match.group(1))
     
     card = {
         "id": cid,

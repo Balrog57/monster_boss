@@ -1,9 +1,10 @@
 import { test, expect } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
+import { playUntilGameOver, startSoloGame } from './helpers/play-until-game-over.js';
 
 test.describe('Complete Playthrough and UI Verification', () => {
-  test('plays through setup, discard, build, bait, adventure and verifies UI', async ({ page }) => {
+  test('plays through setup, discard, build, bait, adventure and verifies UI', async ({ page }, testInfo) => {
     test.setTimeout(180000);
 
     const consoleErrors = [];
@@ -14,7 +15,7 @@ test.describe('Complete Playthrough and UI Verification', () => {
       consoleErrors.push(err.message);
     });
 
-    const out = path.resolve('docs/reference');
+    const out = testInfo.outputPath('screenshots');
     fs.mkdirSync(out, { recursive: true });
     const shot = async (name) => {
       await page.screenshot({ path: path.join(out, name), fullPage: false });
@@ -131,8 +132,8 @@ test.describe('Complete Playthrough and UI Verification', () => {
 
     await waitMyTurn(30000);
 
-    // Click a room card in hand
-    const handCard = page.locator('[aria-label="Hand"] button[title]:not([disabled])').first();
+    // Click a room card in hand, then place on dungeon
+    const handCard = page.locator('[aria-label="Hand"] > div:nth-child(2) [role="button"]').first();
     if (await handCard.isVisible()) {
       await handCard.click();
       await page.waitForTimeout(300);
@@ -169,7 +170,7 @@ test.describe('Complete Playthrough and UI Verification', () => {
 
       const phaseTxt = await page.locator('[class*="hud"]').textContent().catch(() => '');
       if (phaseTxt.includes('YOUR TURN')) {
-        const cardToBuild = page.locator('[aria-label="Hand"] button[title]:not([disabled])').first();
+        const cardToBuild = page.locator('[aria-label="Hand"] > div:nth-child(2) [role="button"]').first();
         if (await cardToBuild.isVisible()) {
           await cardToBuild.click().catch(() => {});
           await page.waitForTimeout(300);
@@ -202,6 +203,29 @@ test.describe('Complete Playthrough and UI Verification', () => {
       await page.getByRole('button', { name: 'OK' }).click();
       await expect(optDialog).toBeHidden();
     }
+
+    const fatalErrors = consoleErrors.filter((e) => !e.includes('favicon') && !e.includes('ECONNABORTED'));
+    expect(fatalErrors).toEqual([]);
+  });
+
+  test('solo vs AI reaches VICTORY or DEFEAT', async ({ page }) => {
+    test.setTimeout(600000);
+
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => {
+      consoleErrors.push(err.message);
+    });
+
+    await startSoloGame(page);
+    const outcome = await playUntilGameOver(page);
+
+    expect(['victory', 'defeat']).toContain(outcome);
+    await expect(page.getByRole('heading', { name: /^(VICTORY|DEFEAT)$/ })).toBeVisible();
+    await expect(page.getByText('FINAL SCORES')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Play again' })).toBeVisible();
 
     const fatalErrors = consoleErrors.filter((e) => !e.includes('favicon') && !e.includes('ECONNABORTED'));
     expect(fatalErrors).toEqual([]);

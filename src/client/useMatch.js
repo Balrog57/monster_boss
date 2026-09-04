@@ -11,7 +11,7 @@
 // unchanged in both modes.
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { setupMatch, applyMove, playerView, legalMoves, pickOpeningDiscardIndices } from '../../server/reducer.js';
-import { aiEnumerate, aiPickMove } from '../ai.js';
+import { aiPickMove } from '../ai.js';
 import { aiResolveLevelUpChoice } from '../roomAbilities.js';
 import { aiDelayMs } from '../audio.js';
 import {
@@ -83,100 +83,48 @@ export function useOnlineMatch({ matchID, playerID, credentials, onExitMatch }) 
 
 export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, setupData = {}, viewingPlayer = '0', onExitMatch }) {
   const [state, setState] = useState(() => setupMatch(numPlayers, setupData));
-  const [, forceTick] = useState(0);
-
-  const applyAndDriveAI = useCallback((nextState) => {
-    setState(nextState);
-    const driveAI = (current) => {
-      let s = current;
-      let steps = 0;
-      const step = () => {
-        if (s.G.gameOver || steps++ > 80) return;
-        if (s.G.pendingChoice) {
-          const choicePid = s.G.pendingChoice.playerId;
-          const choicePlayer = s.G.players[choicePid];
-          if (choicePlayer && choicePlayer.isAI) {
-            if (s.G.pendingChoice.type === 'opening-discard') {
-              const pair = pickOpeningDiscardIndices(choicePlayer.hand);
-              if (!pair) return;
-              const { state: ns, error } = applyMove({ G: s.G, ctx: s.ctx }, { type: 'openingDiscard', args: pair }, choicePid);
-              if (!error) {
-                s = { G: ns.G, ctx: ns.ctx };
-                setState(s);
-                setTimeout(step, aiDelayMs());
-              }
-              return;
-            }
-            const optIdx = aiResolveLevelUpChoice(s.G, s.G.pendingChoice);
-            const { state: ns, error } = applyMove({ G: s.G, ctx: s.ctx }, { type: 'resolveLevelUpChoice', args: [optIdx] }, choicePid);
-            if (!error) {
-              s = { G: ns.G, ctx: ns.ctx };
-              setState(s);
-              setTimeout(step, aiDelayMs());
-              return;
-            }
-          }
-          return;
-        }
-        if (s.G.adventure?.pause) {
-          let progressed = false;
-          for (const pid of Object.keys(s.G.players)) {
-            const pl = s.G.players[pid];
-            if (!pl?.isAI || pl.eliminated || s.G.adventurePausePassed?.[pid]) continue;
-            const { state: ns, error } = applyMove({ G: s.G, ctx: s.ctx }, { type: 'pass', args: [] }, Number(pid));
-            if (!error) {
-              s = { G: ns.G, ctx: ns.ctx };
-              setState(s);
-              progressed = true;
-            }
-          }
-          if (progressed) {
-            setTimeout(step, aiDelayMs());
-          }
-          return;
-        }
-        const p = s.G.players[s.ctx.activePlayer];
-        if (!p || !p.isAI || p.eliminated) return;
-        const moves = legalMoves(s.G, s.ctx, s.ctx.activePlayer);
-        if (moves.length > 0) {
-          const pick = aiPickMove(s.G, s.ctx, s.ctx.activePlayer) || moves[0];
-          const { state: ns, error } = applyMove({ G: s.G, ctx: s.ctx }, pick, s.ctx.activePlayer);
-          if (error) {
-            const fallback = moves.find((m) => m.type === 'pass') || moves.find((m) => JSON.stringify(m) !== JSON.stringify(pick));
-            if (!fallback) return;
-            const retry = applyMove({ G: s.G, ctx: s.ctx }, fallback, s.ctx.activePlayer);
-            if (retry.error) return;
-            s = { G: retry.state.G, ctx: retry.state.ctx };
-            setState(s);
-            setTimeout(step, aiDelayMs());
-            return;
-          }
-          s = { G: ns.G, ctx: ns.ctx };
-          setState(s);
-          setTimeout(step, aiDelayMs());
-          return;
-        }
-        if (!p.passed) {
-          const { state: ns, error } = applyMove({ G: s.G, ctx: s.ctx }, { type: 'pass', args: [] }, s.ctx.activePlayer);
-          if (error) return;
-          s = { G: ns.G, ctx: ns.ctx };
-          setState(s);
-          setTimeout(step, aiDelayMs());
-        }
-      };
-      step();
-    };
-    driveAI(nextState);
-  }, []);
+  // One scheduled AI action per current state; a human response cancels stale work.
+  useEffect(() => {
+    const { G, ctx } = state;
+    if (G.gameOver) return;
+    let pid = ctx.activePlayer;
+    let move;
+    if (G.pendingChoice) {
+      pid = G.pendingChoice.playerId;
+      if (!G.players[pid]?.isAI) return;
+      move = G.pendingChoice.type === 'opening-discard'
+        ? { type: 'openingDiscard', args: pickOpeningDiscardIndices(G.players[pid].hand) }
+        : { type: 'resolveLevelUpChoice', args: [aiResolveLevelUpChoice(G, G.pendingChoice)] };
+    } else if (!G.stack?.length && G.adventure?.pause) {
+      pid = Object.keys(G.players).find(id => G.players[id].isAI && !G.players[id].eliminated && !G.adventurePausePassed?.[id]);
+      if (pid == null) return;
+      move = { type: 'pass', args: [] };
+    } else {
+      if (!G.players[pid]?.isAI || G.players[pid].eliminated) return;
+      move = aiPickMove(G, ctx, pid);
+    }
+    if (!move) return;
+    const timer = setTimeout(() => {
+      const result = applyMove(state, move, pid);
+      if (result.error) {
+        console.error('[AI] Legal move rejected:', result.error);
+        return;
+      }
+      setState(result.state);
+    }, aiDelayMs());
+    return () => clearTimeout(timer);
+  }, [state]);
 
   // moves: apply locally via the reducer.
   const moves = useRef({}).current;
   for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'buildMiniboss', 'promoteMiniboss', 'activateMiniboss', 'payDarkHero', 'playSpell', 'resolveNextHero', 'pass', 'activateRoom', 'resolveLevelUpChoice', 'openingDiscard']) {
     moves[type] = (...args) => {
       const actor = Number(viewingPlayer);
-      const { state: next, error } = applyMove({ G: state.G, ctx: state.ctx }, { type, args }, actor);
-      if (error) { console.warn(`[move] ${type} rejected:`, error); return; }
-      applyAndDriveAI(next);
+      setState(current => {
+        const { state: next, error } = applyMove(current, { type, args }, actor);
+        if (error) { console.warn(`[move] ${type} rejected:`, error); return current; }
+        return next;
+      });
     };
   }
 

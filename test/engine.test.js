@@ -18,6 +18,15 @@ function player(over = {}) {
 }
 
 describe('engine build targeting', () => {
+  it('imports expansion spell phases and quantities consistently with the engine', () => {
+    for (const card of SPELLS) {
+      assert.ok(Number.isInteger(card.quantity) && card.quantity > 0 && card.quantity < 20, card.id);
+    }
+    assert.equal(SPELLS.find(c => c.id === 'CRL033').quantity, 2);
+    assert.equal(SPELLS.find(c => c.id === 'CRL033').category, 3);
+    assert.equal(SPELLS.find(c => c.id === 'TNL061').category, 3);
+    assert.equal(SPELLS.find(c => c.id === 'RMB065').category, 4);
+  });
   it('maps 5 visual slots packed against the boss', () => {
     assert.equal(DUNGEON_SLOTS, 5);
     assert.equal(extendVisualIndex([]), 4);

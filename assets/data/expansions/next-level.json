@@ -735,7 +735,7 @@
     {
       "id": "TNL057",
       "name": "Another Castle",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Choose a Hero in your dungeon. Send that Hero to the entrance of an opponent's dungeon.",
       "set": "next-level"
@@ -751,7 +751,7 @@
     {
       "id": "TNL059",
       "name": "It's On!",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Kill one Hero in your dungeon who has 3 or less Health. OR If you have 3 wounds or more, kill one Hero in your dungeon.",
       "set": "next-level"
@@ -767,7 +767,7 @@
     {
       "id": "TNL061",
       "name": "Lightning Bolt!",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Deal 3 damage to one Hero in your dungeon. AND If you discard another Spell card, deal 3 damage to each Hero at the entrance to your dungeon.",
       "set": "next-level"
@@ -791,7 +791,7 @@
     {
       "id": "TNL064",
       "name": "Party Up",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Choose a dungeon. Until the end of turn, each Hero entering that dungeon gains +1",
       "set": "next-level"
@@ -799,7 +799,7 @@
     {
       "id": "TNL065",
       "name": "Pause",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "If there is a Hero in your dungeon, return it to the entrance and restore it to full Health. No Heroes may enter your dungeon until next turn.",
       "set": "next-level"
@@ -807,7 +807,7 @@
     {
       "id": "TNL066",
       "name": "Pity",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Choose a Hero in an opponent's dungeon. Remove that Hero from the game.",
       "set": "next-level"
@@ -823,7 +823,7 @@
     {
       "id": "TNL068",
       "name": "Shortcut!",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Choose a Hero in any dungeon. It skips the next Room it would enter. OR If that dungeon has five Rooms, the Hero skips the next two Rooms it would enter.",
       "set": "next-level"
@@ -831,7 +831,7 @@
     {
       "id": "TNL069",
       "name": "Super Effective!",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Choose a Room in your dungeon. It deals +2 until end of turn. OR If only one Hero was lured to your dungeon this turn, that Room does +4 until end of turn.",
       "set": "next-level"
@@ -847,7 +847,7 @@
     {
       "id": "TNL071",
       "name": "Undead Minion",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Choose one face-down Hero in your scorekeeping area and remove it from the game. Deal damage equal to that Hero's Health to one Hero in your dungeon.",
       "set": "next-level"
@@ -855,7 +855,7 @@
     {
       "id": "TNL072",
       "name": "Wild Monster",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "You may immediately build a Monster Room over an existing Room in your dungeon.",
       "set": "next-level"

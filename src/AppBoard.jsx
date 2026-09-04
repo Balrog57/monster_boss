@@ -14,6 +14,7 @@ import {
 import { listDarkHeroPayTargets, canPayDarkHero } from './darkHeroes.js';
 import GameOverScreen from './screens/GameOverScreen.jsx';
 import s from './AppBoard.module.css';
+import { legalMoves } from '../server/reducer.js';
 
 // Rooms that require choosing ANOTHER room to destroy
 const NEEDS_OTHER_TARGET = new Set(['BMA028', 'BMA032', 'RMB047']);
@@ -84,8 +85,12 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
   const activePid = G.activePlayer != null ? String(G.activePlayer) : (ctx.currentPlayer != null ? String(ctx.currentPlayer) : '0');
   const isMyTurn = activePid === pidKey;
   const isPauseActive = !!(G.adventure?.pause && !G.adventurePausePassed?.[pidKey]);
-  const isStackActive = !!(G.stack?.length && Number(G.stackActivePlayer ?? G.activePlayer) === Number(playerID));
+  const isStackActive = !!(G.stack?.length && isMyTurn);
+  const mustContinueAdventure = phase === PHASE.ADVENTURE && isMyTurn && !G.adventure?.pause && (
+    me.entrance.length > 0 || (G.adventure && String(G.adventure.playerId) === pidKey)
+  );
   const canAct = isMyTurn || isPauseActive || isStackActive;
+  const roomAbilityMoves = legalMoves(G, ctx, playerID).filter(m => m.type === 'activateRoom');
   const opponentEntries = Object.entries(G.players).filter(([id]) => id !== pidKey);
   const opponents = opponentEntries.map(([, p]) => p);
   const oppIds = opponentEntries.map(([id]) => id);
@@ -210,6 +215,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             treasures={myTreasures}
             selectedCard={selectedCard}
             activateSourceRoom={activateSourceRoom}
+            roomAbilityMoves={roomAbilityMoves}
             buildTargets={buildTargets}
             minibossActions={minibossActions}
             onBuildMiniboss={(i) => moves.buildMiniboss(i)}
@@ -255,7 +261,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             PAY DARK HERO
           </button>
         )}
-        {isMyTurn && !discarding && (
+        {isMyTurn && !discarding && !mustContinueAdventure && !G.adventure?.pause && !G.stack?.length && (
           phase === PHASE.BUILD
           || phase === PHASE.ADVENTURE
           || (phase === PHASE.SETUP && !(me.hand || []).some((c) => c.isRoom && !c.advanced))
@@ -312,7 +318,17 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         canAct={canAct}
         selectedCard={selectedCard}
         stackLength={G.stack?.length || 0}
-        onSelect={setSelectedCard}
+        onSelect={(i) => {
+          if (phase === PHASE.SETUP && i != null) {
+            const c = me.hand[i];
+            if (c?.isRoom && !c.advanced && !(me.dungeon?.length)) {
+              moves.buildInitialRoom(i);
+              setSelectedCard(null);
+              return;
+            }
+          }
+          setSelectedCard(i);
+        }}
         onSpell={(i) => {
           const card = me.hand[i];
           if (card && spellNeedsTarget(card.id)) {
@@ -347,14 +363,14 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
 
       <PhaseBanner phase={phase} />
       <AdventurePauseBanner
-        adventure={G.adventure}
+        adventure={G.stack?.length ? null : G.adventure}
         adventurePausePassed={G.adventurePausePassed}
         playerId={pidKey}
         onPass={() => moves.pass()}
       />
       <StackBanner
         stack={G.stack}
-        activePlayer={G.stackActivePlayer ?? G.activePlayer}
+        activePlayer={G.activePlayer}
         playerId={pidKey}
         onPass={() => moves.pass()}
       />

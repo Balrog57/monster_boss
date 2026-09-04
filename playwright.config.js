@@ -9,6 +9,8 @@ export default defineConfig({
   reporter: 'list',
   use: {
     baseURL: 'http://localhost:3000',
+    actionTimeout: 5000,
+    screenshot: 'only-on-failure',
     trace: 'on-first-retry',
   },
   webServer: [

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-01T19:56:18.166Z",
+  "generatedAt": "2026-09-04T22:44:32.439Z",
   "cards": {
     "BMA001": {
       "id": "BMA001",
@@ -108,7 +108,7 @@
       "text": "Choose another Boss. For the rest of the game, this Boss also has that Boss's Level Up ability. (The ability remains even if that Boss dies.)",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL003": {
@@ -321,7 +321,7 @@
       "text": "For the rest of the game, your Trap Rooms have +1. Any opponents may give you (c) to cancel this ability until the end of your turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": true,
+      "hasArt": false,
       "tags": []
     },
     "RMB012": {
@@ -332,7 +332,7 @@
       "text": "For the rest of the game, once per turn you may pay (c)(c) to add one of any treasure type to any player's dungeon",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL000": {
@@ -378,7 +378,7 @@
       "text": "For the rest of the game, whenever any Monster Room is discarded or destroyed, you may put it into your hand.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL004": {
@@ -413,7 +413,7 @@
       "text": "For the rest of the game, whenever you build a Monster Room, you may Draw a Room card.",
       "textCorrupt": false,
       "status": "tagged",
-      "hasArt": false,
+      "hasArt": true,
       "tags": [
         "genericLevelUp"
       ]
@@ -4908,7 +4908,7 @@
   "summary": {
     "total": 442,
     "corrupt": 0,
-    "missingArt": 152,
+    "missingArt": 149,
     "expansionPending": 253
   }
 }

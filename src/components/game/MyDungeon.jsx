@@ -4,7 +4,7 @@ import DungeonTrack from './DungeonTrack.jsx';
 
 export default function MyDungeon({
   me, playerId, phase, isMyTurn, selectedCard, onSelectTarget, onInspect, onHover, onActivateRoom,
-  activateSourceRoom, adventure, treasures, buildTargets, minibossActions,
+  activateSourceRoom, adventure, treasures, buildTargets, minibossActions, roomAbilityMoves,
   onBuildMiniboss, onPromoteMiniboss, onActivateMiniboss,
 }) {
   return (
@@ -17,6 +17,7 @@ export default function MyDungeon({
       isMyTurn={isMyTurn}
       selectedCard={selectedCard}
       activateSourceRoom={activateSourceRoom}
+      roomAbilityMoves={roomAbilityMoves}
       onSelectTarget={onSelectTarget}
       onActivateRoom={onActivateRoom}
       onInspect={onInspect}

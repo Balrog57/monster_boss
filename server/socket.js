@@ -12,7 +12,7 @@
 //   lobby:updated { matches }              (broadcast when lobby state changes)
 import { Server as SocketIOServer } from 'socket.io';
 import { submitMove, addSocket, removeSocket, loadMatch, broadcastState } from './matches.js';
-import { listMatches } from './db.js';
+import { listMatches, fetchMatch as fetchMatchRow } from './db.js';
 import { GAME_META } from './reducer.js';
 
 const MAX_MOVES_PER_SEC = Number(process.env.MAX_MOVES_PER_SEC || 10);
@@ -114,8 +114,6 @@ export function createSocketIO(httpServer) {
 // Cache fetchMatchRow to avoid a DB round-trip on every join. The matches.js
 // loadMatch already populates the registry; credentials are still authoritative
 // in the DB. We import lazily to keep the module graph clean.
-let fetchMatchRow;
-import('./db.js').then((m) => { fetchMatchRow = m.fetchMatch; });
 
 // Broadcast lobby updates to all clients in a 'lobby' room.
 export async function broadcastLobbyUpdate(io) {

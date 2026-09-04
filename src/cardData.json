@@ -2420,7 +2420,7 @@
     {
       "id": "CRL029",
       "name": "Finish Him!",
-      "category": 2,
+      "category": 3,
       "quantity": 1,
       "description": "Kill a Hero with 2 or less Health. OR If you have fewer Souls than any player, choose a Hero that survived another player's dungeon this turn. Move it to your scorekeeping area face-down.",
       "set": "crash-landing"
@@ -2428,7 +2428,7 @@
     {
       "id": "CRL030",
       "name": "Essence Transfer",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Add +X to a Hero in an opponent's dungeon, where X equals the number of wounds you have.",
       "set": "crash-landing"
@@ -2436,7 +2436,7 @@
     {
       "id": "CRL031",
       "name": "Healing Tank",
-      "category": 2,
+      "category": 3,
       "quantity": 1,
       "description": "If no Heroes were lured to your dungeon during the Bait Phase, heal one ordinary Wound.",
       "set": "crash-landing"
@@ -2452,8 +2452,8 @@
     {
       "id": "CRL033",
       "name": "Not Dead Yet",
-      "category": 2,
-      "quantity": 2017,
+      "category": 3,
+      "quantity": 2,
       "description": "Do X damage to each Hero in your dungeon or at the entrance to your dungeon, where X equals the number of Wounds you have.",
       "set": "crash-landing"
     },
@@ -2468,7 +2468,7 @@
     {
       "id": "RMB065",
       "name": "Windfall",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "If you have no coins in your Hoard, gain (c)(c)(c).",
       "set": "minibosses",
@@ -2493,7 +2493,7 @@
     {
       "id": "RMB068",
       "name": "Sabotage!",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "Choose a Room. Until end of turn it has no ability text.\nOR, if if you have more Minibosses than your opponent, deactivate that Room until end of turn.|",
       "set": "minibosses"
@@ -2501,7 +2501,7 @@
     {
       "id": "RMB069",
       "name": "Rage!",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "Choose a Miniboss. For every level that Miniboss has, give its Room +1 until end of turn. AND, if you have only one Miniboss, you may then double the damage of that Room.",
       "set": "minibosses"
@@ -2509,7 +2509,7 @@
     {
       "id": "RMB070",
       "name": "Ambush",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Yo may discard two Monster Room cards or one Miniboss card to kill one Hero in your dungeon.",
       "set": "minibosses"
@@ -2517,7 +2517,7 @@
     {
       "id": "RMB071",
       "name": "Rebirth",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "Chose a player (including yourself). That playwe discards their hand and draws Rooms and Spells equal to the number of each they discarded.",
       "set": "minibosses"
@@ -2525,7 +2525,7 @@
     {
       "id": "RMB072",
       "name": "Smash!",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "Deal 2 damage to a Hero in your dungeon.\nOR deal 4 damage to a Hero in a Room that contains a Miniboss.",
       "set": "minibosses"
@@ -2533,7 +2533,7 @@
     {
       "id": "RMB073",
       "name": "Pay to Win",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "Choose a Room to gain +1 until end of turn, plus an additional +1 for each (c) you pay when you cast this spell.",
       "set": "minibosses",
@@ -2550,7 +2550,7 @@
     {
       "id": "RMB075",
       "name": "Respawn",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "Treat all of your Rooms as if they were just built.",
       "set": "minibosses"
@@ -2566,7 +2566,7 @@
     {
       "id": "RMB077",
       "name": "Short Circuit",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "Choose an opponent casting a spell. Until end of turn, that opponent must pay (c) for each spell they wish to cast. If they don't, that spell is cancelled.",
       "set": "minibosses"
@@ -2582,7 +2582,7 @@
     {
       "id": "RMB079",
       "name": "Armor Up!",
-      "category": 3,
+      "category": 4,
       "quantity": 2,
       "description": "Give a Hero +1 until end of turn AND give this Hero an additional +2 until end of turn for every (c) you spend when casting this spell.",
       "set": "minibosses"
@@ -2606,7 +2606,7 @@
     {
       "id": "TNL057",
       "name": "Another Castle",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Choose a Hero in your dungeon. Send that Hero to the entrance of an opponent's dungeon.",
       "set": "next-level"
@@ -2622,7 +2622,7 @@
     {
       "id": "TNL059",
       "name": "It's On!",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Kill one Hero in your dungeon who has 3 or less Health. OR If you have 3 wounds or more, kill one Hero in your dungeon.",
       "set": "next-level"
@@ -2638,7 +2638,7 @@
     {
       "id": "TNL061",
       "name": "Lightning Bolt!",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Deal 3 damage to one Hero in your dungeon. AND If you discard another Spell card, deal 3 damage to each Hero at the entrance to your dungeon.",
       "set": "next-level"
@@ -2662,7 +2662,7 @@
     {
       "id": "TNL064",
       "name": "Party Up",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Choose a dungeon. Until the end of turn, each Hero entering that dungeon gains +1",
       "set": "next-level"
@@ -2670,7 +2670,7 @@
     {
       "id": "TNL065",
       "name": "Pause",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "If there is a Hero in your dungeon, return it to the entrance and restore it to full Health. No Heroes may enter your dungeon until next turn.",
       "set": "next-level"
@@ -2678,7 +2678,7 @@
     {
       "id": "TNL066",
       "name": "Pity",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Choose a Hero in an opponent's dungeon. Remove that Hero from the game.",
       "set": "next-level"
@@ -2694,7 +2694,7 @@
     {
       "id": "TNL068",
       "name": "Shortcut!",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Choose a Hero in any dungeon. It skips the next Room it would enter. OR If that dungeon has five Rooms, the Hero skips the next two Rooms it would enter.",
       "set": "next-level"
@@ -2702,7 +2702,7 @@
     {
       "id": "TNL069",
       "name": "Super Effective!",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Choose a Room in your dungeon. It deals +2 until end of turn. OR If only one Hero was lured to your dungeon this turn, that Room does +4 until end of turn.",
       "set": "next-level"
@@ -2718,7 +2718,7 @@
     {
       "id": "TNL071",
       "name": "Undead Minion",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "Choose one face-down Hero in your scorekeeping area and remove it from the game. Deal damage equal to that Hero's Health to one Hero in your dungeon.",
       "set": "next-level"
@@ -2726,7 +2726,7 @@
     {
       "id": "TNL072",
       "name": "Wild Monster",
-      "category": 2,
+      "category": 3,
       "quantity": 2,
       "description": "You may immediately build a Monster Room over an existing Room in your dungeon.",
       "set": "next-level"

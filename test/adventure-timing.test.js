@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { setupMatch, applyMove } from '../server/reducer.js';
-import { PHASE } from '../src/cardData.js';
+import { setupMatch, applyMove, legalMoves } from '../server/reducer.js';
+import { PHASE, SPELLS } from '../src/cardData.js';
 
 function forceAdventure(state, playerId = 0) {
   let s = state;
@@ -49,6 +49,29 @@ describe('adventure timing', () => {
 });
 
 describe('stack responses', () => {
+  for (const pause of [null, 'post-damage']) {
+    it(`resolves a spell before continuing adventure (${pause}) and restores its owner`, () => {
+      let state = setupMatch(2, { expansions: [] });
+      Object.assign(state.ctx, { phase: PHASE.ADVENTURE, activePlayer: 0, currentPlayer: 0 });
+      Object.assign(state.G, { phase: PHASE.ADVENTURE, activePlayer: 0 });
+      const hero = { id: 'test-hero', name: 'Hero', hp: 10 };
+      state.G.players[0].entrance = [hero];
+      state.G.players[1].entrance = [{ ...hero, id: 'other-hero' }];
+      state.G.players[0].hand = [{ ...SPELLS.find(c => c.id === 'BMA044'), isSpell: true }];
+      if (pause) state.G.adventure = { playerId: 0, hero, hp: 10, roomIndex: 0, pause };
+      let result = applyMove(state, { type: 'playSpell', args: [0, { heroId: hero.id }] }, 0);
+      assert.equal(result.error, undefined);
+      state = result.state;
+      assert.equal(state.ctx.activePlayer, 1);
+      assert.deepEqual(legalMoves(state.G, state.ctx, 0), []);
+      result = applyMove(state, { type: 'pass', args: [] }, 1);
+      assert.equal(result.error, undefined);
+      assert.equal(result.state.G.stack.length, 0);
+      assert.equal(result.state.ctx.activePlayer, 0);
+      assert.equal(result.state.G.activePlayer, 0);
+      if (pause) assert.equal(result.state.G.adventure.pause, pause);
+    });
+  }
   it('gives active player first chance to respond', () => {
     const state = setupMatch(2, { expansions: [] });
     const order = [String(state.ctx.activePlayer), String(state.ctx.activePlayer) === '0' ? '1' : '0'];
