@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-04T23:30:37.978Z",
+  "generatedAt": "2026-09-04T23:41:21.172Z",
   "cards": {
     "BMA001": {
       "id": "BMA001",
@@ -321,7 +321,7 @@
       "text": "For the rest of the game, your Trap Rooms have +1. Any opponents may give you (c) to cancel this ability until the end of your turn.",
       "textCorrupt": false,
       "status": "expansion-pending",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB012": {
@@ -4908,7 +4908,7 @@
   "summary": {
     "total": 442,
     "corrupt": 0,
-    "missingArt": 149,
+    "missingArt": 148,
     "expansionPending": 253
   }
 }
