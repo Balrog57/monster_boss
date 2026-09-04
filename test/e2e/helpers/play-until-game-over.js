@@ -9,13 +9,16 @@ export async function playStep(page) {
   }
   const choice = page.getByRole('dialog', { name: 'Level up choice' });
   if (await choice.isVisible()) {
-    await choice.getByRole('button').first().click();
-    return;
+    const btn = choice.getByRole('button').first();
+    if (await btn.isVisible()) {
+      await btn.click({ force: true });
+      return;
+    }
   }
   const pause = page.getByRole('button', { name: 'PASS / CONTINUE', exact: true });
   if (await pause.isVisible()) { await pause.click(); return; }
   const next = page.getByRole('button', { name: 'Continue adventure', exact: true });
-  if (await next.isVisible() && await next.isEnabled()) { await next.click(); return; }
+  if (await next.isVisible() && await next.isEnabled()) { await next.click({ force: true }); return; }
   const status = page.getByRole('status').filter({ has: page.locator('[class*="phaseBadge"]') });
   if (!(await status.textContent()).includes('YOUR TURN')) return;
   const phase = await status.getAttribute('aria-label');

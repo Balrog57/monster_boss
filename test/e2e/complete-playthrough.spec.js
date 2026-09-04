@@ -200,7 +200,7 @@ test.describe('Complete Playthrough and UI Verification', () => {
       const optDialog = page.getByRole('dialog', { name: 'Options' });
       await expect(optDialog).toBeVisible();
       await shot('play_options_ingame.png');
-      await page.getByRole('button', { name: 'OK' }).click();
+      await page.getByRole('button', { name: 'OK', exact: true }).click();
       await expect(optDialog).toBeHidden();
     }
 
