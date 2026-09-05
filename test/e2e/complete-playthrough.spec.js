@@ -204,11 +204,24 @@ test.describe('Complete Playthrough and UI Verification', () => {
       await expect(optDialog).toBeHidden();
     }
 
+    // 11. Play through all successive turns until game reaches true terminal VICTORY or DEFEAT
+    const outcome = await playUntilGameOver(page, { screenshotPath: path.join(out, 'play_terminal.png') });
+    expect(['victory', 'defeat']).toContain(outcome);
+    await expect(page.getByRole('heading', { name: /^(VICTORY|DEFEAT)$/ })).toBeVisible();
+    await expect(page.getByText('FINAL SCORES')).toBeVisible();
+
+    // 12. Test Return to Main Menu from Game Over screen
+    const menuBtn = page.getByRole('button', { name: 'MAIN MENU' });
+    await expect(menuBtn).toBeVisible();
+    await menuBtn.click();
+    await expect(page.getByText('SINGLE PLAYER')).toBeVisible({ timeout: 15000 });
+    await shot('play_11_menu_returned.png');
+
     const fatalErrors = consoleErrors.filter((e) => !e.includes('favicon') && !e.includes('ECONNABORTED'));
     expect(fatalErrors).toEqual([]);
   });
 
-  test('solo vs AI reaches VICTORY or DEFEAT', async ({ page }) => {
+  test('solo vs AI reaches VICTORY or DEFEAT and can restart via Play again', async ({ page }) => {
     test.setTimeout(600000);
 
     const consoleErrors = [];
@@ -225,7 +238,12 @@ test.describe('Complete Playthrough and UI Verification', () => {
     expect(['victory', 'defeat']).toContain(outcome);
     await expect(page.getByRole('heading', { name: /^(VICTORY|DEFEAT)$/ })).toBeVisible();
     await expect(page.getByText('FINAL SCORES')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Play again' })).toBeVisible();
+
+    // Test Play again button returns to solo setup
+    const playAgainBtn = page.getByRole('button', { name: 'Play again' });
+    await expect(playAgainBtn).toBeVisible();
+    await playAgainBtn.click();
+    await expect(page.getByText('HOW MANY PLAYERS?')).toBeVisible({ timeout: 15000 });
 
     const fatalErrors = consoleErrors.filter((e) => !e.includes('favicon') && !e.includes('ECONNABORTED'));
     expect(fatalErrors).toEqual([]);

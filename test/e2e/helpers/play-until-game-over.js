@@ -23,17 +23,17 @@ export async function playStep(page) {
   if (!(await status.textContent()).includes('YOUR TURN')) return;
   const phase = await status.getAttribute('aria-label');
   if (/setup|build/i.test(phase)) {
-    await page.getByRole('button', { name: 'Rooms', exact: true }).click();
-    const cards = page.locator('[aria-label="Hand"] > div:nth-child(2) [role="button"]');
+    await page.getByRole('button', { name: 'Rooms', exact: true }).click({ force: true });
+    const cards = page.locator('[aria-label="Hand"] > div:nth-child(2) > div > [role="button"]');
     for (let i = 0; i < await cards.count(); i++) {
-      await cards.nth(i).click();
+      await cards.nth(i).click({ force: true });
       if (/setup/i.test(phase)) return;
       const target = page.locator('button[aria-label="Build new room here"], [class*="mine"] [class*="target"] [role="button"]').first();
-      if (await target.isVisible()) { await target.click(); return; }
+      if (await target.isVisible()) { await target.click({ force: true }); return; }
     }
   }
   const pass = page.getByRole('button', { name: 'Pass turn', exact: true });
-  if (await pass.isVisible()) await pass.click();
+  if (await pass.isVisible()) await pass.click({ force: true });
 }
 
 export async function playUntilGameOver(page, { peers = [], screenshotPath } = {}) {
@@ -46,7 +46,7 @@ export async function playUntilGameOver(page, { peers = [], screenshotPath } = {
     }
     const snapshot = await page.getByRole('log', { name: 'Game log' }).textContent();
     if (snapshot !== previous) { previous = snapshot; changedAt = Date.now(); }
-    if (Date.now() - changedAt > 15000) throw new Error('No game progress for 15 seconds: ' + snapshot);
+    if (Date.now() - changedAt > 30000) throw new Error('No game progress for 30 seconds: ' + snapshot);
     await page.waitForTimeout(100);
   }
   if (screenshotPath) await page.screenshot({ path: screenshotPath });

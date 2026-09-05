@@ -44,9 +44,9 @@ export function spellAllowedInPhase(category, phase) {
   return false;
 }
 
-/** Counterspell (BMA043) may be played whenever a spell is on the stack. */
+/** Counterspell (BMA043) or RMB077 may be played whenever a spell is on the stack. */
 export function canPlaySpell(card, phase, stackLength = 0) {
-  if (card?.id === 'BMA043' && stackLength > 0) return true;
+  if ((card?.id === 'BMA043' || card?.id === 'RMB077') && stackLength > 0) return true;
   return spellAllowedInPhase(card?.category, phase);
 }
 

@@ -14,8 +14,8 @@ function tutorialSeen() {
   try { return localStorage.getItem(TUTORIAL_STORAGE_KEY) === '1'; } catch { return true; }
 }
 
-export default function MainMenu({ onStart, onMultiplayer }) {
-  const [view, setView] = useState('intro'); // intro | root | options | settings
+export default function MainMenu({ onStart, onMultiplayer, initialView = 'intro' }) {
+  const [view, setView] = useState(initialView);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);

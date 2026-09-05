@@ -79,29 +79,34 @@ export function enumerateTargets(type, G, me, playerId) {
     case 'hero-opponent-dungeon':
       for (const [opid, op] of Object.entries(G.players)) {
         if (Number(opid) === pid || op.eliminated) continue;
+        const advHeroId = G.adventure && Number(G.adventure.playerId) === Number(opid) ? G.adventure.hero?.id : null;
         for (const h of op.entrance) {
           targets.push({ heroId: h.id });
         }
-        if (G.adventure && Number(G.adventure.playerId) === Number(opid) && G.adventure.hero) {
-          targets.push({ heroId: G.adventure.hero.id });
+        if (advHeroId && !op.entrance.some(h => h.id === advHeroId)) {
+          targets.push({ heroId: advHeroId });
         }
       }
       break;
-    case 'hero-own-dungeon':
+    case 'hero-own-dungeon': {
+      const advHeroId = G.adventure && Number(G.adventure.playerId) === pid ? G.adventure.hero?.id : null;
       for (const h of me.entrance) {
         targets.push({ heroId: h.id });
       }
-      if (G.adventure && Number(G.adventure.playerId) === pid && G.adventure.hero) {
-        targets.push({ heroId: G.adventure.hero.id });
+      if (advHeroId && !me.entrance.some(h => h.id === advHeroId)) {
+        targets.push({ heroId: advHeroId });
       }
       break;
+    }
     case 'hero-any-dungeon':
       for (const [opid, op] of Object.entries(G.players)) {
+        if (op.eliminated) continue;
+        const advHeroId = G.adventure && Number(G.adventure.playerId) === Number(opid) ? G.adventure.hero?.id : null;
         for (const h of op.entrance) {
           targets.push({ heroId: h.id });
         }
-        if (G.adventure && Number(G.adventure.playerId) === Number(opid) && G.adventure.hero) {
-          targets.push({ heroId: G.adventure.hero.id });
+        if (advHeroId && !op.entrance.some(h => h.id === advHeroId)) {
+          targets.push({ heroId: advHeroId });
         }
       }
       break;
@@ -196,49 +201,54 @@ export function getSpellTargetOptions(type, G, me, playerId) {
     case 'hero-opponent-dungeon':
       for (const [opid, op] of Object.entries(G.players)) {
         if (Number(opid) === pid || op.eliminated) continue;
+        const advHero = (G.adventure && Number(G.adventure.playerId) === Number(opid)) ? G.adventure.hero : null;
+        if (advHero) {
+          targets.push({
+            key: `adv-${opid}-${advHero.id}`, card: advHero, kind: advHero.epic ? 'epic-hero' : 'hero',
+            value: { heroId: advHero.id }, label: `${advHero.name} (in dungeon)`,
+          });
+        }
         for (const h of op.entrance) {
+          if (advHero && h.id === advHero.id) continue;
           targets.push({
             key: `hero-${opid}-${h.id}`, card: h, kind: h.epic ? 'epic-hero' : 'hero',
             value: { heroId: h.id }, label: h.name,
           });
         }
-        if (G.adventure && Number(G.adventure.playerId) === Number(opid) && G.adventure.hero) {
-          const h = G.adventure.hero;
-          targets.push({
-            key: `adv-${opid}-${h.id}`, card: h, kind: h.epic ? 'epic-hero' : 'hero',
-            value: { heroId: h.id }, label: `${h.name} (in dungeon)`,
-          });
-        }
       }
       break;
-    case 'hero-own-dungeon':
+    case 'hero-own-dungeon': {
+      const advHero = (G.adventure && Number(G.adventure.playerId) === pid) ? G.adventure.hero : null;
+      if (advHero) {
+        targets.push({
+          key: `adv-${advHero.id}`, card: advHero, kind: advHero.epic ? 'epic-hero' : 'hero',
+          value: { heroId: advHero.id }, label: `${advHero.name} (in dungeon)`,
+        });
+      }
       for (const h of me.entrance) {
+        if (advHero && h.id === advHero.id) continue;
         targets.push({
           key: `hero-${h.id}`, card: h, kind: h.epic ? 'epic-hero' : 'hero',
           value: { heroId: h.id }, label: h.name,
         });
       }
-      if (G.adventure && Number(G.adventure.playerId) === pid && G.adventure.hero) {
-        const h = G.adventure.hero;
-        targets.push({
-          key: `adv-${h.id}`, card: h, kind: h.epic ? 'epic-hero' : 'hero',
-          value: { heroId: h.id }, label: `${h.name} (in dungeon)`,
-        });
-      }
       break;
+    }
     case 'hero-any-dungeon':
       for (const [opid, op] of Object.entries(G.players)) {
+        if (op.eliminated) continue;
+        const advHero = (G.adventure && Number(G.adventure.playerId) === Number(opid)) ? G.adventure.hero : null;
+        if (advHero) {
+          targets.push({
+            key: `adv-${opid}-${advHero.id}`, card: advHero, kind: advHero.epic ? 'epic-hero' : 'hero',
+            value: { heroId: advHero.id }, label: `${advHero.name} (in dungeon)`,
+          });
+        }
         for (const h of op.entrance) {
+          if (advHero && h.id === advHero.id) continue;
           targets.push({
             key: `hero-${opid}-${h.id}`, card: h, kind: h.epic ? 'epic-hero' : 'hero',
             value: { heroId: h.id }, label: h.name,
-          });
-        }
-        if (G.adventure && Number(G.adventure.playerId) === Number(opid) && G.adventure.hero) {
-          const h = G.adventure.hero;
-          targets.push({
-            key: `adv-${opid}-${h.id}`, card: h, kind: h.epic ? 'epic-hero' : 'hero',
-            value: { heroId: h.id }, label: `${h.name} (in dungeon)`,
           });
         }
       }

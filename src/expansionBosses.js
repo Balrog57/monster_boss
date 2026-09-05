@@ -80,7 +80,7 @@ export function processExpansionLevelUp(G, playerId, boss) {
       G.logs.push('Porkus: may draw a Spell at end of turn if behind on Souls.');
       return null;
     case 'TNL010': { // Necromancer boss — remove soul, search hero
-      const souls = (p.souls || []).map((s, i) => ({ soul: s, index: i }))
+      const souls = (p.souls || []).map((s, i) => ({ soul: s, card: s, label: s.name, index: i }))
         .filter((o) => !o.soul.tpk && o.soul.faceDown !== false);
       if (!souls.length) {
         G.logs.push('Necromancer: no face-down Hero to remove.');
@@ -303,6 +303,26 @@ export function resolveExpansionLevelUpChoice(G, choice, optionIndex) {
         const covered = stack.splice(stack.length - 2, 1)[0];
         stack.push(covered);
         G.logs.push(`Mando: uncovered ${covered.name} in Player ${opt.targetPlayerId}'s dungeon.`);
+      }
+      break;
+    }
+    case 'remove-soul-search-hero': {
+      const sIndex = p.souls?.findIndex((s, i) => (opt.index != null ? i === opt.index : (s.id === opt.soul?.id || s.id === opt.card?.id)));
+      if (sIndex >= 0) {
+        const removed = p.souls.splice(sIndex, 1)[0];
+        G.logs.push(`${choice.bossName || 'Porkus'}: removed ${removed.name || 'Hero'} from scorekeeping.`);
+      }
+      let gainedHero = null;
+      if (G.decks.heroes?.length > 0) {
+        gainedHero = G.decks.heroes.shift();
+      } else if (G.decks.epics?.length > 0) {
+        gainedHero = G.decks.epics.shift();
+      }
+      if (gainedHero) {
+        gainedHero.faceDown = true;
+        p.souls = p.souls || [];
+        p.souls.push(gainedHero);
+        G.logs.push(`${choice.bossName || 'Porkus'}: placed ${gainedHero.name} face-down in scorekeeping area.`);
       }
       break;
     }

@@ -7,7 +7,8 @@ import { activeRoom, buildRoom, healOneWound, destroyRoom } from './engine.js';
 import { drawCards } from './cardData.js';
 import { gainCoin } from './minibosses.js';
 import { applyGenericSpell } from './expansionEffects.js';
-import { onExpansionCastSpell } from './expansionBosses.js';
+import { onExpansionCastSpell, onExpansionBossKill } from './expansionBosses.js';
+import { applyItemReward, takeHeroItem } from './items.js';
 
 export function emptyEffects() {
   return {
@@ -141,6 +142,11 @@ const SPELL_EFFECTS = {
       for (let i = 0; i < (hero.souls || 1); i++) {
         p.souls.push({ souls: 1, name: hero.name, class: hero.class, faceDown: true });
       }
+      if (hero.item) {
+        applyItemReward(G, casterId, hero.item);
+        takeHeroItem(p, hero);
+      }
+      onExpansionBossKill(G, casterId);
       G.decks.heroDiscard.push(hero);
       G.logs.push(`Cave-In: ${hero.name} in that room is destroyed.`);
     }
@@ -162,6 +168,11 @@ const SPELL_EFFECTS = {
     if (!heroId) {
       G.logs.push('Exhaustion: no target hero.');
       return false;
+    }
+    if (G.adventure && Number(G.adventure.playerId) === Number(casterId) && G.adventure.hero?.id === heroId) {
+      G.adventure.hp -= x;
+      G.logs.push(`Exhaustion: deals ${x} damage to ${G.adventure.hero.name} (HP ${G.adventure.hp}).`);
+      return true;
     }
     G.effects.heroDamage.push({ heroId, amount: x });
     G.logs.push(`Exhaustion: deals ${x} damage to a hero in your dungeon.`);

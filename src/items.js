@@ -169,20 +169,19 @@ export function addHeroHealthBonus(G, heroId, amount) {
 
 export function killHeroInDungeon(G, playerId, hero) {
   const p = G.players[playerId];
-  if (G.adventure?.hero?.id === hero.id) {
-    const souls = hero.souls || 1;
-    for (let i = 0; i < souls; i++) p.souls.push({ souls: 1, name: hero.name, class: hero.class, faceDown: true });
-    G.adventure = null;
-    G.decks.heroDiscard.push(hero);
-    G.logs.push(`${hero.name} killed!`);
-    return;
-  }
+  if (!p) return;
   const idx = p.entrance.findIndex((h) => h.id === hero.id);
-  if (idx >= 0) {
-    p.entrance.splice(idx, 1);
-    for (let i = 0; i < (hero.souls || 1); i++) p.souls.push({ souls: 1, name: hero.name, class: hero.class, faceDown: true });
-    G.decks.heroDiscard.push(hero);
-    G.logs.push(`${hero.name} killed!`);
+  if (idx >= 0) p.entrance.splice(idx, 1);
+  if (G.adventure?.hero?.id === hero.id) {
+    G.adventure = null;
+  }
+  const item = hero.item ? (takeHeroItem(p, hero) || hero.item) : null;
+  const souls = hero.souls || 1;
+  for (let i = 0; i < souls; i++) p.souls.push({ souls: 1, name: hero.name, class: hero.class, faceDown: true });
+  G.decks.heroDiscard.push(hero);
+  G.logs.push(`${hero.name} killed!`);
+  if (item) {
+    applyItemReward(G, playerId, item);
   }
 }
 

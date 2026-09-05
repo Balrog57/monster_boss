@@ -106,25 +106,7 @@ function heroLureTreasure(hero) {
 }
 
 function lureByHighestHybrid(G, treasures) {
-  const order = playerOrderByXP(G.players);
-  let best = null;
-  for (const pid of order) {
-    const count = treasures.reduce((sum, t) => sum + treasureCount(G, pid, t), 0);
-    const wounds = totalWounds(G.players[pid]);
-    const souls = totalSouls(G.players[pid]);
-    if (best === null) {
-      best = { pid, count, wounds, souls };
-    } else if (count > best.count) {
-      best = { pid, count, wounds, souls };
-    } else if (count === best.count && count > 0) {
-      if (wounds < best.wounds || (wounds === best.wounds && souls < best.souls)) {
-        best = { pid, count, wounds, souls };
-      } else if (wounds === best.wounds && souls === best.souls) {
-        return null;
-      }
-    }
-  }
-  return best && best.count > 0 ? best.pid : null;
+  return lureByHighest(G, (pid) => treasures.reduce((sum, t) => sum + treasureCount(G, pid, t), 0));
 }
 
 function lureTiedPlayers(G, getCount) {
@@ -132,10 +114,12 @@ function lureTiedPlayers(G, getCount) {
   let bestCount = -1;
   let candidates = [];
   for (const pid of order) {
+    const p = G.players[pid];
+    if (p?.eliminated) continue;
     const count = getCount(pid);
     if (count <= 0) continue;
-    const wounds = totalWounds(G.players[pid]);
-    const souls = totalSouls(G.players[pid]);
+    const wounds = totalWounds(p);
+    const souls = totalSouls(p);
     if (count > bestCount) {
       bestCount = count;
       candidates = [{ pid, wounds, souls }];
@@ -201,24 +185,34 @@ function splitLureForLargeGame(G, treasure, tiedPids) {
 
 function lureByHighest(G, getCount) {
   const order = playerOrderByXP(G.players);
-  let best = null;
+  const playerStats = [];
+  let maxCount = 0;
   for (const pid of order) {
+    const p = G.players[pid];
+    if (p?.eliminated) continue;
     const count = getCount(pid);
-    const wounds = totalWounds(G.players[pid]);
-    const souls = totalSouls(G.players[pid]);
-    if (best === null) {
-      best = { pid, count, wounds, souls };
-    } else if (count > best.count) {
-      best = { pid, count, wounds, souls };
-    } else if (count === best.count && count > 0) {
-      if (wounds < best.wounds || (wounds === best.wounds && souls < best.souls)) {
-        best = { pid, count, wounds, souls };
-      } else if (wounds === best.wounds && souls === best.souls) {
-        return null;
-      }
-    }
+    if (count > maxCount) maxCount = count;
+    playerStats.push({
+      pid,
+      count,
+      wounds: totalWounds(p),
+      souls: totalSouls(p),
+    });
   }
-  return best && best.count > 0 ? best.pid : null;
+  if (maxCount <= 0) return null;
+
+  let candidates = playerStats.filter((c) => c.count === maxCount);
+  if (candidates.length === 1) return candidates[0].pid;
+
+  const minWounds = Math.min(...candidates.map((c) => c.wounds));
+  candidates = candidates.filter((c) => c.wounds === minWounds);
+  if (candidates.length === 1) return candidates[0].pid;
+
+  const minSouls = Math.min(...candidates.map((c) => c.souls));
+  candidates = candidates.filter((c) => c.souls === minSouls);
+  if (candidates.length === 1) return candidates[0].pid;
+
+  return null;
 }
 
 export function resolveBait(G) {
@@ -514,6 +508,23 @@ export function checkEndGame(G) {
     })).sort((a, b) => a.xp - b.xp);
     return { gameOver: true, winner: ranked[0].pid };
   }
+
+  // Hero exhaustion safeguard: when all heroes have been drawn and no more can arrive or explore
+  const noMoreHeroes = heroDecksEmpty && (G.decks?.heroDiscard?.length || 0) === 0
+    && (G.town?.length || 0) === 0
+    && stillAlive.every(p => (p.entrance?.length || 0) === 0)
+    && !G.adventure;
+  if (noMoreHeroes) {
+    const scored = stillAlive.map((p) => ({
+      pid: parseInt(Object.keys(G.players).find((id) => G.players[id] === p)),
+      score: totalSouls(p) - totalWounds(p),
+      xp: p.boss?.xp || 0,
+    })).sort((a, b) => b.score - a.score || a.xp - b.xp);
+    if (scored.length > 0) {
+      return { gameOver: true, winner: scored[0].pid };
+    }
+  }
+
   return { gameOver: false, winner: null };
 }
 

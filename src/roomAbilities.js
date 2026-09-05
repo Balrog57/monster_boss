@@ -1296,7 +1296,8 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
     }
     case 'pick-boss-treasure':
     case 'pick-boss-levelup':
-    case 'uncover-room': {
+    case 'uncover-room':
+    case 'remove-soul-search-hero': {
       resolveExpansionLevelUpChoice(G, choice, optionIndex);
       break;
     }
@@ -1381,6 +1382,7 @@ export function aiResolveLevelUpChoice(G, choice) {
     case 'deactivate-room':
     case 'smithy-item':
     case 'smithy-hero':
+    case 'remove-soul-search-hero':
       return 0;
     default:
       return 0;

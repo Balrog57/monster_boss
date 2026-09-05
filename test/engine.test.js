@@ -135,4 +135,111 @@ describe('expansion packs', () => {
     assert.equal(G.players[0].items[0].faceDown, true);
     assert.equal(G.players[0].hand[0].id, 'BMA040');
   });
+
+  it('lures correctly in a 3-player game when two lower players have equal treasure', () => {
+    const G = {
+      effects: {},
+      town: [{ id: 'BMA056', name: 'Cleric', treasure: 1, hp: 4, class: 'Cleric' }],
+      players: {
+        0: { boss: { xp: 100, treasures: [1] }, dungeon: [], wounds: [], souls: [], eliminated: false },
+        1: { boss: { xp: 200, treasures: [1] }, dungeon: [], wounds: [], souls: [], eliminated: false },
+        2: { boss: { xp: 300, treasures: [1, 1, 1] }, dungeon: [], wounds: [], souls: [], eliminated: false },
+      },
+    };
+    const [assign] = resolveBait(G);
+    assert.equal(assign.stayInTown, false);
+    assert.equal(assign.targetPlayerId, 2);
+  });
+
+  it('resolves tie-break on fewest wounds, then fewest souls', () => {
+    const G = {
+      effects: {},
+      town: [{ id: 'BMA056', name: 'Cleric', treasure: 1, hp: 4, class: 'Cleric' }],
+      players: {
+        0: { boss: { xp: 100, treasures: [1, 1] }, dungeon: [], wounds: [{ souls: 1 }], souls: [], eliminated: false },
+        1: { boss: { xp: 200, treasures: [1, 1] }, dungeon: [], wounds: [], souls: [], eliminated: false },
+        2: { boss: { xp: 300, treasures: [1] }, dungeon: [], wounds: [], souls: [], eliminated: false },
+      },
+    };
+    const [assign] = resolveBait(G);
+    assert.equal(assign.stayInTown, false);
+    assert.equal(assign.targetPlayerId, 1);
+  });
+});
+
+describe('engine endgame and spell regression tests', () => {
+  it('triggers game over on complete hero depletion and ranks by score', async () => {
+    const { checkEndGame } = await import('../src/engine.js');
+    const G = {
+      decks: { heroes: [], epics: [], heroDiscard: [] },
+      town: [],
+      adventure: null,
+      players: {
+        0: { boss: { xp: 500 }, souls: [{ souls: 1 }, { souls: 1 }], wounds: [], entrance: [], eliminated: false },
+        1: { boss: { xp: 300 }, souls: [{ souls: 1 }], wounds: [{ wounds: 1 }], entrance: [], eliminated: false },
+      },
+    };
+    const res = checkEndGame(G);
+    assert.equal(res.gameOver, true);
+    assert.equal(res.winner, 0);
+  });
+
+  it('Exhaustion damages an actively exploring hero directly', async () => {
+    const { castSpell } = await import('../src/spellEffects.js');
+    const hero = { id: 'BMA056', name: 'Cleric', hp: 8 };
+    const G = {
+      effects: { heroDamage: [] },
+      logs: [],
+      adventure: {
+        playerId: 0,
+        hero,
+        roomIndex: 0,
+        hp: 8,
+      },
+      players: {
+        0: {
+          dungeon: [
+            [{ id: 'BMA009', name: 'Dark Altar', type: 'trap' }],
+            [{ id: 'BMA010', name: 'Open Grave', type: 'monster' }],
+          ],
+        },
+      },
+    };
+    const success = castSpell(G, {}, 0, { id: 'BMA044', name: 'Exhaustion' }, { heroId: 'BMA056' });
+    assert.equal(success, true);
+    assert.equal(G.adventure.hp, 6);
+  });
+
+  it('Cave-In awards and strips hero item', async () => {
+    const { castSpell } = await import('../src/spellEffects.js');
+    const hero = { id: 'BMA056', name: 'Cleric', hp: 4, souls: 1, item: { id: 'THK001', name: 'Extra Life' } };
+    const G = {
+      effects: {},
+      logs: [],
+      decks: { roomDiscard: [], heroDiscard: [] },
+      adventure: {
+        playerId: 0,
+        hero,
+        roomIndex: 0,
+        hp: 4,
+      },
+      players: {
+        0: {
+          dungeon: [
+            [{ id: 'BMA009', name: 'Dark Altar', type: 'trap' }],
+          ],
+          entrance: [hero],
+          souls: [],
+          wounds: [],
+          items: [],
+        },
+      },
+    };
+    const success = castSpell(G, {}, 0, { id: 'BMA042', name: 'Cave-In' }, { roomIndex: 0 });
+    assert.equal(success, true);
+    assert.equal(G.adventure, null);
+    assert.equal(G.players[0].items.length, 1);
+    assert.equal(G.players[0].items[0].id, 'THK001');
+    assert.equal(G.players[0].souls.length, 1);
+  });
 });

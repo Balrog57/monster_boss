@@ -41,8 +41,28 @@ export function startTurnTimers() {
       if (now < deadline) continue;
       // Timer expired: auto-pass for the active player (BUILD phase only).
       const activePid = match.ctx.activePlayer;
-      const phase = match.ctx.phase || match.G.phase;
-      if (phase === 'BUILD' || phase === 'BOSS' || phase === 'SETUP') {
+      if (phase === 'BOSS') {
+        const p = match.G.players[activePid];
+        if (p && !p.boss) {
+          const available = (match.G.bossPicks || []).filter(b =>
+            !Object.values(match.G.players).some(pl => pl.boss?.id === b.id)
+          );
+          const chosen = [...available].sort((a, b) => b.xp - a.xp)[0];
+          if (chosen) {
+            const { state, error } = applyMove({ G: match.G, ctx: match.ctx }, { type: 'pickBoss', args: [chosen.id] }, activePid);
+            if (!error) {
+              match.G = state.G;
+              match.ctx = state.ctx;
+              match.dirty = true;
+              match.turnStartedAt = Date.now();
+              match.G.logs.push(`Player ${activePid} ran out of time — auto-picked ${chosen.name}.`);
+              broadcastState(match.id);
+              continue;
+            }
+          }
+        }
+        match.turnStartedAt = Date.now();
+      } else if (phase === 'BUILD' || phase === 'SETUP') {
         const { state, error } = applyMove({ G: match.G, ctx: match.ctx }, { type: 'pass', args: [] }, activePid);
         if (!error) {
           match.G = state.G;

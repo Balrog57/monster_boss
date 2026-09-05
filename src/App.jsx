@@ -14,6 +14,7 @@ const GAME = 'game';
 
 export default function App() {
   const [screen, setScreen] = useState(MENU);
+  const [menuView, setMenuView] = useState('intro');
   const [numPlayers, setNumPlayers] = useState(2);
   const [expansions, setExpansions] = useState([]);
   const [humanCount, setHumanCount] = useState(1);
@@ -22,6 +23,7 @@ export default function App() {
   const goMenu = () => {
     stopMusic();
     localStorage.removeItem('bm_online_session');
+    setMenuView('root');
     setScreen(MENU);
     setMatch(null);
   };
@@ -43,6 +45,7 @@ export default function App() {
     <ErrorBoundary>
       {screen === MENU && (
           <MainMenu
+            initialView={menuView}
             onStart={() => setScreen(SETUP)}
             onMultiplayer={() => setScreen(LOBBY)}
           />
@@ -57,14 +60,14 @@ export default function App() {
               setMatch(null);
               setScreen(GAME);
             }}
-            onBack={() => setScreen(MENU)}
+            onBack={() => { setMenuView('root'); setScreen(MENU); }}
           />
       )}
 
       {screen === LOBBY && (
         <OnlineLobbyCustom
           onJoined={(m) => { setMatch(m); setScreen(GAME); }}
-          onBack={() => setScreen(MENU)}
+          onBack={() => { setMenuView('root'); setScreen(MENU); }}
         />
       )}
 

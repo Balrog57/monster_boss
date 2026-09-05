@@ -597,6 +597,9 @@ function continueAfterAdventurePause(G, ctx) {
     if (adv.hp <= 0) {
       G._deathRoom = null;
       finishHero(G, ctx, playerId, hero, adv.hp, deathRoom);
+    } else if (adv.roomIndex < 0) {
+      // Hero was teleported back to the entrance
+      return;
     } else {
       onHeroSurvivedRoom(G, playerId, i, room, hero, adv);
       applyTaggedOnHeroSurvive(G, playerId, i, room);
@@ -641,6 +644,12 @@ function resolvePendingStack(G, ctx) {
     G.activePlayer = returnPlayer;
   }
   G.stackReturnPlayer = null;
+  if (G.adventure && G.adventure.hp <= 0) {
+    const adv = G.adventure;
+    const deathRoom = G._deathRoom || activeRoom(G.players[adv.playerId]?.dungeon?.[adv.roomIndex]);
+    G._deathRoom = null;
+    finishHero(G, ctx, adv.playerId, adv.hero, adv.hp, deathRoom);
+  }
 }
 
 function finishHero(G, ctx, playerId, hero, heroHP, deathRoom) {
@@ -651,22 +660,25 @@ function finishHero(G, ctx, playerId, hero, heroHP, deathRoom) {
   if (ei >= 0) p.entrance.splice(ei, 1);
   else if (p.entrance[0]) p.entrance.splice(0, 1);
 
+  const deathRoomIndex = G.adventure?.roomIndex;
+  G.adventure = null;
+
   if (heroHP <= 0) {
     if (hero.item?.id === 'THK001') {
-      G.logs.push(`Extra Life: ${hero.name} returns to town.`);
-      applyItemReward(G, playerId, hero.item);
+      const item = hero.item;
       takeHeroItem(p, hero);
+      G.logs.push(`Extra Life: ${hero.name} returns to town.`);
+      applyItemReward(G, playerId, item);
       G.town.push(hero);
       tryAttachItemsToHero(G, hero);
     } else {
+      const item = hero.item ? (takeHeroItem(p, hero) || hero.item) : null;
       for (let i = 0; i < souls; i++) p.souls.push({ souls: 1, name: hero.name, class: hero.class, faceDown: true });
-      if (hero.item) {
-        applyItemReward(G, playerId, hero.item);
-        takeHeroItem(p, hero);
+      if (item) {
+        applyItemReward(G, playerId, item);
       }
       G.logs.push(`${hero.name} defeated! Player ${playerId} gains ${souls} soul(s).`);
       onExpansionBossKill(G, playerId);
-      const deathRoomIndex = G.adventure?.roomIndex;
       if (deathRoom && !heroIgnoresRoomAbilities(hero)) {
         onHeroDiedInRoom(G, ctx, playerId, deathRoom, hero);
         if (deathRoomIndex != null && deathRoomIndex >= 0) {
@@ -685,7 +697,6 @@ function finishHero(G, ctx, playerId, hero, heroHP, deathRoom) {
     G.logs.push(`${hero.name} survives! Player ${playerId} takes ${wounds} wound(s).`);
     G.decks.heroDiscard.push(hero);
   }
-  G.adventure = null;
 }
 
 function advanceAdventureRoom(G, ctx) {
@@ -694,6 +705,12 @@ function advanceAdventureRoom(G, ctx) {
   const playerId = adv.playerId;
   const p = G.players[playerId];
   const hero = adv.hero;
+  if (adv.hp <= 0) {
+    const deathRoom = G._deathRoom || activeRoom(p?.dungeon?.[adv.roomIndex]);
+    G._deathRoom = null;
+    finishHero(G, ctx, playerId, hero, adv.hp, deathRoom);
+    return null;
+  }
   let i = adv.roomIndex + 1;
   while (i < p.dungeon.length && isRoomDeactivated(G, playerId, i)) {
     G.logs.push(`${activeRoom(p.dungeon[i])?.name || 'Room'} is deactivated — skipped`);
