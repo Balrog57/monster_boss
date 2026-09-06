@@ -4,7 +4,7 @@
 // It does not mutate G unless explicitly noted.
 
 import { PHASE, TREASURE_NAMES, playerOrderByXP, totalSouls, totalWounds, drawCards, refillDeckFromDiscard } from './cardData.js';
-import { onRoomDestroyed } from './minibosses.js';
+import { onRoomDestroyed, gainCoin } from './minibosses.js';
 import { imperiatrixDamageBonus, killaDamageBonus, scottDamageBonus } from './expansionBosses.js';
 
 function zaraCountsAllTreasures(stack) {
@@ -354,6 +354,17 @@ export function destroyRoom(G, playerId, roomIndex) {
       break;
     }
   }
+  // Garbage Chute (RMB041): once per turn when a Room is destroyed, gain 2 coins.
+  for (const [pid, owner] of Object.entries(G.players || {})) {
+    for (const s of owner.dungeon || []) {
+      const r = activeRoom(s);
+      if (r?.id === 'RMB041' && !r.usedThisTurn) {
+        gainCoin(G, pid, 2, 'Garbage Chute');
+        r.usedThisTurn = true;
+        break;
+      }
+    }
+  }
   return destroyed;
 }
 
@@ -421,6 +432,46 @@ export function applyRoomUncovered(G, playerId, roomIndex, uncovered) {
       if (soul) G.logs.push(`Vampire Lab: discarded ${discarded.name}, healed a Wound.`);
     }
   }
+  if (uncovered.id === 'CRL013') {
+    const opts = (G.decks.roomDiscard || [])
+      .map((card, i) => ({ card, pile: 'room', pileIndex: i }))
+      .filter((o) => o.card?.advanced);
+    if (opts.length === 1) {
+      const card = G.decks.roomDiscard.splice(opts[0].pileIndex, 1)[0];
+      p.hand.push(card);
+      G.logs.push(`Crash Site: recovered ${card.name}.`);
+    } else if (opts.length > 1) {
+      G.pendingChoice = {
+        type: 'recover-card',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'Crash Site',
+        message: 'Crash Site: choose an Advanced Room from the discard',
+        options: opts,
+      };
+    } else {
+      G.logs.push('Crash Site: no Advanced Room in discard.');
+    }
+  }
+  if (uncovered.id === 'RMB028') {
+    applyDragonsNestBoost(G, playerId, uncovered);
+  }
+}
+
+export function applyDragonsNestBoost(G, playerId, nestRoom) {
+  const p = G.players[playerId];
+  if (!p) return;
+  G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+  let boosted = 0;
+  (p.dungeon || []).forEach((s, i) => {
+    const r = activeRoom(s);
+    if (!r || r === nestRoom || r.type !== 'monster') return;
+    const amount = (r.treasures || []).length;
+    if (!amount) return;
+    G.effects.roomDamageBonus.push({ playerId, roomIndex: i, amount });
+    boosted += 1;
+  });
+  if (boosted) G.logs.push(`Dragon's Nest: boosted ${boosted} Monster Room(s) by their treasure icons.`);
 }
 
 function ignoresRoomAbilityText(G, playerId, hero) {
@@ -466,6 +517,8 @@ export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
       if (other.id === 'BMA029' && i === roomIndex - 1 && room.type === 'trap') dmg += 2; // Dizzygas Hallway
       if (other.id === 'CRL008' && Math.abs(i - roomIndex) === 1) dmg += 1; // Invasion Swarm
       if (other.id === 'RMB024' && i === roomIndex - 1 && room.type === 'monster') dmg += 2; // Power Leech (room to the right of leech)
+      if (other.id === 'TNL023' && i === roomIndex + 1 && room.type === 'monster') dmg += 2; // Goblin Nursery (left of nursery)
+      if (other.id === 'TNL028' && room.type === 'monster') dmg += 1; // Goblin Mess Hall
     }
   }
 
@@ -481,6 +534,10 @@ export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
         return r && (r.treasures || []).includes(5);
       });
       if (otherExplorer) dmg += 1;
+    }
+    // Magipede / Elemental Generator: +1 per Spell in hand
+    if (room.id === 'RMB039' || room.id === 'TNL038') {
+      dmg += (p.hand || []).filter((c) => c.isSpell).length;
     }
   }
 

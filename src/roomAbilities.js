@@ -8,7 +8,7 @@
 //   - passive damage/treasure modifiers → handled in engine.js (roomDamageWithModifiers)
 //   - "when a hero dies in this room" → onHeroDiedInRoom
 
-import { activeRoom, allActiveRooms, destroyRoom, countVisibleRooms, dungeonTreasures, healOneWound, applyRoomUncovered } from './engine.js';
+import { activeRoom, allActiveRooms, destroyRoom, countVisibleRooms, dungeonTreasures, healOneWound, applyRoomUncovered, applyDragonsNestBoost } from './engine.js';
 export { dungeonTreasures };
 import { drawCards, PHASE, HEROES } from './cardData.js';
 import { dungeonIgnoresRoomAbilities, heroIgnoresRoomAbilities, applyItemReward, addHeroHealthBonus, killHeroInDungeon } from './items.js';
@@ -247,6 +247,19 @@ export function onBuildRoom(G, ctx, playerId, room) {
       }
       break;
     }
+    case 'RMB021': { // Robber's Vault: exchange Hoard with another player
+      const opps = opponentsWith(G, playerId, () => true);
+      if (!opps.length) break;
+      if (opps.length === 1) {
+        exchangeHoard(G, playerId, opps[0][0]);
+        break;
+      }
+      return pickOpponentChoice(G, playerId, "Robber's Vault", 'Choose a player to exchange Hoards with', 'exchange-hoard', opps);
+    }
+    case 'RMB028': { // Dragon's Nest: other Monster Rooms +treasure-count EOT
+      applyDragonsNestBoost(G, playerId, room);
+      break;
+    }
     case 'TNL052': { // Genie Lounge: if no spells in hand, draw a spell
       const hasSpell = player.hand.some((c) => c.isSpell);
       if (!hasSpell) {
@@ -456,6 +469,14 @@ export function onHeroDiedInRoom(G, ctx, playerId, room, hero) {
       gainCoin(G, playerId, 1, 'Lightning Rod');
       break;
     }
+    case 'TNL025': { // Spawn Point: once per turn, hero dies → draw 2 rooms
+      if (room.usedThisTurn) break;
+      const rooms = drawCards(G.decks.rooms, 2);
+      player.hand.push(...rooms);
+      room.usedThisTurn = true;
+      G.logs.push(`Spawn Point: drew ${rooms.map((c) => c.name).join(', ') || 'Rooms'}.`);
+      break;
+    }
     default:
       break;
   }
@@ -467,6 +488,16 @@ function opponentsWith(G, playerId, pred) {
   return Object.entries(G.players).filter(
     ([pid, p]) => Number(pid) !== Number(playerId) && !p.eliminated && pred(p)
   );
+}
+
+function exchangeHoard(G, playerId, targetId) {
+  const a = G.players[playerId];
+  const b = G.players[targetId];
+  if (!a || !b) return;
+  const tmp = a.coins || 0;
+  a.coins = b.coins || 0;
+  b.coins = tmp;
+  G.logs.push(`Robber's Vault: Player ${playerId} exchanged Hoard with Player ${targetId} (${a.coins}⇄${b.coins}).`);
 }
 
 function pickOpponentChoice(G, playerId, bossName, message, action, opps, extra = {}) {
@@ -1214,6 +1245,7 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
       if (choice.action === 'discard-spell') discardRandomSpellFrom(G, targetId, choice.bossName);
       else if (choice.action === 'steal-random') stealRandomCardFrom(G, playerId, targetId, choice.bossName);
       else if (choice.action === 'discard-room') offerRoomDiscardFromHand(G, targetId, choice.bossName, choice.destroyPlayerId, choice.destroyRoomIndex);
+      else if (choice.action === 'exchange-hoard') exchangeHoard(G, playerId, targetId);
       break;
     }
     case 'search-advanced': {
@@ -1374,6 +1406,19 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
       G.logs.push(`${choice.bossName}: ${option.room?.name || 'a room'} has no treasure until end of turn.`);
       break;
     }
+    case 'discard-room-draw': {
+      const player = G.players[playerId];
+      const idx = option.handIndex;
+      if (idx == null || !player?.hand[idx]?.isRoom) return 'invalid room';
+      const discarded = player.hand.splice(idx, 1)[0];
+      G.decks.roomDiscard.push(discarded);
+      const drawn = G.decks.rooms.pop();
+      if (drawn) player.hand.push(drawn);
+      const r = activeRoom(player.dungeon[choice.roomIndex]);
+      if (r) r.usedThisTurn = true;
+      G.logs.push(`${choice.bossName}: discarded ${discarded.name}${drawn ? `, drew ${drawn.name}` : ''}.`);
+      break;
+    }
     case 'smithy-item': {
       const heroes = heroesWithoutItem(G);
       if (!heroes.length) return 'no hero without an item';
@@ -1510,6 +1555,7 @@ export function aiResolveLevelUpChoice(G, choice) {
     case 'boost-monster-room':
     case 'uncover-own-room':
     case 'suppress-room-treasure':
+    case 'discard-room-draw':
     case 'smithy-item':
     case 'smithy-hero':
     case 'remove-soul-search-hero':
@@ -1960,6 +2006,58 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
         bossName: 'Decapitator',
         message: 'Decapitator: choose a Room to remove treasure until end of turn',
         options,
+      };
+      return null;
+    }
+    case 'TNL041': { // Wreck Room: destroy another room → draw a Room
+      if (otherRoomIndex == null || otherRoomIndex === roomIndex) return 'must target another room';
+      const other = activeRoom(player.dungeon[otherRoomIndex]);
+      if (!other) return 'no room at other index';
+      destroyRoom(G, playerId, otherRoomIndex);
+      const drawn = G.decks.rooms.pop();
+      if (drawn) {
+        player.hand.push(drawn);
+        G.logs.push(`Wreck Room: destroyed ${other.name}, drew ${drawn.name}.`);
+      } else {
+        G.logs.push(`Wreck Room: destroyed ${other.name}.`);
+      }
+      room.usedThisTurn = true;
+      return null;
+    }
+    case 'TNL046': { // Chump Chomper: destroy another room → this room +4 EOT
+      if (otherRoomIndex == null || otherRoomIndex === roomIndex) return 'must target another room';
+      const other = activeRoom(player.dungeon[otherRoomIndex]);
+      if (!other) return 'no room at other index';
+      // After destroy, roomIndex may shift if other was left of this room
+      const selfIndex = otherRoomIndex < roomIndex ? roomIndex - 1 : roomIndex;
+      destroyRoom(G, playerId, otherRoomIndex);
+      const self = activeRoom(player.dungeon[selfIndex]);
+      G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+      G.effects.roomDamageBonus.push({ playerId, roomIndex: selfIndex, amount: 4 });
+      if (self) self.usedThisTurn = true;
+      G.logs.push(`Chump Chomper: destroyed ${other.name}, +4 until end of turn.`);
+      return null;
+    }
+    case 'TNL042': { // Deadly Treadmill: discard a Room → draw a Room
+      const roomCards = player.hand.map((c, i) => ({ card: c, handIndex: i })).filter((o) => o.card.isRoom);
+      if (!roomCards.length) return 'no room to discard';
+      if (roomCards.length === 1) {
+        const discarded = player.hand.splice(roomCards[0].handIndex, 1)[0];
+        G.decks.roomDiscard.push(discarded);
+        const drawn = G.decks.rooms.pop();
+        if (drawn) player.hand.push(drawn);
+        room.usedThisTurn = true;
+        G.logs.push(`Deadly Treadmill: discarded ${discarded.name}${drawn ? `, drew ${drawn.name}` : ''}.`);
+        return null;
+      }
+      G.pendingChoice = {
+        type: 'discard-room-draw',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'Deadly Treadmill',
+        message: 'Deadly Treadmill: choose a Room to discard',
+        roomIndex,
+        options: roomCards,
       };
       return null;
     }

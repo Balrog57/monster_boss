@@ -7,6 +7,7 @@ import { totalSouls, PHASE } from '../src/cardData.js';
 import { healOneWound, resolveBait, treasureCount, roomDamageWithModifiers, canBuildRoom } from '../src/engine.js';
 import { gainCoin, buildMiniboss } from '../src/minibosses.js';
 import { onBuildRoom, activateRoomAbility } from '../src/roomAbilities.js';
+import { applyTaggedOnHeroSurvive } from '../src/expansionEffects.js';
 
 function playUntil(pred, start, max = 80) {
   let state = start;
@@ -285,5 +286,68 @@ describe('expansion room batch', () => {
       id: 'CRL011', name: 'Hypercube', advanced: true, type: 'trap', damage: 4, treasures: [5], isRoom: true,
     }];
     assert.equal(canBuildRoom(G, 0, 0, 0), true);
+  });
+
+  it('Goblin Mess Hall / Nursery and spell-hand rooms boost damage', () => {
+    const { G } = setupMatch(2, { expansions: ['next-level', 'minibosses'] });
+    G.effects = emptyEffects();
+    G.players[0].boss = { id: 'BMA001', name: 'Boss', xp: 100, treasures: [] };
+    G.players[0].hand = [{ id: 's1', isSpell: true }, { id: 's2', isSpell: true }];
+    G.players[0].dungeon = [
+      [{ id: 'BMA010', name: 'Monster', type: 'monster', damage: 1, treasures: [2] }],
+      [{ id: 'TNL023', name: 'Goblin Nursery', type: 'monster', damage: 1, treasures: [2] }],
+      [{ id: 'TNL028', name: 'Goblin Mess Hall', type: 'monster', damage: 3, treasures: [2], advanced: true }],
+      [{ id: 'TNL038', name: 'Elemental Generator', type: 'monster', damage: 3, treasures: [3], advanced: true }],
+    ];
+    assert.equal(roomDamageWithModifiers(G, 0, 0, { id: 'h' }), 4); // 1 + nursery2 + mess1
+    assert.equal(roomDamageWithModifiers(G, 0, 3, { id: 'h' }), 6); // 3 + 2 spells + mess1
+  });
+
+  it("Robber's Vault exchanges hoards", () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['minibosses'] });
+    G.effects = emptyEffects();
+    G.players[0].coins = 1;
+    G.players[1].coins = 5;
+    G.players[0].dungeon = [[{ id: 'RMB021', name: "Robber's Vault", type: 'trap', damage: 3, treasures: [1] }]];
+    onBuildRoom(G, ctx, 0, G.players[0].dungeon[0][0]);
+    assert.equal(G.players[0].coins, 5);
+    assert.equal(G.players[1].coins, 1);
+  });
+
+  it('Dragon Nest boosts other monsters by treasure count', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['minibosses'] });
+    G.effects = emptyEffects();
+    const nest = { id: 'RMB028', name: "Dragon's Nest", type: 'monster', damage: 4, treasures: [2] };
+    G.players[0].dungeon = [
+      [{ id: 'BMA010', name: 'M', type: 'monster', damage: 1, treasures: [1, 2] }],
+      [nest],
+    ];
+    onBuildRoom(G, ctx, 0, nest);
+    assert.ok(G.effects.roomDamageBonus.some((e) => e.roomIndex === 0 && e.amount === 2));
+  });
+
+  it('Wreck Room destroys another room to draw', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['next-level'] });
+    Object.assign(G, { phase: PHASE.BUILD, effects: emptyEffects() });
+    Object.assign(ctx, { phase: PHASE.BUILD, activePlayer: 0 });
+    G.decks.rooms.push({ id: 'draw1', name: 'Drawn', isRoom: true });
+    G.players[0].dungeon = [
+      [{ id: 'TNL041', name: 'Wreck Room', type: 'trap', damage: 1, treasures: [4] }],
+      [{ id: 'BMA009', name: 'Dark Altar', type: 'monster', damage: 1, treasures: [1] }],
+    ];
+    const before = G.players[0].hand.length;
+    assert.equal(activateRoomAbility(G, ctx, 0, 0, 1), null);
+    assert.equal(G.players[0].dungeon.length, 1);
+    assert.equal(G.players[0].hand.length, before + 1);
+  });
+
+  it('Collapsing Bridge gains +3 after a hero survives', () => {
+    const { G } = setupMatch(2, { expansions: ['next-level'] });
+    G.effects = emptyEffects();
+    const room = { id: 'TNL043', name: 'Collapsing Bridge', type: 'trap', damage: 1, treasures: [4] };
+    G.players[0].dungeon = [[room]];
+    applyTaggedOnHeroSurvive(G, 0, 0, room);
+    assert.ok(G.effects.roomDamageBonus.some((e) => e.amount === 3));
+    assert.equal(room.usedThisTurn, true);
   });
 });

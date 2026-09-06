@@ -92,7 +92,14 @@ export function applyTaggedOnHeroDeathDestroy(G, playerId, roomIndex, room) {
 }
 
 export function applyTaggedOnHeroSurvive(G, playerId, roomIndex, room) {
-  if (!room?.destroyOnHeroSurvive || roomIndex < 0) return;
+  if (!room) return;
+  if (room.id === 'TNL043' && !room.usedThisTurn) {
+    G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+    G.effects.roomDamageBonus.push({ playerId, roomIndex, amount: 3 });
+    room.usedThisTurn = true;
+    G.logs.push('Collapsing Bridge: +3 until end of turn.');
+  }
+  if (!room.destroyOnHeroSurvive || roomIndex < 0) return;
   destroyRoom(G, playerId, roomIndex);
   G.logs.push(`${room.name}: destroyed after a Hero survived.`);
 }

@@ -1227,6 +1227,9 @@ const ACTIVATED_ABILITY_ROOMS = new Set([
   'TNL049', // Warp Tube
   'RMB022', // Minotaur Catacombs
   'TNL045', // Decapitator
+  'TNL041', // Wreck Room
+  'TNL042', // Deadly Treadmill
+  'TNL046', // Chump Chomper
 ]);
 
 function hasActivatedAbility(roomId) {
@@ -1234,7 +1237,7 @@ function hasActivatedAbility(roomId) {
 }
 
 // Rooms whose activated ability destroys ANOTHER room (needs a second target).
-const NEEDS_OTHER_TARGET_ROOMS = new Set(['BMA028', 'BMA032', 'RMB047']);
+const NEEDS_OTHER_TARGET_ROOMS = new Set(['BMA028', 'BMA032', 'RMB047', 'TNL041', 'TNL046']);
 
 // Push legal activateRoom moves for a player's dungeon. Rooms that destroy
 // another room (Boulder Ramp, The Crushinator) require a valid other target;
@@ -1279,6 +1282,12 @@ function canOfferActivatedRoom(G, p, room, roomIndex) {
   }
   if (room.id === 'TNL045') {
     return G.phase === PHASE.BUILD;
+  }
+  if (room.id === 'TNL042') {
+    return p.hand.some((c) => c.isRoom);
+  }
+  if (room.id === 'TNL041' || room.id === 'TNL046') {
+    return p.dungeon.some((s, idx) => idx !== roomIndex && activeRoom(s));
   }
   return true;
 }

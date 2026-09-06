@@ -1022,7 +1022,8 @@
       ],
       "quantity": 1,
       "description": "When you build this Room, if you have at least one other Advanced Room in your dungeon, (including this one), draw two Spell cards.",
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "CRL011",
@@ -1063,7 +1064,8 @@
       ],
       "quantity": 2,
       "description": "When you uncover this Room, search the discard pile for an Advanced Room card and add it to your hand.",
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "CRL014",
@@ -1229,7 +1231,8 @@
       ],
       "quantity": 1,
       "description": "When you build this room, exchange your Hoard with another player's, even if you have no coins.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB022",
@@ -1322,7 +1325,8 @@
       ],
       "quantity": 1,
       "description": "When you build or uncover this Room, until end of turn, give every other Monster Room in your dungeon +1 for every treasure icon that room has.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB029",
@@ -1467,7 +1471,8 @@
       ],
       "quantity": 1,
       "description": "This room has +1 for every Spell card in your hand.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB040",
@@ -1495,7 +1500,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn when a Room is destroyed, gain (c) (c).",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB042",
@@ -1868,7 +1874,8 @@
       ],
       "quantity": 2,
       "description": "If the Room to the left of this is a Monster Room, give that Room +2",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL024",
@@ -1894,7 +1901,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, if a Hero dies in this Room, draw two Room cards.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL026",
@@ -1934,7 +1942,8 @@
       ],
       "quantity": 2,
       "description": "Give ever other Monster Room in your dungeon +1",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL029",
@@ -2066,7 +2075,8 @@
       ],
       "quantity": 1,
       "description": "This Room has +X, where X equals the number of Spell cards in your hand.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL039",
@@ -2105,7 +2115,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, you may destroy another Room in your dungeon to draw a Room card.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL042",
@@ -2118,7 +2129,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, you may discard a Room card to draw a Room card.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL043",
@@ -2131,7 +2143,8 @@
       ],
       "quantity": 2,
       "description": "If a Hero survives this Room, until the end of turn this Room deals +3\n\nRevised: Once per turn, if a Hero survives this Room, until end of turn this Room deals +3.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL044",
@@ -2172,7 +2185,8 @@
       ],
       "quantity": 1,
       "description": "Once per turn, you may destroy another Room in your dungeon to give this Room +4 until end of turn.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL047",
@@ -2245,7 +2259,8 @@
       ],
       "quantity": 3,
       "description": "(You may build this over a room with Cleric, Fighter, Mage, or Thief treasure.)",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL052",
