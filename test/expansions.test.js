@@ -8,6 +8,7 @@ import { healOneWound, resolveBait, treasureCount, roomDamageWithModifiers, canB
 import { gainCoin, buildMiniboss } from '../src/minibosses.js';
 import { onBuildRoom, activateRoomAbility } from '../src/roomAbilities.js';
 import { applyTaggedOnHeroSurvive } from '../src/expansionEffects.js';
+import { processEndOfTurnRooms, processDreadmills } from '../src/handAbilities.js';
 
 function playUntil(pred, start, max = 80) {
   let state = start;
@@ -415,5 +416,38 @@ describe('expansion room batch', () => {
     G.players[0].dungeon = [[{ id: 'RMB032', name: "Alchemist's Lab", type: 'trap', damage: 1, treasures: [3] }]];
     castSpell(G, ctx, 0, { id: 'BMA040', name: 'Annihilator', isSpell: true }, { roomIndex: 0 });
     assert.equal(G.players[0].coins, 2);
+  });
+
+  it('Cursed Well discards from hand for coins', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['minibosses'] });
+    Object.assign(G, { phase: PHASE.BUILD, effects: emptyEffects() });
+    Object.assign(ctx, { phase: PHASE.BUILD, activePlayer: 0 });
+    G.players[0].coins = 0;
+    G.players[0].hand = [{ id: 'RMB035', name: 'Cursed Well', isRoom: true, type: 'trap', treasures: [4] }];
+    const r = applyMove({ G, ctx }, { type: 'useHandRoom', args: [0, { choice: 'coins' }] }, 0);
+    assert.equal(r.error, undefined);
+    assert.equal(r.state.G.players[0].coins, 2);
+    assert.equal(r.state.G.players[0].hand.length, 0);
+  });
+
+  it('Inner Sanctum draws when no hero entered', () => {
+    const { G } = setupMatch(2, { expansions: ['next-level'] });
+    G.effects = emptyEffects();
+    G.decks.rooms.push({ id: 'drawme', name: 'Drawn', isRoom: true });
+    G.players[0].dungeon = [[{ id: 'TNL018', name: 'Inner Sanctum', type: 'trap', damage: 2, treasures: [1] }]];
+    const before = G.players[0].hand.length;
+    processEndOfTurnRooms(G);
+    assert.equal(G.players[0].hand.length, before + 1);
+  });
+
+  it('Dreadmill places a coin or destroys', () => {
+    const { G } = setupMatch(2, { expansions: ['minibosses'] });
+    G.effects = emptyEffects();
+    G.players[0].coins = 1;
+    G.players[0].dungeon = [[{ id: 'RMB048', name: 'The Dreadmill', type: 'trap', damage: 1, treasures: [4] }]];
+    processDreadmills(G);
+    assert.equal(G.players[0].coins, 0);
+    assert.equal(G.players[0].dungeon[0][0].coinsOn, 1);
+    assert.equal(roomDamageWithModifiers(G, 0, 0, { id: 'h' }), 2);
   });
 });

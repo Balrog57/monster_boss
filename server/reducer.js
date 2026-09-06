@@ -21,6 +21,9 @@ import {
 import { castSpell, emptyEffects, isBuildBlocked, extraBuildsFor, isRoomDeactivated, isNoEntry, heroDamageFor, consumeHeroDamage } from '../src/spellEffects.js';
 import { onBuildRoom, onHeroDiedInRoom, processLevelUp, activateRoomAbility, resolveLevelUpChoice, aiResolveLevelUpChoice, hauntedLibraryChoice, heroesWithoutItem } from '../src/roomAbilities.js';
 import {
+  canUseHandRoom, useHandRoomAbility, processEndOfTurnRooms, processDreadmills, notifyOpponentMiniboss,
+} from '../src/handAbilities.js';
+import {
   activeRoom, countVisibleRooms,
   resolveBait, buildRoom, canBuildRoom, heroHealthWithModifiers,
   roomDamageWithModifiers, checkEndGame
@@ -394,9 +397,13 @@ function beginPhaseBeginning(G, ctx) {
     p.hasActed = false;
     p.woundImmuneThisTurn = false;
     p.wounds = (p.wounds || []).filter((w) => !w.temp);
+    for (const h of p.entrance || []) delete h._blockedUntilNextTurn;
     for (const stack of p.dungeon || []) {
       for (const room of stack || []) {
-        if (room) room.usedThisTurn = false;
+        if (room) {
+          room.usedThisTurn = false;
+          room._enteredThisTurn = false;
+        }
       }
     }
   }
@@ -407,6 +414,7 @@ function beginPhaseBeginning(G, ctx) {
 
 function beginPhaseBuild(G, ctx) {
   beginPhase(G, ctx, PHASE.BUILD);
+  processDreadmills(G);
   G.logs.push(`--- Turn ${G.turn} - Build Phase ---`);
 }
 
@@ -475,8 +483,9 @@ function beginPhaseAdventure(G, ctx) {
 function beginPhaseEnd(G, ctx) {
   G.phase = PHASE.END;
   ctx.phase = PHASE.END;
-  G.effects = emptyEffects();
   G.logs.push(`--- Turn ${G.turn} - End Phase ---`);
+  processEndOfTurnRooms(G);
+  G.effects = emptyEffects();
   const result = checkEndGame(G);
   if (result.gameOver) {
     G.gameOver = true;
@@ -744,11 +753,13 @@ function advanceAdventureRoom(G, ctx) {
   const enter = onHeroEnterRoom(G, playerId, i, room, hero);
   if (enter.skipDamage) {
     adv.roomIndex = i;
+    if (room) room._enteredThisTurn = true;
     return null;
   }
   const dmg = roomDamageWithModifiers(G, playerId, i, hero);
   adv.hp -= dmg;
   adv.roomIndex = i;
+  if (room) room._enteredThisTurn = true;
   G.logs.push(`${room?.name || 'Room'} deals ${dmg} damage to ${hero.name} (HP ${adv.hp})`);
   if (adv.hp <= 0) G._deathRoom = room;
   startAdventurePause(G, 'post-damage');
@@ -758,7 +769,18 @@ function advanceAdventureRoom(G, ctx) {
 function startAdventure(G, ctx, playerId) {
   const p = G.players[playerId];
   if (!p || p.entrance.length === 0) return 'no heroes at entrance';
+  // Skip heroes blocked by Haunted Cavern until next turn
+  while (p.entrance.length && p.entrance[0]._blockedUntilNextTurn) {
+    const blocked = p.entrance.shift();
+    p.entrance.push(blocked);
+    // If all blocked, stop
+    if (p.entrance.every((h) => h._blockedUntilNextTurn)) {
+      G.logs.push('All entrance Heroes are blocked this turn.');
+      return 'heroes blocked';
+    }
+  }
   const hero = p.entrance[0];
+  if (hero._blockedUntilNextTurn) return 'hero blocked';
   G.adventure = {
     playerId,
     hero,
@@ -853,7 +875,10 @@ const MOVE_HANDLERS = {
   },
 
   buildRoom: (G, ctx, pid, [handIndex, targetIndex = null]) => {
-    if (!isActivePlayer(G, pid)) return 'not your turn';
+    const immediate = (G.effects?.immediateBuild || []).some((id) => Number(id) === Number(pid));
+    if (!immediate && !isActivePlayer(G, pid)) return 'not your turn';
+    if (immediate && G.phase !== PHASE.BUILD && G.phase !== PHASE.ADVENTURE) return 'cannot build now';
+    if (!immediate && G.phase !== PHASE.BUILD) return 'not build phase';
     const p = G.players[pid];
     const card = p.hand[handIndex];
     if (!card || !card.isRoom) return 'invalid card';
@@ -863,14 +888,23 @@ const MOVE_HANDLERS = {
     if (!buildRoom(G, pid, handIndex, targetIndex)) return 'cannot build here';
     // Mark the newly built room as face-down. It will be revealed at the end
     // of the BUILD phase, at which point onBuildRoom fires.
-    const stack = p.dungeon[targetIndex != null ? targetIndex : p.dungeon.length - 1];
-    const newRoom = stack[stack.length - 1];
+    const stack = p.dungeon[targetIndex != null ? targetIndex : 0];
+    // After unshift, new ordinary room is at 0; after over/advanced use targetIndex
+    const builtStack = targetIndex != null
+      ? p.dungeon[targetIndex]
+      : (card.advanced ? p.dungeon[p.dungeon.length - 1] : p.dungeon[0]);
+    const newRoom = builtStack[builtStack.length - 1];
     newRoom.faceDown = true;
     newRoom.builtThisTurn = true;
     G.logs.push(`${pid === 0 ? 'You' : `Player ${pid}`} built a room face down`);
-    // Building consumes the player's build action for this phase. The player
-    // has acted — mark it so the phase can end when all have acted.
     p.hasActed = true;
+    if (immediate) {
+      G.effects.immediateBuild = (G.effects.immediateBuild || []).filter((id) => Number(id) !== Number(pid));
+      // Reveal immediately when built mid-adventure
+      newRoom.faceDown = false;
+      const choice = onBuildRoom(G, ctx, pid, newRoom);
+      if (choice) G.pendingChoice = { ...choice, resume: false };
+    }
     return null;
   },
 
@@ -880,12 +914,14 @@ const MOVE_HANDLERS = {
     const idx = roomIndex != null ? roomIndex : 0;
     if (!buildMiniboss(G, pid, null, idx)) return 'cannot attach miniboss';
     G.players[pid].hasActed = true;
+    notifyOpponentMiniboss(G, pid);
     return null;
   },
 
   promoteMiniboss: (G, ctx, pid, [roomIndex]) => {
     if (!isActivePlayer(G, pid)) return 'not your turn';
     const err = promoteMiniboss(G, pid, roomIndex != null ? roomIndex : 0);
+    if (!err) notifyOpponentMiniboss(G, pid);
     return err;
   },
 
@@ -1055,6 +1091,43 @@ const MOVE_HANDLERS = {
       return null;
     }
     // Activated abilities do not pass the turn.
+    G.skipAdvance = true;
+    return null;
+  },
+
+  useHandRoom: (G, ctx, pid, [handIndex, target = null]) => {
+    if (!mayActNow(G, pid)) return 'not your turn';
+    if (!canUseHandRoom(G, pid, handIndex)) return 'cannot use hand room';
+    const err = useHandRoomAbility(G, ctx, pid, handIndex, target || {});
+    if (err) return err;
+    if (G._spellCancelled) {
+      G._spellCancelled = false;
+      G.skipAdvance = true;
+      if (!(G.stack?.length) && G.stackReturnPlayer != null) {
+        ctx.activePlayer = G.stackReturnPlayer;
+        ctx.currentPlayer = G.stackReturnPlayer;
+        G.activePlayer = G.stackReturnPlayer;
+      }
+      return null;
+    }
+    G.skipAdvance = true;
+    return null;
+  },
+
+  payToPaywall: (G, ctx, pid, [ownerId, amount]) => {
+    const n = Math.max(0, Number(amount) || 0);
+    if (!n) return 'need coins';
+    const payer = G.players[pid];
+    const owner = G.players[ownerId];
+    if (!payer || !owner) return 'invalid player';
+    if ((payer.coins || 0) < n) return 'not enough coins';
+    const wallIdx = (owner.dungeon || []).findIndex((s) => activeRoom(s)?.id === 'RMB046');
+    if (wallIdx < 0) return 'no Paywall';
+    payer.coins -= n;
+    owner.coins = (owner.coins || 0) + n;
+    G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+    G.effects.roomDamageBonus.push({ playerId: Number(ownerId), roomIndex: wallIdx, amount: -n });
+    G.logs.push(`Paywall: Player ${pid} gave ${n} Coin(s) to Player ${ownerId}.`);
     G.skipAdvance = true;
     return null;
   },
@@ -1242,6 +1315,9 @@ const ACTIVATED_ABILITY_ROOMS = new Set([
   'RMB026', // Training Camp
   'RMB044', // The Catapult
   'TNL053', // Werewolf Den
+  'RMB019', // Haunted Cavern
+  'RMB038', // Efreet's Chamber
+  'CRL012', // The Omega 42
 ]);
 
 function hasActivatedAbility(roomId) {
@@ -1322,6 +1398,15 @@ function canOfferActivatedRoom(G, p, room, roomIndex) {
   if (room.id === 'TNL053') {
     return p.hand.length > 0;
   }
+  if (room.id === 'RMB019') {
+    return (p.coins || 0) >= 1 && (p.entrance || []).length > 0;
+  }
+  if (room.id === 'RMB038') {
+    return (p.entrance || []).length > 0;
+  }
+  if (room.id === 'CRL012') {
+    return p.hand.some((c) => c.isRoom && c.advanced);
+  }
   return true;
 }
 
@@ -1355,6 +1440,34 @@ function pushMinibossMoves(G, pid, p, moves) {
       moves.push({ type: 'activateMiniboss', args: [i] });
     }
   });
+}
+
+function pushHandAbilityMoves(G, pid, p, moves) {
+  p.hand.forEach((c, i) => {
+    if (!canUseHandRoom(G, pid, i)) return;
+    if (c.id === 'RMB035') {
+      moves.push({ type: 'useHandRoom', args: [i, { choice: 'coins' }] });
+      moves.push({ type: 'useHandRoom', args: [i, { choice: 'spell' }] });
+    } else {
+      moves.push({ type: 'useHandRoom', args: [i, null] });
+    }
+  });
+}
+
+function pushPaywallMoves(G, pid, p, moves) {
+  if ((p.coins || 0) < 1) return;
+  for (const [oid, op] of Object.entries(G.players || {})) {
+    if (Number(oid) === Number(pid) || op.eliminated) continue;
+    if (!(op.dungeon || []).some((s) => activeRoom(s)?.id === 'RMB046')) continue;
+    for (let n = 1; n <= Math.min(p.coins, 3); n++) {
+      moves.push({ type: 'payToPaywall', args: [Number(oid), n] });
+    }
+  }
+}
+
+function pushImmediateBuildMoves(G, pid, p, moves) {
+  if (!(G.effects?.immediateBuild || []).some((id) => Number(id) === Number(pid))) return;
+  pushBuildMoves(G, pid, p, moves);
 }
 
 function pushActivateMoves(G, p, moves) {
@@ -1404,6 +1517,9 @@ export function legalMoves(G, ctx, playerID) {
       if (c.isSpell && (c.id === 'BMA043' || c.id === 'RMB077')) {
         moves.push({ type: 'playSpell', args: [i, null] });
       }
+      if (c.isRoom && c.id === 'TNL031') {
+        moves.push({ type: 'useHandRoom', args: [i, null] });
+      }
     });
     pushActivateMoves(G, p, moves);
     moves.push({ type: 'pass', args: [] });
@@ -1434,6 +1550,8 @@ export function legalMoves(G, ctx, playerID) {
     pushDarkHeroPayMoves(G, pid, p, moves);
     pushSpellMoves(G, p, pid, PHASE.BUILD, moves);
     pushActivateMoves(G, p, moves);
+    pushHandAbilityMoves(G, pid, p, moves);
+    pushPaywallMoves(G, pid, p, moves);
     moves.push({ type: 'pass', args: [] });
     return moves;
   }
@@ -1458,6 +1576,9 @@ export function legalMoves(G, ctx, playerID) {
     pushActivateMoves(G, p, moves);
     pushMinibossMoves(G, pid, p, moves);
     pushDarkHeroPayMoves(G, pid, p, moves);
+    pushHandAbilityMoves(G, pid, p, moves);
+    pushPaywallMoves(G, pid, p, moves);
+    pushImmediateBuildMoves(G, pid, p, moves);
     const mustContinueAdventure = !G.adventure?.pause && (
       (G.adventure && Number(G.adventure.playerId) === Number(pid))
       || (!G.adventure && p.entrance.length > 0)

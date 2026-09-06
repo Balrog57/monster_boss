@@ -69,7 +69,7 @@ export function useOnlineMatch({ matchID, playerID, credentials, onExitMatch }) 
   // moves: thin wrappers that send socket events. The server applies the move
   // and broadcasts the new state back, which updates G/ctx via subscribeState.
   const moves = useRef({}).current;
-  for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'buildMiniboss', 'promoteMiniboss', 'activateMiniboss', 'payDarkHero', 'playSpell', 'resolveNextHero', 'pass', 'activateRoom', 'resolveLevelUpChoice', 'openingDiscard']) {
+  for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'buildMiniboss', 'promoteMiniboss', 'activateMiniboss', 'payDarkHero', 'playSpell', 'resolveNextHero', 'pass', 'activateRoom', 'resolveLevelUpChoice', 'openingDiscard', 'useHandRoom', 'payToPaywall']) {
     moves[type] = (...args) => sendMove(matchID, { type, args });
   }
 
@@ -117,7 +117,7 @@ export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, setupData = {}
 
   // moves: apply locally via the reducer.
   const moves = useRef({}).current;
-  for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'buildMiniboss', 'promoteMiniboss', 'activateMiniboss', 'payDarkHero', 'playSpell', 'resolveNextHero', 'pass', 'activateRoom', 'resolveLevelUpChoice', 'openingDiscard']) {
+  for (const type of ['pickBoss', 'buildInitialRoom', 'buildRoom', 'buildMiniboss', 'promoteMiniboss', 'activateMiniboss', 'payDarkHero', 'playSpell', 'resolveNextHero', 'pass', 'activateRoom', 'resolveLevelUpChoice', 'openingDiscard', 'useHandRoom', 'payToPaywall']) {
     moves[type] = (...args) => {
       const actor = Number(viewingPlayer);
       setState(current => {

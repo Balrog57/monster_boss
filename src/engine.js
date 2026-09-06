@@ -403,6 +403,22 @@ export function destroyRoom(G, playerId, roomIndex) {
       }
     }
   }
+  // Black Market (RMB033): once per turn, pay 1 coin to draw a spell when any room is destroyed.
+  for (const [pid, owner] of Object.entries(G.players || {})) {
+    for (const s of owner.dungeon || []) {
+      const r = activeRoom(s);
+      if (r?.id === 'RMB033' && !r.usedThisTurn && (owner.coins || 0) >= 1) {
+        owner.coins -= 1;
+        const spell = G.decks.spells.pop();
+        if (spell) {
+          owner.hand.push(spell);
+          G.logs.push(`Black Market: Player ${pid} paid 1 Coin, drew ${spell.name}.`);
+        }
+        r.usedThisTurn = true;
+        break;
+      }
+    }
+  }
   return destroyed;
 }
 
@@ -581,6 +597,10 @@ export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
     if (room.id === 'RMB029') {
       const key = String(playerId);
       dmg += G.luredThisTurn?.[playerId] || G.luredThisTurn?.[key] || 0;
+    }
+    // The Dreadmill: +1 per coin on room
+    if (room.id === 'RMB048') {
+      dmg += room.coinsOn || 0;
     }
   }
 

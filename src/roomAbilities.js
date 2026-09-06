@@ -60,7 +60,7 @@ export function onBuildRoom(G, ctx, playerId, room) {
         break;
       }
       if (opps.length === 1) {
-        discardRandomSpellFrom(G, opps[0][0], "Specter's Sanctum");
+        discardRandomSpellFrom(G, opps[0][0], "Specter's Sanctum", playerId);
         break;
       }
       return pickOpponentChoice(G, playerId, "Specter's Sanctum", 'Choose an opponent to discard a random Spell', 'discard-spell', opps);
@@ -477,6 +477,15 @@ export function onHeroDiedInRoom(G, ctx, playerId, room, hero) {
       G.logs.push(`Spawn Point: drew ${rooms.map((c) => c.name).join(', ') || 'Rooms'}.`);
       break;
     }
+    case 'TNL026': { // Fangroot Garden: once per turn, may immediately build another Room
+      if (room.usedThisTurn) break;
+      G.effects.immediateBuild = G.effects.immediateBuild || [];
+      G.effects.immediateBuild.push(Number(playerId));
+      player.buildsThisTurn = 0;
+      room.usedThisTurn = true;
+      G.logs.push('Fangroot Garden: may immediately build another Room.');
+      break;
+    }
     default:
       break;
   }
@@ -528,14 +537,41 @@ function finishChoice(G) {
   if (!G.choiceQueue?.length) G.choiceQueue = null;
 }
 
-function discardRandomSpellFrom(G, pid, label) {
+function discardRandomSpellFrom(G, pid, label, forcerPid = null) {
   const opp = G.players[pid];
   const spells = (opp?.hand || []).map((c, i) => ({ c, i })).filter(({ c }) => c.isSpell);
   if (!spells.length) return;
   const pick = spells[Math.floor(Math.random() * spells.length)];
   const discarded = opp.hand.splice(pick.i, 1)[0];
+  // Imp Temple: when you force a discard, take the card instead
+  if (forcerPid != null) {
+    const forcer = G.players[forcerPid];
+    for (const stack of forcer?.dungeon || []) {
+      const room = activeRoom(stack);
+      if (room?.id === 'TNL014' && !room.usedThisTurn) {
+        forcer.hand.push(discarded);
+        room.usedThisTurn = true;
+        G.logs.push(`Imp Temple: took ${discarded.name} instead of discarding.`);
+        return;
+      }
+    }
+  }
   G.decks.spellDiscard.push(discarded);
   G.logs.push(`${label}: player ${pid} discarded ${discarded.name}.`);
+  // Imp Hoard: once per turn an opponent may take a discarded card
+  for (const [oid, owner] of Object.entries(G.players || {})) {
+    if (Number(oid) === Number(pid) || owner.eliminated) continue;
+    for (const stack of owner.dungeon || []) {
+      const room = activeRoom(stack);
+      if (room?.id === 'RMB017' && !room.usedThisTurn) {
+        G.decks.spellDiscard.pop();
+        owner.hand.push(discarded);
+        room.usedThisTurn = true;
+        G.logs.push(`Imp Hoard: Player ${oid} took ${discarded.name}.`);
+        return;
+      }
+    }
+  }
 }
 
 function stealRandomCardFrom(G, casterId, pid, label) {
@@ -963,6 +999,18 @@ function takeDiscardCard(G, player, option) {
   if (idx < 0) return null;
   const card = pile.splice(idx, 1)[0];
   player.hand.push(card);
+  try {
+    // Dynamic import avoided — call notify inline
+    const room = (player.dungeon || []).map((s) => activeRoom(s)).find((r) => r?.id === 'TNL020' && !r.usedThisTurn);
+    if (room) {
+      const drawn = G.decks.rooms.pop();
+      if (drawn) {
+        player.hand.push(drawn);
+        G.logs.push(`Dragon Graveyard: drew ${drawn.name}.`);
+      }
+      room.usedThisTurn = true;
+    }
+  } catch (_) { /* ignore */ }
   return card;
 }
 
@@ -1242,7 +1290,7 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
     }
     case 'pick-opponent': {
       const targetId = option.targetPlayerId;
-      if (choice.action === 'discard-spell') discardRandomSpellFrom(G, targetId, choice.bossName);
+      if (choice.action === 'discard-spell') discardRandomSpellFrom(G, targetId, choice.bossName, playerId);
       else if (choice.action === 'steal-random') stealRandomCardFrom(G, playerId, targetId, choice.bossName);
       else if (choice.action === 'discard-room') offerRoomDiscardFromHand(G, targetId, choice.bossName, choice.destroyPlayerId, choice.destroyRoomIndex);
       else if (choice.action === 'exchange-hoard') exchangeHoard(G, playerId, targetId);
@@ -1449,6 +1497,45 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
       G.logs.push(`${choice.bossName}: doubled ${option.room?.name}.`);
       break;
     }
+    case 'block-entrance-hero': {
+      const player = G.players[playerId];
+      const hero = player?.entrance?.[option.entranceIndex];
+      if (!hero) return 'invalid hero';
+      hero._blockedUntilNextTurn = true;
+      const r = activeRoom(player.dungeon[choice.roomIndex]);
+      if (r) r.usedThisTurn = true;
+      G.logs.push(`${choice.bossName}: ${hero.name} cannot enter until next turn.`);
+      break;
+    }
+    case 'efreet-choice': {
+      const player = G.players[playerId];
+      G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+      if (option.mode === 'discard') {
+        const idx = option.handIndex;
+        if (idx == null || !player.hand[idx]?.isSpell) return 'invalid spell';
+        const discarded = player.hand.splice(idx, 1)[0];
+        G.decks.spellDiscard.push(discarded);
+        G.effects.roomDamageBonus.push({ playerId, roomIndex: choice.roomIndex, amount: 2 });
+        G.logs.push(`${choice.bossName}: discarded ${discarded.name}, +2 until end of turn.`);
+      } else {
+        const drawn = drawCards(G.decks.spells, 1)[0];
+        if (drawn) player.hand.push(drawn);
+        G.effects.roomDamageBonus.push({ playerId, roomIndex: choice.roomIndex, amount: -2 });
+        G.logs.push(`${choice.bossName}: drew ${drawn?.name || 'a Spell'}, -2 until end of turn.`);
+      }
+      const r = activeRoom(player.dungeon[choice.roomIndex]);
+      if (r) r.usedThisTurn = true;
+      break;
+    }
+    case 'omega-refire': {
+      const choice2 = onBuildRoom(G, ctx, playerId, option.room);
+      if (choice2) {
+        G.pendingChoice = { ...choice2, resume: false };
+        return null;
+      }
+      G.logs.push(`${choice.bossName}: re-fired ${option.room?.name}.`);
+      break;
+    }
     case 'smithy-item': {
       const heroes = heroesWithoutItem(G);
       if (!heroes.length) return 'no hero without an item';
@@ -1589,6 +1676,9 @@ export function aiResolveLevelUpChoice(G, choice) {
     case 'arena-reveal':
     case 'debuff-room':
     case 'double-monster':
+    case 'block-entrance-hero':
+    case 'efreet-choice':
+    case 'omega-refire':
     case 'smithy-item':
     case 'smithy-hero':
     case 'remove-soul-search-hero':
@@ -1920,7 +2010,7 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
       destroyRoom(G, playerId, roomIndex);
       const opps = opponentsWith(G, playerId, (p) => (p.hand || []).some((c) => c.isSpell));
       if (opps.length > 0) {
-        discardRandomSpellFrom(G, opps[0][0], 'Spectral Bomb');
+        discardRandomSpellFrom(G, opps[0][0], 'Spectral Bomb', playerId);
       }
       return null;
     }
@@ -2285,6 +2375,81 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
         roomIndex,
         bonus: 1,
         options: heroes,
+      };
+      room.usedThisTurn = true;
+      return null;
+    }
+    case 'RMB019': { // Haunted Cavern: pay (c), block entrance hero until next turn
+      if (!spendCoin(G, playerId, 1)) return 'need 1 Coin';
+      const entrance = player.entrance || [];
+      if (!entrance.length) return 'no hero at entrance';
+      if (entrance.length === 1) {
+        entrance[0]._blockedUntilNextTurn = true;
+        room.usedThisTurn = true;
+        G.logs.push(`Haunted Cavern: ${entrance[0].name} cannot enter until next turn.`);
+        return null;
+      }
+      G.pendingChoice = {
+        type: 'block-entrance-hero',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'Haunted Cavern',
+        message: 'Haunted Cavern: choose a Hero at your entrance',
+        roomIndex,
+        options: entrance.map((h, i) => ({ hero: h, heroId: h.id, entranceIndex: i })),
+      };
+      return null;
+    }
+    case 'RMB038': { // Efreet's Chamber: entrance hero → draw spell & -2 OR discard spell & +2
+      if (!(player.entrance || []).length) return 'no hero at entrance';
+      const spells = player.hand.map((c, i) => ({ card: c, handIndex: i })).filter((o) => o.card.isSpell);
+      // Prefer draw & -2 when no spell / default
+      if (!spells.length) {
+        const drawn = drawCards(G.decks.spells, 1)[0];
+        if (drawn) player.hand.push(drawn);
+        G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+        G.effects.roomDamageBonus.push({ playerId, roomIndex, amount: -2 });
+        room.usedThisTurn = true;
+        G.logs.push(`Efreet's Chamber: drew ${drawn?.name || 'a Spell'}, -2 until end of turn.`);
+        return null;
+      }
+      G.pendingChoice = {
+        type: 'efreet-choice',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: "Efreet's Chamber",
+        message: "Efreet's Chamber: draw a Spell (-2) or discard a Spell (+2)",
+        roomIndex,
+        options: [
+          { mode: 'draw', label: 'Draw a Spell, this Room -2' },
+          ...spells.map((o) => ({ mode: 'discard', handIndex: o.handIndex, card: o.card, label: `Discard ${o.card.name}, +2` })),
+        ],
+      };
+      return null;
+    }
+    case 'CRL012': { // Omega 42: discard Advanced Room → re-fire build/uncover on a room
+      const advIdx = player.hand.findIndex((c) => c.isRoom && c.advanced);
+      if (advIdx < 0) return 'no Advanced Room to discard';
+      const targets = player.dungeon.map((s, i) => ({ roomIndex: i, room: activeRoom(s), playerId: Number(playerId) }))
+        .filter((o) => o.room);
+      if (!targets.length) return 'no room to activate';
+      const discarded = player.hand.splice(advIdx, 1)[0];
+      G.decks.roomDiscard.push(discarded);
+      if (targets.length === 1) {
+        const choice = onBuildRoom(G, ctx, playerId, targets[0].room);
+        if (choice) G.pendingChoice = { ...choice, resume: false };
+        room.usedThisTurn = true;
+        G.logs.push(`The Omega 42: discarded ${discarded.name}, re-fired ${targets[0].room.name}.`);
+        return null;
+      }
+      G.pendingChoice = {
+        type: 'omega-refire',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'The Omega 42',
+        message: 'The Omega 42: choose a Room to re-fire',
+        roomIndex,
+        options: targets,
       };
       room.usedThisTurn = true;
       return null;

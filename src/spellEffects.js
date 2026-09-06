@@ -27,6 +27,7 @@ export function emptyEffects() {
     staffHealingPids: [],  // Staff of Healing: +2 HP to heroes entering these dungeons
     ordinaryMonsterBonus: [], // Goblin Suit reward: +1 ordinary monster damage
     ignoreAbilityPids: [], // Cheat Code reward: ignore room ability text
+    immediateBuild: [], // playerIds who may build outside Build phase (Fangroot)
   };
 }
 

@@ -981,7 +981,8 @@
       ],
       "quantity": 2,
       "description": "You may discard this Room from your hand to deactivate an Advanced Room in any dungeon until end of turn.",
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "CRL008",
@@ -1050,7 +1051,8 @@
       ],
       "quantity": 1,
       "description": "Once per turn, you may discard an Advanced Room to activate one \"when you build this Room\" or \"when you uncover this room\" effect on any Room in your dungeon.",
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "CRL013",
@@ -1164,7 +1166,8 @@
       ],
       "quantity": 2,
       "description": "You may discard this from your hand to draw a room or spell card from the Discard pile.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB017",
@@ -1177,7 +1180,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn when an opponent discards a card, you may put it in your hand.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB018",
@@ -1204,7 +1208,8 @@
       ],
       "quantity": 1,
       "description": "Once per turn, You may pay (c) and choose a hero at the entrance to your dungeon. It cannot enter your dungeon until next turn.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB020",
@@ -1315,7 +1320,8 @@
       ],
       "quantity": 2,
       "description": "You may discard this from your hand to give one hero +3 until end of turn.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB028",
@@ -1397,7 +1403,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, when a Room in any dungeon is destroyed, pay (c) to draw a spell card.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB034",
@@ -1423,7 +1430,8 @@
       ],
       "quantity": 2,
       "description": "You may discard this from your hand to draw a Spell card or gain (c) (c).",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB036",
@@ -1464,7 +1472,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn when a Hero is at the entrance to your dungeon, you may draw a Spell card to give this room -2 OR discard a Spell to give this room +2.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB039",
@@ -1574,7 +1583,8 @@
       ],
       "quantity": 1,
       "description": "Each turn, any player may give you any number of (c). For every (c) they give you, give this Room -1 until end of turn.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB047",
@@ -1600,7 +1610,8 @@
       ],
       "quantity": 1,
       "description": "Once per Build phase, place a (c) on this Room. This Room has +1 for every (c) on it. If you cannot place a coin on this Room, destroy it.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB049",
@@ -1614,7 +1625,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn gain (c) when an opponent plays or promotes a Miniboss.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB050",
@@ -1763,7 +1775,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, when you force an opponent to discard a card, put that card into your hand instead.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL015",
@@ -1816,7 +1829,8 @@
       ],
       "quantity": 2,
       "description": "At the end of each turn, if no Heroes entered this Room, you may draw a Room card.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL019",
@@ -1843,7 +1857,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, if you take a card from the discard pile, draw a Room card.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL021",
@@ -1924,7 +1939,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, if a Hero dies in this Room, you may immediately build another Room in your dunegon.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL027",
@@ -1993,7 +2009,8 @@
       ],
       "quantity": 1,
       "description": "You may discard this from your hand to cancel an opponent's Spell. (The Spell is not cast. Place it in the discard pile.)",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL032",
@@ -2212,7 +2229,8 @@
       ],
       "quantity": 2,
       "description": "At the end of each turn, destroy one Room in your dungeon.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL048",

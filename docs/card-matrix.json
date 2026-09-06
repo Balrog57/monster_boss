@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T18:29:21.787Z",
+  "generatedAt": "2026-09-06T18:35:28.740Z",
   "cards": {
     "BMA001": {
       "id": "BMA001",
@@ -869,7 +869,7 @@
       "set": "crash-landing",
       "text": "You may discard this Room from your hand to deactivate an Advanced Room in any dungeon until end of turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -924,7 +924,7 @@
       "set": "crash-landing",
       "text": "Once per turn, you may discard an Advanced Room to activate one \"when you build this Room\" or \"when you uncover this room\" effect on any Room in your dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1016,7 +1016,7 @@
       "set": "minibosses",
       "text": "You may discard this from your hand to draw a room or spell card from the Discard pile.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1027,7 +1027,7 @@
       "set": "minibosses",
       "text": "Once per turn when an opponent discards a card, you may put it in your hand.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1049,7 +1049,7 @@
       "set": "minibosses",
       "text": "Once per turn, You may pay (c) and choose a hero at the entrance to your dungeon. It cannot enter your dungeon until next turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1139,7 +1139,7 @@
       "set": "minibosses",
       "text": "You may discard this from your hand to give one hero +3 until end of turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1205,7 +1205,7 @@
       "set": "minibosses",
       "text": "Once per turn, when a Room in any dungeon is destroyed, pay (c) to draw a spell card.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1227,7 +1227,7 @@
       "set": "minibosses",
       "text": "You may discard this from your hand to draw a Spell card or gain (c) (c).",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1264,7 +1264,7 @@
       "set": "minibosses",
       "text": "Once per turn when a Hero is at the entrance to your dungeon, you may draw a Spell card to give this room -2 OR discard a Spell to give this room +2.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1355,7 +1355,7 @@
       "set": "minibosses",
       "text": "Each turn, any player may give you any number of (c). For every (c) they give you, give this Room -1 until end of turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1377,7 +1377,7 @@
       "set": "minibosses",
       "text": "Once per Build phase, place a (c) on this Room. This Room has +1 for every (c) on it. If you cannot place a coin on this Room, destroy it.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1388,7 +1388,7 @@
       "set": "minibosses",
       "text": "Once per turn gain (c) when an opponent plays or promotes a Miniboss.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1511,7 +1511,7 @@
       "set": "next-level",
       "text": "Once per turn, when you force an opponent to discard a card, put that card into your hand instead.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1555,7 +1555,7 @@
       "set": "next-level",
       "text": "At the end of each turn, if no Heroes entered this Room, you may draw a Room card.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1577,7 +1577,7 @@
       "set": "next-level",
       "text": "Once per turn, if you take a card from the discard pile, draw a Room card.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1643,7 +1643,7 @@
       "set": "next-level",
       "text": "Once per turn, if a Hero dies in this Room, you may immediately build another Room in your dunegon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1698,7 +1698,7 @@
       "set": "next-level",
       "text": "You may discard this from your hand to cancel an opponent's Spell. (The Spell is not cast. Place it in the discard pile.)",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1874,7 +1874,7 @@
       "set": "next-level",
       "text": "At the end of each turn, destroy one Room in your dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -4901,6 +4901,6 @@
     "total": 442,
     "corrupt": 0,
     "missingArt": 148,
-    "expansionPending": 124
+    "expansionPending": 106
   }
 }
