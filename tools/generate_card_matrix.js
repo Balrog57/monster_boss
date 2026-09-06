@@ -13,6 +13,37 @@ const nameMap = cardData.nameMap || {};
 
 const CORRUPT = /\]\]$/;
 const EXP_SETS = new Set(['next-level', 'minibosses', 'crash-landing']);
+const TAGGED_KEYS = [
+  'genericSpell', 'genericLevelUp', 'gainCoin',
+  'onBuildDrawRoom', 'onBuildDrawSpell', 'onBuildHealWound', 'onBuildExtraBuild',
+  'onUncover', 'onHeroDieDrawSpell', 'onHeroDieDrawRoom',
+  'destroyOnHeroDie', 'destroyOnHeroSurvive',
+];
+
+function loadHandlerIds() {
+  const ids = new Set();
+  const files = [
+    'src/expansionBosses.js',
+    'src/roomAbilities.js',
+    'src/spellEffects.js',
+    'src/minibosses.js',
+  ];
+  const caseRe = /\bcase\s+['"]([A-Z]{3}\d{3}[A-Z]?)['"]/g;
+  const keyRe = /^\s*([A-Z]{3}\d{3}[A-Z]?)\s*:/gm;
+  for (const rel of files) {
+    const full = path.join(ROOT, rel);
+    if (!fs.existsSync(full)) continue;
+    const src = fs.readFileSync(full, 'utf8');
+    for (const re of [caseRe, keyRe]) {
+      re.lastIndex = 0;
+      let m;
+      while ((m = re.exec(src))) ids.add(m[1]);
+    }
+  }
+  return ids;
+}
+
+const HANDLER_IDS = loadHandlerIds();
 
 function cardImagePath(id, section, card) {
   const slug = nameMap[id] || id.toLowerCase();
@@ -36,8 +67,9 @@ function inferStatus(card, section) {
   const text = textField(card, section);
   if (CORRUPT.test(text)) return 'data-corrupt';
   if (card.implemented === true || card.effect || card.handler) return 'explicit';
-  if (card.genericSpell || card.genericLevelUp || card.gainCoin || card.onBuildDrawRoom
-    || card.onUncover || card.onHeroDieDrawSpell) return 'tagged';
+  if (HANDLER_IDS.has(card.id)) return 'explicit';
+  if (TAGGED_KEYS.some((k) => card[k])) return 'tagged';
+  if (card.dark) return 'tagged';
   if (EXP_SETS.has(card.set)) return 'expansion-pending';
   if (section === 'heroes' && card.hp != null) return 'stat-only';
   return 'base-implicit';

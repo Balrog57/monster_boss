@@ -3,9 +3,10 @@ import assert from 'node:assert/strict';
 import { setupMatch, applyMove, pickOpeningDiscardIndices, legalMoves } from '../server/reducer.js';
 import { payDarkHero, listDarkHeroPayTargets } from '../src/darkHeroes.js';
 import { castSpell, emptyEffects } from '../src/spellEffects.js';
-import { totalSouls } from '../src/cardData.js';
-import { healOneWound, resolveBait, treasureCount } from '../src/engine.js';
+import { totalSouls, PHASE } from '../src/cardData.js';
+import { healOneWound, resolveBait, treasureCount, roomDamageWithModifiers } from '../src/engine.js';
 import { gainCoin, buildMiniboss } from '../src/minibosses.js';
+import { onBuildRoom, activateRoomAbility } from '../src/roomAbilities.js';
 
 function playUntil(pred, start, max = 80) {
   let state = start;
@@ -163,5 +164,48 @@ describe('expansion packs', () => {
     assert.ok(roomIds.filter((id) => String(id).startsWith('TNL')).length >= 30);
     assert.ok(roomIds.filter((id) => String(id).startsWith('RMB')).length >= 30);
     assert.ok(roomIds.filter((id) => String(id).startsWith('CRL')).length >= 10);
+  });
+});
+
+describe('expansion room batch', () => {
+  it('Haunted Hall returns the hero in its room to town', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['next-level'] });
+    Object.assign(G, { phase: PHASE.ADVENTURE, effects: emptyEffects(), town: [] });
+    Object.assign(ctx, { phase: PHASE.ADVENTURE, activePlayer: 0 });
+    const hero = { id: 'h1', name: 'Cleric', treasure: 1, hp: 4 };
+    G.adventure = { playerId: 0, hero, hp: 4, roomIndex: 0 };
+    G.players[0].dungeon = [[{ id: 'TNL017', name: 'Haunted Hall', type: 'monster', damage: 2, treasures: [1] }]];
+    const err = activateRoomAbility(G, ctx, 0, 0, null);
+    assert.equal(err, null);
+    assert.equal(G.adventure, null);
+    assert.equal(G.town[0].id, 'h1');
+    assert.equal(G.players[0].dungeon.length, 0);
+  });
+
+  it('Spiked Pit and Decoy Garden apply EOT bonuses on build', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['next-level', 'crash-landing'] });
+    G.effects = emptyEffects();
+    G.players[0].boss = { id: 'BMA001', name: 'Boss', xp: 100, treasures: [] };
+    G.players[0].dungeon = [[{ id: 'TNL044', name: 'Spiked Pit', type: 'trap', damage: 1, treasures: [4] }]];
+    onBuildRoom(G, ctx, 0, G.players[0].dungeon[0][0]);
+    assert.ok(G.effects.roomDamageBonus.some((e) => e.roomIndex === 0 && e.amount === 3));
+
+    G.players[0].dungeon = [[{ id: 'CRL006', name: 'Decoy Garden', type: 'monster', damage: 1, treasures: [5] }]];
+    onBuildRoom(G, ctx, 0, G.players[0].dungeon[0][0]);
+    assert.equal(treasureCount(G, 0, 5), 3); // base 1 + Explorer×2
+  });
+
+  it('Invasion Swarm and Reactor Core boost adjacent/advanced damage', () => {
+    const { G } = setupMatch(2, { expansions: ['crash-landing'] });
+    G.effects = emptyEffects();
+    G.players[0].boss = { id: 'BMA001', name: 'Boss', xp: 100, treasures: [] };
+    G.players[0].dungeon = [
+      [{ id: 'CRL008', name: 'Invasion Swarm', type: 'monster', damage: 0, treasures: [5] }],
+      [{ id: 'BMA009', name: 'Dark Altar', type: 'monster', damage: 1, treasures: [1], advanced: false }],
+      [{ id: 'CRL009', name: 'Reactor Core', type: 'trap', damage: 2, treasures: [5] }],
+      [{ id: 'BMA021', name: 'Adv', type: 'monster', damage: 2, treasures: [1], advanced: true }],
+    ];
+    assert.equal(roomDamageWithModifiers(G, 0, 1, { id: 'h' }), 2); // 1 + adjacent swarm
+    assert.equal(roomDamageWithModifiers(G, 0, 3, { id: 'h' }), 3); // 2 + reactor
   });
 });

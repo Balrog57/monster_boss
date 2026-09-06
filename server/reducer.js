@@ -1222,6 +1222,10 @@ const ACTIVATED_ABILITY_ROOMS = new Set([
   'RMB052', // Pixie Fountain
   'RMB053', // The Keystone
   'RMB054', // Pool of Shadows
+  'TNL017', // Haunted Hall
+  'TNL033', // Frostbat Cave
+  'TNL049', // Warp Tube
+  'RMB022', // Minotaur Catacombs
 ]);
 
 function hasActivatedAbility(roomId) {

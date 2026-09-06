@@ -146,6 +146,24 @@ export function onBuildRoom(G, ctx, playerId, room) {
       G.logs.push(`Sorcerobe School: drew ${spells[0]?.name || 'a Spell'}.`);
       break;
     }
+    case 'TNL044': { // Spiked Pit: this room +3 until EOT
+      const idx = player.dungeon.findIndex((s) => activeRoom(s) === room);
+      if (idx >= 0) {
+        G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+        G.effects.roomDamageBonus.push({ playerId, roomIndex: idx, amount: 3 });
+        G.logs.push('Spiked Pit: +3 damage until end of turn.');
+      }
+      break;
+    }
+    case 'CRL006': { // Decoy Garden: Explorer×2 treasure EOT
+      const idx = player.dungeon.findIndex((s) => activeRoom(s) === room);
+      if (idx >= 0) {
+        G.effects.roomExtraTreasures = G.effects.roomExtraTreasures || [];
+        G.effects.roomExtraTreasures.push({ playerId, roomIndex: idx, treasures: [5, 5] });
+        G.logs.push('Decoy Garden: Explorer×2 treasure until end of turn.');
+      }
+      break;
+    }
     case 'TNL052': { // Genie Lounge: if no spells in hand, draw a spell
       const hasSpell = player.hand.some((c) => c.isSpell);
       if (!hasSpell) {
@@ -1759,6 +1777,51 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
       G.decks.spellDiscard.push(discarded);
       gainCoin(G, playerId, 2, 'Pool of Shadows');
       room.usedThisTurn = true;
+      return null;
+    }
+    case 'TNL017': { // Haunted Hall: destroy → hero in this room back to town
+      if (!heroIsInRoom(G, playerId, roomIndex)) return 'no hero in this room';
+      const hero = G.adventure.hero;
+      G.adventure = null;
+      G.town.unshift(hero);
+      destroyRoom(G, playerId, roomIndex);
+      G.logs.push(`Haunted Hall: ${hero.name} returned to town.`);
+      return null;
+    }
+    case 'TNL049': // Warp Tube
+    case 'RMB022': { // Minotaur Catacombs: destroy → hero to dungeon start
+      if (!heroIsInRoom(G, playerId, roomIndex)) return 'no hero in this room';
+      const label = room.name || room.id;
+      destroyRoom(G, playerId, roomIndex);
+      if (G.adventure && Number(G.adventure.playerId) === Number(playerId) && G.players[playerId]?.dungeon?.length) {
+        G.adventure.roomIndex = 0;
+        G.logs.push(`${label}: ${G.adventure.hero.name} returned to the first Room.`);
+      } else {
+        G.logs.push(`${label}: destroyed.`);
+      }
+      return null;
+    }
+    case 'TNL033': { // Frostbat Cave: destroy → deactivate one room in any dungeon
+      destroyRoom(G, playerId, roomIndex);
+      const options = listDungeonRoomOptions(G);
+      if (!options.length) {
+        G.logs.push('Frostbat Cave: no room to deactivate.');
+        return null;
+      }
+      if (options.length === 1) {
+        G.effects.deactivatedRooms = G.effects.deactivatedRooms || [];
+        G.effects.deactivatedRooms.push({ playerId: options[0].playerId, roomIndex: options[0].roomIndex });
+        G.logs.push(`Frostbat Cave: ${options[0].room?.name || 'a room'} deactivated.`);
+        return null;
+      }
+      G.pendingChoice = {
+        type: 'deactivate-room',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'Frostbat Cave',
+        message: 'Frostbat Cave: choose a Room to deactivate',
+        options,
+      };
       return null;
     }
     default:

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T18:09:32.533Z",
+  "generatedAt": "2026-09-06T18:16:00.260Z",
   "cards": {
     "BMA001": {
       "id": "BMA001",
@@ -8,7 +8,7 @@
       "set": "base",
       "text": "Level Up: Target opponent reveals his or her hand. Take one card and put it into your hand.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -19,7 +19,7 @@
       "set": "base",
       "text": "Level Up: Choose two cards from the discard pile and put them into your hand.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -30,7 +30,7 @@
       "set": "base",
       "text": "Level Up: You may search the Room Deck or discard pile for an Advanced Monster Room. You may immediately build the room (over a room with a matching Treasure type).",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -41,7 +41,7 @@
       "set": "base",
       "text": "Level Up: Each opponent must choose and destroy one Room in his or her dungeon.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -52,7 +52,7 @@
       "set": "base",
       "text": "Level Up: You may draw three Spell cards, then discard a Spell card.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -63,7 +63,7 @@
       "set": "base",
       "text": "Level Up: You may search through town or the Hero decks, choose one Hero, and put it at the entrance to your dungeon.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -74,7 +74,7 @@
       "set": "base",
       "text": "Level Up: You may search the Room Deck or discard pile for an Advanced Trap Room. You may immediately build the room (over a room with a matching Treasure type).",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -85,7 +85,7 @@
       "set": "base",
       "text": "Level Up: Choose a Hero in town. Immediately kill that Hero and place it face-down in your scorekeeping area.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -96,7 +96,7 @@
       "set": "crash-landing",
       "text": "For the rest of the game, Rooms in your dungeon have +1 for each Explorer treasure they have.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -107,7 +107,7 @@
       "set": "crash-landing",
       "text": "Choose another Boss. For the rest of the game, this Boss also has that Boss's Level Up ability. (The ability remains even if that Boss dies.)",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -118,7 +118,7 @@
       "set": "crash-landing",
       "text": "You may bring one covered Room to the top of a Room stack in each opponent's dungeon. (This uncovers those rooms.)",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -129,7 +129,7 @@
       "set": "players-choice",
       "text": "Level Up: For the rest of the game, this has Cleric, Fighter, and Mage treasure.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -140,7 +140,7 @@
       "set": "players-choice",
       "text": "Level Up: Choose any dungeon, You may rearrange the placement of the rooms in that dungeon.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -151,7 +151,7 @@
       "set": "players-choice",
       "text": "Level Up: You may search through the Spell deck, choose one Spell card, and put into your hand.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -162,7 +162,7 @@
       "set": "players-choice",
       "text": "Level Up: You may choose an ordinary Hero in any opponent's scorekeeping area and place it face-down in your scorekeeping area.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -173,7 +173,7 @@
       "set": "players-choice",
       "text": "Level Up: For the rest of the game, the last room of your dungeon has +3 damage.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -184,7 +184,7 @@
       "set": "players-choice",
       "text": "Level Up: For the rest of the game, you have +1 Soul.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -195,7 +195,7 @@
       "set": "players-choice",
       "text": "Level Up: Until end of turn, you may double the treasure value of every room in your dungeon.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -206,7 +206,7 @@
       "set": "minibosses",
       "text": "For the rest of the game, once per turn gain (c) when you kill a hero.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -217,7 +217,7 @@
       "set": "minibosses",
       "text": "For the rest of the game, once per turn you may discard a Monster Room to promote a Miniboss instead of paying (c).",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -228,7 +228,7 @@
       "set": "minibosses",
       "text": "For the rest of the game, once per turn you may pay (c)(c) to force an opponent to discard a randon Spell card.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -239,7 +239,7 @@
       "set": "minibosses",
       "text": "For the rest of the game, gain (c) whenever you build a Monster Room.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -250,7 +250,7 @@
       "set": "minibosses",
       "text": "For the rest of the game, Minibosses that you build start on Level 2.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -261,7 +261,7 @@
       "set": "minibosses",
       "text": "For the rest of the game, once per turn you may pay (c)(c) to double the damage value of a Monster Room.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -272,7 +272,7 @@
       "set": "minibosses",
       "text": "For the rest of the game, gain (c) whenever you cast a Spell.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -283,7 +283,7 @@
       "set": "minibosses",
       "text": "For the rest of the game, draw a Spell when a Hero dies in a room with a Miniboss.",
       "textCorrupt": false,
-      "status": "tagged",
+      "status": "explicit",
       "hasArt": true,
       "tags": [
         "genericLevelUp"
@@ -296,7 +296,7 @@
       "set": "minibosses",
       "text": "For the rest of the game, once per turn you may pay (c)(c) to draw a Spell card.",
       "textCorrupt": false,
-      "status": "tagged",
+      "status": "explicit",
       "hasArt": true,
       "tags": [
         "genericLevelUp"
@@ -309,7 +309,7 @@
       "set": "minibosses",
       "text": "For the rest of the game, gain (c) whenever you build a Trap Room.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -320,7 +320,7 @@
       "set": "minibosses",
       "text": "For the rest of the game, your Trap Rooms have +1. Any opponents may give you (c) to cancel this ability until the end of your turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -331,7 +331,7 @@
       "set": "minibosses",
       "text": "For the rest of the game, once per turn you may pay (c)(c) to add one of any treasure type to any player's dungeon",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -342,7 +342,7 @@
       "set": "next-level",
       "text": "Choose another Boss. For the rest of the game, this boss also has that Boss's treasure icon. (The icon remains even if that boss dies.)",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -353,7 +353,7 @@
       "set": "next-level",
       "text": "For the rest of the game, during the Build phase you may discard one card to choose one Hero in town. That Hero cannot be lured this turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -364,7 +364,7 @@
       "set": "next-level",
       "text": "Heal a Wound. (Turn one face-down Hero face-up.)",
       "textCorrupt": false,
-      "status": "tagged",
+      "status": "explicit",
       "hasArt": true,
       "tags": [
         "genericLevelUp"
@@ -377,7 +377,7 @@
       "set": "next-level",
       "text": "For the rest of the game, whenever any Monster Room is discarded or destroyed, you may put it into your hand.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -388,7 +388,7 @@
       "set": "next-level",
       "text": "For the rest of the game, if you have 3 Wounds or more, give the last Room of your dungeon +3",
       "textCorrupt": false,
-      "status": "tagged",
+      "status": "explicit",
       "hasArt": true,
       "tags": [
         "genericLevelUp"
@@ -401,7 +401,7 @@
       "set": "next-level",
       "text": "For the rest of the game, at end of turn you may swap the placement of two Rooms in one dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -412,7 +412,7 @@
       "set": "next-level",
       "text": "For the rest of the game, whenever you build a Monster Room, you may Draw a Room card.",
       "textCorrupt": false,
-      "status": "tagged",
+      "status": "explicit",
       "hasArt": true,
       "tags": [
         "genericLevelUp"
@@ -425,7 +425,7 @@
       "set": "next-level",
       "text": "Discard your hand, then draw 3 Spell cards.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -436,7 +436,7 @@
       "set": "next-level",
       "text": "For the rest of the game, once per turn you may discard a Spell card to cancel an opponent's Spell.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -447,7 +447,7 @@
       "set": "next-level",
       "text": "For the rest of the game, you may draw a Spell card at the end of turn if any player has gained two more souls than you that turn.",
       "textCorrupt": false,
-      "status": "tagged",
+      "status": "explicit",
       "hasArt": true,
       "tags": [
         "genericLevelUp"
@@ -460,7 +460,7 @@
       "set": "next-level",
       "text": "Choose one face-down Hero from your scorekeeping area and remove it from the game. Search the Hero decks, choose one Hero, and place it face-down in your scorekeeping area.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -471,7 +471,7 @@
       "set": "next-level",
       "text": "For the rest of the game, once per turn when you kill a Hero, draw a Room card.",
       "textCorrupt": false,
-      "status": "tagged",
+      "status": "explicit",
       "hasArt": true,
       "tags": [
         "genericLevelUp"
@@ -484,7 +484,7 @@
       "set": "next-level",
       "text": "For the rest of the game, when you destroy a Room in your dungeon, the uncovered Room gains +3 until end of turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -495,7 +495,7 @@
       "set": "base",
       "text": "Destroy this Room: Choose one card from the discard pile and put it into your hand.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -506,7 +506,7 @@
       "set": "base",
       "text": "Once per turn, if a Hero dies in this room, choose one Room card from the discard pile and put into your hand.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -517,7 +517,7 @@
       "set": "base",
       "text": "When you build this room, choose an opponent. That opponent discards a random Spell card.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -539,7 +539,7 @@
       "set": "base",
       "text": "Once per turn, you may discard two Room card to choose one Room card from the discard pile and put it into your hand.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -550,7 +550,7 @@
       "set": "base",
       "text": "Once per turn, if a Hero dies in this Room, you may heal one Wound. (Flip over one of your Wounds, adding its Soul value to your total.)",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -572,7 +572,7 @@
       "set": "base",
       "text": "Once per turn, if a hero dies in this room, draw a Room card.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -605,7 +605,7 @@
       "set": "base",
       "text": "Once per turn when you build another Monster room, draw a Room card.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -627,7 +627,7 @@
       "set": "base",
       "text": "Once per turn, if a Hero dies in this room, you may draw a Spell card.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -638,7 +638,7 @@
       "set": "base",
       "text": "When you build this room, draw two spell cards, then discard a Spell card.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -660,7 +660,7 @@
       "set": "base",
       "text": "Once per turn, you may discard a Monster Room card to draw a Spell card.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -671,7 +671,7 @@
       "set": "base",
       "text": "Once per turn when an opponent plays a Spell card, you may discard a Spell card to cancel its effect.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -682,7 +682,7 @@
       "set": "base",
       "text": "Once per turn when you play a Spell card, draw a Spell card.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -693,7 +693,7 @@
       "set": "base",
       "text": "Destroy this room: Kill a Hero in this room.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -704,7 +704,7 @@
       "set": "base",
       "text": "Destroy another room in your dungeon: Deal 5 damage to a hero in this room.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -726,7 +726,7 @@
       "set": "base",
       "text": "Destroy this room: Double the treasure value of your other rooms until end of turn.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -748,7 +748,7 @@
       "set": "base",
       "text": "Destroy another room in your dungeon: Your rooms deal +2 damage until end of turn.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -759,7 +759,7 @@
       "set": "base",
       "text": "When you build this room, you may swap the placement of two Rooms in any dungeon.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -770,7 +770,7 @@
       "set": "base",
       "text": "When you build this room, you may immediately build an additional Room.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -781,7 +781,7 @@
       "set": "base",
       "text": "(This room contains all four treasure types.)",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -792,7 +792,7 @@
       "set": "base",
       "text": "When you build this room. Choose one ordinary Hero in town and place it on the entrance to your dungeon.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -803,7 +803,7 @@
       "set": "base",
       "text": "When you build this room, choose one Monster Room from the discard pile and put it in your hand.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -814,7 +814,7 @@
       "set": "base",
       "text": "Destroy this room: Choose an opponent. That opponent discards a random Room card.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -825,7 +825,7 @@
       "set": "base",
       "text": "Destroy this room: Choose a dead Hero in an opponent's scorekeeping area. Send it back to the entrance of that player's dungeon",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -858,7 +858,7 @@
       "set": "crash-landing",
       "text": "When you build this Room, until end of turn it gains Explorer*2 treasure.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -880,7 +880,7 @@
       "set": "crash-landing",
       "text": "Rooms adjacent to this Room have +1.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -891,7 +891,7 @@
       "set": "crash-landing",
       "text": "Advanced Rooms in your dungeon have +1.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -902,7 +902,7 @@
       "set": "crash-landing",
       "text": "When you build this Room, if you have at least one other Advanced Room in your dungeon, (including this one), draw two Spell cards.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -979,7 +979,7 @@
       "set": "minibosses",
       "text": "You may destroy this Room to force an opponent to discard a random Spell card.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1038,7 +1038,7 @@
       "set": "minibosses",
       "text": "When you build or uncover this Room, you may discard a Miniboss to heal a Wound.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "tagged",
       "hasArt": false,
       "tags": [
         "onBuildHealWound"
@@ -1086,7 +1086,7 @@
       "set": "minibosses",
       "text": "Destroy this Room to return a Hero in it to the beginning of your Dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1185,11 +1185,9 @@
       "set": "minibosses",
       "text": "When you build or uncover this Room, you may discard a Miniboss to draw a Spell card.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
-      "tags": [
-        "onBuildDrawSpell"
-      ]
+      "tags": []
     },
     "RMB032": {
       "id": "RMB032",
@@ -1220,7 +1218,7 @@
       "set": "minibosses",
       "text": "Once per turn if a Hero dies in this Room, you may remove that Hero from the game to draw two Spell cards.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1242,7 +1240,7 @@
       "set": "minibosses",
       "text": "When you build this Room, pay (c)(c) and draw two Spell cards.",
       "textCorrupt": false,
-      "status": "tagged",
+      "status": "explicit",
       "hasArt": false,
       "tags": [
         "gainCoin"
@@ -1255,7 +1253,7 @@
       "set": "minibosses",
       "text": "When you build this Room, place up to three (c) on it. For each (c) you place, draw one Spell card. This Room has -1 for every (c) on it.",
       "textCorrupt": false,
-      "status": "tagged",
+      "status": "explicit",
       "hasArt": false,
       "tags": [
         "gainCoin"
@@ -1315,7 +1313,7 @@
       "set": "minibosses",
       "text": "You may destroy this Room to gain (c) (c) (c).",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1348,7 +1346,7 @@
       "set": "minibosses",
       "text": "You can destroy this room to add one treasure of any type to any player's dungeon until end of turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1370,7 +1368,7 @@
       "set": "minibosses",
       "text": "You may destroy a Monster room in your dungeon to kill a hero in this Room.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1403,7 +1401,7 @@
       "set": "minibosses",
       "text": "When you build or uncover this Room, Gain (c) for every multi-treasure Room in your dungeon, including this one.",
       "textCorrupt": false,
-      "status": "tagged",
+      "status": "explicit",
       "hasArt": false,
       "tags": [
         "gainCoin"
@@ -1416,7 +1414,7 @@
       "set": "minibosses",
       "text": "Once per turn, if a Hero dies in this Room, gain (c)(c)(c).",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1427,7 +1425,7 @@
       "set": "minibosses",
       "text": "You may destroy this Room to gain (c) for every Wound you have.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1438,7 +1436,7 @@
       "set": "minibosses",
       "text": "You may destroy this Room to gain (c) for every Room remaining in your dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1449,7 +1447,7 @@
       "set": "minibosses",
       "text": "Once per turn, you may discard a Spell to gain (c) (c).",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1460,7 +1458,7 @@
       "set": "tools",
       "text": "Once per turn during the Build phase, choose an unattached Item in town. You may attach it to any Hero, regardless of Treasure type.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1471,7 +1469,7 @@
       "set": "tools",
       "text": "Once per turn, you may discard two Room cards to flip over a face-down Item card in your scorekeeping area.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1482,7 +1480,7 @@
       "set": "tools",
       "text": "Once per turn, you may choose a face-up Item in your scorekeeping area and flip it face-down to draw a Spell card.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1504,7 +1502,7 @@
       "set": "next-level",
       "text": "Once per turn, you may discard a Spell card to choose one Room card from the discard pile and put it into your hand.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1526,7 +1524,7 @@
       "set": "next-level",
       "text": "Once per turn, if a Hero dies in this Room, choose one Spell card from the discard pile and put it into your hand.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1537,7 +1535,7 @@
       "set": "next-level",
       "text": "When you build or uncover this Room, you may choose one Spell card from the discard pile and put it into your hand.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1548,7 +1546,7 @@
       "set": "next-level",
       "text": "You may destroy this Room to send a Hero in this Room back to town.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1592,7 +1590,7 @@
       "set": "next-level",
       "text": "Once per turn, if a Hero dies in this Room, each opponent must discard a Spell card.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1625,7 +1623,7 @@
       "set": "next-level",
       "text": "When you build this Room, choose and discard one Spell card (if you have any Spell cards in your hand).",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1713,7 +1711,7 @@
       "set": "next-level",
       "text": "You may destroy this Room to draw two Spell cards, then discard a Spell card.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1724,7 +1722,7 @@
       "set": "next-level",
       "text": "You may destroy this Room to deactivate one Room in any dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1746,7 +1744,7 @@
       "set": "next-level",
       "text": "Once per turn, you may discard a Spell card to draw a Spell card.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1757,11 +1755,9 @@
       "set": "next-level",
       "text": "When you build or uncover this Room, draw a Spell card.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
-      "tags": [
-        "onBuildDrawSpell"
-      ]
+      "tags": []
     },
     "TNL037": {
       "id": "TNL037",
@@ -1792,7 +1788,7 @@
       "set": "next-level",
       "text": "Once per turn, if a Hero dies in this Room, draw two Spell cards, then discard a Spell card.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1847,7 +1843,7 @@
       "set": "next-level",
       "text": "When you build or uncover this Room, give this Room +3 until end of turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1902,7 +1898,7 @@
       "set": "next-level",
       "text": "You may destroy this Room to send a Hero in this Room back to the first Room of your dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1913,7 +1909,7 @@
       "set": "next-level",
       "text": "When a Hero dies in this Room or survives this Room, destroy this Room.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "tagged",
       "hasArt": true,
       "tags": []
     },
@@ -1935,11 +1931,9 @@
       "set": "next-level",
       "text": "When you build this Room, if you have no Spell cards in your hand, draw a Spell card.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
-      "tags": [
-        "onBuildDrawSpell"
-      ]
+      "tags": []
     },
     "TNL053": {
       "id": "TNL053",
@@ -1970,7 +1964,7 @@
       "set": "next-level",
       "text": "You may destroy this Room to retrieve one Spell card from the discard pile that you played this turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1981,7 +1975,7 @@
       "set": "base",
       "text": "Give one Trap Room +3 damage until end of turn.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1992,7 +1986,7 @@
       "set": "base",
       "text": "Choose a Hero in an opponent's dungeon. Give that Hero +3 Health until end of turn.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2003,7 +1997,7 @@
       "set": "base",
       "text": "Destroy a room in your dungeon. Any Hero in that room is destroyed.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2025,7 +2019,7 @@
       "set": "base",
       "text": "Deal X damage to one Hero in your dungeon, where X is equal to the number of Rooms in your dungeon.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2036,7 +2030,7 @@
       "set": "base",
       "text": "Choose a Hero in any dungeon and put it back in town.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2047,7 +2041,7 @@
       "set": "base",
       "text": "Choose and deactivate one Room in any dungeon. (It has no damage, treasure, or abilities until end of turn.)",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2058,7 +2052,7 @@
       "set": "base",
       "text": "Give one Monster Rooom +3 damage until end of turn.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2069,7 +2063,7 @@
       "set": "base",
       "text": "All players immediately discard their hands, then draw one Spell card and two Room cards.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2080,7 +2074,7 @@
       "set": "base",
       "text": "No rooms can be built this turn. Any face-down room is returned to its owner's hand. (This spell cannot be played after rooms are revealed.)",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2091,7 +2085,7 @@
       "set": "base",
       "text": "If you have fewer rooms than an opponent, you may build an extra room this turn.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2102,7 +2096,7 @@
       "set": "base",
       "text": "Choose one Hero in town. Place it at the entrance to your dungeon.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2113,7 +2107,7 @@
       "set": "base",
       "text": "Choose a face-down Hero in your scorekeeping area and remove it from the game. Draw two Spell cards.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2124,7 +2118,7 @@
       "set": "base",
       "text": "Send a Hero in your dungeon back to the first room of your dungeon. (It continues to move through your dungeon this turn.)",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2135,7 +2129,7 @@
       "set": "base",
       "text": "Choose a player with at least two more Souls than you. No Hero enters that player's dungeon this turn. (Any Hero remain at the entrance to that dungeon.)",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2146,7 +2140,7 @@
       "set": "base",
       "text": "Choose a dead Hero in an opponent's scorekeeping area. Send it back to the entrance of that player's dungeon. It has +2 Health until end of turn.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2157,7 +2151,7 @@
       "set": "crash-landing",
       "text": "Kill a Hero with 2 or less Health. OR If you have fewer Souls than any player, choose a Hero that survived another player's dungeon this turn. Move it to your scorekeeping area face-down.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2168,7 +2162,7 @@
       "set": "crash-landing",
       "text": "Add +X to a Hero in an opponent's dungeon, where X equals the number of wounds you have.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2179,7 +2173,7 @@
       "set": "crash-landing",
       "text": "If no Heroes were lured to your dungeon during the Bait Phase, heal one ordinary Wound.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2190,7 +2184,7 @@
       "set": "crash-landing",
       "text": "Choose one Room in any dungeon. Until end of turn, it gains Explorer treasure.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2212,7 +2206,7 @@
       "set": "players-choice",
       "text": "Place this card in your scorekeeping area. If you also have at least one fighter, one Mage, one Cleric and one Thief face-down in your scorekeeping area, this card is worth two extra souls.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -2223,7 +2217,7 @@
       "set": "minibosses",
       "text": "If you have no coins in your Hoard, gain (c)(c)(c).",
       "textCorrupt": false,
-      "status": "tagged",
+      "status": "explicit",
       "hasArt": false,
       "tags": [
         "genericSpell"
@@ -2236,7 +2230,7 @@
       "set": "minibosses",
       "text": "Place the top three cards of the Room deck in the discard pile. If one of these cards is a Miniboss, you may immediately build it. (In addition to your normal build turn.)",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -2247,7 +2241,7 @@
       "set": "minibosses",
       "text": "Choose a Room in any dungeon. Until end of turn, it has one of each treasure type instead of its normal treasure.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -2258,7 +2252,7 @@
       "set": "minibosses",
       "text": "Choose a Room. Until end of turn it has no ability text.\nOR, if if you have more Minibosses than your opponent, deactivate that Room until end of turn.|",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -2269,7 +2263,7 @@
       "set": "minibosses",
       "text": "Choose a Miniboss. For every level that Miniboss has, give its Room +1 until end of turn. AND, if you have only one Miniboss, you may then double the damage of that Room.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -2302,7 +2296,7 @@
       "set": "minibosses",
       "text": "Deal 2 damage to a Hero in your dungeon.\nOR deal 4 damage to a Hero in a Room that contains a Miniboss.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -2313,7 +2307,7 @@
       "set": "minibosses",
       "text": "Choose a Room to gain +1 until end of turn, plus an additional +1 for each (c) you pay when you cast this spell.",
       "textCorrupt": false,
-      "status": "tagged",
+      "status": "explicit",
       "hasArt": false,
       "tags": [
         "genericSpell"
@@ -2337,7 +2331,7 @@
       "set": "minibosses",
       "text": "Treat all of your Rooms as if they were just built.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -2348,7 +2342,7 @@
       "set": "minibosses",
       "text": "Choose a Room in any dungeon. Until end of turn end that Room's treasure icons.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -2359,7 +2353,7 @@
       "set": "minibosses",
       "text": "Choose an opponent casting a spell. Until end of turn, that opponent must pay (c) for each spell they wish to cast. If they don't, that spell is cancelled.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -2381,7 +2375,7 @@
       "set": "minibosses",
       "text": "Give a Hero +1 until end of turn AND give this Hero an additional +2 until end of turn for every (c) you spend when casting this spell.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -2392,7 +2386,7 @@
       "set": "tools",
       "text": "Choose one Item in any scorekeeping area. You may flip it face-down or face-up.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2403,7 +2397,7 @@
       "set": "next-level",
       "text": "View an opponent's hand. You may take one Room card from that opponent.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2414,7 +2408,7 @@
       "set": "next-level",
       "text": "Choose a Hero in your dungeon. Send that Hero to the entrance of an opponent's dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2425,7 +2419,7 @@
       "set": "next-level",
       "text": "Choose a Room. Until end of turn, it does zero damage and each Hero entering it gains +1.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2436,7 +2430,7 @@
       "set": "next-level",
       "text": "Kill one Hero in your dungeon who has 3 or less Health. OR If you have 3 wounds or more, kill one Hero in your dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2447,7 +2441,7 @@
       "set": "next-level",
       "text": "Draw three Room cards, then give another player one of your Room cards.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2458,7 +2452,7 @@
       "set": "next-level",
       "text": "Deal 3 damage to one Hero in your dungeon. AND If you discard another Spell card, deal 3 damage to each Hero at the entrance to your dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2469,7 +2463,7 @@
       "set": "next-level",
       "text": "Choose a Room. Until the end of turn, it has no ability text. OR Choose a player. If three or more Heroes entered that player's dungeon this turn, that player cannot win this turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2480,7 +2474,7 @@
       "set": "next-level",
       "text": "Swap the placement of two Rooms in your dungeon. OR If two or more of your Rooms have been destroyed this turn, choose and destroy one Room in any dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2491,7 +2485,7 @@
       "set": "next-level",
       "text": "Choose a dungeon. Until the end of turn, each Hero entering that dungeon gains +1",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2502,7 +2496,7 @@
       "set": "next-level",
       "text": "If there is a Hero in your dungeon, return it to the entrance and restore it to full Health. No Heroes may enter your dungeon until next turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2513,7 +2507,7 @@
       "set": "next-level",
       "text": "Choose a Hero in an opponent's dungeon. Remove that Hero from the game.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2524,7 +2518,7 @@
       "set": "next-level",
       "text": "Choose a Room in your dungeon. Until end of turn, give it one extra Cleric, Fighter, Mage or Thief.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2535,7 +2529,7 @@
       "set": "next-level",
       "text": "Choose a Hero in any dungeon. It skips the next Room it would enter. OR If that dungeon has five Rooms, the Hero skips the next two Rooms it would enter.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2546,7 +2540,7 @@
       "set": "next-level",
       "text": "Choose a Room in your dungeon. It deals +2 until end of turn. OR If only one Hero was lured to your dungeon this turn, that Room does +4 until end of turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -3701,7 +3695,7 @@
       "set": "minibosses",
       "text": "",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "tagged",
       "hasArt": false,
       "tags": []
     },
@@ -3767,7 +3761,7 @@
       "set": "minibosses",
       "text": "",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "tagged",
       "hasArt": false,
       "tags": []
     },
@@ -3833,7 +3827,7 @@
       "set": "minibosses",
       "text": "",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "tagged",
       "hasArt": false,
       "tags": []
     },
@@ -3888,7 +3882,7 @@
       "set": "minibosses",
       "text": "",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -3899,7 +3893,7 @@
       "set": "minibosses",
       "text": "",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "tagged",
       "hasArt": false,
       "tags": []
     },
@@ -4163,7 +4157,7 @@
       "set": "next-level",
       "text": "",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "tagged",
       "hasArt": true,
       "tags": []
     },
@@ -4229,7 +4223,7 @@
       "set": "next-level",
       "text": "",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "tagged",
       "hasArt": true,
       "tags": []
     },
@@ -4427,7 +4421,7 @@
       "set": "next-level",
       "text": "",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -4909,6 +4903,6 @@
     "total": 442,
     "corrupt": 0,
     "missingArt": 148,
-    "expansionPending": 253
+    "expansionPending": 165
   }
 }

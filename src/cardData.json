@@ -965,7 +965,8 @@
       ],
       "quantity": 1,
       "description": "When you build this Room, until end of turn it gains Explorer*2 treasure.",
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "CRL007",
@@ -991,7 +992,8 @@
       ],
       "quantity": 2,
       "description": "Rooms adjacent to this Room have +1.",
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "CRL009",
@@ -1004,7 +1006,8 @@
       ],
       "quantity": 2,
       "description": "Advanced Rooms in your dungeon have +1.",
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "CRL010",
@@ -1233,7 +1236,8 @@
       ],
       "quantity": 1,
       "description": "Destroy this Room to return a Hero in it to the beginning of your Dungeon.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB023",
@@ -1350,8 +1354,7 @@
       ],
       "quantity": 1,
       "description": "When you build or uncover this Room, you may discard a Miniboss to draw a Spell card.",
-      "set": "minibosses",
-      "onBuildDrawSpell": true
+      "set": "minibosses"
     },
     {
       "id": "RMB032",
@@ -1778,7 +1781,8 @@
       ],
       "quantity": 2,
       "description": "You may destroy this Room to send a Hero in this Room back to town.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL018",
@@ -1986,7 +1990,8 @@
       ],
       "quantity": 2,
       "description": "You may destroy this Room to deactivate one Room in any dungeon.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL034",
@@ -2025,8 +2030,7 @@
       ],
       "quantity": 2,
       "description": "When you build or uncover this Room, draw a Spell card.",
-      "set": "next-level",
-      "onBuildDrawSpell": true
+      "set": "next-level"
     },
     {
       "id": "TNL037",
@@ -2130,7 +2134,8 @@
       ],
       "quantity": 2,
       "description": "When you build or uncover this Room, give this Room +3 until end of turn.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL045",
@@ -2196,7 +2201,8 @@
       ],
       "quantity": 2,
       "description": "You may destroy this Room to send a Hero in this Room back to the first Room of your dungeon.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL050",
@@ -2242,8 +2248,7 @@
       ],
       "quantity": 2,
       "description": "When you build this Room, if you have no Spell cards in your hand, draw a Spell card.",
-      "set": "next-level",
-      "onBuildDrawSpell": true
+      "set": "next-level"
     },
     {
       "id": "TNL053",

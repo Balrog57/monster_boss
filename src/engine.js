@@ -53,15 +53,20 @@ export function dungeonTreasures(G, playerId) {
   const p = playerOf(G, playerId);
   if (!p || !p.boss) return [];
   const treasures = [...(p.boss.treasures || [])];
-  for (const stack of p.dungeon || []) {
+  (p.dungeon || []).forEach((stack, i) => {
     const room = activeRoom(stack);
-    if (!room) continue;
+    if (!room) return;
     if (zaraCountsAllTreasures(stack)) {
       treasures.push(1, 2, 3, 4);
     } else {
       for (const t of room.treasures || []) treasures.push(t);
     }
-  }
+    for (const e of G.effects?.roomExtraTreasures || []) {
+      if (Number(e.playerId) === Number(playerId) && e.roomIndex === i) {
+        treasures.push(...(e.treasures || []));
+      }
+    }
+  });
   return treasures;
 }
 
@@ -337,6 +342,15 @@ export function destroyRoom(G, playerId, roomIndex) {
       const card = G.decks.rooms.pop();
       if (card) { p.hand.push(card); G.logs.push(`${uncovered.name} uncovered: drew ${card.name}.`); }
     }
+    if (uncovered?.id === 'TNL044') {
+      G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+      G.effects.roomDamageBonus.push({ playerId, roomIndex, amount: 3 });
+      G.logs.push('Spiked Pit: +3 damage until end of turn.');
+    }
+    if (uncovered?.id === 'TNL036') {
+      const card = G.decks.spells.pop();
+      if (card) { p.hand.push(card); G.logs.push(`Sorcerobe School uncovered: drew ${card.name}.`); }
+    }
   }
   // Recycling Center (BMA031): when another room is destroyed, draw 2 rooms.
   for (const s of p.dungeon) {
@@ -393,7 +407,14 @@ export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
       if (!other) continue;
       if (other.id === 'BMA015' && Math.abs(i - roomIndex) === 1 && room.type === 'monster') dmg += 1; // Goblin Armory
       if (other.id === 'BMA029' && i === roomIndex - 1 && room.type === 'trap') dmg += 2; // Dizzygas Hallway
+      if (other.id === 'CRL008' && Math.abs(i - roomIndex) === 1) dmg += 1; // Invasion Swarm
     }
+  }
+
+  // Reactor Core: Advanced Rooms in your dungeon have +1
+  if (!skipAbilities) {
+    const hasReactor = (p.dungeon || []).some((s) => activeRoom(s)?.id === 'CRL009');
+    if (hasReactor && room.advanced) dmg += 1;
   }
 
   // Spell/ability damage bonuses
