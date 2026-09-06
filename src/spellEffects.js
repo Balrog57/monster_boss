@@ -4,11 +4,12 @@
 //   { roomIndex, targetPlayerId, heroId, townIndex }
 
 import { activeRoom, buildRoom, healOneWound, destroyRoom } from './engine.js';
-import { drawCards } from './cardData.js';
-import { gainCoin } from './minibosses.js';
+import { drawCards, totalWounds } from './cardData.js';
+import { gainCoin, spendCoin, attachMiniboss, getMiniboss } from './minibosses.js';
 import { applyGenericSpell } from './expansionEffects.js';
 import { onExpansionCastSpell, onExpansionBossKill } from './expansionBosses.js';
 import { applyItemReward, takeHeroItem } from './items.js';
+import { onBuildRoom } from './roomAbilities.js';
 
 export function emptyEffects() {
   return {
@@ -28,6 +29,8 @@ export function emptyEffects() {
     ordinaryMonsterBonus: [], // Goblin Suit reward: +1 ordinary monster damage
     ignoreAbilityPids: [], // Cheat Code reward: ignore room ability text
     immediateBuild: [], // playerIds who may build outside Build phase (Fangroot)
+    ignoreTreasureMatch: [], // Zoning Board: Advanced build ignores treasure match
+    noRoomBuild: [], // Traitor: these playerIds cannot build a Room this turn
   };
 }
 
@@ -796,12 +799,309 @@ const SPELL_EFFECTS = {
     gainCoin(G, casterId, 2, 'Mint Condition');
     return true;
   },
+
+  // CRL033: Not Dead Yet — X damage to each hero in your dungeon/entrance (X = wounds)
+  CRL033: (G, ctx, casterId) => {
+    const p = G.players[casterId];
+    const x = totalWounds(p);
+    if (x <= 0) {
+      G.logs.push('Not Dead Yet: you have no Wounds.');
+      return true;
+    }
+    if (G.adventure && Number(G.adventure.playerId) === Number(casterId) && G.adventure.hero) {
+      G.adventure.hp -= x;
+      G.logs.push(`Not Dead Yet: ${x} damage to ${G.adventure.hero.name} (HP ${G.adventure.hp}).`);
+    }
+    for (let i = (p.entrance || []).length - 1; i >= 0; i--) {
+      const hero = p.entrance[i];
+      hero._entranceHp = Math.max(0, (hero._entranceHp ?? hero.hp) - x);
+      G.logs.push(`Not Dead Yet: ${x} damage to ${hero.name} at entrance (HP ${hero._entranceHp}).`);
+      if (hero._entranceHp <= 0) {
+        p.entrance.splice(i, 1);
+        G.decks.heroDiscard = G.decks.heroDiscard || [];
+        G.decks.heroDiscard.push(hero);
+        G.logs.push(`Not Dead Yet: ${hero.name} died at the entrance.`);
+      }
+    }
+    return true;
+  },
+
+  // RMB070: Ambush — discard 2 monsters or 1 miniboss to kill a hero in your dungeon
+  RMB070: (G, ctx, casterId, target) => {
+    const p = G.players[casterId];
+    const heroId = target.heroId;
+    if (!heroId) {
+      G.logs.push('Ambush: no target hero.');
+      return false;
+    }
+    if (!payAmbushCost(G, p)) {
+      G.logs.push('Ambush: need two Monster Rooms or one Miniboss in hand.');
+      return false;
+    }
+    if (G.adventure && Number(G.adventure.playerId) === Number(casterId) && G.adventure.hero?.id === heroId) {
+      G.adventure.hp = 0;
+      G.logs.push(`Ambush: killed ${G.adventure.hero.name}.`);
+      return true;
+    }
+    const ei = (p.entrance || []).findIndex((h) => h.id === heroId);
+    if (ei >= 0) {
+      const hero = p.entrance.splice(ei, 1)[0];
+      G.decks.heroDiscard = G.decks.heroDiscard || [];
+      G.decks.heroDiscard.push(hero);
+      G.logs.push(`Ambush: killed ${hero.name} at the entrance.`);
+      return true;
+    }
+    G.logs.push('Ambush: hero not found.');
+    return false;
+  },
+
+  // RMB071: Rebirth — target player discards hand, redraws same room/spell counts
+  RMB071: (G, ctx, casterId, target) => {
+    const tid = target.targetPlayerId != null ? target.targetPlayerId : casterId;
+    const p = G.players[tid];
+    if (!p) return false;
+    let rooms = 0;
+    let spells = 0;
+    while (p.hand.length) {
+      const c = p.hand.pop();
+      if (c.isSpell) {
+        spells += 1;
+        G.decks.spellDiscard.push(c);
+      } else if (c.isRoom) {
+        rooms += 1;
+        G.decks.roomDiscard.push(c);
+      } else if (c.isMiniboss) {
+        G.decks.minibossDiscard = G.decks.minibossDiscard || [];
+        G.decks.minibossDiscard.push(c);
+      } else {
+        G.decks.roomDiscard.push(c);
+      }
+    }
+    p.hand.push(...drawCards(G.decks.rooms, rooms), ...drawCards(G.decks.spells, spells));
+    G.logs.push(`Rebirth: Player ${tid} discarded and redrew ${rooms} Room(s) and ${spells} Spell(s).`);
+    return true;
+  },
+
+  // RMB074: Zoning Board — Advanced builds ignore treasure match this turn
+  RMB074: (G, ctx, casterId) => {
+    G.effects.ignoreTreasureMatch = G.effects.ignoreTreasureMatch || [];
+    G.effects.ignoreTreasureMatch.push(Number(casterId));
+    G.logs.push('Zoning Board: you may build Advanced Rooms ignoring treasure match this turn.');
+    return true;
+  },
+
+  // RMB078: Traitor — pay coins = level to take opponent miniboss; no room build this turn
+  RMB078: (G, ctx, casterId, target) => {
+    const oppId = target.targetPlayerId;
+    const ri = target.roomIndex;
+    const hostIndex = target.hostRoomIndex;
+    const caster = G.players[casterId];
+    const opp = G.players[oppId];
+    if (!opp || ri == null) {
+      G.logs.push('Traitor: invalid Miniboss target.');
+      return false;
+    }
+    const stack = opp.dungeon[ri];
+    const mb = getMiniboss(stack);
+    if (!mb || mb.faceDown) {
+      G.logs.push('Traitor: no revealed Miniboss there.');
+      return false;
+    }
+    const cost = mb.level || 1;
+    if ((caster.coins || 0) < cost) {
+      G.logs.push(`Traitor: need ${cost} Coin(s).`);
+      return false;
+    }
+    const hosts = (caster.dungeon || [])
+      .map((s, i) => ({ i, room: activeRoom(s), stack: s }))
+      .filter((o) => o.room && !getMiniboss(o.stack));
+    const host = hostIndex != null
+      ? hosts.find((h) => h.i === hostIndex)
+      : (hosts.length === 1 ? hosts[0] : null);
+    if (!host && hosts.length > 1) {
+      G.pendingChoice = {
+        type: 'traitor-host',
+        resume: false,
+        playerId: Number(casterId),
+        bossName: 'Traitor',
+        message: 'Traitor: choose a Room to attach the Miniboss',
+        stolen: { card: mb.card, level: mb.level },
+        fromPid: Number(oppId),
+        fromRoomIndex: ri,
+        cost,
+        options: hosts.map((h) => ({ roomIndex: h.i, room: h.room, playerId: Number(casterId) })),
+      };
+      return true;
+    }
+    if (!host) {
+      G.logs.push('Traitor: no empty Room to attach the Miniboss.');
+      return false;
+    }
+    return completeTraitor(G, casterId, oppId, ri, host.i, cost, mb);
+  },
+
+  // TNL070: Surprise Gift — place a Room face-down over an opponent's face-up Room
+  TNL070: (G, ctx, casterId, target) => {
+    const caster = G.players[casterId];
+    const oppId = target.targetPlayerId;
+    const opp = G.players[oppId];
+    const hi = target.handIndex;
+    const ri = target.roomIndex;
+    if (!opp || hi == null || ri == null) {
+      G.logs.push('Surprise Gift: invalid target.');
+      return false;
+    }
+    const card = caster.hand[hi];
+    if (!card?.isRoom) {
+      G.logs.push('Surprise Gift: need a Room in hand.');
+      return false;
+    }
+    const top = activeRoom(opp.dungeon[ri]);
+    if (!top || top.faceDown) {
+      G.logs.push('Surprise Gift: must cover a face-up Room.');
+      return false;
+    }
+    caster.hand.splice(hi, 1);
+    card.faceDown = true;
+    card.builtThisTurn = true;
+    opp.dungeon[ri].push(card);
+    G.logs.push(`Surprise Gift: placed ${card.name} face-down in Player ${oppId}'s dungeon.`);
+    return true;
+  },
+
+  // TNL071: Undead Minion — remove face-down soul, deal its Health to a hero in your dungeon
+  TNL071: (G, ctx, casterId, target) => {
+    const p = G.players[casterId];
+    const si = target.soulIndex;
+    const heroId = target.heroId;
+    if (si == null || !heroId) {
+      G.logs.push('Undead Minion: need a soul and a Hero.');
+      return false;
+    }
+    const soul = p.souls?.[si];
+    if (!soul || soul.faceDown === false || soul.tpk) {
+      G.logs.push('Undead Minion: invalid face-down Hero.');
+      return false;
+    }
+    p.souls.splice(si, 1);
+    const dmg = soul.hp || soul.souls || 1;
+    if (G.adventure && Number(G.adventure.playerId) === Number(casterId) && G.adventure.hero?.id === heroId) {
+      G.adventure.hp -= dmg;
+      G.logs.push(`Undead Minion: removed ${soul.name}, dealt ${dmg} to ${G.adventure.hero.name} (HP ${G.adventure.hp}).`);
+      return true;
+    }
+    const ei = (p.entrance || []).findIndex((h) => h.id === heroId);
+    if (ei >= 0) {
+      const hero = p.entrance[ei];
+      hero._entranceHp = Math.max(0, (hero._entranceHp ?? hero.hp) - dmg);
+      G.logs.push(`Undead Minion: removed ${soul.name}, dealt ${dmg} to ${hero.name} (HP ${hero._entranceHp}).`);
+      if (hero._entranceHp <= 0) {
+        p.entrance.splice(ei, 1);
+        G.decks.heroDiscard = G.decks.heroDiscard || [];
+        G.decks.heroDiscard.push(hero);
+      }
+      return true;
+    }
+    G.effects.heroDamage.push({ heroId, amount: dmg });
+    G.logs.push(`Undead Minion: removed ${soul.name}, dealt ${dmg} damage.`);
+    return true;
+  },
+
+  // TNL072: Wild Monster — immediately build a Monster Room over an existing Room
+  TNL072: (G, ctx, casterId, target) => {
+    const p = G.players[casterId];
+    const hi = target.handIndex;
+    const ri = target.roomIndex;
+    if (hi == null || ri == null) {
+      G.logs.push('Wild Monster: need a Monster Room and a target Room.');
+      return false;
+    }
+    const card = p.hand[hi];
+    if (!card?.isRoom || card.type !== 'monster') {
+      G.logs.push('Wild Monster: must build a Monster Room.');
+      return false;
+    }
+    if (!activeRoom(p.dungeon[ri])) {
+      G.logs.push('Wild Monster: invalid target Room.');
+      return false;
+    }
+    p.hand.splice(hi, 1);
+    if (card.advanced) {
+      const oldTop = activeRoom(p.dungeon[ri]);
+      G.decks.roomDiscard.push(oldTop);
+    }
+    card.faceDown = false;
+    card.builtThisTurn = true;
+    p.dungeon[ri].push(card);
+    G.logs.push(`Wild Monster: built ${card.name} over a Room.`);
+    const choice = onBuildRoom(G, ctx, casterId, card);
+    if (choice) {
+      G.pendingChoice = { ...choice, resume: false };
+    }
+    return true;
+  },
 };
 
 function countVisibleRooms(dungeon) {
   let n = 0;
   for (const stack of dungeon) if (activeRoom(stack)) n++;
   return n;
+}
+
+function payAmbushCost(G, p) {
+  const mbIdx = (p.hand || []).findIndex((c) => c.isMiniboss);
+  if (mbIdx >= 0) {
+    const discarded = p.hand.splice(mbIdx, 1)[0];
+    G.decks.minibossDiscard = G.decks.minibossDiscard || [];
+    G.decks.minibossDiscard.push(discarded);
+    G.logs.push(`Ambush: discarded Miniboss ${discarded.name}.`);
+    return true;
+  }
+  const monsters = (p.hand || [])
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => c.isRoom && c.type === 'monster');
+  if (monsters.length < 2) return false;
+  // Discard from higher index first
+  const [a, b] = [monsters[0].i, monsters[1].i].sort((x, y) => y - x);
+  for (const idx of [a, b]) {
+    const discarded = p.hand.splice(idx, 1)[0];
+    G.decks.roomDiscard.push(discarded);
+    G.logs.push(`Ambush: discarded ${discarded.name}.`);
+  }
+  return true;
+}
+
+function completeTraitor(G, casterId, oppId, fromRoomIndex, hostIndex, cost, mb) {
+  const caster = G.players[casterId];
+  const opp = G.players[oppId];
+  const fromStack = opp.dungeon[fromRoomIndex];
+  if (!getMiniboss(fromStack)) return false;
+  if (!spendCoin(G, casterId, cost)) return false;
+  gainCoin(G, oppId, cost, 'Traitor');
+  const card = mb.card;
+  const level = mb.level;
+  delete fromStack.miniboss;
+  const host = caster.dungeon[hostIndex];
+  attachMiniboss(host, card, level);
+  host.miniboss.faceDown = false;
+  G.effects.noRoomBuild = G.effects.noRoomBuild || [];
+  G.effects.noRoomBuild.push(Number(casterId));
+  G.logs.push(`Traitor: took ${card.name} (Level ${level}) from Player ${oppId}.`);
+  return true;
+}
+
+export function resolveTraitorHost(G, playerId, optionIndex) {
+  const choice = G.pendingChoice;
+  if (!choice || choice.type !== 'traitor-host') return 'no traitor choice';
+  const opt = choice.options[optionIndex];
+  if (!opt) return 'invalid option';
+  const mb = choice.stolen;
+  const ok = completeTraitor(
+    G, playerId, choice.fromPid, choice.fromRoomIndex, opt.roomIndex, choice.cost,
+    { card: mb.card, level: mb.level },
+  );
+  G.pendingChoice = null;
+  return ok ? null : 'traitor failed';
 }
 
 export function roomDamageBonusFor(G, playerId, roomIndex) {

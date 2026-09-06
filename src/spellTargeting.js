@@ -34,6 +34,12 @@ export const SPELL_TARGETS = {
   RMB073: { type: 'own-room', label: 'Choose a Room in your dungeon' },
   RMB076: { type: 'any-room', label: 'Choose a Room' },
   RMB079: { type: 'hero-any-dungeon', label: 'Choose a Hero' },
+  RMB070: { type: 'hero-own-dungeon', label: 'Choose a Hero in your dungeon' },
+  RMB071: { type: 'any-player', label: 'Choose a player' },
+  RMB078: { type: 'opponent-miniboss', label: "Choose an opponent's Miniboss" },
+  TNL070: { type: 'surprise-gift', label: 'Choose a Room and an opponent Room' },
+  TNL071: { type: 'undead-minion', label: 'Choose a face-down Hero and a Hero in your dungeon' },
+  TNL072: { type: 'wild-monster', label: 'Choose a Monster Room and a target Room' },
 };
 
 export function spellNeedsTarget(spellId) {
@@ -118,6 +124,60 @@ export function enumerateTargets(type, G, me, playerId) {
         if (Number(opid) === pid || op.eliminated) continue;
         targets.push({ targetPlayerId: Number(opid) });
       }
+      break;
+    case 'any-player':
+      for (const [opid, op] of Object.entries(G.players)) {
+        if (op.eliminated) continue;
+        targets.push({ targetPlayerId: Number(opid) });
+      }
+      break;
+    case 'opponent-miniboss':
+      for (const [opid, op] of Object.entries(G.players)) {
+        if (Number(opid) === pid || op.eliminated) continue;
+        (op.dungeon || []).forEach((stack, i) => {
+          const mb = stack?.miniboss;
+          if (mb && !mb.faceDown) {
+            targets.push({ targetPlayerId: Number(opid), roomIndex: i });
+          }
+        });
+      }
+      break;
+    case 'surprise-gift':
+      me.hand.forEach((c, hi) => {
+        if (!c.isRoom) return;
+        for (const [opid, op] of Object.entries(G.players)) {
+          if (Number(opid) === pid || op.eliminated) continue;
+          (op.dungeon || []).forEach((stack, ri) => {
+            const top = stackTop(stack);
+            if (top && !top.faceDown) {
+              targets.push({ handIndex: hi, targetPlayerId: Number(opid), roomIndex: ri });
+            }
+          });
+        }
+      });
+      break;
+    case 'undead-minion': {
+      const souls = (me.souls || [])
+        .map((s, i) => ({ s, i }))
+        .filter(({ s }) => !s.tpk && s.faceDown !== false);
+      const heroes = [];
+      const advHeroId = G.adventure && Number(G.adventure.playerId) === pid ? G.adventure.hero?.id : null;
+      for (const h of me.entrance || []) heroes.push(h.id);
+      if (advHeroId) heroes.push(advHeroId);
+      for (const { i: soulIndex } of souls) {
+        for (const heroId of heroes) {
+          targets.push({ soulIndex, heroId });
+        }
+      }
+      break;
+    }
+    case 'wild-monster':
+      me.hand.forEach((c, hi) => {
+        if (!c.isRoom || c.type !== 'monster') return;
+        me.dungeon.forEach((stack, ri) => {
+          if (stackTop(stack)) targets.push({ handIndex: hi, roomIndex: ri });
+        });
+      });
       break;
     case 'trepidation-player': {
       const mySouls = (me.souls || []).reduce((s, x) => s + (x.souls || 1), 0);
@@ -271,6 +331,81 @@ export function getSpellTargetOptions(type, G, me, playerId) {
         });
       }
       break;
+    case 'any-player':
+      for (const [opid, op] of Object.entries(G.players)) {
+        if (op.eliminated) continue;
+        const you = Number(opid) === pid;
+        targets.push({
+          key: `pl-${opid}`, card: op.boss, kind: 'boss',
+          value: { targetPlayerId: Number(opid) },
+          label: you ? 'You' : (op.boss?.name || `Player ${opid}`),
+        });
+      }
+      break;
+    case 'opponent-miniboss':
+      for (const [opid, op] of Object.entries(G.players)) {
+        if (Number(opid) === pid || op.eliminated) continue;
+        (op.dungeon || []).forEach((stack, i) => {
+          const mb = stack?.miniboss;
+          if (!mb || mb.faceDown) return;
+          targets.push({
+            key: `mb-${opid}-${i}`, card: mb.card, kind: 'room',
+            value: { targetPlayerId: Number(opid), roomIndex: i },
+            label: `${mb.card.name} L${mb.level} (P${opid})`,
+          });
+        });
+      }
+      break;
+    case 'surprise-gift':
+      me.hand.forEach((c, hi) => {
+        if (!c.isRoom) return;
+        for (const [opid, op] of Object.entries(G.players)) {
+          if (Number(opid) === pid || op.eliminated) continue;
+          (op.dungeon || []).forEach((stack, ri) => {
+            const top = stackTop(stack);
+            if (!top || top.faceDown) return;
+            targets.push({
+              key: `gift-${hi}-${opid}-${ri}`, card: c, kind: 'room',
+              value: { handIndex: hi, targetPlayerId: Number(opid), roomIndex: ri },
+              label: `${c.name} → ${top.name} (P${opid})`,
+            });
+          });
+        }
+      });
+      break;
+    case 'undead-minion': {
+      const souls = (me.souls || [])
+        .map((s, i) => ({ s, i }))
+        .filter(({ s }) => !s.tpk && s.faceDown !== false);
+      const heroes = [];
+      const advHero = G.adventure && Number(G.adventure.playerId) === pid ? G.adventure.hero : null;
+      for (const h of me.entrance || []) heroes.push(h);
+      if (advHero && !heroes.some((h) => h.id === advHero.id)) heroes.push(advHero);
+      for (const { s, i: soulIndex } of souls) {
+        for (const h of heroes) {
+          targets.push({
+            key: `undead-${soulIndex}-${h.id}`, card: h, kind: h.epic ? 'epic-hero' : 'hero',
+            value: { soulIndex, heroId: h.id },
+            label: `${s.name || 'Soul'} → ${h.name}`,
+          });
+        }
+      }
+      break;
+    }
+    case 'wild-monster':
+      me.hand.forEach((c, hi) => {
+        if (!c.isRoom || c.type !== 'monster') return;
+        me.dungeon.forEach((stack, ri) => {
+          const top = stackTop(stack);
+          if (!top) return;
+          targets.push({
+            key: `wild-${hi}-${ri}`, card: c, kind: 'room',
+            value: { handIndex: hi, roomIndex: ri },
+            label: `${c.name} over ${top.name}`,
+          });
+        });
+      });
+      break;
     case 'trepidation-player': {
       const mySouls = (me.souls || []).reduce((s, x) => s + (x.souls || 1), 0);
       for (const [opid, op] of Object.entries(G.players)) {
@@ -352,5 +487,20 @@ export function getSpellTargetOptions(type, G, me, playerId) {
 export function spellTargetsFor(G, player, playerId, spellId) {
   const req = SPELL_TARGETS[spellId];
   if (!req) return [null];
+  if (spellId === 'RMB070') {
+    const canPay = (player.hand || []).some((c) => c.isMiniboss)
+      || (player.hand || []).filter((c) => c.isRoom && c.type === 'monster').length >= 2;
+    if (!canPay) return [];
+  }
+  if (spellId === 'RMB078') {
+    const targets = enumerateTargets(req.type, G, player, playerId);
+    return targets.filter((t) => {
+      const opp = G.players[t.targetPlayerId];
+      const mb = opp?.dungeon?.[t.roomIndex]?.miniboss;
+      const cost = mb?.level || 1;
+      return (player.coins || 0) >= cost
+        && (player.dungeon || []).some((s) => activeRoom(s) && !s.miniboss);
+    });
+  }
   return enumerateTargets(req.type, G, player, playerId);
 }

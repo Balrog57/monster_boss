@@ -266,6 +266,7 @@ export function canBuildRoom(G, playerId, handIndex, targetIndex = null) {
   const card = p.hand[handIndex];
   if (!card || !card.isRoom) return false;
   if (G.effects.buildBlocked) return false;
+  if ((G.effects.noRoomBuild || []).some((id) => Number(id) === Number(playerId))) return false;
   const allowedBuilds = 1 + (G.effects.extraBuild?.filter(id => id === playerId).length || 0);
   if ((p.buildsThisTurn || 0) >= allowedBuilds) return false;
   const visible = countVisibleRooms(p.dungeon);
@@ -277,7 +278,8 @@ export function canBuildRoom(G, playerId, handIndex, targetIndex = null) {
   }
   // Advanced room: must be built over an active room with matching treasure.
   // Hypercube (CRL011): may build over any room.
-  if (card.id === 'CRL011') {
+  // Zoning Board (ignoreTreasureMatch): ignore treasure matching.
+  if (card.id === 'CRL011' || (G.effects.ignoreTreasureMatch || []).some((id) => Number(id) === Number(playerId))) {
     if (targetIndex == null) return false;
     if (fetidBlocksMonsterBuild(p, card, targetIndex)) return false;
     return !!activeRoom(p.dungeon[targetIndex]);

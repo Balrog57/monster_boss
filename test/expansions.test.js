@@ -451,3 +451,76 @@ describe('expansion room batch', () => {
     assert.equal(roomDamageWithModifiers(G, 0, 0, { id: 'h' }), 2);
   });
 });
+
+describe('expansion spell batch', () => {
+  it('Not Dead Yet damages entrance heroes by wound count', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['crash-landing'] });
+    G.effects = emptyEffects();
+    G.players[0].wounds = [{ wounds: 1 }, { wounds: 1 }];
+    G.players[0].entrance = [{ id: 'h1', name: 'Hero', hp: 5 }];
+    castSpell(G, ctx, 0, { id: 'CRL033', name: 'Not Dead Yet', isSpell: true }, {});
+    assert.equal(G.players[0].entrance[0]._entranceHp, 3);
+  });
+
+  it('Zoning Board allows Advanced build without treasure match', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['minibosses'] });
+    G.effects = emptyEffects();
+    G.players[0].buildsThisTurn = 0;
+    G.players[0].dungeon = [[{ id: 'BMA009', name: 'Dark Altar', type: 'monster', damage: 1, treasures: [1] }]];
+    G.players[0].hand = [{
+      id: 'adv', name: 'Adv Trap', isRoom: true, advanced: true, type: 'trap', damage: 3, treasures: [5],
+    }];
+    assert.equal(canBuildRoom(G, 0, 0, 0), false);
+    castSpell(G, ctx, 0, { id: 'RMB074', name: 'Zoning Board', isSpell: true }, {});
+    assert.equal(canBuildRoom(G, 0, 0, 0), true);
+  });
+
+  it('Rebirth discards and redraws matching counts', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['minibosses'] });
+    G.effects = emptyEffects();
+    G.decks.rooms.push({ id: 'rnew', isRoom: true }, { id: 'rnew2', isRoom: true });
+    G.decks.spells.push({ id: 'snew', isSpell: true });
+    G.players[0].hand = [
+      { id: 'r1', isRoom: true },
+      { id: 'r2', isRoom: true },
+      { id: 's1', isSpell: true },
+    ];
+    castSpell(G, ctx, 0, { id: 'RMB071', name: 'Rebirth', isSpell: true }, { targetPlayerId: 0 });
+    assert.equal(G.players[0].hand.filter((c) => c.isRoom).length, 2);
+    assert.equal(G.players[0].hand.filter((c) => c.isSpell).length, 1);
+  });
+
+  it('Ambush discards monsters and kills an entrance hero', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['minibosses'] });
+    G.effects = emptyEffects();
+    G.players[0].hand = [
+      { id: 'm1', isRoom: true, type: 'monster' },
+      { id: 'm2', isRoom: true, type: 'monster' },
+    ];
+    G.players[0].entrance = [{ id: 'h1', name: 'Victim', hp: 4 }];
+    castSpell(G, ctx, 0, { id: 'RMB070', name: 'Ambush', isSpell: true }, { heroId: 'h1' });
+    assert.equal(G.players[0].entrance.length, 0);
+    assert.equal(G.players[0].hand.length, 0);
+  });
+
+  it('Undead Minion removes a soul and damages a hero', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['next-level'] });
+    G.effects = emptyEffects();
+    G.players[0].souls = [{ name: 'Dead', faceDown: true, hp: 3, souls: 1, class: 'Cleric' }];
+    G.players[0].entrance = [{ id: 'h1', name: 'Alive', hp: 5 }];
+    castSpell(G, ctx, 0, { id: 'TNL071', name: 'Undead Minion', isSpell: true }, { soulIndex: 0, heroId: 'h1' });
+    assert.equal(G.players[0].souls.length, 0);
+    assert.equal(G.players[0].entrance[0]._entranceHp, 2);
+  });
+
+  it('Wild Monster builds a Monster Room over an existing Room', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['next-level'] });
+    G.effects = emptyEffects();
+    G.players[0].dungeon = [[{ id: 'BMA009', name: 'Dark Altar', type: 'monster', damage: 1, treasures: [1] }]];
+    G.players[0].hand = [{ id: 'mon', name: 'Beast', isRoom: true, type: 'monster', damage: 2, treasures: [2] }];
+    castSpell(G, ctx, 0, { id: 'TNL072', name: 'Wild Monster', isSpell: true }, { handIndex: 0, roomIndex: 0 });
+    assert.equal(G.players[0].dungeon[0].length, 2);
+    assert.equal(G.players[0].dungeon[0].at(-1).id, 'mon');
+    assert.equal(G.players[0].hand.length, 0);
+  });
+});

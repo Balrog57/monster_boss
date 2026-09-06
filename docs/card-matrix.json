@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T18:35:28.740Z",
+  "generatedAt": "2026-09-06T18:52:32.627Z",
   "cards": {
     "BMA001": {
       "id": "BMA001",
@@ -2193,7 +2193,7 @@
       "set": "crash-landing",
       "text": "Do X damage to each Hero in your dungeon or at the entrance to your dungeon, where X equals the number of Wounds you have.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2272,7 +2272,7 @@
       "set": "minibosses",
       "text": "Yo may discard two Monster Room cards or one Miniboss card to kill one Hero in your dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -2283,7 +2283,7 @@
       "set": "minibosses",
       "text": "Chose a player (including yourself). That playwe discards their hand and draws Rooms and Spells equal to the number of each they discarded.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -2318,7 +2318,7 @@
       "set": "minibosses",
       "text": "For your build turn, you may build an Advanced Room on top of any other Room, ignoring matching treasure icon requirements.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -2362,7 +2362,7 @@
       "set": "minibosses",
       "text": "Choose an opponent's Miniboss. You may pay that opponent one (c) per that Miniboss's Level to take it and immediatly build it at that same level. You may not build a room this turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -2549,7 +2549,7 @@
       "set": "next-level",
       "text": "During the Build phase, you may place a Room in an opponent's dungeon instead of your own. (Place it face-down over a face-up Room. Opponent may still place another Room. Any build effects apply to the opponent.)",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2560,7 +2560,7 @@
       "set": "next-level",
       "text": "Choose one face-down Hero in your scorekeeping area and remove it from the game. Deal damage equal to that Hero's Health to one Hero in your dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -2571,7 +2571,7 @@
       "set": "next-level",
       "text": "You may immediately build a Monster Room over an existing Room in your dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -4901,6 +4901,6 @@
     "total": 442,
     "corrupt": 0,
     "missingArt": 148,
-    "expansionPending": 106
+    "expansionPending": 98
   }
 }

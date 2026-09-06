@@ -12,7 +12,7 @@ import { activeRoom, allActiveRooms, destroyRoom, countVisibleRooms, dungeonTrea
 export { dungeonTreasures };
 import { drawCards, PHASE, HEROES } from './cardData.js';
 import { dungeonIgnoresRoomAbilities, heroIgnoresRoomAbilities, applyItemReward, addHeroHealthBonus, killHeroInDungeon } from './items.js';
-import { gainCoin, resolveGrukTarget, spendCoin } from './minibosses.js';
+import { gainCoin, resolveGrukTarget, spendCoin, attachMiniboss } from './minibosses.js';
 import {
   applyTaggedOnBuild,
   applyTaggedOnHeroDie,
@@ -1536,6 +1536,25 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
       G.logs.push(`${choice.bossName}: re-fired ${option.room?.name}.`);
       break;
     }
+    case 'traitor-host': {
+      const opt = option;
+      const mb = choice.stolen;
+      const caster = G.players[playerId];
+      const opp = G.players[choice.fromPid];
+      const fromStack = opp?.dungeon?.[choice.fromRoomIndex];
+      if (!fromStack?.miniboss || !opt) return 'invalid traitor host';
+      if (!spendCoin(G, playerId, choice.cost)) return 'need coins';
+      gainCoin(G, choice.fromPid, choice.cost, 'Traitor');
+      const card = mb.card;
+      const level = mb.level;
+      delete fromStack.miniboss;
+      attachMiniboss(caster.dungeon[opt.roomIndex], card, level);
+      caster.dungeon[opt.roomIndex].miniboss.faceDown = false;
+      G.effects.noRoomBuild = G.effects.noRoomBuild || [];
+      G.effects.noRoomBuild.push(Number(playerId));
+      G.logs.push(`Traitor: took ${card.name} (Level ${level}) from Player ${choice.fromPid}.`);
+      break;
+    }
     case 'smithy-item': {
       const heroes = heroesWithoutItem(G);
       if (!heroes.length) return 'no hero without an item';
@@ -1679,6 +1698,7 @@ export function aiResolveLevelUpChoice(G, choice) {
     case 'block-entrance-hero':
     case 'efreet-choice':
     case 'omega-refire':
+    case 'traitor-host':
     case 'smithy-item':
     case 'smithy-hero':
     case 'remove-soul-search-hero':
