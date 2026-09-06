@@ -12,7 +12,7 @@ import { activeRoom, allActiveRooms, destroyRoom, countVisibleRooms, dungeonTrea
 export { dungeonTreasures };
 import { drawCards, PHASE, HEROES } from './cardData.js';
 import { dungeonIgnoresRoomAbilities, heroIgnoresRoomAbilities, applyItemReward, addHeroHealthBonus, killHeroInDungeon } from './items.js';
-import { gainCoin, resolveGrukTarget } from './minibosses.js';
+import { gainCoin, resolveGrukTarget, spendCoin } from './minibosses.js';
 import {
   applyTaggedOnBuild,
   applyTaggedOnHeroDie,
@@ -1419,6 +1419,36 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
       G.logs.push(`${choice.bossName}: discarded ${discarded.name}${drawn ? `, drew ${drawn.name}` : ''}.`);
       break;
     }
+    case 'arena-reveal': {
+      const amount = option.card?.damage || 0;
+      G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+      G.effects.roomDamageBonus.push({ playerId, roomIndex: choice.roomIndex, amount });
+      const r = activeRoom(G.players[playerId]?.dungeon?.[choice.roomIndex]);
+      if (r) r.usedThisTurn = true;
+      G.logs.push(`${choice.bossName}: revealed ${option.card?.name} for +${amount}.`);
+      break;
+    }
+    case 'debuff-room': {
+      G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+      G.effects.roomDamageBonus.push({
+        playerId: option.playerId,
+        roomIndex: option.roomIndex,
+        amount: choice.amount || -1,
+      });
+      const r = activeRoom(G.players[playerId]?.dungeon?.[choice.roomIndex]);
+      if (r) r.usedThisTurn = true;
+      G.logs.push(`${choice.bossName}: ${option.room?.name || 'a room'} ${choice.amount || -1}.`);
+      break;
+    }
+    case 'double-monster': {
+      const amount = option.room?.damage || 0;
+      G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+      G.effects.roomDamageBonus.push({ playerId: option.playerId ?? playerId, roomIndex: option.roomIndex, amount });
+      const r = activeRoom(G.players[playerId]?.dungeon?.[choice.roomIndex]);
+      if (r) r.usedThisTurn = true;
+      G.logs.push(`${choice.bossName}: doubled ${option.room?.name}.`);
+      break;
+    }
     case 'smithy-item': {
       const heroes = heroesWithoutItem(G);
       if (!heroes.length) return 'no hero without an item';
@@ -1556,6 +1586,9 @@ export function aiResolveLevelUpChoice(G, choice) {
     case 'uncover-own-room':
     case 'suppress-room-treasure':
     case 'discard-room-draw':
+    case 'arena-reveal':
+    case 'debuff-room':
+    case 'double-monster':
     case 'smithy-item':
     case 'smithy-hero':
     case 'remove-soul-search-hero':
@@ -2059,6 +2092,201 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
         roomIndex,
         options: roomCards,
       };
+      return null;
+    }
+    case 'RMB043': { // Sawtooth Pendulum: pay (c) to kill hero in this room with ≤3 HP
+      if (!heroIsInRoom(G, playerId, roomIndex)) return 'no hero in this room';
+      if ((G.adventure.hp || 0) > 3) return 'hero has more than 3 Health';
+      if (!spendCoin(G, playerId, 1)) return 'need 1 Coin';
+      G.adventure.hp = 0;
+      G._deathRoom = room;
+      room.usedThisTurn = true;
+      G.logs.push(`Sawtooth Pendulum: killed ${G.adventure.hero.name}.`);
+      return null;
+    }
+    case 'TNL030': { // The Arena: reveal a Monster Room from hand → +X
+      const monsters = player.hand.map((c, i) => ({ card: c, handIndex: i }))
+        .filter((o) => o.card.isRoom && o.card.type === 'monster');
+      if (!monsters.length) return 'no Monster Room to reveal';
+      if (monsters.length === 1) {
+        const amount = monsters[0].card.damage || 0;
+        G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+        G.effects.roomDamageBonus.push({ playerId, roomIndex, amount });
+        room.usedThisTurn = true;
+        G.logs.push(`The Arena: revealed ${monsters[0].card.name} for +${amount}.`);
+        return null;
+      }
+      G.pendingChoice = {
+        type: 'arena-reveal',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'The Arena',
+        message: 'The Arena: reveal a Monster Room for +X',
+        roomIndex,
+        options: monsters,
+      };
+      return null;
+    }
+    case 'TNL048': { // The Smashinator: destroy every other visible room → +6
+      const smashStack = player.dungeon[roomIndex];
+      if (!smashStack) return 'no room';
+      for (let i = player.dungeon.length - 1; i >= 0; i--) {
+        if (player.dungeon[i] === smashStack) continue;
+        if (activeRoom(player.dungeon[i])) destroyRoom(G, playerId, i);
+      }
+      const selfIndex = player.dungeon.indexOf(smashStack);
+      if (selfIndex < 0) return 'Smashinator was destroyed';
+      const self = activeRoom(smashStack);
+      G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+      G.effects.roomDamageBonus.push({ playerId, roomIndex: selfIndex, amount: 6 });
+      if (self) self.usedThisTurn = true;
+      G.logs.push('The Smashinator: destroyed every other Room, +6 until end of turn.');
+      return null;
+    }
+    case 'TNL022': { // Rust Monster Pen: discard Monster → one Trap -1 EOT
+      const mi = player.hand.findIndex((c) => c.isRoom && c.type === 'monster');
+      if (mi < 0) return 'no Monster Room to discard';
+      const traps = listDungeonRoomOptions(G).filter((o) => o.room?.type === 'trap');
+      if (!traps.length) return 'no Trap Room to debuff';
+      const discarded = player.hand.splice(mi, 1)[0];
+      G.decks.roomDiscard.push(discarded);
+      if (traps.length === 1) {
+        G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+        G.effects.roomDamageBonus.push({ playerId: traps[0].playerId, roomIndex: traps[0].roomIndex, amount: -1 });
+        room.usedThisTurn = true;
+        G.logs.push(`Rust Monster Pen: discarded ${discarded.name}, ${traps[0].room.name} -1.`);
+        return null;
+      }
+      G.pendingChoice = {
+        type: 'debuff-room',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'Rust Monster Pen',
+        message: 'Rust Monster Pen: choose a Trap Room for -1',
+        roomIndex,
+        amount: -1,
+        options: traps,
+      };
+      return null;
+    }
+    case 'TNL040': { // Bullet Builder: discard Trap → one Monster -1 EOT
+      const ti = player.hand.findIndex((c) => c.isRoom && c.type === 'trap');
+      if (ti < 0) return 'no Trap Room to discard';
+      const monsters = listDungeonRoomOptions(G).filter((o) => o.room?.type === 'monster');
+      if (!monsters.length) return 'no Monster Room to debuff';
+      const discarded = player.hand.splice(ti, 1)[0];
+      G.decks.roomDiscard.push(discarded);
+      if (monsters.length === 1) {
+        G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+        G.effects.roomDamageBonus.push({ playerId: monsters[0].playerId, roomIndex: monsters[0].roomIndex, amount: -1 });
+        room.usedThisTurn = true;
+        G.logs.push(`Bullet Builder: discarded ${discarded.name}, ${monsters[0].room.name} -1.`);
+        return null;
+      }
+      G.pendingChoice = {
+        type: 'debuff-room',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'Bullet Builder',
+        message: 'Bullet Builder: choose a Monster Room for -1',
+        roomIndex,
+        amount: -1,
+        options: monsters,
+      };
+      return null;
+    }
+    case 'RMB026': { // Training Camp: discard Miniboss → double one Monster Room damage
+      const mbi = player.hand.findIndex((c) => c.isMiniboss);
+      if (mbi < 0) return 'no Miniboss to discard';
+      const monsters = player.dungeon.map((s, i) => ({ roomIndex: i, room: activeRoom(s), playerId: Number(playerId) }))
+        .filter((o) => o.room?.type === 'monster');
+      if (!monsters.length) return 'no Monster Room to boost';
+      const discarded = player.hand.splice(mbi, 1)[0];
+      G.decks.minibossDiscard = G.decks.minibossDiscard || [];
+      G.decks.minibossDiscard.push(discarded);
+      if (monsters.length === 1) {
+        const amount = monsters[0].room.damage || 0;
+        G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+        G.effects.roomDamageBonus.push({ playerId, roomIndex: monsters[0].roomIndex, amount });
+        room.usedThisTurn = true;
+        G.logs.push(`Training Camp: discarded ${discarded.name}, doubled ${monsters[0].room.name}.`);
+        return null;
+      }
+      G.pendingChoice = {
+        type: 'double-monster',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'Training Camp',
+        message: 'Training Camp: choose a Monster Room to double',
+        roomIndex,
+        options: monsters,
+      };
+      return null;
+    }
+    case 'RMB044': { // The Catapult: discard Miniboss → deactivate opponent room
+      const mbi = player.hand.findIndex((c) => c.isMiniboss);
+      if (mbi < 0) return 'no Miniboss to discard';
+      const options = listDungeonRoomOptions(G).filter((o) => Number(o.playerId) !== Number(playerId));
+      if (!options.length) return 'no opponent room';
+      const discarded = player.hand.splice(mbi, 1)[0];
+      G.decks.minibossDiscard = G.decks.minibossDiscard || [];
+      G.decks.minibossDiscard.push(discarded);
+      if (options.length === 1) {
+        G.effects.deactivatedRooms = G.effects.deactivatedRooms || [];
+        G.effects.deactivatedRooms.push({ playerId: options[0].playerId, roomIndex: options[0].roomIndex });
+        room.usedThisTurn = true;
+        G.logs.push(`The Catapult: discarded ${discarded.name}, deactivated ${options[0].room?.name}.`);
+        return null;
+      }
+      G.pendingChoice = {
+        type: 'deactivate-room',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'The Catapult',
+        message: 'The Catapult: choose an opponent Room to deactivate',
+        roomIndex,
+        options,
+      };
+      room.usedThisTurn = true;
+      return null;
+    }
+    case 'TNL053': { // Werewolf Den: discard a card → one Hero +1 HP EOT
+      if (!player.hand.length) return 'no card to discard';
+      const discarded = player.hand.shift();
+      if (discarded.isSpell) G.decks.spellDiscard.push(discarded);
+      else if (discarded.isRoom) G.decks.roomDiscard.push(discarded);
+      else if (discarded.isMiniboss) {
+        G.decks.minibossDiscard = G.decks.minibossDiscard || [];
+        G.decks.minibossDiscard.push(discarded);
+      }
+      const heroes = [];
+      for (const [pid, pl] of Object.entries(G.players)) {
+        for (const h of pl.entrance || []) heroes.push({ hero: h, heroId: h.id });
+      }
+      for (const h of G.town || []) heroes.push({ hero: h, heroId: h.id });
+      if (G.adventure?.hero) heroes.push({ hero: G.adventure.hero, heroId: G.adventure.hero.id });
+      if (!heroes.length) {
+        G.logs.push(`Werewolf Den: discarded ${discarded.name} (no Hero to buff).`);
+        room.usedThisTurn = true;
+        return null;
+      }
+      if (heroes.length === 1) {
+        addHeroHealthBonus(G, heroes[0].heroId, 1);
+        room.usedThisTurn = true;
+        G.logs.push(`Werewolf Den: discarded ${discarded.name}, ${heroes[0].hero.name} +1 Health.`);
+        return null;
+      }
+      G.pendingChoice = {
+        type: 'hero-health-bonus',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'Werewolf Den',
+        message: 'Werewolf Den: choose a Hero for +1 Health',
+        roomIndex,
+        bonus: 1,
+        options: heroes,
+      };
+      room.usedThisTurn = true;
       return null;
     }
     default:

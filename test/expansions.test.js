@@ -4,7 +4,7 @@ import { setupMatch, applyMove, pickOpeningDiscardIndices, legalMoves } from '..
 import { payDarkHero, listDarkHeroPayTargets } from '../src/darkHeroes.js';
 import { castSpell, emptyEffects } from '../src/spellEffects.js';
 import { totalSouls, PHASE } from '../src/cardData.js';
-import { healOneWound, resolveBait, treasureCount, roomDamageWithModifiers, canBuildRoom } from '../src/engine.js';
+import { healOneWound, resolveBait, treasureCount, roomDamageWithModifiers, canBuildRoom, buildRoom, destroyRoom } from '../src/engine.js';
 import { gainCoin, buildMiniboss } from '../src/minibosses.js';
 import { onBuildRoom, activateRoomAbility } from '../src/roomAbilities.js';
 import { applyTaggedOnHeroSurvive } from '../src/expansionEffects.js';
@@ -349,5 +349,71 @@ describe('expansion room batch', () => {
     applyTaggedOnHeroSurvive(G, 0, 0, room);
     assert.ok(G.effects.roomDamageBonus.some((e) => e.amount === 3));
     assert.equal(room.usedThisTurn, true);
+  });
+
+  it('Fetid Beast blocks adjacent Monster builds', () => {
+    const { G } = setupMatch(2, { expansions: ['minibosses'] });
+    G.effects = emptyEffects();
+    G.players[0].buildsThisTurn = 0;
+    G.players[0].dungeon = [[{ id: 'RMB025', name: 'Fetid Beast', type: 'monster', damage: 1, treasures: [2] }]];
+    G.players[0].hand = [{ id: 'BMA010', name: 'Monster', isRoom: true, type: 'monster', damage: 1, treasures: [2] }];
+    assert.equal(canBuildRoom(G, 0, 0, null), false);
+  });
+
+  it('Doppelganger Hive scales with lured heroes', () => {
+    const { G } = setupMatch(2, { expansions: ['minibosses'] });
+    G.effects = emptyEffects();
+    G.luredThisTurn = { 0: 2 };
+    G.players[0].boss = { id: 'B', treasures: [], xp: 0 };
+    G.players[0].dungeon = [[{ id: 'RMB029', name: 'Doppelganger Hive', type: 'monster', damage: 2, treasures: [2] }]];
+    assert.equal(roomDamageWithModifiers(G, 0, 0, { id: 'h' }), 4);
+  });
+
+  it('Goblin Market pays coins for adjacent builds', () => {
+    const { G } = setupMatch(2, { expansions: ['minibosses'] });
+    G.effects = emptyEffects();
+    G.players[0].coins = 0;
+    G.players[0].buildsThisTurn = 0;
+    G.players[0].dungeon = [[{ id: 'RMB023', name: 'Goblin Market', type: 'monster', damage: 1, treasures: [2] }]];
+    G.players[0].hand = [{ id: 'BMA009', name: 'Dark Altar', isRoom: true, type: 'monster', damage: 1, treasures: [1] }];
+    assert.equal(buildRoom(G, 0, 0, null), true);
+    assert.equal(G.players[0].coins, 2);
+  });
+
+  it('Cursed Tomb forces opponents to discard Rooms', () => {
+    const { G } = setupMatch(2, { expansions: ['next-level'] });
+    G.effects = emptyEffects();
+    G.players[0].dungeon = [[{ id: 'TNL054', name: 'Cursed Tomb', type: 'trap', damage: 1, treasures: [4] }]];
+    G.players[1].hand = [
+      { id: 'r1', name: 'R1', isRoom: true },
+      { id: 'r2', name: 'R2', isRoom: true },
+      { id: 's1', name: 'S', isSpell: true },
+    ];
+    destroyRoom(G, 0, 0);
+    assert.equal(G.players[1].hand.length, 1);
+    assert.equal(G.players[1].hand[0].isSpell, true);
+  });
+
+  it('The Smashinator clears other rooms for +6', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['next-level'] });
+    Object.assign(G, { phase: PHASE.BUILD, effects: emptyEffects() });
+    Object.assign(ctx, { phase: PHASE.BUILD, activePlayer: 0 });
+    G.players[0].dungeon = [
+      [{ id: 'BMA009', name: 'A', type: 'monster', damage: 1, treasures: [1] }],
+      [{ id: 'TNL048', name: 'The Smashinator', type: 'trap', damage: 1, treasures: [4] }],
+      [{ id: 'BMA010', name: 'B', type: 'monster', damage: 1, treasures: [1] }],
+    ];
+    assert.equal(activateRoomAbility(G, ctx, 0, 1, null), null);
+    assert.equal(G.players[0].dungeon.length, 1);
+    assert.ok(G.effects.roomDamageBonus.some((e) => e.amount === 6));
+  });
+
+  it("Alchemist's Lab gains coins when a spell resolves", () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['minibosses'] });
+    G.effects = emptyEffects();
+    G.players[0].coins = 0;
+    G.players[0].dungeon = [[{ id: 'RMB032', name: "Alchemist's Lab", type: 'trap', damage: 1, treasures: [3] }]];
+    castSpell(G, ctx, 0, { id: 'BMA040', name: 'Annihilator', isSpell: true }, { roomIndex: 0 });
+    assert.equal(G.players[0].coins, 2);
   });
 });

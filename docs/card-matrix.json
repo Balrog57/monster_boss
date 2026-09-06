@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T18:23:51.207Z",
+  "generatedAt": "2026-09-06T18:29:21.787Z",
   "cards": {
     "BMA001": {
       "id": "BMA001",
@@ -1095,7 +1095,7 @@
       "set": "minibosses",
       "text": "Whenever you build a Room next to this Room, gain (c)(c).",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1117,7 +1117,7 @@
       "set": "minibosses",
       "text": "Monster Rooms may not be built adjacent to this room. (But this Room may be built adjacent to other Monster Rooms.)",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1128,7 +1128,7 @@
       "set": "minibosses",
       "text": "Once per turn, you may discard a Miniboss to double the damage of one of your Monster Rooms until end of turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1161,7 +1161,7 @@
       "set": "minibosses",
       "text": "This room has +1 for every Hero that was lured to your dungeon this turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1172,7 +1172,7 @@
       "set": "minibosses",
       "text": "Once per turn when a Hero survives this Room, gain (c) (c).",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1194,7 +1194,7 @@
       "set": "minibosses",
       "text": "Once per turn, when you cast a Spell, gain (c) (c). (Cancelled spells are not cast.)",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1322,7 +1322,7 @@
       "set": "minibosses",
       "text": "Once per turn, you may pay (c) to kill a Hero in this Room with 3 or less Health.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1333,7 +1333,7 @@
       "set": "minibosses",
       "text": "Once per turn, you may discard a Miniboss to deactivate a Room in an opponent's dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1599,7 +1599,7 @@
       "set": "next-level",
       "text": "Once per turn, you may discard a Monster Room to give one Trap Room -1 until end of turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1687,7 +1687,7 @@
       "set": "next-level",
       "text": "Once per turn, you may reveal a Monster Room from your hand to give this Room +X, where X is that Room's power.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1731,7 +1731,7 @@
       "set": "next-level",
       "text": "Whenever you play a Spell, this Room gains +1 until end of turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1764,7 +1764,7 @@
       "set": "next-level",
       "text": "Once per turn when an opponent plays a Spell card, draw a Spell card.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1797,7 +1797,7 @@
       "set": "next-level",
       "text": "Once per turn, you may discard a Trap Room to give one Monster Room -1 until end of turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1885,7 +1885,7 @@
       "set": "next-level",
       "text": "Once per turn, you may destroy every other visible Room in your dungeon to give this Room +6 until end of turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1940,7 +1940,7 @@
       "set": "next-level",
       "text": "Once per turn, you may discard a card from your hand to give one Hero +1 until end of turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1951,7 +1951,7 @@
       "set": "next-level",
       "text": "If an effect from another card causes this Room to be destroyed, each opponent must discard two Room cards.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -4901,6 +4901,6 @@
     "total": 442,
     "corrupt": 0,
     "missingArt": 148,
-    "expansionPending": 140
+    "expansionPending": 124
   }
 }

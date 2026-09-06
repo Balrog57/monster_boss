@@ -1259,7 +1259,8 @@
       ],
       "quantity": 2,
       "description": "Whenever you build a Room next to this Room, gain (c)(c).",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB024",
@@ -1286,7 +1287,8 @@
       ],
       "quantity": 2,
       "description": "Monster Rooms may not be built adjacent to this room. (But this Room may be built adjacent to other Monster Rooms.)",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB026",
@@ -1299,7 +1301,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, you may discard a Miniboss to double the damage of one of your Monster Rooms until end of turn.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB027",
@@ -1339,7 +1342,8 @@
       ],
       "quantity": 2,
       "description": "This room has +1 for every Hero that was lured to your dungeon this turn.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB030",
@@ -1352,7 +1356,8 @@
       ],
       "quantity": 1,
       "description": "Once per turn when a Hero survives this Room, gain (c) (c).",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB031",
@@ -1378,7 +1383,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, when you cast a Spell, gain (c) (c). (Cancelled spells are not cast.)",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB033",
@@ -1527,7 +1533,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, you may pay (c) to kill a Hero in this Room with 3 or less Health.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB044",
@@ -1540,7 +1547,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, you may discard a Miniboss to deactivate a Room in an opponent's dungeon.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB045",
@@ -1861,7 +1869,8 @@
       ],
       "quantity": 1,
       "description": "Once per turn, you may discard a Monster Room to give one Trap Room -1 until end of turn.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL023",
@@ -1970,7 +1979,8 @@
       ],
       "quantity": 1,
       "description": "Once per turn, you may reveal a Monster Room from your hand to give this Room +X, where X is that Room's power.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL031",
@@ -2023,7 +2033,8 @@
       ],
       "quantity": 2,
       "description": "Whenever you play a Spell, this Room gains +1 until end of turn.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL035",
@@ -2062,7 +2073,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn when an opponent plays a Spell card, draw a Spell card.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL038",
@@ -2102,7 +2114,8 @@
       ],
       "quantity": 1,
       "description": "Once per turn, you may discard a Trap Room to give one Monster Room -1 until end of turn.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL041",
@@ -2212,7 +2225,8 @@
       ],
       "quantity": 1,
       "description": "Once per turn, you may destroy every other visible Room in your dungeon to give this Room +6 until end of turn.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL049",
@@ -2288,7 +2302,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, you may discard a card from your hand to give one Hero +1 until end of turn.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL054",
@@ -2302,7 +2317,8 @@
       ],
       "quantity": 2,
       "description": "If an effect from another card causes this Room to be destroyed, each opponent must discard two Room cards.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL055",

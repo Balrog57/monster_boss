@@ -36,14 +36,53 @@ export function castSpell(G, ctx, casterId, card, target) {
   const t = target || {};
   onExpansionCastSpell(G, casterId);
   const handler = SPELL_EFFECTS[card.id];
+  let result;
   if (handler) {
-    return handler(G, ctx, casterId, t);
+    result = handler(G, ctx, casterId, t);
+  } else if (applyGenericSpell(G, ctx, casterId, card, t)) {
+    result = true;
+  } else {
+    G.logs.push(`${card.name}: no effect implemented yet.`);
+    result = false;
   }
-  if (applyGenericSpell(G, ctx, casterId, card, t)) {
-    return true;
+  if (result !== false && !G._spellCancelled) notifyRoomsOnSpellResolved(G, casterId);
+  return result;
+}
+
+/** Alchemist's Lab / Spellslime Pit / Hall of Mirrors after a spell actually resolves. */
+function notifyRoomsOnSpellResolved(G, casterId) {
+  for (const [pid, p] of Object.entries(G.players || {})) {
+    if (p.eliminated) continue;
+    (p.dungeon || []).forEach((stack, i) => {
+      const room = activeRoom(stack);
+      if (!room || room.faceDown) return;
+      if (Number(pid) !== Number(casterId)) return;
+      if (room.id === 'RMB032' && !room.usedThisTurn) {
+        gainCoin(G, pid, 2, "Alchemist's Lab");
+        room.usedThisTurn = true;
+      }
+      if (room.id === 'TNL034') {
+        G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+        G.effects.roomDamageBonus.push({ playerId: Number(pid), roomIndex: i, amount: 1 });
+        G.logs.push('Spellslime Pit: +1 until end of turn.');
+      }
+    });
   }
-  G.logs.push(`${card.name}: no effect implemented yet.`);
-  return false;
+  for (const [pid, p] of Object.entries(G.players || {})) {
+    if (p.eliminated || Number(pid) === Number(casterId)) continue;
+    for (const stack of p.dungeon || []) {
+      const room = activeRoom(stack);
+      if (room?.id === 'TNL037' && !room.usedThisTurn) {
+        const spell = drawCards(G.decks.spells, 1)[0];
+        if (spell) {
+          p.hand.push(spell);
+          G.logs.push(`Hall of Mirrors: Player ${pid} drew ${spell.name}.`);
+        }
+        room.usedThisTurn = true;
+        break;
+      }
+    }
+  }
 }
 
 function findRoom(G, playerId, roomIndex) {

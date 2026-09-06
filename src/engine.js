@@ -272,15 +272,14 @@ export function canBuildRoom(G, playerId, handIndex, targetIndex = null) {
   if (!card.advanced) {
     // Ordinary room: can build at end or over any existing stack.
     if (visible >= 5 && targetIndex === null) return false; // cannot extend beyond 5 visible
-    // Neanderthal Cave (BMA018): advanced rooms cannot be built on top of it,
-    // but ordinary rooms can (per official rules, ordinary rooms build over
-    // anything). No restriction needed here for ordinary rooms.
+    if (fetidBlocksMonsterBuild(p, card, targetIndex)) return false;
     return true;
   }
   // Advanced room: must be built over an active room with matching treasure.
   // Hypercube (CRL011): may build over any room.
   if (card.id === 'CRL011') {
     if (targetIndex == null) return false;
+    if (fetidBlocksMonsterBuild(p, card, targetIndex)) return false;
     return !!activeRoom(p.dungeon[targetIndex]);
   }
   if (p.dungeon.length === 0) return false;
@@ -292,7 +291,22 @@ export function canBuildRoom(G, playerId, handIndex, targetIndex = null) {
   if (target.id === 'BMA018') return false;
   const match = card.treasures?.some(t => (target.treasures || []).includes(t));
   if (!match) return false;
+  if (fetidBlocksMonsterBuild(p, card, idx)) return false;
   return true;
+}
+
+/** Fetid Beast (RMB025): Monster Rooms may not be built adjacent to it. */
+function fetidBlocksMonsterBuild(p, card, targetIndex) {
+  if (card.type !== 'monster' || card.id === 'RMB025') return false;
+  if (targetIndex == null && !card.advanced) {
+    // New stack at entrance (index 0); adjacent becomes current index 0.
+    return activeRoom(p.dungeon[0])?.id === 'RMB025';
+  }
+  const idx = targetIndex ?? p.dungeon.length - 1;
+  for (const j of [idx - 1, idx + 1]) {
+    if (j >= 0 && j < p.dungeon.length && activeRoom(p.dungeon[j])?.id === 'RMB025') return true;
+  }
+  return false;
 }
 
 export function buildRoom(G, playerId, handIndex, targetIndex = null) {
@@ -301,6 +315,7 @@ export function buildRoom(G, playerId, handIndex, targetIndex = null) {
   const card = p.hand[handIndex];
   if (!canBuildRoom(G, playerId, handIndex, targetIndex)) return false;
   p.hand.splice(handIndex, 1);
+  let builtIndex;
   if (!card.advanced) {
     // Ordinary: if targetIndex provided, push on stack; else insert new stack
     // at the LEFT (entrance side) per official rules: "build additional new
@@ -308,16 +323,25 @@ export function buildRoom(G, playerId, handIndex, targetIndex = null) {
     if (targetIndex != null) {
       if (!p.dungeon[targetIndex]) return false;
       p.dungeon[targetIndex].push(card);
+      builtIndex = targetIndex;
     } else {
       p.dungeon.unshift([card]); // insert at entrance (left)
+      builtIndex = 0;
     }
   } else {
     const idx = targetIndex ?? p.dungeon.length - 1;
     const oldTop = activeRoom(p.dungeon[idx]);
     G.decks.roomDiscard.push(oldTop);
     p.dungeon[idx].push(card);
+    builtIndex = idx;
   }
   p.buildsThisTurn = (p.buildsThisTurn || 0) + 1;
+  // Goblin Market (RMB023): build adjacent → gain 2 coins per Market.
+  for (const j of [builtIndex - 1, builtIndex + 1]) {
+    if (j >= 0 && j < p.dungeon.length && activeRoom(p.dungeon[j])?.id === 'RMB023') {
+      gainCoin(G, playerId, 2, 'Goblin Market');
+    }
+  }
   return true;
 }
 
@@ -327,6 +351,20 @@ export function destroyRoom(G, playerId, roomIndex) {
   if (!stack || stack.length === 0) return null;
   const destroyed = stack.pop();
   G.decks.roomDiscard.push(destroyed);
+  // Cursed Tomb (TNL054): opponents discard 2 Room cards when this is destroyed by another effect.
+  if (destroyed?.id === 'TNL054') {
+    for (const [opid, op] of Object.entries(G.players || {})) {
+      if (Number(opid) === Number(playerId) || op.eliminated) continue;
+      let n = 0;
+      while (n < 2) {
+        const ri = (op.hand || []).findIndex((c) => c.isRoom);
+        if (ri < 0) break;
+        G.decks.roomDiscard.push(op.hand.splice(ri, 1)[0]);
+        n += 1;
+      }
+      if (n) G.logs.push(`Cursed Tomb: Player ${opid} discarded ${n} Room(s).`);
+    }
+  }
   if (stack.length === 0) {
     onRoomDestroyed(G, playerId, stack);
     p.dungeon.splice(roomIndex, 1);
@@ -538,6 +576,11 @@ export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
     // Magipede / Elemental Generator: +1 per Spell in hand
     if (room.id === 'RMB039' || room.id === 'TNL038') {
       dmg += (p.hand || []).filter((c) => c.isSpell).length;
+    }
+    // Doppelganger Hive: +1 per hero lured this turn
+    if (room.id === 'RMB029') {
+      const key = String(playerId);
+      dmg += G.luredThisTurn?.[playerId] || G.luredThisTurn?.[key] || 0;
     }
   }
 

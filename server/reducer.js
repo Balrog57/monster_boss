@@ -401,6 +401,7 @@ function beginPhaseBeginning(G, ctx) {
     }
   }
   G.effects = emptyEffects();
+  G.luredThisTurn = {};
   G.xpOrder = playerOrderByXP(G.players);
 }
 
@@ -449,6 +450,7 @@ function beginPhaseBait(G, ctx) {
 
 function endPhaseBait(G, ctx) {
   const assignments = resolveBait(G);
+  G.luredThisTurn = G.luredThisTurn || {};
   for (const assign of assignments) {
     const heroIdx = G.town.indexOf(assign.hero);
     if (assign.stayInTown || assign.targetPlayerId === null || isNoEntry(G, assign.targetPlayerId)) {
@@ -459,6 +461,8 @@ function endPhaseBait(G, ctx) {
     if (heroIdx >= 0) G.town.splice(heroIdx, 1);
     attachMatchingItem(G, assign.hero);
     G.players[assign.targetPlayerId].entrance.push(assign.hero);
+    const tid = assign.targetPlayerId;
+    G.luredThisTurn[tid] = (G.luredThisTurn[tid] || 0) + 1;
     G.logs.push(`${assign.hero.name} lured to Player ${assign.targetPlayerId}'s dungeon`);
   }
 }
@@ -1230,6 +1234,14 @@ const ACTIVATED_ABILITY_ROOMS = new Set([
   'TNL041', // Wreck Room
   'TNL042', // Deadly Treadmill
   'TNL046', // Chump Chomper
+  'RMB043', // Sawtooth Pendulum
+  'TNL030', // The Arena
+  'TNL048', // The Smashinator
+  'TNL022', // Rust Monster Pen
+  'TNL040', // Bullet Builder
+  'RMB026', // Training Camp
+  'RMB044', // The Catapult
+  'TNL053', // Werewolf Den
 ]);
 
 function hasActivatedAbility(roomId) {
@@ -1288,6 +1300,27 @@ function canOfferActivatedRoom(G, p, room, roomIndex) {
   }
   if (room.id === 'TNL041' || room.id === 'TNL046') {
     return p.dungeon.some((s, idx) => idx !== roomIndex && activeRoom(s));
+  }
+  if (room.id === 'RMB043') {
+    return heroIsInRoom(G, pid, roomIndex) && (G.adventure?.hp || 0) <= 3 && (p.coins || 0) >= 1;
+  }
+  if (room.id === 'TNL030') {
+    return p.hand.some((c) => c.isRoom && c.type === 'monster');
+  }
+  if (room.id === 'TNL048') {
+    return p.dungeon.some((s, idx) => idx !== roomIndex && activeRoom(s));
+  }
+  if (room.id === 'TNL022') {
+    return p.hand.some((c) => c.isRoom && c.type === 'monster');
+  }
+  if (room.id === 'TNL040') {
+    return p.hand.some((c) => c.isRoom && c.type === 'trap');
+  }
+  if (room.id === 'RMB026' || room.id === 'RMB044') {
+    return p.hand.some((c) => c.isMiniboss);
+  }
+  if (room.id === 'TNL053') {
+    return p.hand.length > 0;
   }
   return true;
 }

@@ -99,6 +99,10 @@ export function applyTaggedOnHeroSurvive(G, playerId, roomIndex, room) {
     room.usedThisTurn = true;
     G.logs.push('Collapsing Bridge: +3 until end of turn.');
   }
+  if (room.id === 'RMB030' && !room.usedThisTurn) {
+    gainCoin(G, playerId, 2, 'Foyer Elemental');
+    room.usedThisTurn = true;
+  }
   if (!room.destroyOnHeroSurvive || roomIndex < 0) return;
   destroyRoom(G, playerId, roomIndex);
   G.logs.push(`${room.name}: destroyed after a Hero survived.`);
