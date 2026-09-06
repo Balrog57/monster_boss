@@ -31,6 +31,8 @@ export function emptyEffects() {
     immediateBuild: [], // playerIds who may build outside Build phase (Fangroot)
     ignoreTreasureMatch: [], // Zoning Board: Advanced build ignores treasure match
     noRoomBuild: [], // Traitor: these playerIds cannot build a Room this turn
+    skipFirstRoomPids: [], // Mageseeker L3: heroes skip first room
+    ignoreHeroAbilityPids: [], // EOT: ignore hero ability text in dungeon
   };
 }
 

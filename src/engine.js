@@ -4,13 +4,11 @@
 // It does not mutate G unless explicitly noted.
 
 import { PHASE, TREASURE_NAMES, playerOrderByXP, totalSouls, totalWounds, drawCards, refillDeckFromDiscard } from './cardData.js';
-import { onRoomDestroyed, gainCoin } from './minibosses.js';
+import {
+  onRoomDestroyed, gainCoin, zaraCountsAllTreasures, minibossExtraTreasures,
+  minibossDamageBonus, rockyAllowsAnyBuild, icicleIgnoresHeroAbilities,
+} from './minibosses.js';
 import { imperiatrixDamageBonus, killaDamageBonus, scottDamageBonus } from './expansionBosses.js';
-
-function zaraCountsAllTreasures(stack) {
-  const mb = stack?.miniboss;
-  return mb && !mb.faceDown && mb.card?.id === 'RMB202' && mb.level >= 1;
-}
 
 export function activeRoom(stack) {
   if (!Array.isArray(stack) || stack.length === 0) return null;
@@ -64,6 +62,7 @@ export function dungeonTreasures(G, playerId) {
     } else if (!suppressed) {
       for (const t of room.treasures || []) treasures.push(t);
     }
+    if (!suppressed) treasures.push(...minibossExtraTreasures(stack));
     for (const e of G.effects?.roomExtraTreasures || []) {
       if (Number(e.playerId) === Number(playerId) && e.roomIndex === i) {
         treasures.push(...(e.treasures || []));
@@ -279,6 +278,7 @@ export function canBuildRoom(G, playerId, handIndex, targetIndex = null) {
   // Advanced room: must be built over an active room with matching treasure.
   // Hypercube (CRL011): may build over any room.
   // Zoning Board (ignoreTreasureMatch): ignore treasure matching.
+  // Rocky (RMB058): any Room may build over this host.
   if (card.id === 'CRL011' || (G.effects.ignoreTreasureMatch || []).some((id) => Number(id) === Number(playerId))) {
     if (targetIndex == null) return false;
     if (fetidBlocksMonsterBuild(p, card, targetIndex)) return false;
@@ -288,6 +288,10 @@ export function canBuildRoom(G, playerId, handIndex, targetIndex = null) {
   const idx = targetIndex ?? p.dungeon.length - 1;
   const target = activeRoom(p.dungeon[idx]);
   if (!target) return false;
+  if (rockyAllowsAnyBuild(p.dungeon[idx])) {
+    if (fetidBlocksMonsterBuild(p, card, idx)) return false;
+    return true;
+  }
   // Neanderthal Cave (BMA018): "You cannot build an Advanced Room on
   // Neanderthal Cave."
   if (target.id === 'BMA018') return false;
@@ -559,7 +563,7 @@ export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
   }
 
   // Monster Hunter: Monster Rooms deal -1
-  if (hero?.id === 'KSA016' && room.type === 'monster') {
+  if (!icicleIgnoresHeroAbilities(G, playerId) && hero?.id === 'KSA016' && room.type === 'monster') {
     dmg = Math.max(0, dmg - 1);
   }
 
@@ -625,8 +629,7 @@ export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
   dmg += scottDamageBonus(G, playerId, room);
 
   const stack = p.dungeon[roomIndex];
-  const mb = stack?.miniboss;
-  if (mb && !mb.faceDown && mb.card?.id === 'RMB201') dmg += mb.level >= 2 ? 2 : 1;
+  dmg += minibossDamageBonus(stack);
 
   const shadowCorridor = p.dungeon.some((s) => activeRoom(s)?.id === 'TNL102');
   if (shadowCorridor && room.type === 'trap' && !room.advanced) dmg += 1;

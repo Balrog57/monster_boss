@@ -1,6 +1,7 @@
 // items.js - Tools of Hero-Kind: town attach, power-ups, rewards, room locks.
 import { activeRoom, allActiveRooms, destroyRoom, healOneWound, heroHealthWithModifiers } from './engine.js';
 import { drawCards } from './cardData.js';
+import { icicleIgnoresHeroAbilities } from './minibosses.js';
 
 /** Official: 1 Item (2 in a 4-player game) when Heroes are revealed. */
 export function itemRevealCount(numPlayers) {
@@ -208,6 +209,7 @@ function discardRandomOfKind(player, decks, kind, n, logName) {
 
 /** Power-ups that fire when the Hero first enters the dungeon. */
 export function applyHeroEnterDungeon(G, playerId, hero) {
+  if (icicleIgnoresHeroAbilities(G, playerId)) return;
   const itemId = hero?.item?.id;
   const p = G.players[playerId] ?? G.players[String(playerId)];
   if (!p || !itemId) return;
@@ -231,6 +233,7 @@ export function applyHeroEnterDungeon(G, playerId, hero) {
  */
 export function onHeroEnterRoom(G, playerId, roomIndex, room, hero) {
   if (!room || !hero) return { skipDamage: false };
+  if (icicleIgnoresHeroAbilities(G, playerId)) return { skipDamage: false };
   if (heroIgnoresRoomAbilities(hero) || dungeonIgnoresRoomAbilities(G, playerId)) {
     return { skipDamage: false };
   }
@@ -259,6 +262,7 @@ export function onHeroEnterRoom(G, playerId, roomIndex, room, hero) {
 /** Power-ups after a Hero survives a room (still alive). */
 export function onHeroSurvivedRoom(G, playerId, roomIndex, room, hero, adv) {
   if (!room || !hero?.item) return;
+  if (icicleIgnoresHeroAbilities(G, playerId)) return;
   const itemId = hero.item.id;
 
   if (itemId === 'THK003' && room.advanced && !hero._inquisitorFired) {

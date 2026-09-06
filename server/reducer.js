@@ -40,7 +40,8 @@ import {
 import {
   initPlayerCoins, revealMinibosses, beginningPhaseCoins,
   buildMiniboss, promoteMiniboss, canBuildMiniboss, canPromoteMiniboss,
-  canActivateMiniboss, activateMiniboss,
+  canActivateMiniboss, activateMiniboss, processJinxDraw, clearMinibossTurnFlags,
+  onMinibossHeroDied,
 } from '../src/minibosses.js';
 import {
   applyTaggedOnHeroDeathDestroy,
@@ -407,6 +408,7 @@ function beginPhaseBeginning(G, ctx) {
       }
     }
   }
+  clearMinibossTurnFlags(G);
   G.effects = emptyEffects();
   G.luredThisTurn = {};
   G.xpOrder = playerOrderByXP(G.players);
@@ -415,6 +417,7 @@ function beginPhaseBeginning(G, ctx) {
 function beginPhaseBuild(G, ctx) {
   beginPhase(G, ctx, PHASE.BUILD);
   processDreadmills(G);
+  processJinxDraw(G);
   G.logs.push(`--- Turn ${G.turn} - Build Phase ---`);
 }
 
@@ -696,6 +699,16 @@ function finishHero(G, ctx, playerId, hero, heroHP, deathRoom) {
         onHeroDiedInRoom(G, ctx, playerId, deathRoom, hero);
         if (deathRoomIndex != null && deathRoomIndex >= 0) {
           applyTaggedOnHeroDeathDestroy(G, playerId, deathRoomIndex, deathRoom);
+          onMinibossHeroDied(G, ctx, playerId, deathRoomIndex, hero);
+          if (G._rockyRebuild) {
+            const rb = G._rockyRebuild;
+            G._rockyRebuild = null;
+            const room = activeRoom(G.players[rb.playerId]?.dungeon?.[rb.roomIndex]);
+            if (room) {
+              const choice = onBuildRoom(G, ctx, rb.playerId, room);
+              if (choice) G.pendingChoice = { ...choice, resume: false };
+            }
+          }
         }
       }
       G.decks.heroDiscard.push(hero);
@@ -728,6 +741,17 @@ function advanceAdventureRoom(G, ctx) {
   while (i < p.dungeon.length && isRoomDeactivated(G, playerId, i)) {
     G.logs.push(`${activeRoom(p.dungeon[i])?.name || 'Room'} is deactivated — skipped`);
     i += 1;
+  }
+  if (adv.skipFirst && adv.roomIndex < 0) {
+    adv.skipFirst = false;
+    if (i < p.dungeon.length) {
+      G.logs.push(`Mageseeker: ${hero.name} skips ${activeRoom(p.dungeon[i])?.name || 'the first room'}.`);
+      i += 1;
+      while (i < p.dungeon.length && isRoomDeactivated(G, playerId, i)) {
+        G.logs.push(`${activeRoom(p.dungeon[i])?.name || 'Room'} is deactivated — skipped`);
+        i += 1;
+      }
+    }
   }
   if (i >= p.dungeon.length) {
     finishHero(G, ctx, playerId, hero, adv.hp, null);
@@ -788,6 +812,9 @@ function startAdventure(G, ctx, playerId) {
     hp: hero._entranceHp ?? hero.hp,
     mazeSentBack: {},
   };
+  if ((G.effects?.skipFirstRoomPids || []).some((id) => Number(id) === Number(playerId))) {
+    G.adventure.skipFirst = true;
+  }
   G.logs.push(`${hero.name} enters Player ${playerId}'s dungeon`);
   applyHeroEnterDungeon(G, playerId, hero);
   let hp = hero._entranceHp ?? heroHealthWithModifiers(G, hero);
@@ -925,9 +952,9 @@ const MOVE_HANDLERS = {
     return err;
   },
 
-  activateMiniboss: (G, ctx, pid, [roomIndex]) => {
+  activateMiniboss: (G, ctx, pid, [roomIndex, mode]) => {
     if (!isActivePlayer(G, pid)) return 'not your turn';
-    const err = activateMiniboss(G, ctx, pid, roomIndex != null ? roomIndex : 0);
+    const err = activateMiniboss(G, ctx, pid, roomIndex != null ? roomIndex : 0, mode || null);
     return err;
   },
 
@@ -1436,8 +1463,11 @@ function pushMinibossMoves(G, pid, p, moves) {
     if (canPromoteMiniboss(G, pid, i)) {
       moves.push({ type: 'promoteMiniboss', args: [i] });
     }
-    if (canActivateMiniboss(G, pid, i)) {
-      moves.push({ type: 'activateMiniboss', args: [i] });
+    if (canActivateMiniboss(G, pid, i, 'l2')) {
+      moves.push({ type: 'activateMiniboss', args: [i, 'l2'] });
+    }
+    if (canActivateMiniboss(G, pid, i, 'l3')) {
+      moves.push({ type: 'activateMiniboss', args: [i, 'l3'] });
     }
   });
 }

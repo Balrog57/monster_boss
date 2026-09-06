@@ -5965,7 +5965,8 @@
           "level": 3,
           "description": "Choose a Miniboss. Return that card to its owner's hand. Reset to Level One."
         }
-      ]
+      ],
+      "implemented": true
     },
     {
       "id": "RMB056",
@@ -5985,7 +5986,8 @@
           "level": 3,
           "description": "Give all Monster Rooms in one dungeon +1 or -1 until end of turn. Reset to Level One."
         }
-      ]
+      ],
+      "implemented": true
     },
     {
       "id": "RMB057",
@@ -6005,7 +6007,8 @@
           "level": 3,
           "description": "Look at one opponent's hand. You may take one Spell or Room card from them. Reset to Level One."
         }
-      ]
+      ],
+      "implemented": true
     },
     {
       "id": "RMB058",
@@ -6025,7 +6028,8 @@
           "level": 3,
           "description": "Give a Hero in any dungeon +5 until end of turn. Reset to Level One."
         }
-      ]
+      ],
+      "implemented": true
     },
     {
       "id": "RMB059",
@@ -6045,7 +6049,8 @@
           "level": 3,
           "description": "Choose a dungeon. Heroes ignore all ability text in that dungeon until end of turn. Reset to Level One."
         }
-      ]
+      ],
+      "implemented": true
     },
     {
       "id": "RMB060",
@@ -6065,7 +6070,8 @@
           "level": 3,
           "description": "Kill a Hero in this Room. Reset to Level One."
         }
-      ]
+      ],
+      "implemented": true
     },
     {
       "id": "RMB061",
@@ -6085,7 +6091,8 @@
           "level": 3,
           "description": "Deactivate a Room in any dungeon until end of turn. Reset to Level One."
         }
-      ]
+      ],
+      "implemented": true
     },
     {
       "id": "RMB062",
@@ -6105,7 +6112,8 @@
           "level": 3,
           "description": "Choose a dungeon. Until end of turn, Heroes entering that dungeon skip its first room. Reset to Level One."
         }
-      ]
+      ],
+      "implemented": true
     },
     {
       "id": "RMB063",
@@ -6125,7 +6133,8 @@
           "level": 3,
           "description": "Double this Room's damage until end of turn. Reset to Level One."
         }
-      ]
+      ],
+      "implemented": true
     },
     {
       "id": "RMB064",
@@ -6145,7 +6154,8 @@
           "level": 3,
           "description": "Choose a Hero in town. Place it at the entrance to your dungeon. Reset to Level One."
         }
-      ]
+      ],
+      "implemented": true
     }
   ]
 }

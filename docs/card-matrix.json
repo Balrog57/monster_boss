@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T18:52:32.627Z",
+  "generatedAt": "2026-09-06T19:19:39.999Z",
   "cards": {
     "BMA001": {
       "id": "BMA001",
@@ -4793,7 +4793,7 @@
       "set": "minibosses",
       "text": "This Room has +1. Once per turn, discard a card to do 2 damage to a Hero in this Room. Choose a Miniboss. Return that card to its owner's hand. Reset to Level One.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -4804,7 +4804,7 @@
       "set": "minibosses",
       "text": "This Room gains +1 Fighter. Once per turn during the Build phase, you may switch the position of two Rooms in any dungeon. Give all Monster Rooms in one dungeon +1 or -1 until end of turn. Reset to Level One.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -4815,7 +4815,7 @@
       "set": "minibosses",
       "text": "This Room gains +1 Cleric. Once per turn, you may return a Hero in your dungeon to town. Look at one opponent's hand. You may take one Spell or Room card from them. Reset to Level One.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -4826,7 +4826,7 @@
       "set": "minibosses",
       "text": "You may build any Room on top of this one, regardless of treasure icon. When a Hero dies in this Room, you may treat another Room in your dungeon as just built. Give a Hero in any dungeon +5 until end of turn. Reset to Level One.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -4837,7 +4837,7 @@
       "set": "minibosses",
       "text": "This Room gains +1 Mage. When a Hero dies in this Room, you may draw a Spell card. Choose a dungeon. Heroes ignore all ability text in that dungeon until end of turn. Reset to Level One.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -4848,7 +4848,7 @@
       "set": "minibosses",
       "text": "This Room gains +1 Thief. Once per turn when you gain one or more coins, gain one extra coin. Kill a Hero in this Room. Reset to Level One.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -4859,7 +4859,7 @@
       "set": "minibosses",
       "text": "This Room has +1. Ignore the ability text of any Heroes or Epic Heroes in, or at the entrance to, your dungeon. Deactivate a Room in any dungeon until end of turn. Reset to Level One.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -4870,7 +4870,7 @@
       "set": "minibosses",
       "text": "This Room has +1 for every treasure icon it has. Once per turn, you may discard a Spell card to cancel an opponent's Spell. Choose a dungeon. Until end of turn, Heroes entering that dungeon skip its first room. Reset to Level One.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -4881,7 +4881,7 @@
       "set": "minibosses",
       "text": "This Room has +1. Once per turn when a Hero dies in this Room, draw a Room card. You may immediately build that Room. Double this Room's damage until end of turn. Reset to Level One.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -4892,7 +4892,7 @@
       "set": "minibosses",
       "text": "Draw an extra Room at the beginning of the Build phase, then discard a Room. Double this Room's treasure value. (It has one extra copy of each printed treasure icon it has.) Choose a Hero in town. Place it at the entrance to your dungeon. Reset to Level One.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     }
@@ -4901,6 +4901,6 @@
     "total": 442,
     "corrupt": 0,
     "missingArt": 148,
-    "expansionPending": 98
+    "expansionPending": 88
   }
 }

@@ -12,7 +12,7 @@ import { activeRoom, allActiveRooms, destroyRoom, countVisibleRooms, dungeonTrea
 export { dungeonTreasures };
 import { drawCards, PHASE, HEROES } from './cardData.js';
 import { dungeonIgnoresRoomAbilities, heroIgnoresRoomAbilities, applyItemReward, addHeroHealthBonus, killHeroInDungeon } from './items.js';
-import { gainCoin, resolveGrukTarget, spendCoin, attachMiniboss } from './minibosses.js';
+import { gainCoin, resolveGrukTarget, spendCoin, attachMiniboss, resolveMinibossPendingChoice } from './minibosses.js';
 import {
   applyTaggedOnBuild,
   applyTaggedOnHeroDie,
@@ -1093,6 +1093,41 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
   const choice = G.pendingChoice;
   if (!choice) return 'no pending choice';
   if (Number(playerId) !== choice.playerId) return 'not your choice to make';
+
+  if (String(choice.type || '').startsWith('mb-')) {
+    if (optionIndex < 0 && choice.optional) {
+      G.logs.push(`${choice.bossName || 'Ability'}: skipped.`);
+      if (choice.type === 'mb-rocky-rebuild') {
+        /* skip */
+      } else if (choice.type === 'mb-draculad-steal') {
+        const stack = G.players[playerId]?.dungeon?.[choice.roomIndex];
+        if (stack?.miniboss) {
+          stack.miniboss.level = 1;
+          stack.miniboss.usedL3 = false;
+          stack.miniboss.usedThisTurn = false;
+        }
+      }
+      finishChoice(G);
+      return null;
+    }
+    if (choice.type === 'mb-rocky-rebuild' && optionIndex >= 0) {
+      const option = choice.options[optionIndex];
+      const room = activeRoom(G.players[playerId]?.dungeon?.[option.roomIndex]);
+      finishChoice(G);
+      if (room) {
+        const next = onBuildRoom(G, ctx, playerId, room);
+        if (next) G.pendingChoice = { ...next, resume: false };
+        else G.logs.push(`Rocky: treated ${room.name} as just built.`);
+      }
+      return null;
+    }
+    const handled = resolveMinibossPendingChoice(G, ctx, playerId, optionIndex);
+    if (handled) {
+      if (!G.pendingChoice) finishChoice(G);
+      return null;
+    }
+  }
+
   if (optionIndex < 0 && choice.optional) {
     if (choice.type === 'build-over' && choice.card) {
       const player = G.players[playerId];
@@ -1188,7 +1223,7 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
       const tmp = pa.dungeon[a.roomIndex];
       pa.dungeon[a.roomIndex] = pb.dungeon[b.roomIndex];
       pb.dungeon[b.roomIndex] = tmp;
-      G.logs.push(`Centipede Tunnel: swapped ${nameA} and ${nameB}.`);
+      G.logs.push(`${choice.bossName || 'Swap'}: swapped ${nameA} and ${nameB}.`);
       break;
     }
     case 'discard-monster': {
@@ -1702,6 +1737,19 @@ export function aiResolveLevelUpChoice(G, choice) {
     case 'smithy-item':
     case 'smithy-hero':
     case 'remove-soul-search-hero':
+    case 'mb-spike-discard':
+    case 'mb-spike-return':
+    case 'mb-croak-monsters':
+    case 'mb-draculad-return':
+    case 'mb-draculad-look':
+    case 'mb-draculad-steal':
+    case 'mb-rocky-rebuild':
+    case 'mb-rocky-buff':
+    case 'mb-cerebella-ignore':
+    case 'mb-icicle-deactivate':
+    case 'mb-mage-skip':
+    case 'mb-jinx-discard':
+    case 'mb-jinx-town':
       return 0;
     default:
       return 0;

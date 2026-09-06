@@ -5,11 +5,10 @@ import { payDarkHero, listDarkHeroPayTargets } from '../src/darkHeroes.js';
 import { castSpell, emptyEffects } from '../src/spellEffects.js';
 import { totalSouls, PHASE } from '../src/cardData.js';
 import { healOneWound, resolveBait, treasureCount, roomDamageWithModifiers, canBuildRoom, buildRoom, destroyRoom } from '../src/engine.js';
-import { gainCoin, buildMiniboss } from '../src/minibosses.js';
-import { onBuildRoom, activateRoomAbility } from '../src/roomAbilities.js';
+import { onBuildRoom, activateRoomAbility, resolveLevelUpChoice } from '../src/roomAbilities.js';
 import { applyTaggedOnHeroSurvive } from '../src/expansionEffects.js';
 import { processEndOfTurnRooms, processDreadmills } from '../src/handAbilities.js';
-
+import { gainCoin, buildMiniboss, activateMiniboss } from '../src/minibosses.js';
 function playUntil(pred, start, max = 80) {
   let state = start;
   for (let n = 0; n < max; n++) {
@@ -522,5 +521,73 @@ describe('expansion spell batch', () => {
     assert.equal(G.players[0].dungeon[0].length, 2);
     assert.equal(G.players[0].dungeon[0].at(-1).id, 'mon');
     assert.equal(G.players[0].hand.length, 0);
+  });
+});
+
+describe('expansion minibosses RMB055–064', () => {
+  it('Spike L1 adds +1 room damage', () => {
+    const { G } = setupMatch(2, { expansions: ['minibosses'] });
+    G.effects = emptyEffects();
+    G.players[0].dungeon = [[{ id: 'r1', name: 'Room', type: 'monster', damage: 2, treasures: [2] }]];
+    G.players[0].dungeon[0].miniboss = {
+      card: { id: 'RMB055', name: 'Spike' },
+      level: 1,
+      faceDown: false,
+    };
+    assert.equal(roomDamageWithModifiers(G, 0, 0, null), 3);
+  });
+
+  it('Paddywhack L2 grants an extra coin once per turn', () => {
+    const { G } = setupMatch(2, { expansions: ['minibosses'] });
+    G.effects = emptyEffects();
+    G.players[0].dungeon = [[{ id: 'r1', name: 'Room', type: 'monster', damage: 1, treasures: [4] }]];
+    G.players[0].dungeon[0].miniboss = {
+      card: { id: 'RMB060', name: 'Paddywhack' },
+      level: 2,
+      faceDown: false,
+      usedThisTurn: false,
+    };
+    G.players[0].coins = 0;
+    gainCoin(G, 0, 1, 'test');
+    assert.equal(G.players[0].coins, 2);
+    gainCoin(G, 0, 1, 'test2');
+    assert.equal(G.players[0].coins, 3);
+  });
+
+  it('Rocky L1 allows Advanced build without treasure match', () => {
+    const { G } = setupMatch(2, { expansions: ['minibosses'] });
+    G.effects = emptyEffects();
+    G.players[0].dungeon = [[{ id: 'r1', name: 'Cleric Room', type: 'trap', damage: 1, treasures: [1] }]];
+    G.players[0].dungeon[0].miniboss = {
+      card: { id: 'RMB058', name: 'Rocky' },
+      level: 1,
+      faceDown: false,
+    };
+    G.players[0].hand = [{
+      id: 'adv', name: 'Fighter Adv', isRoom: true, advanced: true, type: 'monster', damage: 3, treasures: [2],
+    }];
+    assert.equal(canBuildRoom(G, 0, 0, 0), true);
+  });
+
+  it('Kid Croak L3 resets to Level 1 after monster buff', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['minibosses'] });
+    G.effects = emptyEffects();
+    G.phase = 'build';
+    G.players[0].dungeon = [
+      [{ id: 'm1', name: 'Monster', type: 'monster', damage: 1, treasures: [2] }],
+    ];
+    G.players[0].dungeon[0].miniboss = {
+      card: { id: 'RMB056', name: 'Kid Croak' },
+      level: 3,
+      faceDown: false,
+      usedL3: false,
+    };
+    const err = activateMiniboss(G, ctx, 0, 0, 'l3');
+    assert.equal(err, null);
+    assert.ok(G.pendingChoice);
+    assert.equal(G.pendingChoice.type, 'mb-croak-monsters');
+    resolveLevelUpChoice(G, ctx, 0, 0);
+    assert.equal(G.players[0].dungeon[0].miniboss.level, 1);
+    assert.ok((G.effects.roomDamageBonus || []).length >= 1);
   });
 });
