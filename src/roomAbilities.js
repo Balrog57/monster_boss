@@ -8,7 +8,7 @@
 //   - passive damage/treasure modifiers → handled in engine.js (roomDamageWithModifiers)
 //   - "when a hero dies in this room" → onHeroDiedInRoom
 
-import { activeRoom, allActiveRooms, destroyRoom, countVisibleRooms, dungeonTreasures, healOneWound } from './engine.js';
+import { activeRoom, allActiveRooms, destroyRoom, countVisibleRooms, dungeonTreasures, healOneWound, applyRoomUncovered } from './engine.js';
 export { dungeonTreasures };
 import { drawCards, PHASE, HEROES } from './cardData.js';
 import { dungeonIgnoresRoomAbilities, heroIgnoresRoomAbilities, applyItemReward, addHeroHealthBonus, killHeroInDungeon } from './items.js';
@@ -161,6 +161,89 @@ export function onBuildRoom(G, ctx, playerId, room) {
         G.effects.roomExtraTreasures = G.effects.roomExtraTreasures || [];
         G.effects.roomExtraTreasures.push({ playerId, roomIndex: idx, treasures: [5, 5] });
         G.logs.push('Decoy Garden: Explorer×2 treasure until end of turn.');
+      }
+      break;
+    }
+    case 'TNL019': { // Incubus Gym: each opponent discards a Room
+      for (const [opid, op] of Object.entries(G.players)) {
+        if (Number(opid) === Number(playerId) || op.eliminated) continue;
+        const ri = (op.hand || []).findIndex((c) => c.isRoom);
+        if (ri >= 0) {
+          const discarded = op.hand.splice(ri, 1)[0];
+          G.decks.roomDiscard.push(discarded);
+          G.logs.push(`Incubus Gym: Player ${opid} discarded ${discarded.name}.`);
+        }
+      }
+      break;
+    }
+    case 'TNL027': { // Shrooman Cave: another Monster Room +3 EOT
+      const others = player.dungeon.map((s, i) => ({ i, room: activeRoom(s) }))
+        .filter((o) => o.room && o.room !== room && o.room.type === 'monster');
+      if (others.length === 1) {
+        G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+        G.effects.roomDamageBonus.push({ playerId, roomIndex: others[0].i, amount: 3 });
+        G.logs.push(`Shrooman Cave: ${others[0].room.name} +3 until end of turn.`);
+      } else if (others.length > 1) {
+        return {
+          type: 'boost-monster-room',
+          playerId: Number(playerId),
+          bossName: 'Shrooman Cave',
+          message: 'Shrooman Cave: choose a Monster Room to give +3',
+          options: others.map((o) => ({ roomIndex: o.i, room: o.room, playerId: Number(playerId) })),
+        };
+      }
+      break;
+    }
+    case 'TNL029': { // Megaworm Burrow: destroy one Advanced Room in any dungeon
+      const options = listDungeonRoomOptions(G).filter((o) => o.room?.advanced);
+      if (!options.length) {
+        G.logs.push('Megaworm Burrow: no Advanced Room to destroy.');
+        break;
+      }
+      if (options.length === 1) {
+        destroyRoom(G, options[0].playerId, options[0].roomIndex);
+        G.logs.push(`Megaworm Burrow: destroyed ${options[0].room.name}.`);
+        break;
+      }
+      return {
+        type: 'destroy-room',
+        playerId: Number(playerId),
+        bossName: 'Megaworm Burrow',
+        message: 'Megaworm Burrow: choose an Advanced Room to destroy',
+        options,
+      };
+    }
+    case 'CRL004': { // Alien Excavator: uncover one covered room in your dungeon
+      const covered = player.dungeon.map((s, i) => ({ i, stack: s, covered: s.length > 1 ? s[s.length - 2] : null }))
+        .filter((o) => o.covered);
+      if (!covered.length) {
+        G.logs.push('Alien Excavator: no covered Room to uncover.');
+        break;
+      }
+      if (covered.length === 1) {
+        const stack = covered[0].stack;
+        const card = stack.splice(stack.length - 2, 1)[0];
+        stack.push(card);
+        G.logs.push(`Alien Excavator: uncovered ${card.name}.`);
+        applyRoomUncovered(G, playerId, covered[0].i, card);
+        break;
+      }
+      return {
+        type: 'uncover-own-room',
+        playerId: Number(playerId),
+        bossName: 'Alien Excavator',
+        message: 'Alien Excavator: choose a covered Room to uncover',
+        options: covered.map((o) => ({ roomIndex: o.i, room: o.covered, playerId: Number(playerId) })),
+      };
+    }
+    case 'RMB018': { // Vampire Lab: may discard a Miniboss to heal a Wound
+      const mbIdx = player.hand.findIndex((c) => c.isMiniboss);
+      if (mbIdx >= 0 && (player.wounds || []).length) {
+        const discarded = player.hand.splice(mbIdx, 1)[0];
+        G.decks.minibossDiscard = G.decks.minibossDiscard || [];
+        G.decks.minibossDiscard.push(discarded);
+        healOneWound(player);
+        G.logs.push(`Vampire Lab: discarded ${discarded.name}, healed a Wound.`);
       }
       break;
     }
@@ -1265,6 +1348,32 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
       G.logs.push(`${choice.bossName}: ${option.room?.name || 'a room'} deactivated.`);
       break;
     }
+    case 'boost-monster-room': {
+      G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+      G.effects.roomDamageBonus.push({
+        playerId: option.playerId,
+        roomIndex: option.roomIndex,
+        amount: choice.amount || 3,
+      });
+      G.logs.push(`${choice.bossName}: ${option.room?.name || 'Monster Room'} +${choice.amount || 3} until end of turn.`);
+      break;
+    }
+    case 'uncover-own-room': {
+      const ownerId = option.playerId ?? playerId;
+      const stack = G.players[ownerId]?.dungeon?.[option.roomIndex];
+      if (!stack || stack.length < 2) return 'no covered room';
+      const card = stack.splice(stack.length - 2, 1)[0];
+      stack.push(card);
+      G.logs.push(`${choice.bossName}: uncovered ${card.name}.`);
+      applyRoomUncovered(G, ownerId, option.roomIndex, card);
+      break;
+    }
+    case 'suppress-room-treasure': {
+      G.effects.roomTreasureSuppressed = G.effects.roomTreasureSuppressed || [];
+      G.effects.roomTreasureSuppressed.push({ playerId: option.playerId, roomIndex: option.roomIndex });
+      G.logs.push(`${choice.bossName}: ${option.room?.name || 'a room'} has no treasure until end of turn.`);
+      break;
+    }
     case 'smithy-item': {
       const heroes = heroesWithoutItem(G);
       if (!heroes.length) return 'no hero without an item';
@@ -1398,6 +1507,9 @@ export function aiResolveLevelUpChoice(G, choice) {
     case 'discard-hand-rooms':
     case 'pick-item':
     case 'deactivate-room':
+    case 'boost-monster-room':
+    case 'uncover-own-room':
+    case 'suppress-room-treasure':
     case 'smithy-item':
     case 'smithy-hero':
     case 'remove-soul-search-hero':
@@ -1820,6 +1932,33 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
         playerId: Number(playerId),
         bossName: 'Frostbat Cave',
         message: 'Frostbat Cave: choose a Room to deactivate',
+        options,
+      };
+      return null;
+    }
+    case 'TNL045': { // Decapitator: Build phase — destroy → suppress one room's treasure EOT
+      if (G.phase !== PHASE.BUILD) return 'Build phase only';
+      destroyRoom(G, playerId, roomIndex);
+      const options = listDungeonRoomOptions(G);
+      if (!options.length) {
+        G.logs.push('Decapitator: no room to suppress.');
+        return null;
+      }
+      if (options.length === 1) {
+        G.effects.roomTreasureSuppressed = G.effects.roomTreasureSuppressed || [];
+        G.effects.roomTreasureSuppressed.push({
+          playerId: options[0].playerId,
+          roomIndex: options[0].roomIndex,
+        });
+        G.logs.push(`Decapitator: ${options[0].room?.name || 'a room'} has no treasure until end of turn.`);
+        return null;
+      }
+      G.pendingChoice = {
+        type: 'suppress-room-treasure',
+        resume: false,
+        playerId: Number(playerId),
+        bossName: 'Decapitator',
+        message: 'Decapitator: choose a Room to remove treasure until end of turn',
         options,
       };
       return null;

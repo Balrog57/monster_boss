@@ -939,7 +939,8 @@
       ],
       "quantity": 2,
       "description": "When you build this Room, you may move one covered Room in your dungeon to the top of its stack. (This uncovers that Room.)",
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "CRL005",
@@ -952,7 +953,8 @@
       ],
       "quantity": 2,
       "description": "If you have at least one other Explorer treasure Room in your dungeon, give this Room +1. (Note that Bosses do not count as Rooms.)",
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "CRL006",
@@ -1033,7 +1035,8 @@
       ],
       "quantity": 2,
       "description": "You may build this Room over any Room, regardless of treasure type.",
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "CRL012",
@@ -1074,7 +1077,8 @@
       ],
       "quantity": 2,
       "description": "When you uncover this Room, until end of turn its damage is doubled.",
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "CRL015",
@@ -1088,7 +1092,8 @@
       ],
       "quantity": 2,
       "description": "When you uncover this Room, draw a Spell Card, then destroy this Room.",
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "CRL016",
@@ -1102,7 +1107,8 @@
       ],
       "quantity": 2,
       "description": "When you uncover this Room, deal 3 damage to a Hero in your dungeon or at the entrance to your dungeon.",
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "RMB013",
@@ -1183,7 +1189,7 @@
       "quantity": 2,
       "description": "When you build or uncover this Room, you may discard a Miniboss to heal a Wound.",
       "set": "minibosses",
-      "onBuildHealWound": true
+      "implemented": true
     },
     {
       "id": "RMB019",
@@ -1263,7 +1269,8 @@
       ],
       "quantity": 2,
       "description": "If the Room to the right of this is a Monster Room, give that room +2.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB025",
@@ -1808,7 +1815,8 @@
       ],
       "quantity": 1,
       "description": "When you build this Room, each opponent must discard a Room card.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL020",
@@ -1912,7 +1920,8 @@
       ],
       "quantity": 2,
       "description": "When you build or uncover this Room, give another Monster Room +3 until end of turn.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL028",
@@ -1938,7 +1947,8 @@
       ],
       "quantity": 1,
       "description": "When you build this Room, choose and destroy one Advanced Room in any dungeon.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL030",
@@ -2148,7 +2158,8 @@
       ],
       "quantity": 2,
       "description": "During the Build phase, you may destroy this Room to choose one Room in any dungeon and remove its treasure value until end of turn.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL046",

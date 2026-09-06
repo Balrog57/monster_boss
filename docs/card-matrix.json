@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-06T18:16:00.260Z",
+  "generatedAt": "2026-09-06T18:20:13.983Z",
   "cards": {
     "BMA001": {
       "id": "BMA001",
@@ -836,7 +836,7 @@
       "set": "crash-landing",
       "text": "When you build this Room, you may move one covered Room in your dungeon to the top of its stack. (This uncovers that Room.)",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -847,7 +847,7 @@
       "set": "crash-landing",
       "text": "If you have at least one other Explorer treasure Room in your dungeon, give this Room +1. (Note that Bosses do not count as Rooms.)",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -913,7 +913,7 @@
       "set": "crash-landing",
       "text": "You may build this Room over any Room, regardless of treasure type.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -946,7 +946,7 @@
       "set": "crash-landing",
       "text": "When you uncover this Room, until end of turn its damage is doubled.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -957,7 +957,7 @@
       "set": "crash-landing",
       "text": "When you uncover this Room, draw a Spell Card, then destroy this Room.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -968,7 +968,7 @@
       "set": "crash-landing",
       "text": "When you uncover this Room, deal 3 damage to a Hero in your dungeon or at the entrance to your dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1038,11 +1038,9 @@
       "set": "minibosses",
       "text": "When you build or uncover this Room, you may discard a Miniboss to heal a Wound.",
       "textCorrupt": false,
-      "status": "tagged",
+      "status": "explicit",
       "hasArt": false,
-      "tags": [
-        "onBuildHealWound"
-      ]
+      "tags": []
     },
     "RMB019": {
       "id": "RMB019",
@@ -1108,7 +1106,7 @@
       "set": "minibosses",
       "text": "If the Room to the right of this is a Monster Room, give that room +2.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -1568,7 +1566,7 @@
       "set": "next-level",
       "text": "When you build this Room, each opponent must discard a Room card.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1656,7 +1654,7 @@
       "set": "next-level",
       "text": "When you build or uncover this Room, give another Monster Room +3 until end of turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1678,7 +1676,7 @@
       "set": "next-level",
       "text": "When you build this Room, choose and destroy one Advanced Room in any dungeon.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1854,7 +1852,7 @@
       "set": "next-level",
       "text": "During the Build phase, you may destroy this Room to choose one Room in any dungeon and remove its treasure value until end of turn.",
       "textCorrupt": false,
-      "status": "expansion-pending",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -4903,6 +4901,6 @@
     "total": 442,
     "corrupt": 0,
     "missingArt": 148,
-    "expansionPending": 165
+    "expansionPending": 154
   }
 }

@@ -23,6 +23,7 @@ export function emptyEffects() {
     counteredSpells: [],    // spell IDs that were countered
     treasureDoubled: [],   // playerIds whose treasure counts are doubled this turn
     roomExtraTreasures: [], // { playerId, roomIndex, treasures: number[] } EOT
+    roomTreasureSuppressed: [], // { playerId, roomIndex } EOT
     staffHealingPids: [],  // Staff of Healing: +2 HP to heroes entering these dungeons
     ordinaryMonsterBonus: [], // Goblin Suit reward: +1 ordinary monster damage
     ignoreAbilityPids: [], // Cheat Code reward: ignore room ability text

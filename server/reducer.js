@@ -1226,6 +1226,7 @@ const ACTIVATED_ABILITY_ROOMS = new Set([
   'TNL033', // Frostbat Cave
   'TNL049', // Warp Tube
   'RMB022', // Minotaur Catacombs
+  'TNL045', // Decapitator
 ]);
 
 function hasActivatedAbility(roomId) {
@@ -1275,6 +1276,9 @@ function canOfferActivatedRoom(G, p, room, roomIndex) {
   }
   if (room.id === 'RMB047') {
     return heroIsInRoom(G, pid, roomIndex) && p.dungeon.some((s, idx) => idx !== roomIndex && activeRoom(s)?.type === 'monster');
+  }
+  if (room.id === 'TNL045') {
+    return G.phase === PHASE.BUILD;
   }
   return true;
 }

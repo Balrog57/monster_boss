@@ -56,9 +56,12 @@ export function dungeonTreasures(G, playerId) {
   (p.dungeon || []).forEach((stack, i) => {
     const room = activeRoom(stack);
     if (!room) return;
+    const suppressed = G.effects?.roomTreasureSuppressed?.some(
+      (e) => Number(e.playerId) === Number(playerId) && e.roomIndex === i,
+    );
     if (zaraCountsAllTreasures(stack)) {
-      treasures.push(1, 2, 3, 4);
-    } else {
+      if (!suppressed) treasures.push(1, 2, 3, 4);
+    } else if (!suppressed) {
       for (const t of room.treasures || []) treasures.push(t);
     }
     for (const e of G.effects?.roomExtraTreasures || []) {
@@ -338,19 +341,7 @@ export function destroyRoom(G, playerId, roomIndex) {
     }
   } else {
     const uncovered = activeRoom(stack);
-    if (uncovered?.onUncover === 'draw-room') {
-      const card = G.decks.rooms.pop();
-      if (card) { p.hand.push(card); G.logs.push(`${uncovered.name} uncovered: drew ${card.name}.`); }
-    }
-    if (uncovered?.id === 'TNL044') {
-      G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
-      G.effects.roomDamageBonus.push({ playerId, roomIndex, amount: 3 });
-      G.logs.push('Spiked Pit: +3 damage until end of turn.');
-    }
-    if (uncovered?.id === 'TNL036') {
-      const card = G.decks.spells.pop();
-      if (card) { p.hand.push(card); G.logs.push(`Sorcerobe School uncovered: drew ${card.name}.`); }
-    }
+    applyRoomUncovered(G, playerId, roomIndex, uncovered);
   }
   // Recycling Center (BMA031): when another room is destroyed, draw 2 rooms.
   for (const s of p.dungeon) {
@@ -364,6 +355,72 @@ export function destroyRoom(G, playerId, roomIndex) {
     }
   }
   return destroyed;
+}
+
+export function applyRoomUncovered(G, playerId, roomIndex, uncovered) {
+  if (!uncovered) return;
+  const p = G.players[playerId];
+  if (uncovered.onUncover === 'draw-room') {
+    const card = G.decks.rooms.pop();
+    if (card) { p.hand.push(card); G.logs.push(`${uncovered.name} uncovered: drew ${card.name}.`); }
+  }
+  if (uncovered.id === 'TNL044') {
+    G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+    G.effects.roomDamageBonus.push({ playerId, roomIndex, amount: 3 });
+    G.logs.push('Spiked Pit: +3 damage until end of turn.');
+  }
+  if (uncovered.id === 'TNL036') {
+    const card = G.decks.spells.pop();
+    if (card) { p.hand.push(card); G.logs.push(`Sorcerobe School uncovered: drew ${card.name}.`); }
+  }
+  if (uncovered.id === 'TNL027') {
+    const others = (p.dungeon || []).map((s, i) => ({ i, room: activeRoom(s) }))
+      .filter((o) => o.room && o.i !== roomIndex && o.room.type === 'monster');
+    if (others.length) {
+      const pick = others[0];
+      G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+      G.effects.roomDamageBonus.push({ playerId, roomIndex: pick.i, amount: 3 });
+      G.logs.push(`Shrooman Cave: ${pick.room.name} +3 until end of turn.`);
+    }
+  }
+  if (uncovered.id === 'CRL014') {
+    G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+    G.effects.roomDamageBonus.push({ playerId, roomIndex, amount: uncovered.damage || 1 });
+    G.logs.push('Caged Gundarf: damage doubled until end of turn.');
+  }
+  if (uncovered.id === 'CRL015') {
+    const card = G.decks.spells.pop();
+    if (card) { p.hand.push(card); G.logs.push(`Celestial Map: drew ${card.name}.`); }
+    destroyRoom(G, playerId, roomIndex);
+    return;
+  }
+  if (uncovered.id === 'CRL016') {
+    if (G.adventure && Number(G.adventure.playerId) === Number(playerId) && G.adventure.hero) {
+      G.adventure.hp -= 3;
+      G.logs.push(`Darkling Lair: 3 damage to ${G.adventure.hero.name} (HP ${G.adventure.hp}).`);
+    } else if ((p.entrance || []).length) {
+      const hero = p.entrance[0];
+      hero._entranceHp = Math.max(0, (hero._entranceHp ?? hero.hp) - 3);
+      G.logs.push(`Darkling Lair: 3 damage to ${hero.name} at entrance.`);
+      if (hero._entranceHp <= 0) {
+        p.entrance.shift();
+        G.decks.heroDiscard = G.decks.heroDiscard || [];
+        G.decks.heroDiscard.push(hero);
+        G.logs.push(`Darkling Lair: ${hero.name} died at the entrance.`);
+      }
+    }
+  }
+  if (uncovered.id === 'RMB018') {
+    // Optional heal handled only on build with choice; uncover uses same optional auto if miniboss in hand
+    const mbIdx = (p.hand || []).findIndex((c) => c.isMiniboss || c.levels);
+    if (mbIdx >= 0 && (p.wounds || []).length) {
+      const discarded = p.hand.splice(mbIdx, 1)[0];
+      G.decks.minibossDiscard = G.decks.minibossDiscard || [];
+      G.decks.minibossDiscard.push(discarded);
+      const soul = healOneWound(p);
+      if (soul) G.logs.push(`Vampire Lab: discarded ${discarded.name}, healed a Wound.`);
+    }
+  }
 }
 
 function ignoresRoomAbilityText(G, playerId, hero) {
@@ -408,6 +465,7 @@ export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
       if (other.id === 'BMA015' && Math.abs(i - roomIndex) === 1 && room.type === 'monster') dmg += 1; // Goblin Armory
       if (other.id === 'BMA029' && i === roomIndex - 1 && room.type === 'trap') dmg += 2; // Dizzygas Hallway
       if (other.id === 'CRL008' && Math.abs(i - roomIndex) === 1) dmg += 1; // Invasion Swarm
+      if (other.id === 'RMB024' && i === roomIndex - 1 && room.type === 'monster') dmg += 2; // Power Leech (room to the right of leech)
     }
   }
 
@@ -415,6 +473,15 @@ export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
   if (!skipAbilities) {
     const hasReactor = (p.dungeon || []).some((s) => activeRoom(s)?.id === 'CRL009');
     if (hasReactor && room.advanced) dmg += 1;
+    // Alien Ooze: +1 if another Explorer treasure room exists
+    if (room.id === 'CRL005') {
+      const otherExplorer = (p.dungeon || []).some((s, i) => {
+        if (i === roomIndex) return false;
+        const r = activeRoom(s);
+        return r && (r.treasures || []).includes(5);
+      });
+      if (otherExplorer) dmg += 1;
+    }
   }
 
   // Spell/ability damage bonuses

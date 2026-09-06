@@ -4,7 +4,7 @@ import { setupMatch, applyMove, pickOpeningDiscardIndices, legalMoves } from '..
 import { payDarkHero, listDarkHeroPayTargets } from '../src/darkHeroes.js';
 import { castSpell, emptyEffects } from '../src/spellEffects.js';
 import { totalSouls, PHASE } from '../src/cardData.js';
-import { healOneWound, resolveBait, treasureCount, roomDamageWithModifiers } from '../src/engine.js';
+import { healOneWound, resolveBait, treasureCount, roomDamageWithModifiers, canBuildRoom } from '../src/engine.js';
 import { gainCoin, buildMiniboss } from '../src/minibosses.js';
 import { onBuildRoom, activateRoomAbility } from '../src/roomAbilities.js';
 
@@ -207,5 +207,83 @@ describe('expansion room batch', () => {
     ];
     assert.equal(roomDamageWithModifiers(G, 0, 1, { id: 'h' }), 2); // 1 + adjacent swarm
     assert.equal(roomDamageWithModifiers(G, 0, 3, { id: 'h' }), 3); // 2 + reactor
+  });
+
+  it('Alien Ooze and Power Leech apply passive damage bonuses', () => {
+    const { G } = setupMatch(2, { expansions: ['crash-landing', 'minibosses'] });
+    G.effects = emptyEffects();
+    G.players[0].boss = { id: 'BMA001', name: 'Boss', xp: 100, treasures: [] };
+    G.players[0].dungeon = [
+      [{ id: 'RMB024', name: 'Power Leech', type: 'monster', damage: 1, treasures: [2] }],
+      [{ id: 'BMA010', name: 'Monster', type: 'monster', damage: 1, treasures: [2] }],
+      [{ id: 'CRL005', name: 'Alien Ooze', type: 'trap', damage: 1, treasures: [5] }],
+      [{ id: 'CRL006', name: 'Decoy Garden', type: 'monster', damage: 1, treasures: [5] }],
+    ];
+    assert.equal(roomDamageWithModifiers(G, 0, 1, { id: 'h' }), 3); // 1 + Power Leech
+    assert.equal(roomDamageWithModifiers(G, 0, 2, { id: 'h' }), 2); // 1 + other Explorer
+  });
+
+  it('Incubus Gym forces opponents to discard a Room', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['next-level'] });
+    G.effects = emptyEffects();
+    G.players[0].dungeon = [[{ id: 'TNL019', name: 'Incubus Gym', type: 'monster', damage: 4, treasures: [1] }]];
+    G.players[1].hand = [
+      { id: 'BMA009', name: 'Dark Altar', isRoom: true, type: 'monster' },
+      { id: 'BMA040', name: 'Spell', isSpell: true },
+    ];
+    onBuildRoom(G, ctx, 0, G.players[0].dungeon[0][0]);
+    assert.equal(G.players[1].hand.length, 1);
+    assert.equal(G.players[1].hand[0].isSpell, true);
+  });
+
+  it('Alien Excavator uncovers a covered Room', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['crash-landing'] });
+    G.effects = emptyEffects();
+    const covered = { id: 'CRL014', name: 'Caged Gundarf', type: 'monster', damage: 1, treasures: [2, 5] };
+    const top = { id: 'CRL004', name: 'Alien Excavator', type: 'trap', damage: 2, treasures: [5] };
+    G.players[0].dungeon = [[covered, top]];
+    onBuildRoom(G, ctx, 0, top);
+    assert.equal(G.players[0].dungeon[0].at(-1).id, 'CRL014');
+    assert.ok(G.effects.roomDamageBonus.some((e) => e.roomIndex === 0));
+  });
+
+  it('Vampire Lab discards a Miniboss to heal a Wound', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['minibosses'] });
+    G.effects = emptyEffects();
+    G.players[0].wounds = [{ wounds: 1, name: 'Hero', class: 'Cleric' }];
+    G.players[0].souls = [];
+    G.players[0].hand = [{ id: 'RMB201', name: 'Mini', isMiniboss: true }];
+    G.players[0].dungeon = [[{ id: 'RMB018', name: 'Vampire Lab', type: 'monster', damage: 2, treasures: [1] }]];
+    onBuildRoom(G, ctx, 0, G.players[0].dungeon[0][0]);
+    assert.equal(G.players[0].wounds.length, 0);
+    assert.equal(G.players[0].souls.length, 1);
+    assert.equal(G.players[0].hand.length, 0);
+  });
+
+  it('Decapitator suppresses room treasure during Build', () => {
+    const { G, ctx } = setupMatch(2, { expansions: ['next-level'] });
+    Object.assign(G, { phase: PHASE.BUILD, effects: emptyEffects() });
+    Object.assign(ctx, { phase: PHASE.BUILD, activePlayer: 0 });
+    G.players[0].boss = { id: 'BMA001', name: 'Boss', xp: 100, treasures: [1] };
+    G.players[0].dungeon = [
+      [{ id: 'TNL045', name: 'Decapitator', type: 'trap', damage: 2, treasures: [4] }],
+      [{ id: 'BMA009', name: 'Dark Altar', type: 'monster', damage: 1, treasures: [1] }],
+    ];
+    assert.equal(treasureCount(G, 0, 1), 2);
+    const err = activateRoomAbility(G, ctx, 0, 0, null);
+    assert.equal(err, null);
+    assert.equal(G.players[0].dungeon.length, 1);
+    assert.equal(treasureCount(G, 0, 1), 1); // room treasure suppressed
+  });
+
+  it('Hypercube may build over any Room', () => {
+    const { G } = setupMatch(2, { expansions: ['crash-landing'] });
+    G.effects = emptyEffects();
+    G.players[0].buildsThisTurn = 0;
+    G.players[0].dungeon = [[{ id: 'BMA009', name: 'Dark Altar', type: 'monster', damage: 1, treasures: [1] }]];
+    G.players[0].hand = [{
+      id: 'CRL011', name: 'Hypercube', advanced: true, type: 'trap', damage: 4, treasures: [5], isRoom: true,
+    }];
+    assert.equal(canBuildRoom(G, 0, 0, 0), true);
   });
 });
