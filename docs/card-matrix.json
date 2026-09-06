@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-05T23:46:10.590Z",
+  "generatedAt": "2026-09-06T18:09:32.533Z",
   "cards": {
     "BMA001": {
       "id": "BMA001",
@@ -3498,7 +3498,7 @@
     },
     "CRL018": {
       "id": "CRL018",
-      "name": "Crash Dodgers|Crash Dodgers] Hailing from a small blue planet in the galactic backwater, Crash has long been the bane of the alien bosses",
+      "name": "Crash Dodgers",
       "section": "heroes",
       "set": "crash-landing",
       "text": "",
@@ -3509,7 +3509,7 @@
     },
     "CRL019": {
       "id": "CRL019",
-      "name": "Corbin Crickton|Corbin Crickton] An interstellar taxi driver who took one too many lefts at the grand wormhole: now, he's looking through the wreckage of the Crash Landing for a possible way home",
+      "name": "Corbin Crickton",
       "section": "heroes",
       "set": "crash-landing",
       "text": "",
@@ -3520,7 +3520,7 @@
     },
     "CRL020": {
       "id": "CRL020",
-      "name": "T'Matha|T'Matha] A shapeshifting squidopod, T\"Matha braves the crash site again and again looking for the Omega 42, the legendary weapon that might free her people from their greatest mistake",
+      "name": "T'Matha",
       "section": "heroes",
       "set": "crash-landing",
       "text": "",
@@ -3531,7 +3531,7 @@
     },
     "CRL021": {
       "id": "CRL021",
-      "name": "Lindo Callari|Lindo Callari] Wanted space vampire, failed ambassador, inveterate gambler",
+      "name": "Lindo Callari",
       "section": "heroes",
       "set": "crash-landing",
       "text": "",
@@ -3542,7 +3542,7 @@
     },
     "CRL022": {
       "id": "CRL022",
-      "name": "Doug O'Shibe, Ace Pilot|Doug O'Shibe, Ace Pilot] Doug has demonstrated such heroism, so frequently, that he is the most famous starfighter pilot in his galaxy",
+      "name": "Doug O'Shibe, Ace Pilot",
       "section": "heroes",
       "set": "crash-landing",
       "text": "",
@@ -3553,7 +3553,7 @@
     },
     "CRL023": {
       "id": "CRL023",
-      "name": "Guy the Redrobe|Guy the Redrobe] IT support for his clan of saber wielding space monks, Guy did not understand why he had to go on this away mission",
+      "name": "Guy the Redrobe",
       "section": "heroes",
       "set": "crash-landing",
       "text": "",
@@ -3564,7 +3564,7 @@
     },
     "CRL024": {
       "id": "CRL024",
-      "name": "Andromeda James|Andromeda James] This intrepid worm-o-naut has burrowed into the galaxy's darkest crypts looking for lost relics, but tales of a crystal skeleton lost in the Crash Landing have brought him to Arcadia",
+      "name": "Andromeda James",
       "section": "heroes",
       "set": "crash-landing",
       "text": "",
@@ -3575,7 +3575,7 @@
     },
     "CRL025": {
       "id": "CRL025",
-      "name": "Morgan Fragman|Morgan Fragman] Morgan is a man of many talents: soldier, master chef, and interdimensional physicist",
+      "name": "Morgan Fragman",
       "section": "heroes",
       "set": "crash-landing",
       "text": "",
@@ -3586,7 +3586,7 @@
     },
     "CRL026": {
       "id": "CRL026",
-      "name": "Banzai Barb|Banzai Barb] Intergalactic Jane-of-all-trades, Banzai Barb leads her ragtag group of cavaliers in a neverending war to kick the invaders out of Arcadia",
+      "name": "Banzai Barb",
       "section": "heroes",
       "set": "crash-landing",
       "text": "",
@@ -3597,7 +3597,7 @@
     },
     "CRL027": {
       "id": "CRL027",
-      "name": "Aliff|Aliff] Orbital Spaceman Aliff couldn't save his world from the Frostmen, but by Mallmax he swore he'd protect this planet, as long as his trusty saber cat Hob'x was by his side",
+      "name": "Aliff",
       "section": "heroes",
       "set": "crash-landing",
       "text": "",
@@ -4114,7 +4114,7 @@
     },
     "TNL073": {
       "id": "TNL073",
-      "name": "Elfstar] Once an acolyte limited to simple orisons, Elfstar is now a true priestess who has mastered the mind bondage spell",
+      "name": "Elfstar",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4125,7 +4125,7 @@
     },
     "TNL074": {
       "id": "TNL074",
-      "name": "Kyle the Incorruptible] This acolyte of the Order declared himself free from sin and immune to temptation",
+      "name": "Kyle the Incorruptible",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4136,7 +4136,7 @@
     },
     "TNL075": {
       "id": "TNL075",
-      "name": "Danae the Slayer] A woman of few words, Danae is relentlessly focused on her mission: to eliminate every undead abomination in Arcadia",
+      "name": "Danae the Slayer",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4147,7 +4147,7 @@
     },
     "TNL076": {
       "id": "TNL076",
-      "name": "Solemn Caine, Pilgrim of Pain|Solemn Caine, Pilgrim of Pain] This zealot has mounted a one-man inquisition into the darkest depths of Arcadia's dungeons",
+      "name": "Solemn Caine, Pilgrim of Pain",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4169,7 +4169,7 @@
     },
     "TNL078": {
       "id": "TNL078",
-      "name": "Adynn, Cleric of Love|Adynn, Cleric of Love] The son of a philandering elf, Adynn inherited his father's charm and beauty",
+      "name": "Adynn, Cleric of Love",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4180,7 +4180,7 @@
     },
     "TNL079": {
       "id": "TNL079",
-      "name": "Hookshot Joe|Hookshot Joe] Once the commander of an elite fighting unit, he lost his left hand in battle",
+      "name": "Hookshot Joe",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4191,7 +4191,7 @@
     },
     "TNL080": {
       "id": "TNL080",
-      "name": "Tarka, Eskimo Warrior|Tarka, Eskimo Warrior] This northern warrior will not rest until he finds his best friend",
+      "name": "Tarka, Eskimo Warrior",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4202,7 +4202,7 @@
     },
     "TNL081": {
       "id": "TNL081",
-      "name": "Lady Samantha|Lady Samantha] Her skills as a weaponsmith made Lady Samantha one of the wealthiest nobles in Arcadia",
+      "name": "Lady Samantha",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4213,7 +4213,7 @@
     },
     "TNL082": {
       "id": "TNL082",
-      "name": "Ampersand the Galled|Ampersand the Galled] This dwarven warrior is legendary for his prodigious appetite, his puissant skill at arms, and his crazy temper",
+      "name": "Ampersand the Galled",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4235,7 +4235,7 @@
     },
     "TNL084": {
       "id": "TNL084",
-      "name": "Damok, Dragon Hunter|Damok, Dragon Hunter] Some regard him as a savage for his primitive weaponry, and his speech consists of cryptic phrases like \"Scythe, his face black, his eyes red",
+      "name": "Damok, Dragon Hunter",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4246,7 +4246,7 @@
     },
     "TNL085": {
       "id": "TNL085",
-      "name": "Megan the Missile Mage|Megan the Missile Mage] This intrepid adventuress, also known as \"the Azure Evoker,\" is not your typical wizard",
+      "name": "Megan the Missile Mage",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4257,7 +4257,7 @@
     },
     "TNL086": {
       "id": "TNL086",
-      "name": "Otus the Occult|Otus the Occult] Otus has seen things that the would drive most mortal men to madness",
+      "name": "Otus the Occult",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4268,7 +4268,7 @@
     },
     "TNL087": {
       "id": "TNL087",
-      "name": "A Kid and His Spellslime|A Kid and His Spellslime] When an ordinary kid discovered a wounded spellslime, he nursed it back to health with candy",
+      "name": "A Kid and His Spellslime",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4279,7 +4279,7 @@
     },
     "TNL088": {
       "id": "TNL088",
-      "name": "Wink the Probably Magical|Wink the Probably Magical] Wink's apparent lack of magical talent has not stopped him from going on adventures, or referring to his pet chameleon as his \"familiar",
+      "name": "Wink the Probably Magical",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4301,7 +4301,7 @@
     },
     "TNL090": {
       "id": "TNL090",
-      "name": "Iskandar, Ice Mage|Iskandar, Ice Mage] Once a small-town librarian, Iskandar became a hero when he defended his town against a dragon attack",
+      "name": "Iskandar, Ice Mage",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4312,7 +4312,7 @@
     },
     "TNL091": {
       "id": "TNL091",
-      "name": "Black Leaf|Black Leaf] Black Leaf is always the first to scout ahead, swing across a chasm, or disable a poins trap",
+      "name": "Black Leaf",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4323,7 +4323,7 @@
     },
     "TNL092": {
       "id": "TNL092",
-      "name": "Murphy the Magnificent|Murphy the Magnificent] He was a charlatan, a carnival performer, and a con man",
+      "name": "Murphy the Magnificent",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4334,7 +4334,7 @@
     },
     "TNL093": {
       "id": "TNL093",
-      "name": "Colgar, Fugitive Prince|Colgar, Fugitive Prince] He lost his kingdom to Cerebellus, but he retains his ancestral weapon",
+      "name": "Colgar, Fugitive Prince",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4345,7 +4345,7 @@
     },
     "TNL094": {
       "id": "TNL094",
-      "name": "Francisco the Endbringer|Francisco the Endbringer]\nThis highly trained assassin from the southern Silver Kingdom is known as the \"painter or blood",
+      "name": "Francisco the Endbringer",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4367,7 +4367,7 @@
     },
     "TNL096": {
       "id": "TNL096",
-      "name": "Raymond Two-Chains|Raymond Two-Chains] Once he was an outlaw, notorious for wielding his chain-whips with deadly precision",
+      "name": "Raymond Two-Chains",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4389,7 +4389,7 @@
     },
     "TNL098": {
       "id": "TNL098",
-      "name": "Tyrone, Pharaoh Ascendant|Tyrone, Pharaoh Ascendant] When Tyrone was young, the temple elders praised his hieroglyphics",
+      "name": "Tyrone, Pharaoh Ascendant",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4400,7 +4400,7 @@
     },
     "TNL099": {
       "id": "TNL099",
-      "name": "Branadin Wordblessed|Branadin Wordblessed] This cosmic chronicler travels tirelessly from world to world, inscribing each people's histories and magics on plates of copper",
+      "name": "Branadin Wordblessed",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4422,7 +4422,7 @@
     },
     "TNL101": {
       "id": "TNL101",
-      "name": "Heavenboy|Heavenboy]\nThis son of an angel and a mortal woman was born with clipped wings and half a halo",
+      "name": "Heavenboy",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4433,7 +4433,7 @@
     },
     "TNL102": {
       "id": "TNL102",
-      "name": "Lone Fox and Kit|Lone Fox and Kit]\nFew know that this mysterious beauty was once a princess",
+      "name": "Lone Fox and Kit",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4444,7 +4444,7 @@
     },
     "TNL103": {
       "id": "TNL103",
-      "name": "Ser Mortin the Deadly|Ser Mortin the Deadly]\nNo knight is more celebrated, but do not invite Ser Mortin to your wedding feast",
+      "name": "Ser Mortin the Deadly",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4466,7 +4466,7 @@
     },
     "TNL105": {
       "id": "TNL105",
-      "name": "O'Brien the Destroyer|O'Brien the Destroyer]\nEvery night, he begins a new quest for glory",
+      "name": "O'Brien the Destroyer",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4477,7 +4477,7 @@
     },
     "TNL106": {
       "id": "TNL106",
-      "name": "Dumbledalf the Blue|Dumbledalf the Blue]\nIn a world of punk-rock pyromancers and spiky haired sorcerers, one man believes in keeping things classic",
+      "name": "Dumbledalf the Blue",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4488,7 +4488,7 @@
     },
     "TNL107": {
       "id": "TNL107",
-      "name": "Wrathfuss the Namer|Wrathfuss the Namer]\nWrathfuss knew the names of most things, and so most things were his to command",
+      "name": "Wrathfuss the Namer",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4510,7 +4510,7 @@
     },
     "TNL109": {
       "id": "TNL109",
-      "name": "Markus, Geomancer Supreme|Markus, Geomancer Supreme]\nOnce, he lived alone in a flat, infinite world",
+      "name": "Markus, Geomancer Supreme",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4521,7 +4521,7 @@
     },
     "TNL110": {
       "id": "TNL110",
-      "name": "Rom the Reaver|Rom the Reaver]\nNo one is faster with a blade, but Rom is a tortured soul",
+      "name": "Rom the Reaver",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4532,7 +4532,7 @@
     },
     "TNL111": {
       "id": "TNL111",
-      "name": "Gaimina, Thief of Dreams|Gaimina, Thief of Dreams]\nNo door is closed to her, nor any dreaming mind, and she does not fear death",
+      "name": "Gaimina, Thief of Dreams",
       "section": "heroes",
       "set": "next-level",
       "text": "",
@@ -4554,7 +4554,7 @@
     },
     "TNL113": {
       "id": "TNL113",
-      "name": "Roberta, Dreaded Outlaw|Roberta, Dreaded Outlaw]\nHer life became a nightmare when she was wedded to an evil prince and her true love was slain by a pirate",
+      "name": "Roberta, Dreaded Outlaw",
       "section": "heroes",
       "set": "next-level",
       "text": "",

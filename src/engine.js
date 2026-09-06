@@ -110,6 +110,7 @@ function lureByHighestHybrid(G, treasures) {
 }
 
 function lureTiedPlayers(G, getCount) {
+  // Players tied for highest matching treasure (large-game split uses this list).
   const order = playerOrderByXP(G.players);
   let bestCount = -1;
   let candidates = [];
@@ -118,22 +119,15 @@ function lureTiedPlayers(G, getCount) {
     if (p?.eliminated) continue;
     const count = getCount(pid);
     if (count <= 0) continue;
-    const wounds = totalWounds(p);
-    const souls = totalSouls(p);
     if (count > bestCount) {
       bestCount = count;
-      candidates = [{ pid, wounds, souls }];
+      candidates = [pid];
     } else if (count === bestCount) {
-      const ref = candidates[0];
-      if (wounds < ref.wounds || (wounds === ref.wounds && souls < ref.souls)) {
-        candidates = [{ pid, wounds, souls }];
-      } else if (wounds === ref.wounds && souls === ref.souls) {
-        candidates.push({ pid, wounds, souls });
-      }
+      candidates.push(pid);
     }
   }
   if (candidates.length < 2 || bestCount <= 0) return [];
-  return candidates.map((c) => c.pid);
+  return candidates;
 }
 
 function assignLure(G, hero, getCount, splitState, splitKey) {
@@ -184,41 +178,32 @@ function splitLureForLargeGame(G, treasure, tiedPids) {
 }
 
 function lureByHighest(G, getCount) {
+  // Official bait: highest matching treasure wins. Any treasure tie → stay in town
+  // (no wounds/souls tie-break for standard heroes). See docs/rules/rules.md.
   const order = playerOrderByXP(G.players);
-  const playerStats = [];
-  let maxCount = 0;
+  let bestPid = null;
+  let bestCount = 0;
+  let tied = false;
   for (const pid of order) {
     const p = G.players[pid];
     if (p?.eliminated) continue;
     const count = getCount(pid);
-    if (count > maxCount) maxCount = count;
-    playerStats.push({
-      pid,
-      count,
-      wounds: totalWounds(p),
-      souls: totalSouls(p),
-    });
+    if (count > bestCount) {
+      bestCount = count;
+      bestPid = pid;
+      tied = false;
+    } else if (count === bestCount && count > 0) {
+      tied = true;
+    }
   }
-  if (maxCount <= 0) return null;
-
-  let candidates = playerStats.filter((c) => c.count === maxCount);
-  if (candidates.length === 1) return candidates[0].pid;
-
-  const minWounds = Math.min(...candidates.map((c) => c.wounds));
-  candidates = candidates.filter((c) => c.wounds === minWounds);
-  if (candidates.length === 1) return candidates[0].pid;
-
-  const minSouls = Math.min(...candidates.map((c) => c.souls));
-  candidates = candidates.filter((c) => c.souls === minSouls);
-  if (candidates.length === 1) return candidates[0].pid;
-
-  return null;
+  if (bestCount <= 0 || tied) return null;
+  return bestPid;
 }
 
 export function resolveBait(G) {
   // For each hero in town (FIFO order), determine target dungeon.
   // Standard heroes: go to dungeon with the highest matching treasure count.
-  //   Tie-break: fewest wounds, then fewest souls. If still tied, stays in town.
+  //   Ties for highest treasure → stays in Town (official rules).
   // The Fool (class "The Fool", treasure 0): goes to the player with the fewest
   //   souls. Tie = stays in town.
   const lureAssignments = [];

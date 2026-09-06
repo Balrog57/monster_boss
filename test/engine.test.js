@@ -151,7 +151,7 @@ describe('expansion packs', () => {
     assert.equal(assign.targetPlayerId, 2);
   });
 
-  it('resolves tie-break on fewest wounds, then fewest souls', () => {
+  it('keeps the hero in town when highest treasure is tied', () => {
     const G = {
       effects: {},
       town: [{ id: 'BMA056', name: 'Cleric', treasure: 1, hp: 4, class: 'Cleric' }],
@@ -162,8 +162,8 @@ describe('expansion packs', () => {
       },
     };
     const [assign] = resolveBait(G);
-    assert.equal(assign.stayInTown, false);
-    assert.equal(assign.targetPlayerId, 1);
+    assert.equal(assign.stayInTown, true);
+    assert.equal(assign.targetPlayerId, null);
   });
 });
 
