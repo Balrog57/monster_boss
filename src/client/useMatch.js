@@ -75,6 +75,9 @@ export function useOnlineMatch({ matchID, playerID, credentials, onExitMatch }) 
 
   const isActive = useCallback(() => {
     if (!G || !ctx) return false;
+    if (G.pendingChoice) {
+      return Number(G.pendingChoice.playerId) === Number(playerID);
+    }
     return String(ctx.activePlayer) === String(playerID);
   }, [G, ctx, playerID]);
 
@@ -128,7 +131,9 @@ export function useLocalMatch({ numPlayers = DEFAULT_NUM_PLAYERS, setupData = {}
     };
   }
 
-  const isActive = String(state.ctx.activePlayer) === String(viewingPlayer);
+  const isActive = state.G.pendingChoice
+    ? Number(state.G.pendingChoice.playerId) === Number(viewingPlayer)
+    : String(state.ctx.activePlayer) === String(viewingPlayer);
 
   const G = playerView(state.G, viewingPlayer);
 

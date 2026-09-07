@@ -146,6 +146,16 @@ test.describe('Complete Playthrough and UI Verification', () => {
       }
     }
 
+    // Handle possible on-build choice modal (e.g. Dark Laboratory spell discard)
+    const choiceAfterBuild = page.getByRole('dialog', { name: 'Level up choice' });
+    if (await choiceAfterBuild.isVisible()) {
+      const btn = choiceAfterBuild.getByRole('button').first();
+      if (await btn.isVisible()) {
+        await btn.click({ force: true });
+        await page.waitForTimeout(400);
+      }
+    }
+
     const passBtn = page.locator('button[aria-label="Pass turn"]');
     if (await passBtn.isVisible()) {
       await passBtn.click();
@@ -155,6 +165,15 @@ test.describe('Complete Playthrough and UI Verification', () => {
     // 9. Advance through phases (Wait for BAIT, ADVENTURE, and next BUILD)
     for (let loop = 0; loop < 15; loop++) {
       await page.waitForTimeout(500);
+
+      const choiceOverlay = page.getByRole('dialog', { name: 'Level up choice' });
+      if (await choiceOverlay.isVisible()) {
+        const btn = choiceOverlay.getByRole('button').first();
+        if (await btn.isVisible()) {
+          await btn.click({ force: true });
+          await page.waitForTimeout(400);
+        }
+      }
 
       const resolveBtn = page.locator('button[aria-label="Continue adventure"]');
       if (await resolveBtn.isVisible()) {
@@ -194,6 +213,15 @@ test.describe('Complete Playthrough and UI Verification', () => {
     }
 
     // 10. Verify Options Overlay In-Game
+    const choiceBeforeOpt = page.getByRole('dialog', { name: 'Level up choice' });
+    if (await choiceBeforeOpt.isVisible()) {
+      const btn = choiceBeforeOpt.getByRole('button').first();
+      if (await btn.isVisible()) {
+        await btn.click({ force: true });
+        await page.waitForTimeout(400);
+      }
+    }
+
     const optionsGear = page.locator('button[aria-label="Open options"]');
     if (await optionsGear.isVisible()) {
       await optionsGear.click();

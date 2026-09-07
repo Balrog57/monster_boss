@@ -83,14 +83,16 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
   }
   const phase = ctx.phase || G.phase;
   const activePid = G.activePlayer != null ? String(G.activePlayer) : (ctx.currentPlayer != null ? String(ctx.currentPlayer) : '0');
-  const isMyTurn = activePid === pidKey;
-  const isPauseActive = !!(G.adventure?.pause && !G.adventurePausePassed?.[pidKey]);
-  const isStackActive = !!(G.stack?.length && isMyTurn);
-  const mustContinueAdventure = phase === PHASE.ADVENTURE && isMyTurn && !G.adventure?.pause && (
+  const hasPendingChoice = !!G.pendingChoice;
+  const isMyChoice = hasPendingChoice && G.pendingChoice.playerId === Number(playerID);
+  const isMyTurn = hasPendingChoice ? isMyChoice : activePid === pidKey;
+  const isPauseActive = !hasPendingChoice && !!(G.adventure?.pause && !G.adventurePausePassed?.[pidKey]);
+  const isStackActive = !hasPendingChoice && !!(G.stack?.length && (activePid === pidKey));
+  const mustContinueAdventure = !hasPendingChoice && phase === PHASE.ADVENTURE && isMyTurn && !G.adventure?.pause && (
     me.entrance.length > 0 || (G.adventure && String(G.adventure.playerId) === pidKey)
   );
-  const canAct = isMyTurn || isPauseActive || isStackActive;
-  const roomAbilityMoves = legalMoves(G, ctx, playerID).filter(m => m.type === 'activateRoom');
+  const canAct = !hasPendingChoice && (isMyTurn || isPauseActive || isStackActive);
+  const roomAbilityMoves = hasPendingChoice ? [] : legalMoves(G, ctx, playerID).filter(m => m.type === 'activateRoom');
   const opponentEntries = Object.entries(G.players).filter(([id]) => id !== pidKey);
   const opponents = opponentEntries.map(([, p]) => p);
   const oppIds = opponentEntries.map(([id]) => id);
@@ -110,12 +112,12 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
 
   const selectedHandCard = selectedCard != null ? me.hand[selectedCard] : null;
   const darkPayTargets = (() => {
-    if (!isMyTurn || selectedCard == null || !selectedHandCard?.isRoom) return [];
+    if (hasPendingChoice || !isMyTurn || selectedCard == null || !selectedHandCard?.isRoom) return [];
     if (phase !== PHASE.BUILD && phase !== PHASE.ADVENTURE) return [];
     return listDarkHeroPayTargets(G).filter((t) => canPayDarkHero(G, pidKey, selectedCard, t));
   })();
   const buildTargets = (() => {
-    if (selectedCard == null || !selectedHandCard?.isRoom) return { extend: false, overwrites: [] };
+    if (hasPendingChoice || selectedCard == null || !selectedHandCard?.isRoom) return { extend: false, overwrites: [] };
     if (phase === PHASE.SETUP) {
       return { extend: !selectedHandCard.advanced && me.dungeon.length === 0, overwrites: [] };
     }
@@ -128,7 +130,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
   })();
 
   const minibossActions = (() => {
-    if (!isMyTurn || phase !== PHASE.BUILD && phase !== PHASE.ADVENTURE) {
+    if (hasPendingChoice || !isMyTurn || (phase !== PHASE.BUILD && phase !== PHASE.ADVENTURE)) {
       return { build: [], promote: [], activate: [] };
     }
     const build = [];
@@ -191,6 +193,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             phase={phase}
             isMyTurn={isMyTurn}
             adventure={G.adventure}
+            hasPendingChoice={hasPendingChoice}
             onResolve={() => moves.resolveNextHero()}
             onInspect={setInspect}
           />
@@ -223,6 +226,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             onActivateMiniboss={(i) => moves.activateMiniboss(i)}
             onHover={setPreview}
             onSelectTarget={(targetIdx) => {
+              if (hasPendingChoice) return;
               if (selectedCard != null && selectedCard >= 0) {
                 const c = me.hand[selectedCard];
                 if (c?.isRoom) {
@@ -236,6 +240,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
               }
             }}
             onActivateRoom={(roomIdx, otherIdx) => {
+              if (hasPendingChoice) return;
               if (otherIdx != null) {
                 moves.activateRoom(roomIdx, otherIdx);
                 setActivateSourceRoom(null);
@@ -252,7 +257,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             onInspect={setInspect}
           />
         </div>
-        {isMyTurn && !discarding && darkPayTargets.length > 0 && (
+        {isMyTurn && !hasPendingChoice && !discarding && darkPayTargets.length > 0 && (
           <button
             className={s.darkPayBtn}
             type="button"
@@ -261,7 +266,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             PAY DARK HERO
           </button>
         )}
-        {isMyTurn && !discarding && !mustContinueAdventure && !G.adventure?.pause && !G.stack?.length && (
+        {isMyTurn && !hasPendingChoice && !discarding && !mustContinueAdventure && !G.adventure?.pause && !G.stack?.length && (
           phase === PHASE.BUILD
           || phase === PHASE.ADVENTURE
           || (phase === PHASE.SETUP && !(me.hand || []).some((c) => c.isRoom && !c.advanced))
@@ -319,6 +324,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         selectedCard={selectedCard}
         stackLength={G.stack?.length || 0}
         onSelect={(i) => {
+          if (hasPendingChoice) return;
           if (phase === PHASE.SETUP && i != null) {
             const c = me.hand[i];
             if (c?.isRoom && !c.advanced && !(me.dungeon?.length)) {
@@ -330,6 +336,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
           setSelectedCard(i);
         }}
         onSpell={(i) => {
+          if (hasPendingChoice) return;
           const card = me.hand[i];
           if (card && spellNeedsTarget(card.id)) {
             setSpellTarget({ handIndex: i, card });
