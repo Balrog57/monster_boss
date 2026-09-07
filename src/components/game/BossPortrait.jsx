@@ -15,13 +15,20 @@ const BOSS_AVATARS = {
   BMA008: '/ui/avatar/avatar_gorgona.webp',
 };
 
+const HAS_SPRITE = new Set([
+  'bma001', 'bma002', 'bma003', 'bma004', 'bma005', 'bma006', 'bma007', 'bma008',
+  'ksa001', 'ksa002', 'ksa003', 'ksa004', 'ksa005', 'ksa006', 'ksa007',
+]);
+
 export default function BossPortrait({ boss, theme, size = 130, onInspect, useAvatar = false, variant = 'card' }) {
   if (!boss) return null;
+  const idLower = String(boss.id || '').toLowerCase();
   const avatarSrc = BOSS_AVATARS[boss.id];
   const cardSrc = getCardImage(boss.id, 'boss');
-  const charSrc = boss.id ? `/ui/characters/${String(boss.id).toLowerCase()}_character.webp` : null;
-  const sprite = variant === 'sprite';
-  const src = sprite && charSrc ? charSrc : (useAvatar && avatarSrc ? avatarSrc : cardSrc);
+  const hasSprite = HAS_SPRITE.has(idLower);
+  const charSrc = hasSprite ? `/ui/characters/${idLower}_character.webp` : null;
+  const sprite = variant === 'sprite' && hasSprite;
+  const src = sprite ? charSrc : (useAvatar && avatarSrc ? avatarSrc : cardSrc);
   return (
     <div
       className={`${s.portrait} ${sprite ? s.sprite : ''}`}
@@ -37,7 +44,19 @@ export default function BossPortrait({ boss, theme, size = 130, onInspect, useAv
       aria-label={`Boss portrait ${boss.name}`}
       title={boss.name}
     >
-      {src && <img src={src} alt={boss.name} />}
+      {src && (
+        <img
+          src={src}
+          alt={boss.name}
+          onError={(e) => {
+            if (cardSrc && !e.currentTarget.src.includes(cardSrc)) {
+              e.currentTarget.src = cardSrc;
+            } else {
+              e.currentTarget.style.display = 'none';
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

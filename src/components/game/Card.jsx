@@ -33,6 +33,11 @@ export default function Card({ card, kind = 'room', faceDown = false, size = 'md
     className,
   ].filter(Boolean).join(' ');
 
+  const [imgFailed, setImgFailed] = React.useState(false);
+  React.useEffect(() => {
+    setImgFailed(false);
+  }, [src]);
+
   return (
     <div
       className={cls}
@@ -46,7 +51,7 @@ export default function Card({ card, kind = 'room', faceDown = false, size = 'md
       aria-label={card?.name || (faceDown ? 'Face-down card' : 'Card')}
     >
       <div className={s.inner}>
-        {src ? (
+        {src && !imgFailed ? (
           <img
             src={src}
             alt={card?.name || 'card'}
@@ -62,7 +67,7 @@ export default function Card({ card, kind = 'room', faceDown = false, size = 'md
                 e.currentTarget.src = wikiSrc;
                 return;
               }
-              e.currentTarget.style.display = 'none';
+              setImgFailed(true);
             }}
           />
         ) : (

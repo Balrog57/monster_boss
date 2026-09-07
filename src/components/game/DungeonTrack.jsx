@@ -36,9 +36,14 @@ export default function DungeonTrack({
   const rooms = allActiveRooms(dungeon);
   const damage = rooms.reduce((n, r) => n + (r?.damage || 0), 0);
   const canActivate = isMine && (phase === PHASE.BUILD || phase === PHASE.ADVENTURE);
-  const dungeonBg = player.boss?.id
-    ? `/ui/dungeon/${String(player.boss.id).toLowerCase()}_bg.webp`
-    : null;
+  const bossIdLower = String(player.boss?.id || '').toLowerCase();
+  const HAS_DUNGEON_BG = new Set([
+    'bma001', 'bma002', 'bma003', 'bma004', 'bma005', 'bma006', 'bma007', 'bma008',
+    'ksa001', 'ksa002', 'ksa003', 'ksa004', 'ksa005', 'ksa006', 'ksa007',
+  ]);
+  const dungeonBg = HAS_DUNGEON_BG.has(bossIdLower)
+    ? `/ui/dungeon/${bossIdLower}_bg.webp`
+    : '/ui/dungeon/bma001_bg.webp';
 
   const [hurt, setHurt] = useState(false);
   const prevWounds = useRef(player.wounds?.length || 0);
@@ -68,7 +73,13 @@ export default function DungeonTrack({
       aria-label={`${player.boss?.name || 'Player'} dungeon`}
     >
       {dungeonBg && (
-        <img src={`${dungeonBg}?v=etc1`} alt="" className={s.bgImg} draggable={false} />
+        <img
+          src={`${dungeonBg}?v=etc1`}
+          alt=""
+          className={s.bgImg}
+          draggable={false}
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+        />
       )}
       <div className={s.meta}>
         <span className={s.metaItem} title="Dungeon damage">{damage}</span>

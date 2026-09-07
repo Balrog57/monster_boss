@@ -38,6 +38,7 @@ export default function GameOverScreen({ winner, players, playerID, onReplay, on
                 src={winnerBossImg}
                 alt={winnerName}
                 className={`${s.bossImg} ${iWon ? '' : s.bossDefeated}`}
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
               />
             </div>
           )}
