@@ -2132,6 +2132,9 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
       if (!heroIsInRoom(G, playerId, roomIndex)) return 'no hero in this room';
       const hero = G.adventure.hero;
       G.adventure = null;
+      const ei = player.entrance.findIndex(h => h.id === hero.id);
+      if (ei >= 0) player.entrance.splice(ei, 1);
+      delete hero._entranceHp;
       G.town.unshift(hero);
       destroyRoom(G, playerId, roomIndex);
       G.logs.push(`Haunted Hall: ${hero.name} returned to town.`);
@@ -2143,7 +2146,7 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
       const label = room.name || room.id;
       destroyRoom(G, playerId, roomIndex);
       if (G.adventure && Number(G.adventure.playerId) === Number(playerId) && G.players[playerId]?.dungeon?.length) {
-        G.adventure.roomIndex = 0;
+        G.adventure.roomIndex = -1;
         G.logs.push(`${label}: ${G.adventure.hero.name} returned to the first Room.`);
       } else {
         G.logs.push(`${label}: destroyed.`);

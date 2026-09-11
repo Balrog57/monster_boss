@@ -27,7 +27,7 @@ export async function createMatch({ id, gameName, numPlayers, state, ctx, setupD
   });
   const seatMap = new Map();
   for (let i = 0; i < numPlayers; i++) {
-    seatMap.set(i, { id: i, name: null, credentials: null, is_bot: false });
+    seatMap.set(i, { id: i, name: null, credentials: null, is_bot: false, isBot: false });
   }
   seats.set(id, seatMap);
 }
@@ -65,6 +65,7 @@ export async function joinSeat(matchId, playerId, { playerName, credentials, isB
   seat.name = playerName;
   seat.credentials = credentials;
   seat.is_bot = isBot;
+  seat.isBot = isBot;
   matches.get(matchId).updated_at = new Date();
   return true;
 }
@@ -77,9 +78,10 @@ export async function leaveSeat(matchId, playerId) {
   seat.name = null;
   seat.credentials = null;
   seat.is_bot = false;
+  seat.isBot = false;
   matches.get(matchId).updated_at = new Date();
   let humans = 0;
-  for (const s of seatMap.values()) if (s.name && !s.is_bot) humans++;
+  for (const s of seatMap.values()) if (s.name && !(s.isBot ?? s.is_bot)) humans++;
   return humans === 0;
 }
 

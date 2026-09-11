@@ -342,8 +342,17 @@ function beginPhaseBeginning(G, ctx) {
   beginningPhaseCoins(G);
   const aliveCount = Object.values(G.players).filter(p => !p.eliminated).length;
   // Refill hero/epic decks from discard if empty.
-  ensureDeck(G.decks, 'heroes');
-  ensureDeck(G.decks, 'epics');
+  // Tools of Hero-Kind: reveal Item(s) first (step 1a: attached to oldest matching hero in town or stays in town)
+  ensureDeck(G.decks, 'items');
+  const nItems = itemRevealCount(aliveCount);
+  for (let i = 0; i < nItems; i++) {
+    const item = G.decks.items.pop();
+    if (item) {
+      G.logs.push(`${item.name} revealed in town`);
+      tryAttachRevealedItem(G, item);
+    }
+  }
+  // Step 1b: Heroes arrive in town
   for (let i = 0; i < aliveCount; i++) {
     let hero = null;
     if (G.decks.heroes.length > 0) hero = G.decks.heroes.pop();
@@ -352,16 +361,6 @@ function beginPhaseBeginning(G, ctx) {
       G.town.push(hero);
       G.logs.push(`${hero.name} arrives in town`);
       tryAttachItemsToHero(G, hero);
-    }
-  }
-  // Tools of Hero-Kind: 1 Item (2 in a 4-player game), not one per player.
-  ensureDeck(G.decks, 'items');
-  const nItems = itemRevealCount(aliveCount);
-  for (let i = 0; i < nItems; i++) {
-    const item = G.decks.items.pop();
-    if (item) {
-      G.logs.push(`${item.name} revealed in town`);
-      tryAttachRevealedItem(G, item);
     }
   }
   // Refill room deck from discard if empty.
@@ -769,7 +768,7 @@ function advanceAdventureRoom(G, ctx) {
     if (leftRoom && !isRoomDeactivated(G, playerId, i - 1)) {
       adv.mazeSentBack = adv.mazeSentBack || {};
       adv.mazeSentBack[i] = true;
-      adv.roomIndex = i - 1;
+      adv.roomIndex = i - 2;
       G.logs.push(`Minotaur's Maze: ${hero.name} sent back one room!`);
       return null;
     }
@@ -800,6 +799,7 @@ function startAdventure(G, ctx, playerId) {
     // If all blocked, stop
     if (p.entrance.every((h) => h._blockedUntilNextTurn)) {
       G.logs.push('All entrance Heroes are blocked this turn.');
+      p.passed = true;
       return 'heroes blocked';
     }
   }
@@ -1030,12 +1030,12 @@ const MOVE_HANDLERS = {
       const p = G.players[pid];
       if (!p || p.entrance.length === 0) return 'no heroes at entrance';
       err = startAdventure(G, ctx, pid);
-      if (p.entrance.length === 0 && !G.adventure) p.passed = true;
+      if ((p.entrance.length === 0 || !p.entrance.some(h => !h._blockedUntilNextTurn)) && !G.adventure) p.passed = true;
     }
     if (!err) {
       G.skipAdvance = true;
       const p = G.players[pid];
-      if (p && p.entrance.length === 0 && !G.adventure) p.passed = true;
+      if (p && (p.entrance.length === 0 || !p.entrance.some(h => !h._blockedUntilNextTurn)) && !G.adventure) p.passed = true;
     }
     return err;
   },
@@ -1047,7 +1047,7 @@ const MOVE_HANDLERS = {
       if (G.adventure && Number(G.adventure.playerId) === Number(pid)) {
         return 'must continue adventure';
       }
-      if (!G.adventure && p?.entrance?.length > 0) {
+      if (!G.adventure && p?.entrance?.some(h => !h._blockedUntilNextTurn)) {
         return 'must start adventure';
       }
     }
@@ -1599,7 +1599,7 @@ export function legalMoves(G, ctx, playerID) {
     if (!G.adventure?.pause) {
       if (G.adventure && Number(G.adventure.playerId) === Number(pid)) {
         moves.push({ type: 'resolveNextHero', args: [] });
-      } else if (!G.adventure && p.entrance.length > 0) {
+      } else if (!G.adventure && p.entrance.some(h => !h._blockedUntilNextTurn)) {
         moves.push({ type: 'resolveNextHero', args: [] });
       }
     }
@@ -1611,7 +1611,7 @@ export function legalMoves(G, ctx, playerID) {
     pushImmediateBuildMoves(G, pid, p, moves);
     const mustContinueAdventure = !G.adventure?.pause && (
       (G.adventure && Number(G.adventure.playerId) === Number(pid))
-      || (!G.adventure && p.entrance.length > 0)
+      || (!G.adventure && p.entrance.some(h => !h._blockedUntilNextTurn))
     );
     if (!mustContinueAdventure) {
       moves.push({ type: 'pass', args: [] });

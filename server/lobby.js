@@ -30,7 +30,7 @@ export function lobbyRouter() {
       seats: (r.seats || []).map(s => ({
         id: s.id,
         name: s.name || null,
-        isBot: !!s.isBot
+        isBot: !!(s.isBot ?? s.is_bot)
       })),
       createdAt: r.created_at,
       updatedAt: r.updated_at
@@ -47,7 +47,7 @@ export function lobbyRouter() {
       numPlayers: row.num_players,
       status: row.status,
       winner: row.winner,
-      seats: (row.seats || []).map(s => ({ id: s.id, name: s.name || null, isBot: !!s.isBot })),
+      seats: (row.seats || []).map(s => ({ id: s.id, name: s.name || null, isBot: !!(s.isBot ?? s.is_bot) })),
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
@@ -79,8 +79,8 @@ export function lobbyRouter() {
   router.post('/matches/:id/leave', async (ctx) => {
     const playerID = ctx.request.body.playerID;
     const credentials = ctx.request.body.credentials;
-    if (playerID == null) { ctx.throw(400, 'playerID is required'); return; }
-    const res = await leaveMatchSeat(ctx.params.id, playerID, credentials);
+    const id = String(ctx.params.id || '').toUpperCase();
+    const res = await leaveMatchSeat(id, playerID, credentials);
     if (!res.ok) { ctx.throw(403, res.error); return; }
     ctx.body = { emptied: res.emptied };
   });

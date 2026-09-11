@@ -197,14 +197,8 @@ const SPELL_EFFECTS = {
       G.decks.heroDiscard.push(hero);
       G.logs.push(`Cave-In: ${hero.name} in that room is destroyed.`);
     }
-    const stack = p.dungeon[idx];
-    const destroyed = stack.pop();
-    G.decks.roomDiscard.push(destroyed);
-    if (stack.length === 0) p.dungeon.splice(idx, 1);
-    if (G.adventure && Number(G.adventure.playerId) === Number(casterId) && G.adventure.roomIndex > idx) {
-      G.adventure.roomIndex -= 1;
-    }
-    G.logs.push(`Cave-In: ${destroyed.name} destroyed.`);
+    const destroyed = destroyRoom(G, casterId, idx);
+    if (destroyed) G.logs.push(`Cave-In: ${destroyed.name} destroyed.`);
     return true;
   },
 
@@ -309,7 +303,14 @@ const SPELL_EFFECTS = {
     }
     if (G.adventure?.hero?.id === heroId) {
       const hero = G.adventure.hero;
+      const advPid = G.adventure.playerId;
       G.adventure = null;
+      const advPlayer = G.players[advPid];
+      if (advPlayer) {
+        const ei = advPlayer.entrance.findIndex(h => h.id === hero.id);
+        if (ei >= 0) advPlayer.entrance.splice(ei, 1);
+      }
+      delete hero._entranceHp;
       G.town.unshift(hero);
       G.logs.push(`Fear: ${hero.name} returned to town.`);
       return true;
@@ -457,6 +458,8 @@ const SPELL_EFFECTS = {
     if (G.adventure && Number(G.adventure.playerId) === Number(casterId) && G.adventure.hero?.id === target?.heroId) {
       hero = G.adventure.hero;
       G.adventure = null;
+      const ei = p.entrance.findIndex((h) => h.id === hero.id);
+      if (ei >= 0) p.entrance.splice(ei, 1);
     } else {
       const idx = p.entrance.findIndex((h) => h.id === target?.heroId);
       if (idx >= 0) hero = p.entrance.splice(idx, 1)[0];
@@ -623,6 +626,12 @@ const SPELL_EFFECTS = {
   TNL066: (G, ctx, casterId, target) => {
     const heroId = target.heroId;
     if (heroId && G.adventure?.hero?.id === heroId) {
+      const advPid = G.adventure.playerId;
+      const advPlayer = G.players[advPid];
+      if (advPlayer) {
+        const ei = advPlayer.entrance.findIndex((h) => h.id === heroId);
+        if (ei >= 0) advPlayer.entrance.splice(ei, 1);
+      }
       G.adventure = null;
       G.logs.push('Pity: removed Hero from the game.');
       return true;
@@ -643,8 +652,11 @@ const SPELL_EFFECTS = {
 
   TNL068: (G, ctx, casterId) => {
     if (G.adventure) {
-      G.adventure.roomIndex += 1;
-      G.logs.push('Shortcut!: Hero skips the next Room.');
+      const advPid = G.adventure.playerId;
+      const dungeon = G.players[advPid]?.dungeon || [];
+      const skipCount = dungeon.length >= 5 ? 2 : 1;
+      G.adventure.roomIndex += skipCount;
+      G.logs.push(`Shortcut!: Hero skips the next ${skipCount} Room(s).`);
       return true;
     }
     return false;

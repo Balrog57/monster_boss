@@ -122,7 +122,7 @@ export async function broadcastLobbyUpdate(io) {
     id: r.id,
     numPlayers: r.num_players,
     status: r.status,
-    seats: (r.seats || []).map(s => ({ id: s.id, name: s.name || null, isBot: !!s.is_bot }))
+    seats: (r.seats || []).map(s => ({ id: s.id, name: s.name || null, isBot: !!(s.isBot ?? s.is_bot) }))
   }));
   io.to('lobby').emit('lobby:updated', { matches: payload });
 }

@@ -336,8 +336,6 @@ export function buildRoom(G, playerId, handIndex, targetIndex = null) {
     }
   } else {
     const idx = targetIndex ?? p.dungeon.length - 1;
-    const oldTop = activeRoom(p.dungeon[idx]);
-    G.decks.roomDiscard.push(oldTop);
     p.dungeon[idx].push(card);
     builtIndex = idx;
   }
@@ -690,20 +688,23 @@ export function checkEndGame(G) {
     return { gameOver: true, winner: parseInt(Object.keys(G.players).find(pid => G.players[pid] === soulWinners[0])) };
   }
   if (soulWinners.length > 1) {
-    // Official rules: "In the case of a tie, the Boss with the lowest XP value wins."
-    // No souls-wounds tiebreaker — just lowest XP.
-    soulWinners.sort((a, b) => (a.boss?.xp || 0) - (b.boss?.xp || 0));
+    // Official rules: "If multiple players reach 10 Souls on the same turn, the player with the highest
+    // Souls minus Wounds wins. If still tied, the player with the lowest Boss XP wins."
+    soulWinners.sort((a, b) => (totalSouls(b) - totalWounds(b)) - (totalSouls(a) - totalWounds(a)) || (a.boss?.xp || 0) - (b.boss?.xp || 0));
     return { gameOver: true, winner: parseInt(Object.keys(G.players).find(pid => G.players[pid] === soulWinners[0])) };
   }
   if (stillAlive.length <= 1) {
     if (stillAlive.length === 1) {
       return { gameOver: true, winner: parseInt(Object.keys(G.players).find(pid => G.players[pid] === stillAlive[0])) };
     }
-    // everyone eliminated: tie-break by lowest XP (official: lowest XP wins)
+    // everyone eliminated: official rules (Rulebook & Advanced Rules Guide Section 5c):
+    // "subtract their Wounds total from their Soul total - the highest result is the winner.
+    // If there is still a tie, then the player with the lowest XP is the winner."
     const ranked = players.map(p => ({
       pid: parseInt(Object.keys(G.players).find(pid => G.players[pid] === p)),
+      score: totalSouls(p) - totalWounds(p),
       xp: p.boss?.xp || 0
-    })).sort((a, b) => a.xp - b.xp);
+    })).sort((a, b) => b.score - a.score || a.xp - b.xp);
     return { gameOver: true, winner: ranked[0].pid };
   }
 

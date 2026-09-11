@@ -41,7 +41,8 @@ export function startTurnTimers() {
       if (now < deadline) continue;
       // Timer expired: auto-pass for the active player (BUILD phase only).
       const activePid = match.ctx.activePlayer;
-      if (phase === 'BOSS') {
+      const phase = (match.G.phase || match.ctx.phase || '').toLowerCase();
+      if (phase === 'boss') {
         const p = match.G.players[activePid];
         if (p && !p.boss) {
           const available = (match.G.bossPicks || []).filter(b =>
@@ -62,7 +63,7 @@ export function startTurnTimers() {
           }
         }
         match.turnStartedAt = Date.now();
-      } else if (phase === 'BUILD' || phase === 'SETUP') {
+      } else if (phase === 'build' || phase === 'setup') {
         const { state, error } = applyMove({ G: match.G, ctx: match.ctx }, { type: 'pass', args: [] }, activePid);
         if (!error) {
           match.G = state.G;
@@ -232,27 +233,30 @@ export async function joinMatchSeat(matchID, playerName) {
 }
 
 export async function leaveMatchSeat(matchID, playerID, credentials) {
-  const row = await dbFetchMatch(matchID);
+  const mid = String(matchID || '').toUpperCase();
+  const row = await dbFetchMatch(mid);
   if (!row) return { ok: false, error: 'match not found' };
   const seat = (row.seats || []).find(s => s.id === Number(playerID));
   if (!seat) return { ok: false, error: 'player not found' };
   if (seat.credentials && seat.credentials !== credentials) return { ok: false, error: 'invalid credentials' };
-  const emptied = await dbLeaveSeat(matchID, Number(playerID));
+  const emptied = await dbLeaveSeat(mid, Number(playerID));
   // If no human remains, wipe the match (mirrors boardgame.io behavior).
   if (emptied) {
-    await dbWipeMatch(matchID);
-    registry.delete(matchID);
+    await dbWipeMatch(mid);
+    registry.delete(mid);
   }
   return { ok: true, emptied };
 }
 
 export async function abandonMatch(matchID) {
-  await dbWipeMatch(matchID);
-  registry.delete(matchID);
+  const mid = String(matchID || '').toUpperCase();
+  await dbWipeMatch(mid);
+  registry.delete(mid);
 }
 
 export async function setMatchFinished(matchID, winner) {
-  await dbSetMatchStatus(matchID, 'finished', winner);
-  const match = registry.get(matchID);
+  const mid = String(matchID || '').toUpperCase();
+  await dbSetMatchStatus(mid, 'finished', winner);
+  const match = registry.get(mid);
   if (match) match.status = 'finished';
 }

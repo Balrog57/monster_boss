@@ -45,7 +45,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
       playSfx(SFX.BUTTON_FINISH, 0.5);
     }
     wasMyTurn.current = myTurnNow;
-  }, [G?.activePlayer, ctx?.currentPlayer]);
+  }, [G?.activePlayer, ctx?.currentPlayer, playerID]);
 
   useEffect(() => {
     const phase = ctx?.phase || G?.phase;
@@ -89,7 +89,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
   const isPauseActive = !hasPendingChoice && !!(G.adventure?.pause && !G.adventurePausePassed?.[pidKey]);
   const isStackActive = !hasPendingChoice && !!(G.stack?.length && (activePid === pidKey));
   const mustContinueAdventure = !hasPendingChoice && phase === PHASE.ADVENTURE && isMyTurn && !G.adventure?.pause && (
-    me.entrance.length > 0 || (G.adventure && String(G.adventure.playerId) === pidKey)
+    me.entrance.some(h => !h._blockedUntilNextTurn) || (G.adventure && String(G.adventure.playerId) === pidKey)
   );
   const canAct = !hasPendingChoice && (isMyTurn || isPauseActive || isStackActive);
   const roomAbilityMoves = hasPendingChoice ? [] : legalMoves(G, ctx, playerID).filter(m => m.type === 'activateRoom');

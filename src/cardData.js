@@ -57,6 +57,7 @@ const APK_BACK = {
   'back-hero': 'back_ordinary_hero',
   'back-epic': 'back_epic_hero',
   'back-item': 'back_item',
+  'back-miniboss': 'back_miniboss',
 };
 
 export function getWikiCardImage(id, kind) {
@@ -68,6 +69,7 @@ export function getWikiCardImage(id, kind) {
   const file = prefix + '_' + mappedName + ext;
   switch (kind) {
     case 'boss': return base + 'bosses/' + file;
+    case 'miniboss': return base + 'minibosses/' + file;
     case 'room': return base + 'rooms/' + file;
     case 'spell': return base + 'spells/' + file;
     case 'hero': return base + 'heroes/' + file;
@@ -79,6 +81,7 @@ export function getWikiCardImage(id, kind) {
     case 'back-hero': return base + 'backs/back_ordinary_hero' + ext;
     case 'back-epic': return base + 'backs/back_epic_hero' + ext;
     case 'back-item': return base + 'backs/back_item' + ext;
+    case 'back-miniboss': return base + 'backs/back_miniboss' + ext;
     default: return '';
   }
 }
@@ -135,7 +138,7 @@ export function totalSouls(p) {
 }
 
 export function totalWounds(p) {
-  return p.wounds.reduce((sum, w) => sum + (w.wounds || 1), 0);
+  return (p?.wounds || []).reduce((sum, w) => sum + (w.wounds || 1), 0);
 }
 
 // 2.2.6 mix packs the player can toggle after "HOW MANY PLAYERS?".

@@ -7,7 +7,7 @@ const ICONS = {
   2: { on: '/ui/ingame/icon_treasure_fighter.webp', off: '/ui/ingame/icon_treasure_fighter_empty.webp', label: 'Fighter' },
   3: { on: '/ui/ingame/icon_treasure_mage.webp', off: '/ui/ingame/icon_treasure_mage_empty.webp', label: 'Mage' },
   4: { on: '/ui/ingame/icon_treasure_thief.webp', off: '/ui/ingame/icon_treasure_thief_empty.webp', label: 'Thief' },
-  5: { on: '/ui/ingame/icon_treasure_explorer.webp', off: '/ui/ingame/icon_treasure_explorer_empty.webp', label: 'Explorer' },
+  5: { on: '/ui/ingame/icon_treasure_explorer.webp', off: '/ui/ingame/icon_treasure_explorer_empty.webp', fallbackOn: '/ui/ingame/icon_treasure_fighter.webp', fallbackOff: '/ui/ingame/icon_treasure_fighter_empty.webp', label: 'Explorer' },
 };
 
 export default function TreasureReadout({ counts = {}, compact = false }) {
@@ -20,7 +20,15 @@ export default function TreasureReadout({ counts = {}, compact = false }) {
         if (!icon) return null;
         return (
           <span key={t} className={s.item} title={`${icon.label}: ${n}`}>
-            <img src={n > 0 ? icon.on : icon.off} alt="" />
+            <img
+              src={n > 0 ? icon.on : icon.off}
+              alt=""
+              onError={(e) => {
+                if (icon.fallbackOn) {
+                  e.currentTarget.src = n > 0 ? icon.fallbackOn : icon.fallbackOff;
+                }
+              }}
+            />
             <span className={s.num}>{n}</span>
           </span>
         );

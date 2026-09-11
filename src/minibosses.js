@@ -315,12 +315,24 @@ function returnHeroToTown(G, playerId, option) {
   if (option.kind === 'adventure' && G.adventure?.hero) {
     const hero = G.adventure.hero;
     G.adventure = null;
+    const heroIdx = p.entrance?.findIndex(h => h.id === hero.id || h === hero);
+    if (heroIdx !== -1 && heroIdx !== undefined) {
+      p.entrance.splice(heroIdx, 1);
+    }
+    if (hero._entranceHp !== undefined) {
+      hero.hp = hero._entranceHp;
+      delete hero._entranceHp;
+    }
     G.town.push(hero);
     G.logs.push(`Draculad: ${hero.name} returned to town.`);
     return;
   }
   if (option.kind === 'entrance' && p.entrance?.[option.index]) {
     const [hero] = p.entrance.splice(option.index, 1);
+    if (hero._entranceHp !== undefined) {
+      hero.hp = hero._entranceHp;
+      delete hero._entranceHp;
+    }
     G.town.push(hero);
     G.logs.push(`Draculad: ${hero.name} returned to town.`);
   }

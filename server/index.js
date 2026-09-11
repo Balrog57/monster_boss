@@ -67,8 +67,9 @@ async function main() {
     }
     await next();
   });
-  app.use(lobbyRouter().routes());
-  app.use(lobbyRouter().allowedMethods());
+  const router = lobbyRouter();
+  app.use(router.routes());
+  app.use(router.allowedMethods());
   if (existsSync(STATIC_DIR)) {
     app.use(serve(STATIC_DIR));
     console.log(`[static] serving ${STATIC_DIR}`);
