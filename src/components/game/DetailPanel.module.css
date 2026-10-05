@@ -199,3 +199,40 @@
   font-size: var(--bm-text-xs);
   line-height: 1.4;
 }
+
+.minibossDesc {
+  border-left-color: #a855f7;
+}
+
+.levelsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.levelItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 6px 8px;
+  border-radius: 4px;
+}
+
+.levelBadge {
+  font-family: var(--bm-font-pixel);
+  font-size: 10px;
+  background: #7c3aed;
+  color: #ffd700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  letter-spacing: 0.5px;
+}
+
+.levelText {
+  color: var(--bm-text-800);
+  font-size: var(--bm-text-xs);
+  line-height: 1.4;
+}

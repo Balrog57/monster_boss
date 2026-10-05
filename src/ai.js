@@ -55,6 +55,14 @@ function scoreMove(G, ctx, pid, move) {
     }
     case 'activateRoom':
       return scoreActivate(G, pid, move.args[0], move.args[1]);
+    case 'buildMiniboss':
+      return 6;
+    case 'promoteMiniboss':
+      return 5;
+    case 'activateMiniboss':
+      return 8;
+    case 'payDarkHero':
+      return 7;
     case 'resolveNextHero':
       return G.adventure && Number(G.adventure.playerId) === pid ? 5 : 8;
     case 'openingDiscard':

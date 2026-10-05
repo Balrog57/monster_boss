@@ -44,6 +44,7 @@ export default function DetailPanel({ inspect, onClose }) {
   const isBoss = kind === 'boss' || card?.xp != null;
   const isSpell = kind === 'spell' || card?.category != null;
   const isItem = kind === 'item' || card?.isItem;
+  const isMiniboss = kind === 'miniboss' || card?.set === 'minibosses' || Array.isArray(card?.levels);
 
   return (
     <div className={s.overlay} onClick={onClose} role="presentation">
@@ -162,6 +163,13 @@ export default function DetailPanel({ inspect, onClose }) {
                 <span>⚔️ Équipement de Héros (Item)</span>
               </div>
             )}
+
+            {/* Miniboss Stats */}
+            {isMiniboss && (
+              <div className={s.statBadge} title="Miniboss à 3 niveaux">
+                <span>👾 <strong>Miniboss</strong> (Niveaux 1 à 3)</span>
+              </div>
+            )}
           </div>
 
           {/* Treasure & Resources Sought or Provided */}
@@ -187,6 +195,21 @@ export default function DetailPanel({ inspect, onClose }) {
           <div className={s.desc}>
             <div className={s.descLabel}>Effet / Description :</div>
             <div className={s.descContent}>{card.description}</div>
+          </div>
+        )}
+
+        {/* Miniboss Levels 1, 2, 3 */}
+        {Array.isArray(card?.levels) && card.levels.length > 0 && (
+          <div className={`${s.desc} ${s.minibossDesc}`}>
+            <div className={s.descLabel}>Niveaux de Maîtrise (Miniboss Levels) :</div>
+            <div className={s.levelsList}>
+              {card.levels.map((lvl) => (
+                <div key={lvl.level} className={s.levelItem}>
+                  <span className={s.levelBadge}>Nv. {lvl.level}</span>
+                  <span className={s.levelText}>{lvl.description}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
