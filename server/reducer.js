@@ -782,6 +782,7 @@ function advanceAdventureRoom(G, ctx) {
   const dmg = roomDamageWithModifiers(G, playerId, i, hero);
   adv.hp -= dmg;
   adv.roomIndex = i;
+  adv.lastDamage = dmg;
   if (room) room._enteredThisTurn = true;
   G.logs.push(`${room?.name || 'Room'} deals ${dmg} damage to ${hero.name} (HP ${adv.hp})`);
   if (adv.hp <= 0) G._deathRoom = room;

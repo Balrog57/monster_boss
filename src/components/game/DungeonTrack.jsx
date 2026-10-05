@@ -58,6 +58,19 @@ export default function DungeonTrack({
     prevWounds.current = w;
   }, [player.wounds?.length]);
 
+  const [soulGain, setSoulGain] = useState(false);
+  const prevSouls = useRef(player.souls?.length || 0);
+  useEffect(() => {
+    const sn = player.souls?.length || 0;
+    if (sn > prevSouls.current) {
+      setSoulGain(true);
+      const t = setTimeout(() => setSoulGain(false), 1200);
+      prevSouls.current = sn;
+      return () => clearTimeout(t);
+    }
+    prevSouls.current = sn;
+  }, [player.souls?.length]);
+
   const [dragOverSlot, setDragOverSlot] = useState(null);
   const entranceHeroes = player.entrance || [];
   const extendVis = extendVisualIndex(dungeon);
@@ -232,10 +245,20 @@ export default function DungeonTrack({
                     L3
                   </button>
                 )}
+                {inThisDungeon && adventure.roomIndex === di && (adventure.lastDamage || 0) > 0 && (
+                  <div className={s.floatingDmg} key={`dmg-${di}-${adventure.hp}`}>
+                    -{adventure.lastDamage} HP
+                  </div>
+                )}
+                {inThisDungeon && adventure.roomIndex === di && adventure.hp <= 0 && (
+                  <div className={s.defeatBadge} key={`dead-${di}`}>
+                    ☠ DEAD!
+                  </div>
+                )}
                 {showHeroes && (
                   <div className={s.heroes} aria-label="Heroes at entrance">
                     {(inThisDungeon && adventure.hero ? [adventure.hero] : entranceHeroes).slice(0, 3).map((h, hi) => (
-                      <div key={`ent-${h.id}-${hi}`} className={s.heroWrap}>
+                      <div key={`ent-${h.id}-${hi}`} className={`${s.heroWrap} ${inThisDungeon ? s.heroActiveCrawler : ''}`}>
                         {inThisDungeon && adventure.hp != null && (
                           <div className={s.heroHpBadge} title={`Hero Health: ${adventure.hp}`}>
                             <span className={s.heroHpText}>{adventure.hp}</span>
@@ -266,6 +289,16 @@ export default function DungeonTrack({
           })}
         </div>
         <div className={`${s.boss} ${hurt ? s.hurt : ''} ${player.leveledUp ? s.leveled : ''}`}>
+          {soulGain && (
+            <div className={s.soulGainText} key={`soul-${player.souls?.length}`}>
+              +1 SOUL!
+            </div>
+          )}
+          {hurt && (
+            <div className={s.bossHurtText} key={`hurt-${player.wounds?.length}`}>
+              OUCH! -1 HP
+            </div>
+          )}
           <BossPortrait
             boss={player.boss}
             theme={theme}
