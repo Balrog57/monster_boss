@@ -81,3 +81,40 @@
   justify-content: center;
 }
 .optionsIcon { width: 70px; height: 56px; object-fit: contain; image-rendering: pixelated; }
+
+.muteBtn {
+  background: rgba(18, 14, 28, 0.75);
+  border: 1.5px solid #c9a84c;
+  border-radius: 4px;
+  height: 40px;
+  padding: 0 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #f1e17c;
+  transition: all 0.15s ease;
+}
+.muteBtn:hover {
+  background: rgba(36, 24, 56, 0.95);
+  border-color: #ffd700;
+}
+.muteBtn.muted {
+  opacity: 0.6;
+  border-color: #666;
+  color: #aaa;
+}
+.muteIcon {
+  font-size: 16px;
+  line-height: 1;
+}
+.muteKeyBadge {
+  font-family: 'Press Start 2P', monospace, sans-serif;
+  font-size: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  border-radius: 2px;
+  padding: 1px 4px;
+  color: #f1e17c;
+  line-height: 1;
+}

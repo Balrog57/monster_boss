@@ -41,12 +41,13 @@ test.describe('Boss Monster game flow', () => {
     await playBoss.waitFor({ state: 'visible', timeout: 15000 });
     await playBoss.click();
 
-    // Opening discard overlay
+    // Opening discard overlay: discard the last 2 cards (spells) so ordinary rooms remain in hand
     const overlay = page.locator('[role="dialog"][aria-label*="Select 2 cards to discard"]');
     await overlay.waitFor({ state: 'visible', timeout: 15000 });
     const slots = overlay.locator('[role="button"]');
-    await slots.nth(0).click();
-    await slots.nth(1).click();
+    const count = await slots.count();
+    await slots.nth(count - 1).click();
+    await slots.nth(count - 2).click();
     const cont = overlay.locator('button[aria-label="Continue"]');
     await cont.click();
     await overlay.waitFor({ state: 'detached', timeout: 10000 });
@@ -68,5 +69,52 @@ test.describe('Boss Monster game flow', () => {
     const emptySlot = page.locator('button[aria-label*="room slot"], button[aria-label*="Build new room"]').first();
     await handCard.dragTo(emptySlot);
     await page.waitForTimeout(600);
+  });
+
+  test('desktop keyboard shortcuts: 1-9 select, Space discard/pass, M mute toggle, Escape cancel', async ({ page }) => {
+    await tapToStart(page);
+    await page.getByText(/single player|solo/i).first().click();
+    await page.locator('.ok, button[aria-label="OK"]').first().click();
+
+    // Pick boss
+    const playBoss = page.getByRole('button', { name: /PLAY /i });
+    await playBoss.waitFor({ state: 'visible', timeout: 15000 });
+    await playBoss.click();
+
+    // 1. Opening discard overlay: select via keys 6 and 7 (the two spells), confirm via Space
+    const overlay = page.locator('[role="dialog"][aria-label*="Select 2 cards to discard"]');
+    await overlay.waitFor({ state: 'visible', timeout: 15000 });
+
+    await page.keyboard.press('6');
+    await page.keyboard.press('7');
+    await page.waitForTimeout(200);
+
+    const cont = overlay.locator('button[aria-label="Continue"]');
+    await expect(cont).toBeEnabled();
+
+    // Press Space to confirm discard
+    await page.keyboard.press('Space');
+    await overlay.waitFor({ state: 'detached', timeout: 10000 });
+
+    // 2. Mute toggle via key M
+    const muteBtn = page.locator('button[aria-label*="son"]');
+    await expect(muteBtn).toBeVisible({ timeout: 5000 });
+    const initialLabel = await muteBtn.getAttribute('aria-label');
+    await page.keyboard.press('m');
+    await page.waitForTimeout(200);
+    const toggledLabel = await muteBtn.getAttribute('aria-label');
+    expect(toggledLabel).not.toEqual(initialLabel);
+    // Press M again to restore
+    await page.keyboard.press('m');
+    await page.waitForTimeout(200);
+
+    // 3. Select card via key 1
+    await page.keyboard.press('1');
+    const previewBadge = page.locator('[class*="previewBadge"]').first();
+    await expect(previewBadge).toBeVisible({ timeout: 5000 });
+
+    // 4. Cancel selection via Escape
+    await page.keyboard.press('Escape');
+    await expect(previewBadge).not.toBeVisible();
   });
 });

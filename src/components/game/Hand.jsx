@@ -7,9 +7,12 @@ import s from './Hand.module.css';
 
 export default function Hand({
   me, phase, isMyTurn, canAct = isMyTurn, selectedCard, onSelect, onSpell, onPass, onInspect, onHover,
-  showPass = true, stackLength = 0,
+  showPass = true, stackLength = 0, activeTab, onTabChange,
 }) {
-  const [tab, setTab] = useState('rooms');
+  const [internalTab, setInternalTab] = useState('rooms');
+  const tab = activeTab !== undefined ? activeTab : internalTab;
+  const setTab = onTabChange || setInternalTab;
+
   const rooms = me.hand.map((c, i) => ({ c, i })).filter(({ c }) => c.isRoom);
   const spells = me.hand.map((c, i) => ({ c, i })).filter(({ c }) => c.isSpell);
   const shown = tab === 'rooms' ? rooms : spells;
@@ -26,17 +29,23 @@ export default function Hand({
           onClick={() => setTab('rooms')}
           aria-label="Rooms"
           aria-pressed={tab === 'rooms'}
-        />
+          title="Rooms [R]"
+        >
+          <span className={s.tabKeyBadge}>R</span>
+        </button>
         <button
           type="button"
           className={`${s.tab} ${s.tabSpells} ${tab !== 'spells' ? s.tabOff : ''}`}
           onClick={() => setTab('spells')}
           aria-label="Spells"
           aria-pressed={tab === 'spells'}
-        />
+          title="Spells [S]"
+        >
+          <span className={s.tabKeyBadge}>S</span>
+        </button>
       </div>
       <div className={s.row}>
-        {shown.map(({ c, i }) => {
+        {shown.map(({ c, i }, idx) => {
           const canBuild = canPickRoom && c.isRoom && (phase === PHASE.SETUP ? !c.advanced : true);
           const canSpell = canPickSpell && c.isSpell && canPlaySpell(c, phase, stackLength);
           const live = canBuild || canSpell;
@@ -51,6 +60,9 @@ export default function Hand({
                 onSelect(i);
               } : undefined}
             >
+              {idx < 9 && (
+                <span className={s.keyBadge} aria-hidden="true">{idx + 1}</span>
+              )}
               <Card
                 card={c}
                 kind={c.isRoom ? 'room' : 'spell'}
@@ -78,7 +90,9 @@ export default function Hand({
           onClick={() => { onSelect(null); onPass(); }}
           type="button"
           aria-label={phase === PHASE.ADVENTURE ? 'Done' : 'Pass'}
-        />
+        >
+          <span className={s.passKeyBadge}>SPACE</span>
+        </button>
       )}
     </div>
   );

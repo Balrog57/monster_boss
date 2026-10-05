@@ -1,7 +1,8 @@
 // OpeningDiscardOverlay.jsx - APK "SELECT 2 CARDS TO DISCARD" with crystal-clear effect reader.
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Card from './Card.jsx';
 import { TREASURE_NAMES } from '../../cardData.js';
+import { getDigitKey } from '../../hooks/useKeyboardShortcuts.js';
 import s from './OpeningDiscardOverlay.module.css';
 
 export default function OpeningDiscardOverlay({ hand, onConfirm, onHover, onInspect }) {
@@ -15,6 +16,28 @@ export default function OpeningDiscardOverlay({ hand, onConfirm, onHover, onInsp
       return [...cur, i];
     });
   };
+
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      const num = getDigitKey(e);
+      if (num != null) {
+        const idx = num - 1;
+        if (idx >= 0 && idx < (hand || []).length) {
+          e.preventDefault();
+          toggle(idx);
+          setHoveredCard(hand[idx]);
+          onHover?.({ card: hand[idx], kind: hand[idx]?.isSpell ? 'spell' : 'room' });
+        }
+      } else if (e.key === ' ' || e.code === 'Space') {
+        if (picked.length === 2) {
+          e.preventDefault();
+          onConfirm(picked[0], picked[1]);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [hand, picked, onConfirm, onHover]);
 
   const kindOf = (c) => (c?.isSpell ? 'spell' : 'room');
 
@@ -32,6 +55,9 @@ export default function OpeningDiscardOverlay({ hand, onConfirm, onHover, onInsp
           <div className={s.cardsList}>
             {(hand || []).map((card, i) => (
               <div key={`${card.id}-${i}`} className={s.cardSlotWrap}>
+                {i < 9 && (
+                  <span className={s.keyBadge} aria-hidden="true">{i + 1}</span>
+                )}
                 <div
                   role="button"
                   tabIndex={0}
@@ -68,7 +94,9 @@ export default function OpeningDiscardOverlay({ hand, onConfirm, onHover, onInsp
             disabled={picked.length !== 2}
             onClick={() => picked.length === 2 && onConfirm(picked[0], picked[1])}
             aria-label="Continue"
-          />
+          >
+            {picked.length === 2 && <span className={s.continueKeyBadge}>SPACE</span>}
+          </button>
         </div>
 
         {/* Crystal-Clear Effect Reader Bar */}

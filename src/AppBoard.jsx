@@ -1,10 +1,11 @@
 // AppBoard.jsx - Game board orchestrator (APK 2.2.6 layout).
 import React, { useState, useEffect, useRef } from 'react';
 import { PHASE } from './cardData.js';
-import { treasureCountsByType, canBuildRoom } from './engine.js';
+import { treasureCountsByType, canBuildRoom, allActiveRooms } from './engine.js';
 import { canBuildMiniboss, canPromoteMiniboss, canActivateMiniboss } from './minibosses.js';
-import { playMusic, playSfx, SFX } from './audio.js';
+import { playMusic, playSfx, SFX, isMuted, setMuted } from './audio.js';
 import { useGameSfx } from './hooks/useGameSfx.js';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js';
 import {
   BossSelect, Hud, OpponentRow, MyDungeon, TownPanel, Hand, DetailPanel, Card,
   SpellTargetOverlay, spellNeedsTarget, LevelUpChoiceOverlay, OpeningDiscardOverlay, PhaseBanner, OptionsOverlay,
@@ -55,20 +56,8 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
     lastPhase.current = phase;
   }, [ctx?.phase, G?.phase]);
 
-  // Cancel selection on Escape key
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        setSelectedCard(null);
-        setActivateSourceRoom(null);
-        setSpellTarget(null);
-        setDarkHeroPay(null);
-        setInspect(null);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  const [handTab, setHandTab] = useState('rooms');
+  const [muted, setMutedState] = useState(() => isMuted());
 
   // Detect end-of-game and surface the GameOverScreen overlay from inside the
   // board so it works whether the board is rendered in solo or online mode.
@@ -177,6 +166,45 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
     || (selectedHandCard ? { card: selectedHandCard, kind: hoverKind(selectedHandCard) } : null)
     || (me.boss ? { card: me.boss, kind: 'boss' } : null);
 
+  const canPassTurn = isMyTurn && !hasPendingChoice && !discarding && !mustContinueAdventure && !G.adventure?.pause && !G.stack?.length && (
+    phase === PHASE.BUILD
+    || phase === PHASE.ADVENTURE
+    || (phase === PHASE.SETUP && !(me.hand || []).some((c) => c.isRoom && !c.advanced))
+  );
+  const canPassEvent = isPauseActive || isStackActive;
+
+  useKeyboardShortcuts({
+    enabled: !G.gameOver,
+    hand: me.hand,
+    handTab,
+    setHandTab,
+    selectedCard,
+    setSelectedCard,
+    dungeonRooms: allActiveRooms(me.dungeon || []),
+    setInspect,
+    setPreview,
+    canPass: canPassTurn || canPassEvent,
+    onPass: () => { setSelectedCard(null); moves.pass(); },
+    canResolveHero: isMyTurn && mustContinueAdventure,
+    onResolveHero: () => moves.resolveNextHero(),
+    optionsOpen,
+    setOptionsOpen,
+    rulesOpen,
+    setRulesOpen,
+    galleryOpen,
+    setGalleryOpen,
+    inspectOpen: !!inspect,
+    onCloseInspect: () => setInspect(null),
+    onCancelSelection: () => {
+      setSelectedCard(null);
+      setActivateSourceRoom(null);
+      setSpellTarget(null);
+      setDarkHeroPay(null);
+      setInspect(null);
+    },
+    onToggleMute: (m) => setMutedState(m),
+  });
+
   return (
     <GameStage>
       <div className={s.board} id="main-content">
@@ -187,6 +215,12 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         turnDeadline={turnDeadline}
         notification={notification}
         onOptions={() => setOptionsOpen(true)}
+        muted={muted}
+        onToggleMute={() => {
+          const next = !isMuted();
+          setMuted(next);
+          setMutedState(next);
+        }}
       />
       </div>
 
@@ -282,17 +316,15 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             PAY DARK HERO
           </button>
         )}
-        {isMyTurn && !hasPendingChoice && !discarding && !mustContinueAdventure && !G.adventure?.pause && !G.stack?.length && (
-          phase === PHASE.BUILD
-          || phase === PHASE.ADVENTURE
-          || (phase === PHASE.SETUP && !(me.hand || []).some((c) => c.isRoom && !c.advanced))
-        ) && (
+        {canPassTurn && (
           <button
             className={s.passCenter}
             type="button"
             onClick={() => { setSelectedCard(null); moves.pass(); }}
             aria-label="Pass turn"
-          />
+          >
+            <span className={s.passKeyHint}>SPACE</span>
+          </button>
         )}
         {phase !== PHASE.BOSS && (
           <CardPreview inspect={previewInspect} />
@@ -340,6 +372,8 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         canAct={canAct}
         selectedCard={selectedCard}
         stackLength={G.stack?.length || 0}
+        activeTab={handTab}
+        onTabChange={setHandTab}
         onSelect={(i) => {
           if (hasPendingChoice) return;
           setSelectedCard(i);

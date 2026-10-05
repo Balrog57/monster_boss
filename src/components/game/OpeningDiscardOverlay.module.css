@@ -80,7 +80,23 @@
 .slot.on {
   transform: translateY(-8px);
 }
+.keyBadge {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  z-index: 10;
+  font-family: 'Press Start 2P', monospace, sans-serif;
+  font-size: 8px;
+  color: #fff;
+  background: rgba(20, 10, 32, 0.92);
+  border: 1.5px solid #ffd700;
+  border-radius: 3px;
+  padding: 1px 4px;
+  pointer-events: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+}
 .continue {
+  position: relative;
   flex-shrink: 0;
   width: 90px;
   height: 118px;
@@ -102,6 +118,21 @@
 .continue:not(:disabled):active {
   background-image: url('/ui/ingame/continue_button_pressed.webp');
   transform: translateY(2px);
+}
+.continueKeyBadge {
+  position: absolute;
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Press Start 2P', monospace, sans-serif;
+  font-size: 8px;
+  color: #ffd700;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 215, 0, 0.6);
+  border-radius: 3px;
+  padding: 2px 4px;
+  pointer-events: none;
+  white-space: nowrap;
 }
 
 /* Crystal-Clear Effect Reader Bar */
