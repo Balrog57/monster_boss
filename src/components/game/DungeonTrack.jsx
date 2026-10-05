@@ -58,10 +58,12 @@ export default function DungeonTrack({
     prevWounds.current = w;
   }, [player.wounds?.length]);
 
+  const [dragOverSlot, setDragOverSlot] = useState(null);
   const entranceHeroes = player.entrance || [];
   const extendVis = extendVisualIndex(dungeon);
   const placing = isMine && isMyTurn && selectedCard != null && activateSourceRoom == null
     && (phase === PHASE.BUILD || phase === PHASE.SETUP);
+  const selectedHandCard = (isMine && selectedCard != null && player.hand) ? player.hand[selectedCard] : null;
 
   return (
     <div
@@ -94,15 +96,36 @@ export default function DungeonTrack({
             if (di == null) {
               const isExtend = extendVis === i;
               const canPlace = placing && isExtend && (buildTargets?.extend !== false);
+              const isDragOver = dragOverSlot === `empty-${i}`;
               return (
                 <button
                   key={`empty-${i}`}
                   type="button"
-                  className={`${s.empty} ${canPlace ? s.emptyValid : ''}`}
+                  className={`${s.empty} ${canPlace ? s.emptyValid : ''} ${isDragOver ? s.dropHover : ''}`}
                   disabled={!canPlace}
                   onClick={canPlace ? () => onSelectTarget(null) : undefined}
+                  onDragOver={canPlace ? (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
+                    if (dragOverSlot !== `empty-${i}`) setDragOverSlot(`empty-${i}`);
+                  } : undefined}
+                  onDragLeave={() => {
+                    if (dragOverSlot === `empty-${i}`) setDragOverSlot(null);
+                  }}
+                  onDrop={canPlace ? (e) => {
+                    e.preventDefault();
+                    setDragOverSlot(null);
+                    onSelectTarget(null);
+                  } : undefined}
+                  title={canPlace && selectedHandCard ? `Construire ${selectedHandCard.name} (+${selectedHandCard.damage || 0} Dégâts)` : undefined}
                   aria-label={canPlace ? 'Build new room here' : 'Empty room slot'}
-                />
+                >
+                  {canPlace && (isDragOver || (placing && isExtend)) && selectedHandCard && (
+                    <div className={s.previewBadge}>
+                      +{selectedHandCard.damage || 0} DMG
+                    </div>
+                  )}
+                </button>
               );
             }
             const stack = dungeon[di];
@@ -116,13 +139,35 @@ export default function DungeonTrack({
             const isSource = activateSourceRoom === di;
             const isTargetCandidate = activateSourceRoom != null && roomAbilityMoves.some(m => m.args[0] === activateSourceRoom && m.args[1] === di);
             const overwriteOk = placing && (buildTargets?.overwrites || []).includes(di);
+            const isDragOverRoom = dragOverSlot === `room-${di}`;
+            const dmgDiff = selectedHandCard ? (selectedHandCard.damage || 0) - (r.damage || 0) : 0;
             const inThisDungeon = adventure && String(adventure.playerId) === String(playerId);
             const showHeroes = (di === 0 && entranceHeroes.length > 0 && !inThisDungeon)
               || (inThisDungeon && (adventure.roomIndex === di || (adventure.roomIndex < 0 && di === 0)));
             return (
               <div
                 key={`room-${r.id}-${di}`}
-                className={`${s.slot} ${isSource ? s.source : ''} ${isTargetCandidate || overwriteOk ? s.target : ''} ${overwriteOk ? s.emptyValid : ''}`}
+                className={`${s.slot} ${isSource ? s.source : ''} ${isTargetCandidate || overwriteOk ? s.target : ''} ${overwriteOk ? s.emptyValid : ''} ${isDragOverRoom ? s.dropHover : ''}`}
+                onDragOver={overwriteOk ? (e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'copy';
+                  if (dragOverSlot !== `room-${di}`) setDragOverSlot(`room-${di}`);
+                } : undefined}
+                onDragLeave={() => {
+                  if (dragOverSlot === `room-${di}`) setDragOverSlot(null);
+                }}
+                onDrop={overwriteOk ? (e) => {
+                  e.preventDefault();
+                  setDragOverSlot(null);
+                  onSelectTarget(di);
+                } : undefined}
+                title={
+                  overwriteOk && selectedHandCard
+                    ? `Améliorer avec ${selectedHandCard.name} (${dmgDiff >= 0 ? '+' : ''}${dmgDiff} Dégâts)`
+                    : placing && !overwriteOk && selectedHandCard?.advanced
+                      ? `Incompatible : ${selectedHandCard.name} nécessite un trésor en commun`
+                      : undefined
+                }
               >
                 <Card
                   card={r}
@@ -138,6 +183,11 @@ export default function DungeonTrack({
                         : undefined
                   }
                 />
+                {overwriteOk && (isDragOverRoom || placing) && selectedHandCard && (
+                  <div className={s.previewBadge}>
+                    {dmgDiff >= 0 ? `+${dmgDiff}` : dmgDiff} DMG
+                  </div>
+                )}
                 {stackDepth > 1 && <div className={s.stack}>×{stackDepth}</div>}
                 {mb && (
                   <button

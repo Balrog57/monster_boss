@@ -3,10 +3,13 @@ import { test, expect } from '@playwright/test';
 async function tapToStart(page) {
   await page.goto('/');
   const start = page.getByRole('button', { name: /tap to start/i });
-  if (await start.isVisible()) await start.click();
+  await expect(start).toBeVisible({ timeout: 15000 });
+  await start.click();
   const skip = page.getByRole('button', { name: 'SKIP' });
-  await skip.waitFor({ state: 'visible', timeout: 2000 }).catch(() => {});
-  if (await skip.isVisible()) await skip.click();
+  try {
+    await skip.waitFor({ state: 'visible', timeout: 2000 });
+    await skip.click();
+  } catch {}
 }
 
 test.describe('Boss Monster game flow', () => {
@@ -26,5 +29,44 @@ test.describe('Boss Monster game flow', () => {
     await page.getByText(/single player|solo/i).first().click();
     await page.locator('.ok, button[aria-label="OK"]').first().click();
     await expect(page.getByText(/PLAY BOSS|HOW MANY|boss/i).first()).toBeVisible({ timeout: 15000 });
+  });
+
+  test('supports drag-and-drop room build and Escape key deselect', async ({ page }) => {
+    await tapToStart(page);
+    await page.getByText(/single player|solo/i).first().click();
+    await page.locator('.ok, button[aria-label="OK"]').first().click();
+
+    // Boss selection
+    const playBoss = page.getByRole('button', { name: /PLAY /i });
+    await playBoss.waitFor({ state: 'visible', timeout: 15000 });
+    await playBoss.click();
+
+    // Opening discard overlay
+    const overlay = page.locator('[role="dialog"][aria-label*="Select 2 cards to discard"]');
+    await overlay.waitFor({ state: 'visible', timeout: 15000 });
+    const slots = overlay.locator('[role="button"]');
+    await slots.nth(0).click();
+    await slots.nth(1).click();
+    const cont = overlay.locator('button[aria-label="Continue"]');
+    await cont.click();
+    await overlay.waitFor({ state: 'detached', timeout: 10000 });
+
+    // In setup phase: select a card from hand
+    const handCard = page.locator('[aria-label="Hand"] [draggable="true"]').first();
+    await handCard.waitFor({ state: 'visible', timeout: 10000 });
+    await handCard.click();
+
+    // Verify preview badge is visible on the valid empty slot
+    const previewBadge = page.locator('[class*="previewBadge"]').first();
+    await expect(previewBadge).toBeVisible({ timeout: 5000 });
+
+    // Press Escape to cancel selection
+    await page.keyboard.press('Escape');
+    await expect(previewBadge).not.toBeVisible();
+
+    // Now test drag-and-drop to place the room
+    const emptySlot = page.locator('button[aria-label*="room slot"], button[aria-label*="Build new room"]').first();
+    await handCard.dragTo(emptySlot);
+    await page.waitForTimeout(600);
   });
 });

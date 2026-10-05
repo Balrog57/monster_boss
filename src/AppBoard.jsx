@@ -55,6 +55,21 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
     lastPhase.current = phase;
   }, [ctx?.phase, G?.phase]);
 
+  // Cancel selection on Escape key
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setSelectedCard(null);
+        setActivateSourceRoom(null);
+        setSpellTarget(null);
+        setDarkHeroPay(null);
+        setInspect(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   // Detect end-of-game and surface the GameOverScreen overlay from inside the
   // board so it works whether the board is rendered in solo or online mode.
   useEffect(() => {
@@ -326,14 +341,6 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         stackLength={G.stack?.length || 0}
         onSelect={(i) => {
           if (hasPendingChoice) return;
-          if (phase === PHASE.SETUP && i != null) {
-            const c = me.hand[i];
-            if (c?.isRoom && !c.advanced && !(me.dungeon?.length)) {
-              moves.buildInitialRoom(i);
-              setSelectedCard(null);
-              return;
-            }
-          }
           setSelectedCard(i);
         }}
         onSpell={(i) => {

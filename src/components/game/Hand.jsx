@@ -41,7 +41,16 @@ export default function Hand({
           const canSpell = canPickSpell && c.isSpell && canPlaySpell(c, phase, stackLength);
           const live = canBuild || canSpell;
           return (
-            <div key={`hand-${c.id}-${i}`} className={s.cardBtn}>
+            <div
+              key={`hand-${c.id}-${i}`}
+              className={`${s.cardBtn} ${canBuild ? s.draggable : ''}`}
+              draggable={canBuild}
+              onDragStart={canBuild ? (e) => {
+                e.dataTransfer.setData('text/plain', String(i));
+                e.dataTransfer.effectAllowed = 'copyMove';
+                onSelect(i);
+              } : undefined}
+            >
               <Card
                 card={c}
                 kind={c.isRoom ? 'room' : 'spell'}
