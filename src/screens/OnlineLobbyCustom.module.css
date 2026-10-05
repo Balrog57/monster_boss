@@ -131,3 +131,72 @@
   font-size: 22px;
   text-shadow: 2px 2px 0 #000;
 }
+
+.seatsList {
+  margin: 16px auto;
+  width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.seatRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(18, 10, 30, 0.88);
+  border: 2px solid #5a3d7a;
+  border-radius: 6px;
+  padding: 10px 16px;
+  font-family: var(--bm-font-display);
+  font-size: 16px;
+}
+.seatNum {
+  color: #ffd700;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.seatName {
+  color: #fff;
+  flex: 1;
+  text-align: left;
+  margin-left: 16px;
+}
+.removeBotBtn {
+  background: rgba(180, 40, 40, 0.8);
+  border: 1px solid #ff6b6b;
+  color: #fff;
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+.removeBotBtn:hover {
+  background: #e02424;
+}
+.addBotBtn {
+  margin: 16px auto 0;
+  height: 56px;
+  width: 380px;
+  border: 2px solid #ffd700;
+  border-radius: 6px;
+  background: rgba(30, 18, 50, 0.95);
+  color: #ffd700;
+  font-family: var(--bm-font-display);
+  font-size: 18px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.addBotBtn:hover {
+  background: rgba(55, 30, 90, 0.95);
+  filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.6));
+  transform: translateY(-2px);
+}

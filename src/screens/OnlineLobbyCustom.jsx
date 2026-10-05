@@ -26,6 +26,7 @@ export default function OnlineLobbyCustom({ onJoined, onBack }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(null); // { matchID, playerID, credentials, numPlayers }
+  const [seats, setSeats] = useState([]);
 
   const updateName = (val) => {
     setName(val);
@@ -38,9 +39,11 @@ export default function OnlineLobbyCustom({ onJoined, onBack }) {
     const tick = async () => {
       try {
         const row = await api(`/matches/${waiting.matchID}`);
+        if (cancelled) return;
+        setSeats(row.seats || []);
         const filled = (row.seats || []).filter((seat) => seat.name).length;
         const needed = waiting.numPlayers || 2;
-        if (!cancelled && filled >= needed) {
+        if (filled >= needed) {
           playSfx(SFX.BUTTON);
           const session = { matchID: waiting.matchID, playerID: waiting.playerID, credentials: waiting.credentials, numPlayers: needed };
           localStorage.setItem('bm_online_session', JSON.stringify(session));
@@ -51,9 +54,33 @@ export default function OnlineLobbyCustom({ onJoined, onBack }) {
       }
     };
     tick();
-    const id = setInterval(tick, 1500);
+    const id = setInterval(tick, 1200);
     return () => { cancelled = true; clearInterval(id); };
   }, [waiting, onJoined]);
+
+  const addBot = async () => {
+    if (!waiting) return;
+    try {
+      await api(`/matches/${waiting.matchID}/bot`, { method: 'POST' });
+      playSfx(SFX.BUTTON);
+      const row = await api(`/matches/${waiting.matchID}`);
+      setSeats(row.seats || []);
+    } catch (e) {
+      setError('Impossible d\'ajouter un Bot: ' + (e.message || e));
+    }
+  };
+
+  const removeBot = async (seatId) => {
+    if (!waiting) return;
+    try {
+      await api(`/matches/${waiting.matchID}/bot/${seatId}`, { method: 'DELETE' });
+      playSfx(SFX.BUTTON);
+      const row = await api(`/matches/${waiting.matchID}`);
+      setSeats(row.seats || []);
+    } catch (e) {
+      setError('Impossible de retirer le Bot: ' + (e.message || e));
+    }
+  };
 
   const create = async () => {
     if (!name.trim() || busy) return;
@@ -104,9 +131,42 @@ export default function OnlineLobbyCustom({ onJoined, onBack }) {
 
         {waiting ? (
           <div className={s.waiting}>
-            <div className={s.kicker}>SEARCHING</div>
+            <div className={s.kicker}>SEARCHING / EN ATTENTE</div>
             <div className={s.codeBox}>{waiting.matchID}</div>
-            <p className={s.hint}>Share this code. The game starts when {waiting.numPlayers || 2} players have joined.</p>
+            <p className={s.hint}>Partagez ce code ou ajoutez un Bot IA pour lancer la partie immédiatement.</p>
+
+            <div className={s.seatsList}>
+              {seats.map((seat, idx) => (
+                <div key={seat.id} className={s.seatRow}>
+                  <span className={s.seatNum}>Siège {idx + 1}</span>
+                  <span className={s.seatName}>
+                    {seat.name ? (seat.isBot ? `🤖 ${seat.name}` : `👤 ${seat.name}`) : '⏳ En attente...'}
+                  </span>
+                  {seat.isBot && (
+                    <button
+                      type="button"
+                      className={s.removeBotBtn}
+                      onClick={() => removeBot(seat.id)}
+                      title="Retirer ce Bot"
+                      aria-label={`Retirer le bot du siège ${idx + 1}`}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {seats.some((seat) => !seat.name && !seat.isBot) && (
+              <button
+                type="button"
+                className={s.addBotBtn}
+                onClick={addBot}
+                aria-label="Ajouter un Bot IA"
+              >
+                + AJOUTER UN BOT IA
+              </button>
+            )}
           </div>
         ) : (
           <div className={s.panel}>

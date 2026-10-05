@@ -4,7 +4,7 @@
 import Router from '@koa/router';
 import koaBody from 'koa-body';
 import { GAME_META } from './reducer.js';
-import { createNewMatch, joinMatchSeat, leaveMatchSeat } from './matches.js';
+import { createNewMatch, joinMatchSeat, leaveMatchSeat, addBotToMatch, removeBotFromMatch } from './matches.js';
 import { listMatches, fetchMatch } from './db.js';
 
 export function lobbyRouter() {
@@ -53,16 +53,34 @@ export function lobbyRouter() {
     };
   });
 
-  // Create a new match (private 1v1 salon, 6-character code).
+  // Create a new match (private 1v1 salon, 6-character code, with optional bots).
   router.post('/matches', async (ctx) => {
     const numPlayers = Number(ctx.request.body.numPlayers) || 2;
+    const botCount = Number(ctx.request.body.botCount) || 0;
     const setupData = { ...(ctx.request.body.setupData || {}), online: true };
     if (numPlayers < GAME_META.minPlayers || numPlayers > GAME_META.maxPlayers) {
       ctx.throw(400, `numPlayers must be ${GAME_META.minPlayers}..${GAME_META.maxPlayers}`);
       return;
     }
-    const { id } = await createNewMatch({ numPlayers, setupData });
+    const { id } = await createNewMatch({ numPlayers, setupData, botCount });
     ctx.body = { matchID: id };
+  });
+
+  // Add an AI bot to an empty seat in an open match.
+  router.post('/matches/:id/bot', async (ctx) => {
+    const id = String(ctx.params.id || '').toUpperCase();
+    const res = await addBotToMatch(id);
+    if (!res.ok) { ctx.throw(400, res.error); return; }
+    ctx.body = res;
+  });
+
+  // Remove an AI bot seat from a match.
+  router.delete('/matches/:id/bot/:seatId', async (ctx) => {
+    const id = String(ctx.params.id || '').toUpperCase();
+    const seatId = Number(ctx.params.seatId);
+    const res = await removeBotFromMatch(id, seatId);
+    if (!res.ok) { ctx.throw(400, res.error); return; }
+    ctx.body = res;
   });
 
   // Join a match (takes a free seat automatically). Code is case-insensitive.

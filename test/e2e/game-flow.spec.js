@@ -97,7 +97,7 @@ test.describe('Boss Monster game flow', () => {
     await overlay.waitFor({ state: 'detached', timeout: 10000 });
 
     // 2. Mute toggle via key M
-    const muteBtn = page.locator('button[aria-label*="son"]');
+    const muteBtn = page.locator('button[class*="muteBtn"]');
     await expect(muteBtn).toBeVisible({ timeout: 5000 });
     const initialLabel = await muteBtn.getAttribute('aria-label');
     await page.keyboard.press('m');

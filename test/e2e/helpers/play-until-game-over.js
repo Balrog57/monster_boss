@@ -27,8 +27,7 @@ export async function playStep(page) {
     const cards = page.locator('[aria-label="Hand"] > div:nth-child(2) > div > [role="button"]');
     for (let i = 0; i < await cards.count(); i++) {
       await cards.nth(i).click({ force: true });
-      if (/setup/i.test(phase)) return;
-      const target = page.locator('button[aria-label="Build new room here"], [class*="mine"] [class*="target"] [role="button"]').first();
+      const target = page.locator('button[aria-label*="Build new room"], [class*="mine"] [class*="target"] [role="button"]').first();
       if (await target.isVisible()) { await target.click({ force: true }); return; }
     }
   }

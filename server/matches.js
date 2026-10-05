@@ -6,7 +6,9 @@
 // State is snapshotted to Postgres via db.js on a debounce timer and on
 // terminal events (game over, abandoned).
 import { nanoid, customAlphabet } from 'nanoid';
-import { setupMatch, applyMove, playerView, GAME_META } from './reducer.js';
+import { setupMatch, applyMove, playerView, GAME_META, pickOpeningDiscardIndices } from './reducer.js';
+import { aiPickMove } from '../src/ai.js';
+import { aiResolveLevelUpChoice } from '../src/roomAbilities.js';
 import {
   createMatch as dbCreateMatch,
   fetchMatch as dbFetchMatch,
@@ -25,10 +27,52 @@ const salonCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 6);
 const TURN_TIMEOUT_MS = Number(process.env.TURN_TIMEOUT_MS || 60000); // default 60s
 
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // Turn timer: auto-pass when the active player's deadline expires.
 // The server is authoritative — checks every 5s.
+// If a human player times out (>60s), AI Bot takes over as fallback!
 // ---------------------------------------------------------------------------
 let timerInterval = null;
+
+export function checkAndRunBotTurn(matchID) {
+  const match = registry.get(matchID);
+  if (!match || match.status === 'finished' || match.G?.gameOver) return;
+
+  const { G, ctx } = match;
+  let pid = ctx?.activePlayer;
+  let move = null;
+
+  if (G.pendingChoice) {
+    pid = G.pendingChoice.playerId;
+    if (!G.players[pid]?.isAI) return;
+    if (G.pendingChoice.type === 'opening-discard') {
+      move = { type: 'openingDiscard', args: pickOpeningDiscardIndices(G.players[pid].hand) };
+    } else {
+      const choiceIdx = aiResolveLevelUpChoice(G, G.pendingChoice);
+      move = { type: 'resolveLevelUpChoice', args: [choiceIdx ?? 0] };
+    }
+  } else if (!G.stack?.length && G.adventure?.pause) {
+    const aiPid = Object.keys(G.players).find(id => G.players[id].isAI && !G.players[id].eliminated && !G.adventurePausePassed?.[id]);
+    if (aiPid == null) return;
+    pid = Number(aiPid);
+    move = { type: 'pass', args: [] };
+  } else {
+    if (!G.players[pid]?.isAI || G.players[pid].eliminated) return;
+    move = aiPickMove(G, ctx, pid);
+  }
+
+  if (move) {
+    setTimeout(() => {
+      const current = registry.get(matchID);
+      if (!current || current.status === 'finished' || current.G?.gameOver) return;
+      const res = submitMove(matchID, pid, move);
+      if (res.ok) {
+        broadcastState(matchID);
+        checkAndRunBotTurn(matchID);
+      }
+    }, 350);
+  }
+}
 
 export function startTurnTimers() {
   if (timerInterval) return;
@@ -39,11 +83,24 @@ export function startTurnTimers() {
       if (!match.turnStartedAt) continue;
       const deadline = match.turnStartedAt + TURN_TIMEOUT_MS;
       if (now < deadline) continue;
-      // Timer expired: auto-pass for the active player (BUILD phase only).
+
       const activePid = match.ctx.activePlayer;
+      const p = match.G.players[activePid];
+
+      // Disconnect / Inactivity Fallback: If human timed out (>60s), AI takes over!
+      if (p && !p.isAI) {
+        p.isAI = true;
+        p.aiTakeover = true;
+        match.G.logs.push(`Joueur ${activePid} n'a pas répondu à temps (>60s) — L'IA prend le relais.`);
+        match.dirty = true;
+        match.turnStartedAt = Date.now();
+        broadcastState(match.id);
+        checkAndRunBotTurn(match.id);
+        continue;
+      }
+
       const phase = (match.G.phase || match.ctx.phase || '').toLowerCase();
       if (phase === 'boss') {
-        const p = match.G.players[activePid];
         if (p && !p.boss) {
           const available = (match.G.bossPicks || []).filter(b =>
             !Object.values(match.G.players).some(pl => pl.boss?.id === b.id)
@@ -58,6 +115,7 @@ export function startTurnTimers() {
               match.turnStartedAt = Date.now();
               match.G.logs.push(`Player ${activePid} ran out of time — auto-picked ${chosen.name}.`);
               broadcastState(match.id);
+              checkAndRunBotTurn(match.id);
               continue;
             }
           }
@@ -72,12 +130,11 @@ export function startTurnTimers() {
           match.turnStartedAt = Date.now();
           match.G.logs.push(`Player ${activePid} ran out of time — auto-pass.`);
           broadcastState(match.id);
+          checkAndRunBotTurn(match.id);
         } else {
-          // Move rejected (e.g. phase advanced) — reset timer.
           match.turnStartedAt = Date.now();
         }
       } else {
-        // Non-build phases auto-advance on the server anyway; reset.
         match.turnStartedAt = Date.now();
       }
     }
@@ -100,7 +157,7 @@ export function hasMatch(id) {
   return registry.has(id);
 }
 
-export async function createNewMatch({ numPlayers, setupData } = {}) {
+export async function createNewMatch({ numPlayers, setupData, botCount = 0 } = {}) {
   let id = salonCode();
   for (let i = 0; i < 8; i++) {
     if (!registry.has(id) && !(await dbFetchMatch(id))) break;
@@ -110,7 +167,19 @@ export async function createNewMatch({ numPlayers, setupData } = {}) {
   await dbCreateMatch({
     id, gameName: GAME_META.name, numPlayers: G.numPlayers, state: G, ctx, setupData
   });
-  registry.set(id, { id, G, ctx, sockets: new Map(), dirty: false, status: 'open' });
+  const match = { id, G, ctx, sockets: new Map(), dirty: false, status: 'open' };
+  registry.set(id, match);
+
+  const botsToAdd = Math.min(Math.max(0, Number(botCount) || 0), numPlayers - 1);
+  for (let b = 0; b < botsToAdd; b++) {
+    const seatId = numPlayers - 1 - b;
+    const cred = nanoid();
+    await dbJoinSeat(id, seatId, { playerName: `Bot ${seatId + 1} (IA)`, credentials: cred, isBot: true });
+    if (match.G.players[seatId]) {
+      match.G.players[seatId].isAI = true;
+    }
+  }
+
   return { id, G, ctx };
 }
 
@@ -123,6 +192,12 @@ export async function loadMatch(id) {
   const G = typeof row.state === 'string' ? JSON.parse(row.state) : row.state;
   const ctx = typeof row.ctx === 'string' ? JSON.parse(row.ctx) : row.ctx;
   const match = { id, G, ctx, sockets: new Map(), dirty: false, status: row.status };
+  // Restore isAI flags from seats
+  for (const s of row.seats || []) {
+    if ((s.isBot || s.is_bot) && match.G.players[s.id]) {
+      match.G.players[s.id].isAI = true;
+    }
+  }
   registry.set(id, match);
   return match;
 }
@@ -143,6 +218,8 @@ export function submitMove(matchID, playerID, move) {
 
   if (match.G.gameOver) {
     match.status = 'finished';
+  } else {
+    checkAndRunBotTurn(matchID);
   }
   return { ok: true };
 }
@@ -169,6 +246,15 @@ export function addSocket(matchID, socket, playerID) {
   if (!match) return false;
   const isReconnect = match.sockets.size > 0;
   match.sockets.set(socket.id, { socket, playerID });
+
+  // If this seat was temporarily controlled by AI takeover, restore human control
+  if (match.G.players[playerID]?.aiTakeover) {
+    match.G.players[playerID].isAI = false;
+    delete match.G.players[playerID].aiTakeover;
+    match.G.logs.push(`Joueur ${playerID} est de retour ! L'IA cède le contrôle.`);
+    match.dirty = true;
+  }
+
   // On (re)join, send the current state immediately.
   const view = playerView(match.G, playerID);
   const deadline = match.turnStartedAt ? match.turnStartedAt + TURN_TIMEOUT_MS : null;
@@ -229,7 +315,85 @@ export async function joinMatchSeat(matchID, playerName) {
   const credentials = nanoid();
   const ok = await dbJoinSeat(row.id, free.id, { playerName, credentials, isBot: false });
   if (!ok) return { ok: false, error: 'seat was taken concurrently' };
+
+  let match = registry.get(row.id);
+  if (!match) match = await loadMatch(row.id);
+
+  // Check if all seats are now filled
+  const updatedRow = await dbFetchMatch(row.id);
+  const filledCount = (updatedRow.seats || []).filter(s => s.name != null).length;
+  if (filledCount >= updatedRow.num_players) {
+    await dbSetMatchStatus(row.id, 'running');
+    if (match) {
+      match.status = 'running';
+      match.turnStartedAt = Date.now();
+      for (const s of updatedRow.seats || []) {
+        if ((s.isBot || s.is_bot) && match.G.players[s.id]) {
+          match.G.players[s.id].isAI = true;
+        }
+      }
+      broadcastState(row.id);
+      checkAndRunBotTurn(row.id);
+    }
+  }
+
   return { ok: true, playerID: free.id, credentials };
+}
+
+export async function addBotToMatch(matchID) {
+  const mid = String(matchID || '').toUpperCase();
+  const row = await dbFetchMatch(mid);
+  if (!row) return { ok: false, error: 'match not found' };
+  if (row.status === 'finished') return { ok: false, error: 'match is finished' };
+  const seats = row.seats || [];
+  const free = seats.find(s => !s.name && !s.isBot);
+  if (!free) return { ok: false, error: 'no empty seat available' };
+
+  const credentials = nanoid();
+  const botName = `Bot ${free.id + 1} (IA)`;
+  const ok = await dbJoinSeat(row.id, free.id, { playerName: botName, credentials, isBot: true });
+  if (!ok) return { ok: false, error: 'failed to join seat' };
+
+  let match = registry.get(mid);
+  if (!match) match = await loadMatch(mid);
+  if (match && match.G.players[free.id]) {
+    match.G.players[free.id].isAI = true;
+  }
+
+  // Check if all seats are now filled
+  const updatedRow = await dbFetchMatch(mid);
+  const filledCount = (updatedRow.seats || []).filter(s => s.name != null).length;
+  if (filledCount >= updatedRow.num_players) {
+    await dbSetMatchStatus(mid, 'running');
+    if (match) {
+      match.status = 'running';
+      match.turnStartedAt = Date.now();
+      for (const s of updatedRow.seats || []) {
+        if ((s.isBot || s.is_bot) && match.G.players[s.id]) {
+          match.G.players[s.id].isAI = true;
+        }
+      }
+      broadcastState(mid);
+      checkAndRunBotTurn(mid);
+    }
+  }
+
+  return { ok: true, playerID: free.id, botName };
+}
+
+export async function removeBotFromMatch(matchID, playerID) {
+  const mid = String(matchID || '').toUpperCase();
+  const row = await dbFetchMatch(mid);
+  if (!row) return { ok: false, error: 'match not found' };
+  const seat = (row.seats || []).find(s => s.id === Number(playerID));
+  if (!seat || !(seat.isBot || seat.is_bot)) return { ok: false, error: 'seat is not a bot' };
+
+  await dbLeaveSeat(mid, Number(playerID));
+  const match = registry.get(mid);
+  if (match && match.G.players[playerID]) {
+    match.G.players[playerID].isAI = false;
+  }
+  return { ok: true };
 }
 
 export async function leaveMatchSeat(matchID, playerID, credentials) {

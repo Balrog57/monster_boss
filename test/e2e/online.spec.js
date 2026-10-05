@@ -88,4 +88,33 @@ test.describe('Online multiplayer', () => {
     await page.reload();
     await expect(page.getByText(/Preparing game|SEARCHING|PLAY BOSS/i).first()).toBeVisible({ timeout: 20000 });
   });
+
+  test('host can add an AI bot to start and play online match against AI', async ({ page }) => {
+    test.setTimeout(60000);
+    await enterMultiplayer(page);
+    await page.locator('#lobby-name').fill('SoloOnline');
+    await page.getByRole('button', { name: /create room/i }).click();
+    await expect(page.getByText(/SEARCHING/i)).toBeVisible({ timeout: 10000 });
+
+    const addBotBtn = page.getByRole('button', { name: /AJOUTER UN BOT IA/i });
+    await expect(addBotBtn).toBeVisible({ timeout: 10000 });
+    await addBotBtn.click();
+
+    // Match immediately starts with 1 human + 1 AI bot!
+    await expect(page.getByText(/Preparing game|PLAY BOSS|boss/i).first()).toBeVisible({ timeout: 30000 });
+    await page.getByRole('button', { name: /^Play / }).click();
+
+    // Opening discard overlay
+    const discard = page.getByRole('dialog', { name: 'Select 2 cards to discard' });
+    await expect(discard).toBeVisible({ timeout: 15000 });
+    const count = await discard.getByRole('button', { name: /^Select / }).count();
+    await discard.getByRole('button', { name: /^Select / }).nth(count - 1).click();
+    await discard.getByRole('button', { name: /^Select / }).nth(count - 2).click();
+    await discard.getByRole('button', { name: 'Continue' }).click();
+    await expect(discard).toBeHidden({ timeout: 10000 });
+
+    // In-game board appears with AI opponent listed
+    await expect(page.locator('[aria-label="Hand"]')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('status', { name: /Phase /i })).toBeVisible({ timeout: 10000 });
+  });
 });
