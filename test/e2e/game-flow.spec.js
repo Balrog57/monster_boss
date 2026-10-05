@@ -31,6 +31,25 @@ test.describe('Boss Monster game flow', () => {
     await expect(page.getByText(/PLAY BOSS|HOW MANY|boss/i).first()).toBeVisible({ timeout: 15000 });
   });
 
+  test('player can toggle expansion packs in solo setup before launching game', async ({ page }) => {
+    await tapToStart(page);
+    await page.getByText(/single player|solo/i).first().click();
+    await expect(page.getByText('HOW MANY PLAYERS?')).toBeVisible();
+
+    // Expansion packs section is visible
+    await expect(page.getByText('EXTENSIONS DISPONIBLES')).toBeVisible();
+
+    // Toggle The Next Level pack
+    const tnlPack = page.getByRole('button', { name: /THE NEXT LEVEL/i });
+    await expect(tnlPack).toBeVisible();
+    await tnlPack.click();
+    await expect(tnlPack.getByText('✓ ACTIF')).toBeVisible();
+
+    // Start game
+    await page.locator('.ok, button[aria-label="OK"]').first().click();
+    await expect(page.getByText(/PLAY BOSS|boss/i).first()).toBeVisible({ timeout: 15000 });
+  });
+
   test('supports drag-and-drop room build and Escape key deselect', async ({ page }) => {
     await tapToStart(page);
     await page.getByText(/single player|solo/i).first().click();

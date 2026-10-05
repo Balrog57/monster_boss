@@ -145,12 +145,12 @@ export function totalWounds(p) {
 // `expansions == null` means "all packs" (online default / tests).
 // `expansions === []` is base set only — Hidden Heroes is not injected.
 export const EXPANSION_PACKS = [
-  { id: 'hidden-heroes', label: 'HIDDEN HEROES', cover: '/ui/expansions/hh_cover_unlocked.webp' },
-  { id: 'tools', label: 'TOOLS OF HERO-KIND', cover: '/ui/expansions/thk_cover_unlocked.webp' },
-  { id: 'players-choice', label: "PLAYER'S CHOICE", cover: '/ui/expansions/pc_cover_unlocked.webp' },
-  { id: 'next-level', label: 'THE NEXT LEVEL', cover: '/ui/expansions/tnl_cover_unlocked.webp' },
-  { id: 'minibosses', label: 'RISE OF THE MINIBOSSES', cover: '/ui/expansions/rmb_cover_unlocked.webp' },
-  { id: 'crash-landing', label: 'CRASH LANDING', cover: '/ui/expansions/crl_cover_unlocked.webp' },
+  { id: 'hidden-heroes', label: 'HIDDEN HEROES', tag: '41 HÉROS', cover: '/ui/expansions/hh_cover_unlocked.webp' },
+  { id: 'tools', label: 'TOOLS OF HERO-KIND', tag: '25 OBJETS', cover: '/ui/expansions/thk_cover_unlocked.webp' },
+  { id: 'players-choice', label: "PLAYER'S CHOICE", tag: '11 PROMOS', cover: '/ui/expansions/pc_cover_unlocked.webp' },
+  { id: 'next-level', label: 'THE NEXT LEVEL', tag: '115 CARTES', cover: '/ui/expansions/fg_cover_unlocked.webp' },
+  { id: 'minibosses', label: 'RISE OF THE MINIBOSSES', tag: '121 CARTES & OR', cover: '/ui/expansions/pp_cover_unlocked.webp' },
+  { id: 'crash-landing', label: 'CRASH LANDING', tag: '33 ALIENS (5-6J)', cover: '/ui/expansions/le_cover_unlocked.webp' },
 ];
 
 export function allowedCardSets(expansions) {
