@@ -29,6 +29,15 @@
   box-shadow: 0 0 8px rgba(241,225,124,0.5), 2px 2px 0px rgba(0,0,0,0.5);
   transform: translateY(-8px);
 }
+.selected .inner::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: url('/ui/ingame/card_border_yellow_glow.webp') center/100% 100% no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+  z-index: 4;
+}
 
 .img {
   width: 100%;

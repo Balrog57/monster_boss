@@ -28,30 +28,44 @@
   top: 48%;
   transform: translate(-50%, -50%);
   display: flex;
-  align-items: flex-end;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
 }
 .slot {
+  position: relative;
   border: none;
   background: none;
   padding: 0;
   cursor: pointer;
+  transition: transform 0.15s ease;
 }
-.slot.on { filter: brightness(1.12); }
+.slot:hover {
+  transform: translateY(-4px);
+}
+.slot.on {
+  transform: translateY(-8px);
+}
 .continue {
-  margin-left: 12px;
+  margin-left: 16px;
   align-self: center;
-  min-width: 140px;
-  height: 72px;
-  padding: 0 16px;
-  border: 3px solid #e8c44a;
-  background: #1a1410;
-  color: #f1e17c;
-  font-family: var(--bm-font-display);
-  font-size: 16px;
-  letter-spacing: 1px;
+  width: 90px;
+  height: 118px;
+  border: none;
+  background: url('/ui/ingame/continue_button.webp') center/contain no-repeat;
+  image-rendering: pixelated;
   cursor: pointer;
-  text-shadow: 2px 2px 0 #000;
+  padding: 0;
+  transition: transform 0.1s ease, filter 0.15s ease;
 }
-.continue:disabled { opacity: 0.35; cursor: default; }
-.continue:not(:disabled):active { transform: translateY(2px); }
+.continue:disabled {
+  opacity: 0.35;
+  cursor: default;
+  filter: grayscale(0.6);
+}
+.continue:not(:disabled):hover {
+  filter: drop-shadow(0 0 8px rgba(241, 225, 124, 0.85));
+}
+.continue:not(:disabled):active {
+  background-image: url('/ui/ingame/continue_button_pressed.webp');
+  transform: translateY(2px);
+}

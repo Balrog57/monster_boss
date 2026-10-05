@@ -44,9 +44,7 @@ export default function OpeningDiscardOverlay({ hand, onConfirm, onHover }) {
           disabled={picked.length !== 2}
           onClick={() => picked.length === 2 && onConfirm(picked[0], picked[1])}
           aria-label="Continue"
-        >
-          CONTINUE
-        </button>
+        />
       </div>
     </div>
   );

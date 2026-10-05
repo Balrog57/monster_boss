@@ -1,0 +1,668 @@
+=== PAGE 10 ===
+Set Up
+Step 1: Prepare the Hero Decks
+The number of players determines the number of Hero cards 
+that should be used in a game:
+Two Players: 13 Heroes, 8 Epic Heroes
+Three Players: 17 Heroes, 12 Epic Heroes
+Four Players: 25 Heroes, 16 Epic Heroes
+The Hero Deck is made by placing the shuffled Hero cards 
+(A) on top and the shuffled Epic Hero Cards (B) on the 
+bottom of the deck. If you are playing a two-player game, 
+remove all cards with the “Three Player” or “Four Player” 
+icons. If you are playing a three-player game, just remove the 
+“Four Player” Heroes. 
+Step 2: Initial Set Up
+Shuffle the Boss deck and randomly deal 2 Boss cards to 
+each player. Players select one Boss to play and set aside 
+the other. Players reveal their Boss cards and place them to 
+the right of their play area (C). All Room cards will be “built” 
+to the left of the Boss card (D), while acquired Souls will 
+be placed to the right (E) and wounds will be tucked under 
+the player’s boss card (F). Set up the Hero, Epic Hero, 
+Dungeon and Spell decks as shown on Page 11.
+Step 3: Starting Hand
+Each player draws 5 Room cards (G) and 2 Spell cards (H). 
+Mulligan: If you draw four Advanced Rooms or four of one 
+treasure type, you may shuffle your entire hand back into 
+the decks and draw a new hand.
+Step 4: Build Your First Room
+Before the first turn begins, each player can build one 
+Room. To “build” a Room card, place it face-down on 
+the table to the left of your Boss card. The highest-XP 
+player goes first, then each other player places a face-
+down Room. Once all players have placed their cards, 
+simultaneously reveal the newly built Rooms. In XP order, 
+resolve any “when you build this” effects.
+At this point, Set Up is complete and the first turn begins.
+For a more challenging game, try the “Classic Mode” 
+Play Variant (see Page 20).
+10
+
+
+=== PAGE 11 ===
+Game Set Up Example
+E
+A
+b
+F
+E
+C
+G
+H
+11
+
+
+=== PAGE 12 ===
+Sequence of Play
+After the initial Set Up, each turn in Boss Monster consists of five phases (each discussed in detail on the following pages):
+1.	 Beginning of Turn: Reveal Heroes in town (one Hero per 
+player in the game), then each player draws a card from 
+the Room Deck.
+2.	Build Phase: Each player may build one Room. Players 
+take turns in XP order, highest to lowest, placing their 
+Room cards face down. At the end of the Build phase, 
+newly built Rooms are revealed simultaneously and any 
+“When you build this Room” abilities are resolved in XP 
+order. (No Spells or other abilities may be played during 
+the reveal, nor in the following Bait Phase.)
+3.	Bait Phase: Heroes move to the entrance of the dungeon 
+with the highest corresponding treasure value (or stay in 
+town, if treasure values are tied).
+4.	Adventure Phase: Heroes travel through dungeons. In 
+XP order, each player takes a turn as the active player, 
+“processing” all Heroes at their dungeon entrance and 
+acquiring Souls or Wounds.
+5.	End of Turn: The turn ends and a new turn begins.
+There are two key concepts that influence the Sequence of 
+Play:
+XP Value: Each Boss has an XP value that determines turn 
+order during the Build and Adventure phases. During each 
+phase, the Boss with the highest XP will go first, followed by 
+each other Boss in descending XP order. During the Build 
+phase, this means the boss with the highest XP value will 
+place their face down Room card first, followed by the other 
+Bosses in order. During the Adventure phase, this means 
+the Boss with the highest XP will be the first to process the 
+Heroes at their dungeon entrance through their dungeon.
+Active Player: The Active Player is the one currently 
+building a room or “processing” heroes during the 
+Adventure phase.
+12
+
+
+=== PAGE 13 ===
+Cards being built are always played face-
+down during the Build phase. This keeps your 
+opponents guessing what treasure type you 
+might be adding to your treasure count.
+Begin Turn & Build Phase
+During the Beginning of Turn phase, the following occurs:
+•	 Heroes appear in town: Flip over one Hero card for each 
+player in the game. In general, all ordinary Heroes must be 
+revealed before an Epic Hero is revealed.
+•	 Each player draws a card: Each player draws one 
+Room card.
+Spell cards, Room cards, and activated abilities cannot be used 
+during the Beginning of Turn phase. 
+Once each player has drawn a card, the Build phase begins.
+During the Build phase, players take turns in descending XP 
+order placing Rooms face-down in their dungeon. You must 
+specify where the Room is to be placed. A Room can be placed 
+in one of two locations:
+•	 To the left of your leftmost card. During Set Up, place 
+your first Room to the left of your Boss card. Afterwards, 
+build additional new Rooms to the left of any already built 
+Rooms. Note your dungeon has slots for five Rooms.
+•	 On top of an existing Room card. Ordinary Rooms can be 
+built on top of any Room. Advanced Rooms can only be built 
+on top of a Room with at least one matching treasure icon. 
+You may choose not to play a Room, but you cannot 
+change your choice once you are no longer the 
+“active player.”
+13
+
+
+=== PAGE 14 ===
+During the Build phase, you may use card abilities and play 
+Spells marked with the Build (
+ and 
+) icon. 
+Once each player has had the chance to place a Room, 
+during the “end of the Build phase,” players simultaneously 
+flip over and reveal their Room cards. These Rooms are now 
+considered “built.” Any “Level Up” and “when you build this 
+Room” abilities take effect for the highest XP player, followed 
+by lower-XP players. (No Spells or other abilities may be 
+played during the reveal, nor in the following Bait Phase.)
+PRO TIP: BUILDING OVER
+Keep an eye on your treasure types as you’re building 
+Rooms, because they will limit the Advanced Rooms you’re 
+allowed to play. Multi-treasure Rooms (with gold borders) 
+tend to be low-damage, but they give your dungeon 
+versatility. 
+Also keep in mind that ordinary Rooms can always be built 
+over any Room, regardless of treasure type!
+Where can we build 
+Dracolich Lair?
+It matches the Cleric 
+treasure in Dark Altar.
+It matches one of the treasures 
+in Torture Chamber.
+Golem Factory contains 
+no Cleric treasure.
+HERE!
+HERE!
+NOT HERE!
+Build Phase, CONT’D
+14
+
+
+=== PAGE 15 ===
+During the Bait phase, players have the chance to lure 
+Heroes to their dungeons. Take the following steps:
+1.	Compare Treasure Values: Count the amount of treasure 
+icons in each dungeon corresponding to each Hero in 
+town. Add any modifiers from Room abilities or Spells.
+2.	Lure: For each Hero, the dungeon with the  highest 
+relevant treasure value lures in that Hero. The Hero moves 
+to that dungeon’s entrance. (Place the Hero beside the 
+leftmost Room in that dungeon.) 
+3.	Tie: If no player has treasure of that Hero’s type, or if all 
+players are tied, the Hero stays in town until the next turn.
+Spell cards and Room abilities cannot be played during the 
+Bait phase.
+If multiple Heroes move to a player’s dungeon, they arrive in 
+the order that they were revealed from the Hero deck. Once 
+all Heroes are accounted for, the Adventure phase begins.
+THese Types of treasure…
+…attract these types of heroes
+PRO TIP: BOTTLENECKED HEROES
+If no player has the highest treasure value for a given 
+Hero, either because all players have zero or all players 
+are tied, that Hero stays in town. On the next turn, new 
+Heroes arrive as normal. If a tie is not broken, Heroes 
+can really start to stack up in town! When the tie is 
+broken, all relevant Heroes go to the “winning” dungeon, 
+which means the stakes just keep getting higher.
+Bait Phase
+BMR075
+BMR075
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+With a bent blade and a clenched fist, he 
+gathers shining treasures for the glory of the 
+Keonish Empire.
+Lance Uppercut, Treasure Hunter
+BMR075
+BMR075
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+With a bent blade and a clenched fist, he 
+gathers shining treasures for the glory of the 
+Keonish Empire.
+Lance Uppercut, Treasure Hunter
+BMR075
+BMR075
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+With a bent blade and a clenched fist, he 
+gathers shining treasures for the glory of the 
+Keonish Empire.
+Lance Uppercut, Treasure Hunter
+BMR075
+BMR075
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+With a bent blade and a clenched fist, he 
+gathers shining treasures for the glory of the 
+Keonish Empire.
+Lance Uppercut, Treasure Hunter
+BMR075
+BMR075
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+With a bent blade and a clenched fist, he 
+gathers shining treasures for the glory of the 
+Keonish Empire.
+Lance Uppercut, Treasure Hunter
+BMR075
+BMR075
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+With a bent blade and a clenched fist, he 
+gathers shining treasures for the glory of the 
+Keonish Empire.
+Lance Uppercut, Treasure Hunter
+BMR075
+BMR075
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+With a bent blade and a clenched fist, he 
+gathers shining treasures for the glory of the 
+Keonish Empire.
+Lance Uppercut, Treasure Hunter
+BMR075
+BMR075
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+With a bent blade and a clenched fist, he 
+gathers shining treasures for the glory of the 
+Keonish Empire.
+Lance Uppercut, Treasure Hunter
+BMR062
+BMR062
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+Boden’s courage is matched only by
+his forgetfulness. The quest to find
+his misplaced armor continues!
+Boden the Pantless
+BMR062
+BMR062
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+Boden’s courage is matched only by
+his forgetfulness. The quest to find
+his misplaced armor continues!
+Boden the Pantless
+BMR062
+BMR062
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+Boden’s courage is matched only by
+his forgetfulness. The quest to find
+his misplaced armor continues!
+Boden the Pantless
+BMR062
+BMR062
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+Boden’s courage is matched only by
+his forgetfulness. The quest to find
+his misplaced armor continues!
+Boden the Pantless
+BMR062
+BMR062
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+Boden’s courage is matched only by
+his forgetfulness. The quest to find
+his misplaced armor continues!
+Boden the Pantless
+BMR062
+BMR062
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+Boden’s courage is matched only by
+his forgetfulness. The quest to find
+his misplaced armor continues!
+Boden the Pantless
+BMR062
+BMR062
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+Boden’s courage is matched only by
+his forgetfulness. The quest to find
+his misplaced armor continues!
+Boden the Pantless
+BMR062
+BMR062
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+Boden’s courage is matched only by
+his forgetfulness. The quest to find
+his misplaced armor continues!
+Boden the Pantless
+BMR056
+BMR056
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+The young cleric was well-armed, and brave
+enough to take on the Dragon King himself.
+His credo: “I bash it with my mace.”
+Nick the Masher
+BMR056
+BMR056
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+The young cleric was well-armed, and brave
+enough to take on the Dragon King himself.
+His credo: “I bash it with my mace.”
+Nick the Masher
+BMR056
+BMR056
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+The young cleric was well-armed, and brave
+enough to take on the Dragon King himself.
+His credo: “I bash it with my mace.”
+Nick the Masher
+BMR056
+BMR056
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+The young cleric was well-armed, and brave
+enough to take on the Dragon King himself.
+His credo: “I bash it with my mace.”
+Nick the Masher
+BMR056
+BMR056
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+The young cleric was well-armed, and brave
+enough to take on the Dragon King himself.
+His credo: “I bash it with my mace.”
+Nick the Masher
+BMR056
+BMR056
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+The young cleric was well-armed, and brave
+enough to take on the Dragon King himself.
+His credo: “I bash it with my mace.”
+Nick the Masher
+BMR056
+BMR056
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+The young cleric was well-armed, and brave
+enough to take on the Dragon King himself.
+His credo: “I bash it with my mace.”
+Nick the Masher
+BMR056
+BMR056
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+The young cleric was well-armed, and brave
+enough to take on the Dragon King himself.
+His credo: “I bash it with my mace.”
+Nick the Masher
+	
+            	Holy Symbol	 Tome	
+Sword	
+Money Bag
+	
+Clerics	
+Mages	
+Fighters	
+Thieves
+BMR068
+BMR068
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+Armed with his trusty bubble, Tieg braves
+dangerous castles and dungeons in search of
+the musical instruments stolen from his people.
+Tieg and the Magic Bubble
+BMR068
+BMR068
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+Armed with his trusty bubble, Tieg braves
+dangerous castles and dungeons in search of
+the musical instruments stolen from his people.
+Tieg and the Magic Bubble
+BMR068
+BMR068
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+Armed with his trusty bubble, Tieg braves
+dangerous castles and dungeons in search of
+the musical instruments stolen from his people.
+Tieg and the Magic Bubble
+BMR068
+BMR068
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+Armed with his trusty bubble, Tieg braves
+dangerous castles and dungeons in search of
+the musical instruments stolen from his people.
+Tieg and the Magic Bubble
+BMR068
+BMR068
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+Armed with his trusty bubble, Tieg braves
+dangerous castles and dungeons in search of
+the musical instruments stolen from his people.
+Tieg and the Magic Bubble
+BMR068
+BMR068
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+Armed with his trusty bubble, Tieg braves
+dangerous castles and dungeons in search of
+the musical instruments stolen from his people.
+Tieg and the Magic Bubble
+BMR068
+BMR068
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+Armed with his trusty bubble, Tieg braves
+dangerous castles and dungeons in search of
+the musical instruments stolen from his people.
+Tieg and the Magic Bubble
+BMR068
+BMR068
+©2022 Brotherwise Games, LLC
+©2022 Brotherwise Games, LLC
+Armed with his trusty bubble, Tieg braves
+dangerous castles and dungeons in search of
+the musical instruments stolen from his people.
+Tieg and the Magic Bubble
+15
+
+
+=== PAGE 16 ===
+Bait Phase, CONT’D
+Here we see a snapshot of the play area for a two-player 
+game, focused on the ordinary Hero deck and the players’ 
+dungeons (for a full game layout, see page 11). As this turn’s 
+Bait phase begins, there are three Heroes in town.
+Player 1’s dungeon (above) contains these treasures:
+	
+	
+x1 Cleric	
+x2 Mage	 x1 Fighter	
+x1 Thief
+Player 2’s dungeon (below) contains these treasures:
+	
+	
+x3 Cleric	
+x0 Mage	 x1 Fighter	
+x1 Thief
+The Mage is lured to Player 1, the Cleric is lured to Player 2, 
+and the Thief stays in town. Next turn, two new Heroes will 
+arrive in town, and the situation may change as new Rooms 
+are built.
+16
+
+
+=== PAGE 17 ===
+Adventure Phase
+•	 Heroes Enter: One at a time, starting with the first Hero 
+to arrive at an entrance to a player’s dungeon, each 
+Hero moves through that player’s dungeon.
+•	 Rooms Deal Damage: As the Hero enters each Room, 
+any Room ability takes effect, then the Room deals its 
+damage.
+•	 Spells and Abilities: In each Room, after damage is 
+dealt, players may activate the Room’s special abilities 
+and/or play Spells marked with the Adventure (
+) icon 
+or Both (
+) icon.
+•	 Death: If a Hero exits a Room with damage equal to or 
+exceeding its Health, it dies. Move that Hero to your 
+scorekeeping area and place it face-down, adding its 
+Soul value to your total.
+•	 Survival: If you are not able to sufficiently damage the 
+Hero (or kill it by other means) before it reaches your 
+Boss, place it face-up under your Boss card with the 
+Wound icon showing,
+All killed or surviving Heroes are placed in the player’s 
+scorekeeping area. Once all Heroes are proccessed,  the 
+player with the next highest XP resolves their Adventure 
+phase.
+During the Adventure phase, Heroes “attack” dungeons, and players take turns contending with them. Players with Heroes at 
+their dungeon entrances take turns as the active player (highest XP going first), following these steps:
+PRO TIP: TRACKING HEROES
+Sometimes, Hero sequence can be important. Heroes 
+obey a “first in, first out” rule. To keep track of this, place 
+each newly revealed Hero to the side of the deck. The 
+closest to the deck should always be the one that has 
+been in play longest. Once that Hero heads to a dungeon, 
+slide the newer cards toward the deck to take its place. 
+Remember, new Heroes continue to arrive in town at the 
+beginning of each turn!
+17
+
+
+=== PAGE 18 ===
+Adventure Phase, CONT’D
+It’s Draculord’s first Adventure phase, and he’s processing 
+Heroes through his dungeon. He’s only got two Rooms built at 
+this point in the game, so it could be challenging.
+1: Draculord (A) is the only Boss with 
+icons, so he draws 
+the 6 health Cleric (B) who’s come into town. The Cleric 
+takes 3 damage from his Neanderthal Cave (C), and then 
+enters his Bottomless Pit (D). If he does nothing, the Hero 
+will survive the Pit with 2 health remaining and deliver a 
+Wound to Draculord.
+2: Draculord decides to play the Annihilator spell (E) on the 
+Bottomless Pit, raising the Room’s damage to 4, more than 
+enough to kill the Cleric.
+3: But his opponent reacts by casting an Assassin spell (F) 
+on the Cleric, raising its total health to 9. Now even with the 
+Annihilator, Draculord’s dungeon isn’t doing enough damage 
+to kill the Cleric.
+4: Faced with a certain Wound coming his way, Draculord 
+takes the drastic step of using the Bottomless Pit’s ability. 
+He destroys the Room (removing it from play and sliding his 
+Neanderthal Cave to the right to fill in the open space) and 
+instantly kills the Cleric, getting its Soul.
+A
+C
+D
+E
+F
+b
+18
+
+
+=== PAGE 19 ===
+End of Turn & End of Game
+Once all players have had a chance to be the active player 
+during the Adventure phase, the turn ends. At the end of 
+the turn, any “until end of turn” effects are resolved. Any 
+deactivated Rooms are turned upright.
+In the event that a Hero takes damage during the 
+Adventure Phase but is returned to town or the entrance of 
+a dungeon by a card ability, damage to that Hero does not 
+carry over to subsequent turns. 
+Spell cards and activated abilities cannot be used during 
+the End of Turn phase.
+The game does not end until a full turn is complete and 
+every eligible player has had a chance to resolve an 
+Adventure phase. Once every player has had a chance to 
+act, determine the following.
+•	 If any player ends the turn with 10 or more Souls, the 
+game is over.
+•	 If any player ends the turn with 5 or more Wounds, the 
+game is over.
+•	 Each player calculates their total Souls minus their total 
+Wounds. The player with the highest result wins the 
+game.
+•	 In the event of a tie, the player with the highest XP wins.
+Now shuffle the decks, deal out some new Boss cards, and 
+play again!
+PRO TIP: GAME DIFFICULTY
+Want to adjust the difficulty of the game? Try Hard 
+Mode: Remove all ordinary Heroes with a Health value 
+of four. This makes it difficult to avoid a Wound in early 
+turns, and brings Epic Heroes into play a turn earlier. Or 
+take it down a notch with Machinations: At the end of 
+turn, if a player did not gain a Soul this turn, that player 
+may draw one card from the Room or Spell Deck.
+19
+
+
+=== PAGE 20 ===
+Activated Ability: An activated ability is any effect that 
+requires the player to declare its use or pay a cost (for 
+example, “destroy this Room” abilities are activated 
+abilities). They can be used whenever you could play a 
+Spell.  Ongoing abilities and “When you build this Room” 
+abilities are not considered activated abilities.
+Build: Abilities that say “When you build this Room” 
+trigger when a Room is built, not if it is revealed for other 
+reasons. You may build one Room per turn, you may not 
+rearrange Rooms in your dungeon when building (unless a 
+card states otherwise), you may not build over face-down 
+Rooms, and you may only build a maximum of five visible 
+Rooms in your dungeon.
+Cancel: Any Spell or ability that allows you to “cancel” a 
+Spell allows you to interrupt a declared spell. A canceled 
+spell is not cast and must be placed in the discard pile. 
+A Spell may also be canceled if its target is destroyed 
+(or otherwise rendered moot) by a higher-priority effect. 
+Once the target for a Spell has been declared, it cannot be 
+changed. 
+ 
+GLOSSARY
+NEED MORE INFO?
+For a full FAQ and Advanced Rules, visit  
+brotherwisegames.com/bossmonster
+PLAY VARIANT 
+Classic Mode: During Setup, each player draws five 
+Room cards and two Spell cards, then discards two 
+cards of their choice.
+20
+
+
+=== PAGE 21 ===
+Damage: Rooms deal damage (marked in the lower 
+left-hand corner of each room as a number in an empty 
+heart nohp} ). Damage equal to a Hero’s Health kills that Hero.
+Deactivate: Other Boss Monster sets include effects that 
+“deactivate” a room, turning it sideways until the end of 
+the turn. This does not reveal any Room cards beneath 
+it. Ignore any damage, treasure, and abilities usually 
+associated with the Room while it is turned sideways. 
+Effects that trigger off the number of Rooms in your 
+dungeon do not count it as a Room while it is deactivated. 
+Rooms cannot be built over deactivated cards, and a 
+deactivated Room cannot be destroyed. Treat it as a 
+“blank” space in the dungeon, so cards on either side are 
+not adjacent to one another. At the end of the turn, it is 
+reactivated. 
+Dead: Heroes can be killed by damage, Spells, or Room 
+effects. Any Hero that does not survive a dungeon 
+is considered “dead” and is placed in that player’s 
+scorekeeping area face-down. The Room in which a Hero is 
+reduced to zero Health is the Room in which it “dies.” 
+Destroy: A Room that is “destroyed” is sent to the discard 
+pile from play. If there is a Room under that Room, it is 
+uncovered. If this creates a “hole” in the dungeon, all the 
+cards slide to the right (toward your Boss) to close any 
+gaps. You may only destroy a Room if a card specifically 
+allows you to do so.
+Discard: A card is “discarded” if a player must remove it 
+from his hand and place it in the discard pile. By default, 
+an effect that forces a player to discard a card allows the 
+player to choose which card is discarded. When a card says 
+“discard a card at random,” an opponent randomly chooses.
+Entrance: The “entrance” to your dungeon is the area to 
+the left of your leftmost Room. At the beginning of the 
+Adventure phase, Heroes enter dungeons in the order that 
+they arrived.
+Face-Down: Cards are played face-down in order to 
+conceal information. Rooms are played face-down during 
+the Build phase before being revealed at the end of the 
+Build phase. Additional Rooms cannot be built over face-
+down cards, and they cannot be destroyed.
+21
+
+

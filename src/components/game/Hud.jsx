@@ -5,9 +5,11 @@ import s from './Hud.module.css';
 
 const PHASE_IMAGES = {
   [PHASE.SETUP]: '/ui/ingame/build_phase.webp',
+  [PHASE.BEGINNING]: '/ui/ingame/build_phase.webp',
   [PHASE.BUILD]: '/ui/ingame/build_phase.webp',
   [PHASE.BAIT]: '/ui/ingame/bait_phase.webp',
   [PHASE.ADVENTURE]: '/ui/ingame/adventure_phase.webp',
+  [PHASE.END]: '/ui/ingame/adventure_phase.webp',
 };
 
 function useCountdown(deadline) {

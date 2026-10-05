@@ -27,9 +27,10 @@
   gap: 0;
 }
 .phaseImg {
-  height: 52px;
+  height: 64px;
   width: auto;
   image-rendering: pixelated;
+  object-fit: contain;
 }
 .yourTurn {
   font-family: var(--bm-font-display);

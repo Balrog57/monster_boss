@@ -41,15 +41,33 @@
   color: #fff;
 }
 .metaItem {
-  min-width: 36px;
-  height: 36px;
-  display: flex;
+  min-width: 66px;
+  height: 28px;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-end;
+  padding-right: 12px;
   background: url('/ui/ingame/total_damage.webp') center/contain no-repeat;
   image-rendering: pixelated;
+  font-family: var(--bm-font-display);
+  font-size: 15px;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
 }
-.metaXp { color: #f1e17c; }
+.metaXp {
+  min-width: 88px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: url('/ui/ingame/bg_position_exp.webp') center/contain no-repeat;
+  image-rendering: pixelated;
+  font-family: var(--bm-font-display);
+  font-size: 13px;
+  color: #f1e17c;
+  text-shadow: 1px 1px 0 #000;
+  padding: 0 8px;
+}
 .metaLv {
   width: 28px;
   height: 28px;
@@ -94,7 +112,21 @@
 .emptyValid {
   opacity: 1;
   cursor: pointer;
-  filter: drop-shadow(0 0 8px rgba(241, 225, 124, 0.85));
+  position: relative;
+}
+.emptyValid::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  background: url('/ui/ingame/card_border_yellow_glow.webp') center/100% 100% no-repeat;
+  image-rendering: pixelated;
+  pointer-events: none;
+  z-index: 2;
+  animation: bm-slot-glow 1.2s ease-in-out infinite alternate;
+}
+@keyframes bm-slot-glow {
+  0% { filter: drop-shadow(0 0 2px rgba(241, 225, 124, 0.4)); opacity: 0.8; }
+  100% { filter: drop-shadow(0 0 8px rgba(241, 225, 124, 0.95)); opacity: 1; }
 }
 .source { outline: 3px solid #f1e17c; outline-offset: 2px; }
 .target { cursor: crosshair; }
@@ -118,6 +150,33 @@
 }
 .heroes > * { margin-left: -28px; }
 .heroes > *:first-child { margin-left: 0; }
+.heroWrap {
+  position: relative;
+  display: inline-block;
+}
+.heroHpBadge {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 32px;
+  background: url('/ui/ingame/health_hero_icon.webp') center/contain no-repeat;
+  image-rendering: pixelated;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  pointer-events: none;
+}
+.heroHpText {
+  font-family: var(--bm-font-display);
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 1px 1px 0 #000;
+  margin-bottom: 2px;
+}
 .activateBtn {
   position: absolute;
   bottom: -6px;

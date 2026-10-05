@@ -185,14 +185,20 @@ export default function DungeonTrack({
                 {showHeroes && (
                   <div className={s.heroes} aria-label="Heroes at entrance">
                     {(inThisDungeon && adventure.hero ? [adventure.hero] : entranceHeroes).slice(0, 3).map((h, hi) => (
-                      <Card
-                        key={`ent-${h.id}-${hi}`}
-                        card={h}
-                        kind={h.epic ? 'epic-hero' : 'hero'}
-                        size="xs"
-                        onInspect={onInspect}
-                        onHover={onHover}
-                      />
+                      <div key={`ent-${h.id}-${hi}`} className={s.heroWrap}>
+                        {inThisDungeon && adventure.hp != null && (
+                          <div className={s.heroHpBadge} title={`Hero Health: ${adventure.hp}`}>
+                            <span className={s.heroHpText}>{adventure.hp}</span>
+                          </div>
+                        )}
+                        <Card
+                          card={h}
+                          kind={h.epic ? 'epic-hero' : 'hero'}
+                          size="xs"
+                          onInspect={onInspect}
+                          onHover={onHover}
+                        />
+                      </div>
                     ))}
                   </div>
                 )}
