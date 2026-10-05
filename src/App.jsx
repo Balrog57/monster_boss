@@ -19,6 +19,7 @@ export default function App() {
   const [expansions, setExpansions] = useState([]);
   const [humanCount, setHumanCount] = useState(1);
   const [match, setMatch] = useState(null);
+  const [initialJoinCode, setInitialJoinCode] = useState('');
 
   const goMenu = () => {
     stopMusic();
@@ -30,6 +31,14 @@ export default function App() {
 
   useEffect(() => {
     try {
+      const params = new URLSearchParams(window.location.search);
+      const joinParam = params.get('join') || params.get('match') || params.get('code');
+      if (joinParam) {
+        setInitialJoinCode(joinParam.trim().toUpperCase());
+        setScreen(LOBBY);
+        return;
+      }
+
       const raw = localStorage.getItem('bm_online_session');
       if (raw) {
         const saved = JSON.parse(raw);
@@ -66,6 +75,7 @@ export default function App() {
 
       {screen === LOBBY && (
         <OnlineLobbyCustom
+          initialCode={initialJoinCode}
           onJoined={(m) => { setMatch(m); setScreen(GAME); }}
           onBack={() => { setMenuView('root'); setScreen(MENU); }}
         />

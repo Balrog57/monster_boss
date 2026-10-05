@@ -117,4 +117,69 @@ test.describe('Online multiplayer', () => {
     await expect(page.locator('[aria-label="Hand"]')).toBeVisible({ timeout: 15000 });
     await expect(page.getByRole('status', { name: /Phase /i })).toBeVisible({ timeout: 10000 });
   });
+
+  test('host can toggle expansion packs and copy invite share link in waiting room', async ({ browser }) => {
+    const context = await browser.newContext();
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    const page = await context.newPage();
+
+    await enterMultiplayer(page);
+    await page.locator('#lobby-name').fill('PackHost');
+
+    // Toggle The Next Level pack
+    const tnlChip = page.getByRole('button', { name: /THE NEXT LEVEL/i });
+    await expect(tnlChip).toBeVisible();
+    await tnlChip.click();
+
+    // Create room
+    await page.getByRole('button', { name: /create room/i }).click();
+    await expect(page.locator('[class*="codeBox"]')).toBeVisible({ timeout: 10000 });
+
+    // Verify packs displayed in waiting room
+    await expect(page.getByText(/THE NEXT LEVEL/i)).toBeVisible();
+
+    // Copy share link button exists and triggers feedback
+    const copyBtn = page.getByRole('button', { name: /COPIER LE LIEN D'INVITATION/i });
+    await expect(copyBtn).toBeVisible();
+    await copyBtn.click();
+    await expect(page.getByText(/LIEN COPIÉ/i)).toBeVisible();
+
+    await context.close();
+  });
+
+  test('direct invite link url query ?join=CODE pre-fills code and allows quick join', async ({ page }) => {
+    await page.goto('/?join=TEST99');
+    // Opens directly on multiplayer lobby screen with CODE pre-filled
+    await expect(page.locator('#lobby-code')).toHaveValue('TEST99', { timeout: 10000 });
+  });
+
+  test('public matches list displays open lobbies with 1-click join', async ({ browser }) => {
+    const host = await browser.newPage();
+    const guest = await browser.newPage();
+
+    await enterMultiplayer(host);
+    await host.locator('#lobby-name').fill('PublicHost');
+    await host.getByRole('button', { name: /create room/i }).click();
+    await expect(host.locator('[class*="codeBox"]')).toBeVisible({ timeout: 10000 });
+    const code = (await host.locator('[class*="codeBox"]').textContent())?.trim();
+
+    await enterMultiplayer(guest);
+    await guest.locator('#lobby-name').fill('PublicGuest');
+
+    // The public room should appear in the public list on the right
+    await expect(guest.getByText(code)).toBeVisible({ timeout: 10000 });
+    await expect(guest.getByText(/PublicHost/i)).toBeVisible();
+
+    // Click quick join on the public lobby item
+    const publicItem = guest.locator('[class*="publicItem"]', { hasText: code });
+    await publicItem.getByRole('button', { name: /REJOINDRE/i }).click();
+
+    // Both players enter the match
+    await expect(host.getByText(/Preparing game|PLAY BOSS|boss/i).first()).toBeVisible({ timeout: 30000 });
+    await expect(guest.getByText(/Preparing game|PLAY BOSS|boss/i).first()).toBeVisible({ timeout: 30000 });
+
+    await host.close();
+    await guest.close();
+  });
 });
+

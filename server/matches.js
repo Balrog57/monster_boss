@@ -167,7 +167,7 @@ export async function createNewMatch({ numPlayers, setupData, botCount = 0 } = {
   await dbCreateMatch({
     id, gameName: GAME_META.name, numPlayers: G.numPlayers, state: G, ctx, setupData
   });
-  const match = { id, G, ctx, sockets: new Map(), dirty: false, status: 'open' };
+  const match = { id, G, ctx, setupData, sockets: new Map(), dirty: false, status: 'open' };
   registry.set(id, match);
 
   const botsToAdd = Math.min(Math.max(0, Number(botCount) || 0), numPlayers - 1);
@@ -191,7 +191,8 @@ export async function loadMatch(id) {
   if (!row) return null;
   const G = typeof row.state === 'string' ? JSON.parse(row.state) : row.state;
   const ctx = typeof row.ctx === 'string' ? JSON.parse(row.ctx) : row.ctx;
-  const match = { id, G, ctx, sockets: new Map(), dirty: false, status: row.status };
+  const setupData = typeof row.setup_data === 'string' ? JSON.parse(row.setup_data) : (row.setup_data || {});
+  const match = { id, G, ctx, setupData, sockets: new Map(), dirty: false, status: row.status };
   // Restore isAI flags from seats
   for (const s of row.seats || []) {
     if ((s.isBot || s.is_bot) && match.G.players[s.id]) {
