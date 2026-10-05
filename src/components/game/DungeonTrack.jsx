@@ -286,22 +286,58 @@ export default function DungeonTrack({
                 )}
                 {showHeroes && (
                   <div className={s.heroes} aria-label="Heroes at entrance">
-                    {(inThisDungeon && adventure.hero ? [adventure.hero] : entranceHeroes).slice(0, 3).map((h, hi) => (
-                      <div key={`ent-${h.id}-${hi}`} className={`${s.heroWrap} ${inThisDungeon ? s.heroActiveCrawler : ''}`}>
-                        {inThisDungeon && adventure.hp != null && (
-                          <div className={s.heroHpBadge} title={`Hero Health: ${adventure.hp}`}>
-                            <span className={s.heroHpText}>{adventure.hp}</span>
-                          </div>
-                        )}
-                        <Card
-                          card={h}
-                          kind={h.epic ? 'epic-hero' : 'hero'}
-                          size="xs"
-                          onInspect={onInspect}
-                          onHover={onHover}
-                        />
-                      </div>
-                    ))}
+                    {(inThisDungeon && adventure.hero ? [adventure.hero] : entranceHeroes).slice(0, 3).map((h, hi) => {
+                      const hIdLower = String(h?.id || '').toLowerCase();
+                      const heroSpriteUrl = inThisDungeon ? `/ui/characters/heroes/${hIdLower}_character.webp` : null;
+                      return (
+                        <div key={`ent-${h.id}-${hi}`} className={`${s.heroWrap} ${inThisDungeon ? s.heroActiveCrawler : ''}`}>
+                          {inThisDungeon && adventure.hp != null && (
+                            <div className={s.heroHpBadge} title={`Hero Health: ${adventure.hp}`}>
+                              <span className={s.heroHpText}>{adventure.hp}</span>
+                            </div>
+                          )}
+                          {heroSpriteUrl ? (
+                            <div
+                              className={s.heroSpriteWrap}
+                              onClick={onInspect ? () => onInspect({ card: h, kind: h.epic ? 'epic-hero' : 'hero' }) : undefined}
+                              onMouseEnter={onHover ? () => onHover({ card: h, kind: h.epic ? 'epic-hero' : 'hero' }) : undefined}
+                              onMouseLeave={onHover ? () => onHover(null) : undefined}
+                              title={`${h.name} (${adventure.hp} PV)`}
+                              role="button"
+                              tabIndex={0}
+                            >
+                              <img
+                                src={heroSpriteUrl}
+                                alt={h.name}
+                                className={s.heroSpriteImg}
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  const fallback = e.currentTarget.nextElementSibling;
+                                  if (fallback) fallback.style.display = 'block';
+                                }}
+                              />
+                              <div style={{ display: 'none' }}>
+                                <Card
+                                  card={h}
+                                  kind={h.epic ? 'epic-hero' : 'hero'}
+                                  size="xs"
+                                  onInspect={onInspect}
+                                  onHover={onHover}
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <Card
+                              card={h}
+                              kind={h.epic ? 'epic-hero' : 'hero'}
+                              size="xs"
+                              onInspect={onInspect}
+                              onHover={onHover}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
                 {hasAbility && canActivate && activateSourceRoom == null && (
