@@ -278,7 +278,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             aria-label="Pass turn"
           />
         )}
-        {phase !== PHASE.BOSS && !discarding && (
+        {phase !== PHASE.BOSS && (
           <CardPreview inspect={previewInspect} />
         )}
         {phase !== PHASE.BOSS && (
@@ -295,6 +295,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
           hand={me.hand}
           onConfirm={(a, b) => moves.openingDiscard(a, b)}
           onHover={setPreview}
+          onInspect={setInspect}
         />
       )}
 

@@ -19,7 +19,7 @@ export default function SetupScreen({ onStartLocal, onBack }) {
 
   const onOk = () => {
     playSfx(SFX.BUTTON);
-    onStartLocal(n, null, 1);
+    onStartLocal(n, ['hidden-heroes', 'tools', 'players-choice'], 1);
   };
 
   const onBackClick = () => {

@@ -61,7 +61,7 @@ export default function OnlineLobbyCustom({ onJoined, onBack }) {
     try {
       const { matchID } = await api('/matches', {
         method: 'POST',
-        body: { numPlayers, setupData: { online: true, expansions: null } },
+        body: { numPlayers, setupData: { online: true, expansions: ['hidden-heroes', 'tools', 'players-choice'] } },
       });
       const { playerID, credentials } = await api(`/matches/${matchID}/join`, {
         method: 'POST', body: { playerName: name.trim() },

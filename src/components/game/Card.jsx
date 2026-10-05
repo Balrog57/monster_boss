@@ -12,7 +12,7 @@
 //   className: string
 //   style:    object (for layout overrides — margin-left for overlap, zIndex)
 import React from 'react';
-import { getCardImage, getWikiCardImage, getApkCardImage } from '../../cardData.js';
+import { getCardImage, getWikiCardImage, getApkCardImage, treasureIcon } from '../../cardData.js';
 import s from './Card.module.css';
 
 const SIZE = { xs: s.xs, sm: s.sm, md: s.md, lg: s.lg, xl: s.xl };
@@ -71,7 +71,48 @@ export default function Card({ card, kind = 'room', faceDown = false, size = 'md
             }}
           />
         ) : (
-          <div className={s.fallback}>{card?.name || '?'}</div>
+          <div className={`${s.richFallback} ${s[kind] || ''}`}>
+            <div className={s.fallbackHeader}>
+              <span className={s.fallbackName} title={card?.name}>{card?.name || '?'}</span>
+              <span className={s.fallbackTypeBadge}>
+                {kind === 'spell' ? 'SORT' : kind === 'boss' ? 'BOSS' : kind === 'hero' || kind === 'epic-hero' ? 'HÉROS' : (card?.advanced ? 'AVANCÉE' : 'SALLE')}
+              </span>
+            </div>
+            <div className={s.fallbackIconArea}>
+              <img
+                src={
+                  kind === 'spell' ? '/ui/ingame/spells_icon.webp'
+                  : kind === 'boss' ? '/ui/ingame/boss_icon.webp'
+                  : card?.type === 'trap'
+                    ? (card?.advanced ? '/ui/ingame/room_icon_advanced_trap.webp' : '/ui/ingame/room_icon_trap.webp')
+                    : (card?.advanced ? '/ui/ingame/room_icon_advanced_monster.webp' : '/ui/ingame/room_icon_monster.webp')
+                }
+                alt=""
+                className={s.fallbackIcon}
+              />
+            </div>
+            <div className={s.fallbackDesc}>
+              {card?.description || card?.levelUpDesc || (card?.type ? `${card.type} room` : '')}
+            </div>
+            <div className={s.fallbackFooter}>
+              {card?.damage != null && (
+                <span className={s.fallbackDamage}>♥ {card.damage}</span>
+              )}
+              {card?.xp != null && (
+                <span className={s.fallbackXp}>{card.xp} XP</span>
+              )}
+              {card?.hp != null && (
+                <span className={s.fallbackHp}>{card.hp} PV</span>
+              )}
+              {((card?.treasures || (card?.treasure != null ? [card.treasure] : []))).length > 0 && (
+                <span className={s.fallbackTreasure}>
+                  {(card.treasures || [card.treasure]).map((t, idx) => (
+                    <img key={idx} src={treasureIcon(t)} alt="" className={s.fallbackTrIcon} />
+                  ))}
+                </span>
+              )}
+            </div>
+          </div>
         )}
       </div>
       {onInspect && card && !faceDown && (
