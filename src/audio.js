@@ -13,9 +13,22 @@ let sfxMuted = false;
 let gameSpeed = 'normal';
 // Master volume (0..1), persisted across sessions.
 let volume = 0.8;
+let musicVolume = 0.7;
+let sfxVolume = 0.8;
+let currentTrack = 'music_main';
+
+export const MUSIC_TRACKS = [
+  { id: 'music_dungeon_v3', label: 'Donjon 8-Bit (Thème Principal)' },
+  { id: 'music_main', label: 'Taverne & Menu' },
+];
+
 try {
   const stored = Number(localStorage.getItem('bm_volume'));
   if (!Number.isNaN(stored) && stored >= 0 && stored <= 1) volume = stored;
+  const storedMusicVol = Number(localStorage.getItem('bm_music_volume'));
+  if (!Number.isNaN(storedMusicVol) && storedMusicVol >= 0 && storedMusicVol <= 1) musicVolume = storedMusicVol;
+  const storedSfxVol = Number(localStorage.getItem('bm_sfx_volume'));
+  if (!Number.isNaN(storedSfxVol) && storedSfxVol >= 0 && storedSfxVol <= 1) sfxVolume = storedSfxVol;
   muted = localStorage.getItem('bm_muted') === '1';
   musicMuted = localStorage.getItem('bm_music_muted') === '1' || muted;
   sfxMuted = localStorage.getItem('bm_sfx_muted') === '1' || muted;
@@ -37,13 +50,14 @@ export function playSfx(name, vol = 0.6) {
     sfxCache[name] = el;
   }
   el.currentTime = 0;
-  el.volume = Math.min(1, vol * volume);
+  el.volume = Math.min(1, Math.max(0, vol * volume * sfxVolume));
   el.play().catch(() => { /* autoplay may block until user gesture */ });
   return el;
 }
 
 // Start looping background music. Replaces any current track.
 export function playMusic(name, vol = 0.4) {
+  currentTrack = name;
   if (muted || musicMuted) return;
   if (!musicEl) {
     musicEl = new Audio();
@@ -53,9 +67,18 @@ export function playMusic(name, vol = 0.4) {
   if (musicEl.dataset.src !== src) {
     musicEl.src = src;
     musicEl.dataset.src = src;
-    musicEl.volume = Math.min(1, vol * volume);
+    musicEl.volume = Math.min(1, Math.max(0, vol * volume * musicVolume));
     musicEl.play().catch(() => { /* will start after first gesture */ });
+  } else {
+    musicEl.volume = Math.min(1, Math.max(0, vol * volume * musicVolume));
+    if (musicEl.paused) {
+      musicEl.play().catch(() => {});
+    }
   }
+}
+
+export function getCurrentMusicTrack() {
+  return currentTrack;
 }
 
 export function stopMusic() {
@@ -122,10 +145,29 @@ export function aiDelayMs() {
 export function setVolume(v) {
   volume = Math.max(0, Math.min(1, v));
   try { localStorage.setItem('bm_volume', String(volume)); } catch { /* ignore */ }
-  if (musicEl) musicEl.volume = Math.min(1, musicEl.volume <= 0 ? 0 : volume * 0.4);
+  if (musicEl) musicEl.volume = Math.min(1, Math.max(0, volume * musicVolume * 0.4));
 }
 
 export function getVolume() { return volume; }
+
+export function setMusicVolume(v) {
+  musicVolume = Math.max(0, Math.min(1, v));
+  try { localStorage.setItem('bm_music_volume', String(musicVolume)); } catch { /* ignore */ }
+  if (musicEl) musicEl.volume = Math.min(1, Math.max(0, volume * musicVolume * 0.4));
+}
+
+export function getMusicVolume() { return musicVolume; }
+
+export function setSfxVolume(v) {
+  sfxVolume = Math.max(0, Math.min(1, v));
+  try { localStorage.setItem('bm_sfx_volume', String(sfxVolume)); } catch { /* ignore */ }
+}
+
+export function getSfxVolume() { return sfxVolume; }
+
+export function setMusicTrack(trackId, vol = 0.4) {
+  playMusic(trackId, vol);
+}
 
 // Named SFX constants (keep names in sync with files under assets/audio/sfx/)
 export const SFX = {
@@ -151,6 +193,12 @@ export const SFX = {
   LEVEL_UP: 'sting_levelup',
   WIN: 'sting_player_win',
   LOSE: 'sting_player_lose',
+  BOSS_MALE_VICTORY: 'boss_male_victory',
+  BOSS_FEMALE_VICTORY: 'boss_female_victory',
+  BOSS_MALE_DEATH: 'boss_male_death',
+  BOSS_FEMALE_DEATH: 'boss_female_death',
+  BOSS_MALE_INTRO: 'boss_male_intro',
+  BOSS_FEMALE_INTRO: 'boss_female_intro',
 };
 
 // ---------------------------------------------------------------------------

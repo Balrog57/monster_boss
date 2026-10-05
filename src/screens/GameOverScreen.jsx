@@ -14,7 +14,16 @@ export default function GameOverScreen({ winner, players, playerID, onReplay, on
   useEffect(() => {
     stopMusic();
     playSfx(iWon ? SFX.WIN : SFX.LOSE, 0.7);
-  }, [iWon]);
+    const timer = setTimeout(() => {
+      const isFemale = winnerPlayer?.boss?.name?.match(/Cleopatra|Seducia|Gorgona|Bella/i);
+      if (iWon) {
+        playSfx(isFemale ? SFX.BOSS_FEMALE_VICTORY : SFX.BOSS_MALE_VICTORY, 0.7);
+      } else {
+        playSfx(isFemale ? SFX.BOSS_FEMALE_DEATH : SFX.BOSS_MALE_DEATH, 0.7);
+      }
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [iWon, winnerPlayer]);
 
   const ranked = Object.entries(players)
     .map(([pid, p]) => ({

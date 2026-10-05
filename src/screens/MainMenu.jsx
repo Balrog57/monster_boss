@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   playMusic, playSfx, SFX, isMusicMuted, isSfxMuted, setMusicMuted, setSfxMuted,
-  getGameSpeed, setGameSpeed,
+  getGameSpeed, setGameSpeed, MUSIC_TRACKS, getCurrentMusicTrack,
 } from '../audio.js';
 import GameStage from '../components/game/GameStage.jsx';
 import RulesOverlay from '../components/game/RulesOverlay.jsx';
@@ -22,9 +22,10 @@ export default function MainMenu({ onStart, onMultiplayer, initialView = 'intro'
   const [musicOff, setMusicOff] = useState(isMusicMuted());
   const [sfxOff, setSfxOff] = useState(isSfxMuted());
   const [speed, setSpeed] = useState(getGameSpeed());
+  const [track, setTrack] = useState(() => getCurrentMusicTrack());
 
   useEffect(() => {
-    if (!isMusicMuted()) playMusic('music_main', 0.35);
+    if (!isMusicMuted()) playMusic(track || 'music_main', 0.35);
   }, []);
 
   const click = (fn) => () => { playSfx(SFX.BUTTON); fn(); };
@@ -96,6 +97,19 @@ export default function MainMenu({ onStart, onMultiplayer, initialView = 'intro'
               <span className={s.setLabel}>MUSIC</span>
               <button className={`${s.choice} ${!musicOff ? s.choiceOn : ''}`} type="button" onClick={() => { setMusicMuted(false); setMusicOff(false); playSfx(SFX.BUTTON); }}>ON</button>
               <button className={`${s.choice} ${musicOff ? s.choiceOn : ''}`} type="button" onClick={() => { setMusicMuted(true); setMusicOff(true); }}>OFF</button>
+            </div>
+            <div className={s.setRow}>
+              <span className={s.setLabel}>TRACK</span>
+              {MUSIC_TRACKS.map((t) => (
+                <button
+                  key={t.id}
+                  className={`${s.choice} ${track === t.id ? s.choiceOn : ''}`}
+                  type="button"
+                  onClick={() => { setTrack(t.id); playMusic(t.id, 0.35); playSfx(SFX.BUTTON); }}
+                >
+                  {t.id === 'music_dungeon_v3' ? 'DUNGEON' : 'TAVERN'}
+                </button>
+              ))}
             </div>
             <div className={s.setRow}>
               <span className={s.setLabel}>SOUND</span>

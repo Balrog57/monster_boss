@@ -201,5 +201,84 @@ test.describe('Boss Monster game flow', () => {
     await page.keyboard.press('Escape');
     await expect(galleryDialog).not.toBeVisible();
   });
+
+  test('audio settings and in-game options: volume sliders, track selector and sound test', async ({ page }) => {
+    await tapToStart(page);
+
+    // 1. Check MainMenu settings: Track selector
+    const optionsBtn = page.getByRole('button', { name: 'OPTIONS' });
+    await expect(optionsBtn).toBeVisible({ timeout: 10000 });
+    await optionsBtn.click();
+
+    const settingsBtn = page.getByRole('button', { name: 'SETTINGS' });
+    await expect(settingsBtn).toBeVisible({ timeout: 5000 });
+    await settingsBtn.click();
+
+    // Verify TRACK buttons
+    const dungeonTrack = page.getByRole('button', { name: 'DUNGEON' });
+    const tavernTrack = page.getByRole('button', { name: 'TAVERN' });
+    await expect(dungeonTrack).toBeVisible();
+    await expect(tavernTrack).toBeVisible();
+    await dungeonTrack.click();
+    await expect(dungeonTrack).toHaveClass(/choiceOn/);
+
+    // Go back to main menu
+    const backBtn = page.locator('button[class*="back"]').first();
+    await backBtn.click();
+    await page.waitForTimeout(200);
+    const backRoot = page.locator('button[class*="back"]').first();
+    await backRoot.click();
+
+    // 2. Start Solo game
+    await page.getByText(/single player|solo/i).first().click();
+    await page.locator('.ok, button[aria-label="OK"]').first().click();
+
+    // Pick boss
+    const playBoss = page.getByRole('button', { name: /PLAY /i });
+    await playBoss.waitFor({ state: 'visible', timeout: 15000 });
+    await playBoss.click();
+
+    // Opening discard overlay: discard last 2 cards
+    const overlay = page.locator('[role="dialog"][aria-label*="Select 2 cards to discard"]');
+    await overlay.waitFor({ state: 'visible', timeout: 15000 });
+    const slots = overlay.locator('[role="button"]');
+    const count = await slots.count();
+    await slots.nth(count - 1).click();
+    await slots.nth(count - 2).click();
+    const cont = overlay.locator('button[aria-label="Continue"]');
+    await cont.click();
+    await overlay.waitFor({ state: 'detached', timeout: 10000 });
+
+    // Open in-game options overlay via HUD options button
+    const hudOptions = page.getByRole('button', { name: /Open options/i });
+    await expect(hudOptions).toBeVisible({ timeout: 5000 });
+    await hudOptions.click();
+
+    const optionsDialog = page.locator('[role="dialog"][aria-label="Options"]');
+    await expect(optionsDialog).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('OPTIONS AUDIO & JEU')).toBeVisible();
+
+    // Verify sliders exist
+    await expect(optionsDialog.locator('input[aria-label="Master volume"]')).toBeVisible();
+    await expect(optionsDialog.locator('input[aria-label="Music volume"]')).toBeVisible();
+    await expect(optionsDialog.locator('input[aria-label="SFX volume"]')).toBeVisible();
+
+    // Test sound button
+    const testSfxBtn = optionsDialog.getByRole('button', { name: /TESTER LE SON/i });
+    await expect(testSfxBtn).toBeVisible();
+    await testSfxBtn.click();
+
+    // Switch music track in options
+    const optTavern = optionsDialog.getByRole('button', { name: /Taverne & Menu/i });
+    await expect(optTavern).toBeVisible();
+    await optTavern.click();
+    await expect(optTavern).toHaveClass(/trackBtnOn/);
+
+    // Close Options via OK button
+    const okBtn = optionsDialog.getByRole('button', { name: 'OK' });
+    await okBtn.click();
+    await expect(optionsDialog).not.toBeVisible();
+  });
 });
+
 
