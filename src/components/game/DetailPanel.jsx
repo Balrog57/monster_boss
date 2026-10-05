@@ -19,7 +19,14 @@ export default function DetailPanel({ inspect, onClose }) {
   useEffect(() => {
     if (!inspect) return;
     const t = setTimeout(() => closeBtnRef.current?.focus(), 20);
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation?.();
+        onClose();
+      }
+    };
     document.addEventListener('keydown', onKey);
     return () => { clearTimeout(t); document.removeEventListener('keydown', onKey); };
   }, [inspect, onClose]);

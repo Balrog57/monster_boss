@@ -81,6 +81,112 @@
   background-image: url('/ui/buttons/button_pressed.webp');
 }
 
+.controlsBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.45);
+  border-top: 2px solid #3d2a45;
+  border-bottom: 2px solid #5a4020;
+  flex-wrap: wrap;
+}
+
+.searchWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 240px;
+  max-width: 480px;
+}
+
+.searchInput {
+  width: 100%;
+  height: 38px;
+  padding: 6px 36px 6px 12px;
+  background: #120e18;
+  border: 2px solid #8a7018;
+  color: #f1e17c;
+  font-family: var(--bm-font-sans, sans-serif);
+  font-size: 14px;
+  outline: none;
+  border-radius: 2px;
+}
+.searchInput:focus {
+  border-color: #ffd700;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
+}
+.searchInput::placeholder {
+  color: #887a95;
+}
+
+.clearBtn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+}
+.clearBtn:hover {
+  color: #fff;
+}
+
+.treasuresRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.treasureBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 4px 10px;
+  background: #261b30;
+  border: 2px solid #554466;
+  color: #bbb;
+  font-family: var(--bm-font-display);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+}
+.treasureBtn:hover {
+  border-color: #a885ff;
+  color: #fff;
+}
+.treasureBtnOn {
+  border-color: #ffd700 !important;
+  background: #472b5c !important;
+  color: #ffd700 !important;
+  box-shadow: 0 0 6px rgba(255, 215, 0, 0.35);
+}
+.treasureIcon {
+  width: 20px;
+  height: 20px;
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
+.countBadge {
+  font-family: var(--bm-font-display);
+  font-size: 14px;
+  color: #9fe2bf;
+  background: #142a20;
+  border: 2px solid #205c3b;
+  padding: 6px 12px;
+  border-radius: 3px;
+  white-space: nowrap;
+  text-shadow: 1px 1px 0 #000;
+}
+
 .grid {
   flex: 1;
   min-height: 0;
@@ -112,6 +218,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.tileId {
+  font-size: 10px;
+  color: #8a7e9b;
+  font-family: monospace;
+  text-shadow: 1px 1px 0 #000;
+}
+
 .empty {
   grid-column: 1 / -1;
   text-align: center;
@@ -120,3 +233,19 @@
   font-family: var(--bm-font-display);
   letter-spacing: 2px;
 }
+
+.resetBtn {
+  margin-top: 14px;
+  padding: 8px 18px;
+  background: #6b2830;
+  border: 2px solid #c9404d;
+  color: #fff;
+  font-family: var(--bm-font-display);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.resetBtn:hover {
+  background: #85333d;
+}
+

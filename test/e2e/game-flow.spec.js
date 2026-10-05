@@ -127,8 +127,11 @@ test.describe('Boss Monster game flow', () => {
     await page.keyboard.press('m');
     await page.waitForTimeout(200);
 
-    // 3. Select card via key 1
-    await page.keyboard.press('1');
+    // 3. Select buildable room card via its keyboard badge
+    const buildableCard = page.locator('[aria-label="Hand"] [draggable="true"]').first();
+    await buildableCard.waitFor({ state: 'visible', timeout: 10000 });
+    const keyText = (await buildableCard.locator('[class*="keyBadge"]').innerText()).trim();
+    await page.keyboard.press(keyText);
     const previewBadge = page.locator('[class*="previewBadge"]').first();
     await expect(previewBadge).toBeVisible({ timeout: 5000 });
 
@@ -136,4 +139,67 @@ test.describe('Boss Monster game flow', () => {
     await page.keyboard.press('Escape');
     await expect(previewBadge).not.toBeVisible();
   });
+
+  test('comprehensive card gallery almanac: tabs, search, treasure filter and inspect', async ({ page }) => {
+    await tapToStart(page);
+
+    // Open Options -> Card Gallery
+    const optionsBtn = page.getByRole('button', { name: 'OPTIONS' });
+    await expect(optionsBtn).toBeVisible({ timeout: 10000 });
+    await optionsBtn.click();
+
+    const galleryBtn = page.getByRole('button', { name: 'CARD GALLERY' });
+    await expect(galleryBtn).toBeVisible({ timeout: 5000 });
+    await galleryBtn.click();
+
+    // Verify dialog and title
+    const galleryDialog = page.locator('[role="dialog"][aria-label="Almanach et galerie de cartes"]');
+    await expect(galleryDialog).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('ALMANACH & GALERIE DES CARTES')).toBeVisible();
+
+    // Verify tabs
+    await expect(page.getByRole('tab', { name: /BOSSES/i })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /SALLES/i })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /SORTS/i })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /HÉROS/i })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /MINIBOSS/i })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /OBJETS/i })).toBeVisible();
+
+    // Switch to Salles (rooms)
+    await page.getByRole('tab', { name: /SALLES/i }).click();
+
+    // Search for a specific room: "Bottomless Pit"
+    const searchInput = page.getByPlaceholder('Rechercher par nom, effet, sous-type, id...');
+    await expect(searchInput).toBeVisible();
+    await searchInput.fill('Bottomless');
+
+    // Should find Bottomless Pit
+    const cardTile = galleryDialog.getByRole('button', { name: /Bottomless Pit/i });
+    await expect(cardTile).toBeVisible();
+
+    // Click card to inspect
+    await cardTile.click();
+
+    // DetailPanel inspect dialog should be visible
+    const detailPanel = page.getByRole('dialog', { name: 'Bottomless Pit' });
+    await expect(detailPanel).toBeVisible({ timeout: 5000 });
+
+    // Press Escape to close detail inspection
+    await page.keyboard.press('Escape');
+    await expect(detailPanel).not.toBeVisible();
+
+    // Filter by treasure "OR"
+    await searchInput.fill('');
+    const treasureGoldBtn = galleryDialog.getByRole('button', { name: 'OR', exact: true });
+    await treasureGoldBtn.click();
+    await page.waitForTimeout(300);
+
+    // Verify badge shows filtered count
+    await expect(galleryDialog.locator('[class*="countBadge"]')).toContainText('carte(s)');
+
+    // Close gallery via Escape
+    await page.keyboard.press('Escape');
+    await expect(galleryDialog).not.toBeVisible();
+  });
 });
+
