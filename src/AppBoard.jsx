@@ -81,6 +81,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
           souls: [...(p.souls || [])],
           wounds: [...(p.wounds || [])],
           eliminated: p.eliminated,
+          dungeon: p.dungeon,
         };
       }
       setGameOverData({ winner: G.winner, players: playersCopy });

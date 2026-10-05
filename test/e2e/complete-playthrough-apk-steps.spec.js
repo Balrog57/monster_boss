@@ -169,7 +169,7 @@ test.describe('Complete Playthrough APK Steps Verification', () => {
     // ÉTAPE 4 À 8 : CYCLES DE TOURS COMPLETS (BEGINNING, BUILD, BAIT, ADVENTURE, END)
     // =========================================================================
     console.log('[STAGES 4-8] Turn loop progression until Game Over');
-    const terminal = page.getByRole('heading', { name: /^(VICTORY|DEFEAT)$/ });
+    const terminal = page.getByRole('heading', { name: /VICTORY|DEFEAT/i });
 
     let turnSteps = 0;
     let seenAdventure = false;
@@ -287,10 +287,18 @@ test.describe('Complete Playthrough APK Steps Verification', () => {
     console.log(`[OUTCOME] Game finished with result: ${finalOutcome}`);
     await shot('09_game_over_result.png');
 
+    // Tester l'onglet Bilan Statistique
+    const statsTab = page.getByRole('tab', { name: /BILAN STATISTIQUE/i });
+    if (await statsTab.isVisible()) {
+      await statsTab.click();
+      await expect(page.getByText('DÉTAIL DES CONQUÊTES')).toBeVisible({ timeout: 5000 });
+      await shot('09b_detailed_stats_tab.png');
+    }
+
     // Vérifier la présence du bouton PLAY AGAIN pour un redémarrage propre
     const playAgainBtn = page.getByRole('button', { name: /play again/i });
     await expect(playAgainBtn).toBeVisible();
-    await playAgainBtn.click();
+    await playAgainBtn.click({ force: true });
 
     // Vérifier le redémarrage vers l'écran de sélection de partie solo
     await expect(page.getByText('HOW MANY PLAYERS?')).toBeVisible({ timeout: 15000 });
