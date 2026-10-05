@@ -22,16 +22,52 @@
   backdrop-filter: blur(4px);
 }
 
+.descHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 209, 102, 0.3);
+  padding-bottom: 2px;
+}
+
 .descTitle {
   font-size: 13px;
   font-weight: 800;
   color: #ffd166;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 4px;
-  border-bottom: 1px solid rgba(255, 209, 102, 0.3);
-  padding-bottom: 2px;
 }
+
+.descSubtitle {
+  font-size: 10px;
+  color: #bbb;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.descMeta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.badgeXp, .badgeDmg, .badgeHp, .badgeType {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badgeXp { background: #3b2812; color: #ffd166; border: 1px solid #7a6644; }
+.badgeDmg { background: #3d1414; color: #ff6b6b; border: 1px solid #8b2828; }
+.badgeHp { background: #1a3320; color: #6ee7b7; border: 1px solid #2d6a4f; }
+.badgeType { background: #221b38; color: #c4b5fd; border: 1px solid #5b21b6; }
 
 .descText {
   font-size: 11px;

@@ -4,10 +4,16 @@ import { PHASE, treasureIcon, TREASURE_NAMES } from '../../cardData.js';
 import Card from './Card.jsx';
 import s from './TownPanel.module.css';
 
-function HeroCard({ hero, onInspect }) {
+function HeroCard({ hero, onInspect, onHover }) {
   return (
     <div className={s.heroWrap}>
-      <Card card={hero} kind={hero.epic ? 'epic-hero' : 'hero'} size="xs" onInspect={onInspect} />
+      <Card
+        card={hero}
+        kind={hero.epic ? 'epic-hero' : 'hero'}
+        size="xs"
+        onInspect={onInspect}
+        onHover={onHover}
+      />
       <img
         className={s.treasureIcon}
         src={treasureIcon(hero.treasure)}
@@ -16,14 +22,14 @@ function HeroCard({ hero, onInspect }) {
       />
       {hero.item && (
         <div className={s.attachedItem} title={hero.item.name}>
-          <Card card={hero.item} kind="item" size="xs" onInspect={onInspect} />
+          <Card card={hero.item} kind="item" size="xs" onInspect={onInspect} onHover={onHover} />
         </div>
       )}
     </div>
   );
 }
 
-export default function TownPanel({ me, playerId, town, townItems = [], phase, isMyTurn, adventure, hasPendingChoice = false, onResolve, onInspect }) {
+export default function TownPanel({ me, playerId, town, townItems = [], phase, isMyTurn, adventure, hasPendingChoice = false, onResolve, onInspect, onHover }) {
   const showGo = !hasPendingChoice && phase === PHASE.ADVENTURE && isMyTurn && !adventure?.pause && (
     me.entrance.length > 0 || (adventure && String(adventure.playerId) === String(playerId))
   );
@@ -31,11 +37,11 @@ export default function TownPanel({ me, playerId, town, townItems = [], phase, i
     <div className={s.col} aria-label="Heroes in town">
       <div className={s.townCol}>
         {town.map((h, i) => (
-          <HeroCard key={`town-${h.id}-${i}`} hero={h} onInspect={onInspect} />
+          <HeroCard key={`town-${h.id}-${i}`} hero={h} onInspect={onInspect} onHover={onHover} />
         ))}
         {townItems.map((it, i) => (
           <div key={`item-${it.id}-${i}`} className={s.itemWrap} title={it.name}>
-            <Card card={it} kind="item" size="xs" onInspect={onInspect} />
+            <Card card={it} kind="item" size="xs" onInspect={onInspect} onHover={onHover} />
           </div>
         ))}
       </div>

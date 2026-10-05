@@ -16,7 +16,7 @@ const BOSS_TITLES = {
   BMA008: 'Queen of Snakes',
 };
 
-function PlayerBlock({ player, treasures, active, compact, onInspect }) {
+function PlayerBlock({ player, treasures, active, compact, onInspect, onHover }) {
   if (!player?.boss) return null;
   const portrait = getCardImage(player.boss.id, 'boss');
   return (
@@ -25,6 +25,8 @@ function PlayerBlock({ player, treasures, active, compact, onInspect }) {
         className={s.nameBtn}
         type="button"
         onClick={onInspect ? () => onInspect({ card: player.boss, kind: 'boss' }) : undefined}
+        onMouseEnter={onHover && player.boss ? () => onHover({ card: player.boss, kind: 'boss' }) : undefined}
+        onMouseLeave={onHover ? () => onHover(null) : undefined}
       >
         {portrait && <img src={portrait} alt="" className={s.portrait} />}
         <div className={s.nameWrap}>
@@ -48,6 +50,9 @@ function PlayerBlock({ player, treasures, active, compact, onInspect }) {
               alt={it.name}
               title={it.faceDown ? `${it.name} (face-down)` : it.name}
               className={`${s.item} ${it.faceDown ? s.itemDown : ''}`}
+              onMouseEnter={onHover ? () => onHover({ card: it, kind: 'item' }) : undefined}
+              onMouseLeave={onHover ? () => onHover(null) : undefined}
+              onClick={onInspect ? () => onInspect({ card: it, kind: 'item' }) : undefined}
             />
           ))}
         </div>
@@ -58,7 +63,7 @@ function PlayerBlock({ player, treasures, active, compact, onInspect }) {
 }
 
 export default function StatsSidebar({
-  me, opponents, oppIds = [], myTreasures, oppTreasures, decks, activePid, meId, onInspect, onLevelUp,
+  me, opponents, oppIds = [], myTreasures, oppTreasures, decks, activePid, meId, onInspect, onHover, onLevelUp,
 }) {
   const roomN = decks?.rooms?.length ?? 0;
   const spellN = decks?.spells?.length ?? 0;
@@ -74,6 +79,7 @@ export default function StatsSidebar({
           active={String(activePid) === String(oppIds[i])}
           compact
           onInspect={onInspect}
+          onHover={onHover}
         />
       ))}
 
@@ -95,6 +101,7 @@ export default function StatsSidebar({
           treasures={myTreasures}
           active={String(activePid) === String(meId)}
           onInspect={onInspect}
+          onHover={onHover}
         />
         <div className={s.soulsLabel}>SOULS</div>
       </div>
@@ -103,6 +110,8 @@ export default function StatsSidebar({
         className={`${s.levelUp} ${me.leveledUp ? s.levelUpDone : ''} ${canLevel ? s.levelUpReady : ''}`}
         type="button"
         onClick={onLevelUp}
+        onMouseEnter={onHover && me?.boss ? () => onHover({ card: me.boss, kind: 'boss' }) : undefined}
+        onMouseLeave={onHover ? () => onHover(null) : undefined}
         aria-label="Level Up"
       />
     </aside>

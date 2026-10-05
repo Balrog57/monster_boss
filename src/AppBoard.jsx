@@ -211,6 +211,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             hasPendingChoice={hasPendingChoice}
             onResolve={() => moves.resolveNextHero()}
             onInspect={setInspect}
+            onHover={setPreview}
           />
         </div>
         <div className={s.opponents}>
@@ -372,6 +373,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
           activePid={activePid}
           meId={pidKey}
           onInspect={(payload) => setInspect(payload)}
+          onHover={setPreview}
           onLevelUp={() => setInspect({ card: me.boss, kind: 'boss' })}
         />
       </div>

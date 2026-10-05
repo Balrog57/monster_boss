@@ -20,7 +20,7 @@ const HAS_SPRITE = new Set([
   'ksa001', 'ksa002', 'ksa003', 'ksa004', 'ksa005', 'ksa006', 'ksa007',
 ]);
 
-export default function BossPortrait({ boss, theme, size = 130, onInspect, useAvatar = false, variant = 'card' }) {
+export default function BossPortrait({ boss, theme, size = 130, onInspect, onHover, useAvatar = false, variant = 'card' }) {
   if (!boss) return null;
   const idLower = String(boss.id || '').toLowerCase();
   const avatarSrc = BOSS_AVATARS[boss.id];
@@ -39,6 +39,8 @@ export default function BossPortrait({ boss, theme, size = 130, onInspect, useAv
         cursor: onInspect ? 'pointer' : 'default',
       }}
       onClick={onInspect ? () => onInspect({ card: boss, kind: 'boss' }) : undefined}
+      onMouseEnter={onHover && boss ? () => onHover({ card: boss, kind: 'boss' }) : undefined}
+      onMouseLeave={onHover ? () => onHover(null) : undefined}
       role={onInspect ? 'button' : undefined}
       tabIndex={onInspect ? 0 : undefined}
       aria-label={`Boss portrait ${boss.name}`}

@@ -304,6 +304,7 @@ export default function DungeonTrack({
             theme={theme}
             size={isMine ? 168 : 140}
             onInspect={onInspect}
+            onHover={onHover}
             useAvatar
             variant="sprite"
           />
