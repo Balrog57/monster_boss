@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PHASE, bossTheme } from '../../cardData.js';
 import { allActiveRooms, DUNGEON_SLOTS, extendVisualIndex, dungeonIndexFromVisual } from '../../engine.js';
+import { playSfx, SFX } from '../../audio.js';
 import Card from './Card.jsx';
 import BossPortrait from './BossPortrait.jsx';
 import TreasureReadout from './TreasureReadout.jsx';
@@ -71,6 +72,33 @@ export default function DungeonTrack({
     }
     prevSouls.current = sn;
   }, [player.souls?.length]);
+
+  const [levelUpBurst, setLevelUpBurst] = useState(false);
+  const prevLeveledUp = useRef(!!player.leveledUp);
+  useEffect(() => {
+    if (player.leveledUp && !prevLeveledUp.current) {
+      setLevelUpBurst(true);
+      playSfx(SFX.LEVEL_UP, 0.7);
+      const t = setTimeout(() => setLevelUpBurst(false), 2400);
+      prevLeveledUp.current = true;
+      return () => clearTimeout(t);
+    }
+    prevLeveledUp.current = !!player.leveledUp;
+  }, [player.leveledUp]);
+
+  const [destroyedSmoke, setDestroyedSmoke] = useState(false);
+  const prevRoomsCount = useRef((dungeon || []).filter(Boolean).length);
+  useEffect(() => {
+    const curCount = (dungeon || []).filter(Boolean).length;
+    if (curCount < prevRoomsCount.current) {
+      setDestroyedSmoke(true);
+      playSfx(SFX.ROOM_FALL, 0.6);
+      const t = setTimeout(() => setDestroyedSmoke(false), 1200);
+      prevRoomsCount.current = curCount;
+      return () => clearTimeout(t);
+    }
+    prevRoomsCount.current = curCount;
+  }, [dungeon]);
 
   const [dragOverSlot, setDragOverSlot] = useState(null);
   const entranceHeroes = player.entrance || [];
@@ -288,8 +316,24 @@ export default function DungeonTrack({
               </div>
             );
           })}
+          {destroyedSmoke && (
+            <div className={s.smokePuff} aria-hidden="true" />
+          )}
         </div>
         <div className={`${s.boss} ${hurt ? s.hurt : ''} ${player.leveledUp ? s.leveled : ''}`}>
+          {(player.leveledUp || levelUpBurst) && (
+            <img
+              src="/ui/gradients/winner_boss_shine.webp"
+              alt=""
+              className={s.levelUpShine}
+              aria-hidden="true"
+            />
+          )}
+          {levelUpBurst && (
+            <div className={s.levelUpBanner} key="lvlup-banner">
+              ★ LEVEL UP! ★
+            </div>
+          )}
           {activeEmote?.text && (
             <div className={s.speechBubble} key={`emote-${activeEmote.timestamp}`}>
               {activeEmote.text}
@@ -314,6 +358,11 @@ export default function DungeonTrack({
             useAvatar
             variant="sprite"
           />
+          {player.leveledUp && (
+            <div className={s.levelUpBadge} title="Boss Level Up Débloqué">
+              ★ LV UP
+            </div>
+          )}
         </div>
       </div>
     </div>

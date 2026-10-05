@@ -16,7 +16,13 @@ export default function StackBanner({
   const casterName = topItem?.playerId != null ? `Player ${topItem.playerId}` : 'Player';
 
   return (
-    <div className={s.banner} role="region" aria-label="Spell Stack Active">
+    <div
+      className={s.banner}
+      role="region"
+      aria-label="Spell Stack Active"
+      key={`stack-${topItem?.card?.id || stack.length}`}
+    >
+      <div className={s.shockwave} aria-hidden="true" />
       <div className={s.content}>
         <div className={s.badge}>Stack ({stack.length})</div>
         <div className={s.info}>
