@@ -181,5 +181,55 @@ test.describe('Online multiplayer', () => {
     await host.close();
     await guest.close();
   });
+
+  test('players can trigger retro emotes and display 8-bit speech bubbles', async ({ browser }) => {
+    const host = await browser.newPage();
+    const guest = await browser.newPage();
+
+    await enterMultiplayer(host);
+    await host.locator('#lobby-name').fill('EmoteHost');
+    await host.getByRole('button', { name: /create room/i }).click();
+    await expect(host.locator('[class*="codeBox"]')).toBeVisible({ timeout: 10000 });
+    const code = (await host.locator('[class*="codeBox"]').textContent())?.trim();
+
+    await enterMultiplayer(guest);
+    await guest.locator('#lobby-name').fill('EmoteGuest');
+    await guest.locator('#lobby-code').fill(code);
+    await guest.getByRole('button', { name: /^join$/i }).click();
+
+    // Both select bosses
+    await expect(host.getByText(/Preparing game|PLAY BOSS|boss/i).first()).toBeVisible({ timeout: 30000 });
+    await expect(guest.getByText(/Preparing game|PLAY BOSS|boss/i).first()).toBeVisible({ timeout: 30000 });
+    await host.getByRole('button', { name: /^Play / }).click();
+    await guest.getByRole('button', { name: /^Play / }).click();
+
+    // Discard
+    for (const page of [host, guest]) {
+      const discard = page.getByRole('dialog', { name: 'Select 2 cards to discard' });
+      await expect(discard).toBeVisible({ timeout: 15000 });
+      await discard.getByRole('button', { name: /^Select / }).nth(0).click();
+      await discard.getByRole('button', { name: /^Select / }).nth(1).click();
+      await discard.getByRole('button', { name: 'Continue' }).click();
+      await expect(discard).toBeHidden({ timeout: 10000 });
+    }
+
+    // Host clicks Emotes button
+    const emoteBtn = host.getByRole('button', { name: /Émotes/i });
+    await expect(emoteBtn).toBeVisible({ timeout: 10000 });
+    await emoteBtn.click();
+
+    // Emote bar appears with retro buttons
+    const ggBtn = host.getByRole('button', { name: 'GG !' });
+    await expect(ggBtn).toBeVisible({ timeout: 5000 });
+    await ggBtn.click();
+
+    // Speech bubble appears on host's boss for both host and guest!
+    await expect(host.locator('[class*="speechBubble"]').filter({ hasText: 'GG !' })).toBeVisible({ timeout: 5000 });
+    await expect(guest.locator('[class*="speechBubble"]').filter({ hasText: 'GG !' })).toBeVisible({ timeout: 5000 });
+
+    await host.close();
+    await guest.close();
+  });
 });
+
 

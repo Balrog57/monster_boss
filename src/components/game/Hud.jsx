@@ -24,7 +24,7 @@ function useCountdown(deadline) {
   return remaining;
 }
 
-export default function Hud({ phase, isMyTurn, turnDeadline, notification, onOptions, muted = false, onToggleMute }) {
+export default function Hud({ phase, isMyTurn, turnDeadline, notification, onOptions, muted = false, onToggleMute, emotesOpen = false, onToggleEmotes }) {
   const phaseImg = PHASE_IMAGES[phase];
   const remaining = useCountdown(turnDeadline);
   const showTimer = phase === PHASE.BUILD && remaining != null;
@@ -52,6 +52,18 @@ export default function Hud({ phase, isMyTurn, turnDeadline, notification, onOpt
         {isMyTurn && <span className={s.yourTurn}>YOUR TURN</span>}
       </div>
       <div className={s.right}>
+        {onToggleEmotes && (
+          <button
+            className={`${s.emoteBtn} ${emotesOpen ? s.emoteActive : ''}`}
+            onClick={onToggleEmotes}
+            title="Émotes RPG [E]"
+            aria-label="Émotes"
+            type="button"
+          >
+            <span className={s.emoteIcon} aria-hidden="true">💬</span>
+            <span className={s.emoteKeyBadge}>E</span>
+          </button>
+        )}
         {onToggleMute && (
           <button
             className={`${s.muteBtn} ${muted ? s.muted : ''}`}

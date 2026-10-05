@@ -39,6 +39,9 @@ export function useKeyboardShortcuts({
   setRulesOpen,
   galleryOpen = false,
   setGalleryOpen,
+  emotesOpen = false,
+  setEmotesOpen,
+  onToggleEmotes,
   inspectOpen = false,
   onCloseInspect,
   onCancelSelection,
@@ -62,6 +65,7 @@ export function useKeyboardShortcuts({
       // 1. ESCAPE: close overlays, modal, or cancel selection
       if (e.key === 'Escape') {
         e.preventDefault();
+        if (emotesOpen) { setEmotesOpen?.(false); return; }
         if (rulesOpen) { setRulesOpen?.(false); return; }
         if (galleryOpen) { setGalleryOpen?.(false); return; }
         if (optionsOpen) { setOptionsOpen?.(false); return; }
@@ -79,7 +83,14 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      // 3. TAB / SHIFT+TAB: Cycle dungeon rooms for inspection
+      // 3. E / e: Toggle Emotes
+      if ((e.key === 'e' || e.key === 'E') && onToggleEmotes) {
+        e.preventDefault();
+        onToggleEmotes();
+        return;
+      }
+
+      // 4. TAB / SHIFT+TAB: Cycle dungeon rooms for inspection
       if (e.key === 'Tab') {
         if (dungeonRooms && dungeonRooms.length > 0) {
           e.preventDefault();
@@ -95,7 +106,7 @@ export function useKeyboardShortcuts({
         return;
       }
 
-      // 4. R / S: Switch Hand Tabs
+      // 5. R / S: Switch Hand Tabs
       if ((e.key === 'r' || e.key === 'R') && setHandTab) {
         setHandTab('rooms');
         return;
@@ -145,6 +156,7 @@ export function useKeyboardShortcuts({
     enabled, hand, handTab, setHandTab, selectedCard, setSelectedCard, dungeonRooms,
     setInspect, setPreview, canPass, onPass, canResolveHero, onResolveHero,
     optionsOpen, setOptionsOpen, rulesOpen, setRulesOpen, galleryOpen, setGalleryOpen,
+    emotesOpen, setEmotesOpen, onToggleEmotes,
     inspectOpen, onCloseInspect, onCancelSelection, onToggleMute,
   ]);
 }

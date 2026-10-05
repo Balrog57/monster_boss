@@ -161,3 +161,44 @@
   max-width: 460px;
   pointer-events: none;
 }
+
+/* Retro RPG Emote Selector Bar */
+.emoteBar {
+  position: absolute;
+  top: 72px;
+  right: 120px;
+  display: flex;
+  gap: 8px;
+  background: rgba(15, 8, 26, 0.95);
+  border: 2px solid #ffd700;
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8);
+  z-index: 100;
+  animation: popEmoteBar 0.18s ease-out;
+}
+@keyframes popEmoteBar {
+  0% { transform: translateY(-8px) scale(0.9); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.emoteBarBtn {
+  background: rgba(45, 25, 75, 0.9);
+  border: 1px solid #7c3aed;
+  color: #fff;
+  font-family: var(--bm-font-display);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  white-space: nowrap;
+}
+.emoteBarBtn:hover {
+  background: #7c3aed;
+  border-color: #ffd700;
+  color: #ffd700;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(124, 58, 237, 0.5);
+}
+

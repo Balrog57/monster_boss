@@ -3,7 +3,7 @@ import React from 'react';
 import DungeonTrack from './DungeonTrack.jsx';
 import s from './OpponentRow.module.css';
 
-export default function OpponentRow({ opponents, oppIds = [], treasures = [], adventure, onInspect, onHover }) {
+export default function OpponentRow({ opponents, oppIds = [], treasures = [], adventure, onInspect, onHover, emotes = {} }) {
   return (
     <div className={s.row} data-count={opponents.length} aria-label="Opponent dungeons">
       {opponents.map((p, idx) => (
@@ -16,6 +16,7 @@ export default function OpponentRow({ opponents, oppIds = [], treasures = [], ad
           adventure={adventure}
           onInspect={onInspect}
           onHover={onHover}
+          activeEmote={emotes?.[oppIds[idx]]}
         />
       ))}
     </div>

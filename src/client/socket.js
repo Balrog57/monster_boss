@@ -80,6 +80,19 @@ export function subscribeErrors(matchID, handler) {
   return () => s.off('match:error', wrapped);
 }
 
+export function sendEmote(matchID, emote) {
+  getSocket().emit('match:emote', { matchID, emote });
+}
+
+export function subscribeEmotes(matchID, handler) {
+  const s = getSocket();
+  const wrapped = ({ playerID, emote, matchID: mid, timestamp }) => {
+    if (mid === matchID) handler({ playerID, emote, timestamp });
+  };
+  s.on('match:emote', wrapped);
+  return () => s.off('match:emote', wrapped);
+}
+
 export function disconnect() {
   session = null;
   if (socket) { socket.disconnect(); socket = null; }

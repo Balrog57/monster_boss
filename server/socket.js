@@ -101,6 +101,21 @@ export function createSocketIO(httpServer) {
       if (joinedMatchID === matchID) joinedMatchID = null;
     });
 
+    socket.on('match:emote', async ({ matchID, emote } = {}) => {
+      if (!matchID || !emote) return;
+      const match = await loadMatch(matchID);
+      if (!match) return;
+      const entry = match.sockets.get(socket.id);
+      if (!entry) return;
+      const cleanEmote = String(emote).trim().slice(0, 32);
+      io.to(`match:${matchID}`).emit('match:emote', {
+        matchID,
+        playerID: entry.playerID,
+        emote: cleanEmote,
+        timestamp: Date.now()
+      });
+    });
+
     socket.on('disconnect', () => {
       if (joinedMatchID) {
         removeSocket(joinedMatchID, socket.id);

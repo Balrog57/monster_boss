@@ -20,7 +20,16 @@ import { legalMoves } from '../server/reducer.js';
 // Rooms that require choosing ANOTHER room to destroy
 const NEEDS_OTHER_TARGET = new Set(['BMA028', 'BMA032', 'RMB047']);
 
-export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatch, onExitToMenu, turnDeadline, notification }) {
+const RETRO_EMOTES = [
+  'GG !',
+  'Aïe !',
+  'Prépare-toi !',
+  'Mouhahaha !',
+  'Pas si vite !',
+  'Bien joué !',
+];
+
+export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatch, onExitToMenu, turnDeadline, notification, emotes = {}, sendEmote }) {
   const [inspect, setInspect] = useState(null);        // { card, kind }
   const [preview, setPreview] = useState(null);        // hover { card, kind }
   const [selectedCard, setSelectedCard] = useState(null);
@@ -31,6 +40,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [emotesOpen, setEmotesOpen] = useState(false);
   const gameOverFired = useRef(false);
   const lastPhase = useRef(null);
 
@@ -193,6 +203,9 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
     setRulesOpen,
     galleryOpen,
     setGalleryOpen,
+    emotesOpen,
+    setEmotesOpen,
+    onToggleEmotes: () => setEmotesOpen((v) => !v),
     inspectOpen: !!inspect,
     onCloseInspect: () => setInspect(null),
     onCancelSelection: () => {
@@ -221,8 +234,29 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
           setMuted(next);
           setMutedState(next);
         }}
+        emotesOpen={emotesOpen}
+        onToggleEmotes={() => setEmotesOpen((v) => !v)}
       />
       </div>
+
+      {emotesOpen && (
+        <div className={s.emoteBar} role="menu" aria-label="Menu d'émotes">
+          {RETRO_EMOTES.map((txt) => (
+            <button
+              key={txt}
+              type="button"
+              className={s.emoteBarBtn}
+              onClick={() => {
+                playSfx(SFX.BUTTON);
+                sendEmote?.(txt);
+                setEmotesOpen(false);
+              }}
+            >
+              {txt}
+            </button>
+          ))}
+        </div>
+      )}
 
       {phase === PHASE.BOSS && (
         <div className={s.bossOverlay}>
@@ -256,6 +290,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             adventure={G.adventure}
             onInspect={setInspect}
             onHover={setPreview}
+            emotes={emotes}
           />
         </div>
         <div className={s.dungeon}>
@@ -305,6 +340,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
               }
             }}
             onInspect={setInspect}
+            activeEmote={emotes?.[pidKey]}
           />
         </div>
         {isMyTurn && !hasPendingChoice && !discarding && darkPayTargets.length > 0 && (

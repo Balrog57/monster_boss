@@ -30,6 +30,7 @@ export default function DungeonTrack({
   onBuildMiniboss,
   onPromoteMiniboss,
   onActivateMiniboss,
+  activeEmote = null,
 }) {
   const theme = bossTheme(player.boss);
   const dungeon = player.dungeon || [];
@@ -289,6 +290,11 @@ export default function DungeonTrack({
           })}
         </div>
         <div className={`${s.boss} ${hurt ? s.hurt : ''} ${player.leveledUp ? s.leveled : ''}`}>
+          {activeEmote?.text && (
+            <div className={s.speechBubble} key={`emote-${activeEmote.timestamp}`}>
+              {activeEmote.text}
+            </div>
+          )}
           {soulGain && (
             <div className={s.soulGainText} key={`soul-${player.souls?.length}`}>
               +1 SOUL!
