@@ -49,7 +49,11 @@ export default function Hud({ phase, isMyTurn, turnDeadline, notification, onOpt
       </div>
       <div className={`${s.phaseBadge} ${isMyTurn ? s.myTurn : s.theirTurn}`}>
         {phaseImg && <img src={phaseImg} alt={phase} className={s.phaseImg} />}
-        {isMyTurn && <span className={s.yourTurn}>YOUR TURN</span>}
+        {isMyTurn ? (
+          <span className={s.yourTurn}>YOUR TURN</span>
+        ) : (
+          <span className={s.waitingTurn}>WAITING FOR OPPONENT...</span>
+        )}
       </div>
       <div className={s.right}>
         {onToggleEmotes && (

@@ -69,6 +69,24 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
   const [handTab, setHandTab] = useState('rooms');
   const [muted, setMutedState] = useState(() => isMuted());
 
+  const rawPhase = ctx?.phase || G?.phase;
+  const [displayPhase, setDisplayPhase] = useState(rawPhase);
+  const prevPhaseRef = useRef(rawPhase);
+
+  useEffect(() => {
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = rawPhase;
+    if (prev === PHASE.BUILD && rawPhase === PHASE.ADVENTURE) {
+      setDisplayPhase(PHASE.BAIT);
+      const timer = setTimeout(() => {
+        setDisplayPhase(PHASE.ADVENTURE);
+      }, 1200);
+      return () => clearTimeout(timer);
+    } else {
+      setDisplayPhase(rawPhase);
+    }
+  }, [rawPhase]);
+
   // Detect end-of-game and surface the GameOverScreen overlay from inside the
   // board so it works whether the board is rendered in solo or online mode.
   useEffect(() => {
@@ -96,7 +114,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
   if (!me) {
     return <GameStage bg="/ui/backgrounds/gallery_bg.webp"><div className={s.loading}>Loading…</div></GameStage>;
   }
-  const phase = ctx.phase || G.phase;
+  const phase = displayPhase;
   const activePid = G.activePlayer != null ? String(G.activePlayer) : (ctx.currentPlayer != null ? String(ctx.currentPlayer) : '0');
   const hasPendingChoice = !!G.pendingChoice;
   const isMyChoice = hasPendingChoice && G.pendingChoice.playerId === Number(playerID);
