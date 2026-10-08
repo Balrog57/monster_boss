@@ -826,7 +826,7 @@
   "heroes": [
     {
       "id": "RMB080",
-      "name": "Felicity, Joyful Nurse Felicity is an accomplished hero and sworn pacifist",
+      "name": "Felicity, Joyful Nurse",
       "treasure": 1,
       "hp": 4,
       "wounds": 1,
@@ -838,7 +838,7 @@
     },
     {
       "id": "RMB081",
-      "name": "Wolfhard, Teen Hero This young paladin fights all evil things, both ordinary and strange",
+      "name": "Wolfhard, Teen Hero",
       "treasure": 1,
       "hp": 4,
       "wounds": 1,
@@ -850,7 +850,7 @@
     },
     {
       "id": "RMB082",
-      "name": "Holkin, Propheteer Holkin plays many roles",
+      "name": "Holkin, Propheteer",
       "treasure": 1,
       "hp": 6,
       "wounds": 1,
@@ -862,7 +862,7 @@
     },
     {
       "id": "RMB083",
-      "name": "Luz, Merciful Healer Luz is a fast-paced heroine who brings good vibrations an pwerful healing to any battle",
+      "name": "Luz, Merciful Healer",
       "treasure": 1,
       "hp": 6,
       "wounds": 1,
@@ -887,7 +887,7 @@
     },
     {
       "id": "RMB085",
-      "name": "Josie, Vampire Slayer Josie claims to have vanquished hundreds of vampires",
+      "name": "Josie, Vampire Slayer",
       "treasure": 1,
       "hp": 8,
       "wounds": 1,
@@ -899,7 +899,7 @@
     },
     {
       "id": "RMB086",
-      "name": "Tess, Dwarven Shieldmaiden Tess risked banishment to become an adventurer",
+      "name": "Tess, Dwarven Shieldmaiden",
       "treasure": 2,
       "hp": 4,
       "wounds": 1,
@@ -911,7 +911,7 @@
     },
     {
       "id": "RMB087",
-      "name": "Steven the Human For Steve, anytime is the right time to go on an adventure! He may seem like a normal kid, but Steve and his friends will always find a way to save the day",
+      "name": "Steven the Human",
       "treasure": 2,
       "hp": 4,
       "wounds": 1,
@@ -923,7 +923,7 @@
     },
     {
       "id": "RMB088",
-      "name": "Rotgut, Half-Giant Berserker Rotgut has the strength of his giantess mother, the courage of his human father, and the drinking skills that brought the unlikely pair together",
+      "name": "Rotgut, Half-Giant Berserker",
       "treasure": 2,
       "hp": 6,
       "wounds": 1,
@@ -935,7 +935,7 @@
     },
     {
       "id": "RMB089",
-      "name": "Maxine, Sister of Steel  When her homeland was destroyed by apocalyptic magic, Maxine donned the sealed armor of her ancestors and set out to return order to the land",
+      "name": "Maxine, Sister of Steel",
       "treasure": 2,
       "hp": 6,
       "wounds": 1,
@@ -960,7 +960,7 @@
     },
     {
       "id": "RMB091",
-      "name": "Joe the Smith From training dragons to building golems, this blacksmith is up for any adventure",
+      "name": "Joe the Smith",
       "treasure": 2,
       "hp": 8,
       "wounds": 1,

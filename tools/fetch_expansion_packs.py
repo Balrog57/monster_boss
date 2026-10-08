@@ -38,6 +38,21 @@ def clean_cell(raw: str) -> str:
     return s.strip()
 
 
+def clean_name(raw: str) -> str:
+    """Names can carry the wiki flavour line or a link remnant."""
+    if not raw:
+        return raw
+    s = raw
+    if "|" in s:
+        head, tail = s.split("|", 1)
+        if "]" in tail or head.strip() == tail.strip():
+            s = head
+    s = re.split(r"\xa0", s, maxsplit=1)[0]
+    s = s.split("\n", 1)[0]
+    s = s.replace("[", "").replace("]", "")
+    return re.sub(r"\s+", " ", s).strip()
+
+
 def parse_treasures(text: str) -> list[int]:
     if not text or text in ("-", "–"):
         return []
@@ -171,7 +186,7 @@ def tag_boss(card: dict) -> None:
 
 
 def map_boss(cid: str, cells: list[str], row: str = "") -> dict:
-    name = clean_cell(cells[1]) if len(cells) > 1 else cid
+    name = clean_name(clean_cell(cells[1])) if len(cells) > 1 else cid
     xp_match = re.search(r"\d+", clean_cell(cells[3])) if len(cells) > 3 else None
     xp = int(xp_match.group()) if xp_match else 500
     treasures = parse_treasures(clean_cell(cells[4])) if len(cells) > 4 else [1]
@@ -204,7 +219,7 @@ def map_boss(cid: str, cells: list[str], row: str = "") -> dict:
 
 
 def map_room(cid: str, cells: list[str], row: str = "") -> dict:
-    name = clean_cell(cells[1]) if len(cells) > 1 else cid
+    name = clean_name(clean_cell(cells[1])) if len(cells) > 1 else cid
     subtype = clean_cell(cells[2]) if len(cells) > 2 else "Monster Room"
     dmg_match = re.search(r"\d+", clean_cell(cells[3])) if len(cells) > 3 else None
     dmg = int(dmg_match.group()) if dmg_match else 1
@@ -239,7 +254,7 @@ def map_room(cid: str, cells: list[str], row: str = "") -> dict:
 
 
 def map_spell(cid: str, cells: list[str], row: str = "") -> dict:
-    name = clean_cell(cells[1]) if len(cells) > 1 else cid
+    name = clean_name(clean_cell(cells[1])) if len(cells) > 1 else cid
     phase_str = clean_cell(cells[3]) if len(cells) > 3 else "Build"
     phase = SPELL_PHASE.get(phase_str, 1)
     
@@ -269,16 +284,45 @@ def map_spell(cid: str, cells: list[str], row: str = "") -> dict:
     return card
 
 
+def hero_name_from_cell(raw: str) -> str:
+    """Hero name cells carry the flavour line next to the name.
+
+    The wiki writes them as '''Name''' flavour, [[Target|'''Name''']] flavour,
+    '''[[Name]]''' flavour or [Target|Name] flavour, and split_table_row loses
+    one bracket of every [[...]], so clean_cell's link regex never fires here.
+    """
+    if not raw:
+        return ""
+    s = re.sub(r"<[^>]+>", "", raw.strip())
+    m = re.search(r"'''(.+?)'''", s, re.S)
+    if m:
+        s = m.group(1)
+    else:
+        s = s.replace("'''", "")
+        m = re.search(r"\[\[?[^\]|\n]*\|([^\]\n]+)\]\]?", s)
+        if m:
+            s = m.group(1)
+        else:
+            m = re.search(r"\[\[?([^\]\n]+)\]\]?", s)
+            if m:
+                s = m.group(1)
+            else:
+                s = s.split("\n", 1)[0]
+    s = s.replace("[", "").replace("]", "")
+    s = re.split(r"\xa0", s, maxsplit=1)[0]
+    return re.sub(r"\s+", " ", s).strip()
+
+
 def map_hero(cid: str, cells: list[str]) -> dict:
     subtype = clean_cell(cells[2]) if len(cells) > 2 else "Ordinary Hero"
     name_col = clean_cell(cells[1]) if len(cells) > 1 else cid
     desc_col = clean_cell(cells[6]) if len(cells) > 6 else ""
-    
+
     name = name_col
     if name_col in ("Cleric", "Fighter", "Mage", "Thief", "Explorer", "Ordinary Hero", "Epic Hero", "Dark Hero"):
-        if desc_col and len(desc_col) > 3:
-            name = desc_col.split(".")[0].split(" -- ")[0].split(" - ")[0].strip()
-            
+        name = hero_name_from_cell(cells[6]) if len(cells) > 6 else name_col
+    name = clean_name(name)
+
     hp_match = re.search(r"\d+", clean_cell(cells[3])) if len(cells) > 3 else None
     hp = int(hp_match.group()) if hp_match else 5
     
@@ -316,7 +360,7 @@ def map_hero(cid: str, cells: list[str]) -> dict:
 
 
 def map_miniboss(cid: str, cells: list[str]) -> dict:
-    name = clean_cell(cells[1]) if len(cells) > 1 else cid
+    name = clean_name(clean_cell(cells[1])) if len(cells) > 1 else cid
     desc = clean_cell(cells[6]) if len(cells) > 6 else ""
     
     levels = []

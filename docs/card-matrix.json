@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T20:22:15.257Z",
+  "generatedAt": "2026-10-08T22:05:49.065Z",
   "cards": {
     "BMA001": {
       "id": "BMA001",
@@ -1040,7 +1040,9 @@
       "textCorrupt": false,
       "status": "explicit",
       "hasArt": false,
-      "tags": []
+      "tags": [
+        "onBuildHealWound"
+      ]
     },
     "RMB019": {
       "id": "RMB019",
@@ -1185,7 +1187,9 @@
       "textCorrupt": false,
       "status": "explicit",
       "hasArt": false,
-      "tags": []
+      "tags": [
+        "onBuildDrawSpell"
+      ]
     },
     "RMB032": {
       "id": "RMB032",
@@ -1755,7 +1759,9 @@
       "textCorrupt": false,
       "status": "explicit",
       "hasArt": true,
-      "tags": []
+      "tags": [
+        "onBuildDrawSpell"
+      ]
     },
     "TNL037": {
       "id": "TNL037",
@@ -1931,7 +1937,9 @@
       "textCorrupt": false,
       "status": "explicit",
       "hasArt": true,
-      "tags": []
+      "tags": [
+        "onBuildDrawSpell"
+      ]
     },
     "TNL053": {
       "id": "TNL053",
@@ -3496,7 +3504,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL019": {
@@ -3507,7 +3515,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL020": {
@@ -3518,7 +3526,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL021": {
@@ -3529,7 +3537,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL022": {
@@ -3540,7 +3548,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL023": {
@@ -3551,7 +3559,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL024": {
@@ -3562,7 +3570,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL025": {
@@ -3573,7 +3581,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL026": {
@@ -3584,7 +3592,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL027": {
@@ -3595,7 +3603,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "CRL028": {
@@ -3644,7 +3652,7 @@
     },
     "RMB080": {
       "id": "RMB080",
-      "name": "Felicity, Joyful Nurse Felicity is an accomplished hero and sworn pacifist",
+      "name": "Felicity, Joyful Nurse",
       "section": "heroes",
       "set": "minibosses",
       "text": "",
@@ -3655,7 +3663,7 @@
     },
     "RMB081": {
       "id": "RMB081",
-      "name": "Wolfhard, Teen Hero This young paladin fights all evil things, both ordinary and strange",
+      "name": "Wolfhard, Teen Hero",
       "section": "heroes",
       "set": "minibosses",
       "text": "",
@@ -3666,7 +3674,7 @@
     },
     "RMB082": {
       "id": "RMB082",
-      "name": "Holkin, Propheteer Holkin plays many roles",
+      "name": "Holkin, Propheteer",
       "section": "heroes",
       "set": "minibosses",
       "text": "",
@@ -3677,7 +3685,7 @@
     },
     "RMB083": {
       "id": "RMB083",
-      "name": "Luz, Merciful Healer Luz is a fast-paced heroine who brings good vibrations an pwerful healing to any battle",
+      "name": "Luz, Merciful Healer",
       "section": "heroes",
       "set": "minibosses",
       "text": "",
@@ -3699,7 +3707,7 @@
     },
     "RMB085": {
       "id": "RMB085",
-      "name": "Josie, Vampire Slayer Josie claims to have vanquished hundreds of vampires",
+      "name": "Josie, Vampire Slayer",
       "section": "heroes",
       "set": "minibosses",
       "text": "",
@@ -3710,7 +3718,7 @@
     },
     "RMB086": {
       "id": "RMB086",
-      "name": "Tess, Dwarven Shieldmaiden Tess risked banishment to become an adventurer",
+      "name": "Tess, Dwarven Shieldmaiden",
       "section": "heroes",
       "set": "minibosses",
       "text": "",
@@ -3721,7 +3729,7 @@
     },
     "RMB087": {
       "id": "RMB087",
-      "name": "Steven the Human For Steve, anytime is the right time to go on an adventure! He may seem like a normal kid, but Steve and his friends will always find a way to save the day",
+      "name": "Steven the Human",
       "section": "heroes",
       "set": "minibosses",
       "text": "",
@@ -3732,7 +3740,7 @@
     },
     "RMB088": {
       "id": "RMB088",
-      "name": "Rotgut, Half-Giant Berserker Rotgut has the strength of his giantess mother, the courage of his human father, and the drinking skills that brought the unlikely pair together",
+      "name": "Rotgut, Half-Giant Berserker",
       "section": "heroes",
       "set": "minibosses",
       "text": "",
@@ -3743,7 +3751,7 @@
     },
     "RMB089": {
       "id": "RMB089",
-      "name": "Maxine, Sister of Steel  When her homeland was destroyed by apocalyptic magic, Maxine donned the sealed armor of her ancestors and set out to return order to the land",
+      "name": "Maxine, Sister of Steel",
       "section": "heroes",
       "set": "minibosses",
       "text": "",
@@ -3765,7 +3773,7 @@
     },
     "RMB091": {
       "id": "RMB091",
-      "name": "Joe the Smith From training dragons to building golems, this blacksmith is up for any adventure",
+      "name": "Joe the Smith",
       "section": "heroes",
       "set": "minibosses",
       "text": "",
@@ -4112,7 +4120,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL074": {
@@ -4123,7 +4131,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL075": {
@@ -4134,7 +4142,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL076": {
@@ -4145,7 +4153,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL077": {
@@ -4178,7 +4186,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL080": {
@@ -4189,7 +4197,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL081": {
@@ -4200,7 +4208,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL082": {
@@ -4211,7 +4219,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL083": {
@@ -4233,7 +4241,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL085": {
@@ -4244,7 +4252,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL086": {
@@ -4255,7 +4263,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL087": {
@@ -4266,7 +4274,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL088": {
@@ -4277,7 +4285,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL089": {
@@ -4310,7 +4318,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL092": {
@@ -4321,7 +4329,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL093": {
@@ -4332,7 +4340,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL094": {
@@ -4343,7 +4351,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL095": {
@@ -4365,7 +4373,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL097": {
@@ -4387,7 +4395,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL099": {
@@ -4398,7 +4406,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL100": {
@@ -4420,7 +4428,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL102": {
@@ -4431,7 +4439,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL103": {
@@ -4442,7 +4450,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL104": {
@@ -4464,7 +4472,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL106": {
@@ -4475,7 +4483,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL107": {
@@ -4486,7 +4494,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL108": {
@@ -4508,7 +4516,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL110": {
@@ -4519,7 +4527,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL111": {
@@ -4530,7 +4538,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL112": {
@@ -4552,7 +4560,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL114": {
@@ -4900,7 +4908,7 @@
   "summary": {
     "total": 442,
     "corrupt": 0,
-    "missingArt": 148,
+    "missingArt": 108,
     "expansionPending": 0
   }
 }

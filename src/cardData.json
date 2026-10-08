@@ -1195,6 +1195,7 @@
       "quantity": 2,
       "description": "When you build or uncover this Room, you may discard a Miniboss to heal a Wound.",
       "set": "minibosses",
+      "onBuildHealWound": true,
       "implemented": true
     },
     {
@@ -1376,7 +1377,8 @@
       ],
       "quantity": 1,
       "description": "When you build or uncover this Room, you may discard a Miniboss to draw a Spell card.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "onBuildDrawSpell": true
     },
     {
       "id": "RMB032",
@@ -2077,7 +2079,8 @@
       ],
       "quantity": 2,
       "description": "When you build or uncover this Room, draw a Spell card.",
-      "set": "next-level"
+      "set": "next-level",
+      "onBuildDrawSpell": true
     },
     {
       "id": "TNL037",
@@ -2306,7 +2309,8 @@
       ],
       "quantity": 2,
       "description": "When you build this Room, if you have no Spell cards in your hand, draw a Spell card.",
-      "set": "next-level"
+      "set": "next-level",
+      "onBuildDrawSpell": true
     },
     {
       "id": "TNL053",
@@ -4183,7 +4187,7 @@
     },
     {
       "id": "RMB080",
-      "name": "Felicity, Joyful Nurse Felicity is an accomplished hero and sworn pacifist",
+      "name": "Felicity, Joyful Nurse",
       "treasure": 1,
       "hp": 4,
       "wounds": 1,
@@ -4195,7 +4199,7 @@
     },
     {
       "id": "RMB081",
-      "name": "Wolfhard, Teen Hero This young paladin fights all evil things, both ordinary and strange",
+      "name": "Wolfhard, Teen Hero",
       "treasure": 1,
       "hp": 4,
       "wounds": 1,
@@ -4207,7 +4211,7 @@
     },
     {
       "id": "RMB082",
-      "name": "Holkin, Propheteer Holkin plays many roles",
+      "name": "Holkin, Propheteer",
       "treasure": 1,
       "hp": 6,
       "wounds": 1,
@@ -4219,7 +4223,7 @@
     },
     {
       "id": "RMB083",
-      "name": "Luz, Merciful Healer Luz is a fast-paced heroine who brings good vibrations an pwerful healing to any battle",
+      "name": "Luz, Merciful Healer",
       "treasure": 1,
       "hp": 6,
       "wounds": 1,
@@ -4244,7 +4248,7 @@
     },
     {
       "id": "RMB085",
-      "name": "Josie, Vampire Slayer Josie claims to have vanquished hundreds of vampires",
+      "name": "Josie, Vampire Slayer",
       "treasure": 1,
       "hp": 8,
       "wounds": 1,
@@ -4256,7 +4260,7 @@
     },
     {
       "id": "RMB086",
-      "name": "Tess, Dwarven Shieldmaiden Tess risked banishment to become an adventurer",
+      "name": "Tess, Dwarven Shieldmaiden",
       "treasure": 2,
       "hp": 4,
       "wounds": 1,
@@ -4268,7 +4272,7 @@
     },
     {
       "id": "RMB087",
-      "name": "Steven the Human For Steve, anytime is the right time to go on an adventure! He may seem like a normal kid, but Steve and his friends will always find a way to save the day",
+      "name": "Steven the Human",
       "treasure": 2,
       "hp": 4,
       "wounds": 1,
@@ -4280,7 +4284,7 @@
     },
     {
       "id": "RMB088",
-      "name": "Rotgut, Half-Giant Berserker Rotgut has the strength of his giantess mother, the courage of his human father, and the drinking skills that brought the unlikely pair together",
+      "name": "Rotgut, Half-Giant Berserker",
       "treasure": 2,
       "hp": 6,
       "wounds": 1,
@@ -4292,7 +4296,7 @@
     },
     {
       "id": "RMB089",
-      "name": "Maxine, Sister of Steel  When her homeland was destroyed by apocalyptic magic, Maxine donned the sealed armor of her ancestors and set out to return order to the land",
+      "name": "Maxine, Sister of Steel",
       "treasure": 2,
       "hp": 6,
       "wounds": 1,
@@ -4317,7 +4321,7 @@
     },
     {
       "id": "RMB091",
-      "name": "Joe the Smith From training dragons to building golems, this blacksmith is up for any adventure",
+      "name": "Joe the Smith",
       "treasure": 2,
       "hp": 8,
       "wounds": 1,
@@ -5874,18 +5878,18 @@
     "RMB079": "armor-up",
     "RMB115": "warlock",
     "RMB116": "shigeru-the-spellbinder",
-    "RMB080": "felicity--joyful-nurse-felicity-is-an-accomplished-hero-and-sworn-pacifist",
-    "RMB081": "wolfhard--teen-hero-this-young-paladin-fights-all-evil-things--both-ordinary-and-strange",
-    "RMB082": "holkin--propheteer-holkin-plays-many-roles",
-    "RMB083": "luz--merciful-healer-luz-is-a-fast-paced-heroine-who-brings-good-vibrations-an-pwerful-healing-to-any-battle",
+    "RMB080": "felicity--joyful-nurse",
+    "RMB081": "wolfhard--teen-hero",
+    "RMB082": "holkin--propheteer",
+    "RMB083": "luz--merciful-healer",
     "RMB084": "inquisitor",
-    "RMB085": "josie--vampire-slayer-josie-claims-to-have-vanquished-hundreds-of-vampires",
-    "RMB086": "tess--dwarven-shieldmaiden-tess-risked-banishment-to-become-an-adventurer",
-    "RMB087": "steven-the-human-for-steve--anytime-is-the-right-time-to-go-on-an-adventure--he-may-seem-like-a-normal-kid--but-steve-and-his-friends-will-always-find-a-way-to-save-the-day",
-    "RMB088": "rotgut--half-giant-berserker-rotgut-has-the-strength-of-his-giantess-mother--the-courage-of-his-human-father--and-the-drinking-skills-that-brought-the-unlikely-pair-together",
-    "RMB089": "maxine--sister-of-steel--when-her-homeland-was-destroyed-by-apocalyptic-magic--maxine-donned-the-sealed-armor-of-her-ancestors-and-set-out-to-return-order-to-the-land",
+    "RMB085": "josie--vampire-slayer",
+    "RMB086": "tess--dwarven-shieldmaiden",
+    "RMB087": "steven-the-human",
+    "RMB088": "rotgut--half-giant-berserker",
+    "RMB089": "maxine--sister-of-steel",
     "RMB090": "sellsword",
-    "RMB091": "joe-the-smith-from-training-dragons-to-building-golems--this-blacksmith-is-up-for-any-adventure",
+    "RMB091": "joe-the-smith",
     "RMB092": "eloi-marlborn",
     "RMB093": "exai--mindmage",
     "RMB094": "clebrina--familiar",

@@ -22,6 +22,21 @@ def load(path: str) -> dict:
 EXP_PREFIXES = ("TNL", "RMB", "CRL")
 
 
+def clean_name(raw: str) -> str:
+    """Names can carry the wiki flavour line or a link remnant."""
+    if not raw:
+        return raw
+    s = raw
+    if "|" in s:
+        head, tail = s.split("|", 1)
+        if "]" in tail or head.strip() == tail.strip():
+            s = head
+    s = re.split(r"\xa0", s, maxsplit=1)[0]
+    s = s.split("\n", 1)[0]
+    s = s.replace("[", "").replace("]", "")
+    return re.sub(r"\s+", " ", s).strip()
+
+
 def filter_base(cards: list, key="id") -> list:
     return [c for c in cards if not any(c[key].startswith(p) for p in EXP_PREFIXES)]
 
@@ -43,6 +58,8 @@ def main():
         pack = load(path)
         for section in ("bosses", "rooms", "spells", "heroes", "items", "minibosses"):
             if pack.get(section):
+                for c in pack[section]:
+                    c["name"] = clean_name(c.get("name", ""))
                 existing = data.setdefault(section, [])
                 existing.extend(pack[section])
                 data[section] = sorted(existing, key=lambda c: c["id"])
@@ -54,6 +71,20 @@ def main():
                 slug = "".join(ch if ch.isalnum() or ch == "-" else "-" for ch in slug).strip("-")
                 nm[cid] = slug or cid.lower()
         print(f"merged {name}: +{len(pack.get('rooms', []))} rooms")
+
+    impl_path = os.path.join(EXP_DIR, "implemented.json")
+    if os.path.exists(impl_path):
+        implemented = set(load(impl_path).get("ids", []))
+        flagged = 0
+        for section in ("bosses", "rooms", "spells", "heroes", "items", "minibosses"):
+            for c in data.get(section, []):
+                if c["id"] in implemented:
+                    c["implemented"] = True
+                    flagged += 1
+        missing = sorted(implemented - {c["id"] for s in ("bosses", "rooms", "spells", "heroes", "items", "minibosses") for c in data.get(s, [])})
+        if missing:
+            print(f"WARNING: implemented.json ids not in cardData: {missing}", file=sys.stderr)
+        print(f"applied implemented flag to {flagged} cards")
 
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)

@@ -24,6 +24,12 @@ CARD_DATA = os.path.join(ROOT, "src", "cardData.json")
 OUT_CARDS = os.path.join(ROOT, "assets", "cards")
 WIKI_API = "https://bossmonster.fandom.com/api.php"
 UA = "BossMonsterFanPort/expansion-art"
+# Fandom's CDN (static.wikia.nocookie.net) answers 403 without a Referer.
+HEADERS = {
+    "User-Agent": UA,
+    "Referer": "https://bossmonster.fandom.com/",
+    "Accept": "*/*",
+}
 EXP_PREFIXES = ("TNL", "RMB", "CRL")
 SKIP_IMAGES = {
     "boss_monster_clerics.png",
@@ -42,13 +48,14 @@ def slug(name: str) -> str:
 
 
 def http_json(url: str) -> dict:
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    # static.wikia.nocookie.net and the API reject requests without a Referer.
+    req = urllib.request.Request(url, headers=HEADERS)
     with urllib.request.urlopen(req, timeout=60) as res:
         return json.loads(res.read().decode("utf-8"))
 
 
 def http_bytes(url: str) -> bytes | None:
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    req = urllib.request.Request(url, headers=HEADERS)
     try:
         with urllib.request.urlopen(req, timeout=45) as res:
             return res.read()

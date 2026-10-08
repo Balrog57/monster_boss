@@ -127,7 +127,7 @@ Audit carte-à-carte : **96/96 effets câblés** (boss 8/8, sorts 16/16, salles 
 Audit des 6 packs (`hidden-heroes`, `tools`, `players-choice`, `next-level`, `minibosses`, `crash-landing`).
 
 * **Matrice de conformité** (`npm run card-matrix`) : **442 cartes**, `corrupt=0`, `expansion-pending=0` après correction du scanner (`tools/generate_card_matrix.js` : lecture de `src/items.js`, `src/handAbilities.js`, `src/darkHeroes.js`, `src/expansionEffects.js` + littéraux d'IDs ; les 88 « pending » résiduels étaient des héros data-driven déjà câblés).
-* **Écart connu non bloquant :** 148 cartes Next Level / Rise of the Minibosses / Crash Landing sans visuel (art wiki non téléchargé) ; données et textes complets, l'almanach affiche le dos de carte.
+* **Écart connu non bloquant :** 108 cartes Next Level / Rise of the Minibosses / Crash Landing sans visuel (art wiki non téléchargé) ; données et textes complets, l'almanach affiche le dos de carte.
 
 ### 7.1. Bug n°1 — Miniboss perdu à chaque aller-retour JSON (bloquant)
 
@@ -153,4 +153,11 @@ Audit des 6 packs (`hidden-heroes`, `tools`, `players-choice`, `next-level`, `mi
 * `test/soak.test.js` (**13 parties IA complètes**) sur le harnais `test/helpers/aiSoak.js` : 14 configurations (base, chaque pack, tous les packs, `expansions: null`, 2 à 6 joueurs) jouées jusqu'à un état terminal **sans coup rejeté, sans blocage IA et sans état figé** (empreinte d'état répétée > 25 fois = échec).
 * Scratch supprimé : `test/helpers/hunt.mjs`, `soak-run.mjs`, `repro.mjs`.
 
-**Validation :** `npm run test:unit` **193/193**, `npm run test:e2e` **29/29**, `npm run build` OK, `npm run card-matrix` 442/442 propres. Hors suite : 240/240 parties de soak (60 graines × 6 configurations) sans erreur.
+### 7.5. Données — 52 noms de héros corrompus (packs wiki)
+
+* **Cause :** `split_table_row` (`tools/fetch_expansion_packs.py`) consomme `[[` / `]]` en n'émettant qu'une seule accolade. `clean_cell` ne reconnaît donc jamais les liens des cellules de nom de héros, et `map_hero` concaténait nom + ligne de flavor (`Franco…|Franco…] This highly trained…`, tronquée à la première phrase, ou séparée par une espace insécable).
+* **Correction :** nouveau `hero_name_from_cell` (gras `'''Nom'''` → étiquette de lien → reste de ligne, puis découpage NBSP et retrait des crochets) utilisé par `map_hero` ; `clean_name` renforcé (règle de lien `A|A]`, NBSP, retours à la ligne) dans `tools/fetch_expansion_packs.py` **et** `tools/merge_expansions.py` ; régénération des 3 packs (`npm run fetch:expansions`).
+* **Drapeaux `implemented` durabilisés :** les 87 cartes annotées `implemented: true` vivaient uniquement dans `src/cardData.json` et étaient **perdues à chaque régénération** → déplacés vers `assets/data/expansions/implemented.json`, réappliqués par `tools/merge_expansions.py`.
+* **Résultat :** 52 noms nettoyés (32 `next-level`, 10 `minibosses`, 10 `crash-landing`), **0 nom pollué** dans les packs et dans `src/cardData.json`, `expansion-pending=0` (87 `implemented` conservés), 40 visuels de héros enfin résolus par le slug (art manquant sur les packs : 150 → 108).
+
+**Validation :** `npm run test:unit` **193/193**, `npm run test:e2e` **29/29**, `npm run build` OK, `npm run card-matrix` **442 cartes, corrupt=0, expansion-pending=0**. Hors suite : 240/240 parties de soak (60 graines × 6 configurations) sans erreur.

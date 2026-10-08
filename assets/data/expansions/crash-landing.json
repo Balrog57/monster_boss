@@ -266,7 +266,7 @@
     },
     {
       "id": "CRL018",
-      "name": "Crash Dodgers|Crash Dodgers] Hailing from a small blue planet in the galactic backwater, Crash has long been the bane of the alien bosses",
+      "name": "Crash Dodgers",
       "treasure": 5,
       "hp": 4,
       "wounds": 1,
@@ -278,7 +278,7 @@
     },
     {
       "id": "CRL019",
-      "name": "Corbin Crickton|Corbin Crickton] An interstellar taxi driver who took one too many lefts at the grand wormhole: now, he's looking through the wreckage of the Crash Landing for a possible way home",
+      "name": "Corbin Crickton",
       "treasure": 5,
       "hp": 4,
       "wounds": 1,
@@ -290,7 +290,7 @@
     },
     {
       "id": "CRL020",
-      "name": "T'Matha|T'Matha] A shapeshifting squidopod, T\"Matha braves the crash site again and again looking for the Omega 42, the legendary weapon that might free her people from their greatest mistake",
+      "name": "T'Matha",
       "treasure": 5,
       "hp": 6,
       "wounds": 1,
@@ -302,7 +302,7 @@
     },
     {
       "id": "CRL021",
-      "name": "Lindo Callari|Lindo Callari] Wanted space vampire, failed ambassador, inveterate gambler",
+      "name": "Lindo Callari",
       "treasure": 5,
       "hp": 6,
       "wounds": 1,
@@ -314,7 +314,7 @@
     },
     {
       "id": "CRL022",
-      "name": "Doug O'Shibe, Ace Pilot|Doug O'Shibe, Ace Pilot] Doug has demonstrated such heroism, so frequently, that he is the most famous starfighter pilot in his galaxy",
+      "name": "Doug O'Shibe, Ace Pilot",
       "treasure": 5,
       "hp": 8,
       "wounds": 1,
@@ -326,7 +326,7 @@
     },
     {
       "id": "CRL023",
-      "name": "Guy the Redrobe|Guy the Redrobe] IT support for his clan of saber wielding space monks, Guy did not understand why he had to go on this away mission",
+      "name": "Guy the Redrobe",
       "treasure": 5,
       "hp": 8,
       "wounds": 1,
@@ -338,7 +338,7 @@
     },
     {
       "id": "CRL024",
-      "name": "Andromeda James|Andromeda James] This intrepid worm-o-naut has burrowed into the galaxy's darkest crypts looking for lost relics, but tales of a crystal skeleton lost in the Crash Landing have brought him to Arcadia",
+      "name": "Andromeda James",
       "treasure": 5,
       "hp": 11,
       "wounds": 2,
@@ -350,7 +350,7 @@
     },
     {
       "id": "CRL025",
-      "name": "Morgan Fragman|Morgan Fragman] Morgan is a man of many talents: soldier, master chef, and interdimensional physicist",
+      "name": "Morgan Fragman",
       "treasure": 5,
       "hp": 11,
       "wounds": 2,
@@ -362,7 +362,7 @@
     },
     {
       "id": "CRL026",
-      "name": "Banzai Barb|Banzai Barb] Intergalactic Jane-of-all-trades, Banzai Barb leads her ragtag group of cavaliers in a neverending war to kick the invaders out of Arcadia",
+      "name": "Banzai Barb",
       "treasure": 5,
       "hp": 13,
       "wounds": 2,
@@ -374,7 +374,7 @@
     },
     {
       "id": "CRL027",
-      "name": "Aliff|Aliff] Orbital Spaceman Aliff couldn't save his world from the Frostmen, but by Mallmax he swore he'd protect this planet, as long as his trusty saber cat Hob'x was by his side",
+      "name": "Aliff",
       "treasure": 5,
       "hp": 13,
       "wounds": 2,

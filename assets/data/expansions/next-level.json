@@ -864,7 +864,7 @@
   "heroes": [
     {
       "id": "TNL073",
-      "name": "Elfstar] Once an acolyte limited to simple orisons, Elfstar is now a true priestess who has mastered the mind bondage spell",
+      "name": "Elfstar",
       "treasure": 1,
       "hp": 4,
       "wounds": 1,
@@ -876,7 +876,7 @@
     },
     {
       "id": "TNL074",
-      "name": "Kyle the Incorruptible] This acolyte of the Order declared himself free from sin and immune to temptation",
+      "name": "Kyle the Incorruptible",
       "treasure": 1,
       "hp": 4,
       "wounds": 1,
@@ -888,7 +888,7 @@
     },
     {
       "id": "TNL075",
-      "name": "Danae the Slayer] A woman of few words, Danae is relentlessly focused on her mission: to eliminate every undead abomination in Arcadia",
+      "name": "Danae the Slayer",
       "treasure": 1,
       "hp": 6,
       "wounds": 1,
@@ -900,7 +900,7 @@
     },
     {
       "id": "TNL076",
-      "name": "Solemn Caine, Pilgrim of Pain|Solemn Caine, Pilgrim of Pain] This zealot has mounted a one-man inquisition into the darkest depths of Arcadia's dungeons",
+      "name": "Solemn Caine, Pilgrim of Pain",
       "treasure": 1,
       "hp": 6,
       "wounds": 1,
@@ -925,7 +925,7 @@
     },
     {
       "id": "TNL078",
-      "name": "Adynn, Cleric of Love|Adynn, Cleric of Love] The son of a philandering elf, Adynn inherited his father's charm and beauty",
+      "name": "Adynn, Cleric of Love",
       "treasure": 1,
       "hp": 8,
       "wounds": 1,
@@ -937,7 +937,7 @@
     },
     {
       "id": "TNL079",
-      "name": "Hookshot Joe|Hookshot Joe] Once the commander of an elite fighting unit, he lost his left hand in battle",
+      "name": "Hookshot Joe",
       "treasure": 2,
       "hp": 4,
       "wounds": 1,
@@ -949,7 +949,7 @@
     },
     {
       "id": "TNL080",
-      "name": "Tarka, Eskimo Warrior|Tarka, Eskimo Warrior] This northern warrior will not rest until he finds his best friend",
+      "name": "Tarka, Eskimo Warrior",
       "treasure": 2,
       "hp": 4,
       "wounds": 1,
@@ -961,7 +961,7 @@
     },
     {
       "id": "TNL081",
-      "name": "Lady Samantha|Lady Samantha] Her skills as a weaponsmith made Lady Samantha one of the wealthiest nobles in Arcadia",
+      "name": "Lady Samantha",
       "treasure": 2,
       "hp": 6,
       "wounds": 1,
@@ -973,7 +973,7 @@
     },
     {
       "id": "TNL082",
-      "name": "Ampersand the Galled|Ampersand the Galled] This dwarven warrior is legendary for his prodigious appetite, his puissant skill at arms, and his crazy temper",
+      "name": "Ampersand the Galled",
       "treasure": 2,
       "hp": 6,
       "wounds": 1,
@@ -998,7 +998,7 @@
     },
     {
       "id": "TNL084",
-      "name": "Damok, Dragon Hunter|Damok, Dragon Hunter] Some regard him as a savage for his primitive weaponry, and his speech consists of cryptic phrases like \"Scythe, his face black, his eyes red",
+      "name": "Damok, Dragon Hunter",
       "treasure": 2,
       "hp": 8,
       "wounds": 1,
@@ -1010,7 +1010,7 @@
     },
     {
       "id": "TNL085",
-      "name": "Megan the Missile Mage|Megan the Missile Mage] This intrepid adventuress, also known as \"the Azure Evoker,\" is not your typical wizard",
+      "name": "Megan the Missile Mage",
       "treasure": 3,
       "hp": 4,
       "wounds": 1,
@@ -1022,7 +1022,7 @@
     },
     {
       "id": "TNL086",
-      "name": "Otus the Occult|Otus the Occult] Otus has seen things that the would drive most mortal men to madness",
+      "name": "Otus the Occult",
       "treasure": 3,
       "hp": 4,
       "wounds": 1,
@@ -1034,7 +1034,7 @@
     },
     {
       "id": "TNL087",
-      "name": "A Kid and His Spellslime|A Kid and His Spellslime] When an ordinary kid discovered a wounded spellslime, he nursed it back to health with candy",
+      "name": "A Kid and His Spellslime",
       "treasure": 3,
       "hp": 6,
       "wounds": 1,
@@ -1046,7 +1046,7 @@
     },
     {
       "id": "TNL088",
-      "name": "Wink the Probably Magical|Wink the Probably Magical] Wink's apparent lack of magical talent has not stopped him from going on adventures, or referring to his pet chameleon as his \"familiar",
+      "name": "Wink the Probably Magical",
       "treasure": 3,
       "hp": 6,
       "wounds": 1,
@@ -1070,7 +1070,7 @@
     },
     {
       "id": "TNL090",
-      "name": "Iskandar, Ice Mage|Iskandar, Ice Mage] Once a small-town librarian, Iskandar became a hero when he defended his town against a dragon attack",
+      "name": "Iskandar, Ice Mage",
       "treasure": 3,
       "hp": 8,
       "wounds": 1,
@@ -1082,7 +1082,7 @@
     },
     {
       "id": "TNL091",
-      "name": "Black Leaf|Black Leaf] Black Leaf is always the first to scout ahead, swing across a chasm, or disable a poins trap",
+      "name": "Black Leaf",
       "treasure": 4,
       "hp": 4,
       "wounds": 1,
@@ -1094,7 +1094,7 @@
     },
     {
       "id": "TNL092",
-      "name": "Murphy the Magnificent|Murphy the Magnificent] He was a charlatan, a carnival performer, and a con man",
+      "name": "Murphy the Magnificent",
       "treasure": 4,
       "hp": 4,
       "wounds": 1,
@@ -1106,7 +1106,7 @@
     },
     {
       "id": "TNL093",
-      "name": "Colgar, Fugitive Prince|Colgar, Fugitive Prince] He lost his kingdom to Cerebellus, but he retains his ancestral weapon",
+      "name": "Colgar, Fugitive Prince",
       "treasure": 4,
       "hp": 6,
       "wounds": 1,
@@ -1118,7 +1118,7 @@
     },
     {
       "id": "TNL094",
-      "name": "Francisco the Endbringer|Francisco the Endbringer]\nThis highly trained assassin from the southern Silver Kingdom is known as the \"painter or blood",
+      "name": "Francisco the Endbringer",
       "treasure": 4,
       "hp": 6,
       "wounds": 1,
@@ -1142,7 +1142,7 @@
     },
     {
       "id": "TNL096",
-      "name": "Raymond Two-Chains|Raymond Two-Chains] Once he was an outlaw, notorious for wielding his chain-whips with deadly precision",
+      "name": "Raymond Two-Chains",
       "treasure": 4,
       "hp": 8,
       "wounds": 1,
@@ -1166,7 +1166,7 @@
     },
     {
       "id": "TNL098",
-      "name": "Tyrone, Pharaoh Ascendant|Tyrone, Pharaoh Ascendant] When Tyrone was young, the temple elders praised his hieroglyphics",
+      "name": "Tyrone, Pharaoh Ascendant",
       "treasure": 1,
       "hp": 11,
       "wounds": 2,
@@ -1178,7 +1178,7 @@
     },
     {
       "id": "TNL099",
-      "name": "Branadin Wordblessed|Branadin Wordblessed] This cosmic chronicler travels tirelessly from world to world, inscribing each people's histories and magics on plates of copper",
+      "name": "Branadin Wordblessed",
       "treasure": 1,
       "hp": 11,
       "wounds": 2,
@@ -1207,7 +1207,7 @@
     },
     {
       "id": "TNL101",
-      "name": "Heavenboy|Heavenboy]\nThis son of an angel and a mortal woman was born with clipped wings and half a halo",
+      "name": "Heavenboy",
       "treasure": 1,
       "hp": 13,
       "wounds": 2,
@@ -1219,7 +1219,7 @@
     },
     {
       "id": "TNL102",
-      "name": "Lone Fox and Kit|Lone Fox and Kit]\nFew know that this mysterious beauty was once a princess",
+      "name": "Lone Fox and Kit",
       "treasure": 2,
       "hp": 11,
       "wounds": 2,
@@ -1231,7 +1231,7 @@
     },
     {
       "id": "TNL103",
-      "name": "Ser Mortin the Deadly|Ser Mortin the Deadly]\nNo knight is more celebrated, but do not invite Ser Mortin to your wedding feast",
+      "name": "Ser Mortin the Deadly",
       "treasure": 2,
       "hp": 11,
       "wounds": 2,
@@ -1260,7 +1260,7 @@
     },
     {
       "id": "TNL105",
-      "name": "O'Brien the Destroyer|O'Brien the Destroyer]\nEvery night, he begins a new quest for glory",
+      "name": "O'Brien the Destroyer",
       "treasure": 2,
       "hp": 13,
       "wounds": 2,
@@ -1272,7 +1272,7 @@
     },
     {
       "id": "TNL106",
-      "name": "Dumbledalf the Blue|Dumbledalf the Blue]\nIn a world of punk-rock pyromancers and spiky haired sorcerers, one man believes in keeping things classic",
+      "name": "Dumbledalf the Blue",
       "treasure": 3,
       "hp": 11,
       "wounds": 2,
@@ -1284,7 +1284,7 @@
     },
     {
       "id": "TNL107",
-      "name": "Wrathfuss the Namer|Wrathfuss the Namer]\nWrathfuss knew the names of most things, and so most things were his to command",
+      "name": "Wrathfuss the Namer",
       "treasure": 3,
       "hp": 11,
       "wounds": 2,
@@ -1313,7 +1313,7 @@
     },
     {
       "id": "TNL109",
-      "name": "Markus, Geomancer Supreme|Markus, Geomancer Supreme]\nOnce, he lived alone in a flat, infinite world",
+      "name": "Markus, Geomancer Supreme",
       "treasure": 3,
       "hp": 13,
       "wounds": 2,
@@ -1325,7 +1325,7 @@
     },
     {
       "id": "TNL110",
-      "name": "Rom the Reaver|Rom the Reaver]\nNo one is faster with a blade, but Rom is a tortured soul",
+      "name": "Rom the Reaver",
       "treasure": 4,
       "hp": 11,
       "wounds": 2,
@@ -1337,7 +1337,7 @@
     },
     {
       "id": "TNL111",
-      "name": "Gaimina, Thief of Dreams|Gaimina, Thief of Dreams]\nNo door is closed to her, nor any dreaming mind, and she does not fear death",
+      "name": "Gaimina, Thief of Dreams",
       "treasure": 4,
       "hp": 11,
       "wounds": 2,
@@ -1366,7 +1366,7 @@
     },
     {
       "id": "TNL113",
-      "name": "Roberta, Dreaded Outlaw|Roberta, Dreaded Outlaw]\nHer life became a nightmare when she was wedded to an evil prince and her true love was slain by a pirate",
+      "name": "Roberta, Dreaded Outlaw",
       "treasure": 4,
       "hp": 13,
       "wounds": 2,
