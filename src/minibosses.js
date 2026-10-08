@@ -1,6 +1,6 @@
 // minibosses.js - Rise of the Minibosses: Coins, build, reveal, promote, abilities.
 import { activeRoom } from './engine.js';
-import { drawCards } from './cardData.js';
+import { drawCards, PHASE } from './cardData.js';
 
 const TREASURE_MB = {
   RMB056: 2, // Kid Croak — Fighter
@@ -55,6 +55,7 @@ export function attachMiniboss(stack, card, level = 1) {
 }
 
 export function canBuildMiniboss(G, playerId) {
+  if (G.phase !== PHASE.BUILD) return false;
   if (G.effects?.buildBlocked) return false;
   const p = G.players[playerId] ?? G.players[String(playerId)];
   if (!p || (p.buildsThisTurn || 0) >= 1) return false;
@@ -103,18 +104,27 @@ function discardMiniboss(stack, G) {
   delete stack.miniboss;
 }
 
+// Official rules: "Once per turn, during the Build phase, you may pay 1 Coin to
+// promote one Miniboss."
 export function canPromoteMiniboss(G, playerId, roomIndex) {
-  const stack = G.players[playerId]?.dungeon[roomIndex];
+  if (G.phase !== PHASE.BUILD) return false;
+  const p = G.players[playerId] ?? G.players[String(playerId)];
+  if (!p || p.promoteUsedThisTurn) return false;
+  const stack = p.dungeon[roomIndex];
   const mb = stack?.miniboss;
   if (!mb || mb.faceDown || mb.level >= 3) return false;
-  return (G.players[playerId]?.coins || 0) >= 1;
+  return (p.coins || 0) >= 1;
 }
 
 export function promoteMiniboss(G, playerId, roomIndex) {
-  const stack = G.players[playerId]?.dungeon[roomIndex];
+  const p = G.players[playerId] ?? G.players[String(playerId)];
+  const stack = p?.dungeon[roomIndex];
   const mb = stack?.miniboss;
+  if (G.phase !== PHASE.BUILD) return 'promote only during the Build phase';
+  if (p?.promoteUsedThisTurn) return 'already promoted this turn';
   if (!mb || mb.faceDown || mb.level >= 3) return 'cannot promote';
   if (!spendCoin(G, playerId, 1)) return 'need 1 Coin';
+  p.promoteUsedThisTurn = true;
   mb.level += 1;
   G.logs.push(`${mb.card.name} promoted to Level ${mb.level}.`);
   if (mb.card.id === 'RMB202' && mb.level === 2) {
@@ -1040,6 +1050,7 @@ export function onRoomDestroyed(G, playerId, stack) {
 /** Clear once-per-turn miniboss flags at Beginning. */
 export function clearMinibossTurnFlags(G) {
   for (const p of Object.values(G.players || {})) {
+    p.promoteUsedThisTurn = false;
     for (const stack of p.dungeon || []) {
       if (stack?.miniboss) stack.miniboss.usedThisTurn = false;
     }

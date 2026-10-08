@@ -4,6 +4,7 @@
 // same functions as db.js but keeps everything in Maps. Useful for local dev,
 // CI, and smoke tests. NOT durable across restarts — for production, set
 // DATABASE_URL to a real Postgres instance.
+import { encodeState } from '../src/stateCodec.js';
 
 const matches = new Map();      // id -> match row
 const seats = new Map();         // matchID -> Map<playerID, seat>
@@ -19,7 +20,7 @@ export async function migrate() { /* no-op */ }
 export async function createMatch({ id, gameName, numPlayers, state, ctx, setupData }) {
   matches.set(id, {
     id, game_name: gameName, num_players: numPlayers,
-    state: JSON.parse(JSON.stringify(state)),
+    state: encodeState(state),
     ctx: JSON.parse(JSON.stringify(ctx)),
     status: 'open', winner: null,
     setup_data: setupData || null,
@@ -50,7 +51,7 @@ export async function listMatches({ gameName, status } = {}) {
 export async function saveMatchState(id, { state, ctx, status, winner }) {
   const m = matches.get(id);
   if (!m) return;
-  m.state = JSON.parse(JSON.stringify(state));
+  m.state = encodeState(state);
   m.ctx = JSON.parse(JSON.stringify(ctx));
   if (status) m.status = status;
   if (winner != null) m.winner = winner;

@@ -7,7 +7,7 @@ import s from './Hand.module.css';
 
 export default function Hand({
   me, phase, isMyTurn, canAct = isMyTurn, selectedCard, onSelect, onSpell, onPass, onInspect, onHover,
-  showPass = true, stackLength = 0, activeTab, onTabChange,
+  showPass = true, stackLength = 0, activeTab, onTabChange, spellsBlocked = false,
 }) {
   const [internalTab, setInternalTab] = useState('rooms');
   const tab = activeTab !== undefined ? activeTab : internalTab;
@@ -18,7 +18,7 @@ export default function Hand({
   const shown = tab === 'rooms' ? rooms : spells;
 
   const canPickRoom = isMyTurn && (phase === PHASE.BUILD || phase === PHASE.SETUP);
-  const canPickSpell = canAct && (phase === PHASE.BUILD || phase === PHASE.ADVENTURE);
+  const canPickSpell = canAct && !spellsBlocked && (phase === PHASE.BUILD || phase === PHASE.ADVENTURE);
 
   return (
     <div className={s.panel} aria-label="Hand">

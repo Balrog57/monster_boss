@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import * as memoryDB from './db-memory.js';
+import { stringifyState } from '../src/stateCodec.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -64,7 +65,7 @@ export async function createMatch(opts) {
   await p.query(
     `INSERT INTO matches (id, game_name, num_players, state, ctx, status, setup_data)
      VALUES ($1, $2, $3, $4, $5, 'open', $6)`,
-    [opts.id, opts.gameName, opts.numPlayers, JSON.stringify(opts.state), JSON.stringify(opts.ctx), JSON.stringify(opts.setupData || null)]
+    [opts.id, opts.gameName, opts.numPlayers, stringifyState(opts.state), JSON.stringify(opts.ctx), JSON.stringify(opts.setupData || null)]
   );
   const seatValues = [];
   const seatParams = [];
@@ -129,7 +130,7 @@ export async function saveMatchState(id, data) {
   if (useMemory) return memoryDB.saveMatchState(id, data);
   const p = getPool();
   const sets = ['state = $2', 'ctx = $3'];
-  const params = [id, JSON.stringify(data.state), JSON.stringify(data.ctx)];
+  const params = [id, stringifyState(data.state), JSON.stringify(data.ctx)];
   if (data.status) { params.push(data.status); sets.push(`status = $${params.length}`); }
   if (data.winner != null) { params.push(data.winner); sets.push(`winner = $${params.length}`); }
   await p.query(`UPDATE matches SET ${sets.join(', ')} WHERE id = $1`, params);

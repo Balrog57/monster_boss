@@ -13,6 +13,7 @@ import {
   AdventurePauseBanner, StackBanner,
 } from './components/game';
 import { listDarkHeroPayTargets, canPayDarkHero } from './darkHeroes.js';
+import { spellsBlockedFor } from './items.js';
 import GameOverScreen from './screens/GameOverScreen.jsx';
 import s from './AppBoard.module.css';
 import { legalMoves } from '../server/reducer.js';
@@ -425,6 +426,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         phase={phase}
         isMyTurn={isMyTurn}
         canAct={canAct}
+        spellsBlocked={spellsBlockedFor(G, Number(playerID))}
         selectedCard={selectedCard}
         stackLength={G.stack?.length || 0}
         activeTab={handTab}

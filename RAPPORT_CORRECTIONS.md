@@ -3,7 +3,7 @@
 **Date :** 2026-10-08  
 **Projet :** `monster_boss` (v2.0.0)  
 **Référence source :** `boss-monster-2-2-6-android.apk` (SHA-256: `78592B483D8C7C4B8AABA1095F855226344565FB3D1B112A48113C2E90852FFD`)  
-**Statut global :** ✅ **100% Validé (168/168 tests unitaires, 29/29 e2e, build Vite validé)**
+**Statut global :** ✅ **100% Validé (193/193 tests unitaires, 29/29 e2e, build Vite validé)**
 
 ---
 
@@ -119,3 +119,38 @@ Audit carte-à-carte : **96/96 effets câblés** (boss 8/8, sorts 16/16, salles 
 - Setup web déjà en base-seule par défaut (`expansions: []`) ; extensions conservées pour plus tard.
 
 **Validation :** `test/base-set.test.js` (24 tests : 22 effets + parité 41 héros + tailles decks), `test/ai.test.js` (+4 tests scoring), `npm run test:unit` **168/168**, `npm run test:e2e` **29/29** (dont multi 2 navigateurs synchronisés, reconnexion, lobby), `npm run build` OK.
+
+---
+
+## 7. Validation des extensions (phase 3 — 2026-10-08)
+
+Audit des 6 packs (`hidden-heroes`, `tools`, `players-choice`, `next-level`, `minibosses`, `crash-landing`).
+
+* **Matrice de conformité** (`npm run card-matrix`) : **442 cartes**, `corrupt=0`, `expansion-pending=0` après correction du scanner (`tools/generate_card_matrix.js` : lecture de `src/items.js`, `src/handAbilities.js`, `src/darkHeroes.js`, `src/expansionEffects.js` + littéraux d'IDs ; les 88 « pending » résiduels étaient des héros data-driven déjà câblés).
+* **Écart connu non bloquant :** 148 cartes Next Level / Rise of the Minibosses / Crash Landing sans visuel (art wiki non téléchargé) ; données et textes complets, l'almanach affiche le dos de carte.
+
+### 7.1. Bug n°1 — Miniboss perdu à chaque aller-retour JSON (bloquant)
+
+* **Cause :** les piles de donjon sont des `Array` portant la propriété `miniboss` (`attachMiniboss`, `src/minibosses.js`). `JSON.stringify` supprime toute propriété non-index : le miniboss disparaissait à **chaque clone d'`applyMove`**, à **chaque sauvegarde Postgres** (colonne `state JSONB`) et à **chaque paquet socket**, d'où des parties IA qui s'effondraient en `promoteMiniboss: not your turn` / `cannot promote`.
+* **Correction :** nouveau codec `src/stateCodec.js` (`encodeState` / `decodeState` / `stringifyState` / `parseState`, tableau à propriétés attachées sérialisé en `{ __a: [...], ...extras }`), branché sur `cloneState` (`server/reducer.js`), `server/db.js` (2 écritures), `server/db-memory.js`, `server/matches.js` (`loadMatch` + 2 émissions) et `src/client/socket.js` (`decodePayload` sur `match:state`).
+
+### 7.2. Bug n°2 — fenêtre de pile et Bague d'invisibilité (THK020)
+
+* `legalMoves` proposait un contre-sort (BMA043 / RMB077) pendant la résolution de la pile **sans** appliquer `spellsBlockedFor` : un joueur dont un héros porte la Bague pouvait se voir proposer un sort que le moteur rejetait ensuite (`cannot play spells`).
+* **Correction :** garde `ringBlocksSpells` dans la fenêtre de pile (`server/reducer.js`) et prop `spellsBlocked` transmise à `Hand.jsx` via `src/AppBoard.jsx` (l'UI n'affiche plus le sort jouable sous Bague).
+
+### 7.3. Bug n°3 — règles Miniboss (phase Build, une fois par tour)
+
+| Règle officielle (`docs/rules/rules_minibosses.pdf`) | Comportement Web | Correction |
+|---|---|---|
+| « During the build phase, you may build a Miniboss instead of a Room » | `canBuildMiniboss` acceptait n'importe quelle phase | Garde `G.phase === PHASE.BUILD` |
+| « Once per turn, during the Build phase, you may pay 1 Coin to promote one Miniboss » | Promotion possible en aventure, sans limite par tour | `canPromoteMiniboss` / `promoteMiniboss` : phase Build + drapeau `promoteUsedThisTurn` (réinitialisé par `clearMinibossTurnFlags` en Beginning) |
+| Activation L2/L3 « at any time » | Handler `activateMiniboss` exigeait le joueur actif → rejet pendant la pause d'aventure | Alignement sur `mayActNow` (fenêtre de réponse autorisée à tous pendant la pause, joueur actif sinon) |
+
+### 7.4. Tests ajoutés
+
+* `test/state-codec.test.js` (**12 tests**) : aller-retour codec, aller-retour stockage de match (mémoire + forme jsonb), aller-retour paquet socket, clone `applyMove`, promotion (phase / une fois par tour / réinitialisation), construction (phase), fenêtre de réponse avec et sans Bague.
+* `test/soak.test.js` (**13 parties IA complètes**) sur le harnais `test/helpers/aiSoak.js` : 14 configurations (base, chaque pack, tous les packs, `expansions: null`, 2 à 6 joueurs) jouées jusqu'à un état terminal **sans coup rejeté, sans blocage IA et sans état figé** (empreinte d'état répétée > 25 fois = échec).
+* Scratch supprimé : `test/helpers/hunt.mjs`, `soak-run.mjs`, `repro.mjs`.
+
+**Validation :** `npm run test:unit` **193/193**, `npm run test:e2e` **29/29**, `npm run build` OK, `npm run card-matrix` 442/442 propres. Hors suite : 240/240 parties de soak (60 graines × 6 configurations) sans erreur.

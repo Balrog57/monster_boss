@@ -8,6 +8,7 @@
 import { nanoid, customAlphabet } from 'nanoid';
 import { setupMatch, applyMove, playerView, GAME_META, pickOpeningDiscardIndices } from './reducer.js';
 import { aiPickMove } from '../src/ai.js';
+import { encodeState, decodeState, parseState } from '../src/stateCodec.js';
 import { aiResolveLevelUpChoice } from '../src/roomAbilities.js';
 import {
   createMatch as dbCreateMatch,
@@ -189,7 +190,7 @@ export async function loadMatch(id) {
   if (registry.has(id)) return registry.get(id);
   const row = await dbFetchMatch(id);
   if (!row) return null;
-  const G = typeof row.state === 'string' ? JSON.parse(row.state) : row.state;
+  const G = typeof row.state === 'string' ? parseState(row.state) : decodeState(row.state);
   const ctx = typeof row.ctx === 'string' ? JSON.parse(row.ctx) : row.ctx;
   const setupData = typeof row.setup_data === 'string' ? JSON.parse(row.setup_data) : (row.setup_data || {});
   const match = { id, G, ctx, setupData, sockets: new Map(), dirty: false, status: row.status };
@@ -232,7 +233,7 @@ export function broadcastState(matchID) {
   if (!match) return;
   const deadline = match.turnStartedAt ? match.turnStartedAt + TURN_TIMEOUT_MS : null;
   for (const [socketID, entry] of match.sockets) {
-    const view = playerView(match.G, entry.playerID);
+    const view = encodeState(playerView(match.G, entry.playerID));
     entry.socket.emit('match:state', { G: view, ctx: match.ctx, matchID, turnDeadline: deadline });
   }
   if (match.G.gameOver) {
@@ -257,7 +258,7 @@ export function addSocket(matchID, socket, playerID) {
   }
 
   // On (re)join, send the current state immediately.
-  const view = playerView(match.G, playerID);
+  const view = encodeState(playerView(match.G, playerID));
   const deadline = match.turnStartedAt ? match.turnStartedAt + TURN_TIMEOUT_MS : null;
   socket.emit('match:state', { G: view, ctx: match.ctx, matchID, turnDeadline: deadline });
   // Notify other players about the reconnection.

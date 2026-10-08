@@ -4,11 +4,19 @@
 // sendMove, subscribe to state, leaveMatch. State subscriptions receive the
 // playerView-filtered G + ctx from the server.
 import { io } from 'socket.io-client';
+import { decodeState } from '../stateCodec.js';
 
 const SERVER = window.location.origin;
 
 let socket = null;
 let session = null;
+
+// The server sends G in the encoded form (arrays with attached properties,
+// e.g. dungeon stacks carrying `.miniboss`, are wrapped). Restore them here so
+// the UI reads plain dungeon stacks again.
+function decodePayload({ G, ctx, ...rest }) {
+  return { ...rest, G: G ? decodeState(G) : G, ctx };
+}
 
 export function getSocket() {
   if (!socket) {
@@ -30,7 +38,8 @@ export function joinMatch(matchID, playerID, credentials) {
       s.off('match:error', onError);
       reject(new Error(message));
     };
-    const onState = ({ G, ctx, matchID: mid, turnDeadline }) => {
+    const onState = (payload) => {
+      const { G, ctx, matchID: mid, turnDeadline } = decodePayload(payload);
       if (mid === matchID) {
         s.off('match:state', onState);
         s.off('match:error', onError);
@@ -54,7 +63,10 @@ export function leaveMatch(matchID) {
 
 export function subscribeState(matchID, handler) {
   const s = getSocket();
-  const wrapped = ({ G, ctx, matchID: mid, turnDeadline }) => { if (mid === matchID) handler({ G, ctx, turnDeadline }); };
+  const wrapped = (payload) => {
+    const { G, ctx, matchID: mid, turnDeadline } = decodePayload(payload);
+    if (mid === matchID) handler({ G, ctx, turnDeadline });
+  };
   s.on('match:state', wrapped);
   return () => s.off('match:state', wrapped);
 }

@@ -18,6 +18,7 @@ import {
   getExpandedDeck, shuffle, drawCards, playerOrderByXP, totalSouls, totalWounds,
   allowedCardSets, cardsInSets, heroesForSets, EXPANSION_PACKS, spellAllowedInPhase, canPlaySpell,
 } from '../src/cardData.js';
+import { decodeState } from '../src/stateCodec.js';
 import { castSpell, emptyEffects, isBuildBlocked, extraBuildsFor, isRoomDeactivated, isNoEntry, heroDamageFor, consumeHeroDamage } from '../src/spellEffects.js';
 import { onBuildRoom, onHeroDiedInRoom, processLevelUp, activateRoomAbility, resolveLevelUpChoice, aiResolveLevelUpChoice, hauntedLibraryChoice, heroesWithoutItem } from '../src/roomAbilities.js';
 import {
@@ -959,7 +960,7 @@ const MOVE_HANDLERS = {
   },
 
   activateMiniboss: (G, ctx, pid, [roomIndex, mode]) => {
-    if (!isActivePlayer(G, pid)) return 'not your turn';
+    if (!mayActNow(G, pid)) return 'not your turn';
     const err = activateMiniboss(G, ctx, pid, roomIndex != null ? roomIndex : 0, mode || null);
     return err;
   },
@@ -1281,10 +1282,11 @@ export function applyMove(state, move, playerID) {
   return { state: { G, ctx } };
 }
 
-// Deep clone the game state. JSON round-trip is sufficient because G contains
-// only plain data (no functions, no Dates, no class instances).
+// Deep clone the game state. A plain JSON round-trip is *not* enough: dungeon
+// stacks are Arrays carrying `.miniboss`, and JSON drops non-index properties.
+// decodeState(encodeState(...)) keeps them (see src/stateCodec.js).
 function cloneState(G) {
-  return JSON.parse(JSON.stringify(G));
+  return decodeState(G);
 }
 
 // ---------------------------------------------------------------------------
@@ -1549,8 +1551,9 @@ export function legalMoves(G, ctx, playerID) {
 
   if (G.stack?.length) {
     if (!isActivePlayer(G, pid)) return moves;
+    const ringBlocksSpells = spellsBlockedFor(G, pid);
     p.hand.forEach((c, i) => {
-      if (c.isSpell && (c.id === 'BMA043' || c.id === 'RMB077')) {
+      if (c.isSpell && !ringBlocksSpells && (c.id === 'BMA043' || c.id === 'RMB077')) {
         moves.push({ type: 'playSpell', args: [i, null] });
       }
       if (c.isRoom && c.id === 'TNL031') {

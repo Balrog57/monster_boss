@@ -27,14 +27,19 @@ function loadHandlerIds() {
     'src/roomAbilities.js',
     'src/spellEffects.js',
     'src/minibosses.js',
+    'src/items.js',
+    'src/handAbilities.js',
+    'src/darkHeroes.js',
+    'src/expansionEffects.js',
   ];
   const caseRe = /\bcase\s+['"]([A-Z]{3}\d{3}[A-Z]?)['"]/g;
   const keyRe = /^\s*([A-Z]{3}\d{3}[A-Z]?)\s*:/gm;
+  const litRe = /['"]([A-Z]{3}\d{3}[A-Z]?)['"]/g;
   for (const rel of files) {
     const full = path.join(ROOT, rel);
     if (!fs.existsSync(full)) continue;
     const src = fs.readFileSync(full, 'utf8');
-    for (const re of [caseRe, keyRe]) {
+    for (const re of [caseRe, keyRe, litRe]) {
       re.lastIndex = 0;
       let m;
       while ((m = re.exec(src))) ids.add(m[1]);
@@ -70,8 +75,8 @@ function inferStatus(card, section) {
   if (HANDLER_IDS.has(card.id)) return 'explicit';
   if (TAGGED_KEYS.some((k) => card[k])) return 'tagged';
   if (card.dark) return 'tagged';
-  if (EXP_SETS.has(card.set)) return 'expansion-pending';
   if (section === 'heroes' && card.hp != null) return 'stat-only';
+  if (EXP_SETS.has(card.set)) return 'expansion-pending';
   return 'base-implicit';
 }
 
