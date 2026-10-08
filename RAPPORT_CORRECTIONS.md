@@ -172,6 +172,22 @@ Audit des 6 packs (`hidden-heroes`, `tools`, `players-choice`, `next-level`, `mi
 
 * `test/tools-and-promos.test.js` (**26 tests**) : objets `THK002/003/005/006/007/008/009/010/011/013/014/015/016/017/018/019`, salles `THK022` / `THK024`, montées de niveau `KSA001/003/005/006/007`, sort et héros `KSA013` / `KSA014` / `KSA016`.
 * `test/crash-landing.test.js` (**24 tests**) : `CRL001`, `CRL002` (×4), `CRL003` (×2), `CRL007`, `CRL010` (×2), `CRL012` (×2), `CRL013` (×2), `CRL015`, `CRL016` (×3), `CRL029` (×2), `CRL030` (×2), `CRL031`, `CRL032`.
-* Couverture par set (présence de l'ID dans la suite, `test/*.js` × `docs/card-matrix.json`) : `players-choice` **11/11**, `tools` **25/25**, `crash-landing` **21/33** (12 résiduels = héros `stat-only` sans logique), `next-level` 17/115, `minibosses` 19/121, `base` 61/96, `hidden-heroes` 1/41 (héros `stat-only`).
+* `test/next-level.test.js` (**28 tests**) : boss `TNL009` (×2), `TNL012` (×2) ; effets de construction `TNL016` (×2), `TNL024` (×2), `TNL027` (×2), `TNL029` (×2), `TNL036`, `TNL052` ; capacités activées `TNL013` (×2), `TNL022`, `TNL030`, `TNL032`, `TNL033`, `TNL035`, `TNL040`, `TNL041`, `TNL042`, `TNL045`, `TNL046`, `TNL049`, `TNL055`.
+* Couverture par set (présence de l'ID dans la suite, `test/*.js` × `docs/card-matrix.json`) : `players-choice` **11/11**, `tools` **25/25**, `crash-landing` **21/33** (12 résiduels = héros `stat-only` sans logique), `next-level` **36/115**, `minibosses` 19/121, `base` 61/96, `hidden-heroes` 1/41 (héros `stat-only`).
 
-**Validation :** `npm run test:unit` **243/243**, `npm run test:e2e` **29/29**, `npm run build` OK.
+### 7.8. Capacités de boss Next Level sans effet
+
+Découvertes en écrivant les tests : ces drapeaux étaient **posés par le level-up mais jamais lus**, comme `copiedLevelUp` (§7.6).
+
+| Carte | Comportement attendu | État |
+|---|---|---|
+| **TNL009 Nicolius** | Piocher un Sort en fin de tour si un joueur a gagné 2 Âmes de plus que vous ce tour | ✔ **Corrigé** : `processEndOfTurnBosses` (`src/expansionBosses.js`) appelé par `beginPhaseEnd`, avec snapshot des Âmes en début de tour (`beginPhaseBeginning`, `_soulsAtTurnStart`) |
+| **TNL012 Eclipse** | La salle mise au jour par votre destruction gagne +3 jusqu'à la fin du tour | ✔ **Corrigé** : bonus posé dans `destroyRoom` (`src/engine.js`) quand `p.azarellaUncover` |
+| **TNL001 Doc Scarecrow** | En phase Build : défausser une carte pour rendre un héros de la ville non attirable ce tour | ✖ Non câblé (drapeau `docScarecrow` sans effet) |
+| **TNL003 Torix Uz'Kali** | Récupérer en main toute salle Monstre défaussée ou détruite | ✖ Non câblé (drapeau `recoverDestroyedMonsters` sans effet) |
+| **TNL005 Shellda** | En fin de tour : échanger deux salles d'un donjon | ✖ Non câblé (drapeau `shelldaSwap` sans effet) |
+| **TNL008 Dr. Timebender** | Une fois par tour : défausser un Sort pour annuler un Sort adverse | ✖ Non câblé (drapeau `timebenderCancel` sans effet) |
+
+Les 4 restants exigent de **nouveaux types de mouvement** (action joueur facultative) : fenêtre de réponses dans `legalMoves`, choix IA, bouton dans l'UI et résolution dans `MOVE_HANDLERS` — il n'existe pas de plumbing générique « action de boss » côté reducer. À traiter comme un chantier à part.
+
+**Validation :** `npm run test:unit` **271/271**, `npm run test:e2e` **29/29**, `npm run build` OK.

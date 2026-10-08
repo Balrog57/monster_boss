@@ -1,6 +1,6 @@
 // Expansion boss level-ups and ongoing abilities (TNL / RMB / CRL).
 import { activeRoom, destroyRoom, healOneWound, dungeonTreasures } from './engine.js';
-import { drawCards } from './cardData.js';
+import { drawCards, totalSouls } from './cardData.js';
 import { gainCoin } from './minibosses.js';
 import { processLevelUp } from './roomAbilities.js';
 
@@ -25,6 +25,27 @@ export function applyCopiedLevelUp(G, playerId, boss) {
   p.copiedLevelUp = boss.id;
   G.logs.push(`Klonos: copied ${boss.name} level-up.`);
   return processLevelUp(G, null, playerId, boss);
+}
+
+/**
+ * Boss abilities that trigger at the end of the turn.
+ * Nicolius (TNL009): draw a Spell if another player gained two more Souls
+ * than you during this turn (`_soulsAtTurnStart` is snapshotted in Beginning).
+ */
+export function processEndOfTurnBosses(G) {
+  for (const [pid, p] of Object.entries(G.players || {})) {
+    if (p.eliminated || !p.porkusDraw) continue;
+    const start = p._soulsAtTurnStart || 0;
+    const mine = totalSouls(p) - start;
+    const ahead = Object.values(G.players).some((o) => !o.eliminated
+      && (totalSouls(o) - (o._soulsAtTurnStart || 0)) >= mine + 2);
+    if (!ahead) continue;
+    const card = G.decks.spells.pop();
+    if (card) {
+      p.hand.push(card);
+      G.logs.push(`Nicolius: drew ${card.name} (a player gained 2 more Souls this turn).`);
+    }
+  }
 }
 
 export function processExpansionLevelUp(G, playerId, boss) {

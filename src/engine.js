@@ -384,6 +384,12 @@ export function destroyRoom(G, playerId, roomIndex) {
   } else {
     const uncovered = activeRoom(stack);
     applyRoomUncovered(G, playerId, roomIndex, uncovered);
+    // Eclipse (TNL012): the Room uncovered by your own destroy gains +3.
+    if (p.azarellaUncover && uncovered) {
+      G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
+      G.effects.roomDamageBonus.push({ playerId, roomIndex, amount: 3 });
+      G.logs.push(`Eclipse: ${uncovered.name} +3 until end of turn.`);
+    }
   }
   // Recycling Center (BMA031): when another room is destroyed, draw 2 rooms.
   for (const s of p.dungeon) {

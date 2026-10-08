@@ -24,6 +24,7 @@ import { onBuildRoom, onHeroDiedInRoom, processLevelUp, activateRoomAbility, res
 import {
   canUseHandRoom, useHandRoomAbility, processEndOfTurnRooms, processDreadmills, notifyOpponentMiniboss,
 } from '../src/handAbilities.js';
+import { processEndOfTurnBosses } from '../src/expansionBosses.js';
 import {
   activeRoom, countVisibleRooms,
   resolveBait, buildRoom, canBuildRoom, heroHealthWithModifiers,
@@ -344,6 +345,8 @@ function beginPhaseBeginning(G, ctx) {
   G.phase = PHASE.BEGINNING;
   ctx.phase = PHASE.BEGINNING;
   G.survivorsThisTurn = {};
+  // Nicolius (TNL009): snapshot Souls to know how many each player gains this turn.
+  for (const p of Object.values(G.players)) p._soulsAtTurnStart = totalSouls(p);
   G.logs.push(`--- Turn ${G.turn} - Beginning Phase ---`);
   beginningPhaseCoins(G);
   const aliveCount = Object.values(G.players).filter(p => !p.eliminated).length;
@@ -493,6 +496,7 @@ function beginPhaseEnd(G, ctx) {
   ctx.phase = PHASE.END;
   G.logs.push(`--- Turn ${G.turn} - End Phase ---`);
   processEndOfTurnRooms(G);
+  processEndOfTurnBosses(G);
   G.effects = emptyEffects();
   const result = checkEndGame(G);
   if (result.gameOver) {
