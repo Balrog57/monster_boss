@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { setupMatch } from '../server/reducer.js';
-import { emptyEffects } from '../src/spellEffects.js';
+import { castSpell, emptyEffects } from '../src/spellEffects.js';
 import { PHASE } from '../src/cardData.js';
 import { destroyRoom, roomDamageWithModifiers } from '../src/engine.js';
 import { onBuildRoom, activateRoomAbility } from '../src/roomAbilities.js';
@@ -360,5 +360,146 @@ describe('Next Level rooms (activated abilities)', () => {
     assert.deepEqual(G.effects.roomDamageBonus, [{ playerId: 0, roomIndex: 0, amount: -1 }]);
     assert.equal(G.players[0].hand.length, 0);
     assert.equal(G.decks.roomDiscard.length, 1);
+  });
+});
+
+describe('Next Level spells', () => {
+  it('TNL056 All Your Base takes a Room card from the opponent', () => {
+    const { G, ctx } = mk();
+    G.players[1].hand = [room('steal', 'Stolen Room'), spell('s1', 'Their Spell')];
+    assert.equal(castSpell(G, ctx, 0, spell('TNL056', 'All Your Base'), { targetPlayerId: 1 }), true);
+    assert.deepEqual(G.players[0].hand.map((c) => c.id), ['steal']);
+    assert.deepEqual(G.players[1].hand.map((c) => c.id), ['s1']);
+  });
+
+  it('TNL057 Another Castle sends your Hero to an opponent entrance', () => {
+    const { G, ctx } = mk();
+    G.players[0].entrance = [{ id: 'h1', name: 'Knight', hp: 5 }];
+    assert.equal(
+      castSpell(G, ctx, 0, spell('TNL057', 'Another Castle'), { heroId: 'h1', targetPlayerId: 1 }),
+      true,
+    );
+    assert.equal(G.players[0].entrance.length, 0);
+    assert.deepEqual(G.players[1].entrance.map((h) => h.id), ['h1']);
+  });
+
+  it('TNL058 Fairy Fountain deactivates the chosen Room', () => {
+    const { G, ctx } = mk();
+    assert.equal(
+      castSpell(G, ctx, 0, spell('TNL058', 'Fairy Fountain'), { targetPlayerId: 1, roomIndex: 0 }),
+      true,
+    );
+    assert.deepEqual(G.effects.deactivatedRooms, [{ playerId: 1, roomIndex: 0 }]);
+  });
+
+  it('TNL059 It\'s On! kills the chosen Hero and needs a target', () => {
+    const { G, ctx } = mk();
+    assert.equal(castSpell(G, ctx, 0, spell('TNL059', "It's On!"), { heroId: 'h1' }), true);
+    assert.deepEqual(G.effects.heroDamage, [{ heroId: 'h1', amount: 99 }]);
+    assert.equal(castSpell(G, ctx, 0, spell('TNL059', "It's On!"), {}), false);
+  });
+
+  it('TNL060 Hiring Spree draws three Room cards', () => {
+    const { G, ctx } = mk();
+    G.decks.rooms = [room('d1', 'Deck Room 1'), room('d2', 'Deck Room 2'), room('d3', 'Deck Room 3')];
+    const before = G.players[0].hand.length;
+    assert.equal(castSpell(G, ctx, 0, spell('TNL060', 'Hiring Spree'), {}), true);
+    assert.equal(G.players[0].hand.length, before + 3);
+    assert.equal(G.decks.rooms.length, 0);
+  });
+
+  it('TNL062 Meddling Kids! silences the chosen Room', () => {
+    const { G, ctx } = mk();
+    assert.equal(
+      castSpell(G, ctx, 0, spell('TNL062', 'Meddling Kids!'), { targetPlayerId: 1, roomIndex: 0 }),
+      true,
+    );
+    assert.deepEqual(G.effects.deactivatedRooms, [{ playerId: 1, roomIndex: 0 }]);
+    assert.ok(G.logs.some((l) => l.startsWith('Meddling Kids!')));
+  });
+
+  it('TNL063 Oh, Yeah! swaps the first two Rooms of your dungeon', () => {
+    const { G, ctx } = mk();
+    G.players[0].dungeon = [[room('a', 'Room A')], [room('b', 'Room B')]];
+    assert.equal(castSpell(G, ctx, 0, spell('TNL063', 'Oh, Yeah!'), {}), true);
+    assert.deepEqual(G.players[0].dungeon.map((s) => s[0].id), ['b', 'a']);
+    G.players[0].dungeon = [[room('a', 'Room A')]];
+    assert.equal(castSpell(G, ctx, 0, spell('TNL063', 'Oh, Yeah!'), {}), false);
+  });
+
+  it('TNL064 Party Up makes Heroes entering your dungeon gain +1 Health', () => {
+    const { G, ctx } = mk();
+    assert.equal(castSpell(G, ctx, 0, spell('TNL064', 'Party Up'), {}), true);
+    assert.deepEqual(G.effects.staffHealingPids, [0]);
+  });
+
+  it('TNL065 Pause returns your Hero to the entrance at full Health', () => {
+    const { G, ctx } = mk();
+    assert.equal(castSpell(G, ctx, 0, spell('TNL065', 'Pause'), {}), false);
+    G.adventure = { playerId: 0, roomIndex: 2, hero: { id: 'h1', name: 'Knight', hp: 10 }, hp: 3 };
+    assert.equal(castSpell(G, ctx, 0, spell('TNL065', 'Pause'), {}), true);
+    assert.equal(G.adventure.hp, 10);
+    assert.equal(G.adventure.roomIndex, -1);
+    assert.deepEqual(G.effects.noEntry, [0]);
+  });
+
+  it('TNL066 Pity removes the Hero from the game', () => {
+    const { G, ctx } = mk();
+    assert.equal(castSpell(G, ctx, 0, spell('TNL066', 'Pity'), { heroId: 'h1' }), false);
+    G.players[1].entrance = [{ id: 'h1', name: 'Knight', hp: 5 }];
+    G.adventure = { playerId: 1, roomIndex: 0, hero: { id: 'h1', name: 'Knight', hp: 5 }, hp: 5 };
+    assert.equal(castSpell(G, ctx, 0, spell('TNL066', 'Pity'), { heroId: 'h1' }), true);
+    assert.equal(G.adventure, null);
+    assert.equal(G.players[1].entrance.length, 0);
+  });
+
+  it('TNL067 Secret Stash adds one of each treasure icon to a Room', () => {
+    const { G, ctx } = mk();
+    G.players[0].dungeon = [[room('stashed', 'Stashed Room', 'trap', 2, [1])]];
+    assert.equal(
+      castSpell(G, ctx, 0, spell('TNL067', 'Secret Stash'), { roomIndex: 0 }),
+      true,
+    );
+    assert.deepEqual(G.players[0].dungeon[0][0].treasures, [1, 1, 2, 3, 4]);
+  });
+
+  it('TNL068 Shortcut! skips one Room, or two in a five Room dungeon', () => {
+    const { G, ctx } = mk();
+    G.adventure = { playerId: 1, roomIndex: 0, hero: { id: 'h1', name: 'Knight' }, hp: 5 };
+    G.players[1].dungeon = [[room('r1', 'R1')], [room('r2', 'R2')], [room('r3', 'R3')]];
+    assert.equal(castSpell(G, ctx, 0, spell('TNL068', 'Shortcut!'), {}), true);
+    assert.equal(G.adventure.roomIndex, 1);
+
+    G.adventure.roomIndex = 0;
+    G.players[1].dungeon = [[room('r1', 'R1')], [room('r2', 'R2')], [room('r3', 'R3')], [room('r4', 'R4')], [room('r5', 'R5')]];
+    assert.equal(castSpell(G, ctx, 0, spell('TNL068', 'Shortcut!'), {}), true);
+    assert.equal(G.adventure.roomIndex, 2);
+  });
+
+  it('TNL069 Super Effective! gives your Room +2 until end of turn', () => {
+    const { G, ctx } = mk();
+    assert.equal(
+      castSpell(G, ctx, 0, spell('TNL069', 'Super Effective!'), { roomIndex: 1 }),
+      true,
+    );
+    assert.deepEqual(G.effects.roomDamageBonus, [{ playerId: 0, roomIndex: 1, amount: 2 }]);
+  });
+
+  it('TNL070 Surprise Gift places a Room face-down over an opponent Room', () => {
+    const { G, ctx } = mk();
+    G.players[0].hand = [room('gift', 'Gifted Room', 'monster', 5, [3])];
+    G.players[1].dungeon = [[room('target', 'Target Room', 'trap', 1, [1])]];
+    assert.equal(
+      castSpell(G, ctx, 0, spell('TNL070', 'Surprise Gift'), { targetPlayerId: 1, handIndex: 0, roomIndex: 0 }),
+      true,
+    );
+    assert.equal(G.players[0].hand.length, 0);
+    assert.equal(G.players[1].dungeon[0].length, 2);
+    assert.equal(G.players[1].dungeon[0][1].id, 'gift');
+    assert.equal(G.players[1].dungeon[0][1].faceDown, true);
+    assert.equal(
+      castSpell(G, ctx, 0, spell('TNL070', 'Surprise Gift'), { targetPlayerId: 1, handIndex: 0, roomIndex: 0 }),
+      false,
+    );
   });
 });
