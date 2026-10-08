@@ -49,12 +49,12 @@ test.describe('Complete Playthrough and UI Verification', () => {
 
     // Open Card Gallery
     await page.getByRole('button', { name: 'CARD GALLERY' }).click();
-    const gallery = page.getByRole('dialog', { name: 'Card gallery' });
+    const gallery = page.getByRole('dialog', { name: 'Almanach et galerie de cartes' });
     await expect(gallery).toBeVisible();
     await expect(page.getByRole('tab', { name: 'BOSSES' })).toBeVisible();
-    await page.getByRole('tab', { name: 'ROOMS' }).click();
+    await page.getByRole('tab', { name: 'SALLES' }).click();
     // Close Card Gallery
-    await page.getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Fermer' }).click();
     await expect(gallery).toBeHidden();
 
     // Back to Home Menu
@@ -236,10 +236,10 @@ test.describe('Complete Playthrough and UI Verification', () => {
     const outcome = await playUntilGameOver(page, { screenshotPath: path.join(out, 'play_terminal.png') });
     expect(['victory', 'defeat']).toContain(outcome);
     await expect(page.getByRole('heading', { name: /^(VICTORY|DEFEAT)$/ })).toBeVisible();
-    await expect(page.getByText('FINAL SCORES')).toBeVisible();
+    await expect(page.getByText('SCORES & RANGS')).toBeVisible();
 
     // 12. Test Return to Main Menu from Game Over screen
-    const menuBtn = page.getByRole('button', { name: 'MAIN MENU' });
+    const menuBtn = page.getByRole('button', { name: 'MENU PRINCIPAL' });
     await expect(menuBtn).toBeVisible();
     await menuBtn.click();
     await expect(page.getByText('SINGLE PLAYER')).toBeVisible({ timeout: 15000 });
@@ -265,7 +265,7 @@ test.describe('Complete Playthrough and UI Verification', () => {
 
     expect(['victory', 'defeat']).toContain(outcome);
     await expect(page.getByRole('heading', { name: /^(VICTORY|DEFEAT)$/ })).toBeVisible();
-    await expect(page.getByText('FINAL SCORES')).toBeVisible();
+    await expect(page.getByText('SCORES & RANGS')).toBeVisible();
 
     // Test Play again button returns to solo setup
     const playAgainBtn = page.getByRole('button', { name: 'Play again' });

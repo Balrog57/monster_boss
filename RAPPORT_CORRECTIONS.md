@@ -3,7 +3,7 @@
 **Date :** 2026-10-08  
 **Projet :** `monster_boss` (v2.0.0)  
 **Référence source :** `boss-monster-2-2-6-android.apk` (SHA-256: `78592B483D8C7C4B8AABA1095F855226344565FB3D1B112A48113C2E90852FFD`)  
-**Statut global :** ✅ **100% Validé (138/138 tests unitaires réussis, build Vite validé)**
+**Statut global :** ✅ **100% Validé (168/168 tests unitaires, 29/29 e2e, build Vite validé)**
 
 ---
 
@@ -72,9 +72,8 @@ Les erreurs et divergences identifiées ont été corrigées directement dans le
 ## 4. Résultats des Vérifications et Audits
 
 1. **Suite de tests unitaires (`npm run test:unit`) :**
-   * **138 tests exécutés** répartis sur 17 suites de tests.
-   * **138 réussis (100% de succès), 0 échec, 0 annulé.**
-   * Durée totale d'exécution : ~3,08 s.
+   * **168 tests exécutés** (dont `test/base-set.test.js` : 24 tests de parité BMA001-096).
+   * **168 réussis (100% de succès), 0 échec, 0 annulé.**
 2. **Matrice de conformité des cartes (`npm run card-matrix`) :**
    * **442 cartes vérifiées**, 0 texte corrompu (`corrupt=0`).
 3. **Vérification des assets (`npm run verify:assets`) :**
@@ -86,7 +85,6 @@ Les erreurs et divergences identifiées ont été corrigées directement dans le
 ---
 
 ## 5. État Final de l'Espace de Travail
-
 * **Fichiers temporaires supprimés :**
   * `decompiled/` : Supprimé
   * `tools/extracted_assemblies/` : Supprimé
@@ -95,4 +93,29 @@ Les erreurs et divergences identifiées ont été corrigées directement dans le
   * `RAPPORT_COMPARAISON.md` : Rapport d'analyse comparative globale (Phases 1 à 5).
   * `RAPPORT_CORRECTIONS.md` : Présent rapport technique des corrections et alignements.
   * `tools/extract_assemblies.py` : Script réutilisable d'extraction des DLLs depuis le bundle natif.
-  * Modifications validées dans `src/ai.js`, `src/spellEffects.js`, `src/spellTargeting.js`, `test/engine.test.js`.
+   * Modifications validées dans `src/ai.js`, `src/spellEffects.js`, `src/spellTargeting.js`, `test/engine.test.js`.
+
+---
+
+## 6. Parité base set BMA001-096 (phase 2 — 2026-10-08)
+
+Audit carte-à-carte : **96/96 effets câblés** (boss 8/8, sorts 16/16, salles 31/31, héros 41/41 data-driven).
+
+| Élément | Écart APK | Correction |
+|---|---|---|
+| **BMA012 Succubus Spa** | Aucune implémentation (`HeroDiesInThisRoom` → vol carte) | `onHeroDiedInRoom` : vol aléatoire main adverse (choix si plusieurs adversaires), `OncePerTurn` via `usedThisTurn` |
+| **BMA016 Golem Factory** | `OncePerTurn` ignoré (pioche à chaque mort) | Garde `usedThisTurn` |
+| **BMA019 Beast Menagerie** | `OncePerTurn` ignoré (pioche à chaque construction monstre) | Garde `usedThisTurn` |
+| **Decks héros** | `HERO_COUNTS` défini mais jamais appliqué (deck complet au lieu de 13+8 / 17+12 / 25+16) | Troncature aux comptes officiels pour les parties base uniquement (`server/reducer.js`) |
+| **IA BMA048 Jeopardy** | Jouée sans discernement (score 2 constant) | Score 4 si main ≤ 2 cartes, sinon 1 |
+| **IA BMA049 Kobold Strike** | Jouée même contre soi (score 2, bloque aussi ses constructions) | Score 6 si l'adversaire a construit face-down ce tour et pas nous, sinon -2 (passe) |
+| **IA BMA050 Motivation** | Jouée même quand sans effet (score 0 > passe -1) | -2 si pas en retard (l'IA passe au lieu de défausser pour rien) |
+| **IA BMA053 Teleportation** | Jamais jouée (score 0 avec cible) | Score 1 en dernier recours si héros présent |
+| **e2e (4 échecs)** | Sélecteurs obsolètes (UI passée en français : galerie, scores, onglets) | `Almanach et galerie de cartes`, `SCORES & RANGS`, `SALLES`/`HÉROS`, `Fermer`, `MENU PRINCIPAL`, `Cleric (BMA056)` |
+
+**Découvertes de l'audit (sans correction requise) :**
+- BMA017 Minotaur's Maze déjà implémenté dans `server/reducer.js` (renvoi arrière, une fois par héros).
+- Héros APK `HasStar` toujours `false` en base set : le statut épique suit le sous-titre officiel (16 Epic Heroes BMA081-096), données web correctes.
+- Setup web déjà en base-seule par défaut (`expansions: []`) ; extensions conservées pour plus tard.
+
+**Validation :** `test/base-set.test.js` (24 tests : 22 effets + parité 41 héros + tailles decks), `test/ai.test.js` (+4 tests scoring), `npm run test:unit` **168/168**, `npm run test:e2e` **29/29** (dont multi 2 navigateurs synchronisés, reconnexion, lobby), `npm run build` OK.

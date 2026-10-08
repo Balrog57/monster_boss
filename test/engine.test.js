@@ -282,5 +282,88 @@ describe('engine endgame and spell regression tests', () => {
     assert.equal(G.effects.roomDamageBonus.length, 2);
     assert.deepEqual(G.effects.roomDamageBonus[1], { playerId: 1, roomIndex: 0, amount: 3 });
   });
+
+  it('Succubus Spa steals a random card on hero death, once per turn (APK BMA012)', async () => {
+    const { onHeroDiedInRoom } = await import('../src/roomAbilities.js');
+    const spa = { id: 'BMA012', name: 'Succubus Spa', type: 'trap', damage: 1 };
+    const G = {
+      logs: [],
+      effects: {},
+      players: {
+        0: { hand: [], dungeon: [[spa]], souls: [], wounds: [], eliminated: false },
+        1: {
+          hand: [
+            { id: 'BMA009', name: 'Dark Altar', isRoom: true },
+            { id: 'BMA040', name: 'Annihilator', isSpell: true },
+          ],
+          dungeon: [], souls: [], wounds: [], eliminated: false,
+        },
+      },
+    };
+    onHeroDiedInRoom(G, {}, 0, spa, { id: 'BMA056', name: 'Squire' });
+    assert.equal(G.players[1].hand.length, 1);
+    assert.equal(G.players[0].hand.length, 1);
+    assert.match(G.logs.join('\n'), /Succubus Spa/);
+    // Once per turn: a second death triggers nothing
+    onHeroDiedInRoom(G, {}, 0, spa, { id: 'BMA057', name: 'Apprentice' });
+    assert.equal(G.players[1].hand.length, 1);
+    assert.equal(G.players[0].hand.length, 1);
+  });
+
+  it("Minotaur's Maze sends the hero back one room on first entry (APK BMA017)", async () => {
+    const reducer = await import('../server/reducer.js');
+    const { PHASE } = await import('../src/cardData.js');
+    const hero = { id: 'BMA056', name: 'Squire', hp: 10, class: 'fighter', souls: 1, wounds: 1 };
+    const room0 = { id: 'BMA009', name: 'Dark Altar', type: 'trap', damage: 0, treasures: [1] };
+    const maze = { id: 'BMA017', name: "Minotaur's Maze", type: 'trap', damage: 0, treasures: [2] };
+    const mkPlayer = (rooms) => ({
+      boss: { id: 'BMA001', name: 'Draculord' },
+      dungeon: rooms.map((r) => [r]),
+      entrance: [], hand: [], souls: [], wounds: [], eliminated: false,
+    });
+    let state = {
+      G: {
+        phase: PHASE.ADVENTURE, turn: 1,
+        players: { 0: { ...mkPlayer([room0, maze]), entrance: [{ ...hero }] }, 1: mkPlayer([room0]) },
+        decks: { rooms: [], spells: [], heroes: [], roomDiscard: [], spellDiscard: [], heroDiscard: [] },
+        town: [], logs: [], effects: {}, stack: [], pendingChoice: null,
+      },
+      ctx: { activePlayer: 0, currentPlayer: 0 },
+    };
+    const passAll = () => {
+      // Each room triggers post-damage then pre-exit pauses — clear them all
+      for (let n = 0; n < 4 && state.G.adventure?.pause; n++) {
+        for (const pid of [0, 1]) {
+          if (state.G.adventure?.pause && !state.G.adventurePausePassed?.[String(pid)]) {
+            const r = reducer.applyMove(state, { type: 'pass', args: [] }, pid);
+            assert.equal(r.error, undefined, r.error);
+            state = r.state;
+          }
+        }
+      }
+      assert.equal(state.G.adventure?.pause ?? null, null);
+    };
+    // Enter room 0
+    let r = reducer.applyMove(state, { type: 'resolveNextHero', args: [] }, 0);
+    assert.equal(r.error, undefined, r.error);
+    state = r.state; passAll();
+    assert.equal(state.G.adventure.roomIndex, 0);
+    // Advance into the maze → sent back one room
+    r = reducer.applyMove(state, { type: 'resolveNextHero', args: [] }, 0);
+    assert.equal(r.error, undefined, r.error);
+    state = r.state;
+    assert.match(state.G.logs.join('\n'), /Minotaur's Maze/);
+    assert.equal(state.G.adventure.roomIndex, -1);
+    // Walk again: room 0, then maze without re-trigger (first-entry only)
+    r = reducer.applyMove(state, { type: 'resolveNextHero', args: [] }, 0);
+    assert.equal(r.error, undefined, r.error);
+    state = r.state; passAll();
+    assert.equal(state.G.adventure.roomIndex, 0);
+    r = reducer.applyMove(state, { type: 'resolveNextHero', args: [] }, 0);
+    assert.equal(r.error, undefined, r.error);
+    state = r.state; passAll();
+    assert.equal(state.G.adventure.roomIndex, 1);
+    assert.equal(state.G.logs.join('\n').match(/sent back one room/g).length, 1);
+  });
 });
 

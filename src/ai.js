@@ -118,10 +118,24 @@ function scoreSpell(G, pid, phase, card, target) {
       return target?.heroId != null ? 7 : 0;
     case 'BMA046':
       return target?.roomIndex != null ? 8 : 0;
+    case 'BMA048': { // Jeopardy: everyone cycles hands — best with a small hand
+      return p.hand.length <= 2 ? 4 : 1;
+    }
+    case 'BMA049': { // Kobold Strike: undo this turn's face-down builds — only when it hurts opponents, not us
+      const hasFreshBuild = (pl) => (pl.dungeon || []).some((s) => {
+        const r = activeRoom(s);
+        return r?.faceDown && r?.builtThisTurn;
+      });
+      const oppBuilt = Object.entries(G.players).some(([oid, op]) => Number(oid) !== Number(pid) && !op.eliminated && hasFreshBuild(op));
+      return oppBuilt && !hasFreshBuild(p) ? 6 : -2;
+    }
     case 'BMA050': {
       const myRooms = countVisibleRooms(p.dungeon);
       const behind = Object.values(G.players).some(op => !op.eliminated && op !== p && countVisibleRooms(op.dungeon) > myRooms);
-      return behind ? 7 : 0;
+      return behind ? 7 : -2;
+    }
+    case 'BMA053': { // Teleportation: restart a hero at the first room (re-farm entries)
+      return target?.heroId != null ? 1 : -2;
     }
     case 'BMA051':
       return target?.townIndex != null ? 9 : 0;

@@ -37,9 +37,9 @@ test('options opens card gallery', async ({ page }) => {
   await tapToStart(page);
   await page.getByText('OPTIONS').click();
   await page.getByText('CARD GALLERY').click();
-  await expect(page.getByRole('dialog', { name: 'Card gallery' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Almanach et galerie de cartes' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'BOSSES' })).toBeVisible();
-  await page.getByRole('tab', { name: 'ROOMS' }).click();
+  await page.getByRole('tab', { name: 'SALLES' }).click();
   await expect(page.getByRole('button', { name: 'Goblin Armory' })).toBeVisible();
 });
 
@@ -47,13 +47,13 @@ test('card gallery displays hero and room details with resources and stats', asy
   await tapToStart(page);
   await page.getByText('OPTIONS').click();
   await page.getByText('CARD GALLERY').click();
-  await expect(page.getByRole('dialog', { name: 'Card gallery' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Almanach et galerie de cartes' })).toBeVisible();
 
   // Test Hero details
-  await page.getByRole('tab', { name: 'HEROES' }).click();
+  await page.getByRole('tab', { name: 'HÉROS' }).click();
   await page.getByRole('button', { name: 'BASE' }).click();
-  await page.locator('button[aria-label="Cleric"]').first().click();
-  const heroDialog = page.getByRole('dialog', { name: /Cleric/i });
+  await page.getByRole('button', { name: 'Cleric (BMA056)' }).click();
+  const heroDialog = page.getByRole('dialog', { name: 'Cleric', exact: true });
   await expect(heroDialog).toBeVisible();
   await expect(page.getByText('PV (Health)')).toBeVisible();
   await expect(page.getByText(/Ressource cherch/i)).toBeVisible();
@@ -61,7 +61,7 @@ test('card gallery displays hero and room details with resources and stats', asy
   await page.keyboard.press('Escape');
 
   // Test Room details
-  await page.getByRole('tab', { name: 'ROOMS' }).click();
+  await page.getByRole('tab', { name: 'SALLES' }).click();
   await page.getByRole('button', { name: 'BASE' }).click();
   await page.getByRole('button', { name: 'Goblin Armory' }).click();
   const roomDialog = page.getByRole('dialog', { name: /Goblin Armory/i });

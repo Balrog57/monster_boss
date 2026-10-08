@@ -349,11 +349,12 @@ export function onBuildRoom(G, ctx, playerId, room) {
       break;
   }
 
-  // Beast Menagerie trigger: when you build a monster room, draw a room
+  // Beast Menagerie trigger: once per turn when you build a monster room, draw a room
   if (room.type === 'monster') {
     for (const stack of player.dungeon) {
       const r = activeRoom(stack);
-      if (r && r.id === 'BMA019' && r !== room) {
+      if (r && r.id === 'BMA019' && r !== room && !r.usedThisTurn) {
+        r.usedThisTurn = true;
         const card = G.decks.rooms.pop();
         if (card) {
           player.hand.push(card);
@@ -392,7 +393,9 @@ export function onHeroDiedInRoom(G, ctx, playerId, room, hero) {
       }
       break;
     }
-    case 'BMA016': { // Golem Factory: draw a Room
+    case 'BMA016': { // Golem Factory: once per turn, draw a Room
+      if (room.usedThisTurn) break;
+      room.usedThisTurn = true;
       const card = G.decks.rooms.pop();
       if (card) {
         player.hand.push(card);
@@ -411,6 +414,21 @@ export function onHeroDiedInRoom(G, ctx, playerId, room, hero) {
     case 'BMA014': { // Vampire Bordello: heal one wound (flip to soul)
       const soul = healOneWound(player);
       if (soul) G.logs.push(`Vampire Bordello: healed ${soul.name || 'a Wound'} (${soul.souls} soul).`);
+      break;
+    }
+    case 'BMA012': { // Succubus Spa: once per turn, hero dies → choose opponent, steal random Room/Spell from hand
+      if (room.usedThisTurn) break;
+      const opps = opponentsWith(G, playerId, (p) => (p.hand || []).length > 0);
+      if (!opps.length) {
+        G.logs.push('Succubus Spa: no opponent has cards in hand.');
+        break;
+      }
+      room.usedThisTurn = true;
+      if (opps.length === 1) {
+        stealRandomCardFrom(G, playerId, opps[0][0], 'Succubus Spa');
+        break;
+      }
+      enqueuePending(G, pickOpponentChoice(G, playerId, 'Succubus Spa', 'Choose an opponent to steal a random card from', 'steal-random', opps));
       break;
     }
     case 'TNL015': { // Madman's Manor: choose one Spell from discard

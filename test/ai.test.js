@@ -43,8 +43,7 @@ describe('ai', () => {
     assert.equal(aiChooseBoss(bosses).id, 'BMA001');
   });
 
-  it('prefers passing over a useless room activation', () => {
-    const { G, ctx } = setupMatch(2, { expansions: [] });
+  it('prefers passing over a useless room activation', () => {    const { G, ctx } = setupMatch(2, { expansions: [] });
     G.phase = 'build';
     ctx.phase = 'build';
     ctx.activePlayer = 0;
@@ -59,5 +58,67 @@ describe('ai', () => {
     assert.ok(!moves.some((m) => m.type === 'activateRoom'));
     const pick = aiPickMove(G, ctx, 0);
     assert.equal(pick.type, 'pass');
+  });
+
+  function riggedBaseState() {
+    const { G, ctx } = setupMatch(2, { expansions: [] });
+    G.phase = 'build';
+    ctx.phase = 'build';
+    ctx.activePlayer = 0;
+    G.activePlayer = 0;
+    G.stack = [];
+    for (const pid of [0, 1]) {
+      G.players[pid].boss = { id: 'BMA001', xp: 900, treasures: [1] };
+      G.players[pid].dungeon = [];
+      G.players[pid].hand = [];
+      G.players[pid].buildsThisTurn = 1;
+    }
+    return { G, ctx };
+  }
+
+  it('skips Motivation when not behind, plays it when behind', () => {
+    const room = (id) => ({ id, name: id, type: 'trap', damage: 1, treasures: [1] });
+    let { G, ctx } = riggedBaseState();
+    G.players[0].dungeon = [[room('BMA009')], [room('BMA010')], [room('BMA011')]];
+    G.players[1].dungeon = [[room('BMA009')]];
+    G.players[0].hand = [{ id: 'BMA050', name: 'Motivation', isSpell: true, category: 3 }];
+    assert.equal(aiPickMove(G, ctx, 0).type, 'pass');
+    ({ G, ctx } = riggedBaseState());
+    G.players[0].dungeon = [[room('BMA009')]];
+    G.players[1].dungeon = [[room('BMA009')], [room('BMA010')], [room('BMA011')], [room('BMA013')], [room('BMA014')]];
+    G.players[0].hand = [{ id: 'BMA050', name: 'Motivation', isSpell: true, category: 3 }];
+    G.phase = 'adventure';
+    ctx.phase = 'adventure';
+    const pick = aiPickMove(G, ctx, 0);
+    assert.equal(pick.type, 'playSpell');
+  });
+
+  it('plays Kobold Strike only against opponent fresh builds', () => {
+    const fresh = (id) => ({ id, name: id, type: 'trap', damage: 1, treasures: [1], faceDown: true, builtThisTurn: true });
+    let { G, ctx } = riggedBaseState();
+    G.players[1].dungeon = [[fresh('BMA009')]];
+    G.players[0].hand = [{ id: 'BMA049', name: 'Kobold Strike', isSpell: true, category: 2 }];
+    assert.equal(aiPickMove(G, ctx, 0).type, 'playSpell');
+    ({ G, ctx } = riggedBaseState());
+    G.players[0].dungeon = [[fresh('BMA009')]];
+    G.players[0].hand = [{ id: 'BMA049', name: 'Kobold Strike', isSpell: true, category: 2 }];
+    assert.equal(aiPickMove(G, ctx, 0).type, 'pass');
+  });
+
+  it('cycles Jeopardy with a small hand', () => {
+    const { G, ctx } = riggedBaseState();
+    G.players[0].hand = [{ id: 'BMA048', name: 'Jeopardy', isSpell: true, category: 2 }];
+    const pick = aiPickMove(G, ctx, 0);
+    assert.equal(pick.type, 'playSpell');
+  });
+
+  it('uses Teleportation only as a fallback when a hero is present', () => {
+    let { G, ctx } = riggedBaseState();
+    G.players[0].entrance = [{ id: 'BMA056', name: 'Squire', hp: 4 }];
+    G.players[0].hand = [{ id: 'BMA053', name: 'Teleportation', isSpell: true, category: 1 }];
+    assert.equal(aiPickMove(G, ctx, 0).type, 'playSpell');
+    ({ G, ctx } = riggedBaseState());
+    G.players[0].hand = [{ id: 'BMA053', name: 'Teleportation', isSpell: true, category: 1 }];
+    assert.equal(aiPickMove(G, ctx, 0).type, 'pass');
   });
 });

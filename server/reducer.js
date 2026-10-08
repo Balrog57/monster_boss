@@ -108,6 +108,11 @@ export function setupMatch(numPlayers, setupData = {}) {
   const minibossDeck = shuffle(getExpandedDeck(minibossCards));
   const ordinaryHeroes = shuffle(getExpandedDeck(filterHeroesByPlayerCount(heroes.filter(h => !h.epic), n)).map(h => ({ ...h, epic: false, wounds: 1, souls: 1 })));
   const epicHeroes = shuffle(getExpandedDeck(filterHeroesByPlayerCount(heroes.filter(h => h.epic), n)).map(h => ({ ...h, epic: true, wounds: 2, souls: 2 })));
+  // Official hero deck sizes for base-only games (2p: 13+8, 3p: 17+12, 4p: 25+16).
+  if (sets.size === 1 && HERO_COUNTS[n]) {
+    ordinaryHeroes.length = Math.min(ordinaryHeroes.length, HERO_COUNTS[n].ordinary);
+    epicHeroes.length = Math.min(epicHeroes.length, HERO_COUNTS[n].epic);
+  }
 
   const itemDeck = shuffle(getExpandedDeck(items).map(it => ({ ...it, isItem: true })));
 
