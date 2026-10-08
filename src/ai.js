@@ -37,11 +37,39 @@ function scoreMove(G, ctx, pid, move) {
     case 'buildRoom': {
       const card = p.hand[move.args[0]];
       if (!card) return 0;
-      let score = (card.damage || 0) * 2;
+      const turn = G.turn || 1;
+      const isEarly = turn <= 1;
+      const isMid = turn > 1 && turn <= 4;
+      
+      // Damage scoring aligned with APK RoomCalculator (scaled / 10)
+      const dmg = card.damage || 0;
+      let score = 0;
+      if (isEarly) {
+        score = [0, 2.5, 10, 15, 17.5, 20][Math.min(dmg, 5)] || (dmg * 4);
+      } else if (isMid) {
+        score = [0, 2.5, 7.5, 17.5, 20, 20][Math.min(dmg, 5)] || (dmg * 4);
+      } else {
+        score = [0, 2.5, 7.5, 17.5, 20, 20][Math.min(dmg, 5)] || (dmg * 4);
+      }
       if (card.advanced) score += 5;
+
+      // Build-over penalty aligned with APK CalculateBuildOverPenalty
+      if (move.args[1] != null && p.dungeon[move.args[1]]) {
+        const oldRoom = activeRoom(p.dungeon[move.args[1]]);
+        if (oldRoom) {
+          if (oldRoom.advanced) {
+            score -= 30; // buildOverAdvancedPenalty
+          } else if (!oldRoom.advanced && card.advanced) {
+            score += 0; // Natural upgrade: 0 penalty
+          } else {
+            score -= (oldRoom.damage || 0) * 2;
+          }
+        }
+      }
+
       const treasures = dungeonTreasures(G, pid);
       for (const t of card.treasures || []) {
-        if (!treasures.includes(t)) score += 3;
+        if (!treasures.includes(t)) score += (isEarly ? 1 : 3);
       }
       const newVisible = countVisibleRooms(p.dungeon) + (move.args[1] == null ? 1 : 0);
       if (newVisible >= 5 && !p.leveledUp) score += 25;

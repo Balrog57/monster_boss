@@ -2,13 +2,13 @@
 import { activeRoom } from './engine.js';
 
 export const SPELL_TARGETS = {
-  BMA040: { type: 'own-room-trap', label: 'Choose a Trap Room' },
+  BMA040: { type: 'any-room-trap', label: 'Choose a Trap Room' },
   BMA041: { type: 'hero-opponent-dungeon', label: 'Choose a Hero in an opponent\'s dungeon' },
   BMA042: { type: 'own-room', label: 'Choose a room to destroy' },
   BMA044: { type: 'hero-own-dungeon', label: 'Choose a Hero in your dungeon' },
   BMA045: { type: 'hero-any-dungeon', label: 'Choose a Hero to send back to town' },
   BMA046: { type: 'any-room', label: 'Choose a room to deactivate' },
-  BMA047: { type: 'own-room-monster', label: 'Choose a Monster Room' },
+  BMA047: { type: 'any-room-monster', label: 'Choose a Monster Room' },
   BMA051: { type: 'hero-town', label: 'Choose a Hero in town' },
   BMA052: { type: 'own-soul', label: 'Choose a face-down Hero' },
   BMA053: { type: 'hero-own-dungeon', label: 'Choose a Hero in your dungeon' },
@@ -67,11 +67,33 @@ export function enumerateTargets(type, G, me, playerId) {
         if (r && r.type === 'trap') targets.push({ roomIndex: i });
       });
       break;
+    case 'any-room-trap':
+      for (const [opid, op] of Object.entries(G.players)) {
+        if (op.eliminated) continue;
+        op.dungeon.forEach((stack, i) => {
+          const r = stackTop(stack);
+          if (r && r.type === 'trap') {
+            targets.push({ targetPlayerId: Number(opid), roomIndex: i });
+          }
+        });
+      }
+      break;
     case 'own-room-monster':
       me.dungeon.forEach((stack, i) => {
         const r = stackTop(stack);
         if (r && r.type === 'monster') targets.push({ roomIndex: i });
       });
+      break;
+    case 'any-room-monster':
+      for (const [opid, op] of Object.entries(G.players)) {
+        if (op.eliminated) continue;
+        op.dungeon.forEach((stack, i) => {
+          const r = stackTop(stack);
+          if (r && r.type === 'monster') {
+            targets.push({ targetPlayerId: Number(opid), roomIndex: i });
+          }
+        });
+      }
       break;
     case 'any-room':
       for (const [opid, op] of Object.entries(G.players)) {

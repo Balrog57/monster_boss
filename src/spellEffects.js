@@ -109,13 +109,14 @@ function totalSouls(p) {
 const SPELL_EFFECTS = {
   // BMA040: Annihilator — Trap Room +3 damage until end of turn
   BMA040: (G, ctx, casterId, target) => {
-    const idx = autoRoomIndex(G, casterId, target);
-    const room = findRoom(G, casterId, idx);
+    const targetId = target?.targetPlayerId != null ? target.targetPlayerId : casterId;
+    const idx = autoRoomIndex(G, targetId, target);
+    const room = findRoom(G, targetId, idx);
     if (!room || room.type !== 'trap') {
       G.logs.push('Annihilator requires a Trap Room.');
       return false;
     }
-    G.effects.roomDamageBonus.push({ playerId: casterId, roomIndex: idx, amount: 3 });
+    G.effects.roomDamageBonus.push({ playerId: targetId, roomIndex: idx, amount: 3 });
     G.logs.push(`Annihilator: ${room.name} gains +3 damage this turn.`);
     return true;
   },
@@ -147,13 +148,14 @@ const SPELL_EFFECTS = {
 
   // BMA047: Giant Size — Monster Room +3 damage until end of turn
   BMA047: (G, ctx, casterId, target) => {
-    const idx = autoRoomIndex(G, casterId, target);
-    const room = findRoom(G, casterId, idx);
+    const targetId = target?.targetPlayerId != null ? target.targetPlayerId : casterId;
+    const idx = autoRoomIndex(G, targetId, target);
+    const room = findRoom(G, targetId, idx);
     if (!room || room.type !== 'monster') {
       G.logs.push('Giant Size requires a Monster Room.');
       return false;
     }
-    G.effects.roomDamageBonus.push({ playerId: casterId, roomIndex: idx, amount: 3 });
+    G.effects.roomDamageBonus.push({ playerId: targetId, roomIndex: idx, amount: 3 });
     G.logs.push(`Giant Size: ${room.name} gains +3 damage this turn.`);
     return true;
   },

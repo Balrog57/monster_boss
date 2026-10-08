@@ -242,4 +242,45 @@ describe('engine endgame and spell regression tests', () => {
     assert.equal(G.players[0].items[0].id, 'THK001');
     assert.equal(G.players[0].souls.length, 1);
   });
+
+  it('Annihilator and Giant Size can target any player room according to APK rules', async () => {
+    const { castSpell } = await import('../src/spellEffects.js');
+    const { enumerateTargets } = await import('../src/spellTargeting.js');
+    const G = {
+      effects: { roomDamageBonus: [] },
+      logs: [],
+      players: {
+        0: {
+          dungeon: [[{ id: 'BMA009', name: 'Dark Altar', type: 'trap' }]],
+          hand: [],
+          entrance: [],
+        },
+        1: {
+          dungeon: [
+            [{ id: 'BMA010', name: 'Open Grave', type: 'monster' }],
+            [{ id: 'BMA015', name: 'Goblin Armory', type: 'trap' }],
+          ],
+          hand: [],
+          entrance: [],
+        },
+      },
+    };
+
+    // Test targeting an opponent's trap room (player 1, room 1)
+    const trapTargets = enumerateTargets('any-room-trap', G, G.players[0], 0);
+    assert.equal(trapTargets.length, 2); // player 0 room 0, player 1 room 1
+    const okAnnihilator = castSpell(G, {}, 0, { id: 'BMA040', name: 'Annihilator' }, { targetPlayerId: 1, roomIndex: 1 });
+    assert.equal(okAnnihilator, true);
+    assert.equal(G.effects.roomDamageBonus.length, 1);
+    assert.deepEqual(G.effects.roomDamageBonus[0], { playerId: 1, roomIndex: 1, amount: 3 });
+
+    // Test targeting an opponent's monster room (player 1, room 0)
+    const monsterTargets = enumerateTargets('any-room-monster', G, G.players[0], 0);
+    assert.equal(monsterTargets.length, 1); // player 1 room 0
+    const okGiantSize = castSpell(G, {}, 0, { id: 'BMA047', name: 'Giant Size' }, { targetPlayerId: 1, roomIndex: 0 });
+    assert.equal(okGiantSize, true);
+    assert.equal(G.effects.roomDamageBonus.length, 2);
+    assert.deepEqual(G.effects.roomDamageBonus[1], { playerId: 1, roomIndex: 0, amount: 3 });
+  });
 });
+

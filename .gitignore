@@ -35,3 +35,8 @@ test_*.webp
 
 # Playwright / automation reference captures (local QA only)
 docs/reference/
+
+# Environment & secrets (never commit)
+.env
+.env.*
+!.env.example
