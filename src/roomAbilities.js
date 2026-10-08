@@ -809,11 +809,13 @@ function attachSmithyItem(G, playerId, itemIndex, heroOpt, roomIndex) {
 
 // Returns null if auto-resolved, or a pendingChoice object if the player
 // must make a choice (the reducer will pause and wait for resolveLevelUpChoice).
-export function processLevelUp(G, ctx, playerId) {
+export function processLevelUp(G, ctx, playerId, bossOverride = null) {
   const player = G.players[playerId];
   if (!player || !player.boss) return null;
 
-  const bid = player.boss.id;
+  // bossOverride: apply another Boss's Level Up ability to this player (Klonos copy).
+  const boss = bossOverride || player.boss;
+  const bid = boss.id;
   switch (bid) {
     case 'BMA001': { // Draculord: take a card from an opponent (player chooses)
       const opponents = Object.entries(G.players).filter(
@@ -979,7 +981,6 @@ export function processLevelUp(G, ctx, playerId) {
       return null;
     }
     default: {
-      const boss = player.boss;
       const expansion = processExpansionLevelUp(G, playerId, boss);
       if (expansion) return expansion;
       if (applyTaggedLevelUp(G, playerId, boss)) return null;

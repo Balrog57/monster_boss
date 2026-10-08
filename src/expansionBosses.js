@@ -2,6 +2,7 @@
 import { activeRoom, destroyRoom, healOneWound, dungeonTreasures } from './engine.js';
 import { drawCards } from './cardData.js';
 import { gainCoin } from './minibosses.js';
+import { processLevelUp } from './roomAbilities.js';
 
 function player(G, playerId) {
   return G.players[playerId] ?? G.players[String(playerId)];
@@ -11,6 +12,19 @@ function bossOptions(G, excludePid) {
   return Object.entries(G.players)
     .filter(([pid, p]) => !p.eliminated && Number(pid) !== Number(excludePid) && p.boss)
     .map(([pid, p]) => ({ boss: p.boss, playerId: Number(pid) }));
+}
+
+// Klonos (CRL002): gain another Boss's Level Up ability for the rest of the game.
+export function applyCopiedLevelUp(G, playerId, boss) {
+  const p = player(G, playerId);
+  if (!p || !boss) return null;
+  if (boss.id === 'CRL002') {
+    G.logs.push('Klonos: cannot copy Klonos.');
+    return null;
+  }
+  p.copiedLevelUp = boss.id;
+  G.logs.push(`Klonos: copied ${boss.name} level-up.`);
+  return processLevelUp(G, null, playerId, boss);
 }
 
 export function processExpansionLevelUp(G, playerId, boss) {
@@ -154,13 +168,14 @@ export function processExpansionLevelUp(G, playerId, boss) {
       p.imperiatrix = true;
       G.logs.push('Imperiatrix: Rooms gain +1 per Explorer treasure icon.');
       return null;
-    case 'CRL002': {
-      const opts = bossOptions(G, playerId);
-      if (!opts.length) return null;
-      if (opts.length === 1) {
-        p.copiedLevelUp = opts[0].boss.id;
-        G.logs.push(`Klonos: copied ${opts[0].boss.name} level-up.`);
+    case 'CRL002': { // Klonos: copy another Boss's Level Up ability
+      const opts = bossOptions(G, playerId).filter((o) => o.boss.id !== 'CRL002');
+      if (!opts.length) {
+        G.logs.push('Klonos: no Boss to copy.');
         return null;
+      }
+      if (opts.length === 1) {
+        return applyCopiedLevelUp(G, playerId, opts[0].boss);
       }
       return {
         type: 'pick-boss-levelup',
@@ -293,10 +308,15 @@ export function resolveExpansionLevelUpChoice(G, choice, optionIndex) {
       G.logs.push(`Mirrax: gained treasure type ${t}.`);
       break;
     }
-    case 'pick-boss-levelup':
-      p.copiedLevelUp = opt.boss.id;
-      G.logs.push(`Klonos: copied ${opt.boss.name} level-up.`);
+    case 'pick-boss-levelup': {
+      const nested = applyCopiedLevelUp(G, choice.playerId, opt.boss);
+      if (nested) {
+        // Surface the copied ability's own choice after this one finishes.
+        G.choiceQueue = G.choiceQueue || [];
+        G.choiceQueue.push(nested);
+      }
       break;
+    }
     case 'uncover-room': {
       const stack = G.players[opt.targetPlayerId]?.dungeon[opt.roomIndex];
       if (stack?.length > 1) {

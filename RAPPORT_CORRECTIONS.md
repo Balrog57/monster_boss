@@ -161,3 +161,17 @@ Audit des 6 packs (`hidden-heroes`, `tools`, `players-choice`, `next-level`, `mi
 * **Résultat :** 52 noms nettoyés (32 `next-level`, 10 `minibosses`, 10 `crash-landing`), **0 nom pollué** dans les packs et dans `src/cardData.json`, `expansion-pending=0` (87 `implemented` conservés), 40 visuels de héros enfin résolus par le slug (art manquant sur les packs : 150 → 108).
 
 **Validation :** `npm run test:unit` **193/193**, `npm run test:e2e` **29/29**, `npm run build` OK, `npm run card-matrix` **442 cartes, corrupt=0, expansion-pending=0**. Hors suite : 240/240 parties de soak (60 graines × 6 configurations) sans erreur.
+
+### 7.6. Bug n°4 — Klonos (CRL002) : copie de Level Up sans effet
+
+* **Cause :** `processExpansionLevelUp` (choix automatique) et `resolveExpansionLevelUpChoice` (`src/expansionBosses.js`) écrivaient `p.copiedLevelUp` mais **aucun code ne le lisait** : la capacité copiée n'était jamais appliquée → carte sans effet (écart avec les règles officielles « For the rest of the game, this Boss also has that Boss's Level Up ability »).
+* **Correction :** `processLevelUp(G, ctx, playerId, bossOverride)` (`src/roomAbilities.js`) accepte un boss de substitution (le cas `KSA001` reste écrit sur `player.boss`, pour que la copie de *Kirax* ajoute les trésors au boss du copieur) ; nouvel export `applyCopiedLevelUp` (`src/expansionBosses.js`) qui refuse la copie d'un Klonos, enregistre `copiedLevelUp`, réapplique la capacité via `processLevelUp` (dons passifs immédiats + effets ponctuels) et file le choix éventuel de la capacité copiée dans `G.choiceQueue` (remonté par `finishChoice`). Le choix n'expose plus un Klonos non copiable.
+* **Couverture :** copie automatique face à un seul boss adverse (dons passif + effet ponctuel `RMB001`), choix parmi plusieurs bosses, choix emboîté (`pick-boss-treasure` de Mirrax, résolu via `resolveLevelUpChoice`), garde anti-recursion, aucun boss copiable.
+
+### 7.7. Tests ajoutés (phase de validation — 2026-10-09)
+
+* `test/tools-and-promos.test.js` (**26 tests**) : objets `THK002/003/005/006/007/008/009/010/011/013/014/015/016/017/018/019`, salles `THK022` / `THK024`, montées de niveau `KSA001/003/005/006/007`, sort et héros `KSA013` / `KSA014` / `KSA016`.
+* `test/crash-landing.test.js` (**24 tests**) : `CRL001`, `CRL002` (×4), `CRL003` (×2), `CRL007`, `CRL010` (×2), `CRL012` (×2), `CRL013` (×2), `CRL015`, `CRL016` (×3), `CRL029` (×2), `CRL030` (×2), `CRL031`, `CRL032`.
+* Couverture par set (présence de l'ID dans la suite, `test/*.js` × `docs/card-matrix.json`) : `players-choice` **11/11**, `tools` **25/25**, `crash-landing` **21/33** (12 résiduels = héros `stat-only` sans logique), `next-level` 17/115, `minibosses` 19/121, `base` 61/96, `hidden-heroes` 1/41 (héros `stat-only`).
+
+**Validation :** `npm run test:unit` **243/243**, `npm run test:e2e` **29/29**, `npm run build` OK.
