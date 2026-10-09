@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T11:42:00.380Z",
+  "generatedAt": "2026-10-09T16:17:06.868Z",
   "cards": {
     "BMA001": {
       "id": "BMA001",
@@ -561,7 +561,7 @@
       "set": "base",
       "text": "Monster Rooms adjacent to this room deal +1 damage.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -583,7 +583,7 @@
       "set": "base",
       "text": "The first time a Hero enters this room, send it back one room.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -594,7 +594,7 @@
       "set": "base",
       "text": "You cannot build an Advanced Room on Neanderthal Cave.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -616,7 +616,7 @@
       "set": "base",
       "text": "This room's damage is equal to the number of Monster rooms in your dungeon.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -649,7 +649,7 @@
       "set": "base",
       "text": "At the beginning of your turn, you may draw from the Spell deck instead of the Room deck.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -715,7 +715,7 @@
       "set": "base",
       "text": "If the next room in your dungeon is a Trap room, it deals +2 damage.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -737,7 +737,7 @@
       "set": "base",
       "text": "When another room in your dungeon is destroyed, you may draw two Room cards.",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -1909,7 +1909,10 @@
       "textCorrupt": false,
       "status": "tagged",
       "hasArt": true,
-      "tags": []
+      "tags": [
+        "destroyOnHeroDie",
+        "destroyOnHeroSurvive"
+      ]
     },
     "TNL051": {
       "id": "TNL051",
@@ -2008,7 +2011,7 @@
       "set": "base",
       "text": "Choose a Spell card that has just been played. Cancel the effects of that Spell card. (It is sent to the discard pile.)",
       "textCorrupt": false,
-      "status": "base-implicit",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },
@@ -3618,7 +3621,7 @@
       "set": "players-choice",
       "text": "",
       "textCorrupt": false,
-      "status": "stat-only",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -3629,7 +3632,7 @@
       "set": "players-choice",
       "text": "",
       "textCorrupt": false,
-      "status": "stat-only",
+      "status": "explicit",
       "hasArt": false,
       "tags": []
     },
@@ -4432,7 +4435,7 @@
       "set": "next-level",
       "text": "",
       "textCorrupt": false,
-      "status": "stat-only",
+      "status": "explicit",
       "hasArt": true,
       "tags": []
     },

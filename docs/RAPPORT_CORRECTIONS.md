@@ -283,3 +283,11 @@ locales (`useMatch`) ; le backend n'importe jamais le frontend. `src/BossMonster
 `package.json` (`start`/`serve`, `test:unit`), `RulesOverlay.jsx`
 (`../../../../docs/rules/rules.md?raw`), `.dockerignore` (contexte allégé : `apk-original/`,
 `deploy/`, `security/`, `tests/` exclus ; `docs/rules` conservé pour le build Vite).
+
+### 7.14. Reorg verification + card-matrix scanner fix (2026-10-09)
+
+Reorg audit: target layout confirmed (src/backend, src/frontend, deploy/, tests/, security/, docs/, apk-original/ + tools/, assets/). Stale empty dirs server/ and test/ removed. .gitignore covers apk-original/* (except README), dist/, test-results/, node_modules, .playwright-mcp/, .qoder/, .env; .dockerignore excludes apk-original/, deploy/, security/, tests/, tools/ (keeps docs/rules for the Vite build).
+
+Matrix fix (tools/generate_card_matrix.js): the handler scanner ignored ID-specific logic in reducer.js / engine.js / ai.js / cardData.js, mislabeling 8 base cards as base-implicit (BMA015 Goblin Armory, BMA017 Minotaur Maze, BMA018 Neanderthal Cave, BMA020 Monster Ballroom, BMA023 Haunted Library, BMA029 Dizzygas Hallway, BMA031 Recycling Center, BMA043 Counterspell) and 3 heroes as stat-only (KSA014, KSA016, TNL102 Shadow Corridor) although engine/reducer implement them. Scanner now covers those 4 files; destroyOn* keys are also listed in card tags (TNL050). Regenerated docs/card-matrix.json: 442 cards, corrupt=0, expansion-pending=0, explicit 254->265, base-implicit 8->0, tagged 8 (generic-tag mechanics: RMB040, TNL050 + 6 dark heroes), stat-only 169 (plain heroes by design), missing expansion art 108 (blocked on source, unchanged).
+
+Validation: npm run test:unit 405/405, npm run build OK, npm run verify:assets OK (base set complete; 98+10 missing expansion art, non-fatal).

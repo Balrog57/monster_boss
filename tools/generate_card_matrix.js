@@ -31,6 +31,13 @@ function loadHandlerIds() {
     'src/backend/game/handAbilities.js',
     'src/backend/game/darkHeroes.js',
     'src/backend/game/expansionEffects.js',
+    // ID-specific logic also lives in the core engine + AI (e.g. BMA015
+    // adjacent bonus, BMA017 maze pushback, BMA018 build guard, BMA020
+    // damage calc, BMA023/BMA043 reducer hooks, AI spell scoring).
+    'src/backend/game/reducer.js',
+    'src/backend/game/engine.js',
+    'src/backend/game/ai.js',
+    'src/backend/game/cardData.js',
   ];
   const caseRe = /\bcase\s+['"]([A-Z]{3}\d{3}[A-Z]?)['"]/g;
   const keyRe = /^\s*([A-Z]{3}\d{3}[A-Z]?)\s*:/gm;
@@ -96,7 +103,7 @@ for (const section of sections) {
       textCorrupt: CORRUPT.test(textField(card, section)),
       status: inferStatus(card, section),
       hasArt: fs.existsSync(img),
-      tags: Object.keys(card).filter((k) => k.startsWith('on') || k.startsWith('generic') || k === 'gainCoin' || k === 'effect'),
+      tags: Object.keys(card).filter((k) => k.startsWith('on') || k.startsWith('destroyOn') || k.startsWith('generic') || k === 'gainCoin' || k === 'effect'),
     };
   }
 }
