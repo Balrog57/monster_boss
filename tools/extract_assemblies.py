@@ -2,7 +2,7 @@ import os
 import struct
 import zlib
 
-SO_PATH = 'boss-monster-2-2-6/lib/armeabi-v7a/libmonodroid_bundle_app.so'
+SO_PATH = 'apk-original/boss-monster-2-2-6/lib/armeabi-v7a/libmonodroid_bundle_app.so'
 OUT_DIR = 'tools/extracted_assemblies'
 os.makedirs(OUT_DIR, exist_ok=True)
 

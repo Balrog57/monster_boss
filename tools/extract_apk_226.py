@@ -26,7 +26,7 @@ from collections import deque
 from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-APK = os.path.join(ROOT, "boss-monster-2-2-6")
+APK = os.path.join(ROOT, "apk-original", "boss-monster-2-2-6")
 CONTENT = os.path.join(APK, "assets", "Content")
 OUT_UI = os.path.join(ROOT, "assets", "ui")
 OUT_AUDIO = os.path.join(ROOT, "assets", "audio")
@@ -37,7 +37,7 @@ OUT_DUNGEON = os.path.join(ROOT, "assets", "ui", "dungeon")
 OUT_EXP = os.path.join(ROOT, "assets", "ui", "expansions")
 OUT_NINE = os.path.join(ROOT, "assets", "ui", "ninepatch")
 OUT_TUT = os.path.join(ROOT, "assets", "ui", "tutorial")
-MANIFEST = os.path.join(ROOT, "src", "apkCardManifest.json")
+MANIFEST = os.path.join(ROOT, "src", "backend", "game", "apkCardManifest.json")
 
 
 def wpk_payload(path):

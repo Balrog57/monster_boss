@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, 'docs', 'card-matrix.json');
 
-const cardData = JSON.parse(fs.readFileSync(path.join(ROOT, 'src', 'cardData.json'), 'utf8'));
+const cardData = JSON.parse(fs.readFileSync(path.join(ROOT, 'src', 'backend', 'game', 'cardData.json'), 'utf8'));
 const nameMap = cardData.nameMap || {};
 
 const CORRUPT = /\]\]$/;
@@ -23,14 +23,14 @@ const TAGGED_KEYS = [
 function loadHandlerIds() {
   const ids = new Set();
   const files = [
-    'src/expansionBosses.js',
-    'src/roomAbilities.js',
-    'src/spellEffects.js',
-    'src/minibosses.js',
-    'src/items.js',
-    'src/handAbilities.js',
-    'src/darkHeroes.js',
-    'src/expansionEffects.js',
+    'src/backend/game/expansionBosses.js',
+    'src/backend/game/roomAbilities.js',
+    'src/backend/game/spellEffects.js',
+    'src/backend/game/minibosses.js',
+    'src/backend/game/items.js',
+    'src/backend/game/handAbilities.js',
+    'src/backend/game/darkHeroes.js',
+    'src/backend/game/expansionEffects.js',
   ];
   const caseRe = /\bcase\s+['"]([A-Z]{3}\d{3}[A-Z]?)['"]/g;
   const keyRe = /^\s*([A-Z]{3}\d{3}[A-Z]?)\s*:/gm;

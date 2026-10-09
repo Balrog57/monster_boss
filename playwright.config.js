@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './test/e2e',
+  testDir: './tests/e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 0,
@@ -15,7 +15,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'node server/index.js',
+        command: 'node src/backend/server/index.js',
       url: 'http://localhost:8000/health',
       reuseExistingServer: true,
       timeout: 120000,

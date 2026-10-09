@@ -1,5 +1,8 @@
 node_modules
 
+# Original APK + decompiled reference (local-only, see apk-original/README.md;
+# never committed, never shipped — excluded from the Docker context too)
+apk-original/
 boss-monster-2-4-12.apk
 boss-monster-2-4-12/
 boss-monster-2-2-6-android.apk
@@ -16,7 +19,8 @@ dist/
 
 # Test artifacts
 test-results/
-test/*.png
+tests/e2e/*.png
+tests/unit/*.png
 
 # Opencode session state
 .opencode/
@@ -39,4 +43,4 @@ docs/reference/
 # Environment & secrets (never commit)
 .env
 .env.*
-!.env.example
+!security/.env.example

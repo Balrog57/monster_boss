@@ -17,10 +17,10 @@ function exists(rel) {
 }
 
 const manifest = JSON.parse(
-  fs.readFileSync(path.join(root, 'src', 'apkCardManifest.json'), 'utf8')
+  fs.readFileSync(path.join(root, 'src', 'backend', 'game', 'apkCardManifest.json'), 'utf8')
 );
 const cardData = JSON.parse(
-  fs.readFileSync(path.join(root, 'src', 'cardData.json'), 'utf8')
+  fs.readFileSync(path.join(root, 'src', 'backend', 'game', 'cardData.json'), 'utf8')
 );
 
 const missing = [];

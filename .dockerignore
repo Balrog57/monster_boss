@@ -1,27 +1,37 @@
-# .dockerignore - keep the Docker build context lean.
-# Only package.json, src/, server/, assets/, vite.config.js and index.html are
-# needed to build + run the game. Everything else is dev/design/source material.
+# .dockerignore - keep the Docker build context lean (context = repo root,
+# see deploy/docker-compose.yml `build.context: ..`).
+# Only package.json, src/, assets/, vite.config.js, index.html and
+# docs/rules/rules.md (bundled by the frontend via `?raw` import) are needed
+# to build + run the game. Everything else is dev/design/source material.
 
 # Dependencies & build output (rebuilt inside the image)
 node_modules
 dist
 
-# Original APK extraction & design references (not needed at runtime)
-boss-monster-2-4-12
+# Original APK + decompiled reference (local-only, never shipped)
+apk-original
+boss-monster-2-2-6-android.apk
+boss-monster-2-4-12.apk
+boss-monster-2-2-6/
+boss-monster-2-4-12/
 design_system
 docs
 !docs/rules
 !docs/rules/rules.md
 
+# Deploy descriptors (host-side only) & security notes
+deploy
+security
+
 # Tests & tooling
-test
+tests
 test-results
 .playwright-mcp
 .opencode
 tools
 playwright.config.*
 
-# Redundant JPG card art — cards are now served as WebP (see src/cardData.js).
+# Redundant JPG card art — cards are now served as WebP (see src/backend/game/cardData.js).
 # Excluding the originals keeps them in the repo as a source archive while
 # dropping ~14MB from the image.
 assets/cards/**/*.jpg

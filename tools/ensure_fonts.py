@@ -7,10 +7,10 @@ import sys
 import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FONTS_DIR = os.path.join(ROOT, "boss-monster-2-2-6", "assets", "Content", "Fonts")
+    FONTS_DIR = os.path.join(ROOT, "apk-original", "boss-monster-2-2-6", "assets", "Content", "Fonts")
 APKS = [
-    os.path.join(ROOT, "boss-monster-2-2-6-android.apk"),
-    os.path.join(ROOT, "boss-monster-2-4-12.apk"),
+    os.path.join(ROOT, "apk-original", "boss-monster-2-2-6-android.apk"),
+    os.path.join(ROOT, "apk-original", "boss-monster-2-4-12.apk"),
 ]
 NEEDED = ("arcadepix.wpk", "arcadepix2.wpk", "bookman_old_style.wpk", "f04b03.wpk")
 
@@ -42,7 +42,7 @@ def extract_from_apk():
 def main():
     if not fonts_ready():
         if not extract_from_apk():
-            sys.exit("No APK SpriteFonts found. Place boss-monster-2-2-6-android.apk in the repo root.")
+            sys.exit("No APK SpriteFonts found. Place boss-monster-2-2-6-android.apk in apk-original/.")
     if not fonts_ready():
         sys.exit("Font WPKs still missing after APK extract.")
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

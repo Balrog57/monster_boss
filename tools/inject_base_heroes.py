@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = json.loads((ROOT / "assets" / "data" / "BaseDeck" / "data.json").read_text(encoding="utf-8"))
-DATA = json.loads((ROOT / "src" / "cardData.json").read_text(encoding="utf-8"))
+DATA = json.loads((ROOT / "src" / "backend" / "game" / "cardData.json").read_text(encoding="utf-8"))
 
 CLASS_SLUG = {1: "cleric", 2: "fighter", 3: "mage", 4: "thief"}
 
@@ -37,6 +37,6 @@ existing = {c["id"] for c in DATA.get("heroes") or []}
 injected = [h for h in heroes if h["id"] not in existing]
 DATA["heroes"] = injected + (DATA.get("heroes") or [])
 
-out = ROOT / "src" / "cardData.json"
+out = ROOT / "src" / "backend" / "game" / "cardData.json"
 out.write_text(json.dumps(DATA, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 print(f"injected {len(injected)} base heroes (total heroes {len(DATA['heroes'])})")

@@ -4,7 +4,7 @@ import os
 import shutil
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, "boss-monster-2-2-6", "assets", "Content", "Audio", "Music")
+SRC = os.path.join(ROOT, "apk-original", "boss-monster-2-2-6", "assets", "Content", "Audio", "Music")
 DEST = os.path.join(ROOT, "assets", "audio", "music")
 
 

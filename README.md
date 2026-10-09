@@ -21,7 +21,7 @@ Solo : menu → **SOLO** → 2 joueurs → partie complète (boss, setup, discar
 ## Tests & assets
 
 ```bash
-npm run test:unit    # moteur, reducer, IA, extensions, matrice (50 tests)
+npm run test:unit    # moteur, reducer, IA, extensions, matrice (400+ tests)
 npm run card-matrix  # génère docs/card-matrix.json (validation texte)
 npm run fetch:expansion-art   # art TNL/RMB/CRL depuis le wiki
 npm run verify:assets
@@ -30,10 +30,27 @@ npm run verify:assets
 ## Règles implémentées (base set + extensions)
 
 - Phases : BOSS → SETUP → BEGINNING → BUILD → BAIT → ADVENTURE → END
-- 16 sorts avec ciblage (`src/spellTargeting.js`) et phases (cat. 1–5 dont Cave-In / Exhaustion)
+- 16 sorts avec ciblage (`src/backend/game/spellTargeting.js`) et phases (cat. 1–5 dont Cave-In / Exhaustion)
 - Aventure pas à pas (`resolveNextHero`), effets Exhaustion / Teleport / Cave-In héros
 - Salles activables, level-up boss, opening discard 7→5
-- IA via `legalMoves` + scoring (`src/ai.js`)
+- IA via `legalMoves` + scoring (`src/backend/game/ai.js`)
+
+## Structure du repo
+
+```
+src/backend/server/   Koa + Socket.IO + lobby + persistance (migrate.sql)
+src/backend/game/     moteur de règles pur (engine, reducer, IA, cartes) —
+                      consommé par le serveur (autorité) ET le frontend (parties locales)
+src/frontend/         React 19 + Vite (App, plateau, écrans, composants, design)
+tests/unit/           400+ tests Node (moteur, reducer, IA, extensions)
+tests/e2e/            Playwright (parcours complets, baselines win32 versionnées)
+deploy/               Dockerfile + docker-compose.yml + DEPLOYMENT.md
+security/             SECURITY.md + .env.example (jamais de secret commité)
+docs/                 règles, matrice cartes, rapports
+tools/                extraction APK / wiki / vérifications (dev uniquement)
+assets/               public Vite (cartes WebP, UI, audio, fonts)
+apk-original/         APK + décompilation (référence locale, ni versionné ni embarqué)
+```
 
 ## UI (alignement APK 2.2.6)
 

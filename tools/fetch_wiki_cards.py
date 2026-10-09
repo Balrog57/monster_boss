@@ -19,8 +19,8 @@ except ImportError:
     sys.exit(1)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DECKS = os.path.join(ROOT, "boss-monster-2-2-6", "assets", "Content", "CardDecks")
-OUT_JSON = os.path.join(ROOT, "src", "cardData.json")
+DECKS = os.path.join(ROOT, "apk-original", "boss-monster-2-2-6", "assets", "Content", "CardDecks")
+OUT_JSON = os.path.join(ROOT, "src", "backend", "game", "cardData.json")
 OUT_CARDS = os.path.join(ROOT, "assets", "cards")
 WIKI_API = "https://bossmonster.fandom.com/api.php"
 UA = "BossMonsterFanPort/2.2.6 (local educational rebuild)"
