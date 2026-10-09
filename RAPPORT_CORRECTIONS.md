@@ -243,11 +243,13 @@ Objectif : faire passer les **108 cartes sans visuel** (§7) à zéro. `npm run 
 
 ### 7.12. CI GitHub Actions — reprise des exécutions en échec
 
-Toutes les exécutions récentes de `ci` étaient rouges à cause de `npm run test:unit`, pour deux raisons propres à l'environnement (non reproductibles en local) :
+Toutes les exécutions récentes de `ci` étaient rouges. Deux causes touchaient `npm run test:unit` (propres à l'environnement CI, non reproductibles en local) :
 
 | Échec | Cause | Correctif (`e351028`) |
 |---|---|---|
 | `test/base-set.test.js` → `ENOENT … boss-monster-2-2-6/assets/Content/CardDecks/BaseDeck/data.json` | le test lisait l'extrait de l'APK, **gitignoré** (disponible seulement sur la machine de l'auteur) | fixture commitée `test/fixtures/apk-base-heroes.json` (41 héros, 23 479 octets) ; le test lit la fixture et la compare à l'APK local **si présent** (test de parité ignoré sinon) |
 | `test/soak.test.js` → `no terminal state in 3000 moves (phase=adventure)` | `test/helpers/aiSoak.js` construisait un flux `seeded()` **jamais utilisé** : `Math.random` (mélange des decks, capacités de salle/boss) restait non déterministe | `installSeededRandom(seed)` (xorshift posé sur `Math.random`) autour de `runGame` dans `playOne`, restauré en `finally` → les 14 parties du soak sont déterministes (plus longue : 1752/3000 coups) |
 
-**Validation :** `npm run test:unit` **400/400** (14 fichiers), `npm run test:e2e` **29/29**, `npm run build` OK.
+Une **troisième cause**, visible dès que `test:unit` repassait au vert (runs `37896216609`, `37903901511`) : `npm run test:e2e` échouait sur les **6 tests visuels** uniquement — les baselines `test/e2e/visual.spec.js-snapshots/<nom>-<projet>-linux.png` n'existent pas (seules les images `*-win32.png` sont versionnées) et Playwright **échoue** dès qu'une baseline manque (elle écrit l'image actuelle puis rapporte l'écart). *Correctif :* `test/e2e/visual.spec.js` détecte la présence d'un baseline pour la plateforme courante (`hasPlatformBaselines()`) et **saute** la suite à défaut ; les tests visuels restent actifs sous Windows (où les baselines sont maintenues) et repartiront automatiquement sur Linux dès que des images `*-linux.png` seront commitées. Résultat CI : 23 tests e2e verts + 6 ignorés au lieu de 6 échecs.
+
+**Validation :** `npm run test:unit` **400/400** (14 fichiers ; vert aussi sous ubuntu/node 22 — run `37903901511`), `npm run test:e2e` **29/29** en local (6 visuels actifs sous win32), `npm run build` OK.

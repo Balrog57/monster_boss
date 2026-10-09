@@ -1,6 +1,21 @@
 // visual.spec.js - Dual-resolution screenshot checks (boot → menu → board).
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { test, expect } from '@playwright/test';
 import { startSoloGame } from './helpers/play-until-game-over.js';
+
+// Baselines are named `<name>-<project>-<platform>.png`. Only the Windows
+// images are committed, so Playwright would write-and-fail every screenshot on
+// any other platform (no baseline = failed test in CI). Skip the suite until a
+// baseline set exists for the running platform.
+const BASELINE_DIR = fileURLToPath(new URL('./visual.spec.js-snapshots/', import.meta.url));
+function hasPlatformBaselines() {
+  try {
+    return fs.readdirSync(BASELINE_DIR).some((f) => f.endsWith(`-${process.platform}.png`));
+  } catch {
+    return false;
+  }
+}
 
 async function tapToMenu(page) {
   await page.goto('/');
@@ -14,6 +29,11 @@ async function tapToMenu(page) {
 }
 
 test.describe('Visual dual-resolution', () => {
+  test.beforeEach(() => {
+    test.skip(!hasPlatformBaselines(),
+      `no ${process.platform} screenshot baselines in visual.spec.js-snapshots`);
+  });
+
   test('boot screen', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('button', { name: /tap to start/i })).toBeVisible({ timeout: 15000 });
