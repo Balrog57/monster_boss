@@ -174,7 +174,9 @@ Audit des 6 packs (`hidden-heroes`, `tools`, `players-choice`, `next-level`, `mi
 * `test/crash-landing.test.js` (**24 tests**) : `CRL001`, `CRL002` (×4), `CRL003` (×2), `CRL007`, `CRL010` (×2), `CRL012` (×2), `CRL013` (×2), `CRL015`, `CRL016` (×3), `CRL029` (×2), `CRL030` (×2), `CRL031`, `CRL032`.
 * `test/next-level.test.js` (**59 tests**) : boss `TNL009` (×2), `TNL012` (×2) ; effets de construction `TNL016` (×2), `TNL024` (×2), `TNL027` (×2), `TNL029` (×2), `TNL036`, `TNL052` ; capacités activées `TNL013` (×2), `TNL022`, `TNL030`, `TNL032`, `TNL033`, `TNL035`, `TNL040`, `TNL041`, `TNL042`, `TNL045`, `TNL046`, `TNL049`, `TNL055` ; sorts `TNL056`, `TNL057`, `TNL058`, `TNL059`, `TNL060`, `TNL062`, `TNL063`, `TNL064`, `TNL065`, `TNL066`, `TNL067`, `TNL068`, `TNL069`, `TNL070` ; **capacités de boss** `TNL001` (×6), `TNL003` (×3), `TNL005` (×3), `TNL008` (×2) ; **régressions de revue** (§7.9) `BMA048`, `RMB071`, fin de partie + `TNL005`.
 * `test/ai.test.js` (**9 tests**) : +1 — Doc Scarecrow dépense la carte la moins utile (et non la première).
-* Couverture par set (présence de l'ID dans la suite, `test/*.js` × `docs/card-matrix.json`) : `players-choice` **11/11**, `tools` **25/25**, `crash-landing` **21/33** (12 résiduels = héros `stat-only` sans logique), `next-level` **54/115**, `minibosses` 19/121, `base` 61/96, `hidden-heroes` 1/41 (héros `stat-only`).
+* `test/minibosses.test.js` (**96 tests**) : les 10 minibosses `RMB055`-`RMB064` (révélation, montée 1/2/3 avec défausse/pioche, activation, `pendingChoice`, hooks économiques, destruction de pile) ; **les 37 salles implantées du pack** — capacités activées `RMB013`, `RMB019`, `RMB022`, `RMB026` (choix `double-monster`), `RMB038`, `RMB042`, `RMB043`, `RMB044`, `RMB045`, `RMB047`, `RMB052`, `RMB053`, `RMB054` ; déclencheurs de construction/défausse/mort `RMB016`, `RMB027`, `RMB030`, `RMB031`, `RMB034`, `RMB036`, `RMB037`, `RMB050`, `RMB051` ; destruction d'une salle (`RMB033`, `RMB041`) et `payToPaywall` (`RMB046`) ; chaîne `RMB013` → `RMB017` (Imp Hoard récupère le Sort forcé) ; **les 42 héros** `RMB080`-`RMB121` (données complètes + distribution dans le deck de héros) ; **les 15 sorts** `RMB065`-`RMB079` (`RMB065`/`070`/`071`/`074` déjà couverts par `expansions.test.js`, +11 : `RMB066`, `RMB067`, `RMB068`, `RMB069`, `RMB072`, `RMB073`, `RMB075`, `RMB076`, `RMB077`, `RMB078`, `RMB079`).
+* Couverture par set (présence de l'ID dans la suite, `test/*.js` × `docs/card-matrix.json`) : `players-choice` **11/11**, `tools` **25/25**, `crash-landing` **21/33** (12 résiduels = héros `stat-only` sans logique), `next-level` **54/115**, `minibosses` **117/121** (4 résiduels = salles `data-only` non implantées : `RMB014`, `RMB015`, `RMB020`, `RMB040`), `base` 61/96, `hidden-heroes` 1/41 (héros `stat-only`).
+* **Validation :** `npm run test:unit` **400/400**, `npm run test:e2e` **29/29**, `npm run build` OK.
 
 ### 7.8. Capacités de boss Next Level (drapeaux sans effet → câblées)
 
@@ -237,4 +239,15 @@ Objectif : faire passer les **108 cartes sans visuel** (§7) à zéro. `npm run 
 |---|---|---|
 | **a** — capacités de boss Next Level | ✅ **Terminé, poussé, déployé** | §7.8 + §7.9 (commit `1352c19`) |
 | **c** — art des extensions | ⏸️ **Bloqué sur une source** | §7.10 : 108 cartes sans visuel, sources auditées épuisées ; au choix de l'utilisateur |
-| **b** — couverture des tests Minibosses | ⏳ **À faire** | `minibosses` **19/121** IDs couverts (§7.7) — cible : niveaux 1/2/3 des 10 minibosses (`RMB055`-`RMB064`), promotion/activation, pièges et héros du pack |
+| **b** — couverture des tests Minibosses | ✅ **Terminé, poussé** | §7.7 : `test/minibosses.test.js` (**96 tests**, file `test:unit`), `minibosses` **117/121** IDs couverts — cible atteinte : niveaux 1/2/3 des 10 minibosses, promotion/activation, 37 salles, 42 héros et 15 sorts du pack ; les 4 restants sont des salles non implantées (`data-only`) |
+
+### 7.12. CI GitHub Actions — reprise des exécutions en échec
+
+Toutes les exécutions récentes de `ci` étaient rouges à cause de `npm run test:unit`, pour deux raisons propres à l'environnement (non reproductibles en local) :
+
+| Échec | Cause | Correctif (`e351028`) |
+|---|---|---|
+| `test/base-set.test.js` → `ENOENT … boss-monster-2-2-6/assets/Content/CardDecks/BaseDeck/data.json` | le test lisait l'extrait de l'APK, **gitignoré** (disponible seulement sur la machine de l'auteur) | fixture commitée `test/fixtures/apk-base-heroes.json` (41 héros, 23 479 octets) ; le test lit la fixture et la compare à l'APK local **si présent** (test de parité ignoré sinon) |
+| `test/soak.test.js` → `no terminal state in 3000 moves (phase=adventure)` | `test/helpers/aiSoak.js` construisait un flux `seeded()` **jamais utilisé** : `Math.random` (mélange des decks, capacités de salle/boss) restait non déterministe | `installSeededRandom(seed)` (xorshift posé sur `Math.random`) autour de `runGame` dans `playOne`, restauré en `finally` → les 14 parties du soak sont déterministes (plus longue : 1752/3000 coups) |
+
+**Validation :** `npm run test:unit` **400/400** (14 fichiers), `npm run test:e2e` **29/29**, `npm run build` OK.
