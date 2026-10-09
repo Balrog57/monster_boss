@@ -1,3 +1,5 @@
+// Torix Uz'Kali (TNL003): recovered Monster Rooms go through discardRoomToPile.
+import { discardRoomToPile } from './engine.js';
 // darkHeroes.js - Next Level Dark Heroes: pay matching Room from hand → +3 HP.
 
 export function darkHeroTreasure(hero) {
@@ -45,7 +47,7 @@ export function payDarkHero(G, payerId, handIndex, target) {
   if (!canPayDarkHero(G, payerId, handIndex, target)) return 'cannot pay dark hero';
   const p = G.players[payerId] ?? G.players[String(payerId)];
   const [card] = p.hand.splice(handIndex, 1);
-  G.decks.roomDiscard.push(card);
+  discardRoomToPile(G, card);
   const hero = target.hero;
   const bonus = 3;
 

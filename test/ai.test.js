@@ -121,4 +121,23 @@ describe('ai', () => {
     G.players[0].hand = [{ id: 'BMA053', name: 'Teleportation', isSpell: true, category: 1 }];
     assert.equal(aiPickMove(G, ctx, 0).type, 'pass');
   });
+
+  it('spends the cheapest card on Doc Scarecrow', () => {
+    const { G, ctx } = riggedBaseState();
+    G.players[0].docScarecrow = true;
+    G.players[0].dungeon = [[{ id: 'BMA010', name: 'Open Grave', type: 'trap', isRoom: true, damage: 2, treasures: [1] }]];
+    G.town = [{ id: 'h1', name: 'Fighter', treasure: 1, hp: 10 }];
+    G.players[0].hand = [
+      { id: 'X1', name: 'Big Room', type: 'monster', isRoom: true, advanced: true, damage: 5, treasures: [1, 2] },
+      { id: 'X2', name: 'Small Room', type: 'trap', isRoom: true, advanced: false, damage: 0, treasures: [] },
+      { id: 'S1', name: 'Spell', isSpell: true },
+    ];
+    G.players[1].hand = [];
+    G.players[1].dungeon = [];
+
+    const pick = aiPickMove(G, ctx, 0);
+    assert.equal(pick.type, 'docScarecrow');
+    assert.equal(pick.args[0], 1, 'discards the cheapest card, not the first one');
+    assert.equal(pick.args[1], 0, 'marks the Hero heading for our dungeon');
+  });
 });

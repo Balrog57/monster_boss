@@ -1,6 +1,6 @@
 // Hand-discard room abilities ("you may discard this from your hand to…")
 // plus a few end-of-turn / build-phase hooks for remaining expansion rooms.
-import { activeRoom, destroyRoom } from './engine.js';
+import { discardRoomToPile, activeRoom, destroyRoom } from './engine.js';
 import { drawCards, PHASE } from './cardData.js';
 import { gainCoin } from './minibosses.js';
 import { addHeroHealthBonus } from './items.js';
@@ -39,7 +39,7 @@ export function useHandRoomAbility(G, ctx, playerId, handIndex, target = {}) {
   }
 
   player.hand.splice(handIndex, 1);
-  G.decks.roomDiscard.push(card);
+  discardRoomToPile(G, card);
 
   switch (card.id) {
     case 'CRL007': {

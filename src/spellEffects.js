@@ -3,7 +3,7 @@
 // Spells are resolved immediately when played. Target objects use:
 //   { roomIndex, targetPlayerId, heroId, townIndex }
 
-import { activeRoom, buildRoom, healOneWound, destroyRoom } from './engine.js';
+import { discardRoomToPile, activeRoom, buildRoom, healOneWound, destroyRoom } from './engine.js';
 import { drawCards, totalWounds } from './cardData.js';
 import { gainCoin, spendCoin, attachMiniboss, getMiniboss } from './minibosses.js';
 import { applyGenericSpell } from './expansionEffects.js';
@@ -239,10 +239,12 @@ const SPELL_EFFECTS = {
   // BMA048: Jeopardy — all discard hands, draw 1 spell + 2 rooms
   BMA048: (G, ctx, casterId, target) => {
     for (const p of Object.values(G.players)) {
-      while (p.hand.length > 0) {
-        const c = p.hand.pop();
+      // Snapshot the hand first: Torix (TNL003) may recover a Monster Room
+      // straight back into hand, which must not re-enter this loop.
+      const held = p.hand.splice(0, p.hand.length);
+      for (const c of held) {
         if (c.isSpell) G.decks.spellDiscard.push(c);
-        else G.decks.roomDiscard.push(c);
+        else discardRoomToPile(G, c);
       }
       const spell = drawCards(G.decks.spells, 1);
       const rooms = drawCards(G.decks.rooms, 2);
@@ -717,7 +719,7 @@ const SPELL_EFFECTS = {
       G.players[casterId].hand.push(monster);
       G.logs.push(`Internship: took ${monster.name} into hand.`);
     }
-    drawn.filter((c) => c !== monster).forEach((c) => G.decks.roomDiscard.push(c));
+    drawn.filter((c) => c !== monster).forEach((c) => discardRoomToPile(G, c));
     return true;
   },
 
@@ -878,19 +880,20 @@ const SPELL_EFFECTS = {
     if (!p) return false;
     let rooms = 0;
     let spells = 0;
-    while (p.hand.length) {
-      const c = p.hand.pop();
+    // Snapshot: Torix (TNL003) recovery must not re-enter the loop.
+    const held = p.hand.splice(0, p.hand.length);
+    for (const c of held) {
       if (c.isSpell) {
         spells += 1;
         G.decks.spellDiscard.push(c);
       } else if (c.isRoom) {
         rooms += 1;
-        G.decks.roomDiscard.push(c);
+        discardRoomToPile(G, c);
       } else if (c.isMiniboss) {
         G.decks.minibossDiscard = G.decks.minibossDiscard || [];
         G.decks.minibossDiscard.push(c);
       } else {
-        G.decks.roomDiscard.push(c);
+        discardRoomToPile(G, c);
       }
     }
     p.hand.push(...drawCards(G.decks.rooms, rooms), ...drawCards(G.decks.spells, spells));
@@ -1044,7 +1047,7 @@ const SPELL_EFFECTS = {
     p.hand.splice(hi, 1);
     if (card.advanced) {
       const oldTop = activeRoom(p.dungeon[ri]);
-      G.decks.roomDiscard.push(oldTop);
+      discardRoomToPile(G, oldTop);
     }
     card.faceDown = false;
     card.builtThisTurn = true;
@@ -1081,7 +1084,7 @@ function payAmbushCost(G, p) {
   const [a, b] = [monsters[0].i, monsters[1].i].sort((x, y) => y - x);
   for (const idx of [a, b]) {
     const discarded = p.hand.splice(idx, 1)[0];
-    G.decks.roomDiscard.push(discarded);
+    discardRoomToPile(G, discarded);
     G.logs.push(`Ambush: discarded ${discarded.name}.`);
   }
   return true;

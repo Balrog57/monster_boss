@@ -1,10 +1,10 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { setupMatch } from '../server/reducer.js';
+import { setupMatch, applyMove, legalMoves } from '../server/reducer.js';
 import { castSpell, emptyEffects } from '../src/spellEffects.js';
 import { PHASE } from '../src/cardData.js';
-import { destroyRoom, roomDamageWithModifiers } from '../src/engine.js';
-import { onBuildRoom, activateRoomAbility } from '../src/roomAbilities.js';
+import { destroyRoom, roomDamageWithModifiers, resolveBait, discardRoomToPile } from '../src/engine.js';
+import { onBuildRoom, activateRoomAbility, resolveLevelUpChoice, aiResolveLevelUpChoice } from '../src/roomAbilities.js';
 import { processExpansionLevelUp, processEndOfTurnBosses } from '../src/expansionBosses.js';
 
 function mk(expansions = ['next-level'], players = 2) {
@@ -501,5 +501,387 @@ describe('Next Level spells', () => {
       castSpell(G, ctx, 0, spell('TNL070', 'Surprise Gift'), { targetPlayerId: 1, handIndex: 0, roomIndex: 0 }),
       false,
     );
+  });
+});
+
+describe('Next Level boss abilities', () => {
+  function forceActive(G, ctx, pid) {
+    G.activePlayer = pid;
+    ctx.activePlayer = pid;
+    ctx.currentPlayer = pid;
+    G.phase = PHASE.BUILD;
+  }
+
+  function passUntilNextTurn(state, max = 40) {
+    const startTurn = state.G.turn;
+    for (let i = 0; i < max && state.G.turn === startTurn; i++) {
+      const G = state.G;
+      if (G.pendingChoice) {
+        const opt = aiResolveLevelUpChoice(G, G.pendingChoice);
+        const r = applyMove(state, { type: 'resolveLevelUpChoice', args: [opt] }, G.pendingChoice.playerId);
+        assert.equal(r.error, undefined, r.error);
+        state = r.state;
+        continue;
+      }
+      const r = applyMove(state, { type: 'pass', args: [] }, Number(state.ctx.activePlayer));
+      assert.equal(r.error, undefined, r.error);
+      state = r.state;
+    }
+    assert.ok(state.G.turn > startTurn, 'reached the next turn');
+    return state;
+  }
+
+  it('TNL001 Doc Scarecrow discards a card and keeps one Town Hero from being lured', () => {
+    const { G, ctx } = mk();
+    G.players[0].boss = { id: 'TNL001', name: 'Doc Scarecrow', treasures: [1] };
+    assert.equal(processExpansionLevelUp(G, 0, { id: 'TNL001', name: 'Doc Scarecrow' }), null);
+    assert.equal(G.players[0].docScarecrow, true);
+
+    G.town = [
+      { id: 'h1', name: 'Fighter', treasure: 1, hp: 6 },
+      { id: 'h2', name: 'Mage', treasure: 2, hp: 6 },
+    ];
+    G.players[0].dungeon = [[room('d1', 'My Room', 'monster', 5, [1])]];
+    G.players[1].boss = { id: 'BMA002', name: 'Rival Boss', treasures: [] };
+    G.players[1].dungeon = [[room('d2', 'Rival Room', 'monster', 1, [2])]];
+    G.players[0].hand = [spell('s1', 'Spare Spell'), room('r1', 'Spare Room', 'monster', 1, [1])];
+    G.players[1].hand = [];
+    forceActive(G, ctx, 0);
+
+    assert.ok(legalMoves(G, ctx, 0).some((m) => m.type === 'docScarecrow'));
+    const res = applyMove({ G, ctx }, { type: 'docScarecrow', args: [1, 0] }, 0);
+    assert.equal(res.error, undefined, res.error);
+    const g2 = res.state.G;
+
+    assert.equal(g2.players[0].hand.length, 1);
+    assert.equal(g2.decks.roomDiscard.length, 1);
+    assert.equal(g2.decks.roomDiscard[0].id, 'r1');
+    assert.equal(g2.town[0].noLureThisTurn, true);
+    assert.equal(g2.town[1].noLureThisTurn, undefined);
+    assert.equal(g2.players[0]._scarecrowUsedThisBuild, true);
+    assert.ok(g2.logs.some((l) => l.startsWith('Doc Scarecrow:')));
+
+    const again = applyMove({ G: g2, ctx: res.state.ctx }, { type: 'docScarecrow', args: [0, 1] }, 0);
+    assert.ok(again.error, 'only once per Build phase');
+
+    const assignments = resolveBait(g2);
+    const marked = assignments.find((a) => a.hero.id === 'h1');
+    assert.equal(marked.stayInTown, true);
+    assert.equal(marked.scarecrow, true);
+    const unmarked = assignments.find((a) => a.hero.id === 'h2');
+    assert.notEqual(unmarked.scarecrow, true);
+    assert.equal(unmarked.stayInTown, false);
+    assert.equal(unmarked.targetPlayerId, 1);
+  });
+
+  it('TNL001 Doc Scarecrow is only offered when unlocked, unused and in Build', () => {
+    const { G, ctx } = mk();
+    G.town = [{ id: 'h1', name: 'Hero', treasure: 1, hp: 6 }];
+    G.players[0].hand = [room('r1', 'Room', 'monster', 1, [1])];
+    forceActive(G, ctx, 0);
+
+    assert.ok(!legalMoves(G, ctx, 0).some((m) => m.type === 'docScarecrow'));
+    G.players[0].docScarecrow = true;
+    assert.ok(legalMoves(G, ctx, 0).some((m) => m.type === 'docScarecrow'));
+    G.players[0]._scarecrowUsedThisBuild = true;
+    assert.ok(!legalMoves(G, ctx, 0).some((m) => m.type === 'docScarecrow'));
+
+    G.players[0]._scarecrowUsedThisBuild = false;
+    G.phase = PHASE.ADVENTURE;
+    const res = applyMove({ G, ctx }, { type: 'docScarecrow', args: [0, 0] }, 0);
+    assert.match(res.error || '', /Build phase/);
+  });
+
+  it('TNL001 once-per-turn flags reset at the next turn Beginning', () => {
+    const { G, ctx } = mk();
+    G.players[0].boss = { id: 'TNL001', name: 'Doc Scarecrow', treasures: [1] };
+    processExpansionLevelUp(G, 0, { id: 'TNL001', name: 'Doc Scarecrow' });
+    G.town = [{ id: 'h1', name: 'Fighter', treasure: 1, hp: 6 }];
+    G.players[0].dungeon = [[room('d1', 'My Room', 'monster', 5, [1])]];
+    G.players[0].hand = [spell('s1', 'Spare Spell')];
+    G.players[1].hand = [];
+    forceActive(G, ctx, 0);
+    G.players[0]._timebenderUsedThisTurn = true;
+
+    const used = applyMove({ G, ctx }, { type: 'docScarecrow', args: [0, 0] }, 0);
+    assert.equal(used.error, undefined, used.error);
+    assert.equal(used.state.G.town[0].noLureThisTurn, true);
+
+    const next = passUntilNextTurn(used.state);
+    assert.equal(next.G.players[0]._scarecrowUsedThisBuild, false);
+    assert.equal(next.G.players[0]._timebenderUsedThisTurn, false);
+    assert.ok(!next.G.town.some((h) => h.noLureThisTurn));
+  });
+
+  it("TNL003 Torix Uz'Kali recovers destroyed Monster Rooms to hand", () => {
+    const { G } = mk();
+    G.players[0].boss = { id: 'TNL003', name: 'Torix', treasures: [1] };
+    assert.equal(processExpansionLevelUp(G, 0, { id: 'TNL003', name: "Torix Uz'Kali" }), null);
+    assert.equal(G.players[0].recoverDestroyedMonsters, true);
+
+    G.players[1].dungeon = [[room('mon', 'Beast', 'monster', 3, [1])]];
+    const before = G.players[0].hand.length;
+    destroyRoom(G, 1, 0);
+    assert.equal(G.decks.roomDiscard.length, 0);
+    assert.equal(G.players[0].hand.length, before + 1);
+    assert.equal(G.players[0].hand.at(-1).id, 'mon');
+    assert.ok(G.logs.some((l) => l.startsWith("Torix Uz'Kali: recovered")));
+  });
+
+  it("TNL003 Torix only takes Monster Rooms and needs the ability", () => {
+    const { G } = mk();
+    G.players[1].dungeon = [[room('trap1', 'Trap Room', 'trap', 2, [1])]];
+    destroyRoom(G, 1, 0);
+    assert.equal(G.decks.roomDiscard.length, 1);
+
+    G.players[0].recoverDestroyedMonsters = true;
+    G.players[1].dungeon = [[room('mon', 'Beast', 'monster', 3, [1])]];
+    destroyRoom(G, 1, 0);
+    assert.equal(G.decks.roomDiscard.length, 1);
+    assert.equal(G.players[0].hand.at(-1).id, 'mon');
+
+    const discarded = room('handmon', 'Hand Monster', 'monster', 1, [1]);
+    G.players[1].hand = [discarded];
+    discardRoomToPile(G, G.players[1].hand.splice(0, 1)[0]);
+    assert.equal(G.decks.roomDiscard.length, 1);
+    assert.equal(G.players[0].hand.at(-1).id, 'handmon');
+  });
+
+  it('TNL003 Torix takes Monster Rooms discarded through a choice effect', () => {
+    const { G } = mk();
+    G.players[0].recoverDestroyedMonsters = true;
+    G.players[1].hand = [room('mon', 'Beast', 'monster', 3, [1])];
+    G.pendingChoice = { type: 'discard-room-hand', playerId: 1, bossName: 'Test', options: [{ handIndex: 0 }] };
+    const err = resolveLevelUpChoice(G, null, 1, 0);
+    assert.equal(err, null);
+    assert.equal(G.decks.roomDiscard.length, 0);
+    assert.equal(G.players[0].hand.at(-1).id, 'mon');
+  });
+
+  it('TNL005 Shellda queues an end-of-turn Room swap choice', () => {
+    const { G } = mk();
+    G.players[0].boss = { id: 'TNL005', name: 'Shellda', treasures: [1] };
+    assert.equal(processExpansionLevelUp(G, 0, { id: 'TNL005', name: 'Shellda' }), null);
+    assert.equal(G.players[0].shelldaSwap, true);
+
+    G.players[0].dungeon = [[room('a', 'Alpha', 'trap', 1, [1])], [room('b', 'Beta', 'monster', 2, [2])]];
+    G.players[1].dungeon = [[room('c', 'Gamma', 'trap', 1, [1])], [room('d', 'Delta', 'monster', 2, [2])]];
+    processEndOfTurnBosses(G);
+
+    const choice = G.pendingChoice;
+    assert.ok(choice, 'Shellda choice queued');
+    assert.equal(choice.type, 'shellda-swap');
+    assert.equal(choice.playerId, 0);
+    assert.equal(choice.optional, true);
+    assert.ok(choice.options.some((o) => o.playerId === 0 && o.roomIndexA === 0 && o.roomIndexB === 1));
+    assert.ok(choice.options.some((o) => o.playerId === 1 && o.roomIndexA === 0 && o.roomIndexB === 1));
+    assert.ok(choice.options.every((o) => typeof o.label === 'string'));
+
+    const idx = choice.options.findIndex((o) => o.playerId === 0);
+    assert.equal(resolveLevelUpChoice(G, null, 0, idx), null);
+    assert.equal(G.players[0].dungeon[0][0].id, 'b');
+    assert.equal(G.players[0].dungeon[1][0].id, 'a');
+    assert.equal(G.pendingChoice, null);
+    assert.ok(G.logs.some((l) => l.startsWith('Shellda: swapped')));
+  });
+
+  it('TNL005 Shellda can be skipped and the AI skips it', () => {
+    const { G } = mk();
+    G.players[0].shelldaSwap = true;
+    G.players[0].dungeon = [[room('a', 'Alpha', 'trap', 1, [1])], [room('b', 'Beta', 'monster', 2, [2])]];
+    G.players[1].dungeon = [[room('c', 'Gamma', 'trap', 1, [1])], [room('d', 'Delta', 'monster', 2, [2])]];
+    processEndOfTurnBosses(G);
+    const choice = G.pendingChoice;
+    assert.ok(choice);
+    assert.equal(aiResolveLevelUpChoice(G, choice), -1);
+
+    assert.equal(resolveLevelUpChoice(G, null, 0, -1), null);
+    assert.equal(G.pendingChoice, null);
+    assert.equal(G.players[0].dungeon[0][0].id, 'a');
+    assert.ok(G.logs.some((l) => l.startsWith('Shellda: skipped')));
+  });
+
+  it('TNL005 Shellda offers no choice when no dungeon has two Rooms', () => {
+    const { G } = mk();
+    G.players[0].shelldaSwap = true;
+    G.players[0].dungeon = [[room('a', 'Alpha', 'trap', 1, [1])]];
+    G.players[1].dungeon = [[room('c', 'Gamma', 'trap', 1, [1])]];
+    processEndOfTurnBosses(G);
+    assert.equal(G.pendingChoice, null);
+  });
+
+  it("TNL008 Dr. Timebender cancels an opponent's Spell on the stack", () => {
+    const { G, ctx } = mk();
+    G.players[0].boss = { id: 'TNL008', name: 'Dr. Timebender', treasures: [1] };
+    assert.equal(processExpansionLevelUp(G, 0, { id: 'TNL008', name: 'Dr. Timebender' }), null);
+    assert.equal(G.players[0].timebenderCancel, true);
+
+    G.stack = [{ id: 'e1', type: 'spell', playerId: 1, card: spell('BMA040', 'Annihilator'), target: null, resolved: false }];
+    G.stackReturnPlayer = 1;
+    G.players[0].hand = [spell('mine', 'My Spell'), spell('mine2', 'My Other Spell')];
+    G.players[1].hand = [];
+    forceActive(G, ctx, 0);
+
+    const offered = legalMoves(G, ctx, 0).filter((m) => m.type === 'timebenderCancel');
+    assert.equal(offered.length, 2);
+
+    const res = applyMove({ G, ctx }, { type: 'timebenderCancel', args: [0] }, 0);
+    assert.equal(res.error, undefined, res.error);
+    const g2 = res.state.G;
+    assert.equal(g2.stack.length, 0);
+    assert.equal(g2.decks.spellDiscard.length, 2);
+    assert.equal(g2.players[0].hand.length, 1);
+    assert.equal(g2.players[0]._timebenderUsedThisTurn, true);
+    assert.ok(g2.logs.some((l) => l.startsWith('Dr. Timebender:')));
+    assert.equal(String(res.state.ctx.activePlayer), '1', 'control returns to the spell owner');
+    assert.equal(String(res.state.G.activePlayer), '1');
+
+    const again = applyMove({ G: g2, ctx: res.state.ctx }, { type: 'timebenderCancel', args: [0] }, 0);
+    assert.ok(again.error, 'once per turn');
+  });
+
+  it('TNL008 Dr. Timebender needs the ability, an opponent Spell and a Spell card', () => {
+    const { G, ctx } = mk();
+    G.players[0].hand = [spell('mine', 'My Spell')];
+    forceActive(G, ctx, 0);
+    G.stack = [{ id: 'e1', type: 'spell', playerId: 1, card: spell('s', 'S'), resolved: false }];
+    assert.ok(!legalMoves(G, ctx, 0).some((m) => m.type === 'timebenderCancel'));
+
+    G.players[0].timebenderCancel = true;
+    G.stack = [{ id: 'e2', type: 'spell', playerId: 0, card: spell('s', 'S'), resolved: false }];
+    assert.ok(!legalMoves(G, ctx, 0).some((m) => m.type === 'timebenderCancel'));
+
+    G.stack = [{ id: 'e3', type: 'spell', playerId: 1, card: spell('s', 'S'), resolved: false }];
+    assert.ok(legalMoves(G, ctx, 0).some((m) => m.type === 'timebenderCancel'));
+
+    G.players[0].hand = [room('r', 'Room', 'monster', 1, [1])];
+    assert.ok(!legalMoves(G, ctx, 0).some((m) => m.type === 'timebenderCancel'));
+
+    const res = applyMove({ G, ctx }, { type: 'timebenderCancel', args: [0] }, 0);
+    assert.ok(res.error, 'needs a Spell card in hand');
+  });
+});
+
+describe('Boss ability review regressions', () => {
+  function forceActive(G, ctx, pid) {
+    G.activePlayer = pid;
+    ctx.activePlayer = pid;
+    ctx.currentPlayer = pid;
+    G.phase = PHASE.BUILD;
+  }
+
+  it('BMA048 Jeopardy terminates when Torix recovers his own Monster Room', () => {
+    const { G, ctx } = mk();
+    G.players[0].recoverDestroyedMonsters = true;
+    G.players[0].hand = [room('m1', 'Beast', 'monster', 3, [1]), room('t1', 'Trap', 'trap', 1, [1])];
+    G.players[1].hand = [spell('s1', 'Charm'), room('m2', 'Ghoul', 'monster', 2, [1])];
+
+    castSpell(G, ctx, 1, { id: 'BMA048', name: 'Jeopardy', isSpell: true }, null);
+
+    // Reaching this line at all proves the discard loop terminates.
+    assert.equal(G.players[1].hand.length, 3, '1 Spell + 2 Rooms redrawn');
+    assert.ok(G.players[0].hand.some((c) => c.id === 'm1'), 'Torix kept the recovered Room');
+    assert.ok(G.players[0].hand.some((c) => c.id === 'm2'), 'Torix recovered the opponent Monster Room too');
+    assert.equal(G.players[0].hand.length, 5, '2 recovered Rooms + 1 Spell + 2 Rooms');
+    assert.equal(G.decks.roomDiscard.filter((c) => c.id === 'm1' || c.id === 'm2').length, 0);
+  });
+
+  it('RMB071 Rebirth terminates when Torix recovers his own Monster Room', () => {
+    const { G, ctx } = mk();
+    G.players[0].recoverDestroyedMonsters = true;
+    G.players[0].hand = [
+      room('m1', 'Beast', 'monster', 3, [1]),
+      room('t1', 'Trap', 'trap', 1, [1]),
+      spell('s1', 'Charm'),
+    ];
+
+    castSpell(G, ctx, 0, { id: 'RMB071', name: 'Rebirth', isSpell: true }, { targetPlayerId: 0 });
+
+    assert.ok(G.players[0].hand.some((c) => c.id === 'm1'), 'Torix kept the recovered Room');
+    assert.equal(G.players[0].hand.length, 4, 'recovered Room + 2 Rooms + 1 Spell redrawn');
+  });
+
+  it('TNL001 Doc Scarecrow does not pass priority and waits for the Spell stack', () => {
+    const { G, ctx } = mk();
+    G.players[0].boss = { id: 'TNL001', name: 'Doc Scarecrow', treasures: [1] };
+    processExpansionLevelUp(G, 0, { id: 'TNL001', name: 'Doc Scarecrow' });
+    G.town = [{ id: 'h1', name: 'Fighter', treasure: 1, hp: 6 }];
+    G.players[0].hand = [room('r1', 'Room', 'monster', 1, [1])];
+    G.players[1].hand = [];
+    forceActive(G, ctx, 0);
+
+    const res = applyMove({ G, ctx }, { type: 'docScarecrow', args: [0, 0] }, 0);
+    assert.equal(res.error, undefined, res.error);
+    assert.equal(String(res.state.ctx.activePlayer), '0', 'free action keeps priority');
+    assert.equal(String(res.state.G.activePlayer), '0', 'free action keeps priority');
+    assert.equal(res.state.G.turn, G.turn, 'turn not consumed');
+
+    const { G: G2, ctx: ctx2 } = mk();
+    G2.players[0].boss = { id: 'TNL001', name: 'Doc Scarecrow', treasures: [1] };
+    processExpansionLevelUp(G2, 0, { id: 'TNL001', name: 'Doc Scarecrow' });
+    G2.town = [{ id: 'h1', name: 'Fighter', treasure: 1, hp: 6 }];
+    G2.players[0].hand = [room('r1', 'Room', 'monster', 1, [1])];
+    forceActive(G2, ctx2, 0);
+    G2.stack = [{ id: 'e1', type: 'spell', playerId: 1, card: spell('s', 'S'), resolved: false }];
+
+    assert.ok(!legalMoves(G2, ctx2, 0).some((m) => m.type === 'docScarecrow'));
+    const blocked = applyMove({ G: G2, ctx: ctx2 }, { type: 'docScarecrow', args: [0, 0] }, 0);
+    assert.match(blocked.error || '', /stack/);
+  });
+
+  it('TNL001 Doc Scarecrow routes a Miniboss card to the Miniboss discard', () => {
+    const { G, ctx } = mk();
+    G.players[0].boss = { id: 'TNL001', name: 'Doc Scarecrow', treasures: [1] };
+    processExpansionLevelUp(G, 0, { id: 'TNL001', name: 'Doc Scarecrow' });
+    G.town = [{ id: 'h1', name: 'Fighter', treasure: 1, hp: 6 }];
+    G.players[0].hand = [{ id: 'MB1', name: 'Lieutenant', isMiniboss: true }];
+    forceActive(G, ctx, 0);
+
+    const res = applyMove({ G, ctx }, { type: 'docScarecrow', args: [0, 0] }, 0);
+    assert.equal(res.error, undefined, res.error);
+    assert.equal(res.state.G.decks.minibossDiscard.length, 1);
+    assert.equal(res.state.G.decks.roomDiscard.length, 0);
+    assert.equal(res.state.G.decks.spellDiscard.length, 0);
+  });
+
+  it('the End phase never leaves a queued choice behind a win', () => {
+    const { G, ctx } = mk();
+    G.players[0].shelldaSwap = true;
+    G.players[0].souls = Array.from({ length: 10 }, (_, i) => ({ id: `s${i}` }));
+    G.players[0].dungeon = [[room('a', 'Alpha', 'trap', 1, [1])], [room('b', 'Beta', 'monster', 2, [2])]];
+    G.players[1].dungeon = [[room('c', 'Gamma', 'trap', 1, [1])], [room('d', 'Delta', 'monster', 2, [2])]];
+    forceActive(G, ctx, 0);
+
+    let state = { G, ctx };
+    for (let i = 0; i < 80 && !state.G.gameOver; i++) {
+      const g = state.G;
+      if (g.pendingChoice) {
+        const opt = aiResolveLevelUpChoice(g, g.pendingChoice);
+        const r = applyMove(state, { type: 'resolveLevelUpChoice', args: [opt] }, g.pendingChoice.playerId);
+        assert.equal(r.error, undefined, r.error);
+        state = r.state;
+        continue;
+      }
+      const r = applyMove(state, { type: 'pass', args: [] }, Number(state.ctx.activePlayer));
+      assert.equal(r.error, undefined, r.error);
+      state = r.state;
+    }
+
+    assert.equal(state.G.gameOver, true, '10 Souls ends the game');
+    assert.equal(state.G.winner, 0);
+    assert.equal(state.G.pendingChoice, null, 'no unresolvable choice left behind');
+  });
+
+  it('TNL001 Doc Scarecrow cannot mark an already marked Hero', () => {
+    const { G, ctx } = mk();
+    G.players[0].boss = { id: 'TNL001', name: 'Doc Scarecrow', treasures: [1] };
+    processExpansionLevelUp(G, 0, { id: 'TNL001', name: 'Doc Scarecrow' });
+    G.town = [{ id: 'h1', name: 'Fighter', treasure: 1, hp: 6, noLureThisTurn: true }];
+    G.players[0].hand = [room('r1', 'Room', 'monster', 1, [1])];
+    forceActive(G, ctx, 0);
+
+    assert.ok(!legalMoves(G, ctx, 0).some((m) => m.type === 'docScarecrow'));
+    const res = applyMove({ G, ctx }, { type: 'docScarecrow', args: [0, 0] }, 0);
+    assert.match(res.error || '', /already/);
   });
 });

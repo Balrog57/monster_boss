@@ -1,5 +1,5 @@
 // ai.js - Rule-correct AI for Boss Monster (solo mode).
-import { activeRoom, countVisibleRooms, dungeonTreasures } from './engine.js';
+import { activeRoom, countVisibleRooms, dungeonTreasures, resolveBait } from './engine.js';
 import { PHASE, canPlaySpell } from './cardData.js';
 import { legalMoves } from '../server/reducer.js';
 
@@ -12,10 +12,13 @@ export function aiPickMove(G, ctx, playerID) {
   const moves = legalMoves(G, ctx, playerID);
   if (!moves.length) return null;
 
+  // Shared per-search memo: resolveBait is O(town x players) and docScarecrow
+  // moves are (hand x town), so recomputing it per move would be quadratic.
+  const memo = {};
   let best = moves[0];
-  let bestScore = scoreMove(G, ctx, Number(playerID), moves[0]);
+  let bestScore = scoreMove(G, ctx, Number(playerID), moves[0], memo);
   for (let i = 1; i < moves.length; i++) {
-    const sc = scoreMove(G, ctx, Number(playerID), moves[i]);
+    const sc = scoreMove(G, ctx, Number(playerID), moves[i], memo);
     if (sc > bestScore) {
       bestScore = sc;
       best = moves[i];
@@ -24,7 +27,18 @@ export function aiPickMove(G, ctx, playerID) {
   return best;
 }
 
-function scoreMove(G, ctx, pid, move) {
+/** Relative value of a hand card — used to pick the cheapest card to spend. */
+function discardCost(card) {
+  if (!card) return 9;
+  if (card.isMiniboss) return 12; // a Miniboss in hand is a build, never fodder
+  if (card.isRoom) {
+    return (card.damage || 0) * 0.7 + (card.advanced ? 2.5 : 0) + (card.treasures?.length || 0) * 0.6;
+  }
+  if (card.isSpell) return 1.5;
+  return 1;
+}
+
+function scoreMove(G, ctx, pid, move, memo = {}) {
   const p = G.players[pid];
   const phase = ctx?.phase || G.phase;
 
@@ -97,6 +111,34 @@ function scoreMove(G, ctx, pid, move) {
       return 1;
     case 'resolveLevelUpChoice':
       return 1;
+    case 'docScarecrow': {
+      // Costs a card: only worth it when this specific Hero would be lured into
+      // our dungeon this turn and our Rooms alone cannot kill it.
+      const [handIdx, townIdx] = move.args || [];
+      const card = p.hand[handIdx];
+      const hero = G.town[townIdx];
+      if (!card || !hero || hero.noLureThisTurn) return -10;
+      if (!memo.bait) memo.bait = resolveBait(G);
+      const incoming = memo.bait.find(a =>
+        Number(a.targetPlayerId) === pid && !a.stayInTown && a.hero && a.hero.id === hero.id);
+      if (!incoming) return -10;
+      const hp = incoming.hero.hp ?? incoming.hero.wounds ?? 0;
+      const ourDamage = (p.dungeon || []).reduce((s, st) => s + (activeRoom(st)?.damage || 0), 0);
+      if (ourDamage >= hp) return -10; // we would kill it anyway
+      return 6 - discardCost(card) * 0.5;
+    }
+    case 'timebenderCancel': {
+      // Costs a Spell: only cancel when the top Spell on the stack targets us.
+      const top = G.stack?.[G.stack.length - 1];
+      if (!top || Number(top.playerId) === pid) return -10;
+      const t = top.target || {};
+      const us = [t.ownerId, t.playerId, t.targetPlayerId, t.dungeonId, t.adventureOwnerId]
+        .some(v => v != null && Number(v) === pid);
+      if (!us) return -10;
+      const card = p.hand[move.args[0]];
+      if (!card?.isSpell) return -10;
+      return 11 - discardCost(card) * 0.5;
+    }
     case 'pass':
       return -1;
     default:

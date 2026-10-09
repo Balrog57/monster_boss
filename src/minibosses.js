@@ -1,5 +1,5 @@
 // minibosses.js - Rise of the Minibosses: Coins, build, reveal, promote, abilities.
-import { activeRoom } from './engine.js';
+import { discardRoomToPile, activeRoom } from './engine.js';
 import { drawCards, PHASE } from './cardData.js';
 
 const TREASURE_MB = {
@@ -473,7 +473,7 @@ function activateL3(G, ctx, playerId, roomIndex, mb, stack) {
       if (!rooms.length) continue;
       const pick = rooms[Math.floor(Math.random() * rooms.length)];
       const [card] = opp.hand.splice(pick.i, 1);
-      G.decks.roomDiscard.push(card);
+      discardRoomToPile(G, card);
       G.logs.push(`Zara the Zealous: Player ${oppId} discards ${card.name}.`);
     }
     resetMinibossLevel(mb);
@@ -802,12 +802,12 @@ export function resolveMinibossPendingChoice(G, ctx, playerId, optionIndex) {
       if (!option) return true;
       const p = G.players[playerId];
       const [card] = p.hand.splice(option.handIndex, 1);
-      if (card?.isRoom) G.decks.roomDiscard.push(card);
+      if (card?.isRoom) discardRoomToPile(G, card);
       else if (card?.isSpell) G.decks.spellDiscard.push(card);
       else if (card?.isMiniboss) {
         G.decks.minibossDiscard = G.decks.minibossDiscard || [];
         G.decks.minibossDiscard.push(card);
-      } else G.decks.roomDiscard.push(card);
+      } else discardRoomToPile(G, card);
       dealDamageInRoom(G, playerId, choice.roomIndex, 2, 'Spike');
       if (mb) mb.usedThisTurn = true;
       break;
@@ -904,7 +904,7 @@ export function resolveMinibossPendingChoice(G, ctx, playerId, optionIndex) {
       if (option) {
         const p = G.players[playerId];
         const [card] = p.hand.splice(option.handIndex, 1);
-        G.decks.roomDiscard.push(card);
+        discardRoomToPile(G, card);
         G.logs.push(`Jinx: discarded ${card.name}.`);
       }
       break;
@@ -993,7 +993,7 @@ export function processJinxDraw(G) {
         .filter((o) => o.card.isRoom);
       if (roomOpts.length === 1) {
         const [card] = p.hand.splice(roomOpts[0].handIndex, 1);
-        G.decks.roomDiscard.push(card);
+        discardRoomToPile(G, card);
         G.logs.push(`Jinx: discarded ${card.name}.`);
       } else if (roomOpts.length > 1) {
         if (G.pendingChoice) {

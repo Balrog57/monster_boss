@@ -8,7 +8,7 @@
 //   - passive damage/treasure modifiers → handled in engine.js (roomDamageWithModifiers)
 //   - "when a hero dies in this room" → onHeroDiedInRoom
 
-import { activeRoom, allActiveRooms, destroyRoom, countVisibleRooms, dungeonTreasures, healOneWound, applyRoomUncovered, applyDragonsNestBoost } from './engine.js';
+import { discardRoomToPile, activeRoom, allActiveRooms, destroyRoom, countVisibleRooms, dungeonTreasures, healOneWound, applyRoomUncovered, applyDragonsNestBoost } from './engine.js';
 export { dungeonTreasures };
 import { drawCards, PHASE, HEROES } from './cardData.js';
 import { dungeonIgnoresRoomAbilities, heroIgnoresRoomAbilities, applyItemReward, addHeroHealthBonus, killHeroInDungeon } from './items.js';
@@ -170,7 +170,7 @@ export function onBuildRoom(G, ctx, playerId, room) {
         const ri = (op.hand || []).findIndex((c) => c.isRoom);
         if (ri >= 0) {
           const discarded = op.hand.splice(ri, 1)[0];
-          G.decks.roomDiscard.push(discarded);
+          discardRoomToPile(G, discarded);
           G.logs.push(`Incubus Gym: Player ${opid} discarded ${discarded.name}.`);
         }
       }
@@ -539,7 +539,7 @@ function pickOpponentChoice(G, playerId, bossName, message, action, opps, extra 
   };
 }
 
-function enqueuePending(G, choice) {
+export function enqueuePending(G, choice) {
   if (!choice) return;
   if (G.pendingChoice) {
     G.choiceQueue = G.choiceQueue || [];
@@ -611,7 +611,7 @@ function offerRoomDiscardFromHand(G, targetId, label, destroyPlayerId = null, de
   }
   if (roomOpts.length === 1) {
     const discarded = opp.hand.splice(roomOpts[0].handIndex, 1)[0];
-    G.decks.roomDiscard.push(discarded);
+    discardRoomToPile(G, discarded);
     G.logs.push(`${label}: player ${targetId} discarded ${discarded.name}.`);
     if (destroyRoomIndex != null && destroyPlayerId != null) destroyRoom(G, destroyPlayerId, destroyRoomIndex);
     return;
@@ -1097,7 +1097,7 @@ function listDungeonRoomOptions(G) {
 
 function applyWitchKitchenDiscard(G, player, handIndex) {
   const discarded = player.hand.splice(handIndex, 1)[0];
-  G.decks.roomDiscard.push(discarded);
+  discardRoomToPile(G, discarded);
   const spell = drawCards(G.decks.spells, 1)[0];
   if (spell) player.hand.push(spell);
   G.logs.push(`Witch's Kitchen: discarded ${discarded.name}${spell ? `, drew ${spell.name}` : ''}.`);
@@ -1406,7 +1406,7 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
       }
       if (idx < 0) return 'card not in hand';
       const discarded = player.hand.splice(idx, 1)[0];
-      G.decks.roomDiscard.push(discarded);
+      discardRoomToPile(G, discarded);
       const left = (choice.remaining || 1) - 1;
       if (left > 0) {
         const opts = handRoomOptions(player);
@@ -1513,7 +1513,7 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
       const idx = option.handIndex;
       if (idx == null || !player?.hand[idx]?.isRoom) return 'invalid room';
       const discarded = player.hand.splice(idx, 1)[0];
-      G.decks.roomDiscard.push(discarded);
+      discardRoomToPile(G, discarded);
       const drawn = G.decks.rooms.pop();
       if (drawn) player.hand.push(drawn);
       const r = activeRoom(player.dungeon[choice.roomIndex]);
@@ -1668,11 +1668,24 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
       const idx = option.handIndex;
       if (idx == null || !opp?.hand[idx]?.isRoom) return 'invalid room';
       const discarded = opp.hand.splice(idx, 1)[0];
-      G.decks.roomDiscard.push(discarded);
+      discardRoomToPile(G, discarded);
       G.logs.push(`${choice.bossName}: discarded ${discarded.name}.`);
       if (choice.destroyRoomIndex != null && choice.destroyPlayerId != null) {
         destroyRoom(G, choice.destroyPlayerId, choice.destroyRoomIndex);
       }
+      break;
+    }
+    case 'shellda-swap': {
+      const owner = G.players[option.playerId];
+      const a = option.roomIndexA;
+      const b = option.roomIndexB;
+      if (!owner?.dungeon?.[a] || !owner.dungeon[b]) return 'invalid rooms';
+      const nameA = activeRoom(owner.dungeon[a])?.name;
+      const nameB = activeRoom(owner.dungeon[b])?.name;
+      const tmp = owner.dungeon[a];
+      owner.dungeon[a] = owner.dungeon[b];
+      owner.dungeon[b] = tmp;
+      G.logs.push(`Shellda: swapped ${nameA} and ${nameB} in Player ${option.playerId}'s dungeon.`);
       break;
     }
     default:
@@ -1722,6 +1735,9 @@ export function aiResolveLevelUpChoice(G, choice) {
     }
     case 'discard-monster':
       return 0;
+    case 'shellda-swap':
+      // Optional end-of-turn swap: the AI passes rather than reshuffling dungeons.
+      return -1;
     case 'recover-card':
       return 0;
     case 'pick-hero':
@@ -2256,7 +2272,7 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
       if (!roomCards.length) return 'no room to discard';
       if (roomCards.length === 1) {
         const discarded = player.hand.splice(roomCards[0].handIndex, 1)[0];
-        G.decks.roomDiscard.push(discarded);
+        discardRoomToPile(G, discarded);
         const drawn = G.decks.rooms.pop();
         if (drawn) player.hand.push(drawn);
         room.usedThisTurn = true;
@@ -2329,7 +2345,7 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
       const traps = listDungeonRoomOptions(G).filter((o) => o.room?.type === 'trap');
       if (!traps.length) return 'no Trap Room to debuff';
       const discarded = player.hand.splice(mi, 1)[0];
-      G.decks.roomDiscard.push(discarded);
+      discardRoomToPile(G, discarded);
       if (traps.length === 1) {
         G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
         G.effects.roomDamageBonus.push({ playerId: traps[0].playerId, roomIndex: traps[0].roomIndex, amount: -1 });
@@ -2355,7 +2371,7 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
       const monsters = listDungeonRoomOptions(G).filter((o) => o.room?.type === 'monster');
       if (!monsters.length) return 'no Monster Room to debuff';
       const discarded = player.hand.splice(ti, 1)[0];
-      G.decks.roomDiscard.push(discarded);
+      discardRoomToPile(G, discarded);
       if (monsters.length === 1) {
         G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
         G.effects.roomDamageBonus.push({ playerId: monsters[0].playerId, roomIndex: monsters[0].roomIndex, amount: -1 });
@@ -2434,7 +2450,7 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
       if (!player.hand.length) return 'no card to discard';
       const discarded = player.hand.shift();
       if (discarded.isSpell) G.decks.spellDiscard.push(discarded);
-      else if (discarded.isRoom) G.decks.roomDiscard.push(discarded);
+      else if (discarded.isRoom) discardRoomToPile(G, discarded);
       else if (discarded.isMiniboss) {
         G.decks.minibossDiscard = G.decks.minibossDiscard || [];
         G.decks.minibossDiscard.push(discarded);
@@ -2524,7 +2540,7 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
         .filter((o) => o.room);
       if (!targets.length) return 'no room to activate';
       const discarded = player.hand.splice(advIdx, 1)[0];
-      G.decks.roomDiscard.push(discarded);
+      discardRoomToPile(G, discarded);
       if (targets.length === 1) {
         const choice = onBuildRoom(G, ctx, playerId, targets[0].room);
         if (choice) G.pendingChoice = { ...choice, resume: false };

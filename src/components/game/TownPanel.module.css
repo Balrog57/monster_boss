@@ -13,6 +13,8 @@
   gap: 8px;
 }
 .heroWrap { position: relative; display: inline-block; animation: bm-hero-enter 0.35s var(--bm-ease-out) both; }
+.heroTarget { outline: 2px solid #f1e17c; outline-offset: 2px; border-radius: 6px; }
+.heroHit { position: absolute; inset: 0; z-index: 5; padding: 0; border: none; background: transparent; cursor: pointer; }
 .treasureIcon {
   position: absolute;
   bottom: -2px;

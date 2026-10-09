@@ -8,6 +8,7 @@ import s from './Hand.module.css';
 export default function Hand({
   me, phase, isMyTurn, canAct = isMyTurn, selectedCard, onSelect, onSpell, onPass, onInspect, onHover,
   showPass = true, stackLength = 0, activeTab, onTabChange, spellsBlocked = false,
+  anySelectable = false, spellSelectable = false,
 }) {
   const [internalTab, setInternalTab] = useState('rooms');
   const tab = activeTab !== undefined ? activeTab : internalTab;
@@ -48,7 +49,11 @@ export default function Hand({
         {shown.map(({ c, i }, idx) => {
           const canBuild = canPickRoom && c.isRoom && (phase === PHASE.SETUP ? !c.advanced : true);
           const canSpell = canPickSpell && c.isSpell && canPlaySpell(c, phase, stackLength);
-          const live = canBuild || canSpell;
+          // Doc Scarecrow may discard any card; Dr. Timebender any Spell, even
+          // one that would be illegal to cast right now.
+          const armedAny = anySelectable;
+          const armedSpell = anySelectable || (spellSelectable && c.isSpell);
+          const live = canBuild || canSpell || armedAny || (spellSelectable && c.isSpell);
           return (
             <div
               key={`hand-${c.id}-${i}`}
@@ -69,6 +74,12 @@ export default function Hand({
                 size="md"
                 selected={selectedCard === i}
                 onClick={live ? () => {
+                  if (armedAny) {
+                    if (c.isSpell) { onSelect(null); onSpell(i); }
+                    else onSelect(selectedCard === i ? null : i);
+                    return;
+                  }
+                  if (armedSpell) { onSelect(null); onSpell(i); return; }
                   if (canBuild) {
                     onSelect(selectedCard === i ? null : i);
                   } else if (canSpell) {

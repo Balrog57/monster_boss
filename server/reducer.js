@@ -26,7 +26,7 @@ import {
 } from '../src/handAbilities.js';
 import { processEndOfTurnBosses } from '../src/expansionBosses.js';
 import {
-  activeRoom, countVisibleRooms,
+  activeRoom, countVisibleRooms, discardRoomToPile,
   resolveBait, buildRoom, canBuildRoom, heroHealthWithModifiers,
   roomDamageWithModifiers, checkEndGame
 } from '../src/engine.js';
@@ -267,7 +267,8 @@ function applyOpeningDiscard(G, pid, a, b) {
     const c = p.hand.splice(i, 1)[0];
     names.push(c.name);
     if (c.isSpell) G.decks.spellDiscard.push(c);
-    else G.decks.roomDiscard.push(c);
+    else if (c.isMiniboss) G.decks.minibossDiscard = (G.decks.minibossDiscard || []).concat([c]);
+    else discardRoomToPile(G, c);
   }
   names.reverse();
   G.logs.push(`${pid === 0 ? 'You' : `Player ${pid}`} discarded ${names.join(' and ')}.`);
@@ -315,7 +316,7 @@ function endPhaseSetup(G, ctx) {
     }
   }
   // Seed discard piles
-  drawCards(G.decks.rooms, 4).forEach(c => G.decks.roomDiscard.push(c));
+  drawCards(G.decks.rooms, 4).forEach(c => discardRoomToPile(G, c));
   drawCards(G.decks.spells, 2).forEach(c => G.decks.spellDiscard.push(c));
   G.xpOrder = playerOrderByXP(G.players);
   G.logs.push('Setup: hands dealt, discard seeded.');
@@ -405,6 +406,9 @@ function beginPhaseBeginning(G, ctx) {
     p.passed = false;
     p.hasActed = false;
     p.woundImmuneThisTurn = false;
+    // Doc Scarecrow (once per Build) and Dr. Timebender (once per turn).
+    p._scarecrowUsedThisBuild = false;
+    p._timebenderUsedThisTurn = false;
     p.wounds = (p.wounds || []).filter((w) => !w.temp);
     for (const h of p.entrance || []) delete h._blockedUntilNextTurn;
     for (const stack of p.dungeon || []) {
@@ -416,6 +420,7 @@ function beginPhaseBeginning(G, ctx) {
       }
     }
   }
+  for (const hero of G.town) delete hero.noLureThisTurn;
   clearMinibossTurnFlags(G);
   G.effects = emptyEffects();
   G.luredThisTurn = {};
@@ -474,6 +479,7 @@ function endPhaseBait(G, ctx) {
     const heroIdx = G.town.indexOf(assign.hero);
     if (assign.stayInTown || assign.targetPlayerId === null || isNoEntry(G, assign.targetPlayerId)) {
       if (isNoEntry(G, assign.targetPlayerId)) G.logs.push(`${assign.hero.name} stays in town (Trepidation).`);
+      else if (assign.scarecrow) G.logs.push(`${assign.hero.name} stays in town (Doc Scarecrow).`);
       else G.logs.push(`${assign.hero.name} stays in town (tie/no lure)`);
       continue;
     }
@@ -496,14 +502,18 @@ function beginPhaseEnd(G, ctx) {
   ctx.phase = PHASE.END;
   G.logs.push(`--- Turn ${G.turn} - End Phase ---`);
   processEndOfTurnRooms(G);
-  processEndOfTurnBosses(G);
-  G.effects = emptyEffects();
+  // End-game is checked before boss end-of-turn triggers: a pending choice
+  // (e.g. Shellda's swap) could never resolve once gameOver blocks all moves.
   const result = checkEndGame(G);
   if (result.gameOver) {
     G.gameOver = true;
     G.winner = result.winner;
     G.logs.push(`Game Over! Player ${result.winner} wins!`);
+    G.effects = emptyEffects();
+    return;
   }
+  processEndOfTurnBosses(G);
+  G.effects = emptyEffects();
 }
 
 // Check if all non-eliminated players have passed -> phase ends.
@@ -1051,6 +1061,59 @@ const MOVE_HANDLERS = {
     return err;
   },
 
+  // Doc Scarecrow (TNL001): during the Build phase, discard one card to keep a
+  // Town Hero from being lured this turn. Once per Build phase.
+  docScarecrow: (G, ctx, pid, [handIndex, townIndex]) => {
+    if (!mayActNow(G, pid)) return 'not your turn';
+    if (G.stack?.length) return 'must resolve the Spell stack first';
+    if (G.phase !== PHASE.BUILD) return 'Doc Scarecrow only works during the Build phase';
+    const p = G.players[pid];
+    if (!p?.docScarecrow) return 'Doc Scarecrow ability not unlocked';
+    if (p._scarecrowUsedThisBuild) return 'Doc Scarecrow already used this Build phase';
+    const card = p.hand[handIndex];
+    if (!card) return 'invalid card';
+    const hero = G.town[townIndex];
+    if (!hero) return 'invalid hero';
+    if (hero.noLureThisTurn) return 'hero already marked this turn';
+    p.hand.splice(handIndex, 1);
+    if (card.isSpell) G.decks.spellDiscard.push(card);
+    else if (card.isMiniboss) G.decks.minibossDiscard = (G.decks.minibossDiscard || []).concat([card]);
+    else discardRoomToPile(G, card);
+    hero.noLureThisTurn = true;
+    p._scarecrowUsedThisBuild = true;
+    G.logs.push(`Doc Scarecrow: discarded ${card.name}; ${hero.name} cannot be lured this turn.`);
+    // Free Build-phase action: does not pass priority.
+    G.skipAdvance = true;
+    return null;
+  },
+
+  // Dr. Timebender (TNL008): once per turn, discard a Spell card to cancel an
+  // opponent's Spell that is on the stack.
+  timebenderCancel: (G, ctx, pid, [handIndex]) => {
+    if (!mayActNow(G, pid)) return 'not your turn';
+    if (!G.stack?.length) return 'no Spell on the stack';
+    const p = G.players[pid];
+    if (!p?.timebenderCancel) return 'Dr. Timebender ability not unlocked';
+    if (p._timebenderUsedThisTurn) return 'Dr. Timebender already used this turn';
+    const card = p.hand[handIndex];
+    if (!card?.isSpell) return 'Dr. Timebender discards a Spell card';
+    const top = G.stack[G.stack.length - 1];
+    if (!top || Number(top.playerId) === Number(pid)) return 'can only cancel an opponent Spell';
+    p.hand.splice(handIndex, 1);
+    G.decks.spellDiscard.push(card);
+    G.stack.pop();
+    if (top.card) G.decks.spellDiscard.push(top.card);
+    p._timebenderUsedThisTurn = true;
+    G.logs.push(`Dr. Timebender: discarded ${card.name} to cancel ${top.card?.name || 'a Spell'}.`);
+    G.skipAdvance = true;
+    if (G.stackReturnPlayer != null) {
+      ctx.activePlayer = G.stackReturnPlayer;
+      ctx.currentPlayer = G.stackReturnPlayer;
+      G.activePlayer = G.stackReturnPlayer;
+    }
+    return null;
+  },
+
   pass: (G, ctx, pid) => {
     if (!mayActNow(G, pid)) return 'not your turn';
     if (G.phase === PHASE.ADVENTURE && !G.adventure?.pause && !G.stack?.length) {
@@ -1556,9 +1619,15 @@ export function legalMoves(G, ctx, playerID) {
   if (G.stack?.length) {
     if (!isActivePlayer(G, pid)) return moves;
     const ringBlocksSpells = spellsBlockedFor(G, pid);
+    const topOnStack = G.stack[G.stack.length - 1];
+    const canTimebend = !!p.timebenderCancel && !p._timebenderUsedThisTurn
+      && !!topOnStack && Number(topOnStack.playerId) !== Number(pid);
     p.hand.forEach((c, i) => {
       if (c.isSpell && !ringBlocksSpells && (c.id === 'BMA043' || c.id === 'RMB077')) {
         moves.push({ type: 'playSpell', args: [i, null] });
+      }
+      if (c.isSpell && canTimebend) {
+        moves.push({ type: 'timebenderCancel', args: [i] });
       }
       if (c.isRoom && c.id === 'TNL031') {
         moves.push({ type: 'useHandRoom', args: [i, null] });
@@ -1595,6 +1664,14 @@ export function legalMoves(G, ctx, playerID) {
     pushActivateMoves(G, p, moves);
     pushHandAbilityMoves(G, pid, p, moves);
     pushPaywallMoves(G, pid, p, moves);
+    if (p.docScarecrow && !p._scarecrowUsedThisBuild) {
+      const unlureable = G.town.filter((h) => !h.noLureThisTurn);
+      for (let hi = 0; hi < p.hand.length; hi++) {
+        for (const hero of unlureable) {
+          moves.push({ type: 'docScarecrow', args: [hi, G.town.indexOf(hero)] });
+        }
+      }
+    }
     moves.push({ type: 'pass', args: [] });
     return moves;
   }

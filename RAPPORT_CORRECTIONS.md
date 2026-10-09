@@ -172,10 +172,11 @@ Audit des 6 packs (`hidden-heroes`, `tools`, `players-choice`, `next-level`, `mi
 
 * `test/tools-and-promos.test.js` (**26 tests**) : objets `THK002/003/005/006/007/008/009/010/011/013/014/015/016/017/018/019`, salles `THK022` / `THK024`, montées de niveau `KSA001/003/005/006/007`, sort et héros `KSA013` / `KSA014` / `KSA016`.
 * `test/crash-landing.test.js` (**24 tests**) : `CRL001`, `CRL002` (×4), `CRL003` (×2), `CRL007`, `CRL010` (×2), `CRL012` (×2), `CRL013` (×2), `CRL015`, `CRL016` (×3), `CRL029` (×2), `CRL030` (×2), `CRL031`, `CRL032`.
-* `test/next-level.test.js` (**42 tests**) : boss `TNL009` (×2), `TNL012` (×2) ; effets de construction `TNL016` (×2), `TNL024` (×2), `TNL027` (×2), `TNL029` (×2), `TNL036`, `TNL052` ; capacités activées `TNL013` (×2), `TNL022`, `TNL030`, `TNL032`, `TNL033`, `TNL035`, `TNL040`, `TNL041`, `TNL042`, `TNL045`, `TNL046`, `TNL049`, `TNL055` ; sorts `TNL056`, `TNL057`, `TNL058`, `TNL059`, `TNL060`, `TNL062`, `TNL063`, `TNL064`, `TNL065`, `TNL066`, `TNL067`, `TNL068`, `TNL069`, `TNL070`.
-* Couverture par set (présence de l'ID dans la suite, `test/*.js` × `docs/card-matrix.json`) : `players-choice` **11/11**, `tools` **25/25**, `crash-landing` **21/33** (12 résiduels = héros `stat-only` sans logique), `next-level` **50/115**, `minibosses` 19/121, `base` 61/96, `hidden-heroes` 1/41 (héros `stat-only`).
+* `test/next-level.test.js` (**59 tests**) : boss `TNL009` (×2), `TNL012` (×2) ; effets de construction `TNL016` (×2), `TNL024` (×2), `TNL027` (×2), `TNL029` (×2), `TNL036`, `TNL052` ; capacités activées `TNL013` (×2), `TNL022`, `TNL030`, `TNL032`, `TNL033`, `TNL035`, `TNL040`, `TNL041`, `TNL042`, `TNL045`, `TNL046`, `TNL049`, `TNL055` ; sorts `TNL056`, `TNL057`, `TNL058`, `TNL059`, `TNL060`, `TNL062`, `TNL063`, `TNL064`, `TNL065`, `TNL066`, `TNL067`, `TNL068`, `TNL069`, `TNL070` ; **capacités de boss** `TNL001` (×6), `TNL003` (×3), `TNL005` (×3), `TNL008` (×2) ; **régressions de revue** (§7.9) `BMA048`, `RMB071`, fin de partie + `TNL005`.
+* `test/ai.test.js` (**9 tests**) : +1 — Doc Scarecrow dépense la carte la moins utile (et non la première).
+* Couverture par set (présence de l'ID dans la suite, `test/*.js` × `docs/card-matrix.json`) : `players-choice` **11/11**, `tools` **25/25**, `crash-landing` **21/33** (12 résiduels = héros `stat-only` sans logique), `next-level` **54/115**, `minibosses` 19/121, `base` 61/96, `hidden-heroes` 1/41 (héros `stat-only`).
 
-### 7.8. Capacités de boss Next Level sans effet
+### 7.8. Capacités de boss Next Level (drapeaux sans effet → câblées)
 
 Découvertes en écrivant les tests : ces drapeaux étaient **posés par le level-up mais jamais lus**, comme `copiedLevelUp` (§7.6).
 
@@ -183,11 +184,28 @@ Découvertes en écrivant les tests : ces drapeaux étaient **posés par le leve
 |---|---|---|
 | **TNL009 Nicolius** | Piocher un Sort en fin de tour si un joueur a gagné 2 Âmes de plus que vous ce tour | ✔ **Corrigé** : `processEndOfTurnBosses` (`src/expansionBosses.js`) appelé par `beginPhaseEnd`, avec snapshot des Âmes en début de tour (`beginPhaseBeginning`, `_soulsAtTurnStart`) |
 | **TNL012 Eclipse** | La salle mise au jour par votre destruction gagne +3 jusqu'à la fin du tour | ✔ **Corrigé** : bonus posé dans `destroyRoom` (`src/engine.js`) quand `p.azarellaUncover` |
-| **TNL001 Doc Scarecrow** | En phase Build : défausser une carte pour rendre un héros de la ville non attirable ce tour | ✖ Non câblé (drapeau `docScarecrow` sans effet) |
-| **TNL003 Torix Uz'Kali** | Récupérer en main toute salle Monstre défaussée ou détruite | ✖ Non câblé (drapeau `recoverDestroyedMonsters` sans effet) |
-| **TNL005 Shellda** | En fin de tour : échanger deux salles d'un donjon | ✖ Non câblé (drapeau `shelldaSwap` sans effet) |
-| **TNL008 Dr. Timebender** | Une fois par tour : défausser un Sort pour annuler un Sort adverse | ✖ Non câblé (drapeau `timebenderCancel` sans effet) |
+| **TNL001 Doc Scarecrow** | En phase Build : défausser une carte pour rendre un héros de la ville non attirable ce tour | ✔ **Câblé** : mouvement `docScarecrow` (`MOVE_HANDLERS` + `legalMoves` en Build), marque `hero.noLureThisTurn` lue par `resolveBait`, usage une fois par Build (`_scarecrowUsedThisBuild`, réinitialisé en Beginning), bouton **SCARECROW** + clic sur le héros dans `AppBoard`/`TownPanel` |
+| **TNL003 Torix Uz'Kali** | Récupérer en main toute salle Monstre défaussée ou détruite | ✔ **Câblé** : `discardRoomToPile` (`src/engine.js`) remplace les 28 `roomDiscard.push` (destruction, défausses de main, objets, miniboss, sorts) ; résolution automatique (toujours prise), log `Torix Uz'Kali: recovered …` |
+| **TNL005 Shellda** | En fin de tour : échanger deux salles d'un donjon | ✔ **Câblé** : `queueShelldaChoices` dans `processEndOfTurnBosses` → `pendingChoice` optionnel `shellda-swap` (options = paires de salles, tout donjon), résolution dans `resolveLevelUpChoice`, IA **saute** (`aiResolveLevelUpChoice → -1`), overlay existant `LevelUpChoiceOverlay` |
+| **TNL008 Dr. Timebender** | Une fois par tour : défausser un Sort pour annuler un Sort adverse | ✔ **Câblé** : mouvement `timebenderCancel` (fenêtre de pile, garde `top.playerId !== pid`, usage une fois par tour via `_timebenderUsedThisTurn`), mêmes effets que le Contresort (les deux cartes partent à la défausse), bouton **TIMEBEND** pendant la fenêtre de réponse |
 
-Les 4 restants exigent de **nouveaux types de mouvement** (action joueur facultative) : fenêtre de réponses dans `legalMoves`, choix IA, bouton dans l'UI et résolution dans `MOVE_HANDLERS` — il n'existe pas de plumbing générique « action de boss » côté reducer. À traiter comme un chantier à part.
+**Choix de conception :** il n'existe pas de plumbing générique « action de boss » côté reducer — chaque capacité a reçu son propre type de mouvement (validé par `VALID_MOVE_TYPES`, dérivé de `MOVE_HANDLERS`), son énumération dans `legalMoves`, son score IA dans `src/ai.js` (Scarecrow/Timebend : `-10` sauf situation clairement gagnante, pour que le bot ne gaspille pas ses cartes, pondéré par la valeur de la carte dépensée) et son bouton UI (`src/AppBoard.jsx`, barre `bossAbilityBar`). Les proxies de mouvements `src/client/useMatch.js` (mode local **et** online) ont été étendus en conséquence. Deux conventions ont été fixées en revue et servent de gabarit aux capacités suivantes : (1) une **action gratuite** de phase Build pose `G.skipAdvance = true` (le joueur conserve la priorité, comme les capacités de salle activées) et refuse d'agir tant que la pile de sorts est ouverte ; (2) `beginPhaseEnd` appelle **`checkEndGame` avant `processEndOfTurnBosses`**, pour qu'un choix de boss fileté (Shellda) ne soit jamais créé une fois `gameOver` posé — auquel cas plus aucun coup ne pourrait le résoudre.
 
-**Validation :** `npm run test:unit` **285/285**, `npm run test:e2e` **29/29**, `npm run build` OK.
+**Validation :** `npm run test:unit` **303/303**, `npm run test:e2e` **29/29**, `npm run build` OK.
+
+### 7.9. Revue de code des capacités de boss (correctifs)
+
+| Sévérité | Problème | Correctif |
+|---|---|---|
+| **Bloquant** | `BMA048` (Jeopardy) et `RMB071` (Rebirth) défaussaient la main avec `while (p.hand.length) { … discardRoomToPile(…) }` : avec **TNL003 Torix**, la salle récupérée retournait dans la main pendant la boucle → **boucle infinie** (partie gelée) | Les deux effets échantillonnent la main (`hand.splice(0, len)`) **avant** de défausser (`src/spellEffects.js`) |
+| **Important** | Doc Scarecrow n'était pas marqué `skipAdvance` → **passait le tour** malgré une action gratuite ; aucune garde tant que la pile est ouverte | `G.skipAdvance = true` + refus « must resolve the Spell stack first », garde symétrique dans `canScarecrow` (UI) |
+| **Important** | Fin de partie + `shellda-swap` : le choix était filet **après** la victoire → `pendingChoice` non résoluble = **soft-lock** | Ordre inversé dans `beginPhaseEnd` + garde `if (G.gameOver) return` dans `queueShelldaChoices` + l'overlay n'est plus rendu quand `gameOver` |
+| **Important** | Modes UI « armés » (Scarecrow/Timebend) **périmés** : pouvaient bloquer la construction au tour suivant | Effet de purge avant les retours anticipés de `AppBoard.jsx` (nombre de hooks stable) + `buildTargets` ne cède que si l'abilité est réellement utilisable |
+| **Important** | Timebend jouait le sort immédiatement au clic, sans confirmation, et les cartes non « castables » n'étaient pas cliquables | Deux temps : **armement → sélection → clic TIMEBEND** ; prop `anySelectable`/`spellSelectable` sur `Hand.jsx` |
+| **Important** | Miniboss en main défaussé via Doc Scarecrow / `openingDiscard` tombait dans la **défausse de salles** | Branche `isMiniboss` → `decks.minibossDiscard` (3 sites : `docScarecrow`, `applyOpeningDiscard`, déjà présent pour Rebirth) |
+| **Important** | IA : tous les tirages d'un même type de coup avaient le même score → Scarecrow gaspillait la meilleure carte ; `resolveBait` recalculé par coup (quadratique) | Score par arguments (`src/ai.js`, `discardCost`) + mémo `resolveBait` par recherche |
+| **Mineur** | Héros déjà marqué encore proposé par `legalMoves` | Filtre `!h.noLureThisTurn` côté énumération + rejet côté handler |
+
+**Couverture :** 7 tests de non-régression ajoutés (6 dans `test/next-level.test.js`, 1 dans `test/ai.test.js`), dont un test de fin de partie complète qui échouait en soft-lock avant correction.
+
+**Validation :** `npm run test:unit` **303/303**, `npm run build` OK.

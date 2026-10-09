@@ -4,9 +4,17 @@ import { PHASE, treasureIcon, TREASURE_NAMES } from '../../cardData.js';
 import Card from './Card.jsx';
 import s from './TownPanel.module.css';
 
-function HeroCard({ hero, onInspect, onHover }) {
+function HeroCard({ hero, index, onInspect, onHover, targetable = false, onSelect }) {
   return (
-    <div className={s.heroWrap}>
+    <div className={targetable ? `${s.heroWrap} ${s.heroTarget}` : s.heroWrap}>
+      {targetable && (
+        <button
+          type="button"
+          className={s.heroHit}
+          aria-label={`Choose ${hero.name}`}
+          onClick={() => onSelect(index)}
+        />
+      )}
       <Card
         card={hero}
         kind={hero.epic ? 'epic-hero' : 'hero'}
@@ -29,7 +37,7 @@ function HeroCard({ hero, onInspect, onHover }) {
   );
 }
 
-export default function TownPanel({ me, playerId, town, townItems = [], phase, isMyTurn, adventure, hasPendingChoice = false, onResolve, onInspect, onHover }) {
+export default function TownPanel({ me, playerId, town, townItems = [], phase, isMyTurn, adventure, hasPendingChoice = false, targetable = false, onHeroSelect, onResolve, onInspect, onHover }) {
   const showGo = !hasPendingChoice && phase === PHASE.ADVENTURE && isMyTurn && !adventure?.pause && (
     me.entrance.length > 0 || (adventure && String(adventure.playerId) === String(playerId))
   );
@@ -37,7 +45,15 @@ export default function TownPanel({ me, playerId, town, townItems = [], phase, i
     <div className={s.col} aria-label="Heroes in town">
       <div className={s.townCol}>
         {town.map((h, i) => (
-          <HeroCard key={`town-${h.id}-${i}`} hero={h} onInspect={onInspect} onHover={onHover} />
+          <HeroCard
+            key={`town-${h.id}-${i}`}
+            hero={h}
+            index={i}
+            targetable={targetable}
+            onSelect={onHeroSelect}
+            onInspect={onInspect}
+            onHover={onHover}
+          />
         ))}
         {townItems.map((it, i) => (
           <div key={`item-${it.id}-${i}`} className={s.itemWrap} title={it.name}>

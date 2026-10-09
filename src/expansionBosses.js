@@ -2,7 +2,7 @@
 import { activeRoom, destroyRoom, healOneWound, dungeonTreasures } from './engine.js';
 import { drawCards, totalSouls } from './cardData.js';
 import { gainCoin } from './minibosses.js';
-import { processLevelUp } from './roomAbilities.js';
+import { enqueuePending, processLevelUp } from './roomAbilities.js';
 
 function player(G, playerId) {
   return G.players[playerId] ?? G.players[String(playerId)];
@@ -45,6 +45,43 @@ export function processEndOfTurnBosses(G) {
       p.hand.push(card);
       G.logs.push(`Nicolius: drew ${card.name} (a player gained 2 more Souls this turn).`);
     }
+  }
+  queueShelldaChoices(G);
+}
+
+// Shellda (TNL005): at end of turn you may swap the placement of two Rooms in
+// one dungeon (any dungeon, yours or an opponent's).
+function queueShelldaChoices(G) {
+  if (G.gameOver) return;
+  for (const [pid, p] of Object.entries(G.players || {})) {
+    if (p.eliminated || !p.shelldaSwap) continue;
+    const options = [];
+    for (const [oid, owner] of Object.entries(G.players || {})) {
+      if (owner.eliminated) continue;
+      const n = (owner.dungeon || []).length;
+      for (let i = 0; i < n; i++) {
+        for (let j = i + 1; j < n; j++) {
+          const a = activeRoom(owner.dungeon[i]);
+          const b = activeRoom(owner.dungeon[j]);
+          options.push({
+            playerId: Number(oid),
+            roomIndexA: i,
+            roomIndexB: j,
+            label: `P${Number(oid) + 1}: ${a?.name || `Room ${i + 1}`} ↔ ${b?.name || `Room ${j + 1}`}`,
+          });
+        }
+      }
+    }
+    if (!options.length) continue;
+    enqueuePending(G, {
+      type: 'shellda-swap',
+      playerId: Number(pid),
+      bossName: 'Shellda',
+      message: 'Shellda: swap the placement of two Rooms in one dungeon (or skip)',
+      optional: true,
+      resume: true,
+      options,
+    });
   }
 }
 

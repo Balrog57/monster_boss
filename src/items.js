@@ -1,5 +1,5 @@
 // items.js - Tools of Hero-Kind: town attach, power-ups, rewards, room locks.
-import { activeRoom, allActiveRooms, destroyRoom, healOneWound, heroHealthWithModifiers } from './engine.js';
+import { discardRoomToPile, activeRoom, allActiveRooms, destroyRoom, healOneWound, heroHealthWithModifiers } from './engine.js';
 import { drawCards } from './cardData.js';
 import { icicleIgnoresHeroAbilities } from './minibosses.js';
 
@@ -193,14 +193,14 @@ function otherPlayers(G, pid) {
     .filter((id) => id !== n && !G.players[id]?.eliminated);
 }
 
-function discardRandomOfKind(player, decks, kind, n, logName) {
+function discardRoomRandomOfKind(G, player, decks, kind, n, logName) {
   const logs = [];
   for (let k = 0; k < n; k++) {
     const idxs = player.hand.map((c, i) => ((kind === 'room' ? c.isRoom : c.isSpell) ? i : -1)).filter((i) => i >= 0);
     if (!idxs.length) break;
     const pick = idxs[Math.floor(Math.random() * idxs.length)];
     const card = player.hand.splice(pick, 1)[0];
-    if (kind === 'room') decks.roomDiscard.push(card);
+    if (kind === 'room') discardRoomToPile(G, card);
     else decks.spellDiscard.push(card);
     logs.push(card.name);
   }
@@ -304,7 +304,7 @@ export function applyItemReward(G, playerId, item) {
       break;
     case 'THK002':
       for (const oid of opps) {
-        const names = discardRandomOfKind(G.players[oid], G.decks, 'room', 1, '');
+        const names = discardRoomRandomOfKind(G, G.players[oid], G.decks, 'room', 1, '');
         if (names.length) G.logs.push(`Holy Hand Grenade: player ${oid} discarded ${names.join(', ')}.`);
       }
       break;
@@ -339,7 +339,7 @@ export function applyItemReward(G, playerId, item) {
       break;
     case 'THK009':
       for (const oid of opps) {
-        const names = discardRandomOfKind(G.players[oid], G.decks, 'spell', 1, '');
+        const names = discardRoomRandomOfKind(G, G.players[oid], G.decks, 'spell', 1, '');
         if (names.length) G.logs.push(`Antimagic Lizard: player ${oid} discarded ${names.join(', ')}.`);
       }
       break;
@@ -538,7 +538,7 @@ export function applyItemSurvivePowerUp(G, playerId, hero) {
   const p = G.players[playerId] ?? G.players[String(playerId)];
 
   if (itemId === 'THK002') {
-    const names = discardRandomOfKind(p, G.decks, 'room', 2, '');
+    const names = discardRoomRandomOfKind(G, p, G.decks, 'room', 2, '');
     if (names.length) G.logs.push(`Holy Hand Grenade: discarded ${names.join(', ')}.`);
   }
   if (itemId === 'THK008') {
@@ -546,7 +546,7 @@ export function applyItemSurvivePowerUp(G, playerId, hero) {
     G.logs.push('Vorpal Blade: +1 Wound until end of turn.');
   }
   if (itemId === 'THK009') {
-    const names = discardRandomOfKind(p, G.decks, 'spell', 2, '');
+    const names = discardRoomRandomOfKind(G, p, G.decks, 'spell', 2, '');
     if (names.length) G.logs.push(`Antimagic Lizard: discarded ${names.join(', ')}.`);
   }
   if (itemId === 'THK012') {

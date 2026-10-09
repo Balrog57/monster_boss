@@ -216,6 +216,11 @@ export function resolveBait(G) {
   const lureAssignments = [];
   const splitState = {};
   for (const hero of G.town) {
+    // Doc Scarecrow (TNL001): a marked Hero cannot be lured this turn.
+    if (hero.noLureThisTurn) {
+      lureAssignments.push({ hero, targetPlayerId: null, stayInTown: true, scarecrow: true });
+      continue;
+    }
     if (hero.id === 'KSA014' || hero.class === 'The Fool' || (hero.treasure === 0 && hero.id !== 'KSA016' && hero.id !== 'KSA017')) {
       // Demigod: fewest wounds. The Fool: fewest souls.
       const order = playerOrderByXP(G.players);
@@ -349,12 +354,27 @@ export function buildRoom(G, playerId, handIndex, targetIndex = null) {
   return true;
 }
 
+// Torix Uz'Kali (TNL003): "whenever any Monster Room is discarded or destroyed,
+// you may put it into your hand." Resolved automatically (always taken).
+export function discardRoomToPile(G, card) {
+  G.decks.roomDiscard.push(card);
+  if (!card?.isRoom || card.type !== 'monster') return card;
+  const taker = Object.values(G.players || {}).find(p => !p.eliminated && p.recoverDestroyedMonsters);
+  if (!taker) return card;
+  const i = G.decks.roomDiscard.lastIndexOf(card);
+  if (i < 0) return card;
+  G.decks.roomDiscard.splice(i, 1);
+  taker.hand.push(card);
+  G.logs.push(`Torix Uz'Kali: recovered ${card.name} to hand.`);
+  return card;
+}
+
 export function destroyRoom(G, playerId, roomIndex) {
   const p = G.players[playerId];
   const stack = p.dungeon[roomIndex];
   if (!stack || stack.length === 0) return null;
   const destroyed = stack.pop();
-  G.decks.roomDiscard.push(destroyed);
+  discardRoomToPile(G, destroyed);
   // Cursed Tomb (TNL054): opponents discard 2 Room cards when this is destroyed by another effect.
   if (destroyed?.id === 'TNL054') {
     for (const [opid, op] of Object.entries(G.players || {})) {
@@ -363,7 +383,7 @@ export function destroyRoom(G, playerId, roomIndex) {
       while (n < 2) {
         const ri = (op.hand || []).findIndex((c) => c.isRoom);
         if (ri < 0) break;
-        G.decks.roomDiscard.push(op.hand.splice(ri, 1)[0]);
+        discardRoomToPile(G, op.hand.splice(ri, 1)[0]);
         n += 1;
       }
       if (n) G.logs.push(`Cursed Tomb: Player ${opid} discarded ${n} Room(s).`);

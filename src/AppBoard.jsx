@@ -37,6 +37,8 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
   const [activateSourceRoom, setActivateSourceRoom] = useState(null); // room index awaiting target
   const [spellTarget, setSpellTarget] = useState(null); // { handIndex, card } awaiting target
   const [darkHeroPay, setDarkHeroPay] = useState(null); // { handIndex, card }
+  const [scarecrowMode, setScarecrowMode] = useState(false); // Doc Scarecrow (TNL001) target mode
+  const [timebenderMode, setTimebenderMode] = useState(false); // Dr. Timebender (TNL008) cancel mode
   const [gameOverData, setGameOverData] = useState(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -107,6 +109,29 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
     }
   }, [G?.gameOver]);
 
+  // Drop stale boss-ability modes as soon as they become unusable (turn passed,
+  // phase changed, Spell resolved, ability already spent) so they can never
+  // block building or linger armed across turns. Must sit before the early
+  // returns below so React always sees the same number of hooks.
+  useEffect(() => {
+    if (!G || !G.players) return;
+    const p = G.players[String(playerID)];
+    if (!p) return;
+    const pending = !!G.pendingChoice;
+    const active = G.activePlayer != null ? String(G.activePlayer) : String(ctx?.currentPlayer ?? '0');
+    const myTurn = pending ? G.pendingChoice.playerId === Number(playerID) : active === String(playerID);
+    const scareOk = !pending && myTurn && G.phase === PHASE.BUILD && !G.stack?.length
+      && !!p.docScarecrow && !p._scarecrowUsedThisBuild
+      && (p.hand || []).length > 0 && (G.town || []).some((h) => !h.noLureThisTurn);
+    const stackActive = !pending && !!(G.stack?.length && active === String(playerID));
+    const caster = stackActive ? Number(G.stack[G.stack.length - 1].playerId) : null;
+    const timeOk = stackActive && caster === Number(playerID)
+      && !!p.timebenderCancel && !p._timebenderUsedThisTurn
+      && (p.hand || []).some((c) => c.isSpell);
+    if (scarecrowMode && !scareOk) setScarecrowMode(false);
+    if (timebenderMode && !timeOk) setTimebenderMode(false);
+  });
+
   if (!G || !G.players) {
     return <GameStage bg="/ui/backgrounds/gallery_bg.webp"><div className={s.loading}>Loading…</div></GameStage>;
   }
@@ -151,6 +176,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
     return listDarkHeroPayTargets(G).filter((t) => canPayDarkHero(G, pidKey, selectedCard, t));
   })();
   const buildTargets = (() => {
+    if (scarecrowMode && canScarecrow) return { extend: false, overwrites: [] };
     if (hasPendingChoice || selectedCard == null || !selectedHandCard?.isRoom) return { extend: false, overwrites: [] };
     if (phase === PHASE.SETUP) {
       return { extend: !selectedHandCard.advanced && me.dungeon.length === 0, overwrites: [] };
@@ -196,6 +222,17 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
     || (selectedHandCard ? { card: selectedHandCard, kind: hoverKind(selectedHandCard) } : null)
     || (me.boss ? { card: me.boss, kind: 'boss' } : null);
 
+  const topStackCaster = G.stack?.length ? Number(G.stack[G.stack.length - 1].playerId) : null;
+  // Doc Scarecrow (TNL001): once per Build phase, discard a card to un-lure a Town Hero.
+  const canScarecrow = !hasPendingChoice && isMyTurn && phase === PHASE.BUILD
+    && !G.stack?.length
+    && !!me.docScarecrow && !me._scarecrowUsedThisBuild
+    && (me.hand || []).length > 0 && (G.town || []).some((h) => !h.noLureThisTurn);
+  // Dr. Timebender (TNL008): once per turn, discard a Spell to cancel an opponent's Spell.
+  const canTimebend = isStackActive && !!me.timebenderCancel && !me._timebenderUsedThisTurn
+    && topStackCaster !== Number(playerID)
+    && (me.hand || []).some(c => c.isSpell);
+
   const canPassTurn = isMyTurn && !hasPendingChoice && !discarding && !mustContinueAdventure && !G.adventure?.pause && !G.stack?.length && (
     phase === PHASE.BUILD
     || phase === PHASE.ADVENTURE
@@ -233,6 +270,8 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
       setActivateSourceRoom(null);
       setSpellTarget(null);
       setDarkHeroPay(null);
+      setScarecrowMode(false);
+      setTimebenderMode(false);
       setInspect(null);
     },
     onToggleMute: (m) => setMutedState(m),
@@ -297,6 +336,14 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             isMyTurn={isMyTurn}
             adventure={G.adventure}
             hasPendingChoice={hasPendingChoice}
+            targetable={scarecrowMode && canScarecrow}
+            onHeroSelect={(heroIdx) => {
+              if (!(scarecrowMode && canScarecrow)) return;
+              if (selectedCard == null) return;
+              moves.docScarecrow(selectedCard, heroIdx);
+              setScarecrowMode(false);
+              setSelectedCard(null);
+            }}
             onResolve={() => moves.resolveNextHero()}
             onInspect={setInspect}
             onHover={setPreview}
@@ -372,6 +419,45 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
             PAY DARK HERO
           </button>
         )}
+        {(canScarecrow || canTimebend) && (
+          <div className={s.bossAbilityBar} role="group" aria-label="Boss abilities">
+            {canScarecrow && (
+              <button
+                type="button"
+                className={`${s.bossAbilityBtn} ${scarecrowMode ? s.bossAbilityOn : ''}`}
+                onClick={() => setScarecrowMode(v => !v)}
+                title="Doc Scarecrow: discard a card, then choose a Hero in town"
+              >
+                SCARECROW
+              </button>
+            )}
+            {canTimebend && (
+              <button
+                type="button"
+                className={`${s.bossAbilityBtn} ${timebenderMode ? s.bossAbilityOn : ''}`}
+                onClick={() => {
+                  if (!timebenderMode) {
+                    setSelectedCard(null);
+                    setTimebenderMode(true);
+                    return;
+                  }
+                  const idx = selectedCard;
+                  const card = idx != null ? me.hand[idx] : null;
+                  if (card?.isSpell) {
+                    moves.timebenderCancel(idx);
+                    setSelectedCard(null);
+                  }
+                  setTimebenderMode(false);
+                }}
+                title={timebenderMode
+                  ? 'Dr. Timebender: confirm — discard the selected Spell to cancel the stack'
+                  : 'Dr. Timebender: select a Spell, then confirm here'}
+              >
+                TIMEBEND
+              </button>
+            )}
+          </div>
+        )}
         {canPassTurn && (
           <button
             className={s.passCenter}
@@ -437,6 +523,9 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         }}
         onSpell={(i) => {
           if (hasPendingChoice) return;
+          // Boss-ability arming: just select, the ability button confirms.
+          if (scarecrowMode && canScarecrow) { setSelectedCard(i); return; }
+          if (timebenderMode && canTimebend) { setSelectedCard(i); return; }
           const card = me.hand[i];
           if (card && spellNeedsTarget(card.id)) {
             setSpellTarget({ handIndex: i, card });
@@ -448,6 +537,8 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         onInspect={setInspect}
         onHover={setPreview}
         showPass={false}
+        anySelectable={scarecrowMode && canScarecrow}
+        spellSelectable={timebenderMode && canTimebend}
       />
       )}
       </div>
@@ -527,7 +618,7 @@ export default function AppBoard({ G, ctx, moves, playerID, isActive, onExitMatc
         />
       )}
 
-      {G.pendingChoice && G.pendingChoice.type !== 'opening-discard' && G.pendingChoice.playerId === Number(playerID) && (
+      {G.pendingChoice && !G.gameOver && G.pendingChoice.type !== 'opening-discard' && G.pendingChoice.playerId === Number(playerID) && (
         <LevelUpChoiceOverlay
           choice={G.pendingChoice}
           onResolve={(optionIndex) => moves.resolveLevelUpChoice(optionIndex)}

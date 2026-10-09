@@ -77,6 +77,31 @@
   font-size: 13px;
   cursor: pointer;
 }
+.bossAbilityBar {
+  position: absolute;
+  left: calc(50% - 350px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.bossAbilityBtn {
+  padding: 10px 14px;
+  border: 2px solid #c9a84c;
+  border-radius: 6px;
+  background: rgba(20, 10, 30, 0.92);
+  color: #f1e17c;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+}
+.bossAbilityOn {
+  background: rgba(90, 60, 20, 0.95);
+  border-color: #f1e17c;
+  box-shadow: 0 0 10px rgba(241, 225, 124, 0.55);
+}
 .dock {
   grid-area: dock;
   display: grid;
