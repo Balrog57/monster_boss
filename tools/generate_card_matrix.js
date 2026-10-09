@@ -64,6 +64,7 @@ function cardImagePath(id, section, card) {
     : section === 'rooms' ? 'rooms'
     : section === 'spells' ? 'spells'
     : section === 'items' ? 'items'
+    : section === 'minibosses' ? 'minibosses' // frontend kind='miniboss'
     : card.epic ? 'epic-heroes' : 'heroes';
   return path.join(ROOT, 'assets', 'cards', dir, `${id}_${slug}.webp`);
 }

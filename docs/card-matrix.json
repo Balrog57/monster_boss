@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-09T16:17:06.868Z",
+  "generatedAt": "2026-10-09T16:55:27.450Z",
   "cards": {
     "BMA001": {
       "id": "BMA001",
@@ -310,7 +310,7 @@
       "text": "For the rest of the game, gain (c) whenever you build a Trap Room.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB011": {
@@ -980,7 +980,7 @@
       "text": "You may destroy this Room to force an opponent to discard a random Spell card.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB014": {
@@ -991,7 +991,7 @@
       "text": "When you build or uncover this Room, gain (c) (c) for every miniboss you reveal from your hand.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB015": {
@@ -1002,7 +1002,7 @@
       "text": "When you build this Room, choose one opponent. Once this turn you may give them (c) to take one random Spell card from them.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB016": {
@@ -1013,7 +1013,7 @@
       "text": "You may discard this from your hand to draw a room or spell card from the Discard pile.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB017": {
@@ -1024,7 +1024,7 @@
       "text": "Once per turn when an opponent discards a card, you may put it in your hand.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB018": {
@@ -1035,7 +1035,7 @@
       "text": "When you build or uncover this Room, you may discard a Miniboss to heal a Wound.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": [
         "onBuildHealWound"
       ]
@@ -1048,7 +1048,7 @@
       "text": "Once per turn, You may pay (c) and choose a hero at the entrance to your dungeon. It cannot enter your dungeon until next turn.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB020": {
@@ -1059,7 +1059,7 @@
       "text": "When you build this Room, place up to three (c) on it. For each (c) you place, choose one card from the discard pile and put it in your hand. This Room has -1 for every (c) on it.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB021": {
@@ -1070,7 +1070,7 @@
       "text": "When you build this room, exchange your Hoard with another player's, even if you have no coins.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB022": {
@@ -1081,7 +1081,7 @@
       "text": "Destroy this Room to return a Hero in it to the beginning of your Dungeon.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB023": {
@@ -1092,7 +1092,7 @@
       "text": "Whenever you build a Room next to this Room, gain (c)(c).",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB024": {
@@ -1103,7 +1103,7 @@
       "text": "If the Room to the right of this is a Monster Room, give that room +2.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB025": {
@@ -1114,7 +1114,7 @@
       "text": "Monster Rooms may not be built adjacent to this room. (But this Room may be built adjacent to other Monster Rooms.)",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB026": {
@@ -1125,7 +1125,7 @@
       "text": "Once per turn, you may discard a Miniboss to double the damage of one of your Monster Rooms until end of turn.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB027": {
@@ -1136,7 +1136,7 @@
       "text": "You may discard this from your hand to give one hero +3 until end of turn.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB028": {
@@ -1147,7 +1147,7 @@
       "text": "When you build or uncover this Room, until end of turn, give every other Monster Room in your dungeon +1 for every treasure icon that room has.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB029": {
@@ -1158,7 +1158,7 @@
       "text": "This room has +1 for every Hero that was lured to your dungeon this turn.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB030": {
@@ -1169,7 +1169,7 @@
       "text": "Once per turn when a Hero survives this Room, gain (c) (c).",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB031": {
@@ -1180,7 +1180,7 @@
       "text": "When you build or uncover this Room, you may discard a Miniboss to draw a Spell card.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": [
         "onBuildDrawSpell"
       ]
@@ -1193,7 +1193,7 @@
       "text": "Once per turn, when you cast a Spell, gain (c) (c). (Cancelled spells are not cast.)",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB033": {
@@ -1204,7 +1204,7 @@
       "text": "Once per turn, when a Room in any dungeon is destroyed, pay (c) to draw a spell card.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB034": {
@@ -1215,7 +1215,7 @@
       "text": "Once per turn if a Hero dies in this Room, you may remove that Hero from the game to draw two Spell cards.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB035": {
@@ -1226,7 +1226,7 @@
       "text": "You may discard this from your hand to draw a Spell card or gain (c) (c).",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB036": {
@@ -1237,7 +1237,7 @@
       "text": "When you build this Room, pay (c)(c) and draw two Spell cards.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": [
         "gainCoin"
       ]
@@ -1250,7 +1250,7 @@
       "text": "When you build this Room, place up to three (c) on it. For each (c) you place, draw one Spell card. This Room has -1 for every (c) on it.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": [
         "gainCoin"
       ]
@@ -1263,7 +1263,7 @@
       "text": "Once per turn when a Hero is at the entrance to your dungeon, you may draw a Spell card to give this room -2 OR discard a Spell to give this room +2.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB039": {
@@ -1274,7 +1274,7 @@
       "text": "This room has +1 for every Spell card in your hand.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB040": {
@@ -1285,7 +1285,7 @@
       "text": "When you build or uncover this Room, draw a Room card.",
       "textCorrupt": false,
       "status": "tagged",
-      "hasArt": false,
+      "hasArt": true,
       "tags": [
         "onBuildDrawRoom",
         "onUncover"
@@ -1299,7 +1299,7 @@
       "text": "Once per turn when a Room is destroyed, gain (c) (c).",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB042": {
@@ -1310,7 +1310,7 @@
       "text": "You may destroy this Room to gain (c) (c) (c).",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB043": {
@@ -1321,7 +1321,7 @@
       "text": "Once per turn, you may pay (c) to kill a Hero in this Room with 3 or less Health.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB044": {
@@ -1332,7 +1332,7 @@
       "text": "Once per turn, you may discard a Miniboss to deactivate a Room in an opponent's dungeon.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB045": {
@@ -1343,7 +1343,7 @@
       "text": "You can destroy this room to add one treasure of any type to any player's dungeon until end of turn.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB046": {
@@ -1354,7 +1354,7 @@
       "text": "Each turn, any player may give you any number of (c). For every (c) they give you, give this Room -1 until end of turn.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB047": {
@@ -1365,7 +1365,7 @@
       "text": "You may destroy a Monster room in your dungeon to kill a hero in this Room.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB048": {
@@ -1376,7 +1376,7 @@
       "text": "Once per Build phase, place a (c) on this Room. This Room has +1 for every (c) on it. If you cannot place a coin on this Room, destroy it.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB049": {
@@ -1387,7 +1387,7 @@
       "text": "Once per turn gain (c) when an opponent plays or promotes a Miniboss.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB050": {
@@ -1398,7 +1398,7 @@
       "text": "When you build or uncover this Room, Gain (c) for every multi-treasure Room in your dungeon, including this one.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": [
         "gainCoin"
       ]
@@ -1411,7 +1411,7 @@
       "text": "Once per turn, if a Hero dies in this Room, gain (c)(c)(c).",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB052": {
@@ -1422,7 +1422,7 @@
       "text": "You may destroy this Room to gain (c) for every Wound you have.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB053": {
@@ -1433,7 +1433,7 @@
       "text": "You may destroy this Room to gain (c) for every Room remaining in your dungeon.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB054": {
@@ -1444,7 +1444,7 @@
       "text": "Once per turn, you may discard a Spell to gain (c) (c).",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "THK021": {
@@ -1776,7 +1776,7 @@
       "text": "This Room has +X, where X equals the number of Spell cards in your hand.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL039": {
@@ -2221,7 +2221,7 @@
       "text": "If you have no coins in your Hoard, gain (c)(c)(c).",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": [
         "genericSpell"
       ]
@@ -2234,7 +2234,7 @@
       "text": "Place the top three cards of the Room deck in the discard pile. If one of these cards is a Miniboss, you may immediately build it. (In addition to your normal build turn.)",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB067": {
@@ -2245,7 +2245,7 @@
       "text": "Choose a Room in any dungeon. Until end of turn, it has one of each treasure type instead of its normal treasure.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB068": {
@@ -2256,7 +2256,7 @@
       "text": "Choose a Room. Until end of turn it has no ability text.\nOR, if if you have more Minibosses than your opponent, deactivate that Room until end of turn.|",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB069": {
@@ -2267,7 +2267,7 @@
       "text": "Choose a Miniboss. For every level that Miniboss has, give its Room +1 until end of turn. AND, if you have only one Miniboss, you may then double the damage of that Room.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB070": {
@@ -2278,7 +2278,7 @@
       "text": "Yo may discard two Monster Room cards or one Miniboss card to kill one Hero in your dungeon.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB071": {
@@ -2289,7 +2289,7 @@
       "text": "Chose a player (including yourself). That playwe discards their hand and draws Rooms and Spells equal to the number of each they discarded.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB072": {
@@ -2300,7 +2300,7 @@
       "text": "Deal 2 damage to a Hero in your dungeon.\nOR deal 4 damage to a Hero in a Room that contains a Miniboss.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB073": {
@@ -2311,7 +2311,7 @@
       "text": "Choose a Room to gain +1 until end of turn, plus an additional +1 for each (c) you pay when you cast this spell.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": [
         "genericSpell"
       ]
@@ -2324,7 +2324,7 @@
       "text": "For your build turn, you may build an Advanced Room on top of any other Room, ignoring matching treasure icon requirements.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB075": {
@@ -2335,7 +2335,7 @@
       "text": "Treat all of your Rooms as if they were just built.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB076": {
@@ -2346,7 +2346,7 @@
       "text": "Choose a Room in any dungeon. Until end of turn end that Room's treasure icons.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB077": {
@@ -2357,7 +2357,7 @@
       "text": "Choose an opponent casting a spell. Until end of turn, that opponent must pay (c) for each spell they wish to cast. If they don't, that spell is cancelled.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB078": {
@@ -2368,7 +2368,7 @@
       "text": "Choose an opponent's Miniboss. You may pay that opponent one (c) per that Miniboss's Level to take it and immediatly build it at that same level. You may not build a room this turn.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB079": {
@@ -2379,7 +2379,7 @@
       "text": "Give a Hero +1 until end of turn AND give this Hero an additional +2 until end of turn for every (c) you spend when casting this spell.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "THK025": {
@@ -3655,7 +3655,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB081": {
@@ -3666,7 +3666,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB082": {
@@ -3677,7 +3677,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB083": {
@@ -3688,7 +3688,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB084": {
@@ -3699,7 +3699,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "tagged",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB085": {
@@ -3710,7 +3710,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB086": {
@@ -3721,7 +3721,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB087": {
@@ -3732,7 +3732,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB088": {
@@ -3743,7 +3743,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB089": {
@@ -3754,7 +3754,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB090": {
@@ -3765,7 +3765,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "tagged",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB091": {
@@ -3776,7 +3776,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB092": {
@@ -3787,7 +3787,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB093": {
@@ -3798,7 +3798,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB094": {
@@ -3809,7 +3809,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB095": {
@@ -3820,7 +3820,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB096": {
@@ -3831,7 +3831,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "tagged",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB097": {
@@ -3842,7 +3842,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB098": {
@@ -3853,7 +3853,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB099": {
@@ -3864,7 +3864,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB100": {
@@ -3875,7 +3875,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB101": {
@@ -3886,7 +3886,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB102": {
@@ -3897,7 +3897,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "tagged",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB103": {
@@ -3908,7 +3908,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB104": {
@@ -3930,7 +3930,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB106": {
@@ -3941,7 +3941,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB107": {
@@ -3963,7 +3963,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB109": {
@@ -3974,7 +3974,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB110": {
@@ -3985,7 +3985,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB111": {
@@ -3996,7 +3996,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB112": {
@@ -4007,7 +4007,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB113": {
@@ -4018,7 +4018,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB114": {
@@ -4029,7 +4029,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB115": {
@@ -4051,7 +4051,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB117": {
@@ -4062,7 +4062,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB118": {
@@ -4073,7 +4073,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB119": {
@@ -4084,7 +4084,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB120": {
@@ -4095,7 +4095,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB121": {
@@ -4106,7 +4106,7 @@
       "text": "",
       "textCorrupt": false,
       "status": "stat-only",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "TNL073": {
@@ -4799,7 +4799,7 @@
       "text": "This Room has +1. Once per turn, discard a card to do 2 damage to a Hero in this Room. Choose a Miniboss. Return that card to its owner's hand. Reset to Level One.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB056": {
@@ -4810,7 +4810,7 @@
       "text": "This Room gains +1 Fighter. Once per turn during the Build phase, you may switch the position of two Rooms in any dungeon. Give all Monster Rooms in one dungeon +1 or -1 until end of turn. Reset to Level One.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB057": {
@@ -4821,7 +4821,7 @@
       "text": "This Room gains +1 Cleric. Once per turn, you may return a Hero in your dungeon to town. Look at one opponent's hand. You may take one Spell or Room card from them. Reset to Level One.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB058": {
@@ -4832,7 +4832,7 @@
       "text": "You may build any Room on top of this one, regardless of treasure icon. When a Hero dies in this Room, you may treat another Room in your dungeon as just built. Give a Hero in any dungeon +5 until end of turn. Reset to Level One.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB059": {
@@ -4843,7 +4843,7 @@
       "text": "This Room gains +1 Mage. When a Hero dies in this Room, you may draw a Spell card. Choose a dungeon. Heroes ignore all ability text in that dungeon until end of turn. Reset to Level One.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB060": {
@@ -4854,7 +4854,7 @@
       "text": "This Room gains +1 Thief. Once per turn when you gain one or more coins, gain one extra coin. Kill a Hero in this Room. Reset to Level One.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB061": {
@@ -4865,7 +4865,7 @@
       "text": "This Room has +1. Ignore the ability text of any Heroes or Epic Heroes in, or at the entrance to, your dungeon. Deactivate a Room in any dungeon until end of turn. Reset to Level One.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB062": {
@@ -4876,7 +4876,7 @@
       "text": "This Room has +1 for every treasure icon it has. Once per turn, you may discard a Spell card to cancel an opponent's Spell. Choose a dungeon. Until end of turn, Heroes entering that dungeon skip its first room. Reset to Level One.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB063": {
@@ -4887,7 +4887,7 @@
       "text": "This Room has +1. Once per turn when a Hero dies in this Room, draw a Room card. You may immediately build that Room. Double this Room's damage until end of turn. Reset to Level One.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     },
     "RMB064": {
@@ -4898,14 +4898,14 @@
       "text": "Draw an extra Room at the beginning of the Build phase, then discard a Room. Double this Room's treasure value. (It has one extra copy of each printed treasure icon it has.) Choose a Hero in town. Place it at the entrance to your dungeon. Reset to Level One.",
       "textCorrupt": false,
       "status": "explicit",
-      "hasArt": false,
+      "hasArt": true,
       "tags": []
     }
   },
   "summary": {
     "total": 442,
     "corrupt": 0,
-    "missingArt": 108,
+    "missingArt": 0,
     "expansionPending": 0
   }
 }

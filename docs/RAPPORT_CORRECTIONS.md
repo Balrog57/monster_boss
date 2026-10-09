@@ -291,3 +291,11 @@ Reorg audit: target layout confirmed (src/backend, src/frontend, deploy/, tests/
 Matrix fix (tools/generate_card_matrix.js): the handler scanner ignored ID-specific logic in reducer.js / engine.js / ai.js / cardData.js, mislabeling 8 base cards as base-implicit (BMA015 Goblin Armory, BMA017 Minotaur Maze, BMA018 Neanderthal Cave, BMA020 Monster Ballroom, BMA023 Haunted Library, BMA029 Dizzygas Hallway, BMA031 Recycling Center, BMA043 Counterspell) and 3 heroes as stat-only (KSA014, KSA016, TNL102 Shadow Corridor) although engine/reducer implement them. Scanner now covers those 4 files; destroyOn* keys are also listed in card tags (TNL050). Regenerated docs/card-matrix.json: 442 cards, corrupt=0, expansion-pending=0, explicit 254->265, base-implicit 8->0, tagged 8 (generic-tag mechanics: RMB040, TNL050 + 6 dark heroes), stat-only 169 (plain heroes by design), missing expansion art 108 (blocked on source, unchanged).
 
 Validation: npm run test:unit 405/405, npm run build OK, npm run verify:assets OK (base set complete; 98+10 missing expansion art, non-fatal).
+
+### 7.15. Missing expansion faces fixed with labelled placeholders (2026-10-09)
+
+Problem: 108 expansion cards (107 Rise of the Minibosses + TNL038 Elemental Generator) had no face anywhere: absent from the wiki (API probed again, still empty), absent from the APK manifest (0 rmb/tnl/crl faces), BGG blocked (403), DriveThru licence incompatible. In-game they fell back to a card back.
+
+Fix (tools/generate_placeholder_art.py, Pillow): generates 746x1039 WEBP faces at the exact path the frontend requests ( incl. minibosses/ dir for kind=miniboss, epic-heroes/ for epics), themed per section (name, stats, rules text from cardData.json) with a red MISSING ART - PLACEHOLDER ribbon so they are never mistaken for official art. Re-running the script skips existing files; drop a real face next to a placeholder (same filename) or delete + rerun to replace 1:1. Also fixed cardImagePath in tools/generate_card_matrix.js (minibosses section -> minibosses/ dir, matching the frontend).
+
+Result: docs/card-matrix.json missing expansion art 108 -> 0 (442 cards, corrupt=0, expansion-pending=0); npm run verify:assets expansions 0 missing wiki art; test:unit 405/405; build OK. Official art untouched (verified: only 108 new untracked files, 0 tracked overwritten).
