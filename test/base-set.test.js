@@ -21,6 +21,9 @@ import { PHASE } from '../src/cardData.js';
 
 // Base set (BMA001-096) parity with APK 2.2.6 BaseDeck/data.json.
 // Bosses 8/8, spells 16/16, rooms 31/31, heroes 41/41 (data-driven).
+// The APK extract (boss-monster-2-2-6/, gitignored) is optional: CI reads the
+// committed fixture, and the fixture is cross-checked against the APK whenever
+// the local extract is present.
 
 function mkPlayer(over = {}) {
   return {
@@ -55,15 +58,20 @@ const room = (id, name, type, damage = 1, treasures = [1], extra = {}) => ({
 });
 const spell = (id, name, category, extra = {}) => ({ id, name, isSpell: true, category, ...extra });
 
-describe('base set heroes match APK stats and lure', () => {  it('all 41 base heroes have identical HP, treasure, souls, wounds', () => {
-    const rawApk = fs.readFileSync(new URL('../boss-monster-2-2-6/assets/Content/CardDecks/BaseDeck/data.json', import.meta.url), 'utf-8').replace(/^\uFEFF/, '');
-    const apk = JSON.parse(rawApk);
+const APK_URL = new URL('../boss-monster-2-2-6/assets/Content/CardDecks/BaseDeck/data.json', import.meta.url);
+const FIXTURE_URL = new URL('./fixtures/apk-base-heroes.json', import.meta.url);
+const readJson = (url) => JSON.parse(fs.readFileSync(url, 'utf-8').replace(/^\uFEFF/, ''));
+const apkLocal = fs.existsSync(APK_URL) ? readJson(APK_URL) : null;
+const refHeroes = (apkLocal ?? readJson(FIXTURE_URL)).HeroCards;
+
+describe('base set heroes match APK stats and lure', () => {
+  it('all 41 base heroes have identical HP, treasure, souls, wounds', () => {
     const web = JSON.parse(fs.readFileSync(new URL('../src/cardData.json', import.meta.url), 'utf-8'));
-    const apkHeroes = Object.fromEntries(apk.HeroCards.map((c) => [c.CardNumber, c]));
+    const apkHeroes = Object.fromEntries(refHeroes.map((c) => [c.CardNumber, c]));
     const webBase = web.heroes.filter((h) => h.set === 'base');
     assert.equal(webBase.length, 41);
     assert.deepEqual(new Set(webBase.map((h) => h.id)), new Set(Object.keys(apkHeroes)));
-    assert.equal(apk.HeroCards.filter((c) => c.Ability?.Effects?.length).length, 0);
+    assert.equal(refHeroes.filter((c) => c.Ability?.Effects?.length).length, 0);
     for (const h of webBase) {
       const a = apkHeroes[h.id];
       assert.equal(h.hp, a.Health, `${h.id} hp`);
@@ -78,6 +86,10 @@ describe('base set heroes match APK stats and lure', () => {  it('all 41 base he
     const fool = webBase.find((h) => h.id === 'BMA080');
     assert.equal(fool.treasure, 0);
     assert.equal(apkHeroes.BMA080.LuredCondition.TypeName, 'LuredByFewerSouls');
+  });
+
+  it('committed fixture matches the local APK extract', { skip: apkLocal ? false : 'APK extract not present' }, () => {
+    assert.deepEqual(readJson(FIXTURE_URL).HeroCards, apkLocal.HeroCards);
   });
 });
 

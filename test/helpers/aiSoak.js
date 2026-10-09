@@ -41,8 +41,29 @@ function step(G, ctx) {
   return { G, ctx, move, pid };
 }
 
+/**
+ * The engine draws with Math.random (deck shuffles, random room/spell picks),
+ * so an unseeded run is irreproducible across machines and CI. Install the
+ * xorshift stream as Math.random for the duration of one game and restore it
+ * afterwards, so every case replays identically everywhere.
+ */
+function installSeededRandom(seed) {
+  const rnd = seeded(seed);
+  const original = Math.random;
+  Math.random = rnd;
+  return () => { Math.random = original; };
+}
+
 export function playOne({ expansions, numPlayers, seed, maxMoves = 3000 }) {
-  const rng = seeded(seed);
+  const restoreRandom = installSeededRandom(seed);
+  try {
+    return runGame({ expansions, numPlayers, seed, maxMoves });
+  } finally {
+    restoreRandom();
+  }
+}
+
+function runGame({ expansions, numPlayers, seed, maxMoves }) {
   let state = setupMatch(numPlayers, { expansions, humanCount: 0 });
   let moves = 0;
   let nullPicks = 0;

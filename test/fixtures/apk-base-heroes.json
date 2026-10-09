@@ -1,0 +1,947 @@
+{
+ "HeroCards": [
+  {
+   "HeroType": 0,
+   "Health": 4,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA056",
+   "Name": "Cleric",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Nick the Masher The young cleric was well-armed, and brave enough to take on the Dragon King himself. His credo: \"I bash it with my mace.\"",
+   "Treasures": [
+    1
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 4,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA057",
+   "Name": "Cleric",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Pugi the Druidess A defender of the wilderness, she wields the power of Nature. Flowers blossom in her footsteps, and life grows anew.",
+   "Treasures": [
+    1
+   ],
+   "MinimumPlayers": 4,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 6,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA058",
+   "Name": "Cleric",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Acacia, Warrior of Light Acacia is a carefree soul who makes her own luck. A strong defender of good, she is undeterred by even the darkest dungeons.",
+   "Treasures": [
+    1
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 6,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA059",
+   "Name": "Cleric",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Charles the Young Charles has mother's permission to go adventuring, but he has to return before sundown.",
+   "Treasures": [
+    1
+   ],
+   "MinimumPlayers": 3,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 8,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA060",
+   "Name": "Cleric",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Delatorious, Angel of Light",
+   "Treasures": [
+    1
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 8,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA061",
+   "Name": "Cleric",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Romero, the Indigo Friar He is a dedicated man of the cloth who wants to see the world coated in blue. You might think he's depressed, but he's actually very, very happy.",
+   "Treasures": [
+    1
+   ],
+   "MinimumPlayers": 4,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 4,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA062",
+   "Name": "Fighter",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Boden the Pantless Boden's courage is matched only by his forgetfullness. The quest to find his misplaced armor continues!",
+   "Treasures": [
+    2
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 4,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA063",
+   "Name": "Fighter",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Jarek, Squire to the Lion Knights As a squire, Jarek loved nothing more than stories and legends. He had no idea that he would someday become one.",
+   "Treasures": [
+    2
+   ],
+   "MinimumPlayers": 4,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 6,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA064",
+   "Name": "Fighter",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Fire's Breath, Heroine of Arcadia The scarlet-haired warrior woman known as Fire's Breath has pledged her deadly twin blades to the fight for liberty",
+   "Treasures": [
+    2
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 6,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA065",
+   "Name": "Fighter",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Samurai Tom Not truly a samurai, this masterless ronin seeks honor and glory.",
+   "Treasures": [
+    2
+   ],
+   "MinimumPlayers": 3,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 8,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA066",
+   "Name": "Fighter",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Johnny of the Evening Watch A humble member of the Evening Watch, whose band o'brothers is sworn to forsake family, take the grey, and clear dungeons.",
+   "Treasures": [
+    2
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 8,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA067",
+   "Name": "Fighter",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Crystol and A'lan of Gerd Bound by the unbreakable Ring of Gerd, these lovers became the most dangerous husband-wife team in the adventuring business.",
+   "Treasures": [
+    2
+   ],
+   "MinimumPlayers": 4,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 4,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA068",
+   "Name": "Mage",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Tieg and the Magic Bubble Armed with his trusty bubble, Tieg braves dangerous castles and dungeons in search of the muscial instruments stolen from his people.",
+   "Treasures": [
+    3
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 4,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA069",
+   "Name": "Mage",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Brandork the Neverwrong Schooled in seven flavors of magic, Brandork follows the teachings of master Face, the Omniscient Celestial",
+   "Treasures": [
+    3
+   ],
+   "MinimumPlayers": 4,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 6,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA070",
+   "Name": "Mage",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Mitchell, the Judge He has wandered the planes, hopelessly lost... ever since his wife, Nikki, sent him to the store for diamond dust sugar.",
+   "Treasures": [
+    3
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 6,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA071",
+   "Name": "Mage",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Kalish Ninefingers The worst thief ever, Kalish lost a finger and his freedom in one night. Taught magic in prison by his sorcerous cellmate, he now kills evil with fire.",
+   "Treasures": [
+    3
+   ],
+   "MinimumPlayers": 3,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 8,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA072",
+   "Name": "Mage",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Dartteon, Elf Pyromancer Some elves just want to watch the world burn.",
+   "Treasures": [
+    3
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 8,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA073",
+   "Name": "Mage",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Koey, The Last Dragon Mage The survivor of Drakonia vowed to save the world from Kirax's reign with the power bestowed to him by the last emerald dragon.",
+   "Treasures": [
+    3
+   ],
+   "MinimumPlayers": 4,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 4,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA074",
+   "Name": "Thief",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Joman Chimm, Cutpurse From the twinkle in his eye, you might think he comes bearing gifts... until you check your empty pockets.",
+   "Treasures": [
+    4
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 4,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA075",
+   "Name": "Thief",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Lance Uppercut, Treasure Hunter With a bent blade and a clenched fist, he gathers shining treasures for the glory of the Keonish Empire.",
+   "Treasures": [
+    4
+   ],
+   "MinimumPlayers": 4,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 6,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA076",
+   "Name": "Thief",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Jesta the Rogue \"Okay, so you take the big guy on the left with the axe, you've got the two little ones on the right with swords, and I'll take this dangerous-looking treasure chest with no lock over here...\"",
+   "Treasures": [
+    4
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 6,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA077",
+   "Name": "Thief",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Kins Klauski, Mad Conquistador \"It's hard for me to think about death, how insects and worms will eat me... I never think about death. I haven't even properly started to live yet.\"",
+   "Treasures": [
+    4
+   ],
+   "MinimumPlayers": 3,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 8,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA078",
+   "Name": "Thief",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Sir Digby Apple, Ace Detective He battles to keep the coffers filling, to keep his partners preening and to send a needless message of power to all of the unwilling.",
+   "Treasures": [
+    4
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 8,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA079",
+   "Name": "Thief",
+   "Subtitle": "Ordinary Hero",
+   "Description": "Jerome, Kung Fu Monkey A Visitor from a distant land, his hyperactive monkey studied martial arts under the legendar Sifu Wang.",
+   "Treasures": [
+    4
+   ],
+   "MinimumPlayers": 4,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 0,
+   "Health": 2,
+   "Wounds": 1,
+   "Souls": 1,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByFewerSouls",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA080",
+   "Name": "The Fool",
+   "Subtitle": "Ordinary Hero",
+   "Description": "The Fool is lured to the dungeon of the Boss Monster with the fewest Souls. (In the case of a tie, he waits in town until the tie is broken.)",
+   "Treasures": [
+    0
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 1,
+   "Health": 11,
+   "Wounds": 2,
+   "Souls": 2,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA081",
+   "Name": "Cleric",
+   "Subtitle": "Epic Hero",
+   "Description": "Katelyn, Angelic Healer Among the most exalted defenders of righteousness, Katelyn is sometimes referred to as \"altissima luce\" -- highest light.",
+   "Treasures": [
+    1
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 1,
+   "Health": 11,
+   "Wounds": 2,
+   "Souls": 2,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA082",
+   "Name": "Cleric",
+   "Subtitle": "Epic Hero",
+   "Description": "Kerberos Dirtbeard, Canine Cleric Hailing from the Highlands, this flea-bitten friar never turns down a fetch quest.",
+   "Treasures": [
+    1
+   ],
+   "MinimumPlayers": 3,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 1,
+   "Health": 13,
+   "Wounds": 2,
+   "Souls": 2,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA083",
+   "Name": "Cleric",
+   "Subtitle": "Epic Hero",
+   "Description": "Lord Van Ette A prophet and collector of tithes for the omniscient Celestial, his \"miracles\" are enhanced by the brandewijn distilled by the monks of Nintehn.",
+   "Treasures": [
+    1
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 1,
+   "Health": 13,
+   "Wounds": 2,
+   "Souls": 2,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA084",
+   "Name": "Cleric",
+   "Subtitle": "Epic Hero",
+   "Description": "Jejune & Everlea, Holy Sisters Tenacious and vivacious, each is a threat on her own. But woe betide any who stand against the sisters' united power.",
+   "Treasures": [
+    1
+   ],
+   "MinimumPlayers": 4,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 1,
+   "Health": 11,
+   "Wounds": 2,
+   "Souls": 2,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA085",
+   "Name": "Fighter",
+   "Subtitle": "Epic Hero",
+   "Description": "Frankov, the Envoy This brave warrior stands alone against the evil that rules the world.",
+   "Treasures": [
+    2
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 1,
+   "Health": 11,
+   "Wounds": 2,
+   "Souls": 2,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA086",
+   "Name": "Mage",
+   "Subtitle": "Epic Hero",
+   "Description": "Nate the Squidslayer This surly warrior defeated the mighty Squib, Lord of the Rocktopi. Now he seeks to destroy King Croak himself...",
+   "Treasures": [
+    2
+   ],
+   "MinimumPlayers": 3,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 1,
+   "Health": 13,
+   "Wounds": 2,
+   "Souls": 2,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA087",
+   "Name": "Mage",
+   "Subtitle": "Epic Hero",
+   "Description": "Antonius, the Rune Knight An elite dragoon, Sir Tony wears armor inscribed with magic runes of ancient and mysterious power.",
+   "Treasures": [
+    2
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 1,
+   "Health": 13,
+   "Wounds": 2,
+   "Souls": 2,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA088",
+   "Name": "Fighter",
+   "Subtitle": "Epic Hero",
+   "Description": "Asmor the Aweless What Asmor lacks in tactical acuity, he more than makes up for in impulsiveness. There's no door he won't kick down, much to the frustration of Arcadia's innkeepers.",
+   "Treasures": [
+    2
+   ],
+   "MinimumPlayers": 4,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 1,
+   "Health": 11,
+   "Wounds": 2,
+   "Souls": 2,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA089",
+   "Name": "Mage",
+   "Subtitle": "Epic Hero",
+   "Description": "Tempros the Time Marauder He would use his control over time to end all crime. In his hands, this world could be a utopia.",
+   "Treasures": [
+    3
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 1,
+   "Health": 11,
+   "Wounds": 2,
+   "Souls": 2,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA090",
+   "Name": "Thief",
+   "Subtitle": "Epic Hero",
+   "Description": "Chia Kang, Mystical Warlock of Yu \"Hey, Listen! I think this Boss Monster is--\" \"Silence, fairy! I will crush him through fire and flames in the name of the Order!",
+   "Treasures": [
+    3
+   ],
+   "MinimumPlayers": 3,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 1,
+   "Health": 13,
+   "Wounds": 2,
+   "Souls": 2,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA091",
+   "Name": "Thief",
+   "Subtitle": "Epic Hero",
+   "Description": "Terric Warhelm, Half-Elf Archmage \"Weakened by an evil curse, this once-mighty warrior donned the red robes and turned to magic. His spells are chnneled through a magical helmet of untold power.\"",
+   "Treasures": [
+    3
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 1,
+   "Health": 13,
+   "Wounds": 2,
+   "Souls": 2,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA092",
+   "Name": "Thief",
+   "Subtitle": "Epic Hero",
+   "Description": "Wayward, the Drifter He is a traveler from a strange land whose only goal is to do whatever is right... whatever that means.",
+   "Treasures": [
+    3
+   ],
+   "MinimumPlayers": 4,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 1,
+   "Health": 11,
+   "Wounds": 2,
+   "Souls": 2,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA093",
+   "Name": "Thief",
+   "Subtitle": "Epic Hero",
+   "Description": "Hya, Legendary Shinobi Arcadia's deadliest ninja,Hya lives by the proverb that revenge is a dish best served cold.",
+   "Treasures": [
+    4
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 1,
+   "Health": 11,
+   "Wounds": 2,
+   "Souls": 2,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA094",
+   "Name": "Thief",
+   "Subtitle": "Epic Hero",
+   "Description": "Blackbeard Jake He hid the treasure he won from insult swordfighting in a booty-trap filled cave on the coast of a town called Astoria.",
+   "Treasures": [
+    4
+   ],
+   "MinimumPlayers": 3,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 1,
+   "Health": 13,
+   "Wounds": 2,
+   "Souls": 2,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA095",
+   "Name": "Thief",
+   "Subtitle": "Epic Hero",
+   "Description": "Cecil Leoran, Master Factotum The ultimate jack-of-all-trades, Cecil isn't above taking mercenary work to earn gold and glory. But his real goal has never changed: to find a way to return his betrothed Nevra, sealed into a rapier, to her original form.",
+   "Treasures": [
+    4
+   ],
+   "MinimumPlayers": 2,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  },
+  {
+   "HeroType": 1,
+   "Health": 13,
+   "Wounds": 2,
+   "Souls": 2,
+   "HasStar": false,
+   "LuredCondition": {
+    "TypeName": "LuredByTreasures",
+    "Parameters": null
+   },
+   "Ability": null,
+   "ReplacesCardNumber": null,
+   "CardNumber": "BMA096",
+   "Name": "Thief",
+   "Subtitle": "Epic Hero",
+   "Description": "Wallbanger Basketweaver This humble halfing world rather spend his days weaving baskets and eating crumbly cookies. But when adventure calls, he proves a first-rate burglar",
+   "Treasures": [
+    4
+   ],
+   "MinimumPlayers": 4,
+   "Quantity": 1,
+   "AlternativeArts": 0
+  }
+ ]
+}
