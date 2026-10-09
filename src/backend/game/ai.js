@@ -218,6 +218,11 @@ function scoreActivate(G, pid, roomIndex, otherIndex) {
   if (room.id === 'THK021' && (G.townItems || []).length) return 6;
   if (room.id === 'THK022' || room.id === 'THK023') return 5;
   if (room.id === 'BMA009' && (G.decks.roomDiscard?.length || G.decks.spellDiscard?.length)) return 2;
+  if (room.id === 'RMB015') {
+    const opp = G.players[room.guardtowerOpponent];
+    const hasSpell = opp && (opp.hand || []).some((c) => c.isSpell);
+    return hasSpell && (p.coins || 0) >= 1 ? 6 : -5;
+  }
   // Destroying your own rooms is usually worse than passing.
   return -8;
 }

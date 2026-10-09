@@ -1420,6 +1420,7 @@ const ACTIVATED_ABILITY_ROOMS = new Set([
   'RMB019', // Haunted Cavern
   'RMB038', // Efreet's Chamber
   'CRL012', // The Omega 42
+  'RMB015', // Ancient Guardtower
 ]);
 
 function hasActivatedAbility(roomId) {
@@ -1508,6 +1509,9 @@ function canOfferActivatedRoom(G, p, room, roomIndex) {
   }
   if (room.id === 'CRL012') {
     return p.hand.some((c) => c.isRoom && c.advanced);
+  }
+  if (room.id === 'RMB015') {
+    return !room.usedThisTurn && room.guardtowerOpponent != null && (p.coins || 0) >= 1;
   }
   return true;
 }

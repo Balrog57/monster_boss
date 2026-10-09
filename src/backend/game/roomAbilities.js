@@ -12,7 +12,7 @@ import { discardRoomToPile, activeRoom, allActiveRooms, destroyRoom, countVisibl
 export { dungeonTreasures };
 import { drawCards, PHASE, HEROES } from './cardData.js';
 import { dungeonIgnoresRoomAbilities, heroIgnoresRoomAbilities, applyItemReward, addHeroHealthBonus, killHeroInDungeon } from './items.js';
-import { gainCoin, resolveGrukTarget, spendCoin, attachMiniboss, resolveMinibossPendingChoice } from './minibosses.js';
+import { gainCoin, resolveGrukTarget, spendCoin, attachMiniboss, resolveMinibossPendingChoice, monsterAcademyPayout } from './minibosses.js';
 import {
   applyTaggedOnBuild,
   applyTaggedOnHeroDie,
@@ -234,6 +234,42 @@ export function onBuildRoom(G, ctx, playerId, room) {
         bossName: 'Alien Excavator',
         message: 'Alien Excavator: choose a covered Room to uncover',
         options: covered.map((o) => ({ roomIndex: o.i, room: o.covered, playerId: Number(playerId) })),
+      };
+    }
+    case 'RMB014': { // Monster Academy: reveal all minibosses in hand, gain 2 coins each
+      monsterAcademyPayout(G, playerId);
+      break;
+    }
+    case 'RMB015': { // Ancient Guardtower: choose an opponent
+      const opps = opponentsWith(G, playerId, () => true);
+      if (!opps.length) {
+        G.logs.push('Ancient Guardtower: no opponent available.');
+        break;
+      }
+      if (opps.length === 1) {
+        room.guardtowerOpponent = Number(opps[0][0]);
+        G.logs.push(`Ancient Guardtower: targeted ${opps[0][1]?.boss?.name || 'opponent'}.`);
+        break;
+      }
+      return pickOpponentChoice(G, playerId, 'Ancient Guardtower', 'Choose an opponent for Ancient Guardtower', 'guardtower-target', opps, { room });
+    }
+    case 'RMB020': { // Minion Clinic: place up to 3 coins on it, recover 1 card from discard per coin
+      const maxCoins = Math.min(3, player.coins || 0);
+      if (maxCoins <= 0) {
+        G.logs.push('Minion Clinic: no Coins available to place.');
+        break;
+      }
+      const options = [];
+      for (let n = 0; n <= maxCoins; n++) {
+        options.push({ coins: n, label: n === 0 ? 'Place 0 Coins' : `Place ${n} Coin${n > 1 ? 's' : ''}` });
+      }
+      return {
+        type: 'clinic-coins',
+        playerId: Number(playerId),
+        bossName: 'Minion Clinic',
+        message: 'Minion Clinic: place up to 3 Coins on this Room',
+        room,
+        options,
       };
     }
     case 'RMB018': { // Vampire Lab: may discard a Miniboss to heal a Wound
@@ -1348,6 +1384,46 @@ export function resolveLevelUpChoice(G, ctx, playerId, optionIndex) {
       else if (choice.action === 'steal-random') stealRandomCardFrom(G, playerId, targetId, choice.bossName);
       else if (choice.action === 'discard-room') offerRoomDiscardFromHand(G, targetId, choice.bossName, choice.destroyPlayerId, choice.destroyRoomIndex);
       else if (choice.action === 'exchange-hoard') exchangeHoard(G, playerId, targetId);
+      else if (choice.action === 'guardtower-target') {
+        const targetRoom = choice.room || (G.players[playerId]?.dungeon || []).map(activeRoom).find((r) => r?.id === 'RMB015');
+        if (targetRoom) {
+          targetRoom.guardtowerOpponent = Number(targetId);
+          G.logs.push(`Ancient Guardtower: targeted ${G.players[targetId]?.boss?.name || 'opponent'}.`);
+        }
+      }
+      break;
+    }
+    case 'clinic-coins': {
+      const player = G.players[playerId];
+      const n = option.coins || 0;
+      const room = choice.room;
+      if (n > 0 && room) {
+        player.coins = (player.coins || 0) - n;
+        room.coinsOn = (room.coinsOn || 0) + n;
+        G.logs.push(`Minion Clinic: placed ${n} Coin${n > 1 ? 's' : ''} on the Room.`);
+        const opts = discardCardOptions(G, 'any');
+        if (opts.length === 0) {
+          G.logs.push('Minion Clinic: discard piles are empty.');
+        } else if (opts.length <= n) {
+          for (const opt of opts) {
+            takeDiscardCard(G, player, opt);
+            G.logs.push(`Minion Clinic: recovered ${opt.card.name}.`);
+          }
+        } else {
+          G.pendingChoice = {
+            type: 'recover-card',
+            resume: false,
+            playerId: Number(playerId),
+            bossName: 'Minion Clinic',
+            message: `Minion Clinic: choose a card from discard (${n} remaining)`,
+            remaining: n,
+            options: opts,
+          };
+          return null;
+        }
+      } else {
+        G.logs.push('Minion Clinic: placed 0 Coins.');
+      }
       break;
     }
     case 'search-advanced': {
@@ -1738,6 +1814,12 @@ export function aiResolveLevelUpChoice(G, choice) {
     case 'shellda-swap':
       // Optional end-of-turn swap: the AI passes rather than reshuffling dungeons.
       return -1;
+    case 'clinic-coins': {
+      const opts = discardCardOptions(G, 'any');
+      if (!opts.length) return 0;
+      const maxPossible = (choice.options || []).length - 1;
+      return Math.min(opts.length, maxPossible);
+    }
     case 'recover-card':
       return 0;
     case 'pick-hero':
@@ -2115,6 +2197,31 @@ export function activateRoomAbility(G, ctx, playerId, roomIndex, otherRoomIndex 
       if (opps.length > 0) {
         discardRandomSpellFrom(G, opps[0][0], 'Spectral Bomb', playerId);
       }
+      return null;
+    }
+    case 'RMB015': { // Ancient Guardtower: give chosen opponent 1 Coin to take 1 random Spell card
+      if (room.usedThisTurn) return 'already used this turn';
+      const targetId = room.guardtowerOpponent;
+      if (targetId == null) return 'no chosen opponent';
+      const p = G.players[playerId];
+      if ((p.coins || 0) < 1) return 'not enough coins';
+      const opp = G.players[targetId];
+      if (!opp || opp.eliminated) return 'target opponent not available';
+      p.coins -= 1;
+      opp.coins = (opp.coins || 0) + 1;
+      room.usedThisTurn = true;
+      const spellIndices = [];
+      (opp.hand || []).forEach((c, idx) => {
+        if (c.isSpell) spellIndices.push(idx);
+      });
+      if (spellIndices.length === 0) {
+        G.logs.push(`Ancient Guardtower: paid 1 Coin to ${opp.boss?.name || 'opponent'}, but they have no Spell.`);
+        return null;
+      }
+      const chosenIdx = spellIndices[Math.floor(Math.random() * spellIndices.length)];
+      const stolen = opp.hand.splice(chosenIdx, 1)[0];
+      p.hand.push(stolen);
+      G.logs.push(`Ancient Guardtower: paid 1 Coin to ${opp.boss?.name || 'opponent'} and took ${stolen.name}.`);
       return null;
     }
     case 'RMB042': { // Unstable Mine: destroy this room -> gain 3 coins

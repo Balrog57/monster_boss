@@ -45,6 +45,22 @@ export function spendCoin(G, playerId, n = 1) {
   return true;
 }
 
+/** Monster Academy (RMB014): reveal every Miniboss in hand, gain 2 Coins each.
+ * Revealing is free and the cards stay in hand, so revealing all of them is
+ * always optimal — no player choice needed. Shared by the on-build trigger
+ * (roomAbilities.onBuildRoom) and the on-uncover trigger (engine). */
+export function monsterAcademyPayout(G, playerId) {
+  const p = G.players[playerId] ?? G.players[String(playerId)];
+  if (!p) return;
+  const revealed = (p.hand || []).filter((c) => c.isMiniboss);
+  if (!revealed.length) {
+    G.logs.push('Monster Academy: no Miniboss in hand to reveal.');
+    return;
+  }
+  gainCoin(G, playerId, 2 * revealed.length, 'Monster Academy');
+  G.logs.push(`Monster Academy: revealed ${revealed.map((c) => c.name || c.id).join(', ')}.`);
+}
+
 /** Miniboss attached to a room stack. */
 export function getMiniboss(stack) {
   return stack?.miniboss || null;

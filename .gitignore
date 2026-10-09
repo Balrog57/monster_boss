@@ -2,7 +2,8 @@ node_modules
 
 # Original APK + decompiled reference (local-only, see apk-original/README.md;
 # never committed, never shipped — excluded from the Docker context too)
-apk-original/
+apk-original/*
+!apk-original/README.md
 boss-monster-2-4-12.apk
 boss-monster-2-4-12/
 boss-monster-2-2-6-android.apk

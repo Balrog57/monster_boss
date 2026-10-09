@@ -26,6 +26,13 @@ function countFromText(text, kind) {
   return Number(m[1]) || 1;
 }
 
+// Rooms whose coin text is fully handled by a specific onBuildRoom case in
+// roomAbilities.js (choice / cost / counters). The generic text-driven grant
+// below must not fire for them. NB: older rooms (RMB036/037/050) intentionally
+// keep the generic grant — their specific cases are written against it
+// (Loot Box / Crystal Ballroom spend the granted coins, Trophy Room adds up).
+const SPECIFIC_COIN_ROOMS = new Set(['RMB014', 'RMB015', 'RMB020']);
+
 export function applyTaggedOnBuild(G, playerId, room) {
   const p = player(G, playerId);
   if (!p || !room) return;
@@ -33,7 +40,7 @@ export function applyTaggedOnBuild(G, playerId, room) {
   const desc = room.description || '';
 
   const coins = room.gainCoin || countFromText(desc, 'coin');
-  if (coins > 0 && (room.gainCoin || /when you build/i.test(desc))) {
+  if (coins > 0 && !SPECIFIC_COIN_ROOMS.has(room.id) && (room.gainCoin || /when you build/i.test(desc))) {
     gainCoin(G, playerId, coins, name);
   }
   if (room.onBuildDrawRoom) {

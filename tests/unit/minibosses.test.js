@@ -1,13 +1,13 @@
-﻿import { describe, it } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { setupMatch, applyMove } from '../../src/backend/game/reducer.js';
 import { castSpell, emptyEffects } from '../../src/backend/game/spellEffects.js';
 import { PHASE } from '../../src/backend/game/cardData.js';
-import { roomDamageWithModifiers, destroyRoom } from '../../src/backend/game/engine.js';
+import { roomDamageWithModifiers, destroyRoom, applyRoomUncovered } from '../../src/backend/game/engine.js';
 import { activateRoomAbility, onBuildRoom, onHeroDiedInRoom, resolveLevelUpChoice } from '../../src/backend/game/roomAbilities.js';
 import { canUseHandRoom, notifyOpponentMiniboss, useHandRoomAbility } from '../../src/backend/game/handAbilities.js';
-import { applyTaggedOnHeroSurvive } from '../../src/backend/game/expansionEffects.js';
+import { applyTaggedOnHeroSurvive, applyTaggedOnBuild } from '../../src/backend/game/expansionEffects.js';
 import {
   activateMiniboss,
   beginningPhaseCoins,
@@ -831,6 +831,76 @@ describe('Rise of the Minibosses Rooms', () => {
     assert.deepEqual(G.players[0].hand.map((c) => c.id), ['kept']);
     assert.equal(G.decks.spellDiscard.length, 1);
     assert.equal(G.players[0].dungeon[0][0].usedThisTurn, true);
+  });
+
+  it('RMB014 Monster Academy reveals Minibosses in hand to gain 2 Coins each on build and uncover', () => {
+    const { G, ctx } = setup([[room('RMB014', { id: 'RMB014', name: 'Monster Academy', type: 'monster' })]]);
+    G.players[0].coins = 0;
+    G.players[0].hand = [
+      { id: 'mb1', name: 'Miniboss 1', isMiniboss: true },
+      { id: 'mb2', name: 'Miniboss 2', isMiniboss: true },
+      { id: 'r1', name: 'Normal Room', isRoom: true },
+    ];
+    onBuildRoom(G, ctx, 0, G.players[0].dungeon[0][0]);
+    assert.equal(G.players[0].coins, 4);
+
+    // Uncover trigger:
+    applyRoomUncovered(G, 0, 0, G.players[0].dungeon[0][0]);
+    assert.equal(G.players[0].coins, 8);
+  });
+
+  it('RMB015 Ancient Guardtower targets an opponent on build and pays 1 Coin to steal a Spell', () => {
+    const { G, ctx } = setup([[room('RMB015', { id: 'RMB015', name: 'Ancient Guardtower', type: 'trap' })]], [[room('dummy')]]);
+    onBuildRoom(G, ctx, 0, G.players[0].dungeon[0][0]);
+    assert.equal(G.players[0].dungeon[0][0].guardtowerOpponent, 1);
+
+    G.players[0].coins = 2;
+    G.players[1].coins = 0;
+    G.players[1].hand = [spell('stolen_spell')];
+
+    assert.equal(activateRoomAbility(G, ctx, 0, 0), null);
+    assert.equal(G.players[0].coins, 1);
+    assert.equal(G.players[1].coins, 1);
+    assert.deepEqual(G.players[0].hand.map((c) => c.id), ['stolen_spell']);
+    assert.equal(G.players[1].hand.length, 0);
+  });
+
+  it('RMB020 Minion Clinic places Coins on build, recovers discard cards, and reduces damage', () => {
+    const r = room('RMB020', { id: 'RMB020', name: 'Minion Clinic', type: 'monster', damage: 3 });
+    const { G, ctx } = setup([[r]]);
+    G.players[0].coins = 3;
+    G.decks.roomDiscard = [room('discarded_room')];
+    G.decks.spellDiscard = [spell('discarded_spell')];
+
+    const choice = onBuildRoom(G, ctx, 0, r);
+    assert.equal(choice.type, 'clinic-coins');
+    assert.equal(choice.options.length, 4); // 0, 1, 2, 3
+
+    // Resolve choice with 2 coins
+    G.pendingChoice = choice;
+    resolveLevelUpChoice(G, ctx, 0, 2); // pick 2 coins
+
+    assert.equal(G.players[0].coins, 1); // 3 - 2 = 1
+    assert.equal(r.coinsOn, 2);
+    // 2 cards recovered
+    assert.equal(G.players[0].hand.length, 2);
+
+    // Damage reduced by 2 coins
+    const dmg = roomDamageWithModifiers(G, 0, 0, { id: 'hero' });
+    assert.equal(dmg, 1); // 3 - 2 = 1
+  });
+
+  it('RMB040 Delver\'s Quarry draws a Room card on build and on uncover', () => {
+    const r = room('RMB040', { id: 'RMB040', name: 'Delver\'s Quarry', type: 'trap', onBuildDrawRoom: true, onUncover: 'draw-room' });
+    const { G } = setup([[r]]);
+    G.decks.rooms = [room('drawn1'), room('drawn2')];
+    G.players[0].hand = [];
+
+    applyTaggedOnBuild(G, 0, r);
+    assert.deepEqual(G.players[0].hand.map((c) => c.id), ['drawn2']);
+
+    applyRoomUncovered(G, 0, 0, r);
+    assert.deepEqual(G.players[0].hand.map((c) => c.id), ['drawn2', 'drawn1']);
   });
 });
 

@@ -7,6 +7,7 @@ import { PHASE, TREASURE_NAMES, playerOrderByXP, totalSouls, totalWounds, drawCa
 import {
   onRoomDestroyed, gainCoin, zaraCountsAllTreasures, minibossExtraTreasures,
   minibossDamageBonus, rockyAllowsAnyBuild, icicleIgnoresHeroAbilities,
+  monsterAcademyPayout,
 } from './minibosses.js';
 import { imperiatrixDamageBonus, killaDamageBonus, scottDamageBonus } from './expansionBosses.js';
 
@@ -459,6 +460,9 @@ export function applyRoomUncovered(G, playerId, roomIndex, uncovered) {
     const card = G.decks.rooms.pop();
     if (card) { p.hand.push(card); G.logs.push(`${uncovered.name} uncovered: drew ${card.name}.`); }
   }
+  if (uncovered.id === 'RMB014') {
+    monsterAcademyPayout(G, playerId);
+  }
   if (uncovered.id === 'TNL044') {
     G.effects.roomDamageBonus = G.effects.roomDamageBonus || [];
     G.effects.roomDamageBonus.push({ playerId, roomIndex, amount: 3 });
@@ -574,6 +578,11 @@ export function roomDamageWithModifiers(G, playerId, roomIndex, hero) {
   if (room.id === 'BMA020' && !skipAbilities) {
     const monsterCount = allActiveRooms(p.dungeon).filter(r => r && r.type === 'monster').length;
     dmg = monsterCount;
+  }
+
+  // Minion Clinic: -1 damage for every Coin placed on it (ability text)
+  if (room.id === 'RMB020' && !skipAbilities) {
+    dmg = Math.max(0, dmg - (room.coinsOn || 0));
   }
 
   // Goblin Suit: ignore ordinary Monster Rooms

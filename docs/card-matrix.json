@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-08T22:05:49.065Z",
+  "generatedAt": "2026-10-09T11:42:00.380Z",
   "cards": {
     "BMA001": {
       "id": "BMA001",
@@ -990,11 +990,9 @@
       "set": "minibosses",
       "text": "When you build or uncover this Room, gain (c) (c) for every miniboss you reveal from your hand.",
       "textCorrupt": false,
-      "status": "tagged",
+      "status": "explicit",
       "hasArt": false,
-      "tags": [
-        "gainCoin"
-      ]
+      "tags": []
     },
     "RMB015": {
       "id": "RMB015",
@@ -1003,11 +1001,9 @@
       "set": "minibosses",
       "text": "When you build this Room, choose one opponent. Once this turn you may give them (c) to take one random Spell card from them.",
       "textCorrupt": false,
-      "status": "tagged",
+      "status": "explicit",
       "hasArt": false,
-      "tags": [
-        "gainCoin"
-      ]
+      "tags": []
     },
     "RMB016": {
       "id": "RMB016",
@@ -1062,11 +1058,9 @@
       "set": "minibosses",
       "text": "When you build this Room, place up to three (c) on it. For each (c) you place, choose one card from the discard pile and put it in your hand. This Room has -1 for every (c) on it.",
       "textCorrupt": false,
-      "status": "tagged",
+      "status": "explicit",
       "hasArt": false,
-      "tags": [
-        "gainCoin"
-      ]
+      "tags": []
     },
     "RMB021": {
       "id": "RMB021",
