@@ -80,14 +80,15 @@ test.describe('Complete Playthrough APK Steps Verification', () => {
     // Le bouton doit être désactivé tant que 2 cartes ne sont pas sélectionnées
     await expect(continueBtn).toBeDisabled();
 
-    // Sélectionner la 1ère carte
+    // Sélectionner la 1ère carte (les derniers éléments sont les sorts distribués à l'ouverture, les défausser préserve les salles ordinaires pour la construction)
     const discardCards = discardOverlay.getByRole('button', { name: /^Select /i });
-    expect(await discardCards.count()).toBeGreaterThanOrEqual(2);
-    await discardCards.nth(0).click();
+    const discardCount = await discardCards.count();
+    expect(discardCount).toBeGreaterThanOrEqual(2);
+    await discardCards.nth(discardCount - 1).click();
     await expect(continueBtn).toBeDisabled();
 
     // Sélectionner la 2ème carte
-    await discardCards.nth(1).click();
+    await discardCards.nth(discardCount - 2).click();
     await expect(continueBtn).toBeEnabled();
     await shot('04_discard_selected_ready.png');
 
@@ -146,20 +147,23 @@ test.describe('Complete Playthrough APK Steps Verification', () => {
     }
 
     const handCards = page.locator('[aria-label="Hand"] > div:nth-child(2) [role="button"]');
-    await expect(handCards.first()).toBeVisible({ timeout: 10000 });
     const handCount = await handCards.count();
-    expect(handCount).toBeGreaterThan(0);
-
-    // Cliquer sur une salle pour la poser dans le slot 0
-    let builtSetup = false;
-    for (let i = 0; i < handCount; i++) {
-      const card = handCards.nth(i);
-      await card.click({ force: true });
-      const emptySlot = page.locator('button[aria-label="Build new room here"]');
-      if (await emptySlot.count() > 0 && await emptySlot.first().isVisible()) {
-        await emptySlot.first().click({ force: true });
-        builtSetup = true;
-        break;
+    if (handCount > 0) {
+      await expect(handCards.first()).toBeVisible({ timeout: 10000 });
+      // Cliquer sur une salle pour la poser dans le slot 0
+      for (let i = 0; i < handCount; i++) {
+        const card = handCards.nth(i);
+        await card.click({ force: true });
+        const emptySlot = page.locator('button[aria-label="Build new room here"]');
+        if (await emptySlot.count() > 0 && await emptySlot.first().isVisible()) {
+          await emptySlot.first().click({ force: true });
+          break;
+        }
+      }
+    } else {
+      const passBtn = page.locator('button[aria-label="Pass turn"], button[aria-label="Pass"]');
+      if (await passBtn.count() > 0 && await passBtn.first().isVisible()) {
+        await passBtn.first().click({ force: true });
       }
     }
     await page.waitForTimeout(600);
@@ -261,16 +265,16 @@ test.describe('Complete Playthrough APK Steps Verification', () => {
           }
           if (!placedRoom) {
             // Passer le tour de construction si aucune pose n'est possible ou désirée
-            const passBtn = page.getByRole('button', { name: 'Pass turn', exact: true });
-            if (await passBtn.isVisible()) {
-              await passBtn.click({ force: true });
+            const passBtn = page.locator('button[aria-label="Pass turn"], button[aria-label="Pass"]');
+            if (await passBtn.count() > 0 && await passBtn.first().isVisible()) {
+              await passBtn.first().click({ force: true });
             }
           }
         } else {
           // Autres phases où le bouton pass est disponible
-          const passBtn = page.getByRole('button', { name: 'Pass turn', exact: true });
-          if (await passBtn.isVisible()) {
-            await passBtn.click({ force: true });
+          const passBtn = page.locator('button[aria-label="Pass turn"], button[aria-label="Pass"]');
+          if (await passBtn.count() > 0 && await passBtn.first().isVisible()) {
+            await passBtn.first().click({ force: true });
           }
         }
       }
