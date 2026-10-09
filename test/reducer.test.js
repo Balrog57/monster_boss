@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { setupMatch, applyMove, legalMoves } from '../server/reducer.js';
 import { PHASE, ROOMS, SPELLS } from '../src/cardData.js';
 import { aiPickMove } from '../src/ai.js';
@@ -206,6 +207,20 @@ describe('reducer base match', () => {
     for (const p of [PHASE.BOSS, PHASE.SETUP, PHASE.BUILD, PHASE.ADVENTURE]) {
       assert.ok(phases.has(p), `missing phase ${p}`);
     }
+  });
+
+  it('finishes a treasure-tie stalemate instead of pass-looping forever', () => {
+    // Regression: both players ended with identical treasure counts, so every
+    // town Hero tied and stayed in Town. The AI passed every Build phase
+    // (the build-over-advanced penalty scored every build below pass) and the
+    // game looped past the 8000-move cap at turn 1977. The pass guard in
+    // ai.js now forces a build that changes treasures and breaks the tie.
+    const fixture = JSON.parse(fs.readFileSync(new URL('./fixtures/stalled-tie-state.json', import.meta.url), 'utf8'));
+    assert.ok(fixture.G.town.length > 0, 'fixture must have town Heroes');
+    const { state: end, steps } = playUntil((s) => s.G.gameOver, fixture, 8000);
+    assert.equal(end.G.gameOver, true);
+    assert.ok(end.G.winner === 0 || end.G.winner === 1);
+    assert.ok(steps < 8000, `stalemate not broken (${steps} steps)`);
   });
 
   it('plays a complete human vs AI game without adventure pass deadlock', () => {

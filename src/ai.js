@@ -14,7 +14,7 @@ export function aiPickMove(G, ctx, playerID) {
 
   // Shared per-search memo: resolveBait is O(town x players) and docScarecrow
   // moves are (hand x town), so recomputing it per move would be quadratic.
-  const memo = {};
+  const memo = { canBuild: moves.some(m => m.type === 'buildRoom') };
   let best = moves[0];
   let bestScore = scoreMove(G, ctx, Number(playerID), moves[0], memo);
   for (let i = 1; i < moves.length; i++) {
@@ -139,8 +139,17 @@ function scoreMove(G, ctx, pid, move, memo = {}) {
       if (!card?.isSpell) return -10;
       return 11 - discardCost(card) * 0.5;
     }
-    case 'pass':
+    case 'pass': {
+      // Stalemate guard: when every town Hero is stuck on a treasure tie,
+      // nothing can be lured until someone builds over a Room and changes
+      // their treasures. A pass loop would otherwise never end the game.
+      if (G.phase === PHASE.BUILD && memo.canBuild && (G.town || []).length) {
+        if (!memo.bait) memo.bait = resolveBait(G);
+        const nothingLureable = memo.bait.every(a => a.stayInTown || a.targetPlayerId == null);
+        if (nothingLureable) return -40;
+      }
       return -1;
+    }
     default:
       return 0;
   }

@@ -1,0 +1,2062 @@
+{
+ "G": {
+  "players": {
+   "0": {
+    "boss": {
+     "id": "BMA007",
+     "name": "Cleopatra",
+     "xp": 850,
+     "treasures": [
+      4
+     ],
+     "advanced": false,
+     "levelUpDesc": "Level Up: You may search the Room Deck or discard pile for an Advanced Trap Room. You may immediately build the room (over a room with a matching Treasure type).",
+     "subtitle": "Mother of Mummies",
+     "set": "base",
+     "quantity": 1
+    },
+    "dungeon": [
+     [
+      {
+       "id": "BMA015",
+       "name": "Goblin Armory",
+       "advanced": false,
+       "type": "monster",
+       "damage": 1,
+       "treasures": [
+        2,
+        2
+       ],
+       "quantity": 3,
+       "description": "Monster Rooms adjacent to this room deal +1 damage.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "_enteredThisTurn": false,
+       "usedThisTurn": false
+      },
+      {
+       "id": "BMA020",
+       "name": "Monster's Ballroom",
+       "advanced": true,
+       "type": "monster",
+       "damage": 0,
+       "treasures": [
+        2
+       ],
+       "quantity": 2,
+       "description": "This room's damage is equal to the number of Monster rooms in your dungeon.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "usedThisTurn": false,
+       "_enteredThisTurn": false
+      }
+     ],
+     [
+      {
+       "id": "BMA023",
+       "name": "Haunted Library",
+       "advanced": false,
+       "type": "trap",
+       "damage": 1,
+       "treasures": [
+        3
+       ],
+       "quantity": 2,
+       "description": "At the beginning of your turn, you may draw from the Spell deck instead of the Room deck.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "_enteredThisTurn": false,
+       "usedThisTurn": false
+      },
+      {
+       "id": "BMA025",
+       "name": "All-Seeing Eye",
+       "advanced": true,
+       "type": "trap",
+       "damage": 3,
+       "treasures": [
+        3
+       ],
+       "quantity": 2,
+       "description": "Once per turn when an opponent plays a Spell card, you may discard a Spell card to cancel its effect.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "usedThisTurn": false,
+       "_enteredThisTurn": false
+      }
+     ],
+     [
+      {
+       "id": "BMA029",
+       "name": "Dizzygas Hallway",
+       "advanced": false,
+       "type": "trap",
+       "damage": 1,
+       "treasures": [
+        4
+       ],
+       "quantity": 3,
+       "description": "If the next room in your dungeon is a Trap room, it deals +2 damage.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "_enteredThisTurn": false,
+       "usedThisTurn": false
+      },
+      {
+       "id": "BMA031",
+       "name": "Recycling Center",
+       "advanced": true,
+       "type": "trap",
+       "damage": 3,
+       "treasures": [
+        4
+       ],
+       "quantity": 2,
+       "description": "When another room in your dungeon is destroyed, you may draw two Room cards.",
+       "set": "base",
+       "isRoom": true,
+       "_enteredThisTurn": false,
+       "usedThisTurn": false
+      }
+     ],
+     [
+      {
+       "id": "BMA016",
+       "name": "Golem Factory",
+       "advanced": false,
+       "type": "monster",
+       "damage": 2,
+       "treasures": [
+        2
+       ],
+       "quantity": 3,
+       "description": "Once per turn, if a hero dies in this room, draw a Room card.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "usedThisTurn": false,
+       "_enteredThisTurn": false
+      },
+      {
+       "id": "BMA018",
+       "name": "Neanderthal Cave",
+       "advanced": false,
+       "type": "monster",
+       "damage": 3,
+       "treasures": [
+        2
+       ],
+       "quantity": 3,
+       "description": "You cannot build an Advanced Room on Neanderthal Cave.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "usedThisTurn": false,
+       "_enteredThisTurn": false
+      },
+      {
+       "id": "BMA016",
+       "name": "Golem Factory",
+       "advanced": false,
+       "type": "monster",
+       "damage": 2,
+       "treasures": [
+        2
+       ],
+       "quantity": 3,
+       "description": "Once per turn, if a hero dies in this room, draw a Room card.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "usedThisTurn": false,
+       "_enteredThisTurn": false
+      },
+      {
+       "id": "BMA020",
+       "name": "Monster's Ballroom",
+       "advanced": true,
+       "type": "monster",
+       "damage": 0,
+       "treasures": [
+        2
+       ],
+       "quantity": 2,
+       "description": "This room's damage is equal to the number of Monster rooms in your dungeon.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "usedThisTurn": false,
+       "_enteredThisTurn": false
+      }
+     ],
+     [
+      {
+       "id": "BMA010",
+       "name": "Open Grave",
+       "advanced": false,
+       "type": "trap",
+       "damage": 2,
+       "treasures": [
+        1
+       ],
+       "quantity": 2,
+       "description": "Once per turn, if a Hero dies in this room, choose one Room card from the discard pile and put into your hand.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "usedThisTurn": false,
+       "_enteredThisTurn": false
+      },
+      {
+       "id": "BMA013",
+       "name": "Dracolich Lair",
+       "advanced": true,
+       "type": "monster",
+       "damage": 3,
+       "treasures": [
+        1
+       ],
+       "quantity": 2,
+       "description": "Once per turn, you may discard two Room card to choose one Room card from the discard pile and put it into your hand.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "usedThisTurn": false,
+       "_enteredThisTurn": false
+      }
+     ]
+    ],
+    "hand": [
+     {
+      "id": "BMA026",
+      "name": "Liger's Den",
+      "advanced": true,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+       3
+      ],
+      "quantity": 2,
+      "description": "Once per turn when you play a Spell card, draw a Spell card.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA017",
+      "name": "Minotaur's Maze",
+      "advanced": false,
+      "type": "monster",
+      "damage": 0,
+      "treasures": [
+       2
+      ],
+      "quantity": 2,
+      "description": "The first time a Hero enters this room, send it back one room.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA031",
+      "name": "Recycling Center",
+      "advanced": true,
+      "type": "trap",
+      "damage": 3,
+      "treasures": [
+       4
+      ],
+      "quantity": 2,
+      "description": "When another room in your dungeon is destroyed, you may draw two Room cards.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA012",
+      "name": "Succubus Spa",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+       1
+      ],
+      "quantity": 3,
+      "description": "Once per turn, if a Hero Dies in this room, choose an opponent. Take a random Room or Spell card from that opponent's hand.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA054",
+      "name": "Trepidation",
+      "category": 2,
+      "quantity": 1,
+      "description": "Choose a player with at least two more Souls than you. No Hero enters that player's dungeon this turn. (Any Hero remain at the entrance to that dungeon.)",
+      "set": "base",
+      "isSpell": true
+     },
+     {
+      "id": "BMA035",
+      "name": "Dragon Hatchery",
+      "advanced": false,
+      "type": "monster",
+      "damage": 0,
+      "treasures": [
+       1,
+       3,
+       2,
+       4
+      ],
+      "quantity": 3,
+      "description": "(This room contains all four treasure types.)",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA034",
+      "name": "Construction Zone",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       2,
+       4
+      ],
+      "quantity": 2,
+      "description": "When you build this room, you may immediately build an additional Room.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA022",
+      "name": "Dark Laboratory",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       3,
+       3
+      ],
+      "quantity": 3,
+      "description": "When you build this room, draw two spell cards, then discard a Spell card.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA037",
+      "name": "Monstrous Monument",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       1,
+       2
+      ],
+      "quantity": 2,
+      "description": "When you build this room, choose one Monster Room from the discard pile and put it in your hand.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA033",
+      "name": "Centipede Tunnel",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+       2,
+       3
+      ],
+      "quantity": 2,
+      "description": "When you build this room, you may swap the placement of two Rooms in any dungeon.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA024",
+      "name": "Witch's Kitchen",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+       3
+      ],
+      "quantity": 3,
+      "description": "Once per turn, you may discard a Monster Room card to draw a Spell card.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA015",
+      "name": "Goblin Armory",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+       2,
+       2
+      ],
+      "quantity": 3,
+      "description": "Monster Rooms adjacent to this room deal +1 damage.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA039",
+      "name": "Zombie Prison",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+       1,
+       3
+      ],
+      "quantity": 2,
+      "description": "Destroy this room: Choose a dead Hero in an opponent's scorekeeping area. Send it back to the entrance of that player's dungeon",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA009",
+      "name": "Dark Altar",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       1,
+       1
+      ],
+      "quantity": 3,
+      "description": "Destroy this Room: Choose one card from the discard pile and put it into your hand.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA010",
+      "name": "Open Grave",
+      "advanced": false,
+      "type": "trap",
+      "damage": 2,
+      "treasures": [
+       1
+      ],
+      "quantity": 2,
+      "description": "Once per turn, if a Hero dies in this room, choose one Room card from the discard pile and put into your hand.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA024",
+      "name": "Witch's Kitchen",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+       3
+      ],
+      "quantity": 3,
+      "description": "Once per turn, you may discard a Monster Room card to draw a Spell card.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA030",
+      "name": "Jackpot Stash",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       4,
+       4
+      ],
+      "quantity": 3,
+      "description": "Destroy this room: Double the treasure value of your other rooms until end of turn.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA036",
+      "name": "Mimic Vault",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       3,
+       4
+      ],
+      "quantity": 2,
+      "description": "When you build this room. Choose one ordinary Hero in town and place it on the entrance to your dungeon.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA015",
+      "name": "Goblin Armory",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+       2,
+       2
+      ],
+      "quantity": 3,
+      "description": "Monster Rooms adjacent to this room deal +1 damage.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA009",
+      "name": "Dark Altar",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       1,
+       1
+      ],
+      "quantity": 3,
+      "description": "Destroy this Room: Choose one card from the discard pile and put it into your hand.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA023",
+      "name": "Haunted Library",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       3
+      ],
+      "quantity": 2,
+      "description": "At the beginning of your turn, you may draw from the Spell deck instead of the Room deck.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA029",
+      "name": "Dizzygas Hallway",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       4
+      ],
+      "quantity": 3,
+      "description": "If the next room in your dungeon is a Trap room, it deals +2 damage.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA027",
+      "name": "Bottomless Pit",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       4
+      ],
+      "quantity": 3,
+      "description": "Destroy this room: Kill a Hero in this room.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA038",
+      "name": "Torture Chamber",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       1,
+       4
+      ],
+      "quantity": 2,
+      "description": "Destroy this room: Choose an opponent. That opponent discards a random Room card.",
+      "set": "base",
+      "isRoom": true
+     }
+    ],
+    "souls": [
+     {
+      "souls": 1,
+      "name": "Thief",
+      "class": "Thief",
+      "faceDown": true
+     },
+     {
+      "souls": 1,
+      "name": "Mage",
+      "class": "Mage",
+      "faceDown": true
+     },
+     {
+      "souls": 1,
+      "name": "Thief",
+      "class": "Thief",
+      "faceDown": true
+     },
+     {
+      "souls": 1,
+      "name": "Cleric",
+      "class": "Cleric",
+      "faceDown": true
+     },
+     {
+      "souls": 1,
+      "name": "Mage",
+      "class": "Mage",
+      "faceDown": true
+     },
+     {
+      "souls": 1,
+      "name": "Mage",
+      "class": "Mage",
+      "faceDown": true
+     }
+    ],
+    "wounds": [
+     {
+      "wounds": 1,
+      "souls": 1,
+      "name": "Thief",
+      "class": "Thief",
+      "faceDown": false
+     }
+    ],
+    "entrance": [],
+    "items": [],
+    "eliminated": false,
+    "leveledUp": true,
+    "buildsThisTurn": 0,
+    "isAI": true,
+    "passed": false,
+    "coins": 0,
+    "hasActed": false,
+    "_soulsAtTurnStart": 6,
+    "woundImmuneThisTurn": false,
+    "_scarecrowUsedThisBuild": false,
+    "_timebenderUsedThisTurn": false,
+    "promoteUsedThisTurn": false
+   },
+   "1": {
+    "boss": {
+     "id": "BMA003",
+     "name": "King Croak",
+     "xp": 800,
+     "treasures": [
+      2
+     ],
+     "advanced": false,
+     "levelUpDesc": "Level Up: You may search the Room Deck or discard pile for an Advanced Monster Room. You may immediately build the room (over a room with a matching Treasure type).",
+     "subtitle": "Sultan of the Sewers",
+     "set": "base",
+     "quantity": 1
+    },
+    "dungeon": [
+     [
+      {
+       "id": "BMA021",
+       "name": "Brainsucker Hive",
+       "advanced": false,
+       "type": "monster",
+       "damage": 2,
+       "treasures": [
+        3
+       ],
+       "quantity": 3,
+       "description": "Once per turn, if a Hero dies in this room, you may draw a Spell card.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "usedThisTurn": false,
+       "_enteredThisTurn": false
+      },
+      {
+       "id": "BMA025",
+       "name": "All-Seeing Eye",
+       "advanced": true,
+       "type": "trap",
+       "damage": 3,
+       "treasures": [
+        3
+       ],
+       "quantity": 2,
+       "description": "Once per turn when an opponent plays a Spell card, you may discard a Spell card to cancel its effect.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "usedThisTurn": false,
+       "_enteredThisTurn": false
+      }
+     ],
+     [
+      {
+       "id": "BMA028",
+       "name": "Boulder Ramp",
+       "advanced": false,
+       "type": "trap",
+       "damage": 1,
+       "treasures": [
+        4
+       ],
+       "quantity": 2,
+       "description": "Destroy another room in your dungeon: Deal 5 damage to a hero in this room.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "_enteredThisTurn": false,
+       "usedThisTurn": false
+      },
+      {
+       "id": "BMA032",
+       "name": "The Crushinator",
+       "advanced": true,
+       "type": "trap",
+       "damage": 2,
+       "treasures": [
+        4
+       ],
+       "quantity": 2,
+       "description": "Destroy another room in your dungeon: Your rooms deal +2 damage until end of turn.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "_enteredThisTurn": false,
+       "usedThisTurn": false
+      }
+     ],
+     [
+      {
+       "id": "BMA027",
+       "name": "Bottomless Pit",
+       "advanced": false,
+       "type": "trap",
+       "damage": 1,
+       "treasures": [
+        4
+       ],
+       "quantity": 3,
+       "description": "Destroy this room: Kill a Hero in this room.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "usedThisTurn": false,
+       "_enteredThisTurn": false
+      },
+      {
+       "id": "BMA032",
+       "name": "The Crushinator",
+       "advanced": true,
+       "type": "trap",
+       "damage": 2,
+       "treasures": [
+        4
+       ],
+       "quantity": 2,
+       "description": "Destroy another room in your dungeon: Your rooms deal +2 damage until end of turn.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "_enteredThisTurn": false,
+       "usedThisTurn": false
+      }
+     ],
+     [
+      {
+       "id": "BMA018",
+       "name": "Neanderthal Cave",
+       "advanced": false,
+       "type": "monster",
+       "damage": 3,
+       "treasures": [
+        2
+       ],
+       "quantity": 3,
+       "description": "You cannot build an Advanced Room on Neanderthal Cave.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "_enteredThisTurn": false,
+       "usedThisTurn": false
+      },
+      {
+       "id": "BMA019",
+       "name": "Beast Menagerie",
+       "advanced": true,
+       "type": "monster",
+       "damage": 4,
+       "treasures": [
+        2
+       ],
+       "quantity": 2,
+       "description": "Once per turn when you build another Monster room, draw a Room card.",
+       "set": "base",
+       "isRoom": true,
+       "usedThisTurn": false,
+       "_enteredThisTurn": false
+      }
+     ],
+     [
+      {
+       "id": "BMA039",
+       "name": "Zombie Prison",
+       "advanced": false,
+       "type": "monster",
+       "damage": 1,
+       "treasures": [
+        1,
+        3
+       ],
+       "quantity": 2,
+       "description": "Destroy this room: Choose a dead Hero in an opponent's scorekeeping area. Send it back to the entrance of that player's dungeon",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "usedThisTurn": false,
+       "_enteredThisTurn": false
+      },
+      {
+       "id": "BMA013",
+       "name": "Dracolich Lair",
+       "advanced": true,
+       "type": "monster",
+       "damage": 3,
+       "treasures": [
+        1
+       ],
+       "quantity": 2,
+       "description": "Once per turn, you may discard two Room card to choose one Room card from the discard pile and put it into your hand.",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "usedThisTurn": false,
+       "_enteredThisTurn": false
+      },
+      {
+       "id": "BMA014",
+       "name": "Vampire Bordello",
+       "advanced": true,
+       "type": "monster",
+       "damage": 3,
+       "treasures": [
+        1
+       ],
+       "quantity": 2,
+       "description": "Once per turn, if a Hero dies in this Room, you may heal one Wound. (Flip over one of your Wounds, adding its Soul value to your total.)",
+       "set": "base",
+       "isRoom": true,
+       "faceDown": false,
+       "builtThisTurn": true,
+       "usedThisTurn": false,
+       "_enteredThisTurn": false
+      }
+     ]
+    ],
+    "hand": [
+     {
+      "id": "BMA012",
+      "name": "Succubus Spa",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+       1
+      ],
+      "quantity": 3,
+      "description": "Once per turn, if a Hero Dies in this room, choose an opponent. Take a random Room or Spell card from that opponent's hand.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA009",
+      "name": "Dark Altar",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       1,
+       1
+      ],
+      "quantity": 3,
+      "description": "Destroy this Room: Choose one card from the discard pile and put it into your hand.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA022",
+      "name": "Dark Laboratory",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       3,
+       3
+      ],
+      "quantity": 3,
+      "description": "When you build this room, draw two spell cards, then discard a Spell card.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA011",
+      "name": "Specter's Sanctum",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+       1
+      ],
+      "quantity": 3,
+      "description": "When you build this room, choose an opponent. That opponent discards a random Spell card.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA017",
+      "name": "Minotaur's Maze",
+      "advanced": false,
+      "type": "monster",
+      "damage": 0,
+      "treasures": [
+       2
+      ],
+      "quantity": 2,
+      "description": "The first time a Hero enters this room, send it back one room.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA019",
+      "name": "Beast Menagerie",
+      "advanced": true,
+      "type": "monster",
+      "damage": 4,
+      "treasures": [
+       2
+      ],
+      "quantity": 2,
+      "description": "Once per turn when you build another Monster room, draw a Room card.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA035",
+      "name": "Dragon Hatchery",
+      "advanced": false,
+      "type": "monster",
+      "damage": 0,
+      "treasures": [
+       1,
+       3,
+       2,
+       4
+      ],
+      "quantity": 3,
+      "description": "(This room contains all four treasure types.)",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA034",
+      "name": "Construction Zone",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       2,
+       4
+      ],
+      "quantity": 2,
+      "description": "When you build this room, you may immediately build an additional Room.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA024",
+      "name": "Witch's Kitchen",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+       3
+      ],
+      "quantity": 3,
+      "description": "Once per turn, you may discard a Monster Room card to draw a Spell card.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA037",
+      "name": "Monstrous Monument",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       1,
+       2
+      ],
+      "quantity": 2,
+      "description": "When you build this room, choose one Monster Room from the discard pile and put it in your hand.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA011",
+      "name": "Specter's Sanctum",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+       1
+      ],
+      "quantity": 3,
+      "description": "When you build this room, choose an opponent. That opponent discards a random Spell card.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA026",
+      "name": "Liger's Den",
+      "advanced": true,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+       3
+      ],
+      "quantity": 2,
+      "description": "Once per turn when you play a Spell card, draw a Spell card.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA011",
+      "name": "Specter's Sanctum",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+       1
+      ],
+      "quantity": 3,
+      "description": "When you build this room, choose an opponent. That opponent discards a random Spell card.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA029",
+      "name": "Dizzygas Hallway",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       4
+      ],
+      "quantity": 3,
+      "description": "If the next room in your dungeon is a Trap room, it deals +2 damage.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA030",
+      "name": "Jackpot Stash",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       4,
+       4
+      ],
+      "quantity": 3,
+      "description": "Destroy this room: Double the treasure value of your other rooms until end of turn.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA030",
+      "name": "Jackpot Stash",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       4,
+       4
+      ],
+      "quantity": 3,
+      "description": "Destroy this room: Double the treasure value of your other rooms until end of turn.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA021",
+      "name": "Brainsucker Hive",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+       3
+      ],
+      "quantity": 3,
+      "description": "Once per turn, if a Hero dies in this room, you may draw a Spell card.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA033",
+      "name": "Centipede Tunnel",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+       2,
+       3
+      ],
+      "quantity": 2,
+      "description": "When you build this room, you may swap the placement of two Rooms in any dungeon.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA022",
+      "name": "Dark Laboratory",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       3,
+       3
+      ],
+      "quantity": 3,
+      "description": "When you build this room, draw two spell cards, then discard a Spell card.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA016",
+      "name": "Golem Factory",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+       2
+      ],
+      "quantity": 3,
+      "description": "Once per turn, if a hero dies in this room, draw a Room card.",
+      "set": "base",
+      "isRoom": true
+     },
+     {
+      "id": "BMA038",
+      "name": "Torture Chamber",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+       1,
+       4
+      ],
+      "quantity": 2,
+      "description": "Destroy this room: Choose an opponent. That opponent discards a random Room card.",
+      "set": "base",
+      "isRoom": true
+     }
+    ],
+    "souls": [
+     {
+      "souls": 1,
+      "name": "Fighter",
+      "class": "Fighter",
+      "faceDown": true
+     },
+     {
+      "souls": 1,
+      "name": "Fighter",
+      "class": "Fighter",
+      "faceDown": true
+     },
+     {
+      "souls": 1,
+      "name": "Fighter",
+      "class": "Fighter",
+      "faceDown": true
+     },
+     {
+      "souls": 1,
+      "name": "The Fool",
+      "class": "The Fool",
+      "faceDown": true
+     }
+    ],
+    "wounds": [],
+    "entrance": [],
+    "items": [],
+    "eliminated": false,
+    "leveledUp": true,
+    "buildsThisTurn": 0,
+    "isAI": true,
+    "passed": false,
+    "coins": 0,
+    "hasActed": false,
+    "_soulsAtTurnStart": 4,
+    "woundImmuneThisTurn": false,
+    "_scarecrowUsedThisBuild": false,
+    "_timebenderUsedThisTurn": false,
+    "promoteUsedThisTurn": false
+   }
+  },
+  "bossPicks": [
+   {
+    "id": "BMA008",
+    "name": "Gorgona",
+    "xp": 500,
+    "treasures": [
+     4
+    ],
+    "advanced": false,
+    "levelUpDesc": "Level Up: Choose a Hero in town. Immediately kill that Hero and place it face-down in your scorekeeping area.",
+    "subtitle": "Queen of Medusia",
+    "set": "base",
+    "quantity": 1
+   },
+   {
+    "id": "BMA004",
+    "name": "Robobo",
+    "xp": 400,
+    "treasures": [
+     2
+    ],
+    "advanced": false,
+    "levelUpDesc": "Level Up: Each opponent must choose and destroy one Room in his or her dungeon.",
+    "subtitle": "Angry Golem",
+    "set": "base",
+    "quantity": 1
+   },
+   {
+    "id": "BMA003",
+    "name": "King Croak",
+    "xp": 800,
+    "treasures": [
+     2
+    ],
+    "advanced": false,
+    "levelUpDesc": "Level Up: You may search the Room Deck or discard pile for an Advanced Monster Room. You may immediately build the room (over a room with a matching Treasure type).",
+    "subtitle": "Sultan of the Sewers",
+    "set": "base",
+    "quantity": 1
+   },
+   {
+    "id": "BMA007",
+    "name": "Cleopatra",
+    "xp": 850,
+    "treasures": [
+     4
+    ],
+    "advanced": false,
+    "levelUpDesc": "Level Up: You may search the Room Deck or discard pile for an Advanced Trap Room. You may immediately build the room (over a room with a matching Treasure type).",
+    "subtitle": "Mother of Mummies",
+    "set": "base",
+    "quantity": 1
+   }
+  ],
+  "numPlayers": 2,
+  "largeGame": false,
+  "expansionSets": [
+   "base"
+  ],
+  "xpOrder": [
+   0,
+   1
+  ],
+  "decks": {
+   "rooms": [],
+   "spells": [
+    {
+     "id": "BMA046",
+     "name": "Freeze",
+     "category": 2,
+     "quantity": 4,
+     "description": "Choose and deactivate one Room in any dungeon. (It has no damage, treasure, or abilities until end of turn.)",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA044",
+     "name": "Exhaustion",
+     "category": 4,
+     "quantity": 1,
+     "description": "Deal X damage to one Hero in your dungeon, where X is equal to the number of Rooms in your dungeon.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA051",
+     "name": "Princess in Peril",
+     "category": 1,
+     "quantity": 2,
+     "description": "Choose one Hero in town. Place it at the entrance to your dungeon.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA055",
+     "name": "Zombie Attack",
+     "category": 1,
+     "quantity": 2,
+     "description": "Choose a dead Hero in an opponent's scorekeeping area. Send it back to the entrance of that player's dungeon. It has +2 Health until end of turn.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA041",
+     "name": "Assassin",
+     "category": 3,
+     "quantity": 2,
+     "description": "Choose a Hero in an opponent's dungeon. Give that Hero +3 Health until end of turn.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA043",
+     "name": "Counterspell",
+     "category": 2,
+     "quantity": 2,
+     "description": "Choose a Spell card that has just been played. Cancel the effects of that Spell card. (It is sent to the discard pile.)",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA045",
+     "name": "Fear",
+     "category": 1,
+     "quantity": 2,
+     "description": "Choose a Hero in any dungeon and put it back in town.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA051",
+     "name": "Princess in Peril",
+     "category": 1,
+     "quantity": 2,
+     "description": "Choose one Hero in town. Place it at the entrance to your dungeon.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA045",
+     "name": "Fear",
+     "category": 1,
+     "quantity": 2,
+     "description": "Choose a Hero in any dungeon and put it back in town.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA049",
+     "name": "Kobold Strike",
+     "category": 2,
+     "quantity": 1,
+     "description": "No rooms can be built this turn. Any face-down room is returned to its owner's hand. (This spell cannot be played after rooms are revealed.)",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA046",
+     "name": "Freeze",
+     "category": 2,
+     "quantity": 4,
+     "description": "Choose and deactivate one Room in any dungeon. (It has no damage, treasure, or abilities until end of turn.)",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA046",
+     "name": "Freeze",
+     "category": 2,
+     "quantity": 4,
+     "description": "Choose and deactivate one Room in any dungeon. (It has no damage, treasure, or abilities until end of turn.)",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA052",
+     "name": "Soul Harvest",
+     "category": 1,
+     "quantity": 1,
+     "description": "Choose a face-down Hero in your scorekeeping area and remove it from the game. Draw two Spell cards.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA050",
+     "name": "Motivation",
+     "category": 3,
+     "quantity": 2,
+     "description": "If you have fewer rooms than an opponent, you may build an extra room this turn.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA050",
+     "name": "Motivation",
+     "category": 3,
+     "quantity": 2,
+     "description": "If you have fewer rooms than an opponent, you may build an extra room this turn.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA047",
+     "name": "Giant Size",
+     "category": 3,
+     "quantity": 2,
+     "description": "Give one Monster Rooom +3 damage until end of turn.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA053",
+     "name": "Teleportation",
+     "category": 1,
+     "quantity": 2,
+     "description": "Send a Hero in your dungeon back to the first room of your dungeon. (It continues to move through your dungeon this turn.)",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA042",
+     "name": "Cave-In",
+     "category": 4,
+     "quantity": 2,
+     "description": "Destroy a room in your dungeon. Any Hero in that room is destroyed.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA040",
+     "name": "Annihilator",
+     "category": 3,
+     "quantity": 2,
+     "description": "Give one Trap Room +3 damage until end of turn.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA041",
+     "name": "Assassin",
+     "category": 3,
+     "quantity": 2,
+     "description": "Choose a Hero in an opponent's dungeon. Give that Hero +3 Health until end of turn.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA040",
+     "name": "Annihilator",
+     "category": 3,
+     "quantity": 2,
+     "description": "Give one Trap Room +3 damage until end of turn.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA047",
+     "name": "Giant Size",
+     "category": 3,
+     "quantity": 2,
+     "description": "Give one Monster Rooom +3 damage until end of turn.",
+     "set": "base",
+     "isSpell": true
+    }
+   ],
+   "heroes": [],
+   "epics": [],
+   "items": [],
+   "minibosses": [],
+   "minibossDiscard": [],
+   "roomDiscard": [
+    {
+     "id": "BMA035",
+     "name": "Dragon Hatchery",
+     "advanced": false,
+     "type": "monster",
+     "damage": 0,
+     "treasures": [
+      1,
+      3,
+      2,
+      4
+     ],
+     "quantity": 3,
+     "description": "(This room contains all four treasure types.)",
+     "set": "base",
+     "isRoom": true
+    },
+    {
+     "id": "BMA036",
+     "name": "Mimic Vault",
+     "advanced": false,
+     "type": "trap",
+     "damage": 1,
+     "treasures": [
+      3,
+      4
+     ],
+     "quantity": 2,
+     "description": "When you build this room. Choose one ordinary Hero in town and place it on the entrance to your dungeon.",
+     "set": "base",
+     "isRoom": true
+    },
+    {
+     "id": "BMA028",
+     "name": "Boulder Ramp",
+     "advanced": false,
+     "type": "trap",
+     "damage": 1,
+     "treasures": [
+      4
+     ],
+     "quantity": 2,
+     "description": "Destroy another room in your dungeon: Deal 5 damage to a hero in this room.",
+     "set": "base",
+     "isRoom": true
+    },
+    {
+     "id": "BMA014",
+     "name": "Vampire Bordello",
+     "advanced": true,
+     "type": "monster",
+     "damage": 3,
+     "treasures": [
+      1
+     ],
+     "quantity": 2,
+     "description": "Once per turn, if a Hero dies in this Room, you may heal one Wound. (Flip over one of your Wounds, adding its Soul value to your total.)",
+     "set": "base",
+     "isRoom": true
+    },
+    {
+     "id": "BMA027",
+     "name": "Bottomless Pit",
+     "advanced": false,
+     "type": "trap",
+     "damage": 1,
+     "treasures": [
+      4
+     ],
+     "quantity": 3,
+     "description": "Destroy this room: Kill a Hero in this room.",
+     "set": "base",
+     "isRoom": true
+    },
+    {
+     "id": "BMA018",
+     "name": "Neanderthal Cave",
+     "advanced": false,
+     "type": "monster",
+     "damage": 3,
+     "treasures": [
+      2
+     ],
+     "quantity": 3,
+     "description": "You cannot build an Advanced Room on Neanderthal Cave.",
+     "set": "base",
+     "isRoom": true
+    },
+    {
+     "id": "BMA012",
+     "name": "Succubus Spa",
+     "advanced": false,
+     "type": "monster",
+     "damage": 1,
+     "treasures": [
+      1
+     ],
+     "quantity": 3,
+     "description": "Once per turn, if a Hero Dies in this room, choose an opponent. Take a random Room or Spell card from that opponent's hand.",
+     "set": "base",
+     "isRoom": true,
+     "faceDown": false,
+     "builtThisTurn": true,
+     "_enteredThisTurn": true
+    },
+    {
+     "id": "BMA021",
+     "name": "Brainsucker Hive",
+     "advanced": false,
+     "type": "monster",
+     "damage": 2,
+     "treasures": [
+      3
+     ],
+     "quantity": 3,
+     "description": "Once per turn, if a Hero dies in this room, you may draw a Spell card.",
+     "set": "base",
+     "isRoom": true,
+     "faceDown": false,
+     "builtThisTurn": true,
+     "usedThisTurn": false,
+     "_enteredThisTurn": false
+    }
+   ],
+   "spellDiscard": [
+    {
+     "id": "BMA055",
+     "name": "Zombie Attack",
+     "category": 1,
+     "quantity": 2,
+     "description": "Choose a dead Hero in an opponent's scorekeeping area. Send it back to the entrance of that player's dungeon. It has +2 Health until end of turn.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA048",
+     "name": "Jeopardy",
+     "category": 2,
+     "quantity": 2,
+     "description": "All players immediately discard their hands, then draw one Spell card and two Room cards.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA043",
+     "name": "Counterspell",
+     "category": 2,
+     "quantity": 2,
+     "description": "Choose a Spell card that has just been played. Cancel the effects of that Spell card. (It is sent to the discard pile.)",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA046",
+     "name": "Freeze",
+     "category": 2,
+     "quantity": 4,
+     "description": "Choose and deactivate one Room in any dungeon. (It has no damage, treasure, or abilities until end of turn.)",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA042",
+     "name": "Cave-In",
+     "category": 4,
+     "quantity": 2,
+     "description": "Destroy a room in your dungeon. Any Hero in that room is destroyed.",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA053",
+     "name": "Teleportation",
+     "category": 1,
+     "quantity": 2,
+     "description": "Send a Hero in your dungeon back to the first room of your dungeon. (It continues to move through your dungeon this turn.)",
+     "set": "base",
+     "isSpell": true
+    },
+    {
+     "id": "BMA048",
+     "name": "Jeopardy",
+     "category": 2,
+     "quantity": 2,
+     "description": "All players immediately discard their hands, then draw one Spell card and two Room cards.",
+     "set": "base",
+     "isSpell": true
+    }
+   ],
+   "heroDiscard": [
+    {
+     "id": "BMA062",
+     "name": "Fighter",
+     "treasure": 2,
+     "hp": 4,
+     "wounds": 1,
+     "souls": 1,
+     "epic": false,
+     "quantity": 1,
+     "description": "Boden the Pantless Boden's courage is matched only by his forgetfullness. The quest to find his misplaced armor continues!",
+     "class": "Fighter",
+     "playerCount": 2,
+     "set": "base",
+     "subtitle": "Ordinary Hero"
+    },
+    {
+     "id": "BMA074",
+     "name": "Thief",
+     "treasure": 4,
+     "hp": 4,
+     "wounds": 1,
+     "souls": 1,
+     "epic": false,
+     "quantity": 1,
+     "description": "Joman Chimm, Cutpurse From the twinkle in his eye, you might think he comes bearing gifts... until you check your empty pockets.",
+     "class": "Thief",
+     "playerCount": 2,
+     "set": "base",
+     "subtitle": "Ordinary Hero"
+    },
+    {
+     "id": "BMA068",
+     "name": "Mage",
+     "treasure": 3,
+     "hp": 4,
+     "wounds": 1,
+     "souls": 1,
+     "epic": false,
+     "quantity": 1,
+     "description": "Tieg and the Magic Bubble Armed with his trusty bubble, Tieg braves dangerous castles and dungeons in search of the muscial instruments stolen from his people.",
+     "class": "Mage",
+     "playerCount": 2,
+     "set": "base",
+     "subtitle": "Ordinary Hero"
+    },
+    {
+     "id": "BMA078",
+     "name": "Thief",
+     "treasure": 4,
+     "hp": 8,
+     "wounds": 1,
+     "souls": 1,
+     "epic": false,
+     "quantity": 1,
+     "description": "Sir Digby Apple, Ace Detective He battles to keep the coffers filling, to keep his partners preening and to send a needless message of power to all of the unwilling.",
+     "class": "Thief",
+     "playerCount": 2,
+     "set": "base",
+     "subtitle": "Ordinary Hero"
+    },
+    {
+     "id": "BMA076",
+     "name": "Thief",
+     "treasure": 4,
+     "hp": 6,
+     "wounds": 1,
+     "souls": 1,
+     "epic": false,
+     "quantity": 1,
+     "description": "Jesta the Rogue \"Okay, so you take the big guy on the left with the axe, you've got the two little ones on the right with swords, and I'll take this dangerous-looking treasure chest with no lock over here...\"",
+     "class": "Thief",
+     "playerCount": 2,
+     "set": "base",
+     "subtitle": "Ordinary Hero"
+    },
+    {
+     "id": "BMA064",
+     "name": "Fighter",
+     "treasure": 2,
+     "hp": 6,
+     "wounds": 1,
+     "souls": 1,
+     "epic": false,
+     "quantity": 1,
+     "description": "Fire's Breath, Heroine of Arcadia The scarlet-haired warrior woman known as Fire's Breath has pledged her deadly twin blades to the fight for liberty",
+     "class": "Fighter",
+     "playerCount": 2,
+     "set": "base",
+     "subtitle": "Ordinary Hero"
+    },
+    {
+     "id": "BMA058",
+     "name": "Cleric",
+     "treasure": 1,
+     "hp": 6,
+     "wounds": 1,
+     "souls": 1,
+     "epic": false,
+     "quantity": 1,
+     "description": "Acacia, Warrior of Light Acacia is a carefree soul who makes her own luck. A strong defender of good, she is undeterred by even the darkest dungeons.",
+     "class": "Cleric",
+     "playerCount": 2,
+     "set": "base",
+     "subtitle": "Ordinary Hero"
+    },
+    {
+     "id": "BMA070",
+     "name": "Mage",
+     "treasure": 3,
+     "hp": 6,
+     "wounds": 1,
+     "souls": 1,
+     "epic": false,
+     "quantity": 1,
+     "description": "Mitchell, the Judge He has wandered the planes, hopelessly lost... ever since his wife, Nikki, sent him to the store for diamond dust sugar.",
+     "class": "Mage",
+     "playerCount": 2,
+     "set": "base",
+     "subtitle": "Ordinary Hero"
+    },
+    {
+     "id": "BMA066",
+     "name": "Fighter",
+     "treasure": 2,
+     "hp": 8,
+     "wounds": 1,
+     "souls": 1,
+     "epic": false,
+     "quantity": 1,
+     "description": "Johnny of the Evening Watch A humble member of the Evening Watch, whose band o'brothers is sworn to forsake family, take the grey, and clear dungeons.",
+     "class": "Fighter",
+     "playerCount": 2,
+     "set": "base",
+     "subtitle": "Ordinary Hero"
+    },
+    {
+     "id": "BMA072",
+     "name": "Mage",
+     "treasure": 3,
+     "hp": 8,
+     "wounds": 1,
+     "souls": 1,
+     "epic": false,
+     "quantity": 1,
+     "description": "Dartteon, Elf Pyromancer Some elves just want to watch the world burn.",
+     "class": "Mage",
+     "playerCount": 2,
+     "set": "base",
+     "subtitle": "Ordinary Hero"
+    },
+    {
+     "id": "BMA080",
+     "name": "The Fool",
+     "treasure": 0,
+     "hp": 2,
+     "wounds": 1,
+     "souls": 1,
+     "epic": false,
+     "quantity": 1,
+     "description": "The Fool is lured to the dungeon of the Boss Monster with the fewest Souls. (In the case of a tie, he waits in town until the tie is broken.)",
+     "class": "The Fool",
+     "playerCount": 2,
+     "set": "base",
+     "subtitle": "Ordinary Hero"
+    }
+   ],
+   "itemsDiscard": []
+  },
+  "town": [
+   {
+    "id": "BMA060",
+    "name": "Cleric",
+    "treasure": 1,
+    "hp": 8,
+    "wounds": 1,
+    "souls": 1,
+    "epic": false,
+    "quantity": 1,
+    "description": "Delatorious, Angel of Light",
+    "class": "Cleric",
+    "playerCount": 2,
+    "set": "base",
+    "subtitle": "Ordinary Hero"
+   },
+   {
+    "id": "BMA056",
+    "name": "Cleric",
+    "treasure": 1,
+    "hp": 4,
+    "wounds": 1,
+    "souls": 1,
+    "epic": false,
+    "quantity": 1,
+    "description": "Nick the Masher The young cleric was well-armed, and brave enough to take on the Dragon King himself. His credo: \"I bash it with my mace.\"",
+    "class": "Cleric",
+    "playerCount": 2,
+    "set": "base",
+    "subtitle": "Ordinary Hero"
+   },
+   {
+    "id": "BMA095",
+    "name": "Thief",
+    "treasure": 4,
+    "hp": 13,
+    "wounds": 2,
+    "souls": 2,
+    "epic": true,
+    "quantity": 1,
+    "description": "Cecil Leoran, Master Factotum The ultimate jack-of-all-trades, Cecil isn't above taking mercenary work to earn gold and glory. But his real goal has never changed: to find a way to return his betrothed Nevra, sealed into a rapier, to her original form.",
+    "class": "Thief",
+    "playerCount": 2,
+    "set": "base",
+    "subtitle": "Epic Hero"
+   },
+   {
+    "id": "BMA089",
+    "name": "Mage",
+    "treasure": 3,
+    "hp": 11,
+    "wounds": 2,
+    "souls": 2,
+    "epic": true,
+    "quantity": 1,
+    "description": "Tempros the Time Marauder He would use his control over time to end all crime. In his hands, this world could be a utopia.",
+    "class": "Mage",
+    "playerCount": 2,
+    "set": "base",
+    "subtitle": "Epic Hero"
+   },
+   {
+    "id": "BMA087",
+    "name": "Mage",
+    "treasure": 2,
+    "hp": 13,
+    "wounds": 2,
+    "souls": 2,
+    "epic": true,
+    "quantity": 1,
+    "description": "Antonius, the Rune Knight An elite dragoon, Sir Tony wears armor inscribed with magic runes of ancient and mysterious power.",
+    "class": "Mage",
+    "playerCount": 2,
+    "set": "base",
+    "subtitle": "Epic Hero"
+   },
+   {
+    "id": "BMA085",
+    "name": "Fighter",
+    "treasure": 2,
+    "hp": 11,
+    "wounds": 2,
+    "souls": 2,
+    "epic": true,
+    "quantity": 1,
+    "description": "Frankov, the Envoy This brave warrior stands alone against the evil that rules the world.",
+    "class": "Fighter",
+    "playerCount": 2,
+    "set": "base",
+    "subtitle": "Epic Hero"
+   },
+   {
+    "id": "BMA091",
+    "name": "Thief",
+    "treasure": 3,
+    "hp": 13,
+    "wounds": 2,
+    "souls": 2,
+    "epic": true,
+    "quantity": 1,
+    "description": "Terric Warhelm, Half-Elf Archmage \"Weakened by an evil curse, this once-mighty warrior donned the red robes and turned to magic. His spells are chnneled through a magical helmet of untold power.\"",
+    "class": "Thief",
+    "playerCount": 2,
+    "set": "base",
+    "subtitle": "Epic Hero"
+   },
+   {
+    "id": "BMA093",
+    "name": "Thief",
+    "treasure": 4,
+    "hp": 11,
+    "wounds": 2,
+    "souls": 2,
+    "epic": true,
+    "quantity": 1,
+    "description": "Hya, Legendary Shinobi Arcadia's deadliest ninja,Hya lives by the proverb that revenge is a dish best served cold.",
+    "class": "Thief",
+    "playerCount": 2,
+    "set": "base",
+    "subtitle": "Epic Hero"
+   },
+   {
+    "id": "BMA083",
+    "name": "Cleric",
+    "treasure": 1,
+    "hp": 13,
+    "wounds": 2,
+    "souls": 2,
+    "epic": true,
+    "quantity": 1,
+    "description": "Lord Van Ette A prophet and collector of tithes for the omniscient Celestial, his \"miracles\" are enhanced by the brandewijn distilled by the monks of Nintehn.",
+    "class": "Cleric",
+    "playerCount": 2,
+    "set": "base",
+    "subtitle": "Epic Hero"
+   },
+   {
+    "id": "BMA081",
+    "name": "Cleric",
+    "treasure": 1,
+    "hp": 11,
+    "wounds": 2,
+    "souls": 2,
+    "epic": true,
+    "quantity": 1,
+    "description": "Katelyn, Angelic Healer Among the most exalted defenders of righteousness, Katelyn is sometimes referred to as \"altissima luce\" -- highest light.",
+    "class": "Cleric",
+    "playerCount": 2,
+    "set": "base",
+    "subtitle": "Epic Hero"
+   }
+  ],
+  "townItems": [],
+  "stack": [],
+  "stackPassed": {
+   "0": true
+  },
+  "adventure": null,
+  "turn": 1976,
+  "phase": "adventure",
+  "effects": {
+   "roomDamageBonus": [],
+   "heroHealthBonus": [],
+   "heroDamage": [],
+   "deactivatedRooms": [],
+   "buildBlocked": false,
+   "extraBuild": [],
+   "noEntry": [],
+   "teleportHero": null,
+   "counteredSpells": [],
+   "treasureDoubled": [],
+   "roomExtraTreasures": [],
+   "roomTreasureSuppressed": [],
+   "staffHealingPids": [],
+   "ordinaryMonsterBonus": [],
+   "ignoreAbilityPids": [],
+   "immediateBuild": [],
+   "ignoreTreasureMatch": [],
+   "noRoomBuild": [],
+   "skipFirstRoomPids": [],
+   "ignoreHeroAbilityPids": []
+  },
+  "logs": [],
+  "gameOver": false,
+  "winner": null,
+  "activePlayer": 0,
+  "pendingChoice": null,
+  "survivorsThisTurn": {},
+  "luredThisTurn": {},
+  "adventurePausePassed": null,
+  "skipAdvance": false,
+  "_deathRoom": null,
+  "choiceQueue": null,
+  "stackActivePlayer": 0,
+  "stackReturnPlayer": 0,
+  "_spellCancelled": false
+ },
+ "ctx": {
+  "numPlayers": 2,
+  "currentPlayer": 0,
+  "activePlayer": 0,
+  "phase": "adventure",
+  "turn": 0
+ }
+}
