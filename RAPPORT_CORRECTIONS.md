@@ -127,7 +127,7 @@ Audit carte-à-carte : **96/96 effets câblés** (boss 8/8, sorts 16/16, salles 
 Audit des 6 packs (`hidden-heroes`, `tools`, `players-choice`, `next-level`, `minibosses`, `crash-landing`).
 
 * **Matrice de conformité** (`npm run card-matrix`) : **442 cartes**, `corrupt=0`, `expansion-pending=0` après correction du scanner (`tools/generate_card_matrix.js` : lecture de `src/items.js`, `src/handAbilities.js`, `src/darkHeroes.js`, `src/expansionEffects.js` + littéraux d'IDs ; les 88 « pending » résiduels étaient des héros data-driven déjà câblés).
-* **Écart connu non bloquant :** 108 cartes Next Level / Rise of the Minibosses / Crash Landing sans visuel (art wiki non téléchargé) ; données et textes complets, l'almanach affiche le dos de carte.
+* **Écart connu non bloquant :** **108 cartes sans visuel** — répartition exacte (`RMB` 107 : 42 salles, 24 héros, 15 sorts, 15 héros épiques, 10 minibosses, 1 boss ; `TNL` 1 : `TNL038 Elemental Generator`) ; données et textes complets, l'almanach et la galerie affichent le dos de carte. **Sources auditées et épuisées** — voir §7.10.
 
 ### 7.1. Bug n°1 — Miniboss perdu à chaque aller-retour JSON (bloquant)
 
@@ -209,3 +209,32 @@ Découvertes en écrivant les tests : ces drapeaux étaient **posés par le leve
 **Couverture :** 7 tests de non-régression ajoutés (6 dans `test/next-level.test.js`, 1 dans `test/ai.test.js`), dont un test de fin de partie complète qui échouait en soft-lock avant correction.
 
 **Validation :** `npm run test:unit` **303/303**, `npm run build` OK.
+
+**Livraison :** commit `1352c19` poussé sur `main`, déployé sur ZimaOS (`git pull` + `docker compose up -d --build`, image `boss-monster:latest` reconstruite), `GET /health` → `{"ok":true,…,"storage":"postgres"}`, `GET /lobby/games` → `["boss-monster"]`.
+
+### 7.10. Art des extensions — état des lieux et sources auditées (tâche « art »)
+
+Objectif : faire passer les **108 cartes sans visuel** (§7) à zéro. `npm run fetch:expansion-art` (`tools/fetch_expansion_art.py`) a été rejoué ; il a **re-téléchargé 2 fichiers** (TNL078, TNL090, contenu identique → aucun diff) et **0 nouvelle carte** : les 108 restants sont introuvables sur les sources du projet.
+
+| Source | Résultat de l'audit | Verdict |
+|---|---|---|
+| **Wiki fandom `bossmonster`** (`list=allimages` complet : **826 fichiers**) | **0 fichier `RMB*`**, 2 fichiers `TNL*`, et **aucun nom** correspondant aux cartes manquantes (« spectral », « monster academy », « vampire lab », « minotaur catacombs », « pool of shadows », « rebirth », « windfall », « heist », « traitor » … → 0 hit). Recherche par préfixe de nom : **2/108** (uniquement `Respawn.jpg` et une variante) | **Épuisé** — le wiki ne documente pas Rise of the Minibosses (aucune page par carte, `Category:Rise of the Minibosses` vide) |
+| **Pages wiki par carte** (`action=parse`, titres nom/underscores/recherche) | 0 page « Spectral Bomb », « Monster Academy » … ; la page `List of Cards` ne contient **aucune image** | **Épuisé** |
+| **APK 2.2.6** (`boss-monster-2-2-6/`, `src/apkCardManifest.json`) | 197 faces : `BAC/BMA/BMH/KSA/THK` uniquement — set de base + Tools of Hero-Kind + Players' Choice + Hidden Heroes ; aucun `rmb*`/`tnl*`/`crl*` | **Épuisé** (art des extensions jamais embarqué) |
+| **BoardGameGeek** (`boardgame/246855 …/images`) | **HTTP 403** (Cloudflare) | **Bloqué** sans authentification |
+| **DriveThru « Art Pack for Boss Monster Card Creator »** | Gratuit mais licence **expresse : ni redistribution hors DriveThru, ni altération** | **Écarté** (licenca incompatible avec un dépôt public) |
+| **`tools/fetch_expansion_art.py` (4 étages : allimages par ID → page wiki → réutilisation par nom → `Special:FilePath`)** | Fonctionnel (utilisé au jour J pour TNL/RMB/CRL) mais **toutes les étapes retournent vide** sur ces 106 cartes | **Rien à récupérer** par ce biais |
+
+**Ce qui reste en place :** repli « dos de carte » (`getCardImage` → `getWikiCardImage` sans fichier → le composant affiche le dos), déjà documenté en §7. Décision : **ne pas fabriquer d'art de synthèse ni de « fausses » cartes** (une image erronée est pire qu'un dos dans un jeu de cartes) tant qu'une source légitime n'est pas identifiée.
+
+**Options ouvertes (non exercées)** : extraction depuis un mod Tabletop Simulator / un scan de la boîte fourni par l'utilisateur ; visuels officiels Rock Cairn / Brotherwise si une licence claire apparaît ; visuel généré uniquement si l'utilisateur valide explicitement ce parti pris.
+
+**Validation :** `npm run test:unit` **303/303**, `npm run verify:assets` OK (« 98 missing wiki art » — ce compteur ignore le dossier `minibosses/` : 98 + 10 minibosses = **108**, chiffre confirmé par `npm run card-matrix`), `npm run build` OK ; `git status` propre (les 2 re-téléchargements sont binaires identiques).
+
+### 7.11. Travaux en attente
+
+| Tâche | État | Détail |
+|---|---|---|
+| **a** — capacités de boss Next Level | ✅ **Terminé, poussé, déployé** | §7.8 + §7.9 (commit `1352c19`) |
+| **c** — art des extensions | ⏸️ **Bloqué sur une source** | §7.10 : 108 cartes sans visuel, sources auditées épuisées ; au choix de l'utilisateur |
+| **b** — couverture des tests Minibosses | ⏳ **À faire** | `minibosses` **19/121** IDs couverts (§7.7) — cible : niveaux 1/2/3 des 10 minibosses (`RMB055`-`RMB064`), promotion/activation, pièges et héros du pack |
