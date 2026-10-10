@@ -1,0 +1,33 @@
+; Engine configuration file.
+; Boss Monster — Godot 4 Compatibility (remplace le client React/Vite).
+
+config_version=5
+
+[application]
+
+config/name="Boss Monster"
+config/description="Dungeon-building card game. Build your dungeon, lure heroes, steal their souls."
+run/main_scene="res://godot/scenes/Main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+
+[autoload]
+
+CardDB="*res://godot/scripts/CardDB.gd"
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/resizable=true
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep_aspect"
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.039, 0.039, 0.059, 1)

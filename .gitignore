@@ -13,6 +13,8 @@ screenshot_*.png
 
 # Build artifacts & logs
 dist/
+godot/build_web/
+.godot/
 *.log
 
 # Playwright MCP session snapshots

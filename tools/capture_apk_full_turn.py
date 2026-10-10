@@ -61,7 +61,7 @@ def main():
     tap(PLAYERS_2, 1.4)
     tap(OK, 4.0)
     tap(OK, 2.2)
-    tap(SKIP, 2.2)
+    tap(OK, 2.2)  # écran expansions : OK (SKIP=(960,900) tape la carte Hidden Heroes -> popup "40 WINS")
 
     tap((700, 560), 2.4)
     tap(PLAY_BOSS, 3.5)

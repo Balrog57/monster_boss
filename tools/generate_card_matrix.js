@@ -66,7 +66,7 @@ function cardImagePath(id, section, card) {
     : section === 'items' ? 'items'
     : section === 'minibosses' ? 'minibosses' // frontend kind='miniboss'
     : card.epic ? 'epic-heroes' : 'heroes';
-  return path.join(ROOT, 'assets', 'cards', dir, `${id}_${slug}.webp`);
+  return path.join(ROOT, 'src', 'frontend', 'assets', 'cards', dir, `${id}_${slug}.webp`);
 }
 
 function textField(card, section) {

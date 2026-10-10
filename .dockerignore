@@ -1,12 +1,13 @@
 # .dockerignore - keep the Docker build context lean (context = repo root,
 # see deploy/docker-compose.yml `build.context: ..`).
-# Only package.json, src/, assets/, vite.config.js, index.html and
-# docs/rules/rules.md (bundled by the frontend via `?raw` import) are needed
-# to build + run the game. Everything else is dev/design/source material.
+# Only package.json, src/ (dont src/frontend/godot/build_web/, exporté via
+# `npm run export:web`) are needed to run the game. Everything else is
+# dev/design/source material.
 
 # Dependencies & build output (rebuilt inside the image)
 node_modules
 dist
+.godot
 
 # Original APK + decompiled reference (local-only, never shipped)
 apk-original
@@ -16,12 +17,20 @@ boss-monster-2-2-6/
 boss-monster-2-4-12/
 design_system
 docs
-!docs/rules
-!docs/rules/rules.md
-
-# Deploy descriptors (host-side only) & security notes
-deploy
 security
+
+# Godot sources (seul l'export web est embarqué ; `assets` ci-dessous couvre
+# aussi src/frontend/assets, les motifs sans slash s'appliquant à tout niveau)
+src/frontend/godot/*.gd
+src/frontend/godot/scenes
+src/frontend/godot/scripts
+src/frontend/godot/tests
+src/frontend/godot/data
+src/frontend/project.godot
+src/frontend/export_presets.cfg
+
+# Deploy descriptors (host-side only)
+deploy
 
 # Tests & tooling
 tests
@@ -29,12 +38,10 @@ test-results
 .playwright-mcp
 .opencode
 tools
-playwright.config.*
 
-# Redundant JPG card art — cards are now served as WebP (see src/backend/game/cardData.js).
-# Excluding the originals keeps them in the repo as a source archive while
-# dropping ~14MB from the image.
-assets/cards/**/*.jpg
+# Assets sources (le client web embarque déjà audio/fonts ; l'art des cartes
+# HD sera servi à part en phase 2)
+assets
 
 # VCS & misc
 .git

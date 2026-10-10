@@ -24,14 +24,46 @@ import {
 const registry = new Map();
 const salonCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 6);
 
-// Timer configuration (milliseconds per build phase turn)
-const TURN_TIMEOUT_MS = Number(process.env.TURN_TIMEOUT_MS || 60000); // default 60s
+// Timer configuration defaults (milliseconds per turn / phase)
+const DEFAULT_TURN_TIMEOUT_MS = Number(process.env.TURN_TIMEOUT_MS || 60000); // 60s global timeout (APK GamePlayBaseScene.cs:131)
+const DEFAULT_DONE_TIMEOUT_MS = Number(process.env.DONE_TIMEOUT_MS || 70000); // 70s Pass/Done button timeout (APK DoneButtonBehavior.cs:37)
+const DEFAULT_ADVENTURE_TIMEOUT_MS = Number(process.env.ADVENTURE_TIMEOUT_MS || 10000); // 10s reaction timeout in multiplayer
+
+export function getMatchTimerInfo(match) {
+  if (!match || match.status === 'finished' || match.G?.gameOver) {
+    return { timerEnabled: false, turnDeadline: null, turnTimeout: 0, remainingSeconds: 0 };
+  }
+  const setup = match.setupData || {};
+  const enabled = setup.timerEnabled !== false;
+  const configuredTurnSec = setup.turnTimeoutSeconds != null
+    ? Number(setup.turnTimeoutSeconds)
+    : (setup.turnTimeout != null ? Number(setup.turnTimeout) : DEFAULT_TURN_TIMEOUT_MS / 1000);
+
+  if (!enabled || configuredTurnSec <= 0) {
+    return { timerEnabled: false, turnDeadline: null, turnTimeout: 0, remainingSeconds: 0 };
+  }
+
+  const isAdvPause = Boolean(!match.G.stack?.length && match.G.adventure?.pause);
+  const timeoutMs = isAdvPause
+    ? (setup.adventureTimeoutSeconds ? Number(setup.adventureTimeoutSeconds) * 1000 : DEFAULT_ADVENTURE_TIMEOUT_MS)
+    : configuredTurnSec * 1000;
+
+  const startedAt = match.turnStartedAt || Date.now();
+  const deadline = startedAt + timeoutMs;
+  const remainingSeconds = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+
+  return {
+    timerEnabled: true,
+    turnDeadline: deadline,
+    turnTimeout: Math.round(timeoutMs / 1000),
+    remainingSeconds,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // Turn timer: auto-pass when the active player's deadline expires.
-// The server is authoritative — checks every 5s.
-// If a human player times out (>60s), AI Bot takes over as fallback!
+// Server-authoritative timer loop (1s interval) with disconnect/AFK fallback.
 // ---------------------------------------------------------------------------
 let timerInterval = null;
 
@@ -80,19 +112,21 @@ export function startTurnTimers() {
   timerInterval = setInterval(() => {
     const now = Date.now();
     for (const match of registry.values()) {
-      if (match.status === 'finished' || match.G.gameOver) continue;
+      if (match.status === 'finished' || match.G?.gameOver) continue;
       if (!match.turnStartedAt) continue;
-      const deadline = match.turnStartedAt + TURN_TIMEOUT_MS;
-      if (now < deadline) continue;
 
-      const activePid = match.ctx.activePlayer;
+      const timerInfo = getMatchTimerInfo(match);
+      if (!timerInfo.timerEnabled || !timerInfo.turnDeadline) continue;
+      if (now < timerInfo.turnDeadline) continue;
+
+      const activePid = match.G.pendingChoice ? match.G.pendingChoice.playerId : match.ctx.activePlayer;
       const p = match.G.players[activePid];
 
-      // Disconnect / Inactivity Fallback: If human timed out (>60s), AI takes over!
+      // Disconnect / Inactivity Fallback: If human timed out, AI Bot takes over!
       if (p && !p.isAI) {
         p.isAI = true;
         p.aiTakeover = true;
-        match.G.logs.push(`Joueur ${activePid} n'a pas répondu à temps (>60s) — L'IA prend le relais.`);
+        match.G.logs.push(`Joueur ${activePid} n'a pas répondu à temps (${timerInfo.turnTimeout}s) — L'IA prend le relais.`);
         match.dirty = true;
         match.turnStartedAt = Date.now();
         broadcastState(match.id);
@@ -101,7 +135,29 @@ export function startTurnTimers() {
       }
 
       const phase = (match.G.phase || match.ctx.phase || '').toLowerCase();
-      if (phase === 'boss') {
+      if (match.G.pendingChoice) {
+        let move = null;
+        if (match.G.pendingChoice.type === 'opening-discard') {
+          move = { type: 'openingDiscard', args: pickOpeningDiscardIndices(p?.hand || []) };
+        } else {
+          const choiceIdx = aiResolveLevelUpChoice(match.G, match.G.pendingChoice);
+          move = { type: 'resolveLevelUpChoice', args: [choiceIdx ?? 0] };
+        }
+        if (move) {
+          const { state, error } = applyMove({ G: match.G, ctx: match.ctx }, move, activePid);
+          if (!error) {
+            match.G = state.G;
+            match.ctx = state.ctx;
+            match.dirty = true;
+            match.turnStartedAt = Date.now();
+            match.G.logs.push(`Player ${activePid} ran out of time — auto-resolved choice.`);
+            broadcastState(match.id);
+            checkAndRunBotTurn(match.id);
+            continue;
+          }
+        }
+        match.turnStartedAt = Date.now();
+      } else if (phase === 'boss') {
         if (p && !p.boss) {
           const available = (match.G.bossPicks || []).filter(b =>
             !Object.values(match.G.players).some(pl => pl.boss?.id === b.id)
@@ -122,7 +178,7 @@ export function startTurnTimers() {
           }
         }
         match.turnStartedAt = Date.now();
-      } else if (phase === 'build' || phase === 'setup') {
+      } else if (phase === 'build' || phase === 'setup' || phase === 'adventure') {
         const { state, error } = applyMove({ G: match.G, ctx: match.ctx }, { type: 'pass', args: [] }, activePid);
         if (!error) {
           match.G = state.G;
@@ -139,7 +195,7 @@ export function startTurnTimers() {
         match.turnStartedAt = Date.now();
       }
     }
-  }, 5000);
+  }, 1000);
 }
 
 export function stopTurnTimers() {
@@ -231,10 +287,16 @@ export function submitMove(matchID, playerID, move) {
 export function broadcastState(matchID) {
   const match = registry.get(matchID);
   if (!match) return;
-  const deadline = match.turnStartedAt ? match.turnStartedAt + TURN_TIMEOUT_MS : null;
+  const timerInfo = getMatchTimerInfo(match);
   for (const [socketID, entry] of match.sockets) {
     const view = encodeState(playerView(match.G, entry.playerID));
-    entry.socket.emit('match:state', { G: view, ctx: match.ctx, matchID, turnDeadline: deadline });
+    entry.socket.emit('match:state', {
+      G: view,
+      ctx: match.ctx,
+      matchID,
+      turnDeadline: timerInfo.turnDeadline,
+      timer: timerInfo
+    });
   }
   if (match.G.gameOver) {
     for (const [, entry] of match.sockets) {
@@ -259,8 +321,14 @@ export function addSocket(matchID, socket, playerID) {
 
   // On (re)join, send the current state immediately.
   const view = encodeState(playerView(match.G, playerID));
-  const deadline = match.turnStartedAt ? match.turnStartedAt + TURN_TIMEOUT_MS : null;
-  socket.emit('match:state', { G: view, ctx: match.ctx, matchID, turnDeadline: deadline });
+  const timerInfo = getMatchTimerInfo(match);
+  socket.emit('match:state', {
+    G: view,
+    ctx: match.ctx,
+    matchID,
+    turnDeadline: timerInfo.turnDeadline,
+    timer: timerInfo
+  });
   // Notify other players about the reconnection.
   if (isReconnect) {
     const playerName = match.G.players[playerID]?.boss?.name || `Joueur ${playerID}`;

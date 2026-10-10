@@ -21,7 +21,7 @@ except ImportError:
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DECKS = os.path.join(ROOT, "apk-original", "boss-monster-2-2-6", "assets", "Content", "CardDecks")
 OUT_JSON = os.path.join(ROOT, "src", "backend", "game", "cardData.json")
-OUT_CARDS = os.path.join(ROOT, "assets", "cards")
+OUT_CARDS = os.path.join(ROOT, "src", "frontend", "assets", "cards")
 WIKI_API = "https://bossmonster.fandom.com/api.php"
 UA = "BossMonsterFanPort/2.2.6 (local educational rebuild)"
 
@@ -321,7 +321,7 @@ def copy_wiki_backs():
     """Keep APK backs as wiki-path fallbacks so getWikiCardImage always resolves."""
     backs = os.path.join(OUT_CARDS, "backs")
     os.makedirs(backs, exist_ok=True)
-    apk = os.path.join(ROOT, "assets", "apk_cards")
+    apk = os.path.join(ROOT, "src", "frontend", "assets", "apk_cards")
     mapping = {
         "back_room.webp": os.path.join(apk, "base", "back_room.webp"),
         "back_boss.webp": os.path.join(apk, "base", "back_boss.webp"),

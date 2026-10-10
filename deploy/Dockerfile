@@ -1,28 +1,18 @@
-# deploy/Dockerfile - Boss Monster game (custom Node server + Postgres + static client)
+# deploy/Dockerfile - Boss Monster game (Godot web client + Node server + Postgres)
 #
 # Build from the repo root:
 #   docker build -f deploy/Dockerfile .
 # (or via deploy/docker-compose.yml, which sets context + dockerfile.)
 #
-# Multi-stage build:
-#   1. build stage: Node + npm install + vite build -> dist/
-#   2. runtime stage: Node + dist/ + src/ (serves client + lobby API + Socket.IO)
+# Prérequis : exporter le client Godot AVANT le build :
+#   godot --headless --path src/frontend --export-release Web godot/build_web/index.html
+#
+# Single-stage image:
+#   Node + src/ (serveur, moteur partagé, client web exporté, lobby API + Socket.IO)
 #
 # NOTE: Node 22+ is required — src/backend/game/cardData.js uses
 # `import ... with { type: 'json' }` (import attributes), which is only
 # flag-free on Node 22+.
-FROM node:22-slim AS build
-WORKDIR /app
-
-# Install deps (cache layer)
-COPY package.json package-lock.json* ./
-RUN npm ci || npm install
-
-# Copy source and build the client
-COPY . .
-RUN npm run build
-
-# --- runtime stage ---
 FROM node:22-slim AS runtime
 WORKDIR /app
 
@@ -35,10 +25,8 @@ ENV TZ=Europe/Paris
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev || npm install --omit=dev
 
-# Copy the built client + backend (server + shared game engine).
-# src/backend/server files import pure game logic from src/backend/game/,
-# and the frontend (local matches) imports the same engine.
-COPY --from=build /app/dist ./dist
+# Copy the backend (server + shared game engine) and the exported Godot web
+# client (src/frontend/godot/build_web, servi via STATIC_DIR, voir index.js).
 COPY src ./src
 
 EXPOSE 8000

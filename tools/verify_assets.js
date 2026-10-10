@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
-const assetsDir = path.join(root, 'assets');
+const assetsDir = path.join(root, 'src', 'frontend', 'assets');
 
 function exists(rel) {
   const full = path.join(assetsDir, rel.replace(/^\//, ''));

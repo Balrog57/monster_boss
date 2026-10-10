@@ -9,7 +9,7 @@ import urllib.parse
 import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-EXP_DIR = os.path.join(ROOT, "assets", "data", "expansions")
+EXP_DIR = os.path.join(ROOT, "src", "frontend", "assets", "data", "expansions")
 WIKI_API = "https://bossmonster.fandom.com/api.php"
 UA = "BossMonsterFanPort/expansion-fetch"
 

@@ -10,7 +10,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "src", "backend", "game", "cardData.json")
-EXP_DIR = os.path.join(ROOT, "assets", "data", "expansions")
+EXP_DIR = os.path.join(ROOT, "src", "frontend", "assets", "data", "expansions")
 CORRUPT = re.compile(r"\]\]$")
 
 

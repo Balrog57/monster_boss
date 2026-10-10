@@ -37,7 +37,7 @@ DOCKER_CONFIG=/DATA/.docker-root docker compose -f deploy/docker-compose.yml up 
 > ```
 
 Cette commande :
-- Build l'image `boss-monster:latest` (multi-stage : build Vite + runtime Node)
+- Build l'image `boss-monster:latest` (export web Godot + runtime Node)
 - Démarre le service `db` (postgres:16-alpine) avec un volume persistant `boss_db`
 - Démarre le service `boss-monster` (app) sur le port 8090
 - L'app attend que Postgres soit sain (`depends_on: service_healthy`) avant de démarrer
@@ -100,7 +100,7 @@ ZimaOS (192.168.1.98)
     ├── /lobby/*           REST API (create/join/leave matches)
     ├── /socket.io/         WebSocket (real-time game state)
     ├── /health            Healthcheck Docker
-    └── /*                 Client statique (dist/)
+    └── /*                 Client statique Godot (src/frontend/godot/build_web/)
 ```
 
 ## 8. Variables d'environnement (tunings optionnels)

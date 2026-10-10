@@ -26,8 +26,8 @@ except ImportError:
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CARD_DATA = os.path.join(ROOT, "src", "backend", "game", "cardData.json")
 MANIFEST = os.path.join(ROOT, "src", "backend", "game", "apkCardManifest.json")
-OUT_CARDS = os.path.join(ROOT, "assets", "cards")
-FONT_DIR = os.path.join(ROOT, "assets", "fonts")
+OUT_CARDS = os.path.join(ROOT, "src", "frontend", "assets", "cards")
+FONT_DIR = os.path.join(ROOT, "src", "frontend", "assets", "fonts")
 
 W, H = 746, 1039  # matches official faces
 PLACEHOLDER_SETS = ("minibosses", "next-level")

@@ -16,7 +16,7 @@ import { flushDirty, startTurnTimers, stopTurnTimers } from './matches.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const PORT = Number(process.env.PORT) || 8000;
-const STATIC_DIR = process.env.STATIC_DIR || path.join(__dirname, '..', '..', '..', 'dist');
+const STATIC_DIR = process.env.STATIC_DIR || path.join(__dirname, '..', '..', '..', 'src', 'frontend', 'godot', 'build_web');
 const FLUSH_INTERVAL_MS = Number(process.env.FLUSH_INTERVAL_MS || 5000);
 
 async function main() {

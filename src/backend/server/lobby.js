@@ -3,9 +3,20 @@
 // Mounted under /lobby on the Koa app. All responses are JSON.
 import Router from '@koa/router';
 import koaBody from 'koa-body';
-import { GAME_META } from '../game/reducer.js';
-import { createNewMatch, joinMatchSeat, leaveMatchSeat, addBotToMatch, removeBotFromMatch } from './matches.js';
+import { GAME_META, playerView, legalMoves } from '../game/reducer.js';
+import { createNewMatch, joinMatchSeat, leaveMatchSeat, addBotToMatch, removeBotFromMatch, loadMatch, submitMove, getMatchTimerInfo } from './matches.js';
 import { listMatches, fetchMatch } from './db.js';
+
+// Seat credential check shared by the native-client REST bridge below.
+function checkSeat(row, playerID, credentials) {
+  const seat = (row.seats || []).find(s => s.id === Number(playerID));
+  if (!seat || !credentials || seat.credentials !== credentials) return null;
+  return seat;
+}
+
+function publicSeats(row) {
+  return (row.seats || []).map(s => ({ id: s.id, name: s.name || null, isBot: !!(s.isBot ?? s.is_bot) }));
+}
 
 export function lobbyRouter() {
   const router = new Router({ prefix: '/lobby' });
@@ -70,6 +81,9 @@ export function lobbyRouter() {
       ...rawSetup,
       online: true,
       isPublic: rawSetup.isPublic !== false,
+      timerEnabled: rawSetup.timerEnabled !== false,
+      turnTimeoutSeconds: Number(rawSetup.turnTimeoutSeconds || rawSetup.turnTimeout || 60),
+      adventureTimeoutSeconds: Number(rawSetup.adventureTimeoutSeconds || 10),
       expansions: Array.isArray(rawSetup.expansions)
         ? rawSetup.expansions
         : ['hidden-heroes', 'tools', 'players-choice']
@@ -117,6 +131,54 @@ export function lobbyRouter() {
     const res = await leaveMatchSeat(id, playerID, credentials);
     if (!res.ok) { ctx.throw(403, res.error); return; }
     ctx.body = { emptied: res.emptied };
+  });
+
+  // --- REST bridge for native clients (Godot, friends-only polling) ---------
+  // Same seats/credentials as Socket.IO, plain JSON, no socket needed.
+
+  // Filtered state + legal moves for one seat.
+  router.get('/matches/:id/state', async (ctx) => {
+    const id = String(ctx.params.id || '').toUpperCase();
+    const row = await fetchMatch(id);
+    if (!row) { ctx.throw(404, 'match not found'); return; }
+    if (!checkSeat(row, ctx.query.playerID, ctx.query.credentials)) {
+      ctx.throw(403, 'invalid credentials'); return;
+    }
+    const match = await loadMatch(id);
+    if (!match) { ctx.throw(404, 'match not found'); return; }
+    const pid = Number(ctx.query.playerID);
+    const timerInfo = getMatchTimerInfo(match);
+    ctx.body = {
+      id, status: match.status, seats: publicSeats(row),
+      G: playerView(match.G, pid), ctx: match.ctx,
+      moves: legalMoves(match.G, match.ctx, pid),
+      turnDeadline: timerInfo.turnDeadline,
+      timer: timerInfo,
+    };
+  });
+
+  // Submit one move, returns the fresh filtered state + moves.
+  router.post('/matches/:id/move', async (ctx) => {
+    const id = String(ctx.params.id || '').toUpperCase();
+    const { playerID, credentials, move } = ctx.request.body || {};
+    const row = await fetchMatch(id);
+    if (!row) { ctx.throw(404, 'match not found'); return; }
+    if (!checkSeat(row, playerID, credentials)) {
+      ctx.throw(403, 'invalid credentials'); return;
+    }
+    if (!move || typeof move.type !== 'string') { ctx.throw(400, 'move.type is required'); return; }
+    const res = submitMove(id, Number(playerID), move);
+    if (!res.ok) { ctx.throw(400, res.error); return; }
+    const match = await loadMatch(id);
+    const pid = Number(playerID);
+    const timerInfo = getMatchTimerInfo(match);
+    ctx.body = {
+      ok: true, status: match.status, seats: publicSeats(row),
+      G: playerView(match.G, pid), ctx: match.ctx,
+      moves: legalMoves(match.G, match.ctx, pid),
+      turnDeadline: timerInfo.turnDeadline,
+      timer: timerInfo,
+    };
   });
 
   return router;

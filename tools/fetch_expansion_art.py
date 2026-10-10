@@ -21,7 +21,7 @@ except ImportError:
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CARD_DATA = os.path.join(ROOT, "src", "backend", "game", "cardData.json")
-OUT_CARDS = os.path.join(ROOT, "assets", "cards")
+OUT_CARDS = os.path.join(ROOT, "src", "frontend", "assets", "cards")
 WIKI_API = "https://bossmonster.fandom.com/api.php"
 UA = "BossMonsterFanPort/expansion-art"
 # Fandom's CDN (static.wikia.nocookie.net) answers 403 without a Referer.

@@ -14,9 +14,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from extract_apk_226 import chroma_key_standee, save_webp  # noqa: E402
 
-UI = os.path.join(ROOT, "assets", "ui")
-CARDS_APK = os.path.join(ROOT, "assets", "apk_cards")
-CARDS_WIKI = os.path.join(ROOT, "assets", "cards")
+UI = os.path.join(ROOT, "src", "frontend", "assets", "ui")
+CARDS_APK = os.path.join(ROOT, "src", "frontend", "assets", "apk_cards")
+CARDS_WIKI = os.path.join(ROOT, "src", "frontend", "assets", "cards")
 EXTS = (".png", ".jpg", ".jpeg")
 
 

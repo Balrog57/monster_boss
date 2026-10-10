@@ -48,7 +48,7 @@ from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 
 APK_FONTS = "apk-original/boss-monster-2-2-6/assets/Content/Fonts"
-OUT_DIR = "assets/fonts"
+OUT_DIR = "src/frontend/assets/fonts"
 
 # Each output font -> source WPK + friendly family name
 FONTS = {

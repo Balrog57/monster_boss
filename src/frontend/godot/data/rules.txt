@@ -1,0 +1,49 @@
+BOSS MONSTER — REGLES OFFICIELLES (digest integre au jeu)
+Sources : livre de regles 10e anniversaire (docs/rules/rules.md),
+extensions du wiki (assets/data/expansions/). La boutique de l'APK
+d'origine (achats in-app) a ete supprimee et remplacee par ces regles.
+
+BUT DU JEU
+Tu es un Boss qui construit un donjon pour attirer des heros et voler
+leurs ames. Premier joueur a 10 AMES gagne. Un heros qui survit a ton
+donjon te blesse : a 5 BLESSURES tu es elimine.
+Egalite d'ames : gagne le meilleur score (Ames - Blessures), puis le
+Boss avec l'XP la plus basse.
+
+MISE EN PLACE
+- Heros : 2 joueurs = 13 ordinaires + 8 epiques ; 3 joueurs = 17 + 12 ;
+  4 joueurs = 25 + 16. Les epiques arrivent quand les ordinaires sont
+  epuises (ils valent 2 ames mais infligent 2 blessures).
+- Chaque joueur choisit 1 Boss, recoit 5 salles + 2 sorts, puis construit
+  1 premiere salle ordinaire.
+
+LES 5 PHASES DE CHAQUE TOUR
+1. DEBUT : 1 heros par joueur arrive en ville, chacun pioche 1 salle.
+2. CONSTRUCTION : en ordre d'XP, chacun pose 1 salle face cachee
+   (max 5 salles visibles). Salle ordinaire : entree ou sur n'importe
+   quelle salle. Salle AVANCEE (icone or) : uniquement SUR une salle
+   partageant au moins un tresor. Revelation simultanee.
+3. LEURRE : chaque heros va au donjon le plus riche dans SON tresor
+   (Clerc / Guerrier / Mage / Voleur). Egalite = le heros reste en ville.
+4. AVENTURE : en ordre d'XP, chaque heros traverse les salles depuis
+   l'entree. Salle = degats. PV a 0 = mort = AME. Survivant = le Boss
+   prend 1 blessure (2 pour un epique).
+5. FIN : on verifie 10 ames / 5 blessures, sinon tour suivant.
+
+CAPACITES DE BOSS
+Ta capacite "Level Up" se declenche la premiere fois que ton donjon
+atteint 5 salles visibles.
+
+SORTS
+Icone marteau = phase de construction. Icone hache = phase d'aventure.
+Les effets se resolvent en "dernier joue, premier resolu".
+
+EXTENSIONS INCLUSES (wiki)
+The Next Level, Crash Landing, Minibosses + Tools, Hidden Heroes,
+Players' Choice. Active-les depuis le menu : boss, salles, sorts et
+heros supplementaires rejoignent les paquets.
+
+MULTIJOUEUR
+Solo = toi + IA. Multijoueur = 2 a 4 joueurs humains sur le meme ecran
+(hotseat, boutons Joueur 1..4), sans IA. Le multi en ligne n'est pas
+branche dans ce client Godot.

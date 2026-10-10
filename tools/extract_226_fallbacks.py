@@ -14,7 +14,7 @@ from extract_apk_226 import (  # noqa: E402
 
 DECKS = os.path.join(CONTENT, "CardDecks")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT_CARDS = os.path.join(ROOT, "assets", "apk_cards")
+OUT_CARDS = os.path.join(ROOT, "src", "frontend", "assets", "apk_cards")
 
 
 def p(rel: str) -> str:
