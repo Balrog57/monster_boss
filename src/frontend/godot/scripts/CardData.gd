@@ -19,8 +19,8 @@ extends Resource
 @export var texture: Texture2D = null
 @export var effect_script: String = ""
 
-static func from_dict(d: Dictionary) -> CardData:
-	var c := CardData.new()
+static func from_dict(d: Dictionary) -> Resource:
+	var c = load("res://godot/scripts/CardData.gd").new()
 	c.id = str(d.get("id", d.get("cardNumber", d.get("CardNumber", ""))))
 	c.title = str(d.get("name", d.get("Name", "")))
 	c.subtitle = str(d.get("subtitle", d.get("Subtitle", "")))

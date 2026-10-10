@@ -1,6 +1,8 @@
 class_name OnlineGameManager
-extends GameManager
+extends "res://godot/scripts/GameManager.gd"
 ## Partie en ligne : l'autorite est le serveur Node, les seuls coups emis
+
+const OnlineClient = preload("res://godot/scripts/OnlineClient.gd")
 ## sont ceux proposes par le serveur (moves). Sous-classe de GameManager
 ## pour reutiliser BoardUI/DungeonSlot sans modification de leur typage.
 

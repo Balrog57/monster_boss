@@ -1,6 +1,10 @@
 class_name BoardUI
 extends Control
 ## Interface principale du plateau de jeu Boss Monster (Board.tscn).
+
+const GameManager = preload("res://godot/scripts/GameManager.gd")
+const OnlineGameManager = preload("res://godot/scripts/OnlineGameManager.gd")
+const BossEngine = preload("res://godot/scripts/BossEngine.gd")
 ## Gère la ville en haut, les 5 emplacements de donjon, la main en bas (drag & drop),
 ## et les piles de pioche/défausse.
 

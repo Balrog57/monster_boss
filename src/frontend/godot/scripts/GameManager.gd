@@ -1,5 +1,5 @@
 class_name GameManager
-extends Match
+extends "res://godot/scripts/Match.gd"
 ## GameManager.gd — Gestionnaire global du jeu Boss Monster (Godot 4).
 ## Orchestre les phases : SETUP -> BEGINNING -> BUILD -> BAIT (Leurre) -> ADVENTURE -> END.
 ## Gère le recouvrement des salles ordinaires et avancées, le calcul des trésors,

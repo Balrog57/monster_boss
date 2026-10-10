@@ -1,6 +1,8 @@
 class_name CardUI
 extends Control
 ## Composant visuel d'une carte Boss Monster (Card.tscn).
+
+const CardData = preload("res://godot/scripts/CardData.gd")
 ## Gère l'affichage (TextureRect + Labels), le zoom au survol et le drag-and-drop.
 
 signal card_clicked(card_data: CardData)

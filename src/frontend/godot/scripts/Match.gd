@@ -6,6 +6,8 @@ extends Node
 
 signal state_changed
 
+const BossEngine = preload("res://godot/scripts/BossEngine.gd")
+
 const WIN_SOULS := 10
 
 var G: Dictionary = {}

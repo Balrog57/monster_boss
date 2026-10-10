@@ -2,6 +2,8 @@ extends Node
 ## CardDB — autoload. Miroir de src/backend/game/cardData.js (référence à supprimer).
 ## Charge godot/data/cards.json (copie de cardData.json, 156 Ko).
 
+const CardData = preload("res://godot/scripts/CardData.gd")
+
 const PHASE := {
 	"BOSS": "boss",
 	"SETUP": "setup",
@@ -46,7 +48,7 @@ func load_cards(path: String = "res://godot/data/cards.json") -> void:
 
 var _card_data_cache: Dictionary = {}
 
-func get_card_data(card_id: String) -> CardData:
+func get_card_data(card_id: String) -> Resource:
 	if _card_data_cache.has(card_id):
 		return _card_data_cache[card_id]
 	for list in [bosses, rooms, spells, heroes, items, minibosses]:

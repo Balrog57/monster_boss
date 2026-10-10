@@ -10,8 +10,8 @@ static func choose_boss(picks: Array):
 			best = b
 	return best
 
-static func pick_move(match: Match, pid: int):
-	var moves := match.legal_moves(pid)
+static func pick_move(match, pid: int):
+	var moves: Array = match.legal_moves(pid)
 	if moves.is_empty():
 		return null
 	var p: Dictionary = (match.G["players"] as Dictionary)[pid]

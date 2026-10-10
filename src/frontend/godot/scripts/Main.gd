@@ -7,6 +7,11 @@ extends Control
 
 const EXT_PACKS := ["hidden-heroes", "tools", "players-choice", "next-level", "minibosses", "crash-landing"]
 
+const GameManager = preload("res://godot/scripts/GameManager.gd")
+const OnlineClient = preload("res://godot/scripts/OnlineClient.gd")
+const OnlineGameManager = preload("res://godot/scripts/OnlineGameManager.gd")
+const Profile = preload("res://godot/scripts/Profile.gd")
+
 var game_manager: GameManager
 var online: OnlineClient
 var board: Control

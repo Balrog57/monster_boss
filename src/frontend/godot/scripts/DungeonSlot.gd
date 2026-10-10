@@ -1,6 +1,9 @@
 class_name DungeonSlot
 extends Control
 ## Emplacement de salle dans le donjon (5 emplacements par boss).
+
+const GameManager = preload("res://godot/scripts/GameManager.gd")
+const BossEngine = preload("res://godot/scripts/BossEngine.gd")
 ## Gère la réception du drag-and-drop de cartes depuis la main.
 
 signal room_dropped(hand_index: int, slot_index: int)
