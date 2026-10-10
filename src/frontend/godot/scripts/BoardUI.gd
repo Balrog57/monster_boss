@@ -97,7 +97,7 @@ func _refresh_seat_bar() -> void:
 		var b := Button.new()
 		b.text = "Joueur %d" % (pid + 1)
 		b.disabled = (pid == view_pid)
-		var p := pid
+		var p: int = int(pid)
 		b.pressed.connect(func(): view_pid = p; _sync_slot_pids(); refresh())
 		seat_bar.add_child(b)
 

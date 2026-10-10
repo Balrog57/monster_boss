@@ -122,7 +122,7 @@ func show_solo_count() -> void:
 	v.add_child(_title_label("HOW MANY PLAYERS?"))
 	for n in [2, 3, 4]:
 		var b := _menu_btn("%d  (vous + %d IA)" % [n, n - 1])
-		var count := n
+		var count: int = n
 		b.pressed.connect(func(): show_setup(count, 1))
 		v.add_child(b)
 	v.add_child(_back_btn(func(): show_menu()))
@@ -188,7 +188,7 @@ func show_profile() -> void:
 		if ResourceLoader.exists(Profile.avatar_path(aid)):
 			t.texture = load(Profile.avatar_path(aid))
 		t.mouse_filter = Control.MOUSE_FILTER_STOP
-		var id := aid
+		var id: String = aid
 		t.gui_input.connect(func(ev: InputEvent): _on_avatar_click(ev, id, thumbs))
 		t.set_meta("aid", aid)
 		grid.add_child(t)
@@ -220,7 +220,7 @@ func show_friends() -> void:
 	v.add_child(_title_label("WITH FRIENDS (2-4)", 32))
 	for n in [2, 3, 4]:
 		var b := _menu_btn("CREATE %dJ" % n)
-		var count := n
+		var count: int = n
 		b.pressed.connect(func(): _create_online(count))
 		v.add_child(b)
 	v.add_child(_title_label("Code ami :", 22))
@@ -268,7 +268,8 @@ func _join_online(code: String) -> void:
 
 func show_waiting() -> void:
 	_net_disconnect()
-	var v := _screen("res://assets/ui/backgrounds/multiplayer_bg.webp")	v.add_child(_title_label("Code salon :", 24))
+	var v := _screen("res://assets/ui/backgrounds/multiplayer_bg.webp")
+	v.add_child(_title_label("Code salon :", 24))
 	var code_lbl := _title_label(online.match_id, 64)
 	v.add_child(code_lbl)
 	var seats_lbl := _title_label("...", 24)
