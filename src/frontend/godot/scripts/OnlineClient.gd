@@ -25,6 +25,10 @@ var _lobby_timer: Timer
 var _state_timer: Timer
 
 func _ready() -> void:
+	if OS.has_feature("web"):
+		var origin = JavaScriptBridge.eval("window.location.origin")
+		if origin != null and str(origin) != "" and str(origin) != "null":
+			host = str(origin)
 	_lobby_timer = Timer.new()
 	_lobby_timer.wait_time = 2.0
 	_lobby_timer.timeout.connect(func(): fetch_lobby())

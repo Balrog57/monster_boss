@@ -21,8 +21,13 @@ func _ready() -> void:
 	add_child(game_manager)
 	online = OnlineClient.new()
 	add_child(online)
+	if OS.has_feature("web"):
+		var origin = JavaScriptBridge.eval("window.location.origin")
+		if origin != null and str(origin) != "" and str(origin) != "null":
+			server_host = str(origin)
 	var settings := Profile.load_settings()
-	server_host = str(settings.get("host", server_host))
+	if settings.has("host") and str(settings["host"]) != "":
+		server_host = str(settings["host"])
 	use_extensions = bool(settings.get("extensions", false))
 	profile = Profile.load_profile()
 	selected_avatar = str(profile.get("avatar", selected_avatar))
