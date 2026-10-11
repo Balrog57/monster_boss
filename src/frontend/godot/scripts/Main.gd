@@ -239,7 +239,7 @@ func show_friends() -> void:
 	code.max_length = 6
 	code.custom_minimum_size = Vector2(460, 56)
 	code.add_theme_font_size_override("font_size", 28)
-	code.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	code.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(code)
 	var join := _menu_btn("JOIN")
 	join.pressed.connect(func(): _join_online(code.text))

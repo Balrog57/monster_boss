@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://bossmonster_capture_screens"]
+
+[ext_resource type="Script" path="res://godot/tests/capture_screens.gd" id="1"]
+
+[node name="CaptureScreens" type="Node"]
+script = ExtResource("1")
