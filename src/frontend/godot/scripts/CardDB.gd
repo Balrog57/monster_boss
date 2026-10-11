@@ -51,12 +51,20 @@ var _card_data_cache: Dictionary = {}
 func get_card_data(card_id: String) -> Resource:
 	if _card_data_cache.has(card_id):
 		return _card_data_cache[card_id]
-	for list in [bosses, rooms, spells, heroes, items, minibosses]:
+	for entry in [["bosses", "boss"], ["rooms", "room"], ["spells", "spell"],
+			["heroes", "hero"], ["items", "item"], ["minibosses", "miniboss"]]:
+		var list: Array = get(entry[0])
 		for c in list:
-			if str((c as Dictionary).get("id", "")) == card_id:
-				var res = CardData.from_dict(c)
-				_card_data_cache[card_id] = res
-				return res
+			var d: Dictionary = c
+			if str(d.get("id", "")) != card_id:
+				continue
+			# heroes: epic -> "epic-hero" (dossier distinct)
+			var kind: String = entry[1]
+			if kind == "hero" and d.get("epic", false):
+				kind = "epic-hero"
+			var res = CardData.from_dict(d, kind)
+			_card_data_cache[card_id] = res
+			return res
 	return null
 
 static func expanded_deck(cards: Array) -> Array:
@@ -96,17 +104,19 @@ static func refill_from_discard(deck: Array, discard: Array, rng: RandomNumberGe
 		deck[j] = t
 
 ## Chemin d'image carte, miroir de getWikiCardImage/getApkCardImage (web: /cards/...).
-static func card_image(id: String, kind: String, mapped_name: String = "") -> String:
+## Le slug vient de nameMap (cards.json) ; les sous-dossiers suivent le type reel.
+func card_image(id: String, kind: String) -> String:
 	var prefix := id.to_upper()
-	var nm := mapped_name if mapped_name != "" else prefix
-	if kind == "back-room":
-		return "res://assets/cards/backs/back_room.webp"
-	if kind == "back-boss":
-		return "res://assets/cards/backs/back_boss.webp"
-	if kind == "back-spell":
-		return "res://assets/cards/backs/back_spell.webp"
-	if kind == "back-hero":
-		return "res://assets/cards/backs/back_hero.webp"
+	match kind:
+		"back-room":
+			return "res://assets/cards/backs/back_room.webp"
+		"back-boss":
+			return "res://assets/cards/backs/back_boss.webp"
+		"back-spell":
+			return "res://assets/cards/backs/back_spell.webp"
+		"back-hero":
+			return "res://assets/cards/backs/back_hero.webp"
+	var nm: String = str(name_map.get(prefix, prefix))
 	var file := prefix + "_" + nm + ".webp"
 	match kind:
 		"boss":
@@ -115,10 +125,14 @@ static func card_image(id: String, kind: String, mapped_name: String = "") -> St
 			return "res://assets/cards/rooms/" + file
 		"spell":
 			return "res://assets/cards/spells/" + file
-		"hero", "epic-hero":
+		"hero":
 			return "res://assets/cards/heroes/" + file
+		"epic-hero":
+			return "res://assets/cards/epic-heroes/" + file
 		"item":
 			return "res://assets/cards/items/" + file
+		"miniboss":
+			return "res://assets/cards/minibosses/" + file
 	return "res://assets/cards/rooms/" + file
 
 static func total_souls(p: Dictionary) -> int:
