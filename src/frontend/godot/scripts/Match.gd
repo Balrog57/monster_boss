@@ -245,6 +245,73 @@ func _resolve_choice(pid: int, index: int) -> void:
 					p["entrance"] = entrance
 		"pick-opponent", "discard-spell-opponent":
 			pass
+		"steal-card":
+			if index >= 0:
+				var o: Dictionary = opts[index]
+				var from_pid := int(o.get("fromPid", -1))
+				if from_pid >= 0 and G["players"].has(from_pid):
+					var op: Dictionary = G["players"][from_pid]
+					var oh: Array = op.get("hand", [])
+					op["hand"] = oh
+					var hi := int(o.get("handIndex", -1))
+					if hi >= 0 and hi < oh.size():
+						var card = oh.pop_at(hi)
+						var hand: Array = p.get("hand", [])
+						p["hand"] = hand
+						hand.append(card)
+						_log("%s : %s vole une carte au joueur %d." % [str(pc.get("bossName", "")), str(pid), from_pid])
+		"search-advanced":
+			if index >= 0:
+				var o: Dictionary = opts[index]
+				var decks: Dictionary = G.get("decks", {})
+				var pile: Array = decks.get("rooms", [])
+				var pile_idx := int(o.get("pileIndex", -1))
+				var from_discard := str(o.get("pile", "")) == "discard"
+				if from_discard:
+					pile = decks.get("roomDiscard", [])
+				decks["rooms" if not from_discard else "roomDiscard"] = pile
+				if pile_idx >= 0 and pile_idx < pile.size() and RoomAbilities.pile_index_matches(pile, o):
+					var card: Dictionary = pile[pile_idx]
+					pile.remove_at(pile_idx)
+					var hand: Array = p.get("hand", [])
+					p["hand"] = hand
+					hand.append(card)
+					_log("%s : %s recherche." % [str(pc.get("bossName", "")), str(card.get("name", "?"))])
+		"destroy-room":
+			if index >= 0:
+				var o: Dictionary = opts[index]
+				var target := int(o.get("targetPlayerId", pc.get("playerId", -1)))
+				var ri := int(o.get("roomIndex", -1))
+				if target >= 0 and G["players"].has(target):
+					var tp: Dictionary = G["players"][target]
+					var td: Array = tp.get("dungeon", [])
+					tp["dungeon"] = td
+					if ri >= 0 and ri < td.size():
+						var destroyed: Dictionary = BossEngine.destroy_room(tp, ri)
+						_log("%s : %s detruit par le joueur %d." % [str(pc.get("bossName", "")), str(destroyed.get("name", "?")), target])
+				# Adversaires suivants dans la file (Robobo)
+				var rq: Array = G.get("roboboQueue", [])
+				if not rq.is_empty():
+					var next_pid := int(rq.pop_front())
+					G["roboboQueue"] = rq
+					var nxt: Variant = RoomAbilities.robobo_choice(G, next_pid)
+					if nxt != null and not (nxt as Dictionary).is_empty():
+						G["pendingChoice"] = nxt
+						state_changed.emit()
+						return
+		"kill-hero":
+			if index >= 0:
+				var ti := int((opts[index] as Dictionary).get("townIndex", -1))
+				var town: Array = G.get("town", [])
+				G["town"] = town
+				if ti >= 0 and ti < town.size():
+					var hero: Dictionary = town[ti]
+					town.remove_at(ti)
+					var souls: Array = p.get("souls", [])
+					p["souls"] = souls
+					for i in maxi(int(hero.get("souls", 1)), 1):
+						souls.append({"souls": 1, "name": hero.get("name", "?"), "faceDown": true})
+					_log("%s : %s detruit en ville." % [str(pc.get("bossName", "")), str(hero.get("name", "?"))])
 		"swap-rooms":
 			if index >= 0 and index < opts.size():
 				_swap_rooms(p, (opts[index] as Dictionary))
@@ -254,6 +321,10 @@ func _resolve_choice(pid: int, index: int) -> void:
 	if not queue.is_empty():
 		G["pendingChoice"] = queue.pop_front()
 	state_changed.emit()
+	# Le choix venait de suspendre la phase BUILD : il faut la reprendre, sinon
+	# personne ne construit plus et la partie se fige (reducer.js rejoue la phase).
+	if G.get("pendingChoice", {}) == {} and G.get("phase", "") == CardDB.PHASE["BUILD"]:
+		_end_build_for(pid)
 
 ## Echange la salle active de deux piles du meme donjon.
 func _swap_rooms(p: Dictionary, option: Dictionary) -> void:
@@ -361,6 +432,10 @@ func _end_build_for(_pid: int) -> void:
 			else:
 				p["buildsThisTurn"] = 1 # rien a construire : passe
 
+	# Reveal des salles face-down puis level-up (reducer.js:endPhaseBuild)
+	if _reveal_and_level_up():
+		return
+
 	# Phase 3 : BAIT (Leurre)
 	G["phase"] = CardDB.PHASE["BAIT"]
 	_log("Tour %d — phase BAIT (Leurre)." % G["turn"])
@@ -371,6 +446,33 @@ func _end_build_for(_pid: int) -> void:
 	_log("Phase ADVENTURE : les héros avancent.")
 	if not _any_heroes_in_dungeons():
 		_check_end_or_next_turn()
+
+## Fin de phase BUILD : revele les salles face-down puis declenche le level-up
+## (reducer.js:endPhaseBuild). Renvoie true si un choix est en attente.
+func _reveal_and_level_up() -> bool:
+	for pid in CardDB.order_by_xp(G["players"]):
+		var p: Dictionary = G["players"][pid]
+		if p.get("eliminated", false):
+			continue
+		for stack in (p.get("dungeon", []) as Array):
+			var room = BossEngine.active_room(stack)
+			if room == null or not (room as Dictionary).get("faceDown", false):
+				continue
+			var r: Dictionary = room
+			r["faceDown"] = false
+			_log("Salle révélée : %s pour le joueur %s" % [str(r.get("name", "?")), str(pid)])
+			var choice = RoomAbilities.on_build_room(G, int(pid), r)
+			if choice != null:
+				G["pendingChoice"] = choice
+				return true
+		if BossEngine.count_visible_rooms(p["dungeon"]) >= 5 and not p.get("leveledUp", false):
+			p["leveledUp"] = true
+			_log("Joueur %s EST MONTÉ EN NIVEAU !" % str(pid))
+			var choice = RoomAbilities.process_level_up(G, int(pid))
+			if choice != null:
+				G["pendingChoice"] = choice
+				return true
+	return false
 
 func _ai_build(pid: int) -> void:
 	var p: Dictionary = G["players"][pid]

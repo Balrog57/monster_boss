@@ -486,6 +486,21 @@ static func _discard_random_spell_from(G: Dictionary, pid: int, label: String) -
 	decks["spellDiscard"] = pile
 	pile.append(card)
 	_log(G, "%s: player %d discarded %s." % [label, pid, str(card.get("name", "?"))])
+## Construit le choix suivant de la file Robobo (adversaires restants).
+static func robobo_choice(G: Dictionary, target_pid: int) -> Variant:
+	if target_pid < 0 or not (G.get("players", {}) as Dictionary).has(target_pid):
+		return {}
+	var tp: Dictionary = G["players"][target_pid]
+	var dungeon: Array = tp.get("dungeon", [])
+	var options: Array = []
+	for i in dungeon.size():
+		if BossEngine.active_room(dungeon[i]) != null:
+			options.append({"targetPlayerId": target_pid, "roomIndex": i})
+	if options.is_empty():
+		return {}
+	return {"type": "destroy-room", "playerId": target_pid, "bossName": "Robobo",
+		"message": "Robobo: choose a Room to destroy", "options": options}
+
 static func heroes_without_item(G: Dictionary) -> Array:
 	var opts: Array = []
 	var town: Array = G.get("town", [])
@@ -505,3 +520,167 @@ static func heroes_without_item(G: Dictionary) -> Array:
 	if not adv.is_empty() and not (adv.get("hero", {}) as Dictionary).get("item", false):
 		opts.append({"card": adv.get("hero", {}), "source": "adventure"})
 	return opts
+
+## --- Level up des boss (roomAbilities.js:processLevelUp) ---
+## Declenche a 5 salles visibles. Renvoie un choix a resoudre, ou null.
+
+static func process_level_up(G: Dictionary, player_id: int, boss_override: Dictionary = {}) -> Variant:
+	var p := _player(G, player_id)
+	if p.is_empty() or p.get("boss", null) == null:
+		return null
+	var boss: Dictionary = boss_override if not boss_override.is_empty() else p.get("boss", {}) as Dictionary
+	match str(boss.get("id", "")):
+		"BMA001": return _draculord(G, player_id)
+		"BMA002": return _xyzax(G, p)
+		"BMA003": return _search_advanced_choice(G, player_id, "monster", "King Croak")
+		"BMA004": return _robobo(G, player_id)
+		"BMA005": return _cerebellus(G, p, player_id)
+		"BMA006": return _seducia(G, player_id)
+		"BMA007": return _search_advanced_choice(G, player_id, "trap", "Cleopatra")
+		"BMA008": return _gorgona(G, p)
+	return null
+
+## BMA001 Draculord : vole une carte chez un adversaire (le joueur choisit).
+static func _draculord(G: Dictionary, player_id: int) -> Variant:
+	var opts: Array = []
+	for opid in (G.get("players", {}) as Dictionary):
+		if int(opid) == player_id:
+			continue
+		var op: Dictionary = G["players"][opid]
+		if op.get("eliminated", false):
+			continue
+		var hand: Array = op.get("hand", [])
+		op["hand"] = hand
+		if hand.is_empty():
+			continue
+		for i in hand.size():
+			opts.append({"card": hand[i], "fromPid": int(opid), "handIndex": i})
+	if opts.is_empty():
+		_log(G, "Draculord: no opponent cards to take.")
+		return null
+	return {"type": "steal-card", "playerId": player_id, "bossId": "BMA001", "bossName": "Draculord",
+		"message": "Draculord: choose a card to steal from an opponent", "options": opts}
+
+## BMA002 Xyzax : recupere 2 cartes de la defausse (automatique si <= 2).
+static func _xyzax(G: Dictionary, p: Dictionary) -> Variant:
+	var opts := discard_card_options(G, "any")
+	if opts.is_empty():
+		_log(G, "Xyzax: discard piles are empty.")
+		return null
+	if opts.size() <= 2:
+		for o in opts:
+			var got = take_discard_card(G, p, o)
+			if got != null:
+				_log(G, "Xyzax: recovered %s." % str((got as Dictionary).get("name", "?")))
+		return null
+	return {"type": "recover-card", "playerId": int(p.get("id", 0)), "bossName": "Xyzax",
+		"message": "Xyzax: choose a card from the discard (2 remaining)", "remaining": 2, "options": opts}
+
+## BMA003 King Croak / BMA007 Cleopatra : cherche une salle avancee (facultatif).
+static func _search_advanced_choice(G: Dictionary, player_id: int, room_type: String, boss_name: String) -> Variant:
+	var kind := "Monster" if room_type == "monster" else "Trap"
+	var decks: Dictionary = G.get("decks", {})
+	var options: Array = []
+	for entry in [["rooms", "deck"], ["roomDiscard", "discard"]]:
+		var pile: Array = decks.get(entry[0], [])
+		decks[entry[0]] = pile
+		for i in pile.size():
+			var c: Dictionary = pile[i]
+			if bool(c.get("advanced", false)) and str(c.get("type", "")) == room_type:
+				options.append({"card": c, "pile": entry[1], "pileIndex": i})
+	if options.is_empty():
+		_log(G, "%s: no Advanced %s Room to search." % [boss_name, kind])
+		return null
+	return {"type": "search-advanced", "optional": true, "playerId": player_id, "bossName": boss_name,
+		"roomType": room_type, "message": "%s: choose an Advanced %s Room (or skip)" % [boss_name, kind],
+		"options": options}
+
+## BMA004 Robobo : chaque adversaire detruit une salle de son choix.
+static func _robobo(G: Dictionary, player_id: int) -> Variant:
+	var victims: Array = []
+	for opid in (G.get("players", {}) as Dictionary):
+		if int(opid) == player_id:
+			continue
+		var op: Dictionary = G["players"][opid]
+		if op.get("eliminated", false):
+			continue
+		var dungeon: Array = op.get("dungeon", [])
+		if dungeon.is_empty():
+			continue
+		victims.append(int(opid))
+	if victims.is_empty():
+		_log(G, "Robobo: no opponent rooms to destroy.")
+		return null
+	# file des adversaires restants, dans l'ordre du JS
+	G["roboboQueue"] = victims.slice(1)
+	var first: int = victims[0]
+	var dungeon: Array = (G["players"][first] as Dictionary).get("dungeon", [])
+	var options: Array = []
+	for i in dungeon.size():
+		if BossEngine.active_room(dungeon[i]) != null:
+			options.append({"targetPlayerId": first, "roomIndex": i})
+	if options.is_empty():
+		return null
+	return {"type": "destroy-room", "playerId": first, "bossName": "Robobo",
+		"message": "Robobo: choose a Room to destroy", "options": options}
+
+## BMA005 Cerebellus : pioche 3 sorts, en defausse 1.
+static func _cerebellus(G: Dictionary, p: Dictionary, player_id: int) -> Variant:
+	var drawn := _draw_into(G, p, "spells", 3)
+	if drawn.size() >= 2:
+		var opts: Array = []
+		for c in drawn:
+			opts.append({"card": c})
+		return {"type": "discard-spell", "playerId": player_id, "bossId": "BMA005", "bossName": "Cerebellus",
+			"message": "Cerebellus: choose a spell to discard", "options": opts}
+	if drawn.size() == 1:
+		var card: Dictionary = drawn[0]
+		var hand: Array = p.get("hand", [])
+		p["hand"] = hand
+		var at := hand.find(card)
+		if at >= 0:
+			hand.remove_at(at)
+		var decks: Dictionary = G.get("decks", {})
+		var pile: Array = decks.get("spellDiscard", [])
+		decks["spellDiscard"] = pile
+		pile.append(card)
+		_log(G, "Cerebellus: drew 1 spell, auto-discarded %s." % str(card.get("name", "?")))
+	return null
+
+## BMA006 Seducia : cherche un heros en ville ou dans la pioche (facultatif).
+static func _seducia(G: Dictionary, player_id: int) -> Variant:
+	var options: Array = []
+	var town: Array = G.get("town", [])
+	G["town"] = town
+	for i in town.size():
+		options.append({"card": town[i], "source": "town", "townIndex": i})
+	var decks: Dictionary = G.get("decks", {})
+	for pile_name in ["heroes", "epics"]:
+		var deck: Array = decks.get(pile_name, [])
+		decks[pile_name] = deck
+		for i in deck.size():
+			options.append({"card": deck[i], "source": "deck", "pile": pile_name, "deckIndex": i})
+	if options.is_empty():
+		_log(G, "Seducia: no Hero in town or the Hero decks.")
+		return null
+	return {"type": "pick-hero", "optional": true, "playerId": player_id, "bossName": "Seducia",
+		"message": "Seducia: choose a Hero (or skip)", "options": options}
+
+## BMA008 Gorgona : detruit un heros en ville (le joueur choisit si > 1).
+static func _gorgona(G: Dictionary, p: Dictionary) -> Variant:
+	var town: Array = G.get("town", [])
+	G["town"] = town
+	if town.size() > 1:
+		var options: Array = []
+		for i in town.size():
+			options.append({"card": town[i], "townIndex": i})
+		return {"type": "kill-hero", "playerId": int(p.get("id", 0)), "bossName": "Gorgona",
+			"message": "Gorgona: choose a Hero in town to destroy", "options": options}
+	if town.size() == 1:
+		var hero: Dictionary = town.pop_front()
+		var souls: Array = p.get("souls", [])
+		p["souls"] = souls
+		for i in maxi(int(hero.get("souls", 1)), 1):
+			souls.append({"souls": 1, "name": hero.get("name", "?"), "faceDown": true})
+		_log(G, "Gorgona: killed %s." % str(hero.get("name", "?")))
+	return null

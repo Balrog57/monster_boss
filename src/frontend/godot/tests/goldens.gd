@@ -44,6 +44,14 @@ func _ready() -> void:
 	_t_build_dark_laboratory_opens_choice()
 	_t_died_vampire_bordello_heals()
 	_t_died_golem_factory_once_per_turn()
+	_t_levelup_requires_5_visible_rooms()
+	_t_levelup_draculord_steals()
+	_t_levelup_xyzax_recovers_two()
+	_t_levelup_cerebellus_draws_three()
+	_t_levelup_gorgona_kills_town_hero()
+	_t_levelup_king_croak_searches_advanced()
+	_t_levelup_robobo_targets_opponent()
+	_t_levelup_unknown_boss_noop()
 
 	print("GOLDENS passed=", _passed, " failed=", _failed.size())
 	if _failed.is_empty():
@@ -339,6 +347,135 @@ func _ability_G(room_id: String, room_cards: Array = []) -> Dictionary:
 ## BMA009 Dark Altar : detruit la salle et recupere une carte de la defausse.
 ## Apres destruction la defausse contient la carte detruite : avec defausse vide on
 ## recupere automatiquement, avec 2+ options l'engine ouvre un choix.
+## --- Level up des boss (roomAbilities.js:processLevelUp) ---
+## Le level-up se declenche a 5 salles visibles et une seule fois par joueur.
+
+func _levelup_G(boss_id: String, visible: int) -> Dictionary:
+	var p := {"id": 0, "boss": {"id": boss_id, "name": boss_id, "xp": 300},
+		"dungeon": [], "hand": [], "souls": [], "wounds": [], "entrance": [],
+		"items": [], "eliminated": false, "buildsThisTurn": 0, "leveledUp": false}
+	for i in visible:
+		(p["dungeon"] as Array).append([_room("R%d" % i, "trap", false, [1])])
+	return {"players": {0: p, 1: {"id": 1, "boss": {"id": "BMA001", "name": "Adv", "xp": 300},
+		"dungeon": [], "hand": [], "souls": [], "wounds": [], "entrance": [],
+		"items": [], "eliminated": false, "buildsThisTurn": 0, "leveledUp": false}},
+		"town": [], "log": [], "logs": [], "adventure": {}, "turn": 1,		"effects": SpellEffects.empty_effects(),
+		"decks": {"rooms": [], "spells": [], "heroes": [], "epics": [],
+			"roomDiscard": [], "spellDiscard": [], "heroDiscard": []}}
+
+func _t_levelup_requires_5_visible_rooms() -> void:
+	for n in [0, 4, 5]:
+		var G := _levelup_G("BMA001", n)
+		var m = Match.new()
+		add_child(m)
+		m.G = G
+		var opened := m._reveal_and_level_up()
+		if n < 5:
+			_ok(not opened and not (G["players"][0] as Dictionary).get("leveledUp", false),
+				"%d salles visibles : pas de level-up" % n)
+		else:
+			_ok((G["players"][0] as Dictionary).get("leveledUp", false),
+				"5 salles visibles : level-up declenche")
+		m.queue_free()
+
+func _t_levelup_draculord_steals() -> void:
+	var G := _levelup_G("BMA001", 5)
+	((G["players"][1] as Dictionary)["hand"] as Array).append({"id": "SP1", "name": "Fire", "isSpell": true})
+	var c = RoomAbilities.process_level_up(G, 0)
+	_ok(c != null and str((c as Dictionary).get("type", "")) == "steal-card",
+		"Draculord ouvre un choix steal-card")
+	var opts: Array = (c as Dictionary).get("options", [])
+	_ok(opts.size() == 1 and str((opts[0] as Dictionary).get("card", {}).get("name", "")) == "Fire",
+		"la seule carte adverse est proposee")
+
+func _t_levelup_xyzax_recovers_two() -> void:
+	# Defausse vide : rien a faire, pas de choix.
+	var G0 := _levelup_G("BMA002", 5)
+	_ok(RoomAbilities.process_level_up(G0, 0) == null,
+		"Xyzax sans defausse : aucun choix")
+	# Une seule carte : recuperation automatique, pas de choix.
+	var G1 := _levelup_G("BMA002", 5)
+	(G1["decks"]["roomDiscard"] as Array).append(_room("A", "trap", false, [1]))
+	_ok(RoomAbilities.process_level_up(G1, 0) == null, "Xyzax avec 1 carte : automatique")
+	_ok(((G1["players"][0] as Dictionary)["hand"] as Array).size() == 1, "la carte est recuperee en main")
+	# 3+ cartes : choix ouvert.
+	var G2 := _levelup_G("BMA002", 5)
+	for i in 3:
+		(G2["decks"]["roomDiscard"] as Array).append(_room("D%d" % i, "trap", false, [1]))
+	var c = RoomAbilities.process_level_up(G2, 0)
+	_ok(c != null and str((c as Dictionary).get("type", "")) == "recover-card", "Xyzax avec 3+ cartes : choix")
+	_ok(int((c as Dictionary).get("remaining", 0)) == 2, "il reste 2 recuperations")
+
+func _t_levelup_cerebellus_draws_three() -> void:
+	var G := _levelup_G("BMA005", 5)
+	for i in 3:
+		(G["decks"]["spells"] as Array).append({"id": "SP%d" % i, "name": "S%d" % i, "isSpell": true})
+	var hand: Array = (G["players"][0] as Dictionary)["hand"]
+	var c = RoomAbilities.process_level_up(G, 0)
+	_ok(hand.size() == 3, "3 sorts sont pioches en main")
+	_ok(c != null and str((c as Dictionary).get("type", "")) == "discard-spell",
+		"Cerebellus ouvre un choix discard-spell")
+	_ok(((c as Dictionary).get("options", []) as Array).size() == 3, "les 3 cartes sont proposees")
+	# Un seul sort pioche : defausse automatique, aucun choix.
+	var G1 := _levelup_G("BMA005", 5)
+	(G1["decks"]["spells"] as Array).append({"id": "SP0", "name": "Only", "isSpell": true})
+	_ok(RoomAbilities.process_level_up(G1, 0) == null, "Cerebellus avec 1 sort : automatique")
+	_ok(((G1["decks"]["spellDiscard"] as Array)).size() == 1, "le sort unique part en defausse")
+
+func _t_levelup_gorgona_kills_town_hero() -> void:
+	# Un seul heros en ville : destruction automatique + ame capturee.
+	var G := _levelup_G("BMA008", 5)
+	(G["town"] as Array).append({"id": "H1", "name": "Hero", "souls": 2})
+	_ok(RoomAbilities.process_level_up(G, 0) == null, "Gorgona avec 1 heros : automatique")
+	_ok((G["town"] as Array).is_empty(), "le heros est detruit")
+	var souls: Array = (G["players"][0] as Dictionary)["souls"]
+	_ok(souls.size() == 2, "ses 2 ames sont capturees")
+	# Plusieurs heros : le joueur choisit.
+	var G2 := _levelup_G("BMA008", 5)
+	(G2["town"] as Array).append({"id": "H1", "name": "A", "souls": 1})
+	(G2["town"] as Array).append({"id": "H2", "name": "B", "souls": 1})
+	var c = RoomAbilities.process_level_up(G2, 0)
+	_ok(c != null and str((c as Dictionary).get("type", "")) == "kill-hero", "Gorgona avec 2 heros : choix")
+	_ok(((c as Dictionary).get("options", []) as Array).size() == 2, "les 2 heros sont proposes")
+
+func _t_levelup_king_croak_searches_advanced() -> void:
+	var G := _levelup_G("BMA003", 5)
+	# Seules les salles avancees du bon type sont proposees.
+	(G["decks"]["rooms"] as Array).append(_room("Ord", "trap", false, [1]))
+	(G["decks"]["rooms"] as Array).append(_room("AdvMon", "monster", true, [1, 2]))
+	(G["decks"]["roomDiscard"] as Array).append(_room("AdvMon2", "monster", true, [1, 3]))
+	var c = RoomAbilities.process_level_up(G, 0)
+	_ok(c != null and bool((c as Dictionary).get("optional", false)), "le choix est facultatif")
+	var opts: Array = (c as Dictionary).get("options", [])
+	_ok(opts.size() == 2, "seules les 2 salles Monster avancees sont proposees")
+	_ok(str((opts[0] as Dictionary).get("pile", "")) == "deck"
+		and str((opts[1] as Dictionary).get("pile", "")) == "discard", "pioche et defausse incluses")
+	# Cleopatra cherche des Traps.
+	var G2 := _levelup_G("BMA007", 5)
+	(G2["decks"]["rooms"] as Array).append(_room("AdvTrap", "trap", true, [1]))
+	var c2 = RoomAbilities.process_level_up(G2, 0)
+	_ok(c2 != null and str((c2 as Dictionary).get("roomType", "")) == "trap", "Cleopatra cherche des Traps")
+
+func _t_levelup_robobo_targets_opponent() -> void:
+	var G := _levelup_G("BMA004", 5)
+	# Un adversaire a une salle, l'autre est vide : file = 1 seul adversaire.
+	((G["players"][1] as Dictionary)["dungeon"] as Array).append([_room("V", "trap", false, [1])])
+	var c = RoomAbilities.process_level_up(G, 0)
+	_ok(c != null and str((c as Dictionary).get("type", "")) == "destroy-room", "Robobo ouvre un choix")
+	_ok(int((c as Dictionary).get("playerId", -1)) == 1, "l'adversaire detruit sa propre salle")
+	_ok((G["roboboQueue"] as Array).is_empty(), "aucun adversaire en file")
+	# Aucun donjon adverse : rien a faire.
+	var G2 := _levelup_G("BMA004", 5)
+	_ok(RoomAbilities.process_level_up(G2, 0) == null, "Robobo sans adversaire : aucun choix")
+
+func _t_levelup_unknown_boss_noop() -> void:
+	var G := _levelup_G("XXX999", 5)
+	_ok(RoomAbilities.process_level_up(G, 0) == null, "boss inconnu : aucun choix")
+	# Un joueur sans boss est ignore.
+	var G2 := _levelup_G("BMA001", 5)
+	(G2["players"][0] as Dictionary).erase("boss")
+	_ok(RoomAbilities.process_level_up(G2, 0) == null, "joueur sans boss : aucun choix")
+
 func _t_room_ability_dark_altar() -> void:
 	var G := _ability_G("BMA009")
 	_ok(RoomAbilities.activate_room_ability(G, 0, 0) == null, "Dark Altar s'active sans erreur")
