@@ -34,6 +34,15 @@ func _ready() -> void:
 	while m.G.get("gameOver") == null and steps < 500:
 		var acted := false
 		var phase: String = m.G["phase"]
+		# Un choix en attente se resout en priorite, quel que soit le joueur concerne.
+		var pc: Dictionary = m.G.get("pendingChoice", {})
+		if not pc.is_empty():
+			var owner := int(pc.get("playerId", 0))
+			var cmoves: Array = m.legal_moves(owner)
+			if not cmoves.is_empty():
+				m.apply_move(owner, cmoves[0])
+				steps += 1
+				continue
 		if phase == "boss":
 			for pid in m.G["players"]:
 				var moves: Array = m.legal_moves(int(pid))
@@ -58,6 +67,15 @@ func _ready() -> void:
 	print("SOAK steps=", steps, " turn=", m.G.get("turn", -1), " gameOver=", m.G.get("gameOver"))
 	if m.G.get("gameOver") == null:
 		print("SOAK INCOMPLET (phase=", m.G.get("phase"), ")")
+		for pid in m.G["players"]:
+			var pl: Dictionary = m.G["players"][pid]
+			print("  P", pid, " builds=", pl.get("buildsThisTurn"), " eliminated=", pl.get("eliminated"),
+				" canBuild=", BossEngine.can_build_room(pl, m.G, int(pid)),
+				" hand=", (pl.get("hand", []) as Array).size(),
+				" dungeon=", (pl.get("dungeon", []) as Array).size())
+		print("  pending=", m.G.get("pendingChoice"))
+		print("  movesP0=", m.legal_moves(0).size(), " movesP1=", m.legal_moves(1).size())
+		print("  iaP0=", AI.pick_move(m, 0))
 		get_tree().quit(1)
 	else:
 		print("SOAK OK")

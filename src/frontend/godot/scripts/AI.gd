@@ -26,11 +26,18 @@ static func pick_move(match, pid: int):
 
 static func _score(p: Dictionary, move: Dictionary) -> float:
 	match String(move["type"]):
+		"resolveChoice":
+			# Un choix en attente doit toujours etre resolu : priorite maximale.
+			return 1000.0
 		"pickBoss":
 			return 1.0
 		"buildInitialRoom", "buildRoom":
 			var c: Dictionary = (p["hand"] as Array)[int(move["args"][0])]
 			return float(c.get("damage", 0)) * 10.0 + float((c.get("treasures", []) as Array).size()) * 3.0
+		"playSpell":
+			return 5.0
+		"activateRoom":
+			return 2.0
 		"passBuild":
 			return -1.0
 		"adventureNext":

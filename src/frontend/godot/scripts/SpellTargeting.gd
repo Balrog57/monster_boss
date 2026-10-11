@@ -1,0 +1,257 @@
+class_name SpellTargeting
+extends RefCounted
+## Miroir de src/backend/game/spellTargeting.js.
+## Cibles legales pour un sort, partagees par legalMoves et l'UI.
+
+const SPELL_TARGETS := {
+	"BMA040": {"type": "any-room-trap", "label": "Choose a Trap Room"},
+	"BMA041": {"type": "hero-opponent-dungeon", "label": "Choose a Hero in an opponent's dungeon"},
+	"BMA042": {"type": "own-room", "label": "Choose a room to destroy"},
+	"BMA044": {"type": "hero-own-dungeon", "label": "Choose a Hero in your dungeon"},
+	"BMA045": {"type": "hero-any-dungeon", "label": "Choose a Hero to send back to town"},
+	"BMA046": {"type": "any-room", "label": "Choose a room to deactivate"},
+	"BMA047": {"type": "any-room-monster", "label": "Choose a Monster Room"},
+	"BMA051": {"type": "hero-town", "label": "Choose a Hero in town"},
+	"BMA052": {"type": "own-soul", "label": "Choose a face-down Hero"},
+	"BMA053": {"type": "hero-own-dungeon", "label": "Choose a Hero in your dungeon"},
+	"BMA054": {"type": "trepidation-player", "label": "Choose a player with 2+ more Souls"},
+	"BMA055": {"type": "opponent-soul", "label": "Choose a dead Hero"},
+	"THK025": {"type": "any-item", "label": "Choose an Item to flip"},
+}
+
+static func spell_needs_target(spell_id: String) -> bool:
+	return SPELL_TARGETS.has(spell_id)
+
+static func _stack_top(stack) -> Variant:
+	return stack[stack.size() - 1] if stack is Array and not (stack as Array).is_empty() else null
+
+static func _player(G: Dictionary, pid: int) -> Dictionary:
+	var players: Dictionary = G.get("players", {})
+	if players.has(pid):
+		return players[pid]
+	return players.get(str(pid), {}) as Dictionary
+
+## Cibles brutes pour les coups du reducer : { roomIndex, heroId, townIndex, targetPlayerId, ... }
+static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, player_id: int) -> Array:
+	var out: Array = []
+	var pid := int(player_id)
+	match type:
+		"own-room":
+			for i in (me.get("dungeon", []) as Array).size():
+				if _stack_top((me["dungeon"] as Array)[i]) != null:
+					out.append({"roomIndex": i})
+		"own-room-trap":
+			for i in (me.get("dungeon", []) as Array).size():
+				var r = _stack_top((me["dungeon"] as Array)[i])
+				if r != null and str((r as Dictionary).get("type", "")) == "trap":
+					out.append({"roomIndex": i})
+		"own-room-monster":
+			for i in (me.get("dungeon", []) as Array).size():
+				var r = _stack_top((me["dungeon"] as Array)[i])
+				if r != null and str((r as Dictionary).get("type", "")) == "monster":
+					out.append({"roomIndex": i})
+		"any-room-trap":
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				if op.get("eliminated", false):
+					continue
+				for i in (op.get("dungeon", []) as Array).size():
+					var r = _stack_top((op["dungeon"] as Array)[i])
+					if r != null and str((r as Dictionary).get("type", "")) == "trap":
+						out.append({"targetPlayerId": int(opid), "roomIndex": i})
+		"any-room-monster":
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				if op.get("eliminated", false):
+					continue
+				for i in (op.get("dungeon", []) as Array).size():
+					var r = _stack_top((op["dungeon"] as Array)[i])
+					if r != null and str((r as Dictionary).get("type", "")) == "monster":
+						out.append({"targetPlayerId": int(opid), "roomIndex": i})
+		"any-room":
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				for i in (op.get("dungeon", []) as Array).size():
+					if _stack_top((op["dungeon"] as Array)[i]) != null:
+						out.append({"targetPlayerId": int(opid), "roomIndex": i})
+		"hero-opponent-dungeon":
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				if int(opid) == pid or op.get("eliminated", false):
+					continue
+				for h in (op.get("entrance", []) as Array):
+					out.append({"heroId": (h as Dictionary).get("id")})
+		"hero-own-dungeon":
+			for h in (me.get("entrance", []) as Array):
+				out.append({"heroId": (h as Dictionary).get("id")})
+		"hero-any-dungeon":
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				if op.get("eliminated", false):
+					continue
+				for h in (op.get("entrance", []) as Array):
+					out.append({"heroId": (h as Dictionary).get("id")})
+		"hero-town":
+			for i in (G.get("town", []) as Array).size():
+				out.append({"townIndex": i})
+		"opponent":
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				if int(opid) == pid or op.get("eliminated", false):
+					continue
+				out.append({"targetPlayerId": int(opid)})
+		"any-player":
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				if op.get("eliminated", false):
+					continue
+				out.append({"targetPlayerId": int(opid)})
+		"trepidation-player":
+			var mine := _souls_total(me)
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				if int(opid) == pid or op.get("eliminated", false):
+					continue
+				if _souls_total(op) >= mine + 2:
+					out.append({"targetPlayerId": int(opid)})
+		"own-soul":
+			for i in (me.get("souls", []) as Array).size():
+				var s: Dictionary = (me["souls"] as Array)[i]
+				if not bool(s.get("tpk", false)):
+					out.append({"soulIndex": i})
+		"opponent-soul":
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				if int(opid) == pid or op.get("eliminated", false):
+					continue
+				for i in (op.get("souls", []) as Array).size():
+					var s: Dictionary = (op["souls"] as Array)[i]
+					if not bool(s.get("tpk", false)):
+						out.append({"targetPlayerId": int(opid), "soulIndex": i, "pile": "souls"})
+				for i in (op.get("wounds", []) as Array).size():
+					out.append({"targetPlayerId": int(opid), "soulIndex": i, "pile": "wounds"})
+		"any-item":
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				for i in (op.get("items", []) as Array).size():
+					out.append({"targetPlayerId": int(opid), "itemIndex": i})
+		_:
+			pass
+	return out
+
+static func _souls_total(p: Dictionary) -> int:
+	var n := 0
+	for s in (p.get("souls", []) as Array):
+		n += int((s as Dictionary).get("souls", 1))
+	return n
+
+## Cibles affichees par l'UI : { key, card, kind, value, label }
+static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary, player_id: int) -> Array:
+	var out: Array = []
+	var pid := int(player_id)
+	match type:
+		"own-room", "own-room-trap", "own-room-monster":
+			var want := "" if type == "own-room" else ("trap" if type == "own-room-trap" else "monster")
+			for i in (me.get("dungeon", []) as Array).size():
+				var r = _stack_top((me["dungeon"] as Array)[i])
+				if r == null:
+					continue
+				var rd: Dictionary = r
+				if want != "" and str(rd.get("type", "")) != want:
+					continue
+				out.append({"key": "room-%d" % i, "card": rd, "kind": "room",
+					"value": {"roomIndex": i}, "label": str(rd.get("name", ""))})
+		"any-room":
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				for i in (op.get("dungeon", []) as Array).size():
+					var r = _stack_top((op["dungeon"] as Array)[i])
+					if r == null:
+						continue
+					var rd: Dictionary = r
+					var owner := "You" if int(opid) == pid else "P%d" % int(opid)
+					out.append({"key": "room-%s-%d" % [str(opid), i], "card": rd, "kind": "room",
+						"value": {"targetPlayerId": int(opid), "roomIndex": i},
+						"label": "%s (%s)" % [rd.get("name", ""), owner]})
+		"hero-town":
+			for i in (G.get("town", []) as Array).size():
+				var h: Dictionary = G["town"][i]
+				out.append({"key": "town-%d" % i, "card": h,
+					"kind": "epic-hero" if h.get("epic", false) else "hero",
+					"value": {"townIndex": i}, "label": str(h.get("name", ""))})
+		"hero-own-dungeon":
+			for h in (me.get("entrance", []) as Array):
+				var hd: Dictionary = h
+				out.append({"key": "hero-%s" % str(hd.get("id", "")), "card": hd,
+					"kind": "epic-hero" if hd.get("epic", false) else "hero",
+					"value": {"heroId": hd.get("id")}, "label": str(hd.get("name", ""))})
+		"hero-any-dungeon", "hero-opponent-dungeon":
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				if op.get("eliminated", false):
+					continue
+				if type == "hero-opponent-dungeon" and int(opid) == pid:
+					continue
+				for h in (op.get("entrance", []) as Array):
+					var hd: Dictionary = h
+					out.append({"key": "hero-%s-%s" % [str(opid), str(hd.get("id", ""))], "card": hd,
+						"kind": "epic-hero" if hd.get("epic", false) else "hero",
+						"value": {"heroId": hd.get("id")}, "label": str(hd.get("name", ""))})
+		"opponent", "any-player", "trepidation-player":
+			var mine := _souls_total(me)
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				if op.get("eliminated", false):
+					continue
+				if type == "opponent" and int(opid) == pid:
+					continue
+				if type == "trepidation-player":
+					if int(opid) == pid or _souls_total(op) < mine + 2:
+						continue
+				var boss: Dictionary = op.get("boss", {}) as Dictionary
+				var label := str(boss.get("name", "")) if not boss.is_empty() else "Player %d" % int(opid)
+				if type == "any-player" and int(opid) == pid:
+					label = "You"
+				out.append({"key": "pl-%s" % str(opid), "card": boss, "kind": "boss",
+					"value": {"targetPlayerId": int(opid)}, "label": label})
+		"own-soul":
+			for i in (me.get("souls", []) as Array).size():
+				var s: Dictionary = (me["souls"] as Array)[i]
+				if bool(s.get("tpk", false)):
+					continue
+				out.append({"key": "soul-%d" % i, "card": s, "kind": "hero",
+					"value": {"soulIndex": i}, "label": str(s.get("name", "Hero"))})
+		"opponent-soul":
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				if int(opid) == pid or op.get("eliminated", false):
+					continue
+				for i in (op.get("souls", []) as Array).size():
+					var s: Dictionary = (op["souls"] as Array)[i]
+					if bool(s.get("tpk", false)):
+						continue
+					out.append({"key": "osoul-%s-%d" % [str(opid), i], "card": s, "kind": "hero",
+						"value": {"targetPlayerId": int(opid), "soulIndex": i, "pile": "souls"},
+						"label": "%s (P%d soul)" % [s.get("name", "Hero"), int(opid)]})
+				for i in (op.get("wounds", []) as Array).size():
+					out.append({"key": "owound-%s-%d" % [str(opid), i], "kind": "hero",
+						"card": (op["wounds"] as Array)[i],
+						"value": {"targetPlayerId": int(opid), "soulIndex": i, "pile": "wounds"},
+						"label": "Heros (P%d wound)" % int(opid)})
+		"any-item":
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				for i in (op.get("items", []) as Array).size():
+					var it: Dictionary = (op["items"] as Array)[i]
+					out.append({"key": "item-%s-%d" % [str(opid), i], "card": it, "kind": "item",
+						"value": {"targetPlayerId": int(opid), "itemIndex": i}, "label": str(it.get("name", ""))})
+		_:
+			pass
+	return out
+
+## Toutes les cibles legales pour un sort donne (hors extensions).
+static func spell_targets_for(G: Dictionary, player: Dictionary, player_id: int, spell_id: String) -> Array:
+	if not SPELL_TARGETS.has(spell_id):
+		return [null]
+	var req: Dictionary = SPELL_TARGETS[spell_id]
+	return enumerate_targets(str(req.get("type", "")), G, player, player_id)

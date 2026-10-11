@@ -21,6 +21,8 @@ func start_new_game(num_players: int = 2, p_human_count: int = 1, p_sets: Array 
 
 ## Vérifie si une salle en main peut être construite sur un emplacement spécifique.
 ## slot_index == -1 ou slot_index >= dungeon.size() indique un nouvel emplacement de donjon.
+## Delegue a BossEngine.can_build_room (miroir de engine.js:canBuildRoom) pour eviter
+## toute divergence entre la logique de construction et les regles de l'engine.
 func can_build_room_at(pid: int, hand_idx: int, slot_idx: int = -1) -> bool:
 	if G.get("gameOver") != null:
 		return false
@@ -32,37 +34,13 @@ func can_build_room_at(pid: int, hand_idx: int, slot_idx: int = -1) -> bool:
 	if hand_idx < 0 or hand_idx >= hand.size():
 		return false
 	var card: Dictionary = hand[hand_idx]
-	if not card.get("isRoom", false):
+	if not bool(card.get("isRoom", false)):
 		return false
-	if int(p.get("buildsThisTurn", 0)) >= 1 and G.get("phase") != "setup":
-		return false
-
-	var dungeon: Array = p.get("dungeon", [])
-	var is_adv: bool = bool(card.get("isAdvanced", card.get("advanced", false)))
-
-	# Construction sur un emplacement existant (recouvrement)
-	if slot_idx >= 0 and slot_idx < dungeon.size():
-		var stack: Array = dungeon[slot_idx]
-		var active = BossEngine.active_room(stack)
-		if active == null:
-			return true
-		if is_adv:
-			# Salle avancée : doit partager au moins un type de trésor avec la salle active
-			var card_treasures: Array = card.get("treasures", [])
-			var active_treasures: Array = (active as Dictionary).get("treasures", [])
-			for t in card_treasures:
-				if int(t) in active_treasures:
-					return true
-			return false
-		else:
-			# Salle ordinaire : peut recouvrir n'importe quelle salle existante
-			return true
-	else:
-		# Nouvel emplacement
-		if is_adv:
-			# Une salle avancée NE PEUT PAS être posée sur un emplacement vide
-			return false
-		return BossEngine.count_visible_rooms(dungeon) < CardDB.DUNGEON_SLOTS
+	# En SETUP la construction initiale n'est pas limitee par buildsThisTurn.
+	var ctx := G.duplicate(true)
+	if G.get("phase") == "setup" and ctx.has("players"):
+		(ctx["players"][pid] as Dictionary)["buildsThisTurn"] = 0
+	return BossEngine.can_build_room(p, ctx, pid, hand_idx, slot_idx)
 
 ## Construit une salle sur un emplacement spécifique (nouvel emplacement ou recouvrement)
 func build_room_at(pid: int, hand_idx: int, slot_idx: int = -1) -> bool:
@@ -85,6 +63,13 @@ func build_room_at(pid: int, hand_idx: int, slot_idx: int = -1) -> bool:
 		_log("Joueur %d construit %s." % [pid, card.get("name", "?")])
 
 	p["buildsThisTurn"] = int(p.get("buildsThisTurn", 0)) + 1
+
+	# Ability "quand tu construis cette salle" (roomAbilities.js:onBuildRoom).
+	var choice = RoomAbilities.on_build_room(G, pid, card)
+	if choice != null:
+		G["pendingChoice"] = choice
+		state_changed.emit()
+		return true
 
 	if G["phase"] == "setup" and _all_have_initial_room():
 		_start_turn()

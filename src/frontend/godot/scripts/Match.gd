@@ -10,6 +10,10 @@ const BossEngine = preload("res://godot/scripts/BossEngine.gd")
 
 const WIN_SOULS := 10
 
+## Salles du base set ayant une abilite activable (roomAbilities.js:activateRoomAbility).
+const ACTIVATABLE_ROOMS := ["BMA009", "BMA013", "BMA024", "BMA027", "BMA028",
+	"BMA030", "BMA032", "BMA038"]
+
 var G: Dictionary = {}
 var human_count := 1
 var rng := RandomNumberGenerator.new()
@@ -74,6 +78,24 @@ func legal_moves(pid: int) -> Array:
 	var players: Dictionary = G["players"]
 	if not players.has(pid) or (players[pid] as Dictionary).get("eliminated", false):
 		return out
+	# Un choix en attente gele la partie (miroir reducer.js: early return sur pendingChoice).
+	var pc: Dictionary = G.get("pendingChoice", {})
+	if not pc.is_empty():
+		# Choix ouvert : la partie est gelee (miroir reducer.js: early return global).
+		# Seul le joueur concerne peut agir, uniquement pour resoudre.
+		if int(pc.get("playerId", -1)) != pid:
+			return out
+		var opts: Array = pc.get("options", []) as Array
+		var n: int = opts.size()
+		if n == 0:
+			out.append({"type": "resolveChoice", "args": [-1]})
+		else:
+			for i in n:
+				out.append({"type": "resolveChoice", "args": [i]})
+			# Un choix facultatif propose en plus l'option "passer" (index -1).
+			if bool(pc.get("optional", false)):
+				out.append({"type": "resolveChoice", "args": [-1]})
+		return out
 	var p: Dictionary = players[pid]
 	var phase: String = G["phase"]
 	match phase:
@@ -88,11 +110,27 @@ func legal_moves(pid: int) -> Array:
 					if c.get("isRoom", false):
 						out.append({"type": "buildInitialRoom", "args": [i]})
 		"build":
-			if int(p.get("buildsThisTurn", 0)) == 0 and BossEngine.can_build_room(p):
+			if int(p.get("buildsThisTurn", 0)) == 0 and BossEngine.can_build_room(p, G, pid):
 				for i in (p.get("hand", []) as Array).size():
 					var c: Dictionary = (p["hand"] as Array)[i]
 					if c.get("isRoom", false):
 						out.append({"type": "buildRoom", "args": [i]})
+			# Sorts jouables en phase BUILD (miroir reducer.js:playSpell).
+			if not SpellEffects._effects(G).get("buildBlocked", false):
+				for i in (p.get("hand", []) as Array).size():
+					var c: Dictionary = (p["hand"] as Array)[i]
+					if not c.get("isSpell", false):
+						continue
+					for t in SpellTargeting.spell_targets_for(G, p, pid, str(c.get("id", ""))):
+						out.append({"type": "playSpell", "args": [i, t]})
+			# Abilites de salle activables (miroir reducer.js:activateRoom).
+			for i in (p.get("dungeon", []) as Array).size():
+				var room = BossEngine.active_room((p["dungeon"] as Array)[i])
+				if room == null:
+					continue
+				var rd: Dictionary = room
+				if ACTIVATABLE_ROOMS.has(str(rd.get("id", ""))) and not bool(rd.get("usedThisTurn", false)):
+					out.append({"type": "activateRoom", "args": [i]})
 			out.append({"type": "passBuild", "args": []})
 		"adventure":
 			out.append({"type": "adventureNext", "args": []})
@@ -111,6 +149,8 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 	var players: Dictionary = G["players"]
 	var p: Dictionary = players[pid]
 	match String(move["type"]):
+		"resolveChoice":
+			_resolve_choice(pid, int(move["args"][0]))
 		"pickBoss":
 			var bid := String(move["args"][0])
 			for b in G["bossPicks"]:
@@ -132,6 +172,23 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 				_start_turn()
 			elif String(move["type"]) == "buildRoom":
 				_end_build_for(pid)
+		"playSpell":
+			var si := int(move["args"][0])
+			var target: Dictionary = move["args"][1] if move["args"].size() > 1 and move["args"][1] != null else {}
+			var spell: Dictionary = (p["hand"] as Array)[si]
+			if SpellEffects.cast_spell(G, pid, spell, target):
+				(p["hand"] as Array).remove_at(si)
+				_log("Joueur %d joue %s." % [pid, spell.get("name", "?")])
+				# Jouer un sort est une action de build : le joueur a fini son tour.
+				p["buildsThisTurn"] = maxi(1, int(p.get("buildsThisTurn", 0)))
+				_end_build_for(pid)
+		"activateRoom":
+			var ri := int(move["args"][0])
+			var err = RoomAbilities.activate_room_ability(G, pid, ri, int(move["args"][1]) if move["args"].size() > 1 else -1)
+			if err != null:
+				_log(str(err))
+				p["buildsThisTurn"] = maxi(1, int(p.get("buildsThisTurn", 0)))
+				_end_build_for(pid)
 		"passBuild":
 			_log("Joueur %d passe." % pid)
 			_end_build_for(pid)
@@ -144,6 +201,76 @@ func _all_have_boss() -> bool:
 		if (G["players"][pid] as Dictionary).get("boss") == null:
 			return false
 	return true
+
+## Resout le pendingChoice courant, puis reprend le flux (miroir de la resolution JS).
+func _resolve_choice(pid: int, index: int) -> void:
+	var pc: Dictionary = G.get("pendingChoice", {})
+	if pc.is_empty():
+		return
+	var p: Dictionary = G["players"][pid]
+	var opts: Array = pc.get("options", [])
+	var kind := str(pc.get("type", ""))
+	# -1 = passer / option facultative
+	var valid := index >= -1 and (index < opts.size() or index == -1)
+	if not valid:
+		return
+	match kind:
+		"recover-card":
+			if index >= 0:
+				var got = RoomAbilities.take_discard_card(G, p, opts[index])
+				if got != null:
+					_log("%s : %s recupere." % [str(pc.get("bossName", "")), str((got as Dictionary).get("name", "?"))])
+		"discard-spell":
+			if index >= 0:
+				var card: Dictionary = (opts[index] as Dictionary).get("card", {})
+				var hand: Array = p.get("hand", []) as Array
+				var at := hand.find(card)
+				if at >= 0:
+					hand.remove_at(at)
+				p["hand"] = hand
+				var decks: Dictionary = G.get("decks", {})
+				var pile: Array = decks.get("spellDiscard", [])
+				decks["spellDiscard"] = pile
+				pile.append(card)
+		"pick-hero":
+			if index >= 0:
+				var o: Dictionary = opts[index]
+				var ti := int(o.get("townIndex", o.get("index", -1)))
+				var town: Array = G.get("town", [])
+				if ti >= 0 and ti < town.size():
+					var hero: Dictionary = town[ti]
+					town.remove_at(ti)
+					var entrance: Array = p.get("entrance", []) as Array
+					entrance.append(hero)
+					p["entrance"] = entrance
+		"pick-opponent", "discard-spell-opponent":
+			pass
+		"swap-rooms":
+			if index >= 0 and index < opts.size():
+				_swap_rooms(p, (opts[index] as Dictionary))
+	G["pendingChoice"] = {}
+	# Reprend la file de choix en attente, sinon on repart d'un etat propre.
+	var queue: Array = G.get("choiceQueue", [])
+	if not queue.is_empty():
+		G["pendingChoice"] = queue.pop_front()
+	state_changed.emit()
+
+## Echange la salle active de deux piles du meme donjon.
+func _swap_rooms(p: Dictionary, option: Dictionary) -> void:
+	var dungeon: Array = p.get("dungeon", [])
+	var a := int(option.get("roomIndex", -1))
+	var b := int(option.get("otherRoomIndex", -1))
+	if a < 0 or b < 0 or a >= dungeon.size() or b >= dungeon.size() or a == b:
+		return
+	var sa: Array = dungeon[a]
+	var sb: Array = dungeon[b]
+	var ta = BossEngine.active_room(sa)
+	var tb = BossEngine.active_room(sb)
+	if ta == null or tb == null:
+		return
+	sa[sa.size() - 1] = tb
+	sb[sb.size() - 1] = ta
+	_log("Centipede Tunnel : %s <-> %s." % [str(ta.get("name", "?")), str(tb.get("name", "?"))])
 
 func _deal_opening_hands() -> void:
 	# Distribution officielle APK & règles : 5 salles + 2 sorts (7 cartes), puis défausse de 2 cartes pour 5 en main.
@@ -213,17 +340,26 @@ func _reveal_heroes_in_town() -> void:
 	_log("%d héros sont en ville." % (G["town"] as Array).size())
 
 func _end_build_for(_pid: int) -> void:
-	# Attend que tous les humains aient construit ou passé
+	# Attend que chaque joueur ait construit (si possible) ou passe.
+	# Ne depend pas de can_build_room : un joueur dont le donjon est plein doit
+	# pouvoir passer, sinon la phase build ne se termine jamais.
 	for pid in G["players"]:
 		var p: Dictionary = G["players"][pid]
-		if not p.get("eliminated", false) and int(p.get("buildsThisTurn", 0)) == 0 and BossEngine.can_build_room(p) and not p.get("isAI", false):
+		if p.get("eliminated", false) or p.get("isAI", false):
+			continue
+		if int(p.get("buildsThisTurn", 0)) == 0:
 			return # attend le choix humain
 
-	# Les IA construisent
+	# Les IA construisent ou passent
 	for pid in G["players"]:
 		var p: Dictionary = G["players"][pid]
-		if not p.get("eliminated", false) and p.get("isAI", false) and int(p.get("buildsThisTurn", 0)) == 0 and BossEngine.can_build_room(p):
-			_ai_build(int(pid))
+		if p.get("eliminated", false) or not p.get("isAI", false):
+			continue
+		if int(p.get("buildsThisTurn", 0)) == 0:
+			if BossEngine.can_build_room(p, G, int(pid)):
+				_ai_build(int(pid))
+			else:
+				p["buildsThisTurn"] = 1 # rien a construire : passe
 
 	# Phase 3 : BAIT (Leurre)
 	G["phase"] = CardDB.PHASE["BAIT"]
@@ -305,16 +441,26 @@ func _fight_hero(pid: int, hero: Dictionary) -> void:
 	var hp := BossEngine.hero_wounds(hero)
 	_log("%s attaque le donjon du joueur %d (PV %d)." % [hero.get("name", "?"), pid, hp])
 	# Le héros parcourt le donjon de l'entrée (index 0) vers le boss
-	for stack in p.get("dungeon", []):
+	var dungeon: Array = p.get("dungeon", [])
+	var death_room: Dictionary = {}
+	var death_index := -1
+	for i in dungeon.size():
 		if hp <= 0:
 			break
-		var room = BossEngine.active_room(stack)
+		var room = BossEngine.active_room((dungeon as Array)[i])
 		if room == null:
 			continue
-		hp -= int((room as Dictionary).get("damage", 0))
+		hp -= BossEngine.room_damage_with_modifiers(G, p, i, hero)
+		death_room = room as Dictionary
+		death_index = i
 	if hp <= 0:
 		(p["souls"] as Array).append({"name": hero.get("name", "?"), "souls": BossEngine.hero_souls(hero)})
 		_log("Âme capturée ! (%d/%d)" % [CardDB.total_souls(p), WIN_SOULS])
+		# Ability "hero dies in this room" (roomAbilities.js:onHeroDiedInRoom).
+		if not death_room.is_empty():
+			var choice = RoomAbilities.on_hero_died_in_room(G, pid, death_room)
+			if choice != null:
+				G["pendingChoice"] = choice
 	else:
 		(p["wounds"] as Array).append({"name": hero.get("name", "?"), "wounds": 1})
 		_log("Le héros survit et blesse le boss ! (%d blessures)" % CardDB.total_wounds(p))
@@ -383,15 +529,17 @@ func _check_end_or_next_turn() -> void:
 	_start_turn()
 	state_changed.emit()
 
+## Departage officiel (engine.js:checkEndGame) : ecart ames-blessures le plus haut ;
+## a egalite, le boss de plus faible XP l'emporte.
 func _tie_break_players(pids: Array) -> int:
 	var best_pid := int(pids[0])
 	var best_diff := -999
-	var best_xp := -1
+	var best_xp := 999999
 	for pid in pids:
 		var p: Dictionary = G["players"][pid]
 		var diff := CardDB.total_souls(p) - CardDB.total_wounds(p)
-		var xp := int(p.get("boss", {}).get("xp", 0))
-		if diff > best_diff or (diff == best_diff and xp > best_xp):
+		var xp := int((p.get("boss", {}) as Dictionary).get("xp", 0))
+		if diff > best_diff or (diff == best_diff and xp < best_xp):
 			best_diff = diff
 			best_xp = xp
 			best_pid = int(pid)

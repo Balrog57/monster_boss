@@ -247,7 +247,7 @@ func refresh() -> void:
 			card_ui.card_clicked.connect(func(_data): _on_hand_card_clicked(idx, card_dict))
 
 	# 7. Boutons d'action (en ligne : le serveur dicte les coups dispos).
-	var my_moves: Array = game_manager.legal_moves(_my_pid()) if _is_online() else []
+	var my_moves: Array = game_manager.legal_moves(_my_pid())
 	btn_advance.visible = (phase == "adventure") or _has_move(my_moves, "resolveNextHero")
 	btn_pass.visible = (phase == "build") or _has_move(my_moves, "pass")
 	_refresh_choice_bar(G, my_moves)
@@ -274,10 +274,6 @@ func _moves_of(moves: Array, mtype: String) -> Array:
 func _refresh_choice_bar(G: Dictionary, my_moves: Array) -> void:
 	for c in choice_bar.get_children():
 		c.queue_free()
-	if not _is_online():
-		choice_bar.visible = false
-		discard_pick.clear()
-		return
 	var pc: Dictionary = G.get("pendingChoice", {})
 	if pc.is_empty() or int(pc.get("playerId", -1)) != _my_pid():
 		choice_bar.visible = false
@@ -297,6 +293,18 @@ func _refresh_choice_bar(G: Dictionary, my_moves: Array) -> void:
 			choice_bar.add_child(ok)
 	else:
 		var opts: Array = pc.get("options", [])
+		# Choix generique solo/online (recover-card, discard-spell, pick-hero, swap-rooms...).
+		var choice_moves := _moves_of(my_moves, "resolveChoice")
+		if not choice_moves.is_empty():
+			for m in choice_moves:
+				var i: int = int((m as Dictionary).get("args", [0])[0])
+				var b := Button.new()
+				b.text = _option_label(opts, i)
+				b.tooltip_text = str(pc.get("message", ""))
+				var mv := (m as Dictionary).duplicate()
+				b.pressed.connect(func(): _do(mv))
+				choice_bar.add_child(b)
+			return
 		for m in _moves_of(my_moves, "resolveLevelUpChoice"):
 			var i: int = int((m as Dictionary).get("args", [0])[0])
 			var b := Button.new()
@@ -323,11 +331,13 @@ func _option_label(opts: Array, i: int) -> String:
 func _refresh_extra_bar(G: Dictionary, my_moves: Array) -> void:
 	for c in extra_bar.get_children():
 		c.queue_free()
-	if not _is_online():
-		extra_bar.visible = false
-		return
 	var shown := false
 	var hand: Array = ((G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("hand", [])
+	# Un choix en cours est traite par la choice_bar : pas de boutons parasites.
+	var pc: Dictionary = G.get("pendingChoice", {})
+	if not pc.is_empty():
+		extra_bar.visible = false
+		return
 	for m in my_moves:
 		if not (m is Dictionary) or str((m as Dictionary).get("type", "")) in CORE_MOVE_TYPES:
 			continue
@@ -381,6 +391,21 @@ func _on_hand_card_clicked(idx: int, card: Dictionary) -> void:
 		var dungeon: Array = ((game_manager.G["players"] as Dictionary)[_my_pid()] as Dictionary).get("dungeon", [])
 		var target_slot := dungeon.size()
 		game_manager.build_room_at(_my_pid(), idx, target_slot)
+	elif phase == "build" and card.get("isSpell", false):
+		_play_spell_from_hand(idx)
+
+## Joue un sort depuis la main. Avec cible, passe par le premier coup legal correspondant.
+func _play_spell_from_hand(idx: int) -> void:
+	var pid := _my_pid()
+	for mv in game_manager.legal_moves(pid):
+		var m: Dictionary = mv
+		if str(m.get("type", "")) != "playSpell":
+			continue
+		var args: Array = m.get("args", [])
+		if not args.is_empty() and int(args[0]) == idx:
+			if game_manager.apply_move(pid, m):
+				refresh()
+			return
 
 func _is_opening_discard_for_me() -> bool:
 	var pc: Dictionary = game_manager.G.get("pendingChoice", {})

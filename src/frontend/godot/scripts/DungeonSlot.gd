@@ -51,10 +51,33 @@ func _update_view() -> void:
 		card_ui.is_in_hand = false
 		card_ui.setup(active_room)
 		if border:
-			border.border_color = Color(0.4, 0.8, 0.4, 0.9)
+			# Liseré coloré si la salle a une abilite activable ce tour.
+			var activatable := _is_activatable(active_room as Dictionary)
+			border.border_color = Color(0.95, 0.75, 0.2, 0.95) if activatable else Color(0.4, 0.8, 0.4, 0.9)
+			tooltip_text = active_room.get("name", "") + ("\n[Capacité activable]" if activatable else "")
 	else:
 		if border:
 			border.border_color = Color(0.4, 0.4, 0.5, 0.5)
+
+func _is_activatable(room: Dictionary) -> bool:
+	if game_manager == null or bool(room.get("usedThisTurn", false)):
+		return false
+	return Match.ACTIVATABLE_ROOMS.has(str(room.get("id", "")))
+
+func _gui_input(event: InputEvent) -> void:
+	# Clic droit sur une salle activable : declenche sa capacite.
+	if event is InputEventMouseButton and event.pressed \
+			and event.button_index == MOUSE_BUTTON_RIGHT and game_manager != null:
+		if current_stack.is_empty():
+			return
+		var room = BossEngine.active_room(current_stack)
+		if room == null or not _is_activatable(room as Dictionary):
+			return
+		accept_event()
+		if game_manager.apply_move(player_id, {"type": "activateRoom", "args": [slot_index]}):
+			var parent = get_parent()
+			if parent != null and parent.has_method("refresh"):
+				parent.refresh()
 
 ## Vérifie si la carte draguée peut être posée sur cet emplacement
 func _can_drop_data(_at_position: Vector2, data) -> bool:
