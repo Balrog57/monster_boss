@@ -154,9 +154,9 @@ func _process(delta: float) -> void:
 	var players: Dictionary = game_manager.G.get("players", {})
 	for pid in players:
 		if (players[pid] as Dictionary).get("isAI", false):
-			var moves := game_manager.legal_moves(int(pid))
-			var phase: String = str(game_manager.G.get("phase", ""))
-			if not moves.is_empty() and (phase == "boss" or phase == "setup" or phase == "build"):
+			var pc: Dictionary = game_manager.G.get("pendingChoice", {})
+			var has_ai_choice: bool = not pc.is_empty() and int(pc.get("playerId", -1)) == int(pid)
+			if not moves.is_empty() and (has_ai_choice or phase == "boss" or phase == "setup" or phase == "build"):
 				_ai_timer += delta
 				if _ai_timer > 0.5:
 					_ai_timer = 0.0
@@ -194,9 +194,31 @@ func refresh() -> void:
 			timer_str = " | ⏱️ %ds" % rem_sec
 		hud_status.text = "Tour %d — Phase %s — Joueur %d%s" % [G.get("turn", 0), phase.to_upper(), view_pid + 1, timer_str]
 
-	foe_title.text = "DONJON ADVERSE (IA) :"
-	player_title.text = "MON DONJON (Glissez vos cartes ou cliquez pour construire) :"
+	var p_dmg := _get_total_dungeon_damage(p)
+	var p_boss_name := str(p.get("boss", {}).get("name", "Boss"))
+	var p_xp := int(p.get("boss", {}).get("xp", 0))
+	player_title.text = "MON DONJON (%s — %d XP) — DÉGÂTS : %d ⚔️" % [p_boss_name, p_xp, p_dmg]
+
+	var foe_pids := (G["players"] as Dictionary).keys().filter(func(k): return int(k) != view_pid)
+	if not foe_pids.is_empty():
+		var foe_dict: Dictionary = (G["players"] as Dictionary)[foe_pids[0]]
+		var f_dmg := _get_total_dungeon_damage(foe_dict)
+		var f_boss_name := str(foe_dict.get("boss", {}).get("name", "Adversaire"))
+		var f_xp := int(foe_dict.get("boss", {}).get("xp", 0))
+		foe_title.text = "DONJON ADVERSE (%s — %d XP) — DÉGÂTS : %d ⚔️" % [f_boss_name, f_xp, f_dmg]
+	else:
+		foe_title.text = "DONJON ADVERSE (IA) :"
+
 	hand_title.text = "MA MAIN :"
+
+	# Feedback de combat héroïque (SFX)
+	var lhf = G.get("lastHeroFight")
+	if lhf != null and lhf is Dictionary:
+		if bool(lhf.get("killed", false)):
+			_play_sfx("res://assets/audio/sfx/char_hero_death.wav")
+		else:
+			_play_sfx("res://assets/audio/sfx/char_hero_attack.wav")
+		G.erase("lastHeroFight")
 
 	# 2. Bannière de phase animée
 	_refresh_phase_banner(phase)
@@ -276,7 +298,12 @@ func refresh() -> void:
 			card_ui.setup(card_dict, i)
 			var idx := i
 			card_ui.card_clicked.connect(func(_data): _on_hand_card_clicked(idx, card_dict))
-			if phase == "setup" and (bool(card_dict.get("advanced", false)) or bool(card_dict.get("isAdvanced", false))):
+			if discard_pick.has(idx):
+				card_ui.modulate = Color(1.3, 1.3, 0.4, 1.0)
+				var glow := card_ui.get_node_or_null("GlowRect")
+				if glow != null:
+					glow.visible = true
+			elif phase == "setup" and (bool(card_dict.get("advanced", false)) or bool(card_dict.get("isAdvanced", false))):
 				card_ui.modulate = Color(0.6, 0.6, 0.6, 0.7)
 
 	# 8. Boutons d'action
@@ -407,16 +434,27 @@ func _refresh_choice_bar(G: Dictionary, my_moves: Array) -> void:
 	choice_bar.visible = true
 	if str(pc.get("type", "")) == "opening-discard":
 		var lbl := Label.new()
-		lbl.text = "Défausse initiale : cliquez 2 cartes (%d/2)" % discard_pick.size()
+		lbl.text = "SELECT 2 CARDS TO DISCARD (%d/2)" % discard_pick.size()
+		lbl.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4))
+		lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+		lbl.add_theme_constant_override("outline_size", 3)
+		lbl.add_theme_font_size_override("font_size", 16)
 		choice_bar.add_child(lbl)
 		if discard_pick.size() == 2:
-			var ok := Button.new()
-			ok.text = "Défausser"
+			var ok := TextureButton.new()
+			ok.custom_minimum_size = Vector2(140, 42)
+			ok.ignore_texture_size = true
+			ok.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+			if ResourceLoader.exists("res://assets/ui/ingame/continue_button.webp"):
+				ok.texture_normal = load("res://assets/ui/ingame/continue_button.webp")
+			if ResourceLoader.exists("res://assets/ui/ingame/continue_button_pressed.webp"):
+				ok.texture_pressed = load("res://assets/ui/ingame/continue_button_pressed.webp")
 			var pair := discard_pick.duplicate()
 			pair.sort()
 			ok.pressed.connect(func():
 				_play_sfx("res://assets/audio/sfx/ui_card_flip.wav")
 				_do({"type": "openingDiscard", "args": pair})
+				discard_pick.clear()
 			)
 			choice_bar.add_child(ok)
 	else:
@@ -510,11 +548,12 @@ func _do(move: Dictionary) -> void:
 		refresh()
 
 func _on_hand_card_clicked(idx: int, card: Dictionary) -> void:
-	if _is_online() and _is_opening_discard_for_me():
+	if _is_opening_discard_for_me():
 		if discard_pick.has(idx):
 			discard_pick.erase(idx)
 		elif discard_pick.size() < 2:
 			discard_pick.append(idx)
+		_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
 		refresh()
 		return
 	var phase: String = game_manager.G.get("phase", "")
@@ -566,3 +605,11 @@ func _on_menu_pressed() -> void:
 	_play_sfx("res://assets/audio/sfx/ui_button_goback.wav")
 	if on_exit_callback.is_valid():
 		on_exit_callback.call()
+
+func _get_total_dungeon_damage(player_dict: Dictionary) -> int:
+	var total := 0
+	for stack in player_dict.get("dungeon", []):
+		var r = BossEngine.active_room(stack)
+		if r != null and not bool((r as Dictionary).get("faceDown", false)):
+			total += int((r as Dictionary).get("damage", 0))
+	return total

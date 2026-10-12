@@ -85,6 +85,12 @@ func legal_moves(pid: int) -> Array:
 		# Seul le joueur concerne peut agir, uniquement pour resoudre.
 		if int(pc.get("playerId", -1)) != pid:
 			return out
+		if str(pc.get("type", "")) == "opening-discard":
+			var hand_size: int = (players[pid].get("hand", []) as Array).size()
+			for i in hand_size:
+				for j in range(i + 1, hand_size):
+					out.append({"type": "openingDiscard", "args": [i, j]})
+			return out
 		var opts: Array = pc.get("options", []) as Array
 		var n: int = opts.size()
 		if n == 0:
@@ -151,6 +157,11 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 	match String(move["type"]):
 		"resolveChoice":
 			_resolve_choice(pid, int(move["args"][0]))
+		"openingDiscard":
+			var a := int(move["args"][0])
+			var b := int(move["args"][1])
+			_apply_opening_discard(pid, a, b)
+			_queue_next_opening_discard()
 		"pickBoss":
 			var bid := String(move["args"][0])
 			for b in G["bossPicks"]:
@@ -161,17 +172,25 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 			_log("Joueur %d choisit %s." % [pid, p["boss"]["name"]])
 			if _all_have_boss():
 				_deal_opening_hands()
-		"buildInitialRoom", "buildRoom":
+		"buildInitialRoom":
 			var idx := int(move["args"][0])
 			var card: Dictionary = (p["hand"] as Array).pop_at(idx)
-			# Règle officielle APK & JS : nouvelle salle construite à l'entrée (index 0)
+			card["faceDown"] = true
+			card["builtThisTurn"] = true
 			(p["dungeon"] as Array).push_front([card])
 			p["buildsThisTurn"] = int(p.get("buildsThisTurn", 0)) + 1
-			_log("Joueur %d construit %s." % [pid, card.get("name", "?")])
-			if String(move["type"]) == "buildInitialRoom" and _all_have_initial_room():
-				_start_turn()
-			elif String(move["type"]) == "buildRoom":
-				_end_build_for(pid)
+			_log("Joueur %d place sa première salle face cachée." % pid)
+			if _all_have_initial_room():
+				_reveal_setup_and_start_turn()
+		"buildRoom":
+			var idx := int(move["args"][0])
+			var card: Dictionary = (p["hand"] as Array).pop_at(idx)
+			card["faceDown"] = true
+			card["builtThisTurn"] = true
+			(p["dungeon"] as Array).push_front([card])
+			p["buildsThisTurn"] = int(p.get("buildsThisTurn", 0)) + 1
+			_log("Joueur %d place une salle face cachée." % pid)
+			_end_build_for(pid)
 		"playSpell":
 			var si := int(move["args"][0])
 			var target: Dictionary = move["args"][1] if move["args"].size() > 1 and move["args"][1] != null else {}
@@ -349,19 +368,59 @@ func _deal_opening_hands() -> void:
 	for pid in G["players"]:
 		var p: Dictionary = G["players"][pid]
 		var drawn: Array = CardDB.draw_cards(G["decks"]["rooms"], 5) + CardDB.draw_cards(G["decks"]["spells"], 2)
-		# Défausse automatique des 2 cartes les moins prioritaires (ou tri par type)
-		drawn.sort_custom(func(a, b): return int(a.get("damage", 0)) > int(b.get("damage", 0)))
-		var kept: Array = drawn.slice(0, 5)
-		var discarded: Array = drawn.slice(5)
-		for d in discarded:
-			if (d as Dictionary).get("isSpell", false):
-				(G["decks"]["spellDiscard"] as Array).append(d)
-			else:
-				(G["decks"]["roomDiscard"] as Array).append(d)
-		p["hand"] = kept
-	G["phase"] = CardDB.PHASE["SETUP"]
+		p["hand"] = drawn
+		if p.get("isAI", false):
+			var pair = AI.select_opening_discards(drawn, p, G)
+			_apply_opening_discard(pid, pair[0], pair[1])
 	G["xpOrder"] = CardDB.order_by_xp(G["players"])
-	_log("Mains initiales distribuées (5). Construisez votre première salle.")
+	_queue_next_opening_discard()
+
+func _apply_opening_discard(pid: int, a: int, b: int) -> void:
+	var p: Dictionary = G["players"][pid]
+	var hand: Array = p.get("hand", [])
+	if a < 0 or b < 0 or a >= hand.size() or b >= hand.size() or a == b:
+		return
+	var idxs := [a, b]
+	idxs.sort()
+	var card_b: Dictionary = hand.pop_at(idxs[1])
+	var card_a: Dictionary = hand.pop_at(idxs[0])
+	for card in [card_a, card_b]:
+		if card.get("isSpell", false):
+			(G["decks"]["spellDiscard"] as Array).append(card)
+		else:
+			(G["decks"]["roomDiscard"] as Array).append(card)
+	_log("Joueur %d a défaussé 2 cartes." % pid)
+
+func _queue_next_opening_discard() -> void:
+	for pid in G["players"]:
+		var p: Dictionary = G["players"][pid]
+		if not p.get("eliminated", false) and not p.get("isAI", false) and (p.get("hand", []) as Array).size() > 5:
+			G["pendingChoice"] = {
+				"type": "opening-discard",
+				"playerId": int(pid),
+				"message": "SELECT 2 CARDS TO DISCARD"
+			}
+			state_changed.emit()
+			return
+	G["pendingChoice"] = {}
+	G["phase"] = CardDB.PHASE["SETUP"]
+	_log("Mains initiales prêtes (5). Construisez votre première salle.")
+	state_changed.emit()
+
+func _reveal_setup_and_start_turn() -> void:
+	for pid in CardDB.order_by_xp(G["players"]):
+		var p: Dictionary = G["players"][pid]
+		for stack in (p.get("dungeon", []) as Array):
+			var room = BossEngine.active_room(stack)
+			if room != null and (room as Dictionary).get("faceDown", false):
+				(room as Dictionary)["faceDown"] = false
+				_log("Salle révélée : %s pour le joueur %s" % [str((room as Dictionary).get("name", "?")), str(pid)])
+				var choice = RoomAbilities.on_build_room(G, int(pid), room as Dictionary)
+				if choice != null:
+					G["pendingChoice"] = choice
+					state_changed.emit()
+					return
+	_start_turn()
 
 func _all_have_initial_room() -> bool:
 	for pid in G["players"]:
@@ -477,17 +536,21 @@ func _reveal_and_level_up() -> bool:
 
 func _ai_build(pid: int) -> void:
 	var p: Dictionary = G["players"][pid]
-	var best := -1
-	var best_dmg := -1
-	for i in (p["hand"] as Array).size():
-		var c: Dictionary = (p["hand"] as Array)[i]
-		if c.get("isRoom", false) and int(c.get("damage", 0)) > best_dmg:
-			best_dmg = int(c.get("damage", 0))
-			best = i
-	if best >= 0:
-		var card: Dictionary = (p["hand"] as Array).pop_at(best)
+	var mv = AI.pick_move(self, pid)
+	if mv != null and str(mv.get("type", "")) == "buildRoom":
+		var idx := int(mv["args"][0])
+		var card: Dictionary = (p["hand"] as Array).pop_at(idx)
+		card["faceDown"] = true
+		card["builtThisTurn"] = true
 		(p["dungeon"] as Array).push_front([card]) # À l'entrée !
-		_log("IA %d construit %s." % [pid, card.get("name", "?")])
+		_log("IA %d place une salle face cachée." % pid)
+	elif mv != null and str(mv.get("type", "")) == "playSpell":
+		var si := int(mv["args"][0])
+		var target: Dictionary = mv["args"][1] if mv["args"].size() > 1 and mv["args"][1] != null else {}
+		var spell: Dictionary = (p["hand"] as Array)[si]
+		if SpellEffects.cast_spell(G, pid, spell, target):
+			(p["hand"] as Array).remove_at(si)
+			_log("IA %d joue %s." % [pid, spell.get("name", "?")])
 	p["buildsThisTurn"] = 1
 
 func _resolve_bait() -> void:
@@ -570,6 +633,12 @@ func _fight_hero(pid: int, hero: Dictionary) -> void:
 		if CardDB.total_wounds(p) >= 5:
 			p["eliminated"] = true
 			_log("Joueur %d éliminé !" % pid)
+	G["lastHeroFight"] = {
+		"pid": pid,
+		"hero": hero,
+		"killed": (hp <= 0),
+		"deathIndex": death_index
+	}
 	(G["decks"]["heroDiscard"] as Array).append(hero)
 
 func _check_end_or_next_turn() -> void:

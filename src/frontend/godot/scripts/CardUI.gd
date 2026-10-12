@@ -59,6 +59,14 @@ func _update_view() -> void:
 			texture_rect.texture = load(card_data.texture_path)
 			has_tex = true
 
+	if card_data.face_down:
+		if title_label:
+			title_label.visible = false
+		if stat_label:
+			stat_label.visible = false
+		tooltip_text = "Salle face cachée"
+		return
+
 	if title_label:
 		title_label.visible = not has_tex
 		title_label.text = card_data.title

@@ -18,6 +18,7 @@ extends Resource
 @export var texture_path: String = ""
 @export var texture: Texture2D = null
 @export var effect_script: String = ""
+@export var face_down: bool = false
 
 ## kind_hint : type reel de la collection source ("boss","room","spell","hero","epic-hero","item","miniboss").
 ## Les cles de cards.json ne suffisent pas : les salles portent type "trap"/"monster" (jamais "room"),
@@ -51,11 +52,16 @@ static func from_dict(d: Dictionary, kind_hint: String = "") -> Resource:
 	c.description_text = str(d.get("description", d.get("Description", "")))
 	c.effect_script = str(d.get("effectScript", d.get("effect_script", "")))
 
-	# Résolution texture : CardDB est un autoload (Node du arbre), pas un singleton Engine.
+	c.face_down = bool(d.get("faceDown", false))
+
+	# Résolution texture : CardDB est un autoload (Node de l'arbre), pas un singleton Engine.
 	var tree := Engine.get_main_loop() as SceneTree
 	var db := tree.root.get_node_or_null("CardDB") if tree != null else null
 	if db != null:
-		c.texture_path = db.card_image(c.id, c.card_type)
+		if c.face_down:
+			c.texture_path = db.card_image("", "back-room")
+		else:
+			c.texture_path = db.card_image(c.id, c.card_type)
 		if c.texture_path != "" and ResourceLoader.exists(c.texture_path):
 			c.texture = load(c.texture_path)
 	return c
