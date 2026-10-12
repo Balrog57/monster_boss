@@ -610,13 +610,22 @@ func _fight_hero(pid: int, hero: Dictionary) -> void:
 	var dungeon: Array = p.get("dungeon", [])
 	var death_room: Dictionary = {}
 	var death_index := -1
+	var path_taken: Array = []
 	for i in dungeon.size():
 		if hp <= 0:
 			break
 		var room = BossEngine.active_room((dungeon as Array)[i])
 		if room == null:
 			continue
-		hp -= BossEngine.room_damage_with_modifiers(G, p, i, hero)
+		var dmg := BossEngine.room_damage_with_modifiers(G, p, i, hero)
+		var is_magic := str((room as Dictionary).get("type", "")) == "Trap" or bool((room as Dictionary).get("isTrap", false))
+		path_taken.append({
+			"slot": i,
+			"damage": dmg,
+			"room": room,
+			"isMagic": is_magic
+		})
+		hp -= dmg
 		death_room = room as Dictionary
 		death_index = i
 	if hp <= 0:
@@ -636,8 +645,10 @@ func _fight_hero(pid: int, hero: Dictionary) -> void:
 	G["lastHeroFight"] = {
 		"pid": pid,
 		"hero": hero,
+		"initialHp": BossEngine.hero_wounds(hero),
 		"killed": (hp <= 0),
-		"deathIndex": death_index
+		"deathIndex": death_index,
+		"path": path_taken
 	}
 	(G["decks"]["heroDiscard"] as Array).append(hero)
 
