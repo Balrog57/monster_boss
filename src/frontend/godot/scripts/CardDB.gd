@@ -104,35 +104,77 @@ static func refill_from_discard(deck: Array, discard: Array, rng: RandomNumberGe
 		deck[j] = t
 
 ## Chemin d'image carte, miroir de getWikiCardImage/getApkCardImage (web: /cards/...).
-## Le slug vient de nameMap (cards.json) ; les sous-dossiers suivent le type reel.
+## Priorité : textures authentiques de l'APK (res://assets/apk_cards/), puis wiki (res://assets/cards/).
 func card_image(id: String, kind: String) -> String:
-	var prefix := id.to_upper()
+	# 1. Dos de carte
 	match kind:
 		"back-room":
+			if ResourceLoader.exists("res://assets/apk_cards/base/back_room.webp"):
+				return "res://assets/apk_cards/base/back_room.webp"
 			return "res://assets/cards/backs/back_room.webp"
 		"back-boss":
+			if ResourceLoader.exists("res://assets/apk_cards/base/back_boss.webp"):
+				return "res://assets/apk_cards/base/back_boss.webp"
 			return "res://assets/cards/backs/back_boss.webp"
 		"back-spell":
+			if ResourceLoader.exists("res://assets/apk_cards/base/back_spell.webp"):
+				return "res://assets/apk_cards/base/back_spell.webp"
 			return "res://assets/cards/backs/back_spell.webp"
 		"back-hero":
+			if ResourceLoader.exists("res://assets/apk_cards/base/back_ordinary_hero.webp"):
+				return "res://assets/apk_cards/base/back_ordinary_hero.webp"
 			return "res://assets/cards/backs/back_hero.webp"
+		"back-epic":
+			if ResourceLoader.exists("res://assets/apk_cards/base/back_epic_hero.webp"):
+				return "res://assets/apk_cards/base/back_epic_hero.webp"
+			return "res://assets/cards/backs/back_hero.webp"
+
+	if id == "":
+		return ""
+
+	# 2. Recherche prioritaire dans les textures authentiques de l'APK (res://assets/apk_cards/)
+	var stem := id.to_lower()
+	for folder in ["base", "hidden", "playerchoice", "tools"]:
+		var p1 := "res://assets/apk_cards/%s/%s.webp" % [folder, stem]
+		if ResourceLoader.exists(p1):
+			return p1
+		var p2 := "res://assets/apk_cards/%s/%sa.webp" % [folder, stem]
+		if ResourceLoader.exists(p2):
+			return p2
+
+	# 3. Fallback sur les textures du wiki (res://assets/cards/)
+	var prefix := id.to_upper()
 	var nm: String = str(name_map.get(prefix, prefix))
 	var file := prefix + "_" + nm + ".webp"
 	match kind:
 		"boss":
-			return "res://assets/cards/bosses/" + file
+			var p := "res://assets/cards/bosses/" + file
+			if ResourceLoader.exists(p): return p
 		"room":
-			return "res://assets/cards/rooms/" + file
+			var p := "res://assets/cards/rooms/" + file
+			if ResourceLoader.exists(p): return p
 		"spell":
-			return "res://assets/cards/spells/" + file
+			var p := "res://assets/cards/spells/" + file
+			if ResourceLoader.exists(p): return p
 		"hero":
-			return "res://assets/cards/heroes/" + file
+			var p := "res://assets/cards/heroes/" + file
+			if ResourceLoader.exists(p): return p
 		"epic-hero":
-			return "res://assets/cards/epic-heroes/" + file
+			var p := "res://assets/cards/epic-heroes/" + file
+			if ResourceLoader.exists(p): return p
 		"item":
-			return "res://assets/cards/items/" + file
+			var p := "res://assets/cards/items/" + file
+			if ResourceLoader.exists(p): return p
 		"miniboss":
-			return "res://assets/cards/minibosses/" + file
+			var p := "res://assets/cards/minibosses/" + file
+			if ResourceLoader.exists(p): return p
+
+	# 4. Fallback dans tous les sous-dossiers wiki
+	for k in ["rooms", "bosses", "heroes", "epic-heroes", "spells", "items", "minibosses"]:
+		var p := "res://assets/cards/%s/%s" % [k, file]
+		if ResourceLoader.exists(p):
+			return p
+
 	return "res://assets/cards/rooms/" + file
 
 static func total_souls(p: Dictionary) -> int:

@@ -190,6 +190,7 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 				p["buildsThisTurn"] = maxi(1, int(p.get("buildsThisTurn", 0)))
 				_end_build_for(pid)
 		"passBuild":
+			p["buildsThisTurn"] = maxi(1, int(p.get("buildsThisTurn", 0)))
 			_log("Joueur %d passe." % pid)
 			_end_build_for(pid)
 		"adventureNext":

@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3 uid="uid://bossmonster_card_ui"]
+[gd_scene load_steps=3 format=3 uid="uid://bossmonster_card_ui"]
 
 [ext_resource type="Script" path="res://godot/scripts/CardUI.gd" id="1_script"]
+[ext_resource type="Texture2D" uid="uid://bx6ei12ukhph1" path="res://assets/ui/ingame/card_border_yellow_glow.webp" id="2_glow"]
 
 [node name="Card" type="Control"]
 custom_minimum_size = Vector2(140, 200)
@@ -79,3 +80,19 @@ mouse_filter = 2
 border_color = Color(0.6, 0.6, 0.7, 0.8)
 border_width = 2.0
 editor_only = false
+
+[node name="GlowRect" type="TextureRect" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -8.0
+offset_top = -8.0
+offset_right = 8.0
+offset_bottom = 8.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_glow")
+expand_mode = 1

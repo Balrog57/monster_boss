@@ -13,7 +13,7 @@ var game_manager: GameManager
 var player_id: int = 0
 var current_stack: Array = []
 
-@onready var background: ColorRect = $Background
+@onready var slot_frame: TextureRect = $SlotFrame
 @onready var slot_label: Label = $SlotLabel
 @onready var card_container: CenterContainer = $CardContainer
 @onready var border: ReferenceRect = $Border
@@ -46,18 +46,26 @@ func _update_view() -> void:
 
 	var active_room = BossEngine.active_room(current_stack) if not current_stack.is_empty() else null
 	if active_room != null:
+		if slot_frame:
+			slot_frame.visible = false
+		if slot_label:
+			slot_label.visible = false
 		var card_ui = _card_ui_scene.instantiate()
 		card_container.add_child(card_ui)
 		card_ui.is_in_hand = false
 		card_ui.setup(active_room)
 		if border:
-			# Liseré coloré si la salle a une abilite activable ce tour.
+			# Liseré coloré si la salle a une capacité activable ce tour.
 			var activatable := _is_activatable(active_room as Dictionary)
 			border.border_color = Color(0.95, 0.75, 0.2, 0.95) if activatable else Color(0.4, 0.8, 0.4, 0.9)
 			tooltip_text = active_room.get("name", "") + ("\n[Capacité activable]" if activatable else "")
 	else:
+		if slot_frame:
+			slot_frame.visible = true
+		if slot_label:
+			slot_label.visible = true
 		if border:
-			border.border_color = Color(0.4, 0.4, 0.5, 0.5)
+			border.border_color = Color(0.5, 0.45, 0.35, 0.4)
 
 func _is_activatable(room: Dictionary) -> bool:
 	if game_manager == null or bool(room.get("usedThisTurn", false)):

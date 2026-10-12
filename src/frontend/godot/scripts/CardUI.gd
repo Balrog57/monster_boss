@@ -21,6 +21,7 @@ var is_in_hand: bool = true
 @onready var title_label: Label = $TitleLabel
 @onready var stat_label: Label = $StatLabel
 @onready var border: ReferenceRect = $Border
+@onready var glow_rect: TextureRect = get_node_or_null("GlowRect")
 
 var _tween: Tween
 
@@ -49,10 +50,21 @@ func _update_view() -> void:
 	if card_data == null:
 		return
 	
+	var has_tex: bool = false
+	if texture_rect:
+		if card_data.texture:
+			texture_rect.texture = card_data.texture
+			has_tex = true
+		elif card_data.texture_path != "" and ResourceLoader.exists(card_data.texture_path):
+			texture_rect.texture = load(card_data.texture_path)
+			has_tex = true
+
 	if title_label:
+		title_label.visible = not has_tex
 		title_label.text = card_data.title
 	
 	if stat_label:
+		stat_label.visible = not has_tex
 		if card_data.card_type == "room":
 			stat_label.text = "%d DMG" % card_data.damage
 			if card_data.is_advanced:
@@ -66,14 +78,12 @@ func _update_view() -> void:
 		else:
 			stat_label.text = ""
 
-	if texture_rect:
-		if card_data.texture:
-			texture_rect.texture = card_data.texture
-		elif card_data.texture_path != "" and ResourceLoader.exists(card_data.texture_path):
-			texture_rect.texture = load(card_data.texture_path)
-
 func _on_mouse_entered() -> void:
 	z_index = 20
+	if glow_rect:
+		glow_rect.visible = true
+	if border:
+		border.border_color = Color(1.0, 0.85, 0.2, 1.0)
 	if _tween and _tween.is_valid():
 		_tween.kill()
 	_tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
@@ -82,6 +92,10 @@ func _on_mouse_entered() -> void:
 
 func _on_mouse_exited() -> void:
 	z_index = 0
+	if glow_rect:
+		glow_rect.visible = false
+	if border:
+		border.border_color = Color(0.4, 0.4, 0.5, 0.5)
 	if _tween and _tween.is_valid():
 		_tween.kill()
 	_tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

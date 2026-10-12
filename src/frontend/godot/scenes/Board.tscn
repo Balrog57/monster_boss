@@ -1,6 +1,14 @@
-[gd_scene load_steps=2 format=3 uid="uid://bossmonster_board_scene"]
+[gd_scene load_steps=10 format=3 uid="uid://bossmonster_board_scene"]
 
 [ext_resource type="Script" path="res://godot/scripts/BoardUI.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/ui/dungeon/bma001_bg.webp" id="2_bg_tex"]
+[ext_resource type="Texture2D" path="res://assets/ui/ingame/heroes_in_town_top.webp" id="3_town_banner"]
+[ext_resource type="AudioStream" path="res://assets/audio/music/music_dungeon_v3.mp3" id="4_music"]
+[ext_resource type="AudioStream" path="res://assets/audio/sfx/ui_button_select.wav" id="5_sfx"]
+[ext_resource type="Texture2D" uid="uid://dq6aitavlkwuc" path="res://assets/ui/ingame/pass_button.webp" id="6_pass"]
+[ext_resource type="Texture2D" uid="uid://crnnubjxcvha7" path="res://assets/ui/ingame/pass_button_pressed.webp" id="7_pass_pressed"]
+[ext_resource type="Texture2D" uid="uid://cgwqlx8eby8ga" path="res://assets/ui/ingame/go_button.webp" id="8_go"]
+[ext_resource type="Texture2D" uid="uid://c5ykujm8pmvw1" path="res://assets/ui/ingame/go_button_pressed.webp" id="9_go_pressed"]
 
 [node name="Board" type="Control"]
 layout_mode = 3
@@ -11,7 +19,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_script")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="TextureRect" parent="."]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -19,16 +27,18 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.04, 0.04, 0.06, 1)
+texture = ExtResource("2_bg_tex")
+expand_mode = 1
+stretch_mode = 6
 
 [node name="TopBar" type="HBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_left = 20.0
-offset_top = 15.0
-offset_right = -20.0
-offset_bottom = 55.0
+offset_top = 10.0
+offset_right = -320.0
+offset_bottom = 50.0
 grow_horizontal = 2
 theme_override_constants/separation = 20
 
@@ -40,58 +50,34 @@ text = "Menu"
 [node name="StatusLabel" type="Label" parent="TopBar"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 20
+theme_override_colors/font_color = Color(1, 0.9, 0.7, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 22
 text = "Tour 1 — Phase SETUP"
 vertical_alignment = 1
-
-[node name="StatsLabel" type="Label" parent="TopBar"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-text = "Âmes : 0/10 | Blessures : 0/5"
-horizontal_alignment = 2
-vertical_alignment = 1
-
-[node name="DeckArea" type="VBoxContainer" parent="."]
-layout_mode = 1
-anchors_preset = 1
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -280.0
-offset_top = 70.0
-offset_right = -20.0
-offset_bottom = 270.0
-grow_horizontal = 0
-
-[node name="DeckInfoLabel" type="Label" parent="DeckArea"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.7, 0.8, 1, 1)
-theme_override_font_sizes/font_size = 14
-text = "Pioche Salles : 0\nPioche Sorts : 0\nHéros restants : 0"
-
-[node name="DiscardInfoLabel" type="Label" parent="DeckArea"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.8, 0.6, 0.6, 1)
-theme_override_font_sizes/font_size = 14
-text = "Défausse Salles : 0\nDéfausse Sorts : 0\nDéfausse Héros : 0"
 
 [node name="TownArea" type="VBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_left = 20.0
-offset_top = 65.0
-offset_right = -300.0
-offset_bottom = 285.0
+offset_top = 55.0
+offset_right = -320.0
+offset_bottom = 265.0
 grow_horizontal = 2
+theme_override_constants/separation = 4
 
-[node name="TownTitle" type="Label" parent="TownArea"]
+[node name="TownBanner" type="TextureRect" parent="TownArea"]
+custom_minimum_size = Vector2(280, 28)
 layout_mode = 2
-theme_override_colors/font_color = Color(0.9, 0.8, 0.4, 1)
-theme_override_font_sizes/font_size = 16
-text = "VILLE (Héros en attente de leurre) :"
+size_flags_horizontal = 0
+texture = ExtResource("3_town_banner")
+expand_mode = 1
+stretch_mode = 4
 
 [node name="TownContainer" type="HBoxContainer" parent="TownArea"]
-custom_minimum_size = Vector2(0, 205)
+custom_minimum_size = Vector2(0, 175)
 layout_mode = 2
 theme_override_constants/separation = 12
 
@@ -102,34 +88,56 @@ anchor_top = 0.5
 anchor_right = 1.0
 anchor_bottom = 0.5
 offset_left = 20.0
-offset_top = -240.0
-offset_right = -20.0
-offset_bottom = 220.0
+offset_top = -275.0
+offset_right = -320.0
+offset_bottom = 225.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 8
 
 [node name="FoeTitle" type="Label" parent="DungeonArea"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.8, 0.4, 0.4, 1)
+theme_override_colors/font_color = Color(1, 0.45, 0.45, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 3
 theme_override_font_sizes/font_size = 15
 text = "DONJON ADVERSE (IA) :"
 
-[node name="FoeDungeon" type="HBoxContainer" parent="DungeonArea"]
-custom_minimum_size = Vector2(0, 30)
+[node name="FoeRow" type="HBoxContainer" parent="DungeonArea"]
+custom_minimum_size = Vector2(0, 205)
 layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="FoeDungeon" type="HBoxContainer" parent="DungeonArea/FoeRow"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 10
+
+[node name="FoeBossContainer" type="CenterContainer" parent="DungeonArea/FoeRow"]
+custom_minimum_size = Vector2(145, 205)
+layout_mode = 2
 
 [node name="PlayerTitle" type="Label" parent="DungeonArea"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.4, 0.9, 0.5, 1)
+theme_override_colors/font_color = Color(0.45, 1, 0.55, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 3
 theme_override_font_sizes/font_size = 16
-text = "MON DONJON (Glissez vos cartes sur les emplacements) :"
+text = "MON DONJON (Glissez vos salles ou cliquez pour construire) :"
 
-[node name="PlayerDungeon" type="HBoxContainer" parent="DungeonArea"]
+[node name="PlayerRow" type="HBoxContainer" parent="DungeonArea"]
 custom_minimum_size = Vector2(0, 210)
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 14
+
+[node name="PlayerDungeon" type="HBoxContainer" parent="DungeonArea/PlayerRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 12
+
+[node name="PlayerBossContainer" type="CenterContainer" parent="DungeonArea/PlayerRow"]
+custom_minimum_size = Vector2(145, 205)
+layout_mode = 2
 
 [node name="BottomArea" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -138,8 +146,8 @@ anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 20.0
-offset_top = -290.0
-offset_right = -20.0
+offset_top = -305.0
+offset_right = -320.0
 offset_bottom = -10.0
 grow_horizontal = 2
 grow_vertical = 0
@@ -147,8 +155,11 @@ theme_override_constants/separation = 6
 
 [node name="HandTitle" type="Label" parent="BottomArea"]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.85, 0.6, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 2
 theme_override_font_sizes/font_size = 15
-text = "MA MAIN (Glissez une salle vers le donjon ou cliquez) :"
+text = "MA MAIN :"
 
 [node name="HandScroll" type="ScrollContainer" parent="BottomArea"]
 custom_minimum_size = Vector2(0, 210)
@@ -163,23 +174,135 @@ theme_override_constants/separation = 14
 layout_mode = 2
 theme_override_constants/separation = 15
 
-[node name="BtnAdvance" type="Button" parent="BottomArea/ActionButtons"]
-custom_minimum_size = Vector2(240, 38)
+[node name="BtnAdvance" type="TextureButton" parent="BottomArea/ActionButtons"]
+custom_minimum_size = Vector2(75, 42)
 layout_mode = 2
-theme_override_font_sizes/font_size = 15
-text = "Résoudre Héros Suivant"
+texture_normal = ExtResource("8_go")
+texture_pressed = ExtResource("9_go_pressed")
+ignore_texture_size = true
+stretch_mode = 5
 
-[node name="BtnPass" type="Button" parent="BottomArea/ActionButtons"]
-custom_minimum_size = Vector2(160, 38)
+[node name="BtnPass" type="TextureButton" parent="BottomArea/ActionButtons"]
+custom_minimum_size = Vector2(180, 42)
 layout_mode = 2
-theme_override_font_sizes/font_size = 15
-text = "Passer la Construction"
+texture_normal = ExtResource("6_pass")
+texture_pressed = ExtResource("7_pass_pressed")
+ignore_texture_size = true
+stretch_mode = 5
 
 [node name="LogLabel" type="Label" parent="BottomArea"]
 layout_mode = 2
-theme_override_colors/font_color = Color(0.65, 0.65, 0.7, 1)
+theme_override_colors/font_color = Color(0.75, 0.75, 0.8, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 2
 theme_override_font_sizes/font_size = 13
 text = "Journal de jeu..."
-max_lines_visible = 3
+max_lines_visible = 2
+
+[node name="Sidebar" type="Panel" parent="."]
+layout_mode = 1
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -300.0
+offset_top = 10.0
+offset_right = -15.0
+offset_bottom = -10.0
+grow_horizontal = 0
+grow_vertical = 2
+
+[node name="SidebarContent" type="VBoxContainer" parent="Sidebar"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 14
+
+[node name="BossInfoLabel" type="Label" parent="Sidebar/SidebarContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.85, 0.4, 1)
+theme_override_font_sizes/font_size = 18
+text = "Boss : Choix..."
+horizontal_alignment = 1
+
+[node name="SoulsTitle" type="Label" parent="Sidebar/SidebarContent"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "ÂMES (10 pour gagner) :"
+
+[node name="SoulsContainer" type="HBoxContainer" parent="Sidebar/SidebarContent"]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="WoundsTitle" type="Label" parent="Sidebar/SidebarContent"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "BLESSURES (5 = défaite) :"
+
+[node name="WoundsContainer" type="HBoxContainer" parent="Sidebar/SidebarContent"]
+custom_minimum_size = Vector2(0, 28)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TreasuresTitle" type="Label" parent="Sidebar/SidebarContent"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "TRÉSORS ATTRACTIFS :"
+
+[node name="TreasuresContainer" type="HBoxContainer" parent="Sidebar/SidebarContent"]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="HSeparator" type="HSeparator" parent="Sidebar/SidebarContent"]
+layout_mode = 2
+
+[node name="DecksTitle" type="Label" parent="Sidebar/SidebarContent"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 14
+text = "PIOCHES ET DÉFAUSSES :"
+
+[node name="DecksInfoLabel" type="Label" parent="Sidebar/SidebarContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.75, 0.85, 1, 1)
+theme_override_font_sizes/font_size = 14
+text = "Pioche Salles : 0\nPioche Sorts : 0\nHéros restants : 0"
+
+[node name="DiscardInfoLabel" type="Label" parent="Sidebar/SidebarContent"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.9, 0.65, 0.65, 1)
+theme_override_font_sizes/font_size = 14
+text = "Défausse Salles : 0\nDéfausse Sorts : 0\nDéfausse Héros : 0"
+
+[node name="PhaseBanner" type="TextureRect" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -200.0
+offset_top = 8.0
+offset_right = 200.0
+offset_bottom = 68.0
+grow_horizontal = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="MusicPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("4_music")
+volume_db = -8.0
+
+[node name="SfxPlayer" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("5_sfx")
+volume_db = -4.0
 
 [connection signal="pressed" from="TopBar/BtnMenu" to="." method="_on_menu_pressed"]
