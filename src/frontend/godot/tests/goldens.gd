@@ -52,6 +52,20 @@ func _ready() -> void:
 	_t_levelup_king_croak_searches_advanced()
 	_t_levelup_robobo_targets_opponent()
 	_t_levelup_unknown_boss_noop()
+	_t_choice_dark_altar()
+	_t_choice_dark_laboratory()
+	_t_choice_all_seeing_eye()
+	_t_choice_draculord()
+	_t_choice_robobo()
+	_t_choice_cleopatra_forced_build()
+	_t_room_damage_goblin_dizzygas_target_type()
+	_t_build_specters_sanctum_choice_discards()
+	_t_choice_dracolich_lair()
+	_t_room_zombie_prison()
+	_t_setup_avoid_mulligan()
+	_t_setup_parallel_first_room()
+	_t_extra_build_phase_construction_zone()
+	_t_build_offturn_spell_window()
 
 	print("GOLDENS passed=", _passed, " failed=", _failed.size())
 	if _failed.is_empty():
@@ -152,7 +166,7 @@ func _player(dungeon: Array, hand: Array, builds: int = 0) -> Dictionary:
 	return {"dungeon": dungeon, "hand": hand, "buildsThisTurn": builds, "id": 0}
 
 func _room(id: String, t: String, advanced: bool, treasures: Array) -> Dictionary:
-	return {"id": id, "type": t, "advanced": advanced, "treasures": treasures, "damage": 1, "isRoom": true}
+	return {"id": id, "name": id, "type": t, "advanced": advanced, "treasures": treasures, "damage": 1, "isRoom": true}
 
 ## Une salle avancee ne peut se batir que sur une salle au tresor correspondant.
 func _t_advanced_room_requires_treasures() -> void:
@@ -330,6 +344,9 @@ func _t_play_spell_consumes_card() -> void:
 			break
 	_ok(m.apply_move(0, mv), "playSpell applique")
 	_ok(((m.G["players"][0] as Dictionary)["hand"] as Array).is_empty(), "le sort est consomme")
+	# Spell Battle (GameBoard.OnAbilityApplyRequest) : le sort reste sur la pile tant que l'adversaire n'a pas passe.
+	_ok(m.apply_move(1, {"type": "pass", "args": []}), "l'adversaire passe")
+	_ok(m.active_player() == 0, "la main revient au joueur de phase")
 	_ok((SpellEffects._effects(m.G)["extraBuild"] as Array).has(0), "Motivation accorde la construction")
 	m.queue_free()
 
@@ -381,12 +398,13 @@ func _t_levelup_requires_5_visible_rooms() -> void:
 func _t_levelup_draculord_steals() -> void:
 	var G := _levelup_G("BMA001", 5)
 	((G["players"][1] as Dictionary)["hand"] as Array).append({"id": "SP1", "name": "Fire", "isSpell": true})
+	((G["players"][1] as Dictionary)["hand"] as Array).append({"id": "SP2", "name": "Ice", "isSpell": true})
 	var c = RoomAbilities.process_level_up(G, 0)
 	_ok(c != null and str((c as Dictionary).get("type", "")) == "steal-card",
 		"Draculord ouvre un choix steal-card")
 	var opts: Array = (c as Dictionary).get("options", [])
-	_ok(opts.size() == 1 and str((opts[0] as Dictionary).get("card", {}).get("name", "")) == "Fire",
-		"la seule carte adverse est proposee")
+	_ok(opts.size() == 2 and str((opts[0] as Dictionary).get("card", {}).get("name", "")) == "Fire",
+		"les cartes adverses sont proposees")
 
 func _t_levelup_xyzax_recovers_two() -> void:
 	# Defausse vide : rien a faire, pas de choix.
@@ -445,7 +463,7 @@ func _t_levelup_king_croak_searches_advanced() -> void:
 	(G["decks"]["rooms"] as Array).append(_room("AdvMon", "monster", true, [1, 2]))
 	(G["decks"]["roomDiscard"] as Array).append(_room("AdvMon2", "monster", true, [1, 3]))
 	var c = RoomAbilities.process_level_up(G, 0)
-	_ok(c != null and bool((c as Dictionary).get("optional", false)), "le choix est facultatif")
+	_ok(c != null and not bool((c as Dictionary).get("optional", false)), "le choix est obligatoire (CanAvoid=false)")
 	var opts: Array = (c as Dictionary).get("options", [])
 	_ok(opts.size() == 2, "seules les 2 salles Monster avancees sont proposees")
 	_ok(str((opts[0] as Dictionary).get("pile", "")) == "deck"
@@ -453,6 +471,7 @@ func _t_levelup_king_croak_searches_advanced() -> void:
 	# Cleopatra cherche des Traps.
 	var G2 := _levelup_G("BMA007", 5)
 	(G2["decks"]["rooms"] as Array).append(_room("AdvTrap", "trap", true, [1]))
+	(G2["decks"]["roomDiscard"] as Array).append(_room("AdvTrap2", "trap", true, [2]))
 	var c2 = RoomAbilities.process_level_up(G2, 0)
 	_ok(c2 != null and str((c2 as Dictionary).get("roomType", "")) == "trap", "Cleopatra cherche des Traps")
 
@@ -460,6 +479,7 @@ func _t_levelup_robobo_targets_opponent() -> void:
 	var G := _levelup_G("BMA004", 5)
 	# Un adversaire a une salle, l'autre est vide : file = 1 seul adversaire.
 	((G["players"][1] as Dictionary)["dungeon"] as Array).append([_room("V", "trap", false, [1])])
+	((G["players"][1] as Dictionary)["dungeon"] as Array).append([_room("V2", "trap", false, [1])])
 	var c = RoomAbilities.process_level_up(G, 0)
 	_ok(c != null and str((c as Dictionary).get("type", "")) == "destroy-room", "Robobo ouvre un choix")
 	_ok(int((c as Dictionary).get("playerId", -1)) == 1, "l'adversaire detruit sa propre salle")
@@ -477,16 +497,22 @@ func _t_levelup_unknown_boss_noop() -> void:
 	_ok(RoomAbilities.process_level_up(G2, 0) == null, "joueur sans boss : aucun choix")
 
 func _t_room_ability_dark_altar() -> void:
+	# Defausse vide : abilite inutilisable (Ability.CheckConditions), la salle reste en place.
 	var G := _ability_G("BMA009")
-	_ok(RoomAbilities.activate_room_ability(G, 0, 0) == null, "Dark Altar s'active sans erreur")
-	_ok(((G["players"][0] as Dictionary)["dungeon"] as Array).is_empty(), "Dark Altar detruit sa salle")
-	# Defausse vide au depart : la carte detruite est la seule option, recuperee en main.
-	_ok(((G["players"][0] as Dictionary)["hand"] as Array).size() == 1,
-		"la carte detruite est recuperee en main")
-	_ok((G["decks"]["roomDiscard"] as Array).is_empty(), "defausse vide apres recuperation")
-	# Defausse pre-remplie : plusieurs options -> l'engine ouvre un choix.
+	_ok(RoomAbilities.activate_room_ability(G, 0, 0) != null, "Dark Altar refuse avec une defausse vide")
+	_ok(((G["players"][0] as Dictionary)["dungeon"] as Array).size() == 1, "la salle n'est pas detruite")
+	_ok(not bool(BossEngine.active_room(((G["players"][0] as Dictionary)["dungeon"] as Array)[0]).get("usedThisTurn", false)),
+		"l'activation refusee n'est pas consommee")
+	# Une seule carte dans la defausse : auto-resolue, l'Altar detruit rejoint la defausse.
+	var G1 := _ability_G("BMA009")
+	(G1["decks"]["roomDiscard"] as Array).append(_room("X", "trap", false, [1]))
+	_ok(RoomAbilities.activate_room_ability(G1, 0, 0) == null, "Dark Altar (1 carte) s'active")
+	_ok(((G1["players"][0] as Dictionary)["dungeon"] as Array).is_empty(), "Dark Altar detruit sa salle")
+	_ok(_card_ids((G1["players"][0] as Dictionary)["hand"] as Array) == ["X"], "la carte de la defausse est recuperee (pas l'Altar)")
+	_ok((G1["decks"]["roomDiscard"] as Array).size() == 1, "l'Altar detruit est en defausse")
+	# Defausse pre-remplie a 2 cartes : plusieurs options -> l'engine ouvre un choix.
 	var G2 := _ability_G("BMA009")
-	(G2["decks"]["roomDiscard"] as Array).append(_room("X", "trap", false, [1]))
+	(G2["decks"]["roomDiscard"] as Array).append_array([_room("X", "trap", false, [1]), _room("Y", "trap", false, [1])])
 	_ok(RoomAbilities.activate_room_ability(G2, 0, 0) == null, "Dark Altar (multi) s'active")
 	var pending: Dictionary = G2.get("pendingChoice", {}) as Dictionary
 	_ok(not pending.is_empty() and str(pending.get("type", "")) == "recover-card",
@@ -519,7 +545,7 @@ func _t_activate_room_appears_in_legal_moves() -> void:
 				"wounds": [], "eliminated": false, "leveledUp": false, "buildsThisTurn": 0,
 				"isAI": true, "entrance": []},
 		},
-		"decks": {"rooms": [], "spells": [], "heroes": [], "epics": [], "roomDiscard": [], "spellDiscard": [], "heroDiscard": []},
+		"decks": {"rooms": [], "spells": [], "heroes": [], "epics": [], "roomDiscard": [_room("X", "trap", false, [1])], "spellDiscard": [], "heroDiscard": []},
 		"town": [], "turn": 1, "phase": "build", "gameOver": null, "log": [], "effects": SpellEffects.empty_effects(),
 	}
 	var found := 0
@@ -611,12 +637,14 @@ func _t_died_golem_factory_once_per_turn() -> void:
 	RoomAbilities.on_hero_died_in_room(G, 0, room)
 	_ok(((G["players"][0] as Dictionary)["hand"] as Array).size() == 1, "une seule pioche par tour")
 
-## BMA034 Construction Zone : rend une construction.
+## BMA034 Construction Zone : ExtraBuildTurn -> PendingExtraBuiltTurns (ExtraBuildPhase), sans toucher au tour courant.
 func _t_build_construction_zone_refunds_build() -> void:
 	var G := _ability_G("BMA034")
 	(G["players"][0] as Dictionary)["buildsThisTurn"] = 1
 	RoomAbilities.on_build_room(G, 0, _room("BMA034", "trap", false, [1]))
-	_ok(int((G["players"][0] as Dictionary)["buildsThisTurn"]) == 0, "Construction Zone rend la construction")
+	var q: Array = G.get("forcedBuilds", [])
+	_ok(q.size() == 1 and int((q[0] as Dictionary)["playerId"]) == 0 and str((q[0] as Dictionary)["cardId"]) == "", "Construction Zone empile un tour de construction supplementaire")
+	_ok(int((G["players"][0] as Dictionary)["buildsThisTurn"]) == 1, "Construction Zone ne rend plus la construction du tour")
 
 ## BMA021 Brainsucker Hive : pioche un sort quand un hero y meurt.
 func _t_build_brainsucker_hive_draws_spell() -> void:
@@ -672,3 +700,409 @@ func _choice_G(kind: String, options: Array, hand: Array = [], discard_alimentee
 		"town": [], "turn": 1, "phase": "build", "gameOver": null, "log": [], "effects": SpellEffects.empty_effects(),
 		"pendingChoice": {"type": kind, "playerId": 0, "bossName": "Test", "message": "Choisissez", "options": options},
 	}
+
+## --- pendingChoice : Dark Altar, Dark Laboratory, All-Seeing Eye, Draculord, Robobo, Cleopatra (C# = verite) ---
+
+func _hand_ids(pid: int, m) -> Array:
+	return _card_ids((m.G["players"][pid] as Dictionary)["hand"] as Array)
+
+func _card_ids(arr: Array) -> Array:
+	var out: Array = []
+	for c in arr:
+		out.append(str((c as Dictionary).get("id", "")))
+	return out
+
+func _choice_moves(m, pid: int) -> Array:
+	var out: Array = []
+	for mv in m.legal_moves(pid):
+		if str((mv as Dictionary).get("type", "")) == "resolveChoice":
+			out.append(int(((mv as Dictionary)["args"] as Array)[0]))
+	return out
+
+func _has_move(m, pid: int, kind: String) -> bool:
+	for mv in m.legal_moves(pid):
+		if str((mv as Dictionary).get("type", "")) == kind:
+			return true
+	return false
+
+## BMA009 : cibles resolues AVANT la destruction -> l'Altar n'est pas une option ; resume=false ->
+## resoudre le choix ne referme pas la phase BUILD.
+func _t_choice_dark_altar() -> void:
+	var m = _match_with_spell()
+	var p0: Dictionary = m.G["players"][0]
+	p0["hand"] = []
+	p0["dungeon"] = [[_room("BMA009", "trap", false, [1])]]
+	(m.G["decks"]["roomDiscard"] as Array).append(_room("RD", "trap", false, [1]))
+	(m.G["decks"]["spellDiscard"] as Array).append({"id": "SD", "name": "Spell D", "isSpell": true})
+	_ok(_has_move(m, 0, "activateRoom"), "Dark Altar activable avec une defausse non vide")
+	_ok(m.apply_move(0, {"type": "activateRoom", "args": [0]}), "activateRoom Dark Altar applique")
+	var pc: Dictionary = m.G.get("pendingChoice", {})
+	_ok(str(pc.get("type", "")) == "recover-card" and int(pc.get("playerId", -1)) == 0, "choix recover-card pour le proprietaire")
+	var opts: Array = pc.get("options", [])
+	_ok(opts.size() == 2, "exactement les 2 cartes de la defausse (salle + sort), pas l'Altar")
+	_ok(str(((opts[0] as Dictionary)["card"] as Dictionary).get("id", "")) == "RD"
+		and str(((opts[1] as Dictionary)["card"] as Dictionary).get("id", "")) == "SD", "ordre salles puis sorts")
+	_ok(_choice_moves(m, 0) == [0, 1], "legal_moves du proprietaire : resolveChoice 0 et 1")
+	_ok(m.legal_moves(1).is_empty(), "l'autre joueur n'a aucun coup")
+	_ok(m.apply_move(0, {"type": "resolveChoice", "args": [1]}), "resolveChoice applique")
+	_ok(_hand_ids(0, m) == ["SD"], "le sort choisi est en main")
+	_ok((m.G["decks"]["roomDiscard"] as Array).size() == 2, "RD et l'Altar detruit sont en defausse")
+	_ok(str(m.G.get("phase", "")) == "build", "resume=false : la phase BUILD reste ouverte")
+	m.queue_free()
+	# Defausse vide : plus d'activation proposee (Ability.CheckConditions).
+	var m2 = _match_with_spell()
+	(m2.G["players"][0] as Dictionary)["dungeon"] = [[_room("BMA009", "trap", false, [1])]]
+	_ok(not _has_move(m2, 0, "activateRoom"), "defausse vide : Dark Altar non activable")
+	m2.queue_free()
+
+## BMA022 : DiscardSomeCardFromHand(1, Spell) = tous les sorts de la main (pas seulement les 2 pioches).
+func _t_choice_dark_laboratory() -> void:
+	var G := _ability_G("BMA022")
+	var p0: Dictionary = G["players"][0]
+	(p0["hand"] as Array).append({"id": "OLD", "name": "Old", "isSpell": true})
+	(G["decks"]["spells"] as Array).append_array([{"id": "A", "name": "A", "isSpell": true}, {"id": "B", "name": "B", "isSpell": true}])
+	var c = RoomAbilities.on_build_room(G, 0, _room("BMA022", "trap", false, [1]))
+	_ok(c != null and ((c as Dictionary)["options"] as Array).size() == 3, "3 options : l'ancien sort + les 2 pioches")
+	var ids: Array = []
+	for o in ((c as Dictionary)["options"] as Array):
+		ids.append(str(((o as Dictionary)["card"] as Dictionary).get("id", "")))
+	_ok(ids.has("OLD") and ids.has("A") and ids.has("B"), "l'ancien sort fait partie des options (%s)" % str(ids))
+	# Resolution via le moteur : le sort choisi part en defausse.
+	var m = _match_with_spell()
+	m.G = _choice_G("discard-spell", (c as Dictionary)["options"] as Array, p0["hand"] as Array)
+	_ok(_choice_moves(m, 0) == [0, 1, 2], "legal_moves : une resolution par option")
+	var chosen: String = ids[0]
+	_ok(m.apply_move(0, {"type": "resolveChoice", "args": [0]}), "resolveChoice applique")
+	_ok(_hand_ids(0, m).size() == 2 and not _hand_ids(0, m).has(chosen), "le sort choisi quitte la main")
+	m.queue_free()
+	# Un seul sort en main apres pioche (pioche vide) : defausse automatique.
+	var G1 := _ability_G("BMA022")
+	(G1["players"][0]["hand"] as Array).append({"id": "ONLY", "name": "Only", "isSpell": true})
+	_ok(RoomAbilities.on_build_room(G1, 0, _room("BMA022", "trap", false, [1])) == null, "1 sort en main : aucun choix")
+	_ok((G1["decks"]["spellDiscard"] as Array).size() == 1 and ((G1["players"][0] as Dictionary)["hand"] as Array).is_empty(),
+		"le sort unique est defausse")
+
+## BMA025 : defausse un sort pour annuler le dernier sort ADVERSE de la pile.
+func _t_choice_all_seeing_eye() -> void:
+	var m = _match_with_spell()
+	var p0: Dictionary = m.G["players"][0]
+	(m.G["players"][1] as Dictionary)["isAI"] = false # sinon _drive_ai jouerait le tour du lanceur
+	p0["dungeon"] = [[_room("BMA025", "trap", true, [3])]]
+	p0["hand"] = [{"id": "S1", "name": "S1", "isSpell": true}, {"id": "S2", "name": "S2", "isSpell": true}]
+	var theirs := {"id": "BMA040", "name": "Annihilator", "isSpell": true}
+	m.G["stack"] = [{"id": "x", "type": "spell", "playerId": 0, "card": {"id": "OWN", "name": "Own", "isSpell": true}, "target": {}, "resolved": false}]
+	m.G["activePlayer"] = 0
+	m.G["stackReturnPlayer"] = 1
+	_ok(not _has_move(m, 0, "activateRoom"), "pas d'activation sur son propre sort")
+	m.G["stack"] = [{"id": "y", "type": "spell", "playerId": 1, "card": theirs, "target": {}, "resolved": false}]
+	_ok(_has_move(m, 0, "activateRoom"), "activation proposee face a un sort adverse")
+	_ok(m.apply_move(0, {"type": "activateRoom", "args": [0]}), "activateRoom All-Seeing Eye applique")
+	var pc: Dictionary = m.G.get("pendingChoice", {})
+	_ok(str(pc.get("type", "")) == "discard-spell" and bool(pc.get("thenCancel", false)), "choix discard-spell + annulation")
+	_ok((pc.get("options", []) as Array).size() == 2, "les 2 sorts de la main sont proposes")
+	_ok(_choice_moves(m, 0) == [0, 1] and m.legal_moves(1).is_empty(), "seul le proprietaire resout")
+	_ok(m.apply_move(0, {"type": "resolveChoice", "args": [1]}), "resolveChoice applique")
+	_ok(_hand_ids(0, m) == ["S1"], "S2 est defausse")
+	_ok((m.G["stack"] as Array).is_empty(), "le sort adverse est retire de la pile")
+	_ok((m.G["decks"]["spellDiscard"] as Array).size() == 2, "sort defausse + sort annule en defausse")
+	_ok(int(m.G.get("activePlayer", -1)) == 1, "la main revient au lanceur du sort")
+	_ok(str(m.G.get("phase", "")) == "build", "la phase BUILD reste ouverte")
+	_ok(bool(BossEngine.active_room((p0["dungeon"] as Array)[0]).get("usedThisTurn", false)), "une fois par tour")
+	m.queue_free()
+	# Un seul sort en main : defausse automatique.
+	var G1 := _ability_G("BMA025")
+	(G1["players"][0]["hand"] as Array).append({"id": "ONLY", "name": "Only", "isSpell": true})
+	G1["stack"] = [{"id": "z", "type": "spell", "playerId": 1, "card": theirs, "target": {}, "resolved": false}]
+	_ok(RoomAbilities.activate_room_ability(G1, 0, 0) == null and (G1["stack"] as Array).is_empty(), "1 sort : annulation directe")
+	_ok((G1["decks"]["spellDiscard"] as Array).size() == 2, "les 2 sorts sont en defausse")
+	# Sans sort en main : impossible.
+	var G2 := _ability_G("BMA025")
+	G2["stack"] = [{"id": "z", "type": "spell", "playerId": 1, "card": theirs, "target": {}, "resolved": false}]
+	_ok(RoomAbilities.activate_room_ability(G2, 0, 0) != null, "sans sort en main : refuse")
+
+## BMA001 : cartes (salles et sorts) des adversaires vivants ; une seule carte = prise automatique.
+func _t_choice_draculord() -> void:
+	var G := _levelup_G("BMA001", 5)
+	var p1: Dictionary = G["players"][1]
+	(p1["hand"] as Array).append_array([_room("R1", "trap", false, [1]), {"id": "SP1", "name": "Fire", "isSpell": true}])
+	var c = RoomAbilities.process_level_up(G, 0)
+	_ok(c != null and ((c as Dictionary)["options"] as Array).size() == 2, "salle et sort adverses proposes")
+	var m = _match_with_spell()
+	m.G = G
+	m.G["pendingChoice"] = c
+	m.G["phase"] = "end"
+	_ok(_choice_moves(m, 0) == [0, 1] and m.legal_moves(1).is_empty(), "legal_moves du chooser uniquement")
+	_ok(m.apply_move(0, {"type": "resolveChoice", "args": [1]}), "resolveChoice applique")
+	_ok(_hand_ids(0, m) == ["SP1"] and _hand_ids(1, m) == ["R1"], "la carte volee passe en main")
+	m.queue_free()
+	var G1 := _levelup_G("BMA001", 5)
+	((G1["players"][1] as Dictionary)["hand"] as Array).append({"id": "SP1", "name": "Fire", "isSpell": true})
+	_ok(RoomAbilities.process_level_up(G1, 0) == null and ((G1["players"][0] as Dictionary)["hand"] as Array).size() == 1,
+		"une seule carte : prise automatique")
+	var G2 := _levelup_G("BMA001", 5)
+	((G2["players"][1] as Dictionary)["hand"] as Array).append_array([{"id": "A", "isSpell": true}, {"id": "B", "isSpell": true}])
+	(G2["players"][1] as Dictionary)["eliminated"] = true
+	_ok(RoomAbilities.process_level_up(G2, 0) == null, "adversaire elimine ignore")
+
+## BMA004 : chaque adversaire (PlayerId croissant) detruit une salle de SON donjon ; 0 salle = saute,
+## 1 salle = auto ; la salle detruite va en defausse.
+func _t_choice_robobo() -> void:
+	var G := _levelup_G("BMA004", 5)
+	var players: Dictionary = G["players"]
+	for pid in [2, 3, 4]:
+		players[pid] = {"id": pid, "boss": {"id": "BMA002", "name": "Z", "xp": 300}, "dungeon": [], "hand": [], "souls": [],
+			"wounds": [], "entrance": [], "items": [], "eliminated": false, "buildsThisTurn": 0, "leveledUp": false}
+	(players[1]["dungeon"] as Array).append_array([[_room("A1", "trap", false, [1])], [_room("A2", "trap", true, [1])]])
+	# joueur 2 : aucune salle (saute) ; joueur 3 : une seule (auto) ; joueur 4 : deux (choix).
+	(players[3]["dungeon"] as Array).append([_room("C1", "trap", false, [1])])
+	(players[4]["dungeon"] as Array).append_array([[_room("D1", "trap", false, [1])], [_room("D2", "trap", false, [1])]])
+	var c = RoomAbilities.process_level_up(G, 0)
+	_ok(c != null and int((c as Dictionary)["playerId"]) == 1, "le premier adversaire choisit")
+	var opts: Array = (c as Dictionary)["options"]
+	_ok(opts.size() == 2 and str(((opts[1] as Dictionary)["card"] as Dictionary).get("name", "")) == "A2", "ses salles actives sont proposees")
+	var m = _match_with_spell()
+	m.G = G
+	m.G["pendingChoice"] = c
+	m.G["phase"] = "end"
+	_ok(m.legal_moves(0).is_empty() and _choice_moves(m, 1) == [0, 1], "seul l'adversaire concerne a des coups")
+	_ok(m.apply_move(1, {"type": "resolveChoice", "args": [0]}), "l'adversaire resout")
+	_ok((players[1]["dungeon"] as Array).size() == 1, "A1 detruite")
+	_ok((players[3]["dungeon"] as Array).is_empty(), "joueur 3 : salle unique detruite automatiquement")
+	var pc2: Dictionary = m.G.get("pendingChoice", {})
+	_ok(int(pc2.get("playerId", -1)) == 4 and str(pc2.get("type", "")) == "destroy-room", "joueur 2 saute, joueur 4 choisit")
+	_ok(m.apply_move(4, {"type": "resolveChoice", "args": [1]}), "le joueur 4 resout")
+	_ok((m.G.get("pendingChoice", {}) as Dictionary).is_empty(), "file terminee")
+	var names: Array = []
+	for r in (m.G["decks"]["roomDiscard"] as Array):
+		names.append(str((r as Dictionary).get("name", "")))
+	_ok(names == ["A1", "C1", "D2"], "les salles detruites sont en defausse (%s)" % str(names))
+	m.queue_free()
+
+## BMA007 : choix obligatoire (CanAvoid=false) parmi les pieges avances (pioche + defausse) ; la carte
+## va en main et declenche un tour de construction supplementaire limite a cette carte (BuildRoomBy).
+func _t_choice_cleopatra_forced_build() -> void:
+	var G := _levelup_G("BMA007", 5)
+	(G["decks"]["rooms"] as Array).append_array([_room("Ord", "trap", false, [1]), _room("AdvMon", "monster", true, [1]),
+		_room("AdvT1", "trap", true, [1])])
+	(G["decks"]["roomDiscard"] as Array).append(_room("AdvT2", "trap", true, [2]))
+	var c = RoomAbilities.process_level_up(G, 0)
+	var opts: Array = (c as Dictionary)["options"]
+	_ok(opts.size() == 2 and not bool((c as Dictionary).get("optional", false)), "2 pieges avances, pas de 'passer'")
+	var m = _match_with_spell()
+	var p0: Dictionary = G["players"][0]
+	m.G = G
+	m.G["phase"] = "build"
+	m.G["pendingChoice"] = c
+	_ok(_choice_moves(m, 0) == [0, 1], "legal_moves : une resolution par option, sans -1")
+	(p0["hand"] as Array).append(_room("Other", "trap", false, [1]))
+	p0["leveledUp"] = true
+	_ok(m.apply_move(0, {"type": "resolveChoice", "args": [0]}), "resolveChoice applique")
+	_ok(_hand_ids(0, m).has("AdvT1") and (G["decks"]["rooms"] as Array).size() == 2, "AdvT1 quitte la pioche pour la main")
+	# Fin de la revelation : le tour de construction supplementaire demarre, seule la carte imposee est constructible.
+	_ok(str(G.get("forcedBuild", "")) == "AdvT1" and int(m.active_player()) == 0, "tour supplementaire force sur AdvT1")
+	var builds: Array = []
+	for mv in m.legal_moves(0):
+		if str((mv as Dictionary)["type"]) == "buildRoom":
+			builds.append(int(((mv as Dictionary)["args"] as Array)[0]))
+	_ok(not builds.is_empty(), "un tour de construction est propose")
+	var forced_idx: int = _hand_ids(0, m).find("AdvT1")
+	_ok(builds.all(func(i): return i == forced_idx), "seule AdvT1 est constructible (%s)" % str(builds))
+	m.queue_free()
+	# Une seule candidate : prise automatique + construction forcee, sans choix.
+	var G1 := _levelup_G("BMA007", 5)
+	(G1["decks"]["roomDiscard"] as Array).append(_room("Solo", "trap", true, [1]))
+	_ok(RoomAbilities.process_level_up(G1, 0) == null, "candidate unique : auto-resolue")
+	_ok(_card_ids((G1["players"][0] as Dictionary)["hand"] as Array) == ["Solo"] and (G1["forcedBuilds"] as Array).size() == 1,
+		"Solo en main + construction forcee")
+
+## BMA015 / BMA029 : le type filtre (Monster / Trap) est celui de la salle CIBLE, pas de la salle source
+## (C# AdjacentsRoom[Monster] / NextRoom[Trap] + DealDamageToRoom). Index Godot 0 = entree du heros.
+func _t_room_damage_goblin_dizzygas_target_type() -> void:
+	var G := _ability_G("X")
+	var p: Dictionary = G["players"][0]
+	p["dungeon"] = [[_room("T", "trap", false, [1])], [_room("BMA015", "monster", false, [1])], [_room("M", "monster", false, [1])]]
+	_ok(BossEngine.room_damage_with_modifiers(G, p, 0, null) == 1, "Goblin Armory : une salle Trap adjacente ne gagne rien")
+	_ok(BossEngine.room_damage_with_modifiers(G, p, 2, null) == 2, "Goblin Armory : une salle Monster adjacente gagne +1")
+	_ok(BossEngine.room_damage_with_modifiers(G, p, 1, null) == 1, "Goblin Armory ne se buffe pas elle-meme")
+	p["dungeon"] = [[_room("BMA029", "trap", false, [1])], [_room("M", "monster", false, [1])], [_room("T", "trap", false, [1])]]
+	_ok(BossEngine.room_damage_with_modifiers(G, p, 1, null) == 1, "Dizzygas : la salle suivante non-Trap ne gagne rien")
+	p["dungeon"] = [[_room("BMA029", "trap", false, [1])], [_room("T", "trap", false, [1])]]
+	_ok(BossEngine.room_damage_with_modifiers(G, p, 1, null) == 3, "Dizzygas : la salle Trap suivante gagne +2")
+
+## BMA011 Specter's Sanctum : avec 2+ adversaires ayant un sort, le choix pick-opponent defausse
+## un sort au hasard chez l'adversaire designe (action discard-spell).
+func _t_build_specters_sanctum_choice_discards() -> void:
+	var m = _match_with_spell()
+	var spell := {"id": "S", "name": "S", "isSpell": true}
+	(m.G["players"][1] as Dictionary)["hand"] = [spell.duplicate()]
+	m.G["players"][2] = {"boss": {"xp": 300, "treasures": [1]}, "dungeon": [], "hand": [spell.duplicate()],
+		"souls": [], "wounds": [], "eliminated": false, "leveledUp": false, "buildsThisTurn": 0, "isAI": true, "entrance": []}
+	var choice = RoomAbilities.on_build_room(m.G, 0, _room("BMA011", "monster", false, [1]))
+	_ok(choice is Dictionary and str((choice as Dictionary).get("action", "")) == "discard-spell"
+		and ((choice as Dictionary).get("options", []) as Array).size() == 2, "Specter's Sanctum : choix pick-opponent avec action")
+	RoomAbilities.enqueue_pending(m.G, choice)
+	_ok(m.apply_move(0, {"type": "resolveChoice", "args": [1]}), "resolveChoice pick-opponent applique")
+	_ok((m.G["players"][2]["hand"] as Array).is_empty() and not (m.G["players"][1]["hand"] as Array).is_empty(),
+		"le sort de l'adversaire designe (joueur 2) est defausse")
+	_ok((m.G["decks"]["spellDiscard"] as Array).size() == 1, "le sort est en defausse")
+	m.queue_free()
+
+## BMA013 Dracolich Lair : le joueur choisit les 2 salles defaussees ; le choix dans la defausse est
+## resolu AVANT (il ne propose pas les 2 salles qu'on vient de defausser).
+func _t_choice_dracolich_lair() -> void:
+	var m = _match_with_spell()
+	var p0: Dictionary = m.G["players"][0]
+	p0["dungeon"] = [[_room("BMA013", "monster", true, [1])]]
+	p0["hand"] = [_room("R1", "trap", false, [1]), _room("R2", "trap", false, [1]), _room("R3", "trap", false, [1])]
+	_ok(not _has_move(m, 0, "activateRoom"), "Dracolich Lair : defausse vide, non activable")
+	(m.G["decks"]["roomDiscard"] as Array).append(_room("D1", "trap", false, [1]))
+	(m.G["decks"]["roomDiscard"] as Array).append(_room("D2", "trap", false, [1]))
+	_ok(_has_move(m, 0, "activateRoom"), "Dracolich Lair activable (2 salles en main, defausse non vide)")
+	_ok(m.apply_move(0, {"type": "activateRoom", "args": [0]}), "activateRoom Dracolich Lair applique")
+	var pc: Dictionary = m.G.get("pendingChoice", {})
+	_ok(str(pc.get("type", "")) == "dracolich-discard" and (pc.get("options", []) as Array).size() == 3,
+		"3 paires de salles proposees")
+	_ok(m.apply_move(0, {"type": "resolveChoice", "args": [2]}), "paire R2+R3 choisie")
+	_ok(_hand_ids(0, m) == ["R1"], "seules R2 et R3 sont defaussees")
+	pc = m.G.get("pendingChoice", {})
+	_ok(str(pc.get("type", "")) == "recover-card" and (pc.get("options", []) as Array).size() == 2,
+		"choix dans la defausse d'avant (D1, D2), sans R2/R3")
+	_ok(m.apply_move(0, {"type": "resolveChoice", "args": [1]}), "D2 recuperee")
+	_ok(_hand_ids(0, m) == ["R1", "D2"], "D2 en main")
+	_ok((m.G["decks"]["roomDiscard"] as Array).size() == 3, "D1, R2, R3 en defausse")
+	m.queue_free()
+
+## BMA039 Zombie Prison : detruit la salle, renvoie un heros mort d'un adversaire a l'entree de SON donjon.
+func _t_room_zombie_prison() -> void:
+	var m = _match_with_spell()
+	var p0: Dictionary = m.G["players"][0]
+	var p1: Dictionary = m.G["players"][1]
+	p0["dungeon"] = [[_room("BMA039", "monster", false, [1])]]
+	_ok(not _has_move(m, 0, "activateRoom"), "Zombie Prison : aucun heros mort chez l'adversaire, non activable")
+	var hero := {"id": "H1", "name": "Hero1", "hp": 4, "souls": 1}
+	p1["souls"] = [{"name": "Hero1", "souls": 1, "faceDown": true, "hero": hero}]
+	(m.G["decks"]["heroDiscard"] as Array).append(hero)
+	_ok(_has_move(m, 0, "activateRoom"), "Zombie Prison activable avec un heros mort chez l'adversaire")
+	_ok(m.apply_move(0, {"type": "activateRoom", "args": [0]}), "activateRoom Zombie Prison applique")
+	_ok((p0["dungeon"] as Array).is_empty() and (m.G["decks"]["roomDiscard"] as Array).size() == 1, "la salle est detruite puis defaussee")
+	_ok((p1["souls"] as Array).is_empty(), "l'ame du heros est retiree de l'adversaire")
+	_ok((p1["entrance"] as Array).size() == 1 and (m.G["decks"]["heroDiscard"] as Array).is_empty(),
+		"le heros est a l'entree du donjon de l'adversaire (pas de l'activateur)")
+	_ok((p0["entrance"] as Array).is_empty(), "l'activateur ne recoit pas le heros")
+	m.queue_free()
+
+## GameBoard.AvoidMulliganCondition : >= 4 salles avancees ou >= 4 salles au meme tresor => remelange.
+func _t_setup_avoid_mulligan() -> void:
+	var adv4: Array = [_room("A1", "trap", true, [1]), _room("A2", "trap", true, [2]), _room("A3", "trap", true, [3]),
+		_room("A4", "trap", true, [4]), _room("N", "trap", false, [1])]
+	_ok(Match._bad_opening_rooms(adv4), "4 salles avancees : mauvaise main")
+	adv4.pop_front()
+	_ok(not Match._bad_opening_rooms(adv4), "3 salles avancees : main acceptee")
+	var fighters: Array = [_room("F1", "trap", false, [2, 2]), _room("F2", "trap", false, [2, 3]), _room("F3", "trap", false, [1, 2]),
+		_room("F4", "trap", false, [2]), _room("X", "trap", false, [3])]
+	_ok(Match._bad_opening_rooms(fighters), "4 salles portant le meme tresor (une salle compte une fois) : mauvaise main")
+	fighters[3] = _room("F4", "trap", false, [1])
+	_ok(not Match._bad_opening_rooms(fighters), "3 salles au meme tresor : main acceptee")
+	var m = Match.new()
+	add_child(m)
+	m.rng.seed = 7
+	var deck: Array = []
+	for i in 20:
+		deck.append(_room("N%d" % i, "trap", false, [1 + i % 4]))
+	for i in 5:
+		deck.append(_room("B%d" % i, "trap", true, [1]))   # sommet de pioche = fin du tableau : 5 avancees tirees d'abord
+	var hand: Array = m._draw_opening_rooms(deck)
+	_ok(hand.size() == 5 and not Match._bad_opening_rooms(hand), "la main redistribuee n'est plus mauvaise")
+	_ok(deck.size() == 20, "les 5 salles rendues sont dans la pioche (pioche = 25 - 5)")
+	m.queue_free()
+
+func _setup_match(n: int) -> Node:
+	var m = Match.new()
+	add_child(m)
+	var players := {}
+	for i in n:
+		players[i] = {"id": i, "boss": {"id": "B%d" % i, "name": "B%d" % i, "xp": 300 - i * 10, "treasures": [1]}, "dungeon": [],
+			"hand": [_room("O%d" % i, "trap", false, [1]), _room("P%d" % i, "trap", false, [1]), _room("V%d" % i, "trap", true, [1]),
+				{"id": "S%d" % i, "name": "S", "isSpell": true}],
+			"souls": [], "wounds": [], "eliminated": false, "leveledUp": false, "buildsThisTurn": 0, "isAI": false, "entrance": []}
+	var rooms: Array = []
+	for i in 12:
+		rooms.append(_room("D%d" % i, "trap", false, [1]))
+	m.G = {"players": players, "decks": {"rooms": rooms, "spells": [], "heroes": [], "epics": [], "roomDiscard": [], "spellDiscard": [], "heroDiscard": []},
+		"town": [], "turn": 0, "phase": "setup", "gameOver": null, "log": [], "effects": SpellEffects.empty_effects(), "autoAI": false,
+		"stack": [], "stackPassed": {}, "pendingChoice": {}, "choiceQueue": []}
+	return m
+
+## Setup_b : chaque joueur pose une salle ordinaire en parallele (sans ordre), face cachee ; Setup_c revele puis le tour 1 commence.
+func _t_setup_parallel_first_room() -> void:
+	var m = _setup_match(3)
+	m._begin_setup_build()
+	_ok(str(m.G["phase"]) == "setup", "phase setup apres la defausse d'ouverture")
+	var builds: Array = []
+	for mv in m.legal_moves(2):
+		if str((mv as Dictionary)["type"]) == "buildRoom":
+			builds.append(int(((mv as Dictionary)["args"] as Array)[0]))
+	_ok(builds == [0, 1] and _has_move(m, 2, "passBuild"), "le dernier joueur peut construire d'abord : salles ordinaires seulement (%s)" % str(builds))
+	_ok(not _has_move(m, 2, "playSpell"), "pas de sort pendant Setup_b")
+	_ok(m.apply_move(2, {"type": "buildRoom", "args": [1]}), "joueur 2 construit")
+	var d2: Array = (m.G["players"][2] as Dictionary)["dungeon"]
+	_ok(d2.size() == 1 and bool((d2[0][0] as Dictionary).get("faceDown", false)), "salle initiale posee face cachee")
+	_ok(m.legal_moves(2).is_empty() and str(m.G["phase"]) == "setup", "une seule salle par joueur ; la phase attend les autres")
+	_ok(m.apply_move(0, {"type": "passBuild", "args": []}), "joueur 0 ne construit pas")
+	_ok(str(m.G["phase"]) == "setup", "joueur 1 n'a pas encore joue")
+	_ok(m.apply_move(1, {"type": "buildRoom", "args": [0]}), "joueur 1 construit")
+	_ok(str(m.G["phase"]) == "build" and int(m.G["turn"]) == 1, "Setup_c puis BeginningOfTurn : tour 1 en phase BUILD")
+	_ok(not bool((d2[0][0] as Dictionary).get("faceDown", true)), "les salles initiales sont revelees")
+	_ok(int(m.active_player()) == 0, "le premier joueur du rang XP ouvre BuildPhase_a")
+	m.queue_free()
+
+## ExtraBuildPhase : Construction Zone revelee => le joueur rejoue un tour de construction apres la revelation, avant le leurre ;
+## sans salle constructible le tour est saute.
+func _t_extra_build_phase_construction_zone() -> void:
+	for with_room in [true, false]:
+		var m = _match_with_spell()
+		m.G["autoAI"] = false
+		var p0: Dictionary = m.G["players"][0]
+		var cz := _room("BMA034", "trap", false, [2, 4])
+		cz["faceDown"] = true
+		p0["dungeon"] = [[cz]]
+		p0["hand"] = [_room("Next", "trap", false, [1])] if with_room else []
+		p0["buildsThisTurn"] = 1
+		m.G["buildOrder"] = [0, 1]
+		m.G["buildIndex"] = 2
+		m._close_build_phase()
+		if with_room:
+			_ok(str(m.G["phase"]) == "build" and str(m.G.get("forcedBuild", "x")) == "" and int(m.active_player()) == 0, "ExtraBuildPhase : tour de construction du proprietaire")
+			_ok(int(p0["buildsThisTurn"]) == 0 and _has_move(m, 0, "buildRoom"), "il peut poser une salle de plus")
+			_ok(not _has_move(m, 1, "passBuild"), "les autres joueurs n'ont pas la main")
+			_ok(m.apply_move(0, {"type": "buildRoom", "args": [0]}), "construction supplementaire")
+		_ok(str(m.G["phase"]) != "build" and (m.G.get("forcedBuilds", []) as Array).is_empty(),
+			"la phase se referme ensuite (leurre)" if with_room else "sans salle constructible l'extra est saute")
+		m.queue_free()
+
+## Hors tour, un joueur vivant peut jouer un sort en BUILD (ouverture d'une Spell Battle) mais ni construire ni « passer » ;
+## la main revient au joueur du tour (stack_return_control). Un siege IA n'ouvre pas de Spell Battle hors tour (politique).
+func _t_build_offturn_spell_window() -> void:
+	var m = _match_with_spell()
+	m.G["buildOrder"] = [0, 1]
+	m.G["buildIndex"] = 0
+	m.G["activePlayer"] = 0
+	(m.G["players"][0] as Dictionary)["hand"] = []
+	var p1: Dictionary = m.G["players"][1]
+	p1["isAI"] = false
+	p1["hand"] = [{"id": "BMA050", "name": "Motivation", "isSpell": true}, _room("InHand", "trap", false, [1])]
+	_ok(_has_move(m, 1, "playSpell"), "un joueur hors tour peut jouer un sort en BUILD")
+	_ok(not _has_move(m, 1, "passBuild") and not _has_move(m, 1, "pass") and not _has_move(m, 1, "buildRoom"), "hors tour : ni passer ni construire")
+	var spell_move: Dictionary = {}
+	for mv in m.legal_moves(1):
+		if str((mv as Dictionary)["type"]) == "playSpell":
+			spell_move = mv
+			break
+	_ok(m.apply_move(1, spell_move), "le sort hors tour est joue")
+	_ok(not (m.G["stack"] as Array).is_empty() and int(m.active_player()) == 0, "le joueur du tour repond en premier")
+	_ok(m.apply_move(0, {"type": "pass", "args": []}), "il passe")
+	_ok((m.G["stack"] as Array).is_empty() and int(m.active_player()) == 0, "pile resolue : la main revient au joueur du tour")
+	p1["isAI"] = true
+	p1["hand"] = [{"id": "BMA050", "name": "Motivation", "isSpell": true}]
+	_ok(m.legal_moves(1).is_empty(), "un siege IA n'agit pas hors tour")
+	m.queue_free()

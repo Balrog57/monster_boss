@@ -128,9 +128,7 @@ func refresh() -> void:
 
 func _play_hand(idx: int, is_room: bool) -> void:
 	var phase: String = match_node.G["phase"]
-	if phase == "setup":
-		_do({"type": "buildInitialRoom", "args": [idx]})
-	elif phase == "build":
+	if phase == "build":
 		if is_room:
 			_do({"type": "buildRoom", "args": [idx]})
 		else:

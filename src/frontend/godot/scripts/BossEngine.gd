@@ -121,6 +121,9 @@ static func hero_souls(hero: Dictionary) -> int:
 static func hero_wounds(hero: Dictionary) -> int:
 	return int(hero.get("wounds", 1))
 
+static func hero_hp(hero: Dictionary) -> int:
+	return int(hero.get("hp", hero.get("health", 4)))
+
 # --- engine.js: index visuel <-> index de donjon (5 emplacements, 0 = fond a gauche) ---
 
 static func extend_visual_index(dungeon: Array):
@@ -200,8 +203,10 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 				n += 1
 		dmg = n
 
-	# BMA015 Goblin Armory : +1 aux salles Monster adjacentes
-	# BMA029 Dizzygas Hallway : +2 aux salles Trap immediatement a droite
+	# BMA015 Goblin Armory : +1 aux salles Monster adjacentes (AdjacentsRoom[Monster] + DealDamageToRoom 1)
+	# BMA029 Dizzygas Hallway : +2 a la salle Trap suivante (NextRoom[Trap] + DealDamageToRoom 2)
+	# Le type filtre est celui de la salle CIBLE (r), pas celui de la salle source.
+	var rt := str(r.get("type", ""))
 	for i in dungeon.size():
 		if i == room_index:
 			continue
@@ -209,10 +214,9 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 		if other == null:
 			continue
 		var o: Dictionary = other
-		var ot := str(o.get("type", ""))
-		if str(o.get("id", "")) == "BMA015" and absi(i - room_index) == 1 and ot == "monster":
+		if str(o.get("id", "")) == "BMA015" and absi(i - room_index) == 1 and rt == "monster":
 			dmg += 1
-		if str(o.get("id", "")) == "BMA029" and i == room_index - 1 and ot == "trap":
+		if str(o.get("id", "")) == "BMA029" and i == room_index - 1 and rt == "trap":
 			dmg += 2
 
 	# Bonus de degats poses par les sorts/effets

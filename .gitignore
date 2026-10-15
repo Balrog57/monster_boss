@@ -40,6 +40,9 @@ src/frontend/assets/perm_test_*.jpg
 src/frontend/assets/sample_*.jpg
 test_*.webp
 
+# Harnais de parite JS <-> GDScript (traces et projections generees)
+tools/parity/out/
+
 # Playwright / automation reference captures (local QA only)
 docs/reference/
 

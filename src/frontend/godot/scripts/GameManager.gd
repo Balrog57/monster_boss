@@ -36,48 +36,20 @@ func can_build_room_at(pid: int, hand_idx: int, slot_idx: int = -1) -> bool:
 	var card: Dictionary = hand[hand_idx]
 	if not bool(card.get("isRoom", false)):
 		return false
-	# En SETUP la construction initiale n'est pas limitee par buildsThisTurn.
-	var ctx := G.duplicate(true)
-	if G.get("phase") == "setup" and ctx.has("players"):
-		(ctx["players"][pid] as Dictionary)["buildsThisTurn"] = 0
-	return BossEngine.can_build_room(p, ctx, pid, hand_idx, slot_idx)
+	return BossEngine.can_build_room(p, G, pid, hand_idx, slot_idx)
 
-## Construit une salle sur un emplacement spécifique (nouvel emplacement ou recouvrement)
+## Construit une salle sur un emplacement spécifique (nouvel emplacement ou recouvrement).
+## Delegue a Match.apply_move : c'est le SEUL chemin de construction. Le build doit
+## passer face cachee et l'abilite "quand tu construis cette salle" ne doit se
+## declencher qu'a la revelation de fin de phase (BuildPhase_b de l'APK), jamais
+## a la pose. Construire ici directement faisait diverger l'UI du moteur.
 func build_room_at(pid: int, hand_idx: int, slot_idx: int = -1) -> bool:
 	if not can_build_room_at(pid, hand_idx, slot_idx):
 		return false
-	var p: Dictionary = G["players"][pid]
-	var card: Dictionary = (p["hand"] as Array).pop_at(hand_idx)
-	var dungeon: Array = p["dungeon"]
-	
-	if slot_idx >= 0 and slot_idx < dungeon.size():
-		# Recouvrement
-		(dungeon[slot_idx] as Array).append(card)
-		_log("Joueur %d améliore l'emplacement %d avec %s%s." % [
-			pid, slot_idx + 1, card.get("name", "?"),
-			" (Salle Avancée)" if card.get("isAdvanced", false) else ""
-		])
-	else:
-		# Nouvelle salle construite à l'entrée (index 0)
-		dungeon.push_front([card])
-		_log("Joueur %d construit %s." % [pid, card.get("name", "?")])
-
-	p["buildsThisTurn"] = int(p.get("buildsThisTurn", 0)) + 1
-
-	# Ability "quand tu construis cette salle" (roomAbilities.js:onBuildRoom).
-	var choice = RoomAbilities.on_build_room(G, pid, card)
-	if choice != null:
-		G["pendingChoice"] = choice
-		state_changed.emit()
-		return true
-
-	if G["phase"] == "setup" and _all_have_initial_room():
-		_start_turn()
-	elif G["phase"] == "build":
-		_end_build_for(pid)
-
-	state_changed.emit()
-	return true
+	# legal_moves ne propose qu'un coup [i] pour une salle ordinaire (posee a l'entree) ; [i, cible] n'existe que pour les avancees.
+	var card: Dictionary = ((G["players"][pid] as Dictionary)["hand"] as Array)[hand_idx]
+	var args: Array = [hand_idx, slot_idx] if bool(card.get("advanced", false)) else [hand_idx]
+	return apply_move(pid, {"type": "buildRoom", "args": args})
 
 ## Phase de leurre : détermine pour chaque héros en ville quel donjon l'attire
 func calculate_lure() -> Array:

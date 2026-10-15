@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Oracle headless : execute les assemblies ORIGINALES de l'APK (DBMGame.dll + WaveEngine) sur .NET. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>CS1701;CS1702;CS0618;CS8632;NU1701</NoWarn>
+    <Asm>$(MSBuildThisFileDirectory)..\..\apk-original\extracted_assemblies\</Asm>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="DBMGame"><HintPath>$(Asm)DBMGame.dll</HintPath></Reference>
+    <Reference Include="WaveEngineAndroid.Framework"><HintPath>$(Asm)WaveEngineAndroid.Framework.dll</HintPath></Reference>
+    <Reference Include="WaveEngineAndroid.Common"><HintPath>$(Asm)WaveEngineAndroid.Common.dll</HintPath></Reference>
+    <Reference Include="Newtonsoft.Json"><HintPath>$(Asm)Newtonsoft.Json.dll</HintPath></Reference>
+  </ItemGroup>
+</Project>

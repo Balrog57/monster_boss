@@ -13,6 +13,7 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 [autoload]
 
 CardDB="*res://godot/scripts/CardDB.gd"
+AudioManager="*res://godot/scripts/AudioManager.gd"
 
 [display]
 

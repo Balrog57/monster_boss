@@ -1256,6 +1256,7 @@ const MOVE_HANDLERS = {
 const VALID_MOVE_TYPES = new Set(Object.keys(MOVE_HANDLERS));
 
 export function applyMove(state, move, playerID) {
+  const startPhase = state.G.phase;
   const G = cloneState(state.G);
   const ctx = { ...state.ctx };
   // Re-attach ctx on G for helper compatibility (some helpers read G.activePlayer/G.phase)
@@ -1329,6 +1330,9 @@ export function applyMove(state, move, playerID) {
     phaseEnded = phaseComplete(G);
   }
 
+  if (startPhase !== G.phase) {
+    return { state: { G, ctx } };
+  }
   if (phaseEnded) {
     advancePhase(G, ctx);
     // BEGINNING, BAIT, and END auto-advance immediately (no player moves).

@@ -1,0 +1,107 @@
+// Oracle headless : fait jouer l'IA ORIGINALE (FixedAI -> StatisticAI) de DBMGame.dll 2.2.6
+// sur le GameBoard ORIGINAL, et ecrit une trace JSON (voir Trace.cs).
+using System.Reflection;
+using System.Runtime.Loader;
+using System.Text.Json;
+using DBMGameModel;
+using DBMGameModel.Info;
+using DBMGameModel.Logic;
+using DBMGameProject.AI;
+using DBMGameProject.Extensions;
+using DBMGameProject.Services;
+using WaveEngine.Framework.Services;
+using WRandom = WaveEngine.Framework.Services.Random;
+
+static class Program
+{
+    static int Main(string[] args)
+    {
+        int seed = 1, players = 2, maxTurns = 2000;
+        string outPath = null, decksArg = "BaseDeck";
+        for (int i = 0; i < args.Length; i++)
+        {
+            switch (args[i])
+            {
+                case "--seed": seed = int.Parse(args[++i]); break;
+                case "--players": players = int.Parse(args[++i]); break;
+                case "--out": outPath = args[++i]; break;
+                case "--decks": decksArg = args[++i]; break; // ex: BaseDeck,PlayerChoice,HiddenHeros
+                case "--max-turns": maxTurns = int.Parse(args[++i]); break;
+                default: Console.Error.WriteLine("arg inconnu " + args[i]); return 2;
+            }
+        }
+        if (seed == 0) { Console.Error.WriteLine("seed must be != 0 (RandomProvider.Shuffle throws on 0)"); return 2; }
+        if (outPath == null) { Console.Error.WriteLine("--out <file> requis"); return 2; }
+
+        string repo = FindRepoRoot();
+        string asmDir = Path.Combine(repo, "apk-original", "extracted_assemblies");
+        // Les DLL Xamarin non referencees (Xamarin.Insights, Mono.Android...) sont resolues ici au besoin.
+        AssemblyLoadContext.Default.Resolving += (ctx, name) =>
+        {
+            var p = Path.Combine(asmDir, name.Name + ".dll");
+            return File.Exists(p) ? ctx.LoadFromAssemblyPath(p) : null;
+        };
+
+        var decks = decksArg.Split(',').Select(d => Enum.Parse<GameDecks>(d.Trim())).ToList();
+        var board = Boot(repo, seed, players, decks);
+        var trace = new Trace(board, seed, players, decks);
+        TracingAI.Trace = trace;
+        var result = Play(board, trace, maxTurns);
+
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath)));
+        File.WriteAllText(outPath, JsonSerializer.Serialize(trace.Finish(result)));
+        Console.WriteLine($"seed={seed} players={players} decks={decksArg} -> {result} winner={board.Winner?.CardNumber ?? "none"} turns={board.NumberOfTurns} steps={trace.Count} out={outPath}");
+        return result == "complete" ? 0 : 1;
+    }
+
+    // Reproduit GameFlowTestService.Initialize() (service de test de l'APK), mais avec nos services Wave.
+    static GameBoard Boot(string repo, int seed, int players, List<GameDecks> decks)
+    {
+        // RNG #1 : WaveServices.Random (xorshift de WaveEngine) sert a toutes les decisions de StatisticAI.
+        // Le ctor est internal et seede sur Environment.TickCount : on l'appelle par reflexion avec notre graine.
+        var wr = (WRandom)typeof(WRandom).GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, new[] { typeof(int) }).Invoke(new object[] { seed });
+        WaveServices.RegisterService(wr);
+        // Storage : ctor internal(IIOManager) -> IO fichier minimal sur assets/Content.
+        var io = new ContentIO(Path.Combine(repo, "apk-original", "boss-monster-2-2-6", "assets"));
+        var storage = (Storage)typeof(Storage).GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, new[] { typeof(WaveEngine.Common.IO.IIOManager) }).Invoke(new object[] { io });
+        WaveServices.RegisterService(storage);
+        WaveServices.RegisterService(new CardInfoService()); // vrai service de l'APK, lit les data.json reels
+        WaveServices.InitializeServices();
+
+        // RNG #2 : RandomProvider (DBMRandom = clone de System.Random) -> melanges des decks et Shuffle() de l'IA.
+        RandomProvider.Seed = seed;
+        // rndSeed (Shuffle(useSharedRandom:false)) est initialise sur Environment.TickCount : on le fixe.
+        typeof(RandomProvider).GetField("rndSeed", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, new DBMRandom(seed ^ 0x5eed));
+
+        var cards = WaveServices.GetService<CardInfoService>().GetCardInfoFromDeck(decks);
+        var board = new GameBoard();
+        board.InititalizeGameBoard(players, new List<BossInfo>(), cards); // tous les boss sont IA
+        foreach (var b in board.Players) b.PlayerInteraction = new TracingAI(board, b, new FixedAI());
+        return board;
+    }
+
+    static string Play(GameBoard board, Trace trace, int maxTurns)
+    {
+        trace.Phase("init");
+        try
+        {
+            int guard = 0;
+            while (board.CurrentGamePhase != GameBoard.GamePhases.EndOfGame && board.NumberOfTurns < maxTurns)
+            {
+                if (++guard > 200000) return "stuck";
+                board.NextStep();
+                trace.Phase("nextStep");
+                foreach (var p in board.InGamePlayersPriorized.ToList()) p.PlayerInteraction.DoPlayerActions(); // comme GamePlayBaseScene.DoNextStepAndRefresh
+            }
+        }
+        catch (Exception e) { trace.Error(e); return "error"; }
+        return board.CurrentGamePhase == GameBoard.GamePhases.EndOfGame ? "complete" : "maxTurns";
+    }
+
+    static string FindRepoRoot()
+    {
+        var d = new DirectoryInfo(AppContext.BaseDirectory);
+        while (d != null && !Directory.Exists(Path.Combine(d.FullName, "apk-original"))) d = d.Parent;
+        return d?.FullName ?? throw new Exception("repo root (apk-original/) introuvable");
+    }
+}

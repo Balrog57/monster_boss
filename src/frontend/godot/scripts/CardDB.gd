@@ -204,3 +204,28 @@ static func order_by_xp(players: Dictionary) -> Array:
 	for e in arr:
 		out.append(e["pid"])
 	return out
+
+# DuringPhase des sorts dont la categorie ne donne pas la bonne phase (BaseDeck/data.json).
+const SPELL_PHASE_OVERRIDE := {
+	"BMA045": "adventure",  # Fear (categorie 1)
+	"BMA050": "build",      # Motivation (categorie 3)
+	"BMA053": "adventure",  # Teleportation (categorie 1)
+	"BMA054": "adventure",  # Trepidation (categorie 2)
+}
+
+static func can_play_spell(card: Dictionary, phase: String, stack_len: int = 0) -> bool:
+	var cid := str(card.get("id", ""))
+	if (cid == "BMA043" or cid == "RMB077") and stack_len > 0:
+		return true
+	# SpellCategory (data.json) n'est qu'un type de sort, pas une phase : la phase vient de la
+	# condition DuringPhase de l'Ability (Spell.cs / DuringPhase.cs). Ecarts constates en base set.
+	if SPELL_PHASE_OVERRIDE.has(cid):
+		return phase == SPELL_PHASE_OVERRIDE[cid]
+	var cat := int(card.get("category", 0))
+	if cat == 4 or cat == 5:
+		return phase == PHASE["BUILD"] or phase == PHASE["ADVENTURE"]
+	if cat == 1 or cat == 2:
+		return phase == PHASE["BUILD"]
+	if cat == 3:
+		return phase == PHASE["ADVENTURE"]
+	return false

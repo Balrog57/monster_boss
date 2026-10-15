@@ -25,7 +25,7 @@ var extra_bar: HBoxContainer
 var discard_pick: Array = []
 var _last_phase: String = ""
 
-const CORE_MOVE_TYPES := ["pickBoss", "buildInitialRoom", "buildRoom", "pass", "passBuild", "adventureNext", "resolveNextHero", "openingDiscard", "resolveLevelUpChoice"]
+const CORE_MOVE_TYPES := ["pickBoss", "buildRoom", "pass", "passBuild", "adventureNext", "resolveNextHero", "openingDiscard", "resolveLevelUpChoice"]
 
 # Chemins des textures rétro de l'APK
 const TEX_SOUL := "res://assets/ui/ingame/souls_icon.webp"
@@ -113,6 +113,7 @@ var _dungeon_slots: Array = []
 var _foe_slots: Array = []
 var _ai_timer: float = 0.0
 var _animating_hero: bool = false
+var _over_sting_played: bool = false
 
 func _is_online() -> bool:
 	return game_manager is OnlineGameManager
@@ -148,8 +149,7 @@ func setup(p_gm: GameManager, p_exit_cb: Callable) -> void:
 
 	_init_badges()
 	_init_dungeon_slots()
-	if music_player and not music_player.playing:
-		music_player.play()
+	AudioManager.play_music("music_dungeon_v3")
 	refresh()
 
 func _init_badges() -> void:
@@ -163,9 +163,7 @@ func _init_badges() -> void:
 		player_xp_badge.texture = t
 
 func _play_sfx(path: String) -> void:
-	if sfx_player and ResourceLoader.exists(path):
-		sfx_player.stream = load(path)
-		sfx_player.play()
+	AudioManager.play_sfx(path)
 
 func _build_seat_bar() -> void:
 	seat_bar = HBoxContainer.new()
@@ -224,7 +222,7 @@ func _process(delta: float) -> void:
 			var phase: String = game_manager.G.get("phase", "")
 			var pc: Dictionary = game_manager.G.get("pendingChoice", {})
 			var has_ai_choice: bool = not pc.is_empty() and int(pc.get("playerId", -1)) == int(pid)
-			if not moves.is_empty() and (has_ai_choice or phase == "boss" or phase == "setup" or phase == "build"):
+			if not moves.is_empty() and (has_ai_choice or phase == "boss" or phase == "build"):
 				_ai_timer += delta
 				if _ai_timer > 0.5:
 					_ai_timer = 0.0
@@ -259,6 +257,9 @@ func refresh() -> void:
 	# 1. Top HUD
 	if G.get("gameOver") != null:
 		var w = G["gameOver"].get("winner", -1)
+		if not _over_sting_played:
+			_over_sting_played = true
+			AudioManager.play_sfx("sting_player_win" if int(w) == view_pid else "sting_player_lose")  # APK WinnerScene/LoseScene
 		hud_status.text = "PARTIE TERMINÉE — Gagnant : Joueur %s (%s)" % [str(int(w) + 1), G["gameOver"].get("reason", "")]
 	else:
 		var timer_str := ""
@@ -326,7 +327,7 @@ func refresh() -> void:
 	# 10. Boutons d'action
 	var my_moves: Array = game_manager.legal_moves(_my_pid())
 	btn_advance.visible = (phase == "adventure") or _has_move(my_moves, "resolveNextHero")
-	btn_pass.visible = (phase == "build") or _has_move(my_moves, "pass")
+	btn_pass.visible = (phase == "build" or phase == "setup") or _has_move(my_moves, "pass")
 	_refresh_choice_bar(G, my_moves)
 	_refresh_extra_bar(G, my_moves)
 
@@ -477,8 +478,6 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String) -> void:
 				var glow := card_ui.get_node_or_null("GlowRect")
 				if glow != null:
 					glow.visible = true
-			elif phase == "setup" and (bool(card_dict.get("advanced", false)) or bool(card_dict.get("isAdvanced", false))):
-				card_ui.modulate = Color(0.6, 0.6, 0.6, 0.7)
 
 func _refresh_phase_banner(phase: String) -> void:
 	if phase == _last_phase:
@@ -897,10 +896,7 @@ func _on_hand_card_clicked(idx: int, card: Dictionary) -> void:
 		refresh()
 		return
 	var phase: String = game_manager.G.get("phase", "")
-	if phase == "setup":
-		_play_sfx("res://assets/audio/sfx/sfx_room_physical.wav")
-		game_manager.build_room_at(_my_pid(), idx, 0)
-	elif phase == "build" and card.get("isRoom", false):
+	if (phase == "build" or phase == "setup") and card.get("isRoom", false):
 		var dungeon: Array = ((game_manager.G["players"] as Dictionary)[_my_pid()] as Dictionary).get("dungeon", [])
 		var target_slot := dungeon.size()
 		_play_sfx("res://assets/audio/sfx/sfx_room_physical.wav")

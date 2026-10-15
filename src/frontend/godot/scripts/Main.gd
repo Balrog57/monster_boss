@@ -80,6 +80,7 @@ func _menu_btn(text: String, icon_path: String = "") -> Button:
 	if icon_path != "" and ResourceLoader.exists(icon_path):
 		b.icon = load(icon_path)
 		b.expand_icon = true
+	b.pressed.connect(func(): AudioManager.play_sfx("ui_button_select"))
 	return b
 
 func _title_label(text: String, size: int = 40) -> Label:
@@ -92,6 +93,7 @@ func _title_label(text: String, size: int = 40) -> Label:
 func _back_btn(where: Callable) -> Button:
 	var b := Button.new()
 	b.text = "Retour"
+	b.pressed.connect(func(): AudioManager.play_sfx("ui_button_goback"))
 	b.pressed.connect(where)
 	return b
 
@@ -101,6 +103,7 @@ func show_menu() -> void:
 	online.stop_lobby_poll()
 	online.stop_state_poll()
 	_net_disconnect()
+	AudioManager.play_music("music_main")  # APK IntroScene
 	var v := _screen("res://assets/ui/backgrounds/menu_bg.webp")
 	if ResourceLoader.exists("res://assets/ui/navigation/bm_logo.webp"):
 		var logo := TextureRect.new()
@@ -365,6 +368,11 @@ func show_options() -> void:
 		use_extensions = on
 		Profile.save_settings(server_host, use_extensions))
 	v.add_child(ext)
+	var snd := CheckBox.new()
+	snd.text = "Son"
+	snd.button_pressed = not AudioManager.muted
+	snd.toggled.connect(func(on: bool): AudioManager.set_muted(not on))
+	v.add_child(snd)
 	var save := _menu_btn("OK")
 	save.pressed.connect(func():
 		server_host = host.text

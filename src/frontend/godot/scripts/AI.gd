@@ -84,8 +84,8 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 
 	match mtype:
 		"resolveChoice", "resolveLevelUpChoice":
-			# Résolution immédiate des choix obligatoires
-			return 1000.0
+			# Résolution immédiate des choix obligatoires ; l'option est départagée par _score_choice.
+			return 1000.0 + _score_choice(G, p, pid, int(args[0]) if not args.is_empty() else -1)
 
 		"pickBoss":
 			var bid := str(args[0]) if not args.is_empty() else ""
@@ -97,7 +97,7 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 		"openingDiscard":
 			return 500.0
 
-		"buildInitialRoom", "buildRoom":
+		"buildRoom":
 			var hand_idx := int(args[0]) if not args.is_empty() else -1
 			var hand: Array = p.get("hand", [])
 			if hand_idx < 0 or hand_idx >= hand.size():
@@ -134,6 +134,48 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 			return 1.0
 
 	return 0.0
+
+## Départage les options d'un pendingChoice (TriggerCalculator.cs : CheckBMA001/004/005/007/022).
+## Les parties aléatoires du C# (Shuffle) deviennent "la première option" : le moteur reste déterministe.
+static func _score_choice(G: Dictionary, p: Dictionary, pid: int, idx: int) -> float:
+	var pc: Dictionary = G.get("pendingChoice", {})
+	var opts: Array = pc.get("options", [])
+	if idx < 0 or idx >= opts.size():
+		return -1.0 # "passer" : dernier recours
+	var o: Dictionary = opts[idx]
+	var card: Dictionary = o.get("card", {}) as Dictionary
+	var turn := int(G.get("turn", 0))
+	var phase_str := "early" if turn <= 1 else ("mid" if turn <= 4 else "late")
+	match str(pc.get("type", "")):
+		"discard-spell": # SelectSpellToDiscard : BMA048/BMA049 d'abord
+			return 100.0 if str(card.get("id", "")) in ["BMA048", "BMA049"] else 0.0
+		"steal-card": # CheckBMA001 : un sort de l'adversaire au meilleur score, sinon sa meilleure salle
+			var opp: Dictionary = (G.get("players", {}) as Dictionary).get(int(o.get("fromPid", -1)), {}) as Dictionary
+			var opp_rank := float(CardDB.total_souls(opp)) * 10.0 + float(_spells_in_hand(opp))
+			if bool(card.get("isSpell", false)):
+				return 100000.0 + opp_rank
+			return opp_rank + _calculate_room_value(card, p, G, phase_str) / 1000.0
+		"destroy-room": # CheckBMA004 : salle avancée d'abord, la moins précieuse
+			var tp: Dictionary = (G.get("players", {}) as Dictionary).get(int(o.get("targetPlayerId", pid)), {}) as Dictionary
+			return (1000.0 if bool(card.get("advanced", false)) else 0.0) - _calculate_room_value(card, tp, G, phase_str)
+		"search-advanced": # CheckBMA003/007 : salle constructible (trésor commun), la plus précieuse
+			var fits := false
+			for stack in (p.get("dungeon", []) as Array):
+				var r = BossEngine.active_room(stack)
+				if r == null:
+					continue
+				for t in card.get("treasures", []):
+					if ((r as Dictionary).get("treasures", []) as Array).has(t):
+						fits = true
+			return (1000.0 if fits else 0.0) + _calculate_room_value(card, p, G, phase_str)
+	return 0.0
+
+static func _spells_in_hand(p: Dictionary) -> int:
+	var n := 0
+	for c in (p.get("hand", []) as Array):
+		if bool((c as Dictionary).get("isSpell", false)):
+			n += 1
+	return n
 
 ## Scoring d'une salle à construire d'après RoomCalculator.cs
 static func _score_build_room(room: Dictionary, p: Dictionary, G: Dictionary, phase: String, turn: int, target_slot: int) -> float:
@@ -308,5 +350,7 @@ static func _score_activate_room(room_idx: int, p: Dictionary, G: Dictionary, _p
 			return 45.0 if phase == "build" else -10.0
 		"BMA009": # Witch's Kitchen
 			return 25.0
+		"BMA039": # Zombie Prison : AbilityCalculator.CheckBMA039 ne joue jamais en Setup/Early
+			return 20.0 if int(G.get("turn", 0)) > 1 else -10.0
 		_:
 			return 5.0

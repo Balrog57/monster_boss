@@ -50,15 +50,28 @@ func _ready() -> void:
 					m.apply_move(int(pid), moves[0])
 					acted = true
 					break
-		elif phase == "setup" or phase == "build":
-			for pid in m.G["players"]:
-				var mv = AI.pick_move(m, int(pid))
-				if mv != null:
-					m.apply_move(int(pid), mv)
-					acted = true
-		elif phase == "adventure":
-			m.apply_move(0, {"type": "adventureNext", "args": []})
+		elif phase == "build":
+			# Les deux sieges sont IA : Match._drive_ai() fait jouer le joueur actif
+			# (BuildPhase_a est sequentiel). Soumettre un coup pour un joueur non
+			# actif serait refuse, on n'a donc rien a faire ici.
 			acted = true
+		elif phase == "adventure":
+			var ap := m.active_player()
+			var moves := m.legal_moves(ap)
+			print("SOAK ap=", ap, " moves=", moves)
+			if not moves.is_empty():
+				var mv = AI.pick_move(m, ap)
+				if mv == null:
+					mv = moves[0]
+				if m.apply_move(ap, mv):
+					acted = true
+			if not acted:
+				for pid in m.G["players"]:
+					var pmoves: Array = m.legal_moves(int(pid))
+					if not pmoves.is_empty():
+						if m.apply_move(int(pid), pmoves[0]):
+							acted = true
+							break
 		else:
 			break
 		steps += 1
@@ -73,7 +86,9 @@ func _ready() -> void:
 				" canBuild=", BossEngine.can_build_room(pl, m.G, int(pid)),
 				" hand=", (pl.get("hand", []) as Array).size(),
 				" dungeon=", (pl.get("dungeon", []) as Array).size())
-		print("  pending=", m.G.get("pendingChoice"))
+		print("  pending=", m.G.get("pendingChoice"), " active=", m.G.get("activePlayer"),
+			" stack=", (m.G.get("stack", []) as Array).size(), " stackReturn=", m.G.get("stackReturnPlayer"),
+			" adventure=", m.G.get("adventure"), " pause=", (m.G.get("adventure", {}) as Dictionary).get("pause"))
 		print("  movesP0=", m.legal_moves(0).size(), " movesP1=", m.legal_moves(1).size())
 		print("  iaP0=", AI.pick_move(m, 0))
 		get_tree().quit(1)

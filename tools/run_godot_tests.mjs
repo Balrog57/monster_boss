@@ -11,16 +11,18 @@ const SUITES = [
 
 let failed = 0;
 for (const { scene, ok, label } of SUITES) {
-  // Un processus Godot residuel (run interrompu) peut verrouiller l'import cache
-  // et faire expirer le delai : on nettoie avant chaque suite.
-  if (process.platform === 'win32') {
-    try { spawnSync('taskkill', ['/F', '/IM', 'Godot*.exe'], { stdio: 'ignore' }); } catch {}
-  }
   const r = spawnSync('godot', ['--headless', '--path', 'src/frontend', scene], {
     encoding: 'utf8',
     timeout: 300000,
     shell: process.platform === 'win32',
   });
+  // Sous Windows, 'godot' est un godot.cmd : le timeout ne tue que cmd.exe et laisse Godot
+  // orphelin (verrou d'import). On tue donc l'arbre de CE run uniquement. Un taskkill global
+  // sur Godot*.exe tuait aussi les runs Godot concurrents (editeur, autres suites) et
+  // produisait de faux echecs sur l'un ou l'autre.
+  if (r.error && process.platform === 'win32' && r.pid) {
+    try { spawnSync('taskkill', ['/F', '/T', '/PID', String(r.pid)], { stdio: 'ignore' }); } catch {}
+  }
   const out = `${r.stdout ?? ''}${r.stderr ?? ''}`;
   if (out.includes(ok)) {
     console.log(`[godot] ${label}: OK`);

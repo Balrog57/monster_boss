@@ -12,7 +12,7 @@ static func empty_effects() -> Dictionary:
 		"treasureDoubled": [], "roomExtraTreasures": [], "roomTreasureSuppressed": [],
 		"staffHealingPids": [], "ordinaryMonsterBonus": [], "ignoreAbilityPids": [],
 		"immediateBuild": [], "ignoreTreasureMatch": [], "noRoomBuild": [],
-		"skipFirstRoomPids": [], "ignoreHeroAbilityPids": [],
+		"skipFirstRoomPids": [], "ignoreHeroAbilityPids": [], "skipBuild": [],
 	}
 
 static func _effects(G: Dictionary) -> Dictionary:
@@ -198,9 +198,10 @@ static func _fear(G: Dictionary, caster_id: int, _card: Dictionary, target: Dict
 		var entrance: Array = op.get("entrance", [])
 		for i in entrance.size():
 			if str((entrance[i] as Dictionary).get("id", "")) == str(hero_id):
-				town.insert(0, entrance[i])
+				var h: Dictionary = entrance[i]
+				town.insert(0, h)
 				entrance.remove_at(i)
-				_log(G, "Fear: %s returned to town." % str((entrance[i] as Dictionary).get("name", "?")))
+				_log(G, "Fear: %s returned to town." % str(h.get("name", "?")))
 				return true
 	_log(G, "Fear: target hero not found.")
 	return false

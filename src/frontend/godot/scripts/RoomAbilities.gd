@@ -125,26 +125,34 @@ static func activate_room_ability(G: Dictionary, player_id: int, room_index: int
 	if bool(r.get("usedThisTurn", false)):
 		return "already used this turn"
 
+	r["usedThisTurn"] = true
 	var id := str(r.get("id", ""))
 	match id:
-		"BMA009": return _dark_altar(G, p, room_index, player_id)
-		"BMA027": return _bottomless_pit(G, p, room_index, r)
-		"BMA028": return _boulder_ramp(G, p, room_index, other_room_index, r)
-		"BMA030": return _jackpot_stash(G, p, room_index)
-		"BMA032": return _crushinator(G, p, room_index, other_room_index)
+		"BMA009": return _dark_altar(G, p, room_index, player_id, r)
+		"BMA025": return _all_seeing_eye(G, p, player_id)
+		"BMA027": return _bottomless_pit(G, p, player_id, room_index, r)
+		"BMA028": return _boulder_ramp(G, p, player_id, room_index, other_room_index, r)
+		"BMA030": return _jackpot_stash(G, p, player_id, room_index)
+		"BMA032": return _crushinator(G, p, player_id, room_index, other_room_index)
 		"BMA038": return _torture_chamber(G, player_id)
-		"BMA013": return _dracolich_lair(G, p, player_id)
+		"BMA013": return _dracolich_lair(G, p, player_id, r)
 		"BMA024": return _witchs_kitchen(G, p)
+		"BMA039": return _zombie_prison(G, p, room_index, player_id, r)
+	r["usedThisTurn"] = false
 	return "no activated ability"
 
 ## BMA009 Dark Altar : detruit cette salle, recupere une carte de la defausse.
-static func _dark_altar(G: Dictionary, p: Dictionary, room_index: int, player_id: int):
-	var destroyed = BossEngine.destroy_room(p, room_index)
-	BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
+## C# (data.json BMA009 + AbilityTransaction.PrepareResolveTargetActionsQueue) : toutes les
+## cibles sont resolues AVANT l'execution des effets. Le choix dans la defausse se fait donc
+## sans l'Altar (detruit ensuite) et une defausse vide rend l'abilite inutilisable
+## (Ability.CheckConditions : CardInDeck exige >= 1 cible). Une seule carte = auto-resolue.
+static func _dark_altar(G: Dictionary, p: Dictionary, room_index: int, player_id: int, room: Dictionary):
 	var opts := discard_card_options(G, "any")
 	if opts.is_empty():
-		_log(G, "Dark Altar: discard piles are empty.")
-		return null
+		room["usedThisTurn"] = false
+		return "discard piles are empty"
+	var destroyed = BossEngine.destroy_room(p, room_index)
+	BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
 	if opts.size() == 1:
 		var got = take_discard_card(G, p, opts[0])
 		if got != null:
@@ -155,9 +163,108 @@ static func _dark_altar(G: Dictionary, p: Dictionary, room_index: int, player_id
 		"options": opts}
 	return null
 
+## BMA025 All-Seeing Eye : defausse un sort de la main pour annuler le dernier sort adverse
+## de la pile (C# : SpellInHand(Owner) + LastSpellPlayed = dernier sort dont le proprietaire
+## n'est pas celui de la salle). Un seul sort en main = defausse automatique.
+static func _all_seeing_eye(G: Dictionary, p: Dictionary, player_id: int):
+	if _last_opponent_spell_index(G, player_id) < 0:
+		return "no opponent Spell to cancel"
+	var opts := _hand_spell_options(p)
+	if opts.is_empty():
+		return "no Spell to discard"
+	if opts.size() == 1:
+		_discard_hand_card(G, p, (opts[0] as Dictionary)["card"])
+		cancel_last_opponent_spell(G, player_id, "All-Seeing Eye")
+		return null
+	G["pendingChoice"] = {"type": "discard-spell", "resume": false, "thenCancel": true, "playerId": player_id,
+		"bossName": "All-Seeing Eye", "message": "All-Seeing Eye: choose a Spell to discard",
+		"options": opts}
+	return null
+
+## Peut-on activer l'All-Seeing Eye ? (sort adverse sur la pile + un sort en main)
+static func can_cancel_spell(G: Dictionary, player_id: int) -> bool:
+	return _last_opponent_spell_index(G, player_id) >= 0 and not _hand_spell_options(_player(G, player_id)).is_empty()
+
+## Index (dans G.stack) du dernier sort joue par un autre joueur, -1 si aucun.
+static func _last_opponent_spell_index(G: Dictionary, player_id: int) -> int:
+	var stack: Array = G.get("stack", [])
+	for i in range(stack.size() - 1, -1, -1):
+		var e: Dictionary = stack[i]
+		if str(e.get("type", "")) == "spell" and int(e.get("playerId", -1)) != player_id:
+			return i
+	return -1
+
+## Annule le dernier sort adverse de la pile (le sort part en defausse sans effet).
+static func cancel_last_opponent_spell(G: Dictionary, player_id: int, label: String) -> void:
+	var i := _last_opponent_spell_index(G, player_id)
+	if i < 0:
+		return
+	var stack: Array = G["stack"]
+	var e: Dictionary = stack[i]
+	stack.remove_at(i)
+	var card: Dictionary = e.get("card", {})
+	var decks: Dictionary = G.get("decks", {})
+	var pile: Array = decks.get("spellDiscard", [])
+	decks["spellDiscard"] = pile
+	pile.append(card)
+	_log(G, "%s: %s annule." % [label, str(card.get("name", "?"))])
+	# Meme reprise que le Counterspell.
+	stack_return_control(G)
+
+## Rend la main apres un Counterspell / une annulation / la resolution de la pile.
+## Pile vide = Spell Battle terminee (GameBoard.NextStep : IsSpellBattleActive=false, le flux de phase
+## reprend sans changer de joueur) : la main revient au joueur de phase (stackActivePlayer), pas au lanceur,
+## sinon un sort lance hors de son tour laisse activePlayer sur le lanceur et la partie cale.
+## Pile non vide : le lanceur du dernier sort reprend la main pour la suite des reponses.
+static func stack_return_control(G: Dictionary) -> void:
+	if (G.get("stack", []) as Array).is_empty():
+		if G.get("stackActivePlayer", null) != null:
+			G["activePlayer"] = int(G["stackActivePlayer"])
+		elif G.get("stackReturnPlayer", null) != null:
+			G["activePlayer"] = int(G["stackReturnPlayer"])
+		G.erase("stackActivePlayer")
+		G["stackReturnPlayer"] = null
+		G["stackPassed"] = {}
+	elif G.get("stackReturnPlayer", null) != null:
+		G["activePlayer"] = int(G["stackReturnPlayer"])
+
+static func _hand_spell_options(p: Dictionary) -> Array:
+	var opts: Array = []
+	for c in (p.get("hand", []) as Array):
+		if bool((c as Dictionary).get("isSpell", false)):
+			opts.append({"card": c})
+	return opts
+
+## Defausse une carte precise de la main vers la pile de sorts/salles.
+static func _discard_hand_card(G: Dictionary, p: Dictionary, card: Dictionary) -> void:
+	var hand: Array = p.get("hand", []) as Array
+	p["hand"] = hand
+	var at := hand.find(card)
+	if at >= 0:
+		hand.remove_at(at)
+	var decks: Dictionary = G.get("decks", {})
+	var pile_name := "spellDiscard" if bool(card.get("isSpell", false)) else "roomDiscard"
+	var pile: Array = decks.get(pile_name, []) as Array
+	decks[pile_name] = pile
+	pile.append(card)
+
+## Choix "defausse un sort de ta main" (DiscardSomeCardFromHand(1, Spell)) : le C# propose TOUS les
+## sorts en main (SpellInHand Owner), pas seulement ceux qui viennent d'etre pioches.
+## Un seul sort en main = defausse automatique (TryToAutoresolve), aucun = rien.
+static func _spell_discard_choice(G: Dictionary, p: Dictionary, player_id: int, boss_id: String, label: String) -> Variant:
+	var opts := _hand_spell_options(p)
+	if opts.size() >= 2:
+		return {"type": "discard-spell", "playerId": player_id, "bossId": boss_id, "bossName": label,
+			"message": "%s: choose a spell to discard" % label, "options": opts}
+	if opts.size() == 1:
+		var card: Dictionary = (opts[0] as Dictionary)["card"]
+		_discard_hand_card(G, p, card)
+		_log(G, "%s: auto-discarded %s." % [label, str(card.get("name", "?"))])
+	return null
+
 ## BMA027 Bottomless Pit : detruit cette salle, tue le hero qui s'y trouve.
-static func _bottomless_pit(G: Dictionary, p: Dictionary, room_index: int, room: Dictionary):
-	if not hero_is_in_room(G, int(p.get("id", 0)), room_index):
+static func _bottomless_pit(G: Dictionary, p: Dictionary, player_id: int, room_index: int, room: Dictionary):
+	if not hero_is_in_room(G, player_id, room_index):
 		return "no hero in this room"
 	var adv: Dictionary = G.get("adventure", {}) as Dictionary
 	_log(G, "Bottomless Pit: killed %s." % str((adv.get("hero", {}) as Dictionary).get("name", "?")))
@@ -167,7 +274,7 @@ static func _bottomless_pit(G: Dictionary, p: Dictionary, room_index: int, room:
 	return null
 
 ## BMA028 Boulder Ramp : detruit une autre salle, 5 degats au hero de celle-ci.
-static func _boulder_ramp(G: Dictionary, p: Dictionary, room_index: int, other: int, room: Dictionary):
+static func _boulder_ramp(G: Dictionary, p: Dictionary, player_id: int, room_index: int, other: int, room: Dictionary):
 	if other < 0 or other == room_index:
 		return "must target another room"
 	var dungeon: Array = p.get("dungeon", [])
@@ -175,7 +282,7 @@ static func _boulder_ramp(G: Dictionary, p: Dictionary, room_index: int, other: 
 		return "no room at other index"
 	if BossEngine.active_room(dungeon[other]) == null:
 		return "no room at other index"
-	if not hero_is_in_room(G, int(p.get("id", 0)), room_index):
+	if not hero_is_in_room(G, player_id, room_index):
 		return "no hero in this room"
 	var adv: Dictionary = G.get("adventure", {}) as Dictionary
 	adv["hp"] = int(adv.get("hp", 0)) - 5
@@ -188,18 +295,18 @@ static func _boulder_ramp(G: Dictionary, p: Dictionary, room_index: int, other: 
 	return null
 
 ## BMA030 Jackpot Stash : detruit cette salle, double les tresors ce tour.
-static func _jackpot_stash(G: Dictionary, p: Dictionary, room_index: int):
+static func _jackpot_stash(G: Dictionary, p: Dictionary, player_id: int, room_index: int):
 	var eff := _effects(G)
 	var arr: Array = eff.get("treasureDoubled", [])
 	eff["treasureDoubled"] = arr
-	arr.append(int(p.get("id", 0)))
+	arr.append(player_id)
 	_log(G, "Jackpot Stash: treasure values doubled until end of turn.")
 	var destroyed = BossEngine.destroy_room(p, room_index)
 	BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
 	return null
 
 ## BMA032 The Crushinator : detruit une autre salle, vos salles font +2 degats.
-static func _crushinator(G: Dictionary, p: Dictionary, room_index: int, other: int):
+static func _crushinator(G: Dictionary, p: Dictionary, player_id: int, room_index: int, other: int):
 	if other < 0 or other == room_index:
 		return "must target another room"
 	var dungeon: Array = p.get("dungeon", [])
@@ -211,7 +318,7 @@ static func _crushinator(G: Dictionary, p: Dictionary, room_index: int, other: i
 	var arr: Array = eff.get("roomDamageBonus", [])
 	eff["roomDamageBonus"] = arr
 	for i in (p.get("dungeon", []) as Array).size():
-		arr.append({"playerId": int(p.get("id", 0)), "roomIndex": i, "amount": 2})
+		arr.append({"playerId": player_id, "roomIndex": i, "amount": 2})
 	_log(G, "The Crushinator: your Rooms deal +2 damage this turn.")
 	return null
 
@@ -236,35 +343,100 @@ static func _torture_chamber(G: Dictionary, player_id: int):
 	BossEngine.discard_room_to_pile(G.get("decks", {}), d)
 	return null
 
-## BMA013 Dracolich Lair : defausse 2 salles, recupere une salle de la defausse.
-static func _dracolich_lair(G: Dictionary, p: Dictionary, player_id: int):
+## BMA013 Dracolich Lair : defausse 2 salles de la main (choix du joueur) puis recupere une salle de la defausse.
+## C# (data.json BMA013) : RoomInHand(AllRequired=True, 2) puis RoomInDeck(1, DiscardPile). Ability.CheckConditions
+## exige donc 2 salles en main ET 1 salle en defausse ; toutes les cibles sont resolues AVANT
+## l'execution : le choix dans la defausse ne voit pas les 2 salles qu'on vient de defausser.
+static func _dracolich_lair(G: Dictionary, p: Dictionary, player_id: int, room: Dictionary):
 	var hand: Array = p.get("hand", [])
-	var discarded := 0
-	while discarded < 2:
-		var found := -1
-		for i in hand.size():
-			if bool((hand[i] as Dictionary).get("isRoom", false)):
-				found = i
-				break
-		if found < 0:
-			break
-		var c: Dictionary = hand[found]
-		hand.remove_at(found)
-		BossEngine.discard_room_to_pile(G.get("decks", {}), c)
-		discarded += 1
-	var opts := discard_card_options(G, "room")
-	if opts.is_empty():
-		_log(G, "Dracolich Lair: no Room in the discard pile.")
-		return null
-	if opts.size() == 1:
-		var got = take_discard_card(G, p, opts[0])
+	var idxs: Array = []
+	for i in hand.size():
+		if bool((hand[i] as Dictionary).get("isRoom", false)):
+			idxs.append(i)
+	var pile_opts := discard_card_options(G, "room")
+	if idxs.size() < 2 or pile_opts.is_empty():
+		room["usedThisTurn"] = false
+		return "Dracolich Lair needs two Rooms in hand and a Room in the discard pile"
+	var opts: Array = []
+	for a in idxs.size():
+		for b in range(a + 1, idxs.size()):
+			var ca: Dictionary = hand[idxs[a]]
+			var cb: Dictionary = hand[idxs[b]]
+			# card/handIndex designent les 2 cartes (cf. ApkParityTrace._refs) ; handIndices sert a la resolution.
+			opts.append({"card": ca, "handIndex": idxs[b], "handIndices": [idxs[a], idxs[b]],
+				"label": "%s + %s" % [str(ca.get("name", "?")), str(cb.get("name", "?"))]})
+	G["pendingChoice"] = {"type": "dracolich-discard", "resume": false, "playerId": player_id,
+		"bossName": "Dracolich Lair", "message": "Dracolich Lair: choose two Rooms to discard",
+		"pileOptions": pile_opts, "options": opts}
+	return null
+
+## Suite de Dracolich Lair : defausse la paire choisie, puis ouvre (ou resout) le choix dans la defausse.
+static func dracolich_discard(G: Dictionary, player_id: int, option: Dictionary, pile_opts: Array) -> void:
+	var p := _player(G, player_id)
+	var hand: Array = p.get("hand", []) as Array
+	var idxs: Array = (option.get("handIndices", []) as Array).duplicate()
+	idxs.sort()
+	idxs.reverse()
+	for i in idxs:
+		if int(i) >= 0 and int(i) < hand.size():
+			BossEngine.discard_room_to_pile(G.get("decks", {}), hand.pop_at(int(i)))
+	p["hand"] = hand
+	if pile_opts.size() == 1:
+		var got = take_discard_card(G, p, pile_opts[0])
 		if got != null:
 			_log(G, "Dracolich Lair: recovered %s." % str((got as Dictionary).get("name", "?")))
+	elif not pile_opts.is_empty():
+		enqueue_pending(G, {"type": "recover-card", "resume": false, "playerId": player_id,
+			"bossName": "Dracolich Lair", "message": "Dracolich Lair: choose a Room from the discard pile",
+			"options": pile_opts})
+
+## BMA039 Zombie Prison : detruit cette salle, renvoie un heros mort du scorekeeping d'un adversaire
+## a l'entree du donjon de cet adversaire (C# : ThisRoom + HeroInScorekeep[Opponent, Dead] ->
+## DestroyRoom + SendBackToDungeonEntrance : ames retirees, heros remis dans l'EntranceQueue du detenteur).
+## Aucun heros mort chez un adversaire = abilite inutilisable (Ability.CheckConditions).
+static func _zombie_prison(G: Dictionary, p: Dictionary, room_index: int, player_id: int, room: Dictionary):
+	var opts: Array = []
+	for pid in (G.get("players", {}) as Dictionary):
+		if int(pid) == player_id or bool((G["players"][pid] as Dictionary).get("eliminated", false)):
+			continue
+		var seen: Array = []
+		for e in ((G["players"][pid] as Dictionary).get("souls", []) as Array):
+			var h = (e as Dictionary).get("hero")
+			if h is Dictionary and not seen.has(h):
+				seen.append(h)
+				opts.append({"targetPlayerId": int(pid), "card": h})
+	if opts.is_empty():
+		room["usedThisTurn"] = false
+		return "no dead Hero in an opponent's scorekeeping area"
+	BossEngine.discard_room_to_pile(G.get("decks", {}), BossEngine.destroy_room(p, room_index))
+	if opts.size() == 1:
+		zombie_prison_send_back(G, opts[0])
 		return null
-	G["pendingChoice"] = {"type": "recover-card", "resume": false, "playerId": player_id,
-		"bossName": "Dracolich Lair", "message": "Dracolich Lair: choose a Room from the discard pile",
+	G["pendingChoice"] = {"type": "revive-hero", "resume": false, "playerId": player_id,
+		"bossName": "Zombie Prison", "message": "Zombie Prison: choose a dead Hero to send back to its dungeon",
 		"options": opts}
 	return null
+
+static func zombie_prison_send_back(G: Dictionary, option: Dictionary) -> void:
+	var tp := _player(G, int(option.get("targetPlayerId", -1)))
+	var hero: Dictionary = option.get("card", {}) as Dictionary
+	if tp.is_empty() or hero.is_empty():
+		return
+	var souls: Array = tp.get("souls", []) as Array
+	var left := BossEngine.hero_souls(hero)
+	for i in range(souls.size() - 1, -1, -1):
+		if left > 0 and (souls[i] as Dictionary).get("hero") == hero:
+			souls.remove_at(i)
+			left -= 1
+	tp["souls"] = souls
+	var discard: Array = G.get("decks", {}).get("heroDiscard", []) as Array
+	var at := discard.find(hero)
+	if at >= 0:
+		discard.remove_at(at)
+	var entrance: Array = tp.get("entrance", []) as Array
+	entrance.append(hero)
+	tp["entrance"] = entrance
+	_log(G, "Zombie Prison: %s est renvoye a l'entree du donjon du joueur %d." % [str(hero.get("name", "?")), int(option.get("targetPlayerId", -1))])
 
 ## BMA024 Witch's Kitchen : defausse une salle Monster pour piocher un sort.
 static func _witchs_kitchen(G: Dictionary, p: Dictionary):
@@ -319,7 +491,7 @@ static func on_build_room(G: Dictionary, player_id: int, room: Dictionary) -> Va
 		"BMA011": return _specters_sanctum(G, p, player_id)
 		"BMA036": return _mimic_vault(G, p, player_id)
 		"BMA037": return _monstrous_monument(G, p, player_id)
-		"BMA034": return _construction_zone(G, p)
+		"BMA034": return _construction_zone(G, player_id)
 		"BMA033": return _centipede_tunnel(G, player_id)
 	return null
 
@@ -336,28 +508,10 @@ static func on_hero_died_in_room(G: Dictionary, player_id: int, room: Dictionary
 		"BMA014": return _vampire_bordello(G, p)
 	return null
 
-## BMA022 Dark Laboratory : pioche 2 sorts, le joueur en defausse 1.
+## BMA022 Dark Laboratory : pioche 2 sorts, puis defausse 1 sort de la main (tous les sorts, cf. C#).
 static func _dark_laboratory(G: Dictionary, p: Dictionary, player_id: int) -> Variant:
-	var drawn := _draw_into(G, p, "spells", 2)
-	if drawn.size() >= 2:
-		var opts: Array = []
-		for c in drawn:
-			opts.append({"card": c})
-		return {"type": "discard-spell", "playerId": player_id, "bossId": "BMA022",
-			"bossName": "Dark Laboratory",
-			"message": "Dark Laboratory: choose a spell to discard", "options": opts}
-	if drawn.size() == 1:
-		var hand: Array = p.get("hand", []) as Array
-		p["hand"] = hand
-		var at := hand.find(drawn[0])
-		if at >= 0:
-			hand.remove_at(at)
-		var decks: Dictionary = G.get("decks", {})
-		var pile: Array = decks.get("spellDiscard", []) as Array
-		decks["spellDiscard"] = pile
-		pile.append(drawn[0])
-		_log(G, "Dark Laboratory: drew 1 spell, auto-discarded %s." % str((drawn[0] as Dictionary).get("name", "?")))
-	return null
+	_draw_into(G, p, "spells", 2)
+	return _spell_discard_choice(G, p, player_id, "BMA022", "Dark Laboratory")
 
 ## BMA011 Specter's Sanctum : un adversaire defausse un sort au hasard.
 static func _specters_sanctum(G: Dictionary, _p: Dictionary, player_id: int) -> Variant:
@@ -371,7 +525,7 @@ static func _specters_sanctum(G: Dictionary, _p: Dictionary, player_id: int) -> 
 	var opts: Array = []
 	for o in opps:
 		opts.append({"targetPlayerId": int((o as Dictionary)["playerId"])})
-	return {"type": "pick-opponent", "playerId": player_id, "bossName": "Specter's Sanctum",
+	return {"type": "pick-opponent", "action": "discard-spell", "playerId": player_id, "bossName": "Specter's Sanctum",
 		"message": "Choose an opponent to discard a random Spell", "options": opts}
 
 ## BMA036 Mimic Vault : un hero ordinaire de la ville vers ton entree.
@@ -410,9 +564,11 @@ static func _monstrous_monument(G: Dictionary, p: Dictionary, player_id: int) ->
 	return {"type": "recover-card", "playerId": player_id, "bossName": "Monstrous Monument",
 		"message": "Monstrous Monument: choose a Monster Room from the discard", "options": opts}
 
-## BMA034 Construction Zone : rend une construction deja utilisee.
-static func _construction_zone(G: Dictionary, p: Dictionary) -> Variant:
-	p["buildsThisTurn"] = maxi(0, int(p.get("buildsThisTurn", 0)) - 1)
+## BMA034 Construction Zone : ExtraBuildTurn(BossOwner) = PendingExtraBuiltTurns.Add -> ExtraBuildPhase (Match._start_forced_build).
+static func _construction_zone(G: Dictionary, player_id: int) -> Variant:
+	var queue: Array = G.get("forcedBuilds", []) as Array
+	G["forcedBuilds"] = queue
+	queue.append({"playerId": player_id, "cardId": ""})
 	_log(G, "Construction Zone: an additional room may be built this turn.")
 	return null
 
@@ -495,7 +651,7 @@ static func robobo_choice(G: Dictionary, target_pid: int) -> Variant:
 	var options: Array = []
 	for i in dungeon.size():
 		if BossEngine.active_room(dungeon[i]) != null:
-			options.append({"targetPlayerId": target_pid, "roomIndex": i})
+			options.append({"targetPlayerId": target_pid, "roomIndex": i, "card": BossEngine.active_room(dungeon[i])})
 	if options.is_empty():
 		return {}
 	return {"type": "destroy-room", "playerId": target_pid, "bossName": "Robobo",
@@ -558,6 +714,15 @@ static func _draculord(G: Dictionary, player_id: int) -> Variant:
 	if opts.is_empty():
 		_log(G, "Draculord: no opponent cards to take.")
 		return null
+	# C# CardInHand(1, Opponent) : une seule carte adverse = cible auto-resolue (TryToAutoresolve).
+	if opts.size() == 1:
+		var o: Dictionary = opts[0]
+		var oh: Array = (G["players"][int(o["fromPid"])] as Dictionary)["hand"]
+		var hand: Array = _player(G, player_id).get("hand", []) as Array
+		_player(G, player_id)["hand"] = hand
+		hand.append(oh.pop_at(int(o["handIndex"])))
+		_log(G, "Draculord: took %s from player %d." % [str((o["card"] as Dictionary).get("name", "?")), int(o["fromPid"])])
+		return null
 	return {"type": "steal-card", "playerId": player_id, "bossId": "BMA001", "bossName": "Draculord",
 		"message": "Draculord: choose a card to steal from an opponent", "options": opts}
 
@@ -576,7 +741,9 @@ static func _xyzax(G: Dictionary, p: Dictionary) -> Variant:
 	return {"type": "recover-card", "playerId": int(p.get("id", 0)), "bossName": "Xyzax",
 		"message": "Xyzax: choose a card from the discard (2 remaining)", "remaining": 2, "options": opts}
 
-## BMA003 King Croak / BMA007 Cleopatra : cherche une salle avancee (facultatif).
+## BMA003 King Croak / BMA007 Cleopatra : cherche une salle avancee (RoomInDeck Advanced + PutCardInHand + BuildRoomBy).
+## C# : CanAvoid=false -> la cible est OBLIGATOIRE (pas de "passer", malgre le "may" du texte) ; aucune
+## candidate = abilite ignoree (CheckConditions) ; une seule candidate = auto-resolue.
 static func _search_advanced_choice(G: Dictionary, player_id: int, room_type: String, boss_name: String) -> Variant:
 	var kind := "Monster" if room_type == "monster" else "Trap"
 	var decks: Dictionary = G.get("decks", {})
@@ -591,61 +758,79 @@ static func _search_advanced_choice(G: Dictionary, player_id: int, room_type: St
 	if options.is_empty():
 		_log(G, "%s: no Advanced %s Room to search." % [boss_name, kind])
 		return null
-	return {"type": "search-advanced", "optional": true, "playerId": player_id, "bossName": boss_name,
-		"roomType": room_type, "message": "%s: choose an Advanced %s Room (or skip)" % [boss_name, kind],
+	if options.size() == 1:
+		take_searched_room(G, player_id, options[0], boss_name)
+		return null
+	return {"type": "search-advanced", "playerId": player_id, "bossName": boss_name,
+		"roomType": room_type, "message": "%s: choose an Advanced %s Room" % [boss_name, kind],
 		"options": options}
 
-## BMA004 Robobo : chaque adversaire detruit une salle de son choix.
+## PutCardInHand + BuildRoomBy : la salle va en main et le joueur obtient un tour de construction
+## supplementaire force sur ce numero de carte (Boss.ForcedToBuildRoom, GameBoard.PendingExtraBuiltTurns).
+## Match._start_forced_build joue ce tour apres la revelation de fin de phase BUILD.
+static func take_searched_room(G: Dictionary, player_id: int, option: Dictionary, label: String) -> Variant:
+	var player := _player(G, player_id)
+	var decks: Dictionary = G.get("decks", {})
+	var from_discard := str(option.get("pile", "")) == "discard"
+	var pile: Array = decks.get("roomDiscard" if from_discard else "rooms", [])
+	decks["roomDiscard" if from_discard else "rooms"] = pile
+	if not pile_index_matches(pile, option):
+		return null
+	var card: Dictionary = pile[int(option["pileIndex"])]
+	pile.remove_at(int(option["pileIndex"]))
+	var hand: Array = player.get("hand", []) as Array
+	player["hand"] = hand
+	hand.append(card)
+	var forced: Array = G.get("forcedBuilds", []) as Array
+	G["forcedBuilds"] = forced
+	forced.append({"playerId": player_id, "cardId": str(card.get("id", ""))})
+	_log(G, "%s: %s recherche, construction forcee." % [label, str(card.get("name", "?"))])
+	return card
+
+## BMA004 Robobo : chaque adversaire detruit une salle de son choix (BossOpponents + ChooseAndDestroyRoom).
+## Ordre = PlayerId croissant (GameBoard.GetOpponents), adversaires elimines exclus.
 static func _robobo(G: Dictionary, player_id: int) -> Variant:
 	var victims: Array = []
 	for opid in (G.get("players", {}) as Dictionary):
-		if int(opid) == player_id:
-			continue
-		var op: Dictionary = G["players"][opid]
-		if op.get("eliminated", false):
-			continue
-		var dungeon: Array = op.get("dungeon", [])
-		if dungeon.is_empty():
-			continue
-		victims.append(int(opid))
+		if int(opid) != player_id and not bool(G["players"][opid].get("eliminated", false)):
+			victims.append(int(opid))
+	victims.sort()
 	if victims.is_empty():
 		_log(G, "Robobo: no opponent rooms to destroy.")
 		return null
-	# file des adversaires restants, dans l'ordre du JS
-	G["roboboQueue"] = victims.slice(1)
-	var first: int = victims[0]
-	var dungeon: Array = (G["players"][first] as Dictionary).get("dungeon", [])
-	var options: Array = []
-	for i in dungeon.size():
-		if BossEngine.active_room(dungeon[i]) != null:
-			options.append({"targetPlayerId": first, "roomIndex": i})
-	if options.is_empty():
-		return null
-	return {"type": "destroy-room", "playerId": first, "bossName": "Robobo",
-		"message": "Robobo: choose a Room to destroy", "options": options}
+	G["roboboQueue"] = victims
+	return robobo_advance(G)
 
-## BMA005 Cerebellus : pioche 3 sorts, en defausse 1.
-static func _cerebellus(G: Dictionary, p: Dictionary, player_id: int) -> Variant:
-	var drawn := _draw_into(G, p, "spells", 3)
-	if drawn.size() >= 2:
-		var opts: Array = []
-		for c in drawn:
-			opts.append({"card": c})
-		return {"type": "discard-spell", "playerId": player_id, "bossId": "BMA005", "bossName": "Cerebellus",
-			"message": "Cerebellus: choose a spell to discard", "options": opts}
-	if drawn.size() == 1:
-		var card: Dictionary = drawn[0]
-		var hand: Array = p.get("hand", [])
-		p["hand"] = hand
-		var at := hand.find(card)
-		if at >= 0:
-			hand.remove_at(at)
-		var decks: Dictionary = G.get("decks", {})
-		var pile: Array = decks.get("spellDiscard", [])
-		decks["spellDiscard"] = pile
-		pile.append(card)
-		_log(G, "Cerebellus: drew 1 spell, auto-discarded %s." % str(card.get("name", "?")))
+## Avance la file Robobo : saute les adversaires sans salle (DungeonSize <= 0), auto-detruit quand
+## il n'y a qu'une salle (TryToAutoresolve), sinon renvoie le choix de l'adversaire concerne.
+static func robobo_advance(G: Dictionary) -> Variant:
+	var raw_queue = G.get("roboboQueue", [])
+	var queue: Array = raw_queue if raw_queue is Array else []
+	G["roboboQueue"] = queue
+	while not queue.is_empty():
+		var choice: Dictionary = robobo_choice(G, int(queue.pop_front())) as Dictionary
+		var opts: Array = choice.get("options", []) as Array
+		if opts.is_empty():
+			continue
+		if opts.size() > 1:
+			return choice
+		var o: Dictionary = opts[0]
+		destroy_room_choice(G, int(o["targetPlayerId"]), int(o["roomIndex"]), "Robobo")
 	return null
+
+## Detruit la salle choisie (sans declencheur, checkTriggers:false) et l'envoie a la defausse.
+static func destroy_room_choice(G: Dictionary, target_pid: int, room_index: int, label: String) -> void:
+	var tp := _player(G, target_pid)
+	var destroyed = BossEngine.destroy_room(tp, room_index)
+	if destroyed == null:
+		return
+	BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
+	_log(G, "%s: %s detruit par le joueur %d." % [label, str((destroyed as Dictionary).get("name", "?")), target_pid])
+
+## BMA005 Cerebellus : pioche 3 sorts, puis defausse 1 sort de la main (DiscardSomeCardFromHand, comme Dark Laboratory).
+static func _cerebellus(G: Dictionary, p: Dictionary, player_id: int) -> Variant:
+	_draw_into(G, p, "spells", 3)
+	return _spell_discard_choice(G, p, player_id, "BMA005", "Cerebellus")
 
 ## BMA006 Seducia : cherche un heros en ville ou dans la pioche (facultatif).
 static func _seducia(G: Dictionary, player_id: int) -> Variant:
