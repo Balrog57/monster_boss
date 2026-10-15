@@ -868,6 +868,9 @@ func _move_label(m: Dictionary, _G: Dictionary, hand: Array) -> String:
 		hand_name = str((hand[int(args[0])] as Dictionary).get("name", ""))
 	match t:
 		"playSpell":
+			# Counterspell : une entree par sort adverse en attente, on nomme la cible.
+			if args.size() > 1 and args[1] is Dictionary and (args[1] as Dictionary).has("stackId"):
+				return "Sort : %s -> %s" % [hand_name, str((((args[1] as Dictionary).get("card", {})) as Dictionary).get("name", "?"))]
 			return "Sort : %s" % hand_name
 		"useHandRoom", "activateRoom":
 			return "Capacité : %s" % hand_name

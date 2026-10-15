@@ -160,6 +160,11 @@ static func _cave_in(G: Dictionary, caster_id: int, _card: Dictionary, target: D
 	if idx < 0 or idx >= dungeon.size():
 		_log(G, "Cave-In: no room to destroy.")
 		return false
+	# C# KillHeroInRoom puis DestroyRoom : le heros present dans cette salle meurt (meme mecanique que Bottomless Pit).
+	var adv: Dictionary = G.get("adventure", {}) as Dictionary
+	if not adv.is_empty() and int(adv.get("playerId", -1)) == caster_id and int(adv.get("roomIndex", -1)) == idx:
+		adv["hp"] = 0
+		_log(G, "Cave-In: %s is destroyed." % str((adv.get("hero", {}) as Dictionary).get("name", "?")))
 	var destroyed = BossEngine.destroy_room(p, idx)
 	if destroyed != null:
 		BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)

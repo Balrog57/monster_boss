@@ -58,7 +58,7 @@ func calculate_lure() -> Array:
 	var order := _turn_order()
 	for hero in town:
 		var treasure := int((hero as Dictionary).get("treasure", 1))
-		var target := BossEngine.lure_target(G["players"], order, treasure)
+		var target := BossEngine.lure_target(G["players"], order, treasure, hero, G)
 		results.append({"hero": hero, "target": target})
 	return results
 

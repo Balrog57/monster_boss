@@ -24,6 +24,7 @@ func _ready() -> void:
 	_t_spell_annihilator_requires_trap()
 	_t_spell_giant_size_requires_monster()
 	_t_spell_freeze_deactivates()
+	_t_spell_cave_in_kills_hero_in_room()
 	_t_spell_motivation_extra_build()
 	_t_spell_jeopardy_all_players()
 	_t_spell_unknown_returns_false()
@@ -32,6 +33,9 @@ func _ready() -> void:
 	_t_play_spell_consumes_card()
 	_t_room_ability_dark_altar()
 	_t_room_ability_jackpot_stash()
+	_t_lure_jackpot_stash_doubles_room_treasures()
+	_t_lure_fool_fewest_souls()
+	_t_reveal_heroes_counts_eliminated_and_effects_expire()
 	_t_room_ability_unknown_rejected()
 	_t_activate_room_appears_in_legal_moves()
 	_t_pending_choice_freezes_legal_moves()
@@ -55,6 +59,12 @@ func _ready() -> void:
 	_t_choice_dark_altar()
 	_t_choice_dark_laboratory()
 	_t_choice_all_seeing_eye()
+	_t_spell_phase_windows()
+	_t_freeze_offturn_in_adventure()
+	_t_spell_target_room_active_only()
+	_t_stack_resolution_order()
+	_t_counterspell_stack_chain()
+	_t_spell_battle_open_responses()
 	_t_choice_draculord()
 	_t_choice_robobo()
 	_t_choice_cleopatra_forced_build()
@@ -228,7 +238,7 @@ func _t_spell_targeting_any_room_trap() -> void:
 ## Un sort sans cible renvoie [null] (pas de ciblage).
 func _t_spell_targeting_no_target_spell() -> void:
 	var me := {"dungeon": [], "hand": [], "entrance": [], "souls": [], "wounds": [], "items": []}
-	var t := SpellTargeting.spell_targets_for(_spell_G(me), me, 0, "BMA043")
+	var t := SpellTargeting.spell_targets_for(_spell_G(me), me, 0, "BMA048")
 	_ok(t.size() == 1 and (t[0] == null), "sort sans cible -> [null]")
 
 ## BMA054 Trepidation : joueur adverse avec 2 ames de plus.
@@ -271,6 +281,18 @@ func _t_spell_freeze_deactivates() -> void:
 	var G := _spell_state([[_room("T", "trap", false, [1])]])
 	_ok(SpellEffects.cast_spell(G, 0, {"id": "BMA046"}, {"roomIndex": 0}), "Freeze accepte")
 	_ok((G["effects"]["deactivatedRooms"] as Array).size() == 1, "Freeze desactive une salle")
+
+## BMA042 Cave-In : detruit la salle et le heros qui s'y trouve (KillHeroInRoom + DestroyRoom).
+func _t_spell_cave_in_kills_hero_in_room() -> void:
+	var G := _spell_state([[_room("A", "trap", false, [1])], [_room("B", "trap", false, [1])]])
+	G["adventure"] = {"playerId": 0, "hero": {"id": "H", "name": "H"}, "roomIndex": 1, "hp": 5, "pause": null}
+	_ok(SpellEffects.cast_spell(G, 0, {"id": "BMA042"}, {"roomIndex": 1}), "Cave-In accepte")
+	_ok(int((G["adventure"] as Dictionary)["hp"]) == 0, "Cave-In tue le heros de la salle detruite")
+	_ok(((G["players"][0] as Dictionary)["dungeon"] as Array).size() == 1, "Cave-In detruit la salle")
+	var G2 := _spell_state([[_room("A", "trap", false, [1])], [_room("B", "trap", false, [1])]])
+	G2["adventure"] = {"playerId": 0, "hero": {"id": "H", "name": "H"}, "roomIndex": 0, "hp": 5, "pause": null}
+	SpellEffects.cast_spell(G2, 0, {"id": "BMA042"}, {"roomIndex": 1})
+	_ok(int((G2["adventure"] as Dictionary)["hp"]) == 5, "Cave-In epargne un heros dans une autre salle")
 
 ## BMA050 Motivation : bonus de construction si moins de salles qu'un adversaire.
 func _t_spell_motivation_extra_build() -> void:
@@ -820,6 +842,161 @@ func _t_choice_all_seeing_eye() -> void:
 	G2["stack"] = [{"id": "z", "type": "spell", "playerId": 1, "card": theirs, "target": {}, "resolved": false}]
 	_ok(RoomAbilities.activate_room_ability(G2, 0, 0) != null, "sans sort en main : refuse")
 
+# --- Spell Battle (GameBoard.EnqueueAbilityTransaction / OnAbilityApplyRequest / NextStep) ---
+
+## Sort de test sans effet (categorie 4 = Build/Adventure) : seul l'ordre de resolution nous interesse.
+func _zspell(id: String) -> Dictionary:
+	return {"id": id, "name": id, "isSpell": true, "category": 4}
+
+func _counter() -> Dictionary:
+	return {"id": "BMA043", "name": "Counterspell", "isSpell": true, "category": 2}
+
+## 3 joueurs (rang 0,1,2), phase BUILD, le joueur 0 a la main : decor d'une Spell Battle.
+func _battle_match(phase: String = "build") -> Node:
+	var m = load("res://godot/scripts/Match.gd").new()
+	add_child(m)
+	var pl := {}
+	for i in 3:
+		pl[i] = {"boss": {"xp": 300 - i}, "dungeon": [[_room("R%d" % i, "trap", false, [1])]], "hand": [], "souls": [],
+			"wounds": [], "eliminated": false, "leveledUp": false, "buildsThisTurn": 0, "isAI": false, "entrance": []}
+	m.G = {"players": pl, "xpOrder": [0, 1, 2], "buildOrder": [0, 1, 2], "buildIndex": 0, "activePlayer": 0,
+		"decks": {"rooms": [], "spells": [], "heroes": [], "epics": [], "roomDiscard": [], "spellDiscard": [], "heroDiscard": []},
+		"town": [], "turn": 1, "phase": phase, "gameOver": null, "log": [], "effects": SpellEffects.empty_effects(),
+		"stack": [], "stackPassed": {}}
+	return m
+
+func _play(m, pid: int, spell_id: String, target_stack_id: String = "") -> bool:
+	var hand: Array = (m.G["players"][pid] as Dictionary)["hand"]
+	for mv in m.legal_moves(pid):
+		var md: Dictionary = mv
+		if str(md["type"]) != "playSpell":
+			continue
+		var idx := int((md["args"] as Array)[0])
+		if str((hand[idx] as Dictionary).get("id", "")) != spell_id:
+			continue
+		var t = (md["args"] as Array)[1]
+		if target_stack_id == "" or (t is Dictionary and str((t as Dictionary).get("stackId", "")) == target_stack_id):
+			return m.apply_move(pid, md)
+	return false
+
+func _pass(m, pid: int) -> bool:
+	return m.apply_move(pid, {"type": "pass", "args": []})
+
+func _stack_ids(m) -> Array:
+	return (m.G["stack"] as Array).map(func(e): return str(((e as Dictionary)["card"] as Dictionary)["id"]))
+
+func _resolved_order(m) -> Array:
+	var out: Array = []
+	for l in (m.G["log"] as Array):
+		var s := str(l)
+		if s.begins_with("Le sort ") and s.ends_with(" se résout."):
+			out.append(s.substr(8, s.length() - 8 - 11))
+	return out
+
+## Fenetres de jeu = DuringPhase de l'Ability (pas SpellCategory) : Freeze (categorie 2, sans condition) est jouable
+## partout ; Fear/Teleportation (categorie 1) seulement en aventure ; Kobold Strike en construction ; Counterspell exige un sort en attente.
+func _t_spell_phase_windows() -> void:
+	var b: String = CardDB.PHASE["BUILD"]
+	var a: String = CardDB.PHASE["ADVENTURE"]
+	_ok(CardDB.can_play_spell({"id": "BMA046", "category": 2}, a) and CardDB.can_play_spell({"id": "BMA046", "category": 2}, b), "Freeze : build ET aventure")
+	_ok(CardDB.can_play_spell({"id": "BMA048", "category": 2}, a) and CardDB.can_play_spell({"id": "BMA052", "category": 1}, a), "Jeopardy / Soul Harvest : sans condition de phase")
+	_ok(CardDB.can_play_spell({"id": "BMA045", "category": 1}, a) and not CardDB.can_play_spell({"id": "BMA045", "category": 1}, b), "Fear : aventure seulement")
+	_ok(CardDB.can_play_spell({"id": "BMA049", "category": 2}, b) and not CardDB.can_play_spell({"id": "BMA049", "category": 2}, a), "Kobold Strike : build seulement")
+	_ok(not CardDB.can_play_spell({"id": "BMA043", "category": 2}, a, 0) and CardDB.can_play_spell({"id": "BMA043", "category": 2}, a, 1), "Counterspell : seulement avec un sort en attente")
+
+## Freeze hors tour en aventure (traces APK s3-p2 seq 53 / s2-p3 seq 172) : le lanceur n'est pas le joueur actif.
+func _t_freeze_offturn_in_adventure() -> void:
+	var m = _battle_match("adventure")
+	m.G["activePlayer"] = 0
+	(m.G["players"][1] as Dictionary)["hand"] = [{"id": "BMA046", "name": "Freeze", "isSpell": true, "category": 2}]
+	_ok(_has_move(m, 1, "playSpell"), "Freeze jouable en aventure par un joueur hors tour")
+	m.queue_free()
+
+## RoomInDungeon : ni salle face cachee (PendingToBeBuilt), ni emplacement deja gele (IsActive).
+func _t_spell_target_room_active_only() -> void:
+	var m = _battle_match()
+	var p0: Dictionary = m.G["players"][0]
+	var hidden := _room("HID", "trap", false, [1])
+	hidden["faceDown"] = true
+	p0["dungeon"] = [[_room("A", "trap", false, [1])], [hidden], [_room("B", "monster", false, [1])]]
+	var t := SpellTargeting.enumerate_targets("any-room", m.G, p0, 0)
+	var mine := t.filter(func(x): return int((x as Dictionary)["targetPlayerId"]) == 0)
+	_ok(mine.size() == 2, "salle face cachee non ciblable")
+	(SpellEffects._effects(m.G)["deactivatedRooms"] as Array).append({"playerId": 0, "roomIndex": 0})
+	t = SpellTargeting.enumerate_targets("any-room", m.G, p0, 0)
+	mine = t.filter(func(x): return int((x as Dictionary)["targetPlayerId"]) == 0)
+	_ok(mine.size() == 1 and int((mine[0] as Dictionary)["roomIndex"]) == 2, "emplacement gele non ciblable")
+	_ok(SpellTargeting.enumerate_targets("any-room-trap", m.G, p0, 0).filter(func(x): return int((x as Dictionary)["targetPlayerId"]) == 0).is_empty(), "trap gelee / cachee exclue d'any-room-trap")
+	m.queue_free()
+
+## Ordre de resolution = PendingAbilityTransactions : joueur du tour en tete (LIFO entre ses sorts), les autres a la suite
+## par rang de joueur. Ni LIFO pur (ZD,ZC,ZB,ZA) ni FIFO pur (ZA,ZB,ZC,ZD).
+func _t_stack_resolution_order() -> void:
+	var m = _battle_match()
+	(m.G["players"][0] as Dictionary)["hand"] = [_zspell("ZA"), _zspell("ZC")]
+	(m.G["players"][1] as Dictionary)["hand"] = [_zspell("ZB")]
+	(m.G["players"][2] as Dictionary)["hand"] = [_zspell("ZD")]
+	_ok(_play(m, 0, "ZA"), "joueur du tour : ZA")
+	_ok(int(m.active_player()) == 1, "le rang 1 repond en premier")
+	_ok(_play(m, 1, "ZB"), "joueur 1 repond : ZB")
+	_ok(_stack_ids(m) == ["ZA", "ZB"], "hors-tour apres le sort du joueur du tour")
+	_ok(int(m.active_player()) == 0 and _play(m, 0, "ZC"), "la fenetre est rouverte : ZC")
+	_ok(_stack_ids(m) == ["ZC", "ZA", "ZB"], "le joueur du tour passe en tete (LIFO entre ses sorts)")
+	_ok(_pass(m, 1), "1 passe")
+	_ok(_play(m, 2, "ZD"), "joueur 2 repond : ZD")
+	_ok(_stack_ids(m) == ["ZC", "ZA", "ZB", "ZD"], "rang 2 apres le rang 1")
+	_ok(_pass(m, 0) and _pass(m, 1), "tous passent")
+	_ok((m.G["stack"] as Array).is_empty() and _resolved_order(m) == ["ZC", "ZA", "ZB", "ZD"], "resolution dans l'ordre de la liste : %s" % str(_resolved_order(m)))
+	_ok(int(m.active_player()) == 0, "la main revient au joueur du tour")
+	m.queue_free()
+
+## Counterspell = transaction de la pile (contrable), replacee JUSTE AVANT sa cible ; elle annule la cible, qui part en defausse.
+func _t_counterspell_stack_chain() -> void:
+	var m = _battle_match()
+	(m.G["players"][0] as Dictionary)["hand"] = [_zspell("ZA")]
+	(m.G["players"][1] as Dictionary)["hand"] = [_counter()]
+	(m.G["players"][2] as Dictionary)["hand"] = [_counter()]
+	_ok(_play(m, 0, "ZA"), "ZA")
+	var za_id := str(((m.G["stack"] as Array)[0] as Dictionary)["id"])
+	_ok(SpellTargeting.stack_spell_entries(m.G, 0).is_empty(), "on ne contre pas son propre sort")
+	_ok(_play(m, 1, "BMA043", za_id), "joueur 1 contre ZA")
+	_ok(_stack_ids(m) == ["BMA043", "ZA"], "Counterspell juste avant sa cible")
+	var c1_id := str(((m.G["stack"] as Array)[0] as Dictionary)["id"])
+	_ok(_pass(m, 0), "0 passe")
+	_ok(_play(m, 2, "BMA043", c1_id), "joueur 2 contre le Counterspell")
+	_ok(_stack_ids(m) == ["BMA043", "BMA043", "ZA"], "contre-contre-sort en tete")
+	_ok(_pass(m, 0) and _pass(m, 1), "tous passent")
+	_ok((m.G["stack"] as Array).is_empty(), "pile resolue")
+	_ok(_resolved_order(m) == ["Counterspell", "ZA"], "le 2e Counterspell annule le 1er : ZA se resout (%s)" % str(_resolved_order(m)))
+	_ok((m.G["decks"]["spellDiscard"] as Array).size() == 3, "3 cartes en defausse")
+	# Un seul Counterspell : ZA ne se resout jamais.
+	var m2 = _battle_match()
+	(m2.G["players"][0] as Dictionary)["hand"] = [_zspell("ZA")]
+	(m2.G["players"][1] as Dictionary)["hand"] = [_counter()]
+	_ok(_play(m2, 0, "ZA") and _play(m2, 1, "BMA043"), "ZA puis Counterspell")
+	_ok(_pass(m2, 0) and _pass(m2, 2), "0 et 2 passent")
+	_ok(not _resolved_order(m2).has("ZA") and (m2.G["decks"]["spellDiscard"] as Array).size() == 2, "ZA annule : defausse sans effet")
+	m.queue_free()
+	m2.queue_free()
+
+## Tout sort legal repond (pas seulement Counterspell / All-Seeing Eye) ; l'IA, elle, s'en tient a sa politique (AbilityCalculator).
+func _t_spell_battle_open_responses() -> void:
+	var m = _battle_match()
+	(m.G["players"][0] as Dictionary)["hand"] = [_zspell("ZA")]
+	(m.G["players"][1] as Dictionary)["hand"] = [{"id": "BMA046", "name": "Freeze", "isSpell": true, "category": 2}, {"id": "BMA049", "name": "Kobold", "isSpell": true, "category": 2}]
+	_ok(_play(m, 0, "ZA"), "ZA ouvre la Spell Battle")
+	_ok(_has_move(m, 1, "playSpell") and _has_move(m, 1, "pass"), "le repondant peut jouer un sort quelconque ou passer")
+	_ok(m.legal_moves(2).is_empty(), "seul le repondant courant agit")
+	var mv_ai = AI.pick_move(m, 1)
+	_ok(mv_ai != null and str((mv_ai as Dictionary)["type"]) == "pass", "l'IA passe (pas de Counterspell en main)")
+	(m.G["players"][1] as Dictionary)["hand"].append(_counter())
+	mv_ai = AI.pick_move(m, 1)
+	var picked_id := ""
+	if mv_ai != null and str((mv_ai as Dictionary)["type"]) == "playSpell":
+		picked_id = str(((m.G["players"][1] as Dictionary)["hand"][int(((mv_ai as Dictionary)["args"] as Array)[0])] as Dictionary)["id"])
+	_ok(picked_id == "BMA043", "l'IA contre")
+	m.queue_free()
+
 ## BMA001 : cartes (salles et sorts) des adversaires vivants ; une seule carte = prise automatique.
 func _t_choice_draculord() -> void:
 	var G := _levelup_G("BMA001", 5)
@@ -1105,4 +1282,50 @@ func _t_build_offturn_spell_window() -> void:
 	p1["isAI"] = true
 	p1["hand"] = [{"id": "BMA050", "name": "Motivation", "isSpell": true}]
 	_ok(m.legal_moves(1).is_empty(), "un siege IA n'agit pas hors tour")
+	m.queue_free()
+
+## GameBoard.AssignHeroesToDungeons / Boss.GetDungeonTreasures : TreasuresMultiplier (Jackpot Stash) double les
+## tresors des SALLES (pas ceux du boss) et departage un leurre autrement a egalite ; une egalite laisse le heros en ville.
+func _t_lure_jackpot_stash_doubles_room_treasures() -> void:
+	var G := _ability_G("BMA010")
+	var p1: Dictionary = G["players"][1]
+	p1["boss"] = {"treasures": [1]}
+	(G["players"][0] as Dictionary)["boss"] = {"treasures": []}
+	p1["dungeon"] = [[_room("Y", "trap", false, [1])]]
+	var order := [0, 1]
+	var hero := {"id": "BMA056", "treasure": 1}
+	_ok(BossEngine.lure_target(G["players"], order, 1, hero, G) == 1, "joueur 1 : 2 tresors clerc contre 1")
+	(G["players"][0] as Dictionary)["dungeon"] = [[_room("X", "trap", false, [1])]]
+	(G["players"][0] as Dictionary)["boss"] = {"treasures": [1]}
+	_ok(BossEngine.lure_target(G["players"], order, 1, hero, G) == -1, "egalite 2-2 : le heros reste en ville")
+	(SpellEffects._effects(G)["treasureDoubled"] as Array).append(0)
+	_ok(BossEngine.lure_target(G["players"], order, 1, hero, G) == 0, "Jackpot Stash : salles x2 (3 contre 2), pas le boss")
+
+## The Fool (BMA080, LuredByFewerSouls) va chez le joueur au MOINS d'ames ; egalite = reste en ville.
+func _t_lure_fool_fewest_souls() -> void:
+	var G := _ability_G("BMA010")
+	var fool := {"id": "BMA080", "treasure": 0}
+	var order := [0, 1]
+	_ok(BossEngine.lure_target(G["players"], order, 0, fool, G) == -1, "Fool : egalite d'ames -> reste en ville")
+	((G["players"][0] as Dictionary)["souls"] as Array).append({"souls": 1})
+	_ok(BossEngine.lure_target(G["players"], order, 0, fool, G) == 1, "Fool : joueur 1 a moins d'ames")
+
+## RevealHeroes revele Players.Count heros (eliminés compris) ; les effets « jusqu'a la fin du tour » expirent au tour suivant.
+func _t_reveal_heroes_counts_eliminated_and_effects_expire() -> void:
+	var m = load("res://godot/scripts/Match.gd").new()
+	add_child(m)
+	m.G = _ability_G("BMA010")
+	(m.G["players"][1] as Dictionary)["eliminated"] = true
+	m.G["log"] = []
+	var heroes: Array = []
+	for i in 5:
+		heroes.append({"id": "H%d" % i, "treasure": 1})
+	m.G["decks"]["heroes"] = heroes
+	m.G["decks"]["epics"] = []
+	m._reveal_heroes_in_town()
+	_ok((m.G["town"] as Array).size() == 2, "2 heros reveles pour 2 joueurs dont 1 elimine")
+	(SpellEffects._effects(m.G)["treasureDoubled"] as Array).append(0)
+	m.G["setupBuild"] = false
+	m._start_turn()
+	_ok((SpellEffects._effects(m.G)["treasureDoubled"] as Array).is_empty(), "effets de tour remis a zero au debut du tour suivant")
 	m.queue_free()

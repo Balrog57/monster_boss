@@ -89,8 +89,10 @@ static class Program
             while (board.CurrentGamePhase != GameBoard.GamePhases.EndOfGame && board.NumberOfTurns < maxTurns)
             {
                 if (++guard > 200000) return "stuck";
+                // NextStep() sort sans executer de phase quand un duel de sorts vient de se terminer (GameBoard.cs:310-318).
+                bool executed = !(board.IsSpellBattleActive && board.IsSpellBattleAllReady);
                 board.NextStep();
-                trace.Phase("nextStep");
+                trace.Phase("nextStep", executed);
                 foreach (var p in board.InGamePlayersPriorized.ToList()) p.PlayerInteraction.DoPlayerActions(); // comme GamePlayBaseScene.DoNextStepAndRefresh
             }
         }

@@ -21,23 +21,27 @@ static func count_visible_rooms(dungeon: Array) -> int:
 			n += 1
 	return n
 
-static func dungeon_treasures(player: Dictionary) -> Array:
+static func dungeon_treasures(player: Dictionary, G: Dictionary = {}) -> Array:
 	var out: Array = []
 	if player.get("boss") == null:
 		return out
 	for t in (player["boss"] as Dictionary).get("treasures", []):
 		out.append(int(t))
+	# Boss.GetDungeonTreasures : TreasuresMultiplier (Jackpot Stash, MultiplyTreasuresDungeon) ne s'applique
+	# qu'aux tresors des salles, pas a ceux du boss.
+	var mult := 2 if (_effects(G).get("treasureDoubled", []) as Array).has(int(player.get("id", -1))) else 1
 	for stack in player.get("dungeon", []):
 		var room = active_room(stack)
 		if room == null:
 			continue
 		for t in (room as Dictionary).get("treasures", []):
-			out.append(int(t))
+			for _i in mult:
+				out.append(int(t))
 	return out
 
-static func treasure_count(player: Dictionary, treasure: int) -> int:
+static func treasure_count(player: Dictionary, treasure: int, G: Dictionary = {}) -> int:
 	var n := 0
-	for t in dungeon_treasures(player):
+	for t in dungeon_treasures(player, G):
 		if int(t) == treasure:
 			n += 1
 	return n
@@ -94,17 +98,19 @@ static func can_build_room(player: Dictionary, G: Dictionary = {}, pid: int = -1
 		return treasures_match
 	return count_visible_rooms(dungeon) < CardDB.DUNGEON_SLOTS
 
-## Lure APK : le héros va chez le joueur non-éliminé avec le max du trésor demandé.
-## Égalité -> reste en ville (retour -1).
-static func lure_target(players: Dictionary, order: Array, treasure: int) -> int:
+## Lure APK (BaseLuredCondition.GetBoss) : un seul joueur vivant doit remporter le critere, sinon le heros
+## reste en ville (retour -1). LuredByTreasures : max du tresor du heros ; The Fool (BMA080, LuredByFewerSouls) :
+## min d'ames (CardDB.total_souls).
+static func lure_target(players: Dictionary, order: Array, treasure: int, hero: Dictionary = {}, G: Dictionary = {}) -> int:
+	var fool := str(hero.get("id", "")) == "BMA080"
 	var best := -1
-	var best_n := -1
+	var best_n := -999999
 	var tied := false
 	for pid in order:
 		var p: Dictionary = players[pid]
 		if p.get("eliminated", false):
 			continue
-		var n := treasure_count(p, treasure)
+		var n := -CardDB.total_souls(p) if fool else treasure_count(p, treasure, G)
 		if n > best_n:
 			best_n = n
 			best = int(pid)

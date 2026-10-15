@@ -50,11 +50,10 @@ class ApkMatch extends Match:
 
 
 var run: ApkMatch
-var inject := false
 var events: Array = []
 var proj: Dictionary = {}
 var unmapped: Dictionary = {}
-var stats := {"decisionsSkipped": 0, "readySkipped": 0, "forcedPass": 0, "autoResolved": 0, "injected": 0, "refus": 0}
+var stats := {"decisionsSkipped": 0, "readySkipped": 0, "forcedPass": 0, "autoResolved": 0, "refus": 0}
 var _tbl: Dictionary = {}
 var _steps: Array = []
 var _prev_players: Array = []
@@ -98,9 +97,8 @@ func _deck(list: Array, kind: String) -> Array:
 	return out
 
 
-## Usage : Apk.new().replay(trace, inject_setup_rooms) (une instance par rejeu).
-func replay(trace: Dictionary, inject_setup_rooms: bool) -> Dictionary:
-	inject = inject_setup_rooms
+## Usage : Apk.new().replay(trace) (une instance par rejeu).
+func replay(trace: Dictionary) -> Dictionary:
 	_index_cards()
 	var initial: Dictionary = trace["initial"]
 	var meta: Dictionary = trace.get("meta", {})
@@ -157,6 +155,7 @@ func replay(trace: Dictionary, inject_setup_rooms: bool) -> Dictionary:
 			(run.G["players"][pid] as Dictionary)["hand"] = hand
 		run._queue_next_opening_discard()
 
+	run.G["forcedRandom"] = _involuntary_losses()
 	proj["0"] = project()
 	for i in _steps.size():
 		var s: Dictionary = _steps[i]
@@ -388,6 +387,9 @@ func _ahead(s: Dictionary) -> bool:
 
 
 func _on_phase(s: Dictionary) -> void:
+	# NextStep() de l'oracle sorti sans executer de phase (fin de duel de sorts) : rien a rejouer.
+	if (s.get("detail", {}) as Dictionary).get("executed", true) == false:
+		return
 	if _ahead(s):
 		if str(s["phase"]) in ["AdventurePhase_c"]:
 			_refus(s, "adventureNext", int(s["activePlayer"]) - 1 if s["activePlayer"] != null else -1, "Godot a deja termine ce tour (il est au tour %d, l'oracle au tour %d)" % [int(run.G.get("turn", 0)) - 1, int(s["turn"])])
@@ -419,8 +421,12 @@ func _on_phase(s: Dictionary) -> void:
 
 ## BuildPhase_a : Godot attend un coup de chaque joueur ; l'oracle a "passe" pour ceux qui n'ont pas construit.
 func _sync_build(target: int, s: Dictionary) -> void:
+	var turn0 := int(run.G.get("turn", 0))
 	for _k in 8:
 		if str(run.G.get("phase", "")) != "build" or not (run.G.get("pendingChoice", {}) as Dictionary).is_empty():
+			return
+		# Tour de construction supplementaire de Godot (forcedBuild) ou tour suivant : c'est a l'oracle de piloter.
+		if run.G.has("forcedBuild") or int(run.G.get("turn", 0)) != turn0:
 			return
 		var cur: int = run.active_player()
 		if target >= 0 and cur == target:
@@ -460,6 +466,7 @@ func _adv_step(s: Dictionary) -> void:
 	_auto_resolve(s)
 	if _apply_type(pid, "adventureNext", s):
 		_settle()
+
 
 
 ## Les fenetres de pause d'aventure de Godot (post-damage, pre-exit) correspondent aux
@@ -524,6 +531,39 @@ func _on_action(i: int, s: Dictionary) -> void:
 			_refus(s, act, pid, "action non portee par le harnais")
 
 
+## Tirages « au hasard » de l'oracle (defausse aleatoire d'un sort...) : instances qui quittent une main sans
+## cause visible dans la trace (ni carte jouee/construite par l'action, ni carte designee par une decision).
+## Dans l'ordre de la trace ; Godot les force via G["forcedRandom"] (RoomAbilities._discard_random_spell_from).
+func _involuntary_losses() -> Array:
+	var out: Array = []
+	for i in range(1, _steps.size()):
+		var s: Dictionary = _steps[i]
+		var keep := {}
+		var d: Dictionary = s.get("detail", {}) if s.get("detail") is Dictionary else {}
+		for key in ["room", "spell"]:
+			if d.get(key) is Dictionary:
+				keep[int((d[key] as Dictionary)["id"])] = true
+		var group: Array = [s]
+		group.append_array(_nested(i))
+		for n in group:
+			var nd = (n as Dictionary).get("detail")
+			if nd is Dictionary and (nd as Dictionary).get("chosen") is Array:
+				for c in (nd as Dictionary)["chosen"]:
+					keep[int((c as Dictionary)["id"])] = true
+		var now := {}
+		for p in (s["players"] as Array):
+			for k in ["hand", "spells"]:
+				for c in ((p as Dictionary)[k] as Array):
+					now[int((c as Dictionary)["id"])] = true
+		for p in ((_steps[i - 1] as Dictionary)["players"] as Array):
+			for k in ["hand", "spells"]:
+				for c in ((p as Dictionary)[k] as Array):
+					var oid := int((c as Dictionary)["id"])
+					if not now.has(oid) and not keep.has(oid) and not out.has(oid):
+						out.append(oid)
+	return out
+
+
 func _prev_slot_rooms(player_id: int, slot: int) -> Array:
 	for p in _prev_players:
 		if int((p as Dictionary)["playerId"]) == player_id:
@@ -539,19 +579,6 @@ func _build(s: Dictionary, d: Dictionary, pid: int) -> void:
 	var label := "buildRoom(%s)" % str((d["room"] as Dictionary)["card"])
 	if hi < 0:
 		_refus(s, label, pid, "carte absente de la main Godot")
-		return
-	# Premiere salle de l'oracle (Setup_b). Godot n'a pas cette etape : REFUS, ou injection explicite.
-	if str(s["phase"]).begins_with("Setup") and inject:
-		var p: Dictionary = run.G["players"][pid]
-		var card: Dictionary = (p["hand"] as Array).pop_at(hi)
-		card["faceDown"] = false
-		(p["dungeon"] as Array).push_front([card])
-		# Revelation de Setup_c avec la logique de Godot elle-meme (effet "quand tu construis").
-		var choice = RoomAbilities.on_build_room(run.G, pid, card)
-		if choice is Dictionary:
-			RoomAbilities.enqueue_pending(run.G, choice)
-		stats["injected"] += 1
-		_note(s, "INJECT", "salle initiale %s posee par le harnais (pas de phase Setup_b dans Godot)%s" % [str(card.get("id", "?")), (" ; choix en attente '%s'" % str((choice as Dictionary).get("type", ""))) if choice is Dictionary else ""])
 		return
 	var args: Array = [hi]
 	var under := _prev_slot_rooms(pid + 1, int(d["slot"]))

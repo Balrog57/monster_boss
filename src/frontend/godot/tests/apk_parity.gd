@@ -1,9 +1,7 @@
 extends Node
 ## Pilote headless du harnais de parite APK : rejoue les traces `oracle-*.json`
-## (tools/apk-oracle) dans le moteur GDScript, en deux modes :
-##   strict : aucune aide (la premiere salle de Setup_b est refusee si Godot ne la propose pas)
-##   inject : le harnais pose lui-meme les salles initiales de Setup_b (isole les ecarts suivants)
-## Ecrit gd-<mode>-<trace>.json a cote des traces. La comparaison est faite par tools/parity/apk.mjs.
+## (tools/apk-oracle) dans le moteur GDScript, sans aucune aide.
+## Ecrit gd-<trace>.json a cote des traces. La comparaison est faite par tools/parity/apk.mjs.
 ##
 ## Usage :
 ##   godot --headless --path src/frontend res://godot/tests/ApkParity.tscn -- --traces=<dossier absolu>
@@ -44,13 +42,12 @@ func _ready() -> void:
 			print("APK PARITY FAIL: trace illisible %s" % f)
 			get_tree().quit(1)
 			return
-		for mode in ["strict", "inject"]:
-			print("APK START %s %s" % [f, mode])
-			var r: Dictionary = Apk.new().replay(trace, mode == "inject")
-			var fh := FileAccess.open(dir.path_join("gd-%s-%s" % [mode, f.trim_prefix("oracle-")]), FileAccess.WRITE)
-			fh.store_string(JSON.stringify(r))
-			fh.close()
-			print("APK REPLAY %s %s refus=%d" % [f, mode, int((r["stats"] as Dictionary)["refus"])])
+		print("APK START %s" % f)
+		var r: Dictionary = Apk.new().replay(trace)
+		var fh := FileAccess.open(dir.path_join("gd-%s" % f.trim_prefix("oracle-")), FileAccess.WRITE)
+		fh.store_string(JSON.stringify(r))
+		fh.close()
+		print("APK REPLAY %s refus=%d" % [f, int((r["stats"] as Dictionary)["refus"])])
 		n += 1
 	print("APK PARITY OK traces=%d" % n)
 	get_tree().quit(0)

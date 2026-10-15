@@ -205,22 +205,24 @@ static func order_by_xp(players: Dictionary) -> Array:
 		out.append(e["pid"])
 	return out
 
-# DuringPhase des sorts dont la categorie ne donne pas la bonne phase (BaseDeck/data.json).
-const SPELL_PHASE_OVERRIDE := {
-	"BMA045": "adventure",  # Fear (categorie 1)
-	"BMA050": "build",      # Motivation (categorie 3)
-	"BMA053": "adventure",  # Teleportation (categorie 1)
-	"BMA054": "adventure",  # Trepidation (categorie 2)
+# Fenetre de jeu de chaque sort du base set = condition DuringPhase de son Ability (BaseDeck/data.json,
+# DuringPhase.cs : "Build" = BuildPhase_a seule, "Adventure" = AdventurePhase_a/b/c). SpellCategory n'est PAS
+# une phase (Freeze est categorie 2 mais sans condition : jouable partout ; Fear/Teleportation categorie 1 : aventure).
+# "any" = aucune condition de phase (Ability.CheckConditions ne bloque que Setup_b).
+const SPELL_PHASE := {
+	"BMA040": "adventure", "BMA041": "adventure", "BMA042": "adventure", "BMA043": "any",
+	"BMA044": "adventure", "BMA045": "adventure", "BMA046": "any", "BMA047": "adventure",
+	"BMA048": "any", "BMA049": "build", "BMA050": "build", "BMA051": "build",
+	"BMA052": "any", "BMA053": "adventure", "BMA054": "adventure", "BMA055": "build",
 }
 
 static func can_play_spell(card: Dictionary, phase: String, stack_len: int = 0) -> bool:
 	var cid := str(card.get("id", ""))
-	if (cid == "BMA043" or cid == "RMB077") and stack_len > 0:
-		return true
-	# SpellCategory (data.json) n'est qu'un type de sort, pas une phase : la phase vient de la
-	# condition DuringPhase de l'Ability (Spell.cs / DuringPhase.cs). Ecarts constates en base set.
-	if SPELL_PHASE_OVERRIDE.has(cid):
-		return phase == SPELL_PHASE_OVERRIDE[cid]
+	if cid == "BMA043" and stack_len == 0:
+		return false # Counterspell : exige un sort adverse en attente (SpellCardJustPlayed)
+	if SPELL_PHASE.has(cid):
+		var w: String = SPELL_PHASE[cid]
+		return w == phase or (w == "any" and (phase == PHASE["BUILD"] or phase == PHASE["ADVENTURE"]))
 	var cat := int(card.get("category", 0))
 	if cat == 4 or cat == 5:
 		return phase == PHASE["BUILD"] or phase == PHASE["ADVENTURE"]

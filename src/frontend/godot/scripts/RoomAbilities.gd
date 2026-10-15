@@ -634,6 +634,12 @@ static func _discard_random_spell_from(G: Dictionary, pid: int, label: String) -
 	if idxs.is_empty():
 		return
 	var pick: int = idxs[randi() % idxs.size()]
+	# Crochet de rejeu (harnais de parite APK) : G["forcedRandom"] = _oid des cartes tirees par l'oracle, dans l'ordre. Absent => hasard.
+	for f in (G.get("forcedRandom", []) as Array):
+		var hit := idxs.filter(func(i): return int((hand[i] as Dictionary).get("_oid", -1)) == int(f))
+		if not hit.is_empty():
+			pick = hit[0]
+			break
 	var card: Dictionary = hand[pick]
 	hand.remove_at(pick)
 	opp["hand"] = hand

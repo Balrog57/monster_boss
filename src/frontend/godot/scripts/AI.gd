@@ -113,10 +113,18 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 				return 0.0
 			var spell: Dictionary = hand[hand_idx]
 			var target: Dictionary = args[1] if args.size() > 1 and args[1] != null else {}
+			# Politique de l'IA pendant une Spell Battle (AbilityCalculator.CalculateAbilityAndTargetValue : si
+			# IsSpellBattleActive, seuls BMA043 et BMA025 sont evalues). La regle, elle, autorise toute reponse legale.
+			if not (G.get("stack", []) as Array).is_empty() and str(spell.get("id", "")) != "BMA043":
+				return -50.0
 			return _score_spell(spell, target, p, G, pid)
 
 		"activateRoom":
 			var room_idx := int(args[0]) if not args.is_empty() else -1
+			if not (G.get("stack", []) as Array).is_empty():
+				var sroom = BossEngine.active_room((p.get("dungeon", []) as Array)[room_idx]) if room_idx >= 0 and room_idx < (p.get("dungeon", []) as Array).size() else null
+				if sroom == null or str((sroom as Dictionary).get("id", "")) != "BMA025":
+					return -50.0 # meme politique : en Spell Battle l'IA n'active que All-Seeing Eye
 			return _score_activate_room(room_idx, p, G, pid)
 
 		"passBuild":
@@ -301,13 +309,8 @@ static func _get_total_dungeon_damage(p: Dictionary) -> int:
 static func _score_spell(spell: Dictionary, target: Dictionary, p: Dictionary, G: Dictionary, pid: int) -> float:
 	var sid := str(spell.get("id", ""))
 	match sid:
-		"BMA043": # Counterspell
-			var stack: Array = G.get("stack", [])
-			if not stack.is_empty():
-				var top_spell: Dictionary = stack[stack.size() - 1]
-				if int(top_spell.get("playerId", -1)) != pid:
-					return 150.0 # Contre-sort prioritaire !
-			return 0.0
+		"BMA043": # Counterspell : une cible = un sort adverse en attente (SpellCardJustPlayed)
+			return 150.0 if target.has("stackId") else 0.0 # Contre-sort prioritaire !
 		"BMA040", "BMA047": # Buff salle (+3 DMG)
 			if not (p.get("entrance", []) as Array).is_empty() and target.get("roomIndex") != null:
 				return 100.0

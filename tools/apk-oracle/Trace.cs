@@ -45,7 +45,7 @@ sealed class Trace
 
     public int Begin() => ++seq;
 
-    public void Phase(string why) => Add(Begin(), "phase", new { why });
+    public void Phase(string why, bool executed = true) => Add(Begin(), "phase", new { why, executed }); // executed=false : NextStep() n'a execute aucune phase
 
     public void Add(int s, string kind, object detail)
     {

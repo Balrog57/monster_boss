@@ -119,17 +119,11 @@ func legal_moves(pid: int) -> Array:
 	if not stack.is_empty():
 		if pid != active_player():
 			return out
-		for i in (p.get("hand", []) as Array).size():
-			var c: Dictionary = (p["hand"] as Array)[i]
-			if c.get("isSpell", false) and (str(c.get("id", "")) == "BMA043" or str(c.get("id", "")) == "RMB077"):
-				out.append({"type": "playSpell", "args": [i, null]})
-		for i in (p.get("dungeon", []) as Array).size():
-			var room = BossEngine.active_room((p["dungeon"] as Array)[i])
-			if room != null:
-				var rd: Dictionary = room
-				var rid := str(rd.get("id", ""))
-				if rid == "BMA025" and not bool(rd.get("usedThisTurn", false)) and not bool(rd.get("faceDown", false)) and RoomAbilities.can_cancel_spell(G, pid):
-					out.append({"type": "activateRoom", "args": [i]})
+		# Spell Battle (GameBoard.OnAbilityApplyRequest -> PlayerInteraction.AbilityApplyRequest) : tout joueur vivant
+		# peut repondre avec N'IMPORTE QUELLE capacite dont les conditions passent (Ability.CheckConditions) : tout sort
+		# jouable dans la phase en cours (Counterspell compris) et toute salle activable. Se limiter a Counterspell /
+		# All-Seeing Eye est la politique de l'IA (AbilityCalculator.cs), pas une regle : voir AI.score_move.
+		out.append_array(_stack_response_moves(p, pid, stack.size()))
 		out.append({"type": "pass", "args": []})
 		return out
 
@@ -346,53 +340,46 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 			var spell: Dictionary = hand[si]
 			if not spell.get("isSpell", false):
 				return false
+			var sid := str(spell.get("id", ""))
+			var stack: Array = G.get("stack", [])
+			# Counterspell : sa cible est un sort ADVERSE encore en attente ; lui-meme est une transaction de la pile
+			# (donc contrable a son tour), pas une annulation immediate.
+			var counter_idx := -1
+			if sid == "BMA043":
+				counter_idx = _stack_index_of(str(target.get("stackId", "")))
+				if counter_idx < 0 or int((stack[counter_idx] as Dictionary).get("playerId", -1)) == pid:
+					return false
+				target = {"stackId": str(target["stackId"])}
 			hand.remove_at(si)
 			_log("Joueur %d joue %s." % [pid, spell.get("name", "?")])
-
-			var sid := str(spell.get("id", ""))
-			if sid == "BMA043": # Counterspell
-				var stack: Array = G.get("stack", [])
-				var top = stack.pop_back() if not stack.is_empty() else null
-				var decks: Dictionary = G.get("decks", {})
-				var sd: Array = decks.get("spellDiscard", [])
-				decks["spellDiscard"] = sd
-				sd.append(spell)
-				if top != null and top.has("card"):
-					sd.append(top["card"])
-					_log("Counterspell annule %s." % str(top["card"].get("name", "?")))
-				else:
-					_log("Counterspell : rien sur la pile.")
-				RoomAbilities.stack_return_control(G)
-				return true
-			else:
-				var stack: Array = G.get("stack", [])
-				G["stack"] = stack
-				if stack.is_empty():
-					G["stackActivePlayer"] = G.get("activePlayer", pid)
-				G["stackReturnPlayer"] = pid
-				stack.append({
-					"id": "spell-%s-%d" % [sid, randi()],
-					"type": "spell",
-					"playerId": pid,
-					"card": spell,
-					"target": target,
-					"resolved": false
-				})
-				var sp: Dictionary = {str(pid): true}
-				sp[pid] = true
-				G["stackPassed"] = sp
-				var next := _next_stack_responder()
-				if next >= 0:
-					G["activePlayer"] = next
-				else:
-					_resolve_pending_stack()
-				return true
+			G["stack"] = stack
+			if stack.is_empty():
+				G["stackActivePlayer"] = active_player()
+			G["stackReturnPlayer"] = pid
+			var entry := {
+				"id": "spell-%s-%d" % [sid, randi()],
+				"type": "spell",
+				"playerId": pid,
+				"card": spell,
+				"target": target,
+				"resolved": false
+			}
+			stack.insert(_stack_insert_index(entry, counter_idx), entry)
+			_reopen_stack_window(pid)
+			return true
 		"activateRoom":
 			var ri := int(move["args"][0])
+			var in_battle := not (G.get("stack", []) as Array).is_empty()
+			var act_room = BossEngine.active_room((p["dungeon"] as Array)[ri]) if ri >= 0 and ri < (p["dungeon"] as Array).size() else null
+			var act_rid := str((act_room as Dictionary).get("id", "")) if act_room != null else ""
 			var err = RoomAbilities.activate_room_ability(G, pid, ri, int(move["args"][1]) if move["args"].size() > 1 else -1)
 			if err != null:
 				_log(str(err))
 				return false
+			# Une capacite activee pendant une Spell Battle la relance (IsActivatedByUser : PendingSpellBattlePlayers = tous).
+			# All-Seeing Eye garde sa propre reprise de main (RoomAbilities.stack_return_control).
+			if in_battle and act_rid != "BMA025":
+				_reopen_stack_window(pid)
 			return true
 		"pass", "passBuild":
 			var stack: Array = G.get("stack", [])
@@ -743,6 +730,8 @@ func _finish_setup() -> void:
 func _start_turn() -> void:
 	G["setupBuild"] = false
 	G["turn"] = int(G.get("turn", 0)) + 1
+	# Les effets « jusqu'a la fin du tour » (Jackpot Stash, bonus de degats...) expirent (reducer.js beginPhaseBeginning).
+	G["effects"] = SpellEffects.empty_effects()
 	# Phase 1 : BEGINNING (Début de tour)
 	G["phase"] = CardDB.PHASE["BEGINNING"]
 	_log("Tour %d — phase BEGINNING." % G["turn"])
@@ -787,10 +776,8 @@ func _start_turn() -> void:
 	_drive_ai()
 
 func _reveal_heroes_in_town() -> void:
-	var alive_count := 0
-	for pid in G["players"]:
-		if not (G["players"][pid] as Dictionary).get("eliminated", false):
-			alive_count += 1
+	# GameBoard.RevealHeroes : un heros par joueur de la partie (Players.Count), eliminés compris.
+	var alive_count: int = (G["players"] as Dictionary).size()
 	var decks: Dictionary = G["decks"]
 	for i in alive_count:
 		CardDB.refill_from_discard(decks["heroes"], decks["heroDiscard"], rng)
@@ -928,7 +915,7 @@ func _resolve_bait() -> void:
 	var order := CardDB.order_by_xp(G["players"])
 	for hero in town:
 		var treasure := int((hero as Dictionary).get("treasure", 1))
-		var target := BossEngine.lure_target(G["players"], order, treasure)
+		var target := BossEngine.lure_target(G["players"], order, treasure, hero, G)
 		if target >= 0:
 			var target_player: Dictionary = G["players"][target]
 			(target_player["entrance"] as Array).append(hero)
@@ -946,7 +933,75 @@ func _turn_order() -> Array:
 	return o
 
 
-## Gestion de la pile de sorts (LIFO). Ordre de reponse = GameBoard.OnAbilityApplyRequest :
+## Coups de reponse d'un joueur pendant une Spell Battle : sorts jouables dans la phase (cibles comprises) + salles activables.
+func _stack_response_moves(p: Dictionary, pid: int, stack_len: int) -> Array:
+	var out: Array = []
+	var phase := str(G.get("phase", ""))
+	var hand: Array = p.get("hand", []) as Array
+	for i in hand.size():
+		var c: Dictionary = hand[i]
+		if not c.get("isSpell", false) or not CardDB.can_play_spell(c, phase, stack_len):
+			continue
+		for t in SpellTargeting.spell_targets_for(G, p, pid, str(c.get("id", ""))):
+			out.append({"type": "playSpell", "args": [i, t]})
+	var dungeon: Array = p.get("dungeon", []) as Array
+	for i in dungeon.size():
+		var room = BossEngine.active_room(dungeon[i])
+		if room == null:
+			continue
+		var rd: Dictionary = room
+		var rid := str(rd.get("id", ""))
+		if bool(rd.get("usedThisTurn", false)) or bool(rd.get("faceDown", false)):
+			continue
+		if rid == "BMA025":
+			if RoomAbilities.can_cancel_spell(G, pid):
+				out.append({"type": "activateRoom", "args": [i]})
+		elif ACTIVATABLE_ROOMS.has(rid):
+			if rid == "BMA028" or rid == "BMA032":
+				for j in dungeon.size():
+					if j != i and RoomAbilities.activate_room_ability(G.duplicate(true), pid, i, j) == null:
+						out.append({"type": "activateRoom", "args": [i, j]})
+			elif RoomAbilities.activate_room_ability(G.duplicate(true), pid, i) == null:
+				out.append({"type": "activateRoom", "args": [i]})
+	return out
+
+## Rang de joueur = Boss.PlayerId (XP decroissant, voir _stack_response_order).
+func _player_rank(pid: int) -> int:
+	var xp_order: Array = G.get("xpOrder", [])
+	if xp_order.is_empty():
+		xp_order = CardDB.order_by_xp(G["players"])
+	var r := xp_order.find(pid)
+	return r if r >= 0 else 999
+
+func _stack_index_of(stack_id: String) -> int:
+	var stack: Array = G.get("stack", [])
+	for i in stack.size():
+		if str((stack[i] as Dictionary).get("id", "")) == stack_id:
+			return i
+	return -1
+
+## Position d'une nouvelle transaction dans PendingAbilityTransactions (GameBoard.EnqueueAbilityTransaction) ;
+## l'index 0 est resolu en premier (NextStep : First()). Joueur du tour -> tete (donc LIFO entre ses propres sorts) ;
+## sinon juste avant le premier sort d'un joueur hors-tour de rang >= au sien qui n'est pas un Counterspell, sinon en fin.
+## Un Counterspell est ensuite replace juste avant sa cible (OnAbilityApplyRequest) : il se resout donc avant elle.
+## Ce n'est NI du FIFO NI du LIFO pur : le joueur du tour passe devant, les autres suivent par rang de joueur.
+func _stack_insert_index(entry: Dictionary, counter_target_idx: int) -> int:
+	if counter_target_idx >= 0:
+		return counter_target_idx
+	var stack: Array = G.get("stack", [])
+	var active := int(G.get("stackActivePlayer", -1))
+	var caster := int(entry.get("playerId", -1))
+	if caster == active:
+		return 0
+	var rank := _player_rank(caster)
+	for i in stack.size():
+		var t: Dictionary = stack[i]
+		var tp := int(t.get("playerId", -1))
+		if tp != active and _player_rank(tp) >= rank and str((t.get("card", {}) as Dictionary).get("id", "")) != "BMA043":
+			return i
+	return stack.size()
+
+## Gestion de la pile de sorts (ordre de resolution : voir _stack_insert_index). Ordre de reponse = GameBoard.OnAbilityApplyRequest :
 ## InGamePlayersPriorized (PlayerId croissant = rang XP), lanceur exclu ; le joueur du tour n'a aucune priorite.
 func _stack_response_order() -> Array:
 	var caster := str(G.get("stackReturnPlayer", ""))
@@ -961,6 +1016,21 @@ func _stack_response_order() -> Array:
 		if spid != caster and not pl.is_empty() and not pl.get("eliminated", false):
 			order.append(ipid)
 	return order
+
+## Un sort / une capacite vient d'etre ajoute : tous les AUTRES joueurs peuvent repondre a nouveau (PendingSpellBattlePlayers
+## est reinitialise a chaque capacite activee). S'il n'y a plus personne, la pile se resout.
+func _reopen_stack_window(pid: int) -> void:
+	G["stackReturnPlayer"] = pid
+	var sp: Dictionary = {str(pid): true}
+	sp[pid] = true
+	G["stackPassed"] = sp
+	if not (G.get("pendingChoice", {}) as Dictionary).is_empty():
+		return # le joueur garde la main le temps de son choix, puis passe
+	var next := _next_stack_responder()
+	if next >= 0:
+		G["activePlayer"] = next
+	else:
+		_resolve_pending_stack()
 
 func _next_stack_responder() -> int:
 	var passed: Dictionary = G.get("stackPassed", {})
@@ -979,7 +1049,7 @@ func _stack_all_responders_passed() -> bool:
 func _resolve_pending_stack() -> void:
 	var stack: Array = G.get("stack", [])
 	while not stack.is_empty():
-		var effect: Dictionary = stack.pop_back()
+		var effect: Dictionary = stack.pop_front() # index 0 = prochain a se resoudre (NextStep : PendingAbilityTransactions.First())
 		if bool(effect.get("resolved", false)):
 			continue
 		var etype := str(effect.get("type", ""))
@@ -990,9 +1060,22 @@ func _resolve_pending_stack() -> void:
 			var decks: Dictionary = G.get("decks", {})
 			var sd: Array = decks.get("spellDiscard", [])
 			decks["spellDiscard"] = sd
-			sd.append(card)
+			sd.append(card) # la carte part en defausse a l'activation (OnAbilityApplyRequest), annulee ou non
+			if bool(effect.get("canceled", false)):
+				_log("Le sort %s a ete annule." % str(card.get("name", "?")))
+				effect["resolved"] = true
+				continue
 			_log("Le sort %s se résout." % str(card.get("name", "?")))
-			SpellEffects.cast_spell(G, caster_id, card, target)
+			if str(card.get("id", "")) == "BMA043":
+				# CancelSpellAbility.Execute : la transaction cible est annulee (elle reste en liste, mais ne s'executera pas).
+				var ti := _stack_index_of(str(target.get("stackId", "")))
+				if ti >= 0:
+					(stack[ti] as Dictionary)["canceled"] = true
+					_log("Counterspell annule %s." % str(((stack[ti] as Dictionary).get("card", {}) as Dictionary).get("name", "?")))
+				else:
+					_log("Counterspell : cible deja partie.")
+			else:
+				SpellEffects.cast_spell(G, caster_id, card, target)
 			var caster: Dictionary = (G.get("players", {}) as Dictionary).get(caster_id, {}) as Dictionary
 			for st in (caster.get("dungeon", []) as Array):
 				var r = BossEngine.active_room(st)

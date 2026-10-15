@@ -4,8 +4,8 @@
 //   node tools/parity/apk.mjs [--seeds 1 2 3] [--players 2 3] [--skip-gen]
 //
 // 1. genere les traces oracle (seeds x joueurs, BaseDeck) dans tools/parity/out/apk/
-// 2. Godot (ApkParity.tscn) rejoue chaque trace en deux modes (strict / inject) et
-//    enregistre sa projection apres chaque step de l'oracle
+// 2. Godot (ApkParity.tscn) rejoue chaque trace (aucune aide) et enregistre sa projection
+//    apres chaque step de l'oracle
 // 3. ce script projette l'etat de l'oracle de la meme facon, compare aux points de
 //    controle (voir README.md) et ecrit tools/parity/out/apk/report.json
 //
@@ -19,7 +19,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../..');
 export const OUT = path.join(HERE, 'out', 'apk');
-const MODES = ['strict', 'inject'];
 
 // --- projection de l'oracle (miroir de ApkParityTrace.project) ---------------
 
@@ -112,10 +111,7 @@ export function diffProj(o, g, kind, skip = []) {
   for (const p of Object.keys(fo)) {
     if (!res.some((re) => re.test(p))) continue;
     if (JSON.stringify(fo[p]) === JSON.stringify(fg[p] ?? null)) continue;
-    // "soft" : memes effectifs mais pas les memes cartes de sort. Un sort defausse au hasard (Specter's Sanctum...)
-    // depend du RNG de chaque moteur : non reproductible, signale a part au lieu d'invalider tout le reste.
-    const soft = /^players\.[^.]+\.spells$/.test(p) && Array.isArray(fg[p]) && fg[p].length === fo[p].length;
-    out.push({ field: p, group: group(p), oracle: fo[p], godot: fg[p] ?? null, soft });
+    out.push({ field: p, group: group(p), oracle: fo[p], godot: fg[p] ?? null });
   }
   return out;
 }
@@ -127,8 +123,6 @@ function compareTrace(trace, gd) {
   const checks = [];
   let matched = 0;
   let firstDivergence = null;
-  let firstSoft = null;
-  let softCount = 0;
   const firstByField = {};
   for (let i = 0; i < steps.length; i++) {
     const kind = checkKind(steps, i);
@@ -136,10 +130,7 @@ function compareTrace(trace, gd) {
     const s = steps[i];
     // turnstart/bait : Godot enchaine parfois plusieurs phases en un coup, on compare a sa photo prise au bon moment.
     const g = kind === 'turnstart' || kind === 'bait' ? gd.snaps[`${kind}:${s.turn}`] : gd.proj[String(s.seq)];
-    const all = g ? diffProj(oracleProj(s, trace), g, kind, skipFields(steps, i, kind)) : [{ field: '(point non atteint par Godot)', group: '-', oracle: null, godot: null }];
-    const diffs = all.filter((x) => !x.soft);
-    const soft = all.filter((x) => x.soft);
-    if (soft.length) softCount++, (firstSoft ??= { seq: s.seq, phase: s.phase, field: soft[0].field, oracle: soft[0].oracle, godot: soft[0].godot });
+    const diffs = g ? diffProj(oracleProj(s, trace), g, kind, skipFields(steps, i, kind)) : [{ field: '(point non atteint par Godot)', group: '-', oracle: null, godot: null }];
     checks.push({ seq: s.seq, kind, ok: diffs.length === 0 });
     if (diffs.length === 0) { matched++; continue; }
     const d = diffs[0];
@@ -153,23 +144,11 @@ function compareTrace(trace, gd) {
     .filter(Boolean).sort((a, b) => a.seq - b.seq)[0];
   return {
     status: first ? `${first.k}@${first.seq}` : 'OK',
-    firstRefus, firstDivergence, firstByField, firstSoft, softCount,
+    firstRefus, firstDivergence, firstByField,
     refusCount: refus.length, checks: checks.length, matched,
     notes: gd.events.filter((e) => e.type !== 'REFUS').length,
     stats: gd.stats,
   };
-}
-
-// Joueurs dont la main d'ouverture n'est pas les 5 premieres salles + 2 premiers sorts de `initial`
-// (GameBoard.AvoidMulliganCondition a remelange : regle absente du port Godot).
-function mulliganPlayers(trace) {
-  const dec = trace.steps.filter((s) => s.kind === 'decision' && s.phase === 'Setup_a' && s.detail.decision === 'discard');
-  const out = [];
-  dec.forEach((s, k) => {
-    const want = new Set([...trace.initial.deckRooms.slice(5 * k, 5 * k + 5), ...trace.initial.deckSpells.slice(2 * k, 2 * k + 2)].map((c) => c.id));
-    if (!s.detail.options.every((c) => want.has(c.id))) out.push(s.detail.player);
-  });
-  return out;
 }
 
 // --- orchestration --------------------------------------------------------------
@@ -225,36 +204,29 @@ async function main() {
   for (const name of names) {
     const trace = JSON.parse(fs.readFileSync(path.join(OUT, name), 'utf8'));
     const id = name.replace(/^oracle-/, '');
-    const entry = { trace: name.replace(/^oracle-|\.json$/g, ''), seed: trace.meta.seed, players: trace.meta.players, oracleSteps: trace.steps.length, oracleResult: trace.result, oracleTurns: trace.turns, mulliganPlayers: mulliganPlayers(trace) };
-    for (const mode of MODES) {
-      const gd = JSON.parse(fs.readFileSync(path.join(OUT, `gd-${mode}-${id}`), 'utf8'));
-      gd.unmapped.forEach((c) => unmapped.add(c));
-      entry[mode] = compareTrace(trace, gd);
-    }
+    const entry = { trace: name.replace(/^oracle-|\.json$/g, ''), seed: trace.meta.seed, players: trace.meta.players, oracleSteps: trace.steps.length, oracleResult: trace.result, oracleTurns: trace.turns };
+    const gd = JSON.parse(fs.readFileSync(path.join(OUT, `gd-${id}`), 'utf8'));
+    gd.unmapped.forEach((c) => unmapped.add(c));
+    Object.assign(entry, compareTrace(trace, gd));
     traces.push(entry);
   }
 
-  const report = { generatedAt: new Date().toISOString(), godot: godotExe(), godotScriptErrors: godotErrors.length, unmappedCards: [...unmapped].sort(), modes: MODES, traces };
+  const report = { generatedAt: new Date().toISOString(), godot: godotExe(), godotScriptErrors: godotErrors.length, unmappedCards: [...unmapped].sort(), traces };
   fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report, null, 2));
 
   console.log('');
   console.log(`[apk-parity] cartes non mappees: ${report.unmappedCards.length ? report.unmappedCards.join(', ') : 'aucune'}   erreurs de script Godot: ${godotErrors.length}`);
   console.log('');
-  for (const mode of MODES) {
-    console.log(`== mode ${mode} ${mode === 'inject' ? '(salles initiales de Setup_b posees par le harnais)' : '(aucune aide)'}`);
-    console.log('trace      checks ok/total  refus  statut         premiere divergence d\'etat');
-    for (const t of traces) {
-      const r = t[mode];
-      const d = r.firstDivergence;
-      if (mode === 'strict' && t.mulliganPlayers.length) console.log(`           (oracle: mulligan remelange pour joueur(s) ${t.mulliganPlayers.join(',')})`);
-      console.log(`${t.trace.padEnd(10)} ${String(r.matched).padStart(5)}/${String(r.checks).padEnd(5)}   ${String(r.refusCount).padStart(5)}  ${r.status.padEnd(13)}  ${d ? `seq ${d.seq} ${d.phase} ${d.field} oracle=${fmt(d.oracle)} godot=${fmt(d.godot)}` : '-'}`);
-      if (r.firstRefus) { const f = r.firstRefus; console.log(`           premier REFUS: seq ${f.seq} ${f.phase} P${f.player} ${f.move} (${f.reason}; godot phase=${f.godotPhase} actif=P${f.godotActive} legal=[${f.legal.join(',')}])`); }
-    }
-    console.log('');
+  console.log('trace      checks ok/total  refus  statut         premiere divergence d\'etat');
+  for (const r of traces) {
+    const d = r.firstDivergence;
+    console.log(`${r.trace.padEnd(10)} ${String(r.matched).padStart(5)}/${String(r.checks).padEnd(5)}   ${String(r.refusCount).padStart(5)}  ${r.status.padEnd(13)}  ${d ? `seq ${d.seq} ${d.phase} ${d.field} oracle=${fmt(d.oracle)} godot=${fmt(d.godot)}` : '-'}`);
+    if (r.firstRefus) { const f = r.firstRefus; console.log(`           premier REFUS: seq ${f.seq} ${f.phase} P${f.player} ${f.move} (${f.reason}; godot phase=${f.godotPhase} actif=P${f.godotActive} legal=[${f.legal.join(',')}])`); }
   }
-  console.log('== premiere divergence par groupe de champs (mode inject ; trace@seq) : classe les causes, au-dela de la toute premiere');
+  console.log('');
+  console.log('== premiere divergence par groupe de champs (trace@seq) : classe les causes, au-dela de la toute premiere');
   const groups = {};
-  for (const t of traces) for (const [g, v] of Object.entries(t.inject.firstByField)) (groups[g] ??= []).push(`${t.trace}@${v.seq}`);
+  for (const t of traces) for (const [g, v] of Object.entries(t.firstByField)) (groups[g] ??= []).push(`${t.trace}@${v.seq}`);
   for (const [g, v] of Object.entries(groups).sort((a, b) => b[1].length - a[1].length)) console.log(`  ${g.padEnd(22)} ${v.length}/${traces.length}  ${v.join(' ')}`);
   console.log('');
   console.log(`[apk-parity] rapport: ${path.join(OUT, 'report.json')}`);

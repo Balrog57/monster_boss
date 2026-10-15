@@ -178,7 +178,7 @@ GODOT=<exe> npm run test:parity:apk           # sinon C:/Tools/Godot/...console.
 ```
 
 Sortie : `tools/parity/out/apk/` (gitignore) = `oracle-*.json` (traces),
-`gd-<mode>-*.json` (projections Godot), **`report.json`** et un tableau en console.
+`gd-*.json` (projections Godot), **`report.json`** et un tableau en console.
 Le harnais ne corrige aucune regle : il rapporte (code de sortie 0 meme a 0 %).
 
 ## Fonctionnement
@@ -192,12 +192,7 @@ Le harnais ne corrige aucune regle : il rapporte (code de sortie 0 meme a 0 %).
    Un coup absent de `legal_moves` est un **REFUS** (consigne dans `events`, le rejeu continue).
 3. `apk.mjs` projette l'etat de l'oracle de la meme facon et compare aux points de controle.
 
-Le rejeu tourne en deux modes (deux colonnes du rapport) :
-
-| Mode | Difference |
-|---|---|
-| `strict` | aucune aide. Godot n'a pas d'etape de pose de salle initiale : chaque `buildRoom` de `Setup_b` est un REFUS |
-| `inject` | le harnais pose lui-meme les salles de `Setup_b` (puis declenche leur effet « quand tu construis » avec `RoomAbilities.on_build_room` de Godot) pour isoler les ecarts suivants |
+Le rejeu ne recoit aucune aide : Godot n'a pas d'etape de pose de salle initiale, chaque `buildRoom` de `Setup_b` qu'il ne propose pas est un REFUS.
 
 Correction a la section du dessus : l'APK **a bien** une salle initiale par joueur, posee par
 `BuildRoom` pendant `Setup_b` (visible dans toutes les traces oracle).
@@ -211,7 +206,7 @@ Correction a la section du dessus : l'APK **a bien** une salle initiale par joue
   `initial` seul ne suffit pas). Sommet en premier cote oracle, inverse cote Godot (`pop_back`).
   Une seule pioche heros, dans l'ordre oracle (le port a deux pioches ordinaires/epiques).
 - Mains d'ouverture : les `options` de la decision `discard` de l'oracle ; la defausse de 2 cartes
-  est ensuite rejouee via `openingDiscard`. Le rapport indique `mulliganPlayers` (regle absente du port).
+  est ensuite rejouee via `openingDiscard`.
 - `Match._start_turn` est retenu (`ApkMatch`) jusqu'au step `BeginningOfTurn` de l'oracle.
 
 ## Points de controle et champs compares
@@ -239,22 +234,26 @@ pioches = `heroes` (ordinaires + epiques), `rooms`, `spells`, `discardRooms`, `d
 
 Conventions de rejeu : une fenetre de pause d'aventure Godot (`post-damage`, `pre-exit`) = fenetre
 de sorts de l'oracle, tous les joueurs « passent » ; un `spellBattleReady` fait passer le repondant
-que Godot attend ; `AdventurePhase_c` = un `adventureNext` ; une `decision` oracle sans choix en attente
+que Godot attend ; `AdventurePhase_c` = un `adventureNext`, sauf un step `detail.executed == false` (l'oracle sort de `NextStep()` sans phase quand un duel de sorts se termine, `GameBoard.cs:318`) qui n'est pas rejoue ; une `decision` oracle sans choix en attente
 cote Godot est comptee dans `stats.decisionsSkipped` ; un choix Godot que l'oracle n'a pas resolu est
 pris a l'option 0 (`AUTO-CHOICE`) pour ne pas figer la partie ; si Godot a deja fini le tour que l'oracle
 deroule encore, plus aucun coup n'est joue (REFUS `Godot a deja termine ce tour`).
 
 ## Lire le rapport
 
-`status` = `OK`, `REFUS@seq` ou `DIVERGE@seq` (le plus precoce des deux). Par trace et par mode :
+`status` = `OK`, `REFUS@seq` ou `DIVERGE@seq` (le plus precoce des deux). Par trace :
 `firstRefus`, `firstDivergence` (seq, phase, champ, valeur oracle, valeur Godot), `firstByField`
 (premiere divergence de chaque groupe de champs sur toute la trace : sert a classer les causes, car
 tout ce qui suit la premiere divergence est en cascade), `stats`, `matched/checks`.
 
 ## Limites assumees
 
-- **Sorts defausses au hasard** (Specter's Sanctum...) : meme nombre de sorts, cartes differentes
-  (RNG propre a chaque moteur) -> compte a part (`firstSoft`, `softCount`), n'invalide pas le point.
+- **Tirages au hasard** (Specter's Sanctum, `DiscardRandomCardFromHand`) : le harnais releve dans la trace les cartes qui
+  quittent une main sans cause visible (`_involuntary_losses`) et les passe a Godot dans `G["forcedRandom"]`
+  (crochet sans effet par defaut dans `RoomAbilities._discard_random_spell_from`). Succubus Spa (BMA012,
+  `PickRandomCardFromHand`) et la defausse de salle de Torture Chamber (BMA038) ne sont pas implementees dans Godot.
+- `_sync_build(-1)` (l'oracle a clos la construction) force des `passBuild` mais s'arrete des que Godot ouvre un tour de
+  construction supplementaire (`forcedBuild`) ou change de tour : c'est alors l'oracle qui pilote.
 - Les melanges de reconstitution (pioche vide) ne sont pas reproductibles ; aucune des 6 traces n'en declenche.
 - `chooseDraw` et `undoBuildRoom` n'apparaissent pas dans ces traces ; ils seraient un REFUS.
 - Les decisions `resolveTarget` internes aux capacites (cibles d'IA) ne sont transmises que si Godot

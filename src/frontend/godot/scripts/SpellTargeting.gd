@@ -7,6 +7,7 @@ const SPELL_TARGETS := {
 	"BMA040": {"type": "any-room-trap", "label": "Choose a Trap Room"},
 	"BMA041": {"type": "hero-opponent-dungeon", "label": "Choose a Hero in an opponent's dungeon"},
 	"BMA042": {"type": "own-room", "label": "Choose a room to destroy"},
+	"BMA043": {"type": "stack-spell", "label": "Choose a Spell that has just been played"},
 	"BMA044": {"type": "hero-own-dungeon", "label": "Choose a Hero in your dungeon"},
 	"BMA045": {"type": "hero-any-dungeon", "label": "Choose a Hero to send back to town"},
 	"BMA046": {"type": "any-room", "label": "Choose a room to deactivate"},
@@ -25,6 +26,29 @@ static func spell_needs_target(spell_id: String) -> bool:
 static func _stack_top(stack) -> Variant:
 	return stack[stack.size() - 1] if stack is Array and not (stack as Array).is_empty() else null
 
+## Sommet d'un emplacement CIBLABLE par RoomInDungeon (RoomInDungeon.InternalGetAvailableTargets :
+## slot.IsActive && !slot.PendingToBeBuilt) : ni salle face cachee (construite ce tour), ni emplacement deja gele
+## (Freeze). Renvoie null sinon.
+static func _targetable_top(G: Dictionary, opid: int, idx: int, stack) -> Variant:
+	var r = _stack_top(stack)
+	if r == null or bool((r as Dictionary).get("faceDown", false)):
+		return null
+	var eff: Dictionary = G.get("effects", {}) as Dictionary
+	for d in (eff.get("deactivatedRooms", []) as Array):
+		if int((d as Dictionary).get("playerId", -1)) == opid and int((d as Dictionary).get("roomIndex", -1)) == idx:
+			return null
+	return r
+
+## Sorts adverses en attente sur la pile = SpellCardJustPlayed.GetAvailableTargets (SpellBattleCards,
+## proprietaire different du lanceur ; un sort deja annule reste ciblable, comme dans le C#).
+static func stack_spell_entries(G: Dictionary, player_id: int) -> Array:
+	var out: Array = []
+	for e in (G.get("stack", []) as Array):
+		var ed: Dictionary = e
+		if str(ed.get("type", "")) == "spell" and int(ed.get("playerId", -1)) != player_id:
+			out.append(ed)
+	return out
+
 static func _player(G: Dictionary, pid: int) -> Dictionary:
 	var players: Dictionary = G.get("players", {})
 	if players.has(pid):
@@ -38,8 +62,11 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 	match type:
 		"own-room":
 			for i in (me.get("dungeon", []) as Array).size():
-				if _stack_top((me["dungeon"] as Array)[i]) != null:
+				if _targetable_top(G, pid, i, (me["dungeon"] as Array)[i]) != null:
 					out.append({"roomIndex": i})
+		"stack-spell":
+			for ed in stack_spell_entries(G, pid):
+				out.append({"stackId": str((ed as Dictionary).get("id", "")), "card": (ed as Dictionary).get("card", {})})
 		"own-room-trap":
 			for i in (me.get("dungeon", []) as Array).size():
 				var r = _stack_top((me["dungeon"] as Array)[i])
@@ -56,7 +83,7 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 				if op.get("eliminated", false):
 					continue
 				for i in (op.get("dungeon", []) as Array).size():
-					var r = _stack_top((op["dungeon"] as Array)[i])
+					var r = _targetable_top(G, int(opid), i, (op["dungeon"] as Array)[i])
 					if r != null and str((r as Dictionary).get("type", "")) == "trap":
 						out.append({"targetPlayerId": int(opid), "roomIndex": i})
 		"any-room-monster":
@@ -65,14 +92,16 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 				if op.get("eliminated", false):
 					continue
 				for i in (op.get("dungeon", []) as Array).size():
-					var r = _stack_top((op["dungeon"] as Array)[i])
+					var r = _targetable_top(G, int(opid), i, (op["dungeon"] as Array)[i])
 					if r != null and str((r as Dictionary).get("type", "")) == "monster":
 						out.append({"targetPlayerId": int(opid), "roomIndex": i})
 		"any-room":
 			for opid in (G.get("players", {}) as Dictionary):
 				var op: Dictionary = G["players"][opid]
+				if op.get("eliminated", false):
+					continue
 				for i in (op.get("dungeon", []) as Array).size():
-					if _stack_top((op["dungeon"] as Array)[i]) != null:
+					if _targetable_top(G, int(opid), i, (op["dungeon"] as Array)[i]) != null:
 						out.append({"targetPlayerId": int(opid), "roomIndex": i})
 		"hero-opponent-dungeon":
 			for opid in (G.get("players", {}) as Dictionary):
@@ -153,7 +182,7 @@ static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary
 		"own-room", "own-room-trap", "own-room-monster":
 			var want := "" if type == "own-room" else ("trap" if type == "own-room-trap" else "monster")
 			for i in (me.get("dungeon", []) as Array).size():
-				var r = _stack_top((me["dungeon"] as Array)[i])
+				var r = _targetable_top(G, pid, i, (me["dungeon"] as Array)[i])
 				if r == null:
 					continue
 				var rd: Dictionary = r
@@ -164,8 +193,10 @@ static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary
 		"any-room":
 			for opid in (G.get("players", {}) as Dictionary):
 				var op: Dictionary = G["players"][opid]
+				if op.get("eliminated", false):
+					continue
 				for i in (op.get("dungeon", []) as Array).size():
-					var r = _stack_top((op["dungeon"] as Array)[i])
+					var r = _targetable_top(G, int(opid), i, (op["dungeon"] as Array)[i])
 					if r == null:
 						continue
 					var rd: Dictionary = r
@@ -173,6 +204,12 @@ static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary
 					out.append({"key": "room-%s-%d" % [str(opid), i], "card": rd, "kind": "room",
 						"value": {"targetPlayerId": int(opid), "roomIndex": i},
 						"label": "%s (%s)" % [rd.get("name", ""), owner]})
+		"stack-spell":
+			for ed in stack_spell_entries(G, pid):
+				var sc: Dictionary = (ed as Dictionary).get("card", {}) as Dictionary
+				out.append({"key": "stack-%s" % str((ed as Dictionary).get("id", "")), "card": sc, "kind": "spell",
+					"value": {"stackId": str((ed as Dictionary).get("id", "")), "card": sc},
+					"label": "%s (P%d)" % [str(sc.get("name", "")), int((ed as Dictionary).get("playerId", 0))]})
 		"hero-town":
 			for i in (G.get("town", []) as Array).size():
 				var h: Dictionary = G["town"][i]
