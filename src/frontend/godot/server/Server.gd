@@ -11,7 +11,9 @@ const NetCodec = preload("res://godot/scripts/NetCodec.gd")
 const KNOWN_SETS := ["players-choice", "hidden-heroes", "tools", "next-level", "minibosses", "crash-landing"]
 const CODE_ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 const MAX_MSGS_PER_SEC := 60
-const IDLE_TIMEOUT_MS := 90000 # connexion muette (les clients envoient ping toutes les 20 s)
+## Connexion muette (les clients envoient ping toutes les 20 s). Large a dessein : un onglet en arriere-plan est suspendu par le
+## navigateur et n'envoie plus rien ; couper trop vite le ferait passer pour deconnecte (le client rouvre de toute facon avec resume).
+const IDLE_TIMEOUT_MS := 120000
 
 var port := 8091
 var auto_start := true # faux : un test pilote start() lui-meme

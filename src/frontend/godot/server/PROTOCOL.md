@@ -19,7 +19,7 @@ Les cles entieres des dictionnaires (`players`, `stackPassed`...) voyagent en te
 | `move` | `move: {type, args}` | doit etre exactement un coup de `Match.legal_moves(seat)` (vocabulaire de Match.gd) |
 | `sync` | - | renvoie lobby / etat courant |
 | `leave` | - | salle d'attente : libere le siege (l'hote ferme la salle) ; en partie : l'IA garde le siege definitivement |
-| `ping` | - | `pong` (le client en envoie un toutes les 20 s ; 90 s de silence = deconnexion) |
+| `ping` | - | `pong` (le client en envoie un toutes les 20 s ; 120 s de silence = deconnexion ; un onglet endormi qui se reveille reping aussitot, rouvre la liaison avec `resume` si elle est morte) |
 
 ## Serveur -> client
 
@@ -38,4 +38,6 @@ Les cles entieres des dictionnaires (`players`, `stackPassed`...) voyagent en te
   ou se reconnecte (`resume`). Aucun etat n'est persiste : salle supprimee `ttl` s apres le dernier humain, 10 min apres la fin de partie.
 - Filtrage (`ViewFilter.gd`) : mains adverses, pioches (rooms/spells/heroes/epics/items), salles face cachee adverses, options des choix d'autrui
   deviennent `{"hidden": true}` (tailles conservees) ; `bossPicks` vide hors phase boss ; files internes et crochets de test retires ;
-  noms de cartes caches retires du journal. Toute cle de G inconnue est retiree (liste blanche).
+  minibosses face caches reduits a `{faceDown, hidden}` (sur la salle visible ou sur le dos d'une salle face cachee) ; journal : le moteur ecrit les lignes privees
+  `{t, pub, owners}` (Match._log), le client ne recoit que du texte (`t` pour les proprietaires, `pub` pour les autres, 60 dernieres lignes) ;
+  cles de joueur en liste blanche aussi (`PLAYER_PUBLIC_KEYS`). Toute cle de G inconnue est retiree (liste blanche).

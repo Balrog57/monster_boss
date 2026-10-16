@@ -51,3 +51,15 @@ static func save_settings(host: String, extensions: bool, decks: Variant = null)
 	if decks != null: # omis : on garde le choix de paquets deja enregistre
 		cfg.set_value("settings", "decks", decks)
 	cfg.save(SAVE_PATH)
+
+## Vitesse de jeu (Options APK : 0 SLOW, 1 NORMAL, 2 FAST) : simplement memorisee pour l'instant.
+static func load_speed() -> int:
+	var cfg := ConfigFile.new()
+	cfg.load(SAVE_PATH)
+	return clampi(int(cfg.get_value("settings", "speed", 1)), 0, 2)
+
+static func save_speed(speed: int) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(SAVE_PATH)
+	cfg.set_value("settings", "speed", clampi(speed, 0, 2))
+	cfg.save(SAVE_PATH)

@@ -19,6 +19,11 @@ const LEGACY_HOST := "http://127.0.0.1:8000"
 const SESSION_PATH := "user://online_session.cfg"
 const REQUEST_TIMEOUT_S := 8.0
 const PING_EVERY_S := 20.0
+## Onglet de navigateur en arriere-plan : requestAnimationFrame / minuteurs sont suspendus ou ralentis. Une image qui arrive apres un
+## trou aussi long (delta) declenche un ping immediat ; sans aucun paquet pendant PONG_TIMEOUT_S ensuite, la liaison est reputee morte
+## (le serveur a pu la couper apres IDLE_TIMEOUT_MS) et on la rouvre avec le jeton de siege.
+const SLEEP_GAP_S := 5.0
+const PONG_TIMEOUT_S := 8.0
 
 var host: String = "" # URL du serveur : ws(s)://hote:port, ou http(s)://hote (web : devient ws(s)://hote/ws)
 var match_id: String = ""
@@ -38,6 +43,7 @@ var _ws: WebSocketPeer = null
 var _url := ""
 var _call_id := 0
 var _ping_in := PING_EVERY_S
+var _pong_wait := 0.0 # > 0 : un ping attend sa reponse depuis ce nombre de secondes
 var _retry_in := 0.0
 var _retry_n := 0
 var _resume_on_open := false # reconnexion apres une coupure : renvoyer resume des l'ouverture
@@ -85,17 +91,30 @@ func _process(delta: float) -> void:
 				if _resume_on_open and match_id != "" and credentials != "":
 					_send({"t": "resume", "code": match_id, "seat": player_id, "token": credentials})
 				_reply.emit("open", {})
+			var waited := _pong_wait
 			while _ws.get_available_packet_count() > 0:
+				_pong_wait = 0.0 # n'importe quel paquet prouve que la liaison vit
+				waited = 0.0
 				var pkt := _ws.get_packet()
 				if _ws.was_string_packet():
 					_on_message(NetCodec.parse_message(pkt.get_string_from_utf8()))
+			if delta > SLEEP_GAP_S:
+				_ping_in = 0.0
 			_ping_in -= delta
 			if _ping_in <= 0.0:
 				_ping_in = PING_EVERY_S
 				_send({"t": "ping"})
+				if _pong_wait <= 0.0:
+					_pong_wait = 0.001
+			elif waited > 0.0:
+				_pong_wait = waited + delta
+				if _pong_wait > PONG_TIMEOUT_S:
+					_pong_wait = 0.0
+					_ws.close() # le STATE_CLOSED qui suit relance la reconnexion (resume)
 		WebSocketPeer.STATE_CLOSED:
 			var was_open := connected
 			connected = false
+			_pong_wait = 0.0
 			_ws = null
 			_reply.emit("closed", {})
 			_resume_on_open = match_id != ""

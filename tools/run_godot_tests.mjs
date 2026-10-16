@@ -12,6 +12,7 @@ const SUITES = [
   { scene: 'res://godot/tests/Soak.tscn', ok: 'SOAK OK', label: 'soak Minibosses', args: ['--', '--sets=minibosses', '--runs=4'] },
   { scene: 'res://godot/tests/Soak.tscn', ok: 'SOAK OK', label: 'soak all packs', args: ['--', '--sets=players-choice,hidden-heroes,tools,next-level,crash-landing,minibosses', '--runs=3'] },
   { scene: 'res://godot/tests/OnlineTest.tscn', ok: 'ONLINE OK', label: 'online' },
+  { scene: 'res://godot/tests/UiSmoke.tscn', ok: 'UISMOKE OK', label: 'ui smoke' },
 ];
 
 let failed = 0;

@@ -1,18 +1,19 @@
 extends Control
-## Main — menu facon APK (menu_bg + logo + 4 boutons).
+## Main — menus clones de l'APK 2.2.6 (maquette 1920x1080 : coordonnees absolues relevees sur docs/reference/*.png).
+## Ecran titre (TAP TO START) -> menu 2x2 -> HOW MANY PLAYERS? -> SELECT EXPANSIONS ; OPTIONS ; RULES.
 ## SINGLE PLAYER : 2/3/4 joueurs = vous + 1 a 3 IA.
-## MULTIPLAYER : entre amis uniquement (salon prive + code), pseudo + avatar.
-## IN-APP STORE supprime -> RULES (icone livre rules_icon.webp).
+## MULTIPLAYER : entre amis uniquement (salon prive + code), pseudo + avatar (ecrans pas encore refaits a l'APK).
+## IN-APP STORE supprime -> RULES ; tout est gratuit et debloque.
 ## shortcut: pas de matchmaking mondial (bouton WORLDWIDE volontairement absent).
 
 ## Extensions du wiki hors APK (bascule « Options »).
 const EXT_PACKS := ["next-level", "minibosses", "crash-landing"]
-## Paquets de l'APK (ExpansionScene / LocalMarket.Expansions) : le jeu de base est toujours present, les autres se combinent librement.
-## ToolsHeroKind (comme PowerUpPack) est « COMING SOON » dans l'APK 2.2.6 : CardInfoService.GetAvailableDecks l'exclut, il n'est pas jouable.
+## Paquets de l'APK (ExpansionScene) : le jeu de base est toujours present, les autres se combinent librement.
+## Boutique supprimee : tout est debloque (ToolsHeroKind, « COMING SOON » dans l'APK, est jouable ici : Match gere deja les Items).
 const APK_DECKS := [
-	{"id": "players-choice", "name": "THE PLAYER CHOICE", "info": "7 bosses, 3 epic heroes, 1 spell", "playable": true},
-	{"id": "hidden-heroes", "name": "HIDDEN HEROES", "info": "41 alternate heroes", "playable": true},
-	{"id": "tools", "name": "TOOLS OF HERO KIND", "info": "COMING SOON", "playable": false},
+	{"id": "tools", "name": "TOOLS OF HERO KIND", "info": "20 item cards", "playable": true, "art": "tools_of_hero_front", "desc": "Adds 20 Item cards. One Item is revealed each turn: Heroes carry Power-Ups, and killing them earns the Reward."},
+	{"id": "players-choice", "name": "THE PLAYER'S CHOICE", "info": "7 bosses, 3 epic heroes, 1 spell", "playable": true, "art": "the_players_choice_front", "desc": "Cards chosen by the community: 7 new Bosses, 3 Epic Heroes and 1 Spell."},
+	{"id": "hidden-heroes", "name": "HIDDEN HEROES", "info": "+41 new heroes", "playable": true, "art": "hidden_heroes_front", "desc": "An alternate set of 41 Heroes, hidden in the shadows of Arcadia's dungeons, that replace their base set counterparts."},
 	# Extension du wiki hors APK (livret docs/rules « The Next Level » + FAQ) : paquets de heros TNL (noirs, hybrides), defausse amorcee, main de depart de 7.
 	{"id": "next-level", "name": "THE NEXT LEVEL", "info": "13 bosses, 43 rooms, 17 spells, 42 heroes - wiki", "playable": true},
 	# Extension du wiki hors APK, selectionnable seule (en plus de la bascule « Extensions du wiki » qui active tous les paquets wiki).
@@ -26,6 +27,13 @@ const OnlineClient = preload("res://godot/scripts/OnlineClient.gd")
 const OnlineGameManager = preload("res://godot/scripts/OnlineGameManager.gd")
 const Profile = preload("res://godot/scripts/Profile.gd")
 
+const UI := "res://assets/ui/"
+const FONT_A := "res://assets/fonts/arcadepix.TTF"   # texte plein (bandeaux, ON/OFF)
+const FONT_B := "res://assets/fonts/arcadepix2.TTF"  # texte strie (boutons, libelles)
+const GOLD := Color("cdb15f")
+## Carrousel « HOW MANY PLAYERS? » : carte du dessus (ou "" = dos) de chaque eventail.
+const FANS := {2: ["BMA006", "BMA002", ""], 3: ["BMA005", "", ""], 4: ["BMA001", "", ""]}
+
 var game_manager: GameManager
 var online: OnlineClient
 var board: Control
@@ -33,6 +41,9 @@ var net_err_lbl: Label = null
 var use_extensions := false
 var apk_decks: Array = [] # ids des paquets APK coches (voir APK_DECKS)
 var server_host := "http://127.0.0.1:8000"
+var players := 2 # choix courant de « HOW MANY PLAYERS? »
+var dyn_root: Control # contenu redessine a chaque clic (eventails, tuiles)
+var _gray: ShaderMaterial
 var profile := {"name": "Joueur", "avatar": "avatar_draculord"}
 var selected_avatar := "avatar_draculord"
 
@@ -52,7 +63,7 @@ func _ready() -> void:
 	apk_decks = (settings.get("decks", []) as Array).filter(func(d): return _deck_playable(str(d)))
 	profile = Profile.load_profile()
 	selected_avatar = str(profile.get("avatar", selected_avatar))
-	show_menu()
+	show_title()
 
 func _clear() -> void:
 	for c in get_children():
@@ -67,15 +78,15 @@ func _deck_playable(id: String) -> bool:
 	return false
 
 func _active_sets() -> Array:
-	var sets: Array = apk_decks.duplicate()
-	if use_extensions:
-		sets.append_array(EXT_PACKS)
-	return sets
+	# Les paquets du wiki ne comptent que si l'option « Extensions du wiki » est cochee.
+	return apk_decks.filter(func(d): return use_extensions or not EXT_PACKS.has(d))
 
 ## Cases a cocher « select expansions » (ExpansionScene) : un paquet non jouable est affiche grise.
 func _add_deck_checks(v: Control) -> void:
 	for d in APK_DECKS:
 		var dd: Dictionary = d
+		if EXT_PACKS.has(dd["id"]) and not use_extensions:
+			continue
 		var cb := CheckBox.new()
 		cb.text = "%s  (%s)" % [str(dd["name"]), str(dd["info"])]
 		cb.disabled = not bool(dd["playable"])
@@ -139,61 +150,264 @@ func _back_btn(where: Callable) -> Button:
 	b.pressed.connect(where)
 	return b
 
+# --- widgets APK (positions absolues en 1920x1080) -------------------------------
+
+func _font(path: String) -> Font:
+	return load(path) as Font
+
+func _tex(path: String, pos: Vector2, sz: Vector2 = Vector2.ZERO) -> TextureRect:
+	var t := TextureRect.new()
+	t.texture = load(UI + path)
+	if sz != Vector2.ZERO:
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_SCALE
+		t.size = sz
+	t.position = pos
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
+
+## Texte centre dans le rectangle (pos, sz).
+func _lbl(text: String, size: int, color: Color, pos: Vector2, sz: Vector2, font: String = FONT_B, align: int = HORIZONTAL_ALIGNMENT_CENTER) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_override("font", _font(font))
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", color)
+	l.horizontal_alignment = align
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.position = pos
+	l.size = sz
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+## Zone cliquable invisible.
+func _hit(pos: Vector2, sz: Vector2, cb: Callable, sfx: String = "ui_button_select") -> Button:
+	var b := Button.new()
+	for n in ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]:
+		b.add_theme_stylebox_override(n, StyleBoxEmpty.new())
+	b.focus_mode = Control.FOCUS_NONE
+	b.position = pos
+	b.size = sz
+	b.pressed.connect(func(): AudioManager.play_sfx(sfx))
+	b.pressed.connect(cb)
+	return b
+
+func _img_btn(normal: String, pressed: String, pos: Vector2, cb: Callable, sz: Vector2 = Vector2.ZERO, sfx: String = "ui_button_select") -> TextureButton:
+	var b := TextureButton.new()
+	b.texture_normal = load(UI + normal)
+	b.texture_pressed = load(UI + pressed)
+	if sz != Vector2.ZERO:
+		b.ignore_texture_size = true
+		b.stretch_mode = TextureButton.STRETCH_SCALE
+		b.size = sz
+	b.position = pos
+	b.pressed.connect(func(): AudioManager.play_sfx(sfx))
+	b.pressed.connect(cb)
+	return b
+
+func _flicker(n: Node) -> void:
+	var tw := n.create_tween().set_loops()
+	tw.tween_property(n, "modulate:a", 0.78, 0.35).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(n, "modulate:a", 1.0, 0.25).set_trans(Tween.TRANS_SINE)
+
+## Decor commun (menu_bg + torches + logo) ; back = fleche verte en haut a gauche (Callable invalide = pas de fleche).
+func _apk_screen(back: Callable) -> void:
+	_clear()
+	add_child(_bg(UI + "backgrounds/menu_bg.webp"))
+	for x in [713, 992]: # torch.webp : socle a (820|1100, 900) dans la maquette
+		var t := _tex("gradients/torch.webp", Vector2(x, 690))
+		add_child(t)
+		_flicker(t)
+	add_child(_tex("navigation/bm_logo.webp", Vector2(705, 42), Vector2(540, 218)))
+	if back.is_valid():
+		add_child(_img_btn("buttons/back_bt.webp", "buttons/back_bt_pressed.webp", Vector2(20, 22), back, Vector2.ZERO, "ui_button_goback"))
+
+func _band(text: String) -> void:
+	add_child(_tex("gradients/bg_txt.webp", Vector2(394, 298)))
+	add_child(_lbl(text, 21, GOLD, Vector2(394, 298), Vector2(1132, 64), FONT_A))
+
+func _ok_btn(cb: Callable) -> void:
+	add_child(_img_btn("buttons/ok_bt.webp", "buttons/ok_bt_pressed.webp", Vector2(1697, 960), cb))
+
+# --- ecran titre -------------------------------------------------------------------
+
+func show_title() -> void:
+	_clear()
+	AudioManager.play_music("music_main")  # APK IntroScene
+	add_child(_bg(UI + "backgrounds/intro_bg.webp"))
+	for x in [424, 1094]:
+		var c := _tex("gradients/candle.webp", Vector2(x, 484))
+		add_child(c)
+		_flicker(c)
+	var eyes := _tex("gradients/monster_eyes.webp", Vector2(905, 733))
+	add_child(eyes)
+	var blink := eyes.create_tween().set_loops()
+	blink.tween_interval(2.5)
+	blink.tween_property(eyes, "modulate:a", 0.0, 0.1)
+	blink.tween_interval(0.25)
+	blink.tween_property(eyes, "modulate:a", 1.0, 0.1)
+	add_child(_tex("navigation/bm_logo.webp", Vector2(537, 78), Vector2(850, 343)))
+	var tap := _lbl("TAP TO START", 50, Color(0.82, 0.7, 0.36), Vector2(560, 600), Vector2(800, 86))
+	add_child(tap)
+	_flicker(tap)
+	add_child(_hit(Vector2.ZERO, Vector2(1920, 1080), func(): show_menu()))
+
 # --- menu principal ----------------------------------------------------------
+
+## Bouton pierre noire (button.webp) : icone a ipos, texte centre en x = tcx (releve sur 11_menu.png).
+func _stone_btn(text: String, icon: String, ipos: Vector2, tcx: float, pos: Vector2, cb: Callable) -> void:
+	var b := _img_btn("buttons/button.webp", "buttons/button_pressed.webp", pos, cb, Vector2(500, 180))
+	b.add_child(_tex("navigation/" + icon, ipos))
+	b.add_child(_lbl(text, 39, Color.WHITE, Vector2(tcx - 250, 10), Vector2(500, 180)))
+	add_child(b)
 
 func show_menu() -> void:
 	online.stop_lobby_poll()
 	online.stop_state_poll()
 	_net_disconnect()
 	AudioManager.play_music("music_main")  # APK IntroScene
-	var v := _screen("res://assets/ui/backgrounds/menu_bg.webp")
-	if ResourceLoader.exists("res://assets/ui/navigation/bm_logo.webp"):
-		var logo := TextureRect.new()
-		logo.texture = load("res://assets/ui/navigation/bm_logo.webp")
-		logo.custom_minimum_size = Vector2(520, 130)
-		logo.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
-		logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(logo)
-	else:
-		v.add_child(_title_label("BOSS MONSTER", 72))
-	var single := _menu_btn("SINGLE PLAYER", "res://assets/ui/navigation/boss_icon.webp")
-	single.pressed.connect(func(): show_solo_count())
-	v.add_child(single)
-	var multi := _menu_btn("MULTIPLAYER", "res://assets/ui/navigation/boss_multi_icon.webp")
-	multi.pressed.connect(func(): show_multi())
-	v.add_child(multi)
-	var opts := _menu_btn("OPTIONS", "res://assets/ui/navigation/options_icon.webp")
-	opts.pressed.connect(func(): show_options())
-	v.add_child(opts)
-	var rules := _menu_btn("RULES", "res://assets/ui/navigation/rules_icon.webp")
-	rules.pressed.connect(func(): show_rules())
-	v.add_child(rules)
+	_apk_screen(func(): show_title())
+	_stone_btn("SINGLE PLAYER", "boss_icon.webp", Vector2(30, 49), 292, Vector2(460, 317), func(): show_solo_count())
+	_stone_btn("MULTIPLAYER", "boss_multi_icon.webp", Vector2(25, 57), 327, Vector2(990, 317), func(): show_multi())
+	_stone_btn("OPTIONS", "options_icon.webp", Vector2(27, 51), 267, Vector2(460, 527), func(): show_options())
+	_stone_btn("RULES", "rules_icon.webp", Vector2(40, 58), 306, Vector2(990, 527), func(): show_rules())
 
 # --- solo : HOW MANY PLAYERS? -------------------------------------------------
 
 func show_solo_count() -> void:
-	var v := _screen("res://assets/ui/backgrounds/menu_bg.webp")
-	v.add_child(_title_label("HOW MANY PLAYERS?"))
-	for n in [2, 3, 4]:
-		var b := _menu_btn("%d  (vous + %d IA)" % [n, n - 1])
-		var count: int = n
-		b.pressed.connect(func(): show_setup(count, 1))
-		v.add_child(b)
-	v.add_child(_back_btn(func(): show_menu()))
+	_apk_screen(func(): show_menu())
+	_band("HOW MANY PLAYERS?")
+	dyn_root = Control.new()
+	add_child(dyn_root)
+	_draw_fans()
+	_ok_btn(func(): show_setup(players, 1))
+
+## Carrousel 4 | 2 | 3 : l'eventail du centre est le choix courant (colore), les autres sont ternes.
+func _draw_fans() -> void:
+	for c in dyn_root.get_children():
+		dyn_root.remove_child(c)
+		c.queue_free()
+	var ring := [2, 3, 4]
+	var i := ring.find(players)
+	for slot in [[ring[(i + 2) % 3], 577.0, 200.0], [players, 958.0, 310.0], [ring[(i + 1) % 3], 1335.0, 200.0]]:
+		var n: int = slot[0]
+		var cx: float = slot[1]
+		var sel: bool = n == players
+		dyn_root.add_child(_fan(Vector2(cx, 625 if sel else 600), slot[2], FANS[n], sel))
+		if sel:
+			dyn_root.add_child(_tex("navigation/bg_number.webp", Vector2(922, 371)))
+			dyn_root.add_child(_lbl(str(n), 56, GOLD, Vector2(922, 371), Vector2(77, 77)))
+		else:
+			dyn_root.add_child(_lbl(str(n), 36, Color(0.95, 0.95, 1.0), Vector2(cx - 32, 415), Vector2(80, 44)))
+			dyn_root.add_child(_hit(Vector2(cx - 110, 480), Vector2(220, 240), func():
+				players = n
+				_draw_fans()))
+
+func _fan(c: Vector2, h: float, all_ids: Array, sel: bool) -> Control:
+	var ids := all_ids.slice(0, 2) if sel else all_ids
+	var root := Control.new()
+	root.position = c
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var rots := [-6.0, 9.0] if sel else [-10.0, 3.0, 8.0]
+	for k in range(ids.size() - 1, -1, -1): # le fond d'abord, la carte du dessus en dernier
+		var path: String = CardDB.card_image(str(ids[k]), "boss" if ids[k] != "" else "back-boss")
+		var t := TextureRect.new()
+		t.texture = load(path)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_SCALE
+		t.size = Vector2(h * 0.717, h)
+		t.pivot_offset = t.size / 2
+		t.position = -t.size / 2 + Vector2(k * (42 if sel else 10), -k * (12 if sel else 2))
+		t.rotation_degrees = rots[k]
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if not sel:
+			t.material = _gray_mat()
+		root.add_child(t)
+	return root
+
+func _gray_mat() -> ShaderMaterial:
+	if _gray == null:
+		var sh := Shader.new()
+		sh.code = "shader_type canvas_item;\nvoid fragment() { vec4 c = texture(TEXTURE, UV); float g = dot(c.rgb, vec3(0.3, 0.59, 0.11)) * 0.65; COLOR = vec4(vec3(g), c.a); }"
+		_gray = ShaderMaterial.new()
+		_gray.shader = sh
+	return _gray
+
+# --- SELECT EXPANSIONS ------------------------------------------------------------
+
+func _is_wiki(d: Dictionary) -> bool:
+	return EXT_PACKS.has(d["id"])
 
 func show_setup(num_players: int, human_count: int) -> void:
-	var v := _screen("res://assets/ui/backgrounds/menu_bg.webp")
-	if human_count < num_players:
-		v.add_child(_title_label("Solo : vous contre %d IA." % (num_players - human_count), 26))
-	else:
-		v.add_child(_title_label("Multijoueur local : %d humains." % num_players, 26))
-	v.add_child(_title_label("SELECT EXPANSIONS", 24))
-	_add_deck_checks(v)
-	var start := _menu_btn("OK")
-	start.pressed.connect(func(): start_match(num_players, human_count))
-	v.add_child(start)
-	v.add_child(_back_btn(func(): show_menu()))
+	_apk_screen(func(): show_solo_count())
+	_band("SELECT EXPANSIONS")
+	dyn_root = Control.new()
+	add_child(dyn_root)
+	_draw_tiles()
+	_ok_btn(func(): start_match(num_players, human_count))
+
+func _draw_tiles() -> void:
+	for c in dyn_root.get_children():
+		dyn_root.remove_child(c)
+		c.queue_free()
+	# Jeu de base d'abord (toujours present), puis les paquets APK ; les paquets du wiki seulement avec l'option.
+	var tiles: Array = [{"id": "base", "name": "BOSS MONSTER", "info": "", "art": "full_game_front"}]
+	tiles.append_array(APK_DECKS.filter(func(d): return use_extensions or not _is_wiki(d)))
+	var s := 1.0 if tiles.size() <= 4 else 0.72
+	var pitch := 330.7 * s
+	var x0 := (1920.0 - ((tiles.size() - 1) * pitch + 285.0 * s)) / 2.0
+	for i in tiles.size():
+		_draw_tile(tiles[i], Vector2(x0 + i * pitch, 405.0 if s == 1.0 else 430.0), s)
+
+func _draw_tile(d: Dictionary, pos: Vector2, s: float) -> void:
+	var id := str(d["id"])
+	var on := id == "base" or apk_decks.has(id)
+	var w := 285.0 * s
+	var h := 453.0 * s
+	dyn_root.add_child(_tex("expansions/bg_expansion_selected.webp" if on else "expansions/bg_expansion.webp", pos, Vector2(w, h)))
+	if d.has("art"):
+		dyn_root.add_child(_tex("expansions/%s.webp" % d["art"], pos + Vector2(15, 13) * s, Vector2(249, 304) * s))
+	else: # extension du wiki : pas d'illustration, le nom tient lieu de couverture
+		dyn_root.add_child(_lbl(str(d["name"]), int(26 * s), GOLD, pos + Vector2(14, 20) * s, Vector2(257, 280) * s, FONT_A))
+	if id == "base":
+		return
+	if not _is_wiki(d): # les infos des paquets du wiki sont trop longues : elles sont dans la fenetre « ? »
+		dyn_root.add_child(_lbl(str(d.get("info", "")).to_upper(), int(17 * s), Color.WHITE, pos + Vector2(14, 322) * s, Vector2(257, 62) * s, FONT_A))
+	dyn_root.add_child(_hit(pos, Vector2(w, h - 70 * s), func():
+		if apk_decks.has(id):
+			apk_decks.erase(id)
+		else:
+			apk_decks.append(id)
+		Profile.save_settings(server_host, use_extensions, apk_decks)
+		_draw_tiles()))
+	dyn_root.add_child(_lbl("?", int(40 * s), GOLD, pos + Vector2(w / 2 - 25, h - 70 * s), Vector2(50, 60) * s))
+	dyn_root.add_child(_hit(pos + Vector2(w / 2 - 35, h - 75 * s), Vector2(70, 70) * s, func(): _deck_popup(d)))
+
+func _deck_popup(d: Dictionary) -> void:
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.6)
+	dim.size = Vector2(1920, 1080)
+	add_child(dim)
+	var close := func(): dim.queue_free()
+	dim.add_child(_hit(Vector2.ZERO, Vector2(1920, 1080), close))
+	var p := Panel.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.04, 0.06, 0.97)
+	sb.border_color = GOLD
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(22)
+	p.add_theme_stylebox_override("panel", sb)
+	p.position = Vector2(397, 205)
+	p.size = Vector2(1126, 657)
+	dim.add_child(p)
+	if d.has("art"):
+		dim.add_child(_tex("expansions/%s.webp" % d["art"], Vector2(440, 240), Vector2(310, 378)))
+	dim.add_child(_lbl(str(d["name"]), 36, GOLD, Vector2(790, 235), Vector2(620, 60), FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
+	var desc := _lbl(str(d.get("desc", d.get("info", ""))).to_upper(), 24, Color.WHITE, Vector2(790, 310), Vector2(660, 400), FONT_A, HORIZONTAL_ALIGNMENT_LEFT)
+	desc.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	dim.add_child(desc)
+	dim.add_child(_img_btn("expansions/close_panel.webp", "expansions/close_panel_pressed.webp", Vector2(1418, 220), close))
 
 func start_match(num_players: int, human_count: int) -> void:
 	_clear()
@@ -414,44 +628,118 @@ func start_online_match() -> void:
 # --- options / regles ------------------------------------------------------------
 
 func show_options() -> void:
-	var v := _screen("res://assets/ui/backgrounds/menu_bg.webp")
-	v.add_child(_title_label("OPTIONS", 36))
-	v.add_child(_title_label("Serveur multi :", 20))
 	var host := LineEdit.new()
 	host.text = server_host
-	host.custom_minimum_size = Vector2(460, 48)
-	v.add_child(host)
+	var leave := func():
+		server_host = host.text
+		Profile.save_settings(server_host, use_extensions, apk_decks)
+		show_menu()
+	_apk_screen(leave)
+	_toggle_row(360, "MUSIC", ["ON", "OFF"], 0 if AudioManager.music_on else 1, func(i: int): AudioManager.set_music_on(i == 0))
+	_toggle_row(480, "SOUND", ["ON", "OFF"], 0 if AudioManager.sfx_on else 1, func(i: int): AudioManager.set_sfx_on(i == 0))
+	_toggle_row(600, "GAME SPEED", ["SLOW", "NORMAL", "FAST"], Profile.load_speed(), func(i: int): Profile.save_speed(i))
+	# Controles secondaires discrets (multijoueur / extensions du wiki : hors APK).
 	var ext := CheckBox.new()
-	ext.text = "Extensions du wiki (hors APK)"
+	ext.text = "Wiki expansions (not in the APK)"
 	ext.button_pressed = use_extensions
+	ext.add_theme_font_size_override("font_size", 16)
+	ext.position = Vector2(30, 1030)
 	ext.toggled.connect(func(on: bool):
 		use_extensions = on
 		Profile.save_settings(server_host, use_extensions, apk_decks))
-	v.add_child(ext)
-	var snd := CheckBox.new()
-	snd.text = "Son"
-	snd.button_pressed = not AudioManager.muted
-	snd.toggled.connect(func(on: bool): AudioManager.set_muted(not on))
-	v.add_child(snd)
-	var save := _menu_btn("OK")
-	save.pressed.connect(func():
-		server_host = host.text
-		Profile.save_settings(server_host, use_extensions, apk_decks)
-		show_menu())
-	v.add_child(save)
-	v.add_child(_back_btn(func(): show_menu()))
+	add_child(ext)
+	host.add_theme_font_size_override("font_size", 16)
+	host.position = Vector2(1440, 1034)
+	host.size = Vector2(440, 36)
+	host.tooltip_text = "Multiplayer server"
+	add_child(host)
 
-func show_rules() -> void:
-	var v := _screen("res://assets/ui/backgrounds/menu_bg.webp")
-	v.add_child(_title_label("RULES", 36))
+## Rangee de segments facon APK : le segment choisi est une pierre verte (settings_bt) dorée, les autres sur une barre mauve.
+func _toggle_row(y: int, text: String, opts: Array, sel: int, cb: Callable) -> void:
+	add_child(_lbl(text, 36, Color.WHITE, Vector2(260, y - 50), Vector2(450, 100), FONT_B, HORIZONTAL_ALIGNMENT_RIGHT))
+	var row := Control.new()
+	add_child(row)
+	_draw_toggle(row, y, opts, sel, cb)
+
+func _draw_toggle(row: Control, y: int, opts: Array, sel: int, cb: Callable) -> void:
+	for c in row.get_children():
+		row.remove_child(c)
+		c.queue_free()
+	var bar := ColorRect.new()
+	bar.color = Color(109 / 255.0, 99 / 255.0, 131 / 255.0)
+	bar.position = Vector2(760, y - 48)
+	bar.size = Vector2(202 * opts.size(), 96)
+	row.add_child(bar)
+	for i in opts.size():
+		var x := 760 + 202 * i
+		if i == sel:
+			row.add_child(_tex("buttons/settings_bt.webp", Vector2(x, y - 58), Vector2(202, 106)))
+		row.add_child(_lbl(str(opts[i]), 34, GOLD if i == sel else Color(0.9, 0.88, 0.96), Vector2(x, y - 48), Vector2(202, 96), FONT_A))
+		var idx := i
+		row.add_child(_hit(Vector2(x, y - 48), Vector2(202, 96), func():
+			cb.call(idx)
+			_draw_toggle(row, y, opts, idx, cb)))
+
+## Visionneuse des regles (godot/data/rules.txt) : un onglet par section (titre en MAJUSCULES), habillage de play_rules_base.png.
+func show_rules(tab: int = 0) -> void:
+	_clear()
+	var bg := ColorRect.new()
+	bg.color = Color(0.11, 0.08, 0.15)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(bg)
+	var top := ColorRect.new()
+	top.color = Color(0.18, 0.13, 0.22)
+	top.size = Vector2(1920, 92)
+	add_child(top)
+	add_child(_tex("navigation/rules_icon.webp", Vector2(26, 14), Vector2(64, 64)))
+	add_child(_lbl("RULES", 52, GOLD, Vector2(110, 6), Vector2(400, 80), FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
+	add_child(_img_btn("expansions/close_panel.webp", "expansions/close_panel_pressed.webp", Vector2(1810, 8), func(): show_menu(), Vector2(70, 77), "ui_button_goback"))
+	var secs := _rules_sections()
+	for i in secs.size():
+		var x := 20 + 235 * i
+		var r := ColorRect.new()
+		r.color = GOLD if i == tab else Color(0.16, 0.12, 0.2)
+		r.position = Vector2(x, 106)
+		r.size = Vector2(225, 46)
+		add_child(r)
+		add_child(_lbl(str(secs[i][0]), 15, Color.BLACK if i == tab else GOLD, Vector2(x, 106), Vector2(225, 46), FONT_A))
+		var idx := i
+		add_child(_hit(Vector2(x, 106), Vector2(225, 46), func(): show_rules(idx)))
+	var panel := Panel.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.2, 0.14, 0.22)
+	sb.border_color = GOLD
+	sb.set_border_width_all(4)
+	sb.set_corner_radius_all(26)
+	panel.add_theme_stylebox_override("panel", sb)
+	panel.position = Vector2(10, 166)
+	panel.size = Vector2(1900, 904)
+	add_child(panel)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(900, 600)
-	v.add_child(scroll)
+	scroll.position = Vector2(300, 190)
+	scroll.size = Vector2(1320, 860)
+	add_child(scroll)
 	var body := Label.new()
+	body.custom_minimum_size = Vector2(1300, 0)
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.text = _load_rules_text()
+	body.add_theme_font_size_override("font_size", 24)
+	body.text = str(secs[tab][1])
 	scroll.add_child(body)
-	v.add_child(_back_btn(func(): show_menu()))
+
+## [[titre, texte], ...] : « INTRO » puis une section par ligne de titre (MAJUSCULES, precedee d'une ligne vide).
+func _rules_sections() -> Array:
+	var lines := _load_rules_text().split("\n")
+	var secs: Array = [["INTRO", ""]]
+	for i in lines.size():
+		var t := lines[i].strip_edges()
+		var letters := 0
+		for ch in t:
+			letters += 1 if ch.to_upper() != ch.to_lower() else 0
+		if t != "" and t == t.to_upper() and letters >= 4 and (i == 0 or lines[i - 1].strip_edges() == ""):
+			secs.append([t, ""])
+		else:
+			secs[-1][1] += lines[i] + "\n"
+	return secs
 
 func _load_rules_text() -> String:
 	var f := FileAccess.open("res://godot/data/rules.txt", FileAccess.READ)

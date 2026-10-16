@@ -21,7 +21,7 @@ var current_stack: Array = []
 var _card_ui_scene = preload("res://godot/scenes/Card.tscn")
 
 func _ready() -> void:
-	custom_minimum_size = Vector2(145, 205)
+	custom_minimum_size = Vector2(127, 175)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_update_view()
 
@@ -39,7 +39,7 @@ func _update_view() -> void:
 	if not is_inside_tree():
 		return
 	if slot_label:
-		slot_label.text = "Salle %d" % (slot_index + 1)
+		slot_label.visible = false # l'APK n'ecrit pas « Salle N » sur les emplacements
 	
 	for child in card_container.get_children():
 		child.queue_free()
@@ -52,9 +52,8 @@ func _update_view() -> void:
 	if active_room != null:
 		if slot_frame:
 			slot_frame.visible = false
-		if slot_label:
-			slot_label.visible = false
 		var card_ui = _card_ui_scene.instantiate()
+		card_ui.default_size = custom_minimum_size
 		card_container.add_child(card_ui)
 		card_ui.is_in_hand = false
 		card_ui.setup(active_room)
@@ -71,8 +70,6 @@ func _update_view() -> void:
 	else:
 		if slot_frame:
 			slot_frame.visible = true
-		if slot_label:
-			slot_label.visible = true
 		if border:
 			border.border_color = Color(0.5, 0.45, 0.35, 0.4)
 

@@ -4,7 +4,8 @@ extends Node
 ##  2. partie complete a 2 clients (chacun joue via AI.gd depuis SA vue) -> meme fin de partie ;
 ##     reconnexion avec jeton en cours de partie ;
 ##  3. rechargement de page (nouvelle instance + try_resume) ;
-##  4. minuteur : l'IA prend le relais d'un humain muet, le joueur reprend la main a la reconnexion.
+##  4. minuteur : l'IA prend le relais d'un humain muet, le joueur reprend la main a la reconnexion ;
+##  5. onglet endormi : un grand trou entre deux images declenche un ping, une liaison muette est rouverte avec le jeton.
 ## Usage : godot --headless --path src/frontend res://godot/tests/OnlineTest.tscn   -> "ONLINE OK"
 
 const Server = preload("res://godot/server/Server.gd")
@@ -241,6 +242,8 @@ func _run_network() -> void:
 		await _scenario_reload()
 	if _fails.is_empty():
 		await _scenario_timeout()
+	if _fails.is_empty():
+		await _scenario_sleep()
 	if FileAccess.file_exists(OnlineClient.SESSION_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(OnlineClient.SESSION_PATH))
 	server.stop()
@@ -385,4 +388,20 @@ func _scenario_timeout() -> void:
 	await _wait(func(): return not c.connected, 5.0)
 	var serial: int = int(c.current_ctx.get("serverTime", 0))
 	_expect(await _wait(func(): return c.connected and int(c.current_ctx.get("serverTime", 0)) != serial and not bool(room.seats[0]["auto"]), 10.0), "le siege n'a pas ete rendu a la reconnexion")
+	c.queue_free()
+
+func _scenario_sleep() -> void:
+	var c := _client("Dormeur")
+	if not _expect(await c.create_lobby(2, [], 1), "sommeil : create"):
+		return
+	_expect(await _wait(func(): return not c.current_G.is_empty(), 5.0), "sommeil : pas d'etat")
+	# onglet reveille apres un long trou : ping immediat, la reponse du serveur remet le compteur a zero
+	c._process(30.0)
+	_expect(c._pong_wait > 0.0, "sommeil : aucun ping apres un long trou")
+	_expect(await _wait(func(): return c._pong_wait == 0.0, 5.0) and c.connected, "sommeil : pong non recu")
+	# liaison morte en silence (le serveur l'a coupee pendant le sommeil) : plus de paquet apres le ping -> fermeture puis resume
+	c._pong_wait = c.PONG_TIMEOUT_S - 0.05
+	var serial := int(c.current_ctx.get("serverTime", 0))
+	_expect(await _wait(func(): return not c.connected, 5.0), "sommeil : liaison muette non detectee")
+	_expect(await _wait(func(): return c.connected and int(c.current_ctx.get("serverTime", 0)) != serial, 10.0), "sommeil : pas de reconnexion avec jeton")
 	c.queue_free()

@@ -9,6 +9,8 @@ const SFX_DIR := "res://assets/audio/sfx/"
 const VOICES := 8
 
 var muted := false
+var music_on := true  # Options APK : MUSIC ON/OFF
+var sfx_on := true    # Options APK : SOUND ON/OFF
 var music_volume := 0.5  # APK AudioService.musicVolume
 var sfx_volume := 1.0    # APK AudioService.soundVolume
 var _music: AudioStreamPlayer
@@ -34,6 +36,8 @@ func _ready() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
 		muted = bool(cfg.get_value("audio", "muted", false))
+		music_on = bool(cfg.get_value("audio", "music_on", true))
+		sfx_on = bool(cfg.get_value("audio", "sfx_on", true))
 		music_volume = clampf(float(cfg.get_value("audio", "music", music_volume)), 0.0, 1.0)
 		sfx_volume = clampf(float(cfg.get_value("audio", "sfx", sfx_volume)), 0.0, 1.0)
 	_apply()
@@ -51,15 +55,28 @@ func _input(e: InputEvent) -> void:
 func _apply() -> void:
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Music"), linear_to_db(maxf(music_volume, 0.0001)))
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("SFX"), linear_to_db(maxf(sfx_volume, 0.0001)))
-	AudioServer.set_bus_mute(AudioServer.get_bus_index("Music"), muted)
-	AudioServer.set_bus_mute(AudioServer.get_bus_index("SFX"), muted)
+	AudioServer.set_bus_mute(AudioServer.get_bus_index("Music"), muted or not music_on)
+	AudioServer.set_bus_mute(AudioServer.get_bus_index("SFX"), muted or not sfx_on)
 
 func set_muted(m: bool) -> void:
 	muted = m
+	_save()
+
+func set_music_on(on: bool) -> void:
+	music_on = on
+	_save()
+
+func set_sfx_on(on: bool) -> void:
+	sfx_on = on
+	_save()
+
+func _save() -> void:
 	_apply()
 	var cfg := ConfigFile.new()
 	cfg.load(SAVE_PATH)
 	cfg.set_value("audio", "muted", muted)
+	cfg.set_value("audio", "music_on", music_on)
+	cfg.set_value("audio", "sfx_on", sfx_on)
 	cfg.set_value("audio", "music", music_volume)
 	cfg.set_value("audio", "sfx", sfx_volume)
 	cfg.save(SAVE_PATH)
