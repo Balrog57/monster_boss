@@ -18,7 +18,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../..');
-export const OUT = path.join(HERE, 'out', 'apk');
+// APK_PARITY_OUT : dossier distinct par agent pour lancer plusieurs rejeux en parallele.
+export const OUT = process.env.APK_PARITY_OUT ? path.resolve(process.env.APK_PARITY_OUT) : path.join(HERE, 'out', 'apk');
 
 // --- projection de l'oracle (miroir de ApkParityTrace.project) ---------------
 

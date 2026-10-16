@@ -144,14 +144,17 @@ func legal_moves(pid: int) -> Array:
 			# BuildPhase_a : seul le joueur du tour construit (GameBoard.IsPlayerBuildTurn), mais tout joueur vivant
 			# peut jouer un sort / une capacite de salle (rien dans GameBoard n'en limite l'usage au joueur actif ;
 			# seules les conditions de la capacite comptent). Hors tour il n'y a ni « passer » ni construction.
-			var my_turn := pid == active_player()
+			# Fenetre de sorts apres la derniere construction (ActivePlayer == null dans l'APK) : personne ne construit.
+			var window: bool = G.has("buildWindow")
+			var my_turn := pid == active_player() and not window
 			# Politique IA, pas une regle : un siege IA n'ouvre pas de Spell Battle hors de son tour
 			# (il ne repond qu'a travers la pile, voir plus haut) ; sinon _drive_ai/BoardUI le feraient jouer en boucle.
 			if not my_turn and bool(p.get("isAI", false)) and bool(G.get("autoAI", true)):
 				return out
 			# Donjon plein : une salle avancee se construit quand meme par-dessus (DungeonSlot.CheckRoomCanBeBuilt),
 			# seule la pose en fin de donjon (salle ordinaire) exige un emplacement libre.
-			if my_turn and int(p.get("buildsThisTurn", 0)) == 0:
+			# BuildExtraRoom (Motivation) : MaxBuildRoomLimit++ -> plusieurs constructions avant le NextStep.
+			if my_turn and int(p.get("buildsThisTurn", 0)) < 1 + BossEngine.extra_builds_for(G, pid):
 				var free_slot := BossEngine.can_build_room(p, G, pid)
 				for i in (p.get("hand", []) as Array).size():
 					var c: Dictionary = (p["hand"] as Array)[i]
@@ -163,6 +166,11 @@ func legal_moves(pid: int) -> Array:
 					if not c.get("advanced", false):
 						if free_slot:
 							out.append({"type": "buildRoom", "args": [i]})
+						else:
+							# Donjon plein : Dungeon.Any(slot.CanBuildRoom) autorise aussi une salle ordinaire par-dessus une pile.
+							for ti in (p.get("dungeon", []) as Array).size():
+								if BossEngine.can_build_room(p, G, pid, i, ti):
+									out.append({"type": "buildRoom", "args": [i, ti]})
 						continue
 					# Salle avancee : un coup cible par emplacement au tresor compatible.
 					for ti in (p.get("dungeon", []) as Array).size():
@@ -194,7 +202,7 @@ func legal_moves(pid: int) -> Array:
 				else:
 					if RoomAbilities.activate_room_ability(G.duplicate(true), pid, i) == null:
 						out.append({"type": "activateRoom", "args": [i]})
-			if my_turn:
+			if my_turn or (window and not bool((G["buildWindow"] as Dictionary).get(pid, false))):
 				out.append({"type": "passBuild", "args": []})
 				out.append({"type": "pass", "args": []})
 		"adventure":
@@ -329,6 +337,10 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 			p["buildsThisTurn"] = int(p.get("buildsThisTurn", 0)) + 1
 			if bool(G.get("setupBuild", false)):
 				_setup_progress()
+			elif _can_build_again(pid):
+				# BuildExtraRoom : le joueur garde la main tant qu'il peut (et veut) poser sa salle supplementaire.
+				state_changed.emit()
+				_drive_ai()
 			else:
 				_advance_build()
 		"playSpell":
@@ -365,6 +377,8 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 				"resolved": false
 			}
 			stack.insert(_stack_insert_index(entry, counter_idx), entry)
+			if G.has("buildWindow"):
+				G["buildWindow"] = _window_auto_passed() # un sort relance la Spell Battle : tout le monde doit re-passer
 			_reopen_stack_window(pid)
 			return true
 		"activateRoom":
@@ -376,10 +390,14 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 			if err != null:
 				_log(str(err))
 				return false
+			if G.has("buildWindow"):
+				G["buildWindow"] = _window_auto_passed()
 			# Une capacite activee pendant une Spell Battle la relance (IsActivatedByUser : PendingSpellBattlePlayers = tous).
 			# All-Seeing Eye garde sa propre reprise de main (RoomAbilities.stack_return_control).
 			if in_battle and act_rid != "BMA025":
 				_reopen_stack_window(pid)
+			elif not in_battle:
+				_finish_hero_if_dead()
 			return true
 		"pass", "passBuild":
 			var stack: Array = G.get("stack", [])
@@ -400,6 +418,12 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 				p["buildsThisTurn"] = maxi(1, int(p.get("buildsThisTurn", 0)))
 				_log("Joueur %d ne construit pas de salle initiale." % pid)
 				_setup_progress()
+				return true
+
+			if G.has("buildWindow"):
+				(G["buildWindow"] as Dictionary)[pid] = true
+				_log("Joueur %d : pret (fenetre de sorts avant la revelation)." % pid)
+				_build_window_progress()
 				return true
 
 			if str(G.get("phase", "")) == CardDB.PHASE["BUILD"]:
@@ -472,6 +496,18 @@ func _resolve_choice(pid: int, index: int) -> void:
 				var got = RoomAbilities.take_discard_card(G, p, opts[index])
 				if got != null:
 					_log("%s : %s recupere." % [str(pc.get("bossName", "")), str((got as Dictionary).get("name", "?"))])
+				# Xyzax : CardInDeck(2, DiscardPile) = DEUX cartes choisies ; la 2e est un nouveau choix (ou auto s'il n'en reste qu'une).
+				if got != null and int(pc.get("remaining", 1)) > 1:
+					var rest := RoomAbilities.discard_card_options(G, "any")
+					if rest.size() == 1:
+						RoomAbilities.take_discard_card(G, p, rest[0])
+					elif rest.size() > 1:
+						var nxt_pc := pc.duplicate()
+						nxt_pc["remaining"] = int(pc["remaining"]) - 1
+						nxt_pc["options"] = rest
+						var q0: Array = G.get("choiceQueue", []) if G.get("choiceQueue", null) is Array else []
+						q0.push_front(nxt_pc)
+						G["choiceQueue"] = q0
 		"discard-spell":
 			if index >= 0:
 				var card: Dictionary = (opts[index] as Dictionary).get("card", {})
@@ -498,7 +534,15 @@ func _resolve_choice(pid: int, index: int) -> void:
 				var o: Dictionary = opts[index]
 				var ti := int(o.get("townIndex", o.get("index", -1)))
 				var town: Array = G.get("town", [])
-				if ti >= 0 and ti < town.size():
+				if str(o.get("source", "")) == "deck":
+					# Seducia : HeroUnassigned = ville OU pioche de heros -> la carte quitte la pioche pour l'entree.
+					var dk: Array = (G.get("decks", {}) as Dictionary).get(str(o.get("pile", "heroes")), [])
+					var di := int(o.get("deckIndex", -1))
+					if di >= 0 and di < dk.size():
+						var entrance_d: Array = p.get("entrance", []) as Array
+						entrance_d.append(dk.pop_at(di))
+						p["entrance"] = entrance_d
+				elif ti >= 0 and ti < town.size():
 					var hero: Dictionary = town[ti]
 					town.remove_at(ti)
 					var entrance: Array = p.get("entrance", []) as Array
@@ -509,9 +553,9 @@ func _resolve_choice(pid: int, index: int) -> void:
 				var o: Dictionary = opts[index]
 				var target_pid := int(o.get("targetPlayerId", -1))
 				var action := str(pc.get("action", ""))
-				if target_pid >= 0 and G["players"].has(target_pid) and action == "discard-spell":
-					# C# DiscardRandomCardFromHand(1, Spell) sur l'adversaire choisi
-					RoomAbilities._discard_random_spell_from(G, target_pid, str(pc.get("bossName", "")))
+				if target_pid >= 0 and G["players"].has(target_pid) and (action == "discard-spell" or action == "discard-room"):
+					# C# DiscardRandomCardFromHand(1, Spell|Room) sur l'adversaire choisi
+					RoomAbilities._discard_random_from(G, target_pid, action == "discard-spell", str(pc.get("bossName", "")))
 		"steal-card":
 			if index >= 0:
 				var o: Dictionary = opts[index]
@@ -792,6 +836,15 @@ func _reveal_heroes_in_town() -> void:
 ## Le joueur actif vient de consommer son tour de construction : on passe au
 ## suivant. Quand il n'en reste plus, BuildPhase_b revele TOUTES les salles d'un
 ## coup, puis on enchaine sur le leurre (miroir de GameBoard.NextStep).
+## Vrai si le joueur actif a droit a une autre construction ce tour (Motivation) et un coup de pose legal.
+func _can_build_again(pid: int) -> bool:
+	if int((G["players"][pid] as Dictionary).get("buildsThisTurn", 0)) >= 1 + BossEngine.extra_builds_for(G, pid):
+		return false
+	for m in legal_moves(pid):
+		if str((m as Dictionary).get("type", "")) == "buildRoom":
+			return true
+	return false
+
 func _advance_build() -> void:
 	var order: Array = G.get("buildOrder", [])
 	G["buildIndex"] = int(G.get("buildIndex", 0)) + 1
@@ -801,9 +854,43 @@ func _advance_build() -> void:
 		G["activePlayer"] = int(order[int(G["buildIndex"])])
 		_drive_ai()
 		return
+	var was_forced := G.has("forcedBuild")
 	G.erase("forcedBuild")
+	if not was_forced and _open_build_window():
+		state_changed.emit()
+		return
 	_close_build_phase()
 
+## GameBoard : apres la derniere construction (ActivePlayer == null, BuildPhase_a) les joueurs peuvent encore jouer des
+## sorts AVANT la revelation (BuildPhase_b). Ouverte seulement si un siege non-IA a un sort jouable ; les sieges IA
+## passent d'office (politique : l'IA de Godot n'ouvre pas de Spell Battle hors de son tour).
+func _open_build_window() -> bool:
+	G["buildWindow"] = _window_auto_passed()
+	for pid in G["players"]:
+		if (G["buildWindow"] as Dictionary).has(pid):
+			continue
+		for m in legal_moves(int(pid)):
+			if str((m as Dictionary).get("type", "")) == "playSpell":
+				return true
+	G.erase("buildWindow")
+	return false
+
+func _window_auto_passed() -> Dictionary:
+	var passed := {}
+	for pid in G["players"]:
+		var q: Dictionary = G["players"][pid]
+		if bool(q.get("eliminated", false)) or (bool(q.get("isAI", false)) and bool(G.get("autoAI", true))):
+			passed[pid] = true
+	return passed
+
+func _build_window_progress() -> void:
+	var passed: Dictionary = G.get("buildWindow", {})
+	for pid in G["players"]:
+		if not bool((G["players"][pid] as Dictionary).get("eliminated", false)) and not bool(passed.get(pid, false)):
+			state_changed.emit()
+			return
+	G.erase("buildWindow")
+	_close_build_phase()
 
 ## BuildPhase_b : revelation groupee + level-up, puis BAIT et ADVENTURE.
 ## Idempotent : appele aussi apres la resolution d'un choix suspendu en phase BUILD.
@@ -867,6 +954,7 @@ func _reveal_and_level_up() -> bool:
 			if room == null or not (room as Dictionary).get("faceDown", false):
 				continue
 			var r: Dictionary = room
+			RoomAbilities.on_build_another_room(G, int(pid), r) # avant faceDown=false : la salle compte comme « en attente » (C#)
 			r["faceDown"] = false
 			_log("Salle révélée : %s pour le joueur %s" % [str(r.get("name", "?")), str(pid)])
 			var choice = RoomAbilities.on_build_room(G, int(pid), r)
@@ -1092,23 +1180,28 @@ func _resolve_pending_stack() -> void:
 		effect["resolved"] = true
 	G["stack"] = []
 	RoomAbilities.stack_return_control(G)
-	var adv: Dictionary = G.get("adventure", {})
-	if not adv.is_empty() and int(adv.get("hp", 1)) <= 0:
-		var hero: Dictionary = adv.get("hero", {})
-		var pid: int = int(adv.get("playerId", 0))
-		var death_room: Dictionary = G.get("_deathRoom", {})
-		if death_room.is_empty():
-			var p: Dictionary = G["players"][pid]
-			var idx: int = int(adv.get("roomIndex", -1))
-			var d: Array = p.get("dungeon", [])
-			if idx >= 0 and idx < d.size():
-				var r = BossEngine.active_room(d[idx])
-				if r != null:
-					death_room = r
-		G.erase("_deathRoom")
-		_finish_hero(pid, hero, int(adv.get("hp", 0)), death_room)
+	_finish_hero_if_dead()
 
 ## Résolution d'aventure pas-à-pas (AdventurePhase_a, b, c et fenêtres de pause)
+## Heros tue par une capacite / un sort (hp <= 0) : mort immediate (KillHeroInRoom), sans attendre la fin de la pause.
+func _finish_hero_if_dead() -> void:
+	var adv: Dictionary = G.get("adventure", {})
+	if adv.is_empty() or int(adv.get("hp", 1)) > 0:
+		return
+	var hero: Dictionary = adv.get("hero", {})
+	var pid: int = int(adv.get("playerId", 0))
+	var death_room: Dictionary = G.get("_deathRoom", {})
+	if death_room.is_empty():
+		var p: Dictionary = G["players"][pid]
+		var idx: int = int(adv.get("roomIndex", -1))
+		var d: Array = p.get("dungeon", [])
+		if idx >= 0 and idx < d.size():
+			var r = BossEngine.active_room(d[idx])
+			if r != null:
+				death_room = r
+	G.erase("_deathRoom")
+	_finish_hero(pid, hero, int(adv.get("hp", 0)), death_room)
+
 func _init_adventure_phase() -> void:
 	G["adventure"] = {}
 	G["adventurePausePassed"] = {}
@@ -1139,7 +1232,7 @@ func _advance_adventure_room() -> void:
 	var p: Dictionary = G["players"][pid]
 	var hero: Dictionary = adv["hero"]
 	var dungeon: Array = p.get("dungeon", [])
-	var i: int = int(adv.get("roomIndex", -1)) + 1
+	var i: int = int(adv.get("roomIndex", -1)) + (0 if adv.erase("replay") else 1) # replay : voir BossEngine.destroy_room
 	adv["roomIndex"] = i
 
 	if i >= dungeon.size():

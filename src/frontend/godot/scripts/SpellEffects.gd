@@ -165,7 +165,7 @@ static func _cave_in(G: Dictionary, caster_id: int, _card: Dictionary, target: D
 	if not adv.is_empty() and int(adv.get("playerId", -1)) == caster_id and int(adv.get("roomIndex", -1)) == idx:
 		adv["hp"] = 0
 		_log(G, "Cave-In: %s is destroyed." % str((adv.get("hero", {}) as Dictionary).get("name", "?")))
-	var destroyed = BossEngine.destroy_room(p, idx)
+	var destroyed = BossEngine.destroy_room(p, idx, G)
 	if destroyed != null:
 		BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
 		_log(G, "Cave-In: %s destroyed." % (destroyed as Dictionary).get("name", "?"))
@@ -349,8 +349,26 @@ static func _zombie_attack(G: Dictionary, caster_id: int, _card: Dictionary, tar
 		_log(G, "Zombie Attack: no opponent has a dead Hero.")
 		return false
 	var revived: Dictionary = pile[soul_index]
-	pile.remove_at(soul_index)
 	var entrance: Array = victim.get("entrance", []) as Array
+	if pile_name == "souls" and revived.get("hero") is Dictionary:
+		# SendBackToDungeonEntrance : le heros ENTIER revient (toutes ses ames quittent le scorekeeping), DealHero -2 = +2 PV.
+		var hero: Dictionary = revived["hero"]
+		var left := BossEngine.hero_souls(hero)
+		for i in range(pile.size() - 1, -1, -1):
+			if left > 0 and (pile[i] as Dictionary).get("hero") == hero:
+				pile.remove_at(i)
+				left -= 1
+		var discard: Array = (G.get("decks", {}) as Dictionary).get("heroDiscard", []) as Array
+		var at := discard.find(hero)
+		if at >= 0:
+			discard.remove_at(at)
+		var back: Dictionary = hero.duplicate()
+		back["hp"] = BossEngine.hero_hp(hero) + 2
+		entrance.append(back)
+		victim["entrance"] = entrance
+		_log(G, "Zombie Attack: %s returns with +2 HP." % str(hero.get("name", "a dead Hero")))
+		return true
+	pile.remove_at(soul_index)
 	entrance.append({"name": revived.get("name", "Zombie"), "hp": int(revived.get("hp", 4)) + 2,
 		"souls": 1, "wounds": 1})
 	victim["entrance"] = entrance

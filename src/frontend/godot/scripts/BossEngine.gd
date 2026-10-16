@@ -74,10 +74,14 @@ static func can_build_room(player: Dictionary, G: Dictionary = {}, pid: int = -1
 			return false
 		var visible := count_visible_rooms(dungeon)
 		if not bool(card.get("advanced", false)):
-			# Salle ordinaire : possible en fin de donjon ou sur une pile existante.
-			if visible >= CardDB.DUNGEON_SLOTS and target_index < 0:
+			# Salle ordinaire : en fin de donjon, ou PAR-DESSUS une pile existante (DungeonSlot.CheckRoomCanBeBuilt :
+			# ni slot en attente de revelation, ni salle BMA018 Neanderthal Cave).
+			if target_index < 0:
+				return visible < CardDB.DUNGEON_SLOTS
+			if target_index >= dungeon.size():
 				return false
-			return true
+			var over = active_room(dungeon[target_index])
+			return over != null and not bool((over as Dictionary).get("faceDown", false)) and str((over as Dictionary).get("id", "")) != "BMA018"
 		# Salle avancee : doit se batir sur une salle active au tresor correspondant.
 		if dungeon.is_empty():
 			return false
@@ -201,6 +205,10 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 	var dmg := int(r.get("damage", 0))
 	var pid := int(player.get("id", 0))
 
+	# Freeze (DeactivateRoom) : DungeonSlot.IsActive=false -> aucun degat au heros (GameBoard.cs ~1135)
+	if is_room_deactivated(G, pid, room_index):
+		return 0
+
 	# BMA020 Monster's Ballroom : degats = nombre de salles Monster actives
 	if str(r.get("id", "")) == "BMA020":
 		var n := 0
@@ -220,6 +228,8 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 		if other == null:
 			continue
 		var o: Dictionary = other
+		if is_room_deactivated(G, pid, i):  # AdjacentsRoom/NextRoom ignorent les slots inactifs
+			continue
 		if str(o.get("id", "")) == "BMA015" and absi(i - room_index) == 1 and rt == "monster":
 			dmg += 1
 		if str(o.get("id", "")) == "BMA029" and i == room_index - 1 and rt == "trap":
@@ -251,7 +261,8 @@ static func hero_health_with_modifiers(G: Dictionary, hero: Dictionary) -> int:
 # --- engine.js: destroyRoom / discardRoomToPile ---
 
 ## Detruit la salle active de room_index. Renvoie la carte detruite, ou null.
-static func destroy_room(player: Dictionary, room_index: int):
+## G (optionnel) : decale les effets indexes par slot (Freeze, bonus de degats) quand l'emplacement disparait.
+static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}):
 	var dungeon: Array = player.get("dungeon", [])
 	if room_index < 0 or room_index >= dungeon.size():
 		return null
@@ -261,11 +272,34 @@ static func destroy_room(player: Dictionary, room_index: int):
 	var destroyed: Dictionary = stack.pop_back()
 	if stack.is_empty():
 		dungeon.remove_at(room_index)
+		# GameBoard.DestroyRoom : Dungeon.Remove + Add, les slots suivants se tassent ; les effets indexes suivent leur slot.
+		var pid := int(player.get("id", 0))
+		for key in ["deactivatedRooms", "roomDamageBonus"]:
+			var arr: Array = _effects(G).get(key, [])
+			for k in range(arr.size() - 1, -1, -1):
+				var e: Dictionary = arr[k]
+				if int(e.get("playerId", -1)) != pid:
+					continue
+				if int(e.get("roomIndex", -1)) == room_index:
+					arr.remove_at(k)
+				elif int(e.get("roomIndex", -1)) > room_index:
+					e["roomIndex"] = int(e["roomIndex"]) - 1
+		# Heros present dans ce donjon : il garde lastActiveHeroSlotIndex (GameBoard.ProccessActiveHero). Slot detruit
+		# DEVANT lui (plus pres du boss = index Godot plus grand) : son index C# baisse de 1, last != num, donc pas de
+		# num-- : il RESUBIT sa salle courante (adv.replay). Slot DERRIERE lui : l'index Godot de sa salle baisse de 1.
+		var adv: Dictionary = G.get("adventure", {}) as Dictionary
+		var h := int(adv.get("roomIndex", -1))
+		if not adv.is_empty() and int(adv.get("playerId", -1)) == pid and h >= 0:
+			if room_index > h:
+				adv["replay"] = true
+			elif room_index < h:
+				adv["roomIndex"] = h - 1
 	return destroyed
 
 static func discard_room_to_pile(decks: Dictionary, card) -> void:
 	if card == null:
 		return
+	(card as Dictionary).erase("usedThisTurn") # une salle recuperee puis reconstruite repart avec une capacite neuve
 	var pile: Array = decks.get("roomDiscard", [])
 	decks["roomDiscard"] = pile
 	pile.append(card)

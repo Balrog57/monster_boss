@@ -35,6 +35,14 @@ func _ready() -> void:
 	_t_room_ability_jackpot_stash()
 	_t_lure_jackpot_stash_doubles_room_treasures()
 	_t_lure_fool_fewest_souls()
+	_t_freeze_room_deals_no_damage()
+	_t_destroy_slot_shifts_effects_and_replays_hero()
+	_t_xyzax_recovers_two_cards()
+	_t_seducia_picks_from_hero_deck()
+	_t_full_dungeon_ordinary_over_stack()
+	_t_build_window_after_last_build()
+	_t_ability_kill_finishes_hero()
+	_t_zombie_attack_returns_whole_hero()
 	_t_reveal_heroes_counts_eliminated_and_effects_expire()
 	_t_room_ability_unknown_rejected()
 	_t_activate_room_appears_in_legal_moves()
@@ -72,6 +80,9 @@ func _ready() -> void:
 	_t_build_specters_sanctum_choice_discards()
 	_t_choice_dracolich_lair()
 	_t_room_zombie_prison()
+	_t_room_beast_menagerie()
+	_t_room_torture_chamber_discards_room()
+	_t_build_motivation_extra_room()
 	_t_setup_avoid_mulligan()
 	_t_setup_parallel_first_room()
 	_t_extra_build_phase_construction_zone()
@@ -1168,6 +1179,52 @@ func _t_room_zombie_prison() -> void:
 	_ok((p0["entrance"] as Array).is_empty(), "l'activateur ne recoit pas le heros")
 	m.queue_free()
 
+## BMA019 Beast Menagerie (GameBoard.RevealAllRoomCards -> WhenYouBuildAnotherRoom) : OncePerTurn + un slot Monster
+## encore en attente (celui qu'on revele compte) -> pioche une salle.
+func _t_room_beast_menagerie() -> void:
+	var G := _ability_G("BMA019")
+	G["decks"]["rooms"] = [_room("D1", "trap", false, [1]), _room("D2", "trap", false, [1])]
+	var menagerie: Dictionary = G["players"][0]["dungeon"][0][0]
+	menagerie["type"] = "monster"
+	var fresh := _room("M", "monster", false, [1])
+	fresh["faceDown"] = true
+	G["players"][0]["dungeon"].append([fresh])
+	RoomAbilities.on_build_another_room(G, 0, fresh)
+	_ok((G["players"][0]["hand"] as Array).size() == 1, "Beast Menagerie : salle Monster en attente -> pioche 1 salle")
+	fresh["faceDown"] = true
+	RoomAbilities.on_build_another_room(G, 0, fresh)
+	_ok((G["players"][0]["hand"] as Array).size() == 1, "Beast Menagerie : une seule fois par tour")
+	menagerie["usedThisTurn"] = false
+	fresh["type"] = "trap"
+	RoomAbilities.on_build_another_room(G, 0, fresh)
+	_ok((G["players"][0]["hand"] as Array).size() == 1, "Beast Menagerie : rien si la salle en attente n'est pas un Monster")
+
+## BMA038 Torture Chamber : DiscardRandomCardFromHand(1, Room) sur l'adversaire (un seul -> auto), la salle est detruite.
+func _t_room_torture_chamber_discards_room() -> void:
+	var G := _ability_G("BMA038")
+	G["players"][1]["hand"] = [_room("R1", "trap", false, [1]), {"id": "S", "name": "S", "isSpell": true}]
+	_ok(RoomAbilities.activate_room_ability(G, 0, 0) == null, "Torture Chamber s'active")
+	var h: Array = G["players"][1]["hand"]
+	_ok(h.size() == 1 and bool((h[0] as Dictionary).get("isSpell", false)), "l'adversaire defausse sa SALLE (le sort reste)")
+	_ok((G["decks"]["roomDiscard"] as Array).size() == 2 and (G["players"][0]["dungeon"] as Array).is_empty(),
+		"salle detruite + salle defaussee en defausse de salles")
+
+## BMA050 Motivation (BuildExtraRoom : MaxBuildRoomLimit++) : le joueur garde la main pour une 2e construction.
+func _t_build_motivation_extra_room() -> void:
+	var m = _match_with_spell()
+	m.G["autoAI"] = false
+	var p0: Dictionary = m.G["players"][0]
+	p0["hand"] = [_room("N1", "trap", false, [1]), _room("N2", "trap", false, [1])]
+	(m.G["effects"]["extraBuild"] as Array).append(0)
+	m.G["buildOrder"] = [0, 1]
+	m.G["buildIndex"] = 0
+	m.G["activePlayer"] = 0
+	_ok(m.apply_move(0, {"type": "buildRoom", "args": [0]}), "Motivation : 1re construction")
+	_ok(m.active_player() == 0 and _has_move(m, 0, "buildRoom"), "Motivation : le joueur garde la main pour la 2e")
+	_ok(m.apply_move(0, {"type": "buildRoom", "args": [0]}), "Motivation : 2e construction")
+	_ok(m.active_player() == 1, "apres la 2e construction la main passe")
+	m.queue_free()
+
 ## GameBoard.AvoidMulliganCondition : >= 4 salles avancees ou >= 4 salles au meme tresor => remelange.
 func _t_setup_avoid_mulligan() -> void:
 	var adv4: Array = [_room("A1", "trap", true, [1]), _room("A2", "trap", true, [2]), _room("A3", "trap", true, [3]),
@@ -1329,3 +1386,135 @@ func _t_reveal_heroes_counts_eliminated_and_effects_expire() -> void:
 	m._start_turn()
 	_ok((SpellEffects._effects(m.G)["treasureDoubled"] as Array).is_empty(), "effets de tour remis a zero au debut du tour suivant")
 	m.queue_free()
+
+# --- Aventure / heros / fenetre de sorts (parite APK) ---
+
+## Freeze = DeactivateRoom (DungeonSlot.IsActive=false) : le heros ne subit aucun degat dans la salle gelee.
+func _t_freeze_room_deals_no_damage() -> void:
+	var G := _ability_G("BMA010")
+	var p: Dictionary = G["players"][0]
+	_ok(BossEngine.room_damage_with_modifiers(G, p, 0, {}) == 1, "salle non gelee : degats normaux")
+	SpellEffects.cast_spell(G, 0, {"id": "BMA046"}, {"roomIndex": 0})
+	_ok(BossEngine.room_damage_with_modifiers(G, p, 0, {}) == 0, "Freeze : la salle gelee ne fait aucun degat")
+
+## DestroyRoom (Dungeon.Remove + Add) : les effets indexes suivent leur slot, et le heros dont un slot est detruit DEVANT
+## lui (lastActiveHeroSlotIndex perime) RESUBIT sa salle ; derriere lui, sa salle garde sa position.
+func _t_destroy_slot_shifts_effects_and_replays_hero() -> void:
+	var G := _ability_G("BMA010")
+	var p: Dictionary = G["players"][0]
+	p["dungeon"] = [[_room("A", "trap", false, [1])], [_room("B", "trap", false, [1])], [_room("C", "trap", false, [1])]]
+	((G["effects"] as Dictionary)["deactivatedRooms"] as Array).append({"playerId": 0, "roomIndex": 2})
+	G["adventure"] = {"playerId": 0, "hero": {"id": "H"}, "roomIndex": 0, "hp": 5, "pause": null}
+	var gone = BossEngine.destroy_room(p, 1, G)
+	_ok(gone != null and int((((G["effects"] as Dictionary)["deactivatedRooms"] as Array)[0] as Dictionary)["roomIndex"]) == 1,
+		"slot detruit : l'index du Freeze se decale")
+	_ok(bool((G["adventure"] as Dictionary).get("replay", false)), "slot detruit devant le heros : il rejoue sa salle")
+	G["adventure"] = {"playerId": 0, "hero": {"id": "H"}, "roomIndex": 1, "hp": 5, "pause": null}
+	BossEngine.destroy_room(p, 0, G)
+	_ok(int((G["adventure"] as Dictionary)["roomIndex"]) == 0 and not (G["adventure"] as Dictionary).has("replay"),
+		"slot detruit derriere le heros : sa salle garde sa position")
+	var used := {"id": "X", "usedThisTurn": true}
+	BossEngine.discard_room_to_pile(G["decks"], used)
+	_ok(not used.has("usedThisTurn"), "salle defaussee : capacite remise a neuf")
+
+## Xyzax (CardInDeck 2 DiscardPile) : DEUX cartes recuperees, la 2e est un nouveau choix.
+func _t_xyzax_recovers_two_cards() -> void:
+	var m = load("res://godot/scripts/Match.gd").new()
+	add_child(m)
+	m.G = _ability_G("BMA010")
+	m.G["phase"] = "adventure"
+	m.G["log"] = []
+	m.G["choiceQueue"] = []
+	m.G["decks"]["roomDiscard"] = [_room("R1", "trap", false, [1]), _room("R2", "trap", false, [1]), _room("R3", "trap", false, [1])]
+	m.G["pendingChoice"] = RoomAbilities._xyzax(m.G, m.G["players"][0])
+	m._resolve_choice(0, 0)
+	var pc: Dictionary = m.G["pendingChoice"]
+	_ok(str(pc.get("type", "")) == "recover-card" and (pc.get("options", []) as Array).size() == 2, "Xyzax : 2e choix ouvert")
+	m._resolve_choice(0, 0)
+	_ok((m.G["pendingChoice"] as Dictionary).is_empty() and ((m.G["players"][0] as Dictionary)["hand"] as Array).size() == 2,
+		"Xyzax : deux cartes en main")
+	m.queue_free()
+
+## Seducia (HeroUnassigned = ville OU pioche de heros) : un heros choisi dans la pioche rejoint l'entree.
+func _t_seducia_picks_from_hero_deck() -> void:
+	var m = load("res://godot/scripts/Match.gd").new()
+	add_child(m)
+	m.G = _ability_G("BMA010")
+	m.G["phase"] = "adventure"
+	m.G["log"] = []
+	m.G["choiceQueue"] = []
+	m.G["decks"]["heroes"] = [{"id": "BMA081", "name": "H81"}]
+	m.G["pendingChoice"] = RoomAbilities._seducia(m.G, 0)
+	m._resolve_choice(0, 0)
+	_ok(((m.G["players"][0] as Dictionary)["entrance"] as Array).size() == 1 and (m.G["decks"]["heroes"] as Array).is_empty(),
+		"Seducia : le heros quitte la pioche pour l'entree")
+	m.queue_free()
+
+## DungeonSlot.CheckRoomCanBeBuilt : donjon plein, une salle ordinaire se pose par-dessus une pile (sauf BMA018).
+func _t_full_dungeon_ordinary_over_stack() -> void:
+	var m = _match_with_spell()
+	var p: Dictionary = m.G["players"][0]
+	p["id"] = 0
+	p["dungeon"] = []
+	for i in 5:
+		(p["dungeon"] as Array).append([_room("BMA018" if i == 2 else "R%d" % i, "trap", false, [1])])
+	p["hand"] = [_room("N", "trap", false, [1])]
+	m.G["activePlayer"] = 0
+	m.G["buildOrder"] = [0, 1]
+	m.G["buildIndex"] = 0
+	var n := 0
+	var bad := false
+	for mv in m.legal_moves(0):
+		if str((mv as Dictionary).get("type", "")) != "buildRoom":
+			continue
+		var args: Array = (mv as Dictionary)["args"]
+		n += 1
+		bad = bad or args.size() < 2 or int(args[1]) == 2
+	_ok(n == 4 and not bad, "donjon plein : 4 recouvrements possibles (BMA018 exclue), trouve %d" % n)
+	m.queue_free()
+
+## Fenetre de sorts apres la derniere construction (ActivePlayer == null) : ouverte si un siege non-IA a un sort jouable.
+func _t_build_window_after_last_build() -> void:
+	var m = _match_with_spell()
+	m.G["activePlayer"] = 1
+	m.G["buildOrder"] = [0, 1]
+	m.G["buildIndex"] = 1
+	m._advance_build()
+	_ok(m.G.has("buildWindow") and str(m.G["phase"]) == "build", "fenetre de sorts ouverte apres la derniere construction")
+	var types: Array = []
+	for mv in m.legal_moves(0):
+		types.append(str((mv as Dictionary).get("type", "")))
+	_ok(types.has("playSpell") and types.has("passBuild") and not types.has("buildRoom"), "fenetre : sorts et 'pret', pas de construction")
+	_ok(m.legal_moves(1).is_empty(), "fenetre : le siege IA passe d'office")
+	m.queue_free()
+	var m2 = _match_with_spell()
+	((m2.G["players"][0] as Dictionary)["hand"] as Array).clear()
+	m2._open_build_window()
+	_ok(not m2.G.has("buildWindow"), "aucun sort jouable : pas de fenetre")
+	m2.queue_free()
+
+## Capacite de salle qui tue le heros (Bottomless Pit) : il meurt tout de suite (KillHeroInRoom), ame comptee.
+func _t_ability_kill_finishes_hero() -> void:
+	var m = load("res://godot/scripts/Match.gd").new()
+	add_child(m)
+	m.G = _ability_G("BMA027")
+	var hero := {"id": "H", "name": "H", "souls": 1, "hp": 5}
+	var p: Dictionary = m.G["players"][0]
+	p["entrance"] = [hero]
+	m.G["phase"] = "adventure"
+	m.G["log"] = []
+	m.G["activePlayer"] = 0
+	m.G["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": 0, "hp": 5, "pause": "post-damage"}
+	_ok(m.apply_move(0, {"type": "activateRoom", "args": [0]}), "Bottomless Pit activable")
+	_ok((m.G["adventure"] as Dictionary).is_empty() and (p["souls"] as Array).size() == 1, "heros tue par la capacite : ame immediate")
+	m.queue_free()
+
+## Zombie Attack (SendBackToDungeonEntrance) : le heros ENTIER revient (toutes ses ames), avec +2 PV.
+func _t_zombie_attack_returns_whole_hero() -> void:
+	var hero := {"id": "H", "name": "H", "souls": 2, "hp": 4}
+	var G := _spell_state([])
+	var foe: Dictionary = G["players"][1]
+	foe["souls"] = [{"souls": 1, "hero": hero}, {"souls": 1, "hero": hero}]
+	_ok(SpellEffects.cast_spell(G, 0, {"id": "BMA055"}, {"targetPlayerId": 1, "soulIndex": 0, "pile": "souls"}), "Zombie Attack accepte")
+	_ok((foe["souls"] as Array).is_empty() and (foe["entrance"] as Array).size() == 1
+		and BossEngine.hero_hp((foe["entrance"] as Array)[0]) == 6, "heros entier renvoye a l'entree avec +2 PV")

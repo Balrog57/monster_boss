@@ -57,6 +57,7 @@ var stats := {"decisionsSkipped": 0, "readySkipped": 0, "forcedPass": 0, "autoRe
 var _tbl: Dictionary = {}
 var _steps: Array = []
 var _prev_players: Array = []
+var _deferred: Array = [] # decisions oracle d'un autre joueur que le choix Godot en attente (ordre de file different)
 
 
 # --- construction de la partie ---------------------------------------------
@@ -159,6 +160,9 @@ func replay(trace: Dictionary) -> Dictionary:
 	proj["0"] = project()
 	for i in _steps.size():
 		var s: Dictionary = _steps[i]
+		# Les decisions de revelation (BuildPhase_a puis _b) peuvent rester en attente a travers le NextStep de B.
+		if str(s["kind"]) != "decision" and not (str(s["kind"]) == "phase" and str(s["phase"]) in ["BuildPhase_a", "BuildPhase_b"]):
+			_deferred.clear()
 		match str(s["kind"]):
 			"phase":
 				_on_phase(s)
@@ -167,10 +171,29 @@ func replay(trace: Dictionary) -> Dictionary:
 			"decision":
 				_on_decision(i, s)
 		proj[str(int(s["seq"]))] = project()
+		_refresh_bait_snap(s)
 		_prev_players = s["players"]
 	var snaps: Dictionary = run.snaps
 	run.free()
 	return {"unmapped": unmapped.keys(), "events": events, "stats": stats, "proj": proj, "snaps": snaps}
+
+
+## Harnais : l'oracle a une fenetre de sorts APRES la derniere construction (BuildPhase_a, joueur nul)
+## alors que Godot a deja enchaine sur l'aventure (photo « bait » prise avant). Au pas BaitPhase
+## on rafraichit donc pioches/mains/sorts/donjon de la photo ; entree, ville, ames restent ceux du leurre.
+func _refresh_bait_snap(s: Dictionary) -> void:
+	if str(s["kind"]) != "phase" or str(s["phase"]) != "BaitPhase":
+		return
+	var cur: Dictionary = proj[str(int(s["seq"]))]
+	var key := "bait:%d" % int(s["turn"]) # tour ORACLE (Godot peut etre en retard)
+	if not run.snaps.has(key) or int(cur["turn"]) != int(s["turn"]): # Godot deja au tour suivant : sa photo « bait » fait foi
+		return
+	var snap: Dictionary = run.snaps[key]
+	for f in ["rooms", "spells", "discardRooms", "discardSpells"]: # pas « heroes » : deja tires au leurre
+		snap["decks"][f] = cur["decks"][f]
+	for k in (snap["players"] as Dictionary).keys():
+		for f in ["hand", "spells", "dungeon", "pending"]:
+			snap["players"][k][f] = cur["players"][k][f]
 
 
 # --- projection canonique (miroir de oracleProj dans apk.mjs) ----------------
@@ -260,6 +283,7 @@ func _refus(s: Dictionary, move: String, pid: int, reason: String) -> void:
 		"type": "REFUS", "seq": int(s["seq"]), "phase": str(s["phase"]), "move": move, "player": pid + 1,
 		"reason": reason, "legal": _legal_types(pid) if pid >= 0 and (run.G["players"] as Dictionary).has(pid) else [],
 		"godotPhase": str(run.G.get("phase", "")), "godotActive": run.active_player() + 1,
+		"godotChoice": str((run.G.get("pendingChoice", {}) as Dictionary).get("type", "")),
 	})
 
 
@@ -334,6 +358,11 @@ func _refs(t: Variant, owner_pid: int) -> Array:
 	var tp := int(td.get("targetPlayerId", td.get("fromPid", owner_pid)))
 	if td.has("targetPlayerId") and (G["players"] as Dictionary).has(tp):
 		out.append(int(((G["players"][tp] as Dictionary).get("boss", {}) as Dictionary).get("_oid", -1)))
+	if td.has("soulIndex") and (G["players"] as Dictionary).has(tp): # Zombie Attack : ames/blessures -> heros du scorekeeping
+		var pile: Array = (G["players"][tp] as Dictionary).get(str(td.get("pile", "souls")), [])
+		var si := int(td["soulIndex"])
+		if si >= 0 and si < pile.size() and (pile[si] as Dictionary).get("hero") is Dictionary:
+			out.append(int(((pile[si] as Dictionary)["hero"] as Dictionary).get("_oid", -1)))
 	if td.has("roomIndex") and (G["players"] as Dictionary).has(tp):
 		var d: Array = (G["players"][tp] as Dictionary).get("dungeon", [])
 		var ri := int(td["roomIndex"])
@@ -394,6 +423,8 @@ func _on_phase(s: Dictionary) -> void:
 		if str(s["phase"]) in ["AdventurePhase_c"]:
 			_refus(s, "adventureNext", int(s["activePlayer"]) - 1 if s["activePlayer"] != null else -1, "Godot a deja termine ce tour (il est au tour %d, l'oracle au tour %d)" % [int(run.G.get("turn", 0)) - 1, int(s["turn"])])
 		return
+	if str(s["phase"]) != "BuildPhase_a":
+		_close_window(s)
 	match str(s["phase"]):
 		"BeginningOfTurn":
 			if run.hold_start:
@@ -425,6 +456,8 @@ func _sync_build(target: int, s: Dictionary) -> void:
 	for _k in 8:
 		if str(run.G.get("phase", "")) != "build" or not (run.G.get("pendingChoice", {}) as Dictionary).is_empty():
 			return
+		if run.G.has("buildWindow"): # fenetre de sorts apres la derniere construction : fermee par _close_window
+			return
 		# Tour de construction supplementaire de Godot (forcedBuild) ou tour suivant : c'est a l'oracle de piloter.
 		if run.G.has("forcedBuild") or int(run.G.get("turn", 0)) != turn0:
 			return
@@ -438,6 +471,21 @@ func _sync_build(target: int, s: Dictionary) -> void:
 		stats["forcedPass"] += 1
 		_note(s, "FORCED-PASS", "oracle a avance (cible joueur %d) ; Godot fait passer le joueur %d" % [target + 1, cur + 1])
 		if not _apply_type(cur, "passBuild", s):
+			return
+
+
+## Fenetre de sorts avant la revelation (Match._open_build_window) : l'oracle l'a refermee (BuildPhase_b), tout le monde passe.
+func _close_window(s: Dictionary) -> void:
+	for _k in 12:
+		if not run.G.has("buildWindow"):
+			return
+		_auto_resolve(s)
+		var did := false
+		for pid in (run.G["players"] as Dictionary).keys():
+			if _has_legal(int(pid), "passBuild") and _apply_type(int(pid), "passBuild", s):
+				did = true
+				break
+		if not did:
 			return
 
 
@@ -650,7 +698,26 @@ func _spell(i: int, s: Dictionary, d: Dictionary, pid: int) -> void:
 
 # --- decisions ---------------------------------------------------------------
 
-func _on_decision(_i: int, s: Dictionary) -> void:
+## L'oracle decide dans l'ordre des sieges (Players), alors que ses EFFETS s'executent par PlayerId (GameBoard.
+## EnqueueAbilityTransaction) comme la file de choix Godot : une decision d'un autre joueur que le choix en attente
+## est gardee jusqu'a ce que Godot ouvre le choix de ce joueur.
+func _on_decision(i: int, s: Dictionary) -> void:
+	_on_decision_now(i, s)
+	for _k in 12:
+		var pc: Dictionary = run.G.get("pendingChoice", {})
+		var hit := -1
+		for j in _deferred.size():
+			if not pc.is_empty() and int(((_deferred[j] as Dictionary)["detail"] as Dictionary)["player"]) - 1 == int(pc.get("playerId", -1)):
+				hit = j
+				break
+		if hit < 0:
+			return
+		_on_decision_now(i, _deferred.pop_at(hit))
+
+
+func _on_decision_now(_i: int, s: Dictionary) -> void:
+	if not bool(s.get("spellBattle", false)):
+		_close_window(s) # decision hors Spell Battle = la revelation a commence : la fenetre de sorts est close
 	var d: Dictionary = s["detail"]
 	var pid := int(d["player"]) - 1
 	var kind := str(d["decision"])
@@ -661,6 +728,8 @@ func _on_decision(_i: int, s: Dictionary) -> void:
 		return
 	if pc.is_empty() or int(pc.get("playerId", -1)) != pid:
 		stats["decisionsSkipped"] += 1
+		if not pc.is_empty():
+			_deferred.append(s)
 		return
 	var chosen := _oids(d.get("chosen"))
 	if str(pc.get("type", "")) == "opening-discard":
@@ -675,6 +744,16 @@ func _on_decision(_i: int, s: Dictionary) -> void:
 		_apply_move(pid, {"type": "openingDiscard", "args": [mini(a, b), maxi(a, b)]}, s, "openingDiscard")
 		return
 	var opts: Array = pc.get("options", [])
+	# Cible implicite (salle proprietaire / boss) qu'aucune option ne designe par instance : ne pas la rapprocher
+	# d'une AUTRE copie du meme code (ex. Dark Altar vs un 2e BMA009 en defausse).
+	if not chosen.is_empty() and _implicit_target(chosen, d):
+		var direct := false
+		for o in opts:
+			for r in _refs(o, pid):
+				direct = direct or chosen.has(r)
+		if not direct:
+			stats["decisionsSkipped"] += 1
+			return
 	var m := _match_options(opts, pid, chosen, d.get("chosen"))
 	var pick: int = m["pick"]
 	var ptype := str(pc.get("type", ""))
@@ -690,6 +769,12 @@ func _on_decision(_i: int, s: Dictionary) -> void:
 	elif not m["exact"] or not (m["ties"] as Array).is_empty():
 		_note(s, "CHOICE-APPROX", "choix Godot '%s' : option %d retenue (%s)%s" % [ptype, pick, str(m["how"]), (" ; ex aequo " + str(m["ties"])) if not (m["ties"] as Array).is_empty() else ""])
 	_apply_move(pid, {"type": "resolveChoice", "args": [pick]}, s, "resolveChoice(%s)" % ptype)
+	# Xyzax : une seule decision oracle designe 2 cartes ; Godot pose un 2e choix « recover-card » pour la suivante.
+	var pc2: Dictionary = G.get("pendingChoice", {})
+	if ptype == "recover-card" and chosen.size() > 1 and str(pc2.get("type", "")) == "recover-card" and int(pc2.get("playerId", -1)) == pid:
+		var m2 := _match_options(pc2.get("options", []), pid, chosen, d.get("chosen"))
+		if int(m2["pick"]) >= 0:
+			_apply_move(pid, {"type": "resolveChoice", "args": [int(m2["pick"])]}, s, "resolveChoice(recover-card)")
 
 
 ## Choisit l'option dont les cartes designees recouvrent le mieux le choix oracle :

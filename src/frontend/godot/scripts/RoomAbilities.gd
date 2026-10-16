@@ -151,7 +151,7 @@ static func _dark_altar(G: Dictionary, p: Dictionary, room_index: int, player_id
 	if opts.is_empty():
 		room["usedThisTurn"] = false
 		return "discard piles are empty"
-	var destroyed = BossEngine.destroy_room(p, room_index)
+	var destroyed = BossEngine.destroy_room(p, room_index, G)
 	BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
 	if opts.size() == 1:
 		var got = take_discard_card(G, p, opts[0])
@@ -269,7 +269,7 @@ static func _bottomless_pit(G: Dictionary, p: Dictionary, player_id: int, room_i
 	var adv: Dictionary = G.get("adventure", {}) as Dictionary
 	_log(G, "Bottomless Pit: killed %s." % str((adv.get("hero", {}) as Dictionary).get("name", "?")))
 	adv["hp"] = 0
-	var destroyed = BossEngine.destroy_room(p, room_index)
+	var destroyed = BossEngine.destroy_room(p, room_index, G)
 	BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
 	return null
 
@@ -287,7 +287,7 @@ static func _boulder_ramp(G: Dictionary, p: Dictionary, player_id: int, room_ind
 	var adv: Dictionary = G.get("adventure", {}) as Dictionary
 	adv["hp"] = int(adv.get("hp", 0)) - 5
 	_log(G, "Boulder Ramp: dealt 5 damage to %s (HP %d)." % [str((adv.get("hero", {}) as Dictionary).get("name", "?")), int(adv.get("hp", 0))])
-	var destroyed = BossEngine.destroy_room(p, other)
+	var destroyed = BossEngine.destroy_room(p, other, G)
 	if destroyed != null:
 		BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
 		_log(G, "Boulder Ramp: destroyed %s." % str((destroyed as Dictionary).get("name", "?")))
@@ -301,7 +301,7 @@ static func _jackpot_stash(G: Dictionary, p: Dictionary, player_id: int, room_in
 	eff["treasureDoubled"] = arr
 	arr.append(player_id)
 	_log(G, "Jackpot Stash: treasure values doubled until end of turn.")
-	var destroyed = BossEngine.destroy_room(p, room_index)
+	var destroyed = BossEngine.destroy_room(p, room_index, G)
 	BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
 	return null
 
@@ -312,7 +312,7 @@ static func _crushinator(G: Dictionary, p: Dictionary, player_id: int, room_inde
 	var dungeon: Array = p.get("dungeon", [])
 	if other < 0 or other >= dungeon.size() or BossEngine.active_room(dungeon[other]) == null:
 		return "no room at other index"
-	var destroyed = BossEngine.destroy_room(p, other)
+	var destroyed = BossEngine.destroy_room(p, other, G)
 	BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
 	var eff := _effects(G)
 	var arr: Array = eff.get("roomDamageBonus", [])
@@ -322,10 +322,10 @@ static func _crushinator(G: Dictionary, p: Dictionary, player_id: int, room_inde
 	_log(G, "The Crushinator: your Rooms deal +2 damage this turn.")
 	return null
 
-## BMA038 Torture Chamber : detruit cette salle, un adversaire defausse une salle au hasard.
+## BMA038 Torture Chamber : detruit cette salle, puis DiscardRandomCardFromHand(1, Room) sur un adversaire
+## (BossOpponent : tout adversaire, meme sans salle en main ; un seul adversaire = cible automatique).
 static func _torture_chamber(G: Dictionary, player_id: int):
 	var p := _player(G, player_id)
-	var opps := opponents_with(G, player_id, true)
 	var room_index := -1
 	var dungeon: Array = p.get("dungeon", [])
 	for i in dungeon.size():
@@ -334,13 +334,17 @@ static func _torture_chamber(G: Dictionary, player_id: int):
 			break
 	if room_index < 0:
 		return "no room at index"
-	if opps.is_empty():
-		_log(G, "Torture Chamber: no opponent has a Spell.")
-		var d0 = BossEngine.destroy_room(p, room_index)
-		BossEngine.discard_room_to_pile(G.get("decks", {}), d0)
-		return null
-	var d = BossEngine.destroy_room(p, room_index)
+	var d = BossEngine.destroy_room(p, room_index, G)
 	BossEngine.discard_room_to_pile(G.get("decks", {}), d)
+	var opps := opponents_with(G, player_id)
+	if opps.size() == 1:
+		_discard_random_from(G, int((opps[0] as Dictionary)["playerId"]), false, "Torture Chamber")
+	elif opps.size() > 1:
+		var opts: Array = []
+		for o in opps:
+			opts.append({"targetPlayerId": int((o as Dictionary)["playerId"])})
+		G["pendingChoice"] = {"type": "pick-opponent", "action": "discard-room", "resume": false, "playerId": player_id,
+			"bossName": "Torture Chamber", "message": "Torture Chamber: choose an opponent to discard a random Room", "options": opts}
 	return null
 
 ## BMA013 Dracolich Lair : defausse 2 salles de la main (choix du joueur) puis recupere une salle de la defausse.
@@ -408,7 +412,7 @@ static func _zombie_prison(G: Dictionary, p: Dictionary, room_index: int, player
 	if opts.is_empty():
 		room["usedThisTurn"] = false
 		return "no dead Hero in an opponent's scorekeeping area"
-	BossEngine.discard_room_to_pile(G.get("decks", {}), BossEngine.destroy_room(p, room_index))
+	BossEngine.discard_room_to_pile(G.get("decks", {}), BossEngine.destroy_room(p, room_index, G))
 	if opts.size() == 1:
 		zombie_prison_send_back(G, opts[0])
 		return null
@@ -494,6 +498,34 @@ static func on_build_room(G: Dictionary, player_id: int, room: Dictionary) -> Va
 		"BMA034": return _construction_zone(G, player_id)
 		"BMA033": return _centipede_tunnel(G, player_id)
 	return null
+
+## GameBoard.RevealAllRoomCards -> CheckTriggerInDungeon<WhenYouBuildAnotherRoom>(player, topRoom) :
+## chaque AUTRE salle active (face visible) du donjon reagit. BMA019 Beast Menagerie : OncePerTurn +
+## HasPendingRoomToBuild(Monster) (un slot encore en attente, y compris celui revele, a une salle Monster
+## au sommet) -> pioche 1 salle. A appeler AVANT que `room` ne passe face visible.
+static func on_build_another_room(G: Dictionary, player_id: int, room: Dictionary) -> void:
+	var p := _player(G, player_id)
+	if p.is_empty():
+		return
+	var pending_monster := false
+	for stack in (p.get("dungeon", []) as Array):
+		var top = BossEngine.active_room(stack)
+		if top != null and bool((top as Dictionary).get("faceDown", false)) and str((top as Dictionary).get("type", "")) == "monster":
+			pending_monster = true
+			break
+	if not pending_monster:
+		return
+	for stack in (p.get("dungeon", []) as Array):
+		var other = BossEngine.active_room(stack)
+		if other == null or bool((other as Dictionary).get("faceDown", false)):
+			continue
+		var o: Dictionary = other
+		if str(o.get("id", "")) != "BMA019" or bool(o.get("usedThisTurn", false)):
+			continue
+		o["usedThisTurn"] = true
+		var drawn := _draw_into(G, p, "rooms", 1)
+		if not drawn.is_empty():
+			_log(G, "Beast Menagerie: drew %s." % str((drawn[0] as Dictionary).get("name", "?")))
 
 ## Declenche quand un hero meurt dans cette salle. Renvoie un choix, ou null.
 static func on_hero_died_in_room(G: Dictionary, player_id: int, room: Dictionary) -> Variant:
@@ -625,11 +657,15 @@ static func _vampire_bordello(G: Dictionary, p: Dictionary) -> Variant:
 
 ## Defausse un sort au hasard de la main d'un joueur.
 static func _discard_random_spell_from(G: Dictionary, pid: int, label: String) -> void:
+	_discard_random_from(G, pid, true, label)
+
+## DiscardRandomCardFromHand(1, Spell|Room) : une carte du type voulu, au hasard, vers la defausse correspondante.
+static func _discard_random_from(G: Dictionary, pid: int, spell: bool, label: String) -> void:
 	var opp := _player(G, pid)
 	var hand: Array = opp.get("hand", []) as Array
 	var idxs: Array = []
 	for i in hand.size():
-		if bool((hand[i] as Dictionary).get("isSpell", false)):
+		if bool((hand[i] as Dictionary).get("isSpell", false)) == spell:
 			idxs.append(i)
 	if idxs.is_empty():
 		return
@@ -644,10 +680,14 @@ static func _discard_random_spell_from(G: Dictionary, pid: int, label: String) -
 	hand.remove_at(pick)
 	opp["hand"] = hand
 	var decks: Dictionary = G.get("decks", {})
-	var pile: Array = decks.get("spellDiscard", []) as Array
-	decks["spellDiscard"] = pile
-	pile.append(card)
+	if spell:
+		var pile: Array = decks.get("spellDiscard", []) as Array
+		decks["spellDiscard"] = pile
+		pile.append(card)
+	else:
+		BossEngine.discard_room_to_pile(decks, card)
 	_log(G, "%s: player %d discarded %s." % [label, pid, str(card.get("name", "?"))])
+
 ## Construit le choix suivant de la file Robobo (adversaires restants).
 static func robobo_choice(G: Dictionary, target_pid: int) -> Variant:
 	if target_pid < 0 or not (G.get("players", {}) as Dictionary).has(target_pid):
@@ -827,7 +867,7 @@ static func robobo_advance(G: Dictionary) -> Variant:
 ## Detruit la salle choisie (sans declencheur, checkTriggers:false) et l'envoie a la defausse.
 static func destroy_room_choice(G: Dictionary, target_pid: int, room_index: int, label: String) -> void:
 	var tp := _player(G, target_pid)
-	var destroyed = BossEngine.destroy_room(tp, room_index)
+	var destroyed = BossEngine.destroy_room(tp, room_index, G)
 	if destroyed == null:
 		return
 	BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
