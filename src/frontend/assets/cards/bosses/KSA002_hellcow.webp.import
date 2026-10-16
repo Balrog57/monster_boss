@@ -15,7 +15,7 @@ dest_files=["res://.godot/imported/KSA002_hellcow.webp-af4e9e2a571d23b0509536010
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -36,5 +36,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=800
 detect_3d/compress_to=1

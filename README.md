@@ -18,7 +18,7 @@ Compatibility** (export Web, threads désactivés → aucun header COOP/COEP req
 # 1. Éditer / tester sous Godot 4.7 (renderer Compatibility)
 godot --headless --path src/frontend res://godot/tests/Soak.tscn   # soak IA-vs-IA
 
-# 2. Exporter le client web (5 Mo pck + 39 Mo wasm)
+# 2. Exporter le client web (~38 Mo pck + 39,5 Mo wasm ; ~35 + 8 Mo en brotli)
 godot --headless --path src/frontend --export-release Web godot/build_web/index.html
 
 # 3. Servir (le serveur Koa sert src/frontend/godot/build_web/ en statique)
