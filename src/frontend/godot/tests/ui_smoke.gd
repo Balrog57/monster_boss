@@ -550,10 +550,15 @@ func _do_build_click(pid: int, idx: int) -> void:
 			_cancelled = true
 			return
 		(cards[idx] as CardUI).card_clicked.emit(null)
+		await _pick_target(_n_build_targets(pid, idx), "construire (carte %d)" % idx) # plusieurs emplacements (A3) : le joueur choisit lequel
+
+## Emplacements de construction offerts par le moteur pour la carte `idx` (salles recouvrables + emplacement libre).
+func _n_build_targets(pid: int, idx: int) -> int:
+	return gm.legal_moves(pid).filter(func(m): return m["type"] == "buildRoom" and int(m["args"][0]) == idx).size()
 
 func _do_drop(pid: int, idx: int, ti: int) -> void:
-	if rng.randf() < 0.4: # variante au clic : fenetre « construire par-dessus » (une entree par salle recouvrable)
-		var n_over: int = gm.legal_moves(pid).filter(func(m): return m["type"] == "buildRoom" and (m["args"] as Array).size() > 1 and m["args"][1] != null and int(m["args"][0]) == idx).size()
+	if rng.randf() < 0.4: # variante au clic : fenetre « construire par-dessus » (une entree par salle recouvrable + l'emplacement libre)
+		var n_over := _n_build_targets(pid, idx)
 		var cards := _hand_cards()
 		if _check(idx < cards.size(), "construire par-dessus : carte %d absente" % idx):
 			(cards[idx] as CardUI).card_clicked.emit(null)
@@ -596,6 +601,9 @@ func _pick_target(n_cands: int, what: String) -> void:
 		return
 	if not _check(board._popup_kind == "target", "%s : %d cibles mais pas de choix de cible (popup=%s)" % [what, n_cands, board._popup_kind]):
 		return
+	if board._popup.get_node_or_null("CardsContinue") != null: # cibles qui sont des cartes : carrousel central, SKIP = CANCEL
+		await _pick_in_cards(n_cands, true, false, what)
+		return
 	var btns := _buttons(board._popup)
 	if not _check(btns.size() == n_cands + 1, "%s : %d boutons de ciblage pour %d cibles (+ CANCEL)" % [what, btns.size(), n_cands]):
 		return
@@ -611,6 +619,37 @@ func _pick_target(n_cands: int, what: String) -> void:
 	(btns[rng.randi_range(0, n_cands - 1)] as Button).pressed.emit()
 	await get_tree().process_frame
 	_check(board._popup_kind != "target", "%s : la fenetre de ciblage ne se ferme pas apres le choix" % what)
+
+## Carrousel central de cartes (popup « CardsContinue ») : une carte par option, le bouton n'est la qu'avec une carte choisie ou un SKIP possible.
+## skip_plays : SKIP joue un coup (choix en attente) ; sinon c'est un CANCEL qui referme sans rien jouer.
+func _pick_in_cards(n_pick: int, has_skip: bool, skip_plays: bool, what: String) -> void:
+	var pop: Control = board._popup
+	var btn: Button = pop.get_node_or_null("CardsContinue")
+	var cards := pop.get_children().filter(func(c): return c is CardUI)
+	if not (_check(btn != null and cards.size() == n_pick, "%s : %d cartes au carrousel pour %d options" % [what, cards.size(), n_pick]) \
+			and _check(btn.visible == has_skip and btn.text == "SKIP", "%s : bouton SKIP %s alors que SKIP %s" % [what, btn.visible, has_skip])):
+		return
+	_cov("cards_popup")
+	var s0 := _sig()
+	if has_skip and rng.randf() < 0.2:
+		btn.pressed.emit()
+		await get_tree().process_frame
+		if skip_plays:
+			_check(_sig() != s0, "%s : SKIP sans effet" % what)
+			_cov("cards_skip")
+		else:
+			_check(board._popup_kind == "" and _sig() == s0, "%s : CANCEL doit refermer sans jouer" % what)
+			_cancelled = true
+		return
+	var k := rng.randi_range(0, cards.size() - 1)
+	(cards[k] as CardUI).card_clicked.emit(null)
+	if _check(btn.visible and btn.text == "CONTINUE" and (cards[k] as CardUI).scale.x > 1.5, "%s : carte choisie sans CONTINUE ni agrandissement" % what):
+		(cards[k] as CardUI).card_clicked.emit(null) # re-appui = deselection
+		_check(btn.visible == has_skip and (cards[k] as CardUI).scale.x == 1.0, "%s : la deselection ne remet pas l'etat initial" % what)
+		(cards[k] as CardUI).card_clicked.emit(null)
+		btn.pressed.emit()
+		await get_tree().process_frame
+		_check(board._popup_kind == "" and _sig() != s0, "%s : CONTINUE n'a pas joue la carte choisie" % what)
 
 ## Vrai clic gauche a la position (coordonnees du plateau 1920x1080) via le viewport : passe par le voile, les zones et les boutons.
 func _click_at(pos: Vector2) -> void:
@@ -723,6 +762,11 @@ func _act_choice(pid: int, pc: Dictionary, moves: Array) -> void:
 		_cov("choice_board:" + typ)
 		return
 	if not _check(board._popup_kind == "choice", "choix en attente « %s » (%s) : pas de popup (popup=%s)" % [typ, str(pc.get("message", "")).left(50), board._popup_kind]):
+		return
+	if board._popup.get_node_or_null("CardsContinue") != null: # options = cartes : carrousel central (APK CardSelector), SKIP = canBeCanceled
+		var n_cards := cm.filter(func(m): return int((m["args"] as Array)[0]) >= 0).size()
+		await _pick_in_cards(n_cards, n_cards < cm.size(), true, "choix « %s »" % typ)
+		_cov("choice_cards:" + typ)
 		return
 	var btns := _buttons(board._popup)
 	if not _check(btns.size() == cm.size(), "choix « %s » : %d boutons pour %d options" % [typ, btns.size(), cm.size()]):
@@ -1115,6 +1159,8 @@ func _act_simple() -> void:
 				for i in hand.size():
 					if (hand[i] as Dictionary).get("isRoom", false) and gm.can_build_room_at(0, i, (me["dungeon"] as Array).size()):
 						board._on_hand_card_clicked(i, hand[i])
+						if not board._tgt.is_empty(): # plusieurs emplacements possibles : la 1re entree est l'emplacement libre
+							(board._tgt["entries"][0]["cb"] as Callable).call()
 						return
 			if not gm.legal_moves(0).is_empty():
 				board._on_pass_pressed()
@@ -1587,7 +1633,8 @@ func _check_drag_and_zoom() -> void:
 	await _mouse(start + Vector2(0, -160), false, true, MOUSE_BUTTON_MASK_LEFT)
 	_check(not board._drag.is_empty(), "glisser : pas de glisser en cours apres 160 px")
 	var frames: Array = board._drag.get("frames", [])
-	_check(frames.size() == 1, "glisser : %d emplacements dores pour une salle (1 attendu : le prochain emplacement libre)" % frames.size())
+	var n_frames := _n_build_targets(0, idx) # le prochain emplacement libre + les salles recouvrables (Boss.CanBuildRoom)
+	_check(frames.size() == n_frames and n_frames == 1 + dsize, "glisser : %d emplacements dores pour une salle (%d attendus)" % [frames.size(), 1 + dsize])
 	var prev: Control = board._drag.get("preview")
 	_check(prev != null and prev.size.x > 360.0, "glisser : carte zoomee absente")
 	await _mouse(start + Vector2(0, -20), false, false)
@@ -1683,6 +1730,114 @@ func _check_drag_and_zoom() -> void:
 	await _drain()
 	_cov("click_spell")
 
+## Ecarts APK refermes : colonne HEROES IN TOWN (glisser / molette / arrivee d'un heros), carrousel pour les choix de cartes, bulle de l'adversaire
+## (un appui montre la carte jouee), construction par-dessus une salle sans donjon plein (Boss.CanBuildRoom : l'emplacement libre est un choix).
+func _check_apk_gaps() -> void:
+	_tag = "[gaps]"
+	await _new_game()
+	board.set_process(false)
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	var foe: Dictionary = G["players"][1]
+	# --- HEROES IN TOWN : 5 heros depassent la colonne ; molette, glisser, et un nouvel arrivant est amene a l'ecran
+	var town: Array = G["town"]
+	while town.size() < 5:
+		town.append((CardDB.heroes[town.size()] as Dictionary).duplicate(true))
+	board.refresh()
+	for i in 4:
+		await get_tree().process_frame
+	var sc: ScrollContainer = board._town_scroll
+	_check(sc.get_v_scroll_bar().max_value - sc.get_v_scroll_bar().page > 10.0, "ville : %d heros ne depassent pas la colonne" % town.size())
+	sc.scroll_vertical = 0
+	var centre := sc.get_global_rect().get_center()
+	var wheel := InputEventMouseButton.new()
+	wheel.button_index = MOUSE_BUTTON_WHEEL_DOWN
+	wheel.pressed = true
+	wheel.position = centre
+	wheel.global_position = centre
+	board._input(wheel)
+	_check(sc.scroll_vertical > 0, "ville : la molette ne defile pas la colonne")
+	sc.scroll_vertical = 0
+	var s0 := _sig()
+	await _drag(centre, centre + Vector2(0, -150))
+	_check(sc.scroll_vertical > 100 and board._zoom == null and _sig() == s0, "ville : glisser 150 px vers le haut -> defilement %d" % sc.scroll_vertical)
+	sc.scroll_vertical = 0
+	town.append((CardDB.heroes[town.size()] as Dictionary).duplicate(true))
+	board.refresh()
+	for i in 4:
+		await get_tree().process_frame
+	var last: Control = board.town_container.get_child(board.town_container.get_child_count() - 1)
+	_check(sc.scroll_vertical > 0 and sc.get_global_rect().grow(2.0).encloses(last.get_global_rect()), "ville : le heros arrive n'est pas amene a l'ecran (defilement %d)" % sc.scroll_vertical)
+	_cov("town_scroll")
+	# --- bulle « HAS PLAYED A ... » de l'adversaire : un appui montre la carte (au centre), le clic suivant la ferme
+	var spell: Dictionary = ((G["decks"]["spells"] as Array)[0] as Dictionary).duplicate(true)
+	(foe["hand"] as Array).append(spell)
+	board._notice_ai(1, {"type": "playSpell", "args": [(foe["hand"] as Array).size() - 1, {}]})
+	if _check(board._notice != null and is_instance_valid(board._notice) and board._notice.mouse_filter == Control.MOUSE_FILTER_STOP, "bulle de sort adverse : pas cliquable"):
+		var tap := InputEventMouseButton.new()
+		tap.button_index = MOUSE_BUTTON_LEFT
+		tap.pressed = true
+		board._notice.gui_input.emit(tap)
+		if _check(board._zoom != null and Rect2(0, 0, 1920, 1080).encloses(Rect2(board._zoom.position, board._zoom.size)), "bulle : l'appui ne montre pas la carte"):
+			board.refresh()
+			_check(board._zoom != null, "bulle : le zoom ne survit pas a un refresh")
+			board._input(tap)
+			_check(board._zoom == null, "bulle : le clic suivant ne ferme pas le zoom")
+	var room: Dictionary = (CardDB.rooms[0] as Dictionary).duplicate(true)
+	room["faceDown"] = false
+	(foe["dungeon"] as Array).push_front([room])
+	board._notice_ai(1, {"type": "activateRoom", "args": [0]})
+	_check(board._notice != null and is_instance_valid(board._notice) and board._notice.mouse_filter == Control.MOUSE_FILTER_STOP, "bulle de capacite de salle adverse : pas cliquable")
+	_cov("notice_tap")
+	# --- choix de cartes : carrousel central ; autre chose que des cartes : boutons pierre
+	G["pendingChoice"] = {"type": "ui-test", "playerId": 0, "message": "Choose one Hero", "optional": true, "options": [{"card": town[0]}, {"card": town[1]}, {"card": town[2]}]}
+	board.refresh()
+	await get_tree().process_frame
+	var btn: Button = board._popup.get_node_or_null("CardsContinue") if board._popup != null else null
+	if _check(board._popup_kind == "choice" and btn != null, "choix de cartes : pas de carrousel (popup=%s)" % board._popup_kind):
+		var cards: Array = board._popup.get_children().filter(func(c): return c is CardUI)
+		_check(cards.size() == 3 and btn.visible and btn.text == "SKIP", "carrousel : %d cartes, bouton %s/%s (3, SKIP attendus)" % [cards.size(), btn.visible, btn.text])
+		for c in cards:
+			_check(Rect2(0, 0, 1920, 1080).encloses((c as Control).get_global_rect()), "carrousel : carte hors ecran %s" % (c as Control).get_global_rect())
+		(cards[1] as CardUI).card_clicked.emit(null)
+		_check(btn.text == "CONTINUE" and (cards[1] as CardUI).scale.x > 1.6 and (cards[0] as CardUI).scale.x == 1.0, "carrousel : la carte choisie n'est pas agrandie / CONTINUE absent")
+		_cov("cards_carousel")
+	G["pendingChoice"] = {"type": "ui-test", "playerId": 0, "message": "Pick a side", "options": [{"label": "Left"}, {"label": "Right"}]}
+	board.refresh()
+	await get_tree().process_frame
+	_check(board._popup_kind == "choice" and board._popup.get_node_or_null("CardsContinue") == null and _buttons(board._popup).size() == 2, "choix sans cartes : les boutons pierre doivent rester")
+	G.erase("pendingChoice")
+	board._popup_close()
+	board.refresh()
+	# --- A3 : salle ordinaire par-dessus une salle visible, donjon non plein ; un clic demande l'emplacement (le libre compris)
+	var idx := -1
+	for i in (me["hand"] as Array).size():
+		var hc: Dictionary = (me["hand"] as Array)[i]
+		if bool(hc.get("isRoom", false)) and not bool(hc.get("advanced", false)) and not bool(hc.get("isMiniboss", false)):
+			idx = i
+			break
+	if not _check(idx >= 0, "A3 : aucune salle ordinaire en main"):
+		return
+	var host: Dictionary = (CardDB.rooms[1] as Dictionary).duplicate(true)
+	host["faceDown"] = false
+	(me["dungeon"] as Array).push_front([host])
+	board.refresh()
+	var dn: int = (me["dungeon"] as Array).size()
+	var mvs := gm.legal_moves(0).filter(func(m): return m["type"] == "buildRoom" and int(m["args"][0]) == idx)
+	var n_over := mvs.filter(func(m): return (m["args"] as Array).size() > 1).size()
+	if not _check(dn < 5 and n_over >= 1 and mvs.size() == n_over + 1, "A3 : %d coups de construction (%d par-dessus) pour un donjon de %d salles" % [mvs.size(), n_over, dn]):
+		return
+	board._on_hand_card_clicked(idx, (me["hand"] as Array)[idx])
+	for i in 3:
+		await get_tree().process_frame
+	if _check(not board._tgt.is_empty() and (board._tgt["entries"] as Array).size() == mvs.size() and board._tgt_spots.size() == mvs.size(), "A3 : le clic doit proposer %d emplacements sur le plateau (%d zones)" % [mvs.size(), board._tgt_spots.size()]):
+		var hand_n: int = (me["hand"] as Array).size()
+		var ti := int(((board._tgt["entries"][1]["mv"] as Dictionary)["args"] as Array)[1])
+		var h0: int = ((me["dungeon"] as Array)[ti] as Array).size()
+		await _click_at((board._tgt_spots[1]["ctrl"] as Control).get_global_rect().get_center())
+		_check((me["hand"] as Array).size() == hand_n - 1 and ((me["dungeon"] as Array)[ti] as Array).size() == h0 + 1 and (me["dungeon"] as Array).size() == dn, "A3 : la salle n'a pas ete posee par-dessus la salle %d" % ti)
+		_cov("build_over_not_full")
+
 ## PASS TURN : tant qu'une salle peut etre construite, le 1er appui montre la bulle de mon boss, le 2e confirme ; apres ma construction
 ## avec un sort jouable, PASS TURN devient DONE!.
 func _check_done_and_warning() -> void:
@@ -1709,6 +1864,8 @@ func _check_done_and_warning() -> void:
 	for i in hand.size():
 		if (hand[i] as Dictionary).get("isRoom", false) and gm.can_build_room_at(0, i, (me["dungeon"] as Array).size()):
 			board._on_hand_card_clicked(i, hand[i])
+			if not board._tgt.is_empty(): # plusieurs emplacements possibles : la 1re entree est l'emplacement libre
+				(board._tgt["entries"][0]["cb"] as Callable).call()
 			built = true
 			break
 	if not _check(built, "DONE : aucune salle construisible"):
@@ -1868,6 +2025,7 @@ func _extra_checks() -> void:
 	await _check_windows()
 	await _check_drag_and_zoom()
 	await _check_done_and_warning()
+	await _check_apk_gaps()
 	await _check_gallery()
 	await _check_gameover_banner()
 	await _check_effects()

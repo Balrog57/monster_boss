@@ -158,6 +158,9 @@ var _tgt_cancel_btn: Button
 var _tgt_spots: Array = []               # [{ctrl, ids}] : ids = indices dans _tgt.entries atteints par cette zone
 var _tgt_lifted: Array = []              # noeuds du plateau passes devant le voile (remis a z 0 a la fin)
 var _town_scroll: ScrollContainer
+var _town_drag := {}                     # glisser la colonne HEROES IN TOWN (VerticalScrollQueueComponent) : {y, sv}
+var _town_sig := ""                      # heros affiches : la colonne n'est reconstruite (et son defilement garde) que s'ils changent
+var _town_ids: Array = []
 var _ent_tok: Dictionary = {}            # pid -> jetons de l'entree, alignes sur les heros de `entrance` (null = pion en marche)
 # Carrousel du choix du boss
 var _boss_sel := 0
@@ -946,10 +949,20 @@ func _refresh_lane_badges(idx: int, pl: Dictionary) -> void:
 	(L["icon"] as TextureRect).texture = _tex(str(TREASURE_TEX.get(int(tr[0]) if not tr.is_empty() else 0, "")))
 
 func _refresh_town(G: Dictionary) -> void:
+	var town: Array = G.get("town", [])
+	var sig := JSON.stringify(town)
+	if sig == _town_sig:
+		return # memes heros : on garde les cartes (et le defilement de la colonne)
+	_town_sig = sig
+	var keep_sv := _town_scroll.scroll_vertical
 	for c in town_container.get_children():
 		town_container.remove_child(c) # tout de suite : les zones de ciblage lisent les positions des nouvelles cartes
 		c.queue_free()
-	for hero in G.get("town", []):
+	var pool := _town_ids.duplicate()
+	var fresh := -1 # dernier heros arrive (absent de la ville precedente)
+	var ids: Array = []
+	for hi in town.size():
+		var hero: Dictionary = town[hi]
 		var hero_card = _card_scene.instantiate()
 		hero_card.default_size = Vector2(154, 215)
 		town_container.add_child(hero_card)
@@ -957,6 +970,50 @@ func _refresh_town(G: Dictionary) -> void:
 		hero_card.setup(hero)
 		hero_card.long_pressed.connect(_zoom_show)
 		hero_card.long_released.connect(func(_c): _zoom_hide())
+		ids.append(hero.get("id", hero))
+		var k := pool.find(ids[hi])
+		if k >= 0:
+			pool.remove_at(k)
+		else:
+			fresh = hi
+	_town_ids = ids
+	_town_restore(keep_sv, fresh)
+
+## Apres la mise en page des cartes : le defilement d'avant est restitue, et un heros qui vient d'arriver est amene a l'ecran
+## (VerticalScrollQueueComponent.CreateShowBottomTask).
+func _town_restore(sv: int, fresh: int) -> void:
+	for i in 2:
+		await get_tree().process_frame
+	if not is_instance_valid(_town_scroll):
+		return
+	_town_scroll.scroll_vertical = sv
+	if fresh >= 0 and fresh < town_container.get_child_count():
+		_town_scroll.ensure_control_visible(town_container.get_child(fresh))
+
+## Glisser (ou molette) dans la colonne HEROES IN TOWN : la colonne suit le doigt (VerticalScrollQueueComponent, TouchMoved) ; sous 12 px
+## c'est un clic (la carte garde son appui long). Pas de rebond elastique (l'APK ramene la colonne dans [810 - hauteur, 0]).
+func _town_input(event: InputEvent) -> void:
+	if _town_scroll == null or _popup != null or _modal_open():
+		_town_drag = {}
+		return
+	var rect := Rect2(_town_scroll.position, _town_scroll.size)
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		var pos: Vector2 = (make_input_local(event) as InputEventMouse).position
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			_town_drag = {"y": pos.y, "sv": _town_scroll.scroll_vertical, "moved": false} if mb.pressed and rect.has_point(pos) else {}
+		elif mb.pressed and (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN) and rect.has_point(pos):
+			_town_scroll.scroll_vertical += (-115 if mb.button_index == MOUSE_BUTTON_WHEEL_UP else 115) # un demi-pas de carte
+			get_viewport().set_input_as_handled()
+	elif event is InputEventMouseMotion and not _town_drag.is_empty():
+		if not ((event as InputEventMouseMotion).button_mask & MOUSE_BUTTON_MASK_LEFT):
+			_town_drag = {}
+			return
+		var dy: float = (make_input_local(event) as InputEventMouse).position.y - float(_town_drag["y"])
+		if absf(dy) >= 12.0:
+			_town_drag["moved"] = true
+		if bool(_town_drag["moved"]):
+			_town_scroll.scroll_vertical = int(float(_town_drag["sv"]) - dy)
 
 func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 	var rows := [[1, p], [0, foe]]
@@ -1241,6 +1298,7 @@ func _input(event: InputEvent) -> void:
 		_zoom_hide() # le zoom de LEVEL UP part au clic suivant (le zoom d'appui long se ferme deja au relachement)
 	if not _press.is_empty() or not _drag.is_empty():
 		_drag_input(event)
+	_town_input(event)
 	if _boss_cards.is_empty() or _boss_flipping:
 		return
 	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
@@ -1697,7 +1755,8 @@ func _popup_begin(kind: String, dim_alpha: float = 0.62) -> Control:
 	add_child(_popup)
 	return _popup
 
-## Popup centre facon « SELECT 2 CARDS TO DISCARD » : bulle (top_globe) avec le titre, puis une pile de boutons pierre.
+## Liste de boutons pierre pour les choix qui ne sont PAS des cartes (oui / non, joueur, variante...) : bulle (top_globe) avec le titre,
+## puis une pile de boutons. L'APK n'a pas de liste : un choix de cartes passe par le carrousel central (_popup_cards).
 ## entries : [{label, cb}] ; cancel_cb valide = bouton CANCEL en dernier.
 func _popup_list(kind: String, title: String, entries: Array, cancel_cb: Callable = Callable()) -> void:
 	var pop := _popup_begin(kind)
@@ -1742,9 +1801,82 @@ func _popup_list(kind: String, title: String, entries: Array, cancel_cb: Callabl
 			cb.call())
 		grid.add_child(b)
 
+## Carrousel central de cartes (APK CarouselSelectorEntity + CardSelectorComponent, comme « SELECT 2 CARDS TO DISCARD ») : voile, bulle de
+## titre (top_globe), cartes a l'echelle 0,7 dont la touchee passe a 1,2 avec un halo dore (retoucher = deselectionner) ; CONTINUE joue
+## la carte choisie. `skip_cb` valide = le choix peut etre refuse (canBeCanceled) : le bouton est alors present meme sans carte (SKIP) ;
+## sinon il n'apparait qu'une fois une carte choisie (IsContinueButtonVisible). items : [{card: Dictionary, cb: Callable}].
+func _popup_cards(kind: String, title: String, items: Array, skip_cb: Callable = Callable()) -> void:
+	var pop := _popup_begin(kind, 0.6)
+	_img(pop, UI_DIR + "top_globe.webp", Vector2(PLAY_CX - 465, 150))
+	var tl := _lbl(pop, title.to_upper(), 26 if title.length() <= 44 else 21, Color.WHITE, Vector2(PLAY_CX - 430, 150 + 14), 860.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
+	tl.custom_minimum_size.y = 110.0
+	tl.size.y = 110.0
+	tl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var n := items.size()
+	var cw := 245.0 if n <= 5 else maxf(125.0, 1400.0 / float(n) - 10.0) # 350 x 0,7 ; plus petites (et chevauchees) au-dela de 5 cartes
+	var sz := Vector2(cw, cw * 488.0 / 350.0)
+	var step := 0.0 if n < 2 else minf(cw + 25.0, (1400.0 - cw) / float(n - 1))
+	var x0 := PLAY_CX - (step * float(n - 1) + cw) / 2.0
+	var st := {"sel": -1}
+	var cards: Array = []
+	var btn := Button.new()
+	btn.name = "CardsContinue"
+	btn.custom_minimum_size = Vector2(220, 54)
+	btn.size = Vector2(220, 54)
+	btn.position = Vector2(PLAY_CX - 110, 905)
+	btn.add_theme_font_size_override("font_size", 24)
+	var update := func():
+		for k in cards.size():
+			var on: bool = k == int(st["sel"])
+			var cu: CardUI = cards[k]
+			cu.scale = Vector2.ONE * (1.2 / 0.7 if on else 1.0)
+			cu.z_index = 10 if on else 0
+			cu.modulate = Color(1.3, 1.3, 0.55) if on else Color.WHITE
+			if cu.glow_rect != null:
+				cu.glow_rect.visible = on
+		btn.visible = int(st["sel"]) >= 0 or skip_cb.is_valid()
+		btn.text = "CONTINUE" if int(st["sel"]) >= 0 else "SKIP"
+	for i in n:
+		var cu: CardUI = _card_scene.instantiate()
+		cu.default_size = sz
+		pop.add_child(cu)
+		cu.size = sz
+		cu.setup(items[i]["card"])
+		cu.position = Vector2(x0 + step * float(i), 560.0 - sz.y / 2.0)
+		cu.mouse_entered.disconnect(cu._on_mouse_entered) # pas de grossissement au survol : l'echelle dit « choisie »
+		cu.mouse_exited.disconnect(cu._on_mouse_exited)
+		var idx := i
+		cu.card_clicked.connect(func(_d):
+			_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
+			st["sel"] = -1 if int(st["sel"]) == idx else idx
+			update.call())
+		cards.append(cu)
+	btn.pressed.connect(func():
+		_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
+		if int(st["sel"]) >= 0:
+			((items[int(st["sel"])] as Dictionary)["cb"] as Callable).call()
+		elif skip_cb.is_valid():
+			skip_cb.call())
+	pop.add_child(btn)
+	update.call()
+
+## Carte d'une entree de choix (propre a l'entree, ou portee par la cible du coup : sort sur une carte, ame, pile...) ; {} si aucune.
+func _entry_card(e: Dictionary) -> Dictionary:
+	var c = e.get("card")
+	if c is Dictionary and not (c as Dictionary).is_empty():
+		return c
+	var a: Array = (e.get("mv", {}) as Dictionary).get("args", [])
+	if a.size() > 1 and a[1] is Dictionary:
+		var tc = (a[1] as Dictionary).get("card")
+		if tc is Dictionary and not (tc as Dictionary).is_empty():
+			return tc
+	return {}
+
 # ---------------------------------------------------------------------------------------------------------------------
 # Ciblage sur le plateau (APK) : voile leger, bulle de titre, cibles legales en surbrillance doree et cliquables, CANCEL.
-# La liste centrale (_popup_list) ne sert que si une cible n'a pas de representation sur le plateau (ames, defausse, pile...).
+# Si une cible n'a pas de representation sur le plateau (ames, defausse, pile...) : carrousel de cartes (_popup_cards) quand chaque
+# entree porte une carte, liste de boutons (_popup_list) sinon.
 # ---------------------------------------------------------------------------------------------------------------------
 
 ## Zone du plateau qui represente une cible de coup (dictionnaire de cible des coups playSpell / useHandRoom) ; {} si aucune.
@@ -1777,7 +1909,17 @@ func _target_list(title: String, hint: String, entries: Array, cancel_cb: Callab
 		if (e as Dictionary).get("spot", {}).is_empty():
 			on_board = false
 	if not on_board:
-		_popup_list("target", title, entries, cancel_cb)
+		var items: Array = []
+		for e in entries:
+			var ec := _entry_card(e)
+			if ec.is_empty():
+				items = []
+				break
+			items.append({"card": ec, "cb": (e as Dictionary)["cb"]})
+		if items.is_empty():
+			_popup_list("target", title, entries, cancel_cb)
+		else:
+			_popup_cards("target", title, items, cancel_cb)
 		return
 	_popup_close()
 	_target_end()
@@ -1895,6 +2037,14 @@ func _spot_node(spot: Dictionary) -> Control:
 			if sl is DungeonSlot and (sl as DungeonSlot).current_stack.is_empty():
 				return null
 			return sl
+		"free": # prochain emplacement libre du donjon (a l'entree, a gauche des salles posees)
+			var fpid := int(spot["pid"])
+			if _spot_lane(fpid) < 0:
+				return null
+			var fdun: Array = ((G["players"] as Dictionary)[fpid] as Dictionary).get("dungeon", [])
+			var fslots: Array = _lane_slots(fpid)
+			var fi: int = maxi(0, CardDB.DUNGEON_SLOTS - fdun.size()) - 1
+			return fslots[fi] if fdun.size() < CardDB.DUNGEON_SLOTS and fi >= 0 and fi < fslots.size() and is_instance_valid(fslots[fi]) else null
 		"town":
 			var kids := town_container.get_children().filter(func(c): return not c.is_queued_for_deletion())
 			var i := int(spot["i"])
@@ -2042,6 +2192,8 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 	var opts: Array = pc.get("options", [])
 	var entries: Array = []
 	var board: Array = [] # options hors SKIP, avec leur zone du plateau
+	var items: Array = [] # options hors SKIP, avec leur carte (carrousel)
+	var all_cards := true
 	var skip := Callable()
 	for m in cmoves:
 		var mv: Dictionary = (m as Dictionary).duplicate()
@@ -2050,11 +2202,18 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 		entries.append(e)
 		if i < 0:
 			skip = e["cb"]
-		elif i < opts.size() and opts[i] is Dictionary:
+			continue
+		if i < opts.size() and opts[i] is Dictionary:
 			e["spot"] = _spot_of_target(opts[i], _my_pid())
 			board.append(e)
+			var oc = (opts[i] as Dictionary).get("card")
+			if oc is Dictionary and not (oc as Dictionary).is_empty():
+				items.append({"card": oc, "cb": e["cb"]})
+			else:
+				all_cards = false
 		else:
 			board.append({"spot": {}})
+			all_cards = false
 	var title := str(pc.get("message", "")) if str(pc.get("message", "")) != "" else "CHOOSE"
 	# APK (RearrangeSelector/CardSelector) : si chaque option est une zone du plateau, on la designe dessus, SKIP = CANCEL
 	var on_board := not board.is_empty()
@@ -2062,8 +2221,10 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 		on_board = on_board and not (e["spot"] as Dictionary).is_empty()
 	if on_board:
 		_target_list(title, title, board, skip)
+	elif all_cards and not items.is_empty(): # APK : CardSelector dans le carrousel central, SKIP = canBeCanceled
+		_popup_cards("choice", title, items, skip)
 	else:
-		_popup_list("choice", title, entries)
+		_popup_list("choice", title, entries) # pas des cartes (oui / non, joueur...) : boutons pierre
 	if not _tgt.is_empty():
 		_tgt["choice"] = skip
 		_tgt_cancel_btn.visible = skip.is_valid() # choix obligatoire : pas de CANCEL
@@ -2182,15 +2343,21 @@ func _on_hand_card_clicked(idx: int, card: Dictionary) -> void:
 		if not uses.is_empty(): # salle a capacite de main (CRL007 Frostman Lander) : construire OU utiliser (la pose ecrasait la capacite)
 			_play_hand_menu(idx, card, uses, game_manager.can_build_room_at(_my_pid(), idx, target_slot))
 			return
-		if not game_manager.can_build_room_at(_my_pid(), idx, target_slot): # salle avancee / donjon plein : choisir la salle a recouvrir (sinon, glisser-deposer)
-			var over: Array = []
-			for m in _moves_of(game_manager.legal_moves(_my_pid()), "buildRoom"):
-				var a: Array = (m as Dictionary).get("args", [])
-				if a.size() > 1 and a[1] != null and int(a[0]) == idx:
-					over.append(m)
-			if not over.is_empty():
-				_build_over_menu(card, over)
-				return
+		# Plusieurs emplacements possibles (Boss.CanBuildRoom : n'importe quelle salle visible peut etre recouverte, meme hors donjon plein) :
+		# on demande lequel, l'emplacement libre compris ; un seul (fin de donjon) = pose directe.
+		var plain := {}
+		var over: Array = []
+		for m in _moves_of(game_manager.legal_moves(_my_pid()), "buildRoom"):
+			var a: Array = (m as Dictionary).get("args", [])
+			if a.is_empty() or int(a[0]) != idx:
+				continue
+			if a.size() > 1 and a[1] != null:
+				over.append(m)
+			else:
+				plain = m
+		if not over.is_empty():
+			_build_over_menu(card, over, plain)
+			return
 		_play_sfx("res://assets/audio/sfx/sfx_room_physical.wav")
 		if game_manager.build_room_at(_my_pid(), idx, target_slot):
 			refresh() # apply_move n'emet pas toujours state_changed en fin de coup (transition de phase)
@@ -2211,13 +2378,19 @@ func _play_from_hand(idx: int) -> void:
 	_play_hand_menu(idx, hand[idx], cands, false)
 
 ## Fenetre « construire par-dessus » : une entree par salle recouvrable (equivalent du glisser-deposer sur l'emplacement).
-func _build_over_menu(card: Dictionary, over: Array) -> void:
-	if over.size() == 1: # un seul emplacement possible : on construit directement
+## `plain` : le coup « emplacement libre » (fin de donjon) quand il est legal, propose en premier.
+func _build_over_menu(card: Dictionary, over: Array, plain: Dictionary = {}) -> void:
+	if over.size() == 1 and plain.is_empty(): # un seul emplacement possible : on construit directement
 		_play_sfx("res://assets/audio/sfx/sfx_room_physical.wav")
 		_do((over[0] as Dictionary).duplicate())
 		return
 	var dungeon: Array = ((game_manager.G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("dungeon", [])
 	var entries: Array = []
+	if not plain.is_empty():
+		var pmv: Dictionary = plain.duplicate()
+		entries.append({"label": "NEW ROOM (FREE SLOT)", "mv": pmv, "spot": {"k": "free", "pid": _my_pid()}, "cb": func():
+			_play_sfx("res://assets/audio/sfx/sfx_room_physical.wav")
+			_do(pmv)})
 	for c in over:
 		var mv: Dictionary = (c as Dictionary).duplicate()
 		var ti := int((mv["args"] as Array)[1])
@@ -2226,7 +2399,7 @@ func _build_over_menu(card: Dictionary, over: Array) -> void:
 			"spot": {"k": "room", "pid": _my_pid(), "idx": ti}, "cb": func():
 			_play_sfx("res://assets/audio/sfx/sfx_room_physical.wav")
 			_do(mv)})
-	_target_list("%s - build over a Room" % str(card.get("name", "")), "Select a Room to build over", entries, func(): _popup_close())
+	_target_list("%s - build over a Room" % str(card.get("name", "")), "Select a Room to build over" if plain.is_empty() else "Select a Room to build over, or the free slot", entries, func(): _popup_close())
 
 ## Coups legaux (sort / capacite de main) de la carte `idx` de la main.
 func _hand_moves(idx: int) -> Array:
@@ -2446,8 +2619,9 @@ func _drag_refresh() -> void:
 		for j in _dungeon_slots.size():
 			var slot: DungeonSlot = _dungeon_slots[j]
 			var filled := not slot.current_stack.is_empty()
-			# salle avancee : les salles recouvrables ; ordinaire : le prochain emplacement libre (donjon plein : une salle a recouvrir)
-			var wanted: bool = (filled and (advanced or dungeon.size() >= CardDB.DUNGEON_SLOTS)) or (not advanced and dungeon.size() < CardDB.DUNGEON_SLOTS and j == off - 1)
+			# salle avancee : les salles recouvrables ; ordinaire : les salles recouvrables (DungeonSlot.CheckRoomCanBeBuilt, meme donjon
+			# non plein) et le prochain emplacement libre ; _can_drop_data ne garde que ceux que le moteur accepte
+			var wanted: bool = filled or (not advanced and dungeon.size() < CardDB.DUNGEON_SLOTS and j == off - 1)
 			if wanted and slot._can_drop_data(Vector2.ZERO, {"type": "card", "hand_index": idx}):
 				(_drag["frames"] as Array).append(_gold_frame(Rect2(slot.global_position, slot.size)))
 		return
@@ -2601,20 +2775,36 @@ func _notice_ai(pid: int, mv: Dictionary) -> void:
 	if pid == _my_pid():
 		return
 	var t := str(mv.get("type", ""))
+	var pl: Dictionary = (game_manager.G.get("players", {}) as Dictionary).get(pid, {})
+	var args: Array = mv.get("args", [])
+	var ai := -1 if args.is_empty() or not (args[0] is int) else int(args[0])
+	var card = null # la carte de la capacite (appelee avant le coup) : un appui sur la bulle la montre (ShowBubleDetail)
+	if t in ["playSpell", "useHandRoom"]:
+		var hand: Array = pl.get("hand", [])
+		card = hand[ai] if ai >= 0 and ai < hand.size() else null
+	elif t == "activateRoom":
+		var dng: Array = pl.get("dungeon", [])
+		card = BossEngine.active_room(dng[ai]) if ai >= 0 and ai < dng.size() else null
 	if t == "playSpell":
-		_show_notice("SPELL")
+		_show_notice("SPELL", card)
 	elif t in ["activateRoom", "useHandRoom"]:
-		_show_notice("ROOM ABILITY")
+		_show_notice("ROOM ABILITY", card)
 
-func _show_notice(what: String) -> void:
+func _show_notice(what: String, card = null) -> void:
 	if _notice != null and is_instance_valid(_notice):
 		_ui_layer.remove_child(_notice)
 		_notice.queue_free()
 	var n := Control.new()
 	n.name = "Notice"
-	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	n.mouse_filter = Control.MOUSE_FILTER_STOP if card is Dictionary else Control.MOUSE_FILTER_IGNORE
 	n.position = Vector2(1432, 60)
 	n.size = Vector2(262, 150)
+	if card is Dictionary:
+		n.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		n.gui_input.connect(func(ev: InputEvent):
+			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+				n.accept_event()
+				_notice_zoom(card))
 	UiKit.image(n, UI_DIR + "action_bubble.webp", Vector2.ZERO, Vector2(262, 152))
 	var fx := UiKit.image(n, UI_DIR + "action_bubble_effect.webp", Vector2.ZERO, Vector2(262, 152))
 	fx.create_tween().set_loops().tween_property(fx, "modulate:a", 0.15, 0.6).from(1.0).set_trans(Tween.TRANS_SINE)
@@ -2626,6 +2816,14 @@ func _show_notice(what: String) -> void:
 	tw.tween_interval(2.5)
 	tw.tween_property(n, "modulate:a", 0.0, 0.4)
 	tw.tween_callback(n.queue_free)
+
+## Appui sur la bulle de l'adversaire : la carte jouee en grand au centre de l'ecran (GamePlayBaseScene.ShowBubleDetail), jusqu'au clic suivant.
+func _notice_zoom(card: Dictionary) -> void:
+	_zoom_hide()
+	_zoom = UiKit.zoom_card(card, UiKit.ZOOM_CARD)
+	_zoom.set_meta("levelup", true) # survit aux refresh (l'IA continue de jouer) ; _input le ferme au clic suivant
+	_zoom.position = Vector2(PLAY_CX - _zoom.size.x / 2.0, 498.0 - _zoom.size.y / 2.0)
+	_ui_layer.add_child(_zoom)
 
 ## Nouvelles cartes en main (pioche) : dos de carte au centre (une rangee, plus petit s'il y en a plusieurs), la carte se retourne puis
 ## rejoint la main (DrawCardEmitter). Pas pendant le choix du boss / la defausse d'ouverture ; pas sans animations.

@@ -209,8 +209,10 @@ func legal_moves(pid: int) -> Array:
 			# (il ne repond qu'a travers la pile, voir plus haut) ; sinon _drive_ai/BoardUI le feraient jouer en boucle.
 			if not my_turn and bool(p.get("isAI", false)) and bool(G.get("autoAI", true)):
 				return out
-			# Donjon plein : une salle avancee se construit quand meme par-dessus (DungeonSlot.CheckRoomCanBeBuilt),
-			# seule la pose en fin de donjon (salle ordinaire) exige un emplacement libre.
+			# Boss.CanBuildRoom = Dungeon.Any(slot.CanBuildRoom), sans test de taille : une salle (ordinaire ou avancee) se construit
+			# par-dessus une salle face visible meme si le donjon n'est pas plein (DungeonSlot.CheckRoomCanBeBuilt) ; seule la pose
+			# en fin de donjon exige un emplacement libre. Boss.BuildRoom : un emplacement explicite ne peut pas suivre le premier
+			# vide ; les piles du donjon etant contigues, toute pile existante precede l'emplacement vide.
 			# BuildExtraRoom (Motivation) : MaxBuildRoomLimit++ -> plusieurs constructions avant le NextStep.
 			if my_turn and not BossEngine.is_build_blocked(G) and int(p.get("buildsThisTurn", 0)) < 1 + BossEngine.extra_builds_for(G, pid):
 				var free_slot := BossEngine.can_build_room(p, G, pid)
@@ -224,11 +226,14 @@ func legal_moves(pid: int) -> Array:
 					if not c.get("advanced", false):
 						if free_slot:
 							out.append({"type": "buildRoom", "args": [i]})
-						else:
-							# Donjon plein : Dungeon.Any(slot.CanBuildRoom) autorise aussi une salle ordinaire par-dessus une pile.
-							for ti in (p.get("dungeon", []) as Array).size():
-								if BossEngine.can_build_room(p, G, pid, i, ti):
-									out.append({"type": "buildRoom", "args": [i, ti]})
+						# Salle ordinaire par-dessus une pile existante, donjon plein ou non. Politique IA, pas une regle : AI.score_move note le
+						# coup [i] comme une pose sur la salle 0 (cible par defaut) ; lui offrir l'empilement hors donjon plein le ferait
+						# recouvrir ses salles faibles au lieu d'agrandir son donjon (a lever quand AI.gd notera [i] sans cible).
+						if free_slot and bool(p.get("isAI", false)) and bool(G.get("autoAI", true)):
+							continue
+						for ti in (p.get("dungeon", []) as Array).size():
+							if BossEngine.can_build_room(p, G, pid, i, ti):
+								out.append({"type": "buildRoom", "args": [i, ti]})
 						continue
 					# Salle avancee : un coup cible par emplacement au tresor compatible.
 					for ti in (p.get("dungeon", []) as Array).size():
