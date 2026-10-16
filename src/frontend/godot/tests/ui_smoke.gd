@@ -589,7 +589,7 @@ func _pick_target(n_cands: int, what: String) -> void:
 	for i in 3: # les zones de ciblage sont posees apres la mise en page des conteneurs
 		await get_tree().process_frame
 	if n_cands <= 1:
-		_check(board._popup_kind != "target" and board._tgt.is_empty(), "%s : fenetre / mode de ciblage pour un seul coup" % what)
+		_check(board._popup_kind != "target" and (board._tgt.is_empty() or board._tgt.has("choice")), "%s : fenetre / mode de ciblage pour un seul coup" % what)
 		return
 	if not board._tgt.is_empty():
 		await _pick_on_board(n_cands, what)
@@ -624,7 +624,7 @@ func _click_at(pos: Vector2) -> void:
 		await get_tree().process_frame
 
 ## Mode ciblage sur le plateau : chaque coup legal correspond a une zone allumee ; le voile bloque le reste ; on clique une zone au hasard.
-func _pick_on_board(n_cands: int, what: String) -> void:
+func _pick_on_board(n_cands: int, what: String, mandatory := false) -> void: # mandatory : choix en attente sans SKIP, pas de CANCEL
 	_cov("target_board")
 	var spots: Array = board._tgt_spots
 	if spots.is_empty(): # cibles chez un adversaire non affiche (3-4 joueurs) : son bouton P<n> est dore, on le choisit
@@ -645,14 +645,14 @@ func _pick_on_board(n_cands: int, what: String) -> void:
 		board._target_cancel()
 		_cancelled = true
 		return
-	_check(board._tgt_cancel_btn != null and board._tgt_cancel_btn.is_visible_in_tree() and not board.action_box.visible, "%s : CANCEL absent ou PASS TURN encore visible en ciblage" % what)
+	_check(board._tgt_cancel_btn != null and board._tgt_cancel_btn.is_visible_in_tree() != mandatory and not board.action_box.visible, "%s : CANCEL absent/present a tort ou PASS TURN encore visible en ciblage" % what)
 	var s0 := _sig()
 	var hand := _hand_cards()
 	if not hand.is_empty() and not cov.has("target_blocked"): # le voile bloque la main : un clic sur une carte ne joue rien et ne ferme pas le mode
 		await _click_at((hand[hand.size() / 2] as Control).get_global_rect().get_center())
 		_check(not board._tgt.is_empty() and _sig() == s0 and board._popup_kind == "", "%s : un clic sur la main pendant le ciblage a eu un effet" % what)
 		_cov("target_blocked")
-	if rng.randf() < 0.2:
+	if rng.randf() < 0.2 and not board._tgt.has("choice"): # un choix en attente a son propre test CANCEL (_act_choice)
 		board._tgt_cancel_btn.pressed.emit()
 		await get_tree().process_frame
 		_check(board._tgt.is_empty() and _sig() == s0 and board._popup_kind == "", "%s : CANCEL doit refermer sans jouer" % what)
@@ -667,7 +667,7 @@ func _pick_on_board(n_cands: int, what: String) -> void:
 			_cov("target_spot_multi")
 			(btns[rng.randi_range(0, btns.size() - 2)] as Button).pressed.emit()
 			await get_tree().process_frame
-	_check(board._tgt.is_empty() and board._popup_kind != "target", "%s : le clic sur une cible allumee n'a pas joue le coup" % what)
+	_check((board._tgt.is_empty() or board._tgt.has("choice")) and board._popup_kind != "target", "%s : le clic sur une cible allumee n'a pas joue le coup" % what) # le coup peut ouvrir un choix sur le plateau
 	_check(_sig() != s0, "%s : cible choisie sur le plateau sans effet" % what)
 
 func _do_slot(pid: int, di: int, cands: Array) -> void:
@@ -708,6 +708,20 @@ func _act_choice(pid: int, pc: Dictionary, moves: Array) -> void:
 		board._on_menu_pressed()
 		await get_tree().process_frame
 		_cov("menu_over_choice")
+	if not board._tgt.is_empty(): # options = zones du plateau (salles, heros) : bordures dorees, SKIP = CANCEL
+		var n_pick := cm.filter(func(m): return int((m["args"] as Array)[0]) >= 0).size()
+		var has_skip := n_pick < cm.size()
+		_check(board._tgt.has("choice") and board._tgt_cancel_btn.visible == has_skip, "choix « %s » sur le plateau : CANCEL %s alors que SKIP %s" % [typ, board._tgt_cancel_btn.visible, has_skip])
+		var b0 := _sig()
+		if has_skip and rng.randf() < 0.2:
+			board._tgt_cancel_btn.pressed.emit() # CANCEL = SKIP
+			await get_tree().process_frame
+			_check(board._tgt.is_empty() and _sig() != b0, "choix « %s » : CANCEL (SKIP) sans effet" % typ)
+			_cov("choice_board_skip")
+		else:
+			await _pick_on_board(n_pick, "choix « %s »" % typ, not has_skip)
+		_cov("choice_board:" + typ)
+		return
 	if not _check(board._popup_kind == "choice", "choix en attente « %s » (%s) : pas de popup (popup=%s)" % [typ, str(pc.get("message", "")).left(50), board._popup_kind]):
 		return
 	var btns := _buttons(board._popup)
@@ -781,6 +795,11 @@ func _noise(pid: int) -> void:
 			board.levelup_btn.pressed.emit()
 			await get_tree().process_frame
 			_check(_sig() == s0, "bouton LEVEL UP : l'etat a change")
+			var click := InputEventMouseButton.new() # le zoom du boss part au clic suivant (sinon la barre de temps reste en pause)
+			click.button_index = MOUSE_BUTTON_LEFT
+			click.pressed = true
+			board._input(click)
+			_check(board._zoom == null, "bouton LEVEL UP : le zoom reste apres un clic")
 			_cov("levelup_click")
 		3: # pile de defausse : la fenetre se ferme et se libere
 			board._on_discard_pile_pressed()
@@ -962,10 +981,10 @@ func _check_ui() -> void:
 	if board._popup_kind == "choice":
 		_check(mine, "popup de choix affiche sans choix en attente pour le siege %d" % pid)
 	elif board._popup_kind == "":
-		_check(not mine, "choix en attente (%s) sans popup" % str(pc.get("type", "")))
+		_check(not mine or board._tgt.has("choice"), "choix en attente (%s) sans popup" % str(pc.get("type", "")))
 	elif board._popup_kind == "target":
 		_check(false, "fenetre de ciblage restee ouverte")
-	_check(board._tgt.is_empty(), "mode de ciblage reste ouvert apres le geste")
+	_check(board._tgt.is_empty() or (mine and board._tgt.has("choice")), "mode de ciblage reste ouvert apres le geste") # sauf le choix en attente designe sur le plateau
 	if phase == "boss" and not over and p.get("boss") == null:
 		_check(board.foe_name_label.text == "" and board._lane[0]["sprite"].texture == board._tex(board.TEX_UNKNOWN_BOSS), "choix du boss : le boss adverse n'est pas cache")
 		_check(board._confirm_btn.visible and board._confirm_btn.text == "PLAY BOSS MONSTER!", "choix du boss : bouton PLAY BOSS MONSTER! absent")
@@ -1857,6 +1876,19 @@ func _extra_checks() -> void:
 	var G: Dictionary = gm.G
 	var me: Dictionary = G["players"][0]
 	board.refresh()
+	# LEVEL UP : zoom du boss au-dessus du bouton ; il survit a un refresh (l'IA joue, state_changed) et part au clic suivant
+	board.levelup_btn.pressed.emit()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	board.refresh()
+	await get_tree().process_frame
+	if _check(board._zoom != null and is_instance_valid(board._zoom), "LEVEL UP : pas de zoom du boss (ou efface par un refresh)"):
+		_check(Rect2(0, 0, 1920, 1080).encloses(Rect2(board._zoom.position, board._zoom.size)), "LEVEL UP : zoom hors ecran %s" % Rect2(board._zoom.position, board._zoom.size))
+		var click := InputEventMouseButton.new()
+		click.button_index = MOUSE_BUTTON_LEFT
+		click.pressed = true
+		board._input(click)
+		_check(board._zoom == null, "LEVEL UP : le zoom reste apres un clic")
 	# Main : cartes 175x244 en eventail (CardPositionComponent de l'APK) a 1920x1080
 	var cards := _hand_cards()
 	if _check(not cards.is_empty(), "main vide a l'ecran"):

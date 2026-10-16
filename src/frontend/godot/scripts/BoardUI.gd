@@ -809,7 +809,8 @@ func refresh() -> void:
 		return
 
 	var G: Dictionary = game_manager.G
-	_zoom_hide() # la main est reconstruite : un zoom d'appui long ne peut plus etre relache
+	if _zoom == null or not _zoom.has_meta("levelup"): # le zoom de LEVEL UP survit aux refresh (l'IA joue, state_changed) jusqu'au clic suivant
+		_zoom_hide() # la main est reconstruite : un zoom d'appui long ne peut plus etre relache
 	if _is_online():
 		view_pid = _my_pid()
 		_sync_slot_pids()
@@ -1236,6 +1237,8 @@ func _boss_flip_others(animate: bool) -> void:
 ## CardUI.card_clicked). Les positions viennent de l'evenement (en _input, la souris du viewport n'est pas encore a jour) ; le
 ## relachement hors de la zone ou de la fenetre est vu (pas de _gui_input), et un mouvement sans bouton gauche termine le glisser.
 func _input(event: InputEvent) -> void:
+	if _zoom != null and event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+		_zoom_hide() # le zoom de LEVEL UP part au clic suivant (le zoom d'appui long se ferme deja au relachement)
 	if not _press.is_empty() or not _drag.is_empty():
 		_drag_input(event)
 	if _boss_cards.is_empty() or _boss_flipping:
@@ -1812,7 +1815,11 @@ func _target_open_layer() -> void:
 
 func _target_cancel() -> void:
 	_play_sfx("res://assets/audio/sfx/ui_button_goback.wav")
+	var skip: Callable = _tgt.get("choice", Callable())
 	_target_end()
+	if skip.is_valid():
+		skip.call() # choix en attente : CANCEL joue le SKIP (le coup rafraichit)
+		return
 	refresh()
 
 func _target_end() -> void:
@@ -2022,6 +2029,8 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 		discard_pick.clear()
 	var cmoves: Array = _moves_of(my_moves, "resolveChoice") + _moves_of(my_moves, "resolveLevelUpChoice")
 	if not mine or str(pc.get("type", "")) == "opening-discard" or cmoves.is_empty():
+		if _tgt.has("choice"):
+			_target_end() # choix sur le plateau resolu ailleurs
 		if _popup_kind == "choice":
 			_popup_close() # carrousel central + bouton CONTINUE pour la defausse d'ouverture (_refresh_overlay)
 		return
@@ -2032,10 +2041,33 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 		return
 	var opts: Array = pc.get("options", [])
 	var entries: Array = []
+	var board: Array = [] # options hors SKIP, avec leur zone du plateau
+	var skip := Callable()
 	for m in cmoves:
 		var mv: Dictionary = (m as Dictionary).duplicate()
-		entries.append({"label": _option_label(opts, int((mv.get("args", [0]) as Array)[0])), "cb": func(): _do(mv)})
-	_popup_list("choice", str(pc.get("message", "")) if str(pc.get("message", "")) != "" else "CHOOSE", entries)
+		var i := int((mv.get("args", [0]) as Array)[0])
+		var e := {"label": _option_label(opts, i), "cb": func(): _do(mv)}
+		entries.append(e)
+		if i < 0:
+			skip = e["cb"]
+		elif i < opts.size() and opts[i] is Dictionary:
+			e["spot"] = _spot_of_target(opts[i], _my_pid())
+			board.append(e)
+		else:
+			board.append({"spot": {}})
+	var title := str(pc.get("message", "")) if str(pc.get("message", "")) != "" else "CHOOSE"
+	# APK (RearrangeSelector/CardSelector) : si chaque option est une zone du plateau, on la designe dessus, SKIP = CANCEL
+	var on_board := not board.is_empty()
+	for e in board:
+		on_board = on_board and not (e["spot"] as Dictionary).is_empty()
+	if on_board:
+		_target_list(title, title, board, skip)
+	else:
+		_popup_list("choice", title, entries)
+	if not _tgt.is_empty():
+		_tgt["choice"] = skip
+		_tgt_cancel_btn.visible = skip.is_valid() # choix obligatoire : pas de CANCEL
+		return
 	_choice_sig = sig
 
 func _option_label(opts: Array, i: int) -> String:
@@ -2048,6 +2080,13 @@ func _option_label(opts: Array, i: int) -> String:
 				return str(o[k])
 		if (o.get("card", {}) as Dictionary).get("name", "") != "":
 			return str((o["card"] as Dictionary)["name"])
+		var pid := int(o.get("targetPlayerId", _my_pid()))
+		var pl: Dictionary = (game_manager.G.get("players", {}) as Dictionary).get(pid, {})
+		var dun: Array = pl.get("dungeon", [])
+		if o.has("roomIndex") and int(o["roomIndex"]) < dun.size() and int(o["roomIndex"]) >= 0:
+			var r = BossEngine.active_room(dun[int(o["roomIndex"])])
+			if r != null and str((r as Dictionary).get("name", "")) != "":
+				return "%s (P%d)" % [str((r as Dictionary)["name"]), pid + 1]
 		if o.has("targetPlayerId"):
 			return "Player %d" % (int(o["targetPlayerId"]) + 1)
 	return "Choice %d" % (i + 1)
@@ -2784,8 +2823,18 @@ func _on_discard_pile_pressed() -> void:
 			dialog.queue_free()) # OK / croix : la fenetre est liberee (sinon une de plus a chaque ouverture)
 	dialog.popup_centered()
 
+## APK (GamePlayBaseScene.ShowZoomCard) : LEVEL UP montre mon boss en grand (x1,3), au-dessus du bouton, aligne a droite sur lui.
 func _on_level_up_pressed() -> void:
 	_play_sfx("res://assets/audio/sfx/sting_levelup.wav")
+	var boss = (((game_manager.G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary)).get("boss")
+	if boss == null:
+		return
+	_zoom_hide()
+	_zoom = UiKit.zoom_card(boss, UiKit.ZOOM_CARD * 1.3)
+	_zoom.set_meta("levelup", true)
+	_zoom.position = Vector2(clampf(levelup_btn.position.x + levelup_btn.size.x - _zoom.size.x, 0.0, 1920.0 - _zoom.size.x),
+		clampf(levelup_btn.position.y - _zoom.size.y - 8.0, 0.0, 1080.0 - _zoom.size.y))
+	_ui_layer.add_child(_zoom)
 
 func _get_total_dungeon_damage(player_dict: Dictionary) -> int:
 	var total := 0
