@@ -4,6 +4,7 @@ on:
   push:
     branches: [main, master]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -35,4 +36,46 @@ jobs:
           godot --version
       - run: npm ci
       - run: npm run test:godot:all
+
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image (Godot web export + nginx)
+        run: docker build -f deploy/Dockerfile -t boss-monster-web:ci .
+      - name: Run container
+        run: |
+          docker run -d --name bm -p 8090:80 boss-monster-web:ci
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8090/ >/dev/null && exit 0
+            sleep 1
+          done
+          echo "nginx did not answer within 30 s"
+          exit 1
+      - name: Assert served export
+        run: |
+          base=http://127.0.0.1:8090
+          fail() { echo "FAIL: $*"; exit 1; }
+
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$base/index.html")
+          [ "$code" = 200 ] || fail "index.html returned $code"
+
+          wasm_headers=$(curl -sI -H 'Accept-Encoding: gzip' "$base/index.wasm")
+          echo "$wasm_headers"
+          echo "$wasm_headers" | grep -iq '^content-type: *application/wasm' || fail "index.wasm Content-Type is not application/wasm"
+          echo "$wasm_headers" | grep -iq '^content-encoding: *gzip' || fail "index.wasm Content-Encoding is not gzip"
+
+          size=$(curl -s -o /dev/null -w '%{size_download}' "$base/index.pck")
+          echo "index.pck uncompressed size: $size"
+          [ "$size" -gt 20000000 ] || fail "index.pck too small ($size bytes)"
+
+          pck_headers=$(curl -sI "$base/index.pck")
+          echo "$pck_headers" | grep -iq '^cache-control: *no-cache' || fail "index.pck lacks Cache-Control: no-cache"
+
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$base/index.service.worker.js")
+          [ "$code" = 404 ] || fail "index.service.worker.js returned $code (expected 404, PWA disabled)"
+      - name: Container logs
+        if: always()
+        run: docker logs bm
 

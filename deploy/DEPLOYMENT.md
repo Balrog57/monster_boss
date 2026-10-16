@@ -1,75 +1,45 @@
 # Déploiement sur ZimaOS
 
-## Prérequis sur le ZimaOS
+Le jeu est un export web Godot (statique) servi par nginx dans un conteneur
+unique `boss-monster-web`. L'export est produit **dans le build Docker**
+(image `barichello/godot-ci`) : rien à exporter à la main avant le build.
+Plus de Node ni de Postgres.
 
-- Docker et Docker Compose installés (ZimaOS les fournit par défaut)
-- Accès SSH ou terminal au ZimaOS (`ssh user@192.168.1.98`)
-- Le dépôt du projet synchronisé sur le ZimaOS
+## Prérequis
 
-## 1. Récupérer le code sur le ZimaOS
+- ZimaOS avec Docker et Docker Compose (fournis par défaut), accès SSH
+  (alias `homelab` si configuré, sinon `ssh user@192.168.1.98`)
+- Accès internet sortant pour tirer `barichello/godot-ci:4.7.2` et `nginx:alpine`
+- Quelques Go libres pour le premier build (image Godot ~ 2 Go)
+
+## 1. Première installation
 
 ```bash
-ssh user@192.168.1.98
+ssh homelab            # ou ssh user@192.168.1.98
 cd /DATA/AppData
 git clone https://github.com/Balrog57/monster_boss.git boss-monster
 cd boss-monster
 ```
 
-Ou, si le dépôt existe déjà :
-
-```bash
-cd /DATA/AppData/boss-monster
-git pull
-```
-
-## 2. Lancer le déploiement
+## 2. Build et démarrage
 
 ```bash
 cd /DATA/AppData/boss-monster
 DOCKER_CONFIG=/DATA/.docker-root docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
-> **Note `DOCKER_CONFIG`** : si `/DATA/.docker-root` échoue avec une erreur de permission (`config.json` ou `buildx/instances` refusés via SSH), utiliser un répertoire accessible en écriture :
+> **Note `DOCKER_CONFIG`** : si `/DATA/.docker-root` échoue avec une erreur de
+> permission (`config.json` ou `buildx/instances` refusés via SSH), utiliser un
+> répertoire accessible en écriture :
 >
 > ```bash
 > mkdir -p /tmp/dockercfg-bm
 > DOCKER_CONFIG=/tmp/dockercfg-bm docker compose -f deploy/docker-compose.yml up -d --build
 > ```
 
-Cette commande :
-- Build l'image `boss-monster:latest` (export web Godot + runtime Node)
-- Démarre le service `db` (postgres:16-alpine) avec un volume persistant `boss_db`
-- Démarre le service `boss-monster` (app) sur le port 8090
-- L'app attend que Postgres soit sain (`depends_on: service_healthy`) avant de démarrer
-- Les migrations SQL s'exécutent automatiquement au boot (idempotentes)
+Accès : http://192.168.1.98:8090
 
-## 3. Accéder au jeu
-
-- **Local** : http://192.168.1.98:8090
-- **Tunnel Cloudflare** : https://<votre-domaine-cloudflare> (le tunnel proxyfie HTTP + WebSocket sur le port 8090)
-
-## 4. Vérifier que tout fonctionne
-
-```bash
-# Healthcheck de l'app
-curl http://192.168.1.98:8090/health
-# Doit retourner : {"ok":true,"activeMatches":0,"storage":"postgres"}
-
-# Lobby API
-curl http://192.168.1.98:8090/lobby/games
-# Doit retourner : ["boss-monster"]
-
-# Statut des conteneurs
-docker compose -f deploy/docker-compose.yml ps
-
-# Logs de l'app
-docker compose -f deploy/docker-compose.yml logs -f boss-monster
-
-# Logs de la DB
-docker compose -f deploy/docker-compose.yml logs -f db
-```
-
-## 5. Mettre à jour
+## 3. Mettre à jour
 
 ```bash
 cd /DATA/AppData/boss-monster
@@ -77,62 +47,84 @@ git pull
 DOCKER_CONFIG=/DATA/.docker-root docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
-> En cas d'erreur de permission sur `DOCKER_CONFIG`, appliquer le contournement de la section 2 (`/tmp/dockercfg-bm`).
-
-Le volume `boss_db` est conservé entre les redéploiements — les matches en cours et l'historique persistent.
-
-## 6. Backup de la base de données
+## 4. Rollback
 
 ```bash
-# Dump complet
-docker exec boss-monster-db pg_dump -U boss bossmonster > backup_$(date +%Y%m%d).sql
-
-# Restore
-cat backup_YYYYMMDD.sql | docker exec -i boss-monster-db psql -U boss bossmonster
+cd /DATA/AppData/boss-monster
+git log --oneline -n 10          # repérer le commit sain
+git checkout <commit>
+DOCKER_CONFIG=/DATA/.docker-root docker compose -f deploy/docker-compose.yml up -d --build
+# pour revenir ensuite à la dernière version : git checkout <branche> && git pull && (même commande)
 ```
 
-## 7. Architecture des conteneurs
+## 5. Logs et état
 
-```
-ZimaOS (192.168.1.98)
-├── boss-monster-db        (postgres:16-alpine, port 5432 interne, volume boss_db)
-└── boss-monster           (Node 22 + Koa + Socket.IO, port 8090 externe)
-    ├── /lobby/*           REST API (create/join/leave matches)
-    ├── /socket.io/         WebSocket (real-time game state)
-    ├── /health            Healthcheck Docker
-    └── /*                 Client statique Godot (src/frontend/godot/build_web/)
+```bash
+docker logs boss-monster-web
+docker compose -f deploy/docker-compose.yml ps
 ```
 
-## 8. Variables d'environnement (tunings optionnels)
+## 6. Vérifications
 
-Définies dans `docker-compose.yml`, modifiables :
+```bash
+# wasm : type MIME correct + compression gzip pré-calculée
+curl -sI -H 'Accept-Encoding: gzip' http://192.168.1.98:8090/index.wasm
+# attendu : Content-Type: application/wasm  et  Content-Encoding: gzip
 
-| Variable | Défaut | Rôle |
-|---|---|---|
-| `DATABASE_URL` | `postgres://boss:boss@db:5432/bossmonster` | Connexion Postgres |
-| `PORT` | `8000` | Port d'écoute interne (mappé sur 8090) |
-| `STALE_MATCH_MS` | `3600000` (1h) | Âge max d'un match inactif avant purge |
-| `CLEANUP_INTERVAL_MS` | `1800000` (30min) | Fréquence du cron de purge |
-| `MAX_MOVES_PER_SEC` | `10` | Limite anti-spam de moves par joueur |
-| `FLUSH_INTERVAL_MS` | `5000` | Fréquence de snapshot d'état vers Postgres |
+# pck : environ 38 Mo (non compressé)
+curl -sI http://192.168.1.98:8090/index.pck
 
-## 9. Tunnel Cloudflare
+# la table MIME de nginx:alpine connaît bien wasm
+docker run --rm nginx:alpine grep wasm /etc/nginx/mime.types
+```
 
-Le tunnel Cloudflare proxyfie le port 8090 vers votre domaine. Le WebSocket
-(`wss://`) passe automatiquement — aucune config supplémentaire nécessaire.
+Tous les fichiers sont servis avec `Cache-Control: no-cache` (noms non hashés) :
+le navigateur revalide à chaque chargement (ETag, réponses 304 peu coûteuses).
 
-Si le multi online ne se connecte pas via le tunnel :
-1. Vérifier que `cloudflared` tourne et pointe vers `192.168.1.98:8090`
-2. Vérifier dans la console navigateur que `socket.io` se connecte en `wss://` (pas `ws://`)
-3. Si 502/503 : vérifier que l'app répond sur `http://192.168.1.98:8090/health`
+## 7. Cloudflare
+
+- Le nom d'hôte du tunnel se configure dans le tableau de bord Cloudflare, pas
+  dans le dépôt ; il pointe vers `http://192.168.1.98:8090`.
+- **Désactiver Rocket Loader** pour ce nom d'hôte (Speed > Optimization) : il
+  réécrit les `<script>` et casse le chargeur Emscripten/Godot.
+- Service worker : le PWA est désactivé dans l'export. Les navigateurs ayant
+  visité l'ancien déploiement peuvent garder une page périmée au premier
+  chargement : recharger deux fois (ou vider les données du site).
+
+## 8. Multijoueur
+
+Tant que le serveur multijoueur Godot n'est pas déployé, le bouton
+« WITH FRIENDS » affiche une erreur de connexion : c'est normal. Le service
+serveur et le proxy nginx `/ws` seront ajoutés avec lui.
+
+## 9. Migration depuis l'ancienne pile (Node + Postgres)
+
+L'ancienne pile utilisait les conteneurs `boss-monster` et `boss-monster-db`
+et le volume `boss_db`.
+
+```bash
+cd /DATA/AppData/boss-monster
+# 1. Arrêter l'ancienne pile AVANT le git pull (avec l'ANCIEN fichier compose, qui
+#    connaît encore les services db et boss-monster), SANS --remove-orphans
+#    (il supprimerait boss-monster-db). Le volume boss_db est conservé :
+DOCKER_CONFIG=/DATA/.docker-root docker compose -f deploy/docker-compose.yml down
+#    (variante réversible : `stop` au lieu de `down` garde les conteneurs)
+# 2. git pull, puis démarrer la nouvelle pile (section 2)
+```
+
+Le port 8090 est libéré par l'arrêt. Les anciens conteneurs `boss-monster` /
+`boss-monster-db` (s'ils subsistent) et surtout le volume `boss_db` ne doivent
+être supprimés (`docker rm`, `docker volume rm boss_db`) **qu'avec l'accord
+explicite du propriétaire** : le volume contient les données de l'ancien
+Postgres, supprimées définitivement.
 
 ## 10. Dépannage
 
 | Symptôme | Cause probable | Solution |
 |---|---|---|
-| App redémarre en boucle | DB pas prête | Le retry gère ça ; vérifier `docker compose -f deploy/docker-compose.yml logs db` |
-| `502 Bad Gateway` via Cloudflare | App down ou port incorrect | `curl http://192.168.1.98:8090/health` |
-| WebSocket ne se connecte pas | Tunnel pas configuré pour WS | Cloudflare Tunnel gère WS par défaut sur le même port |
-| Matches disparaissent après redémarrage | Volume `boss_db` supprimé | Ne jamais `docker volume rm boss_db` |
-| `npm ci` échoue dans le build | Lockfile désynchronisé | `git pull` puis `docker compose -f deploy/docker-compose.yml build --no-cache` |
-| `permission denied` sur `docker compose` | Config `/DATA/.docker*` non accessible en écriture via SSH | `mkdir -p /tmp/dockercfg-bm` puis `DOCKER_CONFIG=/tmp/dockercfg-bm docker compose -f deploy/docker-compose.yml ...` |
+| Build : `export_templates` introuvable | Tag d'image sans templates 4.7.2 | Vérifier le tag `barichello/godot-ci:4.7.2` sur Docker Hub |
+| Build : `index.pck` manquant | Erreur d'export Godot | Lire les logs du stage `export` (`docker compose ... build --progress=plain`) |
+| Écran blanc / page périmée | Ancien service worker | Recharger deux fois (section 7) |
+| Écran blanc via Cloudflare seulement | Rocket Loader actif | Le désactiver (section 7) |
+| `502` via Cloudflare | Conteneur arrêté | `docker logs boss-monster-web`, `curl -I http://192.168.1.98:8090/` |
+| `permission denied` sur `docker compose` | `/DATA/.docker*` non inscriptible via SSH | `DOCKER_CONFIG=/tmp/dockercfg-bm` (section 2) |

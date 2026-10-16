@@ -1,50 +1,30 @@
-# .dockerignore - keep the Docker build context lean (context = repo root,
-# see deploy/docker-compose.yml `build.context: ..`).
-# Only package.json, src/ (dont src/frontend/godot/build_web/, exporté via
-# `npm run export:web`) are needed to run the game. Everything else is
-# dev/design/source material.
+# .dockerignore - contexte de build = racine du dépôt (deploy/docker-compose.yml
+# `build.context: ..`). L'image exporte le jeu Godot elle-même (deploy/Dockerfile) :
+# src/frontend (project.godot, export_presets.cfg, godot/, assets/) DOIT rester
+# dans le contexte. On n'exclut que ce qui est lourd ou inutile à l'export.
 
-# Dependencies & build output (rebuilt inside the image)
-node_modules
-dist
-.godot
-
-# Original APK + decompiled reference (local-only, never shipped)
+# APK d'origine + décompilation (local uniquement, jamais embarqué)
 apk-original
-boss-monster-2-2-6-android.apk
-boss-monster-2-4-12.apk
-boss-monster-2-2-6/
-boss-monster-2-4-12/
-design_system
+*.apk
+boss-monster-2-*/
+
+# VCS, caches Godot et sortie d'export locale (régénérée dans l'image)
+.git
+**/.godot
+src/frontend/godot/build_web
+
+# Docs, design, audits
 docs
+design_system
 security
 
-# Godot sources (seul l'export web est embarqué ; `assets` ci-dessous couvre
-# aussi src/frontend/assets, les motifs sans slash s'appliquant à tout niveau)
-src/frontend/godot/*.gd
-src/frontend/godot/scenes
-src/frontend/godot/scripts
-src/frontend/godot/tests
-src/frontend/godot/data
-src/frontend/project.godot
-src/frontend/export_presets.cfg
-
-# Deploy descriptors (host-side only)
-deploy
-
-# Tests & tooling
-tests
+# Outillage et artefacts locaux
+**/node_modules
 test-results
 .playwright-mcp
 .opencode
-tools
-
-# Assets sources (le client web embarque déjà audio/fonts ; l'art des cartes
-# HD sera servi à part en phase 2)
-assets
-
-# VCS & misc
-.git
-.gitignore
+tools/apk-oracle/bin
+tools/apk-oracle/obj
+tools/apk-oracle/out
 *.log
 .DS_Store
