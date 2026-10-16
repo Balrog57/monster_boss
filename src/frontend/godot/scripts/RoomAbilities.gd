@@ -95,7 +95,7 @@ static func enqueue_pending(G: Dictionary, choice: Dictionary) -> void:
 static func can_choose_draw(p: Dictionary) -> bool:
 	for stack in (p.get("dungeon", []) as Array):
 		var r = BossEngine.active_room(stack)
-		if r != null and str((r as Dictionary).get("id", "")) == "BMA023" and not bool((r as Dictionary).get("faceDown", false)):
+		if r != null and str((r as Dictionary).get("id", "")) == "BMA023" and not bool((r as Dictionary).get("faceDown", false)) and not TnlAbilities.no_text(r as Dictionary):
 			return true
 	return false
 
@@ -582,7 +582,7 @@ static func another_room_triggers(G: Dictionary, player_id: int) -> Array:
 		if other == null or bool((other as Dictionary).get("faceDown", false)):
 			continue
 		var o: Dictionary = other
-		if str(o.get("id", "")) != "BMA019" or bool(o.get("usedThisTurn", false)):
+		if str(o.get("id", "")) != "BMA019" or bool(o.get("usedThisTurn", false)) or TnlAbilities.no_text(o):
 			continue
 		o["usedThisTurn"] = true
 		out.append(o)
@@ -604,6 +604,8 @@ static func on_hero_died_in_room(G: Dictionary, player_id: int, room: Dictionary
 		RmbAbilities.on_hero_died(G, player_id, room)
 	if TnlAbilities.is_tnl(room): # The Next Level
 		return TnlAbilities.on_hero_died(G, player_id, room)
+	if TnlAbilities.no_text(room): # TNL062 Meddling Kids! : les declencheurs du base set sont eteints aussi
+		return null
 	# Tous les declencheurs HeroDiesInThisRoom du base set portent OncePerTurn (Ability.IsEffectApplied), verifie a la mise en file.
 	if ["BMA010", "BMA012", "BMA014", "BMA016", "BMA021"].has(id):
 		if bool(room.get("usedThisTurn", false)):
@@ -1206,7 +1208,7 @@ static func on_uncover(G: Dictionary, player_id: int, room_index: int) -> void:
 	var rv = BossEngine.active_room(dungeon[room_index])
 	if rv == null or bool((rv as Dictionary).get("faceDown", false)):
 		return
-	if BossEngine.abilities_locked(G, player_id) or BossEngine.is_room_deactivated(G, player_id, room_index):
+	if BossEngine.abilities_locked(G, player_id) or BossEngine.is_room_deactivated(G, player_id, room_index) or TnlAbilities.no_text(rv as Dictionary):
 		return
 	var room: Dictionary = rv
 	if Minibosses.active(G): # Rise of the Minibosses : « build or uncover » (Monster Academy, Vampire Lab, Dragon's Nest...)

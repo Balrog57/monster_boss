@@ -26,6 +26,8 @@ const GameManager = preload("res://godot/scripts/GameManager.gd")
 const OnlineClient = preload("res://godot/scripts/OnlineClient.gd")
 const OnlineGameManager = preload("res://godot/scripts/OnlineGameManager.gd")
 const Profile = preload("res://godot/scripts/Profile.gd")
+const UiKit = preload("res://godot/scripts/UiKit.gd")
+const CardGallery = preload("res://godot/scripts/CardGallery.gd")
 
 const UI := "res://assets/ui/"
 const FONT_A := "res://assets/fonts/arcadepix.fnt"   # texte plein (bandeaux, ON/OFF)
@@ -422,7 +424,7 @@ func _open_board(gm: GameManager) -> void:
 	board = board_scene.instantiate()
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(board)
-	board.setup(gm, func(): show_menu())
+	board.setup(gm, func(): show_title()) # APK LeaveGameplayScene : retour a l'ecran titre (fin de partie : OK ; menu : QUIT GAME)
 
 # --- multi : WITH FRIENDS / CHANGE USER/AVATAR ---------------------------------
 
@@ -641,6 +643,12 @@ func show_options() -> void:
 	_toggle_row(360, "MUSIC", ["ON", "OFF"], 0 if AudioManager.music_on else 1, func(i: int): AudioManager.set_music_on(i == 0))
 	_toggle_row(480, "SOUND", ["ON", "OFF"], 0 if AudioManager.sfx_on else 1, func(i: int): AudioManager.set_sfx_on(i == 0))
 	_toggle_row(600, "GAME SPEED", ["SLOW", "NORMAL", "FAST"], Profile.load_speed(), func(i: int): Profile.save_speed(i))
+	# CARD GALLERY : l'OPTIONS de l'APK l'ouvre aussi (OptionsScene), comme le menu en jeu.
+	var gal := UiKit.stone_button(self, "CARD GALLERY", Vector2(687, 730))
+	gal.name = "CardGallery"
+	gal.pressed.connect(func():
+		AudioManager.play_sfx("ui_button_select")
+		add_child(CardGallery.new()))
 	# Controles secondaires discrets (multijoueur / extensions du wiki : hors APK).
 	var ext := CheckBox.new()
 	ext.text = "Wiki expansions (not in the APK)"

@@ -105,7 +105,7 @@ static func gift_slots(G: Dictionary, pid: int) -> Array:
 		for i in d.size():
 			var rv = SpellTargeting._targetable_top(G, int(o), i, d[i])
 			if rv != null and not TnlAbilities.hand_options(_player(G, pid), "room").is_empty():
-				out.append({"targetPlayerId": int(o), "roomIndex": i, "card": rv, "label": "%s (P%d)" % [TnlAbilities._label(rv as Dictionary), int(o) + 1], "ai": -1.0})
+				out.append({"targetPlayerId": int(o), "roomIndex": i, "card": rv, "label": "%s (P%d)" % [TnlAbilities._label(rv as Dictionary), int(o) + 1], "ai": float(int((rv as Dictionary).get("damage", 0)))})
 	return out
 
 ## Libelle d'une cible de sort pour l'interface.
@@ -358,14 +358,34 @@ static func score_spell(G: Dictionary, p: Dictionary, pid: int, sid: String, t: 
 		"TNL059", "TNL061": return 90.0
 		"TNL060": return 30.0
 		"TNL062": return 90.0 if str(t.get("mode", "")) == "nowin" else (-10.0 if tid == pid else 6.0)
-		"TNL063": return -5.0 if str(t.get("mode", "")) == "swap" else (40.0 if tid != pid else -20.0)
+		"TNL063":
+			if str(t.get("mode", "")) != "swap":
+				return 40.0 if tid != pid else -20.0
+			var gain := AiWiki.swap_gain(G, pid, int(t.get("a", -1)), int(t.get("b", -1))) # l'ordre des salles change les bonus de voisinage
+			var f := AiWiki.fate(G)
+			return AiWiki.BUILD_FIRST + float(gain) if gain > 0 and (not bool(f["active"]) or int(f["owner"]) != pid) else -5.0
 		"TNL064": return 15.0 if tid != pid else -10.0
 		"TNL065": return -20.0 if TnlAbilities.hero_in_dungeon(G, pid).is_empty() else 8.0
 		"TNL066": return 85.0
 		"TNL067": return 4.0
 		"TNL068": return 40.0 if tid != pid else -10.0
 		"TNL069": return 50.0 if not (p.get("entrance", []) as Array).is_empty() else 0.0
-		"TNL070": return -5.0
+		"TNL070": return AiWiki.BUILD_FIRST if _gift_pays(G, p, pid) else -5.0
 		"TNL071": return 70.0
 		"TNL072": return 25.0
 	return 5.0
+
+## Surprise Gift vaut la peine quand mon donjon est presque plein (construire chez moi n'apporte plus grand-chose) et qu'une salle adverse
+## de 3 degats ou plus peut etre recouverte par une salle de ma main qui en fait au moins 2 de moins (elle ne la remplace pas : elle la couvre).
+static func _gift_pays(G: Dictionary, p: Dictionary, pid: int) -> bool:
+	if BossEngine.count_visible_rooms(p.get("dungeon", [])) < 4:
+		return false
+	for slot in gift_slots(G, pid):
+		var host: Dictionary = (slot as Dictionary)["card"]
+		if int(host.get("damage", 0)) < 3:
+			continue
+		for h in TnlAbilities.hand_options(p, "room"):
+			var rc: Dictionary = (h as Dictionary)["card"]
+			if _gift_fits(rc, host) and int(rc.get("damage", 0)) <= int(host.get("damage", 0)) - 2:
+				return true
+	return false

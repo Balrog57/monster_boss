@@ -487,7 +487,7 @@ static func _swap_dungeons(G: Dictionary) -> Array:
 		for i in d.size():
 			n += 1 if SpellTargeting._targetable_top(G, int(q), i, d[i]) != null else 0
 		if n >= 2:
-			out.append({"targetPlayerId": int(q), "label": "Dungeon of player %d" % (int(q) + 1), "ai": -5.0})
+			out.append({"targetPlayerId": int(q), "label": "Dungeon of player %d" % (int(q) + 1), "ai": 0.0})
 	return out
 
 static func activate_moves(G: Dictionary, p: Dictionary, pid: int) -> Array:
@@ -519,7 +519,10 @@ static func activate(G: Dictionary, pid: int, slot: int, lvl: int) -> Variant:
 				TnlAbilities.emit(G, TnlAbilities.ask(G, pid, "rmb_cost", TnlAbilities.hand_options(p, "any"), {"then": "spike", "label": name, "slot": slot},
 					"%s: choose a card to discard (2 damage to the Hero in this Room)" % name, name))
 			"RMB056":
-				TnlAbilities.emit(G, TnlAbilities.ask(G, pid, "rmb_swap_d", _swap_dungeons(G), {"label": name}, "%s: choose a dungeon to swap two Rooms in" % name, name))
+				var sdg := _swap_dungeons(G)
+				for sdo in sdg:
+					(sdo as Dictionary)["ai"] = AiWiki.best_swap_ai(G, pid, int((sdo as Dictionary)["targetPlayerId"]))
+				TnlAbilities.emit(G, TnlAbilities.ask(G, pid, "rmb_swap_d", sdg, {"label": name}, "%s: choose a dungeon to swap two Rooms in" % name, name))
 			"RMB057":
 				_hero_to_town(G, pid, name)
 		return null
@@ -642,7 +645,7 @@ static func on_hero_died(G: Dictionary, pid: int, room: Dictionary) -> void:
 					var got := TnlAbilities.draw_logged(G, pid, "rooms", 1, name)
 					if not got.is_empty():
 						var card: Dictionary = got[0]
-						var slots := TnlAbilities.build_slots(G, pid, card)
+						var slots := TnlAbilities.build_slots(G, pid, card, true) # « draw a Room card. You may immediately build that Room » : aussi dans un nouvel emplacement
 						if not slots.is_empty() and not bool(card.get("isMiniboss", false)):
 							TnlAbilities.emit(G, TnlAbilities.ask(G, pid, "rmb_build_slot", slots, {"card": card, "label": name}, "%s: choose where to build %s (or skip)" % [name, _label(card)], name, true))
 	if not m.is_empty() and RmbAbilities.has_boss(p, "RMB008"): # Oculus : un sort quand un heros meurt dans une salle avec un miniboss
@@ -808,13 +811,24 @@ static func score_move(G: Dictionary, p: Dictionary, pid: int, mtype: String, ar
 				spare += 1 if bool((c as Dictionary).get("isRoom", false)) and not bool((c as Dictionary).get("isMiniboss", false)) else 0
 			return 2.0 if coins(p) < 2 and spare >= 4 else -1.5
 		"activateMiniboss":
-			var a := TnlAbilities.adv(G)
-			var mine := not a.is_empty() and int(a.get("playerId", -1)) == pid
+			var f := AiWiki.fate(G)
+			var mine := bool(f["active"]) and int(f["owner"]) == pid
 			var id := mb_id(revealed(BossEngine.active_room((p["dungeon"] as Array)[int(args[0])])))
 			if int(args[1]) == 2:
-				return 30.0 if id == "RMB055" and mine and int(a.get("hp", 9)) <= 2 else -10.0
+				match id:
+					"RMB055": return 40.0 if mine and RoomAbilities.hero_is_in_room(G, pid, int(args[0])) and AiWiki.kills(f, 2) else -10.0 # 2 degats au heros de cette salle
+					"RMB056": return AiWiki.BUILD_FIRST if str(G.get("phase", "")) == "build" and int(AiWiki.best_swap(G, pid)["gain"]) > 0 else -5.0 # echange gratuit de deux salles, s'il ajoute des degats
+					"RMB057": return 70.0 if mine and int(f["margin"]) > 0 else -10.0 # le heros qui survit a mon donjon retourne en ville
+				return -10.0
 			match id:
+				"RMB055": return 25.0 if _opponent_miniboss_level(G, pid) >= 2 else -10.0 # renvoie en main un miniboss adverse deja promu
+				"RMB056": # +1 a mes Monster si le heros meurt ainsi, -1 aux siennes s'il en survit
+					var n := int(f.get("monsters", 0))
+					return 45.0 if n > 0 and ((mine and AiWiki.kills(f, n)) or (not mine and AiWiki.saves(f, n))) else -10.0
+				"RMB058": return 50.0 if not mine and AiWiki.saves(f, 5) else -10.0
+				"RMB059": return 30.0 if AiWiki.hero_has_text(f.get("hero")) and mine or AiWiki.entrance_has_text(p) else -10.0 # un heros de mon donjon / de mon entree perd sa capacite
 				"RMB060": return 90.0 # Paddywhack : tue le heros de la salle
+				"RMB061": return 55.0 if not mine and AiWiki.saves(f, int(f.get("best", 0))) else -10.0 # desactive la salle adverse qui le tue de justesse
 				"RMB063": return 40.0 if mine else -10.0
 				"RMB064", "RMB057": return 10.0
 				"RMB062": return 5.0
@@ -822,6 +836,14 @@ static func score_move(G: Dictionary, p: Dictionary, pid: int, mtype: String, ar
 		"rmbCancel":
 			return 100.0
 	return RmbAbilities.score_move(G, p, pid, mtype, args)
+
+## Plus haut niveau d'un miniboss REVELE d'un adversaire de `pid` (0 s'il n'y en a pas).
+static func _opponent_miniboss_level(G: Dictionary, pid: int) -> int:
+	var best := 0
+	for e in all_mbs(G):
+		if int((e as Dictionary)["pid"]) != pid:
+			best = maxi(best, level((e as Dictionary)["mb"]))
+	return best
 
 # --- interface (badge minimal sur la salle porteuse) ----------------------------------------------------------------------------------
 

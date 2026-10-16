@@ -125,7 +125,7 @@ static func can_build_room(player: Dictionary, G: Dictionary = {}, pid: int = -1
 		if target == null:
 			return false
 		# BMA018 Neanderthal Cave : on ne peut pas batir par-dessus.
-		if str((target as Dictionary).get("id", "")) == "BMA018":
+		if str((target as Dictionary).get("id", "")) == "BMA018" and not TnlAbilities.no_text(target as Dictionary): # Meddling Kids! : plus de texte, plus d'interdiction
 			return false
 		# CRL011 Hypercube : se batit sur n'importe quelle salle, quel que soit le tresor.
 		if str(card.get("id", "")) == "CRL011":
@@ -300,8 +300,12 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 	# ni capacite, ni declencheur, ni bonus de degats passif (Boss.GetPassiveDamage) tant que le heros est dans le donjon.
 	var locked := abilities_locked(G, pid)
 
+	# TNL062 Meddling Kids! : « no ability text » (pas le nom, ni les degats imprimes, ni le tresor) -> la salle perd son propre bonus passif
+	# (Ballroom, Alien Ooze) et ne donne plus rien aux voisines (Goblin Armory, Dizzygas, Invasion Swarm, Reactor Core).
+	var own_off := locked or TnlAbilities.no_text(r)
+
 	# BMA020 Monster's Ballroom : degats = nombre de salles Monster actives
-	if str(r.get("id", "")) == "BMA020" and not locked:
+	if str(r.get("id", "")) == "BMA020" and not own_off:
 		var n := 0
 		for x in all_active_rooms(dungeon):
 			if x != null and str((x as Dictionary).get("type", "")) == "monster":
@@ -321,7 +325,7 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 		var o: Dictionary = other
 		if is_room_deactivated(G, pid, i):  # AdjacentsRoom/NextRoom ignorent les slots inactifs
 			continue
-		if locked:
+		if locked or TnlAbilities.no_text(o):
 			continue
 		if str(o.get("id", "")) == "BMA015" and absi(i - room_index) == 1 and rt == "monster":
 			dmg += 1
@@ -333,7 +337,7 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 			dmg += 1
 
 	# CRL005 Alien Ooze : +1 s'il y a une AUTRE salle au tresor Explorer dans le donjon (un boss n'est pas une salle).
-	if str(r.get("id", "")) == "CRL005" and not locked:
+	if str(r.get("id", "")) == "CRL005" and not own_off:
 		for i in dungeon.size():
 			var other_ex = active_room(dungeon[i])
 			if i != room_index and other_ex != null and not is_room_deactivated(G, pid, i) and room_treasures(other_ex as Dictionary).has(5):
@@ -453,7 +457,7 @@ static func _on_other_room_destroyed(G: Dictionary, player: Dictionary) -> void:
 		var top = active_room(dungeon[i])
 		if top == null or bool((top as Dictionary).get("faceDown", false)) or str((top as Dictionary).get("id", "")) != "BMA031":
 			continue
-		if is_room_deactivated(G, int(player.get("id", -1)), i):
+		if is_room_deactivated(G, int(player.get("id", -1)), i) or TnlAbilities.no_text(top as Dictionary):
 			continue
 		for _k in 2:
 			if not deck.is_empty():

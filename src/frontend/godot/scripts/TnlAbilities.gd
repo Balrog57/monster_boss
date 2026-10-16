@@ -257,6 +257,7 @@ static func flush(G: Dictionary, list: Array) -> Variant:
 ## Sommets de piles CIBLABLES (actifs, face visible, non geles) : kind = any | trap | monster | advanced.
 static func room_options(G: Dictionary, kind: String, exclude_pid: int = -1, exclude_idx: int = -1, only_pid: int = -1) -> Array:
 	var out: Array = []
+	var f := AiWiki.fate(G) # poids IA : une salle encore devant le heros actif compte plus (a viser chez l'adversaire, a ne pas detruire chez soi)
 	for opid in _alive(G):
 		if only_pid >= 0 and int(opid) != only_pid:
 			continue
@@ -273,7 +274,7 @@ static func room_options(G: Dictionary, kind: String, exclude_pid: int = -1, exc
 				"monster": if str(r.get("type", "")) != "monster": continue
 				"advanced": if not bool(r.get("advanced", false)): continue
 			out.append({"targetPlayerId": int(opid), "roomIndex": i, "card": r, "label": "%s (P%d)" % [_label(r), int(opid) + 1],
-				"ai": (1.0 if int(opid) != exclude_pid else -1.0) * (float(int(r.get("damage", 0))) + (2.0 if bool(r.get("advanced", false)) else 0.0))})
+				"ai": (1.0 if int(opid) != exclude_pid else -1.0) * (float(int(r.get("damage", 0))) + (2.0 if bool(r.get("advanced", false)) else 0.0) + (10.0 if AiWiki.is_ahead(f, int(opid), i) else 0.0))})
 	return out
 
 static func destroy_room_at(G: Dictionary, pid: int, idx: int, label: String) -> Dictionary:
@@ -882,7 +883,7 @@ static func _shellda_choice(G: Dictionary, pid: int) -> Variant:
 	for oid in _alive(G):
 		var d: Array = _player(G, int(oid)).get("dungeon", [])
 		if d.size() >= 2:
-			opts.append({"targetPlayerId": int(oid), "label": "Dungeon of player %d" % (int(oid) + 1), "ai": -5.0})
+			opts.append({"targetPlayerId": int(oid), "label": "Dungeon of player %d" % (int(oid) + 1), "ai": AiWiki.best_swap_ai(G, pid, int(oid))})
 	if opts.is_empty():
 		return null
 	return ask(G, pid, "swap_dungeon", opts, {}, "Shellda: swap two Rooms in a dungeon (or skip)", "Shellda", true)
@@ -908,11 +909,15 @@ static func swap_stacks(G: Dictionary, pid: int, a: int, b: int) -> bool:
 # --- construction immediate (Fangroot Garden, Wild Monster) -----------------------------------------------------------------
 
 ## Emplacements ou `card` peut etre pose MAINTENANT par-dessus (sommet visible, ni gele ni en attente ; avancee : tresor commun).
-static func build_slots(G: Dictionary, pid: int, card: Dictionary) -> Array:
+## `allow_new` (texte « build a Room » sans « over an existing Room » : Fangroot Garden, Brassknuckle) ajoute, pour une salle ordinaire, un NOUVEL
+## emplacement a l'entree du donjon (roomIndex -1) tant que le donjon n'est pas plein.
+static func build_slots(G: Dictionary, pid: int, card: Dictionary, allow_new: bool = false) -> Array:
 	var out: Array = []
 	if BossEngine.is_build_blocked(G) or not bool(card.get("isRoom", false)):
 		return out
 	var dungeon: Array = _player(G, pid).get("dungeon", [])
+	if allow_new and not bool(card.get("advanced", false)) and BossEngine.count_visible_rooms(dungeon) < CardDB.DUNGEON_SLOTS:
+		out.append({"roomIndex": -1, "card": card, "label": "in a new slot", "ai": 0.5})
 	for i in dungeon.size():
 		var rv = SpellTargeting._targetable_top(G, pid, i, dungeon[i])
 		if rv == null:
@@ -932,26 +937,48 @@ static func build_slots(G: Dictionary, pid: int, card: Dictionary) -> Array:
 ## Choix « construire immediatement une salle » : `kind` = any | monster ; d'abord la carte, puis l'emplacement. Null s'il n'y a rien a poser.
 static func build_choice(G: Dictionary, pid: int, kind: String, label: String) -> Variant:
 	var opts: Array = []
+	var allow_new := kind == "any" # « Wild Monster » dit « over an existing Room » ; Fangroot Garden dit « build another Room in your dungeon »
 	for o in hand_options(_player(G, pid), "monster" if kind == "monster" else "room"):
-		if not build_slots(G, pid, (o as Dictionary)["card"] as Dictionary).is_empty():
+		if not build_slots(G, pid, (o as Dictionary)["card"] as Dictionary, allow_new).is_empty():
 			(o as Dictionary)["ai"] = _ai_value((o as Dictionary)["card"] as Dictionary)
 			opts.append(o)
 	if opts.is_empty():
 		_log(G, "%s: no Room can be built." % label)
 		return null
-	return ask(G, pid, "build_card", opts, {"label": label}, "%s: choose a Room to build over an existing Room" % label, label, kind == "any")
+	return ask(G, pid, "build_card", opts, {"label": label, "new": allow_new}, "%s: choose a Room to build%s" % [label, "" if allow_new else " over an existing Room"], label, kind == "any")
 
 ## Pose `card` (venant de la main) face visible par-dessus l'emplacement `slot` ; ses effets « build » s'appliquent a l'instant.
 static func build_now(G: Dictionary, pid: int, card: Dictionary, slot: int, label: String) -> Variant:
 	var p := _player(G, pid)
 	var dungeon: Array = p.get("dungeon", [])
-	if slot < 0 or slot >= dungeon.size() or not take_from_hand(G, pid, card):
+	if slot >= dungeon.size() or not take_from_hand(G, pid, card):
 		return null
 	card["faceDown"] = false
 	card.erase("builtThisTurn")
-	(dungeon[slot] as Array).append(card)
-	_log(G, "%s: %s built over the Room in slot %d." % [label, _label(card), slot + 1])
+	if slot < 0: # nouvel emplacement (build_slots allow_new)
+		if BossEngine.count_visible_rooms(dungeon) >= CardDB.DUNGEON_SLOTS:
+			(p["hand"] as Array).append(card)
+			return null
+		insert_slot(G, pid, card)
+		_log(G, "%s: %s built in a new slot." % [label, _label(card)])
+	else:
+		(dungeon[slot] as Array).append(card)
+		_log(G, "%s: %s built over the Room in slot %d." % [label, _label(card), slot + 1])
 	return RoomAbilities.on_build_room(G, pid, card)
+
+## Pose `card` dans un NOUVEL emplacement a l'entree du donjon (index 0, comme une construction normale) ; les effets indexes par emplacement
+## et le heros actif de ce donjon glissent d'un cran (l'inverse de BossEngine.destroy_room).
+static func insert_slot(G: Dictionary, pid: int, card: Dictionary) -> void:
+	(_player(G, pid).get("dungeon", []) as Array).push_front([card])
+	for key in ["deactivatedRooms", "roomDamageBonus"]:
+		for e in (SpellEffects._effects(G).get(key, []) as Array):
+			if int((e as Dictionary).get("playerId", -1)) == pid:
+				e["roomIndex"] = int((e as Dictionary).get("roomIndex", -1)) + 1
+	var a := adv(G)
+	if not a.is_empty() and int(a.get("playerId", -1)) == pid:
+		for k in ["roomIndex", "nearest"]:
+			if int(a.get(k, -1)) >= 0:
+				a[k] = int(a[k]) + 1
 
 # --- activation des salles du donjon --------------------------------------------------------------------------------------------
 
@@ -1043,7 +1070,10 @@ static func activate(G: Dictionary, p: Dictionary, pid: int, room_index: int, r:
 			if room_options(G, "any", pid, room_index).is_empty():
 				return "no Room to target"
 			destroy_room_at(G, pid, room_index, "Decapitator")
-			emit(G, ask(G, pid, "room_target", room_options(G, "any"), {"then": "no_treasure", "label": "Decapitator"}, "Decapitator: choose a Room to remove its treasure", "Decapitator"))
+			var nt := room_options(G, "any")
+			for o in nt:
+				(o as Dictionary)["ai"] = AiWiki.no_treasure_gain(G, pid, (o as Dictionary)["card"]) # le leurre que la salle fait gagner / perdre a `pid`
+			emit(G, ask(G, pid, "room_target", nt, {"then": "no_treasure", "label": "Decapitator"}, "Decapitator: choose a Room to remove its treasure", "Decapitator"))
 		"TNL017", "TNL049": # Haunted Hall / Warp Tube : se detruit, renvoie le heros de CETTE salle en ville / a la 1re salle
 			if not RoomAbilities.hero_is_in_room(G, pid, room_index):
 				return "no hero in this room"
@@ -1192,14 +1222,14 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 			var pairs: Array = []
 			for a in d.size():
 				for b in range(a + 1, d.size()):
-					pairs.append({"targetPlayerId": tp, "a": a, "b": b, "label": "%s <-> %s" % [_label(BossEngine.active_room(d[a]) as Dictionary), _label(BossEngine.active_room(d[b]) as Dictionary)], "ai": -5.0})
+					pairs.append({"targetPlayerId": tp, "a": a, "b": b, "label": "%s <-> %s" % [_label(BossEngine.active_room(d[a]) as Dictionary), _label(BossEngine.active_room(d[b]) as Dictionary)], "ai": AiWiki.swap_ai(G, pid, tp, a, b)})
 			return ask(G, pid, "swap_pair", pairs, {}, "Shellda: choose the two Rooms to swap", "Shellda", true)
 		"swap_pair":
 			if idx >= 0 and swap_stacks(G, int(o.get("targetPlayerId", -1)), int(o.get("a", -1)), int(o.get("b", -1))):
 				_log(G, "Shellda: swapped two Rooms of player %d's dungeon." % (int(o.get("targetPlayerId", 0)) + 1))
 		"build_card":
 			var bc: Dictionary = o.get("card", {})
-			var slots := build_slots(G, pid, bc)
+			var slots := build_slots(G, pid, bc, bool(ctx.get("new", false)))
 			if slots.is_empty():
 				return null
 			return ask(G, pid, "build_slot", slots, {"card": bc, "label": str(ctx.get("label", ""))}, "%s: choose where to build %s" % [str(ctx.get("label", "")), _label(bc)], str(ctx.get("label", "")))
@@ -1222,7 +1252,10 @@ static func _after_cost(G: Dictionary, pid: int, ctx: Dictionary, card: Dictiona
 		"debuff_monster":
 			return ask(G, pid, "room_target", room_options(G, "monster"), {"then": "buff", "amount": -1, "label": label}, "%s: choose a Monster Room (-1)" % label, label)
 		"hero_plus":
-			return ask(G, pid, "hero_plus", hero_options(G), {}, "Werewolf Den: choose a Hero (+1 Health)", label)
+			var hs := hero_options(G)
+			for o in hs:
+				(o as Dictionary)["ai"] = AiWiki.hero_weight(G, pid, o as Dictionary)
+			return ask(G, pid, "hero_plus", hs, {}, "Werewolf Den: choose a Hero (+1 Health)", label)
 	return null
 
 ## Applique un effet a la salle choisie (ctx.then).
@@ -1377,8 +1410,11 @@ static func apply_move(G: Dictionary, pid: int, move: Dictionary) -> Variant:
 
 static func score_move(G: Dictionary, p: Dictionary, pid: int, mtype: String, args: Array) -> float:
 	match mtype:
-		"docScarecrow":
-			return -5.0
+		"docScarecrow": # defausse la carte la moins precieuse pour garder un heros hors de portee (voir AiWiki.scarecrow_value)
+			var sv := AiWiki.scarecrow_value(G, pid, int(args[1]))
+			var hand: Array = p.get("hand", [])
+			var cost := _ai_value(hand[int(args[0])]) if int(args[0]) < hand.size() else 0.0
+			return AiWiki.BUILD_FIRST - 6.0 * cost if sv > 0.0 else -5.0
 		"payDarkHero": # sauver un heros noir qui allait mourir
 			var a := adv(G)
 			var hero: Dictionary = {}
@@ -1394,12 +1430,60 @@ static func score_move(G: Dictionary, p: Dictionary, pid: int, mtype: String, ar
 			return 120.0
 	return 0.0
 
-static func score_activate(G: Dictionary, p: Dictionary, pid: int, rid: String) -> float:
+## Valeur d'une capacite activee TNL. `idx` = index de la salle dans le donjon de `pid` (-1 si inconnu). Les cartes « de situation » ne se jouent que
+## lorsqu'elles changent l'issue de l'aventure en cours (AiWiki.fate : le heros meurt ou atteint le boss) ou le leurre (AiWiki.bait_gain).
+static func score_activate(G: Dictionary, p: Dictionary, pid: int, rid: String, idx: int = -1) -> float:
+	var f := AiWiki.fate(G)
+	var mine := bool(f["active"]) and int(f["owner"]) == pid
+	var build := str(G.get("phase", "")) == "build"
+	var hand_n := (p.get("hand", []) as Array).size()
 	match rid:
 		"TNL013", "TNL035", "TNL042": return 12.0
 		"TNL030": return 15.0
-		"TNL053", "TNL022", "TNL040": return -5.0
-		"TNL017", "TNL049": return -5.0
+		"TNL017": # Haunted Hall : le heros de cette salle survivrait a tout mon donjon -> retour en ville, pas de blessure
+			return 70.0 if mine and int(f["margin"]) > 0 else -10.0
+		"TNL049": # Warp Tube : le heros qui survit rejouerait les salles deja traversees et y mourrait
+			return 75.0 if mine and idx > 0 and int(f["margin"]) > 0 and int(f["margin"]) - int(f["behind"]) <= 0 else -10.0
+		"TNL033": # Frostbat Cave : desactive la salle adverse qui tue le heros de justesse (il blessera son proprietaire)
+			return 65.0 if not mine and AiWiki.saves(f, int(f["best"])) else -10.0
+		"TNL022", "TNL040": # Rust Monster Pen / Bullet Builder : -1 a une salle Trap / Monster qui tue le heros de justesse (carte en main a defausser)
+			var kind := "traps" if rid == "TNL022" else "monsters"
+			return 30.0 if not mine and hand_n >= 3 and int(f.get(kind, 0)) > 0 and AiWiki.saves(f, 1) else -5.0
+		"TNL041": # Wreck Room : une salle quasi inutile contre une carte, tant qu'on peut encore construire ce tour
+			return AiWiki.BUILD_FIRST if build and AiWiki.can_refill(G, p, pid) and hand_n <= 3 and _worthless_room_exists(p, idx) else -5.0
+		"TNL045": # Decapitator (phase de construction) : une salle adverse sans tresor fait venir un heros chez moi
+			return AiWiki.BUILD_FIRST if build and AiWiki.can_refill(G, p, pid) and _best_no_treasure(G, pid, idx) >= 1.0 else -5.0
+		"TNL046": # Chump Chomper : +4 a cette salle devant le heros, en detruisant une salle qu'il a deja traversee
+			return 70.0 if mine and idx > int(f["idx"]) and AiWiki.kills(f, 4) and _passed_room_exists(p, int(f["idx"]), idx) else -5.0
+		"TNL048": # The Smashinator : +6 mais detruit tout le reste du donjon -> seulement pour eviter une blessure grave
+			return 45.0 if mine and idx > int(f["idx"]) and AiWiki.kills(f, 6) and CardDB.total_wounds(p) >= 3 else -8.0
+		"TNL053": # Werewolf Den : +1 PV au heros adverse qui meurt de justesse (il blessera son proprietaire)
+			return 30.0 if not mine and hand_n >= 3 and AiWiki.saves(f, 1) else -5.0
 		"TNL032": return 3.0
 		"TNL055": return 5.0
 	return -10.0
+
+## Une salle visible de `p` (autre que `idx`) qui ne pese presque rien : degats <= 1, ordinaire.
+static func _worthless_room_exists(p: Dictionary, idx: int) -> bool:
+	var d: Array = p.get("dungeon", [])
+	for j in d.size():
+		var r = BossEngine.active_room(d[j])
+		if j != idx and r != null and not bool((r as Dictionary).get("faceDown", false)) and not bool((r as Dictionary).get("advanced", false)) and int((r as Dictionary).get("damage", 0)) <= 1:
+			return true
+	return false
+
+## Une salle visible de `p` (autre que `self_idx`) que le heros a deja traversee (index <= `hero_idx`) : on peut la detruire sans perdre de degats a venir.
+static func _passed_room_exists(p: Dictionary, hero_idx: int, self_idx: int) -> bool:
+	var d: Array = p.get("dungeon", [])
+	for j in mini(hero_idx + 1, d.size()):
+		var r = BossEngine.active_room(d[j])
+		if j != self_idx and r != null and not bool((r as Dictionary).get("faceDown", false)):
+			return true
+	return false
+
+## Meilleur gain de leurre pour `pid` en retirant le tresor d'une salle (autre que `self_idx` de pid).
+static func _best_no_treasure(G: Dictionary, pid: int, self_idx: int) -> float:
+	var best := -99.0
+	for o in room_options(G, "any", pid, self_idx):
+		best = maxf(best, AiWiki.no_treasure_gain(G, pid, (o as Dictionary)["card"]))
+	return best

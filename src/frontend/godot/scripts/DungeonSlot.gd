@@ -8,13 +8,17 @@ const BossEngine = preload("res://godot/scripts/BossEngine.gd")
 
 signal room_dropped(hand_index: int, slot_index: int) ## emis APRES une construction reussie
 signal activate_requested(slot_index: int)
+signal zoom_on(card: Control)  ## appui long sur la salle : zoom (BoardUI)
+signal zoom_off
 
 @export var slot_index: int = 0
 var game_manager: GameManager
 var player_id: int = 0
 var current_stack: Array = []
 var activatable := false
-var _glow: TextureRect
+var _glow: Control
+const PEEK := 28.0                       # APK : la salle recouverte depasse de ~28 px au-dessus de la salle du dessus (1920x1080)
+const MAX_PEEK := 2                      # nombre de salles recouvertes dessinees
 
 @onready var slot_frame: TextureRect = $SlotFrame
 @onready var slot_label: Label = $SlotLabel
@@ -50,6 +54,10 @@ func _update_view() -> void:
 	if old_badge != null:
 		remove_child(old_badge)
 		old_badge.queue_free()
+	for c in get_children():
+		if c.is_in_group("under_card"):
+			remove_child(c)
+			c.queue_free()
 
 	var active_room = BossEngine.active_room(current_stack) if not current_stack.is_empty() else null
 	if active_room != null:
@@ -61,6 +69,11 @@ func _update_view() -> void:
 		card_ui.is_in_hand = false
 		card_ui.setup(active_room)
 		card_ui.add_lane_badge()
+		card_ui.mouse_filter = Control.MOUSE_FILTER_PASS # le clic atteint l'emplacement (capacite de la salle)
+		card_ui.long_pressed.connect(func(c): zoom_on.emit(c))
+		card_ui.long_released.connect(func(_c): zoom_off.emit())
+		card_ui.set_frozen(game_manager != null and BossEngine.is_room_deactivated(game_manager.G, player_id, slot_index))
+		add_under_cards(self, current_stack, _card_ui_scene, custom_minimum_size, card_container.get_index())
 		if border:
 			border.border_color = Color(0.4, 0.8, 0.4, 0.0) # pas de liseré : seul le halo d'une salle activable est visible
 		tooltip_text = str(active_room.get("name", ""))
@@ -77,11 +90,35 @@ func _update_view() -> void:
 		tooltip_text = ""
 	_update_glow()
 
+## Salles recouvertes d'une pile (une salle avancee construite sur une autre) : comme l'APK, la plus ancienne depasse de PEEK px
+## au-dessus de celle du dessus (son bandeau de titre reste lisible). `at` : rang d'insertion dans `host` (derriere la salle du dessus).
+static func add_under_cards(host: Control, stack: Array, card_scene: PackedScene, sz: Vector2, at: int = -1) -> void:
+	var older := mini(stack.size() - 1, MAX_PEEK)
+	for k in range(older, 0, -1): # la plus profonde d'abord (au fond)
+		var c: CardUI = card_scene.instantiate()
+		c.default_size = sz
+		c.add_to_group("under_card")
+		host.add_child(c)
+		c.size = sz
+		c.position = Vector2(0, -PEEK * k * sz.y / 175.0)
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		c.is_in_hand = false
+		c.setup(stack[stack.size() - 1 - k])
+		c.add_lane_badge()
+		var badge := c.get_node_or_null("TypeBadge")
+		if badge != null:
+			badge.modulate = Color(0.6, 0.6, 0.6) # APK : pastille de la salle recouverte assombrie
+		if at >= 0:
+			host.move_child(c, at + (older - k))
+
 ## BoardUI l'allume quand la salle a un coup activateRoom legal pour le joueur affiche (halo vert pulse, comme l'APK).
 func set_activatable(on: bool) -> void:
 	activatable = on
 	_update_glow()
 
+## Halo de capacite de l'APK (CardAttributesComponent.UpdateRoomAbilityBorder) : cadre fixe card_border_ability_glow sur la zone de texte
+## (a 116/488 sous le centre de la carte) + 3 anneaux card_border_ability_pulse qui grossissent (x1 -> x1,4) en s'estompant sur 2 s,
+## decales de 0,3 s, relances toutes les 3 s.
 func _update_glow() -> void:
 	var show_it := activatable and not current_stack.is_empty()
 	tooltip_text = tooltip_text.replace("
@@ -89,20 +126,40 @@ Click to use its ability", "")
 	if _glow == null:
 		if not show_it:
 			return
-		_glow = TextureRect.new()
-		_glow.texture = load("res://assets/ui/ingame/card_border_ability_pulse.webp")
-		_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		_glow.stretch_mode = TextureRect.STRETCH_SCALE
+		_glow = Control.new()
 		_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_glow.position = Vector2(-4, 96)
-		_glow.size = Vector2(custom_minimum_size.x + 8, 60)
+		var k := Vector2(custom_minimum_size.x / 350.0, custom_minimum_size.y / 488.0) # la carte APK fait 350x488 a l'echelle 1
+		var sz := Vector2(306, 102) * k
+		var centre := custom_minimum_size / 2.0 + Vector2(0, 116.0 * k.y)
+		_glow.position = centre - sz / 2.0
+		_glow.size = sz
 		add_child(_glow)
-		var tw := _glow.create_tween().set_loops()
-		tw.tween_property(_glow, "modulate:a", 0.4, 0.6).set_trans(Tween.TRANS_SINE)
-		tw.tween_property(_glow, "modulate:a", 1.0, 0.6).set_trans(Tween.TRANS_SINE)
+		var base := _glow_tex("card_border_ability_glow", sz)
+		_glow.add_child(base)
+		for r in 3:
+			var ring := _glow_tex("card_border_ability_pulse", sz)
+			ring.pivot_offset = sz / 2.0
+			ring.modulate.a = 0.0
+			_glow.add_child(ring)
+			var tw := ring.create_tween().set_loops()
+			tw.tween_interval(0.3 * r)
+			tw.set_parallel(true)
+			tw.chain().tween_property(ring, "scale", Vector2(1.4, 1.4), 2.0).from(Vector2.ONE).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			tw.tween_property(ring, "modulate:a", 0.0, 2.0).from(1.0).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			tw.chain().tween_interval(1.0 - 0.3 * r)
 	_glow.visible = show_it
 	if show_it and not tooltip_text.contains("Click"):
-		tooltip_text += "\nClick to use its ability"
+		tooltip_text += "
+Click to use its ability"
+
+func _glow_tex(name: String, sz: Vector2) -> TextureRect:
+	var t := TextureRect.new()
+	t.texture = load("res://assets/ui/ingame/%s.webp" % name)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.size = sz
+	return t
 
 func _gui_input(event: InputEvent) -> void:
 	# Clic (gauche ou droit) sur une salle activable : BoardUI choisit le coup (et la cible s'il y en a plusieurs).

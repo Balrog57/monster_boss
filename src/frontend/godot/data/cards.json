@@ -11,7 +11,8 @@
       "levelUpDesc": "Level Up: Target opponent reveals his or her hand. Take one card and put it into your hand.",
       "subtitle": "Hypnotic Vampire",
       "set": "base",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "BMA002",
@@ -24,7 +25,8 @@
       "levelUpDesc": "Level Up: Choose two cards from the discard pile and put them into your hand.",
       "subtitle": "Progenitor Lich",
       "set": "base",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "BMA003",
@@ -37,7 +39,8 @@
       "levelUpDesc": "Level Up: You may search the Room Deck or discard pile for an Advanced Monster Room. You may immediately build the room (over a room with a matching Treasure type).",
       "subtitle": "Sultan of the Sewers",
       "set": "base",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "BMA004",
@@ -50,7 +53,8 @@
       "levelUpDesc": "Level Up: Each opponent must choose and destroy one Room in his or her dungeon.",
       "subtitle": "Angry Golem",
       "set": "base",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "BMA005",
@@ -63,7 +67,8 @@
       "levelUpDesc": "Level Up: You may draw three Spell cards, then discard a Spell card.",
       "subtitle": "Father Brain",
       "set": "base",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "BMA006",
@@ -76,7 +81,8 @@
       "levelUpDesc": "Level Up: You may search through town or the Hero decks, choose one Hero, and put it at the entrance to your dungeon.",
       "subtitle": "Sorceress of Sexiness",
       "set": "base",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "BMA007",
@@ -89,7 +95,8 @@
       "levelUpDesc": "Level Up: You may search the Room Deck or discard pile for an Advanced Trap Room. You may immediately build the room (over a room with a matching Treasure type).",
       "subtitle": "Mother of Mummies",
       "set": "base",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "BMA008",
@@ -102,7 +109,8 @@
       "levelUpDesc": "Level Up: Choose a Hero in town. Immediately kill that Hero and place it face-down in your scorekeeping area.",
       "subtitle": "Queen of Medusia",
       "set": "base",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "CRL001",
@@ -114,7 +122,8 @@
       "levelUpDesc": "For the rest of the game, Rooms in your dungeon have +1 for each Explorer treasure they have.",
       "levelUp": {"canAvoid": false, "trigger": null, "targets": [["BossOwner"]], "cmd": "RoomsDamagePerTreasure", "args": ["Explorer"]},
       "set": "crash-landing",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "CRL002",
@@ -126,7 +135,8 @@
       "levelUpDesc": "Choose another Boss. For the rest of the game, this Boss also has that Boss's Level Up ability. (The ability remains even if that Boss dies.)",
       "levelUp": {"canAvoid": false, "trigger": null, "targets": [["BossOpponent"]], "cmd": "CopyLevelUp", "args": []},
       "set": "crash-landing",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "CRL003",
@@ -138,7 +148,8 @@
       "levelUpDesc": "You may bring one covered Room to the top of a Room stack in each opponent's dungeon. (This uncovers those rooms.)",
       "levelUp": {"canAvoid": true, "trigger": null, "targets": [["BossOpponents"]], "cmd": "UncoverOpponentRoom", "args": []},
       "set": "crash-landing",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "KSA001",
@@ -166,7 +177,8 @@
           "Mage",
           "Fighter"
         ]
-      }
+      },
+      "implemented": true
     },
     {
       "id": "KSA002",
@@ -195,7 +207,8 @@
         ],
         "cmd": "RearrangeDungeon",
         "args": []
-      }
+      },
+      "implemented": true
     },
     {
       "id": "KSA003",
@@ -224,7 +237,8 @@
         ],
         "cmd": "PutCardInHand",
         "args": []
-      }
+      },
+      "implemented": true
     },
     {
       "id": "KSA004",
@@ -256,7 +270,8 @@
         "args": [
           "FaceDown"
         ]
-      }
+      },
+      "implemented": true
     },
     {
       "id": "KSA005",
@@ -282,7 +297,8 @@
         "args": [
           "3"
         ]
-      }
+      },
+      "implemented": true
     },
     {
       "id": "KSA006",
@@ -308,7 +324,8 @@
         "args": [
           "1"
         ]
-      }
+      },
+      "implemented": true
     },
     {
       "id": "KSA007",
@@ -334,7 +351,8 @@
         "args": [
           "2"
         ]
-      }
+      },
+      "implemented": true
     },
     {
       "id": "RMB001",
@@ -345,7 +363,8 @@
       ],
       "levelUpDesc": "For the rest of the game, once per turn gain (c) when you kill a hero.",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB002",
@@ -356,7 +375,8 @@
       ],
       "levelUpDesc": "For the rest of the game, once per turn you may discard a Monster Room to promote a Miniboss instead of paying (c).",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB003",
@@ -367,7 +387,8 @@
       ],
       "levelUpDesc": "For the rest of the game, once per turn you may pay (c)(c) to force an opponent to discard a randon Spell card.",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB004",
@@ -378,7 +399,8 @@
       ],
       "levelUpDesc": "For the rest of the game, gain (c) whenever you build a Monster Room.",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB005",
@@ -389,7 +411,8 @@
       ],
       "levelUpDesc": "For the rest of the game, Minibosses that you build start on Level 2.",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB006",
@@ -400,7 +423,8 @@
       ],
       "levelUpDesc": "For the rest of the game, once per turn you may pay (c)(c) to double the damage value of a Monster Room.",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB007",
@@ -411,7 +435,8 @@
       ],
       "levelUpDesc": "For the rest of the game, gain (c) whenever you cast a Spell.",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB008",
@@ -423,7 +448,8 @@
       "levelUpDesc": "For the rest of the game, draw a Spell when a Hero dies in a room with a Miniboss.",
       "set": "minibosses",
       "quantity": 1,
-      "genericLevelUp": true
+      "genericLevelUp": true,
+      "implemented": true
     },
     {
       "id": "RMB009",
@@ -435,7 +461,8 @@
       "levelUpDesc": "For the rest of the game, once per turn you may pay (c)(c) to draw a Spell card.",
       "set": "minibosses",
       "quantity": 1,
-      "genericLevelUp": true
+      "genericLevelUp": true,
+      "implemented": true
     },
     {
       "id": "RMB010",
@@ -446,7 +473,8 @@
       ],
       "levelUpDesc": "For the rest of the game, gain (c) whenever you build a Trap Room.",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB011",
@@ -457,7 +485,8 @@
       ],
       "levelUpDesc": "For the rest of the game, your Trap Rooms have +1. Any opponents may give you (c) to cancel this ability until the end of your turn.",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB012",
@@ -468,7 +497,8 @@
       ],
       "levelUpDesc": "For the rest of the game, once per turn you may pay (c)(c) to add one of any treasure type to any player's dungeon",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL000",
@@ -479,7 +509,8 @@
       ],
       "levelUpDesc": "Choose another Boss. For the rest of the game, this boss also has that Boss's treasure icon. (The icon remains even if that boss dies.)",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL001",
@@ -490,7 +521,8 @@
       ],
       "levelUpDesc": "For the rest of the game, during the Build phase you may discard one card to choose one Hero in town. That Hero cannot be lured this turn.",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL002",
@@ -502,7 +534,8 @@
       "levelUpDesc": "Heal a Wound. (Turn one face-down Hero face-up.)",
       "set": "next-level",
       "quantity": 1,
-      "genericLevelUp": true
+      "genericLevelUp": true,
+      "implemented": true
     },
     {
       "id": "TNL003",
@@ -513,7 +546,8 @@
       ],
       "levelUpDesc": "For the rest of the game, whenever any Monster Room is discarded or destroyed, you may put it into your hand.",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL004",
@@ -525,7 +559,8 @@
       "levelUpDesc": "For the rest of the game, if you have 3 Wounds or more, give the last Room of your dungeon +3",
       "set": "next-level",
       "quantity": 1,
-      "genericLevelUp": true
+      "genericLevelUp": true,
+      "implemented": true
     },
     {
       "id": "TNL005",
@@ -536,7 +571,8 @@
       ],
       "levelUpDesc": "For the rest of the game, at end of turn you may swap the placement of two Rooms in one dungeon.",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL006",
@@ -548,7 +584,8 @@
       "levelUpDesc": "For the rest of the game, whenever you build a Monster Room, you may Draw a Room card.",
       "set": "next-level",
       "quantity": 1,
-      "genericLevelUp": true
+      "genericLevelUp": true,
+      "implemented": true
     },
     {
       "id": "TNL007",
@@ -559,7 +596,8 @@
       ],
       "levelUpDesc": "Discard your hand, then draw 3 Spell cards.",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL008",
@@ -570,7 +608,8 @@
       ],
       "levelUpDesc": "For the rest of the game, once per turn you may discard a Spell card to cancel an opponent's Spell.",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL009",
@@ -582,7 +621,8 @@
       "levelUpDesc": "For the rest of the game, you may draw a Spell card at the end of turn if any player has gained two more souls than you that turn.",
       "set": "next-level",
       "quantity": 1,
-      "genericLevelUp": true
+      "genericLevelUp": true,
+      "implemented": true
     },
     {
       "id": "TNL010",
@@ -593,7 +633,8 @@
       ],
       "levelUpDesc": "Choose one face-down Hero from your scorekeeping area and remove it from the game. Search the Hero decks, choose one Hero, and place it face-down in your scorekeeping area.",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL011",
@@ -605,7 +646,8 @@
       "levelUpDesc": "For the rest of the game, once per turn when you kill a Hero, draw a Room card.",
       "set": "next-level",
       "quantity": 1,
-      "genericLevelUp": true
+      "genericLevelUp": true,
+      "implemented": true
     },
     {
       "id": "TNL012",
@@ -616,7 +658,8 @@
       ],
       "levelUpDesc": "For the rest of the game, when you destroy a Room in your dungeon, the uncovered Room gains +3 until end of turn.",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     }
   ],
   "rooms": [
@@ -632,7 +675,8 @@
       ],
       "quantity": 3,
       "description": "Destroy this Room: Choose one card from the discard pile and put it into your hand.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA010",
@@ -645,7 +689,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, if a Hero dies in this room, choose one Room card from the discard pile and put into your hand.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA011",
@@ -658,7 +703,8 @@
       ],
       "quantity": 3,
       "description": "When you build this room, choose an opponent. That opponent discards a random Spell card.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA012",
@@ -671,7 +717,8 @@
       ],
       "quantity": 3,
       "description": "Once per turn, if a Hero Dies in this room, choose an opponent. Take a random Room or Spell card from that opponent's hand.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA013",
@@ -684,7 +731,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, you may discard two Room card to choose one Room card from the discard pile and put it into your hand.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA014",
@@ -697,7 +745,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, if a Hero dies in this Room, you may heal one Wound. (Flip over one of your Wounds, adding its Soul value to your total.)",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA015",
@@ -711,7 +760,8 @@
       ],
       "quantity": 3,
       "description": "Monster Rooms adjacent to this room deal +1 damage.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA016",
@@ -724,7 +774,8 @@
       ],
       "quantity": 3,
       "description": "Once per turn, if a hero dies in this room, draw a Room card.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA017",
@@ -737,7 +788,8 @@
       ],
       "quantity": 2,
       "description": "The first time a Hero enters this room, send it back one room.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA018",
@@ -750,7 +802,8 @@
       ],
       "quantity": 3,
       "description": "You cannot build an Advanced Room on Neanderthal Cave.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA019",
@@ -763,7 +816,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn when you build another Monster room, draw a Room card.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA020",
@@ -776,7 +830,8 @@
       ],
       "quantity": 2,
       "description": "This room's damage is equal to the number of Monster rooms in your dungeon.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA021",
@@ -789,7 +844,8 @@
       ],
       "quantity": 3,
       "description": "Once per turn, if a Hero dies in this room, you may draw a Spell card.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA022",
@@ -803,7 +859,8 @@
       ],
       "quantity": 3,
       "description": "When you build this room, draw two spell cards, then discard a Spell card.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA023",
@@ -816,7 +873,8 @@
       ],
       "quantity": 2,
       "description": "At the beginning of your turn, you may draw from the Spell deck instead of the Room deck.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA024",
@@ -829,7 +887,8 @@
       ],
       "quantity": 3,
       "description": "Once per turn, you may discard a Monster Room card to draw a Spell card.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA025",
@@ -842,7 +901,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn when an opponent plays a Spell card, you may discard a Spell card to cancel its effect.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA026",
@@ -855,7 +915,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn when you play a Spell card, draw a Spell card.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA027",
@@ -868,7 +929,8 @@
       ],
       "quantity": 3,
       "description": "Destroy this room: Kill a Hero in this room.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA028",
@@ -881,7 +943,8 @@
       ],
       "quantity": 2,
       "description": "Destroy another room in your dungeon: Deal 5 damage to a hero in this room.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA029",
@@ -894,7 +957,8 @@
       ],
       "quantity": 3,
       "description": "If the next room in your dungeon is a Trap room, it deals +2 damage.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA030",
@@ -908,7 +972,8 @@
       ],
       "quantity": 3,
       "description": "Destroy this room: Double the treasure value of your other rooms until end of turn.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA031",
@@ -921,7 +986,8 @@
       ],
       "quantity": 2,
       "description": "When another room in your dungeon is destroyed, you may draw two Room cards.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA032",
@@ -934,7 +1000,8 @@
       ],
       "quantity": 2,
       "description": "Destroy another room in your dungeon: Your rooms deal +2 damage until end of turn.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA033",
@@ -948,7 +1015,8 @@
       ],
       "quantity": 2,
       "description": "When you build this room, you may swap the placement of two Rooms in any dungeon.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA034",
@@ -962,7 +1030,8 @@
       ],
       "quantity": 2,
       "description": "When you build this room, you may immediately build an additional Room.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA035",
@@ -978,7 +1047,8 @@
       ],
       "quantity": 3,
       "description": "(This room contains all four treasure types.)",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA036",
@@ -992,7 +1062,8 @@
       ],
       "quantity": 2,
       "description": "When you build this room. Choose one ordinary Hero in town and place it on the entrance to your dungeon.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA037",
@@ -1006,7 +1077,8 @@
       ],
       "quantity": 2,
       "description": "When you build this room, choose one Monster Room from the discard pile and put it in your hand.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA038",
@@ -1020,7 +1092,8 @@
       ],
       "quantity": 2,
       "description": "Destroy this room: Choose an opponent. That opponent discards a random Room card.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA039",
@@ -1034,7 +1107,8 @@
       ],
       "quantity": 2,
       "description": "Destroy this room: Choose a dead Hero in an opponent's scorekeeping area. Send it back to the entrance of that player's dungeon",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "CRL004",
@@ -1233,7 +1307,8 @@
       ],
       "quantity": 1,
       "description": "You may destroy this Room to force an opponent to discard a random Spell card.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB014",
@@ -1246,7 +1321,8 @@
       ],
       "quantity": 2,
       "description": "When you build or uncover this Room, gain (c) (c) for every miniboss you reveal from your hand.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB015",
@@ -1259,7 +1335,8 @@
       ],
       "quantity": 2,
       "description": "When you build this Room, choose one opponent. Once this turn you may give them (c) to take one random Spell card from them.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB016",
@@ -1329,7 +1406,8 @@
       ],
       "quantity": 2,
       "description": "When you build this Room, place up to three (c) on it. For each (c) you place, choose one card from the discard pile and put it in your hand. This Room has -1 for every (c) on it.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB021",
@@ -1483,7 +1561,8 @@
       "quantity": 1,
       "description": "When you build or uncover this Room, you may discard a Miniboss to draw a Spell card.",
       "set": "minibosses",
-      "onBuildDrawSpell": true
+      "onBuildDrawSpell": true,
+      "implemented": true
     },
     {
       "id": "RMB032",
@@ -1524,7 +1603,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn if a Hero dies in this Room, you may remove that Hero from the game to draw two Spell cards.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB035",
@@ -1552,7 +1632,8 @@
       "quantity": 2,
       "description": "When you build this Room, pay (c)(c) and draw two Spell cards.",
       "set": "minibosses",
-      "gainCoin": 2
+      "gainCoin": 2,
+      "implemented": true
     },
     {
       "id": "RMB037",
@@ -1566,7 +1647,8 @@
       "quantity": 1,
       "description": "When you build this Room, place up to three (c) on it. For each (c) you place, draw one Spell card. This Room has -1 for every (c) on it.",
       "set": "minibosses",
-      "gainCoin": 3
+      "gainCoin": 3,
+      "implemented": true
     },
     {
       "id": "RMB038",
@@ -1609,7 +1691,8 @@
       "description": "When you build or uncover this Room, draw a Room card.",
       "set": "minibosses",
       "onBuildDrawRoom": true,
-      "onUncover": "draw-room"
+      "onUncover": "draw-room",
+      "implemented": true
     },
     {
       "id": "RMB041",
@@ -1636,7 +1719,8 @@
       ],
       "quantity": 2,
       "description": "You may destroy this Room to gain (c) (c) (c).",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB043",
@@ -1677,7 +1761,8 @@
       ],
       "quantity": 2,
       "description": "You can destroy this room to add one treasure of any type to any player's dungeon until end of turn.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB046",
@@ -1704,7 +1789,8 @@
       ],
       "quantity": 2,
       "description": "You may destroy a Monster room in your dungeon to kill a hero in this Room.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB048",
@@ -1748,7 +1834,8 @@
       "quantity": 2,
       "description": "When you build or uncover this Room, Gain (c) for every multi-treasure Room in your dungeon, including this one.",
       "set": "minibosses",
-      "gainCoin": 1
+      "gainCoin": 1,
+      "implemented": true
     },
     {
       "id": "RMB051",
@@ -1762,7 +1849,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, if a Hero dies in this Room, gain (c)(c)(c).",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB052",
@@ -1776,7 +1864,8 @@
       ],
       "quantity": 2,
       "description": "You may destroy this Room to gain (c) for every Wound you have.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB053",
@@ -1790,7 +1879,8 @@
       ],
       "quantity": 2,
       "description": "You may destroy this Room to gain (c) for every Room remaining in your dungeon.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB054",
@@ -1804,7 +1894,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, you may discard a Spell to gain (c) (c).",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "THK021",
@@ -1817,7 +1908,8 @@
       ],
       "quantity": 1,
       "description": "Once per turn during the Build phase, choose an unattached Item in town. You may attach it to any Hero, regardless of Treasure type.",
-      "set": "tools"
+      "set": "tools",
+      "implemented": false
     },
     {
       "id": "THK022",
@@ -1830,7 +1922,8 @@
       ],
       "quantity": 1,
       "description": "Once per turn, you may discard two Room cards to flip over a face-down Item card in your scorekeeping area.",
-      "set": "tools"
+      "set": "tools",
+      "implemented": false
     },
     {
       "id": "THK023",
@@ -1843,7 +1936,8 @@
       ],
       "quantity": 1,
       "description": "Once per turn, you may choose a face-up Item in your scorekeeping area and flip it face-down to draw a Spell card.",
-      "set": "tools"
+      "set": "tools",
+      "implemented": false
     },
     {
       "id": "THK024",
@@ -1856,7 +1950,8 @@
       ],
       "quantity": 1,
       "description": "Once per turn, if a Hero enters this Room with an attached Item, you may place that Item face-down in your scorekeeping area.",
-      "set": "tools"
+      "set": "tools",
+      "implemented": false
     },
     {
       "id": "TNL013",
@@ -1869,7 +1964,8 @@
       ],
       "quantity": 1,
       "description": "Once per turn, you may discard a Spell card to choose one Room card from the discard pile and put it into your hand.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL014",
@@ -1896,7 +1992,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, if a Hero dies in this Room, choose one Spell card from the discard pile and put it into your hand.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL016",
@@ -1909,7 +2006,8 @@
       ],
       "quantity": 2,
       "description": "When you build or uncover this Room, you may choose one Spell card from the discard pile and put it into your hand.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL017",
@@ -1978,7 +2076,8 @@
       ],
       "quantity": 1,
       "description": "Once per turn, if a Hero dies in this Room, each opponent must discard a Spell card.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL022",
@@ -2019,7 +2118,8 @@
       ],
       "quantity": 2,
       "description": "When you build this Room, choose and discard one Spell card (if you have any Spell cards in your hand).",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL025",
@@ -2130,7 +2230,8 @@
       ],
       "quantity": 2,
       "description": "You may destroy this Room to draw two Spell cards, then discard a Spell card.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL033",
@@ -2171,7 +2272,8 @@
       ],
       "quantity": 2,
       "description": "Once per turn, you may discard a Spell card to draw a Spell card.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL036",
@@ -2185,7 +2287,8 @@
       "quantity": 2,
       "description": "When you build or uncover this Room, draw a Spell card.",
       "set": "next-level",
-      "onBuildDrawSpell": true
+      "onBuildDrawSpell": true,
+      "implemented": true
     },
     {
       "id": "TNL037",
@@ -2226,7 +2329,8 @@
       ],
       "quantity": 1,
       "description": "Once per turn, if a Hero dies in this Room, draw two Spell cards, then discard a Spell card.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL040",
@@ -2383,7 +2487,8 @@
       "description": "When a Hero dies in this Room or survives this Room, destroy this Room.",
       "set": "next-level",
       "destroyOnHeroDie": true,
-      "destroyOnHeroSurvive": true
+      "destroyOnHeroSurvive": true,
+      "implemented": true
     },
     {
       "id": "TNL051",
@@ -2415,7 +2520,8 @@
       "quantity": 2,
       "description": "When you build this Room, if you have no Spell cards in your hand, draw a Spell card.",
       "set": "next-level",
-      "onBuildDrawSpell": true
+      "onBuildDrawSpell": true,
+      "implemented": true
     },
     {
       "id": "TNL053",
@@ -2459,7 +2565,8 @@
       ],
       "quantity": 2,
       "description": "You may destroy this Room to retrieve one Spell card from the discard pile that you played this turn.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     }
   ],
   "spells": [
@@ -2469,7 +2576,8 @@
       "category": 3,
       "quantity": 2,
       "description": "Give one Trap Room +3 damage until end of turn.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA041",
@@ -2477,7 +2585,8 @@
       "category": 3,
       "quantity": 2,
       "description": "Choose a Hero in an opponent's dungeon. Give that Hero +3 Health until end of turn.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA042",
@@ -2485,7 +2594,8 @@
       "category": 4,
       "quantity": 2,
       "description": "Destroy a room in your dungeon. Any Hero in that room is destroyed.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA043",
@@ -2493,7 +2603,8 @@
       "category": 2,
       "quantity": 2,
       "description": "Choose a Spell card that has just been played. Cancel the effects of that Spell card. (It is sent to the discard pile.)",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA044",
@@ -2501,7 +2612,8 @@
       "category": 4,
       "quantity": 1,
       "description": "Deal X damage to one Hero in your dungeon, where X is equal to the number of Rooms in your dungeon.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA045",
@@ -2509,7 +2621,8 @@
       "category": 1,
       "quantity": 2,
       "description": "Choose a Hero in any dungeon and put it back in town.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA046",
@@ -2517,7 +2630,8 @@
       "category": 2,
       "quantity": 4,
       "description": "Choose and deactivate one Room in any dungeon. (It has no damage, treasure, or abilities until end of turn.)",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA047",
@@ -2525,7 +2639,8 @@
       "category": 3,
       "quantity": 2,
       "description": "Give one Monster Rooom +3 damage until end of turn.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA048",
@@ -2533,7 +2648,8 @@
       "category": 2,
       "quantity": 2,
       "description": "All players immediately discard their hands, then draw one Spell card and two Room cards.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA049",
@@ -2541,7 +2657,8 @@
       "category": 2,
       "quantity": 1,
       "description": "No rooms can be built this turn. Any face-down room is returned to its owner's hand. (This spell cannot be played after rooms are revealed.)",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA050",
@@ -2549,7 +2666,8 @@
       "category": 3,
       "quantity": 2,
       "description": "If you have fewer rooms than an opponent, you may build an extra room this turn.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA051",
@@ -2557,7 +2675,8 @@
       "category": 1,
       "quantity": 2,
       "description": "Choose one Hero in town. Place it at the entrance to your dungeon.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA052",
@@ -2565,7 +2684,8 @@
       "category": 1,
       "quantity": 1,
       "description": "Choose a face-down Hero in your scorekeeping area and remove it from the game. Draw two Spell cards.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA053",
@@ -2573,7 +2693,8 @@
       "category": 1,
       "quantity": 2,
       "description": "Send a Hero in your dungeon back to the first room of your dungeon. (It continues to move through your dungeon this turn.)",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA054",
@@ -2581,7 +2702,8 @@
       "category": 2,
       "quantity": 1,
       "description": "Choose a player with at least two more Souls than you. No Hero enters that player's dungeon this turn. (Any Hero remain at the entrance to that dungeon.)",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "BMA055",
@@ -2589,7 +2711,8 @@
       "category": 1,
       "quantity": 2,
       "description": "Choose a dead Hero in an opponent's scorekeeping area. Send it back to the entrance of that player's dungeon. It has +2 Health until end of turn.",
-      "set": "base"
+      "set": "base",
+      "implemented": true
     },
     {
       "id": "CRL029",
@@ -2597,8 +2720,8 @@
       "category": 3,
       "quantity": 1,
       "description": "Kill a Hero with 2 or less Health. OR If you have fewer Souls than any player, choose a Hero that survived another player's dungeon this turn. Move it to your scorekeeping area face-down.",
-      "implemented": true,
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "CRL030",
@@ -2606,8 +2729,8 @@
       "category": 3,
       "quantity": 2,
       "description": "Add +X to a Hero in an opponent's dungeon, where X equals the number of wounds you have.",
-      "implemented": true,
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "CRL031",
@@ -2615,8 +2738,8 @@
       "category": 3,
       "quantity": 1,
       "description": "If no Heroes were lured to your dungeon during the Bait Phase, heal one ordinary Wound.",
-      "implemented": true,
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "CRL032",
@@ -2624,8 +2747,8 @@
       "category": 1,
       "quantity": 1,
       "description": "Choose one Room in any dungeon. Until end of turn, it gains Explorer treasure.",
-      "implemented": true,
-      "set": "crash-landing"
+      "set": "crash-landing",
+      "implemented": true
     },
     {
       "id": "CRL033",
@@ -2659,7 +2782,8 @@
           "Fighter",
           "Thief"
         ]
-      }
+      },
+      "implemented": true
     },
     {
       "id": "RMB065",
@@ -2668,7 +2792,8 @@
       "quantity": 2,
       "description": "If you have no coins in your Hoard, gain (c)(c)(c).",
       "set": "minibosses",
-      "genericSpell": true
+      "genericSpell": true,
+      "implemented": true
     },
     {
       "id": "RMB066",
@@ -2676,7 +2801,8 @@
       "category": 1,
       "quantity": 2,
       "description": "Place the top three cards of the Room deck in the discard pile. If one of these cards is a Miniboss, you may immediately build it. (In addition to your normal build turn.)",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB067",
@@ -2684,7 +2810,8 @@
       "category": 1,
       "quantity": 2,
       "description": "Choose a Room in any dungeon. Until end of turn, it has one of each treasure type instead of its normal treasure.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB068",
@@ -2692,7 +2819,8 @@
       "category": 4,
       "quantity": 2,
       "description": "Choose a Room. Until end of turn it has no ability text.\nOR, if if you have more Minibosses than your opponent, deactivate that Room until end of turn.|",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB069",
@@ -2700,7 +2828,8 @@
       "category": 4,
       "quantity": 2,
       "description": "Choose a Miniboss. For every level that Miniboss has, give its Room +1 until end of turn. AND, if you have only one Miniboss, you may then double the damage of that Room.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB070",
@@ -2726,7 +2855,8 @@
       "category": 4,
       "quantity": 2,
       "description": "Deal 2 damage to a Hero in your dungeon.\nOR deal 4 damage to a Hero in a Room that contains a Miniboss.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB073",
@@ -2735,7 +2865,8 @@
       "quantity": 2,
       "description": "Choose a Room to gain +1 until end of turn, plus an additional +1 for each (c) you pay when you cast this spell.",
       "set": "minibosses",
-      "genericSpell": true
+      "genericSpell": true,
+      "implemented": true
     },
     {
       "id": "RMB074",
@@ -2752,7 +2883,8 @@
       "category": 4,
       "quantity": 2,
       "description": "Treat all of your Rooms as if they were just built.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB076",
@@ -2760,7 +2892,8 @@
       "category": 1,
       "quantity": 2,
       "description": "Choose a Room in any dungeon. Until end of turn end that Room's treasure icons.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB077",
@@ -2768,7 +2901,8 @@
       "category": 4,
       "quantity": 2,
       "description": "Choose an opponent casting a spell. Until end of turn, that opponent must pay (c) for each spell they wish to cast. If they don't, that spell is cancelled.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "RMB078",
@@ -2785,7 +2919,8 @@
       "category": 4,
       "quantity": 2,
       "description": "Give a Hero +1 until end of turn AND give this Hero an additional +2 until end of turn for every (c) you spend when casting this spell.",
-      "set": "minibosses"
+      "set": "minibosses",
+      "implemented": true
     },
     {
       "id": "THK025",
@@ -2793,7 +2928,8 @@
       "category": 1,
       "quantity": 2,
       "description": "Choose one Item in any scorekeeping area. You may flip it face-down or face-up.",
-      "set": "tools"
+      "set": "tools",
+      "implemented": true
     },
     {
       "id": "TNL056",
@@ -2801,7 +2937,8 @@
       "category": 1,
       "quantity": 1,
       "description": "View an opponent's hand. You may take one Room card from that opponent.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL057",
@@ -2809,7 +2946,8 @@
       "category": 3,
       "quantity": 2,
       "description": "Choose a Hero in your dungeon. Send that Hero to the entrance of an opponent's dungeon.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL058",
@@ -2817,7 +2955,8 @@
       "category": 1,
       "quantity": 2,
       "description": "Choose a Room. Until end of turn, it does zero damage and each Hero entering it gains +1.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL059",
@@ -2825,7 +2964,8 @@
       "category": 3,
       "quantity": 2,
       "description": "Kill one Hero in your dungeon who has 3 or less Health. OR If you have 3 wounds or more, kill one Hero in your dungeon.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL060",
@@ -2833,7 +2973,8 @@
       "category": 1,
       "quantity": 2,
       "description": "Draw three Room cards, then give another player one of your Room cards.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL061",
@@ -2841,7 +2982,8 @@
       "category": 3,
       "quantity": 2,
       "description": "Deal 3 damage to one Hero in your dungeon. AND If you discard another Spell card, deal 3 damage to each Hero at the entrance to your dungeon.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL062",
@@ -2849,7 +2991,8 @@
       "category": 4,
       "quantity": 1,
       "description": "Choose a Room. Until the end of turn, it has no ability text. OR Choose a player. If three or more Heroes entered that player's dungeon this turn, that player cannot win this turn.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL063",
@@ -2857,7 +3000,8 @@
       "category": 4,
       "quantity": 1,
       "description": "Swap the placement of two Rooms in your dungeon. OR If two or more of your Rooms have been destroyed this turn, choose and destroy one Room in any dungeon.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL064",
@@ -2865,7 +3009,8 @@
       "category": 3,
       "quantity": 2,
       "description": "Choose a dungeon. Until the end of turn, each Hero entering that dungeon gains +1",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL065",
@@ -2873,7 +3018,8 @@
       "category": 3,
       "quantity": 2,
       "description": "If there is a Hero in your dungeon, return it to the entrance and restore it to full Health. No Heroes may enter your dungeon until next turn.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL066",
@@ -2881,7 +3027,8 @@
       "category": 3,
       "quantity": 2,
       "description": "Choose a Hero in an opponent's dungeon. Remove that Hero from the game.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL067",
@@ -2889,7 +3036,8 @@
       "category": 1,
       "quantity": 2,
       "description": "Choose a Room in your dungeon. Until end of turn, give it one extra Cleric, Fighter, Mage or Thief.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL068",
@@ -2897,7 +3045,8 @@
       "category": 3,
       "quantity": 2,
       "description": "Choose a Hero in any dungeon. It skips the next Room it would enter. OR If that dungeon has five Rooms, the Hero skips the next two Rooms it would enter.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL069",
@@ -2905,7 +3054,8 @@
       "category": 3,
       "quantity": 2,
       "description": "Choose a Room in your dungeon. It deals +2 until end of turn. OR If only one Hero was lured to your dungeon this turn, that Room does +4 until end of turn.",
-      "set": "next-level"
+      "set": "next-level",
+      "implemented": true
     },
     {
       "id": "TNL070",
@@ -2953,7 +3103,8 @@
       "treasures": [
         1
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA057",
@@ -2972,7 +3123,8 @@
       "treasures": [
         1
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA058",
@@ -2991,7 +3143,8 @@
       "treasures": [
         1
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA059",
@@ -3010,7 +3163,8 @@
       "treasures": [
         1
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA060",
@@ -3029,7 +3183,8 @@
       "treasures": [
         1
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA061",
@@ -3048,7 +3203,8 @@
       "treasures": [
         1
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA062",
@@ -3067,7 +3223,8 @@
       "treasures": [
         2
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA063",
@@ -3086,7 +3243,8 @@
       "treasures": [
         2
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA064",
@@ -3105,7 +3263,8 @@
       "treasures": [
         2
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA065",
@@ -3124,7 +3283,8 @@
       "treasures": [
         2
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA066",
@@ -3143,7 +3303,8 @@
       "treasures": [
         2
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA067",
@@ -3162,7 +3323,8 @@
       "treasures": [
         2
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA068",
@@ -3181,7 +3343,8 @@
       "treasures": [
         3
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA069",
@@ -3200,7 +3363,8 @@
       "treasures": [
         3
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA070",
@@ -3219,7 +3383,8 @@
       "treasures": [
         3
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA071",
@@ -3238,7 +3403,8 @@
       "treasures": [
         3
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA072",
@@ -3257,7 +3423,8 @@
       "treasures": [
         3
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA073",
@@ -3276,7 +3443,8 @@
       "treasures": [
         3
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA074",
@@ -3295,7 +3463,8 @@
       "treasures": [
         4
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA075",
@@ -3314,7 +3483,8 @@
       "treasures": [
         4
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA076",
@@ -3333,7 +3503,8 @@
       "treasures": [
         4
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA077",
@@ -3352,7 +3523,8 @@
       "treasures": [
         4
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA078",
@@ -3371,7 +3543,8 @@
       "treasures": [
         4
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA079",
@@ -3390,7 +3563,8 @@
       "treasures": [
         4
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA080",
@@ -3409,7 +3583,8 @@
       "treasures": [
         0
       ],
-      "lure": "fewerSouls"
+      "lure": "fewerSouls",
+      "implemented": true
     },
     {
       "id": "BMA081",
@@ -3428,7 +3603,8 @@
       "treasures": [
         1
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA082",
@@ -3447,7 +3623,8 @@
       "treasures": [
         1
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA083",
@@ -3466,7 +3643,8 @@
       "treasures": [
         1
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA084",
@@ -3485,7 +3663,8 @@
       "treasures": [
         1
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA085",
@@ -3504,7 +3683,8 @@
       "treasures": [
         2
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA086",
@@ -3523,7 +3703,8 @@
       "treasures": [
         2
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA087",
@@ -3542,7 +3723,8 @@
       "treasures": [
         2
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA088",
@@ -3561,7 +3743,8 @@
       "treasures": [
         2
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA089",
@@ -3580,7 +3763,8 @@
       "treasures": [
         3
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA090",
@@ -3599,7 +3783,8 @@
       "treasures": [
         3
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA091",
@@ -3618,7 +3803,8 @@
       "treasures": [
         3
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA092",
@@ -3637,7 +3823,8 @@
       "treasures": [
         3
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA093",
@@ -3656,7 +3843,8 @@
       "treasures": [
         4
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA094",
@@ -3675,7 +3863,8 @@
       "treasures": [
         4
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA095",
@@ -3694,7 +3883,8 @@
       "treasures": [
         4
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMA096",
@@ -3713,7 +3903,8 @@
       "treasures": [
         4
       ],
-      "lure": "treasures"
+      "lure": "treasures",
+      "implemented": true
     },
     {
       "id": "BMH056",
@@ -3733,7 +3924,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA056",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH057",
@@ -3753,7 +3945,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA057",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH058",
@@ -3773,7 +3966,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA058",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH059",
@@ -3793,7 +3987,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA059",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH060",
@@ -3813,7 +4008,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA060",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH061",
@@ -3833,7 +4029,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA061",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH062",
@@ -3853,7 +4050,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA062",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH063",
@@ -3873,7 +4071,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA063",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH064",
@@ -3893,7 +4092,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA064",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH065",
@@ -3913,7 +4113,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA065",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH066",
@@ -3933,7 +4134,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA066",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH067",
@@ -3953,7 +4155,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA067",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH068",
@@ -3973,7 +4176,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA068",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH069",
@@ -3993,7 +4197,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA069",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH070",
@@ -4013,7 +4218,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA070",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH071",
@@ -4033,7 +4239,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA071",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH072",
@@ -4053,7 +4260,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA072",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH073",
@@ -4073,7 +4281,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA073",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH074",
@@ -4093,7 +4302,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA074",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH075",
@@ -4113,7 +4323,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA075",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH076",
@@ -4133,7 +4344,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA076",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH077",
@@ -4153,7 +4365,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA077",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH078",
@@ -4173,7 +4386,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA078",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH079",
@@ -4193,7 +4407,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA079",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH080",
@@ -4213,7 +4428,8 @@
       ],
       "lure": "fewerSouls",
       "replaces": "BMA080",
-      "subtitle": "Ordinary Hero"
+      "subtitle": "Ordinary Hero",
+      "implemented": true
     },
     {
       "id": "BMH081",
@@ -4233,7 +4449,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA081",
-      "subtitle": "Epic Hero"
+      "subtitle": "Epic Hero",
+      "implemented": true
     },
     {
       "id": "BMH082",
@@ -4253,7 +4470,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA082",
-      "subtitle": "Epic Hero"
+      "subtitle": "Epic Hero",
+      "implemented": true
     },
     {
       "id": "BMH083",
@@ -4273,7 +4491,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA083",
-      "subtitle": "Epic Hero"
+      "subtitle": "Epic Hero",
+      "implemented": true
     },
     {
       "id": "BMH084",
@@ -4293,7 +4512,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA084",
-      "subtitle": "Epic Hero"
+      "subtitle": "Epic Hero",
+      "implemented": true
     },
     {
       "id": "BMH085",
@@ -4313,7 +4533,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA085",
-      "subtitle": "Epic Hero"
+      "subtitle": "Epic Hero",
+      "implemented": true
     },
     {
       "id": "BMH086",
@@ -4333,7 +4554,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA086",
-      "subtitle": "Epic Hero"
+      "subtitle": "Epic Hero",
+      "implemented": true
     },
     {
       "id": "BMH087",
@@ -4353,7 +4575,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA087",
-      "subtitle": "Epic Hero"
+      "subtitle": "Epic Hero",
+      "implemented": true
     },
     {
       "id": "BMH088",
@@ -4373,7 +4596,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA088",
-      "subtitle": "Epic Hero"
+      "subtitle": "Epic Hero",
+      "implemented": true
     },
     {
       "id": "BMH089",
@@ -4393,7 +4617,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA089",
-      "subtitle": "Epic Hero"
+      "subtitle": "Epic Hero",
+      "implemented": true
     },
     {
       "id": "BMH090",
@@ -4413,7 +4638,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA090",
-      "subtitle": "Epic Hero"
+      "subtitle": "Epic Hero",
+      "implemented": true
     },
     {
       "id": "BMH091",
@@ -4433,7 +4659,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA091",
-      "subtitle": "Epic Hero"
+      "subtitle": "Epic Hero",
+      "implemented": true
     },
     {
       "id": "BMH092",
@@ -4453,7 +4680,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA092",
-      "subtitle": "Epic Hero"
+      "subtitle": "Epic Hero",
+      "implemented": true
     },
     {
       "id": "BMH093",
@@ -4473,7 +4701,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA093",
-      "subtitle": "Epic Hero"
+      "subtitle": "Epic Hero",
+      "implemented": true
     },
     {
       "id": "BMH094",
@@ -4493,7 +4722,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA094",
-      "subtitle": "Epic Hero"
+      "subtitle": "Epic Hero",
+      "implemented": true
     },
     {
       "id": "BMH095",
@@ -4513,7 +4743,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA095",
-      "subtitle": "Epic Hero"
+      "subtitle": "Epic Hero",
+      "implemented": true
     },
     {
       "id": "BMH096",
@@ -4533,7 +4764,8 @@
       ],
       "lure": "treasures",
       "replaces": "BMA096",
-      "subtitle": "Epic Hero"
+      "subtitle": "Epic Hero",
+      "implemented": true
     },
     {
       "id": "CRL017",
@@ -4545,7 +4777,8 @@
       "epic": false,
       "class": "Cleric",
       "set": "crash-landing",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "CRL018",
@@ -4557,7 +4790,8 @@
       "epic": false,
       "class": "Explorer",
       "set": "crash-landing",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "CRL019",
@@ -4569,7 +4803,8 @@
       "epic": false,
       "class": "Explorer",
       "set": "crash-landing",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "CRL020",
@@ -4581,7 +4816,8 @@
       "epic": false,
       "class": "Explorer",
       "set": "crash-landing",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "CRL021",
@@ -4593,7 +4829,8 @@
       "epic": false,
       "class": "Explorer",
       "set": "crash-landing",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "CRL022",
@@ -4605,7 +4842,8 @@
       "epic": false,
       "class": "Explorer",
       "set": "crash-landing",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "CRL023",
@@ -4617,7 +4855,8 @@
       "epic": false,
       "class": "Explorer",
       "set": "crash-landing",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "CRL024",
@@ -4629,7 +4868,8 @@
       "epic": true,
       "class": "Explorer",
       "set": "crash-landing",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "CRL025",
@@ -4641,7 +4881,8 @@
       "epic": true,
       "class": "Explorer",
       "set": "crash-landing",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "CRL026",
@@ -4653,7 +4894,8 @@
       "epic": true,
       "class": "Explorer",
       "set": "crash-landing",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "CRL027",
@@ -4665,7 +4907,8 @@
       "epic": true,
       "class": "Explorer",
       "set": "crash-landing",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "CRL028",
@@ -4677,7 +4920,8 @@
       "epic": true,
       "class": "Cleric",
       "set": "crash-landing",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "KSA014",
@@ -4695,7 +4939,8 @@
       "treasures": [
         0
       ],
-      "lure": "wounds"
+      "lure": "wounds",
+      "implemented": true
     },
     {
       "id": "KSA016",
@@ -4730,7 +4975,8 @@
           "1",
           "Monster"
         ]
-      }
+      },
+      "implemented": true
     },
     {
       "id": "KSA017",
@@ -4760,7 +5006,8 @@
         ],
         "cmd": "DeactivateDungeonAbility",
         "args": []
-      }
+      },
+      "implemented": true
     },
     {
       "id": "RMB080",
@@ -4772,7 +5019,8 @@
       "epic": false,
       "class": "Cleric",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB081",
@@ -4784,7 +5032,8 @@
       "epic": false,
       "class": "Cleric",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB082",
@@ -4796,7 +5045,8 @@
       "epic": false,
       "class": "Cleric",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB083",
@@ -4808,7 +5058,8 @@
       "epic": false,
       "class": "Cleric",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB084",
@@ -4822,7 +5073,8 @@
       "set": "minibosses",
       "quantity": 1,
       "dark": true,
-      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]}
+      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]},
+      "implemented": true
     },
     {
       "id": "RMB085",
@@ -4834,7 +5086,8 @@
       "epic": false,
       "class": "Cleric",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB086",
@@ -4846,7 +5099,8 @@
       "epic": false,
       "class": "Fighter",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB087",
@@ -4858,7 +5112,8 @@
       "epic": false,
       "class": "Fighter",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB088",
@@ -4870,7 +5125,8 @@
       "epic": false,
       "class": "Fighter",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB089",
@@ -4882,7 +5138,8 @@
       "epic": false,
       "class": "Fighter",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB090",
@@ -4896,7 +5153,8 @@
       "set": "minibosses",
       "quantity": 1,
       "dark": true,
-      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]}
+      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]},
+      "implemented": true
     },
     {
       "id": "RMB091",
@@ -4908,7 +5166,8 @@
       "epic": false,
       "class": "Fighter",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB092",
@@ -4920,7 +5179,8 @@
       "epic": false,
       "class": "Mage",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB093",
@@ -4932,7 +5192,8 @@
       "epic": false,
       "class": "Mage",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB094",
@@ -4944,7 +5205,8 @@
       "epic": false,
       "class": "Mage",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB095",
@@ -4956,7 +5218,8 @@
       "epic": false,
       "class": "Mage",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB096",
@@ -4970,7 +5233,8 @@
       "set": "minibosses",
       "quantity": 1,
       "dark": true,
-      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]}
+      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]},
+      "implemented": true
     },
     {
       "id": "RMB097",
@@ -4982,7 +5246,8 @@
       "epic": false,
       "class": "Mage",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB098",
@@ -4994,7 +5259,8 @@
       "epic": false,
       "class": "Thief",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB099",
@@ -5006,7 +5272,8 @@
       "epic": false,
       "class": "Thief",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB100",
@@ -5018,7 +5285,8 @@
       "epic": false,
       "class": "Thief",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB101",
@@ -5030,7 +5298,8 @@
       "epic": false,
       "class": "Thief",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB102",
@@ -5044,7 +5313,8 @@
       "set": "minibosses",
       "quantity": 1,
       "dark": true,
-      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]}
+      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]},
+      "implemented": true
     },
     {
       "id": "RMB103",
@@ -5056,7 +5326,8 @@
       "epic": false,
       "class": "Thief",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB104",
@@ -5070,7 +5341,8 @@
       "set": "minibosses",
       "quantity": 1,
       "treasures": [0],
-      "lure": "fewerSouls"
+      "lure": "fewerSouls",
+      "implemented": true
     },
     {
       "id": "RMB105",
@@ -5082,7 +5354,8 @@
       "epic": true,
       "class": "Cleric",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB106",
@@ -5094,7 +5367,8 @@
       "epic": true,
       "class": "Cleric",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB107",
@@ -5111,7 +5385,8 @@
         1,
         2
       ],
-      "hybrid": true
+      "hybrid": true,
+      "implemented": true
     },
     {
       "id": "RMB108",
@@ -5123,7 +5398,8 @@
       "epic": true,
       "class": "Cleric",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB109",
@@ -5135,7 +5411,8 @@
       "epic": true,
       "class": "Fighter",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB110",
@@ -5147,7 +5424,8 @@
       "epic": true,
       "class": "Fighter",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB111",
@@ -5164,7 +5442,8 @@
         3,
         4
       ],
-      "hybrid": true
+      "hybrid": true,
+      "implemented": true
     },
     {
       "id": "RMB112",
@@ -5176,7 +5455,8 @@
       "epic": true,
       "class": "Fighter",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB113",
@@ -5188,7 +5468,8 @@
       "epic": true,
       "class": "Mage",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB114",
@@ -5200,7 +5481,8 @@
       "epic": true,
       "class": "Mage",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB115",
@@ -5213,7 +5495,8 @@
       "class": "Mage",
       "set": "minibosses",
       "quantity": 1,
-      "hybrid": true
+      "hybrid": true,
+      "implemented": true
     },
     {
       "id": "RMB116",
@@ -5225,7 +5508,8 @@
       "epic": true,
       "class": "Mage",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB117",
@@ -5237,7 +5521,8 @@
       "epic": true,
       "class": "Thief",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB118",
@@ -5249,7 +5534,8 @@
       "epic": true,
       "class": "Thief",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB119",
@@ -5262,7 +5548,8 @@
       "class": "Thief",
       "set": "minibosses",
       "quantity": 1,
-      "hybrid": true
+      "hybrid": true,
+      "implemented": true
     },
     {
       "id": "RMB120",
@@ -5274,7 +5561,8 @@
       "epic": true,
       "class": "Thief",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "RMB121",
@@ -5286,7 +5574,8 @@
       "epic": true,
       "class": "Cleric",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL073",
@@ -5298,7 +5587,8 @@
       "epic": false,
       "class": "Cleric",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL074",
@@ -5310,7 +5600,8 @@
       "epic": false,
       "class": "Cleric",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL075",
@@ -5322,7 +5613,8 @@
       "epic": false,
       "class": "Cleric",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL076",
@@ -5334,7 +5626,8 @@
       "epic": false,
       "class": "Cleric",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL077",
@@ -5348,7 +5641,8 @@
       "set": "next-level",
       "quantity": 1,
       "dark": true,
-      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]}
+      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]},
+      "implemented": true
     },
     {
       "id": "TNL078",
@@ -5360,7 +5654,8 @@
       "epic": false,
       "class": "Cleric",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL079",
@@ -5372,7 +5667,8 @@
       "epic": false,
       "class": "Fighter",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL080",
@@ -5384,7 +5680,8 @@
       "epic": false,
       "class": "Fighter",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL081",
@@ -5396,7 +5693,8 @@
       "epic": false,
       "class": "Fighter",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL082",
@@ -5408,7 +5706,8 @@
       "epic": false,
       "class": "Fighter",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL083",
@@ -5422,7 +5721,8 @@
       "set": "next-level",
       "quantity": 1,
       "dark": true,
-      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]}
+      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]},
+      "implemented": true
     },
     {
       "id": "TNL084",
@@ -5434,7 +5734,8 @@
       "epic": false,
       "class": "Fighter",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL085",
@@ -5446,7 +5747,8 @@
       "epic": false,
       "class": "Mage",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL086",
@@ -5458,7 +5760,8 @@
       "epic": false,
       "class": "Mage",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL087",
@@ -5470,7 +5773,8 @@
       "epic": false,
       "class": "Mage",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL088",
@@ -5482,7 +5786,8 @@
       "epic": false,
       "class": "Mage",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL089",
@@ -5496,7 +5801,8 @@
       "set": "next-level",
       "quantity": 1,
       "dark": true,
-      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]}
+      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]},
+      "implemented": true
     },
     {
       "id": "TNL090",
@@ -5508,7 +5814,8 @@
       "epic": false,
       "class": "Mage",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL091",
@@ -5520,7 +5827,8 @@
       "epic": false,
       "class": "Thief",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL092",
@@ -5532,7 +5840,8 @@
       "epic": false,
       "class": "Thief",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL093",
@@ -5544,7 +5853,8 @@
       "epic": false,
       "class": "Thief",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL094",
@@ -5556,7 +5866,8 @@
       "epic": false,
       "class": "Thief",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL095",
@@ -5570,7 +5881,8 @@
       "set": "next-level",
       "quantity": 1,
       "dark": true,
-      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]}
+      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]},
+      "implemented": true
     },
     {
       "id": "TNL096",
@@ -5582,7 +5894,8 @@
       "epic": false,
       "class": "Thief",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL097",
@@ -5598,7 +5911,8 @@
       "treasures": [
         0
       ],
-      "lure": "fewerSouls"
+      "lure": "fewerSouls",
+      "implemented": true
     },
     {
       "id": "TNL098",
@@ -5610,7 +5924,8 @@
       "epic": true,
       "class": "Cleric",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL099",
@@ -5622,7 +5937,8 @@
       "epic": true,
       "class": "Cleric",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL100",
@@ -5640,7 +5956,8 @@
         4
       ],
       "hybrid": true,
-      "heroAbility": {"cmd": "FlipSoulOnSurvive"}
+      "heroAbility": {"cmd": "FlipSoulOnSurvive"},
+      "implemented": true
     },
     {
       "id": "TNL101",
@@ -5652,7 +5969,8 @@
       "epic": true,
       "class": "Cleric",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL102",
@@ -5664,7 +5982,8 @@
       "epic": true,
       "class": "Fighter",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL103",
@@ -5676,7 +5995,8 @@
       "epic": true,
       "class": "Fighter",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL104",
@@ -5694,7 +6014,8 @@
         2
       ],
       "hybrid": true,
-      "heroAbility": {"cmd": "HealthPerSpell", "args": ["2"]}
+      "heroAbility": {"cmd": "HealthPerSpell", "args": ["2"]},
+      "implemented": true
     },
     {
       "id": "TNL105",
@@ -5706,7 +6027,8 @@
       "epic": true,
       "class": "Fighter",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL106",
@@ -5718,7 +6040,8 @@
       "epic": true,
       "class": "Mage",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL107",
@@ -5730,7 +6053,8 @@
       "epic": true,
       "class": "Mage",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL108",
@@ -5748,7 +6072,8 @@
         3
       ],
       "hybrid": true,
-      "heroAbility": {"cmd": "HealthPerSpellInHand"}
+      "heroAbility": {"cmd": "HealthPerSpellInHand"},
+      "implemented": true
     },
     {
       "id": "TNL109",
@@ -5760,7 +6085,8 @@
       "epic": true,
       "class": "Mage",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL110",
@@ -5772,7 +6098,8 @@
       "epic": true,
       "class": "Thief",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL111",
@@ -5784,7 +6111,8 @@
       "epic": true,
       "class": "Thief",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL112",
@@ -5802,7 +6130,8 @@
         4
       ],
       "hybrid": true,
-      "heroAbility": {"cmd": "SkipLastRoom"}
+      "heroAbility": {"cmd": "SkipLastRoom"},
+      "implemented": true
     },
     {
       "id": "TNL113",
@@ -5814,7 +6143,8 @@
       "epic": true,
       "class": "Thief",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "implemented": true
     },
     {
       "id": "TNL114",
@@ -5830,7 +6160,8 @@
       "treasures": [
         0
       ],
-      "lure": "soulsMinusWounds"
+      "lure": "soulsMinusWounds",
+      "implemented": true
     }
   ],
   "items": [
@@ -5845,7 +6176,8 @@
       "quantity": 1,
       "description": "Power-Up: If this Hero would be killed, it returns to town instead. (You get to keep this Item.)\nReward: This turn, you cannot lose due to Wounds. (Another player can still win due to Souls.)",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK002",
@@ -5858,7 +6190,8 @@
       "quantity": 1,
       "description": "Power-Up: If this Hero survices your dungeon, you must discard two Room cards at random.\nReward: Each of your opponents must discard one Room card at random.",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK003",
@@ -5871,7 +6204,8 @@
       "quantity": 1,
       "description": "Power-Up: Destroy the first Advanced Room that this Hero survives.\nReward: Choose and destroy an Advanced Room in any dungeon.",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK004",
@@ -5884,7 +6218,8 @@
       "quantity": 1,
       "description": "Power-Up: Until end of turn, each Hero entering your dungeon has +2\nReward: Heal one ordinary Wound.",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK005",
@@ -5897,7 +6232,8 @@
       "quantity": 1,
       "description": "Power-Up: This Hero takes no damage from ordinary Monster Rooms.\nReward: Until end of turn, give all your ordinary Monster Rooms +1",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK006",
@@ -5910,7 +6246,8 @@
       "quantity": 1,
       "description": "Power-Up: For each Monster Room in your dungeon, this Hero has +1\nReward: Choose a Hero. Until end of turn, for each Monster Room in your dungeon, give that hero +1",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK007",
@@ -5923,7 +6260,8 @@
       "quantity": 1,
       "description": "Power-Up: This Hero has +5\nReward: Choose a Hero in any dungeon. Until end of turn, it has +5",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK008",
@@ -5936,7 +6274,8 @@
       "quantity": 1,
       "description": "Power-Up: If this Hero survives your dungeon, until end of turn you have +1 Wound.\nReward: Kill a Hero who has taken damage equal to at least half its Health.",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK009",
@@ -5949,7 +6288,8 @@
       "quantity": 1,
       "description": "Power-Up: If this Hero survives your dungeon, discard two random Spell Cards.\nReward: Choose an opponent. That opponent discards a random Spell Card.",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK010",
@@ -5962,7 +6302,8 @@
       "quantity": 1,
       "description": "Power-Up: Any Room that this Hero survives is deactivated until end of turn.\nReward: Choose a Room in an opponent's dungeon. It is deactivated until end of turn.",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK011",
@@ -5975,7 +6316,8 @@
       "quantity": 1,
       "description": "Power-Up: Before this Hero enters your dungeon, rearrange your Rooms so their order is reversed.\nReward: Copy the Boss Ability of any face-up Item card.",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK012",
@@ -5988,7 +6330,8 @@
       "quantity": 1,
       "description": "Power-Up: If this Hero survives your dungeon, each of your opponents draws one Spell card.\nReward: Draw a Spell card.",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK013",
@@ -6001,7 +6344,8 @@
       "quantity": 1,
       "description": "Power-Up: When this Hero survives a ROom with at least two treasure icons, destroy that Room.\nReward: Search the discard pile for a Room with at least two treasure icons and put it into your hand.",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK014",
@@ -6014,7 +6358,8 @@
       "quantity": 1,
       "description": "Power-Up: While this Hero is in your dungeon, ignore all Room ability text in your dungeon.\nReward: Choose a Room in any dungeon. Ignore its ability text until end of turn.",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK015",
@@ -6027,7 +6372,8 @@
       "quantity": 1,
       "description": "Power-Up: When this Hero enters your dungeon, deactivate the first Trap ROom in your dungeon.\nReward: Choose a Trap ROom in any dungeon. Deactivate that Room until end of turn.",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK016",
@@ -6040,7 +6386,8 @@
       "quantity": 1,
       "description": "Power-Up: If this Hero enters the last Room of your dungeon, destroy that Room. (It deals no damage.)\nReward: Destroy a ROom in your dungeon: Deal 5 damage to a Hero in that Room.",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK017",
@@ -6053,7 +6400,8 @@
       "quantity": 1,
       "description": "Power-Up: Every time this Hero survives a Room, it ignores the next Room it would enter.\nReward: Choose a Hero in any dungeon. It ignores the next Room in that dungeon.",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK018",
@@ -6066,7 +6414,8 @@
       "quantity": 1,
       "description": "Power-Up: When this Hero enters your dungeon, deactivate the first Monster Room in your dungeon.\nReward: Choose a Monster Room in any dungeon. Deactivate that Room until end of turn.",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK019",
@@ -6079,7 +6428,8 @@
       "quantity": 1,
       "description": "Power-Up: This Hero ignores any damage from the first three Rooms of your dungeon.\nReward: Choose a Hero that survived your dungeon this turn. Remove that Hero from the game.",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     },
     {
       "id": "THK020",
@@ -6092,7 +6442,8 @@
       "quantity": 1,
       "description": "Power-Up: While this Hero is in your dungeon or at the entrance to your dungeon, you may not play Spells.\nReward: Cancel a Spell played during your Adventure Phase.",
       "set": "tools",
-      "isItem": true
+      "isItem": true,
+      "implemented": false
     }
   ],
   "nameMap": {

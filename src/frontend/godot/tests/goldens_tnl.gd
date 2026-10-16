@@ -64,6 +64,7 @@ func run(ok: Callable, h: Node) -> void:
 	_t_hiring_spree()
 	_t_lightning_bolt()
 	_t_meddling_kids()
+	_t_meddling_kids_base_passives()
 	_t_oh_yeah()
 	_t_party_up_pause()
 	_t_pity_undead()
@@ -913,7 +914,9 @@ func _t_hero_dies_triggers() -> void:
 	var m5 := _match(G5)
 	G5["pendingChoice"] = c5
 	m5._resolve_choice(0, 0)
-	_ok.call(_pending(G5).is_empty(), "TNL026 : un seul emplacement possible -> choisi d'office")
+	_ok.call(str(_pending(G5).get("step", "")) == "build_slot" and (_pending(G5)["options"] as Array).size() == 2, "TNL026 : un nouvel emplacement OU par-dessus la salle existante (« build another Room in your dungeon »)")
+	m5._resolve_choice(0, 1)
+	_ok.call(_pending(G5).is_empty(), "TNL026 : par-dessus la salle existante")
 	var stack5: Array = G5["players"][0]["dungeon"][0]
 	_ok.call(stack5.size() == 2 and str((stack5[1] as Dictionary)["id"]) == "n1" and not bool((stack5[1] as Dictionary).get("faceDown", false)) and _ids(_hand(G5, 0)) == ["n2"],
 		"TNL026 : la salle est construite immediatement, face visible")
@@ -1189,6 +1192,56 @@ func _t_meddling_kids() -> void:
 	if G3.get("gameOver") == null: # le tour suivant demarre (le heros restant de la pioche arrive en ville)
 		m3._check_end_or_next_turn()
 	_ok.call(G3.get("gameOver") != null and int(G3["gameOver"]["winner"]) == 1, "TNL062 : il gagne au tour suivant (aucune interdiction ne se reporte)")
+
+## TNL062 sur les passifs / declencheurs du jeu de base (« Room ability text does not include the name, damage, treasure or subtype »).
+func _t_meddling_kids_base_passives() -> void:
+	var hero := _hero("TNL073")
+	var cast := func(G: Dictionary, idx: int) -> void:
+		SpellEffects.cast_spell(G, 0, _spell("TNL062"), {"targetPlayerId": 0, "roomIndex": idx})
+	# BMA015 Goblin Armory : +1 aux Monster voisines ; sans texte, plus rien (ses propres degats imprimes restent)
+	var G := _G([_player(0, "BMA001", [_room("BMA015"), _plain("m", "monster", [1], 2)]), _player(1, "BMA002")])
+	var p0: Dictionary = G["players"][0]
+	_ok.call(BossEngine.room_damage_with_modifiers(G, p0, 1, hero) == 3, "TNL062 (base) : Goblin Armory donne +1 a la Monster voisine")
+	cast.call(G, 0)
+	_ok.call(BossEngine.room_damage_with_modifiers(G, p0, 1, hero) == 2, "TNL062 : Goblin Armory sans texte ne donne plus +1")
+	_ok.call(BossEngine.room_damage_with_modifiers(G, p0, 0, hero) == int(_room("BMA015")["damage"]), "TNL062 : ses degats imprimes restent")
+	# BMA029 Dizzygas Hallway : +2 a la Trap suivante
+	var G2 := _G([_player(0, "BMA001", [_room("BMA029"), _plain("t", "trap", [1], 1)]), _player(1, "BMA002")])
+	_ok.call(BossEngine.room_damage_with_modifiers(G2, G2["players"][0], 1, hero) == 3, "BMA029 Dizzygas Hallway : +2 a la Trap suivante")
+	cast.call(G2, 0)
+	_ok.call(BossEngine.room_damage_with_modifiers(G2, G2["players"][0], 1, hero) == 1, "TNL062 : Dizzygas Hallway sans texte ne donne plus +2")
+	# BMA020 Monster's Ballroom : degats = nombre de Monster ; sans texte = degats imprimes
+	var G3 := _G([_player(0, "BMA001", [_room("BMA020"), _plain("m1"), _plain("m2")]), _player(1, "BMA002")])
+	_ok.call(BossEngine.room_damage_with_modifiers(G3, G3["players"][0], 0, hero) == 3, "BMA020 Ballroom : 3 salles Monster = 3 degats")
+	cast.call(G3, 0)
+	_ok.call(BossEngine.room_damage_with_modifiers(G3, G3["players"][0], 0, hero) == int(_room("BMA020")["damage"]), "TNL062 : Ballroom sans texte = degats imprimes")
+	# BMA018 Neanderthal Cave : n'interdit plus les salles avancees
+	var G4 := _G([_player(0, "BMA001", [_room("BMA018")]), _player(1, "BMA002")])
+	var adv := _plain("adv", "monster", [int((_room("BMA018")["treasures"] as Array)[0])], 3, true)
+	(G4["players"][0]["hand"] as Array).append(adv)
+	G4["phase"] = "build"
+	_ok.call(not BossEngine.can_build_room(G4["players"][0], G4, 0, 0, 0), "BMA018 Neanderthal Cave : pas de salle avancee par-dessus")
+	cast.call(G4, 0)
+	_ok.call(BossEngine.can_build_room(G4["players"][0], G4, 0, 0, 0), "TNL062 : sans texte, on peut batir une salle avancee par-dessus")
+	# BMA023 Haunted Library, BMA031 Recycling Center, BMA016 Golem Factory (declencheur de mort)
+	var G5 := _G([_player(0, "BMA001", [_room("BMA023"), _room("BMA031")]), _player(1, "BMA002")])
+	_ok.call(RoomAbilities.can_choose_draw(G5["players"][0]), "BMA023 Haunted Library : pioche au choix")
+	cast.call(G5, 0)
+	_ok.call(not RoomAbilities.can_choose_draw(G5["players"][0]), "TNL062 : Haunted Library sans texte, plus de choix de pioche")
+	_fill(G5, "rooms", 4)
+	cast.call(G5, 1)
+	BossEngine._on_other_room_destroyed(G5, G5["players"][0])
+	_ok.call(_hand(G5, 0).is_empty(), "TNL062 : Recycling Center sans texte ne pioche plus")
+	var G6 := _G([_player(0, "BMA001"), _player(1, "BMA002")])
+	_fill(G6, "rooms", 4)
+	var golem := _room("BMA016")
+	TnlAbilities._tag(golem)["noText"] = true
+	RoomAbilities.on_hero_died_in_room(G6, 0, golem)
+	_ok.call(_hand(G6, 0).is_empty() and not bool(golem.get("usedThisTurn", false)), "TNL062 : Golem Factory sans texte ne declenche rien")
+	# BMA025 All-Seeing Eye : plus d'annulation possible
+	var G7 := _G([_player(0, "BMA001", [_room("BMA025")]), _player(1, "BMA002")])
+	cast.call(G7, 0)
+	_ok.call(_act(G7, 0, 0) == "no ability text (Meddling Kids!)", "TNL062 : All-Seeing Eye sans texte, capacite refusee")
 
 func _t_oh_yeah() -> void:
 	var G := _G([_player(0, "BMA001", [_plain("a"), _plain("b"), _plain("c")]), _player(1, "BMA002", [_plain("x")])])

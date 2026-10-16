@@ -343,6 +343,13 @@ static func score_spell(G: Dictionary, p: Dictionary, pid: int, sid: String, t: 
 		"RMB074": return 18.0
 		"RMB075": return 8.0
 		"RMB076": return 6.0 if tid != pid else -10.0
+		"RMB077": # Short Circuit (reponse a un sort adverse sur la pile) : il doit payer 1 Coin, sinon son sort est annule
+			var their := Minibosses.coins(_player(G, tid))
+			return 110.0 if their == 0 else (40.0 if their == 1 else 6.0)
 		"RMB078": return 50.0 if coins >= 2 else -5.0
-		"RMB079": return -10.0
+		"RMB079": # Armor Up! : le heros adverse qui mourrait de justesse (1 PV + 2 par Coin paye) ; le moins de Coins possible
+			var f := AiWiki.fate(G)
+			var n := int(t.get("pay", 0))
+			var is_active := bool(f["active"]) and str((f["hero"] as Dictionary).get("id", "")) == str(t.get("heroId", ""))
+			return 60.0 - 6.0 * float(n) if is_active and int(f["owner"]) != pid and AiWiki.saves(f, 1 + 2 * n) else -10.0
 	return 5.0

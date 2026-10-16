@@ -58,6 +58,9 @@ static func select_opening_discards(hand: Array, p: Dictionary, G: Dictionary) -
 	res.sort()
 	return res
 
+## Observateur facultatif (tests/ai_census.gd) : appele avec (match_obj, pid, moves, coup choisi) a chaque decision. Aucun effet sur le jeu.
+static var trace: Callable = Callable()
+
 ## Choisit le meilleur coup légal parmi les options offertes.
 static func pick_move(match_obj, pid: int):
 	var moves: Array = match_obj.legal_moves(pid)
@@ -71,6 +74,8 @@ static func pick_move(match_obj, pid: int):
 		if s > best_score:
 			best_score = s
 			best = moves[i]
+	if trace.is_valid():
+		trace.call(match_obj, pid, moves, best)
 	return best
 
 ## Évalue et note un coup légal (StatisticAI.cs, RoomCalculator.cs, AbilityCalculator.cs).
@@ -115,7 +120,7 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 			var target: Dictionary = args[1] if args.size() > 1 and args[1] != null else {}
 			# Politique de l'IA pendant une Spell Battle (AbilityCalculator.CalculateAbilityAndTargetValue : si
 			# IsSpellBattleActive, seuls BMA043 et BMA025 sont evalues). La regle, elle, autorise toute reponse legale.
-			if not (G.get("stack", []) as Array).is_empty() and str(spell.get("id", "")) != "BMA043":
+			if not (G.get("stack", []) as Array).is_empty() and not ["BMA043", "RMB077"].has(str(spell.get("id", ""))): # RMB077 Short Circuit (wiki) : seconde reponse de l'IA
 				return -50.0
 			return _score_spell(spell, target, p, G, pid)
 
@@ -204,6 +209,14 @@ static func _score_choice(G: Dictionary, p: Dictionary, pid: int, idx: int) -> f
 					if ((r as Dictionary).get("treasures", []) as Array).has(t):
 						fits = true
 			return (1000.0 if fits else 0.0) + _calculate_room_value(card, p, G, phase_str)
+		"omega-discard": # CRL012 The Omega 42 : l'avancee qui ne se construit nulle part d'abord, sinon la moins precieuse
+			var hi := int(o.get("handIndex", -1))
+			var fits := false
+			for ti in (p.get("dungeon", []) as Array).size():
+				fits = fits or BossEngine.can_build_room(p, G, pid, hi, ti)
+			return (0.0 if fits else 50.0) - TnlAbilities._ai_value(card)
+		"omega-refire": # CRL012 : l'effet de construction / decouverte qui rapporte le plus
+			return AiWiki.refire_value(card)
 		"tnl-pick": # The Next Level : chaque option porte son poids (`ai`) ; defausser / detruire = le moins precieux d'abord
 			return float(o.get("ai", 0.0))
 	return 0.0
@@ -402,13 +415,14 @@ static func _score_activate_room(room_idx: int, p: Dictionary, G: Dictionary, _p
 			return 45.0 if phase == "build" else -10.0
 		"BMA009": # Witch's Kitchen
 			return 25.0
-		"CRL012": # The Omega 42 (hors APK) : rejouer un effet coute une salle avancee, a ne faire qu'avec de quoi en defausser
-			return 15.0 if phase == "build" and (p.get("hand", []) as Array).filter(func(c): return bool((c as Dictionary).get("advanced", false))).size() > 1 else -5.0
+		"CRL012": # The Omega 42 (hors APK) : rejouer un effet coute une salle avancee, a ne faire qu'avec une carte avancee dont on n'a pas l'usage
+			var adv_n: int = (p.get("hand", []) as Array).filter(func(c): return bool((c as Dictionary).get("advanced", false))).size()
+			return AiWiki.BUILD_FIRST if phase == "build" and adv_n >= 1 and (adv_n >= 2 or AiWiki.dead_advanced(G, p, _pid) >= 1) else -5.0
 		"BMA039": # Zombie Prison : AbilityCalculator.CheckBMA039 ne joue jamais en Setup/Early
 			return 20.0 if int(G.get("turn", 0)) > 1 else -10.0
 		_:
 			if rid.begins_with("TNL"):
-				return TnlAbilities.score_activate(G, p, _pid, rid)
+				return TnlAbilities.score_activate(G, p, _pid, rid, room_idx)
 			if rid.begins_with("RMB"):
-				return RmbAbilities.score_activate(G, p, _pid, rid)
+				return RmbAbilities.score_activate(G, p, _pid, rid, room_idx)
 			return 5.0

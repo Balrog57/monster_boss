@@ -75,8 +75,9 @@ static func find_hero(G: Dictionary, hero_id: String) -> Dictionary:
 ## Salles Monster visibles (sommets) du donjon de `pid` : options de choix « rmb_room ».
 static func own_monsters(G: Dictionary, pid: int) -> Array:
 	var opts := TnlAbilities.room_options(G, "monster", -1, -1, pid)
+	var f := AiWiki.fate(G)
 	for o in opts:
-		(o as Dictionary)["ai"] = float(int(((o as Dictionary)["card"] as Dictionary).get("damage", 0)))
+		(o as Dictionary)["ai"] = float(int(((o as Dictionary)["card"] as Dictionary).get("damage", 0))) + (10.0 if AiWiki.is_ahead(f, pid, int((o as Dictionary)["roomIndex"])) else 0.0)
 	return opts
 
 static func opponent_rooms(G: Dictionary, pid: int) -> Array:
@@ -439,7 +440,10 @@ static func activate(G: Dictionary, p: Dictionary, pid: int, idx: int, r: Dictio
 			TnlAbilities.emit(G, TnlAbilities.ask(G, pid, "rmb_cost", mini_options(p, 1.0), {"then": "deactivate_opp", "label": name}, "%s: choose a Miniboss to discard" % name, name))
 		"RMB045": # Endless Gallery : se detruit, un tresor de plus chez un joueur jusqu'a la fin du tour
 			TnlAbilities.destroy_room_at(G, pid, idx, name)
-			TnlAbilities.emit(G, TnlAbilities.ask(G, pid, "rmb_player", player_options(G, pid), {"label": name}, "%s: choose a dungeon" % name, name))
+			var gal := player_options(G, pid)
+			for go in gal:
+				(go as Dictionary)["ai"] = _best_icon_gain(G, pid, int((go as Dictionary)["targetPlayerId"]))
+			TnlAbilities.emit(G, TnlAbilities.ask(G, pid, "rmb_player", gal, {"label": name}, "%s: choose a dungeon" % name, name))
 		"RMB047": # Living Trap : detruit une salle Monster de votre donjon, tue le heros de cette salle
 			r["usedThisTurn"] = true
 			TnlAbilities.emit(G, TnlAbilities.ask(G, pid, "rmb_room", own_monsters(G, pid), {"then": "living", "label": name, "slot": idx}, "%s: choose a Monster Room to destroy" % name, name))
@@ -562,12 +566,13 @@ static func apply_move(G: Dictionary, pid: int, move: Dictionary) -> Variant:
 				"RMB016": # Tomb of Terrors : une salle ou un sort de la defausse (pas elle-meme) rejoint la main
 					for o in pre:
 						(o as Dictionary)["label"] = _label((o as Dictionary)["card"] as Dictionary)
-						(o as Dictionary)["ai"] = TnlAbilities._ai_value((o as Dictionary)["card"] as Dictionary)
+						# une autre Tomb of Terrors ne fait que tourner en rond (defausser l'une pour reprendre l'autre, a l'infini)
+						(o as Dictionary)["ai"] = -5.0 if str(((o as Dictionary)["card"] as Dictionary).get("id", "")) == "RMB016" else TnlAbilities._ai_value((o as Dictionary)["card"] as Dictionary)
 					TnlAbilities.emit(G, TnlAbilities.ask(G, pid, "take_discard", pre, {"label": "Tomb of Terrors"}, "Tomb of Terrors: choose a card from the discard pile", "Tomb of Terrors"))
 				"RMB027": # Shrooman Aviary : un heros +3 jusqu'a la fin du tour
 					var hs := TnlAbilities.hero_options(G)
 					for h in hs:
-						(h as Dictionary)["ai"] = 4.0 if int((h as Dictionary).get("ownerPid", pid)) != pid else -4.0
+						(h as Dictionary)["ai"] = AiWiki.hero_weight(G, pid, h as Dictionary)
 					TnlAbilities.emit(G, TnlAbilities.ask(G, pid, "rmb_hero", hs, {"then": "plus", "amount": 3, "label": "Shrooman Aviary"}, "Shrooman Aviary: choose a Hero (+3 Health)", "Shrooman Aviary"))
 				"RMB035": # Cursed Well : un sort OU 2 Coins
 					if str(args[1]) == "spell":
@@ -659,7 +664,7 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 			var tid2 := int(o.get("targetPlayerId", -1))
 			var icons: Array = []
 			for t in [1, 2, 3, 4]:
-				icons.append({"treasure": t, "targetPlayerId": tid2, "label": str(CardDB.TREASURE_NAMES[t]), "ai": 1.0 if tid2 == pid else -1.0})
+				icons.append({"treasure": t, "targetPlayerId": tid2, "label": str(CardDB.TREASURE_NAMES[t]), "ai": AiWiki.icon_gain(G, pid, tid2, t) + (0.1 if tid2 == pid else 0.0)})
 			return TnlAbilities.ask(G, pid, "rmb_icon", icons, {}, "Choose a treasure type to add to player %d's dungeon" % (tid2 + 1), "Treasure")
 		"rmb_icon":
 			Minibosses.list(G, "icons").append({"pid": int(o.get("targetPlayerId", pid)), "treasure": int(o.get("treasure", 1))})
@@ -682,7 +687,7 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 					var ra = SpellTargeting._targetable_top(G, tp2, a, d[a])
 					var rb = SpellTargeting._targetable_top(G, tp2, b, d[b])
 					if ra != null and rb != null:
-						pairs.append({"targetPlayerId": tp2, "a": a, "b": b, "label": "%s <-> %s" % [_label(ra as Dictionary), _label(rb as Dictionary)], "ai": -5.0})
+						pairs.append({"targetPlayerId": tp2, "a": a, "b": b, "label": "%s <-> %s" % [_label(ra as Dictionary), _label(rb as Dictionary)], "ai": AiWiki.swap_ai(G, pid, tp2, a, b)})
 			return TnlAbilities.ask(G, pid, "rmb_swap_p", pairs, ctx, "%s: choose the two Rooms to swap" % str(ctx.get("label", "")), str(ctx.get("label", "")))
 		"rmb_swap_p":
 			if TnlAbilities.swap_stacks(G, int(o.get("targetPlayerId", -1)), int(o.get("a", -1)), int(o.get("b", -1))):
@@ -808,45 +813,68 @@ static func _room_target(G: Dictionary, pid: int, ctx: Dictionary, o: Dictionary
 
 static func score_move(G: Dictionary, p: Dictionary, pid: int, mtype: String, args: Array) -> float:
 	var coins := Minibosses.coins(p)
+	var f := AiWiki.fate(G)
+	var mine := bool(f["active"]) and int(f["owner"]) == pid
 	match mtype:
 		"rmbBoss":
 			match str(args[0]):
 				"RMB003": return 20.0 if coins >= 4 else -5.0
-				"RMB006":
-					var a := TnlAbilities.adv(G)
-					return 40.0 if not a.is_empty() and int(a.get("playerId", -1)) == pid and coins >= 3 else -5.0
+				"RMB006": # Ravenus : double une salle Monster devant le heros de mon donjon s'il survit autrement
+					if mine and coins >= 2 and AiWiki.kills(f, int(f["best_monster"])):
+						return 60.0
+					return 20.0 if mine and coins >= 5 and int(f["margin"]) > 0 and int(f["monsters"]) > 0 else -5.0
 				"RMB009": return 15.0 if coins >= 4 else -5.0
 				"RMB012": return 10.0 if coins >= 5 else -5.0
-			return -10.0 # Scott : l'IA ne paie pas
-		"rmbPay":
+				"RMB011": # Scott (je donne 1 Coin) : seulement si son +1 aux Traps fait mourir un heros qui blesserait son proprietaire sinon
+					return 40.0 if bool(f["active"]) and int(f["owner"]) == int(args[1]) and AiWiki.saves(f, int(f["traps"])) else -10.0
 			return -10.0
+		"rmbPay": # Paywall : 1 Coin pour -1 a la salle, si cela sauve le heros qui blesserait son proprietaire
+			return 30.0 if not mine and bool(f["active"]) and int(f["owner"]) == int(args[0]) and AiWiki.is_ahead(f, int(args[0]), int(args[1])) and AiWiki.saves(f, 1) else -10.0
 		"rmbHand":
 			var hand: Array = p.get("hand", [])
 			var hid := str((hand[int(args[0])] as Dictionary).get("id", ""))
 			if hid == "RMB035":
 				return 12.0 if coins < 3 else 3.0
-			return 4.0 if hid == "RMB016" else -5.0
+			if hid == "RMB027": # Shrooman Aviary : +3 au heros adverse qui meurt de justesse
+				return 45.0 if not mine and AiWiki.saves(f, 3) else -5.0
+			if hid == "RMB016": # Tomb of Terrors : seulement s'il y a dans les defausses autre chose qu'une autre Tomb of Terrors
+				return 4.0 if RoomAbilities.discard_card_options(G, "any").any(func(o): return str(((o as Dictionary)["card"] as Dictionary).get("id", "")) != "RMB016") else -5.0
+			return -5.0
 	return 0.0
 
-## Capacites de salle activees : valeur pour l'IA (RoomCalculator maison : utiles, sans risque pour soi).
-static func score_activate(G: Dictionary, p: Dictionary, pid: int, rid: String) -> float:
+## Capacites de salle activees : valeur pour l'IA (RoomCalculator maison : utiles, sans risque pour soi). `idx` = index de la salle chez `pid` (-1 si inconnu).
+static func score_activate(G: Dictionary, p: Dictionary, pid: int, rid: String, idx: int = -1) -> float:
 	var phase := str(G.get("phase", ""))
+	var f := AiWiki.fate(G)
+	var mine := bool(f["active"]) and int(f["owner"]) == pid
 	match rid:
 		"RMB013": return 8.0
 		"RMB015": return 15.0
 		"RMB019": return 25.0 if phase == "adventure" else -5.0
-		"RMB022": return -5.0
-		"RMB026": return -5.0
+		"RMB022": # Minotaur Catacombs : comme Warp Tube, le heros qui survit rejoue les salles deja traversees et y meurt
+			return 75.0 if mine and idx > 0 and int(f["margin"]) > 0 and int(f["margin"]) - int(f["behind"]) <= 0 else -10.0
+		"RMB026": # Training Camp : double la salle Monster qui fait mourir le heros de mon donjon
+			return 60.0 if mine and AiWiki.kills(f, int(f["best_monster"])) else -5.0
 		"RMB038": return 6.0
 		"RMB042": return 4.0
 		"RMB043": return 70.0
 		"RMB044": return 6.0
-		"RMB045": return -5.0
+		"RMB045": # Endless Gallery (construction) : une icone de tresor de plus fait venir un heros chez moi
+			return AiWiki.BUILD_FIRST if phase == "build" and AiWiki.can_refill(G, p, pid) and _best_icon_gain(G, pid, pid) >= 1.0 else -5.0
 		"RMB047": return 60.0
 		"RMB052": return 3.0
-		"RMB053": return -5.0
+		"RMB053": # The Keystone : une Coin par salle restante, quand des Coins servent (minibosses en main ou face cachee)
+			var rooms := BossEngine.count_visible_rooms(p.get("dungeon", [])) - 1
+			return AiWiki.BUILD_FIRST if phase == "build" and AiWiki.can_refill(G, p, pid) and rooms >= 3 and (not Minibosses.miniboss_cards_in_hand(p).is_empty() or Minibosses.facedown_count(p) > 0) else -5.0
 		"RMB054": return 10.0
 	return -10.0
+
+## Meilleur gain de leurre de `pid` si une icone (parmi les 4 types de base) s'ajoute au donjon de `tp`.
+static func _best_icon_gain(G: Dictionary, pid: int, tp: int) -> float:
+	var best := -99.0
+	for t in [1, 2, 3, 4]:
+		best = maxf(best, AiWiki.icon_gain(G, pid, tp, t))
+	return best
 
 ## Le heros avance du donjon de `pid` de la salle `prev` vers `i` (Match._advance_adventure_room) : Foyer Elemental quand il quitte `prev` vivant ;
 ## Mageseeker niveau 3 : il saute la premiere salle. Renvoie l'index de salle a jouer.

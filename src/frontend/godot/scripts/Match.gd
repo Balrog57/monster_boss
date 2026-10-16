@@ -317,6 +317,8 @@ func legal_moves(pid: int) -> Array:
 				if not bool(passed_map.get(str(pid), false)) and not bool(passed_map.get(pid, false)):
 					out.append({"type": "pass", "args": []})
 					out.append({"type": "passBuild", "args": []})
+				elif Minibosses.active(G) and bool(p.get("isAI", false)) and bool(G.get("autoAI", true)):
+					out.clear() # RMB, politique IA et non regle : un siege IA qui a passe la fenetre ne la rouvre pas (deux Paywall s'echangeaient des Coins sans fin)
 				return out
 
 			if pid != active_player():
@@ -1348,7 +1350,7 @@ func _stack_response_moves(p: Dictionary, pid: int, stack_len: int) -> Array:
 		if bool(rd.get("usedThisTurn", false)) or bool(rd.get("faceDown", false)):
 			continue
 		if rid == "BMA025":
-			if RoomAbilities.can_cancel_spell(G, pid):
+			if RoomAbilities.can_cancel_spell(G, pid) and not TnlAbilities.no_text(rd):
 				out.append({"type": "activateRoom", "args": [i]})
 		elif Minibosses.active(G) and RmbAbilities.ACTIVATED.has(rid): # RMB : verification pure (une copie profonde de l'etat perd l'identite des heros)
 			if RmbAbilities.check(G, p, pid, i, rd) == "":
@@ -1483,7 +1485,7 @@ func _resolve_pending_stack() -> void:
 			var caster: Dictionary = (G.get("players", {}) as Dictionary).get(caster_id, {}) as Dictionary
 			for st in (caster.get("dungeon", []) as Array):
 				var r = BossEngine.active_room(st)
-				if r != null and str(r.get("id", "")) == "BMA026" and not bool(r.get("faceDown", false)) and not bool(r.get("usedThisTurn", false)):
+				if r != null and str(r.get("id", "")) == "BMA026" and not bool(r.get("faceDown", false)) and not bool(r.get("usedThisTurn", false)) and not TnlAbilities.no_text(r):
 					var dsp: Array = decks.get("spells", [])
 					var dsd: Array = decks.get("spellDiscard", [])
 					CardDB.refill_from_discard(dsp, dsd, rng)
@@ -1612,7 +1614,7 @@ func _advance_adventure_room() -> void:
 	# BMA017 Minotaur's Maze = MoveHeroToRelativeSlot(1), le heros recule d'une salle et la re-subit au pas suivant.
 	if i > int(adv.get("nearest", -1)):
 		adv["nearest"] = i
-		if str((room as Dictionary).get("id", "")) == "BMA017" and not BossEngine.is_room_deactivated(G, pid, i) and int(adv["hp"]) > 0 and i > 0:
+		if str((room as Dictionary).get("id", "")) == "BMA017" and not BossEngine.is_room_deactivated(G, pid, i) and not TnlAbilities.no_text(room as Dictionary) and int(adv["hp"]) > 0 and i > 0:
 			adv["back"] = true
 	_log("%s subit %d dégâts dans %s (PV restants : %d)." % [
 		hero.get("name", "?"), dmg, (room as Dictionary).get("name", "?"), int(adv["hp"])
@@ -1804,8 +1806,10 @@ func _check_end_or_next_turn() -> void:
 	# Vérification épuisement des héros
 	var decks: Dictionary = G["decks"]
 	var no_more_heroes: bool = (decks.get("heroes", []) as Array).is_empty() and (decks.get("epics", []) as Array).is_empty() and (G.get("town", []) as Array).is_empty()
-	# Crash Landing : des Explorers peuvent rester en ville pour toujours (egalite de tresors Explorer, regle des 5-6 joueurs :
-	# « Heroes can still be in Town when the game ends »). Pioches vides et plus aucun leurre ce tour = fin de partie.
+	# Crash Landing. SOURCE : docs/rules/rules.md (= rules_crash_landing.pdf), « Changes to Victory Conditions » : dans la partie a 5-6 joueurs, elle se termine
+	# quand les pioches de heros ordinaires ET epiques sont epuisees, « Heroes can still be in Town when the game ends ». Le moteur ne gere que 2-4 joueurs :
+	# la regle y est reprise telle quelle, MAIS seulement quand plus rien ne peut changer (aucun heros leurre ce tour ni a une entree), sinon un Explorer
+	# que personne ne peut leurrer (aucun tresor Explorer, ou egalite) bloquerait la partie pour toujours. Sans Crash Landing : regle APK inchangee.
 	if not no_more_heroes and G.get("sets", []).has("crash-landing") and (decks.get("heroes", []) as Array).is_empty() and (decks.get("epics", []) as Array).is_empty():
 		var any_lured := false
 		for v in (G.get("luredThisTurn", {}) as Dictionary).values():

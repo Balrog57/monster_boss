@@ -21,9 +21,11 @@ extends Node
 
 const GameManager = preload("res://godot/scripts/GameManager.gd")
 
+const DUNGEON_N := 5
 const MAX_STEPS := 6000
 const STUCK_ITERS := 150
 const ANIM_TIME_SCALE := 6.0
+const BOSS_WAIT := 0.9                # retournement du carrousel : 0,65 s de jeu (le temps est deja accelere par ANIM_TIME_SCALE)
 const STYLES := {
 	"random": {"build": 3.0, "drop": 3.0, "spell": 2.0, "ability": 2.0, "extra": 1.5, "pass": 1.0, "go": 3.0, "noise": 0.08},
 	"spells": {"build": 1.5, "drop": 1.5, "spell": 6.0, "ability": 6.0, "extra": 4.0, "pass": 0.4, "go": 3.0, "noise": 0.08},
@@ -173,6 +175,7 @@ func _start(g: Dictionary) -> void:
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(board)
 	board.skip_animations = not bool(g["anim"])
+	board.win_time_scale = 0.12 # fenetres chronometrees (3 s / 6 s) raccourcies pour les parties completes ; _check_windows teste les vraies durees
 	board.set_process(false) # on appelle board._process(dt) a la main : rapide et reproductible
 	board.setup(gm, func(): quit_calls += 1)
 	if bool(g["anim"]):
@@ -317,6 +320,9 @@ func _act() -> void:
 		await _act_choice(pid, pc, moves)
 		return
 	if str(G.get("phase", "")) == "boss":
+		if board._boss_flipping: # PLAY BOSS MONSTER! presse : les cartes se retournent (animation), on attend la fin
+			await _wait(0.1)
+			return
 		var cards := _hand_cards()
 		if _check(not cards.is_empty(), "choix du boss : aucune carte a l'ecran"):
 			await _act_boss_pick(pid, G, rng.randi_range(0, cards.size() - 1))
@@ -353,6 +359,9 @@ func _act_boss_pick(pid: int, G: Dictionary, k: int) -> void:
 	var before := _sig()
 	board._confirm_btn.pressed.emit()
 	_cov("boss_pick")
+	if not board.skip_animations: # retournement des autres cartes (0,65 s de jeu) puis le coup part
+		_check(board._boss_flipping, "choix du boss : pas de retournement des autres cartes")
+		await _wait(BOSS_WAIT)
 	_check(_sig() != before, "choix du boss : PLAY BOSS MONSTER! n'a eu aucun effet")
 	var boss = (G["players"][pid] as Dictionary).get("boss")
 	_check(boss != null and str((boss as Dictionary).get("id", "")) == want, "choix du boss : le boss choisi n'est pas la carte centrale (%s)" % want)
@@ -371,6 +380,81 @@ func _check_boss_layout() -> void:
 		else:
 			_check(c.size.x < board.BOSS_CARD.x * 0.7 and (cx - board.PLAY_CX) * d > 0.0, "carrousel : voisine %d mal placee (taille %s, x=%.0f)" % [d, c.size, cx])
 	_cov("boss_layout")
+
+## Eventail de la main = CardPositionComponent : x = 960 + lerp(-h, h, (i+1)/(n+1)) avec h = min((n - n%2) * 200, 1200) / 2, rotation
+## 9 deg x min(n/11,2, 1) / n x (i - n/2), arc de 30 px (centres des cartes).
+func _check_fan(cards: Array) -> void:
+	var n := cards.size()
+	var half := minf(float(n - n % 2) * 200.0, 1200.0) * 0.5
+	var rot_inc := 9.0 * clampf(float(n) / 11.2, 0.0, 1.0) / float(n)
+	for i in n:
+		var c: Control = cards[i]
+		var want_x := 960.0 + lerpf(-half, half, float(i + 1) / float(n + 1))
+		var want_y := 972.0 - 30.0 * sin(PI / float(n) * (float(i) + 0.5))
+		var ctr := c.position + c.size / 2.0
+		_check(absf(ctr.x - want_x) < 0.5 and absf(ctr.y - want_y) < 0.5, "main : carte %d/%d centree en %s au lieu de (%.1f, %.1f)" % [i, n, ctr, want_x, want_y])
+		_check(absf(c.rotation_degrees - rot_inc * (float(i) - float(n) * 0.5)) < 0.01, "main : carte %d/%d tournee de %.2f deg" % [i, n, c.rotation_degrees])
+		if i > 0:
+			_check((cards[i - 1] as Control).get_index() < c.get_index(), "main : ordre d'empilement des cartes")
+	_cov("hand_fan")
+
+## Pile de salles (salle avancee sur une autre) : la salle recouverte depasse de 28 px au-dessus de celle du dessus, dans MON couloir
+## (DungeonSlot) comme dans celui de l'adversaire ; une pile simple n'a aucune carte dessous.
+func _check_stacks() -> void:
+	_tag = "[stacks]"
+	await _teardown()
+	CardDB._rng.seed = 77
+	gm = GameManager.new()
+	add_child(gm)
+	gm.start_new_game(2, 1, ["base"])
+	board = load("res://godot/scenes/Board.tscn").instantiate()
+	board.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(board)
+	board.skip_animations = true
+	board.setup(gm, func(): quit_calls += 1)
+	await _wait(0.1)
+	var rooms: Array = CardDB.rooms.filter(func(r): return not bool(r.get("advanced", r.get("isAdvanced", false))))
+	var adv: Array = CardDB.rooms.filter(func(r): return bool(r.get("advanced", r.get("isAdvanced", false))))
+	if not _check(rooms.size() > 4 and adv.size() > 2, "piles : pas assez de salles dans CardDB"):
+		return
+	for pid in [0, 1]:
+		var r1: Dictionary = (rooms[0] as Dictionary).duplicate(true)
+		var r2: Dictionary = (adv[0] as Dictionary).duplicate(true)
+		var r3: Dictionary = (adv[1] as Dictionary).duplicate(true)
+		var r4: Dictionary = (rooms[1] as Dictionary).duplicate(true)
+		for r in [r1, r2, r3, r4]:
+			(r as Dictionary)["faceDown"] = false
+		(gm.G["players"][pid] as Dictionary)["dungeon"] = [[r4], [r1, r2], [r1.duplicate(true), r2.duplicate(true), r3]]
+	board.foe_pid = 1
+	board.refresh()
+	await get_tree().process_frame
+	# Mon couloir : 3 emplacements remplis, piles de 1, 2 et 3 salles -> 0, 1 et 2 salles recouvertes
+	var seen := {}
+	for sl in board._dungeon_slots:
+		var d := sl as DungeonSlot
+		var unders := d.get_children().filter(func(c): return c.is_in_group("under_card"))
+		var want: int = maxi(d.current_stack.size() - 1, 0)
+		_check(unders.size() == want, "pile de %d salles : %d cartes recouvertes dessinees (%d attendues)" % [d.current_stack.size(), unders.size(), want])
+		for k in unders.size(): # la plus profonde d'abord, chacune 28 px plus haut que la suivante
+			var depth := unders.size() - k
+			_check(is_equal_approx((unders[k] as Control).position.y, -28.0 * depth) and (unders[k] as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE, "carte recouverte %d a y=%s (-%d attendu)" % [k, (unders[k] as Control).position.y, 28 * depth])
+		if not unders.is_empty():
+			_check(unders[unders.size() - 1].get_index() < d.card_container.get_index(), "la salle recouverte doit etre derriere la salle du dessus")
+		seen[unders.size()] = true
+	_check(seen.has(0) and seen.has(1) and seen.has(2), "piles : tailles vues %s" % str(seen.keys()))
+	# Couloir adverse (Controls simples) : memes cartes recouvertes
+	var foe_unders := 0
+	for sc in board._foe_slots:
+		foe_unders += (sc as Control).get_children().filter(func(c): return c.is_in_group("under_card")).size()
+	_check(foe_unders == 3, "couloir adverse : %d cartes recouvertes (3 attendues)" % foe_unders)
+	# Un rafraichissement ne duplique pas les cartes recouvertes
+	board.refresh()
+	await get_tree().process_frame
+	var again := 0
+	for sl in board._dungeon_slots:
+		again += (sl as Control).get_children().filter(func(c): return c.is_in_group("under_card") and not c.is_queued_for_deletion()).size()
+	_check(again == 3, "piles : %d cartes recouvertes apres un 2e rafraichissement (3 attendues)" % again)
+	_cov("stacked_rooms")
 
 func _weighted(items: Array) -> Dictionary:
 	var tot := 0.0
@@ -436,8 +520,10 @@ func _build_actions(pid: int, moves: Array) -> Array:
 	for k in extras.size():
 		var ki := k
 		out.append({"kind": "extra", "w": _style_w("extra"), "desc": "coup extension %s" % str(extras[k]["type"]), "run": func(): await _do_extra(ki)})
-	if has_go:
+	if has_go and not board._apk_flow():
 		out.append({"kind": "go", "w": _style_w("go"), "desc": "GO", "run": func(): await _do_button(board.btn_advance, "GO")})
+	elif has_go:
+		_cov("go_auto") # flux APK : pas de bouton GO, le heros suivant avance de lui-meme (board._process / _auto_pass)
 	if has_pass and board.btn_pass.visible:
 		out.append({"kind": "pass", "w": _style_w("pass"), "desc": "PASS TURN", "effect": false, "run": func(): await _do_button(board.btn_pass, "PASS TURN")})
 	elif has_pass:
@@ -712,7 +798,8 @@ func _noise(pid: int) -> void:
 			board._on_menu_pressed()
 			await get_tree().process_frame
 			if _check(board._popup_kind == "menu", "engrenage : menu non ouvert"):
-				_check_volume_slider()
+				if not cov.has("pause_menu") or rng.randf() < 0.1:
+					_check_pause_menu()
 				board._process(1.0)
 				_check(_sig() == s0, "engrenage : la partie avance malgre le menu ouvert")
 				board._on_menu_pressed()
@@ -743,8 +830,20 @@ func _noise(pid: int) -> void:
 		board._popup_close()
 		board.refresh()
 
-## MASTER VOLUME du menu en jeu : le curseur agit sur AudioManager (valeur d'origine rendue ensuite, rien n'est ecrit sur disque).
-func _check_volume_slider() -> void:
+## Menu en jeu de l'APK : PAUSED = RESUME / CARD GALLERY / RULES / SETTINGS / QUIT GAME ; SETTINGS = MUSIC / SOUND / GAME SPEED + MASTER VOLUME
+## (le curseur agit sur AudioManager ; valeurs d'origine rendues ensuite, rien n'est ecrit sur disque). Appelee avec le menu ouvert.
+func _check_pause_menu() -> void:
+	var texts: Array = _buttons(board._popup).map(func(b): return (b as Button).text)
+	_check(texts == ["RESUME", "CARD GALLERY", "RULES", "SETTINGS", "QUIT GAME"], "menu en jeu : boutons %s" % str(texts))
+	var title = board._popup.find_child("Title", true, false)
+	_check(title != null and (title as Label).text == "PAUSED", "menu en jeu : titre PAUSED absent")
+	var settings: Button = null
+	for b in _buttons(board._popup):
+		if (b as Button).text == "SETTINGS":
+			settings = b
+	if not _check(settings != null, "menu en jeu : SETTINGS absent"):
+		return
+	settings.pressed.emit()
 	var sl: Array = []
 	var stack: Array = [board._popup]
 	while not stack.is_empty():
@@ -752,16 +851,31 @@ func _check_volume_slider() -> void:
 		if n is HSlider:
 			sl.append(n)
 		stack.append_array(n.get_children())
-	if not _check(sl.size() == 1, "menu : %d curseurs de volume (1 attendu)" % sl.size()):
-		return
-	var orig: float = AudioManager.master_volume
-	(sl[0] as HSlider).value = 0.37
-	_check(absf(AudioManager.master_volume - 0.37) < 0.001, "menu : le curseur ne regle pas le volume maitre (%s)" % AudioManager.master_volume)
-	(sl[0] as HSlider).value = 0.0
-	_check(AudioServer.is_bus_mute(0), "menu : volume 0 = bus Master non coupe")
-	AudioManager.master_volume = orig
-	AudioManager._apply()
-	_cov("volume_slider")
+	if _check(sl.size() == 1, "reglages : %d curseurs de volume (1 attendu)" % sl.size()):
+		var orig: float = AudioManager.master_volume
+		(sl[0] as HSlider).value = 0.37
+		_check(absf(AudioManager.master_volume - 0.37) < 0.001, "reglages : le curseur ne regle pas le volume maitre (%s)" % AudioManager.master_volume)
+		(sl[0] as HSlider).value = 0.0
+		_check(AudioServer.is_bus_mute(0), "reglages : volume 0 = bus Master non coupe")
+		AudioManager.master_volume = orig
+		AudioManager._apply()
+	# bascules MUSIC / SOUND / GAME SPEED : 2 + 2 + 3 segments ; GAME SPEED agit sur la vitesse des animations
+	var segs: Array = board._popup.find_children("Seg*", "Button", true, false)
+	_check(segs.size() == 7, "reglages : %d segments de bascule (7 attendus)" % segs.size())
+	var speed0: int = Profile.load_speed()
+	if segs.size() == 7:
+		(segs[4] as Button).pressed.emit() # SLOW
+		_check(Profile.load_speed() == 0 and is_equal_approx(board._speed, 1.5), "reglages : GAME SPEED SLOW non pris en compte (%s)" % board._speed)
+		(segs[6] as Button).pressed.emit() # FAST
+		_check(Profile.load_speed() == 2 and is_equal_approx(board._speed, 0.5), "reglages : GAME SPEED FAST non pris en compte")
+		Profile.save_speed(speed0)
+		board._speed = board._speed_factor()
+	var back = board._popup.find_child("Back", true, false)
+	if _check(back != null, "reglages : fleche de retour absente"):
+		(back as TextureButton).pressed.emit()
+		var texts2: Array = _buttons(board._popup).map(func(b): return (b as Button).text)
+		_check(texts2.has("RESUME"), "reglages : la fleche ne ramene pas au menu PAUSED")
+	_cov("pause_menu")
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Coherence ecran / etat
@@ -820,7 +934,7 @@ func _check_ui() -> void:
 		var fd: Array = foe_dict["dungeon"]
 		var shown := 0
 		for s in board._foe_slots:
-			shown += (s as Control).get_children().filter(func(c): return c is CardUI and not c.is_queued_for_deletion()).size()
+			shown += (s as Control).get_children().filter(func(c): return c is CardUI and not c.is_in_group("under_card") and not c.is_queued_for_deletion()).size()
 		_check(shown == fd.size(), "donjon adverse (siege %d) : %d salles affichees pour %d" % [foe_pid, shown, fd.size()])
 	# boutons
 	var my_moves: Array = gm.legal_moves(pid)
@@ -835,7 +949,9 @@ func _check_ui() -> void:
 			extras += 1
 	var carousel: bool = (phase == "boss" or board._is_opening_discard_for_me()) and not over
 	var go_usable: bool = board.btn_advance.is_visible_in_tree() and not board.btn_advance.disabled
-	_check(go_usable == (can_go and not carousel), "bouton GO : %s alors que le coup est %s" % ["utilisable" if go_usable else "inutilisable", "legal" if can_go else "illegal"])
+	_check(go_usable == (can_go and not carousel and not board._apk_flow()), "bouton GO : %s alors que le coup est %s" % ["utilisable" if go_usable else "inutilisable", "legal" if can_go else "illegal"])
+	if board._apk_flow() and phase == "adventure":
+		_check(not board.btn_pass.is_visible_in_tree(), "aventure : PASS TURN visible (l'APK n'en a pas, voir la barre de temps)")
 	var pass_vis: bool = board.btn_pass.is_visible_in_tree()
 	if pass_vis:
 		_check(can_pass and not over, "bouton PASS TURN visible alors que passer est illegal (phase %s, fin=%s, siege %d)" % [phase, over, pid])
@@ -862,7 +978,6 @@ func _check_ui() -> void:
 		_cov("level_up_seen")
 	# ecran de fin
 	if over:
-		_check(board._carousel_text.visible and board._carousel_text.text.contains("WINS"), "fin de partie : bandeau « WINS » absent")
 		_check(not board.action_box.visible, "fin de partie : boutons de jeu encore visibles")
 
 func _stack_sig(stack: Array) -> String:
@@ -885,31 +1000,42 @@ func _check_final(full: bool) -> void:
 	var G: Dictionary = gm.G
 	await get_tree().process_frame
 	if G.get("gameOver") != null:
-		await _wait(0.1)
+		var t_wait := Time.get_ticks_msec() + 20000
+		while board._gameover == null and Time.get_ticks_msec() < t_wait: # la derniere traversee de heros se joue d'abord
+			await get_tree().process_frame
 		_check_ui()
-		_check(board._bubble.visible, "fin de partie : bulle de titre absente")
-		_check(_hand_cards().is_empty(), "fin de partie : cartes encore en main a l'ecran")
-		var w := int(G["gameOver"].get("winner", -1))
-		_check(board._carousel_text.text.contains("[color=#f0c040]%d[/color] WINS" % (w + 1)), "fin de partie : mauvais vainqueur affiche (%s, vainqueur siege %d)" % [board._carousel_text.text, w])
-		for pid in G["players"]:
-			_check(gm.legal_moves(int(pid)).is_empty(), "fin de partie : le siege %d a encore des coups legaux" % pid)
-		_cov("game_over_screen")
-		# bouton MENU de l'ecran de fin
-		var qm := quit_calls
-		if _check(board._confirm_btn.visible and board._confirm_btn.text == "MENU", "fin de partie : bouton MENU absent"):
-			board._confirm_btn.pressed.emit()
-			_check(quit_calls == qm + 1, "fin de partie : le bouton MENU ne ramene pas au menu")
-			_cov("game_over_menu_btn")
+		var gb = board._gameover
+		if _check(gb != null and is_instance_valid(gb), "fin de partie : bandeau du vainqueur absent"):
+			_check(_hand_cards().is_empty(), "fin de partie : cartes encore en main a l'ecran")
+			var w := int(G["gameOver"].get("winner", -1))
+			var wboss = G["players"][w].get("boss") if G["players"].has(w) else null
+			var lose: bool = board._apk_flow() and w != 0
+			if gb.title_label != null and wboss != null and not lose:
+				_check(gb.title_label.text == str((wboss as Dictionary).get("name", "")), "fin de partie : nom du vainqueur « %s » au lieu de %s" % [gb.title_label.text, (wboss as Dictionary).get("name", "")])
+			elif lose:
+				_check(gb.title_label.text.contains("YOU LOSE"), "fin de partie : « YOU LOSE » absent (%s)" % gb.title_label.text)
+			_check(gb.get_node_or_null("WinnerText") != null or lose, "fin de partie : « IS THE WINNER! » absent")
+			_check(gb.ok_btn != null and gb.ok_btn.is_visible_in_tree(), "fin de partie : bouton OK absent")
+			_check(not board._confirm_btn.visible and not board._bubble.visible, "fin de partie : ancien bandeau / bouton MENU encore la")
+			for pid in G["players"]:
+				_check(gm.legal_moves(int(pid)).is_empty(), "fin de partie : le siege %d a encore des coups legaux" % pid)
+			_cov("game_over_screen")
+			# OK -> retour a l'ecran titre (callback de sortie)
+			var qm := quit_calls
+			if gb.ok_btn != null:
+				gb.ok_btn.pressed.emit()
+				_check(quit_calls == qm + 1, "fin de partie : OK ne ramene pas a l'ecran titre")
+				_cov("game_over_ok")
 	if full or G.get("gameOver") != null:
-		# retour au menu : engrenage -> QUIT TO MENU -> YES
+		# retour au menu : engrenage -> QUIT GAME -> YES
 		var q0 := quit_calls
 		board._on_menu_pressed()
 		await get_tree().process_frame
 		var quit_btn: Button = null
 		for b in _buttons(board._popup):
-			if (b as Button).text == "QUIT TO MENU":
+			if (b as Button).text == "QUIT GAME":
 				quit_btn = b
-		if _check(quit_btn != null, "fin de partie : menu sans QUIT TO MENU"):
+		if _check(quit_btn != null, "fin de partie : menu sans QUIT GAME"):
 			quit_btn.pressed.emit()
 			await get_tree().process_frame
 			var yes := _buttons(board._popup)
@@ -1187,6 +1313,8 @@ func _check_boss_carousel() -> void:
 	if not _check(picks.size() >= 3 and bc.size() == picks.size() and board._boss_sel == 0, "carrousel : %d cartes pour %d propositions (centre %d)" % [bc.size(), picks.size(), board._boss_sel]):
 		return
 	_check_boss_layout()
+	await _check_boss_drag()
+	_check_boss_layout()
 	_check(board._confirm_btn.visible and board._confirm_btn.text == "PLAY BOSS MONSTER!" and board._confirm_btn.size.x >= 390.0, "carrousel : bouton PLAY BOSS MONSTER! absent")
 	_check(board.foe_name_label.text == "", "carrousel : le boss adverse est visible")
 	for k in [1, bc.size() - 1, 0]:
@@ -1208,19 +1336,532 @@ func _check_boss_carousel() -> void:
 	_check(board._boss_sel == 0, "carrousel : centre non remis a zero")
 	_cov("boss_carousel")
 
+## Evenements souris reels (push_input avec masque de boutons) : appui, mouvements, relachement.
+func _mouse(pos: Vector2, pressed: bool, motion: bool, mask: int = 0) -> void:
+	var ev: InputEventMouse
+	if motion:
+		var m := InputEventMouseMotion.new()
+		m.button_mask = mask
+		ev = m
+	else:
+		var b := InputEventMouseButton.new()
+		b.button_index = MOUSE_BUTTON_LEFT
+		b.pressed = pressed
+		b.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
+		ev = b
+	ev.position = pos
+	ev.global_position = pos
+	get_viewport().push_input(ev, true)
+	await get_tree().process_frame
+
+func _drag(from: Vector2, to: Vector2, release_at = null, steps: int = 6) -> void:
+	await _mouse(from, true, false)
+	for k in range(1, steps + 1):
+		await _mouse(from.lerp(to, float(k) / float(steps)), false, true, MOUSE_BUTTON_MASK_LEFT)
+	await _mouse(release_at if release_at != null else to, false, false)
+
+func _check_boss_drag() -> void:
+	var bc: Array = board._boss_cards
+	board._boss_select(0)
+	# glisser vers la gauche de ~100 px depuis le vide (hors cartes) : carte suivante au centre
+	await _drag(Vector2(1500, 840), Vector2(1400, 840))
+	_check(board._boss_sel == 1, "glisser : -100 px -> carte %d (1 attendue)" % board._boss_sel)
+	# vers la droite de 200 px : deux crans en arriere, borne a 0
+	await _drag(Vector2(1000, 840), Vector2(1200, 840))
+	_check(board._boss_sel == 0, "glisser : +200 px -> carte %d (0 attendue, borne)" % board._boss_sel)
+	# un petit tremblement de clic (< seuil) ne change rien
+	await _drag(Vector2(1000, 840), Vector2(1006, 840), null, 2)
+	_check(board._boss_sel == 0 and board._boss_drag.is_empty(), "glisser : un tremblement de 6 px a bouge le carrousel (%d)" % board._boss_sel)
+	# depart hors de la zone des cartes : ignore
+	await _drag(Vector2(100, 200), Vector2(-100, 200))
+	_check(board._boss_sel == 0, "glisser : depart hors zone a bouge le carrousel")
+	# relachement HORS de la zone (et de l'ecran) : le glisser se termine quand meme, on garde les crans deja faits
+	await _drag(Vector2(1500, 840), Vector2(1380, 840), Vector2(-50, 2000))
+	_check(board._boss_sel == 1 and board._boss_drag.is_empty(), "glisser : relachement hors ecran, carte %d, glisser en cours %s" % [board._boss_sel, str(board._boss_drag)])
+	# bouton relache sans evenement de relachement (fenetre quittee) : un mouvement sans masque termine le glisser
+	await _mouse(Vector2(1500, 840), true, false)
+	await _mouse(Vector2(1480, 840), false, true, 0)
+	await _mouse(Vector2(1200, 840), false, true, MOUSE_BUTTON_MASK_LEFT) # ne doit plus rien faire
+	_check(board._boss_sel == 1 and board._boss_drag.is_empty(), "glisser : un mouvement sans bouton gauche n'a pas termine le glisser (carte %d)" % board._boss_sel)
+	await _mouse(Vector2(1200, 840), false, false)
+	# appui sur une voisine puis glisser : le glisser est relatif a la carte centrale de l'appui, pas a la carte touchee
+	board._boss_select(0)
+	var neighbour := (bc[1] as Control).get_global_rect().get_center()
+	await _drag(neighbour, neighbour + Vector2(-100, 0))
+	_check(board._boss_sel == 1, "glisser depuis une voisine : carte %d (1 attendue)" % board._boss_sel)
+	board._boss_select(0)
+	_cov("boss_drag")
+
+## Retournement des autres cartes apres PLAY BOSS MONSTER! (animations reelles) : dos de carte, nom du boss, puis le coup part.
+func _check_boss_flip() -> void:
+	_tag = "[boss-flip]"
+	await _teardown()
+	CardDB._rng.seed = 123
+	gm = GameManager.new()
+	add_child(gm)
+	gm.start_new_game(2, 1, ["base"])
+	board = load("res://godot/scenes/Board.tscn").instantiate()
+	board.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(board)
+	board.skip_animations = false
+	board.set_process(false) # l'IA ne joue pas pendant ce test
+	board.setup(gm, func(): quit_calls += 1)
+	await _wait(0.1)
+	var picks: Array = (gm.G["bossPicks"] as Array).duplicate(true) # le coup consomme les propositions
+	var bc: Array = board._boss_cards.duplicate()
+	board._boss_select(1)
+	await _wait(0.3)
+	board._confirm_btn.pressed.emit()
+	_check(board._boss_flipping and gm.G["players"][0].get("boss") == null, "retournement : doit preceder le coup")
+	_check(board._carousel_text.text.contains(str((picks[1] as Dictionary).get("name", "")).to_upper()), "retournement : nom du boss absent (%s)" % board._carousel_text.text)
+	board._confirm_btn.pressed.emit() # un 2e appui ne fait rien
+	await _wait(0.45)
+	var back_tex: Texture2D = load(CardDB.card_image("", "back-boss"))
+	var backs := 0
+	for i in bc.size():
+		if is_instance_valid(bc[i]) and not (bc[i] as Node).is_queued_for_deletion() and (bc[i] as CardUI).texture_rect.texture == back_tex:
+			backs += 1
+			_check(i != 1, "retournement : la carte choisie est retournee")
+	_check(backs == bc.size() - 1, "retournement : %d dos de carte pour %d cartes retournables" % [backs, bc.size() - 1])
+	await _wait(0.4)
+	var boss = gm.G["players"][0].get("boss")
+	_check(boss != null and str((boss as Dictionary).get("id", "")) == str((picks[1] as Dictionary).get("id", "")) and not board._boss_flipping, "retournement : le boss n'a pas ete valide (boss=%s flipping=%s phase=%s)" % [str(boss), board._boss_flipping, gm.G.get("phase")])
+	_cov("boss_flip")
+
+# ---------------------------------------------------------------------------------------------------------------------
+# UI de l'APK : fenetres chronometrees, glisser-deposer, appui long, DONE / mise en garde, galerie, ecran de fin
+# ---------------------------------------------------------------------------------------------------------------------
+
+func _right_click(pos: Vector2, pressed: bool) -> void:
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_RIGHT
+	ev.pressed = pressed
+	ev.position = pos
+	ev.global_position = pos
+	get_viewport().push_input(ev, true)
+	await get_tree().process_frame
+
+## Barre verte de l'aventure (3 s, au-dessus du heros) et de la pile de sorts (6 s) : visible tant qu'un sort est jouable, pas de PASS TURN,
+## cadre dore sur le sort jouable, le jeu continue (passe envoye) quand elle est vide. Etat construit a la main ; temps simule avec _process(dt).
+func _check_windows() -> void:
+	_tag = "[windows]"
+	await _new_game()
+	board.set_process(false)
+	board.win_time_scale = 1.0
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	var foe: Dictionary = G["players"][1]
+	(foe["hand"] as Array).clear() # l'IA n'a rien a jouer : la fenetre ne depend que du joueur
+	(foe["dungeon"] as Array).clear()
+	var room: Dictionary = {}
+	for r in CardDB.rooms:
+		if str((r as Dictionary).get("type", "")) == "monster" and not bool((r as Dictionary).get("advanced", false)):
+			room = (r as Dictionary).duplicate(true)
+			break
+	room["faceDown"] = false
+	(me["dungeon"] as Array).push_front([room])
+	var hero: Dictionary = (CardDB.heroes[5] as Dictionary).duplicate(true)
+	(me["entrance"] as Array).clear()
+	(me["entrance"] as Array).append(hero)
+	G["phase"] = "adventure"
+	G.erase("buildWindow")
+	G["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": 0, "hp": 12, "pause": "post-damage"}
+	G["adventurePausePassed"] = {"1": true, 1: true} # l'IA a deja passe : la fenetre n'attend que le joueur
+	G["activePlayer"] = 0
+	var gi := _take_spell("BMA047") # Giant Size : +3 degats a une salle de monstres (cibles : la salle posee)
+	if not _check(gi >= 0, "fenetres : Giant Size introuvable"):
+		return
+	board.refresh()
+	await get_tree().process_frame
+	var moves: Array = gm.legal_moves(0)
+	if not _check(board._has_decision(moves) and moves.any(func(m): return m["type"] == "pass"), "fenetres : aucun sort jouable / pas de passe dans la fenetre construite"):
+		return
+	var cards := _hand_cards()
+	var gold = (cards[gi] as CardUI).get_node_or_null("GoldFrame")
+	_check(gold != null and gold.visible, "fenetres : le sort jouable n'a pas de cadre dore")
+	for i in cards.size():
+		if bool((me["hand"][i] as Dictionary).get("isRoom", false)):
+			var gf = (cards[i] as CardUI).get_node_or_null("GoldFrame")
+			_check(gf == null or not gf.visible, "fenetres : cadre dore sur une salle")
+	_check(not board.btn_pass.is_visible_in_tree() and not board.btn_advance.is_visible_in_tree(), "fenetres : PASS TURN / GO visibles en aventure (flux APK)")
+	board._process(0.5)
+	_check(board._win_bar.visible, "fenetres : barre de temps absente")
+	var f0: float = board._win_bar.frac
+	board._process(0.5)
+	board._process(0.5)
+	board._process(0.5)
+	_check(board._win_bar.visible and board._win_bar.frac < f0 and absf(board._win_bar.frac - (1.0 - 2.0 / 3.0)) < 0.08, "fenetres : la barre ne se vide pas a 3 s (frac %.2f)" % board._win_bar.frac)
+	var bp: Vector2 = board._win_bar.global_position
+	_check(bp.y > 0.0 and bp.y < 1000.0 and bp.x > 150.0 and bp.x < 1707.0, "fenetres : barre hors du plateau %s" % bp)
+	# un glisser en cours fige la barre (APK : SlowDown pendant le zoom)
+	board._zoom = Control.new()
+	var f1: float = board._win_bar.frac
+	board._process(0.5)
+	_check(is_equal_approx(board._win_bar.frac, f1), "fenetres : la barre avance pendant un zoom")
+	board._zoom.free()
+	board._zoom = null
+	board._process(0.5)
+	board._process(0.5)
+	_check(str(gm.G["adventure"].get("pause")) == "pre-exit" and not board._win_bar.visible, "fenetres : la fin de la barre n'a pas fait passer la fenetre (pause=%s)" % str(gm.G["adventure"].get("pause")))
+	_cov("window_adventure")
+	# pile de sorts : sort adverse en attente, Counterspell jouable, 6 s
+	await _new_game()
+	board.set_process(false)
+	board.win_time_scale = 1.0
+	G = gm.G
+	me = G["players"][0]
+	((G["players"][1] as Dictionary)["hand"] as Array).clear()
+	((G["players"][1] as Dictionary)["dungeon"] as Array).clear()
+	var ci := _take_spell("BMA043") # Counterspell
+	var spell: Dictionary = {}
+	for sp in CardDB.spells:
+		if str((sp as Dictionary).get("id", "")) == "BMA050":
+			spell = (sp as Dictionary).duplicate(true)
+	spell["isSpell"] = true
+	G["stack"] = [{"id": "spell-BMA050-1", "type": "spell", "playerId": 1, "card": spell, "target": {}, "resolved": false}]
+	G["stackPassed"] = {"1": true, 1: true}
+	G["stackReturnPlayer"] = 1
+	G["stackActivePlayer"] = 1
+	G["activePlayer"] = 0
+	board.refresh()
+	await get_tree().process_frame
+	if _check(ci >= 0 and gm.legal_moves(0).any(func(m): return m["type"] == "playSpell"), "pile : Counterspell non jouable sur la pile construite"):
+		_check(board._stack_ui != null and board._stack_ui.get_child_count() == 1, "pile : le sort en attente n'est pas au centre")
+		_check(not board.btn_pass.is_visible_in_tree(), "pile : PASS TURN visible (flux APK : barre de temps)")
+		board._process(0.5)
+		_check(board._win_bar.visible and absf(board._win_bar.position.x + board._win_bar.size.x / 2.0 - board.PLAY_CX) < 1.0, "pile : barre au-dessus de la pile absente")
+		var fr: float = board._win_bar.frac
+		for i in 5:
+			board._process(0.5)
+		_check(board._win_bar.visible and absf(board._win_bar.frac - (1.0 - 3.0 / 6.0)) < 0.1 and board._win_bar.frac < fr, "pile : la barre n'est pas a la moitie apres 3 s (%.2f)" % board._win_bar.frac)
+		for i in 8:
+			board._process(0.5)
+		_check((gm.G.get("stack", []) as Array).is_empty() or bool((gm.G.get("stackPassed", {}) as Dictionary).get("0", gm.G["stackPassed"].get(0, false))), "pile : la fin de la barre n'a pas fait passer le joueur")
+		_cov("window_stack")
+
+## Vrai glisser-deposer a la souris (push_input) : une salle vers l'emplacement dore, annulation sur la main, un sort vers sa cible,
+## sort hors cible sans effet ; appui long et clic droit = zoom ; un clic simple joue encore un sort sans cible.
+func _check_drag_and_zoom() -> void:
+	_tag = "[drag]"
+	await _new_game()
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	var hand: Array = me["hand"]
+	var dsize: int = (me["dungeon"] as Array).size()
+	var idx := -1
+	for i in hand.size():
+		if gm.can_build_room_at(0, i, dsize) and not bool((hand[i] as Dictionary).get("advanced", false)):
+			idx = i
+	if not _check(idx >= 0, "glisser : aucune salle construisible"):
+		return
+	hand.push_back(hand.pop_at(idx)) # la carte a glisser est la derniere : au premier plan de l'eventail
+	idx = hand.size() - 1
+	board.refresh()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var card: CardUI = _hand_cards()[idx]
+	var start := card.get_global_rect().get_center()
+	var n_hand := hand.size()
+	# salle : annulation (relache sur la main)
+	await _mouse(start, true, false)
+	await _mouse(start + Vector2(0, -40), false, true, MOUSE_BUTTON_MASK_LEFT)
+	await _mouse(start + Vector2(0, -160), false, true, MOUSE_BUTTON_MASK_LEFT)
+	_check(not board._drag.is_empty(), "glisser : pas de glisser en cours apres 160 px")
+	var frames: Array = board._drag.get("frames", [])
+	_check(frames.size() == 1, "glisser : %d emplacements dores pour une salle (1 attendu : le prochain emplacement libre)" % frames.size())
+	var prev: Control = board._drag.get("preview")
+	_check(prev != null and prev.size.x > 360.0, "glisser : carte zoomee absente")
+	await _mouse(start + Vector2(0, -20), false, false)
+	_check(board._drag.is_empty() and (me["hand"] as Array).size() == n_hand and (me["dungeon"] as Array).size() == dsize, "glisser : relacher sur la main doit annuler")
+	_check(board.hand_layer.get_children().filter(func(c): return not c.is_queued_for_deletion() and c.modulate.a < 0.9).is_empty(), "glisser : la carte annulee n'est pas revenue dans la main")
+	# salle : depot sur l'emplacement dore
+	card = _hand_cards()[idx]
+	start = card.get_global_rect().get_center()
+	var slot_c: Vector2 = (board._dungeon_slots[maxi(0, DUNGEON_N - dsize - 1)] as Control).get_global_rect().get_center() # le prochain emplacement libre
+	await _mouse(start, true, false)
+	for k in range(1, 7):
+		await _mouse(start.lerp(slot_c, float(k) / 6.0), false, true, MOUSE_BUTTON_MASK_LEFT)
+	_check(not board._drag.is_empty(), "glisser : salle - glisser perdu en route")
+	await _mouse(slot_c, false, false)
+	_check((me["dungeon"] as Array).size() == dsize + 1 and (me["hand"] as Array).size() == n_hand - 1, "glisser : la salle n'a pas ete construite sur l'emplacement vise")
+	_check(board._drag.is_empty() and board._ui_layer.find_children("GoldFrame", "Control", true, false).is_empty(), "glisser : cadres dores restes apres le depot")
+	_cov("drag_room")
+	# sorts : Freeze (n'importe quelle phase, cible = une salle), deux salles posees = deux cibles
+	await _new_game()
+	G = gm.G
+	me = G["players"][0]
+	var protos: Array = CardDB.rooms.filter(func(r): return not bool((r as Dictionary).get("advanced", false)))
+	for k in 2:
+		var pr: Dictionary = (protos[k] as Dictionary).duplicate(true)
+		pr["faceDown"] = false
+		(me["dungeon"] as Array).push_front([pr])
+	var gi := _take_spell("BMA046")
+	if not _check(gi >= 0, "glisser : Freeze introuvable"):
+		return
+	board.refresh()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var cands: Array = gm.legal_moves(0).filter(func(m): return m["type"] == "playSpell" and int(m["args"][0]) == gi)
+	if not _check(cands.size() >= 2, "glisser : Freeze a %d cibles (2+ attendues)" % cands.size()):
+		return
+	card = _hand_cards()[gi]
+	start = card.get_global_rect().get_center()
+	var n_before: int = (me["hand"] as Array).size()
+	# relache hors cible (plusieurs cibles) : rien ne se joue
+	await _mouse(start, true, false)
+	for k in range(1, 5):
+		await _mouse(start.lerp(Vector2(300, 300), float(k) / 4.0), false, true, MOUSE_BUTTON_MASK_LEFT)
+	var nf: int = (board._drag.get("frames", []) as Array).size()
+	_check(nf >= 2, "glisser : %d cibles dorees pour Freeze (2+ attendues)" % nf)
+	await _mouse(Vector2(300, 300), false, false)
+	_check((me["hand"] as Array).size() == n_before and (gm.G.get("stack", []) as Array).is_empty(), "glisser : un sort lache hors cible a ete joue")
+	# relache sur la salle ciblee
+	card = _hand_cards()[gi]
+	start = card.get_global_rect().get_center()
+	var tgt_slot: DungeonSlot = null
+	for sl in board._dungeon_slots:
+		if not (sl as DungeonSlot).current_stack.is_empty():
+			tgt_slot = sl
+			break
+	var tc := tgt_slot.get_global_rect().get_center()
+	await _mouse(start, true, false)
+	for k in range(1, 7):
+		await _mouse(start.lerp(tc, float(k) / 6.0), false, true, MOUSE_BUTTON_MASK_LEFT)
+	await _mouse(tc, false, false)
+	_check((me["hand"] as Array).size() == n_before - 1, "glisser : le sort lache sur sa cible n'a pas ete joue")
+	await _drain()
+	var fz = tgt_slot.find_child("Frozen", true, false)
+	_check(fz != null and fz.visible, "glace : la salle ciblee par Freeze n'est pas couverte de glace")
+	_cov("drag_spell")
+	# appui long (zoom) puis relachement : aucun clic ; clic droit maintenu = zoom aussi
+	board.refresh()
+	await get_tree().process_frame
+	card = _hand_cards()[_hand_cards().size() - 1]
+	start = card.get_global_rect().get_center()
+	var s0 := _sig()
+	await _mouse(start, true, false)
+	await _wait(1.0)
+	_check(board._zoom != null and board._zoom.size.x > 360.0 and board.hand_layer.modulate.r < 0.9, "appui long : pas de zoom / main non assombrie")
+	await _mouse(start, false, false)
+	_check(board._zoom == null and board.hand_layer.modulate.r > 0.99 and _sig() == s0, "appui long : le relachement doit fermer le zoom sans jouer")
+	await _right_click(start, true)
+	_check(board._zoom != null, "clic droit : pas de zoom")
+	await _right_click(start, false)
+	_check(board._zoom == null, "clic droit : zoom reste ouvert")
+	_cov("long_press")
+	# un clic simple joue encore un sort sans cible
+	await _new_game()
+	G = gm.G
+	me = G["players"][0]
+	var mi := _take_spell("BMA050")
+	board.refresh()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var nh: int = (me["hand"] as Array).size()
+	var pc: Vector2 = _hand_cards()[mi].get_global_rect().get_center()
+	await _click_at(pc)
+	_check((me["hand"] as Array).size() == nh - 1, "clic : le sort sans cible n'a pas ete joue a la souris")
+	await _drain()
+	_cov("click_spell")
+
+## PASS TURN : tant qu'une salle peut etre construite, le 1er appui montre la bulle de mon boss, le 2e confirme ; apres ma construction
+## avec un sort jouable, PASS TURN devient DONE!.
+func _check_done_and_warning() -> void:
+	_tag = "[done]"
+	await _new_game()
+	board.set_process(false)
+	var s0 := _sig()
+	_check(board.btn_pass.is_visible_in_tree(), "mise en garde : PASS TURN absent en construction")
+	board._on_pass_pressed()
+	_check(board._warn != null and _sig() == s0, "mise en garde : la bulle n'apparait pas au 1er appui (ou la partie a avance)")
+	var lbls: Array = board._warn.find_children("*", "Label", true, false)
+	_check(lbls.size() == 1 and (lbls[0] as Label).text == "HEY! YOU CAN BUILD A ROOM! STILL WANT TO PASS?", "mise en garde : texte de la bulle")
+	board._on_pass_pressed()
+	_check(board._warn == null and _sig() != s0, "mise en garde : le 2e appui doit passer")
+	_cov("pass_warning")
+	await _new_game()
+	board.set_process(false)
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	var ki := _take_spell("BMA049") # Kobold Strike : sans cible, jouable en construction -> fenetre de sorts apres ma construction
+	board.refresh()
+	var built := false
+	var hand: Array = me["hand"]
+	for i in hand.size():
+		if (hand[i] as Dictionary).get("isRoom", false) and gm.can_build_room_at(0, i, (me["dungeon"] as Array).size()):
+			board._on_hand_card_clicked(i, hand[i])
+			built = true
+			break
+	if not _check(built, "DONE : aucune salle construisible"):
+		return
+	await get_tree().process_frame
+	if _check(gm.G.has("buildWindow") and ki >= 0, "DONE : la fenetre de sorts apres construction n'est pas ouverte"):
+		var tex_done: Texture2D = board._tex(board.TEX_DONE)
+		_check(board.btn_pass.is_visible_in_tree() and (board.btn_pass as TextureButton).texture_normal == tex_done, "DONE : PASS TURN ne devient pas DONE!")
+		var s1 := _sig()
+		board._on_pass_pressed()
+		_check(board._warn == null and _sig() != s1 and not gm.G.has("buildWindow"), "DONE : le bouton DONE! ne referme pas la fenetre")
+		_cov("done_button")
+
+## Galerie de cartes : 5 onglets (BOSS / ROOM / SPELL / HERO / EPIC HERO), grille, paquets de l'APK (+ wiki selon l'option), fermeture ;
+## ouverte depuis le menu en jeu et depuis OPTIONS du menu principal.
+func _check_gallery() -> void:
+	_tag = "[gallery]"
+	await _new_game()
+	board.set_process(false)
+	var ext: bool = bool(Profile.load_settings().get("extensions", false))
+	var allowed: Array = ["base", "players-choice", "hidden-heroes", "tools"]
+	if ext:
+		allowed.append_array(["next-level", "crash-landing", "minibosses"])
+	board._on_menu_pressed()
+	await get_tree().process_frame
+	var gal_btn: Button = null
+	for b in _buttons(board._popup):
+		if (b as Button).text == "CARD GALLERY":
+			gal_btn = b
+	if not _check(gal_btn != null, "galerie : bouton CARD GALLERY absent du menu en jeu"):
+		return
+	gal_btn.pressed.emit()
+	await get_tree().process_frame
+	var gal = board._popup.find_children("*", "Control", true, false).filter(func(c): return c.get_script() != null and str(c.get_script().resource_path).ends_with("CardGallery.gd"))
+	if not _check(gal.size() == 1, "galerie : non ouverte depuis le menu en jeu (%d)" % gal.size()):
+		return
+	var g = gal[0]
+	var want_titles := ["BOSS CARDS", "ROOM CARDS", "SPELL CARDS", "HERO CARDS", "EPIC HERO CARDS"]
+	_check(g.tab_buttons.size() == 5, "galerie : %d onglets (5 attendus)" % g.tab_buttons.size())
+	var sources: Array = [CardDB.bosses, CardDB.rooms, CardDB.spells, CardDB.heroes, CardDB.heroes]
+	for t in 5:
+		g.select_tab(t)
+		await get_tree().process_frame
+		_check(g.title_label.text == want_titles[t], "galerie : titre « %s » au lieu de %s" % [g.title_label.text, want_titles[t]])
+		var want := 0
+		for c in sources[t]:
+			var d: Dictionary = c
+			if not (str(d.get("set", "base")) in allowed):
+				continue
+			if t >= 3 and bool(d.get("epic", false)) != (t == 4):
+				continue
+			want += 1
+		_check(g.cards_shown == want and want > 0, "galerie : onglet %d : %d cartes pour %d attendues" % [t, g.cards_shown, want])
+		var grid = g.scroll.get_node_or_null("Grid")
+		_check(grid != null and grid.get_child_count() == want, "galerie : grille de %d cartes pour %d" % [grid.get_child_count() if grid != null else -1, want])
+	g.select_tab(0)
+	var tile = g.scroll.get_node("Grid").get_child(0)
+	g.show_detail(tile.get_meta("card"), tile.texture)
+	_check(g._detail != null, "galerie : le detail d'une carte ne s'ouvre pas")
+	g.close_gallery() # ferme d'abord le detail
+	_check(g._detail == null and is_instance_valid(g), "galerie : la fermeture du detail ne doit pas fermer la galerie")
+	var closed := [false]
+	g.closed.connect(func(): closed[0] = true)
+	g.get_node("Back").pressed.emit()
+	await get_tree().process_frame
+	_check(closed[0], "galerie : la fleche de retour ne ferme pas")
+	_cov("gallery")
+	board._popup_close()
+	# depuis OPTIONS du menu principal
+	var main = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main)
+	await _wait(0.2)
+	main.show_options()
+	await get_tree().process_frame
+	var ob = main.find_child("CardGallery", true, false)
+	if _check(ob != null, "galerie : bouton CARD GALLERY absent de OPTIONS"):
+		(ob as Button).pressed.emit()
+		await get_tree().process_frame
+		_check(main.get_children().any(func(c): return c.get_script() != null and str(c.get_script().resource_path).ends_with("CardGallery.gd")), "galerie : non ouverte depuis OPTIONS")
+		_cov("gallery_options")
+	main.queue_free()
+	await get_tree().process_frame
+
+## Ecran de fin : bandeau du vainqueur (nom, IS THE WINNER!, boss agrandi, 10 cristaux, OK), « YOU LOSE » avec la pierre tombale ;
+## boss elimine = pierre tombale RIP a la place du sprite.
+func _check_gameover_banner() -> void:
+	_tag = "[gameover]"
+	await _new_game()
+	board.set_process(false)
+	var G: Dictionary = gm.G
+	var boss = G["players"][0].get("boss")
+	G["gameOver"] = {"winner": 0, "reason": "souls"}
+	board.refresh()
+	await get_tree().process_frame
+	var gb = board._gameover
+	if _check(gb != null and is_instance_valid(gb), "fin : bandeau absent"):
+		_check(gb.title_label.text == str((boss as Dictionary).get("name", "")), "fin : nom du vainqueur %s" % gb.title_label.text)
+		_check(gb.get_node_or_null("WinnerText") != null and gb.get_node_or_null("BossSprite") != null, "fin : « IS THE WINNER! » ou boss absent")
+		_check(gb._crystals.size() == 10, "fin : %d cristaux (10 attendus)" % gb._crystals.size())
+		var p0: Vector2 = (gb._crystals[0] as Control).position
+		gb._process(1.0)
+		_check(not (gb._crystals[0] as Control).position.is_equal_approx(p0), "fin : les cristaux ne tournent pas")
+		_check(gb.find_children("*", "Label", true, false).size() == 1, "fin : texte parasite (score ?) sur le bandeau")
+		var q0 := quit_calls
+		gb.ok_btn.pressed.emit()
+		_check(quit_calls == q0 + 1, "fin : OK n'appelle pas la sortie (ecran titre)")
+	await _new_game()
+	board.set_process(false)
+	G = gm.G
+	G["gameOver"] = {"winner": 1, "reason": "wounds"}
+	board.refresh()
+	await get_tree().process_frame
+	gb = board._gameover
+	_check(gb != null and gb.title_label.text.contains("YOU LOSE") and gb.get_node_or_null("Tombstone") != null, "fin : ecran perdu (YOU LOSE + tombe) absent")
+	_cov("gameover_banner")
+	# boss elimine : pierre tombale
+	await _new_game()
+	board.set_process(false)
+	G = gm.G
+	G["players"][1]["eliminated"] = true
+	board.refresh()
+	var spr: TextureRect = board._lane[0]["sprite"]
+	_check(spr.texture == board._tex(board.UI_DIR + "bosses_tombstone.webp"), "boss mort : pas de pierre tombale RIP")
+	_cov("tombstone")
+
+## Petites animations : coeur qui monte (degats), cristal qui s'allume, pioche au centre, notice « HAS PLAYED A SPELL ».
+func _check_effects() -> void:
+	_tag = "[effects]"
+	await _new_game()
+	board.set_process(false)
+	board.skip_animations = false
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	board._show_floating_dmg(board._lane[1]["platform"], 2)
+	var heart = board._ui_layer.find_child("HeartFx", true, false)
+	_check(heart != null, "coeur de degats absent")
+	board.refresh()
+	var seen_hand: int = (me["hand"] as Array).size()
+	var drawn := _take_spell("BMA053")
+	await get_tree().process_frame
+	_check(drawn >= 0 and board._ui_layer.find_child("DrawnCard", true, false) != null, "pioche : pas de carte au centre pour un nouveau sort en main (main %d)" % seen_hand)
+	board._notice_ai(1, {"type": "playSpell", "args": []})
+	var notice = board._ui_layer.find_child("Notice", true, false)
+	var texts: Array = notice.find_children("*", "Label", true, false).map(func(l): return (l as Label).text) if notice != null else []
+	_check(texts == ["HAS PLAYED A", "SPELL"], "notice adverse : %s" % str(texts))
+	board._notice_ai(0, {"type": "playSpell", "args": []}) # mon propre coup : pas de notice
+	await _wait(0.1)
+	board.skip_animations = true
+	_cov("effects")
+
 func _extra_checks() -> void:
+	await _check_stacks()
+	await _check_boss_flip()
 	await _check_boss_carousel()
 	await _check_main_flow()
 	await _check_hand_room()
+	await _check_windows()
+	await _check_drag_and_zoom()
+	await _check_done_and_warning()
+	await _check_gallery()
+	await _check_gameover_banner()
+	await _check_effects()
 	_tag = "[base]"
 	await _new_game()
 	var G: Dictionary = gm.G
 	var me: Dictionary = G["players"][0]
 	board.refresh()
-	# Main : cartes ~210x300 a 1920x1080
+	# Main : cartes 175x244 en eventail (CardPositionComponent de l'APK) a 1920x1080
 	var cards := _hand_cards()
 	if _check(not cards.is_empty(), "main vide a l'ecran"):
-		_check((cards[0] as Control).size == Vector2(210, 300), "carte de main %s != 210x300" % (cards[0] as Control).size)
+		_check((cards[0] as Control).size == Vector2(175, 244), "carte de main %s != 175x244" % (cards[0] as Control).size)
+		_check_fan(cards)
 	_check(board.extra_bar.get_child_count() == 0 or not board.extra_bar.visible, "bouton non-APK visible en partie de base")
 	# 1) Sort sans cible : un clic sur la carte le joue (aucun bouton « Sort : ... »)
 	var idx := _take_spell("BMA050") # Motivation : phase de construction, sans cible
@@ -1316,12 +1957,12 @@ func _extra_checks() -> void:
 	board._rules.close_viewer()
 	await get_tree().process_frame
 	_check(board._rules == null and board._popup_kind == "menu", "regles : fermeture -> retour au menu")
-	# 6) QUIT TO MENU : confirmation, NO revient au menu, YES quitte
+	# 6) QUIT GAME : confirmation, NO revient au menu, YES quitte
 	var quit_btn: Button = null
 	for b in _buttons(board._popup):
-		if (b as Button).text == "QUIT TO MENU":
+		if (b as Button).text == "QUIT GAME":
 			quit_btn = b
-	if _check(quit_btn != null, "bouton QUIT TO MENU absent"):
+	if _check(quit_btn != null, "bouton QUIT GAME absent"):
 		quit_btn.pressed.emit()
 		await get_tree().process_frame
 		_check(board._popup_kind == "quit" and quit_calls == q0, "confirmation de sortie absente")
