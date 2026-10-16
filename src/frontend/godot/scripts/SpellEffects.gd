@@ -12,7 +12,7 @@ static func empty_effects() -> Dictionary:
 		"treasureDoubled": [], "roomExtraTreasures": [], "roomTreasureSuppressed": [],
 		"staffHealingPids": [], "ordinaryMonsterBonus": [], "ignoreAbilityPids": [],
 		"immediateBuild": [], "ignoreTreasureMatch": [], "noRoomBuild": [],
-		"skipFirstRoomPids": [], "ignoreHeroAbilityPids": [], "skipBuild": [],
+		"skipFirstRoomPids": [], "ignoreHeroAbilityPids": [], "skipAdventure": [],
 	}
 
 static func _effects(G: Dictionary) -> Dictionary:
@@ -204,8 +204,13 @@ static func _fear(G: Dictionary, caster_id: int, _card: Dictionary, target: Dict
 		for i in entrance.size():
 			if str((entrance[i] as Dictionary).get("id", "")) == str(hero_id):
 				var h: Dictionary = entrance[i]
-				town.insert(0, h)
+				town.append(h) # PlaceAtTown : HeroesInTownQueue.Add (en fin de file)
 				entrance.remove_at(i)
+				# PlaceAtTown -> RemoveHeroFromGame : un heros actif quitte l'aventure (NextGamePhase = AdventurePhase_b), sans ame ni blessure.
+				var adv: Dictionary = G.get("adventure", {}) as Dictionary
+				if not adv.is_empty() and str((adv.get("hero", {}) as Dictionary).get("id", "")) == str(hero_id):
+					G["adventure"] = {}
+					G["adventurePausePassed"] = {}
 				_log(G, "Fear: %s returned to town." % str(h.get("name", "?")))
 				return true
 	_log(G, "Fear: target hero not found.")
@@ -307,13 +312,13 @@ static func _kobold_strike(G: Dictionary, _caster_id: int, _card: Dictionary, _t
 	_log(G, "Kobold Strike: no rooms can be built this turn.")
 	return true
 
-# --- BMA054 Trepidation : le joueur avec 2 ames de plus n'agit pas ce tour ---
+# --- BMA054 Trepidation : SkipAdventurePhase -> Boss.ForceSkipAdventure, aucun heros n'entre dans ce donjon ce tour ---
 
 static func _trepidation(G: Dictionary, caster_id: int, _card: Dictionary, target: Dictionary) -> bool:
 	var tid := _target_id(target, caster_id)
 	var victim := _player(G, tid)
-	(_effects(G)["skipBuild"] as Array).append(tid)
-	_log(G, "Trepidation: player %d skips their turn." % tid)
+	(_effects(G)["skipAdventure"] as Array).append(tid)
+	_log(G, "Trepidation: no Hero enters player %d's dungeon this turn." % tid)
 	if victim.is_empty():
 		return false
 	return true

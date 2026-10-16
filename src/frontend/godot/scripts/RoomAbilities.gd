@@ -110,6 +110,9 @@ static func opponents_with(G: Dictionary, player_id: int, need_spell: bool = fal
 
 # --- activation d'abilite de salle (base set) ---
 
+## Salles a condition OncePerTurn (Ability.IsEffectApplied) parmi les capacites activables.
+const ONCE_PER_TURN := ["BMA013", "BMA024", "BMA025"]
+
 ## Active l'abilite de la salle a room_index. Renvoie null si OK, sinon un message d'erreur.
 static func activate_room_ability(G: Dictionary, player_id: int, room_index: int, other_room_index: int = -1):
 	var p := _player(G, player_id)
@@ -125,7 +128,8 @@ static func activate_room_ability(G: Dictionary, player_id: int, room_index: int
 	if bool(r.get("usedThisTurn", false)):
 		return "already used this turn"
 
-	r["usedThisTurn"] = true
+	if ONCE_PER_TURN.has(str(r.get("id", ""))):
+		r["usedThisTurn"] = true # data.json : seules BMA013/024/025 portent OncePerTurn (Crushinator et Boulder Ramp sont rejouables)
 	var id := str(r.get("id", ""))
 	match id:
 		"BMA009": return _dark_altar(G, p, room_index, player_id, r)
@@ -136,7 +140,7 @@ static func activate_room_ability(G: Dictionary, player_id: int, room_index: int
 		"BMA032": return _crushinator(G, p, player_id, room_index, other_room_index)
 		"BMA038": return _torture_chamber(G, player_id)
 		"BMA013": return _dracolich_lair(G, p, player_id, r)
-		"BMA024": return _witchs_kitchen(G, p)
+		"BMA024": return _witchs_kitchen(G, p, player_id)
 		"BMA039": return _zombie_prison(G, p, room_index, player_id, r)
 	r["usedThisTurn"] = false
 	return "no activated ability"
@@ -291,7 +295,6 @@ static func _boulder_ramp(G: Dictionary, p: Dictionary, player_id: int, room_ind
 	if destroyed != null:
 		BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
 		_log(G, "Boulder Ramp: destroyed %s." % str((destroyed as Dictionary).get("name", "?")))
-	room["usedThisTurn"] = true
 	return null
 
 ## BMA030 Jackpot Stash : detruit cette salle, double les tresors ce tour.
@@ -443,29 +446,34 @@ static func zombie_prison_send_back(G: Dictionary, option: Dictionary) -> void:
 	_log(G, "Zombie Prison: %s est renvoye a l'entree du donjon du joueur %d." % [str(hero.get("name", "?")), int(option.get("targetPlayerId", -1))])
 
 ## BMA024 Witch's Kitchen : defausse une salle Monster pour piocher un sort.
-static func _witchs_kitchen(G: Dictionary, p: Dictionary):
+static func _witchs_kitchen(G: Dictionary, p: Dictionary, player_id: int):
 	var hand: Array = p.get("hand", [])
-	var found := -1
+	var opts: Array = []
 	for i in hand.size():
 		var c: Dictionary = hand[i]
-		if str(c.get("type", "")) == "monster":
-			found = i
-			break
-	if found < 0:
+		if str(c.get("type", "")) == "monster" and bool(c.get("isRoom", false)):
+			opts.append({"card": c, "handIndex": i})
+	if opts.is_empty():
 		return "no Monster Room in hand"
-	var card: Dictionary = hand[found]
-	hand.remove_at(found)
-	BossEngine.discard_room_to_pile(G.get("decks", {}), card)
-	var decks: Dictionary = G.get("decks", {})
-	var deck: Array = decks.get("spells", [])
-	decks["spells"] = deck
-	if deck.is_empty():
-		_log(G, "Witch's Kitchen: no Spell to draw.")
+	# RoomInHand(Monster, Owner) : la salle a defausser se choisit (auto si une seule).
+	if opts.size() == 1:
+		kitchen_discard(G, player_id, opts[0])
 		return null
-	var drawn: Dictionary = deck.pop_back()
-	hand.append(drawn)
-	_log(G, "Witch's Kitchen: drew %s." % str(drawn.get("name", "?")))
+	G["pendingChoice"] = {"type": "kitchen-discard", "resume": false, "playerId": player_id,
+		"bossName": "Witch's Kitchen", "message": "Witch's Kitchen: choose a Monster Room to discard", "options": opts}
 	return null
+
+## Suite de Witch's Kitchen : defausse la salle choisie puis pioche un sort.
+static func kitchen_discard(G: Dictionary, player_id: int, option: Dictionary) -> void:
+	var p := _player(G, player_id)
+	var hand: Array = p.get("hand", []) as Array
+	var at := hand.find(option.get("card", {}))
+	if at < 0:
+		return
+	BossEngine.discard_room_to_pile(G.get("decks", {}), hand.pop_at(at))
+	var drawn := _draw_into(G, p, "spells", 1)
+	if not drawn.is_empty():
+		_log(G, "Witch's Kitchen: drew %s." % str((drawn[0] as Dictionary).get("name", "?")))
 
 # --- abilities passives (roomAbilities.js:onBuildRoom / onHeroDiedInRoom) ---
 
@@ -504,9 +512,16 @@ static func on_build_room(G: Dictionary, player_id: int, room: Dictionary) -> Va
 ## HasPendingRoomToBuild(Monster) (un slot encore en attente, y compris celui revele, a une salle Monster
 ## au sommet) -> pioche 1 salle. A appeler AVANT que `room` ne passe face visible.
 static func on_build_another_room(G: Dictionary, player_id: int, room: Dictionary) -> void:
+	for o in another_room_triggers(G, player_id):
+		run_another_room_trigger(G, player_id, o)
+
+## Conditions des declencheurs WhenYouBuildAnotherRoom, evaluees AU MOMENT DE LA FILE (CheckTriggerInRoom) : renvoie les
+## salles dont la transaction part en file (l'effet, lui, s'execute plus tard : run_another_room_trigger).
+static func another_room_triggers(G: Dictionary, player_id: int) -> Array:
+	var out: Array = []
 	var p := _player(G, player_id)
 	if p.is_empty():
-		return
+		return out
 	var pending_monster := false
 	for stack in (p.get("dungeon", []) as Array):
 		var top = BossEngine.active_room(stack)
@@ -514,7 +529,7 @@ static func on_build_another_room(G: Dictionary, player_id: int, room: Dictionar
 			pending_monster = true
 			break
 	if not pending_monster:
-		return
+		return out
 	for stack in (p.get("dungeon", []) as Array):
 		var other = BossEngine.active_room(stack)
 		if other == null or bool((other as Dictionary).get("faceDown", false)):
@@ -523,9 +538,13 @@ static func on_build_another_room(G: Dictionary, player_id: int, room: Dictionar
 		if str(o.get("id", "")) != "BMA019" or bool(o.get("usedThisTurn", false)):
 			continue
 		o["usedThisTurn"] = true
-		var drawn := _draw_into(G, p, "rooms", 1)
-		if not drawn.is_empty():
-			_log(G, "Beast Menagerie: drew %s." % str((drawn[0] as Dictionary).get("name", "?")))
+		out.append(o)
+	return out
+
+static func run_another_room_trigger(G: Dictionary, player_id: int, _room: Dictionary) -> void:
+	var drawn := _draw_into(G, _player(G, player_id), "rooms", 1)
+	if not drawn.is_empty():
+		_log(G, "Beast Menagerie: drew %s." % str((drawn[0] as Dictionary).get("name", "?")))
 
 ## Declenche quand un hero meurt dans cette salle. Renvoie un choix, ou null.
 static func on_hero_died_in_room(G: Dictionary, player_id: int, room: Dictionary) -> Variant:
@@ -533,6 +552,11 @@ static func on_hero_died_in_room(G: Dictionary, player_id: int, room: Dictionary
 	if p.is_empty():
 		return null
 	var id := str(room.get("id", ""))
+	# Tous les declencheurs HeroDiesInThisRoom du base set portent OncePerTurn (Ability.IsEffectApplied), verifie a la mise en file.
+	if ["BMA010", "BMA012", "BMA014", "BMA016", "BMA021"].has(id):
+		if bool(room.get("usedThisTurn", false)):
+			return null
+		room["usedThisTurn"] = true
 	match id:
 		"BMA010": return _open_grave(G, p, player_id)
 		"BMA016": return _golem_factory(G, p, room)
@@ -632,10 +656,7 @@ static func _open_grave(G: Dictionary, p: Dictionary, player_id: int) -> Variant
 		"message": "Open Grave: choose a Room from the discard pile", "options": opts}
 
 ## BMA016 Golem Factory : une fois par tour, pioche une salle.
-static func _golem_factory(G: Dictionary, p: Dictionary, room: Dictionary) -> Variant:
-	if bool(room.get("usedThisTurn", false)):
-		return null
-	room["usedThisTurn"] = true
+static func _golem_factory(G: Dictionary, p: Dictionary, _room: Dictionary) -> Variant:
 	var drawn := _draw_into(G, p, "rooms", 1)
 	if not drawn.is_empty():
 		_log(G, "Golem Factory: drew %s." % str((drawn[0] as Dictionary).get("name", "?")))
@@ -867,7 +888,7 @@ static func robobo_advance(G: Dictionary) -> Variant:
 ## Detruit la salle choisie (sans declencheur, checkTriggers:false) et l'envoie a la defausse.
 static func destroy_room_choice(G: Dictionary, target_pid: int, room_index: int, label: String) -> void:
 	var tp := _player(G, target_pid)
-	var destroyed = BossEngine.destroy_room(tp, room_index, G)
+	var destroyed = BossEngine.destroy_room(tp, room_index, G, false)
 	if destroyed == null:
 		return
 	BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)

@@ -42,6 +42,18 @@ static class Program
             return File.Exists(p) ? ctx.LoadFromAssemblyPath(p) : null;
         };
 
+        AppDomain.CurrentDomain.FirstChanceException += (_, ev) =>
+        {
+            if (!ev.Exception.Message.Contains("Xamarin.Insights")) Trace.LastFirstChance = $"{ev.Exception.GetType().Name}: {ev.Exception.Message} @ {Environment.StackTrace}";
+        };
+        // LogService.LogException (appele quand une capacite leve, p.ex. GameBoard.DestroyRoom sur une salle deja detruite) passe par
+        // Xamarin.Insights.Report : sans plateforme ni initialisation il re-leve et tue la trace. On initialise Insights en mode debug.
+        var insights = Assembly.LoadFrom(Path.Combine(asmDir, "Xamarin.Insights.dll"));
+        const BindingFlags any = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+        var device = insights.GetType("Xamarin.InsightsCore.Device");
+        device.GetProperty("PlatformServices", any).SetValue(null, Activator.CreateInstance(insights.GetType("Xamarin.InsightsCore.DebugModePlatformServices")));
+        var core = device.GetProperty("Core", any).GetValue(null);
+        core.GetType().GetMethod("Initialize", new[] { typeof(string) }).Invoke(core, new[] { insights.GetType("Xamarin.Insights").GetField("DebugModeKey", any).GetValue(null) });
         var decks = decksArg.Split(',').Select(d => Enum.Parse<GameDecks>(d.Trim())).ToList();
         var board = Boot(repo, seed, players, decks);
         var trace = new Trace(board, seed, players, decks);

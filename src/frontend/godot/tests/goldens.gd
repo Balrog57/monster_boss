@@ -87,6 +87,14 @@ func _ready() -> void:
 	_t_setup_parallel_first_room()
 	_t_extra_build_phase_construction_zone()
 	_t_build_offturn_spell_window()
+	_t_destroy_recycling_center_draws_two()
+	_t_crushinator_repeatable_fear_active_hero()
+	_t_trepidation_skips_adventure()
+	_t_minotaur_maze_sends_hero_back()
+	_t_reveal_levelup_before_room_trigger()
+	_t_witchs_kitchen_choice()
+	_t_died_brainsucker_once_per_turn()
+	_t_pit_kill_no_death_trigger_on_next_room()
 
 	print("GOLDENS passed=", _passed, " failed=", _failed.size())
 	if _failed.is_empty():
@@ -419,6 +427,8 @@ func _t_levelup_requires_5_visible_rooms() -> void:
 		var m = Match.new()
 		add_child(m)
 		m.G = G
+		if n == 5: # GameBoard.RevealAllRoomCards : le level-up part a la revelation du slot qui porte le donjon a 5
+			((((G["players"][0] as Dictionary)["dungeon"] as Array)[4] as Array)[0] as Dictionary)["faceDown"] = true
 		var opened := m._reveal_and_level_up()
 		if n < 5:
 			_ok(not opened and not (G["players"][0] as Dictionary).get("leveledUp", false),
@@ -1518,3 +1528,107 @@ func _t_zombie_attack_returns_whole_hero() -> void:
 	_ok(SpellEffects.cast_spell(G, 0, {"id": "BMA055"}, {"targetPlayerId": 1, "soulIndex": 0, "pile": "souls"}), "Zombie Attack accepte")
 	_ok((foe["souls"] as Array).is_empty() and (foe["entrance"] as Array).size() == 1
 		and BossEngine.hero_hp((foe["entrance"] as Array)[0]) == 6, "heros entier renvoye a l'entree avec +2 PV")
+
+## BMA031 Recycling Center : DestroyRoom (checkTriggers) -> 2 salles piochees ; ChooseAndDestroyRoom (Robobo) : aucun declencheur.
+func _t_destroy_recycling_center_draws_two() -> void:
+	var G := _ability_G("BMA030")
+	((G["players"][0] as Dictionary)["dungeon"] as Array).append([_room("BMA031", "trap", true, [1])])
+	(G["decks"]["rooms"] as Array).append_array([_room("A", "trap", false, [1]), _room("B", "trap", false, [1]), _room("C", "trap", false, [1])])
+	_ok(RoomAbilities.activate_room_ability(G, 0, 0) == null, "Jackpot Stash s'active avec un Recycling Center")
+	_ok(((G["players"][0] as Dictionary)["hand"] as Array).size() == 2 and (G["decks"]["rooms"] as Array).size() == 1,
+		"Recycling Center : 2 salles piochees quand une autre salle est detruite")
+	var G2 := _ability_G("BMA030")
+	((G2["players"][0] as Dictionary)["dungeon"] as Array).append([_room("BMA031", "trap", true, [1])])
+	(G2["decks"]["rooms"] as Array).append_array([_room("A", "trap", false, [1]), _room("B", "trap", false, [1])])
+	RoomAbilities.destroy_room_choice(G2, 0, 0, "Robobo")
+	_ok(((G2["players"][0] as Dictionary)["hand"] as Array).is_empty(), "ChooseAndDestroyRoom (Robobo) ne declenche pas le Recycling Center")
+
+## BMA032 n'a pas OncePerTurn (data.json) : rejouable ; BMA045 Fear sur le heros actif met fin a son aventure sans ame ni blessure.
+func _t_crushinator_repeatable_fear_active_hero() -> void:
+	var G := _ability_G("BMA032")
+	var dg: Array = (G["players"][0] as Dictionary)["dungeon"]
+	dg.append([_room("X", "trap", false, [1])])
+	dg.append([_room("Y", "trap", false, [1])])
+	_ok(RoomAbilities.activate_room_ability(G, 0, 0, 1) == null and RoomAbilities.activate_room_ability(G, 0, 0, 1) == null,
+		"Crushinator s'active deux fois dans le tour")
+	var G2 := _ability_G("BMA032")
+	var hero := {"id": "H1", "name": "H1", "hp": 4}
+	(G2["players"][1] as Dictionary)["entrance"] = [hero]
+	G2["adventure"] = {"playerId": 1, "hero": hero, "roomIndex": 0, "hp": 4, "pause": "post-damage"}
+	_ok(SpellEffects.cast_spell(G2, 0, {"id": "BMA045"}, {"heroId": "H1"}), "Fear accepte")
+	_ok((G2["adventure"] as Dictionary).is_empty() and (G2["town"] as Array).size() == 1
+		and ((G2["players"][1] as Dictionary)["entrance"] as Array).is_empty(), "Fear : le heros actif quitte l'aventure et retourne en ville")
+
+## BMA054 Trepidation (Boss.ForceSkipAdventure) : les heros de la cible restent a l'entree, elle n'a plus rien a jouer en aventure.
+func _t_trepidation_skips_adventure() -> void:
+	var m = Match.new()
+	add_child(m)
+	m.G = {"players": {0: {"id": 0, "entrance": [{"id": "H1"}], "eliminated": false}}, "effects": SpellEffects.empty_effects()}
+	_ok(m._has_entrance_hero(0), "heros a l'entree : il agit")
+	_ok(SpellEffects.cast_spell(m.G, 1, {"id": "BMA054"}, {"targetPlayerId": 0}), "Trepidation accepte")
+	_ok(not m._has_entrance_hero(0) and ((m.G["players"][0] as Dictionary)["entrance"] as Array).size() == 1,
+		"Trepidation : plus d'aventure pour la cible, le heros reste a l'entree")
+
+## BMA017 Minotaur's Maze : la premiere fois que le heros y entre, il recule d'une salle (et la re-subit) ; ensuite il avance normalement.
+func _t_minotaur_maze_sends_hero_back() -> void:
+	var m = Match.new()
+	add_child(m)
+	var hero := {"id": "H", "name": "H", "hp": 20}
+	m.G = {"players": {0: {"id": 0, "dungeon": [[_room("A", "monster", false, [1])], [_room("BMA017", "trap", false, [1])], [_room("C", "trap", false, [1])]],
+		"entrance": [hero], "hand": [], "souls": [], "wounds": []}},
+		"log": [], "effects": SpellEffects.empty_effects(), "decks": {"heroDiscard": []}, "adventure": {"playerId": 0, "hero": hero, "roomIndex": -1, "hp": 20, "pause": null}}
+	var seen: Array = []
+	for _k in 5:
+		m._advance_adventure_room()
+		seen.append(int((m.G["adventure"] as Dictionary)["roomIndex"]))
+	_ok(seen == [0, 1, 0, 1, 2], "Minotaur's Maze : A, Maze, A, Maze, C (obtenu %s)" % str(seen))
+
+## EnqueueAbilityTransaction : une transaction du meme joueur passe AVANT celles deja en file => le level-up (mis en file apres
+## le declencheur de la 5e salle) s'execute avant lui.
+func _t_reveal_levelup_before_room_trigger() -> void:
+	var G := _levelup_G("BMA005", 5)
+	var last: Dictionary = ((((G["players"][0] as Dictionary)["dungeon"] as Array)[4] as Array)[0] as Dictionary)
+	last["id"] = "BMA022"
+	last["faceDown"] = true
+	for i in 6:
+		(G["decks"]["spells"] as Array).append({"id": "S%d" % i, "name": "S%d" % i, "isSpell": true})
+	var m = Match.new()
+	add_child(m)
+	m.G = G
+	_ok(m._reveal_and_level_up(), "la revelation ouvre un choix")
+	_ok(str((G["pendingChoice"] as Dictionary).get("bossName", "")) == "Cerebellus", "le level-up (Cerebellus) passe avant la Dark Laboratory")
+
+## Bottomless Pit detruit son slot en tuant le heros : plus de salle pour la mort (TopRoom == null), la salle suivante (Golem Factory) ne se declenche pas.
+func _t_pit_kill_no_death_trigger_on_next_room() -> void:
+	var m = Match.new()
+	add_child(m)
+	var hero := {"id": "H", "name": "H", "hp": 9, "souls": 1, "wounds": 1}
+	var p := {"id": 0, "dungeon": [[_room("A", "trap", false, [1])], [_room("BMA027", "trap", false, [1])], [_room("BMA016", "monster", false, [1])]],
+		"entrance": [hero], "hand": [], "souls": [], "wounds": []}
+	m.G = {"players": {0: p}, "log": [], "logs": [], "effects": SpellEffects.empty_effects(), "town": [], "turn": 1,
+		"decks": {"rooms": [_room("D", "trap", false, [1])], "spells": [], "roomDiscard": [], "spellDiscard": [], "heroDiscard": []},
+		"adventure": {"playerId": 0, "hero": hero, "roomIndex": 1, "hp": 5, "pause": "post-damage"}}
+	_ok(RoomAbilities.activate_room_ability(m.G, 0, 1) == null, "Bottomless Pit s'active")
+	m._finish_hero_if_dead()
+	_ok((p["hand"] as Array).is_empty() and (p["souls"] as Array).size() == 1, "ame capturee, aucune pioche Golem Factory")
+
+## BMA024 Witch's Kitchen : RoomInHand(Monster) se choisit ; une seule salle Monster en main = defausse automatique.
+func _t_witchs_kitchen_choice() -> void:
+	var G := _ability_G("BMA024", [_room("M1", "monster", false, [1]), _room("M2", "monster", false, [1]), _room("T", "trap", false, [1])])
+	(G["decks"]["spells"] as Array).append({"id": "S1", "name": "S1", "isSpell": true})
+	_ok(RoomAbilities.activate_room_ability(G, 0, 0) == null, "Witch's Kitchen s'active")
+	var pc: Dictionary = G.get("pendingChoice", {}) as Dictionary
+	_ok(str(pc.get("type", "")) == "kitchen-discard" and (pc["options"] as Array).size() == 2, "deux salles Monster : choix ouvert")
+	RoomAbilities.kitchen_discard(G, 0, (pc["options"] as Array)[1])
+	var hand: Array = (G["players"][0] as Dictionary)["hand"]
+	_ok(_card_ids(hand) == ["M1", "T", "S1"] and (G["decks"]["roomDiscard"] as Array).size() == 1, "la salle choisie (M2) est defaussee, un sort est pioche")
+
+## Brainsucker Hive / Open Grave / Succubus Spa / Vampire Bordello : OncePerTurn eux aussi (data.json), pas seulement Golem Factory.
+func _t_died_brainsucker_once_per_turn() -> void:
+	var G := _ability_G("BMA021")
+	for i in 4:
+		(G["decks"]["spells"] as Array).append({"id": "S%d" % i, "name": "S%d" % i, "isSpell": true})
+	var room: Dictionary = BossEngine.active_room(((G["players"][0] as Dictionary)["dungeon"] as Array)[0])
+	RoomAbilities.on_hero_died_in_room(G, 0, room)
+	RoomAbilities.on_hero_died_in_room(G, 0, room)
+	_ok(((G["players"][0] as Dictionary)["hand"] as Array).size() == 1, "Brainsucker Hive : une seule pioche par tour")

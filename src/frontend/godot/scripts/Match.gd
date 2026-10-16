@@ -244,13 +244,13 @@ func legal_moves(pid: int) -> Array:
 				return out
 
 			if pid != active_player():
-				if (p.get("entrance", []) as Array).is_empty() and (adv.is_empty() or int(adv.get("playerId", -1)) != pid):
+				if not _has_entrance_hero(pid) and (adv.is_empty() or int(adv.get("playerId", -1)) != pid):
 					out.append({"type": "pass", "args": []})
 					out.append({"type": "passBuild", "args": []})
 				return out
 
 			var has_active_hero := not adv.is_empty() and int(adv.get("playerId", -1)) == pid
-			var has_entrance_hero := (p.get("entrance", []) as Array).size() > 0
+			var has_entrance_hero := _has_entrance_hero(pid)
 
 			if has_active_hero or has_entrance_hero:
 				out.append({"type": "adventureNext", "args": []})
@@ -526,6 +526,9 @@ func _resolve_choice(pid: int, index: int) -> void:
 		"revive-hero":
 			if index >= 0:
 				RoomAbilities.zombie_prison_send_back(G, opts[index])
+		"kitchen-discard":
+			if index >= 0:
+				RoomAbilities.kitchen_discard(G, pid, opts[index])
 		"dracolich-discard":
 			if index >= 0:
 				RoomAbilities.dracolich_discard(G, pid, opts[index], pc.get("pileOptions", []))
@@ -769,6 +772,11 @@ func _finish_setup() -> void:
 	if _reveal_and_level_up():
 		return
 	G.erase("setupReveal")
+	# Setup_c puis ExtraBuildPhase (Construction Zone revelee a la mise en place), puis Setup_c a nouveau.
+	G["phase"] = CardDB.PHASE["BUILD"]
+	if _start_forced_build():
+		G["setupForced"] = true
+		return
 	_start_turn()
 
 func _start_turn() -> void:
@@ -899,6 +907,9 @@ func _close_build_phase() -> void:
 		return
 	if _start_forced_build():
 		return
+	if G.erase("setupForced"):
+		_start_turn()
+		return
 	G["phase"] = CardDB.PHASE["BAIT"]
 	_log("Tour %d — phase BAIT (Leurre)." % G["turn"])
 	_resolve_bait()
@@ -945,30 +956,53 @@ func _start_forced_build() -> bool:
 ## Fin de phase BUILD : revele les salles face-down puis declenche le level-up
 ## (reducer.js:endPhaseBuild). Renvoie true si un choix est en attente.
 func _reveal_and_level_up() -> bool:
+	if not G.has("revealQueue"):
+		G["revealQueue"] = _build_reveal_queue()
+	var queue: Array = G["revealQueue"]
+	while not queue.is_empty():
+		var it: Dictionary = queue.pop_front()
+		var pid := int(it["pid"])
+		var choice = null
+		match str(it["kind"]):
+			"room":
+				choice = RoomAbilities.on_build_room(G, pid, it["room"])
+			"another":
+				RoomAbilities.run_another_room_trigger(G, pid, it["room"])
+			"levelup":
+				choice = RoomAbilities.process_level_up(G, pid)
+		if choice != null:
+			G["pendingChoice"] = choice
+			return true
+	G.erase("revealQueue")
+	return false
+
+## GameBoard.RevealAllRoomCards : par joueur (PlayerId croissant) et par slot en attente, retourne la salle et met en file
+## ses declencheurs (WhenYouBuildThisRoom, WhenYouBuildAnotherRoom, level-up au 5e slot). EnqueueAbilityTransaction insere
+## une transaction AVANT la premiere deja en file du meme PlayerId : elles s'executent donc dans l'ordre inverse de la file.
+func _build_reveal_queue() -> Array:
+	var out: Array = []
 	for pid in CardDB.order_by_xp(G["players"]):
 		var p: Dictionary = G["players"][pid]
 		if p.get("eliminated", false):
 			continue
+		var mine: Array = []
 		for stack in (p.get("dungeon", []) as Array):
 			var room = BossEngine.active_room(stack)
 			if room == null or not (room as Dictionary).get("faceDown", false):
 				continue
 			var r: Dictionary = room
-			RoomAbilities.on_build_another_room(G, int(pid), r) # avant faceDown=false : la salle compte comme « en attente » (C#)
+			mine.append({"pid": int(pid), "kind": "room", "room": r})
+			for o in RoomAbilities.another_room_triggers(G, int(pid)): # avant faceDown=false : la salle compte comme « en attente » (C#)
+				mine.append({"pid": int(pid), "kind": "another", "room": o})
 			r["faceDown"] = false
 			_log("Salle révélée : %s pour le joueur %s" % [str(r.get("name", "?")), str(pid)])
-			var choice = RoomAbilities.on_build_room(G, int(pid), r)
-			if choice != null:
-				G["pendingChoice"] = choice
-				return true
-		if BossEngine.count_visible_rooms(p["dungeon"]) >= 5 and not p.get("leveledUp", false):
-			p["leveledUp"] = true
-			_log("Joueur %s EST MONTÉ EN NIVEAU !" % str(pid))
-			var choice = RoomAbilities.process_level_up(G, int(pid))
-			if choice != null:
-				G["pendingChoice"] = choice
-				return true
-	return false
+			if BossEngine.count_visible_rooms(p["dungeon"]) >= 5 and not p.get("leveledUp", false):
+				p["leveledUp"] = true
+				_log("Joueur %s EST MONTÉ EN NIVEAU !" % str(pid))
+				mine.append({"pid": int(pid), "kind": "levelup"})
+		mine.reverse()
+		out.append_array(mine)
+	return out
 
 ## Pilote les sieges IA tant que le joueur actif en est une. Comme dans le JS,
 ## l'IA n'a pas de chemin prive : elle choisit un coup avec AI.pick_move puis le
@@ -1191,7 +1225,7 @@ func _finish_hero_if_dead() -> void:
 	var hero: Dictionary = adv.get("hero", {})
 	var pid: int = int(adv.get("playerId", 0))
 	var death_room: Dictionary = G.get("_deathRoom", {})
-	if death_room.is_empty():
+	if death_room.is_empty() and not bool(adv.get("roomGone", false)):
 		var p: Dictionary = G["players"][pid]
 		var idx: int = int(adv.get("roomIndex", -1))
 		var d: Array = p.get("dungeon", [])
@@ -1215,12 +1249,18 @@ func _init_adventure_phase() -> void:
 	if not _has_adventure_work():
 		_check_end_or_next_turn()
 
+## Heros a l'entree du donjon qui vont encore agir ce tour : Trepidation (Boss.ForceSkipAdventure) les laisse a l'entree
+## (GameBoard.ChooseNextActiveHero : AdventurePhase_a direct).
+func _has_entrance_hero(pid: int) -> bool:
+	var p: Dictionary = (G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary
+	return not (p.get("entrance", []) as Array).is_empty() and not ((G.get("effects", {}) as Dictionary).get("skipAdventure", []) as Array).has(pid)
+
 func _has_adventure_work() -> bool:
 	if not G.get("adventure", {}).is_empty():
 		return true
 	for pid in G["players"]:
 		var p: Dictionary = G["players"][pid]
-		if not p.get("eliminated", false) and not (p.get("entrance", []) as Array).is_empty():
+		if not p.get("eliminated", false) and _has_entrance_hero(int(pid)):
 			return true
 	return false
 
@@ -1233,6 +1273,8 @@ func _advance_adventure_room() -> void:
 	var hero: Dictionary = adv["hero"]
 	var dungeon: Array = p.get("dungeon", [])
 	var i: int = int(adv.get("roomIndex", -1)) + (0 if adv.erase("replay") else 1) # replay : voir BossEngine.destroy_room
+	if adv.erase("back"): # Minotaur's Maze : recule d'une salle (l'index du pas courant reste celui de la salle du Maze)
+		i -= 2
 	adv["roomIndex"] = i
 
 	if i >= dungeon.size():
@@ -1248,6 +1290,12 @@ func _advance_adventure_room() -> void:
 	adv["hp"] = int(adv["hp"]) - dmg
 	adv["pause"] = "post-damage"
 	G["adventurePausePassed"] = {}
+	# FirstTimeHeroEnterThisRoom (GameBoard.ProccessActiveHero : slot plus proche du boss que jamais, salle active) :
+	# BMA017 Minotaur's Maze = MoveHeroToRelativeSlot(1), le heros recule d'une salle et la re-subit au pas suivant.
+	if i > int(adv.get("nearest", -1)):
+		adv["nearest"] = i
+		if str((room as Dictionary).get("id", "")) == "BMA017" and not BossEngine.is_room_deactivated(G, pid, i) and int(adv["hp"]) > 0 and i > 0:
+			adv["back"] = true
 	_log("%s subit %d dégâts dans %s (PV restants : %d)." % [
 		hero.get("name", "?"), dmg, (room as Dictionary).get("name", "?"), int(adv["hp"])
 	])
@@ -1268,7 +1316,7 @@ func _check_adventure_pause_passed() -> void:
 			var pid: int = int(adv["playerId"])
 			var p: Dictionary = G["players"][pid]
 			var idx: int = int(adv["roomIndex"])
-			var death_room = BossEngine.active_room(p["dungeon"][idx]) if idx < (p["dungeon"] as Array).size() else {}
+			var death_room = BossEngine.active_room(p["dungeon"][idx]) if idx < (p["dungeon"] as Array).size() and not bool(adv.get("roomGone", false)) else {}
 			_finish_hero(pid, adv["hero"], int(adv["hp"]), death_room if death_room != null else {})
 		else:
 			adv["pause"] = "pre-exit"
@@ -1310,7 +1358,7 @@ func _advance_adventure_player() -> void:
 			pl["hasActed"] = false
 		for pid in CardDB.order_by_xp(G["players"]):
 			var pl: Dictionary = G["players"][pid]
-			if not pl.get("eliminated", false) and not (pl.get("entrance", []) as Array).is_empty():
+			if not pl.get("eliminated", false) and _has_entrance_hero(int(pid)):
 				G["activePlayer"] = int(pid)
 				return
 	else:
@@ -1343,9 +1391,7 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 			})
 		_log("Âme capturée ! (%d/%d)" % [CardDB.total_souls(p), WIN_SOULS])
 		if not death_room.is_empty():
-			var choice = RoomAbilities.on_hero_died_in_room(G, pid, death_room)
-			if choice != null:
-				G["pendingChoice"] = choice
+			_hero_died_trigger(pid, death_room)
 	else:
 		var wounds := BossEngine.hero_wounds(hero)
 		for w in wounds:
@@ -1359,6 +1405,7 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 		_log("Le héros survit et blesse le boss ! (%d blessures)" % CardDB.total_wounds(p))
 		if CardDB.total_wounds(p) >= 5:
 			p["eliminated"] = true
+			entrance.clear() # GameBoard.ChooseNextActiveHero : !IsAlive => EntranceQueue.Clear()
 			_log("Joueur %d éliminé !" % pid)
 
 	(G["decks"]["heroDiscard"] as Array).append(hero)
@@ -1374,6 +1421,12 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 	if bool(p.get("eliminated", false)) and pid == active_player():
 		p["passed"] = true
 		_advance_adventure_player()
+
+## Declencheur HeroDiesInThisRoom. Surchargeable : l'APK execute la transaction au NextStep suivant, apres l'ajout de l'ame (voir ApkMatch).
+func _hero_died_trigger(pid: int, death_room: Dictionary) -> void:
+	var choice = RoomAbilities.on_hero_died_in_room(G, pid, death_room)
+	if choice != null:
+		G["pendingChoice"] = choice
 
 func _check_end_or_next_turn() -> void:
 	# Phase 5 : END (Fin de tour et conditions de victoire)

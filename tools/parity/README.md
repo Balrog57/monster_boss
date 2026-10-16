@@ -171,13 +171,16 @@ Celui-ci compare a la vraie : `tools/apk-oracle` fait jouer `DBMGame.dll` 2.2.6
 (IA originale contre IA originale) et trace chaque phase, action et decision.
 
 ```bash
-npm run test:parity:apk                       # graines 1-3 x 2 et 3 joueurs (BaseDeck), ~15 s
+npm run test:parity:apk                       # graines 1-3 x 2 et 3 joueurs (BaseDeck), ~15 s : doit rester 6/6 OK
+npm run test:parity:apk:wide                  # graines 4-7 x 2, 3 et 4 joueurs, ~25 s : couverture, des echecs connus (voir « Limites »)
 node tools/parity/apk.mjs --seeds 4 5 --players 2 4
+node tools/parity/apk.mjs --decks BaseDeck,PlayerChoice,HiddenHeros   # autres paquets (l'oracle les joue, Godot n'en gere pas les regles)
 node tools/parity/apk.mjs --skip-gen          # rejoue les traces deja generees
 GODOT=<exe> npm run test:parity:apk           # sinon C:/Tools/Godot/...console.exe, puis `godot`
+APK_PARITY_OUT=<dossier> npm run test:parity:apk   # dossier de sortie dedie (rejeux paralleles de plusieurs agents)
 ```
 
-Sortie : `tools/parity/out/apk/` (gitignore) = `oracle-*.json` (traces),
+Sortie : `tools/parity/out/apk/` (ou `$APK_PARITY_OUT`, gitignore) = `oracle-*.json` (traces),
 `gd-*.json` (projections Godot), **`report.json`** et un tableau en console.
 Le harnais ne corrige aucune regle : il rapporte (code de sortie 0 meme a 0 %).
 
@@ -192,14 +195,11 @@ Le harnais ne corrige aucune regle : il rapporte (code de sortie 0 meme a 0 %).
    Un coup absent de `legal_moves` est un **REFUS** (consigne dans `events`, le rejeu continue).
 3. `apk.mjs` projette l'etat de l'oracle de la meme facon et compare aux points de controle.
 
-Le rejeu ne recoit aucune aide : Godot n'a pas d'etape de pose de salle initiale, chaque `buildRoom` de `Setup_b` qu'il ne propose pas est un REFUS.
+Le rejeu ne recoit aucune aide de regles : Godot implemente la salle initiale (`Setup_b`, un `buildRoom` par joueur) comme l'APK ; un `buildRoom` qu'il ne propose pas est un REFUS. Le harnais ne fait que synchroniser les phases (voir « Conventions de rejeu »).
 
-Correction a la section du dessus : l'APK **a bien** une salle initiale par joueur, posee par
-`BuildRoom` pendant `Setup_b` (visible dans toutes les traces oracle).
+## Conditions initiales (posees par le harnais)
 
-## Conditions initiales injectees
-
-- Bosses : ceux de l'oracle. `pid` Godot = `playerId` - 1 ; l'ordre d'insertion des joueurs suit la liste `initial.bosses`.
+- Bosses : ceux de l'oracle. `pid` Godot = `playerId` - 1 ; les joueurs sont inseres par `PlayerId` croissant (comme `Match.new_match`), pas dans l'ordre des sieges de la trace : les effets sur « tous les joueurs » (Jeopardy) suivent `InGamePlayersPriorized`.
 - Pioches : celles de l'oracle **apres la distribution d'ouverture** (champ `deckOrders` ajoute au
   step `Setup_a` de la trace, seul changement dans `tools/apk-oracle` : `AvoidMulliganCondition`
   remelange tout le paquet quand une main a >= 4 salles avancees ou >= 4 memes tresors, donc
@@ -232,7 +232,15 @@ pioches = `heroes` (ordinaires + epiques), `rooms`, `spells`, `discardRooms`, `d
 `souls`/`wounds` sont les totaux (`CardDB.total_souls/total_wounds` vs `Souls`/`Wounds` C#).
 `active` n'est pas compare quand l'oracle repete le joueur apres une fenetre de sorts ou sa propre construction.
 
-Conventions de rejeu : une fenetre de pause d'aventure Godot (`post-damage`, `pre-exit`) = fenetre
+Conventions de rejeu (harnais seulement, aucune regle) :
+
+- `Setup_c`/`BeginningOfTurn` : un joueur dont l'IA oracle n'a pas pose de salle initiale fait `passBuild` cote Godot ; un `ExtraBuildPhase` oracle sans `buildRoom` derriere ferme le tour supplementaire Godot (`forcedBuild`).
+- `playRoomAbility` est **retenu** jusqu'au prochain step de phase avec ses decisions : l'oracle met la capacite en file et ne l'execute qu'au `NextStep` suivant, apres d'eventuelles actions de l'IA ; Godot l'applique tout de suite. Une activation devenue impossible (salle recouverte) est notee `FIZZLE` (exception C# loguee, rien ne s'execute).
+- `HeroDiesInThisRoom` est execute par l'oracle un `NextStep` apres l'ajout de l'ame : `ApkMatch._hero_died_trigger` retient le declencheur jusqu'au step suivant.
+- Les decisions de declencheurs arrivent dans le journal AVANT le step qui les execute : une decision sans choix Godot correspondant est retenue (2 steps de phase) puis rejouee des qu'un choix du bon joueur s'ouvre (`_late`).
+- Les tirages « au hasard » (`forcedRandom`) ne proposent que les pertes a venir (`seq` >= step courant).
+
+Une fenetre de pause d'aventure Godot (`post-damage`, `pre-exit`) = fenetre
 de sorts de l'oracle, tous les joueurs « passent » ; un `spellBattleReady` fait passer le repondant
 que Godot attend ; `AdventurePhase_c` = un `adventureNext`, sauf un step `detail.executed == false` (l'oracle sort de `NextStep()` sans phase quand un duel de sorts se termine, `GameBoard.cs:318`) qui n'est pas rejoue ; une `decision` oracle sans choix en attente
 cote Godot est comptee dans `stats.decisionsSkipped` ; un choix Godot que l'oracle n'a pas resolu est
@@ -254,7 +262,9 @@ tout ce qui suit la premiere divergence est en cascade), `stats`, `matched/check
   `PickRandomCardFromHand`) et la defausse de salle de Torture Chamber (BMA038) ne sont pas implementees dans Godot.
 - `_sync_build(-1)` (l'oracle a clos la construction) force des `passBuild` mais s'arrete des que Godot ouvre un tour de
   construction supplementaire (`forcedBuild`) ou change de tour : c'est alors l'oracle qui pilote.
-- Les melanges de reconstitution (pioche vide) ne sont pas reproductibles ; aucune des 6 traces n'en declenche.
+- Les melanges de reconstitution (pioche vide) ne sont pas reproductibles ; aucune des traces par defaut n'en declenche.
+- **Courses de l'IA oracle** (graines 4-7, non reproductibles par construction) : l'IA active une capacite de salle (Dracolich Lair, Torture Chamber, Jackpot Stash...), puis pose une salle ou joue une carte AVANT que la transaction ne s'execute (elle peut batir sur la salle qui va etre detruite, ou poser la carte qu'elle va defausser) ; l'APK finit par lever/ignorer l'exception. Godot reserve les activations au joueur actif et les applique tout de suite : s4-p2, s5-p2, s5-p3 (debut), s6-p3 et s7-p3 en dependent.
+- Paquets `PlayerChoice` (bosses KSA003/006/007, sort KSA013 T.P.K., heros KSA014/KSA017) et `HiddenHeros` (heros BMH* : les regles Godot propres a un heros, ex. The Fool, sont indexees sur l'identifiant BMA) : mappes dans `cards.json` mais sans regles dans Godot ; non implementes volontairement.
 - `chooseDraw` et `undoBuildRoom` n'apparaissent pas dans ces traces ; ils seraient un REFUS.
 - Les decisions `resolveTarget` internes aux capacites (cibles d'IA) ne sont transmises que si Godot
   a un choix en attente correspondant ; l'appariement oracle->option est heuristique (`_refs`).

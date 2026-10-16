@@ -68,7 +68,10 @@ sealed class Trace
         steps.Add((s, e));
     }
 
-    public void Error(Exception ex) => error = new { type = ex.GetType().Name, message = ex.Message, stack = ex.ToString() };
+    // Derniere exception du jeu vue en "first chance" : LogService.LogException (Xamarin.Insights) re-leve une erreur qui masque la vraie cause.
+    public static string LastFirstChance;
+
+    public void Error(Exception ex) => error = new { type = ex.GetType().Name, message = ex.Message, stack = ex.ToString(), inner = LastFirstChance };
 
     public object Finish(string result) => new
     {

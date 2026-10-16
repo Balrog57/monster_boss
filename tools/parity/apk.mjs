@@ -1,7 +1,7 @@
 // Parite Godot <-> APK ORIGINALE (oracle = DBMGame.dll 2.2.6 headless, tools/apk-oracle).
 //
 //   npm run test:parity:apk
-//   node tools/parity/apk.mjs [--seeds 1 2 3] [--players 2 3] [--skip-gen]
+//   node tools/parity/apk.mjs [--seeds 1 2 3] [--players 2 3] [--decks BaseDeck,PlayerChoice] [--skip-gen]
 //
 // 1. genere les traces oracle (seeds x joueurs, BaseDeck) dans tools/parity/out/apk/
 // 2. Godot (ApkParity.tscn) rejoue chaque trace (aucune aide) et enregistre sa projection
@@ -131,7 +131,9 @@ function compareTrace(trace, gd) {
     const s = steps[i];
     // turnstart/bait : Godot enchaine parfois plusieurs phases en un coup, on compare a sa photo prise au bon moment.
     const g = kind === 'turnstart' || kind === 'bait' ? gd.snaps[`${kind}:${s.turn}`] : gd.proj[String(s.seq)];
-    const diffs = g ? diffProj(oracleProj(s, trace), g, kind, skipFields(steps, i, kind)) : [{ field: '(point non atteint par Godot)', group: '-', oracle: null, godot: null }];
+    // Godot enchaine parfois la fin du tour dans le meme coup (ex. dernier heros blesse => joueur elimine) : `phase` n'est alors plus comparable.
+    const ahead = kind === 'adv' && g && g.turn > s.turn ? ['phase'] : [];
+    const diffs = g ? diffProj(oracleProj(s, trace), g, kind, [...skipFields(steps, i, kind), ...ahead]) : [{ field: '(point non atteint par Godot)', group: '-', oracle: null, godot: null }];
     checks.push({ seq: s.seq, kind, ok: diffs.length === 0 });
     if (diffs.length === 0) { matched++; continue; }
     const d = diffs[0];
@@ -154,14 +156,14 @@ function compareTrace(trace, gd) {
 
 // --- orchestration --------------------------------------------------------------
 
-function generate(seeds, players) {
+function generate(seeds, players, decks) {
   fs.mkdirSync(OUT, { recursive: true });
   for (const f of fs.readdirSync(OUT)) if (/^(oracle|gd-).*\.json$|^report\.json$/.test(f)) fs.unlinkSync(path.join(OUT, f));
   const names = [];
   for (const seed of seeds) {
     for (const n of players) {
       const name = `oracle-s${seed}-p${n}.json`;
-      const r = spawnSync('dotnet', ['run', '--project', 'tools/apk-oracle', '-v', 'q', '--', '--seed', String(seed), '--players', String(n), '--out', path.join(OUT, name)],
+      const r = spawnSync('dotnet', ['run', '--project', 'tools/apk-oracle', '-v', 'q', '--', '--seed', String(seed), '--players', String(n), '--decks', decks, '--out', path.join(OUT, name)],
         { cwd: REPO, encoding: 'utf8' });
       const out = `${r.stdout ?? ''}${r.stderr ?? ''}`.trim();
       if (!fs.existsSync(path.join(OUT, name))) { console.error(`[apk-parity] oracle ${name} ECHEC\n${out}`); process.exit(1); }
@@ -197,7 +199,9 @@ async function main() {
   const list = (flag, dflt) => { const i = argv.indexOf(flag); if (i < 0) return dflt; const out = []; for (let k = i + 1; k < argv.length && !argv[k].startsWith('--'); k++) out.push(Number(argv[k])); return out; };
   const seeds = list('--seeds', [1, 2, 3]);
   const players = list('--players', [2, 3]);
-  const names = argv.includes('--skip-gen') ? fs.readdirSync(OUT).filter((f) => /^oracle-.*\.json$/.test(f)) : generate(seeds, players);
+  const di = argv.indexOf('--decks');
+  const decks = di >= 0 ? argv[di + 1] : 'BaseDeck';
+  const names = argv.includes('--skip-gen') ? fs.readdirSync(OUT).filter((f) => /^oracle-.*\.json$/.test(f)) : generate(seeds, players, decks);
 
   const godotErrors = runGodot();
   const traces = [];

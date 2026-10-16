@@ -262,7 +262,8 @@ static func hero_health_with_modifiers(G: Dictionary, hero: Dictionary) -> int:
 
 ## Detruit la salle active de room_index. Renvoie la carte detruite, ou null.
 ## G (optionnel) : decale les effets indexes par slot (Freeze, bonus de degats) quand l'emplacement disparait.
-static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}):
+## triggers=false : ChooseAndDestroyRoom (Robobo) = DestroyRoom(checkTriggers:false), pas de WhenAnotherRoomIsDestroyed.
+static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}, triggers := true):
 	var dungeon: Array = player.get("dungeon", [])
 	if room_index < 0 or room_index >= dungeon.size():
 		return null
@@ -294,7 +295,26 @@ static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}
 				adv["replay"] = true
 			elif room_index < h:
 				adv["roomIndex"] = h - 1
+			else:
+				adv["roomGone"] = true # le slot du heros disparait : sa mort n'a plus de salle (InsideDungeonSlot.TopRoom == null)
+	if triggers and not G.is_empty():
+		_on_other_room_destroyed(G, player)
 	return destroyed
+
+## GameBoard.DestroyRoom -> CheckTriggerInDungeon<WhenAnotherRoomIsDestroyed> : chaque BMA031 Recycling Center
+## actif du donjon (la salle detruite n'y est plus) fait piocher 2 salles a son proprietaire (DrawCards 2 Room).
+static func _on_other_room_destroyed(G: Dictionary, player: Dictionary) -> void:
+	var dungeon: Array = player.get("dungeon", [])
+	var deck: Array = (G.get("decks", {}) as Dictionary).get("rooms", []) as Array
+	for i in dungeon.size():
+		var top = active_room(dungeon[i])
+		if top == null or bool((top as Dictionary).get("faceDown", false)) or str((top as Dictionary).get("id", "")) != "BMA031":
+			continue
+		if is_room_deactivated(G, int(player.get("id", -1)), i):
+			continue
+		for _k in 2:
+			if not deck.is_empty():
+				(player.get("hand", []) as Array).append(deck.pop_back())
 
 static func discard_room_to_pile(decks: Dictionary, card) -> void:
 	if card == null:

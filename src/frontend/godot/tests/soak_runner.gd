@@ -1,6 +1,6 @@
 extends Node
 ## Soak : partie 2j IA-vs-IA. Scène exécutée en headless avec autoloads.
-## Usage : godot --headless --path src/frontend res://godot/tests/Soak.tscn
+## Usage : godot --headless --path src/frontend res://godot/tests/Soak.tscn [-- --players=3]
 
 const CardData = preload("res://godot/scripts/CardData.gd")
 const GameManager = preload("res://godot/scripts/GameManager.gd")
@@ -29,7 +29,11 @@ func _ready() -> void:
 
 	var m = GameManager.new()
 	add_child(m)
-	m.start_new_game(2, 0)
+	var n_players := 2 # `-- --players=N` : meme soak a 3 ou 4 IA
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--players="):
+			n_players = clampi(int(a.substr(len("--players="))), 2, 4)
+	m.start_new_game(n_players, 0)
 	var steps := 0
 	while m.G.get("gameOver") == null and steps < 500:
 		var acted := false

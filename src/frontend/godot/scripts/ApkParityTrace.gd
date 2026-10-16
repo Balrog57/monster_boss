@@ -42,6 +42,23 @@ class ApkMatch extends Match:
 		if snap.is_valid():
 			snaps["%s:%d" % [tag, maxi(0, int(G.get("turn", 0)) - 1)]] = snap.call()
 
+	## HeroDiesInThisRoom : l'oracle met la transaction en file pendant ProccessActiveHero (l'ame est deja ajoutee) et ne
+	## l'execute qu'au NextStep suivant. On retient donc le declencheur jusqu'au step oracle suivant (ou la fin de tour).
+	var held_death: Array = []
+
+	func _hero_died_trigger(pid: int, death_room: Dictionary) -> void:
+		held_death.append([pid, death_room])
+
+	func release_death() -> void:
+		var q := held_death
+		held_death = []
+		for e in q:
+			super._hero_died_trigger(int(e[0]), e[1])
+
+	func _check_end_or_next_turn() -> void:
+		release_death()
+		super._check_end_or_next_turn()
+
 	func release_start() -> void:
 		hold_start = false
 		if held:
@@ -58,6 +75,15 @@ var _tbl: Dictionary = {}
 var _steps: Array = []
 var _prev_players: Array = []
 var _deferred: Array = [] # decisions oracle d'un autre joueur que le choix Godot en attente (ordre de file different)
+# Decisions oracle arrivees AVANT que Godot n'ouvre le choix correspondant (l'oracle les journalise pendant le NextStep
+# qui declenche la capacite, Godot ouvre le choix au coup suivant) : rejouees des que le choix existe, 2 steps de phase au plus.
+var _late: Array = []
+var _losses: Array = [] # [oid, seq] des cartes quittant une main sans cause visible (voir _involuntary_losses)
+var _held: Dictionary = {} # activation de capacite de salle retenue jusqu'au prochain step de phase (voir _on_action)
+var _extra_pid := -1 # joueur du dernier ExtraBuildPhase oracle (voir _close_forced)
+## Salles a declencheur (mort de heros, revelation) : l'oracle journalise leurs decisions avant le step qui les execute.
+const DEATH_TRIGGERS := ["BMA010", "BMA012", "BMA014", "BMA016", "BMA021", # HeroDiesInThisRoom
+	"BMA011", "BMA019", "BMA022", "BMA033", "BMA034", "BMA036", "BMA037"] # WhenYouBuildThisRoom / WhenYouBuildAnotherRoom (revelation)
 
 
 # --- construction de la partie ---------------------------------------------
@@ -104,7 +130,11 @@ func replay(trace: Dictionary) -> Dictionary:
 	var initial: Dictionary = trace["initial"]
 	var meta: Dictionary = trace.get("meta", {})
 	var players := {}
-	for b in (initial["bosses"] as Array):
+	# Ordre d'insertion = PlayerId croissant, comme Match.new_match (l'oracle liste les bosses par siege) : les effets sur
+	# « tous les joueurs » (Jeopardy...) suivent InGamePlayersPriorized, soit l'ordre du dictionnaire cote Godot.
+	var bosses: Array = (initial["bosses"] as Array).duplicate()
+	bosses.sort_custom(func(a, b): return int((a as Dictionary)["playerId"]) < int((b as Dictionary)["playerId"]))
+	for b in bosses:
 		var bd: Dictionary = b
 		var pid := int(bd["playerId"]) - 1
 		players[pid] = {
@@ -156,10 +186,17 @@ func replay(trace: Dictionary) -> Dictionary:
 			(run.G["players"][pid] as Dictionary)["hand"] = hand
 		run._queue_next_opening_discard()
 
-	run.G["forcedRandom"] = _involuntary_losses()
+	_losses = _involuntary_losses()
 	proj["0"] = project()
 	for i in _steps.size():
 		var s: Dictionary = _steps[i]
+		run.release_death()
+		# Un meme exemplaire peut etre perdu, recupere puis re-perdu : on ne propose que les pertes a venir (seq >= step courant).
+		run.G["forcedRandom"] = _losses.filter(func(e): return int((e as Array)[1]) >= int(s["seq"])).map(func(e): return (e as Array)[0])
+		if str(s["kind"]) == "phase":
+			_release_held()
+			_flush_late()
+			_age_late()
 		# Les decisions de revelation (BuildPhase_a puis _b) peuvent rester en attente a travers le NextStep de B.
 		if str(s["kind"]) != "decision" and not (str(s["kind"]) == "phase" and str(s["phase"]) in ["BuildPhase_a", "BuildPhase_b"]):
 			_deferred.clear()
@@ -425,9 +462,12 @@ func _on_phase(s: Dictionary) -> void:
 		return
 	if str(s["phase"]) != "BuildPhase_a":
 		_close_window(s)
+	if str(s["phase"]) in ["Setup_c", "BeginningOfTurn", "BuildPhase_b", "BaitPhase"]:
+		_close_forced(s)
 	match str(s["phase"]):
-		"BeginningOfTurn":
-			if run.hold_start:
+		"Setup_c", "BeginningOfTurn":
+			_close_setup(s)
+			if str(s["phase"]) == "BeginningOfTurn" and run.hold_start:
 				run.release_start()
 		"BuildPhase_a":
 			if s["activePlayer"] != null:
@@ -435,7 +475,8 @@ func _on_phase(s: Dictionary) -> void:
 			elif str(s["nextPhase"]) == "BuildPhase_b":
 				_sync_build(-1, s)
 		"ExtraBuildPhase":
-			_note(s, "NOTE", "ExtraBuildPhase : pas d'equivalent harnais")
+			_extra_pid = int(s["activePlayer"]) - 1 # Godot a ouvert le tour de construction supplementaire (forcedBuild) : refermer s'il n'est pas joue
+			_note(s, "NOTE", "ExtraBuildPhase : tour supplementaire (forcedBuild cote Godot)")
 		"AdventurePhase_b":
 			# Plus de heros pour ce joueur : Godot attend son "pass".
 			if s["activeHero"] == null and s["activePlayer"] != null:
@@ -448,6 +489,33 @@ func _on_phase(s: Dictionary) -> void:
 				_end_adventure(s)
 		"AdventurePhase_c":
 			_adv_step(s)
+
+
+## ExtraBuildPhase : l'oracle l'a refermee sans que son IA construise (pas d'action) : Godot attend encore le coup du joueur.
+func _close_forced(s: Dictionary) -> void:
+	var pid := _extra_pid
+	_extra_pid = -1
+	for _k in 4:
+		if pid < 0 or run.active_player() != pid or not run.G.has("forcedBuild") or str(run.G.get("phase", "")) != "build" 				or not (run.G.get("pendingChoice", {}) as Dictionary).is_empty():
+			return
+		_note(s, "FORCED-PASS", "tour de construction supplementaire : l'oracle ne construit pas")
+		if not _apply_type(run.active_player(), "passBuild", s):
+			return
+
+
+## Setup_b : l'oracle n'impose pas de salle initiale a chaque joueur (l'IA peut s'en abstenir) ; Godot attend un coup de chacun.
+func _close_setup(s: Dictionary) -> void:
+	for _k in 8:
+		if not bool(run.G.get("setupBuild", false)):
+			return
+		var did := false
+		for pid in (run.G["players"] as Dictionary).keys():
+			if int(((run.G["players"][pid] as Dictionary).get("buildsThisTurn", 0))) == 0 and _has_legal(int(pid), "passBuild"):
+				_note(s, "FORCED-PASS", "salle initiale : l'oracle n'en a pas construit pour le joueur %d" % (int(pid) + 1))
+				did = _apply_type(int(pid), "passBuild", s)
+				break
+		if not did:
+			return
 
 
 ## BuildPhase_a : Godot attend un coup de chaque joueur ; l'oracle a "passe" pour ceux qui n'ont pas construit.
@@ -490,8 +558,7 @@ func _close_window(s: Dictionary) -> void:
 
 
 func _adventure_idle(pid: int) -> bool:
-	var p: Dictionary = run.G["players"][pid]
-	return (p.get("entrance", []) as Array).is_empty() and (run.G.get("adventure", {}) as Dictionary).is_empty()
+	return not run._has_entrance_hero(pid) and (run.G.get("adventure", {}) as Dictionary).is_empty()
 
 
 func _end_adventure(s: Dictionary) -> void:
@@ -562,7 +629,11 @@ func _on_action(i: int, s: Dictionary) -> void:
 		"buildRoom":
 			_build(s, d, pid)
 		"playRoomAbility":
-			_ability(i, s, d, pid)
+			# L'oracle met la capacite en file (transaction) : elle ne s'execute qu'au NextStep suivant, apres d'eventuelles actions
+			# de l'IA (ex. construire sur la salle qui va etre detruite). Godot l'applique tout de suite : on retient donc
+			# l'activation, ses decisions, jusqu'au prochain step de phase.
+			_release_held()
+			_held = {"i": i, "s": s, "d": d, "pid": pid, "decs": []}
 		"playSpell":
 			_spell(i, s, d, pid)
 		"spellBattleReady":
@@ -607,8 +678,8 @@ func _involuntary_losses() -> Array:
 			for k in ["hand", "spells"]:
 				for c in ((p as Dictionary)[k] as Array):
 					var oid := int((c as Dictionary)["id"])
-					if not now.has(oid) and not keep.has(oid) and not out.has(oid):
-						out.append(oid)
+					if not now.has(oid) and not keep.has(oid):
+						out.append([oid, int(s["seq"])])
 	return out
 
 
@@ -638,12 +709,28 @@ func _build(s: Dictionary, d: Dictionary, pid: int) -> void:
 	_apply_move(pid, {"type": "buildRoom", "args": args}, s, label)
 
 
+## Applique l'activation retenue (puis ses decisions) : execution de la transaction cote oracle.
+func _release_held() -> void:
+	if _held.is_empty():
+		return
+	var h := _held
+	_held = {}
+	_ability(int(h["i"]), h["s"], h["d"], int(h["pid"]))
+	for e in (h["decs"] as Array):
+		_on_decision(int((e as Array)[0]), (e as Array)[1])
+
+
 func _ability(i: int, s: Dictionary, d: Dictionary, pid: int) -> void:
 	var room: Dictionary = d["room"]
 	var label := "activateRoom(%s)" % str(room["card"])
 	var si := _stack_index(pid, int(room["id"]))
 	if si < 0:
 		_refus(s, label, pid, "salle absente du donjon Godot")
+		return
+	var top = ((run.G["players"][pid] as Dictionary)["dungeon"] as Array)[si].back()
+	if int((top as Dictionary).get("_oid", -1)) != int(room["id"]):
+		# GameBoard.DestroyRoom / ability sur une salle recouverte entre-temps : exception C# loguee, rien ne s'execute.
+		_note(s, "FIZZLE", "%s : la salle n'est plus au sommet de son slot (transaction oracle avortee)" % label)
 		return
 	var args: Array = [si]
 	var code := str(room["card"])
@@ -663,7 +750,14 @@ func _ability(i: int, s: Dictionary, d: Dictionary, pid: int) -> void:
 			return
 		args.append(other)
 	_auto_resolve(s)
-	_apply_move(pid, {"type": "activateRoom", "args": args}, s, label)
+	if run.apply_move(pid, {"type": "activateRoom", "args": args}):
+		return
+	# Activation retenue (voir _on_action) : l'IA oracle a construit entre-temps et Godot a deja passe la main (activation
+	# reservee au joueur actif). La transaction oracle s'execute quand meme : on appelle la capacite directement.
+	if str(run.G.get("phase", "")) == "build" and RoomAbilities.activate_room_ability(run.G, pid, si, int(args[1]) if args.size() > 1 else -1) == null:
+		_note(s, "LATE-ACTIVATE", "%s appliquee hors du tour de construction Godot (transaction oracle en file)" % label)
+		return
+	_refus(s, label, pid, "coup refuse (absent de legal_moves) args=%s" % str(args))
 
 
 func _spell(i: int, s: Dictionary, d: Dictionary, pid: int) -> void:
@@ -702,6 +796,14 @@ func _spell(i: int, s: Dictionary, d: Dictionary, pid: int) -> void:
 ## EnqueueAbilityTransaction) comme la file de choix Godot : une decision d'un autre joueur que le choix en attente
 ## est gardee jusqu'a ce que Godot ouvre le choix de ce joueur.
 func _on_decision(i: int, s: Dictionary) -> void:
+	_on_decision_inner(i, s)
+	_flush_late()
+
+
+func _on_decision_inner(i: int, s: Dictionary) -> void:
+	if not _held.is_empty() and int(((s["detail"] as Dictionary).get("owner", {}) as Dictionary).get("id", -1)) == int(((_held["d"] as Dictionary)["room"] as Dictionary)["id"]):
+		(_held["decs"] as Array).append([i, s])
+		return
 	_on_decision_now(i, s)
 	for _k in 12:
 		var pc: Dictionary = run.G.get("pendingChoice", {})
@@ -715,7 +817,7 @@ func _on_decision(i: int, s: Dictionary) -> void:
 		_on_decision_now(i, _deferred.pop_at(hit))
 
 
-func _on_decision_now(_i: int, s: Dictionary) -> void:
+func _on_decision_now(_i: int, s: Dictionary, age := -1) -> void:
 	if not bool(s.get("spellBattle", false)):
 		_close_window(s) # decision hors Spell Battle = la revelation a commence : la fenetre de sorts est close
 	var d: Dictionary = s["detail"]
@@ -730,6 +832,8 @@ func _on_decision_now(_i: int, s: Dictionary) -> void:
 		stats["decisionsSkipped"] += 1
 		if not pc.is_empty():
 			_deferred.append(s)
+		elif kind == "resolveTarget" and DEATH_TRIGGERS.has(str((d.get("owner", {}) as Dictionary).get("card", ""))):
+			_late.append({"s": s, "age": 0})
 		return
 	var chosen := _oids(d.get("chosen"))
 	if str(pc.get("type", "")) == "opening-discard":
@@ -764,6 +868,11 @@ func _on_decision_now(_i: int, s: Dictionary) -> void:
 			stats["decisionsSkipped"] += 1
 			_note(s, "DECISION-SKIPPED", "cible oracle %s (boss/salle proprietaire) sans equivalent ; choix Godot '%s' reste en attente" % [str(chosen), ptype])
 			return
+		# L'oracle decide dans l'ordre de MISE EN FILE des transactions, Godot ouvre ses choix dans l'ordre d'EXECUTION (inverse pour
+		# un meme joueur) : cette decision vise sans doute un choix que Godot n'a pas encore ouvert. On la retient (2 steps de phase).
+		if age < 2 and not chosen.is_empty():
+			_late.append({"s": s, "age": maxi(age, 0)})
+			return
 		_note(s, "CHOICE-UNMATCHED", "choix Godot '%s' : aucune option ne correspond a la decision oracle (%s) ; options=%s" % [ptype, str(chosen), str(opts.map(func(o): return _refs(o, pid)))])
 		pick = -1 if (bool(pc.get("optional", false)) or opts.is_empty()) else 0
 	elif not m["exact"] or not (m["ties"] as Array).is_empty():
@@ -775,6 +884,30 @@ func _on_decision_now(_i: int, s: Dictionary) -> void:
 		var m2 := _match_options(pc2.get("options", []), pid, chosen, d.get("chosen"))
 		if int(m2["pick"]) >= 0:
 			_apply_move(pid, {"type": "resolveChoice", "args": [int(m2["pick"])]}, s, "resolveChoice(recover-card)")
+
+
+## Rejoue les decisions en retard des qu'un choix Godot du bon joueur est ouvert.
+func _flush_late() -> void:
+	for _k in 6:
+		var pc: Dictionary = run.G.get("pendingChoice", {})
+		if pc.is_empty() or _late.is_empty():
+			return
+		var key := str(pc)
+		for e in _late.duplicate():
+			if int((((e as Dictionary)["s"] as Dictionary)["detail"] as Dictionary)["player"]) - 1 != int(pc.get("playerId", -1)):
+				continue
+			_late.erase(e)
+			_on_decision_now(0, e["s"], int((e as Dictionary)["age"]))
+			if str(run.G.get("pendingChoice", {})) != key:
+				break # le choix a ete resolu : le suivant (autre type d'options) peut convenir a une autre decision retenue
+		if str(run.G.get("pendingChoice", {})) == key:
+			return
+
+
+func _age_late() -> void:
+	for e in _late:
+		(e as Dictionary)["age"] += 1
+	_late = _late.filter(func(e): return int((e as Dictionary)["age"]) < 2)
 
 
 ## Choisit l'option dont les cartes designees recouvrent le mieux le choix oracle :
