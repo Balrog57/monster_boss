@@ -9,6 +9,7 @@ signal closed
 const UI := "res://assets/ui/"
 const FONT_A := "res://assets/fonts/arcadepix.fnt"
 const GOLD := Color("cdb15f")
+const BODY_SIZE := 21
 
 var tab := 0
 
@@ -52,7 +53,7 @@ func _build() -> void:
 		r.position = Vector2(x, 106)
 		r.size = Vector2(tw - 10, 46)
 		add_child(r)
-		add_child(_lbl(str(secs[i][0]), 15, Color.BLACK if i == tab else GOLD, Vector2(x, 106), Vector2(tw - 10, 46)))
+		add_child(_lbl(str(secs[i][0]), 15 if str(secs[i][0]).length() <= 14 else 12, Color.BLACK if i == tab else GOLD, Vector2(x, 106), Vector2(tw - 10, 46)))
 		var hit := Button.new()
 		for n in ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]:
 			hit.add_theme_stylebox_override(n, StyleBoxEmpty.new())
@@ -82,7 +83,12 @@ func _build() -> void:
 	var body := Label.new()
 	body.custom_minimum_size = Vector2(1300, 0)
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.add_theme_font_size_override("font_size", 24)
+	var fv := FontVariation.new() # police pixel de l'APK (taille native 21 : nette) ; la police par defaut couvre les glyphes absents
+	fv.base_font = load(FONT_A)
+	fv.fallbacks = [ThemeDB.fallback_font]
+	body.add_theme_font_override("font", fv)
+	body.add_theme_font_size_override("font_size", BODY_SIZE)
+	body.add_theme_constant_override("line_spacing", 6)
 	body.text = str(secs[tab][1])
 	scroll.add_child(body)
 
@@ -132,4 +138,5 @@ static func _load_text() -> String:
 	var f := FileAccess.open("res://godot/data/rules.txt", FileAccess.READ)
 	if f == null:
 		return "Rules not found (godot/data/rules.txt)."
-	return f.get_as_text().replace("", "")
+	return f.get_as_text().replace("
+", "")

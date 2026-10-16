@@ -44,41 +44,67 @@ func _expect(cond: bool, msg: String) -> bool:
 
 # --- 1. filtrage des vues -------------------------------------------------------
 
+## Parties de filtrage : graines FIXES (deterministe), et on rejoue d'autres graines tant que la couverture exigee
+## (assez de vues verifiees, ligne privee, miniboss face cache) n'est pas atteinte, avec un plafond. Avant : une seule partie
+## aleatoire, donc un echec rare quand elle finissait trop tot ou quand le miniboss (pose une seule fois au pas 40) n'avait pas de salle.
+const FILTER_MAX_GAMES := 8
+
 func _check_filter_unit() -> void:
 	_check_room_view()
 	for sets in [["base"], ["next-level", "crash-landing", "players-choice", "hidden-heroes", "minibosses"]]:
-		var m = GameManager.new()
-		add_child(m)
-		m.start_new_game(3, 0, sets)
-		var steps := 0
 		var checks := 0
-		while m.G.get("gameOver") == null and steps < 4000 and _fails.is_empty():
-			steps += 1
-			if sets.has("minibosses") and steps == 40: # l'IA pose rarement un miniboss : on en pose un face cache chez chaque joueur
-				for pid in m.G["players"]:
-					for stack in m.G["players"][pid]["dungeon"]:
-						if not Minibosses.stack_has_mb(stack):
-							Minibosses.attach(m.G, int(pid), BossEngine.active_room(stack), (CardDB.minibosses[0] as Dictionary).duplicate(true), true)
-							break
-			if steps % 25 == 1 or (checks < 400 and _has_facedown_mb(m.G)):
-				_check_view(m.G, str(sets))
-				checks += 1
-			var pc: Dictionary = m.G.get("pendingChoice", {})
-			var order: Array = [int(pc.get("playerId", 0))] if not pc.is_empty() else [m.active_player()]
-			for pid in m.G["players"]:
-				order.append(int(pid))
-			var moved := false
-			for pid in order:
-				var mv = AI.pick_move(m, pid)
-				if mv != null and m.apply_move(pid, mv):
-					moved = true
-					break
-			if not moved:
+		var priv_before := _priv_lines
+		for g in FILTER_MAX_GAMES:
+			checks += _filter_game(sets, 7000 + g)
+			if not _fails.is_empty():
+				return
+			if checks > 10 and _priv_lines > priv_before and (not sets.has("minibosses") or _mb_tagged > 0):
 				break
 		_expect(checks > 10, "filtre : trop peu de verifications (%d)" % checks)
-		_expect(_priv_lines > 0, "filtre : aucune ligne de journal privee rencontree (%s)" % str(sets))
-		m.queue_free()
+		_expect(_priv_lines > priv_before, "filtre : aucune ligne de journal privee rencontree (%s)" % str(sets))
 	_expect(_mb_tagged > 0, "filtre : aucun miniboss face cachee rencontre")
+
+## Une partie IA-vs-IA a 3 joueurs (graine `rng_seed`) ; renvoie le nombre de vues verifiees.
+func _filter_game(sets: Array, rng_seed: int) -> int:
+	seed(rng_seed) # randi() global (capacites de salle)
+	CardDB._rng.seed = rng_seed # melanges des pioches
+	var m = GameManager.new()
+	add_child(m)
+	m.rng.seed = rng_seed # Match._ready l'a randomise
+	m.start_new_game(3, 0, sets)
+	var steps := 0
+	var checks := 0
+	var mb_done := not sets.has("minibosses")
+	var mb_pids := {}
+	while m.G.get("gameOver") == null and steps < 4000 and _fails.is_empty():
+		steps += 1
+		if not mb_done and steps >= 40: # l'IA pose rarement un miniboss : on en pose un face cache chez chaque joueur (des qu'il a une salle)
+			for pid in m.G["players"]:
+				if mb_pids.has(pid):
+					continue
+				for stack in m.G["players"][pid]["dungeon"]:
+					if not Minibosses.stack_has_mb(stack):
+						Minibosses.attach(m.G, int(pid), BossEngine.active_room(stack), (CardDB.minibosses[0] as Dictionary).duplicate(true), true)
+						mb_pids[pid] = true
+						break
+			mb_done = mb_pids.size() == m.G["players"].size()
+		if steps % 25 == 1 or (checks < 400 and _has_facedown_mb(m.G)):
+			_check_view(m.G, str(sets))
+			checks += 1
+		var pc: Dictionary = m.G.get("pendingChoice", {})
+		var order: Array = [int(pc.get("playerId", 0))] if not pc.is_empty() else [m.active_player()]
+		for pid in m.G["players"]:
+			order.append(int(pid))
+		var moved := false
+		for pid in order:
+			var mv = AI.pick_move(m, pid)
+			if mv != null and m.apply_move(pid, mv):
+				moved = true
+				break
+		if not moved:
+			break
+	m.queue_free()
+	return checks
 
 ## Vue d'une salle adverse : dos seul si face cachee, miniboss face cache reduit a un marqueur, miniboss revele public.
 func _check_room_view() -> void:
@@ -184,8 +210,10 @@ func _start_server() -> bool:
 	server.auto_start = false
 	server.bot_delay_ms = 0
 	add_child(server)
+	var prng := RandomNumberGenerator.new() # le randi() global est seme par les parties de filtrage : le port doit rester aleatoire
+	prng.randomize()
 	for _i in 20:
-		var port := randi_range(20000, 40000)
+		var port := prng.randi_range(20000, 40000)
 		if server.start(port) == OK:
 			url = "ws://127.0.0.1:%d" % port
 			return true
@@ -237,6 +265,8 @@ class Driver extends RefCounted:
 func _run_network() -> void:
 	if not _expect(_start_server(), "serveur : port indisponible"):
 		return
+	seed(4242) # melanges de la partie en ligne reproductibles (le temps reseau, lui, ne l'est pas)
+	CardDB._rng.seed = 4242
 	await _scenario_full_game()
 	if _fails.is_empty():
 		await _scenario_reload()
@@ -295,7 +325,7 @@ func _scenario_full_game() -> void:
 		d0.step()
 		d1.step()
 		# reconnexion avec jeton en pleine partie : on coupe la liaison du joueur 1
-		if not dropped and d1.moves_sent >= 25:
+		if not dropped and d1.moves_sent >= 10:
 			dropped = true
 			d1.paused = true
 			c1._ws.close()

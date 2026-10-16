@@ -212,7 +212,7 @@ func legal_moves(pid: int) -> Array:
 			# Donjon plein : une salle avancee se construit quand meme par-dessus (DungeonSlot.CheckRoomCanBeBuilt),
 			# seule la pose en fin de donjon (salle ordinaire) exige un emplacement libre.
 			# BuildExtraRoom (Motivation) : MaxBuildRoomLimit++ -> plusieurs constructions avant le NextStep.
-			if my_turn and int(p.get("buildsThisTurn", 0)) < 1 + BossEngine.extra_builds_for(G, pid):
+			if my_turn and not BossEngine.is_build_blocked(G) and int(p.get("buildsThisTurn", 0)) < 1 + BossEngine.extra_builds_for(G, pid):
 				var free_slot := BossEngine.can_build_room(p, G, pid)
 				for i in (p.get("hand", []) as Array).size():
 					var c: Dictionary = (p["hand"] as Array)[i]

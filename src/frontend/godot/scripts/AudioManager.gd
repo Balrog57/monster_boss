@@ -11,6 +11,7 @@ const VOICES := 8
 var muted := false
 var music_on := true  # Options APK : MUSIC ON/OFF
 var sfx_on := true    # Options APK : SOUND ON/OFF
+var master_volume := 1.0 # Options en jeu : MASTER VOLUME (bus Master)
 var music_volume := 0.5  # APK AudioService.musicVolume
 var sfx_volume := 1.0    # APK AudioService.soundVolume
 var _music: AudioStreamPlayer
@@ -38,6 +39,7 @@ func _ready() -> void:
 		muted = bool(cfg.get_value("audio", "muted", false))
 		music_on = bool(cfg.get_value("audio", "music_on", true))
 		sfx_on = bool(cfg.get_value("audio", "sfx_on", true))
+		master_volume = clampf(float(cfg.get_value("audio", "master", master_volume)), 0.0, 1.0)
 		music_volume = clampf(float(cfg.get_value("audio", "music", music_volume)), 0.0, 1.0)
 		sfx_volume = clampf(float(cfg.get_value("audio", "sfx", sfx_volume)), 0.0, 1.0)
 	_apply()
@@ -53,6 +55,8 @@ func _input(e: InputEvent) -> void:
 			play_music(n)
 
 func _apply() -> void:
+	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(master_volume, 0.0001)))
+	AudioServer.set_bus_mute(0, master_volume <= 0.001)
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Music"), linear_to_db(maxf(music_volume, 0.0001)))
 	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("SFX"), linear_to_db(maxf(sfx_volume, 0.0001)))
 	AudioServer.set_bus_mute(AudioServer.get_bus_index("Music"), muted or not music_on)
@@ -61,6 +65,14 @@ func _apply() -> void:
 func set_muted(m: bool) -> void:
 	muted = m
 	_save()
+
+## persist = false pendant le glissement du curseur (on n'ecrit le fichier qu'au relachement).
+func set_master_volume(v: float, persist: bool = true) -> void:
+	master_volume = clampf(v, 0.0, 1.0)
+	if persist:
+		_save()
+	else:
+		_apply()
 
 func set_music_on(on: bool) -> void:
 	music_on = on
@@ -77,6 +89,7 @@ func _save() -> void:
 	cfg.set_value("audio", "muted", muted)
 	cfg.set_value("audio", "music_on", music_on)
 	cfg.set_value("audio", "sfx_on", sfx_on)
+	cfg.set_value("audio", "master", master_volume)
 	cfg.set_value("audio", "music", music_volume)
 	cfg.set_value("audio", "sfx", sfx_volume)
 	cfg.save(SAVE_PATH)

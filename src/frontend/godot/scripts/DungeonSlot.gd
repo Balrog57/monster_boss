@@ -6,7 +6,7 @@ const GameManager = preload("res://godot/scripts/GameManager.gd")
 const BossEngine = preload("res://godot/scripts/BossEngine.gd")
 ## Gère la réception du drag-and-drop de cartes depuis la main.
 
-signal room_dropped(hand_index: int, slot_index: int)
+signal room_dropped(hand_index: int, slot_index: int) ## emis APRES une construction reussie
 signal activate_requested(slot_index: int)
 
 @export var slot_index: int = 0
@@ -119,13 +119,33 @@ func _can_drop_data(_at_position: Vector2, data) -> bool:
 	var hand_idx = int(data.get("hand_index", -1))
 	return game_manager.can_build_room_at(player_id, hand_idx, slot_index)
 
+## Coup de construction que le moteur propose pour (carte de la main -> cet emplacement) : [i, cible] pour une salle avancee ou une
+## salle ordinaire sur un donjon plein, sinon [i] (salle ordinaire posee a l'entree du donjon). {} si aucun.
+## (GameManager.build_room_at ne sait emettre que [i] pour une salle ordinaire : le depot sur un donjon plein etait refuse.)
+func _drop_move(hand_idx: int) -> Dictionary:
+	var fallback := {}
+	for m in game_manager.legal_moves(player_id):
+		if str((m as Dictionary).get("type", "")) != "buildRoom":
+			continue
+		var a: Array = (m as Dictionary).get("args", [])
+		if a.is_empty() or int(a[0]) != hand_idx:
+			continue
+		if a.size() > 1 and a[1] != null:
+			if int(a[1]) == slot_index:
+				return m
+		else:
+			fallback = m
+	return fallback
+
 ## Réceptionne le drop et effectue la construction
 func _drop_data(_at_position: Vector2, data) -> void:
 	if not _can_drop_data(_at_position, data):
 		return
 	var hand_idx = int(data.get("hand_index", -1))
-	room_dropped.emit(hand_idx, slot_index)
-	game_manager.build_room_at(player_id, hand_idx, slot_index)
+	var mv := _drop_move(hand_idx)
+	if mv.is_empty() or not game_manager.apply_move(player_id, mv):
+		return
+	room_dropped.emit(hand_idx, slot_index) # BoardUI rafraichit l'ecran (apply_move n'emet pas toujours state_changed en fin de coup)
 
 	# Feedback visuel fluide (flash vert)
 	if border:
