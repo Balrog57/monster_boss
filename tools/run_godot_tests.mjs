@@ -7,11 +7,12 @@ const SUITES = [
   { scene: 'res://godot/tests/Goldens.tscn', ok: 'GOLDENS OK', label: 'goldens' },
   { scene: 'res://godot/tests/Coverage.tscn', ok: 'COVERAGE OK', label: 'coverage' },
   { scene: 'res://godot/tests/Soak.tscn', ok: 'SOAK OK', label: 'soak' },
+  { scene: 'res://godot/tests/Soak.tscn', ok: 'SOAK OK', label: 'soak APK decks', args: ['--', '--sets=players-choice,hidden-heroes,tools'] },
 ];
 
 let failed = 0;
-for (const { scene, ok, label } of SUITES) {
-  const r = spawnSync('godot', ['--headless', '--path', 'src/frontend', scene], {
+for (const { scene, ok, label, args = [] } of SUITES) {
+  const r = spawnSync('godot', ['--headless', '--path', 'src/frontend', scene, ...args], {
     encoding: 'utf8',
     timeout: 300000,
     shell: process.platform === 'win32',

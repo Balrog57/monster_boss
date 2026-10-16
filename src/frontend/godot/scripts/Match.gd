@@ -28,22 +28,40 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	var sets := {}
 	for s in p_sets:
 		sets[String(s)] = true
-	if sets.is_empty():
-		sets["base"] = true
+	sets["base"] = true # GamePlayBaseScene : cardDecks = { BaseDeck } + les extensions choisies (le jeu de base est toujours present)
 	var in_sets := func(c): return (c as Dictionary).get("set", "base") in sets
 	var bosses: Array = CardDB.bosses.filter(in_sets)
 	var rooms: Array = CardDB.rooms.filter(in_sets)
 	var spells: Array = CardDB.spells.filter(in_sets)
-	var heroes: Array = CardDB.heroes.filter(func(c): return (c as Dictionary).get("set", "base") in sets and not (c as Dictionary).get("epic", false))
-	var epics: Array = CardDB.heroes.filter(func(c): return (c as Dictionary).get("set", "base") in sets and (c as Dictionary).get("epic", false))
+	# CardInfoService.GetCardInfoFromDeck : une carte qui en REMPLACE une autre (ReplacesCardNumber : BMH0xx -> BMA0xx) l'ecarte de la pioche.
+	var replaced := {}
+	for c in CardDB.heroes:
+		if (c as Dictionary).has("replaces") and in_sets.call(c):
+			replaced[str(c["replaces"])] = true
+	# Decks de l'APK (base, PlayerChoice, HiddenHeros, ToolsHeroKind) : GameBoardExtensions.InternalInititalizeGameBoard garde tous les
+	# heros dont MinimumPlayers <= nombre de joueurs (ordinaires d'abord, puis epiques). Les autres paquets (wiki) gardent les tailles de base.
+	var apk_only := true
+	for s in sets:
+		apk_only = apk_only and s in ["base", "players-choice", "hidden-heroes", "tools"]
+	var hero_ok := func(c, epic: bool) -> bool:
+		var d: Dictionary = c
+		if not in_sets.call(d) or replaced.has(str(d.get("id", ""))) or bool(d.get("epic", false)) != epic:
+			return false
+		return not apk_only or int(d.get("playerCount", 2)) <= n
+	var heroes: Array = CardDB.heroes.filter(func(c): return hero_ok.call(c, false))
+	var epics: Array = CardDB.heroes.filter(func(c): return hero_ok.call(c, true))
 	var room_deck: Array = CardDB.shuffled(CardDB.expanded_deck(rooms).map(func(r): var d = (r as Dictionary).duplicate(); d["isRoom"] = true; return d))
 	var spell_deck: Array = CardDB.shuffled(CardDB.expanded_deck(spells).map(func(s): var d = (s as Dictionary).duplicate(); d["isSpell"] = true; return d))
+	# ItemInfo (ToolsHeroKind) : GameBoard.DeckItems, une carte revelee par tour (2 a 4 joueurs) dans RevealedItemsQueue ; l'APK n'en fait rien d'autre.
+	var items: Array = CardDB.items.filter(func(c): return in_sets.call(c) and int((c as Dictionary).get("playerCount", 2)) <= n)
+	var item_deck: Array = CardDB.shuffled(CardDB.expanded_deck(items).map(func(i): var d = (i as Dictionary).duplicate(); d["isItem"] = true; return d))
 	var hero_deck: Array = CardDB.shuffled(CardDB.expanded_deck(heroes).map(func(h): var d = (h as Dictionary).duplicate(); d["souls"] = 1; d["wounds"] = 1; return d))
 	var epic_deck: Array = CardDB.shuffled(CardDB.expanded_deck(epics).map(func(h): var d = (h as Dictionary).duplicate(); d["souls"] = 2; d["wounds"] = 2; return d))
 	# Tailles officielles (base set) selon le nombre de joueurs.
 	var counts: Dictionary = CardDB.HERO_COUNTS.get(n, {"ordinary": 13, "epic": 8})
-	hero_deck = hero_deck.slice(0, int(counts.get("ordinary", 13)))
-	epic_deck = epic_deck.slice(0, int(counts.get("epic", 8)))
+	if not apk_only:
+		hero_deck = hero_deck.slice(0, int(counts.get("ordinary", 13)))
+		epic_deck = epic_deck.slice(0, int(counts.get("epic", 8)))
 	var picks: Array = CardDB.shuffled(bosses).slice(0, n + 2)
 	var players := {}
 	for i in n:
@@ -57,7 +75,8 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 		}
 	G = {
 		"players": players, "bossPicks": picks, "numPlayers": n,
-		"xpOrder": [], "decks": {"rooms": room_deck, "spells": spell_deck, "heroes": hero_deck, "epics": epic_deck, "roomDiscard": [], "spellDiscard": [], "heroDiscard": []},
+		"xpOrder": [], "decks": {"rooms": room_deck, "spells": spell_deck, "heroes": hero_deck, "epics": epic_deck, "items": item_deck, "roomDiscard": [], "spellDiscard": [], "heroDiscard": []},
+		"itemQueue": [],
 		"town": [], "turn": 0, "phase": CardDB.PHASE["BOSS"], "gameOver": null, "log": [], "autoAI": true,
 		"stack": [], "stackPassed": {},
 	}
@@ -556,7 +575,9 @@ func _resolve_choice(pid: int, index: int) -> void:
 				var o: Dictionary = opts[index]
 				var target_pid := int(o.get("targetPlayerId", -1))
 				var action := str(pc.get("action", ""))
-				if target_pid >= 0 and G["players"].has(target_pid) and (action == "discard-spell" or action == "discard-room"):
+				if target_pid >= 0 and G["players"].has(target_pid) and action == "steal-random":
+					RoomAbilities.steal_random_card(G, pid, target_pid, str(pc.get("bossName", "")))
+				elif target_pid >= 0 and G["players"].has(target_pid) and (action == "discard-spell" or action == "discard-room"):
 					# C# DiscardRandomCardFromHand(1, Spell|Room) sur l'adversaire choisi
 					RoomAbilities._discard_random_from(G, target_pid, action == "discard-spell", str(pc.get("bossName", "")))
 		"steal-card":
@@ -605,11 +626,49 @@ func _resolve_choice(pid: int, index: int) -> void:
 					var souls: Array = p.get("souls", [])
 					p["souls"] = souls
 					for i in maxi(int(hero.get("souls", 1)), 1):
-						souls.append({"souls": 1, "name": hero.get("name", "?"), "faceDown": true})
+						souls.append(CardDB.soul_entry(hero))
 					_log("%s : %s detruit en ville." % [str(pc.get("bossName", "")), str(hero.get("name", "?"))])
 		"swap-rooms":
 			if index >= 0 and index < opts.size():
 				_swap_rooms(p, (opts[index] as Dictionary))
+		"draw-type":
+			if index >= 0:
+				_draw_turn_card(p, str((opts[index] as Dictionary).get("pile", "rooms")))
+		"heal-wound":
+			if index >= 0:
+				BossEngine.heal_one_wound(p, (opts[index] as Dictionary).get("card"))
+				_log("%s : %s retourne." % [str(pc.get("bossName", "")), str(((opts[index] as Dictionary).get("card", {}) as Dictionary).get("name", "?"))])
+		"search-spell": # KSA003 The Brothers Wise : PutCardInHand(SpellInDeck)
+			if index >= 0:
+				var spells: Array = (G["decks"] as Dictionary).get("spells", [])
+				var so: Dictionary = opts[index]
+				if RoomAbilities.pile_index_matches(spells, so):
+					(p["hand"] as Array).append(spells.pop_at(int(so["pileIndex"])))
+					_log("%s : %s pris dans la pioche de sorts." % [str(pc.get("bossName", "")), str((so["card"] as Dictionary).get("name", "?"))])
+		"steal-hero": # KSA004 Kaw'nee : PlaceAtScorekeep(FaceDown) d'un heros ordinaire mort adverse
+			if index >= 0:
+				var ho: Dictionary = opts[index]
+				var from_pid := int(ho.get("fromPid", -1))
+				if from_pid >= 0 and G["players"].has(from_pid):
+					var their: Array = (G["players"][from_pid] as Dictionary).get("souls", [])
+					var si := int(ho.get("soulIndex", -1))
+					if si >= 0 and si < their.size():
+						var entry: Dictionary = their.pop_at(si)
+						entry["faceDown"] = true
+						(p["souls"] as Array).append(entry)
+						_log("%s : %s passe dans le scorekeeping du joueur %d." % [str(pc.get("bossName", "")), str(entry.get("name", "?")), pid])
+		"rearrange-dungeon": # KSA002 Hellcow : dungeon puis salles dans l'ordre (voir RoomAbilities.rearrange_choice)
+			if index >= 0:
+				var ro: Dictionary = opts[index]
+				var target_pid := int(ro.get("targetPlayerId", -1))
+				var picked: Array = (pc.get("picked", []) as Array).duplicate()
+				if str(pc.get("step", "")) == "order":
+					picked.append(int(ro.get("roomIndex", -1)))
+				var more = RoomAbilities.rearrange_choice(G, int(pc.get("playerId", pid)), target_pid, picked)
+				if more != null:
+					G["pendingChoice"] = more
+					state_changed.emit()
+					return
 	G["pendingChoice"] = {}
 	# Reprend la file de choix en attente, sinon on repart d'un etat propre.
 	var raw_queue = G.get("choiceQueue", [])
@@ -789,25 +848,32 @@ func _start_turn() -> void:
 	_log("Tour %d — phase BEGINNING." % G["turn"])
 
 	# Arrivée des héros en ville : 1 héros par joueur actif (la ville se cumule d'un tour à l'autre)
+	_reveal_items()
 	_reveal_heroes_in_town()
 
 	# Chaque joueur non-éliminé pioche 1 carte Salle (en ordre d'index de joueur, miroir reducer.js)
 	var pids: Array = (G.get("players", {}) as Dictionary).keys()
 	pids.sort_custom(func(a, b): return int(a) < int(b))
+	var choosers: Array = []
 	for pid in pids:
 		var p: Dictionary = G["players"][pid]
 		if p.get("eliminated", false):
 			continue
 		p["buildsThisTurn"] = 0
-		p["entrance"] = []
+		# EntranceQueue persiste (Trepidation : « Any Hero remain at the entrance », GameBoard.ProccessActiveHero) ; seul le retrait d'un heros la vide.
+		if not p.has("entrance"):
+			p["entrance"] = []
 		for stack in (p.get("dungeon", []) as Array):
 			for r in stack:
 				if r is Dictionary:
 					r["usedThisTurn"] = false
-		CardDB.refill_from_discard(G["decks"]["rooms"], G["decks"]["roomDiscard"], rng)
-		var drawn := CardDB.draw_cards(G["decks"]["rooms"], 1)
-		if not drawn.is_empty():
-			(p["hand"] as Array).append(drawn[0])
+					r.erase("dealDamage") # Boss.RestoreDungeon (EndOfTurnPhase) : seulement les salles encore en donjon
+		# BMA023 Haunted Library (IsCanChooseCardToDraw) : le joueur CHOISIT sa pioche (salle ou sort) ; son choix est pose apres la
+		# boucle (GameBoard.BeginningOfTurn : ActionsSequence executee une fois tous les autres joueurs servis).
+		if RoomAbilities.can_choose_draw(p):
+			choosers.append(int(pid))
+			continue
+		_draw_turn_card(p, "rooms")
 
 	# Ordre de construction du tour : joueurs vivants par XP decroissant
 	# (APK : PlayersPriorized = OrderBy(PlayerId), et PlayerId suit l'XP decroissant).
@@ -824,18 +890,44 @@ func _start_turn() -> void:
 	# Phase 2 : Transition vers BUILD
 	G["phase"] = CardDB.PHASE["BUILD"]
 	_log("Tour %d — phase BUILD." % G["turn"])
+	if not choosers.is_empty():
+		var queue: Array = []
+		for cid in choosers:
+			queue.append({"type": "draw-type", "resume": false, "playerId": cid, "bossName": "Haunted Library",
+				"message": "Haunted Library: draw from the Room deck or the Spell deck",
+				"options": [{"label": "Room deck", "pile": "rooms"}, {"label": "Spell deck", "pile": "spells"}]})
+		G["pendingChoice"] = queue.pop_front()
+		G["choiceQueue"] = queue
 	# Le premier joueur peut etre une IA : on la joue avant de rendre la main.
 	_drive_ai()
+
+## Pioche de debut de tour (DrawRooms / DrawSpells : une carte, la defausse remelangee si la pioche est vide).
+func _draw_turn_card(p: Dictionary, pile: String) -> void:
+	var discard := "roomDiscard" if pile == "rooms" else "spellDiscard"
+	CardDB.refill_from_discard(G["decks"][pile], G["decks"][discard], rng)
+	var drawn := CardDB.draw_cards(G["decks"][pile], 1)
+	if not drawn.is_empty():
+		(p["hand"] as Array).append(drawn[0])
+
+## GameBoard.RevealItems : 1 objet par tour (2 a 4 joueurs), vers RevealedItemsQueue. Rien ne l'attache a un heros dans l'APK 2.2.6
+## (FlipItem.Execute leve NotImplemented, ItemInfo.HeroAbility/BossAbility sont nuls) : ce sont des cartes inertes.
+func _reveal_items() -> void:
+	var deck: Array = (G["decks"] as Dictionary).get("items", [])
+	var queue: Array = G.get("itemQueue", [])
+	G["itemQueue"] = queue
+	for _i in (2 if (G["players"] as Dictionary).size() == 4 else 1):
+		if not deck.is_empty():
+			queue.append(deck.pop_back())
 
 func _reveal_heroes_in_town() -> void:
 	# GameBoard.RevealHeroes : un heros par joueur de la partie (Players.Count), eliminés compris.
 	var alive_count: int = (G["players"] as Dictionary).size()
 	var decks: Dictionary = G["decks"]
+	# GameBoard.RevealHeroes : DeckHeroes vide => « No more heroes in deck » ; la defausse de heros n'est JAMAIS remelangee
+	# (contrairement aux pioches de salles/sorts, ReShuffleDiscardsPilesBackToDeck).
 	for i in alive_count:
-		CardDB.refill_from_discard(decks["heroes"], decks["heroDiscard"], rng)
 		var drawn := CardDB.draw_cards(decks["heroes"], 1)
 		if drawn.is_empty():
-			CardDB.refill_from_discard(decks["epics"], decks["heroDiscard"], rng)
 			drawn = CardDB.draw_cards(decks["epics"], 1)
 		if not drawn.is_empty():
 			(G["town"] as Array).append(drawn[0])
@@ -1277,6 +1369,12 @@ func _advance_adventure_room() -> void:
 		i -= 2
 	adv["roomIndex"] = i
 
+	if i < 0: # emplacement vide traverse apres la destruction de la salle du heros (BossEngine.destroy_room) : aucun degat
+		adv["pause"] = "post-damage"
+		G["adventurePausePassed"] = {}
+		_log("%s traverse un emplacement vide." % str(hero.get("name", "?")))
+		return
+	adv.erase("roomGone")
 	if i >= dungeon.size():
 		_finish_hero(pid, hero, int(adv["hp"]), {})
 		return
@@ -1376,21 +1474,17 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 		entrance.pop_front()
 
 	var death_index: int = int(G.get("adventure", {}).get("roomIndex", -1))
+	# KSA017 : le declencheur de mort (CheckTriggerInRoom -> CheckConditions) est evalue AVANT RemoveHeroFromGame, donc verrouille.
+	var abilities_locked := BossEngine.abilities_locked(G, pid)
 	G["adventure"] = {}
 	G["adventurePausePassed"] = {}
 
 	if hp <= 0:
 		var souls := BossEngine.hero_souls(hero)
 		for s in souls:
-			(p["souls"] as Array).append({
-				"name": hero.get("name", "?"),
-				"souls": 1,
-				"class": hero.get("class", ""),
-				"faceDown": true,
-				"hero": hero # identite du heros mort (Zombie Prison BMA039)
-			})
-		_log("Âme capturée ! (%d/%d)" % [CardDB.total_souls(p), WIN_SOULS])
-		if not death_room.is_empty():
+			(p["souls"] as Array).append(CardDB.soul_entry(hero))
+		_log("Âme capturée ! (%d/%d)" % [CardDB.total_souls(p, G), WIN_SOULS])
+		if not death_room.is_empty() and not abilities_locked:
 			_hero_died_trigger(pid, death_room)
 	else:
 		var wounds := BossEngine.hero_wounds(hero)
@@ -1400,7 +1494,8 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 				"wounds": 1,
 				"souls": 1,
 				"class": hero.get("class", ""),
-				"faceDown": false
+				"faceDown": false,
+				"hero": hero # identite du heros blesse (Vampire Bordello : FlipHero cible un heros)
 			})
 		_log("Le héros survit et blesse le boss ! (%d blessures)" % CardDB.total_wounds(p))
 		if CardDB.total_wounds(p) >= 5:
@@ -1442,7 +1537,7 @@ func _check_end_or_next_turn() -> void:
 	var winners_10_souls: Array = []
 	for pid in G["players"]:
 		var p: Dictionary = G["players"][pid]
-		if CardDB.total_souls(p) >= WIN_SOULS and CardDB.total_wounds(p) < 5:
+		if CardDB.total_souls(p, G) >= WIN_SOULS and CardDB.total_wounds(p) < 5:
 			winners_10_souls.append(int(pid))
 
 	if not winners_10_souls.is_empty():
@@ -1496,7 +1591,7 @@ func _tie_break_players(pids: Array) -> int:
 	var best_xp := 999999
 	for pid in pids:
 		var p: Dictionary = G["players"][pid]
-		var diff := CardDB.total_souls(p) - CardDB.total_wounds(p)
+		var diff := CardDB.total_souls(p, G) - CardDB.total_wounds(p)
 		var xp := int((p.get("boss", {}) as Dictionary).get("xp", 0))
 		if diff > best_diff or (diff == best_diff and xp < best_xp):
 			best_diff = diff

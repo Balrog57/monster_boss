@@ -92,7 +92,7 @@ func refresh() -> void:
 		var w: int = (match_node.G["gameOver"] as Dictionary).get("winner", -1)
 		status.text = "PARTIE TERMINÉE — gagnant : joueur %d (%s)" % [w, (match_node.G["gameOver"] as Dictionary).get("reason", "")]
 	else:
-		status.text = "Tour %d — phase %s | Âmes %d/10 | Blessures %d/5" % [match_node.G.get("turn", 0), match_node.G.get("phase", "?"), CardDB.total_souls(p), CardDB.total_wounds(p)]
+		status.text = "Tour %d — phase %s | Âmes %d/10 | Blessures %d/5" % [match_node.G.get("turn", 0), match_node.G.get("phase", "?"), CardDB.total_souls(p, match_node.G), CardDB.total_wounds(p)]
 	# Boss picks
 	if match_node.G["phase"] == "boss":
 		for b in match_node.G["bossPicks"]:

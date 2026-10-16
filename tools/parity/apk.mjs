@@ -49,7 +49,7 @@ export function oracleProj(step, trace) {
     town: step.heroesInTown.map((h) => h.card),
     hero: step.activeHero ? { card: step.activeHero.card, hp: step.activeHero.hp } : null,
     winner: step.phase === 'EndOfGame' ? trace.winner?.playerId ?? null : null,
-    decks: { heroes: dc.heroes, rooms: dc.rooms, spells: dc.spells, discardRooms: dc.discardRooms, discardSpells: dc.discardSpells },
+    decks: { heroes: dc.heroes, rooms: dc.rooms, spells: dc.spells, discardRooms: dc.discardRooms, discardSpells: dc.discardSpells, items: dc.items },
     players,
   };
 }
@@ -132,8 +132,15 @@ function compareTrace(trace, gd) {
     // turnstart/bait : Godot enchaine parfois plusieurs phases en un coup, on compare a sa photo prise au bon moment.
     const g = kind === 'turnstart' || kind === 'bait' ? gd.snaps[`${kind}:${s.turn}`] : gd.proj[String(s.seq)];
     // Godot enchaine parfois la fin du tour dans le meme coup (ex. dernier heros blesse => joueur elimine) : `phase` n'est alors plus comparable.
-    const ahead = kind === 'adv' && g && g.turn > s.turn ? ['phase'] : [];
-    const diffs = g ? diffProj(oracleProj(s, trace), g, kind, [...skipFields(steps, i, kind), ...ahead]) : [{ field: '(point non atteint par Godot)', group: '-', oracle: null, godot: null }];
+    // Idem quand la partie se termine : Godot passe a `over` des le dernier heros, l'oracle ne le constate qu'a EndOfTurnPhase.
+    const ahead = kind === 'adv' && g && (g.turn > s.turn || g.phase === 'over') ? ['phase'] : [];
+    // Fin de construction + fenetre de sorts : l'oracle execute l'activation en file au NextStep `executed:false` AVANT le NextStep qui clot BuildPhase_a ;
+    // Godot a deja enchaine revelation, leurre et aventure apres le dernier coup de construction : rien de comparable a ce point.
+    if (kind === 'build' && g && g.phase !== 'build' && s.detail?.executed === false) continue;
+    // Heros tue par une capacite/un sort (hp <= 0) : Godot le retire et compte l'ame tout de suite (Match._finish_hero_if_dead), l'oracle
+    // ne le fait qu'au NextStep suivant (ProccessActiveHero) : hero/ames/blessures ne sont pas comparables a ce point.
+    const pendingKill = kind === 'adv' && s.activeHero && s.activeHero.hp <= 0 && g && !g.hero ? ['hero', 'players.*.souls', 'players.*.wounds'] : [];
+    const diffs = g ? diffProj(oracleProj(s, trace), g, kind, [...skipFields(steps, i, kind), ...ahead, ...pendingKill]) : [{ field: '(point non atteint par Godot)', group: '-', oracle: null, godot: null }];
     checks.push({ seq: s.seq, kind, ok: diffs.length === 0 });
     if (diffs.length === 0) { matched++; continue; }
     const d = diffs[0];

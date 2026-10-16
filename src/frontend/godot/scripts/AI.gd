@@ -157,12 +157,29 @@ static func _score_choice(G: Dictionary, p: Dictionary, pid: int, idx: int) -> f
 	match str(pc.get("type", "")):
 		"discard-spell": # SelectSpellToDiscard : BMA048/BMA049 d'abord
 			return 100.0 if str(card.get("id", "")) in ["BMA048", "BMA049"] else 0.0
+		"pick-opponent": # CheckBMA012 (Succubus Spa) : l'adversaire au meilleur score (ames - blessures) qui a des cartes, puis le plus de sorts
+			if str(pc.get("action", "")) != "steal-random":
+				return 0.0
+			var vic: Dictionary = (G.get("players", {}) as Dictionary).get(int(o.get("targetPlayerId", -1)), {}) as Dictionary
+			if (vic.get("hand", []) as Array).is_empty():
+				return 0.0
+			return 1000.0 + float(CardDB.total_souls(vic, G) - CardDB.total_wounds(vic)) * 10.0 + float(_spells_in_hand(vic))
 		"steal-card": # CheckBMA001 : un sort de l'adversaire au meilleur score, sinon sa meilleure salle
 			var opp: Dictionary = (G.get("players", {}) as Dictionary).get(int(o.get("fromPid", -1)), {}) as Dictionary
-			var opp_rank := float(CardDB.total_souls(opp)) * 10.0 + float(_spells_in_hand(opp))
+			var opp_rank := float(CardDB.total_souls(opp, G)) * 10.0 + float(_spells_in_hand(opp))
 			if bool(card.get("isSpell", false)):
 				return 100000.0 + opp_rank
 			return opp_rank + _calculate_room_value(card, p, G, phase_str) / 1000.0
+		"draw-type": # DrawCalculator.CalculateDeckDrawValue : P(pioche salle) ; l'IA C# tire au sort, ici on suit la probabilite
+			var buildable := 0
+			var hand: Array = p.get("hand", [])
+			for hi in hand.size():
+				if bool((hand[hi] as Dictionary).get("isRoom", false)) and BossEngine.can_build_room(p, G, pid, hi):
+					buildable += 1
+			var p_room := 1.0 if buildable == 0 else ((0.75 if buildable == 1 else (0.25 if turn <= 1 else 0.15)) if phase_str != "late" else 0.1)
+			return p_room if str(o.get("pile", "")) == "rooms" else 1.0 - p_room
+		"heal-wound": # CheckBMA014 : on retourne le heros qui rapporte le plus d'ames
+			return float(BossEngine.hero_souls(card))
 		"destroy-room": # CheckBMA004 : salle avancée d'abord, la moins précieuse
 			var tp: Dictionary = (G.get("players", {}) as Dictionary).get(int(o.get("targetPlayerId", pid)), {}) as Dictionary
 			return (1000.0 if bool(card.get("advanced", false)) else 0.0) - _calculate_room_value(card, tp, G, phase_str)
@@ -329,6 +346,8 @@ static func _score_spell(spell: Dictionary, target: Dictionary, p: Dictionary, G
 			return 80.0 if (p.get("hand", []) as Array).size() <= 2 else 10.0
 		"BMA049": # Kobold Strike
 			return 70.0
+		"KSA013": # T.P.K. : AbilityCalculator.CheckKSA013 la joue toujours (valeur 1.0), sans condition
+			return 90.0
 		_:
 			return 20.0
 

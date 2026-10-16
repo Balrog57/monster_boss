@@ -505,7 +505,7 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 		sidebar_boss_label.text = "Boss : En sélection..."
 
 	# Âmes visuelles (10 icônes)
-	var souls: int = CardDB.total_souls(p)
+	var souls: int = CardDB.total_souls(p, game_manager.G)
 	for c in souls_container.get_children():
 		c.queue_free()
 	for i in range(10):
@@ -565,7 +565,7 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 	else:
 		foe_boss_label.text = "Adversaire (IA)"
 	foe_wounds_label.text = "Blessures : %d/5" % CardDB.total_wounds(foe)
-	foe_souls_label.text = "Âmes : %d/10" % CardDB.total_souls(foe)
+	foe_souls_label.text = "Âmes : %d/10" % CardDB.total_souls(foe, game_manager.G)
 
 	for c in foe_treasures_container.get_children():
 		c.queue_free()

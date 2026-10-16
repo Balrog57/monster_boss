@@ -17,6 +17,7 @@ const SPELL_TARGETS := {
 	"BMA053": {"type": "hero-own-dungeon", "label": "Choose a Hero in your dungeon"},
 	"BMA054": {"type": "trepidation-player", "label": "Choose a player with 2+ more Souls"},
 	"BMA055": {"type": "opponent-soul", "label": "Choose a dead Hero"},
+	"KSA013": {"type": "tpk-player", "label": "T.P.K."},
 	"THK025": {"type": "any-item", "label": "Choose an Item to flip"},
 }
 
@@ -127,6 +128,14 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 			for opid in (G.get("players", {}) as Dictionary):
 				var op: Dictionary = G["players"][opid]
 				if int(opid) == pid or op.get("eliminated", false):
+					continue
+				out.append({"targetPlayerId": int(opid)})
+		"tpk-player":
+			# BossOwner : un humain n'a que lui-meme (cible auto-resolue). L'IA de l'APK (AbilityCalculator.CheckKSA013) designe TOUS les joueurs
+			# par PlayerId et le moteur retient le premier : le harnais d'oracle ouvre ce choix (G.aiTargetsAllBosses).
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				if op.get("eliminated", false) or (int(opid) != pid and not bool(G.get("aiTargetsAllBosses", false))):
 					continue
 				out.append({"targetPlayerId": int(opid)})
 		"any-player":

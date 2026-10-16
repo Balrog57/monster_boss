@@ -79,6 +79,34 @@ static class Program
         WaveServices.RegisterService(storage);
         WaveServices.RegisterService(new CardInfoService()); // vrai service de l'APK, lit les data.json reels
         WaveServices.InitializeServices();
+        // ToolsHeroKind (comme PowerUpPack) est « COMING SOON » dans l'APK 2.2.6 : CardInfoService.GetAvailableDecks l'exclut, donc
+        // Initialize() ne le charge jamais et GetCardInfoFromDeck leve « Card Deck not found ». Ses data.json existent pourtant (aucune capacite :
+        // toutes nulles) : on le charge par reflexion pour mesurer ce que le moteur ferait de ces cartes (objets inertes, voir tools/parity/README.md).
+        if (decks.Contains(GameDecks.ToolsHeroKind))
+        {
+            var cis = WaveServices.GetService<CardInfoService>();
+            typeof(CardInfoService).GetMethod("LoadCardDeck", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(cis, new object[] { GameDecks.ToolsHeroKind, "Content/CardDecks/ToolsHeroKind/data.json" });
+            // Pas de ai_info.json non plus pour ce paquet : l'IA (RoomCalculator.CalculateRoomValue) leve « CardNumber not found » des qu'une salle
+            // THK est en main. Infos IA vides = l'IA les evalue sans facteur ; cela ne change aucune regle, seulement ses choix.
+            const BindingFlags inst = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            var aiRooms = (Dictionary<string, AIRoomInfo>)typeof(CardInfoService).GetField("infoAIRoomsDictionary", inst).GetValue(cis);
+            foreach (var r in cis.GetCardInfoFromDeck<RoomInfo>(new[] { GameDecks.ToolsHeroKind }))
+            {
+                var a = new AIRoomInfo();
+                typeof(AIRoomInfo).GetProperty("CardNumber", inst).SetValue(a, r.CardNumber);
+                typeof(AIRoomInfo).GetProperty("Factors", inst).SetValue(a, new List<string>());
+                aiRooms[r.CardNumber] = a;
+            }
+            var aiSpells = (Dictionary<string, AISpellInfo>)typeof(CardInfoService).GetField("infoAISpellsDictionary", inst).GetValue(cis);
+            foreach (var sp in cis.GetCardInfoFromDeck<SpellInfo>(new[] { GameDecks.ToolsHeroKind }))
+            {
+                var a = new AISpellInfo();
+                typeof(AISpellInfo).GetProperty("CardNumber", inst).SetValue(a, sp.CardNumber);
+                typeof(AISpellInfo).GetProperty("Affects", inst).SetValue(a, "Player");
+                aiSpells[sp.CardNumber] = a;
+            }
+        }
 
         // RNG #2 : RandomProvider (DBMRandom = clone de System.Random) -> melanges des decks et Shuffle() de l'IA.
         RandomProvider.Seed = seed;

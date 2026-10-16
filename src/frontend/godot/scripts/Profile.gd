@@ -30,20 +30,24 @@ static func save_profile(pname: String, avatar: String) -> void:
 	cfg.set_value("profile", "avatar", avatar if avatar in AVATARS else AVATARS[0])
 	cfg.save(SAVE_PATH)
 
-## Reglages (serveur multi, extensions), meme fichier.
+## Reglages (serveur multi, extensions du wiki, paquets APK choisis), meme fichier.
 static func load_settings() -> Dictionary:
-	var d := {"host": "http://127.0.0.1:8000", "extensions": false}
+	var d := {"host": "http://127.0.0.1:8000", "extensions": false, "decks": []}
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
 		d["host"] = str(cfg.get_value("settings", "host", d["host"])).strip_edges()
 		if d["host"] == "":
 			d["host"] = "http://127.0.0.1:8000"
 		d["extensions"] = bool(cfg.get_value("settings", "extensions", false))
+		var dk = cfg.get_value("settings", "decks", [])
+		d["decks"] = Array(dk) if dk is Array or dk is PackedStringArray else []
 	return d
 
-static func save_settings(host: String, extensions: bool) -> void:
+static func save_settings(host: String, extensions: bool, decks: Variant = null) -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(SAVE_PATH)
 	cfg.set_value("settings", "host", host.strip_edges())
 	cfg.set_value("settings", "extensions", extensions)
+	if decks != null: # omis : on garde le choix de paquets deja enregistre
+		cfg.set_value("settings", "decks", decks)
 	cfg.save(SAVE_PATH)

@@ -37,6 +37,11 @@ static func dungeon_treasures(player: Dictionary, G: Dictionary = {}) -> Array:
 		for t in (room as Dictionary).get("treasures", []):
 			for _i in mult:
 				out.append(int(t))
+	# CalculatePassiveTreasures : level-up AddTreasuresToDungeon (KSA001 Kirax) une fois monte de niveau.
+	var lu = (player["boss"] as Dictionary).get("levelUp")
+	if bool(player.get("leveledUp", false)) and lu is Dictionary and str((lu as Dictionary).get("cmd", "")) == "AddTreasuresToDungeon":
+		for a in (lu as Dictionary).get("args", []):
+			out.append(int(CardDB.TREASURE_NAMES.find(str(a))))
 	return out
 
 static func treasure_count(player: Dictionary, treasure: int, G: Dictionary = {}) -> int:
@@ -74,14 +79,14 @@ static func can_build_room(player: Dictionary, G: Dictionary = {}, pid: int = -1
 			return false
 		var visible := count_visible_rooms(dungeon)
 		if not bool(card.get("advanced", false)):
-			# Salle ordinaire : en fin de donjon, ou PAR-DESSUS une pile existante (DungeonSlot.CheckRoomCanBeBuilt :
-			# ni slot en attente de revelation, ni salle BMA018 Neanderthal Cave).
+			# Salle ordinaire : en fin de donjon, ou PAR-DESSUS une pile existante (DungeonSlot.CheckRoomCanBeBuilt : pas de slot
+			# en attente de revelation ; BMA018 Neanderthal Cave = CannotBuildRoom[Advanced, Any] : elle ne refuse QUE les avancees).
 			if target_index < 0:
 				return visible < CardDB.DUNGEON_SLOTS
 			if target_index >= dungeon.size():
 				return false
 			var over = active_room(dungeon[target_index])
-			return over != null and not bool((over as Dictionary).get("faceDown", false)) and str((over as Dictionary).get("id", "")) != "BMA018"
+			return over != null and not bool((over as Dictionary).get("faceDown", false))
 		# Salle avancee : doit se batir sur une salle active au tresor correspondant.
 		if dungeon.is_empty():
 			return false
@@ -106,7 +111,9 @@ static func can_build_room(player: Dictionary, G: Dictionary = {}, pid: int = -1
 ## reste en ville (retour -1). LuredByTreasures : max du tresor du heros ; The Fool (BMA080, LuredByFewerSouls) :
 ## min d'ames (CardDB.total_souls).
 static func lure_target(players: Dictionary, order: Array, treasure: int, hero: Dictionary = {}, G: Dictionary = {}) -> int:
-	var fool := str(hero.get("id", "")) == "BMA080"
+	# BaseLuredCondition par type de condition (HeroInfo.LuredCondition), pas par id : BMH0xx = BMA0xx, KSA014 = LuredByWounds.
+	var lure := CardDB.hero_lure(hero)
+	var htr: Array = CardDB.hero_treasures(hero) if hero.has("treasures") else [treasure]
 	var best := -1
 	var best_n := -999999
 	var tied := false
@@ -114,7 +121,15 @@ static func lure_target(players: Dictionary, order: Array, treasure: int, hero: 
 		var p: Dictionary = players[pid]
 		if p.get("eliminated", false):
 			continue
-		var n := -CardDB.total_souls(p) if fool else treasure_count(p, treasure, G)
+		var n := 0
+		match lure:
+			"fewerSouls": # LuredByFewerSouls : min Souls
+				n = -CardDB.total_souls(p, G if G.has("players") else {"players": players})
+			"wounds": # LuredByWounds : min Wounds
+				n = -CardDB.total_wounds(p)
+			_: # LuredByTreasures : somme, sur les tresors du heros, des tresors du donjon (heros a deux classes : Monster Hunter...)
+				for t in htr:
+					n += treasure_count(p, int(t), G)
 		if n > best_n:
 			best_n = n
 			best = int(pid)
@@ -150,17 +165,40 @@ static func dungeon_index_from_visual(dungeon: Array, visual_index: int):
 
 # --- engine.js: healOneWound ---
 
-## Retire une blessure du boss et rend l'ame correspondante face cachee.
-static func heal_one_wound(player: Dictionary):
+## Heros vivants du scorekeeping (une entree par heros, ordre d'arrivee) : cibles de HeroInScorekeep[Owner, Alive] (Boss.WoundsHeroes).
+static func wound_heroes(player: Dictionary) -> Array:
+	var out: Array = []
+	for w in player.get("wounds", []):
+		var h = (w as Dictionary).get("hero")
+		if h is Dictionary and not out.has(h):
+			out.append(h)
+	return out
+
+## Retourne une blessure et rend l'ame correspondante face cachee. FlipHero deplace le HEROS entier de WoundsHeroes vers
+## SoulsHeroes (un epique : toutes ses blessures, toutes ses ames) ; `hero` = celui choisi, sinon la derniere blessure.
+## Entrees sans identite de heros (etats synthetiques) : une seule blessure, une seule ame.
+static func heal_one_wound(player: Dictionary, hero = null):
 	var wounds: Array = player.get("wounds", [])
 	if wounds.is_empty():
 		return null
-	var w: Dictionary = wounds.pop_back()
-	var soul := {"souls": int(w.get("souls", 1)), "name": w.get("name", ""), "class": w.get("class", ""), "faceDown": true}
 	if not player.has("souls"):
 		player["souls"] = []
-	(player["souls"] as Array).append(soul)
-	return soul
+	var souls: Array = player["souls"]
+	if hero == null:
+		hero = (wounds[wounds.size() - 1] as Dictionary).get("hero")
+	if not (hero is Dictionary):
+		var w: Dictionary = wounds.pop_back()
+		var soul := {"souls": int(w.get("souls", 1)), "name": w.get("name", ""), "class": w.get("class", ""), "faceDown": true}
+		souls.append(soul)
+		return soul
+	var last = null
+	for i in range(wounds.size() - 1, -1, -1):
+		if (wounds[i] as Dictionary).get("hero") == hero:
+			wounds.remove_at(i)
+	for _k in hero_souls(hero):
+		last = {"souls": 1, "name": hero.get("name", ""), "class": hero.get("class", ""), "faceDown": true, "hero": hero}
+		souls.append(last)
+	return last
 
 # --- engine.js: isRoomDeactivated / isBuildBlocked ---
 
@@ -170,6 +208,15 @@ static func is_room_deactivated(G: Dictionary, player_id: int, room_index: int) 
 		if int(d.get("playerId", -1)) == int(player_id) and int(d.get("roomIndex", -1)) == room_index:
 			return true
 	return false
+
+## KSA017 Trap Master (ThisHeroEntersDungeon -> DeactivateDungeonAbility) : tant que ce heros est dans le donjon de `player_id`,
+## toutes les capacites de ses salles actives sont verrouillees ; GameBoard.RemoveHeroFromGame les deverrouille (UndoEffect).
+static func abilities_locked(G: Dictionary, player_id: int) -> bool:
+	var adv = G.get("adventure")
+	if not (adv is Dictionary) or (adv as Dictionary).is_empty() or int((adv as Dictionary).get("playerId", -1)) != int(player_id):
+		return false
+	var ha = ((adv as Dictionary).get("hero", {}) as Dictionary).get("heroAbility")
+	return ha is Dictionary and str((ha as Dictionary).get("cmd", "")) == "DeactivateDungeonAbility"
 
 static func is_build_blocked(G: Dictionary) -> bool:
 	return bool(_effects(G).get("buildBlocked", false))
@@ -209,8 +256,12 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 	if is_room_deactivated(G, pid, room_index):
 		return 0
 
+	# KSA017 Trap Master : DeactivateDungeonAbility verrouille Ability.IsLocked de chaque salle (CheckConditions faux) :
+	# ni capacite, ni declencheur, ni bonus de degats passif (Boss.GetPassiveDamage) tant que le heros est dans le donjon.
+	var locked := abilities_locked(G, pid)
+
 	# BMA020 Monster's Ballroom : degats = nombre de salles Monster actives
-	if str(r.get("id", "")) == "BMA020":
+	if str(r.get("id", "")) == "BMA020" and not locked:
 		var n := 0
 		for x in all_active_rooms(dungeon):
 			if x != null and str((x as Dictionary).get("type", "")) == "monster":
@@ -230,11 +281,15 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 		var o: Dictionary = other
 		if is_room_deactivated(G, pid, i):  # AdjacentsRoom/NextRoom ignorent les slots inactifs
 			continue
+		if locked:
+			continue
 		if str(o.get("id", "")) == "BMA015" and absi(i - room_index) == 1 and rt == "monster":
 			dmg += 1
 		if str(o.get("id", "")) == "BMA029" and i == room_index - 1 and rt == "trap":
 			dmg += 2
 
+	# Room.Damage = InitialDamage + DealDamage (sorts Annihilator / Giant Size, portes par la carte)
+	dmg += int(r.get("dealDamage", 0))
 	# Bonus de degats poses par les sorts/effets
 	for e in _effects(G).get("roomDamageBonus", []):
 		var ed: Dictionary = e
@@ -245,6 +300,19 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 	for id in _effects(G).get("ordinaryMonsterBonus", []):
 		if int(id) == pid and str(r.get("type", "")) == "monster" and not bool(r.get("advanced", false)):
 			dmg += 1
+
+	# Boss.GetPassiveDamage : level-up LastRoomDealDamage (KSA005 Scythe) = +N a la salle du fond (Dungeon.First(), index Godot dernier).
+	var lu = (player.get("boss", {}) as Dictionary).get("levelUp")
+	if bool(player.get("leveledUp", false)) and lu is Dictionary and str((lu as Dictionary).get("cmd", "")) == "LastRoomDealDamage" \
+			and room_index == dungeon.size() - 1:
+		dmg += int(((lu as Dictionary).get("args", ["0"]) as Array)[0])
+
+	# GameBoard.ProccessActiveHero : Hero.Ability.GetPassiveDamageCommand ; HeroResistDamageRoomType (KSA016 Monster Hunter) rend N PV
+	# si le slot inflige des degats et que la salle est du type : degats totaux - N.
+	var ha = (hero as Dictionary).get("heroAbility") if hero is Dictionary else null
+	if ha is Dictionary and str((ha as Dictionary).get("cmd", "")) == "HeroResistDamageRoomType" and dmg != 0 \
+			and str(r.get("type", "")) == str(((ha as Dictionary).get("args", ["0", ""]) as Array)[1]).to_lower():
+		dmg -= int(((ha as Dictionary)["args"] as Array)[0])
 
 	return maxi(0, dmg)
 
@@ -297,6 +365,11 @@ static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}
 				adv["roomIndex"] = h - 1
 			else:
 				adv["roomGone"] = true # le slot du heros disparait : sa mort n'a plus de salle (InsideDungeonSlot.TopRoom == null)
+				if int(adv.get("hp", 0)) > 0:
+					# GameBoard.DestroyRoom : le slot passe en fin de liste (Dungeon.Remove + Add, 5 slots fixes), le heros le suit
+					# (InsideDungeonSlot) : il traverse les emplacements vides (5 - taille restante, 1 pas chacun) puis repart de
+					# l'entree (index C# decroissant) ; voir Match._advance_adventure_room (i < 0 = emplacement vide).
+					adv["roomIndex"] = -(5 - dungeon.size()) - 1
 	if triggers and not G.is_empty():
 		_on_other_room_destroyed(G, player)
 	return destroyed

@@ -73,8 +73,14 @@ static func _handler(id: String) -> Callable:
 		"BMA047": _giant_size, "BMA048": _jeopardy, "BMA049": _kobold_strike,
 		"BMA050": _motivation, "BMA051": _princess_in_peril, "BMA052": _soul_harvest,
 		"BMA053": _teleportation, "BMA054": _trepidation, "BMA055": _zombie_attack,
-		"THK025": _excavation,
+		"KSA013": _tpk, "THK025": _excavation,
 	}.get(id, Callable())
+
+## DealDamageToRoom (spell) -> Room.Deal : le bonus se grave sur la CARTE (Room.DealDamage), pas sur le slot. Il n'est remis a zero qu'a
+## EndOfTurnPhase pour les salles ENCORE dans un donjon (Boss.RestoreDungeon) : une salle detruite ou defaussee avant la fin du tour garde
+## son +3 (oracle s34-p3 : le Bottomless Pit buffe au tour 2 frappe encore a 4 quand il est reconstruit au tour 5).
+static func _buff_room_instance(room, amount: int) -> void:
+	(room as Dictionary)["dealDamage"] = int((room as Dictionary).get("dealDamage", 0)) + amount
 
 # --- BMA040 Annihilator : Trap Room +3 degats jusqu'a la fin du tour ---
 
@@ -85,7 +91,7 @@ static func _annihilator(G: Dictionary, caster_id: int, _card: Dictionary, targe
 	if room == null or str((room as Dictionary).get("type", "")) != "trap":
 		_log(G, "Annihilator requires a Trap Room.")
 		return false
-	(_effects(G)["roomDamageBonus"] as Array).append({"playerId": tid, "roomIndex": idx, "amount": 3})
+	_buff_room_instance(room, 3)
 	_log(G, "Annihilator: %s gains +3 damage this turn." % (room as Dictionary).get("name", "?"))
 	return true
 
@@ -113,7 +119,7 @@ static func _giant_size(G: Dictionary, caster_id: int, _card: Dictionary, target
 	if room == null or str((room as Dictionary).get("type", "")) != "monster":
 		_log(G, "Giant Size requires a Monster Room.")
 		return false
-	(_effects(G)["roomDamageBonus"] as Array).append({"playerId": tid, "roomIndex": idx, "amount": 3})
+	_buff_room_instance(room, 3)
 	_log(G, "Giant Size: %s gains +3 damage this turn." % (room as Dictionary).get("name", "?"))
 	return true
 
@@ -174,7 +180,12 @@ static func _cave_in(G: Dictionary, caster_id: int, _card: Dictionary, target: D
 # --- BMA044 Exhaustion : X degats a un hero de son donjon, X = salles visibles ---
 
 static func _exhaustion(G: Dictionary, caster_id: int, _card: Dictionary, target: Dictionary) -> bool:
-	var x := BossEngine.count_visible_rooms(_player(G, caster_id).get("dungeon", []))
+	# DealRoomsCountToHero : Boss.DungeonActiveRooms = slots actifs (hors Freeze) et non en attente de revelation.
+	var x := 0
+	var dun: Array = _player(G, caster_id).get("dungeon", [])
+	for i in dun.size():
+		if BossEngine.active_room(dun[i]) != null and not BossEngine.is_room_deactivated(G, caster_id, i):
+			x += 1
 	if not target.has("heroId"):
 		_log(G, "Exhaustion: no target hero.")
 		return false
@@ -306,7 +317,11 @@ static func _kobold_strike(G: Dictionary, _caster_id: int, _card: Dictionary, _t
 				var top: Dictionary = stack[stack.size() - 1]
 				if not bool(top.get("faceDown", false)) or not bool(top.get("builtThisTurn", false)):
 					break
-				stack.pop_back()
+				# Boss.UndoBuildRoom : la salle posee ce tour rejoint la main de son proprietaire (RoomsInHand.Add).
+				var back: Dictionary = stack.pop_back()
+				back.erase("faceDown")
+				back.erase("builtThisTurn")
+				(p["hand"] as Array).append(back)
 			if stack.is_empty():
 				dungeon.remove_at(i)
 	_log(G, "Kobold Strike: no rooms can be built this turn.")
@@ -321,6 +336,11 @@ static func _trepidation(G: Dictionary, caster_id: int, _card: Dictionary, targe
 	_log(G, "Trepidation: no Hero enters player %d's dungeon this turn." % tid)
 	if victim.is_empty():
 		return false
+	# Joue pendant la fenetre pre-aventure de la cible : ChooseNextActiveHero a deja designe son heros actif (AdventurePhase_b), que
+	# ProccessActiveHero (ForceSkipAdventure) RETIRE DU JEU (RemoveHeroFromGame) ; les suivants restent a l'entree.
+	if str(G.get("phase", "")) == CardDB.PHASE["ADVENTURE"] and (G.get("adventure", {}) as Dictionary).is_empty() \
+			and int(G.get("stackActivePlayer", G.get("activePlayer", -1))) == tid and not (victim.get("entrance", []) as Array).is_empty():
+		(victim["entrance"] as Array).pop_front()
 	return true
 
 # --- BMA055 Zombie Attack : un hero mort revient avec +2 PV ---
@@ -378,6 +398,21 @@ static func _zombie_attack(G: Dictionary, caster_id: int, _card: Dictionary, tar
 		"souls": 1, "wounds": 1})
 	victim["entrance"] = entrance
 	_log(G, "Zombie Attack: %s returns with +2 HP." % str(revived.get("name", "a dead Hero")))
+	return true
+
+# --- KSA013 T.P.K. : sort IUntilEndOfGameCommand (GameBoard.OnAbilityApplyDone : RemoveRoomOrSpellFromGame puis Boss.UntilEndOfTurnSpells) ---
+# Il quitte la defausse pour rester chez le lanceur ; AddSoulsToBossIfTreasures lit le scorekeeping de sa cible (CardDB.passive_souls).
+
+static func _tpk(G: Dictionary, caster_id: int, card: Dictionary, target: Dictionary) -> bool:
+	var pile: Array = (G.get("decks", {}) as Dictionary).get("spellDiscard", [])
+	var at := pile.rfind(card)
+	if at >= 0:
+		pile.remove_at(at)
+	var me := _player(G, caster_id)
+	var list: Array = me.get("untilEndSpells", []) as Array
+	me["untilEndSpells"] = list
+	list.append({"card": card, "target": _target_id(target, caster_id)})
+	_log(G, "T.P.K. : %s garde la carte dans son scorekeeping." % str(me.get("boss", {}).get("name", "?")))
 	return true
 
 # --- THK025 Excavation : retourne un objet ---

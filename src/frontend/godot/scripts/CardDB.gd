@@ -177,14 +177,71 @@ func card_image(id: String, kind: String) -> String:
 
 	return "res://assets/cards/rooms/" + file
 
-static func total_souls(p: Dictionary) -> int:
+## Boss.Souls = ames des heros du scorekeeping + CalculatePassiveSouls. Les passifs viennent du level-up du boss
+## (AddSoulsToBoss, KSA006) et des sorts « jusqu'a la fin de la partie » deja poses (AddSoulsToBossIfTreasures, T.P.K. :
+## le bonus se juge sur le scorekeeping de la CIBLE du sort, voir SpellEffects._tpk). `G` donne acces aux autres joueurs.
+static func total_souls(p: Dictionary, G: Dictionary = {}) -> int:
 	var n := 0
 	for s in p.get("souls", []):
 		if (s as Dictionary).get("tpk", false):
 			continue
 		n += int((s as Dictionary).get("souls", 1))
 	n += int(p.get("bonusSouls", 0))
+	return n + passive_souls(p, G)
+
+static func passive_souls(p: Dictionary, G: Dictionary = {}) -> int:
+	var n := 0
+	var boss = p.get("boss")
+	if boss is Dictionary and bool(p.get("leveledUp", false)):
+		var lu = (boss as Dictionary).get("levelUp")
+		if lu is Dictionary and str((lu as Dictionary).get("cmd", "")) == "AddSoulsToBoss":
+			n += int(((lu as Dictionary).get("args", ["0"]) as Array)[0])
+	for sp in (p.get("untilEndSpells", []) as Array):
+		var ab = ((sp as Dictionary).get("card", {}) as Dictionary).get("ability")
+		if not (ab is Dictionary) or str((ab as Dictionary).get("cmd", "")) != "AddSoulsToBossIfTreasures":
+			continue
+		var tp: Dictionary = p
+		var players = G.get("players")
+		if players is Dictionary and (players as Dictionary).has(int((sp as Dictionary).get("target", -1))):
+			tp = (players as Dictionary)[int((sp as Dictionary)["target"])]
+		var args: Array = (ab as Dictionary).get("args", [])
+		var all := true
+		for a in args.slice(1):
+			var t := int(TREASURE_NAMES.find(str(a)))
+			var found := false
+			for s in (tp.get("souls", []) as Array):
+				for x in ((s as Dictionary).get("treasures", []) as Array):
+					found = found or int(x) == t # JSON : 3.0 ; Array.has(3) ne compare pas int a float
+				if found:
+					break
+			all = all and found
+		if all:
+			n += int(args[0])
 	return n
+
+## Entree de scorekeeping d'une ame (Boss.SoulsHeroes) : le heros mort (Zombie Prison, KSA004) et ses classes de tresor (T.P.K.).
+static func soul_entry(hero: Dictionary) -> Dictionary:
+	return {
+		"name": hero.get("name", "?"), "souls": 1, "class": hero.get("class", ""), "faceDown": true,
+		"hero": hero, # identite du heros mort (Zombie Prison BMA039)
+		"treasures": hero_treasures(hero), "epic": bool(hero.get("epic", false)),
+	}
+
+## BMH0xx (Hidden Heroes) = memes cartes que BMA0xx (ReplacesCardNumber) : les regles se lisent sur l'identite de base.
+static func base_id(id: String) -> String:
+	return "BMA" + id.substr(3) if id.begins_with("BMH") else id
+
+## Condition de leurre d'un heros (HeroInfo.LuredCondition) : "treasures" (defaut), "fewerSouls" (The Fool) ou "wounds".
+static func hero_lure(hero: Dictionary) -> String:
+	if hero.has("lure"):
+		return str(hero["lure"])
+	return "fewerSouls" if base_id(str(hero.get("id", ""))) == "BMA080" else "treasures"
+
+## Tresors du heros (HeroInfo.Treasures : une ou deux classes, 0 pour The Fool / Demigod).
+static func hero_treasures(hero: Dictionary) -> Array:
+	if hero.has("treasures"):
+		return hero["treasures"]
+	return [int(hero.get("treasure", 1))]
 
 static func total_wounds(p: Dictionary) -> int:
 	var n := 0
@@ -214,12 +271,15 @@ const SPELL_PHASE := {
 	"BMA044": "adventure", "BMA045": "adventure", "BMA046": "any", "BMA047": "adventure",
 	"BMA048": "any", "BMA049": "build", "BMA050": "build", "BMA051": "build",
 	"BMA052": "any", "BMA053": "adventure", "BMA054": "adventure", "BMA055": "build",
+	"KSA013": "any", # T.P.K. : aucune condition (Ability.CheckConditions ne bloque que Setup_b)
 }
 
 static func can_play_spell(card: Dictionary, phase: String, stack_len: int = 0) -> bool:
 	var cid := str(card.get("id", ""))
 	if cid == "BMA043" and stack_len == 0:
 		return false # Counterspell : exige un sort adverse en attente (SpellCardJustPlayed)
+	if cid == "THK025":
+		return false # ToolsHeroKind : Ability nulle dans data.json (CheckConditions exige >= 1 effet) -> jamais jouable dans l'APK
 	if SPELL_PHASE.has(cid):
 		var w: String = SPELL_PHASE[cid]
 		return w == phase or (w == "any" and (phase == PHASE["BUILD"] or phase == PHASE["ADVENTURE"]))

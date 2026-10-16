@@ -88,6 +88,14 @@ static func enqueue_pending(G: Dictionary, choice: Dictionary) -> void:
 	else:
 		G["pendingChoice"] = choice
 
+## Boss.IsCanChooseCardToDraw : une salle ACTIVE (DungeonActiveRooms : face visible, non gelee) porte ChooseCardToDraw (BMA023 Haunted Library).
+static func can_choose_draw(p: Dictionary) -> bool:
+	for stack in (p.get("dungeon", []) as Array):
+		var r = BossEngine.active_room(stack)
+		if r != null and str((r as Dictionary).get("id", "")) == "BMA023" and not bool((r as Dictionary).get("faceDown", false)):
+			return true
+	return false
+
 ## Adversaires (non elimines) satisfaisant un predicat simple.
 static func opponents_with(G: Dictionary, player_id: int, need_spell: bool = false) -> Array:
 	var out: Array = []
@@ -127,6 +135,8 @@ static func activate_room_ability(G: Dictionary, player_id: int, room_index: int
 	var r: Dictionary = room
 	if bool(r.get("usedThisTurn", false)):
 		return "already used this turn"
+	if BossEngine.abilities_locked(G, player_id):
+		return "abilities locked (Trap Master)" # KSA017 : Ability.IsLocked -> CheckConditions faux
 
 	if ONCE_PER_TURN.has(str(r.get("id", ""))):
 		r["usedThisTurn"] = true # data.json : seules BMA013/024/025 portent OncePerTurn (Crushinator et Boulder Ramp sont rejouables)
@@ -559,9 +569,10 @@ static func on_hero_died_in_room(G: Dictionary, player_id: int, room: Dictionary
 		room["usedThisTurn"] = true
 	match id:
 		"BMA010": return _open_grave(G, p, player_id)
+		"BMA012": return _succubus_spa(G, player_id)
 		"BMA016": return _golem_factory(G, p, room)
 		"BMA021": return _brainsucker_hive(G, p)
-		"BMA014": return _vampire_bordello(G, p)
+		"BMA014": return _vampire_bordello(G, p, player_id)
 	return null
 
 ## BMA022 Dark Laboratory : pioche 2 sorts, puis defausse 1 sort de la main (tous les sorts, cf. C#).
@@ -583,6 +594,47 @@ static func _specters_sanctum(G: Dictionary, _p: Dictionary, player_id: int) -> 
 		opts.append({"targetPlayerId": int((o as Dictionary)["playerId"])})
 	return {"type": "pick-opponent", "action": "discard-spell", "playerId": player_id, "bossName": "Specter's Sanctum",
 		"message": "Choose an opponent to discard a random Spell", "options": opts}
+
+## BMA012 Succubus Spa : BossOwner + BossOpponent + PickRandomCardFromHand(1, Any). L'adversaire designe (auto s'il n'y en a qu'un,
+## TryToAutoresolve ; tout adversaire est ciblable meme sans carte) perd une carte AU HASARD (salle ou sort) qui rejoint la main du proprietaire.
+static func _succubus_spa(G: Dictionary, player_id: int) -> Variant:
+	var opps := opponents_with(G, player_id)
+	if opps.is_empty():
+		return null
+	if opps.size() == 1:
+		steal_random_card(G, player_id, int((opps[0] as Dictionary)["playerId"]), "Succubus Spa")
+		return null
+	var opts: Array = []
+	for o in opps:
+		opts.append({"targetPlayerId": int((o as Dictionary)["playerId"])})
+	return {"type": "pick-opponent", "action": "steal-random", "playerId": player_id, "bossName": "Succubus Spa",
+		"message": "Succubus Spa: choose an opponent to take a random card from", "options": opts}
+
+## PickRandomCardFromHand.Execute : une carte au hasard parmi toutes les cartes (salles et sorts) de la main de la victime.
+static func steal_random_card(G: Dictionary, thief_pid: int, victim_pid: int, label: String) -> void:
+	var victim := _player(G, victim_pid)
+	var thief := _player(G, thief_pid)
+	var hand: Array = victim.get("hand", []) as Array
+	if hand.is_empty() or thief.is_empty():
+		return
+	var pick: int = randi() % hand.size()
+	# Crochet de rejeu (harnais de parite APK) : G["forcedRandom"] = _oid des cartes tirees par l'oracle, dans l'ordre. Absent => hasard.
+	var forced := -1
+	for f in (G.get("forcedRandom", []) as Array):
+		for i in hand.size():
+			if forced < 0 and int((hand[i] as Dictionary).get("_oid", -1)) == int(f):
+				forced = i
+	if forced >= 0:
+		pick = forced
+	elif G.has("forcedRandom"):
+		return # rejeu APK : aucune carte n'a change de main (l'IA oracle a designe son propre boss : transaction sans effet net)
+	var card: Dictionary = hand[pick]
+	hand.remove_at(pick)
+	victim["hand"] = hand
+	var mine: Array = thief.get("hand", []) as Array
+	thief["hand"] = mine
+	mine.append(card)
+	_log(G, "%s: player %d took %s from player %d." % [label, thief_pid, str(card.get("name", "?")), victim_pid])
 
 ## BMA036 Mimic Vault : un hero ordinaire de la ville vers ton entree.
 static func _mimic_vault(G: Dictionary, p: Dictionary, player_id: int) -> Variant:
@@ -669,8 +721,16 @@ static func _brainsucker_hive(G: Dictionary, p: Dictionary) -> Variant:
 		_log(G, "Brainsucker Hive: drew %s." % str((drawn[0] as Dictionary).get("name", "?")))
 	return null
 
-## BMA014 Vampire Bordello : soigne une blessure (retourne une ame face cachee).
-static func _vampire_bordello(G: Dictionary, p: Dictionary) -> Variant:
+## BMA014 Vampire Bordello : soigne une blessure (retourne une ame face cachee). C# : HeroInScorekeep[Owner, Alive] + FlipHero,
+## le joueur CHOISIT le heros vivant a retourner (auto s'il n'y en a qu'un : TryToAutoresolve).
+static func _vampire_bordello(G: Dictionary, p: Dictionary, player_id: int) -> Variant:
+	var heroes := BossEngine.wound_heroes(p)
+	if heroes.size() > 1:
+		var opts: Array = []
+		for h in heroes:
+			opts.append({"card": h, "label": str((h as Dictionary).get("name", "?"))})
+		return {"type": "heal-wound", "playerId": player_id, "bossName": "Vampire Bordello",
+			"message": "Vampire Bordello: choose a Hero to flip", "options": opts}
 	var soul = BossEngine.heal_one_wound(p)
 	if soul != null:
 		_log(G, "Vampire Bordello: healed a Wound (%d soul)." % int((soul as Dictionary).get("souls", 1)))
@@ -761,7 +821,106 @@ static func process_level_up(G: Dictionary, player_id: int, boss_override: Dicti
 		"BMA006": return _seducia(G, player_id)
 		"BMA007": return _search_advanced_choice(G, player_id, "trap", "Cleopatra")
 		"BMA008": return _gorgona(G, p)
+	# Autres bosses (KSA / extensions) : LevelUpAbility de l'APK, lu dans cards.json (`levelUp`), pas par id de carte.
+	var lu = boss.get("levelUp")
+	if lu is Dictionary:
+		return _apk_level_up(G, player_id, p, lu as Dictionary)
 	return null
+
+## Commandes de level-up du PlayerChoice. AddTreasuresToDungeon / LastRoomDealDamage / AddSoulsToBoss sont des effets PASSIFS
+## (IPassive*Command, valables tant que Boss.IsLevelUpUnlocked) : lus par BossEngine.dungeon_treasures / room_damage_with_modifiers /
+## CardDB.passive_souls, rien a executer ici. Les autres ouvrent un choix (`optional` = Ability.CanAvoid) ; aucune cible = capacite ignoree.
+static func _apk_level_up(G: Dictionary, player_id: int, p: Dictionary, lu: Dictionary) -> Variant:
+	match str(lu.get("cmd", "")):
+		"MultiplyTreasuresDungeon": # KSA007 Elicon : tresors des salles x N jusqu'a la fin du tour (DungeonSlot.TreasuresMultiplier)
+			(_effects(G)["treasureDoubled"] as Array).append(player_id)
+			_log(G, "Elicon: treasure of every Room doubled until end of turn.")
+		"PutCardInHand": # KSA003 The Brothers Wise : un sort de la pioche de sorts (SpellInDeck BoardDeck) vers la main
+			var spells: Array = (G.get("decks", {}) as Dictionary).get("spells", [])
+			var opts: Array = []
+			for i in spells.size():
+				opts.append({"card": spells[i], "pile": "deck", "pileIndex": i})
+			if opts.is_empty():
+				return null
+			return {"type": "search-spell", "playerId": player_id, "optional": bool(lu.get("canAvoid", false)),
+				"bossName": "The Brothers Wise", "message": "The Brothers Wise: choose a Spell from the deck", "options": opts}
+		"PlaceAtScorekeep": # KSA004 Kaw'nee : un heros ORDINAIRE mort (SoulsHeroes) d'un adversaire passe face cachee chez soi
+			var opts: Array = []
+			for opid in (G.get("players", {}) as Dictionary):
+				if int(opid) == player_id:
+					continue
+				var souls: Array = (G["players"][opid] as Dictionary).get("souls", [])
+				for i in souls.size():
+					var e: Dictionary = souls[i]
+					if not bool(e.get("epic", false)):
+						opts.append({"card": e.get("hero", e), "fromPid": int(opid), "soulIndex": i,
+							"label": "%s (player %d)" % [str(e.get("name", "?")), int(opid) + 1]})
+			if opts.is_empty():
+				return null
+			return {"type": "steal-hero", "playerId": player_id, "optional": bool(lu.get("canAvoid", false)),
+				"bossName": "Kaw'nee", "message": "Kaw'nee: choose an ordinary Hero in an opponent's scorekeeping area", "options": opts}
+		"RearrangeDungeon": # KSA002 Hellcow : n'importe quel donjon, ordre des salles (toutes) au choix
+			return rearrange_choice(G, player_id, -1, [])
+	return null
+
+## KSA002 : etape 1 (target_pid < 0) = choisir le donjon ; ensuite on designe les salles dans l'ordre C# des slots (Dungeon[0] = fond =
+## index Godot le plus grand). La derniere salle restante est placee d'office. Une seule salle / un seul donjon candidat = sans choix.
+static func rearrange_choice(G: Dictionary, player_id: int, target_pid: int, picked: Array) -> Variant:
+	var players: Dictionary = G.get("players", {})
+	if target_pid < 0:
+		var opts: Array = []
+		for opid in players:
+			var d: Array = (players[opid] as Dictionary).get("dungeon", [])
+			if (players[opid] as Dictionary).get("eliminated", false) or _rearrangeable(G, int(opid)).is_empty():
+				continue
+			opts.append({"targetPlayerId": int(opid), "card": BossEngine.active_room(d[d.size() - 1]), "label": "Dungeon of player %d" % (int(opid) + 1)})
+		if opts.is_empty():
+			return null
+		if opts.size() == 1:
+			return rearrange_choice(G, player_id, int((opts[0] as Dictionary)["targetPlayerId"]), [])
+		return {"type": "rearrange-dungeon", "step": "dungeon", "playerId": player_id, "bossName": "Hellcow",
+			"message": "Hellcow: choose a dungeon to rearrange", "options": opts}
+	var rooms: Array = _rearrangeable(G, target_pid)
+	var left: Array = []
+	for i in rooms:
+		if not picked.has(i):
+			left.append(i)
+	if left.size() <= 1:
+		_apply_rearrange(G, target_pid, picked + left)
+		return null
+	var opts2: Array = []
+	var dungeon: Array = (players[target_pid] as Dictionary).get("dungeon", [])
+	for i in left:
+		opts2.append({"targetPlayerId": target_pid, "roomIndex": i, "card": BossEngine.active_room(dungeon[i])})
+	return {"type": "rearrange-dungeon", "step": "order", "playerId": player_id, "bossName": "Hellcow", "targetPlayerId": target_pid,
+		"picked": picked, "message": "Hellcow: choose the Room that comes next from the back of the dungeon", "options": opts2}
+
+## Slots ciblables par RoomInDungeon (actifs, non en attente de revelation, non geles) ; seul un donjon ENTIEREMENT ciblable peut etre
+## reordonne (RearrangeDungeon.Execute exige Target1.Count == DungeonSize). Renvoie les index Godot du fond vers l'entree.
+static func _rearrangeable(G: Dictionary, pid: int) -> Array:
+	var d: Array = (G["players"][pid] as Dictionary).get("dungeon", [])
+	var out: Array = []
+	for i in range(d.size() - 1, -1, -1):
+		var r = BossEngine.active_room(d[i])
+		if r == null or bool((r as Dictionary).get("faceDown", false)) or BossEngine.is_room_deactivated(G, pid, i):
+			return []
+		out.append(i)
+	return out
+
+## Dungeon[i] = piles dans l'ordre choisi (indices Godot, fond d'abord) : meme resultat que les echanges de RearrangeDungeon.Execute.
+static func _apply_rearrange(G: Dictionary, pid: int, order: Array) -> void:
+	var p: Dictionary = G["players"][pid]
+	var old: Array = (p.get("dungeon", []) as Array).duplicate()
+	var d: Array = p["dungeon"]
+	var moved := {}
+	for k in order.size():
+		d[old.size() - 1 - k] = old[int(order[k])]
+		moved[int(order[k])] = old.size() - 1 - k
+	for key in ["deactivatedRooms", "roomDamageBonus"]: # effets indexes par slot : ils suivent leur DungeonSlot
+		for e in (_effects(G).get(key, []) as Array):
+			if int((e as Dictionary).get("playerId", -1)) == pid and moved.has(int((e as Dictionary).get("roomIndex", -1))):
+				e["roomIndex"] = moved[int(e["roomIndex"])]
+	_log(G, "Hellcow: dungeon of player %d rearranged." % pid)
 
 ## BMA001 Draculord : vole une carte chez un adversaire (le joueur choisit).
 static func _draculord(G: Dictionary, player_id: int) -> Variant:
@@ -933,6 +1092,6 @@ static func _gorgona(G: Dictionary, p: Dictionary) -> Variant:
 		var souls: Array = p.get("souls", [])
 		p["souls"] = souls
 		for i in maxi(int(hero.get("souls", 1)), 1):
-			souls.append({"souls": 1, "name": hero.get("name", "?"), "faceDown": true})
+			souls.append(CardDB.soul_entry(hero))
 		_log(G, "Gorgona: killed %s." % str(hero.get("name", "?")))
 	return null

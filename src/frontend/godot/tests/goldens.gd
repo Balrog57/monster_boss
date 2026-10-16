@@ -95,6 +95,20 @@ func _ready() -> void:
 	_t_witchs_kitchen_choice()
 	_t_died_brainsucker_once_per_turn()
 	_t_pit_kill_no_death_trigger_on_next_room()
+	_t_destroy_hero_slot_traverses_empty_slots()
+	_t_exhaustion_ignores_frozen_rooms()
+	_t_vampire_bordello_choice_flips_whole_hero()
+	_t_neanderthal_cave_accepts_ordinary_over()
+	_t_kobold_strike_returns_rooms_to_hand()
+	_t_hero_deck_is_never_reshuffled()
+	_t_spell_room_buff_survives_destruction()
+	_t_dragon_hatchery_all_four_treasures()
+	_t_trepidation_removes_active_hero_only_in_pre_adventure()
+	_t_entrance_persists_across_turns()
+	_t_haunted_library_chooses_draw()
+	_t_succubus_spa_steals_random_card()
+
+	load("res://godot/tests/goldens_decks.gd").new().run(_ok, self) # paquets APK : PlayerChoice (KSA), HiddenHeros (BMH), ToolsHeroKind (THK)
 
 	print("GOLDENS passed=", _passed, " failed=", _failed.size())
 	if _failed.is_empty():
@@ -284,7 +298,7 @@ func _t_spell_annihilator_requires_trap() -> void:
 	var trap := _room("T", "trap", false, [1])
 	var G := _spell_state([[trap]])
 	_ok(SpellEffects.cast_spell(G, 0, {"id": "BMA040"}, {"roomIndex": 0}), "Annihilator accepte une Trap Room")
-	_ok((G["effects"]["roomDamageBonus"] as Array).size() == 1, "Annihilator pose +3 degats")
+	_ok(int(trap.get("dealDamage", 0)) == 3 and BossEngine.room_damage_with_modifiers(G, G["players"][0], 0, {}) == 4, "Annihilator pose +3 degats sur la carte (Room.DealDamage)")
 	var G2 := _spell_state([[_room("M", "monster", false, [1])]])
 	_ok(not SpellEffects.cast_spell(G2, 0, {"id": "BMA040"}, {"roomIndex": 0}), "Annihilator refuse une Monster Room")
 
@@ -1460,7 +1474,8 @@ func _t_seducia_picks_from_hero_deck() -> void:
 		"Seducia : le heros quitte la pioche pour l'entree")
 	m.queue_free()
 
-## DungeonSlot.CheckRoomCanBeBuilt : donjon plein, une salle ordinaire se pose par-dessus une pile (sauf BMA018).
+## DungeonSlot.CheckRoomCanBeBuilt : donjon plein, une salle ordinaire se pose par-dessus une pile, BMA018 comprise
+## (CannotBuildRoom[Advanced, Any] ne refuse que les salles avancees ; oracle APK s5-p4 seq 509 : BMA009 sur BMA018).
 func _t_full_dungeon_ordinary_over_stack() -> void:
 	var m = _match_with_spell()
 	var p: Dictionary = m.G["players"][0]
@@ -1479,8 +1494,8 @@ func _t_full_dungeon_ordinary_over_stack() -> void:
 			continue
 		var args: Array = (mv as Dictionary)["args"]
 		n += 1
-		bad = bad or args.size() < 2 or int(args[1]) == 2
-	_ok(n == 4 and not bad, "donjon plein : 4 recouvrements possibles (BMA018 exclue), trouve %d" % n)
+		bad = bad or args.size() < 2
+	_ok(n == 5 and not bad, "donjon plein : 5 recouvrements possibles (BMA018 comprise), trouve %d" % n)
 	m.queue_free()
 
 ## Fenetre de sorts apres la derniere construction (ActivePlayer == null) : ouverte si un siege non-IA a un sort jouable.
@@ -1632,3 +1647,219 @@ func _t_died_brainsucker_once_per_turn() -> void:
 	RoomAbilities.on_hero_died_in_room(G, 0, room)
 	RoomAbilities.on_hero_died_in_room(G, 0, room)
 	_ok(((G["players"][0] as Dictionary)["hand"] as Array).size() == 1, "Brainsucker Hive : une seule pioche par tour")
+
+# --- Parite APK (graines larges 4-7) : regles corrigees ---
+
+## GameBoard.DestroyRoom (Dungeon.Remove + Add, 5 slots fixes) : le slot du heros passe en fin de liste, le heros le suit
+## (InsideDungeonSlot) : il traverse les emplacements vides (5 - taille restante, un pas chacun, sans degat) puis repart de l'entree.
+## Oracle s4-p2 seq 198-201 : 2 pas vides, puis BMA032 (et non la salle suivante).
+func _t_destroy_hero_slot_traverses_empty_slots() -> void:
+	var m = Match.new()
+	add_child(m)
+	var hero := {"id": "H", "name": "H", "hp": 20}
+	var G := _ability_G("BMA010")
+	var p: Dictionary = G["players"][0]
+	p["dungeon"] = [[_room("A", "trap", false, [1])], [_room("B", "trap", false, [1])], [_room("C", "trap", false, [1])]]
+	p["entrance"] = [hero]
+	G["log"] = []
+	G["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": 0, "hp": 9, "pause": null}
+	m.G = G
+	BossEngine.destroy_room(p, 0, G) # le heros se tient dans la salle detruite : B, C restent
+	var steps := 0
+	while int((G["adventure"] as Dictionary)["roomIndex"]) < 0 and steps < 10:
+		(G["adventure"] as Dictionary)["pause"] = null
+		m._advance_adventure_room()
+		steps += 1
+		if int((G["adventure"] as Dictionary)["roomIndex"]) < 0:
+			_ok(int((G["adventure"] as Dictionary)["hp"]) == 9, "emplacement vide : aucun degat")
+	_ok(steps == 4, "heros dans le slot detruit : 5 - 2 = 3 emplacements vides traverses puis la 1re salle (pas " + str(steps) + ")")
+	_ok(int((G["adventure"] as Dictionary)["roomIndex"]) == 0 and int((G["adventure"] as Dictionary)["hp"]) == 8,
+		"puis il repart de l'entree : la 1re salle restante lui inflige ses degats")
+	_ok(not (G["adventure"] as Dictionary).has("roomGone"), "le heros a quitte le slot disparu : sa mort retrouve une salle")
+	m.queue_free()
+
+## DealRoomsCountToHero (Exhaustion) : X = Boss.DungeonActiveRooms, donc sans les slots geles par Freeze (oracle s5-p4 seq 283).
+func _t_exhaustion_ignores_frozen_rooms() -> void:
+	var G := _ability_G("BMA010")
+	var p: Dictionary = G["players"][0]
+	p["dungeon"] = [[_room("A", "trap", false, [1])], [_room("B", "trap", false, [1])], [_room("C", "trap", false, [1])]]
+	var hero := {"id": "H", "name": "H", "hp": 10}
+	G["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": 1, "hp": 10, "pause": null}
+	((G["effects"] as Dictionary)["deactivatedRooms"] as Array).append({"playerId": 0, "roomIndex": 2})
+	_ok(SpellEffects.cast_spell(G, 0, {"id": "BMA044", "name": "Exhaustion"}, {"heroId": "H"}), "Exhaustion accepte")
+	_ok(int((G["adventure"] as Dictionary)["hp"]) == 8, "2 salles actives (la 3e est gelee) : 2 degats, pas 3")
+
+## FlipHero (Vampire Bordello) : HeroInScorekeep[Owner, Alive] -> le joueur CHOISIT le heros vivant a retourner ; un epique
+## passe en entier (toutes ses blessures, toutes ses ames). Oracle s5-p4 seq 335-337 : BMA073 retourne, pas la derniere blessure.
+func _t_vampire_bordello_choice_flips_whole_hero() -> void:
+	var G := _ability_G("BMA014")
+	var p: Dictionary = G["players"][0]
+	var h1 := {"id": "H1", "name": "H1", "souls": 1, "wounds": 1}
+	var h2 := {"id": "H2", "name": "H2", "epic": true, "souls": 2, "wounds": 2}
+	p["wounds"] = [{"name": "H1", "wounds": 1, "souls": 1, "hero": h1}, {"name": "H2", "wounds": 1, "souls": 1, "hero": h2},
+		{"name": "H2", "wounds": 1, "souls": 1, "hero": h2}]
+	var room: Dictionary = BossEngine.active_room((p["dungeon"] as Array)[0])
+	var choice = RoomAbilities.on_hero_died_in_room(G, 0, room)
+	_ok(choice != null and str((choice as Dictionary).get("type", "")) == "heal-wound" and ((choice as Dictionary)["options"] as Array).size() == 2,
+		"2 heros vivants : un choix, une option par heros (pas par blessure)")
+	var m = Match.new()
+	add_child(m)
+	G["log"] = []
+	G["choiceQueue"] = []
+	G["phase"] = "adventure"
+	G["pendingChoice"] = choice
+	m.G = G
+	m._resolve_choice(0, 1)
+	_ok(CardDB.total_wounds(p) == 1 and CardDB.total_souls(p) == 2 and (p["wounds"] as Array).size() == 1,
+		"l'epique choisi est retourne en entier : -2 blessures, +2 ames ; H1 reste blesse")
+	m.queue_free()
+	# Un seul heros vivant : retourne d'office (TryToAutoresolve).
+	var G2 := _ability_G("BMA014")
+	var p2: Dictionary = G2["players"][0]
+	p2["wounds"] = [{"name": "H1", "wounds": 1, "souls": 1, "hero": h1}]
+	var room2: Dictionary = BossEngine.active_room((p2["dungeon"] as Array)[0])
+	_ok(RoomAbilities.on_hero_died_in_room(G2, 0, room2) == null and CardDB.total_souls(p2) == 1 and CardDB.total_wounds(p2) == 0,
+		"un seul heros vivant : retourne sans choix")
+
+## Room.Deal : le +3 d'Annihilator/Giant Size reste sur la carte tant qu'elle n'est pas dans un donjon a la fin du tour (Boss.RestoreDungeon).
+## Oracle s34-p3 : un Bottomless Pit buffe puis detruit au tour 2 frappe encore a 4 quand il est reconstruit au tour 5.
+func _t_spell_room_buff_survives_destruction() -> void:
+	var G := _spell_state([[_room("T", "trap", false, [1])], [_room("U", "trap", false, [1])]])
+	var p: Dictionary = G["players"][0]
+	_ok(SpellEffects.cast_spell(G, 0, {"id": "BMA040"}, {"roomIndex": 0}), "Annihilator joue")
+	var card = BossEngine.destroy_room(p, 0, G)
+	BossEngine.discard_room_to_pile(G["decks"], card)
+	p["dungeon"] = [[card]]
+	_ok(BossEngine.room_damage_with_modifiers(G, p, 0, {}) == 4, "salle detruite puis reconstruite : le +3 est reste sur la carte")
+	var m = _match_with_spell()
+	m.G["autoAI"] = false
+	var kept := _room("K", "trap", false, [1])
+	kept["dealDamage"] = 3
+	(m.G["players"][0] as Dictionary)["dungeon"] = [[kept]]
+	m._start_turn()
+	_ok(not kept.has("dealDamage"), "fin de tour : les salles encore en donjon repartent a leurs degats de base")
+	m.queue_free()
+
+## BMA049 Kobold Strike (UndoBuildRoom) : la salle posee ce tour revient dans la MAIN de son proprietaire, face visible (pas defaussee).
+## Oracle s11-p3 seq 37 : BMA010 rend a P1.
+func _t_kobold_strike_returns_rooms_to_hand() -> void:
+	var G := _spell_state()
+	var built := _room("B", "trap", false, [1])
+	built["faceDown"] = true
+	built["builtThisTurn"] = true
+	(G["players"][1] as Dictionary)["dungeon"] = [[built], [_room("Old", "trap", false, [1])]]
+	_ok(SpellEffects.cast_spell(G, 0, {"id": "BMA049"}, {}), "Kobold Strike accepte")
+	var foe: Dictionary = G["players"][1]
+	_ok((foe["dungeon"] as Array).size() == 1 and (foe["hand"] as Array).size() == 1 and (G["decks"]["roomDiscard"] as Array).is_empty(),
+		"la salle face cachee du tour revient en main (slot supprime, rien en defausse)")
+	_ok(not (foe["hand"][0] as Dictionary).has("faceDown") and not (foe["hand"][0] as Dictionary).has("builtThisTurn"), "elle redevient une carte de main ordinaire")
+	_ok(BossEngine.is_build_blocked(G), "plus aucune construction ce tour")
+
+## GameBoard.RevealHeroes : pioche de heros vide => « No more heroes in deck », la defausse de heros n'est jamais remelangee.
+func _t_hero_deck_is_never_reshuffled() -> void:
+	var m = load("res://godot/scripts/Match.gd").new()
+	add_child(m)
+	m.G = _ability_G("BMA010")
+	m.G["log"] = []
+	m.G["decks"]["heroes"] = []
+	m.G["decks"]["epics"] = []
+	m.G["decks"]["heroDiscard"] = [{"id": "H1", "treasure": 1}, {"id": "H2", "treasure": 1}]
+	m._reveal_heroes_in_town()
+	_ok((m.G["town"] as Array).is_empty() and (m.G["decks"]["heroDiscard"] as Array).size() == 2, "aucun heros revele : la defausse reste en l'etat")
+	m.queue_free()
+
+## CannotBuildRoom[Advanced, Any] (BMA018) ne refuse que les salles AVANCEES : une ordinaire se pose par-dessus (oracle s5-p4 seq 509).
+func _t_neanderthal_cave_accepts_ordinary_over() -> void:
+	var cave := _room("BMA018", "monster", false, [1])
+	var ordinary := _room("O", "trap", false, [2])
+	_ok(BossEngine.can_build_room(_player([[cave]], [ordinary]), {}, 0, 0, 0), "BMA018 accepte une salle ordinaire")
+
+## BMA035 Dragon Hatchery : aucune capacite, mais les 4 types de tresor (data.json Treasures [1,3,2,4]) : toute salle avancee s'y batit.
+func _t_dragon_hatchery_all_four_treasures() -> void:
+	var hatchery := _room("BMA035", "monster", false, [1, 3, 2, 4])
+	for t in [1, 2, 3, 4]:
+		_ok(BossEngine.can_build_room(_player([[hatchery]], [_room("X", "trap", true, [t])]), {}, 0, 0, 0),
+			"Dragon Hatchery accepte une salle avancee au tresor %d" % t)
+
+## Trepidation joue pendant la fenetre pre-aventure de la cible : son heros actif (deja designe) est retire du jeu, les suivants restent
+## a l'entree ; joue ailleurs, tous restent (oracle s5-p3 seq 265 / s7-p4 seq 489).
+func _t_trepidation_removes_active_hero_only_in_pre_adventure() -> void:
+	var G := _ability_G("BMA010")
+	G["phase"] = CardDB.PHASE["ADVENTURE"]
+	G["activePlayer"] = 0
+	(G["players"][0] as Dictionary)["entrance"] = [{"id": "H1"}, {"id": "H2"}]
+	_ok(SpellEffects.cast_spell(G, 1, {"id": "BMA054"}, {"targetPlayerId": 0}), "Trepidation accepte")
+	var ent: Array = (G["players"][0] as Dictionary)["entrance"]
+	_ok(ent.size() == 1 and str((ent[0] as Dictionary)["id"]) == "H2", "cible active : son heros actif est retire du jeu, le suivant reste")
+	var G2 := _ability_G("BMA010")
+	G2["phase"] = CardDB.PHASE["ADVENTURE"]
+	G2["activePlayer"] = 1
+	(G2["players"][0] as Dictionary)["entrance"] = [{"id": "H1"}, {"id": "H2"}]
+	SpellEffects.cast_spell(G2, 1, {"id": "BMA054"}, {"targetPlayerId": 0})
+	_ok(((G2["players"][0] as Dictionary)["entrance"] as Array).size() == 2, "cible pas encore active : ses heros restent a l'entree")
+
+## EntranceQueue persiste d'un tour a l'autre (seul RemoveHeroFromGame la vide) : les heros laisses par Trepidation entrent au tour suivant.
+func _t_entrance_persists_across_turns() -> void:
+	var m = _match_with_spell()
+	m.G["autoAI"] = false
+	(m.G["players"][0] as Dictionary)["entrance"] = [{"id": "H1", "name": "H1"}]
+	m.G["decks"]["rooms"] = [_room("R", "trap", false, [1]), _room("R2", "trap", false, [1])]
+	m._start_turn()
+	_ok(((m.G["players"][0] as Dictionary)["entrance"] as Array).size() == 1, "le heros reste a l'entree au debut du tour suivant")
+	m.queue_free()
+
+## BMA023 Haunted Library (Boss.IsCanChooseCardToDraw) : le joueur choisit sa pioche de debut de tour ; les autres piochent une salle.
+func _t_haunted_library_chooses_draw() -> void:
+	var m = _match_with_spell()
+	m.G["autoAI"] = false
+	(m.G["players"][0] as Dictionary)["hand"] = []
+	(m.G["players"][0] as Dictionary)["dungeon"] = [[_room("BMA023", "trap", false, [3])]]
+	m.G["decks"]["rooms"] = [_room("R1", "trap", false, [1]), _room("R2", "trap", false, [1])]
+	m.G["decks"]["spells"] = [{"id": "S1", "name": "S1", "isSpell": true}]
+	m._start_turn()
+	var pc: Dictionary = m.G.get("pendingChoice", {})
+	_ok(str(pc.get("type", "")) == "draw-type" and int(pc.get("playerId", -1)) == 0 and (pc["options"] as Array).size() == 2,
+		"Haunted Library : choix de pioche ouvert pour son proprietaire")
+	_ok(((m.G["players"][0] as Dictionary)["hand"] as Array).is_empty() and ((m.G["players"][1] as Dictionary)["hand"] as Array).size() == 1,
+		"les autres joueurs ont pioche une salle ; le proprietaire n'a pas encore pioche")
+	_ok(m.legal_moves(1).is_empty() and m.legal_moves(0).size() == 2, "partie gelee : seul le proprietaire repond (salle ou sort)")
+	m._resolve_choice(0, 1)
+	var hand0: Array = (m.G["players"][0] as Dictionary)["hand"]
+	_ok(hand0.size() == 1 and bool((hand0[0] as Dictionary).get("isSpell", false)), "pioche dans la pioche de sorts")
+	_ok((m.G["decks"]["rooms"] as Array).size() == 1 and (m.G["pendingChoice"] as Dictionary).is_empty(), "pas de pioche de salle en plus, choix clos")
+	_ok(not RoomAbilities.can_choose_draw({"dungeon": [[{"id": "BMA023", "faceDown": true}]]}), "face cachee (pas encore revelee) : pas de choix")
+	m.queue_free()
+
+## BMA012 Succubus Spa : BossOpponent + PickRandomCardFromHand(1, Any) : une carte au hasard (salle OU sort) de l'adversaire passe dans la main.
+func _t_succubus_spa_steals_random_card() -> void:
+	var G := _ability_G("BMA012")
+	var victim: Dictionary = G["players"][1]
+	victim["hand"] = [_room("R", "trap", false, [1]), {"id": "S", "name": "S", "isSpell": true, "_oid": 7}]
+	var room: Dictionary = BossEngine.active_room(((G["players"][0] as Dictionary)["dungeon"] as Array)[0])
+	G["forcedRandom"] = [7] # crochet de rejeu : l'oracle a pris le sort
+	_ok(RoomAbilities.on_hero_died_in_room(G, 0, room) == null, "deux joueurs : adversaire auto-designe, aucun choix")
+	var mine: Array = (G["players"][0] as Dictionary)["hand"]
+	_ok(mine.size() == 1 and str((mine[0] as Dictionary).get("id", "")) == "S" and (victim["hand"] as Array).size() == 1,
+		"le sort tire passe de la main de l'adversaire a celle du proprietaire")
+	room["usedThisTurn"] = false
+	G["forcedRandom"] = [999] # rejeu : aucune carte n'a bouge dans la trace oracle
+	RoomAbilities.on_hero_died_in_room(G, 0, room)
+	_ok(mine.size() == 1, "rejeu : pas de carte forcee = pas de vol")
+	# 3 joueurs : l'adversaire se choisit.
+	var G3 := _ability_G("BMA012")
+	G3["players"][2] = {"id": 2, "dungeon": [], "hand": [_room("Q", "trap", false, [1])], "souls": [], "wounds": [], "entrance": [], "items": [], "eliminated": false}
+	var room3: Dictionary = BossEngine.active_room(((G3["players"][0] as Dictionary)["dungeon"] as Array)[0])
+	var choice = RoomAbilities.on_hero_died_in_room(G3, 0, room3)
+	_ok(choice != null and str((choice as Dictionary).get("type", "")) == "pick-opponent" and str((choice as Dictionary).get("action", "")) == "steal-random"
+		and ((choice as Dictionary)["options"] as Array).size() == 2, "3 joueurs : choix de l'adversaire")
+	var m = Match.new()
+	add_child(m)
+	G3["log"] = []
+	G3["choiceQueue"] = []
+	G3["phase"] = "adventure"
+	G3["pendingChoice"] = choice
+	m.G = G3
+	m._resolve_choice(0, 1)
+	_ok(((G3["players"][0] as Dictionary)["hand"] as Array).size() == 1 and ((G3["players"][2] as Dictionary)["hand"] as Array).is_empty(),
+		"la carte de l'adversaire choisi rejoint la main du proprietaire")
+	m.queue_free()

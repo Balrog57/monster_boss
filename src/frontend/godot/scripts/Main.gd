@@ -5,7 +5,15 @@ extends Control
 ## IN-APP STORE supprime -> RULES (icone livre rules_icon.webp).
 ## shortcut: pas de matchmaking mondial (bouton WORLDWIDE volontairement absent).
 
-const EXT_PACKS := ["hidden-heroes", "tools", "players-choice", "next-level", "minibosses", "crash-landing"]
+## Extensions du wiki hors APK (bascule « Options »).
+const EXT_PACKS := ["next-level", "minibosses", "crash-landing"]
+## Paquets de l'APK (ExpansionScene / LocalMarket.Expansions) : le jeu de base est toujours present, les autres se combinent librement.
+## ToolsHeroKind (comme PowerUpPack) est « COMING SOON » dans l'APK 2.2.6 : CardInfoService.GetAvailableDecks l'exclut, il n'est pas jouable.
+const APK_DECKS := [
+	{"id": "players-choice", "name": "THE PLAYER CHOICE", "info": "7 bosses, 3 epic heroes, 1 spell", "playable": true},
+	{"id": "hidden-heroes", "name": "HIDDEN HEROES", "info": "41 alternate heroes", "playable": true},
+	{"id": "tools", "name": "TOOLS OF HERO KIND", "info": "COMING SOON", "playable": false},
+]
 
 const GameManager = preload("res://godot/scripts/GameManager.gd")
 const OnlineClient = preload("res://godot/scripts/OnlineClient.gd")
@@ -17,6 +25,7 @@ var online: OnlineClient
 var board: Control
 var net_err_lbl: Label = null
 var use_extensions := false
+var apk_decks: Array = [] # ids des paquets APK coches (voir APK_DECKS)
 var server_host := "http://127.0.0.1:8000"
 var profile := {"name": "Joueur", "avatar": "avatar_draculord"}
 var selected_avatar := "avatar_draculord"
@@ -34,6 +43,7 @@ func _ready() -> void:
 	if settings.has("host") and str(settings["host"]) != "":
 		server_host = str(settings["host"])
 	use_extensions = bool(settings.get("extensions", false))
+	apk_decks = (settings.get("decks", []) as Array).filter(func(d): return _deck_playable(str(d)))
 	profile = Profile.load_profile()
 	selected_avatar = str(profile.get("avatar", selected_avatar))
 	show_menu()
@@ -44,8 +54,34 @@ func _clear() -> void:
 			c.queue_free()
 	board = null
 
+func _deck_playable(id: String) -> bool:
+	for d in APK_DECKS:
+		if str((d as Dictionary)["id"]) == id:
+			return bool((d as Dictionary)["playable"])
+	return false
+
 func _active_sets() -> Array:
-	return EXT_PACKS if use_extensions else []
+	var sets: Array = apk_decks.duplicate()
+	if use_extensions:
+		sets.append_array(EXT_PACKS)
+	return sets
+
+## Cases a cocher « select expansions » (ExpansionScene) : un paquet non jouable est affiche grise.
+func _add_deck_checks(v: Control) -> void:
+	for d in APK_DECKS:
+		var dd: Dictionary = d
+		var cb := CheckBox.new()
+		cb.text = "%s  (%s)" % [str(dd["name"]), str(dd["info"])]
+		cb.disabled = not bool(dd["playable"])
+		cb.button_pressed = apk_decks.has(str(dd["id"]))
+		var did := str(dd["id"])
+		cb.toggled.connect(func(on: bool):
+			if on and not apk_decks.has(did):
+				apk_decks.append(did)
+			elif not on:
+				apk_decks.erase(did)
+			Profile.save_settings(server_host, use_extensions, apk_decks))
+		v.add_child(cb)
 
 # --- widgets ---------------------------------------------------------------
 
@@ -146,7 +182,8 @@ func show_setup(num_players: int, human_count: int) -> void:
 		v.add_child(_title_label("Solo : vous contre %d IA." % (num_players - human_count), 26))
 	else:
 		v.add_child(_title_label("Multijoueur local : %d humains." % num_players, 26))
-	v.add_child(_title_label("Paquets : %s." % ("base + extensions" if use_extensions else "base"), 20))
+	v.add_child(_title_label("SELECT EXPANSIONS", 24))
+	_add_deck_checks(v)
 	var start := _menu_btn("OK")
 	start.pressed.connect(func(): start_match(num_players, human_count))
 	v.add_child(start)
@@ -231,6 +268,7 @@ func show_friends() -> void:
 	online.stop_state_poll()
 	var v := _screen("res://assets/ui/backgrounds/multiplayer_bg.webp")
 	v.add_child(_title_label("WITH FRIENDS (2-4)", 32))
+	_add_deck_checks(v)
 	for n in [2, 3, 4]:
 		var b := _menu_btn("CREATE %dJ" % n)
 		var count: int = n
@@ -362,11 +400,11 @@ func show_options() -> void:
 	host.custom_minimum_size = Vector2(460, 48)
 	v.add_child(host)
 	var ext := CheckBox.new()
-	ext.text = "Extensions du wiki"
+	ext.text = "Extensions du wiki (hors APK)"
 	ext.button_pressed = use_extensions
 	ext.toggled.connect(func(on: bool):
 		use_extensions = on
-		Profile.save_settings(server_host, use_extensions))
+		Profile.save_settings(server_host, use_extensions, apk_decks))
 	v.add_child(ext)
 	var snd := CheckBox.new()
 	snd.text = "Son"
@@ -376,7 +414,7 @@ func show_options() -> void:
 	var save := _menu_btn("OK")
 	save.pressed.connect(func():
 		server_host = host.text
-		Profile.save_settings(server_host, use_extensions)
+		Profile.save_settings(server_host, use_extensions, apk_decks)
 		show_menu())
 	v.add_child(save)
 	v.add_child(_back_btn(func(): show_menu()))

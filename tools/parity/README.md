@@ -174,7 +174,8 @@ Celui-ci compare a la vraie : `tools/apk-oracle` fait jouer `DBMGame.dll` 2.2.6
 npm run test:parity:apk                       # graines 1-3 x 2 et 3 joueurs (BaseDeck), ~15 s : doit rester 6/6 OK
 npm run test:parity:apk:wide                  # graines 4-7 x 2, 3 et 4 joueurs, ~25 s : couverture, des echecs connus (voir « Limites »)
 node tools/parity/apk.mjs --seeds 4 5 --players 2 4
-node tools/parity/apk.mjs --decks BaseDeck,PlayerChoice,HiddenHeros   # autres paquets (l'oracle les joue, Godot n'en gere pas les regles)
+npm run test:parity:apk:decks                  # graines 1-3 x 2 et 3 joueurs avec BaseDeck + PlayerChoice + HiddenHeros + ToolsHeroKind
+node tools/parity/apk.mjs --decks BaseDeck,PlayerChoice   # un paquet a la fois (BaseDeck toujours present) : voir « Paquets supplementaires »
 node tools/parity/apk.mjs --skip-gen          # rejoue les traces deja generees
 GODOT=<exe> npm run test:parity:apk           # sinon C:/Tools/Godot/...console.exe, puis `godot`
 APK_PARITY_OUT=<dossier> npm run test:parity:apk   # dossier de sortie dedie (rejeux paralleles de plusieurs agents)
@@ -209,6 +210,29 @@ Le rejeu ne recoit aucune aide de regles : Godot implemente la salle initiale (`
   est ensuite rejouee via `openingDiscard`.
 - `Match._start_turn` est retenu (`ApkMatch`) jusqu'au step `BeginningOfTurn` de l'oracle.
 
+## Paquets supplementaires (`--decks`)
+
+`--decks` est passe tel quel a l'oracle (`GameDecks` : `BaseDeck`, `PlayerChoice`, `HiddenHeros`, `ToolsHeroKind`). Le moteur Godot les nomme par
+`set` dans `cards.json` : `players-choice` (KSA, 11 cartes), `hidden-heroes` (BMH, 41 heros), `tools` (THK, 25 cartes) ; le jeu de base est toujours
+present (`GamePlayBaseScene` : `cardDecks = { BaseDeck } + extensions`), les autres se combinent librement (`ExpansionScene`).
+
+- **PlayerChoice** : 7 bosses, 3 heros epiques, T.P.K. Les capacites sont lues dans `cards.json` (`levelUp`, `ability`, `heroAbility`, extraits de
+  `data.json`), pas par id. Level-ups passifs (`IsLevelUpUnlocked`) : KSA001 `AddTreasuresToDungeon` (`BossEngine.dungeon_treasures`), KSA005
+  `LastRoomDealDamage` (`room_damage_with_modifiers`), KSA006 `AddSoulsToBoss` (`CardDB.passive_souls`) ; KSA007 `MultiplyTreasuresDungeon` ; avec
+  choix : KSA002 `RearrangeDungeon` (`rearrange-dungeon`), KSA003 `PutCardInHand` (`search-spell`), KSA004 `PlaceAtScorekeep` (`steal-hero`). Heros :
+  KSA014 `LuredByWounds`, KSA016 `HeroResistDamageRoomType`, KSA017 `DeactivateDungeonAbility` (`BossEngine.abilities_locked`).
+  **T.P.K.** (`IUntilEndOfGameCommand`) quitte la defausse pour rester chez le lanceur ; la condition (les 4 classes face cachee) se lit sur le
+  scorekeeping de la **cible** choisie. Un humain n'a que lui-meme (`BossOwner`) ; l'IA de l'oracle (`AbilityCalculator.CheckKSA013`) designe tous les
+  joueurs et `SetTarget` garde le premier (le boss de plus haute XP) : le harnais ouvre ce choix (`G.aiTargetsAllBosses`) pour rejouer l'oracle.
+- **HiddenHeros** : les 41 BMH ont `ReplacesCardNumber` = BMA056-096 (memes stats). `GetCardInfoFromDeck` ecarte donc les BMA : aucune regle propre, les
+  regles de heros se lisent sur `lure` / `treasures` (`CardDB.hero_lure`), plus sur l'id (`BossEngine.lure_target` etait cable sur BMA080).
+- **ToolsHeroKind** n'est **pas jouable dans l'APK 2.2.6** : `CardInfoService.GetAvailableDecks` l'exclut (comme `PowerUpPack`), le magasin l'affiche
+  « COMING SOON », son `data.json` n'a aucune capacite (salles, sort et objets : `null`), pas de `ai_info.json` (l'IA leve des qu'une salle THK est
+  en main) et `FlipItem.Execute` leve `NotImplementedException`. Le moteur ne fait que `RevealItems` (1 objet par tour, 2 a 4 joueurs, vers
+  `RevealedItemsQueue`). L'oracle le charge par reflexion avec des infos IA vides (`tools/apk-oracle/Program.cs`) pour verifier que les regles se
+  reduisent a cela : objets inertes, salles ordinaires, THK025 injouable. Godot : `G.decks.items` + `G.itemQueue` (`Match._reveal_items`),
+  la case a cocher est grisee dans le menu.
+
 ## Points de controle et champs compares
 
 Godot enchaine des phases en un seul coup (fin de BUILD -> leurre -> aventure ; fin d'aventure ->
@@ -238,6 +262,9 @@ Conventions de rejeu (harnais seulement, aucune regle) :
 - `playRoomAbility` est **retenu** jusqu'au prochain step de phase avec ses decisions : l'oracle met la capacite en file et ne l'execute qu'au `NextStep` suivant, apres d'eventuelles actions de l'IA ; Godot l'applique tout de suite. Une activation devenue impossible (salle recouverte) est notee `FIZZLE` (exception C# loguee, rien ne s'execute).
 - `HeroDiesInThisRoom` est execute par l'oracle un `NextStep` apres l'ajout de l'ame : `ApkMatch._hero_died_trigger` retient le declencheur jusqu'au step suivant.
 - Les decisions de declencheurs arrivent dans le journal AVANT le step qui les execute : une decision sans choix Godot correspondant est retenue (2 steps de phase) puis rejouee des qu'un choix du bon joueur s'ouvre (`_late`).
+- Diagnostic : `godot ... ApkParity.tscn -- --traces=<dossier> --only=s5-p2 --dbg=480-498` imprime l'etat Godot (phase, joueur, pv/salle du heros, effets, choix ouvert, entrees) apres chaque step oracle de la plage.
+- Un choix Godot dont le `bossName` est celui d'une AUTRE carte que le proprietaire de la decision oracle (Monstrous Monument + King Croak, meme carte visee) fait attendre la decision (`_late`).
+- Controles non comparables (`apk.mjs`) : `build` au `NextStep executed:false` qui clot la construction (Godot a deja enchaine revelation/leurre/aventure), `adv` quand Godot est deja `over` ou que l'oracle a un heros a hp <= 0 en attente de `ProccessActiveHero` (Godot le retire et compte l'ame tout de suite).
 - Les tirages « au hasard » (`forcedRandom`) ne proposent que les pertes a venir (`seq` >= step courant).
 
 Une fenetre de pause d'aventure Godot (`post-damage`, `pre-exit`) = fenetre
@@ -256,15 +283,27 @@ tout ce qui suit la premiere divergence est en cascade), `stats`, `matched/check
 
 ## Limites assumees
 
-- **Tirages au hasard** (Specter's Sanctum, `DiscardRandomCardFromHand`) : le harnais releve dans la trace les cartes qui
-  quittent une main sans cause visible (`_involuntary_losses`) et les passe a Godot dans `G["forcedRandom"]`
-  (crochet sans effet par defaut dans `RoomAbilities._discard_random_spell_from`). Succubus Spa (BMA012,
-  `PickRandomCardFromHand`) et la defausse de salle de Torture Chamber (BMA038) ne sont pas implementees dans Godot.
+- **Tirages au hasard** (Specter's Sanctum, Torture Chamber, Succubus Spa) : le harnais releve dans la trace les cartes qui
+  quittent une main — ou changent de main — sans cause visible (`_involuntary_losses`) et les passe a Godot dans `G["forcedRandom"]`
+  (crochet sans effet par defaut dans `RoomAbilities._discard_random_from` / `steal_random_card`). Pour Succubus Spa, l'absence de carte
+  forcee = aucune carte n'a bouge (l'IA oracle a parfois designe son propre boss : transaction sans effet net) : pas de vol.
 - `_sync_build(-1)` (l'oracle a clos la construction) force des `passBuild` mais s'arrete des que Godot ouvre un tour de
   construction supplementaire (`forcedBuild`) ou change de tour : c'est alors l'oracle qui pilote.
 - Les melanges de reconstitution (pioche vide) ne sont pas reproductibles ; aucune des traces par defaut n'en declenche.
-- **Courses de l'IA oracle** (graines 4-7, non reproductibles par construction) : l'IA active une capacite de salle (Dracolich Lair, Torture Chamber, Jackpot Stash...), puis pose une salle ou joue une carte AVANT que la transaction ne s'execute (elle peut batir sur la salle qui va etre detruite, ou poser la carte qu'elle va defausser) ; l'APK finit par lever/ignorer l'exception. Godot reserve les activations au joueur actif et les applique tout de suite : s4-p2, s5-p2, s5-p3 (debut), s6-p3 et s7-p3 en dependent.
-- Paquets `PlayerChoice` (bosses KSA003/006/007, sort KSA013 T.P.K., heros KSA014/KSA017) et `HiddenHeros` (heros BMH* : les regles Godot propres a un heros, ex. The Fool, sont indexees sur l'identifiant BMA) : mappes dans `cards.json` mais sans regles dans Godot ; non implementes volontairement.
-- `chooseDraw` et `undoBuildRoom` n'apparaissent pas dans ces traces ; ils seraient un REFUS.
+- **Courses et bogues de l'IA oracle** (pas des regles : un humain attend la fin de la Spell Battle) : l'IA enchaine, dans une seule liste d'actions
+  precalculee (`AIPlayerInteraction.InternalDoPlayerActions`), une capacite/un sort PUIS une construction. `GameBoard.EnqueueAbilityTransaction`
+  met l'effet en file ; il ne s'execute qu'au `NextStep` suivant (`GameBoard.NextStep`, `PendingAbilityTransactions`), apres la construction.
+  Le harnais le reproduit (Godot applique tout de suite) : activation retenue (`_held`), cibles devenues absentes de la main
+  (`_stale_hand_targets` : Dracolich Lair / Witch's Kitchen, defausse partielle puis exception C#), derniere « passe » d'un sort du
+  constructeur retenue (`_held_pass` : Jeopardy joue puis salle posee sur l'ANCIENNE main). Autres bogues de l'IA (cibles invalides) : Mimic Vault /
+  Open Grave avortes (`_abort_trigger`, `TriggerCalculator` renvoie des cibles deja calculees), Succubus Spa sur son propre boss, decisions de
+  Goblin Armory / Dizzygas Hallway ignorees (`Boss.GetPassiveDamage` « resout » une transaction a chaque calcul de degats). **Non reproduit** :
+  s5-p2@498 (Giant Size lance par l'IA sur une salle PIEGE, `AbilityCalculator.CheckBMA040And047` mele Trap/Monster ; le C# ne valide pas le type
+  a l'execution, Godot le refuse) ; fenetres `AdventurePhase_a/b` d'un tour sans heros (Godot enchaine le tour, l'IA oracle y active des capacites :
+  REFUS « Godot a deja termine ce tour »).
+- **Graines 10-40 (hors du rapport par defaut)** : `apk.mjs --seeds 10 ... 40 --players 2 3 4` (93 traces) rejoue a 59/93 apres les correctifs de cette passe
+  (30/93 avant) ; le reste est du meme ordre (courses ci-dessus, tour sans heros, etc.), non classe en detail.
+- Paquets supplementaires : voir « Paquets supplementaires ». Les traces `--decks` heritent des echecs du jeu de base (memes cartes de base), qui dominent le bruit : pour savoir si un echec releve d'un paquet, chercher le dernier evenement KSA/BMH (niveau gagne, T.P.K. joue, heros KSA a l'entree) avant la premiere divergence.
+- `chooseDraw` (Haunted Library, BMA023) est rejoue par le harnais (choix Godot `draw-type`) mais ne figure dans aucune trace des graines 1-80 (l'IA oracle ne construit jamais BMA023) : le chemin n'est couvert que par un golden. `undoBuildRoom` n'apparait pas non plus ; il serait un REFUS.
 - Les decisions `resolveTarget` internes aux capacites (cibles d'IA) ne sont transmises que si Godot
   a un choix en attente correspondant ; l'appariement oracle->option est heuristique (`_refs`).
