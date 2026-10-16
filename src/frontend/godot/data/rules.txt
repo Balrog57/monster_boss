@@ -1,7 +1,6 @@
-Boss Monster - Official Rules (digest built into the game)
-Sources: 10th anniversary rulebook (docs/rules/rules.md) and the wiki
-expansions (assets/data/expansions/). The in-app store of the original
-APK has been replaced by these rules; everything is unlocked.
+Boss Monster - Master of the Dungeon
+Build the deadliest dungeon, lure the Heroes in and steal their Souls.
+All decks and expansions are unlocked and free.
 
 OBJECT OF THE GAME
 You are a Boss building a dungeon to lure Heroes in and steal their
