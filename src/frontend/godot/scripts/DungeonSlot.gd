@@ -43,6 +43,10 @@ func _update_view() -> void:
 	
 	for child in card_container.get_children():
 		child.queue_free()
+	var old_badge := get_node_or_null("MbBadge")
+	if old_badge != null:
+		remove_child(old_badge)
+		old_badge.queue_free()
 
 	var active_room = BossEngine.active_room(current_stack) if not current_stack.is_empty() else null
 	if active_room != null:
@@ -59,6 +63,11 @@ func _update_view() -> void:
 			var activatable := _is_activatable(active_room as Dictionary)
 			border.border_color = Color(0.95, 0.75, 0.2, 0.95) if activatable else Color(0.4, 0.8, 0.4, 0.9)
 			tooltip_text = active_room.get("name", "") + ("\n[Capacité activable]" if activatable else "")
+			if game_manager != null and Minibosses.active(game_manager.G): # Rise of the Minibosses : le miniboss attache a la salle, avec son niveau
+				var badge := Minibosses.make_badge(active_room, true)
+				if badge != null:
+					add_child(badge)
+					tooltip_text += "\n" + Minibosses.badge_tooltip(active_room, true)
 	else:
 		if slot_frame:
 			slot_frame.visible = true

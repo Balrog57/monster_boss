@@ -17,6 +17,8 @@ const APK_DECKS := [
 	{"id": "next-level", "name": "THE NEXT LEVEL", "info": "13 bosses, 43 rooms, 17 spells, 42 heroes - wiki", "playable": true},
 	# Extension du wiki hors APK, selectionnable seule (en plus de la bascule « Extensions du wiki » qui active tous les paquets wiki).
 	{"id": "crash-landing", "name": "CRASH LANDING", "info": "3 bosses, 13 rooms, 5 spells, 12 heroes - wiki", "playable": true},
+	# Extension du wiki hors APK (livret « Rise of the Minibosses » + guide officieux) : minibosses (niveaux 1-3), Coins, paquet de heros RMB, 3 Coins au depart.
+	{"id": "minibosses", "name": "MINIBOSSES", "info": "12 bosses, 42 rooms, 15 spells, 42 heroes, 10 minibosses - wiki", "playable": true},
 ]
 
 const GameManager = preload("res://godot/scripts/GameManager.gd")
@@ -290,6 +292,15 @@ func show_friends() -> void:
 	join.pressed.connect(func(): _join_online(code.text))
 	v.add_child(join)
 	var err := _title_label("", 20)
+	if online.has_saved_session():
+		var resume := _menu_btn("RESUME")
+		resume.pressed.connect(func():
+			online.host = server_host
+			if await online.try_resume():
+				show_waiting()
+			elif is_instance_valid(err) and err.text == "":
+				err.text = "Erreur : impossible de reprendre la partie")
+		v.add_child(resume)
 	v.add_child(err)
 	_net_error_to(err)
 	v.add_child(_back_btn(func(): show_menu()))
@@ -330,6 +341,11 @@ func show_waiting() -> void:
 	var seats_lbl := _title_label("...", 24)
 	v.add_child(seats_lbl)
 	v.add_child(_title_label("Donnez ce code a vos amis. 60 s par tour.", 18))
+	var bots := _menu_btn("Start with bots")
+	bots.visible = online.is_host and online.current_status != "running"
+	bots.add_to_group("waiting_start")
+	bots.pressed.connect(func(): online.start_match())
+	v.add_child(bots)
 	var cancel := Button.new()
 	cancel.text = "Quitter"
 	cancel.pressed.connect(func(): _leave_waiting())
@@ -366,6 +382,8 @@ func _on_lobby_changed(info: Dictionary) -> void:
 	var txt := "%d/%d : %s" % [names.filter(func(n): return n != "...").size(), info.get("numPlayers", 0), " / ".join(names)]
 	for n in get_tree().get_nodes_in_group("waiting_seats"):
 		(n as Label).text = txt
+	for b in get_tree().get_nodes_in_group("waiting_start"):
+		(b as Button).visible = online.is_host and str(info.get("status", "")) != "running"
 	if str(info.get("status", "")) == "running":
 		online.stop_lobby_poll()
 		if online.lobby_changed.is_connected(_on_lobby_changed):

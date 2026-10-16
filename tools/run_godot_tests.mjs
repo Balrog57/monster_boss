@@ -9,6 +9,9 @@ const SUITES = [
   { scene: 'res://godot/tests/Soak.tscn', ok: 'SOAK OK', label: 'soak' },
   { scene: 'res://godot/tests/Soak.tscn', ok: 'SOAK OK', label: 'soak APK decks', args: ['--', '--sets=players-choice,hidden-heroes,tools'] },
   { scene: 'res://godot/tests/Soak.tscn', ok: 'SOAK OK', label: 'soak The Next Level', args: ['--', '--sets=next-level', '--runs=4'] },
+  { scene: 'res://godot/tests/Soak.tscn', ok: 'SOAK OK', label: 'soak Minibosses', args: ['--', '--sets=minibosses', '--runs=4'] },
+  { scene: 'res://godot/tests/Soak.tscn', ok: 'SOAK OK', label: 'soak all packs', args: ['--', '--sets=players-choice,hidden-heroes,tools,next-level,crash-landing,minibosses', '--runs=3'] },
+  { scene: 'res://godot/tests/OnlineTest.tscn', ok: 'ONLINE OK', label: 'online' },
 ];
 
 let failed = 0;

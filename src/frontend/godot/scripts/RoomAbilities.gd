@@ -7,10 +7,11 @@ static func _player(G: Dictionary, pid: int) -> Dictionary:
 	var players: Dictionary = G.get("players", {})
 	return players.get(pid, players.get(str(pid), {})) as Dictionary
 
-static func _log(G: Dictionary, t: String) -> void:
+## `pub` non vide : ligne privee (voir Match._log) ; `owners` = sieges qui lisent `t`, les autres lisent `pub`.
+static func _log(G: Dictionary, t: String, pub: String = "", owners: Array = []) -> void:
 	var logs: Array = G.get("logs", [])
 	G["logs"] = logs
-	logs.append(t)
+	logs.append({"t": t, "pub": pub, "owners": owners} if pub != "" else t)
 
 static func _effects(G: Dictionary) -> Dictionary:
 	if not G.has("effects") or (G["effects"] as Dictionary).is_empty():
@@ -139,6 +140,8 @@ static func activate_room_ability(G: Dictionary, player_id: int, room_index: int
 		return "already used this turn"
 	if BossEngine.abilities_locked(G, player_id):
 		return "abilities locked (Trap Master)" # KSA017 : Ability.IsLocked -> CheckConditions faux
+	if Minibosses.active(G) and RmbAbilities.ACTIVATED.has(str(r.get("id", ""))): # Rise of the Minibosses : capacites activees des salles RMB
+		return RmbAbilities.activate(G, p, player_id, room_index, r)
 	if TnlAbilities.active(G):
 		if TnlAbilities.no_text(r): # TNL062 Meddling Kids! : « no ability text » jusqu'a la fin du tour
 			return "no ability text (Meddling Kids!)"
@@ -269,6 +272,7 @@ static func _discard_hand_card(G: Dictionary, p: Dictionary, card: Dictionary) -
 	var pile: Array = decks.get(pile_name, []) as Array
 	decks[pile_name] = pile
 	pile.append(card)
+	Minibosses.on_hand_discard(G, int(p.get("id", -1)), card) # RMB017 Imp Hoard
 
 ## Choix "defausse un sort de ta main" (DiscardSomeCardFromHand(1, Spell)) : le C# propose TOUS les
 ## sorts en main (SpellInHand Owner), pas seulement ceux qui viennent d'etre pioches.
@@ -404,7 +408,9 @@ static func dracolich_discard(G: Dictionary, player_id: int, option: Dictionary,
 	idxs.reverse()
 	for i in idxs:
 		if int(i) >= 0 and int(i) < hand.size():
-			BossEngine.discard_room_to_pile(G.get("decks", {}), hand.pop_at(int(i)))
+			var dcard: Dictionary = hand.pop_at(int(i))
+			BossEngine.discard_room_to_pile(G.get("decks", {}), dcard)
+			Minibosses.on_hand_discard(G, player_id, dcard) # RMB017 Imp Hoard
 	p["hand"] = hand
 	if pile_opts.size() == 1:
 		var got = take_discard_card(G, p, pile_opts[0])
@@ -488,10 +494,12 @@ static func kitchen_discard(G: Dictionary, player_id: int, option: Dictionary) -
 	var at := hand.find(option.get("card", {}))
 	if at < 0:
 		return
-	BossEngine.discard_room_to_pile(G.get("decks", {}), hand.pop_at(at))
+	var kcard: Dictionary = hand.pop_at(at)
+	BossEngine.discard_room_to_pile(G.get("decks", {}), kcard)
+	Minibosses.on_hand_discard(G, player_id, kcard) # RMB017 Imp Hoard
 	var drawn := _draw_into(G, p, "spells", 1)
 	if not drawn.is_empty():
-		_log(G, "Witch's Kitchen: drew %s." % str((drawn[0] as Dictionary).get("name", "?")))
+		_log(G, "Witch's Kitchen: drew %s." % str((drawn[0] as Dictionary).get("name", "?")), "Witch's Kitchen: drew a Spell.", [player_id])
 
 # --- abilities passives (roomAbilities.js:onBuildRoom / onHeroDiedInRoom) ---
 
@@ -516,6 +524,10 @@ static func on_build_room(G: Dictionary, player_id: int, room: Dictionary) -> Va
 	if p.is_empty():
 		return null
 	var id := str(room.get("id", ""))
+	if Minibosses.active(G): # Rise of the Minibosses : boss (Lamia, Dr. Deadly), Goblin Market, salles RMB
+		var rmb_choice = RmbAbilities.on_build(G, player_id, room)
+		if rmb_choice != null:
+			return rmb_choice
 	if TnlAbilities.active(G): # The Next Level : salles TNL + effets de boss « quand vous construisez » (Smoake)
 		var tnl_choice = TnlAbilities.on_build(G, player_id, room)
 		if tnl_choice != null:
@@ -579,7 +591,7 @@ static func another_room_triggers(G: Dictionary, player_id: int) -> Array:
 static func run_another_room_trigger(G: Dictionary, player_id: int, _room: Dictionary) -> void:
 	var drawn := _draw_into(G, _player(G, player_id), "rooms", 1)
 	if not drawn.is_empty():
-		_log(G, "Beast Menagerie: drew %s." % str((drawn[0] as Dictionary).get("name", "?")))
+		_log(G, "Beast Menagerie: drew %s." % str((drawn[0] as Dictionary).get("name", "?")), "Beast Menagerie: drew a Room.", [player_id])
 
 ## Declenche quand un hero meurt dans cette salle. Renvoie un choix, ou null.
 static func on_hero_died_in_room(G: Dictionary, player_id: int, room: Dictionary) -> Variant:
@@ -587,6 +599,9 @@ static func on_hero_died_in_room(G: Dictionary, player_id: int, room: Dictionary
 	if p.is_empty():
 		return null
 	var id := str(room.get("id", ""))
+	if Minibosses.active(G): # Rise of the Minibosses : minibosses (Rocky, Cerebella, Brassknuckle niveau 2), Oculus, Lightning Rod, Mind Thresher
+		Minibosses.on_hero_died(G, player_id, room)
+		RmbAbilities.on_hero_died(G, player_id, room)
 	if TnlAbilities.is_tnl(room): # The Next Level
 		return TnlAbilities.on_hero_died(G, player_id, room)
 	# Tous les declencheurs HeroDiesInThisRoom du base set portent OncePerTurn (Ability.IsEffectApplied), verifie a la mise en file.
@@ -738,14 +753,14 @@ static func _open_grave(G: Dictionary, p: Dictionary, player_id: int) -> Variant
 static func _golem_factory(G: Dictionary, p: Dictionary, _room: Dictionary) -> Variant:
 	var drawn := _draw_into(G, p, "rooms", 1)
 	if not drawn.is_empty():
-		_log(G, "Golem Factory: drew %s." % str((drawn[0] as Dictionary).get("name", "?")))
+		_log(G, "Golem Factory: drew %s." % str((drawn[0] as Dictionary).get("name", "?")), "Golem Factory: drew a Room.", [int(p.get("id", -1))])
 	return null
 
 ## BMA021 Brainsucker Hive : pioche un sort.
 static func _brainsucker_hive(G: Dictionary, p: Dictionary) -> Variant:
 	var drawn := _draw_into(G, p, "spells", 1)
 	if not drawn.is_empty():
-		_log(G, "Brainsucker Hive: drew %s." % str((drawn[0] as Dictionary).get("name", "?")))
+		_log(G, "Brainsucker Hive: drew %s." % str((drawn[0] as Dictionary).get("name", "?")), "Brainsucker Hive: drew a Spell.", [int(p.get("id", -1))])
 	return null
 
 ## BMA014 Vampire Bordello : soigne une blessure (retourne une ame face cachee). C# : HeroInScorekeep[Owner, Alive] + FlipHero,
@@ -797,6 +812,7 @@ static func _discard_random_from(G: Dictionary, pid: int, spell: bool, label: St
 		pile.append(card)
 	else:
 		BossEngine.discard_room_to_pile(decks, card)
+	Minibosses.on_hand_discard(G, pid, card) # RMB017 Imp Hoard
 	_log(G, "%s: player %d discarded %s." % [label, pid, str(card.get("name", "?"))])
 
 ## Construit le choix suivant de la file Robobo (adversaires restants).
@@ -844,6 +860,8 @@ static func process_level_up(G: Dictionary, player_id: int, boss_override: Dicti
 	var boss: Dictionary = boss_override if not boss_override.is_empty() else p.get("boss", {}) as Dictionary
 	if str(boss.get("id", "")).begins_with("TNL"): # The Next Level : TNL000-TNL012
 		return TnlAbilities.level_up(G, player_id, p, boss)
+	if str(boss.get("id", "")).begins_with("RMB"): # Rise of the Minibosses : RMB001-RMB012 (drapeaux « pour le reste de la partie »)
+		return RmbAbilities.level_up(G, player_id, p, boss)
 	match str(boss.get("id", "")):
 		"BMA001": return _draculord(G, player_id)
 		"BMA002": return _xyzax(G, p)
@@ -1157,10 +1175,10 @@ static func has_build_effect(room: Dictionary) -> bool:
 	for k in room.keys():
 		if str(k).begins_with("onBuild"):
 			return true
-	return false
+	return RmbAbilities.has_build_effect(room)
 
 static func has_uncover_effect(room: Dictionary) -> bool:
-	return ["CRL013", "CRL014", "CRL015", "CRL016"].has(str(room.get("id", ""))) or room.has("onUncover")
+	return ["CRL013", "CRL014", "CRL015", "CRL016"].has(str(room.get("id", ""))) or room.has("onUncover") or RmbAbilities.has_uncover_effect(room)
 
 ## PV d'un heros +/- delta : le heros actif de l'aventure vit dans adventure.hp, les autres dans leur carte (DealHero -> Hero.Deal).
 static func hero_hp_change(G: Dictionary, owner_pid: int, hero: Dictionary, delta: int) -> void:
@@ -1191,6 +1209,8 @@ static func on_uncover(G: Dictionary, player_id: int, room_index: int) -> void:
 	if BossEngine.abilities_locked(G, player_id) or BossEngine.is_room_deactivated(G, player_id, room_index):
 		return
 	var room: Dictionary = rv
+	if Minibosses.active(G): # Rise of the Minibosses : « build or uncover » (Monster Academy, Vampire Lab, Dragon's Nest...)
+		RmbAbilities.on_uncover(G, player_id, room)
 	match str(room.get("id", "")):
 		"CRL013": _crash_site(G, p, player_id)
 		"CRL014": # Caged Gundarf : degats doubles jusqu'a la fin du tour
@@ -1201,7 +1221,7 @@ static func on_uncover(G: Dictionary, player_id: int, room_index: int) -> void:
 		"CRL015": # Celestial Map : pioche un sort puis se detruit (la salle du dessous est a son tour decouverte)
 			var drawn := _draw_into(G, p, "spells", 1)
 			if not drawn.is_empty():
-				_log(G, "Celestial Map : pioche %s." % str((drawn[0] as Dictionary).get("name", "?")))
+				_log(G, "Celestial Map : pioche %s." % str((drawn[0] as Dictionary).get("name", "?")), "Celestial Map : pioche un sort.", [player_id])
 			var destroyed = BossEngine.destroy_room(p, room_index, G)
 			BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
 		"CRL016": # Darkling Lair : 3 degats a un heros du donjon / de l'entree (choix s'il y en a plusieurs)
@@ -1348,7 +1368,9 @@ static func omega_finish(G: Dictionary, player_id: int, option: Dictionary, hand
 	BossEngine.discard_room_to_pile(G.get("decks", {}), discarded)
 	_log(G, "The Omega 42 : %s defausse, effet de %s rejoue." % [str(discarded.get("name", "?")), str((room as Dictionary).get("name", "?"))])
 	if str(option.get("mode", "build")) == "build":
+		G["rmbReplay"] = true # Rise of the Minibosses : on rejoue l'effet de la salle, pas les boss (Lamia, Dr. Deadly)
 		var ch = on_build_room(G, player_id, room as Dictionary)
+		G.erase("rmbReplay")
 		if ch != null:
 			(ch as Dictionary)["resume"] = false
 			enqueue_pending(G, ch)

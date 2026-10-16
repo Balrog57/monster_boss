@@ -150,6 +150,8 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 
 	if TnlAbilities.is_tnl_move(mtype): # The Next Level (heuristiques maison)
 		return TnlAbilities.score_move(G, p, pid, mtype, args)
+	if Minibosses.is_rmb_move(mtype): # Rise of the Minibosses (heuristiques maison)
+		return Minibosses.score_move(G, p, pid, mtype, args)
 	return 0.0
 
 ## Départage les options d'un pendingChoice (TriggerCalculator.cs : CheckBMA001/004/005/007/022).
@@ -338,6 +340,8 @@ static func _score_spell(spell: Dictionary, target: Dictionary, p: Dictionary, G
 	var sid := str(spell.get("id", ""))
 	if TnlSpells.TARGETS.has(sid):
 		return TnlSpells.score_spell(G, p, pid, sid, target)
+	if RmbSpells.TARGETS.has(sid):
+		return RmbSpells.score_spell(G, p, pid, sid, target)
 	match sid:
 		"BMA043": # Counterspell : une cible = un sort adverse en attente (SpellCardJustPlayed)
 			return 150.0 if target.has("stackId") else 0.0 # Contre-sort prioritaire !
@@ -405,4 +409,6 @@ static func _score_activate_room(room_idx: int, p: Dictionary, G: Dictionary, _p
 		_:
 			if rid.begins_with("TNL"):
 				return TnlAbilities.score_activate(G, p, _pid, rid)
+			if rid.begins_with("RMB"):
+				return RmbAbilities.score_activate(G, p, _pid, rid)
 			return 5.0

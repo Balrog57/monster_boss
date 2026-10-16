@@ -24,10 +24,11 @@ static func _player(G: Dictionary, pid: int) -> Dictionary:
 	var players: Dictionary = G.get("players", {})
 	return players.get(pid, players.get(str(pid), {})) as Dictionary
 
-static func _log(G: Dictionary, t: String) -> void:
+## `pub` non vide : ligne privee (voir Match._log) ; `owners` = sieges qui lisent `t`, les autres lisent `pub`.
+static func _log(G: Dictionary, t: String, pub: String = "", owners: Array = []) -> void:
 	var logs: Array = G.get("logs", [])
 	G["logs"] = logs
-	logs.append(t)
+	logs.append({"t": t, "pub": pub, "owners": owners} if pub != "" else t)
 
 static func auto_room_index(G: Dictionary, player_id: int, target: Dictionary) -> int:
 	if target.has("roomIndex"):
@@ -61,6 +62,8 @@ static func cast_spell(G: Dictionary, caster_id: int, card: Dictionary, target: 
 	var id := str(card.get("id", ""))
 	if TnlSpells.TARGETS.has(id): # The Next Level : TNL056-TNL072
 		return TnlSpells.cast(G, caster_id, card, t)
+	if RmbSpells.TARGETS.has(id): # Rise of the Minibosses : RMB065-RMB079
+		return RmbSpells.cast(G, caster_id, card, t)
 	var fn: Callable = _handler(id)
 	if not fn.is_valid():
 		_log(G, "%s: no effect implemented yet." % str(card.get("name", id)))
@@ -433,7 +436,10 @@ static func _excavation(G: Dictionary, caster_id: int, _card: Dictionary, target
 	var it: Dictionary = items[idx]
 	it["faceDown"] = not bool(it.get("faceDown", false))
 	var face := "face-down" if bool(it["faceDown"]) else "face-up"
-	_log(G, "Excavation: flipped %s %s." % [str(it.get("name", "?")), face])
+	if bool(it["faceDown"]): # l'objet retourne face cachee redevient secret pour les autres joueurs
+		_log(G, "Excavation: flipped %s %s." % [str(it.get("name", "?")), face], "Excavation: flipped an item face-down.", [pid, caster_id])
+	else:
+		_log(G, "Excavation: flipped %s %s." % [str(it.get("name", "?")), face])
 	return true
 
 # --- Crash Landing (CRL029-033) : hors APK, textes de cartes (wiki) + regles ; heros ciblés par (joueur, index d'entree) ---

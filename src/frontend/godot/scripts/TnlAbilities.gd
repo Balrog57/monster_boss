@@ -27,10 +27,11 @@ static func _player(G: Dictionary, pid: int) -> Dictionary:
 	var players: Dictionary = G.get("players", {})
 	return players.get(pid, players.get(str(pid), {})) as Dictionary
 
-static func _log(G: Dictionary, t: String) -> void:
+## `pub` non vide : ligne privee (voir Match._log) ; `owners` = sieges qui lisent `t`, les autres lisent `pub`.
+static func _log(G: Dictionary, t: String, pub: String = "", owners: Array = []) -> void:
 	var logs: Array = G.get("logs", [])
 	G["logs"] = logs
-	logs.append(t)
+	logs.append({"t": t, "pub": pub, "owners": owners} if pub != "" else t)
 
 static func _pids(G: Dictionary) -> Array:
 	var out: Array = []
@@ -122,6 +123,10 @@ static func hero_arg(hero, fallback: int) -> int:
 	var args: Array = ((hero as Dictionary)["heroAbility"] as Dictionary).get("args", []) as Array
 	return int(args[0]) if not args.is_empty() else fallback
 
+## Rise of the Minibosses : les capacites des heros de ce donjon sont ignorees (Icicle Man niveau 2, Cerebella niveau 3).
+static func text_ignored(G: Dictionary, pid: int) -> bool:
+	return Minibosses.active(G) and Minibosses.hero_text_ignored(G, pid)
+
 static func hero_cmd(hero) -> String:
 	if not (hero is Dictionary):
 		return ""
@@ -135,6 +140,8 @@ static func _ai_value(c: Dictionary) -> float:
 	## Valeur d'une carte pour le choix de l'IA (a defausser : le moins precieux d'abord).
 	if bool(c.get("isSpell", false)):
 		return 1.0
+	if bool(c.get("isMiniboss", false)): # Rise of the Minibosses : une carte precieuse (pas de degats ni de tresor imprimes)
+		return 2.5
 	return float(int(c.get("damage", 0))) + 0.5 * float((c.get("treasures", []) as Array).size()) + (1.0 if bool(c.get("advanced", false)) else 0.0)
 
 # --- cartes en main / pioches -------------------------------------------------------------------------------
@@ -178,6 +185,7 @@ static func discard_from_hand(G: Dictionary, pid: int, card: Dictionary) -> bool
 	if not take_from_hand(G, pid, card):
 		return false
 	_to_discard(G, card)
+	Minibosses.on_hand_discard(G, pid, card) # RMB017 Imp Hoard
 	return true
 
 ## Pioche `n` cartes (la defausse est remelangee quand la pioche est vide, comme DrawRooms / DrawSpells).
@@ -534,6 +542,7 @@ static func _forced_take(G: Dictionary, actor: int, victim: int, card: Dictionar
 	if imp_take(G, actor, card):
 		return
 	_to_discard(G, card)
+	Minibosses.on_hand_discard(G, victim, card) # RMB017 Imp Hoard
 	_log(G, "Player %d discards %s." % [victim + 1, _label(card)])
 
 ## `victim` defausse `count` cartes de type kind (room | spell) a son choix ; auto quand tout doit partir.
@@ -648,7 +657,7 @@ static func on_hero_killed(G: Dictionary, pid: int) -> void:
 
 ## Un heros a survecu au donjon de `pid` (Necromancer : retourner un heros face cachee face visible).
 static func on_hero_survived(G: Dictionary, pid: int, hero: Dictionary) -> void:
-	if hero_cmd(hero) != "FlipSoulOnSurvive":
+	if hero_cmd(hero) != "FlipSoulOnSurvive" or text_ignored(G, pid):
 		return
 	var p := _player(G, pid)
 	if bool(p.get("eliminated", false)):
@@ -702,7 +711,7 @@ static func skip_rooms(G: Dictionary, pid: int, hero: Dictionary, i: int) -> int
 			_log(G, "%s skips %s." % [str(hero.get("name", "?")), _label(rv as Dictionary)])
 		i += 1
 	a.erase("skip")
-	if hero_cmd(hero) == "SkipLastRoom" and i == dungeon.size() - 1:
+	if hero_cmd(hero) == "SkipLastRoom" and i == dungeon.size() - 1 and not text_ignored(G, pid):
 		_log(G, "%s ignores the last Room of the dungeon." % str(hero.get("name", "?")))
 		i += 1
 	return i
@@ -779,7 +788,7 @@ static func on_hero_start(G: Dictionary, pid: int, hero: Dictionary) -> int:
 ## Le bonus applique est memorise (adv.druid) pour n'ajuster que l'ecart.
 static func sync_hero(G: Dictionary) -> void:
 	var a := adv(G)
-	if a.is_empty() or hero_cmd(a.get("hero")) != "HealthPerSpellInHand":
+	if a.is_empty() or hero_cmd(a.get("hero")) != "HealthPerSpellInHand" or text_ignored(G, int(a.get("playerId", -1))):
 		return
 	var pid := int(a.get("playerId", -1))
 	var x := spells_in_hand(_player(G, pid))
@@ -792,7 +801,7 @@ static func sync_hero(G: Dictionary) -> void:
 ## Un sort va se resoudre (non annule) : Swordmage +2, Spellslime Pit +1, Hall of Mirrors (pioche), memoire de Save Point.
 static func on_spell_resolving(G: Dictionary, caster: int, card: Dictionary) -> void:
 	var a := adv(G)
-	if not a.is_empty() and hero_cmd(a.get("hero")) == "HealthPerSpell":
+	if not a.is_empty() and hero_cmd(a.get("hero")) == "HealthPerSpell" and not text_ignored(G, int(a.get("playerId", -1))):
 		var bonus := hero_arg(a.get("hero"), 2) # Swordmage : +2 PV a chaque sort (non annule) joue pendant qu'il est dans le donjon
 		a["hp"] = int(a.get("hp", 0)) + bonus
 		_log(G, "%s gains +%d Health." % [str((a["hero"] as Dictionary).get("name", "?")), bonus])
@@ -1115,6 +1124,8 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 	var o: Dictionary = (opts[idx] as Dictionary) if idx >= 0 and idx < opts.size() else {}
 	if step.begins_with("sp_"):
 		return TnlSpells.resolve_pick(G, pid, pc, idx)
+	if step.begins_with("rmb_"): # Rise of the Minibosses (RmbAbilities.resolve_pick, RmbSpells pour « rmb_sp_ »)
+		return RmbAbilities.resolve_pick(G, pid, pc, idx)
 	if idx < 0 and step != "swap_dungeon" and step != "swap_pair":
 		return null
 	match step:
@@ -1172,7 +1183,7 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 				for _s in BossEngine.hero_souls(h):
 					(p["souls"] as Array).append(CardDB.soul_entry(h))
 				deck.shuffle() # « search » : la pioche est remelangee
-				_log(G, "Porkus: %s is placed face-down in the scorekeeping area." % _label(h))
+				_log(G, "Porkus: %s is placed face-down in the scorekeeping area." % _label(h), "Porkus: a Hero is placed face-down in the scorekeeping area.", [int(p.get("id", -1))])
 		"swap_dungeon":
 			if idx < 0:
 				return null
@@ -1277,7 +1288,7 @@ static func dark_heroes(G: Dictionary, payer: int) -> Array:
 		var ent: Array = _player(G, int(owner)).get("entrance", []) as Array
 		for h in ent:
 			var hd: Dictionary = h
-			if hero_cmd(hd) == DARK_PAY and not _list(G, "darkPaid").has(str(hd.get("id", ""))):
+			if hero_cmd(hd) == DARK_PAY and not _list(G, "darkPaid").has(str(hd.get("id", ""))) and not text_ignored(G, int(owner)):
 				out.append({"owner": int(owner), "hero": hd, "active": not a.is_empty() and is_same(a.get("hero"), hd)})
 	return out
 

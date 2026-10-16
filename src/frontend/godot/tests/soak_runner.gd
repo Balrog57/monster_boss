@@ -85,17 +85,27 @@ func _play(n_players: int) -> bool:
 		elif phase == "adventure":
 			var ap := m.active_player()
 			var moves := m.legal_moves(ap)
+			var mv = null
 			if not moves.is_empty():
-				var mv = AI.pick_move(m, ap)
+				mv = AI.pick_move(m, ap)
 				if mv == null:
 					mv = moves[0]
-				if m.apply_move(ap, mv):
+				# Un coup que l'IA juge nocif (score < 0, ex. une capacite de main qui reboucle avec Torix) n'est joue qu'en dernier recours :
+				# on laisse d'abord passer ceux qui le peuvent.
+				if AI.score_move(m, ap, mv) >= 0.0 and m.apply_move(ap, mv):
 					acted = true
 			if not acted:
+				# Repli : quelqu'un peut-il passer ? sinon le coup juge nocif de l'actif (dernier recours), sinon n'importe quel premier coup.
 				for pid in m.G["players"]:
-					var pmoves: Array = m.legal_moves(int(pid))
-					if not pmoves.is_empty():
-						if m.apply_move(int(pid), pmoves[0]):
+					for pm in m.legal_moves(int(pid)):
+						if not acted and str((pm as Dictionary).get("type", "")) in ["pass", "passBuild"] and m.apply_move(int(pid), pm):
+							acted = true
+				if not acted and mv != null and m.apply_move(ap, mv):
+					acted = true
+				if not acted:
+					for pid in m.G["players"]:
+						var pmoves: Array = m.legal_moves(int(pid))
+						if not pmoves.is_empty() and m.apply_move(int(pid), pmoves[0]):
 							acted = true
 							break
 		else:

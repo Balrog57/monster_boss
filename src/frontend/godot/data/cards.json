@@ -4821,7 +4821,8 @@
       "class": "Cleric",
       "set": "minibosses",
       "quantity": 1,
-      "dark": true
+      "dark": true,
+      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]}
     },
     {
       "id": "RMB085",
@@ -4894,7 +4895,8 @@
       "class": "Fighter",
       "set": "minibosses",
       "quantity": 1,
-      "dark": true
+      "dark": true,
+      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]}
     },
     {
       "id": "RMB091",
@@ -4967,7 +4969,8 @@
       "class": "Mage",
       "set": "minibosses",
       "quantity": 1,
-      "dark": true
+      "dark": true,
+      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]}
     },
     {
       "id": "RMB097",
@@ -5040,7 +5043,8 @@
       "class": "Thief",
       "set": "minibosses",
       "quantity": 1,
-      "dark": true
+      "dark": true,
+      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]}
     },
     {
       "id": "RMB103",
@@ -5057,14 +5061,16 @@
     {
       "id": "RMB104",
       "name": "The Fool",
-      "treasure": 1,
+      "treasure": 0,
       "hp": 2,
       "wounds": 1,
       "souls": 1,
       "epic": false,
-      "class": "Cleric",
+      "class": "The Fool",
       "set": "minibosses",
-      "quantity": 1
+      "quantity": 1,
+      "treasures": [0],
+      "lure": "fewerSouls"
     },
     {
       "id": "RMB105",

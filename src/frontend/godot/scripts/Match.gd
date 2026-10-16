@@ -15,7 +15,9 @@ const ACTIVATABLE_ROOMS := ["BMA009", "BMA013", "BMA024", "BMA027", "BMA028",
 	"BMA030", "BMA032", "BMA038", "BMA039", "CRL012",
 	# The Next Level (voir TnlAbilities.ACTIVATED)
 	"TNL013", "TNL017", "TNL022", "TNL030", "TNL032", "TNL033", "TNL035", "TNL040", "TNL041", "TNL042", "TNL045", "TNL046",
-	"TNL048", "TNL049", "TNL053", "TNL055"]
+	"TNL048", "TNL049", "TNL053", "TNL055",
+	# Rise of the Minibosses (voir RmbAbilities.ACTIVATED)
+	"RMB013", "RMB015", "RMB019", "RMB022", "RMB026", "RMB038", "RMB042", "RMB043", "RMB044", "RMB045", "RMB047", "RMB052", "RMB053", "RMB054"]
 
 var G: Dictionary = {}
 var human_count := 1
@@ -48,16 +50,23 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 		apk_only = apk_only and s in ["base", "players-choice", "hidden-heroes", "tools"]
 	# The Next Level : « decide on just one Hero and Epic Hero deck to use » -> avec TNL, le paquet de heros TNL remplace celui du jeu de base.
 	var tnl: bool = sets.has(TnlAbilities.SET_ID)
+	# Rise of the Minibosses : meme regle (un seul paquet de heros) ; avec TNL, le paquet TNL passe devant celui de RMB.
+	var rmb: bool = sets.has(Minibosses.SET_ID)
 	var hero_ok := func(c, epic: bool) -> bool:
 		var d: Dictionary = c
 		if not in_sets.call(d) or replaced.has(str(d.get("id", ""))) or bool(d.get("epic", false)) != epic:
 			return false
-		if tnl and str(d.get("set", "base")) in ["base", "hidden-heroes"]:
+		if (tnl or rmb) and str(d.get("set", "base")) in ["base", "hidden-heroes"]:
+			return false
+		if tnl and str(d.get("set", "base")) == Minibosses.SET_ID:
 			return false
 		return not apk_only or int(d.get("playerCount", 2)) <= n
 	var heroes: Array = CardDB.heroes.filter(func(c): return hero_ok.call(c, false))
 	var epics: Array = CardDB.heroes.filter(func(c): return hero_ok.call(c, true))
-	var room_deck: Array = CardDB.shuffled(CardDB.expanded_deck(rooms).map(func(r): var d = (r as Dictionary).duplicate(); d["isRoom"] = true; return d))
+	var room_src: Array = CardDB.expanded_deck(rooms)
+	if rmb: # les 10 minibosses sont dans la pioche de salles (livret : « Room Deck with 82 cards »)
+		room_src.append_array(CardDB.expanded_deck(CardDB.minibosses.filter(in_sets)))
+	var room_deck: Array = CardDB.shuffled(room_src.map(_room_card))
 	var spell_deck: Array = CardDB.shuffled(CardDB.expanded_deck(spells).map(func(s): var d = (s as Dictionary).duplicate(); d["isSpell"] = true; return d))
 	# ItemInfo (ToolsHeroKind) : GameBoard.DeckItems, une carte revelee par tour (2 a 4 joueurs) dans RevealedItemsQueue ; l'APK n'en fait rien d'autre.
 	var items: Array = CardDB.items.filter(func(c): return in_sets.call(c) and int((c as Dictionary).get("playerCount", 2)) <= n)
@@ -66,7 +75,7 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	var epic_deck: Array = CardDB.shuffled(CardDB.expanded_deck(epics).map(func(h): var d = (h as Dictionary).duplicate(); d["souls"] = 2; d["wounds"] = 2; return d))
 	# Tailles officielles (base set) selon le nombre de joueurs.
 	var counts: Dictionary = CardDB.HERO_COUNTS.get(n, {"ordinary": 13, "epic": 8})
-	if tnl: # livret TNL : 13+9 / 17+13 / 25+17 heros, les heros a capacite (etoile) toujours inclus
+	if tnl or rmb: # livrets TNL / RMB : 13+9 / 17+13 / 25+17 heros, les heros a capacite (etoile) toujours inclus
 		hero_deck = TnlAbilities.limit_heroes(hero_deck, n, false)
 		epic_deck = TnlAbilities.limit_heroes(epic_deck, n, true)
 	elif not apk_only:
@@ -83,6 +92,8 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 			"isAI": i >= human_count,
 			"entrance": [],
 		}
+		if rmb:
+			players[i]["coins"] = Minibosses.START_COINS # livret RMB : chaque joueur commence avec 3 Coins dans son Hoard
 	G = {
 		"players": players, "bossPicks": picks, "numPlayers": n, "sets": sets.keys(),
 		"xpOrder": [], "decks": {"rooms": room_deck, "spells": spell_deck, "heroes": hero_deck, "epics": epic_deck, "items": item_deck, "roomDiscard": [], "spellDiscard": [], "heroDiscard": []},
@@ -94,10 +105,24 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	state_changed.emit()
 	return G
 
-func _log(t: String) -> void:
-	(G["log"] as Array).append(t)
+## Carte de la pioche de salles : un miniboss (cards.json `minibosses`, il porte `levels`) est une carte « salle » (isRoom) marquee isMiniboss.
+static func _room_card(r) -> Dictionary:
+	var d: Dictionary = (r as Dictionary).duplicate()
+	d["isRoom"] = true
+	if d.has("levels"):
+		d["isMiniboss"] = true
+	return d
+
+## Une ligne de journal est un texte public, ou {"t": texte complet, "pub": variante publique, "owners": [sieges qui voient "t"]}
+## quand elle nomme une carte cachee (pioche, pose face cachee...). ViewFilter ne garde "t" que pour les proprietaires.
+func _log(t: String, pub: String = "", owners: Array = []) -> void:
+	(G["log"] as Array).append({"t": t, "pub": pub, "owners": owners} if pub != "" else t)
 	if (G["log"] as Array).size() > 60:
 		(G["log"] as Array).pop_front()
+
+## Texte complet d'une ligne de journal (String publique ou entree privee), pour l'affichage local.
+static func log_text(e) -> String:
+	return str((e as Dictionary).get("t", "")) if e is Dictionary else str(e)
 
 ## Joueur actif. Pendant BUILD c'est le joueur dont c'est le tour dans
 ## buildOrder, qui suit PlayersPriorized de l'APK = OrderBy(PlayerId) = XP
@@ -153,8 +178,10 @@ func legal_moves(pid: int) -> Array:
 		# jouable dans la phase en cours (Counterspell compris) et toute salle activable. Se limiter a Counterspell /
 		# All-Seeing Eye est la politique de l'IA (AbilityCalculator.cs), pas une regle : voir AI.score_move.
 		out.append_array(_stack_response_moves(p, pid, stack.size()))
-		if TnlAbilities.active(G): # Antimagic Zone (depuis la main), Dr. Timebender : annulations
+		if TnlAbilities.active(G) or Minibosses.active(G): # Antimagic Zone (depuis la main), Dr. Timebender : annulations
 			out.append_array(TnlAbilities.stack_moves(G, p, pid))
+		if Minibosses.active(G): # Mageseeker niveau 2 : defausse un sort pour annuler un sort adverse
+			out.append_array(Minibosses.stack_moves(G, p, pid))
 		out.append({"type": "pass", "args": []})
 		return out
 
@@ -189,7 +216,7 @@ func legal_moves(pid: int) -> Array:
 				var free_slot := BossEngine.can_build_room(p, G, pid)
 				for i in (p.get("hand", []) as Array).size():
 					var c: Dictionary = (p["hand"] as Array)[i]
-					if not c.get("isRoom", false):
+					if not c.get("isRoom", false) or bool(c.get("isMiniboss", false)): # un miniboss se pose par buildMiniboss (Minibosses.extra_moves)
 						continue
 					# Tour de construction supplementaire force (Boss.ForcedToBuildRoom) : seule cette carte.
 					if str(G.get("forcedBuild", "")) != "" and str(c.get("id", "")) != str(G["forcedBuild"]):
@@ -227,6 +254,10 @@ func legal_moves(pid: int) -> Array:
 				var rid := str(rd.get("id", ""))
 				if not ACTIVATABLE_ROOMS.has(rid) or bool(rd.get("usedThisTurn", false)):
 					continue
+				if Minibosses.active(G) and RmbAbilities.ACTIVATED.has(rid): # RMB : verification pure, sans copie de l'etat
+					if RmbAbilities.check(G, p, pid, i, rd) == "":
+						out.append({"type": "activateRoom", "args": [i]})
+					continue
 				if rid == "BMA028" or rid == "BMA032":
 					for j in (p.get("dungeon", []) as Array).size():
 						if j != i and RoomAbilities.activate_room_ability(G.duplicate(true), pid, i, j) == null:
@@ -236,6 +267,8 @@ func legal_moves(pid: int) -> Array:
 						out.append({"type": "activateRoom", "args": [i]})
 			if TnlAbilities.active(G): # Doc Scarecrow
 				out.append_array(TnlAbilities.extra_moves(G, p, pid))
+			if Minibosses.active(G): # Rise of the Minibosses : pose / promotion / pouvoirs des minibosses, capacites de boss et de main, Coins
+				out.append_array(Minibosses.extra_moves(G, p, pid, my_turn))
 			if my_turn or (window and not bool((G["buildWindow"] as Dictionary).get(pid, false))):
 				out.append({"type": "passBuild", "args": []})
 				out.append({"type": "pass", "args": []})
@@ -263,6 +296,10 @@ func legal_moves(pid: int) -> Array:
 				var rid := str(rd.get("id", ""))
 				if not ACTIVATABLE_ROOMS.has(rid) or bool(rd.get("usedThisTurn", false)):
 					continue
+				if Minibosses.active(G) and RmbAbilities.ACTIVATED.has(rid): # RMB : verification pure, sans copie de l'etat
+					if RmbAbilities.check(G, p, pid, i, rd) == "":
+						out.append({"type": "activateRoom", "args": [i]})
+					continue
 				if rid == "BMA028" or rid == "BMA032":
 					for j in (p.get("dungeon", []) as Array).size():
 						if j != i and RoomAbilities.activate_room_ability(G.duplicate(true), pid, i, j) == null:
@@ -271,8 +308,10 @@ func legal_moves(pid: int) -> Array:
 					if RoomAbilities.activate_room_ability(G.duplicate(true), pid, i) == null:
 						out.append({"type": "activateRoom", "args": [i]})
 
-			if TnlAbilities.active(G): # paiement des heros noirs
+			if TnlAbilities.active(G) or Minibosses.active(G): # paiement des heros noirs (TNL et RMB)
 				out.append_array(TnlAbilities.extra_moves(G, p, pid))
+			if Minibosses.active(G):
+				out.append_array(Minibosses.extra_moves(G, p, pid, false))
 			if has_pause:
 				var passed_map: Dictionary = G.get("adventurePausePassed", {})
 				if not bool(passed_map.get(str(pid), false)) and not bool(passed_map.get(pid, false)):
@@ -326,6 +365,8 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 	if TnlAbilities.active(G):
 		TnlAbilities.flush_torix(G) # TNL003 Torix : les salles Monster defaussees / detruites pendant le coup rejoignent sa main
 		TnlAbilities.sync_hero(G) # TNL108 Druid : +X PV selon les sorts en main
+	if Minibosses.active(G):
+		Minibosses.normalize(G) # RMB : le miniboss suit la salle du sommet de sa pile
 	return ok
 
 func _apply_move_core(pid: int, move: Dictionary) -> bool:
@@ -374,10 +415,10 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 			var dungeon: Array = p["dungeon"]
 			if slot >= 0 and slot < dungeon.size():
 				(dungeon[slot] as Array).append(card)
-				_log("Joueur %d améliore l'emplacement %d avec %s." % [pid, slot + 1, str(card.get("name", "?"))])
+				_log("Joueur %d améliore l'emplacement %d avec %s." % [pid, slot + 1, str(card.get("name", "?"))], "Joueur %d améliore l'emplacement %d (face cachée)." % [pid, slot + 1], [pid])
 			else:
 				dungeon.push_front([card])
-				_log("Joueur %d place %s face cachée." % [pid, str(card.get("name", "?"))])
+				_log("Joueur %d place %s face cachée." % [pid, str(card.get("name", "?"))], "Joueur %d place une salle face cachée." % pid, [pid])
 			p["buildsThisTurn"] = int(p.get("buildsThisTurn", 0)) + 1
 			if bool(G.get("setupBuild", false)):
 				_setup_progress()
@@ -456,6 +497,26 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 			if G.has("buildWindow"):
 				G["buildWindow"] = _window_auto_passed()
 			return true
+		"buildMiniboss": # Rise of the Minibosses : un miniboss se pose face cachee a la place d'une salle (meme suite qu'un buildRoom)
+			if not Minibosses.apply_build(G, pid, int(move["args"][0]), int(move["args"][1])):
+				return false
+			if _can_build_again(pid):
+				state_changed.emit()
+				_drive_ai()
+			else:
+				_advance_build()
+			return true
+		"promoteMiniboss", "activateMiniboss", "discardForCoin", "rmbBoss", "rmbHand", "rmbPay", "rmbCancel": # RMB (voir Minibosses.extra_moves / stack_moves)
+			var in_battle2 := not (G.get("stack", []) as Array).is_empty()
+			var rerr = Minibosses.apply_move(G, pid, move)
+			if rerr != null:
+				_log(str(rerr))
+				return false
+			if G.has("buildWindow"):
+				G["buildWindow"] = _window_auto_passed()
+			if not in_battle2:
+				_finish_hero_if_dead()
+			return true
 		"pass", "passBuild":
 			var stack: Array = G.get("stack", [])
 			if not stack.is_empty():
@@ -510,10 +571,13 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 				var entrance: Array = p.get("entrance", [])
 				if entrance.is_empty():
 					return false
-				var hero: Dictionary = entrance[0]
+				var first := Minibosses.first_free_hero(G, entrance) if Minibosses.active(G) else 0 # RMB019 Haunted Cavern : un heros peut rester a l'entree
+				if first < 0:
+					return false
+				var hero: Dictionary = entrance[first]
 				var hp := BossEngine.hero_hp(hero)
-				if TnlAbilities.active(G):
-					hp += TnlAbilities.on_hero_start(G, pid, hero) # PV retenus jusqu'a l'entree (Werewolf Den, Lightning Bolt!), Party Up
+				if TnlAbilities.active(G) or Minibosses.active(G):
+					hp += TnlAbilities.on_hero_start(G, pid, hero) # PV retenus jusqu'a l'entree (Werewolf Den, Lightning Bolt!, Shrooman Aviary), Party Up
 				G["adventure"] = {
 					"playerId": pid,
 					"hero": hero,
@@ -581,6 +645,7 @@ func _resolve_choice(pid: int, index: int) -> void:
 				var pile: Array = decks.get("spellDiscard", [])
 				decks["spellDiscard"] = pile
 				pile.append(card)
+				Minibosses.on_hand_discard(G, pid, card) # RMB017 Imp Hoard
 				# All-Seeing Eye : le sort defausse paie l'annulation du dernier sort adverse.
 				if bool(pc.get("thenCancel", false)):
 					RoomAbilities.cancel_last_opponent_spell(G, pid, "All-Seeing Eye")
@@ -686,7 +751,7 @@ func _resolve_choice(pid: int, index: int) -> void:
 				var so: Dictionary = opts[index]
 				if RoomAbilities.pile_index_matches(spells, so):
 					(p["hand"] as Array).append(spells.pop_at(int(so["pileIndex"])))
-					_log("%s : %s pris dans la pioche de sorts." % [str(pc.get("bossName", "")), str((so["card"] as Dictionary).get("name", "?"))])
+					_log("%s : %s pris dans la pioche de sorts." % [str(pc.get("bossName", "")), str((so["card"] as Dictionary).get("name", "?"))], "%s : un sort pris dans la pioche de sorts." % str(pc.get("bossName", "")), [pid])
 		"steal-hero": # KSA004 Kaw'nee : PlaceAtScorekeep(FaceDown) d'un heros ordinaire mort adverse
 			if index >= 0:
 				var ho: Dictionary = opts[index]
@@ -831,13 +896,17 @@ func _deal_opening_hands() -> void:
 		var p: Dictionary = G["players"][pid]
 		var drawn: Array = _draw_opening_rooms(G["decks"]["rooms"]) + CardDB.draw_cards(G["decks"]["spells"], 2)
 		p["hand"] = drawn
-		if p.get("isAI", false) and not TnlAbilities.active(G): # TNL : « larger starting hand » = 5 salles + 2 sorts, sans defausse (le mode Classic defausse 2 cartes)
+		if p.get("isAI", false) and not _big_hand(): # TNL / RMB : « larger starting hand » = 5 salles + 2 sorts, sans defausse (le mode Classic defausse 2 cartes)
 			var pair = AI.select_opening_discards(drawn, p, G)
 			_apply_opening_discard(pid, pair[0], pair[1])
-	if TnlAbilities.active(G):
-		TnlAbilities.seed_discards(G) # regle TNL : defausse amorcee par 4 salles et 2 sorts au hasard, face visible
+	if _big_hand():
+		TnlAbilities.seed_discards(G) # regles TNL / RMB : defausse amorcee par 4 salles et 2 sorts au hasard, face visible
 	G["xpOrder"] = CardDB.order_by_xp(G["players"])
 	_queue_next_opening_discard()
+
+## Mise en place des livrets TNL et RMB : 5 salles + 2 sorts gardes (7 cartes), defausse amorcee.
+func _big_hand() -> bool:
+	return TnlAbilities.active(G) or Minibosses.active(G)
 
 func _apply_opening_discard(pid: int, a: int, b: int) -> void:
 	var p: Dictionary = G["players"][pid]
@@ -858,7 +927,7 @@ func _apply_opening_discard(pid: int, a: int, b: int) -> void:
 func _queue_next_opening_discard() -> void:
 	for pid in G["players"]:
 		var p: Dictionary = G["players"][pid]
-		if not p.get("eliminated", false) and not p.get("isAI", false) and (p.get("hand", []) as Array).size() > (7 if TnlAbilities.active(G) else 5):
+		if not p.get("eliminated", false) and not p.get("isAI", false) and (p.get("hand", []) as Array).size() > (7 if _big_hand() else 5):
 			G["pendingChoice"] = {
 				"type": "opening-discard",
 				"playerId": int(pid),
@@ -985,6 +1054,9 @@ func _start_turn() -> void:
 				"options": [{"label": "Room deck", "pile": "rooms"}, {"label": "Spell deck", "pile": "spells"}]})
 		G["pendingChoice"] = queue.pop_front()
 		G["choiceQueue"] = queue
+	if Minibosses.active(G): # Jinx (salle de plus puis defausse), The Dreadmill (un Coin sur la salle, sinon elle est detruite)
+		for rc in Minibosses.on_build_start(G):
+			RoomAbilities.enqueue_pending(G, rc)
 	# Le premier joueur peut etre une IA : on la joue avant de rendre la main.
 	_drive_ai()
 
@@ -1181,6 +1253,9 @@ func _build_reveal_queue() -> Array:
 				mine.append({"pid": int(pid), "kind": "levelup"})
 		mine.reverse()
 		out.append_array(mine)
+	if Minibosses.active(G): # toutes les salles sont revelees : les minibosses sautent sur les nouveaux sommets, puis paient 1 Coin (sinon defausses)
+		Minibosses.normalize(G)
+		Minibosses.reveal_all(G)
 	return out
 
 ## Pilote les sieges IA tant que le joueur actif en est une. Comme dans le JS,
@@ -1274,6 +1349,9 @@ func _stack_response_moves(p: Dictionary, pid: int, stack_len: int) -> Array:
 			continue
 		if rid == "BMA025":
 			if RoomAbilities.can_cancel_spell(G, pid):
+				out.append({"type": "activateRoom", "args": [i]})
+		elif Minibosses.active(G) and RmbAbilities.ACTIVATED.has(rid): # RMB : verification pure (une copie profonde de l'etat perd l'identite des heros)
+			if RmbAbilities.check(G, p, pid, i, rd) == "":
 				out.append({"type": "activateRoom", "args": [i]})
 		elif ACTIVATABLE_ROOMS.has(rid):
 			if rid == "BMA028" or rid == "BMA032":
@@ -1384,6 +1462,9 @@ func _resolve_pending_stack() -> void:
 				_log("Le sort %s a ete annule." % str(card.get("name", "?")))
 				effect["resolved"] = true
 				continue
+			if Minibosses.active(G) and not Minibosses.pay_short_circuit(G, caster_id): # RMB077 Short Circuit : 1 Coin par sort, sinon il est annule
+				effect["resolved"] = true
+				continue
 			_log("Le sort %s se résout." % str(card.get("name", "?")))
 			if TnlAbilities.active(G): # Swordmage +2, Spellslime Pit, Hall of Mirrors : avant les effets du sort (non annule)
 				TnlAbilities.on_spell_resolving(G, caster_id, card)
@@ -1397,6 +1478,8 @@ func _resolve_pending_stack() -> void:
 					_log("Counterspell : cible deja partie.")
 			else:
 				SpellEffects.cast_spell(G, caster_id, card, target)
+			if Minibosses.active(G):
+				Minibosses.on_spell_cast(G, caster_id) # Baron Hex, Alchemist's Lab : un sort vient d'etre lance (resolu, non annule)
 			var caster: Dictionary = (G.get("players", {}) as Dictionary).get(caster_id, {}) as Dictionary
 			for st in (caster.get("dungeon", []) as Array):
 				var r = BossEngine.active_room(st)
@@ -1467,6 +1550,8 @@ func _adventure_window_has_actions() -> bool:
 ## (GameBoard.ChooseNextActiveHero : AdventurePhase_a direct).
 func _has_entrance_hero(pid: int) -> bool:
 	var p: Dictionary = (G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary
+	if Minibosses.active(G) and Minibosses.first_free_hero(G, p.get("entrance", []) as Array) < 0:
+		return false # RMB019 Haunted Cavern : les heros restants n'entrent pas ce tour
 	return not (p.get("entrance", []) as Array).is_empty() and not ((G.get("effects", {}) as Dictionary).get("skipAdventure", []) as Array).has(pid)
 
 func _has_adventure_work() -> bool:
@@ -1497,6 +1582,9 @@ func _advance_adventure_room() -> void:
 		# The Next Level : le heros quitte la salle `prev` en vie (Collapsing Bridge, Bom-Boy Factory), puis saute des salles (Shortcut!, Archer).
 		i = TnlAbilities.on_room_exit(G, pid, prev, i)
 		i = TnlAbilities.skip_rooms(G, pid, hero, i)
+		adv["roomIndex"] = i
+	if Minibosses.active(G) and not replayed and not went_back:
+		i = RmbAbilities.on_advance(G, pid, prev, i) # RMB : Foyer Elemental (le heros survit a la salle), Mageseeker niveau 3 (saute la premiere salle)
 		adv["roomIndex"] = i
 
 	if i < 0: # emplacement vide traverse apres la destruction de la salle du heros (BossEngine.destroy_room) : aucun degat
@@ -1623,6 +1711,8 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 		_log("Âme capturée ! (%d/%d)" % [CardDB.total_souls(p, G), WIN_SOULS])
 		if TnlAbilities.active(G):
 			TnlAbilities.on_hero_killed(G, pid) # TNL011 Angstigoth
+		if Minibosses.active(G):
+			RmbAbilities.on_hero_killed(G, pid) # RMB001 Gregore
 		if not death_room.is_empty() and not abilities_locked:
 			_hero_died_trigger(pid, death_room)
 	else:

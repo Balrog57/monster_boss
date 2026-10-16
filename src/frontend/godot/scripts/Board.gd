@@ -124,7 +124,7 @@ func refresh() -> void:
 		town_box.add_child(Label.new())
 		(town_box.get_child(-1) as Label).text = "%s" % (h as Dictionary).get("name", "?")
 	var logs: Array = match_node.G.get("log", [])
-	log_label.text = "\n".join(logs.slice(max(0, logs.size() - 4)))
+	log_label.text = "\n".join(logs.slice(max(0, logs.size() - 4)).map(Match.log_text))
 
 func _play_hand(idx: int, is_room: bool) -> void:
 	var phase: String = match_node.G["phase"]

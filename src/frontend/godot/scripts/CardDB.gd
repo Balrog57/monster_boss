@@ -278,8 +278,8 @@ const SPELL_PHASE := {
 
 static func can_play_spell(card: Dictionary, phase: String, stack_len: int = 0) -> bool:
 	var cid := str(card.get("id", ""))
-	if cid == "BMA043" and stack_len == 0:
-		return false # Counterspell : exige un sort adverse en attente (SpellCardJustPlayed)
+	if (cid == "BMA043" or cid == "RMB077") and stack_len == 0:
+		return false # Counterspell / Short Circuit : exigent un sort adverse en attente (SpellCardJustPlayed)
 	if cid == "THK025":
 		return false # ToolsHeroKind : Ability nulle dans data.json (CheckConditions exige >= 1 effet) -> jamais jouable dans l'APK
 	if SPELL_PHASE.has(cid):

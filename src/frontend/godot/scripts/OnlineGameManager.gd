@@ -1,10 +1,10 @@
 class_name OnlineGameManager
 extends "res://godot/scripts/GameManager.gd"
-## Partie en ligne : l'autorite est le serveur Node, les seuls coups emis
+## Partie en ligne : l'autorite est le serveur Godot (Server.gd), les seuls coups emis
+## sont ceux proposes par le serveur (moves, vocabulaire de Match.legal_moves). Sous-classe de
+## GameManager pour reutiliser BoardUI/DungeonSlot sans modification de leur typage.
 
 const OnlineClient = preload("res://godot/scripts/OnlineClient.gd")
-## sont ceux proposes par le serveur (moves). Sous-classe de GameManager
-## pour reutiliser BoardUI/DungeonSlot sans modification de leur typage.
 
 var client: OnlineClient
 var my_pid: int = 0
@@ -23,8 +23,9 @@ func _on_remote_state() -> void:
 	server_moves = client.current_moves
 	state_changed.emit()
 
+## Meme coup que le serveur : memes alias (pass/passBuild...) et arguments nuls de fin ignores (Match).
 static func _same(a: Dictionary, b: Dictionary) -> bool:
-	return str(a.get("type", "")) == str(b.get("type", "")) and str(a.get("args", [])) == str(b.get("args", []))
+	return _is_same_move_type(str(a.get("type", "")), str(b.get("type", ""))) and _trim_args(a.get("args", [])) == _trim_args(b.get("args", []))
 
 func _cached(move: Dictionary):
 	for m in server_moves:
@@ -46,19 +47,16 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 	client.send_move(found)
 	return true
 
-## Traduit (main, emplacement) local vers les coups serveur :
-## setup -> buildInitialRoom [i] ; build -> buildRoom [i, cible ou null].
+## Traduit (main, emplacement) local vers le coup du serveur : buildRoom [i] (salle ordinaire, posee a
+## l'entree) ou [i, cible] (salle avancee sur un emplacement). Seul un coup propose par le serveur passe.
 func _build_move(pid: int, hand_idx: int, slot_idx: int):
 	if G.get("gameOver") != null:
 		return null
-	var phase: String = str(G.get("phase", ""))
-	if phase == "setup":
-		return _cached({"type": "buildInitialRoom", "args": [hand_idx]})
-	if phase != "build":
+	var hand: Array = ((G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary).get("hand", [])
+	if hand_idx < 0 or hand_idx >= hand.size():
 		return null
-	var dungeon: Array = ((G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary).get("dungeon", [])
-	var target = null if (slot_idx < 0 or slot_idx >= dungeon.size()) else slot_idx
-	return _cached({"type": "buildRoom", "args": [hand_idx, target]})
+	var advanced := bool((hand[hand_idx] as Dictionary).get("advanced", false))
+	return _cached({"type": "buildRoom", "args": [hand_idx, slot_idx] if advanced else [hand_idx]})
 
 func can_build_room_at(pid: int, hand_idx: int, slot_idx: int = -1) -> bool:
 	if client == null or pid != my_pid:

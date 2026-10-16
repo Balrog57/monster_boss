@@ -27,7 +27,7 @@ const SPELL_TARGETS := {
 }
 
 static func spell_needs_target(spell_id: String) -> bool:
-	return SPELL_TARGETS.has(spell_id) or TnlSpells.TARGETS.has(spell_id)
+	return SPELL_TARGETS.has(spell_id) or TnlSpells.TARGETS.has(spell_id) or RmbSpells.TARGETS.has(spell_id)
 
 static func _stack_top(stack) -> Variant:
 	return stack[stack.size() - 1] if stack is Array and not (stack as Array).is_empty() else null
@@ -359,6 +359,8 @@ static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary
 static func spell_targets_for(G: Dictionary, player: Dictionary, player_id: int, spell_id: String) -> Array:
 	if TnlSpells.TARGETS.has(spell_id): # The Next Level : TNL056-TNL072 (liste vide = injouable maintenant)
 		return TnlSpells.targets_for(G, player, player_id, spell_id)
+	if RmbSpells.TARGETS.has(spell_id): # Rise of the Minibosses : RMB065-RMB079
+		return RmbSpells.targets_for(G, player, player_id, spell_id)
 	if not SPELL_TARGETS.has(spell_id):
 		return [null]
 	var req: Dictionary = SPELL_TARGETS[spell_id]

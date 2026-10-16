@@ -333,7 +333,7 @@ func refresh() -> void:
 
 	# 11. Logs
 	var logs: Array = G.get("log", [])
-	log_label.text = "\n".join(logs.slice(max(0, logs.size() - 2)))
+	log_label.text = "\n".join(logs.slice(max(0, logs.size() - 2)).map(Match.log_text))
 
 func _refresh_town(G: Dictionary) -> void:
 	for c in town_container.get_children():
@@ -446,6 +446,11 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 				slot_ctrl.add_child(room_ui)
 				room_ui.is_in_hand = false
 				room_ui.setup(r)
+				if Minibosses.active(game_manager.G): # Rise of the Minibosses : le miniboss de la salle adverse (nom cache tant qu'il est face cache)
+					var mb_badge := Minibosses.make_badge(r, false)
+					if mb_badge != null:
+						slot_ctrl.add_child(mb_badge)
+						slot_ctrl.tooltip_text = Minibosses.badge_tooltip(r, false)
 		foe_dungeon_container.add_child(slot_ctrl)
 		_foe_slots.append(slot_ctrl)
 
@@ -608,6 +613,9 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 		decks.get("spellDiscard", []).size(),
 		decks.get("heroDiscard", []).size()
 	]
+	if Minibosses.active(G): # Rise of the Minibosses : le Hoard de chaque joueur
+		deck_info_label.text += "\nPièces : %d" % Minibosses.coins(p)
+		foe_souls_label.text += "\nPièces : %d" % Minibosses.coins(foe)
 
 	# Bouton Level Up : brille si 5 salles
 	var can_lvl: bool = BossEngine.count_visible_rooms(p.get("dungeon", [])) >= 5
@@ -884,6 +892,9 @@ func _move_label(m: Dictionary, _G: Dictionary, hand: Array) -> String:
 			if hand_name != "" and args.size() > 1 and args[1] is Dictionary and TnlSpells.TARGETS.has(str((hand[int(args[0])] as Dictionary).get("id", ""))):
 				var desc := TnlSpells.describe_target(_G, args[1])
 				return "Sort : %s -> %s" % [hand_name, desc] if desc != "" else "Sort : %s" % hand_name
+			if hand_name != "" and args.size() > 1 and args[1] is Dictionary and RmbSpells.TARGETS.has(str((hand[int(args[0])] as Dictionary).get("id", ""))):
+				var rdesc := RmbSpells.describe_target(_G, args[1])
+				return "Sort : %s -> %s" % [hand_name, rdesc] if rdesc != "" else "Sort : %s" % hand_name
 			return "Sort : %s" % hand_name
 		"activateRoom":
 			var dgn: Array = ((_G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("dungeon", [])
@@ -893,7 +904,27 @@ func _move_label(m: Dictionary, _G: Dictionary, hand: Array) -> String:
 		"useHandRoom":
 			return "Capacité : %s" % hand_name
 		"buildMiniboss", "promoteMiniboss", "activateMiniboss":
-			return "Miniboss (%s)" % t
+			var mdg: Array = ((_G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("dungeon", [])
+			var mslot := int(args[1]) if t == "buildMiniboss" else int(args[0])
+			var mroom = BossEngine.active_room(mdg[mslot]) if mslot >= 0 and mslot < mdg.size() else null
+			var rname := str((mroom as Dictionary).get("name", "?")) if mroom != null else "?"
+			if t == "buildMiniboss":
+				return "Miniboss : %s -> sur %s (face cachée, 1 pièce pour la révéler)" % [hand_name, rname]
+			var mname := Minibosses.mb_name(Minibosses.mb_of(mroom))
+			if t == "promoteMiniboss":
+				var alt := int(args[1]) if args.size() > 1 else -1
+				return "Promouvoir %s (%s)" % [mname, "1 pièce" if alt < 0 else "défausse %s" % str((hand[alt] as Dictionary).get("name", "?"))]
+			return "%s : pouvoir niveau %d" % [mname, int(args[1])]
+		"discardForCoin":
+			return "Défausser %s : +1 pièce" % hand_name
+		"rmbBoss":
+			return "Boss : %s (%s)" % [str(args[0]), "annuler le +1 des pièges" if str(args[0]) == "RMB011" else "2 pièces"]
+		"rmbHand":
+			return "Capacité : %s%s" % [hand_name, " (%s)" % str(args[1]) if args.size() > 1 and str(args[1]) != "" else ""]
+		"rmbPay":
+			return "Payer 1 pièce (Paywall)"
+		"rmbCancel":
+			return "Mageseeker : défausse %s, annule le sort" % (str((hand[int(args[1])] as Dictionary).get("name", "?")) if args.size() > 1 and int(args[1]) < hand.size() else "?")
 		"payDarkHero":
 			return "Payer %s (héros noir)" % hand_name
 		"docScarecrow":

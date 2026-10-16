@@ -13,8 +13,8 @@ const TARGETS := {
 static func _player(G: Dictionary, pid: int) -> Dictionary:
 	return TnlAbilities._player(G, pid)
 
-static func _log(G: Dictionary, t: String) -> void:
-	TnlAbilities._log(G, t)
+static func _log(G: Dictionary, t: String, pub: String = "", owners: Array = []) -> void:
+	TnlAbilities._log(G, t, pub, owners)
 
 # --- ciblage ----------------------------------------------------------------------------------------------------------------
 
@@ -296,7 +296,7 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 			if idx >= 0 and TnlAbilities.take_from_hand(G, victim, c):
 				var hand: Array = _player(G, pid).get("hand", []) as Array
 				hand.append(c)
-				_log(G, "All Your Base: takes %s from player %d." % [TnlAbilities._label(c), victim + 1])
+				_log(G, "All Your Base: takes %s from player %d." % [TnlAbilities._label(c), victim + 1], "All Your Base: takes a card from player %d." % (victim + 1), [pid, victim])
 		"sp_give":
 			var to := int(ctx.get("to", -1))
 			var gc: Dictionary = o.get("card", {})

@@ -25,9 +25,12 @@ static func count_visible_rooms(dungeon: Array) -> int:
 static func room_treasures(room: Dictionary) -> Array:
 	var out: Array = []
 	# TNL045 Decapitator : tresor imprime retire jusqu'a la fin du tour (les tresors ajoutes apres, Secret Stash, restent).
-	var printed: Array = [] if bool((room.get("tnl", {}) as Dictionary).get("noTreasure", false)) else (room.get("treasures", []) as Array)
+	var tag: Dictionary = room.get("tnl", {}) as Dictionary
+	var printed: Array = [] if bool(tag.get("noTreasure", false)) else ([1, 2, 3, 4] if bool(tag.get("allTreasures", false)) else (room.get("treasures", []) as Array)) # RMB067 Spirit Dragon : un de chaque type
 	for t in printed + (room.get("extraTreasures", []) as Array):
 		out.append(int(t)) # JSON donne 3.0 ; Array.has(3) ne compare pas int a float
+	if room.has("mb"): # Rise of the Minibosses : icones du miniboss de la salle (niveau 1 ; Jinx niveau 2 : une copie de chaque icone)
+		out.append_array(Minibosses.mb_treasures(room, out))
 	return out
 
 static func dungeon_treasures(player: Dictionary, G: Dictionary = {}) -> Array:
@@ -48,6 +51,8 @@ static func dungeon_treasures(player: Dictionary, G: Dictionary = {}) -> Array:
 		for t in room_treasures(room as Dictionary):
 			for _i in mult:
 				out.append(int(t))
+	if not G.is_empty() and Minibosses.active(G): # RMB012 Kirax / RMB045 Endless Gallery : un tresor de plus jusqu'a la fin du tour
+		out.append_array(Minibosses.extra_icons(G, int(player.get("id", -1))))
 	# CalculatePassiveTreasures : level-up AddTreasuresToDungeon (KSA001 Kirax) une fois monte de niveau.
 	for lu in level_ups(player):
 		if str((lu as Dictionary).get("cmd", "")) == "AddTreasuresToDungeon":
@@ -91,7 +96,7 @@ static func can_build_room(player: Dictionary, G: Dictionary = {}, pid: int = -1
 		if hand_index >= hand.size():
 			return false
 		var card: Dictionary = hand[hand_index]
-		if not bool(card.get("isRoom", false)):
+		if not bool(card.get("isRoom", false)) or bool(card.get("isMiniboss", false)): # un miniboss n'est pas une salle (Minibosses.apply_build)
 			return false
 		if is_build_blocked(G):
 			return false
@@ -101,6 +106,8 @@ static func can_build_room(player: Dictionary, G: Dictionary = {}, pid: int = -1
 		if int(player.get("buildsThisTurn", 0)) >= allowed:
 			return false
 		var visible := count_visible_rooms(dungeon)
+		if not G.is_empty() and Minibosses.active(G) and RmbAbilities.fetid_blocks(dungeon, card, target_index):
+			return false # RMB025 Fetid Beast : pas de salle Monster a cote
 		if not bool(card.get("advanced", false)):
 			# Salle ordinaire : en fin de donjon, ou PAR-DESSUS une pile existante (DungeonSlot.CheckRoomCanBeBuilt : pas de slot
 			# en attente de revelation ; BMA018 Neanderthal Cave = CannotBuildRoom[Advanced, Any] : elle ne refuse QUE les avancees).
@@ -125,6 +132,8 @@ static func can_build_room(player: Dictionary, G: Dictionary = {}, pid: int = -1
 		# CRL011 Hypercube : se batit sur n'importe quelle salle, quel que soit le tresor.
 		if str(card.get("id", "")) == "CRL011":
 			return true
+		if not G.is_empty() and Minibosses.active(G) and (Minibosses.rocky_host(target) or (_effects(G).get("ignoreTreasureMatch", []) as Array).has(pid)):
+			return true # RMB058 Rocky niveau 1, RMB074 Zoning Board : sans condition de tresor
 		var treasures_match := false
 		var host_t := room_treasures(target as Dictionary)
 		for t in card.get("treasures", []):
@@ -245,6 +254,8 @@ static func abilities_locked(G: Dictionary, player_id: int) -> bool:
 	if not (adv is Dictionary) or (adv as Dictionary).is_empty() or int((adv as Dictionary).get("playerId", -1)) != int(player_id):
 		return false
 	var ha = ((adv as Dictionary).get("hero", {}) as Dictionary).get("heroAbility")
+	if Minibosses.active(G) and Minibosses.hero_text_ignored(G, int(player_id)): # RMB061 Icicle Man niveau 2, RMB059 Cerebella niveau 3
+		return false
 	return ha is Dictionary and str((ha as Dictionary).get("cmd", "")) == "DeactivateDungeonAbility"
 
 static func is_build_blocked(G: Dictionary) -> bool:
@@ -345,6 +356,8 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 			dmg += 1
 	if TnlAbilities.active(G): # The Next Level : Goblin Nursery / Mess Hall, Elemental Generator, Killa
 		dmg += TnlAbilities.passive_damage(G, player, room_index, r, locked)
+	if Minibosses.active(G): # Rise of the Minibosses : niveaux 1 des minibosses, Power Leech, Magipede, Dreadmill, Scott...
+		dmg += Minibosses.passive_damage(G, player, room_index, r, locked)
 
 	# Boss.GetPassiveDamage : level-up LastRoomDealDamage (KSA005 Scythe) = +N a la salle du fond (Dungeon.First(), index Godot dernier).
 	for lu in level_ups(player):
@@ -360,7 +373,7 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 	# GameBoard.ProccessActiveHero : Hero.Ability.GetPassiveDamageCommand ; HeroResistDamageRoomType (KSA016 Monster Hunter) rend N PV
 	# si le slot inflige des degats et que la salle est du type : degats totaux - N.
 	var ha = (hero as Dictionary).get("heroAbility") if hero is Dictionary else null
-	if ha is Dictionary and str((ha as Dictionary).get("cmd", "")) == "HeroResistDamageRoomType" and dmg != 0 \
+	if ha is Dictionary and str((ha as Dictionary).get("cmd", "")) == "HeroResistDamageRoomType" and dmg != 0 and not (Minibosses.active(G) and Minibosses.hero_text_ignored(G, pid)) \
 			and str(r.get("type", "")) == str(((ha as Dictionary).get("args", ["0", ""]) as Array)[1]).to_lower():
 		dmg -= int(((ha as Dictionary)["args"] as Array)[0])
 
@@ -429,6 +442,8 @@ static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}
 		RoomAbilities.on_uncover(G, int(player.get("id", 0)), room_index)
 		if TnlAbilities.active(G): # TNL : « when you build or uncover this Room » + Eclipse
 			TnlAbilities.on_uncover(G, int(player.get("id", 0)), room_index)
+	if not G.is_empty() and Minibosses.active(G): # RMB : le miniboss saute sur la salle decouverte (ou est defausse) ; Garbage Chute, Black Market
+		Minibosses.on_destroy(G, player, destroyed, stack)
 	return destroyed
 
 ## GameBoard.DestroyRoom -> CheckTriggerInDungeon<WhenAnotherRoomIsDestroyed> : chaque BMA031 Recycling Center
@@ -452,6 +467,8 @@ static func discard_room_to_pile(decks: Dictionary, card) -> void:
 	(card as Dictionary).erase("usedThisTurn") # une salle recuperee puis reconstruite repart avec une capacite neuve
 	(card as Dictionary).erase("extraTreasures") # tresors « jusqu'a la fin du tour » (Decoy Garden, Meteorite) perdus avec la salle
 	(card as Dictionary).erase("tnl") # effets TNL « jusqu'a la fin du tour » (Fairy Fountain, Meddling Kids!, Decapitator) perdus aussi
+	if (card as Dictionary).has("mb") or (card as Dictionary).has("coins") or (card as Dictionary).has("rmb"):
+		Minibosses.cleanup_discarded(decks, card as Dictionary) # RMB : Coins posees perdues, miniboss defausse
 	if TnlAbilities.torix_catch(decks, card as Dictionary): # TNL003 Torix : la salle Monster va dans sa main (voir TnlAbilities.flush_torix)
 		return
 	var pile: Array = decks.get("roomDiscard", [])
