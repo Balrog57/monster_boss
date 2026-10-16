@@ -100,6 +100,24 @@ func _update_view() -> void:
 		else:
 			stat_label.text = ""
 
+## Pastille ronde de type de salle posee sur le coin haut-gauche des salles des couloirs (APK : monstre / pieges, doree = avancee).
+func add_lane_badge() -> void:
+	if card_data == null or card_data.face_down or not (card_data.card_type in ["monster", "trap"]):
+		return
+	var tex_path := "res://assets/ui/ingame/room_icon_%s%s.webp" % ["advanced_" if card_data.is_advanced else "", card_data.card_type]
+	if not ResourceLoader.exists(tex_path):
+		return
+	var k := default_size.x / 127.0
+	var t := TextureRect.new()
+	t.name = "TypeBadge"
+	t.texture = load(tex_path)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.position = Vector2(-9, -12) * k
+	t.size = Vector2(39, 39) * k
+	add_child(t)
+
 func _on_mouse_entered() -> void:
 	z_index = 20
 	if glow_rect:

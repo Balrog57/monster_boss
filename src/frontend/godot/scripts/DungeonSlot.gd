@@ -60,6 +60,7 @@ func _update_view() -> void:
 		card_container.add_child(card_ui)
 		card_ui.is_in_hand = false
 		card_ui.setup(active_room)
+		card_ui.add_lane_badge()
 		if border:
 			border.border_color = Color(0.4, 0.8, 0.4, 0.0) # pas de liseré : seul le halo d'une salle activable est visible
 		tooltip_text = str(active_room.get("name", ""))

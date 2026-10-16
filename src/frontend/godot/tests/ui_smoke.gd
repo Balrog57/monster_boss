@@ -319,10 +319,7 @@ func _act() -> void:
 	if str(G.get("phase", "")) == "boss":
 		var cards := _hand_cards()
 		if _check(not cards.is_empty(), "choix du boss : aucune carte a l'ecran"):
-			var before := _sig()
-			(cards[rng.randi_range(0, cards.size() - 1)] as Control).card_clicked.emit(null)
-			_cov("boss_pick")
-			_check(_sig() != before, "choix du boss : le clic n'a eu aucun effet")
+			await _act_boss_pick(pid, G, rng.randi_range(0, cards.size() - 1))
 		return
 	_acts_turn += 1
 	var actions := _build_actions(pid, moves)
@@ -339,6 +336,41 @@ func _act() -> void:
 		if not _check(_sig() != before, "geste « %s » sans effet alors qu'il est legal (%s phase %s, pile %d, coups %s)" % [a["desc"], _dbg, G.get("phase"), (G.get("stack", []) as Array).size(), JSON.stringify(moves.map(func(m): return m["type"]))]):
 			return
 	_cov(str(a["kind"]))
+
+## Carrousel du choix du boss : un clic sur une carte la ramene au centre (les autres sont reduites et derriere), PLAY BOSS MONSTER! valide.
+func _act_boss_pick(pid: int, G: Dictionary, k: int) -> void:
+	var picks: Array = G["bossPicks"]
+	var bc: Array = board._boss_cards
+	if not _check(bc.size() == picks.size() and k < bc.size(), "choix du boss : %d cartes pour %d propositions" % [bc.size(), picks.size()]):
+		return
+	var want := str((picks[k] as Dictionary).get("id", ""))
+	(bc[k] as CardUI).card_clicked.emit(null)
+	if not board.skip_animations:
+		await _wait(0.4)
+	_check(board._boss_sel == k, "choix du boss : clic sur la carte %d, centre = %d" % [k, board._boss_sel])
+	_check_boss_layout()
+	_check(board._confirm_btn.visible and board._confirm_btn.text == "PLAY BOSS MONSTER!", "choix du boss : bouton PLAY BOSS MONSTER! absent")
+	var before := _sig()
+	board._confirm_btn.pressed.emit()
+	_cov("boss_pick")
+	_check(_sig() != before, "choix du boss : PLAY BOSS MONSTER! n'a eu aucun effet")
+	var boss = (G["players"][pid] as Dictionary).get("boss")
+	_check(boss != null and str((boss as Dictionary).get("id", "")) == want, "choix du boss : le boss choisi n'est pas la carte centrale (%s)" % want)
+
+## Geometrie du carrousel : carte centrale pleine taille au centre ; les autres plus petites, de part et d'autre, la plus proche devant.
+func _check_boss_layout() -> void:
+	var bc: Array = board._boss_cards
+	var cards := _hand_cards()
+	for i in bc.size():
+		var c: Control = bc[i]
+		var d: int = i - board._boss_sel
+		var cx := c.position.x + c.size.x / 2.0
+		if d == 0:
+			_check(c.size.is_equal_approx(board.BOSS_CARD) and absf(cx - board.PLAY_CX) < 1.0, "carrousel : carte centrale %s en x=%.0f" % [c.size, cx])
+			_check(cards.back() == c, "carrousel : la carte centrale n'est pas au premier plan")
+		else:
+			_check(c.size.x < board.BOSS_CARD.x * 0.7 and (cx - board.PLAY_CX) * d > 0.0, "carrousel : voisine %d mal placee (taille %s, x=%.0f)" % [d, c.size, cx])
+	_cov("boss_layout")
 
 func _weighted(items: Array) -> Dictionary:
 	var tot := 0.0
@@ -465,13 +497,18 @@ func _do_hand(pid: int, idx: int, cands: Array) -> void:
 	(cards[idx] as CardUI).card_clicked.emit(null)
 	await _pick_target(cands.size() + (1 if also_build else 0), "carte %s" % cname)
 
-## Apres un clic qui peut ouvrir la fenetre de ciblage (plusieurs entrees) : on choisit une entree au hasard, ou CANCEL.
+## Apres un clic qui peut ouvrir un choix de cible : plusieurs coups = les cibles s'allument sur le plateau (clic sur l'une, ou CANCEL) ;
+## sans representation a l'ecran (ames, defausse...), la liste centrale (une pierre par cible + CANCEL).
 func _pick_target(n_cands: int, what: String) -> void:
-	await get_tree().process_frame
+	for i in 3: # les zones de ciblage sont posees apres la mise en page des conteneurs
+		await get_tree().process_frame
 	if n_cands <= 1:
-		_check(board._popup_kind != "target", "%s : fenetre de ciblage pour un seul coup" % what)
+		_check(board._popup_kind != "target" and board._tgt.is_empty(), "%s : fenetre / mode de ciblage pour un seul coup" % what)
 		return
-	if not _check(board._popup_kind == "target", "%s : %d cibles mais pas de fenetre de ciblage (popup=%s)" % [what, n_cands, board._popup_kind]):
+	if not board._tgt.is_empty():
+		await _pick_on_board(n_cands, what)
+		return
+	if not _check(board._popup_kind == "target", "%s : %d cibles mais pas de choix de cible (popup=%s)" % [what, n_cands, board._popup_kind]):
 		return
 	var btns := _buttons(board._popup)
 	if not _check(btns.size() == n_cands + 1, "%s : %d boutons de ciblage pour %d cibles (+ CANCEL)" % [what, btns.size(), n_cands]):
@@ -488,6 +525,64 @@ func _pick_target(n_cands: int, what: String) -> void:
 	(btns[rng.randi_range(0, n_cands - 1)] as Button).pressed.emit()
 	await get_tree().process_frame
 	_check(board._popup_kind != "target", "%s : la fenetre de ciblage ne se ferme pas apres le choix" % what)
+
+## Vrai clic gauche a la position (coordonnees du plateau 1920x1080) via le viewport : passe par le voile, les zones et les boutons.
+func _click_at(pos: Vector2) -> void:
+	for pressed in [true, false]:
+		var ev := InputEventMouseButton.new()
+		ev.button_index = MOUSE_BUTTON_LEFT
+		ev.position = pos
+		ev.global_position = pos
+		ev.pressed = pressed
+		get_viewport().push_input(ev, true)
+		await get_tree().process_frame
+
+## Mode ciblage sur le plateau : chaque coup legal correspond a une zone allumee ; le voile bloque le reste ; on clique une zone au hasard.
+func _pick_on_board(n_cands: int, what: String) -> void:
+	_cov("target_board")
+	var spots: Array = board._tgt_spots
+	if spots.is_empty(): # cibles chez un adversaire non affiche (3-4 joueurs) : son bouton P<n> est dore, on le choisit
+		var gold := _buttons(board.foe_bar).filter(func(b): return (b as Button).has_theme_color_override("font_color") and not (b as Button).disabled)
+		if _check(not gold.is_empty(), "%s : aucune cible a l'ecran et aucun adversaire dore" % what):
+			(gold[0] as Button).pressed.emit()
+			for i in 3:
+				await get_tree().process_frame
+			spots = board._tgt_spots
+			_cov("target_foe_switch")
+	var total := 0
+	for sp in spots:
+		total += (sp["ids"] as Array).size()
+		var r: Rect2 = (sp["ctrl"] as Control).get_global_rect()
+		_check(r.size.x > 20.0 and r.size.y > 20.0 and Rect2(-20, -20, 1960, 1120).encloses(r), "%s : zone de ciblage hors ecran %s" % [what, r])
+	_check(not spots.is_empty() and total <= n_cands, "%s : %d cibles allumees pour %d coups" % [what, total, n_cands])
+	if spots.is_empty():
+		board._target_cancel()
+		_cancelled = true
+		return
+	_check(board._tgt_cancel_btn != null and board._tgt_cancel_btn.is_visible_in_tree() and not board.action_box.visible, "%s : CANCEL absent ou PASS TURN encore visible en ciblage" % what)
+	var s0 := _sig()
+	var hand := _hand_cards()
+	if not hand.is_empty() and not cov.has("target_blocked"): # le voile bloque la main : un clic sur une carte ne joue rien et ne ferme pas le mode
+		await _click_at((hand[hand.size() / 2] as Control).get_global_rect().get_center())
+		_check(not board._tgt.is_empty() and _sig() == s0 and board._popup_kind == "", "%s : un clic sur la main pendant le ciblage a eu un effet" % what)
+		_cov("target_blocked")
+	if rng.randf() < 0.2:
+		board._tgt_cancel_btn.pressed.emit()
+		await get_tree().process_frame
+		_check(board._tgt.is_empty() and _sig() == s0 and board._popup_kind == "", "%s : CANCEL doit refermer sans jouer" % what)
+		_cov("target_board_cancel")
+		_cancelled = true
+		return
+	var pick: Dictionary = spots[rng.randi_range(0, spots.size() - 1)]
+	await _click_at((pick["ctrl"] as Control).get_global_rect().get_center())
+	if not board._tgt.is_empty() and board._popup_kind == "target": # une zone, plusieurs coups (mode, paiement...) : petite liste de ces coups
+		var btns := _buttons(board._popup)
+		if _check(btns.size() == (pick["ids"] as Array).size() + 1, "%s : zone a %d coups mais %d boutons" % [what, (pick["ids"] as Array).size(), btns.size()]):
+			_cov("target_spot_multi")
+			(btns[rng.randi_range(0, btns.size() - 2)] as Button).pressed.emit()
+			await get_tree().process_frame
+	_check(board._tgt.is_empty() and board._popup_kind != "target", "%s : le clic sur une cible allumee n'a pas joue le coup" % what)
+	_check(_sig() != s0, "%s : cible choisie sur le plateau sans effet" % what)
 
 func _do_slot(pid: int, di: int, cands: Array) -> void:
 	var slot: DungeonSlot = null
@@ -754,6 +849,10 @@ func _check_ui() -> void:
 		_check(not mine, "choix en attente (%s) sans popup" % str(pc.get("type", "")))
 	elif board._popup_kind == "target":
 		_check(false, "fenetre de ciblage restee ouverte")
+	_check(board._tgt.is_empty(), "mode de ciblage reste ouvert apres le geste")
+	if phase == "boss" and not over and p.get("boss") == null:
+		_check(board.foe_name_label.text == "" and board._lane[0]["sprite"].texture == board._tex(board.TEX_UNKNOWN_BOSS), "choix du boss : le boss adverse n'est pas cache")
+		_check(board._confirm_btn.visible and board._confirm_btn.text == "PLAY BOSS MONSTER!", "choix du boss : bouton PLAY BOSS MONSTER! absent")
 	# aventure : le donjon traverse est a l'ecran (le mien ou l'adversaire affiche) quand les pions sont animes
 	var adv: Dictionary = G.get("adventure", {})
 	if not board.skip_animations and not adv.is_empty() and adv.get("hero") != null:
@@ -860,9 +959,9 @@ func _act_simple() -> void:
 	match phase:
 		"boss":
 			if me.get("boss") == null:
-				var cards := _hand_cards()
-				if not cards.is_empty():
-					(cards[0] as Control).card_clicked.emit(null)
+				if not board._boss_cards.is_empty():
+					board._boss_cards[0].card_clicked.emit(null)
+					board._confirm_btn.pressed.emit()
 		"setup", "build":
 			var builds := int(me.get("buildsThisTurn", 0))
 			var want_build: bool = (phase == "build" and builds == 0) or (phase == "setup" and bool(G.get("setupBuild", false)) and builds == 0)
@@ -1007,7 +1106,110 @@ func _check_main_flow() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 
+## Zones de ciblage de tous les genres (salle, heros chez moi / chez l'adversaire, ville, boss), plusieurs coups sur une meme zone,
+## repli sur la liste centrale sans zone, et remise a z 0 des noeuds du plateau a la fin.
+func _check_target_spots() -> void:
+	_tag = "[target-spots]"
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	var foe: Dictionary = G["players"][1]
+	var h_a: Dictionary = (CardDB.heroes[5] as Dictionary).duplicate(true)
+	var h_b: Dictionary = (CardDB.heroes[6] as Dictionary).duplicate(true)
+	(me["entrance"] as Array).append(h_a)
+	(foe["entrance"] as Array).append(h_b)
+	board.refresh()
+	for i in 2:
+		await get_tree().process_frame
+	var hits: Array = []
+	var specs: Array = [["room", {"roomIndex": 0}], ["hero mine", {"heroId": h_a["id"]}], ["hero foe", {"heroId": h_b["id"]}],
+		["town", {"townIndex": 0}], ["me", {"targetPlayerId": 0}], ["foe boss", {"targetPlayerId": 1}], ["room b", {"roomIndex": 0, "mode": "b"}]]
+	var entries: Array = []
+	for sp in specs:
+		var lbl: String = sp[0]
+		var spot: Dictionary = board._spot_of_target(sp[1], 0)
+		_check(not spot.is_empty(), "zone de ciblage « %s » : aucune zone pour %s" % [lbl, str(sp[1])])
+		entries.append({"label": lbl, "spot": spot, "cb": func(): hits.append(lbl)})
+	board._target_list("test", "Select a target", entries, Callable())
+	for i in 3:
+		await get_tree().process_frame
+	_check(board._tgt_spots.size() == specs.size() - 1, "zones allumees : %d (%d attendues, 2 coups sur la salle)" % [board._tgt_spots.size(), specs.size() - 1])
+	var lifted: Array = board._tgt_lifted.duplicate()
+	for sp in board._tgt_spots.duplicate():
+		var ids: Array = sp["ids"]
+		await _click_at((sp["ctrl"] as Control).get_global_rect().get_center())
+		if ids.size() > 1: # deux coups sur la salle : petite liste (CANCEL la referme et laisse le ciblage ouvert)
+			if _check(board._popup_kind == "target" and _buttons(board._popup).size() == 3, "zone a 2 coups : petite liste attendue"):
+				(_buttons(board._popup)[2] as Button).pressed.emit()
+				await get_tree().process_frame
+				_check(board._popup_kind == "" and not board._tgt.is_empty(), "zone a 2 coups : CANCEL doit garder le ciblage")
+				board._target_pick(ids)
+				await get_tree().process_frame
+				(_buttons(board._popup)[0] as Button).pressed.emit()
+				board._popup_close() # le vrai coup (_do) referme la liste ; ici les rappels de test ne jouent rien
+				await get_tree().process_frame
+	hits.sort()
+	var want := ["foe boss", "hero foe", "hero mine", "me", "room", "town"]
+	_check(hits.size() == 6 or hits.size() == 7, "zones cliquees : %s" % str(hits))
+	for w in want:
+		_check(hits.has(w), "zone « %s » : clic sans effet (%s)" % [w, str(hits)])
+	board._target_cancel()
+	await get_tree().process_frame
+	_check(board._tgt.is_empty(), "ciblage : mode non referme")
+	for n in lifted:
+		if is_instance_valid(n):
+			_check((n as CanvasItem).z_index == 0, "ciblage : un noeud du plateau reste devant le voile (z %d)" % (n as CanvasItem).z_index)
+	# sans zone (ex. ames, pile) : repli sur la liste centrale
+	var called: Array = []
+	board._target_list("test", "x", [{"label": "A", "cb": func(): called.append(1)}], Callable())
+	_check(board._popup_kind == "target" and board._tgt.is_empty(), "cible sans zone : la liste centrale est attendue")
+	board._popup_close()
+	(me["entrance"] as Array).clear()
+	(foe["entrance"] as Array).clear()
+	board.refresh()
+	_cov("target_spots_synthetic")
+
+## Carrousel du choix du boss (apk_boss00) : carte centrale, voisines reduites, clic / selection, validation, boss adverse cache.
+func _check_boss_carousel() -> void:
+	_tag = "[boss-carousel]"
+	await _teardown()
+	CardDB._rng.seed = 99
+	gm = GameManager.new()
+	add_child(gm)
+	gm.start_new_game(2, 1, ["base"])
+	board = load("res://godot/scenes/Board.tscn").instantiate()
+	board.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(board)
+	board.skip_animations = true
+	board.setup(gm, func(): quit_calls += 1)
+	await _wait(0.1)
+	var picks: Array = gm.G["bossPicks"]
+	var bc: Array = board._boss_cards
+	if not _check(picks.size() >= 3 and bc.size() == picks.size() and board._boss_sel == 0, "carrousel : %d cartes pour %d propositions (centre %d)" % [bc.size(), picks.size(), board._boss_sel]):
+		return
+	_check_boss_layout()
+	_check(board._confirm_btn.visible and board._confirm_btn.text == "PLAY BOSS MONSTER!" and board._confirm_btn.size.x >= 390.0, "carrousel : bouton PLAY BOSS MONSTER! absent")
+	_check(board.foe_name_label.text == "", "carrousel : le boss adverse est visible")
+	for k in [1, bc.size() - 1, 0]:
+		(bc[k] as CardUI).card_clicked.emit(null)
+		await get_tree().process_frame
+		_check(board._boss_sel == k, "carrousel : clic sur la carte %d, centre %d" % [k, board._boss_sel])
+		_check_boss_layout()
+	board._boss_select(99) # hors limites : borne
+	_check(board._boss_sel == bc.size() - 1, "carrousel : selection hors limites non bornee (%d)" % board._boss_sel)
+	board._boss_select(-3)
+	_check(board._boss_sel == 0, "carrousel : selection negative non bornee (%d)" % board._boss_sel)
+	(bc[1] as CardUI).card_clicked.emit(null)
+	_check(gm.G["players"][0].get("boss") == null, "carrousel : un clic sur une carte ne doit pas valider le boss")
+	var want := str((picks[1] as Dictionary).get("id", ""))
+	board._confirm_btn.pressed.emit()
+	await get_tree().process_frame
+	var boss = gm.G["players"][0].get("boss")
+	_check(boss != null and str((boss as Dictionary).get("id", "")) == want, "carrousel : PLAY BOSS MONSTER! n'a pas valide la carte centrale (%s)" % want)
+	_check(board._boss_sel == 0, "carrousel : centre non remis a zero")
+	_cov("boss_carousel")
+
 func _extra_checks() -> void:
+	await _check_boss_carousel()
 	await _check_main_flow()
 	await _check_hand_room()
 	_tag = "[base]"
@@ -1039,19 +1241,24 @@ func _extra_checks() -> void:
 	if _check(idx >= 0, "BMA051 introuvable dans la pioche de sorts"):
 		var n2 := (me["hand"] as Array).size()
 		board._on_hand_card_clicked(idx, (me["hand"] as Array)[idx])
-		await get_tree().process_frame
-		if _check(board._popup_kind == "target", "sort a cibles multiples : pas de fenetre de ciblage (popup=%s)" % board._popup_kind):
-			var btns := _buttons(board._popup)
-			_check(btns.size() == town.size() + 1, "ciblage : %d boutons (%d attendus)" % [btns.size(), town.size() + 1])
-			(btns[btns.size() - 1] as Button).pressed.emit() # CANCEL
+		for i in 3:
 			await get_tree().process_frame
-			_check(board._popup_kind == "" and (me["hand"] as Array).size() == n2, "CANCEL : popup ferme et carte conservee")
+		if _check(board._popup_kind == "" and not board._tgt.is_empty(), "sort a cibles multiples : pas de ciblage sur le plateau (popup=%s)" % board._popup_kind):
+			_check(board._tgt_spots.size() == town.size(), "ciblage : %d zones allumees pour %d heros en ville" % [board._tgt_spots.size(), town.size()])
+			_check(board._tgt_cancel_btn != null and board._tgt_cancel_btn.text == "CANCEL" and not board.action_box.visible, "ciblage : CANCEL absent ou PASS TURN visible")
+			var s_h := _sig()
+			await _click_at((_hand_cards()[0] as Control).get_global_rect().get_center())
+			_check(not board._tgt.is_empty() and _sig() == s_h, "ciblage : la main n'est pas bloquee par le voile")
+			board._tgt_cancel_btn.pressed.emit() # CANCEL
+			await get_tree().process_frame
+			_check(board._tgt.is_empty() and board._popup_kind == "" and (me["hand"] as Array).size() == n2, "CANCEL : mode ferme et carte conservee")
+			_check(board.action_box.visible, "CANCEL : PASS TURN non restaure")
 			board._on_hand_card_clicked(idx, (me["hand"] as Array)[idx])
-			await get_tree().process_frame
-			btns = _buttons(board._popup)
-			(btns[0] as Button).pressed.emit() # premiere cible
-			await get_tree().process_frame
-			_check(board._popup_kind == "" and (me["hand"] as Array).size() == n2 - 1, "cible choisie : le sort doit etre joue")
+			for i in 3:
+				await get_tree().process_frame
+			if _check(not board._tgt_spots.is_empty(), "ciblage : plus de zone apres CANCEL puis nouveau clic"):
+				await _click_at(((board._tgt_spots[0]["ctrl"]) as Control).get_global_rect().get_center()) # vrai clic sur la 1re cible
+				_check(board._tgt.is_empty() and (me["hand"] as Array).size() == n2 - 1, "cible choisie par un clic : le sort doit etre joue")
 			await _drain()
 	# 3) Capacite de salle : halo + clic gauche sur la salle (aucun bouton « Capacite : ... »)
 	var done := false
@@ -1093,6 +1300,7 @@ func _extra_checks() -> void:
 			await _drain()
 	_check(done, "aucune salle activable trouvee pour le test de clic")
 	board._popup_close()
+	await _check_target_spots()
 	# 4) Menu engrenage : ouvre une fenetre (ne quitte PAS), OK referme
 	var q0 := quit_calls
 	board._on_menu_pressed()

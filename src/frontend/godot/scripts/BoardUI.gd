@@ -61,7 +61,14 @@ const SLOT_STEP := 140.0
 const PLAY_CX := 945.0                   # centre de la zone de jeu (entre les deux colonnes)
 const HAND_CARD := Vector2(210, 300)     # APK : ~210x300 a 1920x1080, tres chevauchees, bas de carte sous le bord de l'ecran
 const BIG_CARD := Vector2(232, 324)
-const BOSS_SPRITE_SCALE := 0.82
+const BOSS_SPRITE_SCALE := 1.0           # APK : sprite du boss a sa taille native (King Croak ~175 px, Cleopatra ~200 px sur l'estrade)
+const BOSS_SPRITE_MAX_W := 300.0         # largeur de l'estrade : un sprite plus large (KSA005, 333 px) est reduit pour ne pas deborder
+const BOSS_CARD := Vector2(362, 506)     # carrousel du choix du boss (apk_boss00) : carte centrale ; les voisines sont reduites et se chevauchent
+const BOSS_SIDE_SCALE := [1.0, 0.58, 0.55, 0.52, 0.5, 0.48]
+const BOSS_SIDE_X := [0.0, 272.0, 342.0, 378.0, 396.0, 406.0]
+const BOSS_CENTER_Y := 562.0
+const TEX_TARGET_GLOW := "res://assets/ui/ingame/card_border_yellow_glow.webp"
+const TARGET_Z := 60                     # salles / heros / boss ciblables : passent devant le voile du mode ciblage (z 40)
 const GOLD := Color(0.95, 0.78, 0.3)
 const CREAM := Color(0.93, 0.87, 0.7)
 
@@ -119,6 +126,18 @@ var _hero_pawn: Control                  # pion du heros en aventure : persiste 
 var _hero_pawn_hp: Label
 var _adv_seen := {}                      # dernier pas d'aventure anime : {pid, hid, room, hp}
 var _stone_theme_cache: Theme
+# Choix de la cible sur le plateau : {} = inactif ; sinon {pid, title, hint, entries: [{label, cb, mv, spot}]}.
+var _tgt: Dictionary = {}
+var _tgt_layer: Control                  # voile + bulle + CANCEL + zones cliquables (un Control par cible affichee)
+var _tgt_cancel_btn: Button
+var _tgt_spots: Array = []               # [{ctrl, ids}] : ids = indices dans _tgt.entries atteints par cette zone
+var _tgt_lifted: Array = []              # noeuds du plateau passes devant le voile (remis a z 0 a la fin)
+var _town_scroll: ScrollContainer
+var _ent_tok: Dictionary = {}            # pid -> jetons de l'entree, alignes sur les heros de `entrance` (null = pion en marche)
+# Carrousel du choix du boss
+var _boss_sel := 0
+var _boss_cards: Array = []
+var _boss_drag := {}
 const PASS_TYPES := ["pass", "passBuild"]
 const GO_TYPES := ["adventureNext", "resolveNextHero"]
 const HAND_CLICK_TYPES := ["playSpell", "useHandRoom"] # jouees en cliquant la carte de la main (pas de bouton)
@@ -281,11 +300,13 @@ func _build_frame() -> void:
 
 func _build_left() -> void:
 	var scroll := ScrollContainer.new()
+	_town_scroll = scroll
 	scroll.position = Vector2(14, 96)
 	scroll.size = Vector2(160, 806)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	add_child(scroll)
+	scroll.get_v_scroll_bar().value_changed.connect(func(_v: float): _target_apply()) # les zones de ciblage des heros suivent le defilement
 	town_container = VBoxContainer.new()
 	town_container.add_theme_constant_override("separation", 15)
 	scroll.add_child(town_container)
@@ -536,6 +557,7 @@ func _refresh_foe_bar(others: Array) -> void:
 		var boss = ((game_manager.G["players"] as Dictionary)[pid] as Dictionary).get("boss")
 		b.tooltip_text = "Player %d%s" % [int(pid) + 1, " - %s" % str((boss as Dictionary).get("name", "")) if boss != null else ""]
 		var p: int = int(pid)
+		b.set_meta("pid", p)
 		b.pressed.connect(func():
 			if _animating_hero or (_hero_pawn != null and is_instance_valid(_hero_pawn)):
 				return # un heros traverse le donjon affiche
@@ -737,8 +759,9 @@ func refresh() -> void:
 	_refresh_hand(G, p, phase, my_moves)
 	_refresh_activatable(my_moves)
 
+	_target_sync(my_moves)
 	var carousel := _carousel_active(G, phase)
-	action_box.visible = not carousel and G.get("gameOver") == null # plus rien a jouer a l'ecran de fin
+	action_box.visible = not carousel and G.get("gameOver") == null and _tgt.is_empty() # plus rien a jouer a l'ecran de fin ; CANCEL remplace PASS TURN en ciblage
 	var can_go := _has_any(my_moves, GO_TYPES)
 	var can_pass := _has_any(my_moves, PASS_TYPES)
 	btn_advance.visible = phase == "adventure" or can_go
@@ -762,8 +785,13 @@ func _refresh_overlay(G: Dictionary, phase: String) -> void:
 	_dim.color = Color(0, 0, 0, 1.0 if boss_pick else 0.6)
 	_bubble.visible = discard or over
 	_carousel_text.visible = boss_pick or discard or over
-	_confirm_btn.visible = (discard and discard_pick.size() == 2) or over # fin de partie : le meme bouton ramene au menu
-	_confirm_btn.text = "MENU" if over else "CONTINUE"
+	_confirm_btn.visible = boss_pick or (discard and discard_pick.size() == 2) or over # fin de partie : le meme bouton ramene au menu
+	_confirm_btn.text = "PLAY BOSS MONSTER!" if boss_pick else ("MENU" if over else "CONTINUE")
+	# APK : PLAY BOSS MONSTER! est une grande pierre au centre du bas de l'ecran (apk game_01_boss), CONTINUE reste plus petit.
+	_confirm_btn.custom_minimum_size = Vector2(400, 92) if boss_pick else Vector2(220, 54)
+	_confirm_btn.size = _confirm_btn.custom_minimum_size
+	_confirm_btn.add_theme_font_size_override("font_size", 28 if boss_pick else 24)
+	_confirm_btn.position = Vector2(PLAY_CX - 200, 923) if boss_pick else Vector2(PLAY_CX - 110, 730)
 	if boss_pick:
 		_carousel_text.position = Vector2(PLAY_CX - 600, 108)
 		_carousel_text.size = Vector2(1200, 90)
@@ -793,6 +821,7 @@ func _refresh_lane_badges(idx: int, pl: Dictionary) -> void:
 
 func _refresh_town(G: Dictionary) -> void:
 	for c in town_container.get_children():
+		town_container.remove_child(c) # tout de suite : les zones de ciblage lisent les positions des nouvelles cartes
 		c.queue_free()
 	for hero in G.get("town", []):
 		var hero_card = _card_scene.instantiate()
@@ -806,16 +835,22 @@ func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 	for r in rows:
 		var box: HBoxContainer = (_lane[int(r[0])] as Dictionary)["entrance"]
 		for c in box.get_children():
+			box.remove_child(c)
 			c.queue_free()
 		var adv: Dictionary = game_manager.G.get("adventure", {})
 		var adv_pl = (game_manager.G.get("players", {}) as Dictionary).get(int(adv.get("playerId", -1))) if not adv.is_empty() else null
 		var walking: bool = adv_pl != null and is_same(adv_pl, r[1]) and _hero_pawn != null and is_instance_valid(_hero_pawn)
 		var skipped := false
+		var toks: Array = []
 		for hero in (r[1] as Dictionary).get("entrance", []):
 			if walking and not skipped and hero == adv.get("hero"): # ce heros est deja le pion qui traverse le donjon
 				skipped = true
+				toks.append(null)
 				continue
-			box.add_child(_create_mini_hero_token(hero))
+			var tok := _create_mini_hero_token(hero)
+			box.add_child(tok)
+			toks.append(tok)
+		_ent_tok[view_pid if int(r[0]) == 1 else foe_pid] = toks
 
 func _create_mini_hero_token(hero: Dictionary) -> Control:
 	var c := TextureRect.new()
@@ -854,7 +889,7 @@ func _set_boss(L: Dictionary, boss) -> void:
 	sprite.visible = tex != null
 	if tex != null:
 		sprite.texture = tex
-		sprite.size = tex.get_size() * BOSS_SPRITE_SCALE
+		sprite.size = tex.get_size() * minf(BOSS_SPRITE_SCALE, BOSS_SPRITE_MAX_W / tex.get_size().x)
 		sprite.position = Vector2((plat.size.x - sprite.size.x) / 2.0, plat.size.y - sprite.size.y)
 
 func _ensure_boss_card(container: CenterContainer, boss_dict: Dictionary) -> void:
@@ -897,6 +932,7 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 				room_ui.size = SLOT_SIZE
 				room_ui.is_in_hand = false
 				room_ui.setup(r)
+				room_ui.add_lane_badge()
 				if Minibosses.active(game_manager.G): # Rise of the Minibosses : le miniboss de la salle adverse (nom cache tant qu'il est face cache)
 					var mb_badge := Minibosses.make_badge(r, false)
 					if mb_badge != null:
@@ -909,22 +945,12 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array) -> void:
 	for c in hand_layer.get_children():
 		c.queue_free()
+	_boss_cards.clear()
 
 	if G.get("gameOver") != null:
 		return
 	if phase == "boss":
-		var picks: Array = G.get("bossPicks", [])
-		var cards: Array = []
-		for b in picks:
-			var boss_card = _spawn_card(b, -1, Vector2(300, 419))
-			var bid = str(b.get("id", ""))
-			boss_card.card_clicked.connect(func(_data):
-				var is_fem := ["BMA006", "BMA007", "BMA008"].has(bid)
-				_play_sfx("res://assets/audio/sfx/boss_female_intro.wav" if is_fem else "res://assets/audio/sfx/boss_male_intro.wav")
-				_do({"type": "pickBoss", "args": [bid]})
-			)
-			cards.append(boss_card)
-		_place_cards(cards, Vector2(300, 419), 330.0, 1100.0, 330.0, false)
+		_build_boss_carousel(G.get("bossPicks", []))
 		return
 
 	# Cartes jouables maintenant (construire / sort / capacite de la main) : les autres sont grisees comme dans l'APK.
@@ -966,6 +992,81 @@ func _spawn_card(data: Dictionary, hand_idx: int, sz: Vector2) -> Control:
 	card_ui.size = sz
 	card_ui.setup(data, hand_idx)
 	return card_ui
+
+# --- Choix du boss : carrousel (apk_boss00) ; une carte au centre, les autres reduites et chevauchees de part et d'autre.
+# Clic sur une voisine ou glisser pour la ramener au centre ; PLAY BOSS MONSTER! valide la carte centrale. Le boss adverse reste cache.
+
+func _boss_card_rect(d: int) -> Rect2:
+	var k := mini(absi(d), BOSS_SIDE_X.size() - 1)
+	var sz := BOSS_CARD * float(BOSS_SIDE_SCALE[k])
+	return Rect2(Vector2(PLAY_CX + signf(d) * float(BOSS_SIDE_X[k]) - sz.x / 2.0, BOSS_CENTER_Y - sz.y / 2.0), sz)
+
+func _build_boss_carousel(picks: Array) -> void:
+	_boss_cards.clear()
+	_boss_sel = clampi(_boss_sel, 0, maxi(picks.size() - 1, 0))
+	for i in picks.size():
+		var c = _spawn_card(picks[i], -1, BOSS_CARD)
+		c.custom_minimum_size = Vector2.ZERO # la taille change avec la distance au centre
+		c.mouse_entered.disconnect(c._on_mouse_entered) # pas de zoom / premier plan au survol : l'ordre du carrousel prime
+		c.mouse_exited.disconnect(c._on_mouse_exited)
+		var idx := i
+		c.card_clicked.connect(func(_data): _boss_select(idx))
+		_boss_cards.append(c)
+	_boss_layout(false)
+
+func _boss_layout(animate: bool) -> void:
+	var order: Array = range(_boss_cards.size())
+	order.sort_custom(func(a: int, b: int): return absi(a - _boss_sel) > absi(b - _boss_sel)) # la plus eloignee au fond
+	for k in order.size():
+		var c: Control = _boss_cards[int(order[k])]
+		hand_layer.move_child(c, k)
+		var d: int = int(order[k]) - _boss_sel
+		var r := _boss_card_rect(d)
+		var shade := 1.0 - 0.08 * float(maxi(absi(d) - 1, 0))
+		if c.has_meta("tw"):
+			(c.get_meta("tw") as Tween).kill()
+		if animate and not skip_animations:
+			var tw := c.create_tween().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+			tw.tween_property(c, "position", r.position, 0.22)
+			tw.tween_property(c, "size", r.size, 0.22)
+			tw.tween_property(c, "modulate", Color(shade, shade, shade), 0.22)
+			c.set_meta("tw", tw)
+		else:
+			c.position = r.position
+			c.size = r.size
+			c.modulate = Color(shade, shade, shade)
+
+func _boss_select(i: int) -> void:
+	i = clampi(i, 0, _boss_cards.size() - 1)
+	if i == _boss_sel or _boss_cards.is_empty():
+		return
+	_boss_sel = i
+	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
+	_boss_layout(true)
+
+## PLAY BOSS MONSTER! : le boss de la carte centrale est le notre.
+func _boss_confirm() -> void:
+	var picks: Array = game_manager.G.get("bossPicks", [])
+	if picks.is_empty():
+		return
+	var bid := str((picks[clampi(_boss_sel, 0, picks.size() - 1)] as Dictionary).get("id", ""))
+	var is_fem := ["BMA006", "BMA007", "BMA008"].has(bid)
+	_play_sfx("res://assets/audio/sfx/boss_female_intro.wav" if is_fem else "res://assets/audio/sfx/boss_male_intro.wav")
+	_boss_sel = 0
+	_do({"type": "pickBoss", "args": [bid]})
+
+## Glisser horizontalement dans la zone des cartes : un cran tous les 90 px (gauche = carte suivante).
+func _input(event: InputEvent) -> void:
+	if _boss_cards.is_empty():
+		return
+	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		var pos := get_local_mouse_position()
+		_boss_drag = {"x": pos.x} if (event as InputEventMouseButton).pressed and Rect2(184, 280, 1523, 600).has_point(pos) else {}
+	elif event is InputEventMouseMotion and not _boss_drag.is_empty():
+		var dx := get_local_mouse_position().x - float(_boss_drag["x"])
+		if absf(dx) >= 90.0:
+			_boss_drag["x"] = get_local_mouse_position().x
+			_boss_select(_boss_sel - int(signf(dx)))
 
 ## Aligne les cartes (chevauchement si necessaire) autour de PLAY_CX ; `fan` : eventail (cartes legerement tournees vers
 ## l'exterieur, bords plus bas) ; la carte survolee monte en entier, se redresse et passe au premier plan (z_index de CardUI).
@@ -1368,6 +1469,7 @@ func _popup_begin(kind: String, dim_alpha: float = 0.62) -> Control:
 	_popup = Control.new()
 	_popup.size = Vector2(1920, 1080)
 	_popup.mouse_filter = Control.MOUSE_FILTER_STOP
+	_popup.z_index = 100 # devant le voile du mode ciblage (z 40) et les cibles (z 60+)
 	_popup.theme = _make_bar_theme()
 	var dim := ColorRect.new()
 	dim.color = Color(0, 0, 0, dim_alpha)
@@ -1422,6 +1524,281 @@ func _popup_list(kind: String, title: String, entries: Array, cancel_cb: Callabl
 			cb.call())
 		grid.add_child(b)
 
+# ---------------------------------------------------------------------------------------------------------------------
+# Ciblage sur le plateau (APK) : voile leger, bulle de titre, cibles legales en surbrillance doree et cliquables, CANCEL.
+# La liste centrale (_popup_list) ne sert que si une cible n'a pas de representation sur le plateau (ames, defausse, pile...).
+# ---------------------------------------------------------------------------------------------------------------------
+
+## Zone du plateau qui represente une cible de coup (dictionnaire de cible des coups playSpell / useHandRoom) ; {} si aucune.
+## {k: room|hero|town|player, pid / idx / hid / eidx / i}. Plusieurs coups peuvent partager une zone (mode, paiement...).
+func _spot_of_target(td: Dictionary, caster: int) -> Dictionary:
+	for k in ["a", "soulIndex", "itemIndex", "stackId", "woundIndex"]:
+		if td.has(k):
+			return {}
+	if td.has("roomIndex"):
+		return {"k": "room", "pid": int(td.get("targetPlayerId", caster)), "idx": int(td["roomIndex"])}
+	if td.has("townIndex"):
+		return {"k": "town", "i": int(td["townIndex"])}
+	if td.has("entranceIndex"):
+		return {"k": "hero", "pid": int(td.get("targetPlayerId", caster)), "eidx": int(td["entranceIndex"])}
+	if td.has("heroId"):
+		for pid in (game_manager.G.get("players", {}) as Dictionary):
+			for h in ((game_manager.G["players"] as Dictionary)[pid] as Dictionary).get("entrance", []):
+				if str((h as Dictionary).get("id", "")) == str(td["heroId"]):
+					return {"k": "hero", "pid": int(pid), "hid": str(td["heroId"])}
+		return {}
+	if td.has("targetPlayerId"):
+		return {"k": "player", "pid": int(td["targetPlayerId"])}
+	return {}
+
+## Entree unique des choix de cible : sur le plateau si chaque entree a une zone (entry.spot), sinon la liste centrale.
+## entries : [{label, cb, mv?, spot?}] ; hint : texte de la bulle.
+func _target_list(title: String, hint: String, entries: Array, cancel_cb: Callable) -> void:
+	var on_board := not entries.is_empty()
+	for e in entries:
+		if (e as Dictionary).get("spot", {}).is_empty():
+			on_board = false
+	if not on_board:
+		_popup_list("target", title, entries, cancel_cb)
+		return
+	_popup_close()
+	_target_end()
+	_tgt = {"pid": _my_pid(), "title": title, "hint": hint if hint != "" else "Select a target", "entries": entries}
+	_target_open_layer()
+	action_box.visible = false # CANCEL prend la place de PASS TURN (refresh le remet a la fin du ciblage)
+	_target_apply()
+	_target_scroll_town()
+
+func _target_open_layer() -> void:
+	_tgt_layer = Control.new()
+	_tgt_layer.size = Vector2(1920, 1080)
+	_tgt_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_tgt_layer)
+	var dim := _rect(_tgt_layer, Color(0, 0, 0, 0.5), Vector2(0, 62), Vector2(1920, 1018)) # laisse libres les barres du haut (selecteurs de sieges)
+	dim.mouse_filter = Control.MOUSE_FILTER_STOP
+	dim.z_index = TARGET_Z - 20
+	var bubble := _img(_tgt_layer, UI_DIR + "top_globe.webp", Vector2(PLAY_CX - 280, 96), Vector2(560, 82))
+	bubble.z_index = TARGET_Z + 10
+	var txt := _lbl(_tgt_layer, str(_tgt["hint"]).to_upper(), 20, Color.WHITE, Vector2(PLAY_CX - 250, 104), 500.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
+	txt.custom_minimum_size.y = 62.0
+	txt.size.y = 62.0
+	txt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	txt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	txt.z_index = TARGET_Z + 11
+	_tgt_cancel_btn = Button.new()
+	_tgt_cancel_btn.text = "CANCEL"
+	_tgt_cancel_btn.theme = _make_bar_theme()
+	_tgt_cancel_btn.position = Vector2(PLAY_CX - 100, 466)
+	_tgt_cancel_btn.custom_minimum_size = Vector2(200, 68)
+	_tgt_cancel_btn.size = Vector2(200, 68)
+	_tgt_cancel_btn.z_index = TARGET_Z + 10
+	_tgt_cancel_btn.pressed.connect(_target_cancel)
+	_tgt_layer.add_child(_tgt_cancel_btn)
+
+func _target_cancel() -> void:
+	_play_sfx("res://assets/audio/sfx/ui_button_goback.wav")
+	_target_end()
+	refresh()
+
+func _target_end() -> void:
+	for n in _tgt_lifted:
+		if is_instance_valid(n):
+			(n as CanvasItem).z_index = 0
+	_tgt_lifted.clear()
+	_tgt_spots.clear()
+	if _tgt_layer != null and is_instance_valid(_tgt_layer):
+		remove_child(_tgt_layer)
+		_tgt_layer.queue_free()
+	_tgt_layer = null
+	_tgt_cancel_btn = null
+	_tgt = {}
+	for b in foe_bar.get_children():
+		(b as Control).remove_theme_color_override("font_color")
+
+## Apres chaque refresh : les coups proposes doivent rester legaux (l'IA ou un autre siege a pu jouer), sinon le mode se ferme.
+func _target_sync(my_moves: Array) -> void:
+	if _tgt.is_empty():
+		return
+	if int(_tgt["pid"]) != _my_pid() or game_manager.G.get("gameOver") != null:
+		_target_end()
+		return
+	var keep: Array = []
+	for e in (_tgt["entries"] as Array):
+		if not (e as Dictionary).has("mv") or my_moves.has((e as Dictionary)["mv"]):
+			keep.append(e)
+	if keep.is_empty():
+		_target_end()
+		return
+	_tgt["entries"] = keep
+	_target_apply()
+
+## Les zones se (re)posent apres la mise en page des conteneurs (jetons d'entree, ville) : un seul passage differe par image.
+var _tgt_queued := false
+func _target_apply() -> void:
+	if _tgt.is_empty() or _tgt_queued:
+		return
+	_tgt_queued = true
+	_target_apply_now.call_deferred()
+
+func _target_settle() -> void:
+	for i in 2:
+		await get_tree().process_frame
+	if not _tgt.is_empty() and not _tgt_queued:
+		_target_apply_now(false)
+
+func _target_scroll_town() -> void:
+	await get_tree().process_frame
+	if _tgt.is_empty():
+		return
+	for e in (_tgt["entries"] as Array):
+		var sp: Dictionary = (e as Dictionary)["spot"]
+		if str(sp.get("k", "")) == "town":
+			var node := _spot_node(sp)
+			if node != null:
+				_town_scroll.ensure_control_visible(node)
+			return
+
+func _spot_lane(pid: int) -> int: # 1 = mon couloir, 0 = couloir adverse affiche, -1 = pas a l'ecran (selecteur d'adversaire)
+	return 1 if pid == view_pid else (0 if pid == foe_pid else -1)
+
+## Noeud du plateau represente par une zone (null : pas a l'ecran pour l'instant).
+func _spot_node(spot: Dictionary) -> Control:
+	var G: Dictionary = game_manager.G
+	match str(spot.get("k", "")):
+		"room":
+			var pid := int(spot["pid"])
+			if _spot_lane(pid) < 0:
+				return null
+			var sl := _slot_at(pid, int(spot["idx"]))
+			if sl is DungeonSlot and (sl as DungeonSlot).current_stack.is_empty():
+				return null
+			return sl
+		"town":
+			var kids := town_container.get_children().filter(func(c): return not c.is_queued_for_deletion())
+			var i := int(spot["i"])
+			return kids[i] if i >= 0 and i < kids.size() else null
+		"hero":
+			var pid2 := int(spot["pid"])
+			if _spot_lane(pid2) < 0:
+				return null
+			var ent: Array = ((G["players"] as Dictionary)[pid2] as Dictionary).get("entrance", [])
+			var idx := int(spot.get("eidx", -1))
+			if idx < 0:
+				for k in ent.size():
+					if str((ent[k] as Dictionary).get("id", "")) == str(spot.get("hid", "")):
+						idx = k
+						break
+			if idx < 0 or idx >= ent.size():
+				return null
+			var adv: Dictionary = G.get("adventure", {})
+			if not adv.is_empty() and adv.get("hero") != null and int(adv.get("playerId", -1)) == pid2 \
+					and str((adv["hero"] as Dictionary).get("id", "")) == str((ent[idx] as Dictionary).get("id", "")) \
+					and _hero_pawn != null and is_instance_valid(_hero_pawn):
+				return _hero_pawn
+			var toks: Array = _ent_tok.get(pid2, [])
+			return toks[idx] if idx < toks.size() and toks[idx] != null and is_instance_valid(toks[idx]) else null
+		"player":
+			var ln := _spot_lane(int(spot["pid"]))
+			return null if ln < 0 else (_lane[ln]["platform"] as Control)
+	return null
+
+func _spot_rect(spot: Dictionary, node: Control) -> Rect2:
+	var r := node.get_global_rect()
+	match str(spot.get("k", "")):
+		"town":
+			r = r.intersection(_town_scroll.get_global_rect())
+		"player":
+			var L: Dictionary = _lane[_spot_lane(int(spot["pid"]))]
+			if (L["sprite"] as Control).visible:
+				r = (L["sprite"] as Control).get_global_rect().intersection((L["root"] as Control).get_global_rect())
+	return r
+
+func _target_apply_now(settle := true) -> void:
+	_tgt_queued = false
+	if _tgt.is_empty() or _tgt_layer == null or not is_instance_valid(_tgt_layer):
+		return
+	if settle: # les conteneurs (ville, entrees) n'ont leur mise en page definitive qu'apres une ou deux images : on repose les zones ensuite
+		_target_settle()
+	for n in _tgt_lifted:
+		if is_instance_valid(n):
+			(n as CanvasItem).z_index = 0
+	_tgt_lifted.clear()
+	for s in _tgt_spots:
+		if is_instance_valid(s["ctrl"]):
+			_tgt_layer.remove_child(s["ctrl"])
+			(s["ctrl"] as Node).queue_free()
+	_tgt_spots.clear()
+	var groups := {}
+	var off_screen := {}
+	var entries: Array = _tgt["entries"]
+	for i in entries.size():
+		var spot: Dictionary = (entries[i] as Dictionary)["spot"]
+		var node := _spot_node(spot)
+		if node == null:
+			if spot.has("pid"):
+				off_screen[int(spot["pid"])] = true
+			continue
+		var r := _spot_rect(spot, node)
+		if r.size.x < 2.0 or r.size.y < 2.0:
+			continue
+		var key := node.get_instance_id()
+		if not groups.has(key):
+			groups[key] = {"node": node, "rect": r, "ids": []}
+		(groups[key]["ids"] as Array).append(i)
+	for key in groups:
+		_target_make_spot(groups[key])
+	for b in foe_bar.get_children(): # adversaire hors ecran qui a des cibles : son bouton P<n> est dore
+		if b is Button and off_screen.has(int((b as Button).get_meta("pid", -1))):
+			(b as Button).add_theme_color_override("font_color", GOLD)
+		elif b is Button:
+			(b as Button).remove_theme_color_override("font_color")
+
+func _target_make_spot(g: Dictionary) -> void:
+	var node: Control = g["node"]
+	var r: Rect2 = g["rect"]
+	var ids: Array = g["ids"]
+	node.z_index = TARGET_Z
+	_tgt_lifted.append(node)
+	var sp := Control.new()
+	sp.position = r.position - Vector2(10, 10)
+	sp.size = r.size + Vector2(20, 20)
+	sp.mouse_filter = Control.MOUSE_FILTER_STOP
+	sp.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	sp.z_index = TARGET_Z + 10
+	var entries: Array = _tgt["entries"]
+	sp.tooltip_text = str((entries[int(ids[0])] as Dictionary).get("label", "")) if ids.size() == 1 else "%d choices" % ids.size()
+	var glow := TextureRect.new()
+	glow.texture = _tex(TEX_TARGET_GLOW)
+	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glow.stretch_mode = TextureRect.STRETCH_SCALE
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
+	sp.add_child(glow)
+	sp.draw.connect(func(): sp.draw_rect(Rect2(Vector2(9, 9), sp.size - Vector2(18, 18)), GOLD, false, 4.0)) # trait net sous le halo
+	var tw := sp.create_tween().set_loops()
+	tw.tween_property(sp, "modulate:a", 0.5, 0.55).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(sp, "modulate:a", 1.0, 0.55).set_trans(Tween.TRANS_SINE)
+	sp.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			sp.accept_event()
+			_target_pick(ids))
+	_tgt_layer.add_child(sp)
+	_tgt_spots.append({"ctrl": sp, "ids": ids})
+
+## Clic sur une zone : un coup = joue ; plusieurs (meme cible, options differentes) = petite liste de ces coups seulement.
+func _target_pick(ids: Array) -> void:
+	if _tgt.is_empty():
+		return
+	var entries: Array = _tgt["entries"]
+	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
+	if ids.size() == 1:
+		((entries[int(ids[0])] as Dictionary)["cb"] as Callable).call()
+		return
+	var sub: Array = []
+	for i in ids:
+		sub.append(entries[int(i)])
+	_popup_list("target", str(_tgt["title"]), sub, func(): _popup_close())
+
 ## Choix en attente du joueur (pendingChoice : Dark Altar, All-Seeing Eye, level up...) : popup au centre, une pierre par option.
 func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 	var pc: Dictionary = G.get("pendingChoice", {})
@@ -1433,7 +1810,7 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 		if _popup_kind == "choice":
 			_popup_close() # carrousel central + bouton CONTINUE pour la defausse d'ouverture (_refresh_overlay)
 		return
-	if _popup_kind in ["menu", "quit", "target"]:
+	if _popup_kind in ["menu", "quit", "target"] or not _tgt.is_empty():
 		return # un menu ouvert par le joueur reste devant ; le choix reapparait a la fermeture (refresh)
 	var sig := JSON.stringify([pc.get("type"), pc.get("message"), cmoves])
 	if _popup_kind == "choice" and sig == _choice_sig:
@@ -1528,6 +1905,7 @@ func _move_label(m: Dictionary, _G: Dictionary, hand: Array) -> String:
 
 func _do(move: Dictionary) -> void:
 	_popup_close() # une fenetre ouverte pour ce coup (cible, choix) se ferme avec lui
+	_target_end()
 	game_manager.apply_move(_my_pid(), move)
 	refresh() # toujours : ce qui reste a decider (nouveau choix) doit reapparaitre
 
@@ -1540,7 +1918,7 @@ func _on_hand_card_clicked(idx: int, card: Dictionary) -> void:
 		_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
 		refresh()
 		return
-	if _modal_open() or (_popup != null and is_instance_valid(_popup)):
+	if _modal_open() or (_popup != null and is_instance_valid(_popup)) or not _tgt.is_empty():
 		return
 	var phase: String = game_manager.G.get("phase", "")
 	if (phase == "build" or phase == "setup") and card.get("isRoom", false):
@@ -1590,10 +1968,11 @@ func _build_over_menu(card: Dictionary, over: Array) -> void:
 		var mv: Dictionary = (c as Dictionary).duplicate()
 		var ti := int((mv["args"] as Array)[1])
 		var host = BossEngine.active_room(dungeon[ti]) if ti >= 0 and ti < dungeon.size() else null
-		entries.append({"label": "ON %s" % (str((host as Dictionary).get("name", "Room %d" % (ti + 1))) if host != null else "Room %d" % (ti + 1)), "cb": func():
+		entries.append({"label": "ON %s" % (str((host as Dictionary).get("name", "Room %d" % (ti + 1))) if host != null else "Room %d" % (ti + 1)), "mv": mv,
+			"spot": {"k": "room", "pid": _my_pid(), "idx": ti}, "cb": func():
 			_play_sfx("res://assets/audio/sfx/sfx_room_physical.wav")
 			_do(mv)})
-	_popup_list("target", "%s - build over a Room" % str(card.get("name", "")), entries, func(): _popup_close())
+	_target_list("%s - build over a Room" % str(card.get("name", "")), "Select a Room to build over", entries, func(): _popup_close())
 
 ## Coups legaux (sort / capacite de main) de la carte `idx` de la main.
 func _hand_moves(idx: int) -> Array:
@@ -1617,11 +1996,13 @@ func _play_hand_menu(idx: int, card: Dictionary, cands: Array, can_build: bool) 
 				refresh()})
 	for c in cands:
 		var mv: Dictionary = (c as Dictionary).duplicate()
-		entries.append({"label": _target_label(mv, card), "cb": func():
+		var margs: Array = mv.get("args", [])
+		entries.append({"label": _target_label(mv, card), "mv": mv,
+			"spot": _spot_of_target(margs[1] as Dictionary, _my_pid()) if margs.size() > 1 and margs[1] is Dictionary else {}, "cb": func():
 			_play_sfx("res://assets/audio/sfx/sfx_room_magic.wav")
 			_do(mv)})
 	var hint: String = str((SpellTargeting.SPELL_TARGETS.get(str(card.get("id", "")), {}) as Dictionary).get("label", ""))
-	_popup_list("target", "%s - %s" % [str(card.get("name", "")), hint] if hint != "" else str(card.get("name", "")), entries, func(): _popup_close())
+	_target_list("%s - %s" % [str(card.get("name", "")), hint] if hint != "" else str(card.get("name", "")), hint, entries, func(): _popup_close())
 
 ## Description anglaise d'une cible de sort (listes de SpellTargeting ; extensions : leurs propres describe_target).
 func _target_label(m: Dictionary, card: Dictionary) -> String:
@@ -1662,7 +2043,7 @@ func _target_label(m: Dictionary, card: Dictionary) -> String:
 
 ## Clic sur une salle activable de mon donjon : capacite directe, ou choix de la salle cible (Centipede Tunnel...).
 func _on_slot_activate(di: int) -> void:
-	if _modal_open() or (_popup != null and is_instance_valid(_popup)):
+	if _modal_open() or (_popup != null and is_instance_valid(_popup)) or not _tgt.is_empty():
 		return
 	var cands: Array = []
 	for m in _moves_of(game_manager.legal_moves(_my_pid()), "activateRoom"):
@@ -1682,14 +2063,17 @@ func _on_slot_activate(di: int) -> void:
 		var a: Array = mv.get("args", [])
 		var tj := int(a[1]) if a.size() > 1 else -1
 		var tr = BossEngine.active_room(dungeon[tj]) if tj >= 0 and tj < dungeon.size() else null
-		entries.append({"label": str((tr as Dictionary).get("name", "Room %d" % (tj + 1))) if tr != null else "Room %d" % (tj + 1), "cb": func(): _do(mv)})
+		entries.append({"label": str((tr as Dictionary).get("name", "Room %d" % (tj + 1))) if tr != null else "Room %d" % (tj + 1), "mv": mv,
+			"spot": {"k": "room", "pid": _my_pid(), "idx": tj}, "cb": func(): _do(mv)})
 	var rd = BossEngine.active_room(dungeon[di]) if di >= 0 and di < dungeon.size() else null
-	_popup_list("target", "%s - choose a Room" % str((rd as Dictionary).get("name", "")) if rd != null else "Choose a Room", entries, func(): _popup_close())
+	_target_list("%s - choose a Room" % str((rd as Dictionary).get("name", "")) if rd != null else "Choose a Room", "Choose a Room", entries, func(): _popup_close())
 
 func _on_confirm_pressed() -> void:
 	if game_manager.G.get("gameOver") != null:
 		_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
 		_confirm_quit()
+	elif str(game_manager.G.get("phase", "")) == "boss":
+		_boss_confirm()
 	else:
 		_on_discard_confirm()
 
@@ -1707,7 +2091,7 @@ func _is_opening_discard_for_me() -> bool:
 	return str(pc.get("type", "")) == "opening-discard" and int(pc.get("playerId", -1)) == _my_pid()
 
 func _on_advance_pressed() -> void:
-	if _animating_hero or _modal_open():
+	if _animating_hero or _modal_open() or not _tgt.is_empty():
 		return
 	_play_sfx("res://assets/audio/sfx/char_hero_move.wav")
 	if _is_online():
@@ -1717,6 +2101,8 @@ func _on_advance_pressed() -> void:
 		refresh()
 
 func _on_pass_pressed() -> void:
+	if not _tgt.is_empty():
+		return
 	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
 	if _is_online():
 		_do({"type": "pass", "args": []})
@@ -1848,6 +2234,7 @@ func _open_rules() -> void:
 		return
 	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
 	_rules = RulesViewer.new()
+	_rules.z_index = 110 # devant le voile du mode ciblage
 	_rules.closed.connect(func(): _rules = null)
 	add_child(_rules)
 

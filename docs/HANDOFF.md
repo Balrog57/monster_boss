@@ -17,9 +17,9 @@ Updated 2026-10-16. Branch `parity/apk-oracle` (not merged into `main`, which is
 - Checked by hand in a browser (Godot web export served from a scratch dir): menus, boss pick, discard, build, adventure, gear menu, rules overlay. NOT checked by hand: drag&drop (the browser tool cannot), spell targeting, game-over screen, 3-4 players, audio.
 
 ## Known gaps vs the APK
-- Target choice = popup list, not highlight on the board; activatable-room glow subtler; hand cards slightly different scale.
-- Boss-pick carousel: APK swipes then confirms; ours picks on click.
-- Room cards in lanes lack the small round owner icon; boss sprite scale approximate; main-menu OPTIONS has no master volume.
+- Target choice: done on the board (dimmed board, bubble, gold pulsing outline on legal rooms / heroes / town heroes / bosses, CANCEL stone, `BoardUI._target_list`); the centred popup list stays only for targets with no board representation (souls, wounds, items, spell stack, pairs of rooms, choose-a-name). Several moves on one target (mode, payment) open a small list. In 3-4 player games the P<n> button of an opponent who has targets turns gold. Activatable-room glow subtler; hand cards slightly different scale.
+- Boss pick: carousel like apk_boss00 (click / drag a card to the centre, PLAY BOSS MONSTER! confirms; the opponent's boss stays hidden). The APK also flips the other cards face down after the pick (game_01_boss.png): not done.
+- Lane room cards: round type badge (monster / trap, gold = advanced) on the top-left corner as in the APK (it is a room-TYPE icon, not an owner icon). Stacked rooms are not drawn the APK way (older card peeking above the top one, ~28 px up). Boss sprites drawn at native size (clamped to the 300 px platform). Main-menu OPTIONS: no master volume on purpose (the APK has only MUSIC / SOUND / GAME SPEED; MASTER VOLUME exists only in the web client and in our in-game modal).
 - Multiplayer screens (`Main.gd` show_multi/profile/friends/waiting) only got font + English, no APK redesign.
 - LEVEL UP button is cosmetic (engine levels up at reveal).
 - Hand-dragged build over a face-up room on a non-full dungeon places the room at the entrance (engine offers `[i]` only).
@@ -28,7 +28,7 @@ Updated 2026-10-16. Branch `parity/apk-oracle` (not merged into `main`, which is
 - Rule added that is not in the source (user to confirm): with Crash Landing, the game ends when the hero decks are empty.
 
 ## To do (priority order)
-1. Finish the exact clone: items above (target highlight, pick carousel, owner icons), compare each screen again with `docs/reference` (originals: 01_boot, 11_menu, 12_setup, apk_car00, emu_fix_popup, apk_reveal(options), cont_08_adv4 (build), run2_t1_adv13 (adventure), apk_boss00 (YOU ARE), new2_t1_pass1 (discard); names are unreliable, see INDEX_part*.md, partial). No original capture of spell battle / game over exists: needs the APK on a device/emulator (adb scripts in `tools/capture_apk_*.py`).
+1. Finish the exact clone: items above (stacked-room look, hand scale), compare each screen again with `docs/reference` (originals: 01_boot, 11_menu, 12_setup, apk_car00, emu_fix_popup, apk_reveal(options), cont_08_adv4 (build), run2_t1_adv13 (adventure), apk_boss00 (YOU ARE), new2_t1_pass1 (discard); names are unreliable, see INDEX_part*.md, partial). No original capture of spell battle / game over exists: needs the APK on a device/emulator (adb scripts in `tools/capture_apk_*.py`).
 2. Play more full games by hand (spells, level up, game over) and fix mechanics bugs.
 3. Wiki expansions polish (only after the clone is exact).
 4. Multiplayer: Godot headless server exists (`godot/server`, PROTOCOL.md); redesign the multiplayer screens like the APK; fix the engine anomaly above.
