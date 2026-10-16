@@ -21,11 +21,22 @@ static func count_visible_rooms(dungeon: Array) -> int:
 			n += 1
 	return n
 
+## Tresors d'une salle : imprimes + gagnes « jusqu'a la fin du tour » (CRL006 Decoy Garden, CRL032 Meteorite : `extraTreasures`).
+static func room_treasures(room: Dictionary) -> Array:
+	var out: Array = []
+	# TNL045 Decapitator : tresor imprime retire jusqu'a la fin du tour (les tresors ajoutes apres, Secret Stash, restent).
+	var printed: Array = [] if bool((room.get("tnl", {}) as Dictionary).get("noTreasure", false)) else (room.get("treasures", []) as Array)
+	for t in printed + (room.get("extraTreasures", []) as Array):
+		out.append(int(t)) # JSON donne 3.0 ; Array.has(3) ne compare pas int a float
+	return out
+
 static func dungeon_treasures(player: Dictionary, G: Dictionary = {}) -> Array:
 	var out: Array = []
 	if player.get("boss") == null:
 		return out
 	for t in (player["boss"] as Dictionary).get("treasures", []):
+		out.append(int(t))
+	for t in (player.get("bonusTreasures", []) as Array): # TNL000 Mirrax : icones copiees d'un autre boss, pour la partie
 		out.append(int(t))
 	# Boss.GetDungeonTreasures : TreasuresMultiplier (Jackpot Stash, MultiplyTreasuresDungeon) ne s'applique
 	# qu'aux tresors des salles, pas a ceux du boss.
@@ -34,14 +45,25 @@ static func dungeon_treasures(player: Dictionary, G: Dictionary = {}) -> Array:
 		var room = active_room(stack)
 		if room == null:
 			continue
-		for t in (room as Dictionary).get("treasures", []):
+		for t in room_treasures(room as Dictionary):
 			for _i in mult:
 				out.append(int(t))
 	# CalculatePassiveTreasures : level-up AddTreasuresToDungeon (KSA001 Kirax) une fois monte de niveau.
+	for lu in level_ups(player):
+		if str((lu as Dictionary).get("cmd", "")) == "AddTreasuresToDungeon":
+			for a in (lu as Dictionary).get("args", []):
+				out.append(int(CardDB.TREASURE_NAMES.find(str(a))))
+	return out
+
+## Level-ups actifs d'un boss monte de niveau : le sien + ceux copies par Klonos (CRL002 : `copiedLevelUps`, conserves pour toute la partie).
+static func level_ups(player: Dictionary) -> Array:
+	var out: Array = []
+	if not bool(player.get("leveledUp", false)) or not (player.get("boss") is Dictionary):
+		return out
 	var lu = (player["boss"] as Dictionary).get("levelUp")
-	if bool(player.get("leveledUp", false)) and lu is Dictionary and str((lu as Dictionary).get("cmd", "")) == "AddTreasuresToDungeon":
-		for a in (lu as Dictionary).get("args", []):
-			out.append(int(CardDB.TREASURE_NAMES.find(str(a))))
+	if lu is Dictionary:
+		out.append(lu)
+	out.append_array(player.get("copiedLevelUps", []) as Array)
 	return out
 
 static func treasure_count(player: Dictionary, treasure: int, G: Dictionary = {}) -> int:
@@ -57,6 +79,7 @@ static func treasure_counts(player: Dictionary) -> Dictionary:
 		2: treasure_count(player, 2),
 		3: treasure_count(player, 3),
 		4: treasure_count(player, 4),
+		5: treasure_count(player, 5),
 	}
 
 ## engine.js:canBuildRoom. G et player_id optionnels pour rester compatible avec
@@ -99,9 +122,13 @@ static func can_build_room(player: Dictionary, G: Dictionary = {}, pid: int = -1
 		# BMA018 Neanderthal Cave : on ne peut pas batir par-dessus.
 		if str((target as Dictionary).get("id", "")) == "BMA018":
 			return false
+		# CRL011 Hypercube : se batit sur n'importe quelle salle, quel que soit le tresor.
+		if str(card.get("id", "")) == "CRL011":
+			return true
 		var treasures_match := false
+		var host_t := room_treasures(target as Dictionary)
 		for t in card.get("treasures", []):
-			if ((target as Dictionary).get("treasures", []) as Array).has(t):
+			if host_t.has(int(t)):
 				treasures_match = true
 				break
 		return treasures_match
@@ -127,6 +154,8 @@ static func lure_target(players: Dictionary, order: Array, treasure: int, hero: 
 				n = -CardDB.total_souls(p, G if G.has("players") else {"players": players})
 			"wounds": # LuredByWounds : min Wounds
 				n = -CardDB.total_wounds(p)
+			"soulsMinusWounds": # TNL114 The Brothers (hors APK) : le plus haut total Ames - Blessures
+				n = CardDB.total_souls(p, G if G.has("players") else {"players": players}) - CardDB.total_wounds(p)
 			_: # LuredByTreasures : somme, sur les tresors du heros, des tresors du donjon (heros a deux classes : Monster Hunter...)
 				for t in htr:
 					n += treasure_count(p, int(t), G)
@@ -255,6 +284,8 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 	# Freeze (DeactivateRoom) : DungeonSlot.IsActive=false -> aucun degat au heros (GameBoard.cs ~1135)
 	if is_room_deactivated(G, pid, room_index):
 		return 0
+	if TnlAbilities.active(G) and TnlAbilities.zero_damage(r): # TNL058 Fairy Fountain : degats a zero, rien ne les releve plus
+		return 0
 
 	# KSA017 Trap Master : DeactivateDungeonAbility verrouille Ability.IsLocked de chaque salle (CheckConditions faux) :
 	# ni capacite, ni declencheur, ni bonus de degats passif (Boss.GetPassiveDamage) tant que le heros est dans le donjon.
@@ -287,6 +318,18 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 			dmg += 1
 		if str(o.get("id", "")) == "BMA029" and i == room_index - 1 and rt == "trap":
 			dmg += 2
+		if str(o.get("id", "")) == "CRL008" and absi(i - room_index) == 1: # Invasion Swarm : salles adjacentes +1
+			dmg += 1
+		if str(o.get("id", "")) == "CRL009" and bool(r.get("advanced", false)): # Reactor Core : salles avancees +1
+			dmg += 1
+
+	# CRL005 Alien Ooze : +1 s'il y a une AUTRE salle au tresor Explorer dans le donjon (un boss n'est pas une salle).
+	if str(r.get("id", "")) == "CRL005" and not locked:
+		for i in dungeon.size():
+			var other_ex = active_room(dungeon[i])
+			if i != room_index and other_ex != null and not is_room_deactivated(G, pid, i) and room_treasures(other_ex as Dictionary).has(5):
+				dmg += 1
+				break
 
 	# Room.Damage = InitialDamage + DealDamage (sorts Annihilator / Giant Size, portes par la carte)
 	dmg += int(r.get("dealDamage", 0))
@@ -300,12 +343,19 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 	for id in _effects(G).get("ordinaryMonsterBonus", []):
 		if int(id) == pid and str(r.get("type", "")) == "monster" and not bool(r.get("advanced", false)):
 			dmg += 1
+	if TnlAbilities.active(G): # The Next Level : Goblin Nursery / Mess Hall, Elemental Generator, Killa
+		dmg += TnlAbilities.passive_damage(G, player, room_index, r, locked)
 
 	# Boss.GetPassiveDamage : level-up LastRoomDealDamage (KSA005 Scythe) = +N a la salle du fond (Dungeon.First(), index Godot dernier).
-	var lu = (player.get("boss", {}) as Dictionary).get("levelUp")
-	if bool(player.get("leveledUp", false)) and lu is Dictionary and str((lu as Dictionary).get("cmd", "")) == "LastRoomDealDamage" \
-			and room_index == dungeon.size() - 1:
-		dmg += int(((lu as Dictionary).get("args", ["0"]) as Array)[0])
+	for lu in level_ups(player):
+		var lcmd := str((lu as Dictionary).get("cmd", ""))
+		if lcmd == "LastRoomDealDamage" and room_index == dungeon.size() - 1:
+			dmg += int(((lu as Dictionary).get("args", ["0"]) as Array)[0])
+		elif lcmd == "RoomsDamagePerTreasure": # CRL001 Imperiatrix : +1 par tresor Explorer de la salle
+			var want := int(CardDB.TREASURE_NAMES.find(str(((lu as Dictionary).get("args", ["Explorer"]) as Array)[0])))
+			for t in room_treasures(r):
+				if int(t) == want:
+					dmg += 1
 
 	# GameBoard.ProccessActiveHero : Hero.Ability.GetPassiveDamageCommand ; HeroResistDamageRoomType (KSA016 Monster Hunter) rend N PV
 	# si le slot inflige des degats et que la salle est du type : degats totaux - N.
@@ -339,6 +389,8 @@ static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}
 	if stack.is_empty():
 		return null
 	var destroyed: Dictionary = stack.pop_back()
+	if not G.is_empty() and TnlAbilities.active(G): # salles detruites ce tour (Oh, Yeah!), Cursed Tomb
+		TnlAbilities.on_destroyed(G, int(player.get("id", 0)), destroyed)
 	if stack.is_empty():
 		dungeon.remove_at(room_index)
 		# GameBoard.DestroyRoom : Dungeon.Remove + Add, les slots suivants se tassent ; les effets indexes suivent leur slot.
@@ -372,6 +424,11 @@ static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}
 					adv["roomIndex"] = -(5 - dungeon.size()) - 1
 	if triggers and not G.is_empty():
 		_on_other_room_destroyed(G, player)
+	# Regle « uncover » (Crash Landing) : la salle du dessous redevient le sommet de sa pile (l'emplacement n'a pas disparu).
+	if not G.is_empty() and not stack.is_empty():
+		RoomAbilities.on_uncover(G, int(player.get("id", 0)), room_index)
+		if TnlAbilities.active(G): # TNL : « when you build or uncover this Room » + Eclipse
+			TnlAbilities.on_uncover(G, int(player.get("id", 0)), room_index)
 	return destroyed
 
 ## GameBoard.DestroyRoom -> CheckTriggerInDungeon<WhenAnotherRoomIsDestroyed> : chaque BMA031 Recycling Center
@@ -393,6 +450,10 @@ static func discard_room_to_pile(decks: Dictionary, card) -> void:
 	if card == null:
 		return
 	(card as Dictionary).erase("usedThisTurn") # une salle recuperee puis reconstruite repart avec une capacite neuve
+	(card as Dictionary).erase("extraTreasures") # tresors « jusqu'a la fin du tour » (Decoy Garden, Meteorite) perdus avec la salle
+	(card as Dictionary).erase("tnl") # effets TNL « jusqu'a la fin du tour » (Fairy Fountain, Meddling Kids!, Decapitator) perdus aussi
+	if TnlAbilities.torix_catch(decks, card as Dictionary): # TNL003 Torix : la salle Monster va dans sa main (voir TnlAbilities.flush_torix)
+		return
 	var pile: Array = decks.get("roomDiscard", [])
 	decks["roomDiscard"] = pile
 	pile.append(card)

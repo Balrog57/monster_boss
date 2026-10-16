@@ -541,9 +541,12 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 		[2, TEX_TREASURE_FIGHTER],
 		[3, TEX_TREASURE_MAGE],
 		[4, TEX_TREASURE_THIEF],
+		[5, ""], # Explorer (Crash Landing) : pas d'icone, affiche seulement s'il y en a
 	]
 	for item in t_icons:
 		var count: int = int(t_counts.get(item[0], 0))
+		if int(item[0]) == 5 and count == 0:
+			continue
 		var box := HBoxContainer.new()
 		box.add_theme_constant_override("separation", 2)
 		var icon := TextureRect.new()
@@ -556,6 +559,8 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 		var lbl := Label.new()
 		lbl.text = str(count)
 		lbl.add_theme_font_size_override("font_size", 13)
+		if int(item[0]) == 5:
+			lbl.text = "Expl. %d" % count
 		box.add_child(lbl)
 		treasures_container.add_child(box)
 
@@ -572,6 +577,8 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 	var foe_t_counts = BossEngine.treasure_counts(foe)
 	for item in t_icons:
 		var count: int = int(foe_t_counts.get(item[0], 0))
+		if int(item[0]) == 5 and count == 0:
+			continue
 		var box := HBoxContainer.new()
 		box.add_theme_constant_override("separation", 2)
 		var icon := TextureRect.new()
@@ -584,6 +591,8 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 		var lbl := Label.new()
 		lbl.text = str(count)
 		lbl.add_theme_font_size_override("font_size", 12)
+		if int(item[0]) == 5:
+			lbl.text = "Expl. %d" % count
 		box.add_child(lbl)
 		foe_treasures_container.add_child(box)
 
@@ -871,17 +880,30 @@ func _move_label(m: Dictionary, _G: Dictionary, hand: Array) -> String:
 			# Counterspell : une entree par sort adverse en attente, on nomme la cible.
 			if args.size() > 1 and args[1] is Dictionary and (args[1] as Dictionary).has("stackId"):
 				return "Sort : %s -> %s" % [hand_name, str((((args[1] as Dictionary).get("card", {})) as Dictionary).get("name", "?"))]
+			# The Next Level : la cible (salle, joueur, heros...) est decrite, sinon plusieurs boutons identiques.
+			if hand_name != "" and args.size() > 1 and args[1] is Dictionary and TnlSpells.TARGETS.has(str((hand[int(args[0])] as Dictionary).get("id", ""))):
+				var desc := TnlSpells.describe_target(_G, args[1])
+				return "Sort : %s -> %s" % [hand_name, desc] if desc != "" else "Sort : %s" % hand_name
 			return "Sort : %s" % hand_name
-		"useHandRoom", "activateRoom":
+		"activateRoom":
+			var dgn: Array = ((_G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("dungeon", [])
+			var ri := int(args[0]) if not args.is_empty() else -1
+			var rv = BossEngine.active_room(dgn[ri]) if ri >= 0 and ri < dgn.size() else null
+			return "Capacité : %s" % (str((rv as Dictionary).get("name", "?")) if rv != null else hand_name)
+		"useHandRoom":
 			return "Capacité : %s" % hand_name
 		"buildMiniboss", "promoteMiniboss", "activateMiniboss":
 			return "Miniboss (%s)" % t
 		"payDarkHero":
-			return "Payer (héros noir)"
+			return "Payer %s (héros noir)" % hand_name
 		"docScarecrow":
-			return "Épouvantail"
+			var town: Array = _G.get("town", [])
+			var ti := int(args[1]) if args.size() > 1 else -1
+			return "Épouvantail : %s -> %s" % [hand_name, str((town[ti] as Dictionary).get("name", "?")) if ti >= 0 and ti < town.size() else "?"]
 		"timebenderCancel":
-			return "Contre-sort"
+			return "Dr. Timebender : défausse %s, annule le sort" % hand_name
+		"antimagicCancel":
+			return "Antimagic Zone : annule le sort"
 		_:
 			return hand_name if hand_name != "" else t
 

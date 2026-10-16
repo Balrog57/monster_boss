@@ -19,10 +19,15 @@ const SPELL_TARGETS := {
 	"BMA055": {"type": "opponent-soul", "label": "Choose a dead Hero"},
 	"KSA013": {"type": "tpk-player", "label": "T.P.K."},
 	"THK025": {"type": "any-item", "label": "Choose an Item to flip"},
+	"CRL029": {"type": "crl-finish-him", "label": "Choose a Hero to finish"},
+	"CRL030": {"type": "crl-hero-opponent", "label": "Choose a Hero in an opponent's dungeon"},
+	"CRL031": {"type": "crl-healing-tank", "label": "Healing Tank"},
+	"CRL032": {"type": "any-room", "label": "Choose a Room"},
+	"CRL033": {"type": "crl-not-dead-yet", "label": "Not Dead Yet"},
 }
 
 static func spell_needs_target(spell_id: String) -> bool:
-	return SPELL_TARGETS.has(spell_id)
+	return SPELL_TARGETS.has(spell_id) or TnlSpells.TARGETS.has(spell_id)
 
 static func _stack_top(stack) -> Variant:
 	return stack[stack.size() - 1] if stack is Array and not (stack as Array).is_empty() else null
@@ -94,7 +99,10 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 					continue
 				for i in (op.get("dungeon", []) as Array).size():
 					var r = _targetable_top(G, int(opid), i, (op["dungeon"] as Array)[i])
-					if r != null and str((r as Dictionary).get("type", "")) == "monster":
+					# Giant Size = RoomInDungeon[Monster] : le ciblage C# (GetAvailableTargets) ne propose que des Monster. Mais l'IA de l'APK
+					# (AbilityCalculator.CheckBMA040And047) reprend la liste de salles TRAP dans sa branche « heros actif » pour les DEUX sorts,
+					# et le moteur n'y revalide rien : le harnais d'oracle ouvre ce choix (G.aiTargetsAnyRoomType).
+					if r != null and (str((r as Dictionary).get("type", "")) == "monster" or bool(G.get("aiTargetsAnyRoomType", false))):
 						out.append({"targetPlayerId": int(opid), "roomIndex": i})
 		"any-room":
 			for opid in (G.get("players", {}) as Dictionary):
@@ -173,9 +181,61 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 				var op: Dictionary = G["players"][opid]
 				for i in (op.get("items", []) as Array).size():
 					out.append({"targetPlayerId": int(opid), "itemIndex": i})
+		"crl-finish-him": # CRL029 : tuer un heros a 2 PV ou moins ; OU (si moins d'ames que tous les autres) prendre un heros ayant survecu ce tour
+			for opid in (G.get("players", {}) as Dictionary):
+				var op: Dictionary = G["players"][opid]
+				if op.get("eliminated", false):
+					continue
+				var ent: Array = op.get("entrance", []) as Array
+				for i in ent.size():
+					if RoomAbilities.current_hero_hp(G, int(opid), ent[i]) <= 2:
+						out.append({"targetPlayerId": int(opid), "entranceIndex": i})
+			if _fewest_souls(G, me, pid):
+				for opid in (G.get("players", {}) as Dictionary):
+					var op: Dictionary = G["players"][opid]
+					if int(opid) == pid:
+						continue
+					var seen: Array = []
+					var wounds: Array = op.get("wounds", []) as Array
+					for j in wounds.size():
+						var h = (wounds[j] as Dictionary).get("hero")
+						if h is Dictionary and int((wounds[j] as Dictionary).get("turn", -1)) == int(G.get("turn", 0)) and not seen.has(h):
+							seen.append(h)
+							out.append({"targetPlayerId": int(opid), "woundIndex": j})
+		"crl-hero-opponent": # CRL030 : un heros du donjon / de l'entree d'un adversaire (X = vos blessures > 0)
+			if CardDB.total_wounds(me) > 0:
+				for opid in (G.get("players", {}) as Dictionary):
+					var op: Dictionary = G["players"][opid]
+					if int(opid) == pid or op.get("eliminated", false):
+						continue
+					for i in (op.get("entrance", []) as Array).size():
+						out.append({"targetPlayerId": int(opid), "entranceIndex": i})
+		"crl-healing-tank": # CRL031 : aucun heros leurre chez vous a la phase de leurre, et une blessure de heros ordinaire a soigner
+			if int(((G.get("luredThisTurn", {}) as Dictionary)).get(pid, 0)) == 0 and not ordinary_wound_heroes(me).is_empty():
+				out.append({})
+		"crl-not-dead-yet": # CRL033 : X = vos blessures ; utile s'il y a un heros chez vous
+			if CardDB.total_wounds(me) > 0 and not (me.get("entrance", []) as Array).is_empty():
+				out.append({})
 		_:
 			pass
 	return out
+
+## Heros ORDINAIRES de la zone de blessures (CRL031 : « ordinary Wound »).
+static func ordinary_wound_heroes(p: Dictionary) -> Array:
+	return BossEngine.wound_heroes(p).filter(func(h): return not bool((h as Dictionary).get("epic", false)))
+
+## « fewer Souls than any player » (CRL029) lu strictement : moins d'ames que CHAQUE autre joueur en vie.
+static func _fewest_souls(G: Dictionary, me: Dictionary, pid: int) -> bool:
+	var mine := CardDB.total_souls(me, G)
+	var others := 0
+	for opid in (G.get("players", {}) as Dictionary):
+		var op: Dictionary = G["players"][opid]
+		if int(opid) == pid or op.get("eliminated", false):
+			continue
+		others += 1
+		if CardDB.total_souls(op, G) <= mine:
+			return false
+	return others > 0
 
 static func _souls_total(p: Dictionary) -> int:
 	var n := 0
@@ -297,6 +357,8 @@ static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary
 
 ## Toutes les cibles legales pour un sort donne (hors extensions).
 static func spell_targets_for(G: Dictionary, player: Dictionary, player_id: int, spell_id: String) -> Array:
+	if TnlSpells.TARGETS.has(spell_id): # The Next Level : TNL056-TNL072 (liste vide = injouable maintenant)
+		return TnlSpells.targets_for(G, player, player_id, spell_id)
 	if not SPELL_TARGETS.has(spell_id):
 		return [null]
 	var req: Dictionary = SPELL_TARGETS[spell_id]

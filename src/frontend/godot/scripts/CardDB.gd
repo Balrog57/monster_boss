@@ -193,9 +193,11 @@ static func passive_souls(p: Dictionary, G: Dictionary = {}) -> int:
 	var n := 0
 	var boss = p.get("boss")
 	if boss is Dictionary and bool(p.get("leveledUp", false)):
-		var lu = (boss as Dictionary).get("levelUp")
-		if lu is Dictionary and str((lu as Dictionary).get("cmd", "")) == "AddSoulsToBoss":
-			n += int(((lu as Dictionary).get("args", ["0"]) as Array)[0])
+		var lus: Array = (p.get("copiedLevelUps", []) as Array).duplicate() # CRL002 Klonos : level-ups copies
+		lus.append((boss as Dictionary).get("levelUp"))
+		for lu in lus:
+			if lu is Dictionary and str((lu as Dictionary).get("cmd", "")) == "AddSoulsToBoss":
+				n += int(((lu as Dictionary).get("args", ["0"]) as Array)[0])
 	for sp in (p.get("untilEndSpells", []) as Array):
 		var ab = ((sp as Dictionary).get("card", {}) as Dictionary).get("ability")
 		if not (ab is Dictionary) or str((ab as Dictionary).get("cmd", "")) != "AddSoulsToBossIfTreasures":

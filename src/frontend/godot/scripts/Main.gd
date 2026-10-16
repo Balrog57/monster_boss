@@ -13,6 +13,10 @@ const APK_DECKS := [
 	{"id": "players-choice", "name": "THE PLAYER CHOICE", "info": "7 bosses, 3 epic heroes, 1 spell", "playable": true},
 	{"id": "hidden-heroes", "name": "HIDDEN HEROES", "info": "41 alternate heroes", "playable": true},
 	{"id": "tools", "name": "TOOLS OF HERO KIND", "info": "COMING SOON", "playable": false},
+	# Extension du wiki hors APK (livret docs/rules « The Next Level » + FAQ) : paquets de heros TNL (noirs, hybrides), defausse amorcee, main de depart de 7.
+	{"id": "next-level", "name": "THE NEXT LEVEL", "info": "13 bosses, 43 rooms, 17 spells, 42 heroes - wiki", "playable": true},
+	# Extension du wiki hors APK, selectionnable seule (en plus de la bascule « Extensions du wiki » qui active tous les paquets wiki).
+	{"id": "crash-landing", "name": "CRASH LANDING", "info": "3 bosses, 13 rooms, 5 spells, 12 heroes - wiki", "playable": true},
 ]
 
 const GameManager = preload("res://godot/scripts/GameManager.gd")

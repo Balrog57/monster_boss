@@ -8,6 +8,7 @@ const SUITES = [
   { scene: 'res://godot/tests/Coverage.tscn', ok: 'COVERAGE OK', label: 'coverage' },
   { scene: 'res://godot/tests/Soak.tscn', ok: 'SOAK OK', label: 'soak' },
   { scene: 'res://godot/tests/Soak.tscn', ok: 'SOAK OK', label: 'soak APK decks', args: ['--', '--sets=players-choice,hidden-heroes,tools'] },
+  { scene: 'res://godot/tests/Soak.tscn', ok: 'SOAK OK', label: 'soak The Next Level', args: ['--', '--sets=next-level', '--runs=4'] },
 ];
 
 let failed = 0;

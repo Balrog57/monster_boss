@@ -127,6 +127,13 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 					return -50.0 # meme politique : en Spell Battle l'IA n'active que All-Seeing Eye
 			return _score_activate_room(room_idx, p, G, pid)
 
+		"useHandRoom":
+			# CRL007 Frostman Lander (hors APK, heuristique maison) : seulement contre la salle avancee d'un adversaire dont un heros est la.
+			var tgt: Dictionary = args[1] if args.size() > 1 and args[1] is Dictionary else {}
+			var opp: Dictionary = (G["players"] as Dictionary).get(int(tgt.get("targetPlayerId", pid)), {}) as Dictionary
+			if int(tgt.get("targetPlayerId", pid)) != pid and phase == "adventure" and not (opp.get("entrance", []) as Array).is_empty():
+				return 30.0
+			return -50.0
 		"passBuild":
 			# Stalemate guard / check if building is actually safe or beneficial
 			var can_build := false
@@ -141,6 +148,8 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 		"adventureNext", "resolveNextHero":
 			return 1.0
 
+	if TnlAbilities.is_tnl_move(mtype): # The Next Level (heuristiques maison)
+		return TnlAbilities.score_move(G, p, pid, mtype, args)
 	return 0.0
 
 ## Départage les options d'un pendingChoice (TriggerCalculator.cs : CheckBMA001/004/005/007/022).
@@ -193,6 +202,8 @@ static func _score_choice(G: Dictionary, p: Dictionary, pid: int, idx: int) -> f
 					if ((r as Dictionary).get("treasures", []) as Array).has(t):
 						fits = true
 			return (1000.0 if fits else 0.0) + _calculate_room_value(card, p, G, phase_str)
+		"tnl-pick": # The Next Level : chaque option porte son poids (`ai`) ; defausser / detruire = le moins precieux d'abord
+			return float(o.get("ai", 0.0))
 	return 0.0
 
 static func _spells_in_hand(p: Dictionary) -> int:
@@ -325,6 +336,8 @@ static func _get_total_dungeon_damage(p: Dictionary) -> int:
 ## Scoring des sorts d'après AbilityCalculator.cs
 static func _score_spell(spell: Dictionary, target: Dictionary, p: Dictionary, G: Dictionary, pid: int) -> float:
 	var sid := str(spell.get("id", ""))
+	if TnlSpells.TARGETS.has(sid):
+		return TnlSpells.score_spell(G, p, pid, sid, target)
 	match sid:
 		"BMA043": # Counterspell : une cible = un sort adverse en attente (SpellCardJustPlayed)
 			return 150.0 if target.has("stackId") else 0.0 # Contre-sort prioritaire !
@@ -346,6 +359,19 @@ static func _score_spell(spell: Dictionary, target: Dictionary, p: Dictionary, G
 			return 80.0 if (p.get("hand", []) as Array).size() <= 2 else 10.0
 		"BMA049": # Kobold Strike
 			return 70.0
+		"CRL029": # Finish Him! (hors APK : heuristique maison) : tuer un heros vaut mieux que reprendre un survivant
+			return 100.0 if target.has("entranceIndex") else 60.0
+		"CRL030": # Essence Transfer : donne des PV a un heros adverse (blesse l'adversaire)
+			return 90.0
+		"CRL031": # Healing Tank : conditions deja verifiees par le ciblage
+			return 90.0
+		"CRL032": # Meteorite : utile seulement sur sa propre salle quand des Explorers attendent en ville
+			var wanted := false
+			for h in (G.get("town", []) as Array):
+				wanted = wanted or int((h as Dictionary).get("treasure", 0)) == 5
+			return 25.0 if wanted and int(target.get("targetPlayerId", pid)) == pid else -20.0
+		"CRL033": # Not Dead Yet
+			return 100.0
 		"KSA013": # T.P.K. : AbilityCalculator.CheckKSA013 la joue toujours (valeur 1.0), sans condition
 			return 90.0
 		_:
@@ -372,7 +398,11 @@ static func _score_activate_room(room_idx: int, p: Dictionary, G: Dictionary, _p
 			return 45.0 if phase == "build" else -10.0
 		"BMA009": # Witch's Kitchen
 			return 25.0
+		"CRL012": # The Omega 42 (hors APK) : rejouer un effet coute une salle avancee, a ne faire qu'avec de quoi en defausser
+			return 15.0 if phase == "build" and (p.get("hand", []) as Array).filter(func(c): return bool((c as Dictionary).get("advanced", false))).size() > 1 else -5.0
 		"BMA039": # Zombie Prison : AbilityCalculator.CheckBMA039 ne joue jamais en Setup/Early
 			return 20.0 if int(G.get("turn", 0)) > 1 else -10.0
 		_:
+			if rid.begins_with("TNL"):
+				return TnlAbilities.score_activate(G, p, _pid, rid)
 			return 5.0

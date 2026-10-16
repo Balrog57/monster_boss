@@ -20,6 +20,9 @@ func run(ok: Callable, h: Node) -> void:
 	_t_trap_master_locks_rooms()
 	_t_monster_hunter_resists_monsters()
 	_t_thk_inert()
+	_t_oracle_giant_size_any_room_type()
+	_t_oracle_trepidation_after_hero()
+	_t_oracle_empty_adventure_window()
 
 # --- fabrique d'etats minimaux ----------------------------------------------------------------------
 
@@ -310,3 +313,62 @@ func _t_thk_inert() -> void:
 	_ok.call(not CardDB.can_play_spell(exc, "build") and not CardDB.can_play_spell(exc, "adventure"), "THK025 Excavation : injouable (Ability nulle)")
 	var G := _G([_player(0, "BMA001", [_room("THK021", "monster", [2], 0)]), _player(1, "BMA002")])
 	_ok.call(RoomAbilities.activate_room_ability(G, 0, 0) != null, "THK021 : aucune capacite activable")
+
+
+# --- ecarts de l'IA de l'oracle (wide s5-p2, decks s1-p3) --------------------------------------------------------------------
+
+## BMA047 Giant Size = RoomInDungeon[True,1,Any,Monster,Any] : GetAvailableTargets ne propose que des Monster. Mais l'IA de l'APK
+## (AbilityCalculator.CheckBMA040And047) retient la liste de salles TRAP de sa branche « heros actif » pour les DEUX sorts et
+## AbilitySelectedInformation / DealDamageToRoom ne revalident rien : l'oracle peut donc buffer une Trap. Le harnais l'ouvre par
+## G.aiTargetsAnyRoomType (comme T.P.K. / aiTargetsAllBosses) ; un humain garde le ciblage Monster.
+func _t_oracle_giant_size_any_room_type() -> void:
+	var p0 := _player(0, "BMA001", [_room("T", "trap", [1], 2), _room("M", "monster", [1], 2)])
+	var p1 := _player(1, "BMA002")
+	var G := _G([p0, p1])
+	var gs := _card(CardDB.spells, "BMA047")
+	gs["isSpell"] = true
+	_ok.call(SpellTargeting.spell_targets_for(G, p0, 0, "BMA047") == [{"targetPlayerId": 0, "roomIndex": 1}], "Giant Size (humain) : seule la salle Monster est ciblable")
+	_ok.call(not SpellEffects.cast_spell(G, 0, gs, {"targetPlayerId": 0, "roomIndex": 0}) and _dmg(G, p0, 0) == 2, "Giant Size sans drapeau : refuse une Trap")
+	G["aiTargetsAnyRoomType"] = true
+	_ok.call(SpellTargeting.spell_targets_for(G, p0, 0, "BMA047").size() == 2, "Giant Size (IA de l'oracle) : les 2 salles sont ciblables")
+	_ok.call(SpellEffects.cast_spell(G, 0, gs, {"targetPlayerId": 0, "roomIndex": 0}) and _dmg(G, p0, 0) == 5, "Giant Size (IA de l'oracle) sur une Trap : +3 degats, sans revalidation")
+
+func _dmg(G: Dictionary, p: Dictionary, i: int) -> int:
+	return BossEngine.room_damage_with_modifiers(G, p, i, {})
+
+## BMA054 Trepidation (ForceSkipAdventure) : joue pendant la fenetre APRES la mort d'un heros (AdventurePhase_c -> _b, activeHero nul), ChooseNextActiveHero
+## renvoie directement en AdventurePhase_a (aucun heros designe, donc rien a retirer) ; les heros restent a l'entree (oracle decks s1-p3).
+## Joue avant la designation du premier heros, ProccessActiveHero retire le heros designe.
+func _t_oracle_trepidation_after_hero() -> void:
+	var tp := _card(CardDB.spells, "BMA054")
+	tp["isSpell"] = true
+	for after in [false, true]:
+		var p0 := _player(0, "BMA001")
+		(p0["entrance"] as Array).append_array([_hero("BMA056"), _hero("BMA062"), _hero("BMA068")])
+		var p1 := _player(1, "BMA002")
+		(p1["souls"] as Array).append_array([{"souls": 1}, {"souls": 1}])
+		var G := _G([p0, p1])
+		G["activePlayer"] = 0
+		if after:
+			G["afterHero"] = true
+		SpellEffects.cast_spell(G, 1, tp, {"targetPlayerId": 0})
+		var left: int = (p0["entrance"] as Array).size()
+		_ok.call(left == (3 if after else 2), "Trepidation %s : %d heros restent a l'entree" % ["apres un heros (aucun designe)" if after else "avant le 1er heros (le designe est retire)", left])
+
+## Sans heros, l'oracle ouvre quand meme les fenetres AdventurePhase_a/b : un joueur peut y activer une salle (Dark Altar, oracle wide s5-p2).
+func _t_oracle_empty_adventure_window() -> void:
+	var p0 := _player(0, "BMA001", [_room("BMA009", "trap", [1])])
+	var G := _G([p0, _player(1, "BMA002")])
+	G["phase"] = "adventure"
+	(G["decks"]["heroes"] as Array).append(_hero("BMA056")) # pioche non epuisee : la fin de partie « heros epuises » ne s'applique pas
+	var m := _match(G)
+	_ok.call(not m._adventure_window_has_actions(), "sans heros ni action (defausse vide) : pas de fenetre")
+	(G["decks"]["roomDiscard"] as Array).append(_room("D", "trap", [1]))
+	_ok.call(m._adventure_window_has_actions(), "Dark Altar activable : fenetre ouverte")
+	m._init_adventure_phase()
+	_ok.call(str(G["phase"]) == "adventure" and G.get("gameOver") == null and m.legal_moves(0).any(func(mv): return str((mv as Dictionary)["type"]) == "activateRoom"), "sans heros : la phase reste ouverte (activateRoom disponible)")
+	m.apply_move(0, {"type": "activateRoom", "args": [0]})
+	m.apply_move(0, {"type": "pass", "args": []})
+	m.apply_move(1, {"type": "pass", "args": []})
+	_ok.call(int(G["turn"]) == 2 and str(G["phase"]) == "build", "les joueurs passent : le tour se termine normalement (tour 2)")
+	m.queue_free()

@@ -109,6 +109,8 @@ func _ready() -> void:
 	_t_succubus_spa_steals_random_card()
 
 	load("res://godot/tests/goldens_decks.gd").new().run(_ok, self) # paquets APK : PlayerChoice (KSA), HiddenHeros (BMH), ToolsHeroKind (THK)
+	load("res://godot/tests/goldens_tnl.gd").new().run(_ok, self) # extension The Next Level (TNL, hors APK)
+	load("res://godot/tests/goldens_crl.gd").new().run(_ok, self) # extension wiki Crash Landing (CRL, hors APK)
 
 	print("GOLDENS passed=", _passed, " failed=", _failed.size())
 	if _failed.is_empty():

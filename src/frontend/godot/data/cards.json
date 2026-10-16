@@ -112,6 +112,7 @@
         5
       ],
       "levelUpDesc": "For the rest of the game, Rooms in your dungeon have +1 for each Explorer treasure they have.",
+      "levelUp": {"canAvoid": false, "trigger": null, "targets": [["BossOwner"]], "cmd": "RoomsDamagePerTreasure", "args": ["Explorer"]},
       "set": "crash-landing",
       "quantity": 1
     },
@@ -123,6 +124,7 @@
         5
       ],
       "levelUpDesc": "Choose another Boss. For the rest of the game, this Boss also has that Boss's Level Up ability. (The ability remains even if that Boss dies.)",
+      "levelUp": {"canAvoid": false, "trigger": null, "targets": [["BossOpponent"]], "cmd": "CopyLevelUp", "args": []},
       "set": "crash-landing",
       "quantity": 1
     },
@@ -134,6 +136,7 @@
         5
       ],
       "levelUpDesc": "You may bring one covered Room to the top of a Room stack in each opponent's dungeon. (This uncovers those rooms.)",
+      "levelUp": {"canAvoid": true, "trigger": null, "targets": [["BossOpponents"]], "cmd": "UncoverOpponentRoom", "args": []},
       "set": "crash-landing",
       "quantity": 1
     },
@@ -2594,6 +2597,7 @@
       "category": 3,
       "quantity": 1,
       "description": "Kill a Hero with 2 or less Health. OR If you have fewer Souls than any player, choose a Hero that survived another player's dungeon this turn. Move it to your scorekeeping area face-down.",
+      "implemented": true,
       "set": "crash-landing"
     },
     {
@@ -2602,6 +2606,7 @@
       "category": 3,
       "quantity": 2,
       "description": "Add +X to a Hero in an opponent's dungeon, where X equals the number of wounds you have.",
+      "implemented": true,
       "set": "crash-landing"
     },
     {
@@ -2610,6 +2615,7 @@
       "category": 3,
       "quantity": 1,
       "description": "If no Heroes were lured to your dungeon during the Bait Phase, heal one ordinary Wound.",
+      "implemented": true,
       "set": "crash-landing"
     },
     {
@@ -2618,6 +2624,7 @@
       "category": 1,
       "quantity": 1,
       "description": "Choose one Room in any dungeon. Until end of turn, it gains Explorer treasure.",
+      "implemented": true,
       "set": "crash-landing"
     },
     {
@@ -2839,7 +2846,7 @@
     {
       "id": "TNL062",
       "name": "Meddling Kids!",
-      "category": 1,
+      "category": 4,
       "quantity": 1,
       "description": "Choose a Room. Until the end of turn, it has no ability text. OR Choose a player. If three or more Heroes entered that player's dungeon this turn, that player cannot win this turn.",
       "set": "next-level"
@@ -2847,7 +2854,7 @@
     {
       "id": "TNL063",
       "name": "Oh, Yeah!",
-      "category": 1,
+      "category": 4,
       "quantity": 1,
       "description": "Swap the placement of two Rooms in your dungeon. OR If two or more of your Rooms have been destroyed this turn, choose and destroy one Room in any dungeon.",
       "set": "next-level"
@@ -5334,7 +5341,8 @@
       "class": "Cleric",
       "set": "next-level",
       "quantity": 1,
-      "dark": true
+      "dark": true,
+      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]}
     },
     {
       "id": "TNL078",
@@ -5407,7 +5415,8 @@
       "class": "Fighter",
       "set": "next-level",
       "quantity": 1,
-      "dark": true
+      "dark": true,
+      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]}
     },
     {
       "id": "TNL084",
@@ -5479,7 +5488,9 @@
       "epic": false,
       "class": "Mage",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "dark": true,
+      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]}
     },
     {
       "id": "TNL090",
@@ -5551,7 +5562,9 @@
       "epic": false,
       "class": "Thief",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "dark": true,
+      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]}
     },
     {
       "id": "TNL096",
@@ -5568,14 +5581,18 @@
     {
       "id": "TNL097",
       "name": "The Fool",
-      "treasure": 1,
+      "treasure": 0,
       "hp": 2,
       "wounds": 1,
       "souls": 1,
       "epic": false,
-      "class": "Cleric",
+      "class": "The Fool",
       "set": "next-level",
-      "quantity": 1
+      "quantity": 1,
+      "treasures": [
+        0
+      ],
+      "lure": "fewerSouls"
     },
     {
       "id": "TNL098",
@@ -5614,9 +5631,10 @@
       "quantity": 1,
       "treasures": [
         1,
-        2
+        4
       ],
-      "hybrid": true
+      "hybrid": true,
+      "heroAbility": {"cmd": "FlipSoulOnSurvive"}
     },
     {
       "id": "TNL101",
@@ -5669,7 +5687,8 @@
         3,
         2
       ],
-      "hybrid": true
+      "hybrid": true,
+      "heroAbility": {"cmd": "HealthPerSpell", "args": ["2"]}
     },
     {
       "id": "TNL105",
@@ -5722,7 +5741,8 @@
         1,
         3
       ],
-      "hybrid": true
+      "hybrid": true,
+      "heroAbility": {"cmd": "HealthPerSpellInHand"}
     },
     {
       "id": "TNL109",
@@ -5775,7 +5795,8 @@
         2,
         4
       ],
-      "hybrid": true
+      "hybrid": true,
+      "heroAbility": {"cmd": "SkipLastRoom"}
     },
     {
       "id": "TNL113",
@@ -5792,14 +5813,18 @@
     {
       "id": "TNL114",
       "name": "The Brothers",
-      "treasure": 1,
+      "treasure": 0,
       "hp": 20,
       "wounds": 2,
       "souls": 2,
       "epic": true,
-      "class": "Cleric",
+      "class": "The Brothers",
       "set": "next-level",
-      "quantity": 11
+      "quantity": 1,
+      "treasures": [
+        0
+      ],
+      "lure": "soulsMinusWounds"
     }
   ],
   "items": [

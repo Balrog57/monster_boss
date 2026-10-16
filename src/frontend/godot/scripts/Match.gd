@@ -12,7 +12,10 @@ const WIN_SOULS := 10
 
 ## Salles du base set ayant une abilite activable (roomAbilities.js:activateRoomAbility).
 const ACTIVATABLE_ROOMS := ["BMA009", "BMA013", "BMA024", "BMA027", "BMA028",
-	"BMA030", "BMA032", "BMA038", "BMA039"]
+	"BMA030", "BMA032", "BMA038", "BMA039", "CRL012",
+	# The Next Level (voir TnlAbilities.ACTIVATED)
+	"TNL013", "TNL017", "TNL022", "TNL030", "TNL032", "TNL033", "TNL035", "TNL040", "TNL041", "TNL042", "TNL045", "TNL046",
+	"TNL048", "TNL049", "TNL053", "TNL055"]
 
 var G: Dictionary = {}
 var human_count := 1
@@ -43,9 +46,13 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	var apk_only := true
 	for s in sets:
 		apk_only = apk_only and s in ["base", "players-choice", "hidden-heroes", "tools"]
+	# The Next Level : « decide on just one Hero and Epic Hero deck to use » -> avec TNL, le paquet de heros TNL remplace celui du jeu de base.
+	var tnl: bool = sets.has(TnlAbilities.SET_ID)
 	var hero_ok := func(c, epic: bool) -> bool:
 		var d: Dictionary = c
 		if not in_sets.call(d) or replaced.has(str(d.get("id", ""))) or bool(d.get("epic", false)) != epic:
+			return false
+		if tnl and str(d.get("set", "base")) in ["base", "hidden-heroes"]:
 			return false
 		return not apk_only or int(d.get("playerCount", 2)) <= n
 	var heroes: Array = CardDB.heroes.filter(func(c): return hero_ok.call(c, false))
@@ -59,7 +66,10 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	var epic_deck: Array = CardDB.shuffled(CardDB.expanded_deck(epics).map(func(h): var d = (h as Dictionary).duplicate(); d["souls"] = 2; d["wounds"] = 2; return d))
 	# Tailles officielles (base set) selon le nombre de joueurs.
 	var counts: Dictionary = CardDB.HERO_COUNTS.get(n, {"ordinary": 13, "epic": 8})
-	if not apk_only:
+	if tnl: # livret TNL : 13+9 / 17+13 / 25+17 heros, les heros a capacite (etoile) toujours inclus
+		hero_deck = TnlAbilities.limit_heroes(hero_deck, n, false)
+		epic_deck = TnlAbilities.limit_heroes(epic_deck, n, true)
+	elif not apk_only:
 		hero_deck = hero_deck.slice(0, int(counts.get("ordinary", 13)))
 		epic_deck = epic_deck.slice(0, int(counts.get("epic", 8)))
 	var picks: Array = CardDB.shuffled(bosses).slice(0, n + 2)
@@ -74,7 +84,7 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 			"entrance": [],
 		}
 	G = {
-		"players": players, "bossPicks": picks, "numPlayers": n,
+		"players": players, "bossPicks": picks, "numPlayers": n, "sets": sets.keys(),
 		"xpOrder": [], "decks": {"rooms": room_deck, "spells": spell_deck, "heroes": hero_deck, "epics": epic_deck, "items": item_deck, "roomDiscard": [], "spellDiscard": [], "heroDiscard": []},
 		"itemQueue": [],
 		"town": [], "turn": 0, "phase": CardDB.PHASE["BOSS"], "gameOver": null, "log": [], "autoAI": true,
@@ -143,6 +153,8 @@ func legal_moves(pid: int) -> Array:
 		# jouable dans la phase en cours (Counterspell compris) et toute salle activable. Se limiter a Counterspell /
 		# All-Seeing Eye est la politique de l'IA (AbilityCalculator.cs), pas une regle : voir AI.score_move.
 		out.append_array(_stack_response_moves(p, pid, stack.size()))
+		if TnlAbilities.active(G): # Antimagic Zone (depuis la main), Dr. Timebender : annulations
+			out.append_array(TnlAbilities.stack_moves(G, p, pid))
 		out.append({"type": "pass", "args": []})
 		return out
 
@@ -205,7 +217,8 @@ func legal_moves(pid: int) -> Array:
 						continue
 					for t in SpellTargeting.spell_targets_for(G, p, pid, str(c.get("id", ""))):
 						out.append({"type": "playSpell", "args": [i, t]})
-			# Abilites de salle activables (miroir reducer.js:activateRoom).
+			out.append_array(_hand_room_moves(pid)) # CRL007 Frostman Lander (se defausse de la main)
+				# Abilites de salle activables (miroir reducer.js:activateRoom).
 			for i in (p.get("dungeon", []) as Array).size():
 				var room = BossEngine.active_room((p["dungeon"] as Array)[i])
 				if room == null:
@@ -221,6 +234,8 @@ func legal_moves(pid: int) -> Array:
 				else:
 					if RoomAbilities.activate_room_ability(G.duplicate(true), pid, i) == null:
 						out.append({"type": "activateRoom", "args": [i]})
+			if TnlAbilities.active(G): # Doc Scarecrow
+				out.append_array(TnlAbilities.extra_moves(G, p, pid))
 			if my_turn or (window and not bool((G["buildWindow"] as Dictionary).get(pid, false))):
 				out.append({"type": "passBuild", "args": []})
 				out.append({"type": "pass", "args": []})
@@ -238,7 +253,8 @@ func legal_moves(pid: int) -> Array:
 				for t in SpellTargeting.spell_targets_for(G, p, pid, str(c.get("id", ""))):
 					out.append({"type": "playSpell", "args": [i, t]})
 
-			# Capacités de salle activables
+			out.append_array(_hand_room_moves(pid)) # CRL007 Frostman Lander
+				# Capacités de salle activables
 			for i in (p.get("dungeon", []) as Array).size():
 				var room = BossEngine.active_room((p["dungeon"] as Array)[i])
 				if room == null:
@@ -255,6 +271,8 @@ func legal_moves(pid: int) -> Array:
 					if RoomAbilities.activate_room_ability(G.duplicate(true), pid, i) == null:
 						out.append({"type": "activateRoom", "args": [i]})
 
+			if TnlAbilities.active(G): # paiement des heros noirs
+				out.append_array(TnlAbilities.extra_moves(G, p, pid))
 			if has_pause:
 				var passed_map: Dictionary = G.get("adventurePausePassed", {})
 				if not bool(passed_map.get(str(pid), false)) and not bool(passed_map.get(pid, false)):
@@ -304,6 +322,13 @@ static func _trim_args(args: Variant) -> Array:
 
 
 func apply_move(pid: int, move: Dictionary) -> bool:
+	var ok := _apply_move_core(pid, move)
+	if TnlAbilities.active(G):
+		TnlAbilities.flush_torix(G) # TNL003 Torix : les salles Monster defaussees / detruites pendant le coup rejoignent sa main
+		TnlAbilities.sync_hero(G) # TNL108 Druid : +X PV selon les sorts en main
+	return ok
+
+func _apply_move_core(pid: int, move: Dictionary) -> bool:
 	var legal := legal_moves(pid)
 	var wanted := str(_trim_args(move.get("args", [])))
 	var found := false
@@ -418,6 +443,19 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 			elif not in_battle:
 				_finish_hero_if_dead()
 			return true
+		"useHandRoom": # CRL007 Frostman Lander : defausse depuis la main, desactive une salle avancee jusqu'a la fin du tour
+			RoomAbilities.use_hand_room(G, pid, int(move["args"][0]), move["args"][1] if move["args"].size() > 1 and move["args"][1] != null else {})
+			if G.has("buildWindow"):
+				G["buildWindow"] = _window_auto_passed()
+			return true
+		"docScarecrow", "payDarkHero", "timebenderCancel", "antimagicCancel": # The Next Level (voir TnlAbilities.extra_moves / stack_moves)
+			var terr = TnlAbilities.apply_move(G, pid, move)
+			if terr != null:
+				_log(str(terr))
+				return false
+			if G.has("buildWindow"):
+				G["buildWindow"] = _window_auto_passed()
+			return true
 		"pass", "passBuild":
 			var stack: Array = G.get("stack", [])
 			if not stack.is_empty():
@@ -466,6 +504,7 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 					_advance_adventure_player()
 					return true
 		"adventureNext", "resolveNextHero":
+			G.erase("afterHero") # le heros suivant est designe : on quitte la fenetre « apres un heros » (voir _finish_hero)
 			var adv: Dictionary = G.get("adventure", {})
 			if adv.is_empty():
 				var entrance: Array = p.get("entrance", [])
@@ -473,6 +512,8 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 					return false
 				var hero: Dictionary = entrance[0]
 				var hp := BossEngine.hero_hp(hero)
+				if TnlAbilities.active(G):
+					hp += TnlAbilities.on_hero_start(G, pid, hero) # PV retenus jusqu'a l'entree (Werewolf Den, Lightning Bolt!), Party Up
 				G["adventure"] = {
 					"playerId": pid,
 					"hero": hero,
@@ -509,6 +550,7 @@ func _resolve_choice(pid: int, index: int) -> void:
 	var valid := index >= -1 and (index < opts.size() or index == -1)
 	if not valid:
 		return
+	var finish_dead := false # des degats viennent d'etre infliges au heros actif : il meurt apres la remise a zero du choix
 	match kind:
 		"recover-card":
 			if index >= 0:
@@ -579,7 +621,7 @@ func _resolve_choice(pid: int, index: int) -> void:
 					RoomAbilities.steal_random_card(G, pid, target_pid, str(pc.get("bossName", "")))
 				elif target_pid >= 0 and G["players"].has(target_pid) and (action == "discard-spell" or action == "discard-room"):
 					# C# DiscardRandomCardFromHand(1, Spell|Room) sur l'adversaire choisi
-					RoomAbilities._discard_random_from(G, target_pid, action == "discard-spell", str(pc.get("bossName", "")))
+					RoomAbilities._discard_random_from(G, target_pid, action == "discard-spell", str(pc.get("bossName", "")), pid)
 		"steal-card":
 			if index >= 0:
 				var o: Dictionary = opts[index]
@@ -657,6 +699,35 @@ func _resolve_choice(pid: int, index: int) -> void:
 						entry["faceDown"] = true
 						(p["souls"] as Array).append(entry)
 						_log("%s : %s passe dans le scorekeeping du joueur %d." % [str(pc.get("bossName", "")), str(entry.get("name", "?")), pid])
+		"uncover-own-room": # CRL004 Alien Excavator
+			if index >= 0:
+				RoomAbilities.uncover_move_to_top(G, pid, opts[index])
+		"uncover-room": # CRL003 Mando : un adversaire a la fois (file G.mandoQueue), « may » par adversaire
+			if index >= 0:
+				RoomAbilities.uncover_move_to_top(G, int((opts[index] as Dictionary).get("targetPlayerId", -1)), opts[index])
+			var mnext = RoomAbilities.mando_advance(G) if G.has("mandoQueue") else null
+			RoomAbilities.enqueue_pending(G, mnext if mnext != null else {})
+		"pick-boss-levelup": # CRL002 Klonos
+			if index >= 0:
+				var knext = RoomAbilities.copy_level_up(G, pid, (opts[index] as Dictionary)["card"])
+				RoomAbilities.enqueue_pending(G, knext if knext != null else {})
+		"hero-damage": # CRL016 Darkling Lair
+			if index >= 0:
+				RoomAbilities.damage_entrance_hero(G, pid, int((opts[index] as Dictionary).get("entranceIndex", -1)), int(pc.get("amount", 0)))
+				finish_dead = true
+		"omega-refire": # CRL012 The Omega 42 : 1re etape (la salle), puis la carte avancee a defausser
+			if index >= 0:
+				var onext = RoomAbilities.omega_pick(G, pid, opts[index])
+				RoomAbilities.enqueue_pending(G, onext if onext != null else {})
+		"omega-discard":
+			if index >= 0:
+				RoomAbilities.omega_finish(G, pid, pc.get("omega", {}), int((opts[index] as Dictionary).get("handIndex", -1)))
+		"tnl-pick": # The Next Level : choix generique (TnlAbilities.resolve_pick) ; renvoie l'etape suivante, ou null
+			var tnext = TnlAbilities.resolve_pick(G, pid, pc, index)
+			if tnext != null:
+				G["pendingChoice"] = tnext
+				state_changed.emit()
+				return
 		"rearrange-dungeon": # KSA002 Hellcow : dungeon puis salles dans l'ordre (voir RoomAbilities.rearrange_choice)
 			if index >= 0:
 				var ro: Dictionary = opts[index]
@@ -681,7 +752,16 @@ func _resolve_choice(pid: int, index: int) -> void:
 	# personne ne construit plus et la partie se fige. On NE passe pas au joueur
 	# suivant ici : le joueur actif a deja consomme son tour, c'est la phase qui
 	# doit se clore (revelation groupee puis leurre).
+	if finish_dead and (G.get("pendingChoice", {}) as Dictionary).is_empty():
+		_finish_hero_if_dead()
+		state_changed.emit()
 	var cur_pc: Dictionary = G.get("pendingChoice", {}) as Dictionary if G.get("pendingChoice", null) is Dictionary else {}
+	if cur_pc.is_empty() and G.has("tnlGiftBuilt"): # TNL070 Surprise Gift : la salle posee chez l'adversaire a consomme le tour de construction
+		var gifter := int(G["tnlGiftBuilt"])
+		G.erase("tnlGiftBuilt")
+		if G.get("phase", "") == CardDB.PHASE["BUILD"] and gifter == active_player() and not _can_build_again(gifter):
+			_advance_build()
+			return
 	if cur_pc.is_empty() and G.get("phase", "") == CardDB.PHASE["BUILD"]:
 		if resume_build:
 			_close_build_phase()
@@ -689,6 +769,9 @@ func _resolve_choice(pid: int, index: int) -> void:
 			_drive_ai() # le choix etait ouvert en cours de tour : l'IA active reprend la main
 	elif cur_pc.is_empty() and bool(G.get("setupReveal", false)):
 		_finish_setup() # revelation de Setup_c suspendue par un choix
+	elif cur_pc.is_empty() and bool(G.get("tnlEndPending", false)):
+		G.erase("tnlEndPending")
+		_start_turn() # choix de fin de tour TNL resolu (Shellda, Blockpile Puzzle) : le tour suivant commence
 
 ## Echange la salle active de deux piles du meme donjon.
 func _swap_rooms(p: Dictionary, option: Dictionary) -> void:
@@ -748,9 +831,11 @@ func _deal_opening_hands() -> void:
 		var p: Dictionary = G["players"][pid]
 		var drawn: Array = _draw_opening_rooms(G["decks"]["rooms"]) + CardDB.draw_cards(G["decks"]["spells"], 2)
 		p["hand"] = drawn
-		if p.get("isAI", false):
+		if p.get("isAI", false) and not TnlAbilities.active(G): # TNL : « larger starting hand » = 5 salles + 2 sorts, sans defausse (le mode Classic defausse 2 cartes)
 			var pair = AI.select_opening_discards(drawn, p, G)
 			_apply_opening_discard(pid, pair[0], pair[1])
+	if TnlAbilities.active(G):
+		TnlAbilities.seed_discards(G) # regle TNL : defausse amorcee par 4 salles et 2 sorts au hasard, face visible
 	G["xpOrder"] = CardDB.order_by_xp(G["players"])
 	_queue_next_opening_discard()
 
@@ -773,7 +858,7 @@ func _apply_opening_discard(pid: int, a: int, b: int) -> void:
 func _queue_next_opening_discard() -> void:
 	for pid in G["players"]:
 		var p: Dictionary = G["players"][pid]
-		if not p.get("eliminated", false) and not p.get("isAI", false) and (p.get("hand", []) as Array).size() > 5:
+		if not p.get("eliminated", false) and not p.get("isAI", false) and (p.get("hand", []) as Array).size() > (7 if TnlAbilities.active(G) else 5):
 			G["pendingChoice"] = {
 				"type": "opening-discard",
 				"playerId": int(pid),
@@ -846,6 +931,8 @@ func _start_turn() -> void:
 	# Phase 1 : BEGINNING (Début de tour)
 	G["phase"] = CardDB.PHASE["BEGINNING"]
 	_log("Tour %d — phase BEGINNING." % G["turn"])
+	if TnlAbilities.active(G):
+		TnlAbilities.on_turn_start(G) # photographie des ames du debut de tour (Nicolius)
 
 	# Arrivée des héros en ville : 1 héros par joueur actif (la ville se cumule d'un tour à l'autre)
 	_reveal_items()
@@ -867,7 +954,7 @@ func _start_turn() -> void:
 			for r in stack:
 				if r is Dictionary:
 					r["usedThisTurn"] = false
-					r.erase("dealDamage") # Boss.RestoreDungeon (EndOfTurnPhase) : seulement les salles encore en donjon
+					r.erase("extraTreasures"); r.erase("dealDamage"); r.erase("tnl") # Boss.RestoreDungeon (EndOfTurnPhase) : seulement les salles encore en donjon
 		# BMA023 Haunted Library (IsCanChooseCardToDraw) : le joueur CHOISIT sa pioche (salle ou sort) ; son choix est pose apres la
 		# boucle (GameBoard.BeginningOfTurn : ActionsSequence executee une fois tous les autres joueurs servis).
 		if RoomAbilities.can_choose_draw(p):
@@ -1125,14 +1212,22 @@ func _drive_ai() -> void:
 
 func _resolve_bait() -> void:
 	var remaining_town: Array = []
+	G["luredThisTurn"] = {} # heros leurres par joueur ce tour (CRL031 Healing Tank)
 	var town: Array = G.get("town", [])
 	var order := CardDB.order_by_xp(G["players"])
 	for hero in town:
+		if TnlAbilities.active(G) and TnlAbilities.no_lure(G, hero): # TNL001 Doc Scarecrow : ce heros ne peut pas etre leurre ce tour
+			remaining_town.append(hero)
+			_log("%s ne peut pas etre leurre ce tour (Doc Scarecrow)." % (hero as Dictionary).get("name", "?"))
+			continue
 		var treasure := int((hero as Dictionary).get("treasure", 1))
 		var target := BossEngine.lure_target(G["players"], order, treasure, hero, G)
 		if target >= 0:
 			var target_player: Dictionary = G["players"][target]
 			(target_player["entrance"] as Array).append(hero)
+			(G["luredThisTurn"] as Dictionary)[target] = int((G["luredThisTurn"] as Dictionary).get(target, 0)) + 1
+			if TnlAbilities.active(G):
+				TnlAbilities.on_lured(G, target) # Super Effective! : « only one Hero was lured to your dungeon this turn »
 			_log("%s est attiré par le donjon du joueur %d !" % [(hero as Dictionary).get("name", "?"), target])
 		else:
 			remaining_town.append(hero)
@@ -1146,6 +1241,16 @@ func _turn_order() -> Array:
 		o.append(o.pop_front())
 	return o
 
+
+## Capacites « defausser cette salle de la main » (CRL007 Frostman Lander) : une par cible, jouables en BUILD et en ADVENTURE.
+func _hand_room_moves(pid: int) -> Array:
+	var out: Array = []
+	var hand: Array = ((G["players"] as Dictionary)[pid] as Dictionary).get("hand", []) as Array
+	for i in hand.size():
+		if str((hand[i] as Dictionary).get("id", "")) == "CRL007":
+			for t in RoomAbilities.hand_room_targets(G, i, pid):
+				out.append({"type": "useHandRoom", "args": [i, t]})
+	return out
 
 ## Coups de reponse d'un joueur pendant une Spell Battle : sorts jouables dans la phase (cibles comprises) + salles activables.
 func _stack_response_moves(p: Dictionary, pid: int, stack_len: int) -> Array:
@@ -1280,6 +1385,8 @@ func _resolve_pending_stack() -> void:
 				effect["resolved"] = true
 				continue
 			_log("Le sort %s se résout." % str(card.get("name", "?")))
+			if TnlAbilities.active(G): # Swordmage +2, Spellslime Pit, Hall of Mirrors : avant les effets du sort (non annule)
+				TnlAbilities.on_spell_resolving(G, caster_id, card)
 			if str(card.get("id", "")) == "BMA043":
 				# CancelSpellAbility.Execute : la transaction cible est annulee (elle reste en liste, mais ne s'executera pas).
 				var ti := _stack_index_of(str(target.get("stackId", "")))
@@ -1311,6 +1418,8 @@ func _resolve_pending_stack() -> void:
 ## Résolution d'aventure pas-à-pas (AdventurePhase_a, b, c et fenêtres de pause)
 ## Heros tue par une capacite / un sort (hp <= 0) : mort immediate (KillHeroInRoom), sans attendre la fin de la pause.
 func _finish_hero_if_dead() -> void:
+	if TnlAbilities.active(G):
+		TnlAbilities.sync_hero(G)
 	var adv: Dictionary = G.get("adventure", {})
 	if adv.is_empty() or int(adv.get("hp", 1)) > 0:
 		return
@@ -1329,6 +1438,7 @@ func _finish_hero_if_dead() -> void:
 	_finish_hero(pid, hero, int(adv.get("hp", 0)), death_room)
 
 func _init_adventure_phase() -> void:
+	G.erase("afterHero")
 	G["adventure"] = {}
 	G["adventurePausePassed"] = {}
 	var xp: Array = CardDB.order_by_xp(G["players"])
@@ -1338,8 +1448,20 @@ func _init_adventure_phase() -> void:
 		var p: Dictionary = G["players"][pid]
 		p["passed"] = false
 		p["hasActed"] = false
-	if not _has_adventure_work():
+	if not _has_adventure_work() and not _adventure_window_has_actions():
 		_check_end_or_next_turn()
+
+## Sans heros, l'oracle ouvre quand meme les fenetres AdventurePhase_a/b de chaque joueur (oracle wide s5-p2 : Dark Altar active au
+## tour 8 sans aucun heros). On garde donc la phase ouverte seulement si un joueur a une action a y jouer (sort, capacite) : sinon
+## le tour se termine d'un coup, sans « passer » inutile pour les humains.
+func _adventure_window_has_actions() -> bool:
+	for pid in G["players"]:
+		if bool((G["players"][pid] as Dictionary).get("eliminated", false)):
+			continue
+		for m in legal_moves(int(pid)):
+			if not (str((m as Dictionary).get("type", "")) in ["pass", "passBuild", "adventureNext", "resolveNextHero"]):
+				return true
+	return false
 
 ## Heros a l'entree du donjon qui vont encore agir ce tour : Trepidation (Boss.ForceSkipAdventure) les laisse a l'entree
 ## (GameBoard.ChooseNextActiveHero : AdventurePhase_a direct).
@@ -1364,10 +1486,18 @@ func _advance_adventure_room() -> void:
 	var p: Dictionary = G["players"][pid]
 	var hero: Dictionary = adv["hero"]
 	var dungeon: Array = p.get("dungeon", [])
-	var i: int = int(adv.get("roomIndex", -1)) + (0 if adv.erase("replay") else 1) # replay : voir BossEngine.destroy_room
-	if adv.erase("back"): # Minotaur's Maze : recule d'une salle (l'index du pas courant reste celui de la salle du Maze)
+	var prev: int = int(adv.get("roomIndex", -1))
+	var replayed: bool = adv.erase("replay") # replay : voir BossEngine.destroy_room
+	var i: int = prev + (0 if replayed else 1)
+	var went_back: bool = adv.erase("back") # Minotaur's Maze : recule d'une salle (l'index du pas courant reste celui de la salle du Maze)
+	if went_back:
 		i -= 2
 	adv["roomIndex"] = i
+	if TnlAbilities.active(G) and not replayed and not went_back:
+		# The Next Level : le heros quitte la salle `prev` en vie (Collapsing Bridge, Bom-Boy Factory), puis saute des salles (Shortcut!, Archer).
+		i = TnlAbilities.on_room_exit(G, pid, prev, i)
+		i = TnlAbilities.skip_rooms(G, pid, hero, i)
+		adv["roomIndex"] = i
 
 	if i < 0: # emplacement vide traverse apres la destruction de la salle du heros (BossEngine.destroy_room) : aucun degat
 		adv["pause"] = "post-damage"
@@ -1384,6 +1514,8 @@ func _advance_adventure_room() -> void:
 		_advance_adventure_room()
 		return
 
+	if TnlAbilities.active(G):
+		TnlAbilities.on_room_enter(G, pid, i, room as Dictionary) # Fairy Fountain (+1 PV), memoire d'entree (Inner Sanctum)
 	var dmg := BossEngine.room_damage_with_modifiers(G, p, i, hero)
 	adv["hp"] = int(adv["hp"]) - dmg
 	adv["pause"] = "post-damage"
@@ -1402,6 +1534,8 @@ func _check_adventure_pause_passed() -> void:
 	var adv: Dictionary = G.get("adventure", {})
 	if adv.is_empty() or adv.get("pause") == null:
 		return
+	if TnlAbilities.active(G):
+		TnlAbilities.sync_hero(G) # Druid : PV a jour avant de juger la mort
 	var pm: Dictionary = G.get("adventurePausePassed", {})
 	for pid in G["players"]:
 		var pl: Dictionary = G["players"][pid]
@@ -1476,6 +1610,9 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 	var death_index: int = int(G.get("adventure", {}).get("roomIndex", -1))
 	# KSA017 : le declencheur de mort (CheckTriggerInRoom -> CheckConditions) est evalue AVANT RemoveHeroFromGame, donc verrouille.
 	var abilities_locked := BossEngine.abilities_locked(G, pid)
+	# Fenetre de sorts apres la fin d'un heros (AdventurePhase_c -> _b, activeHero nul) : le heros suivant n'est pas encore designe.
+	# Un sort joue ici (Trepidation) ne retire donc pas le prochain heros de l'entree (voir SpellEffects._trepidation).
+	G["afterHero"] = true
 	G["adventure"] = {}
 	G["adventurePausePassed"] = {}
 
@@ -1484,6 +1621,8 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 		for s in souls:
 			(p["souls"] as Array).append(CardDB.soul_entry(hero))
 		_log("Âme capturée ! (%d/%d)" % [CardDB.total_souls(p, G), WIN_SOULS])
+		if TnlAbilities.active(G):
+			TnlAbilities.on_hero_killed(G, pid) # TNL011 Angstigoth
 		if not death_room.is_empty() and not abilities_locked:
 			_hero_died_trigger(pid, death_room)
 	else:
@@ -1495,13 +1634,16 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 				"souls": 1,
 				"class": hero.get("class", ""),
 				"faceDown": false,
-				"hero": hero # identite du heros blesse (Vampire Bordello : FlipHero cible un heros)
+				"turn": int(G.get("turn", 0)), # tour ou il a survecu (CRL029 Finish Him!)
+					"hero": hero # identite du heros blesse (Vampire Bordello : FlipHero cible un heros)
 			})
 		_log("Le héros survit et blesse le boss ! (%d blessures)" % CardDB.total_wounds(p))
 		if CardDB.total_wounds(p) >= 5:
 			p["eliminated"] = true
 			entrance.clear() # GameBoard.ChooseNextActiveHero : !IsAlive => EntranceQueue.Clear()
 			_log("Joueur %d éliminé !" % pid)
+		if TnlAbilities.active(G) and not bool(p.get("eliminated", false)):
+			TnlAbilities.on_hero_survived(G, pid, hero) # TNL100 Necromancer
 
 	(G["decks"]["heroDiscard"] as Array).append(hero)
 	G["lastHeroFight"] = {
@@ -1521,7 +1663,7 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 func _hero_died_trigger(pid: int, death_room: Dictionary) -> void:
 	var choice = RoomAbilities.on_hero_died_in_room(G, pid, death_room)
 	if choice != null:
-		G["pendingChoice"] = choice
+		RoomAbilities.enqueue_pending(G, choice) # (file derriere un choix deja ouvert, ex. Lightning Bolt!)
 
 func _check_end_or_next_turn() -> void:
 	# Phase 5 : END (Fin de tour et conditions de victoire)
@@ -1537,7 +1679,7 @@ func _check_end_or_next_turn() -> void:
 	var winners_10_souls: Array = []
 	for pid in G["players"]:
 		var p: Dictionary = G["players"][pid]
-		if CardDB.total_souls(p, G) >= WIN_SOULS and CardDB.total_wounds(p) < 5:
+		if CardDB.total_souls(p, G) >= WIN_SOULS and CardDB.total_wounds(p) < 5 and not (TnlAbilities.active(G) and TnlAbilities.cannot_win(G, int(pid))): # TNL062 Meddling Kids!
 			winners_10_souls.append(int(pid))
 
 	if not winners_10_souls.is_empty():
@@ -1572,6 +1714,16 @@ func _check_end_or_next_turn() -> void:
 	# Vérification épuisement des héros
 	var decks: Dictionary = G["decks"]
 	var no_more_heroes: bool = (decks.get("heroes", []) as Array).is_empty() and (decks.get("epics", []) as Array).is_empty() and (G.get("town", []) as Array).is_empty()
+	# Crash Landing : des Explorers peuvent rester en ville pour toujours (egalite de tresors Explorer, regle des 5-6 joueurs :
+	# « Heroes can still be in Town when the game ends »). Pioches vides et plus aucun leurre ce tour = fin de partie.
+	if not no_more_heroes and G.get("sets", []).has("crash-landing") and (decks.get("heroes", []) as Array).is_empty() and (decks.get("epics", []) as Array).is_empty():
+		var any_lured := false
+		for v in (G.get("luredThisTurn", {}) as Dictionary).values():
+			any_lured = any_lured or int(v) > 0
+		var any_entrance := false
+		for pid in G["players"]:
+			any_entrance = any_entrance or not ((G["players"][pid] as Dictionary).get("entrance", []) as Array).is_empty()
+		no_more_heroes = not any_lured and not any_entrance
 	if no_more_heroes:
 		var win_pid = _tie_break_players(alive_pids)
 		G["gameOver"] = {"winner": win_pid, "reason": "héros épuisés"}
@@ -1579,7 +1731,11 @@ func _check_end_or_next_turn() -> void:
 		state_changed.emit()
 		return
 
-	# Pas de fin de partie -> tour suivant
+	# Pas de fin de partie -> tour suivant (The Next Level : effets de fin de tour, dont des choix Shellda / Blockpile Puzzle qui retardent le tour suivant)
+	if TnlAbilities.active(G) and TnlAbilities.end_of_turn(G):
+		G["tnlEndPending"] = true
+		state_changed.emit()
+		return
 	_start_turn()
 	state_changed.emit()
 

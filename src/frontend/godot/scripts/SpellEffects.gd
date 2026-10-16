@@ -59,6 +59,8 @@ static func _draw(decks: Dictionary, pile: String, n: int) -> Array:
 static func cast_spell(G: Dictionary, caster_id: int, card: Dictionary, target: Dictionary) -> bool:
 	var t: Dictionary = target if target != null else {}
 	var id := str(card.get("id", ""))
+	if TnlSpells.TARGETS.has(id): # The Next Level : TNL056-TNL072
+		return TnlSpells.cast(G, caster_id, card, t)
 	var fn: Callable = _handler(id)
 	if not fn.is_valid():
 		_log(G, "%s: no effect implemented yet." % str(card.get("name", id)))
@@ -74,6 +76,8 @@ static func _handler(id: String) -> Callable:
 		"BMA050": _motivation, "BMA051": _princess_in_peril, "BMA052": _soul_harvest,
 		"BMA053": _teleportation, "BMA054": _trepidation, "BMA055": _zombie_attack,
 		"KSA013": _tpk, "THK025": _excavation,
+			"CRL029": _finish_him, "CRL030": _essence_transfer, "CRL031": _healing_tank,
+			"CRL032": _meteorite, "CRL033": _not_dead_yet,
 	}.get(id, Callable())
 
 ## DealDamageToRoom (spell) -> Room.Deal : le bonus se grave sur la CARTE (Room.DealDamage), pas sur le slot. Il n'est remis a zero qu'a
@@ -116,7 +120,7 @@ static func _giant_size(G: Dictionary, caster_id: int, _card: Dictionary, target
 	var tid := _target_id(target, caster_id)
 	var idx := auto_room_index(G, tid, target)
 	var room = find_room(G, tid, idx)
-	if room == null or str((room as Dictionary).get("type", "")) != "monster":
+	if room == null or (str((room as Dictionary).get("type", "")) != "monster" and not bool(G.get("aiTargetsAnyRoomType", false))): # DealDamageToRoom ne revalide pas le type (voir SpellTargeting)
 		_log(G, "Giant Size requires a Monster Room.")
 		return false
 	_buff_room_instance(room, 3)
@@ -338,7 +342,7 @@ static func _trepidation(G: Dictionary, caster_id: int, _card: Dictionary, targe
 		return false
 	# Joue pendant la fenetre pre-aventure de la cible : ChooseNextActiveHero a deja designe son heros actif (AdventurePhase_b), que
 	# ProccessActiveHero (ForceSkipAdventure) RETIRE DU JEU (RemoveHeroFromGame) ; les suivants restent a l'entree.
-	if str(G.get("phase", "")) == CardDB.PHASE["ADVENTURE"] and (G.get("adventure", {}) as Dictionary).is_empty() \
+	if str(G.get("phase", "")) == CardDB.PHASE["ADVENTURE"] and (G.get("adventure", {}) as Dictionary).is_empty() and not bool(G.get("afterHero", false)) \
 			and int(G.get("stackActivePlayer", G.get("activePlayer", -1))) == tid and not (victim.get("entrance", []) as Array).is_empty():
 		(victim["entrance"] as Array).pop_front()
 	return true
@@ -430,4 +434,99 @@ static func _excavation(G: Dictionary, caster_id: int, _card: Dictionary, target
 	it["faceDown"] = not bool(it.get("faceDown", false))
 	var face := "face-down" if bool(it["faceDown"]) else "face-up"
 	_log(G, "Excavation: flipped %s %s." % [str(it.get("name", "?")), face])
+	return true
+
+# --- Crash Landing (CRL029-033) : hors APK, textes de cartes (wiki) + regles ; heros ciblés par (joueur, index d'entree) ---
+
+static func _entrance_hero(G: Dictionary, pid: int, idx: int) -> Dictionary:
+	var ent: Array = _player(G, pid).get("entrance", []) as Array
+	return ent[idx] if idx >= 0 and idx < ent.size() else {}
+
+## CRL029 Finish Him! : tue un heros a 2 PV ou moins (PV a 0 : il meurt dans la prochaine salle qu'il traverse, ame au proprietaire du donjon) ;
+## OU, avec moins d'ames que tous les autres, prend face cachee dans votre scorekeeping un heros ayant survecu au donjon d'un adversaire ce tour.
+static func _finish_him(G: Dictionary, caster_id: int, _card: Dictionary, target: Dictionary) -> bool:
+	var tid := int(target.get("targetPlayerId", -1))
+	if target.has("entranceIndex"):
+		var hero := _entrance_hero(G, tid, int(target["entranceIndex"]))
+		if hero.is_empty() or RoomAbilities.current_hero_hp(G, tid, hero) > 2:
+			_log(G, "Finish Him!: no valid Hero.")
+			return false
+		RoomAbilities.hero_hp_change(G, tid, hero, -RoomAbilities.current_hero_hp(G, tid, hero))
+		_log(G, "Finish Him!: %s is finished." % str(hero.get("name", "?")))
+		return true
+	var victim := _player(G, tid)
+	var wounds: Array = victim.get("wounds", []) as Array
+	var wi := int(target.get("woundIndex", -1))
+	if tid == caster_id or victim.is_empty() or wi < 0 or wi >= wounds.size() or not ((wounds[wi] as Dictionary).get("hero") is Dictionary):
+		_log(G, "Finish Him!: no valid Hero.")
+		return false
+	var hero: Dictionary = (wounds[wi] as Dictionary)["hero"]
+	for i in range(wounds.size() - 1, -1, -1):
+		if is_same((wounds[i] as Dictionary).get("hero"), hero):
+			wounds.remove_at(i)
+	var mine := _player(G, caster_id)
+	for _k in BossEngine.hero_souls(hero):
+		(mine["souls"] as Array).append(CardDB.soul_entry(hero))
+	if bool(victim.get("eliminated", false)) and CardDB.total_wounds(victim) < 5:
+		victim["eliminated"] = false # sa 5e blessure vient de lui etre retiree
+	_log(G, "Finish Him!: %s moves face-down to player %d's scorekeeping area." % [str(hero.get("name", "?")), caster_id])
+	return true
+
+## CRL030 Essence Transfer : +X PV a un heros du donjon d'un adversaire, X = vos blessures.
+static func _essence_transfer(G: Dictionary, caster_id: int, _card: Dictionary, target: Dictionary) -> bool:
+	var tid := int(target.get("targetPlayerId", -1))
+	var hero := _entrance_hero(G, tid, int(target.get("entranceIndex", -1)))
+	var x := CardDB.total_wounds(_player(G, caster_id))
+	if hero.is_empty() or tid == caster_id or x <= 0:
+		_log(G, "Essence Transfer: no valid Hero or no Wounds.")
+		return false
+	RoomAbilities.hero_hp_change(G, tid, hero, x)
+	_log(G, "Essence Transfer: %s gains +%d Health." % [str(hero.get("name", "?")), x])
+	return true
+
+## CRL031 Healing Tank : si aucun heros n'a ete leurre chez vous, soigne une blessure de heros ordinaire (choix si plusieurs heros).
+static func _healing_tank(G: Dictionary, caster_id: int, _card: Dictionary, _target: Dictionary) -> bool:
+	var me := _player(G, caster_id)
+	if int(((G.get("luredThisTurn", {}) as Dictionary)).get(caster_id, 0)) > 0:
+		_log(G, "Healing Tank: a Hero was lured to your dungeon.")
+		return false
+	var heroes := SpellTargeting.ordinary_wound_heroes(me)
+	if heroes.is_empty():
+		_log(G, "Healing Tank: no ordinary Wound to heal.")
+		return false
+	if heroes.size() == 1:
+		BossEngine.heal_one_wound(me, heroes[0])
+		_log(G, "Healing Tank: healed a Wound.")
+		return true
+	var opts: Array = []
+	for h in heroes:
+		opts.append({"card": h, "label": str((h as Dictionary).get("name", "?"))})
+	RoomAbilities.enqueue_pending(G, {"type": "heal-wound", "resume": false, "playerId": caster_id, "bossName": "Healing Tank",
+		"message": "Healing Tank: choose a Hero to flip", "options": opts})
+	return true
+
+## CRL032 Meteorite : la salle gagne un tresor Explorer jusqu'a la fin du tour (valable pour le leurre et pour batir par-dessus).
+static func _meteorite(G: Dictionary, caster_id: int, _card: Dictionary, target: Dictionary) -> bool:
+	var tid := _target_id(target, caster_id)
+	var room = find_room(G, tid, int(target.get("roomIndex", -1)))
+	if room == null:
+		_log(G, "Meteorite: no Room.")
+		return false
+	var extra: Array = (room as Dictionary).get("extraTreasures", []) as Array
+	(room as Dictionary)["extraTreasures"] = extra
+	extra.append(5)
+	_log(G, "Meteorite: %s gains Explorer treasure until end of turn." % str((room as Dictionary).get("name", "?")))
+	return true
+
+## CRL033 Not Dead Yet : X degats (X = vos blessures) a chaque heros de votre donjon ou de votre entree. Un heros a l'entree meurt en
+## franchissant sa premiere salle (l'APK ne tue jamais hors d'une salle : GameBoard.ProccessActiveHero) ; le JS le defaussait sans ame.
+static func _not_dead_yet(G: Dictionary, caster_id: int, _card: Dictionary, _target: Dictionary) -> bool:
+	var me := _player(G, caster_id)
+	var x := CardDB.total_wounds(me)
+	if x <= 0:
+		_log(G, "Not Dead Yet: you have no Wounds.")
+		return false
+	for h in (me.get("entrance", []) as Array):
+		RoomAbilities.hero_hp_change(G, caster_id, h, -x)
+	_log(G, "Not Dead Yet: %d damage to each Hero in your dungeon." % x)
 	return true

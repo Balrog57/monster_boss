@@ -69,6 +69,8 @@ static func take_discard_card(G: Dictionary, player: Dictionary, option: Diction
 	var hand: Array = player.get("hand", []) as Array
 	hand.append(card)
 	player["hand"] = hand
+	if TnlAbilities.active(G): # TNL020 Dragon Graveyard : prendre une carte dans la defausse fait piocher une salle
+		TnlAbilities.on_take_from_discard(G, player)
 	return card
 
 static func pile_index_matches(pile: Array, option: Dictionary) -> bool:
@@ -119,7 +121,7 @@ static func opponents_with(G: Dictionary, player_id: int, need_spell: bool = fal
 # --- activation d'abilite de salle (base set) ---
 
 ## Salles a condition OncePerTurn (Ability.IsEffectApplied) parmi les capacites activables.
-const ONCE_PER_TURN := ["BMA013", "BMA024", "BMA025"]
+const ONCE_PER_TURN := ["BMA013", "BMA024", "BMA025", "CRL012"]
 
 ## Active l'abilite de la salle a room_index. Renvoie null si OK, sinon un message d'erreur.
 static func activate_room_ability(G: Dictionary, player_id: int, room_index: int, other_room_index: int = -1):
@@ -137,6 +139,11 @@ static func activate_room_ability(G: Dictionary, player_id: int, room_index: int
 		return "already used this turn"
 	if BossEngine.abilities_locked(G, player_id):
 		return "abilities locked (Trap Master)" # KSA017 : Ability.IsLocked -> CheckConditions faux
+	if TnlAbilities.active(G):
+		if TnlAbilities.no_text(r): # TNL062 Meddling Kids! : « no ability text » jusqu'a la fin du tour
+			return "no ability text (Meddling Kids!)"
+		if TnlAbilities.ACTIVATED.has(str(r.get("id", ""))): # The Next Level : capacites activees des salles TNL
+			return TnlAbilities.activate(G, p, player_id, room_index, r)
 
 	if ONCE_PER_TURN.has(str(r.get("id", ""))):
 		r["usedThisTurn"] = true # data.json : seules BMA013/024/025 portent OncePerTurn (Crushinator et Boulder Ramp sont rejouables)
@@ -152,6 +159,7 @@ static func activate_room_ability(G: Dictionary, player_id: int, room_index: int
 		"BMA013": return _dracolich_lair(G, p, player_id, r)
 		"BMA024": return _witchs_kitchen(G, p, player_id)
 		"BMA039": return _zombie_prison(G, p, room_index, player_id, r)
+		"CRL012": return _omega_42(G, p, player_id, r)
 	r["usedThisTurn"] = false
 	return "no activated ability"
 
@@ -172,9 +180,9 @@ static func _dark_altar(G: Dictionary, p: Dictionary, room_index: int, player_id
 		if got != null:
 			_log(G, "Dark Altar: recovered %s." % str((got as Dictionary).get("name", "?")))
 		return null
-	G["pendingChoice"] = {"type": "recover-card", "resume": false, "playerId": player_id,
+	enqueue_pending(G, {"type": "recover-card", "resume": false, "playerId": player_id, # enqueue : la destruction de l'Autel a pu decouvrir une salle (CRL)
 		"bossName": "Dark Altar", "message": "Dark Altar: choose a card from the discard pile",
-		"options": opts}
+		"options": opts})
 	return null
 
 ## BMA025 All-Seeing Eye : defausse un sort de la main pour annuler le dernier sort adverse
@@ -351,13 +359,13 @@ static func _torture_chamber(G: Dictionary, player_id: int):
 	BossEngine.discard_room_to_pile(G.get("decks", {}), d)
 	var opps := opponents_with(G, player_id)
 	if opps.size() == 1:
-		_discard_random_from(G, int((opps[0] as Dictionary)["playerId"]), false, "Torture Chamber")
+		_discard_random_from(G, int((opps[0] as Dictionary)["playerId"]), false, "Torture Chamber", player_id)
 	elif opps.size() > 1:
 		var opts: Array = []
 		for o in opps:
 			opts.append({"targetPlayerId": int((o as Dictionary)["playerId"])})
-		G["pendingChoice"] = {"type": "pick-opponent", "action": "discard-room", "resume": false, "playerId": player_id,
-			"bossName": "Torture Chamber", "message": "Torture Chamber: choose an opponent to discard a random Room", "options": opts}
+		enqueue_pending(G, {"type": "pick-opponent", "action": "discard-room", "resume": false, "playerId": player_id,
+			"bossName": "Torture Chamber", "message": "Torture Chamber: choose an opponent to discard a random Room", "options": opts})
 	return null
 
 ## BMA013 Dracolich Lair : defausse 2 salles de la main (choix du joueur) puis recupere une salle de la defausse.
@@ -429,9 +437,9 @@ static func _zombie_prison(G: Dictionary, p: Dictionary, room_index: int, player
 	if opts.size() == 1:
 		zombie_prison_send_back(G, opts[0])
 		return null
-	G["pendingChoice"] = {"type": "revive-hero", "resume": false, "playerId": player_id,
+	enqueue_pending(G, {"type": "revive-hero", "resume": false, "playerId": player_id,
 		"bossName": "Zombie Prison", "message": "Zombie Prison: choose a dead Hero to send back to its dungeon",
-		"options": opts}
+		"options": opts})
 	return null
 
 static func zombie_prison_send_back(G: Dictionary, option: Dictionary) -> void:
@@ -508,6 +516,10 @@ static func on_build_room(G: Dictionary, player_id: int, room: Dictionary) -> Va
 	if p.is_empty():
 		return null
 	var id := str(room.get("id", ""))
+	if TnlAbilities.active(G): # The Next Level : salles TNL + effets de boss « quand vous construisez » (Smoake)
+		var tnl_choice = TnlAbilities.on_build(G, player_id, room)
+		if tnl_choice != null:
+			return tnl_choice
 	match id:
 		"BMA022": return _dark_laboratory(G, p, player_id)
 		"BMA011": return _specters_sanctum(G, p, player_id)
@@ -515,6 +527,19 @@ static func on_build_room(G: Dictionary, player_id: int, room: Dictionary) -> Va
 		"BMA037": return _monstrous_monument(G, p, player_id)
 		"BMA034": return _construction_zone(G, player_id)
 		"BMA033": return _centipede_tunnel(G, player_id)
+		"CRL004": return _alien_excavator(G, player_id)
+		"CRL006": # Decoy Garden : gagne 2 tresors Explorer jusqu'a la fin du tour (effacee a _start_turn)
+			room["extraTreasures"] = [5, 5]
+			_log(G, "Decoy Garden : Explorer x2 jusqu'a la fin du tour.")
+		"CRL010": # Digicron Library : au moins 2 salles avancees visibles (elle comprise) -> 2 sorts
+			var adv := 0
+			for stack in (p.get("dungeon", []) as Array):
+				var top = BossEngine.active_room(stack)
+				if top != null and not bool((top as Dictionary).get("faceDown", false)) and bool((top as Dictionary).get("advanced", false)):
+					adv += 1
+			if adv >= 2:
+				_draw_into(G, p, "spells", 2)
+				_log(G, "Digicron Library : pioche 2 sorts.")
 	return null
 
 ## GameBoard.RevealAllRoomCards -> CheckTriggerInDungeon<WhenYouBuildAnotherRoom>(player, topRoom) :
@@ -562,6 +587,8 @@ static func on_hero_died_in_room(G: Dictionary, player_id: int, room: Dictionary
 	if p.is_empty():
 		return null
 	var id := str(room.get("id", ""))
+	if TnlAbilities.is_tnl(room): # The Next Level
+		return TnlAbilities.on_hero_died(G, player_id, room)
 	# Tous les declencheurs HeroDiesInThisRoom du base set portent OncePerTurn (Ability.IsEffectApplied), verifie a la mise en file.
 	if ["BMA010", "BMA012", "BMA014", "BMA016", "BMA021"].has(id):
 		if bool(room.get("usedThisTurn", false)):
@@ -587,7 +614,7 @@ static func _specters_sanctum(G: Dictionary, _p: Dictionary, player_id: int) -> 
 		_log(G, "Specter's Sanctum: no opponent has a Spell.")
 		return null
 	if opps.size() == 1:
-		_discard_random_spell_from(G, int((opps[0] as Dictionary)["playerId"]), "Specter's Sanctum")
+		_discard_random_spell_from(G, int((opps[0] as Dictionary)["playerId"]), "Specter's Sanctum", player_id)
 		return null
 	var opts: Array = []
 	for o in opps:
@@ -737,11 +764,12 @@ static func _vampire_bordello(G: Dictionary, p: Dictionary, player_id: int) -> V
 	return null
 
 ## Defausse un sort au hasard de la main d'un joueur.
-static func _discard_random_spell_from(G: Dictionary, pid: int, label: String) -> void:
-	_discard_random_from(G, pid, true, label)
+static func _discard_random_spell_from(G: Dictionary, pid: int, label: String, actor: int = -1) -> void:
+	_discard_random_from(G, pid, true, label, actor)
 
 ## DiscardRandomCardFromHand(1, Spell|Room) : une carte du type voulu, au hasard, vers la defausse correspondante.
-static func _discard_random_from(G: Dictionary, pid: int, spell: bool, label: String) -> void:
+## `actor` = joueur dont l'effet force la defausse (TNL014 Imp Temple prend alors la carte en main au lieu de la defausser).
+static func _discard_random_from(G: Dictionary, pid: int, spell: bool, label: String, actor: int = -1) -> void:
 	var opp := _player(G, pid)
 	var hand: Array = opp.get("hand", []) as Array
 	var idxs: Array = []
@@ -760,6 +788,8 @@ static func _discard_random_from(G: Dictionary, pid: int, spell: bool, label: St
 	var card: Dictionary = hand[pick]
 	hand.remove_at(pick)
 	opp["hand"] = hand
+	if TnlAbilities.imp_take(G, actor, card):
+		return
 	var decks: Dictionary = G.get("decks", {})
 	if spell:
 		var pile: Array = decks.get("spellDiscard", []) as Array
@@ -812,6 +842,8 @@ static func process_level_up(G: Dictionary, player_id: int, boss_override: Dicti
 	if p.is_empty() or p.get("boss", null) == null:
 		return null
 	var boss: Dictionary = boss_override if not boss_override.is_empty() else p.get("boss", {}) as Dictionary
+	if str(boss.get("id", "")).begins_with("TNL"): # The Next Level : TNL000-TNL012
+		return TnlAbilities.level_up(G, player_id, p, boss)
 	match str(boss.get("id", "")):
 		"BMA001": return _draculord(G, player_id)
 		"BMA002": return _xyzax(G, p)
@@ -861,6 +893,11 @@ static func _apk_level_up(G: Dictionary, player_id: int, p: Dictionary, lu: Dict
 				"bossName": "Kaw'nee", "message": "Kaw'nee: choose an ordinary Hero in an opponent's scorekeeping area", "options": opts}
 		"RearrangeDungeon": # KSA002 Hellcow : n'importe quel donjon, ordre des salles (toutes) au choix
 			return rearrange_choice(G, player_id, -1, [])
+		"CopyLevelUp": # CRL002 Klonos
+			return _klonos(G, player_id)
+		"UncoverOpponentRoom": # CRL003 Mando
+			return _mando(G, player_id)
+		# CRL001 Imperiatrix (RoomsDamagePerTreasure) : passif, lu par BossEngine.room_damage_with_modifiers.
 	return null
 
 ## KSA002 : etape 1 (target_pid < 0) = choisir le donjon ; ensuite on designe les salles dans l'ordre C# des slots (Dungeon[0] = fond =
@@ -1095,3 +1132,282 @@ static func _gorgona(G: Dictionary, p: Dictionary) -> Variant:
 			souls.append(CardDB.soul_entry(hero))
 		_log(G, "Gorgona: killed %s." % str(hero.get("name", "?")))
 	return null
+
+
+# --- Crash Landing (CRL) : regle « uncover », salles, capacite de main et level-ups ---
+# Hors APK : references = rules.md (section Crash Landing), texte des cartes (wiki), puis le JS (roomAbilities.js / expansionBosses.js).
+# Regle « uncover » : une salle est decouverte quand celle qui la couvrait est detruite (BossEngine.destroy_room) ou remontee au sommet de sa pile.
+
+## Un choix cree par une carte CRL reprend la phase BUILD seulement pendant la revelation de fin de BUILD (Match._reveal_and_level_up).
+static func _resume(G: Dictionary) -> bool:
+	return G.has("revealQueue")
+
+static func _hand_advanced(p: Dictionary) -> Array:
+	var out: Array = []
+	var hand: Array = p.get("hand", []) as Array
+	for i in hand.size():
+		if bool((hand[i] as Dictionary).get("isRoom", false)) and bool((hand[i] as Dictionary).get("advanced", false)):
+			out.append(i)
+	return out
+
+## Salles dont l'effet « when you build this Room » existe dans le moteur (+ drapeaux data `onBuild*`) : cibles de The Omega 42.
+static func has_build_effect(room: Dictionary) -> bool:
+	if ["BMA011", "BMA022", "BMA033", "BMA034", "BMA036", "BMA037", "CRL004", "CRL006", "CRL010"].has(str(room.get("id", ""))):
+		return true
+	for k in room.keys():
+		if str(k).begins_with("onBuild"):
+			return true
+	return false
+
+static func has_uncover_effect(room: Dictionary) -> bool:
+	return ["CRL013", "CRL014", "CRL015", "CRL016"].has(str(room.get("id", ""))) or room.has("onUncover")
+
+## PV d'un heros +/- delta : le heros actif de l'aventure vit dans adventure.hp, les autres dans leur carte (DealHero -> Hero.Deal).
+static func hero_hp_change(G: Dictionary, owner_pid: int, hero: Dictionary, delta: int) -> void:
+	var adv: Dictionary = G.get("adventure", {}) as Dictionary
+	if not adv.is_empty() and int(adv.get("playerId", -1)) == owner_pid and is_same(adv.get("hero"), hero):
+		adv["hp"] = int(adv.get("hp", 0)) + delta
+	else:
+		hero["hp"] = BossEngine.hero_hp(hero) + delta
+
+## Heros a l'entree du donjon (le heros actif en fait partie : adventure.hero est la meme carte).
+static func damage_entrance_hero(G: Dictionary, owner_pid: int, entrance_index: int, amount: int) -> void:
+	var entrance: Array = _player(G, owner_pid).get("entrance", []) as Array
+	if entrance_index < 0 or entrance_index >= entrance.size():
+		return
+	var hero: Dictionary = entrance[entrance_index]
+	hero_hp_change(G, owner_pid, hero, -amount)
+	_log(G, "%d degats a %s." % [amount, str(hero.get("name", "?"))])
+
+## Declencheur « when you uncover this Room » de la salle au sommet de room_index (pile deja mise a jour).
+static func on_uncover(G: Dictionary, player_id: int, room_index: int) -> void:
+	var p := _player(G, player_id)
+	var dungeon: Array = p.get("dungeon", [])
+	if room_index < 0 or room_index >= dungeon.size():
+		return
+	var rv = BossEngine.active_room(dungeon[room_index])
+	if rv == null or bool((rv as Dictionary).get("faceDown", false)):
+		return
+	if BossEngine.abilities_locked(G, player_id) or BossEngine.is_room_deactivated(G, player_id, room_index):
+		return
+	var room: Dictionary = rv
+	match str(room.get("id", "")):
+		"CRL013": _crash_site(G, p, player_id)
+		"CRL014": # Caged Gundarf : degats doubles jusqu'a la fin du tour
+			var arr: Array = _effects(G).get("roomDamageBonus", []) as Array
+			_effects(G)["roomDamageBonus"] = arr
+			arr.append({"playerId": player_id, "roomIndex": room_index, "amount": int(room.get("damage", 0))})
+			_log(G, "Caged Gundarf : degats doubles jusqu'a la fin du tour.")
+		"CRL015": # Celestial Map : pioche un sort puis se detruit (la salle du dessous est a son tour decouverte)
+			var drawn := _draw_into(G, p, "spells", 1)
+			if not drawn.is_empty():
+				_log(G, "Celestial Map : pioche %s." % str((drawn[0] as Dictionary).get("name", "?")))
+			var destroyed = BossEngine.destroy_room(p, room_index, G)
+			BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
+		"CRL016": # Darkling Lair : 3 degats a un heros du donjon / de l'entree (choix s'il y en a plusieurs)
+			var entrance: Array = p.get("entrance", []) as Array
+			if entrance.size() == 1:
+				damage_entrance_hero(G, player_id, 0, 3)
+			elif entrance.size() > 1:
+				var opts: Array = []
+				for i in entrance.size():
+					opts.append({"entranceIndex": i, "card": entrance[i], "label": str((entrance[i] as Dictionary).get("name", "?"))})
+				enqueue_pending(G, {"type": "hero-damage", "amount": 3, "resume": _resume(G), "playerId": player_id,
+					"bossName": "Darkling Lair", "message": "Darkling Lair: choose a Hero to deal 3 damage to", "options": opts})
+
+## CRL013 Crash Site : cherche une salle avancee dans la defausse (obligatoire, auto s'il n'y en a qu'une).
+static func _crash_site(G: Dictionary, p: Dictionary, player_id: int) -> void:
+	var opts: Array = discard_card_options(G, "room").filter(func(o): return bool(((o as Dictionary)["card"] as Dictionary).get("advanced", false)))
+	if opts.is_empty():
+		_log(G, "Crash Site : aucune salle avancee dans la defausse.")
+	elif opts.size() == 1:
+		var got = take_discard_card(G, p, opts[0])
+		if got != null:
+			_log(G, "Crash Site : %s recupere." % str((got as Dictionary).get("name", "?")))
+	else:
+		enqueue_pending(G, {"type": "recover-card", "resume": _resume(G), "playerId": player_id, "bossName": "Crash Site",
+			"message": "Crash Site: choose an Advanced Room from the discard pile", "options": opts})
+
+## CRL004 Alien Excavator : (facultatif) remonte une salle couverte de son donjon au sommet de sa pile.
+static func _alien_excavator(G: Dictionary, player_id: int) -> Variant:
+	var opts := covered_options(G, player_id)
+	if opts.is_empty():
+		_log(G, "Alien Excavator : aucune salle couverte.")
+		return null
+	return {"type": "uncover-own-room", "optional": true, "playerId": player_id, "bossName": "Alien Excavator",
+		"message": "Alien Excavator: you may uncover a covered Room", "options": opts}
+
+## Salles couvertes (toute la pile sous le sommet) du donjon d'un joueur.
+static func covered_options(G: Dictionary, pid: int) -> Array:
+	var out: Array = []
+	var dungeon: Array = _player(G, pid).get("dungeon", []) as Array
+	for i in dungeon.size():
+		var stack: Array = dungeon[i]
+		for d in range(stack.size() - 1):
+			out.append({"targetPlayerId": pid, "roomIndex": i, "depth": d, "card": stack[d],
+				"label": "%s (slot %d)" % [str((stack[d] as Dictionary).get("name", "?")), i + 1]})
+	return out
+
+## Remonte la salle couverte designee au sommet de sa pile : elle est decouverte (declencheur « uncover »).
+static func uncover_move_to_top(G: Dictionary, owner_pid: int, option: Dictionary) -> void:
+	var dungeon: Array = _player(G, owner_pid).get("dungeon", []) as Array
+	var ri := int(option.get("roomIndex", -1))
+	var depth := int(option.get("depth", -1))
+	if ri < 0 or ri >= dungeon.size():
+		return
+	var stack: Array = dungeon[ri]
+	if depth < 0 or depth >= stack.size() - 1 or str((stack[depth] as Dictionary).get("id", "")) != str(((option.get("card", {}) as Dictionary)).get("id", "")):
+		return
+	var card: Dictionary = stack.pop_at(depth)
+	stack.append(card)
+	_log(G, "%s est decouverte." % str(card.get("name", "?")))
+	on_uncover(G, owner_pid, ri)
+
+## Capacite de main CRL007 Frostman Lander : salles avancees ciblables (n'importe quel donjon) pour la desactiver jusqu'a la fin du tour.
+static func hand_room_targets(G: Dictionary, hand_index: int, pid: int) -> Array:
+	var out: Array = []
+	var hand: Array = _player(G, pid).get("hand", []) as Array
+	if hand_index < 0 or hand_index >= hand.size() or str((hand[hand_index] as Dictionary).get("id", "")) != "CRL007":
+		return out
+	for opid in (G.get("players", {}) as Dictionary):
+		var op: Dictionary = G["players"][opid]
+		if op.get("eliminated", false):
+			continue
+		for i in (op.get("dungeon", []) as Array).size():
+			var r = SpellTargeting._targetable_top(G, int(opid), i, (op["dungeon"] as Array)[i])
+			if r != null and bool((r as Dictionary).get("advanced", false)):
+				out.append({"targetPlayerId": int(opid), "roomIndex": i})
+	return out
+
+static func use_hand_room(G: Dictionary, pid: int, hand_index: int, target: Dictionary) -> void:
+	var p := _player(G, pid)
+	var hand: Array = p.get("hand", []) as Array
+	var card: Dictionary = hand.pop_at(hand_index)
+	p["hand"] = hand
+	BossEngine.discard_room_to_pile(G.get("decks", {}), card)
+	var arr: Array = _effects(G).get("deactivatedRooms", []) as Array
+	_effects(G)["deactivatedRooms"] = arr
+	arr.append({"playerId": int(target.get("targetPlayerId", pid)), "roomIndex": int(target.get("roomIndex", 0))})
+	_log(G, "Frostman Lander : une salle avancee est desactivee jusqu'a la fin du tour.")
+
+## CRL012 The Omega 42 : (une fois par tour) defausse une salle avancee de la main pour rejouer l'effet « build » ou « uncover » d'une salle du donjon.
+static func _omega_42(G: Dictionary, p: Dictionary, player_id: int, room: Dictionary) -> Variant:
+	var targets: Array = []
+	var dungeon: Array = p.get("dungeon", []) as Array
+	for i in dungeon.size():
+		var rv = BossEngine.active_room(dungeon[i])
+		if rv == null or bool((rv as Dictionary).get("faceDown", false)) or BossEngine.is_room_deactivated(G, player_id, i):
+			continue
+		var rd: Dictionary = rv
+		if has_build_effect(rd):
+			targets.append({"roomIndex": i, "mode": "build", "card": rd, "label": "%s (build)" % str(rd.get("name", "?"))})
+		if has_uncover_effect(rd):
+			targets.append({"roomIndex": i, "mode": "uncover", "card": rd, "label": "%s (uncover)" % str(rd.get("name", "?"))})
+	if _hand_advanced(p).is_empty():
+		room["usedThisTurn"] = false
+		return "no Advanced Room to discard"
+	if targets.is_empty():
+		room["usedThisTurn"] = false
+		return "no Room effect to activate"
+	if targets.size() == 1:
+		var nxt = omega_pick(G, player_id, targets[0])
+		if nxt != null:
+			enqueue_pending(G, nxt)
+		return null
+	G["pendingChoice"] = {"type": "omega-refire", "resume": false, "playerId": player_id, "bossName": "The Omega 42",
+		"message": "The Omega 42: choose a Room effect to activate", "options": targets}
+	return null
+
+## 2e etape d'Omega : la carte avancee a defausser (auto s'il n'y en a qu'une). Renvoie un choix, ou null une fois l'effet rejoue.
+static func omega_pick(G: Dictionary, player_id: int, option: Dictionary) -> Variant:
+	var p := _player(G, player_id)
+	var cands := _hand_advanced(p)
+	if cands.is_empty():
+		return null
+	if cands.size() == 1:
+		omega_finish(G, player_id, option, int(cands[0]))
+		return null
+	var opts: Array = []
+	for i in cands:
+		opts.append({"card": (p["hand"] as Array)[i], "handIndex": int(i)})
+	return {"type": "omega-discard", "resume": false, "playerId": player_id, "bossName": "The Omega 42", "omega": option,
+		"message": "The Omega 42: choose an Advanced Room to discard", "options": opts}
+
+static func omega_finish(G: Dictionary, player_id: int, option: Dictionary, hand_index: int) -> void:
+	var p := _player(G, player_id)
+	var hand: Array = p.get("hand", []) as Array
+	if hand_index < 0 or hand_index >= hand.size() or not bool((hand[hand_index] as Dictionary).get("advanced", false)):
+		return
+	var dungeon: Array = p.get("dungeon", []) as Array
+	var ri := int(option.get("roomIndex", -1))
+	var room = BossEngine.active_room(dungeon[ri]) if ri >= 0 and ri < dungeon.size() else null
+	if room == null:
+		return
+	var discarded: Dictionary = hand.pop_at(hand_index)
+	p["hand"] = hand
+	BossEngine.discard_room_to_pile(G.get("decks", {}), discarded)
+	_log(G, "The Omega 42 : %s defausse, effet de %s rejoue." % [str(discarded.get("name", "?")), str((room as Dictionary).get("name", "?"))])
+	if str(option.get("mode", "build")) == "build":
+		var ch = on_build_room(G, player_id, room as Dictionary)
+		if ch != null:
+			(ch as Dictionary)["resume"] = false
+			enqueue_pending(G, ch)
+	else:
+		on_uncover(G, player_id, ri)
+
+## CRL002 Klonos : copie le level-up d'un AUTRE boss en jeu (choix s'il y en a plusieurs). Les level-ups passifs copies restent toute la partie
+## (`copiedLevelUps`, lus par BossEngine.level_ups) ; l'effet s'execute aussi tout de suite (process_level_up avec boss_override).
+static func _klonos(G: Dictionary, player_id: int) -> Variant:
+	var opts: Array = []
+	for opid in (G.get("players", {}) as Dictionary):
+		var op: Dictionary = G["players"][opid]
+		if int(opid) == player_id or op.get("eliminated", false) or not (op.get("boss") is Dictionary) or str((op["boss"] as Dictionary).get("id", "")) == "CRL002":
+			continue
+		opts.append({"card": op["boss"], "targetPlayerId": int(opid), "label": str((op["boss"] as Dictionary).get("name", "?"))})
+	if opts.is_empty():
+		_log(G, "Klonos : aucun boss a copier.")
+		return null
+	if opts.size() == 1:
+		return copy_level_up(G, player_id, (opts[0] as Dictionary)["card"])
+	return {"type": "pick-boss-levelup", "playerId": player_id, "bossName": "Klonos",
+		"message": "Klonos: choose a Boss to copy its Level Up ability", "options": opts}
+
+static func copy_level_up(G: Dictionary, player_id: int, boss: Dictionary) -> Variant:
+	var p := _player(G, player_id)
+	var lu = boss.get("levelUp")
+	if lu is Dictionary:
+		var copied: Array = p.get("copiedLevelUps", []) as Array
+		p["copiedLevelUps"] = copied
+		copied.append((lu as Dictionary).duplicate(true))
+	_log(G, "Klonos copie le level-up de %s." % str(boss.get("name", "?")))
+	return process_level_up(G, player_id, boss)
+
+## CRL003 Mando : pour CHAQUE adversaire (PlayerId croissant), on peut remonter une de ses salles couvertes au sommet de sa pile.
+static func _mando(G: Dictionary, player_id: int) -> Variant:
+	var victims: Array = []
+	for opid in (G.get("players", {}) as Dictionary):
+		if int(opid) != player_id and not bool(G["players"][opid].get("eliminated", false)):
+			victims.append(int(opid))
+	victims.sort()
+	G["mandoQueue"] = {"owner": player_id, "queue": victims}
+	return mando_advance(G)
+
+## Prochain adversaire ayant une salle couverte (les autres sont sautes), ou null quand la file est vide.
+static func mando_advance(G: Dictionary) -> Variant:
+	var st: Dictionary = G.get("mandoQueue", {}) as Dictionary
+	var queue: Array = st.get("queue", []) as Array
+	while not queue.is_empty():
+		var opts := covered_options(G, int(queue.pop_front()))
+		if not opts.is_empty():
+			return {"type": "uncover-room", "optional": true, "resume": _resume(G), "playerId": int(st.get("owner", 0)), "bossName": "Mando",
+				"message": "Mando: you may bring a covered Room to the top of its stack", "options": opts}
+	G.erase("mandoQueue")
+	return null
+
+
+## PV courants d'un heros d'un donjon (le heros actif de l'aventure : adventure.hp ; les autres : leur carte).
+static func current_hero_hp(G: Dictionary, owner_pid: int, hero: Dictionary) -> int:
+	var adv: Dictionary = G.get("adventure", {}) as Dictionary
+	if not adv.is_empty() and int(adv.get("playerId", -1)) == owner_pid and is_same(adv.get("hero"), hero):
+		return int(adv.get("hp", 0))
+	return BossEngine.hero_hp(hero)

@@ -188,6 +188,7 @@ func replay(trace: Dictionary) -> Dictionary:
 		"stack": [], "stackPassed": {}, "pendingChoice": {}, "choiceQueue": [], "roboboQueue": [], "itemQueue": [],
 	}
 	run.G["aiTargetsAllBosses"] = true # T.P.K. : l'IA de l'oracle designe tous les joueurs (SpellTargeting "tpk-player")
+	run.G["aiTargetsAnyRoomType"] = true # Giant Size : l'IA de l'oracle peut viser une salle Trap (AbilityCalculator.CheckBMA040And047, sans revalidation)
 	run.rng.seed = int(meta.get("seed", 1))
 	seed(int(meta.get("seed", 1))) # randi()/randf() globaux du moteur (tirages « au hasard ») : rejeu reproductible
 	if from_deal:
