@@ -111,10 +111,8 @@ static func can_build_room(player: Dictionary, G: Dictionary = {}, pid: int = -1
 		if not bool(card.get("advanced", false)):
 			# Salle ordinaire : en fin de donjon, ou PAR-DESSUS une pile existante (DungeonSlot.CheckRoomCanBeBuilt : pas de slot
 			# en attente de revelation ; BMA018 Neanderthal Cave = CannotBuildRoom[Advanced, Any] : elle ne refuse QUE les avancees).
-			if target_index < 0:
+			if target_index < 0 or target_index >= dungeon.size(): # emplacement vide / nouveau = fin de donjon
 				return visible < CardDB.DUNGEON_SLOTS
-			if target_index >= dungeon.size():
-				return false
 			var over = active_room(dungeon[target_index])
 			return over != null and not bool((over as Dictionary).get("faceDown", false))
 		# Salle avancee : doit se batir sur une salle active au tresor correspondant.
