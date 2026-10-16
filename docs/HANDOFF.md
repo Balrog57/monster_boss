@@ -32,7 +32,7 @@ Updated 2026-10-16. Branch `parity/apk-oracle` (not merged into `main`, which is
 2. Play more full games by hand (spells, level up, game over) and fix mechanics bugs.
 3. Wiki expansions polish (only after the clone is exact).
 4. Multiplayer: Godot headless server exists (`godot/server`, PROTOCOL.md); redesign the multiplayer screens like the APK; fix the engine anomaly above.
-5. **Live leak**: the Node server, if deployed on ZimaOS, sends deck order, bossPicks and face-down rooms. Ask the user: take it down or replace with the Godot server.
+5. **Live leak: DONE 2026-10-16** — the Node server leaked deck order, bossPicks and face-down rooms; the user had it stopped: `docker stop boss-monster` on ZimaOS (ssh alias `homelab`, 192.168.1.98; container stopped not removed, `boss-monster-db` untouched, restart policy unless-stopped keeps it down). Restart only with the Godot server replacement (step 7); remove the containers/volume then.
 6. Delete the JS (`src/backend`, `tools/parity` except `apk.mjs` + Godot harness, `tests/unit`, `package.json`); Godot must test itself (replace `npm run test:*` and `tools/run_godot_tests.mjs` by a non-Node runner); keep `tools/apk-oracle`; update CI.
 7. Docker: nginx alpine (static `build_web` + brotli wasm + `/ws` proxy) + Godot headless server container; `deploy/docker-compose.yml` (no Postgres), `DEPLOYMENT.md`.
 8. Final: code-review, merge into `main`, single branch, no open PR, clean repo.
