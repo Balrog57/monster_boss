@@ -1,0 +1,17 @@
+[remap]
+
+importer="font_data_bmfont"
+type="FontFile"
+uid="uid://cxbemepyjm6of"
+path="res://.godot/imported/bookman_old_style.fnt-fb88c078fd022741958c59b9d0a8e077.fontdata"
+
+[deps]
+
+source_file="res://assets/fonts/bookman_old_style.fnt"
+dest_files=["res://.godot/imported/bookman_old_style.fnt-fb88c078fd022741958c59b9d0a8e077.fontdata"]
+
+[params]
+
+fallbacks=[]
+compress=true
+scaling_mode=2

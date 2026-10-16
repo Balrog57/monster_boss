@@ -7,11 +7,14 @@ const BossEngine = preload("res://godot/scripts/BossEngine.gd")
 ## Gère la réception du drag-and-drop de cartes depuis la main.
 
 signal room_dropped(hand_index: int, slot_index: int)
+signal activate_requested(slot_index: int)
 
 @export var slot_index: int = 0
 var game_manager: GameManager
 var player_id: int = 0
 var current_stack: Array = []
+var activatable := false
+var _glow: TextureRect
 
 @onready var slot_frame: TextureRect = $SlotFrame
 @onready var slot_label: Label = $SlotLabel
@@ -39,8 +42,8 @@ func _update_view() -> void:
 	if not is_inside_tree():
 		return
 	if slot_label:
-		slot_label.visible = false # l'APK n'ecrit pas « Salle N » sur les emplacements
-	
+		slot_label.visible = false # l'APK n'ecrit pas « Room N » sur les emplacements
+
 	for child in card_container.get_children():
 		child.queue_free()
 	var old_badge := get_node_or_null("MbBadge")
@@ -58,40 +61,54 @@ func _update_view() -> void:
 		card_ui.is_in_hand = false
 		card_ui.setup(active_room)
 		if border:
-			# Liseré coloré si la salle a une capacité activable ce tour.
-			var activatable := _is_activatable(active_room as Dictionary)
-			border.border_color = Color(0.95, 0.75, 0.2, 0.95) if activatable else Color(0.4, 0.8, 0.4, 0.9)
-			tooltip_text = active_room.get("name", "") + ("\n[Capacité activable]" if activatable else "")
-			if game_manager != null and Minibosses.active(game_manager.G): # Rise of the Minibosses : le miniboss attache a la salle, avec son niveau
-				var badge := Minibosses.make_badge(active_room, true)
-				if badge != null:
-					add_child(badge)
-					tooltip_text += "\n" + Minibosses.badge_tooltip(active_room, true)
+			border.border_color = Color(0.4, 0.8, 0.4, 0.0) # pas de liseré : seul le halo d'une salle activable est visible
+		tooltip_text = str(active_room.get("name", ""))
+		if game_manager != null and Minibosses.active(game_manager.G): # Rise of the Minibosses : le miniboss attache a la salle, avec son niveau
+			var badge := Minibosses.make_badge(active_room, true)
+			if badge != null:
+				add_child(badge)
+				tooltip_text += "\n" + Minibosses.badge_tooltip(active_room, true)
 	else:
 		if slot_frame:
 			slot_frame.visible = true
 		if border:
 			border.border_color = Color(0.5, 0.45, 0.35, 0.4)
+		tooltip_text = ""
+	_update_glow()
 
-func _is_activatable(room: Dictionary) -> bool:
-	if game_manager == null or bool(room.get("usedThisTurn", false)):
-		return false
-	return Match.ACTIVATABLE_ROOMS.has(str(room.get("id", "")))
+## BoardUI l'allume quand la salle a un coup activateRoom legal pour le joueur affiche (halo vert pulse, comme l'APK).
+func set_activatable(on: bool) -> void:
+	activatable = on
+	_update_glow()
+
+func _update_glow() -> void:
+	var show_it := activatable and not current_stack.is_empty()
+	tooltip_text = tooltip_text.replace("
+Click to use its ability", "")
+	if _glow == null:
+		if not show_it:
+			return
+		_glow = TextureRect.new()
+		_glow.texture = load("res://assets/ui/ingame/card_border_ability_pulse.webp")
+		_glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_glow.stretch_mode = TextureRect.STRETCH_SCALE
+		_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_glow.position = Vector2(-4, 96)
+		_glow.size = Vector2(custom_minimum_size.x + 8, 60)
+		add_child(_glow)
+		var tw := _glow.create_tween().set_loops()
+		tw.tween_property(_glow, "modulate:a", 0.4, 0.6).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(_glow, "modulate:a", 1.0, 0.6).set_trans(Tween.TRANS_SINE)
+	_glow.visible = show_it
+	if show_it and not tooltip_text.contains("Click"):
+		tooltip_text += "\nClick to use its ability"
 
 func _gui_input(event: InputEvent) -> void:
-	# Clic droit sur une salle activable : declenche sa capacite.
-	if event is InputEventMouseButton and event.pressed \
-			and event.button_index == MOUSE_BUTTON_RIGHT and game_manager != null:
-		if current_stack.is_empty():
-			return
-		var room = BossEngine.active_room(current_stack)
-		if room == null or not _is_activatable(room as Dictionary):
-			return
+	# Clic (gauche ou droit) sur une salle activable : BoardUI choisit le coup (et la cible s'il y en a plusieurs).
+	if event is InputEventMouseButton and event.pressed and activatable \
+			and (event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT) and not current_stack.is_empty():
 		accept_event()
-		if game_manager.apply_move(player_id, {"type": "activateRoom", "args": [slot_index]}):
-			var parent = get_parent()
-			if parent != null and parent.has_method("refresh"):
-				parent.refresh()
+		activate_requested.emit(slot_index)
 
 ## Vérifie si la carte draguée peut être posée sur cet emplacement
 func _can_drop_data(_at_position: Vector2, data) -> bool:
@@ -109,7 +126,7 @@ func _drop_data(_at_position: Vector2, data) -> void:
 	var hand_idx = int(data.get("hand_index", -1))
 	room_dropped.emit(hand_idx, slot_index)
 	game_manager.build_room_at(player_id, hand_idx, slot_index)
-	
+
 	# Feedback visuel fluide (flash vert)
 	if border:
 		var orig_col = border.border_color

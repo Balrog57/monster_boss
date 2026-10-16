@@ -19,7 +19,6 @@ var game_manager: GameManager
 var on_exit_callback: Callable
 var view_pid: int = 0
 var seat_bar: HBoxContainer
-var choice_bar: HFlowContainer
 var extra_bar: HFlowContainer
 var discard_pick: Array = []
 var _last_phase: String = ""
@@ -40,8 +39,8 @@ const TEX_TOTAL_DAMAGE := "res://assets/ui/ingame/total_damage.webp"
 const TEX_XP_BADGE := "res://assets/ui/ingame/bg_position_exp.webp"
 const TEX_UNKNOWN_BOSS := "res://assets/ui/ingame/unknow_boss_character.webp"
 const TREASURE_TEX := {1: TEX_TREASURE_CLERIC, 2: TEX_TREASURE_FIGHTER, 3: TEX_TREASURE_MAGE, 4: TEX_TREASURE_THIEF}
-const FONT_A := "res://assets/fonts/arcadepix.TTF"
-const FONT_B := "res://assets/fonts/arcadepix2.TTF"
+const FONT_A := "res://assets/fonts/arcadepix.fnt"
+const FONT_B := "res://assets/fonts/arcadepix2.fnt"
 
 const PHASE_BANNERS := {
 	"build": "res://assets/ui/ingame/build_phase.webp",
@@ -57,7 +56,7 @@ const SLOT_SIZE := Vector2(127, 175)
 const SLOT_X0 := 660.0
 const SLOT_STEP := 140.0
 const PLAY_CX := 945.0                   # centre de la zone de jeu (entre les deux colonnes)
-const HAND_CARD := Vector2(165, 230)
+const HAND_CARD := Vector2(210, 300)     # APK : ~210x300 a 1920x1080, tres chevauchees, bas de carte sous le bord de l'ecran
 const BIG_CARD := Vector2(232, 324)
 const BOSS_SPRITE_SCALE := 0.82
 const GOLD := Color(0.95, 0.78, 0.3)
@@ -108,6 +107,18 @@ var _ai_timer: float = 0.0
 var _animating_hero: bool = false
 var skip_animations: bool = DisplayServer.get_name() == "headless" # le smoke test le passe a false
 var _over_sting_played: bool = false
+var _popup: Control                      # fenetre modale courante (choix, cibles, options, confirmation)
+var _popup_kind := ""                    # "choice" | "target" | "menu" | "quit"
+var _choice_sig := ""
+var _rules: Control                      # RulesViewer superpose au plateau (null si ferme)
+var _auto_timer := 0.0                   # delai avant une passe automatique (aventure, rien a decider)
+var _hero_pawn: Control                  # pion du heros en aventure : persiste d'une salle a l'autre
+var _hero_pawn_hp: Label
+var _adv_seen := {}                      # dernier pas d'aventure anime : {pid, hid, room, hp}
+var _stone_theme_cache: Theme
+const PASS_TYPES := ["pass", "passBuild"]
+const GO_TYPES := ["adventureNext", "resolveNextHero"]
+const HAND_CLICK_TYPES := ["playSpell", "useHandRoom"] # jouees en cliquant la carte de la main (pas de bouton)
 
 func _is_online() -> bool:
 	return game_manager is OnlineGameManager
@@ -335,43 +346,48 @@ func _build_actions() -> void:
 	add_child(action_box)
 	btn_advance = _tex_button(action_box, UI_DIR + "go_button.webp", UI_DIR + "go_button_pressed.webp", Vector2.ZERO, Vector2(75, 82))
 	btn_pass = _tex_button(action_box, UI_DIR + "pass_button.webp", UI_DIR + "pass_button_pressed.webp", Vector2.ZERO, Vector2(201, 82))
-	# Choix en attente / coups supplementaires, juste sous la separation.
+	# Coups propres aux extensions du wiki (aucun equivalent APK) : cachee tant qu'il n'y en a pas.
 	bar_box = VBoxContainer.new()
 	bar_box.position = Vector2(330, 548)
 	bar_box.size = Vector2(1270, 80)
 	bar_box.alignment = BoxContainer.ALIGNMENT_BEGIN
 	bar_box.theme = _make_bar_theme()
 	add_child(bar_box)
-	choice_bar = HFlowContainer.new()
-	choice_bar.alignment = FlowContainer.ALIGNMENT_CENTER
-	choice_bar.add_theme_constant_override("h_separation", 8)
-	choice_bar.add_theme_constant_override("v_separation", 6)
-	bar_box.add_child(choice_bar)
 	extra_bar = HFlowContainer.new()
 	extra_bar.alignment = FlowContainer.ALIGNMENT_CENTER
 	extra_bar.add_theme_constant_override("h_separation", 8)
 	extra_bar.add_theme_constant_override("v_separation", 6)
 	bar_box.add_child(extra_bar)
 
+## Boutons « pierre » de l'APK (buttons/button.webp en 9-patch) : seat bar, CONTINUE, popups de choix.
 func _make_bar_theme() -> Theme:
+	if _stone_theme_cache != null:
+		return _stone_theme_cache
 	var th := Theme.new()
+	var tex_n := _tex("res://assets/ui/buttons/button.webp")
+	var tex_p := _tex("res://assets/ui/buttons/button_pressed.webp")
 	for n in ["normal", "hover", "pressed", "disabled", "focus"]:
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0.13, 0.08, 0.18, 0.95) if n != "hover" else Color(0.25, 0.17, 0.3, 0.98)
-		sb.border_color = GOLD
-		sb.set_border_width_all(2)
-		sb.set_corner_radius_all(4)
-		sb.content_margin_left = 14
-		sb.content_margin_right = 14
-		sb.content_margin_top = 6
-		sb.content_margin_bottom = 6
 		if n == "focus":
-			sb.bg_color = Color(0, 0, 0, 0)
+			th.set_stylebox(n, "Button", StyleBoxEmpty.new())
+			continue
+		var sb := StyleBoxTexture.new()
+		sb.texture = tex_p if n == "pressed" and tex_p != null else tex_n
+		sb.set_texture_margin_all(26)
+		sb.content_margin_left = 30
+		sb.content_margin_right = 30
+		sb.content_margin_top = 12
+		sb.content_margin_bottom = 12
+		if n == "hover":
+			sb.modulate_color = Color(1.3, 1.25, 1.05)
+		elif n == "disabled":
+			sb.modulate_color = Color(0.55, 0.55, 0.55)
 		th.set_stylebox(n, "Button", sb)
-	th.set_font("font", "Button", _fa)
-	th.set_font_size("font_size", "Button", 16)
-	th.set_color("font_color", "Button", GOLD)
-	th.set_color("font_hover_color", "Button", Color.WHITE)
+	th.set_font("font", "Button", _fb)
+	th.set_font_size("font_size", "Button", 24)
+	th.set_color("font_color", "Button", Color.WHITE)
+	th.set_color("font_hover_color", "Button", GOLD)
+	th.set_color("font_pressed_color", "Button", GOLD)
+	_stone_theme_cache = th
 	return th
 
 func _build_overlay() -> void:
@@ -411,7 +427,7 @@ func _build_top() -> void:
 	top_menu_btn.position = Vector2(1860, 8)
 	top_menu_btn.size = Vector2(56, 56)
 	top_menu_btn.custom_minimum_size = Vector2(56, 56)
-	top_menu_btn.tooltip_text = "Menu"
+	top_menu_btn.tooltip_text = "Options"
 	for n in ["normal", "hover", "pressed", "focus"]:
 		top_menu_btn.add_theme_stylebox_override(n, StyleBoxEmpty.new())
 	top_menu_btn.draw.connect(_draw_gear.bind(top_menu_btn))
@@ -492,12 +508,17 @@ func _init_dungeon_slots() -> void:
 		slot.setup(game_manager, j, view_pid)
 		slot.position = _slot_pos(j, 1)
 		slot.size = SLOT_SIZE
+		slot.activate_requested.connect(_on_slot_activate)
 		_dungeon_slots.append(slot)
 
 func _process(delta: float) -> void:
 	if game_manager == null or game_manager.G.get("gameOver") != null:
 		return
 	if _animating_hero:
+		return
+	if _modal_open() and not _is_online():
+		return # menu / regles ouverts : la partie locale est en pause
+	if _auto_pass(delta):
 		return
 	var players: Dictionary = game_manager.G.get("players", {})
 	var phase: String = game_manager.G.get("phase", "")
@@ -511,7 +532,7 @@ func _process(delta: float) -> void:
 		var adv_turn: bool = phase == "adventure" and pc.is_empty() and (int(pid) == game_manager.active_player() or ((game_manager.G.get("adventure", {}) as Dictionary).get("pause") != null))
 		if not moves.is_empty() and (has_ai_choice or phase == "boss" or phase == "build" or adv_turn):
 			_ai_timer += delta
-			if _ai_timer > 0.5:
+			if _ai_timer > (0.2 if adv_turn else 0.5):
 				_ai_timer = 0.0
 				var mv = AI.pick_move(game_manager, int(pid))
 				# Un coup juge nocif par l'IA (score < 0) n'est joue qu'en dernier recours : on prefere passer (comme soak_runner).
@@ -524,6 +545,56 @@ func _process(delta: float) -> void:
 					game_manager.apply_move(int(pid), mv)
 					refresh()
 			return
+
+func _modal_open() -> bool:
+	return (_popup != null and is_instance_valid(_popup) and (_popup_kind == "menu" or _popup_kind == "quit")) 		or (_rules != null and is_instance_valid(_rules))
+
+## Un coup « decision » = tout sauf passer / avancer (sort, capacite de salle, coups d'extension...).
+func _has_decision(moves: Array) -> bool:
+	for m in moves:
+		var t := str((m as Dictionary).get("type", ""))
+		if not (t in PASS_TYPES or t in GO_TYPES):
+			return true
+	return false
+
+## Automatisation UI de l'aventure (aucune regle changee) : quand un humain n'a RIEN a decider (seulement passer),
+## les fenetres de pause apres degats / avant sortie et les passes hors tour se referment toutes seules.
+## Le joueur n'appuie que sur GO (un pas de heros) ; PASS TURN n'apparait que s'il peut encore jouer un sort / une capacite.
+func _auto_pass(delta: float) -> bool:
+	var G: Dictionary = game_manager.G
+	if str(G.get("phase", "")) != "adventure" or not (G.get("pendingChoice", {}) as Dictionary).is_empty():
+		_auto_timer = 0.0
+		return false
+	var pids: Array = []
+	if _is_online():
+		pids = [_my_pid()]
+	else:
+		for pid in (G.get("players", {}) as Dictionary):
+			if not bool(((G["players"] as Dictionary)[pid] as Dictionary).get("isAI", false)):
+				pids.append(int(pid))
+	for pid in pids:
+		var moves: Array = game_manager.legal_moves(int(pid))
+		if moves.is_empty() or _has_decision(moves):
+			continue
+		var has_go := false
+		var pass_mv = null
+		for m in moves:
+			var t := str((m as Dictionary).get("type", ""))
+			if t in GO_TYPES:
+				has_go = true
+			elif t in PASS_TYPES and pass_mv == null:
+				pass_mv = m
+		if has_go or pass_mv == null:
+			continue
+		_auto_timer += delta
+		if _auto_timer < 0.45:
+			return false # on laisse les IA passer pendant ce temps
+		_auto_timer = 0.0
+		if game_manager.apply_move(int(pid), (pass_mv as Dictionary).duplicate()):
+			refresh()
+		return true
+	_auto_timer = 0.0
+	return false
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Rafraichissement
@@ -550,6 +621,7 @@ func refresh() -> void:
 	if lhf != null and lhf is Dictionary and not _animating_hero:
 		G.erase("lastHeroFight")
 		_play_hero_crossing_animation(lhf)
+	_track_adventure(G)
 
 	if G.get("gameOver") != null:
 		var w = G["gameOver"].get("winner", -1)
@@ -567,6 +639,9 @@ func refresh() -> void:
 	var foe_dict: Dictionary = {}
 	if not foe_pids.is_empty():
 		foe_dict = (G["players"] as Dictionary)[foe_pids[0]]
+		if phase == "boss" and p.get("boss") == null: # l'APK cache le boss adverse tant que le notre n'est pas choisi
+			foe_dict = foe_dict.duplicate()
+			foe_dict["boss"] = null
 
 	_refresh_phase_banner(phase)
 	_refresh_lane_badges(1, p)
@@ -590,16 +665,24 @@ func refresh() -> void:
 			slot.slot_index = n
 			slot.set_stack([])
 
+	var my_moves: Array = game_manager.legal_moves(_my_pid())
 	_refresh_foe_dungeon(foe_dict)
 	_refresh_overlay(G, phase)
-	_refresh_hand(G, p, phase)
+	_refresh_hand(G, p, phase, my_moves)
+	_refresh_activatable(my_moves)
 
 	var carousel := _carousel_active(G, phase)
-	var my_moves: Array = game_manager.legal_moves(_my_pid())
 	action_box.visible = not carousel
-	btn_advance.visible = (phase == "adventure") or _has_move(my_moves, "resolveNextHero")
-	btn_pass.visible = (phase == "build" or phase == "setup") or _has_move(my_moves, "pass")
-	_refresh_choice_bar(G, my_moves)
+	var can_go := _has_any(my_moves, GO_TYPES)
+	var can_pass := _has_any(my_moves, PASS_TYPES)
+	btn_advance.visible = phase == "adventure" or can_go
+	btn_advance.disabled = not can_go
+	btn_advance.modulate = Color.WHITE if can_go else Color(0.5, 0.5, 0.5, 0.75)
+	if phase == "adventure": # PASS TURN seulement s'il reste quelque chose a decider (sort / capacite)
+		btn_pass.visible = can_pass and _has_decision(my_moves)
+	else:
+		btn_pass.visible = phase == "build" or phase == "setup" or can_pass
+	_refresh_choice_popup(G, my_moves)
 	_refresh_extra_bar(G, my_moves)
 
 func _carousel_active(G: Dictionary, phase: String) -> bool:
@@ -657,7 +740,14 @@ func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 		var box: HBoxContainer = (_lane[int(r[0])] as Dictionary)["entrance"]
 		for c in box.get_children():
 			c.queue_free()
+		var adv: Dictionary = game_manager.G.get("adventure", {})
+		var adv_pl = (game_manager.G.get("players", {}) as Dictionary).get(int(adv.get("playerId", -1))) if not adv.is_empty() else null
+		var walking: bool = adv_pl != null and is_same(adv_pl, r[1]) and _hero_pawn != null and is_instance_valid(_hero_pawn)
+		var skipped := false
 		for hero in (r[1] as Dictionary).get("entrance", []):
+			if walking and not skipped and hero == adv.get("hero"): # ce heros est deja le pion qui traverse le donjon
+				skipped = true
+				continue
 			box.add_child(_create_mini_hero_token(hero))
 
 func _create_mini_hero_token(hero: Dictionary) -> Control:
@@ -669,7 +759,7 @@ func _create_mini_hero_token(hero: Dictionary) -> Control:
 	var sprite_path := "res://assets/ui/characters/heroes/%s_character.webp" % hid
 	if ResourceLoader.exists(sprite_path):
 		c.texture = load(sprite_path)
-	c.tooltip_text = "%s (PV: %s)" % [str(hero.get("name", "Héros")), str(hero.get("health", 4))]
+	c.tooltip_text = "%s (HP: %s)" % [str(hero.get("name", "Hero")), str(hero.get("health", 4))]
 	return c
 
 func _refresh_boss_platforms(p: Dictionary, foe: Dictionary) -> void:
@@ -749,7 +839,7 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 		_foe_slots.append(slot_ctrl)
 
 ## Main du joueur : eventail en bas ; carrousel central pour le choix du boss et la defausse d'ouverture.
-func _refresh_hand(G: Dictionary, p: Dictionary, phase: String) -> void:
+func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array) -> void:
 	for c in hand_layer.get_children():
 		c.queue_free()
 
@@ -770,6 +860,13 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String) -> void:
 		_place_cards(cards, Vector2(300, 419), 330.0, 1100.0, 330.0, false)
 		return
 
+	# Cartes jouables maintenant (construire / sort / capacite de la main) : les autres sont grisees comme dans l'APK.
+	var playable: Dictionary = {}
+	for m in my_moves:
+		var mt := str((m as Dictionary).get("type", ""))
+		var ma: Array = (m as Dictionary).get("args", [])
+		if mt in ["buildRoom", "playSpell", "useHandRoom"] and not ma.is_empty() and ma[0] is int:
+			playable[int(ma[0])] = true
 	var hand: Array = p.get("hand", [])
 	var discarding := _is_opening_discard_for_me()
 	var sz := BIG_CARD if discarding else HAND_CARD
@@ -784,8 +881,8 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String) -> void:
 			var glow := card_ui.get_node_or_null("GlowRect")
 			if glow != null:
 				glow.visible = true
-		if phase == "adventure": # l'APK grise la main pendant l'aventure
-			card_ui.modulate = Color(0.55, 0.55, 0.55, 1.0)
+		elif not discarding and (phase == "build" or phase == "setup" or phase == "adventure") and not playable.has(i):
+			card_ui.set_greyed(true) # APK : carte injouable = grisee (toute la main pendant l'aventure sans sort jouable)
 		cards.append(card_ui)
 	if discarding:
 		_place_cards(cards, sz, 125.0, 1000.0, 338.0, false)
@@ -793,7 +890,7 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String) -> void:
 			if discard_pick.has(i):
 				(cards[i] as Control).position.y -= 30.0
 	else:
-		_place_cards(cards, sz, 150.0, 1130.0, 832.0, true)
+		_place_cards(cards, sz, 150.0, 1190.0, 832.0, true)
 
 func _spawn_card(data: Dictionary, hand_idx: int, sz: Vector2) -> Control:
 	var card_ui = _card_scene.instantiate()
@@ -803,7 +900,8 @@ func _spawn_card(data: Dictionary, hand_idx: int, sz: Vector2) -> Control:
 	card_ui.setup(data, hand_idx)
 	return card_ui
 
-## Aligne les cartes (chevauchement si necessaire) autour de PLAY_CX ; `fan` : leger eventail et carte survolee qui monte.
+## Aligne les cartes (chevauchement si necessaire) autour de PLAY_CX ; `fan` : eventail (cartes legerement tournees vers
+## l'exterieur, bords plus bas) ; la carte survolee monte en entier, se redresse et passe au premier plan (z_index de CardUI).
 func _place_cards(cards: Array, sz: Vector2, step_max: float, span_max: float, top_y: float, fan: bool) -> void:
 	var n := cards.size()
 	if n == 0:
@@ -815,18 +913,20 @@ func _place_cards(cards: Array, sz: Vector2, step_max: float, span_max: float, t
 		var c: Control = cards[i]
 		var y := top_y
 		if fan:
-			y += pow(i - mid, 2.0) * 1.1
-			c.rotation_degrees = (i - mid) * 1.1
+			y += pow(i - mid, 2.0) * 1.4
+			c.rotation_degrees = (i - mid) * 1.6
+			(c as CardUI).hover_scale = 1.04
 		c.position = Vector2(x0 + step * i, y)
 		if fan:
 			var base_y := y
 			var base_rot := c.rotation_degrees
+			var up_y := 1080.0 - sz.y - 4.0 # carte entierement visible
 			c.mouse_entered.connect(func():
-				var tw := create_tween().set_parallel(true)
-				tw.tween_property(c, "position:y", base_y - 75.0, 0.12)
+				var tw := c.create_tween().set_parallel(true)
+				tw.tween_property(c, "position:y", up_y, 0.12)
 				tw.tween_property(c, "rotation_degrees", 0.0, 0.12))
 			c.mouse_exited.connect(func():
-				var tw := create_tween().set_parallel(true)
+				var tw := c.create_tween().set_parallel(true)
 				tw.tween_property(c, "position:y", base_y, 0.12)
 				tw.tween_property(c, "rotation_degrees", base_rot, 0.12))
 
@@ -895,8 +995,8 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 	deck_info_label.text = ""
 	foe_coins_label.text = ""
 	if Minibosses.active(G): # Rise of the Minibosses : le Hoard de chaque joueur
-		deck_info_label.text = "Pièces : %d" % Minibosses.coins(p)
-		foe_coins_label.text = "Pièces : %d" % Minibosses.coins(foe)
+		deck_info_label.text = "COINS: %d" % Minibosses.coins(p)
+		foe_coins_label.text = "COINS: %d" % Minibosses.coins(foe)
 
 	# Bouton Level Up : brille si 5 salles
 	var can_lvl: bool = BossEngine.count_visible_rooms(p.get("dungeon", [])) >= 5
@@ -923,10 +1023,18 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 
 	_animating_hero = true
 
-	# Créer le pion héroïque animé
-	var pawn := _create_hero_pawn(hero, initial_hp)
-	hero_crossing_layer.add_child(pawn)
-	pawn.global_position = entrance_ctrl.global_position + Vector2(10, 10)
+	# Pion du heros : celui qui vient de traverser le donjon pas a pas, sinon un nouveau (a la salle de sa mort, ou a l'entree)
+	var pawn: Control = _hero_pawn
+	if pawn == null or not is_instance_valid(pawn):
+		pawn = _create_hero_pawn(hero, initial_hp)
+		hero_crossing_layer.add_child(pawn)
+		var death_idx: int = int(lhf.get("deathIndex", -1))
+		if killed and death_idx >= 0 and death_idx + vis_off < slots_list.size():
+			pawn.global_position = (slots_list[death_idx + vis_off] as Control).global_position + Vector2(15, 20)
+		else:
+			pawn.global_position = entrance_ctrl.global_position + Vector2(10, 10)
+	_hero_pawn = null
+	_hero_pawn_hp = null
 
 	var tw := create_tween()
 	var current_hp := initial_hp
@@ -981,6 +1089,96 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 			refresh()
 		)
 
+## Suit l'aventure en cours : chaque nouveau pas du moteur (heros entre dans une salle) = le pion marche jusqu'a la salle,
+## les degats flottent, les PV du pion baissent. Aucune regle : on ne fait que comparer l'etat avec le pas deja montre.
+func _track_adventure(G: Dictionary) -> void:
+	var adv: Dictionary = G.get("adventure", {})
+	if adv.is_empty() or adv.get("hero") == null:
+		_adv_seen = {}
+		if _hero_pawn != null and not _animating_hero: # heros parti sans combat final montre (sort, renvoi en ville) : plus de pion
+			if is_instance_valid(_hero_pawn):
+				_hero_pawn.queue_free()
+			_hero_pawn = null
+			_hero_pawn_hp = null
+		return
+	var hero: Dictionary = adv["hero"]
+	var cur := {"pid": int(adv.get("playerId", 0)), "hid": str(hero.get("id", "")), "room": int(adv.get("roomIndex", -1)), "hp": int(adv.get("hp", 0))}
+	if _adv_seen == cur:
+		return
+	var same_hero: bool = not _adv_seen.is_empty() and _adv_seen["pid"] == cur["pid"] and _adv_seen["hid"] == cur["hid"]
+	var prev_room: int = int(_adv_seen["room"]) if same_hero else -1
+	var prev_hp: int = int(_adv_seen["hp"]) if same_hero else BossEngine.hero_hp(hero)
+	_adv_seen = cur
+	if skip_animations or _animating_hero:
+		return
+	if cur["room"] == prev_room and cur["hp"] == prev_hp and same_hero:
+		return
+	_animate_step(hero, int(cur["pid"]), prev_room, int(cur["room"]), prev_hp, int(cur["hp"]))
+
+func _lane_slots(pid: int) -> Array:
+	return _dungeon_slots if pid == view_pid else _foe_slots
+
+func _slot_at(pid: int, room: int) -> Control:
+	if room < 0:
+		return null
+	var dng_size: int = ((game_manager.G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary).get("dungeon", []).size()
+	var vis: int = room + maxi(0, CardDB.DUNGEON_SLOTS - dng_size)
+	var slots: Array = _lane_slots(pid)
+	if vis >= 0 and vis < slots.size() and is_instance_valid(slots[vis]):
+		return slots[vis]
+	return null
+
+func _step_target(pid: int, room: int) -> Vector2:
+	var L: Dictionary = _lane[1 if pid == view_pid else 0]
+	if room < 0:
+		return (L["entrance"] as Control).global_position + Vector2(10, 10)
+	var sl := _slot_at(pid, room)
+	if sl != null:
+		return sl.global_position + Vector2(15, 20)
+	return (L["platform"] as Control).global_position + Vector2(25, 25)
+
+func _animate_step(hero: Dictionary, pid: int, from_room: int, to_room: int, hp_before: int, hp_after: int) -> void:
+	_animating_hero = true
+	if _hero_pawn == null or not is_instance_valid(_hero_pawn):
+		_hero_pawn = _create_hero_pawn(hero, hp_before)
+		_hero_pawn_hp = _hero_pawn.get_node("Hp")
+		hero_crossing_layer.add_child(_hero_pawn)
+		_hero_pawn.global_position = _step_target(pid, -1)
+		refresh_entrance_only()
+	var pawn := _hero_pawn
+	var hp_lbl := _hero_pawn_hp
+	var target := _step_target(pid, to_room)
+	var dmg := hp_before - hp_after
+	var lane_idx := 1 if pid == view_pid else 0
+	var tw := create_tween()
+	tw.tween_callback(func(): _play_sfx("res://assets/audio/sfx/char_hero_move.wav"))
+	tw.tween_property(pawn, "global_position", target, 0.4).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_callback(func():
+		var room_ctrl: Control = _slot_at(pid, to_room) # les emplacements adverses sont reconstruits a chaque refresh : on ne garde pas de reference
+		if dmg > 0 and room_ctrl != null:
+			var dgn: Array = ((game_manager.G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary).get("dungeon", [])
+			var room_dict = BossEngine.active_room(dgn[to_room]) if to_room < dgn.size() else null
+			var is_monster: bool = room_dict != null and str((room_dict as Dictionary).get("type", "")) == "monster"
+			_play_sfx("res://assets/audio/sfx/sfx_room_magic.wav" if is_monster else "res://assets/audio/sfx/sfx_room_physical.wav")
+			_bump_slot(room_ctrl)
+			_show_floating_dmg(pawn, dmg)
+			var badge: Label = (_lane[lane_idx] as Dictionary)["dmg"]
+			badge.modulate = Color(1, 0.35, 0.3)
+			badge.create_tween().tween_property(badge, "modulate", Color.WHITE, 0.5)
+		if is_instance_valid(hp_lbl):
+			hp_lbl.text = "%d HP" % maxi(hp_after, 0))
+	tw.tween_interval(0.3)
+	tw.tween_callback(func():
+		_animating_hero = false
+		refresh())
+
+## Les jetons de l'entree ne doivent plus montrer le heros qui marche (voir _refresh_entrances).
+func refresh_entrance_only() -> void:
+	var G: Dictionary = game_manager.G
+	var pl: Dictionary = (G.get("players", {}) as Dictionary).get(view_pid, {})
+	var foe_pids := (G["players"] as Dictionary).keys().filter(func(k): return int(k) != view_pid)
+	_refresh_entrances(pl, (G["players"] as Dictionary)[foe_pids[0]] if not foe_pids.is_empty() else {})
+
 func _create_hero_pawn(hero: Dictionary, hp: int) -> Control:
 	var ctrl := Control.new()
 	ctrl.custom_minimum_size = Vector2(90, 115)
@@ -996,12 +1194,14 @@ func _create_hero_pawn(hero: Dictionary, hp: int) -> Control:
 	ctrl.add_child(tex)
 
 	var hp_badge := Label.new()
-	hp_badge.text = "%d PV" % hp
-	hp_badge.add_theme_font_size_override("font_size", 14)
-	hp_badge.add_theme_color_override("font_color", Color(1, 0.2, 0.2))
+	hp_badge.name = "Hp"
+	hp_badge.text = "%d HP" % hp
+	hp_badge.add_theme_font_override("font", _fa)
+	hp_badge.add_theme_font_size_override("font_size", 18)
+	hp_badge.add_theme_color_override("font_color", Color(1, 0.3, 0.3))
 	hp_badge.add_theme_color_override("font_outline_color", Color(0, 0, 0))
-	hp_badge.add_theme_constant_override("outline_size", 3)
-	hp_badge.position = Vector2(10, 0)
+	hp_badge.add_theme_constant_override("outline_size", 4)
+	hp_badge.position = Vector2(4, -22)
 	ctrl.add_child(hp_badge)
 	return ctrl
 
@@ -1057,6 +1257,23 @@ func _has_move(moves: Array, mtype: String) -> bool:
 			return true
 	return false
 
+func _has_any(moves: Array, types: Array) -> bool:
+	for m in moves:
+		if m is Dictionary and str((m as Dictionary).get("type", "")) in types:
+			return true
+	return false
+
+## Allume les salles de mon donjon dont la capacite est activable maintenant (clic gauche sur la salle).
+func _refresh_activatable(my_moves: Array) -> void:
+	var act: Dictionary = {}
+	for m in _moves_of(my_moves, "activateRoom"):
+		var a: Array = (m as Dictionary).get("args", [])
+		if not a.is_empty():
+			act[int(a[0])] = true
+	for slot in _dungeon_slots:
+		var sl: DungeonSlot = slot
+		sl.set_activatable(act.has(sl.slot_index) and not sl.current_stack.is_empty())
+
 func _moves_of(moves: Array, mtype: String) -> Array:
 	var out: Array = []
 	for m in moves:
@@ -1064,47 +1281,106 @@ func _moves_of(moves: Array, mtype: String) -> Array:
 			out.append(m)
 	return out
 
-func _refresh_choice_bar(G: Dictionary, my_moves: Array) -> void:
-	for c in choice_bar.get_children():
-		c.queue_free()
-	var pc: Dictionary = G.get("pendingChoice", {})
-	if pc.is_empty() or int(pc.get("playerId", -1)) != _my_pid():
-		choice_bar.visible = false
-		discard_pick.clear()
-		return
-	if str(pc.get("type", "")) == "opening-discard":
-		choice_bar.visible = false # carrousel central + bouton CONTINUE (_refresh_overlay)
-		return
-	choice_bar.visible = true
-	var opts: Array = pc.get("options", [])
-	var choice_moves := _moves_of(my_moves, "resolveChoice")
-	if not choice_moves.is_empty():
-		for m in choice_moves:
-			var i: int = int((m as Dictionary).get("args", [0])[0])
-			var b := Button.new()
-			b.text = _option_label(opts, i)
-			b.tooltip_text = str(pc.get("message", ""))
-			var mv := (m as Dictionary).duplicate()
-			b.pressed.connect(func():
-				_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
-				_do(mv)
-			)
-			choice_bar.add_child(b)
-		return
-	for m in _moves_of(my_moves, "resolveLevelUpChoice"):
-		var i: int = int((m as Dictionary).get("args", [0])[0])
+# ---------------------------------------------------------------------------------------------------------------------
+# Fenetres modales (style APK : bulle de titre + boutons pierre) : choix en attente, cibles, options, confirmation
+# ---------------------------------------------------------------------------------------------------------------------
+
+func _popup_close() -> void:
+	if _popup != null and is_instance_valid(_popup):
+		remove_child(_popup)
+		_popup.queue_free()
+	_popup = null
+	_popup_kind = ""
+	_choice_sig = ""
+
+## Voile + racine modale (bloque les clics vers le plateau). Un seul popup a la fois.
+func _popup_begin(kind: String, dim_alpha: float = 0.62) -> Control:
+	_popup_close()
+	_popup_kind = kind
+	_popup = Control.new()
+	_popup.size = Vector2(1920, 1080)
+	_popup.mouse_filter = Control.MOUSE_FILTER_STOP
+	_popup.theme = _make_bar_theme()
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, dim_alpha)
+	dim.size = Vector2(1920, 1080)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_popup.add_child(dim)
+	add_child(_popup)
+	return _popup
+
+## Popup centre facon « SELECT 2 CARDS TO DISCARD » : bulle (top_globe) avec le titre, puis une pile de boutons pierre.
+## entries : [{label, cb}] ; cancel_cb valide = bouton CANCEL en dernier.
+func _popup_list(kind: String, title: String, entries: Array, cancel_cb: Callable = Callable()) -> void:
+	var pop := _popup_begin(kind)
+	var n := entries.size() + (1 if cancel_cb.is_valid() else 0)
+	var cols := 1 if n <= 6 else 2
+	var rows := ceili(n / float(cols))
+	var bw := 640.0 if cols == 1 else 520.0
+	var bh := 78.0
+	var gap := 12.0
+	var list_h := minf(rows * (bh + gap), 560.0)
+	var y0 := maxf(30.0, (1080.0 - (137.0 + 24.0 + list_h)) / 2.0)
+	_img(pop, UI_DIR + "top_globe.webp", Vector2(PLAY_CX - 465, y0))
+	var tl := _lbl(pop, title.to_upper(), 26 if title.length() <= 44 else 21, Color.WHITE, Vector2(PLAY_CX - 430, y0 + 14), 860.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
+	tl.custom_minimum_size.y = 110.0
+	tl.size.y = 110.0
+	tl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var scroll := ScrollContainer.new()
+	var gw := cols * bw + (cols - 1) * gap
+	scroll.position = Vector2(PLAY_CX - gw / 2.0, y0 + 137.0 + 24.0)
+	scroll.size = Vector2(gw + 16.0, list_h)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	pop.add_child(scroll)
+	var grid := GridContainer.new()
+	grid.columns = cols
+	grid.add_theme_constant_override("h_separation", int(gap))
+	grid.add_theme_constant_override("v_separation", int(gap))
+	scroll.add_child(grid)
+	var all: Array = entries.duplicate()
+	if cancel_cb.is_valid():
+		all.append({"label": "CANCEL", "cb": cancel_cb})
+	for e in all:
+		var ed: Dictionary = e
 		var b := Button.new()
-		b.text = _option_label(opts, i)
-		var mv := (m as Dictionary).duplicate()
+		b.text = str(ed["label"]).to_upper()
+		b.custom_minimum_size = Vector2(bw, bh)
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.add_theme_font_size_override("font_size", 24 if b.text.length() <= 30 else 18)
+		var cb: Callable = ed["cb"]
 		b.pressed.connect(func():
 			_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
-			_do(mv)
-		)
-		choice_bar.add_child(b)
+			cb.call())
+		grid.add_child(b)
+
+## Choix en attente du joueur (pendingChoice : Dark Altar, All-Seeing Eye, level up...) : popup au centre, une pierre par option.
+func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
+	var pc: Dictionary = G.get("pendingChoice", {})
+	var mine := not pc.is_empty() and int(pc.get("playerId", -1)) == _my_pid()
+	if not mine:
+		discard_pick.clear()
+	var cmoves: Array = _moves_of(my_moves, "resolveChoice") + _moves_of(my_moves, "resolveLevelUpChoice")
+	if not mine or str(pc.get("type", "")) == "opening-discard" or cmoves.is_empty():
+		if _popup_kind == "choice":
+			_popup_close() # carrousel central + bouton CONTINUE pour la defausse d'ouverture (_refresh_overlay)
+		return
+	if _popup_kind in ["menu", "quit", "target"]:
+		return # un menu ouvert par le joueur reste devant ; le choix reapparait a la fermeture (refresh)
+	var sig := JSON.stringify([pc.get("type"), pc.get("message"), cmoves])
+	if _popup_kind == "choice" and sig == _choice_sig:
+		return
+	var opts: Array = pc.get("options", [])
+	var entries: Array = []
+	for m in cmoves:
+		var mv: Dictionary = (m as Dictionary).duplicate()
+		entries.append({"label": _option_label(opts, int((mv.get("args", [0]) as Array)[0])), "cb": func(): _do(mv)})
+	_popup_list("choice", str(pc.get("message", "")) if str(pc.get("message", "")) != "" else "CHOOSE", entries)
+	_choice_sig = sig
 
 func _option_label(opts: Array, i: int) -> String:
 	if i < 0:
-		return "Passer"
+		return "SKIP"
 	if i < opts.size() and opts[i] is Dictionary:
 		var o: Dictionary = opts[i]
 		for k in ["label", "name"]:
@@ -1113,20 +1389,21 @@ func _option_label(opts: Array, i: int) -> String:
 		if (o.get("card", {}) as Dictionary).get("name", "") != "":
 			return str((o["card"] as Dictionary)["name"])
 		if o.has("targetPlayerId"):
-			return "Joueur %d" % (int(o["targetPlayerId"]) + 1)
-	return "Choix %d" % (i + 1)
+			return "Player %d" % (int(o["targetPlayerId"]) + 1)
+	return "Choice %d" % (i + 1)
 
+## Coups propres aux extensions du wiki (Minibosses, TNL...) : aucun equivalent APK, boutons pierre discrets sous la separation.
+## Les sorts (clic sur la carte) et les capacites de salle (clic sur la salle) n'ont PAS de bouton.
 func _refresh_extra_bar(G: Dictionary, my_moves: Array) -> void:
 	for c in extra_bar.get_children():
 		c.queue_free()
 	var shown := false
 	var hand: Array = ((G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("hand", [])
-	var pc: Dictionary = G.get("pendingChoice", {})
-	if not pc.is_empty():
+	if not (G.get("pendingChoice", {}) as Dictionary).is_empty():
 		extra_bar.visible = false
 		return
 	for m in my_moves:
-		if not (m is Dictionary) or str((m as Dictionary).get("type", "")) in CORE_MOVE_TYPES:
+		if not (m is Dictionary) or str((m as Dictionary).get("type", "")) in CORE_MOVE_TYPES + HAND_CLICK_TYPES + ["activateRoom"]:
 			continue
 		var b := Button.new()
 		b.text = _move_label(m, G, hand)
@@ -1146,63 +1423,45 @@ func _move_label(m: Dictionary, _G: Dictionary, hand: Array) -> String:
 	if not args.is_empty() and args[0] is int and int(args[0]) >= 0 and int(args[0]) < hand.size():
 		hand_name = str((hand[int(args[0])] as Dictionary).get("name", ""))
 	match t:
-		"playSpell":
-			# Counterspell : une entree par sort adverse en attente, on nomme la cible.
-			if args.size() > 1 and args[1] is Dictionary and (args[1] as Dictionary).has("stackId"):
-				return "Sort : %s -> %s" % [hand_name, str((((args[1] as Dictionary).get("card", {})) as Dictionary).get("name", "?"))]
-			# The Next Level : la cible (salle, joueur, heros...) est decrite, sinon plusieurs boutons identiques.
-			if hand_name != "" and args.size() > 1 and args[1] is Dictionary and TnlSpells.TARGETS.has(str((hand[int(args[0])] as Dictionary).get("id", ""))):
-				var desc := TnlSpells.describe_target(_G, args[1])
-				return "Sort : %s -> %s" % [hand_name, desc] if desc != "" else "Sort : %s" % hand_name
-			if hand_name != "" and args.size() > 1 and args[1] is Dictionary and RmbSpells.TARGETS.has(str((hand[int(args[0])] as Dictionary).get("id", ""))):
-				var rdesc := RmbSpells.describe_target(_G, args[1])
-				return "Sort : %s -> %s" % [hand_name, rdesc] if rdesc != "" else "Sort : %s" % hand_name
-			return "Sort : %s" % hand_name
-		"activateRoom":
-			var dgn: Array = ((_G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("dungeon", [])
-			var ri := int(args[0]) if not args.is_empty() else -1
-			var rv = BossEngine.active_room(dgn[ri]) if ri >= 0 and ri < dgn.size() else null
-			return "Capacité : %s" % (str((rv as Dictionary).get("name", "?")) if rv != null else hand_name)
-		"useHandRoom":
-			return "Capacité : %s" % hand_name
 		"buildMiniboss", "promoteMiniboss", "activateMiniboss":
 			var mdg: Array = ((_G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("dungeon", [])
 			var mslot := int(args[1]) if t == "buildMiniboss" else int(args[0])
 			var mroom = BossEngine.active_room(mdg[mslot]) if mslot >= 0 and mslot < mdg.size() else null
 			var rname := str((mroom as Dictionary).get("name", "?")) if mroom != null else "?"
 			if t == "buildMiniboss":
-				return "Miniboss : %s -> sur %s (face cachée, 1 pièce pour la révéler)" % [hand_name, rname]
+				return "MINIBOSS: %s -> ON %s (FACE-DOWN, 1 COIN TO REVEAL)" % [hand_name, rname]
 			var mname := Minibosses.mb_name(Minibosses.mb_of(mroom))
 			if t == "promoteMiniboss":
 				var alt := int(args[1]) if args.size() > 1 else -1
-				return "Promouvoir %s (%s)" % [mname, "1 pièce" if alt < 0 else "défausse %s" % str((hand[alt] as Dictionary).get("name", "?"))]
-			return "%s : pouvoir niveau %d" % [mname, int(args[1])]
+				return "PROMOTE %s (%s)" % [mname, "1 COIN" if alt < 0 else "DISCARD %s" % str((hand[alt] as Dictionary).get("name", "?"))]
+			return "%s: LEVEL %d POWER" % [mname, int(args[1])]
 		"discardForCoin":
-			return "Défausser %s : +1 pièce" % hand_name
+			return "DISCARD %s: +1 COIN" % hand_name
 		"rmbBoss":
-			return "Boss : %s (%s)" % [str(args[0]), "annuler le +1 des pièges" if str(args[0]) == "RMB011" else "2 pièces"]
+			return "BOSS: %s (%s)" % [str(args[0]), "CANCEL THE TRAPS' +1" if str(args[0]) == "RMB011" else "2 COINS"]
 		"rmbHand":
-			return "Capacité : %s%s" % [hand_name, " (%s)" % str(args[1]) if args.size() > 1 and str(args[1]) != "" else ""]
+			return "ABILITY: %s%s" % [hand_name, " (%s)" % str(args[1]) if args.size() > 1 and str(args[1]) != "" else ""]
 		"rmbPay":
-			return "Payer 1 pièce (Paywall)"
+			return "PAY 1 COIN (PAYWALL)"
 		"rmbCancel":
-			return "Mageseeker : défausse %s, annule le sort" % (str((hand[int(args[1])] as Dictionary).get("name", "?")) if args.size() > 1 and int(args[1]) < hand.size() else "?")
+			return "MAGESEEKER: DISCARD %s, CANCEL THE SPELL" % (str((hand[int(args[1])] as Dictionary).get("name", "?")) if args.size() > 1 and int(args[1]) < hand.size() else "?")
 		"payDarkHero":
-			return "Payer %s (héros noir)" % hand_name
+			return "PAY %s (DARK HERO)" % hand_name
 		"docScarecrow":
 			var town: Array = _G.get("town", [])
 			var ti := int(args[1]) if args.size() > 1 else -1
-			return "Épouvantail : %s -> %s" % [hand_name, str((town[ti] as Dictionary).get("name", "?")) if ti >= 0 and ti < town.size() else "?"]
+			return "SCARECROW: %s -> %s" % [hand_name, str((town[ti] as Dictionary).get("name", "?")) if ti >= 0 and ti < town.size() else "?"]
 		"timebenderCancel":
-			return "Dr. Timebender : défausse %s, annule le sort" % hand_name
+			return "DR. TIMEBENDER: DISCARD %s, CANCEL THE SPELL" % hand_name
 		"antimagicCancel":
-			return "Antimagic Zone : annule le sort"
+			return "ANTIMAGIC ZONE: CANCEL THE SPELL"
 		_:
 			return hand_name if hand_name != "" else t
 
 func _do(move: Dictionary) -> void:
-	if game_manager.apply_move(_my_pid(), move):
-		refresh()
+	_popup_close() # une fenetre ouverte pour ce coup (cible, choix) se ferme avec lui
+	game_manager.apply_move(_my_pid(), move)
+	refresh() # toujours : ce qui reste a decider (nouveau choix) doit reapparaitre
 
 func _on_hand_card_clicked(idx: int, card: Dictionary) -> void:
 	if _is_opening_discard_for_me():
@@ -1213,6 +1472,8 @@ func _on_hand_card_clicked(idx: int, card: Dictionary) -> void:
 		_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
 		refresh()
 		return
+	if _modal_open() or (_popup != null and is_instance_valid(_popup)):
+		return
 	var phase: String = game_manager.G.get("phase", "")
 	if (phase == "build" or phase == "setup") and card.get("isRoom", false):
 		var dungeon: Array = ((game_manager.G["players"] as Dictionary)[_my_pid()] as Dictionary).get("dungeon", [])
@@ -1220,21 +1481,98 @@ func _on_hand_card_clicked(idx: int, card: Dictionary) -> void:
 		_play_sfx("res://assets/audio/sfx/sfx_room_physical.wav")
 		if game_manager.build_room_at(_my_pid(), idx, target_slot):
 			refresh() # apply_move n'emet pas toujours state_changed en fin de coup (transition de phase)
-	elif phase == "build" and card.get("isSpell", false):
-		_play_spell_from_hand(idx)
+	else:
+		_play_from_hand(idx)
 
-func _play_spell_from_hand(idx: int) -> void:
+## Clic sur une carte de la main hors construction : sort (build / aventure / pile) ou capacite jouable depuis la main.
+## Un seul coup legal = joue direct ; plusieurs cibles = fenetre de ciblage au centre (comme la bulle d'ouverture).
+func _play_from_hand(idx: int) -> void:
 	var pid := _my_pid()
+	var cands: Array = []
 	for mv in game_manager.legal_moves(pid):
 		var m: Dictionary = mv
-		if str(m.get("type", "")) != "playSpell":
-			continue
-		var args: Array = m.get("args", [])
-		if not args.is_empty() and int(args[0]) == idx:
+		var a: Array = m.get("args", [])
+		if str(m.get("type", "")) in HAND_CLICK_TYPES and not a.is_empty() and a[0] is int and int(a[0]) == idx:
+			cands.append(m)
+	if cands.is_empty():
+		return
+	if cands.size() == 1:
+		_play_sfx("res://assets/audio/sfx/sfx_room_magic.wav")
+		_do(cands[0])
+		return
+	var hand: Array = ((game_manager.G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary).get("hand", [])
+	var card: Dictionary = hand[idx]
+	var entries: Array = []
+	for c in cands:
+		var mv: Dictionary = (c as Dictionary).duplicate()
+		entries.append({"label": _target_label(mv, card), "cb": func():
 			_play_sfx("res://assets/audio/sfx/sfx_room_magic.wav")
-			if game_manager.apply_move(pid, m):
-				refresh()
-			return
+			_do(mv)})
+	var hint: String = str((SpellTargeting.SPELL_TARGETS.get(str(card.get("id", "")), {}) as Dictionary).get("label", ""))
+	_popup_list("target", "%s - %s" % [str(card.get("name", "")), hint] if hint != "" else str(card.get("name", "")), entries, func(): _popup_close())
+
+## Description anglaise d'une cible de sort (listes de SpellTargeting ; extensions : leurs propres describe_target).
+func _target_label(m: Dictionary, card: Dictionary) -> String:
+	var args: Array = m.get("args", [])
+	var t = args[1] if args.size() > 1 else null
+	if not (t is Dictionary):
+		return str(card.get("name", "OK"))
+	var G: Dictionary = game_manager.G
+	var pid := _my_pid()
+	var sid := str(card.get("id", ""))
+	var td: Dictionary = t
+	if SpellTargeting.SPELL_TARGETS.has(sid):
+		var me: Dictionary = (G["players"] as Dictionary)[pid]
+		for o in SpellTargeting.get_spell_target_options(str((SpellTargeting.SPELL_TARGETS[sid] as Dictionary).get("type", "")), G, me, pid):
+			if str((o as Dictionary).get("value")) == str(td):
+				return str((o as Dictionary).get("label", ""))
+	var desc := ""
+	if TnlSpells.TARGETS.has(sid):
+		desc = TnlSpells.describe_target(G, td)
+	elif RmbSpells.TARGETS.has(sid):
+		desc = RmbSpells.describe_target(G, td)
+	if desc != "":
+		return desc
+	var parts: Array = []
+	if td.has("targetPlayerId"):
+		parts.append("Player %d" % (int(td["targetPlayerId"]) + 1))
+	if td.has("roomIndex"):
+		parts.append("Room %d" % (int(td["roomIndex"]) + 1))
+	if td.has("townIndex"):
+		var town: Array = G.get("town", [])
+		var ti := int(td["townIndex"])
+		parts.append(str((town[ti] as Dictionary).get("name", "Hero")) if ti >= 0 and ti < town.size() else "Hero")
+	if td.has("soulIndex"):
+		parts.append("Soul %d" % (int(td["soulIndex"]) + 1))
+	if td.has("stackId"):
+		parts.append(str((td.get("card", {}) as Dictionary).get("name", "Spell")))
+	return " / ".join(parts) if not parts.is_empty() else str(card.get("name", "OK"))
+
+## Clic sur une salle activable de mon donjon : capacite directe, ou choix de la salle cible (Centipede Tunnel...).
+func _on_slot_activate(di: int) -> void:
+	if _modal_open() or (_popup != null and is_instance_valid(_popup)):
+		return
+	var cands: Array = []
+	for m in _moves_of(game_manager.legal_moves(_my_pid()), "activateRoom"):
+		var a: Array = (m as Dictionary).get("args", [])
+		if not a.is_empty() and int(a[0]) == di:
+			cands.append(m)
+	if cands.is_empty():
+		return
+	_play_sfx("res://assets/audio/sfx/sfx_room_magic.wav")
+	if cands.size() == 1:
+		_do(cands[0])
+		return
+	var dungeon: Array = ((game_manager.G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("dungeon", [])
+	var entries: Array = []
+	for c in cands:
+		var mv: Dictionary = (c as Dictionary).duplicate()
+		var a: Array = mv.get("args", [])
+		var tj := int(a[1]) if a.size() > 1 else -1
+		var tr = BossEngine.active_room(dungeon[tj]) if tj >= 0 and tj < dungeon.size() else null
+		entries.append({"label": str((tr as Dictionary).get("name", "Room %d" % (tj + 1))) if tr != null else "Room %d" % (tj + 1), "cb": func(): _do(mv)})
+	var rd = BossEngine.active_room(dungeon[di]) if di >= 0 and di < dungeon.size() else null
+	_popup_list("target", "%s - choose a Room" % str((rd as Dictionary).get("name", "")) if rd != null else "Choose a Room", entries, func(): _popup_close())
 
 func _on_discard_confirm() -> void:
 	if discard_pick.size() != 2:
@@ -1250,6 +1588,8 @@ func _is_opening_discard_for_me() -> bool:
 	return str(pc.get("type", "")) == "opening-discard" and int(pc.get("playerId", -1)) == _my_pid()
 
 func _on_advance_pressed() -> void:
+	if _animating_hero or _modal_open():
+		return
 	_play_sfx("res://assets/audio/sfx/char_hero_move.wav")
 	if _is_online():
 		_do({"type": "resolveNextHero", "args": []})
@@ -1265,8 +1605,109 @@ func _on_pass_pressed() -> void:
 		if game_manager.apply_move(_my_pid(), {"type": "passBuild", "args": []}):
 			refresh()
 
+# ---------------------------------------------------------------------------------------------------------------------
+# Menu en jeu (engrenage) : OPTIONS (MUSIC / SOUND), OK, RULES (superpose au plateau), QUIT TO MENU (avec confirmation)
+# ---------------------------------------------------------------------------------------------------------------------
+
 func _on_menu_pressed() -> void:
+	if _rules != null and is_instance_valid(_rules):
+		return
+	if _popup_kind == "menu":
+		_close_menu()
+		return
+	_open_game_menu()
+
+func _close_menu() -> void:
 	_play_sfx("res://assets/audio/sfx/ui_button_goback.wav")
+	_popup_close()
+	refresh() # un choix en attente (cache par le menu) reapparait
+
+func _open_game_menu() -> void:
+	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
+	var pop := _popup_begin("menu", 0.72)
+	var px := PLAY_CX - 360.0
+	var py := 120.0
+	var panel := Panel.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.1, 0.08, 0.06, 0.98)
+	sb.border_color = GOLD
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(14)
+	panel.add_theme_stylebox_override("panel", sb)
+	panel.position = Vector2(px, py)
+	panel.size = Vector2(720, 800)
+	pop.add_child(panel)
+	_lbl(pop, "OPTIONS", 44, GOLD, Vector2(px + 40, py + 24), 400.0, _fa)
+	var close := _tex_button(pop, "res://assets/ui/expansions/close_panel.webp", "res://assets/ui/expansions/close_panel_pressed.webp", Vector2(px + 720 - 100, py + 14), Vector2(70, 77))
+	close.pressed.connect(_close_menu)
+	_menu_toggle(pop, "MUSIC", py + 180.0, px, AudioManager.music_on, func(on: bool): AudioManager.set_music_on(on))
+	_menu_toggle(pop, "SOUND", py + 290.0, px, AudioManager.sfx_on, func(on: bool): AudioManager.set_sfx_on(on))
+	var ok := _tex_button(pop, "res://assets/ui/buttons/ok_bt.webp", "res://assets/ui/buttons/ok_bt_pressed.webp", Vector2(PLAY_CX - 103, py + 380), Vector2(206, 99))
+	ok.pressed.connect(_close_menu)
+	var rules := Button.new()
+	rules.text = "RULES"
+	rules.custom_minimum_size = Vector2(440, 84)
+	rules.size = Vector2(440, 84)
+	rules.position = Vector2(PLAY_CX - 220, py + 520)
+	rules.pressed.connect(_open_rules)
+	pop.add_child(rules)
+	var quit := Button.new()
+	quit.text = "QUIT TO MENU"
+	quit.custom_minimum_size = Vector2(440, 84)
+	quit.size = Vector2(440, 84)
+	quit.position = Vector2(PLAY_CX - 220, py + 640)
+	quit.pressed.connect(_open_quit_confirm)
+	pop.add_child(quit)
+
+## Ligne « MUSIC / SOUND » : deux segments ON / OFF (le choisi = pierre verte, comme l'ecran OPTIONS du menu).
+func _menu_toggle(pop: Control, text: String, y: float, px: float, is_on: bool, cb: Callable) -> void:
+	_lbl(pop, text, 34, Color.WHITE, Vector2(px + 40, y - 20), 260.0, _fb)
+	var row := Control.new()
+	pop.add_child(row)
+	_draw_menu_toggle(row, y, px, is_on, cb)
+
+func _draw_menu_toggle(row: Control, y: float, px: float, is_on: bool, cb: Callable) -> void:
+	for c in row.get_children():
+		row.remove_child(c)
+		c.queue_free()
+	var x0 := px + 330.0
+	_rect(row, Color(109 / 255.0, 99 / 255.0, 131 / 255.0), Vector2(x0, y - 36), Vector2(320, 72))
+	for i in 2:
+		var sel := (i == 0) == is_on
+		var x := x0 + 160.0 * i
+		if sel:
+			_img(row, "res://assets/ui/buttons/settings_bt.webp", Vector2(x - 2, y - 44), Vector2(164, 88))
+		_lbl(row, "ON" if i == 0 else "OFF", 30, GOLD if sel else Color(0.9, 0.88, 0.96), Vector2(x, y - 20), 160.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
+		var hit := Button.new()
+		for n in ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]:
+			hit.add_theme_stylebox_override(n, StyleBoxEmpty.new())
+		hit.focus_mode = Control.FOCUS_NONE
+		hit.position = Vector2(x, y - 36)
+		hit.size = Vector2(160, 72)
+		var turn_on := i == 0
+		hit.pressed.connect(func():
+			cb.call(turn_on)
+			_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
+			_draw_menu_toggle(row, y, px, turn_on, cb))
+		row.add_child(hit)
+
+## RULES : la visionneuse des regles (RulesViewer, la meme que le menu principal) se superpose au plateau ; fermer = retour au jeu.
+func _open_rules() -> void:
+	if _rules != null and is_instance_valid(_rules):
+		return
+	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
+	_rules = RulesViewer.new()
+	_rules.closed.connect(func(): _rules = null)
+	add_child(_rules)
+
+func _open_quit_confirm() -> void:
+	_popup_list("quit", "Quit to menu? The current game will be lost", [
+		{"label": "YES, QUIT", "cb": _confirm_quit},
+		{"label": "NO, KEEP PLAYING", "cb": _open_game_menu},
+	])
+
+func _confirm_quit() -> void:
+	_popup_close()
 	if on_exit_callback.is_valid():
 		on_exit_callback.call()
 
@@ -1278,13 +1719,13 @@ func _on_discard_pile_pressed() -> void:
 	var h_disc: Array = decks.get("heroDiscard", [])
 
 	var dialog := AcceptDialog.new()
-	dialog.title = "DÉFAUSSES (DISCARD PILES)"
+	dialog.title = "DISCARD PILES"
 	dialog.size = Vector2i(700, 480)
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 10)
 
 	var lbl := Label.new()
-	lbl.text = "Salles défaussées (%d) :\n%s\n\nSorts défaussés (%d) :\n%s\n\nHéros morts (%d) :\n%s" % [
+	lbl.text = "Discarded Rooms (%d):\n%s\n\nDiscarded Spells (%d):\n%s\n\nDead Heroes (%d):\n%s" % [
 		r_disc.size(),
 		", ".join(r_disc.map(func(c): return str((c as Dictionary).get("name", "?")))),
 		s_disc.size(),
@@ -1303,10 +1744,6 @@ func _on_discard_pile_pressed() -> void:
 
 func _on_level_up_pressed() -> void:
 	_play_sfx("res://assets/audio/sfx/sting_levelup.wav")
-	# Si un choix de level-up est en attente, le mettre en surbrillance
-	var pc: Dictionary = game_manager.G.get("pendingChoice", {})
-	if not pc.is_empty():
-		choice_bar.modulate = Color(1.5, 1.5, 0.5, 1.0)
 
 func _get_total_dungeon_damage(player_dict: Dictionary) -> int:
 	var total := 0

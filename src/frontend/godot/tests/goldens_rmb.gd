@@ -1735,7 +1735,7 @@ func _t_ui_labels_and_menu() -> void:
 	var hand: Array = [_minicard("RMB056")]
 	var lab := {"build": str(ui._move_label({"type": "buildMiniboss", "args": [0, 0]}, G, hand)), "promote": str(ui._move_label({"type": "promoteMiniboss", "args": [0, -1]}, G, hand)),
 		"act": str(ui._move_label({"type": "activateMiniboss", "args": [0, 3]}, G, hand)), "coin": str(ui._move_label({"type": "discardForCoin", "args": [0]}, G, hand))}
-	_ok.call(str(lab["build"]).contains("Kid Croak") and str(lab["promote"]).contains("Spike") and str(lab["act"]).contains("niveau 3") and str(lab["coin"]).contains("Kid Croak"), "libelles des coups RMB : miniboss, salle et niveau nommes (%s)" % str(lab))
+	_ok.call(str(lab["build"]).contains("Kid Croak") and str(lab["promote"]).contains("Spike") and str(lab["act"]).contains("LEVEL 3") and str(lab["coin"]).contains("Kid Croak"), "libelles des coups RMB : miniboss, salle et niveau nommes (%s)" % str(lab))
 	ui.free()
 
 # --- soaks IA-vs-IA (deterministes : soak_seed.gd) -------------------------------------------------------------------------------------------
@@ -1919,7 +1919,7 @@ func _t_ui_board() -> void:
 		for ch in (slot as Node).get_children():
 			foe_found = foe_found or (ch is Label and str(ch.text) == "MINIBOSS (face-down)")
 	_ok.call(foe_found, "plateau : le miniboss adverse face cache est montre sans son nom")
-	_ok.call(board.deck_info_label.text.contains("Pièces : 3"), "plateau : les Coins du joueur sont affiches")
+	_ok.call(board.deck_info_label.text.contains("COINS: 3"), "plateau : les Coins du joueur sont affiches")
 	board.free()
 	gm.free()
 	AudioManager.stop_music() # le plateau lance la musique : sans cela Godot signale une ressource encore utilisee a la sortie

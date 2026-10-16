@@ -19,6 +19,7 @@ var _log := ErrLogger.new()
 var _fails: Array = []
 var gm: GameManager
 var board
+var quit_calls := 0
 
 func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
@@ -48,7 +49,7 @@ func _run() -> void:
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(board)
 	board.skip_animations = false # on veut exercer la traversee des heros meme en headless
-	board.setup(gm, func(): pass)
+	board.setup(gm, func(): quit_calls += 1)
 	await _wait(0.1)
 	var last_sig := ""
 	var stuck := 0
@@ -86,6 +87,8 @@ func _run() -> void:
 	# L'affichage doit refleter l'etat final : bandeau de phase = phase du jeu.
 	if G.get("gameOver") == null and board._last_phase != str(G.get("phase")):
 		_fails.append("ecran fige : bandeau %s != phase %s" % [board._last_phase, G.get("phase")])
+	if _fails.is_empty():
+		await _extra_checks()
 
 ## Un geste d'humain par pas, via les memes points d'entree que les clics reels.
 func _act() -> void:
@@ -135,3 +138,180 @@ func _act() -> void:
 				board._on_advance_pressed()
 			elif types.has("passBuild") or types.has("pass"):
 				board._on_pass_pressed()
+
+# --- Interactions sans bouton non-APK : sort par clic sur la carte, capacite par clic sur la salle, menu, regles, confirmation ---
+
+func _check(cond: bool, msg: String) -> bool:
+	if not cond:
+		_fails.append(msg)
+	return cond
+
+func _take_spell(id: String) -> int:
+	var G: Dictionary = gm.G
+	var deck: Array = G["decks"]["spells"]
+	for i in deck.size():
+		if str((deck[i] as Dictionary).get("id", "")) == id:
+			var hand: Array = G["players"][0]["hand"]
+			hand.append(deck.pop_at(i))
+			board.refresh()
+			return hand.size() - 1
+	return -1
+
+func _buttons(n: Node, out: Array = []) -> Array:
+	for c in n.get_children():
+		if c is Button:
+			out.append(c)
+		_buttons(c, out)
+	return out
+
+## Partie neuve amenee au debut de la construction du tour 1 (aucun choix en attente) : etat comparable d'un lancement a l'autre.
+func _new_game() -> void:
+	if board != null:
+		board.queue_free()
+		gm.queue_free()
+		await get_tree().process_frame
+	CardDB._rng.seed = 424242
+	gm = GameManager.new()
+	add_child(gm)
+	gm.start_new_game(2, 1, ["base"])
+	board = load("res://godot/scenes/Board.tscn").instantiate()
+	board.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(board)
+	board.skip_animations = true
+	board.setup(gm, func(): quit_calls += 1)
+	await _wait(0.1)
+	for step in 600:
+		var G: Dictionary = gm.G
+		if str(G.get("phase", "")) == "build" and (G.get("pendingChoice", {}) as Dictionary).is_empty() and int((G["players"][0] as Dictionary).get("buildsThisTurn", 0)) == 0 and not gm.legal_moves(0).is_empty():
+			return
+		await _wait(0.05)
+		_act()
+	_fails.append("partie neuve : la construction du tour 1 n'a pas ete atteinte")
+
+## Apres un sort / une capacite : la pile (Spell Battle) et les choix en attente se vident (l'IA repond, l'humain passe).
+func _drain() -> void:
+	for i in 300:
+		if (gm.G.get("stack", []) as Array).is_empty() and (gm.G.get("pendingChoice", {}) as Dictionary).is_empty():
+			return
+		await _wait(0.05)
+		_act()
+	_fails.append("pile / choix jamais resolus apres un sort")
+
+func _extra_checks() -> void:
+	await _new_game()
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	board.refresh()
+	# Main : cartes ~210x300 a 1920x1080
+	var cards: Array = board.hand_layer.get_children().filter(func(c): return not c.is_queued_for_deletion())
+	if _check(not cards.is_empty(), "main vide a l'ecran"):
+		_check((cards[0] as Control).size == Vector2(210, 300), "carte de main %s != 210x300" % (cards[0] as Control).size)
+	_check(board.extra_bar.get_child_count() == 0 or not board.extra_bar.visible, "bouton non-APK visible en partie de base")
+	# 1) Sort sans cible : un clic sur la carte le joue (aucun bouton « Sort : ... »)
+	var idx := _take_spell("BMA050") # Motivation : phase de construction, sans cible
+	if _check(idx >= 0, "BMA050 introuvable dans la pioche de sorts"):
+		var n_before := (me["hand"] as Array).size()
+		var legal := gm.legal_moves(0).filter(func(m): return m["type"] == "playSpell" and int(m["args"][0]) == idx)
+		if _check(legal.size() == 1, "BMA050 : %d coups playSpell (1 attendu)" % legal.size()):
+			board._on_hand_card_clicked(idx, (me["hand"] as Array)[idx])
+			await get_tree().process_frame
+			_check((me["hand"] as Array).size() == n_before - 1, "clic sur le sort : la carte n'a pas ete jouee")
+			_check(board._popup_kind == "", "popup inattendu pour un sort sans cible")
+			await _drain()
+	# 2) Sort a cible multiple : fenetre de ciblage, choix d'une cible ; CANCEL la referme sans jouer
+	var town: Array = G["town"]
+	while town.size() < 2: # le tour 1 peut commencer avec la ville vide : on y met deux heros pour avoir plusieurs cibles
+		town.append((CardDB.heroes[town.size()] as Dictionary).duplicate(true))
+	idx = _take_spell("BMA051")
+	if _check(idx >= 0, "BMA051 introuvable dans la pioche de sorts"):
+		var n2 := (me["hand"] as Array).size()
+		board._on_hand_card_clicked(idx, (me["hand"] as Array)[idx])
+		await get_tree().process_frame
+		if _check(board._popup_kind == "target", "sort a cibles multiples : pas de fenetre de ciblage (popup=%s)" % board._popup_kind):
+			var btns := _buttons(board._popup)
+			_check(btns.size() == town.size() + 1, "ciblage : %d boutons (%d attendus)" % [btns.size(), town.size() + 1])
+			(btns[btns.size() - 1] as Button).pressed.emit() # CANCEL
+			await get_tree().process_frame
+			_check(board._popup_kind == "" and (me["hand"] as Array).size() == n2, "CANCEL : popup ferme et carte conservee")
+			board._on_hand_card_clicked(idx, (me["hand"] as Array)[idx])
+			await get_tree().process_frame
+			btns = _buttons(board._popup)
+			(btns[0] as Button).pressed.emit() # premiere cible
+			await get_tree().process_frame
+			_check(board._popup_kind == "" and (me["hand"] as Array).size() == n2 - 1, "cible choisie : le sort doit etre joue")
+			await _drain()
+	# 3) Capacite de salle : halo + clic gauche sur la salle (aucun bouton « Capacite : ... »)
+	var done := false
+	for rid in Match.ACTIVATABLE_ROOMS:
+		if not str(rid).begins_with("BMA") or done:
+			continue
+		var proto: Dictionary = {}
+		for r in CardDB.rooms:
+			if str((r as Dictionary).get("id", "")) == rid:
+				proto = (r as Dictionary).duplicate(true)
+				break
+		if proto.is_empty():
+			continue
+		proto["faceDown"] = false
+		proto.erase("usedThisTurn")
+		(me["dungeon"] as Array).push_front([proto])
+		board.refresh()
+		var acts := gm.legal_moves(0).filter(func(m): return m["type"] == "activateRoom" and int(m["args"][0]) == 0)
+		if acts.is_empty():
+			(me["dungeon"] as Array).pop_front()
+			board.refresh()
+			continue
+		done = true
+		var slot: DungeonSlot = null
+		for sl in board._dungeon_slots:
+			if (sl as DungeonSlot).slot_index == 0 and not (sl as DungeonSlot).current_stack.is_empty():
+				slot = sl
+		if _check(slot != null, "salle activable %s : aucun emplacement" % rid) and _check(slot.activatable, "salle activable %s : pas de halo" % rid):
+			var log_n := (G.get("log", []) as Array).size()
+			var ev := InputEventMouseButton.new()
+			ev.button_index = MOUSE_BUTTON_LEFT
+			ev.pressed = true
+			slot._gui_input(ev)
+			await get_tree().process_frame
+			var changed: bool = (G.get("log", []) as Array).size() != log_n or bool((proto).get("usedThisTurn", false)) or board._popup_kind != "" or not (G.get("pendingChoice", {}) as Dictionary).is_empty()
+			_check(changed, "clic gauche sur la salle %s : capacite non declenchee" % rid)
+			if board._popup_kind == "choice": # la capacite ouvre un choix : il s'affiche en popup centre, avec un bouton par option
+				_check(not _buttons(board._popup).is_empty(), "choix en attente : popup sans bouton")
+			await _drain()
+	_check(done, "aucune salle activable trouvee pour le test de clic")
+	board._popup_close()
+	# 4) Menu engrenage : ouvre une fenetre (ne quitte PAS), OK referme
+	var q0 := quit_calls
+	board._on_menu_pressed()
+	_check(board._popup_kind == "menu" and quit_calls == q0, "engrenage : menu non ouvert ou sortie directe")
+	board._close_menu()
+	_check(board._popup_kind == "", "menu non referme")
+	# 5) Regles en superposition (le plateau reste en place), puis fermeture
+	board._on_menu_pressed()
+	board._open_rules()
+	await get_tree().process_frame
+	_check(board._rules != null and is_instance_valid(board._rules) and board._rules.get_parent() == board, "regles : pas de superposition sur le plateau")
+	_check(board.hand_layer != null and is_instance_valid(board.hand_layer) and board.is_inside_tree(), "regles : plateau detruit")
+	board._rules.close_viewer()
+	await get_tree().process_frame
+	_check(board._rules == null and board._popup_kind == "menu", "regles : fermeture -> retour au menu")
+	# 6) QUIT TO MENU : confirmation, NO revient au menu, YES quitte
+	var rbtns := _buttons(board._popup)
+	var quit_btn: Button = null
+	for b in rbtns:
+		if (b as Button).text == "QUIT TO MENU":
+			quit_btn = b
+	if _check(quit_btn != null, "bouton QUIT TO MENU absent"):
+		quit_btn.pressed.emit()
+		await get_tree().process_frame
+		_check(board._popup_kind == "quit" and quit_calls == q0, "confirmation de sortie absente")
+		var cb := _buttons(board._popup)
+		(cb[1] as Button).pressed.emit() # NO
+		await get_tree().process_frame
+		_check(board._popup_kind == "menu" and quit_calls == q0, "NO : retour au menu attendu")
+		board._open_quit_confirm()
+		await get_tree().process_frame
+		cb = _buttons(board._popup)
+		(cb[0] as Button).pressed.emit() # YES
+		await get_tree().process_frame
+		_check(quit_calls == q0 + 1, "YES : callback de sortie non appele")

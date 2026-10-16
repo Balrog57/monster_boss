@@ -24,6 +24,20 @@ var is_in_hand: bool = true
 @onready var glow_rect: TextureRect = get_node_or_null("GlowRect")
 
 var _tween: Tween
+static var _gray_mat: ShaderMaterial
+
+## Carte injouable : desaturee (l'APK grise les cartes que l'on ne peut pas jouer maintenant).
+func set_greyed(on: bool) -> void:
+	if _gray_mat == null:
+		var sh := Shader.new()
+		sh.code = "shader_type canvas_item;
+void fragment() { vec4 c = texture(TEXTURE, UV); float g = dot(c.rgb, vec3(0.3, 0.59, 0.11)) * 0.62; COLOR = vec4(vec3(g), c.a); }"
+		_gray_mat = ShaderMaterial.new()
+		_gray_mat.shader = sh
+	if texture_rect == null:
+		texture_rect = get_node_or_null("TextureRect")
+	if texture_rect != null:
+		texture_rect.material = _gray_mat if on else null
 
 func _ready() -> void:
 	custom_minimum_size = default_size
@@ -64,7 +78,7 @@ func _update_view() -> void:
 			title_label.visible = false
 		if stat_label:
 			stat_label.visible = false
-		tooltip_text = "Salle face cachée"
+		tooltip_text = "Face-down Room"
 		return
 
 	if title_label:
@@ -76,13 +90,13 @@ func _update_view() -> void:
 		if card_data.card_type == "room":
 			stat_label.text = "%d DMG" % card_data.damage
 			if card_data.is_advanced:
-				stat_label.text += " (Adv)"
+				stat_label.text += " (ADV)"
 		elif card_data.card_type == "hero":
-			stat_label.text = "%d PV" % card_data.health
+			stat_label.text = "%d HP" % card_data.health
 		elif card_data.card_type == "boss":
 			stat_label.text = "%d XP" % card_data.xp
 		elif card_data.card_type == "spell":
-			stat_label.text = "SORT"
+			stat_label.text = "SPELL"
 		else:
 			stat_label.text = ""
 

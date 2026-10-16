@@ -28,8 +28,8 @@ const OnlineGameManager = preload("res://godot/scripts/OnlineGameManager.gd")
 const Profile = preload("res://godot/scripts/Profile.gd")
 
 const UI := "res://assets/ui/"
-const FONT_A := "res://assets/fonts/arcadepix.TTF"   # texte plein (bandeaux, ON/OFF)
-const FONT_B := "res://assets/fonts/arcadepix2.TTF"  # texte strie (boutons, libelles)
+const FONT_A := "res://assets/fonts/arcadepix.fnt"   # texte plein (bandeaux, ON/OFF)
+const FONT_B := "res://assets/fonts/arcadepix2.fnt"  # texte strie (boutons, libelles)
 const GOLD := Color("cdb15f")
 ## Carrousel « HOW MANY PLAYERS? » : carte du dessus (ou "" = dos) de chaque eventail.
 const FANS := {2: ["BMA006", "BMA002", ""], 3: ["BMA005", "", ""], 4: ["BMA001", "", ""]}
@@ -44,7 +44,7 @@ var server_host := "http://127.0.0.1:8000"
 var players := 2 # choix courant de « HOW MANY PLAYERS? »
 var dyn_root: Control # contenu redessine a chaque clic (eventails, tuiles)
 var _gray: ShaderMaterial
-var profile := {"name": "Joueur", "avatar": "avatar_draculord"}
+var profile := {"name": "Player", "avatar": "avatar_draculord"}
 var selected_avatar := "avatar_draculord"
 
 func _ready() -> void:
@@ -129,6 +129,7 @@ func _menu_btn(text: String, icon_path: String = "") -> Button:
 	var b := Button.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(460, 72)
+	b.add_theme_font_override("font", _font(FONT_B))
 	b.add_theme_font_size_override("font_size", 28)
 	if icon_path != "" and ResourceLoader.exists(icon_path):
 		b.icon = load(icon_path)
@@ -140,12 +141,14 @@ func _title_label(text: String, size: int = 40) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_font_override("font", _font(FONT_B))
 	l.add_theme_font_size_override("font_size", size)
 	return l
 
 func _back_btn(where: Callable) -> Button:
 	var b := Button.new()
-	b.text = "Retour"
+	b.text = "BACK"
+	b.add_theme_font_override("font", _font(FONT_B))
 	b.pressed.connect(func(): AudioManager.play_sfx("ui_button_goback"))
 	b.pressed.connect(where)
 	return b
@@ -425,7 +428,7 @@ func _open_board(gm: GameManager) -> void:
 
 func show_multi() -> void:
 	var v := _screen("res://assets/ui/backgrounds/multiplayer_bg.webp")
-	v.add_child(_title_label("%s" % profile.get("name", "Joueur"), 28))
+	v.add_child(_title_label("%s" % profile.get("name", "Player"), 28))
 	var friends := _menu_btn("WITH FRIENDS")
 	friends.pressed.connect(func(): show_friends())
 	v.add_child(friends)
@@ -438,7 +441,7 @@ func show_profile() -> void:
 	var v := _screen("res://assets/ui/backgrounds/multiplayer_bg.webp")
 	v.add_child(_title_label("INSERT USERNAME", 28))
 	var edit := LineEdit.new()
-	edit.text = str(profile.get("name", "Joueur"))
+	edit.text = str(profile.get("name", "Player"))
 	edit.max_length = 16
 	edit.custom_minimum_size = Vector2(460, 56)
 	edit.add_theme_font_size_override("font_size", 28)
@@ -494,7 +497,7 @@ func show_friends() -> void:
 		var count: int = n
 		b.pressed.connect(func(): _create_online(count))
 		v.add_child(b)
-	v.add_child(_title_label("Code ami :", 22))
+	v.add_child(_title_label("Friend code:", 22))
 	var code := LineEdit.new()
 	code.placeholder_text = "ABC123"
 	code.max_length = 6
@@ -513,7 +516,7 @@ func show_friends() -> void:
 			if await online.try_resume():
 				show_waiting()
 			elif is_instance_valid(err) and err.text == "":
-				err.text = "Erreur : impossible de reprendre la partie")
+				err.text = "Error: unable to resume the game")
 		v.add_child(resume)
 	v.add_child(err)
 	_net_error_to(err)
@@ -531,37 +534,37 @@ func _net_disconnect() -> void:
 
 func _on_net_error(msg: String) -> void:
 	if is_instance_valid(net_err_lbl):
-		net_err_lbl.text = "Erreur : %s" % msg
+		net_err_lbl.text = "Error: %s" % msg
 
 func _create_online(count: int) -> void:
 	online.host = server_host
-	online.player_name = str(profile.get("name", "Joueur"))
+	online.player_name = str(profile.get("name", "Player"))
 	if not await online.create_lobby(count, _active_sets()):
 		return
 	show_waiting()
 
 func _join_online(code: String) -> void:
 	online.host = server_host
-	if not await online.join_lobby(code, str(profile.get("name", "Joueur"))):
+	if not await online.join_lobby(code, str(profile.get("name", "Player"))):
 		return
 	show_waiting()
 
 func show_waiting() -> void:
 	_net_disconnect()
 	var v := _screen("res://assets/ui/backgrounds/multiplayer_bg.webp")
-	v.add_child(_title_label("Code salon :", 24))
+	v.add_child(_title_label("Lobby code:", 24))
 	var code_lbl := _title_label(online.match_id, 64)
 	v.add_child(code_lbl)
 	var seats_lbl := _title_label("...", 24)
 	v.add_child(seats_lbl)
-	v.add_child(_title_label("Donnez ce code a vos amis. 60 s par tour.", 18))
-	var bots := _menu_btn("Start with bots")
+	v.add_child(_title_label("Give this code to your friends. 60 s per turn.", 18))
+	var bots := _menu_btn("START WITH BOTS")
 	bots.visible = online.is_host and online.current_status != "running"
 	bots.add_to_group("waiting_start")
 	bots.pressed.connect(func(): online.start_match())
 	v.add_child(bots)
 	var cancel := Button.new()
-	cancel.text = "Quitter"
+	cancel.text = "LEAVE"
 	cancel.pressed.connect(func(): _leave_waiting())
 	v.add_child(cancel)
 	if not online.lobby_changed.is_connected(_on_lobby_changed):
@@ -587,7 +590,7 @@ func _leave_waiting() -> void:
 
 func _on_waiting_error(msg: String) -> void:
 	for n in get_tree().get_nodes_in_group("waiting_seats"):
-		(n as Label).text = "Erreur : %s" % msg
+		(n as Label).text = "Error: %s" % msg
 
 func _on_lobby_changed(info: Dictionary) -> void:
 	var names: Array = []
@@ -680,69 +683,10 @@ func _draw_toggle(row: Control, y: int, opts: Array, sel: int, cb: Callable) -> 
 			cb.call(idx)
 			_draw_toggle(row, y, opts, idx, cb)))
 
-## Visionneuse des regles (godot/data/rules.txt) : un onglet par section (titre en MAJUSCULES), habillage de play_rules_base.png.
+## Visionneuse des regles : voir RulesViewer.gd (partagee avec le plateau).
 func show_rules(tab: int = 0) -> void:
 	_clear()
-	var bg := ColorRect.new()
-	bg.color = Color(0.11, 0.08, 0.15)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-	var top := ColorRect.new()
-	top.color = Color(0.18, 0.13, 0.22)
-	top.size = Vector2(1920, 92)
-	add_child(top)
-	add_child(_tex("navigation/rules_icon.webp", Vector2(26, 14), Vector2(64, 64)))
-	add_child(_lbl("RULES", 52, GOLD, Vector2(110, 6), Vector2(400, 80), FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
-	add_child(_img_btn("expansions/close_panel.webp", "expansions/close_panel_pressed.webp", Vector2(1810, 8), func(): show_menu(), Vector2(70, 77), "ui_button_goback"))
-	var secs := _rules_sections()
-	for i in secs.size():
-		var x := 20 + 235 * i
-		var r := ColorRect.new()
-		r.color = GOLD if i == tab else Color(0.16, 0.12, 0.2)
-		r.position = Vector2(x, 106)
-		r.size = Vector2(225, 46)
-		add_child(r)
-		add_child(_lbl(str(secs[i][0]), 15, Color.BLACK if i == tab else GOLD, Vector2(x, 106), Vector2(225, 46), FONT_A))
-		var idx := i
-		add_child(_hit(Vector2(x, 106), Vector2(225, 46), func(): show_rules(idx)))
-	var panel := Panel.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.2, 0.14, 0.22)
-	sb.border_color = GOLD
-	sb.set_border_width_all(4)
-	sb.set_corner_radius_all(26)
-	panel.add_theme_stylebox_override("panel", sb)
-	panel.position = Vector2(10, 166)
-	panel.size = Vector2(1900, 904)
-	add_child(panel)
-	var scroll := ScrollContainer.new()
-	scroll.position = Vector2(300, 190)
-	scroll.size = Vector2(1320, 860)
-	add_child(scroll)
-	var body := Label.new()
-	body.custom_minimum_size = Vector2(1300, 0)
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.add_theme_font_size_override("font_size", 24)
-	body.text = str(secs[tab][1])
-	scroll.add_child(body)
-
-## [[titre, texte], ...] : « INTRO » puis une section par ligne de titre (MAJUSCULES, precedee d'une ligne vide).
-func _rules_sections() -> Array:
-	var lines := _load_rules_text().split("\n")
-	var secs: Array = [["INTRO", ""]]
-	for i in lines.size():
-		var t := lines[i].strip_edges()
-		var letters := 0
-		for ch in t:
-			letters += 1 if ch.to_upper() != ch.to_lower() else 0
-		if t != "" and t == t.to_upper() and letters >= 4 and (i == 0 or lines[i - 1].strip_edges() == ""):
-			secs.append([t, ""])
-		else:
-			secs[-1][1] += lines[i] + "\n"
-	return secs
-
-func _load_rules_text() -> String:
-	var f := FileAccess.open("res://godot/data/rules.txt", FileAccess.READ)
-	if f == null:
-		return "Regles introuvables (godot/data/rules.txt)."
-	return f.get_as_text()
+	var v := RulesViewer.new()
+	v.tab = tab
+	v.closed.connect(func(): show_menu())
+	add_child(v)
