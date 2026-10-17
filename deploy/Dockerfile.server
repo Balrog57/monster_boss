@@ -1,0 +1,28 @@
+# deploy/Dockerfile.server - Boss Monster : serveur multijoueur Godot 4.7.2 headless (WebSocket, parties en mémoire)
+#
+# Build depuis la racine du dépôt :
+#   docker build -f deploy/Dockerfile.server .
+# (ou via deploy/docker-compose.yml, service `server`.)
+# Atteint uniquement par nginx (proxy /ws) sur le réseau compose : aucun port publié.
+
+# --- Stage 1 : téléchargement du binaire Godot Linux (pas d'export templates : inutiles en headless)
+FROM debian:bookworm-slim AS fetch
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl unzip \
+ && rm -rf /var/lib/apt/lists/*
+RUN curl -fsSL -o /tmp/godot.zip https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip \
+ && unzip -q /tmp/godot.zip -d /tmp \
+ && install -m 0755 /tmp/Godot_v4.7.2-stable_linux.x86_64 /godot
+
+# --- Stage 2 : exécution, utilisateur non-root
+FROM debian:bookworm-slim
+COPY --from=fetch /godot /usr/local/bin/godot
+RUN useradd --create-home --uid 10001 godot
+USER godot
+ENV HOME=/home/godot
+WORKDIR /app
+COPY --chown=godot:godot src/frontend /app/src/frontend
+# Génère le cache des class_name globaux (tolérant : --import peut sortir en erreur alors que le cache est écrit).
+RUN godot --headless --path /app/src/frontend --import || true
+EXPOSE 8091
+CMD ["godot", "--headless", "--path", "/app/src/frontend", "res://godot/server/Server.tscn", "--", "--port=8091", "--turn-timeout=60"]

@@ -1,4 +1,4 @@
-# deploy/docker-compose.yml - Boss Monster (client Godot web servi par nginx, statique)
+# deploy/docker-compose.yml - Boss Monster (client Godot web servi par nginx + serveur multijoueur Godot headless)
 #
 # Deploy on homelab (from the repo root):
 #   cd /DATA/AppData/boss-monster
@@ -7,7 +7,7 @@
 #
 # Access: http://192.168.1.98:8090
 #
-# Le service serveur multijoueur Godot (headless) sera ajouté ici plus tard.
+# Multijoueur : le service `server` n'est joignable que par nginx (proxy /ws), aucun port publié.
 name: boss-monster
 services:
   web:
@@ -19,11 +19,29 @@ services:
     restart: unless-stopped
     ports:
       - "8090:80"
+    depends_on:
+      - server
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
       interval: 30s
       timeout: 5s
       start_period: 10s
+      retries: 3
+
+  server:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.server
+    image: boss-monster-server:latest
+    container_name: boss-monster-server
+    restart: unless-stopped
+    expose:
+      - "8091"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8091'"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
       retries: 3
 
 x-casaos:

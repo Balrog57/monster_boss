@@ -30,11 +30,9 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Build Docker image (Godot web export + nginx)
-        run: docker build -f deploy/Dockerfile -t boss-monster-web:ci .
-      - name: Run container
+      - name: Build and start the stack (web export + nginx, Godot multiplayer server)
         run: |
-          docker run -d --name bm -p 8090:80 boss-monster-web:ci
+          docker compose -f deploy/docker-compose.yml up -d --build
           for i in $(seq 1 30); do
             curl -sf http://127.0.0.1:8090/ >/dev/null && exit 0
             sleep 1
@@ -63,7 +61,21 @@ jobs:
 
           code=$(curl -s -o /dev/null -w '%{http_code}' "$base/index.service.worker.js")
           [ "$code" = 404 ] || fail "index.service.worker.js returned $code (expected 404, PWA disabled)"
+      - name: Assert WebSocket upgrade through nginx (/ws -> server)
+        run: |
+          for i in $(seq 1 30); do
+            out=$(curl -s -i -N --max-time 5 \
+              -H "Connection: Upgrade" -H "Upgrade: websocket" \
+              -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+              http://127.0.0.1:8090/ws || true)
+            echo "$out" | head -n 1 | grep -q '101 Switching Protocols' && exit 0
+            sleep 2
+          done
+          echo "$out"
+          echo "FAIL: /ws did not return 101 Switching Protocols"
+          exit 1
       - name: Container logs
         if: always()
-        run: docker logs bm
-
+        run: |
+          docker logs boss-monster-web
+          docker logs boss-monster-server

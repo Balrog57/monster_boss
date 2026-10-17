@@ -1,7 +1,8 @@
 # Déploiement sur ZimaOS
 
-Le jeu est un export web Godot (statique) servi par nginx dans un conteneur
-unique `boss-monster-web`. L'export est produit **dans le build Docker**
+Le jeu comprend deux conteneurs : `boss-monster-web` (export web Godot statique
+servi par nginx) et `boss-monster-server` (serveur multijoueur Godot headless,
+voir section 8). L'export est produit **dans le build Docker**
 (image `barichello/godot-ci`) : rien à exporter à la main avant le build.
 Plus de Node ni de Postgres.
 
@@ -9,7 +10,8 @@ Plus de Node ni de Postgres.
 
 - ZimaOS avec Docker et Docker Compose (fournis par défaut), accès SSH
   (alias `homelab` si configuré, sinon `ssh user@192.168.1.98`)
-- Accès internet sortant pour tirer `barichello/godot-ci:4.7.2` et `nginx:alpine`
+- Accès internet sortant pour tirer `barichello/godot-ci:4.7.2`, `nginx:alpine`,
+  `debian:bookworm-slim` et le binaire Godot 4.7.2 (GitHub releases)
 - Quelques Go libres pour le premier build (image Godot ~ 2 Go)
 
 ## 1. Première installation
@@ -61,6 +63,7 @@ DOCKER_CONFIG=/DATA/.docker-root docker compose -f deploy/docker-compose.yml up 
 
 ```bash
 docker logs boss-monster-web
+docker logs boss-monster-server    # serveur multijoueur
 docker compose -f deploy/docker-compose.yml ps
 ```
 
@@ -85,6 +88,9 @@ le navigateur revalide à chaque chargement (ETag, réponses 304 peu coûteuses)
 
 - Le nom d'hôte du tunnel se configure dans le tableau de bord Cloudflare, pas
   dans le dépôt ; il pointe vers `http://192.168.1.98:8090`.
+- Les tunnels Cloudflare gèrent les WebSockets sans réglage particulier ; il faut
+  seulement laisser **WebSockets** activé dans les paramètres Network de la zone
+  (activé par défaut). Le tunnel pointe toujours vers le port 8090 : `/ws` passe par nginx.
 - **Désactiver Rocket Loader** pour ce nom d'hôte (Speed > Optimization) : il
   réécrit les `<script>` et casse le chargeur Emscripten/Godot.
 - Service worker : le PWA est désactivé dans l'export. Les navigateurs ayant
@@ -93,9 +99,27 @@ le navigateur revalide à chaque chargement (ETag, réponses 304 peu coûteuses)
 
 ## 8. Multijoueur
 
-Tant que le serveur multijoueur Godot n'est pas déployé, le bouton
-« WITH FRIENDS » affiche une erreur de connexion : c'est normal. Le service
-serveur et le proxy nginx `/ws` seront ajoutés avec lui.
+- Service `server` (conteneur `boss-monster-server`, image construite par
+  `deploy/Dockerfile.server`) : Godot 4.7.2 headless, WebSocket sur le port 8091
+  du réseau compose. **Aucun port n'est publié** : seul nginx l'atteint.
+  Les parties vivent en mémoire (pas de base de données) : un redémarrage du
+  conteneur les efface.
+- nginx (`deploy/nginx.conf`) proxifie `/ws` vers `server:8091` (en-têtes
+  `Upgrade`/`Connection`, timeouts 3600 s). Le client web se connecte à
+  `ws(s)://<hôte de la page>/ws`. nginx démarre même si le serveur est arrêté
+  (resolver Docker + variable) ; `/ws` répond alors `502` jusqu'à son retour.
+- Délai de tour : option `--turn-timeout=60` (secondes) dans le `CMD` de
+  `deploy/Dockerfile.server`. Autres options : `--port`, `--adventure-timeout`,
+  `--bot-delay`, `--ttl`, `--max-rooms` (voir `src/frontend/godot/server/PROTOCOL.md`).
+  Après modification : `docker compose -f deploy/docker-compose.yml up -d --build server`.
+- Logs : `docker logs -f boss-monster-server`.
+- Test du proxy (doit répondre `101 Switching Protocols`) :
+
+```bash
+curl -s -i -N --max-time 5 -H "Connection: Upgrade" -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+  http://192.168.1.98:8090/ws
+```
 
 ## 9. Migration depuis l'ancienne pile (Node + Postgres)
 
@@ -127,4 +151,6 @@ Postgres, supprimées définitivement.
 | Écran blanc / page périmée | Ancien service worker | Recharger deux fois (section 7) |
 | Écran blanc via Cloudflare seulement | Rocket Loader actif | Le désactiver (section 7) |
 | `502` via Cloudflare | Conteneur arrêté | `docker logs boss-monster-web`, `curl -I http://192.168.1.98:8090/` |
+| « WITH FRIENDS » : erreur de connexion, `/ws` en `502` | Serveur multijoueur arrêté ou en cours de démarrage | `docker logs boss-monster-server`, `docker compose -f deploy/docker-compose.yml ps` |
+| `/ws` ne répond pas `101` via Cloudflare | WebSockets désactivés dans la zone | Réactiver (section 7) |
 | `permission denied` sur `docker compose` | `/DATA/.docker*` non inscriptible via SSH | `DOCKER_CONFIG=/tmp/dockercfg-bm` (section 2) |
