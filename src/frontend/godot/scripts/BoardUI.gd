@@ -1505,6 +1505,10 @@ func _boss_flip_others(animate: bool) -> void:
 ## CardUI.card_clicked). Les positions viennent de l'evenement (en _input, la souris du viewport n'est pas encore a jour) ; le
 ## relachement hors de la zone ou de la fenetre est vu (pas de _gui_input), et un mouvement sans bouton gauche termine le glisser.
 func _input(event: InputEvent) -> void:
+	# Un nouvel appui gauche alors qu'un appui est encore arme : le relachement precedent s'est perdu (hors canvas / fenetre).
+	if not _press.is_empty() and _drag.is_empty() and event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+		_press = {}
+		_press_recheck.call_deferred() # apres _gui_input : si ce nouvel appui est sur une carte de la main, _on_hand_press a rearme _press
 	if _zoom != null and event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
 		_zoom_hide() # le zoom de LEVEL UP part au clic suivant (le zoom d'appui long se ferme deja au relachement)
 	if not _press.is_empty() or not _drag.is_empty():
@@ -2855,6 +2859,15 @@ func _can_drag() -> bool:
 
 func _on_hand_press(card: Control, at: Vector2) -> void:
 	_press = {"card": card, "idx": (card as CardUI).hand_index, "pos": at}
+
+## Relachement jamais livre (pointeur sorti du canvas / fenetre perdue) : on abandonne l'appui pour que la main puisse se rafraichir.
+func _notification(what: int) -> void:
+	if what in [NOTIFICATION_WM_MOUSE_EXIT, NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_WM_WINDOW_FOCUS_OUT] and _drag.is_empty() and not _press.is_empty():
+		_press_clear()
+
+func _press_recheck() -> void:
+	if _press.is_empty() and _hand_stale:
+		_press_clear()
 
 ## Fin de l'appui : la main saute-t-elle un rafraichissement, on le rejoue apres le traitement du relachement (le clic de la carte passe d'abord).
 func _press_clear() -> void:

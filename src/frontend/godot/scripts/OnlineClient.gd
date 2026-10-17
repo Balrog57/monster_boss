@@ -256,7 +256,7 @@ func _count_result() -> void:
 	if not count_results or match_id == "" or match_id == _result_for or not (over is Dictionary):
 		return
 	_result_for = match_id
-	Profile.record_result(int((over as Dictionary).get("winner", -1)) == player_id)
+	Profile.record_result(int((over as Dictionary).get("winner", -1)) == player_id, match_id)
 
 ## La vue serveur est deja au format de Match.G (cles entieres restaurees par NetCodec) ; on ne garde que
 ## le contrat historique : gameOver = null tant que la partie court.

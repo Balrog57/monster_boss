@@ -13,6 +13,10 @@ const KNOWN_SETS := ["players-choice", "hidden-heroes", "tools", "next-level", "
 const CODE_ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ"
 const CODE_LENGTH := 4
 const MAX_MSGS_PER_SEC := 60
+## Anti-force-brute des codes de salon (24^4 = 331 776) : echecs join/resume tolerables par seconde sur TOUT le serveur
+## (au-dela : `busy` sans consulter les salles) et par connexion (au-dela : connexion coupee).
+const MAX_FAILED_JOINS_PER_SEC := 5
+const MAX_FAILED_JOINS_PER_CONN := 5
 ## Connexion muette (les clients envoient ping toutes les 20 s). Large a dessein : un onglet en arriere-plan est suspendu par le
 ## navigateur et n'envoie plus rien ; couper trop vite le ferait passer pour deconnecte (le client rouvre de toute facon avec resume).
 const IDLE_TIMEOUT_MS := 120000
@@ -32,6 +36,8 @@ var _conns := {} # id -> {ws, room, born, seen, window_start, window_count}
 var _rooms := {} # code -> GameRoom
 var _next_id := 1
 var _gc_at := 0
+var _fail_window_start := 0
+var _fail_count := 0
 
 func _ready() -> void:
 	if not auto_start:
@@ -100,6 +106,9 @@ func _process(_delta: float) -> void:
 		ws.poll()
 		match ws.get_ready_state():
 			WebSocketPeer.STATE_OPEN:
+				if c.get("kill", false):
+					ws.close(1008, "trop d'essais")
+					continue
 				while ws.get_available_packet_count() > 0:
 					var pkt := ws.get_packet()
 					if not ws.was_string_packet():
@@ -182,7 +191,26 @@ static func _clean_profile(d: Dictionary) -> Dictionary:
 	for ch in av:
 		if not (ch in "abcdefghijklmnopqrstuvwxyz_"):
 			ok = false
-	return {"avatar": av if ok else "", "wins": clampi(int(d.get("wins", 0)), 0, 99999), "defeats": clampi(int(d.get("defeats", 0)), 0, 99999)}
+	var w = d.get("wins", 0)
+	var df = d.get("defeats", 0)
+	return {"avatar": av if ok else "", "wins": clampi(int(w) if typeof(w) in [TYPE_INT, TYPE_FLOAT] else 0, 0, 99999), "defeats": clampi(int(df) if typeof(df) in [TYPE_INT, TYPE_FLOAT] else 0, 0, 99999)}
+
+## Vrai si le serveur a deja eu trop d'echecs join/resume dans la seconde en cours.
+func _join_throttled() -> bool:
+	var now := Time.get_ticks_msec()
+	if now - _fail_window_start > 1000:
+		_fail_window_start = now
+		_fail_count = 0
+	return _fail_count >= MAX_FAILED_JOINS_PER_SEC
+
+func _join_failed(id: int, text: String, kind: String, count_global := true) -> void:
+	if count_global:
+		_fail_count += 1
+	_error(id, text, kind)
+	var c: Dictionary = _conns[id]
+	c["fails"] = int(c.get("fails", 0)) + 1
+	if int(c["fails"]) >= MAX_FAILED_JOINS_PER_CONN:
+		c["kill"] = true # coupee a l'image suivante : l'erreur doit partir avant la trame de fermeture
 
 func _new_code() -> String:
 	var bytes := Crypto.new().generate_random_bytes(CODE_LENGTH)
@@ -220,24 +248,28 @@ func _on_message(id: int, d: Dictionary) -> void:
 			_rooms[r.code] = r
 			_join(id, r, _clean_name(d.get("name", "")), _clean_profile(d))
 		"join":
-			var r: GameRoom = _rooms.get(str(d.get("code", "")).strip_edges().to_upper(), null)
 			if room != null:
 				return _error(id, "deja dans une salle", "busy")
+			if _join_throttled():
+				return _join_failed(id, "trop d'essais, reessayez plus tard", "busy", false)
+			var r: GameRoom = _rooms.get(str(d.get("code", "")).strip_edges().to_upper(), null)
 			if r == null:
-				return _error(id, "salon introuvable", "not_found")
+				return _join_failed(id, "salon introuvable", "not_found")
 			if r.status != "open" or r.free_seat() < 0:
 				return _error(id, "salon complet ou deja lance", "full")
 			_join(id, r, _clean_name(d.get("name", "")), _clean_profile(d))
 		"resume":
+			if _join_throttled():
+				return _join_failed(id, "trop d'essais, reessayez plus tard", "busy", false)
 			var r: GameRoom = _rooms.get(str(d.get("code", "")).strip_edges().to_upper(), null)
 			var seat := int(d.get("seat", -1))
 			if room != null and room == r and room.seat_of(id) == seat:
 				return _send(id, room.message_for(seat)) # reprise redondante (reconnexion automatique du client)
 			if r == null or room != null:
-				return _error(id, "salon introuvable", "not_found")
+				return _join_failed(id, "salon introuvable", "not_found")
 			var old := int(r.seats[seat]["conn"]) if seat >= 0 and seat < r.num_players else -1
 			if not r.resume(seat, str(d.get("token", "")), id):
-				return _error(id, "jeton invalide", "bad_token")
+				return _join_failed(id, "jeton invalide", "bad_token")
 			if old >= 0 and old != id and _conns.has(old):
 				_conns[old]["room"] = ""
 				(_conns[old]["ws"] as WebSocketPeer).close(1000, "siege repris ailleurs")

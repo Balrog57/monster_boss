@@ -56,10 +56,19 @@ static func load_stats() -> Dictionary:
 	cfg.load(SAVE_PATH)
 	return {"wins": maxi(0, int(cfg.get_value("stats", "wins", 0))), "defeats": maxi(0, int(cfg.get_value("stats", "defeats", 0)))}
 
-static func record_result(won: bool) -> void:
+const COUNTED_KEEP := 20 # derniers codes de salle deja comptes (survit au rechargement + RESUME d'une salle terminee)
+
+## `code` : salle de la partie ; si elle a deja ete comptee (meme apres rechargement), ne fait rien.
+static func record_result(won: bool, code: String = "") -> void:
 	var st := load_stats()
 	var cfg := ConfigFile.new()
 	cfg.load(SAVE_PATH)
+	if code != "":
+		var counted: Array = Array(cfg.get_value("stats", "counted", []))
+		if code in counted:
+			return
+		counted.append(code)
+		cfg.set_value("stats", "counted", counted.slice(-COUNTED_KEEP))
 	cfg.set_value("stats", "wins" if won else "defeats", int(st["wins" if won else "defeats"]) + 1)
 	cfg.save(SAVE_PATH)
 

@@ -27,7 +27,7 @@ Les cles entieres des dictionnaires (`players`, `stackPassed`...) voyagent en te
 - `lobby` (avant la partie, a chaque changement) : `code`, `status` (`open|running|finished`), `numPlayers`, `seats: [{name|null, bot, connected, avatar, wins, defeats}]` (`avatar` = nom de fichier d'avatar sans extension, "" si inconnu ; `name` borne a 25 caracteres ; `wins` / `defeats` = compteurs locaux du joueur, cosmetiques), `sets`, `host`.
 - `state` (en partie, apres chaque coup ; contient aussi les champs de `lobby`) : `seat`, `view` (G filtre pour CE siege, format de `Match.G`),
   `moves` (coups legaux de ce siege), `deadline` (ms unix de fin du delai en cours, 0 = aucun), `awaited` (sieges humains dont une decision bloque la partie : le client affiche le compte a rebours quand son siege y figure), `serverTime` (le client en deduit le decalage d'horloge).
-- `error` : `message`, `code` (`bad_message|busy|full|not_found|bad_token|forbidden|bad_state|no_seat|illegal`). Un coup illegal est suivi d'un `state` de resynchronisation.
+- `error` : `message`, `code` (`bad_message|busy|full|not_found|bad_token|forbidden|bad_state|no_seat|illegal`). Un coup illegal est suivi d'un `state` de resynchronisation. Anti-force-brute : au-dela de 5 echecs `join`/`resume` (`not_found`/`bad_token`) par seconde sur tout le serveur, `join`/`resume` repondent `busy` sans consulter les salles ; 5 echecs sur une connexion la coupent (1008).
 - `closed` : la salle n'existe plus (hote parti, TTL). `pong`.
 
 ## Regles serveur

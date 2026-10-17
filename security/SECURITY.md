@@ -31,7 +31,7 @@ Deux conteneurs (`deploy/docker-compose.yml`), pas de base de données :
   `online` échoue si une nouvelle clé n'est pas classée.
 - **Sièges** : un siège se reprend avec le `token` secret reçu à la
   création/jonction ; les codes de salle (4 lettres) ne donnent que le droit
-  de rejoindre un siège libre.
+  de rejoindre un siège libre ; anti-force-brute (331 776 codes) : plus de 5 échecs `join`/`resume` par seconde sur tout le serveur → `busy` sans recherche, 5 échecs sur une connexion la coupent (`Server.gd`).
 - **Compteurs WINS/DEFEATS** : déclarés par le client et affichés dans la salle
   d'attente ; ils sont **cosmétiques**, non vérifiés, et ne doivent servir à aucune décision.
 - **Pas de persistance** : les parties vivent en mémoire (TTL après le dernier humain,

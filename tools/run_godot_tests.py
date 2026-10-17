@@ -28,30 +28,37 @@ SUITES = [
 ]
 
 
-def run(scene: str, args: list[str]) -> str:
+TIMEOUT_S = 300
+
+
+def run(scene: str, args: list[str]) -> tuple[str, bool]:
     p = subprocess.Popen([godot_exe(), "--headless", "--path", os.path.join(ROOT, "src", "frontend"), scene, *args],
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+    timed_out = False
     try:
-        out, _ = p.communicate(timeout=300)
+        out, _ = p.communicate(timeout=TIMEOUT_S)
     except subprocess.TimeoutExpired:
+        timed_out = True
         # On tue l'arbre de CE run seulement (un taskkill global tuerait aussi l'editeur / d'autres suites).
         if os.name == "nt":
             subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True)
         else:
             p.kill()
         out, _ = p.communicate()
-    return out.decode("utf-8", errors="replace")
+    return out.decode("utf-8", errors="replace"), timed_out
 
 
 def main() -> int:
     failed = 0
     for label, scene, marker, args in SUITES:
-        out = run(scene, args)
-        if marker in out and "SCRIPT ERROR" not in out:
+        out, timed_out = run(scene, args)
+        if not timed_out and marker in out and "SCRIPT ERROR" not in out:
             print(f"[godot] {label}: OK", flush=True)
             continue
         failed += 1
-        print(f"[godot] {label}: ECHEC", flush=True)
+        print(f"[godot] {label}: ECHEC" + (f" - TIMEOUT after {TIMEOUT_S} s" if timed_out else ""), flush=True)
+        if timed_out:
+            print("\n".join(out.splitlines()[-20:]), flush=True)
         print("\n".join([l for l in out.splitlines() if re.search(r"ERROR|ECHEC|SCRIPT", l)][:10]), flush=True)
     print(f"[godot] {len(SUITES) - failed}/{len(SUITES)} suites OK")
     return 1 if failed else 0

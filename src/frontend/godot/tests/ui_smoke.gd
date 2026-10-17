@@ -1836,6 +1836,18 @@ func _check_drag_and_zoom() -> void:
 	await _right_click(start, false)
 	_check(board._zoom == null, "clic droit : zoom reste ouvert")
 	_cov("long_press")
+	# relachement jamais livre (pointeur hors fenetre) : la perte de focus abandonne l'appui, le rafraichissement suivant reconstruit la main
+	board.refresh()
+	await get_tree().process_frame
+	card = _hand_cards()[_hand_cards().size() - 1]
+	await _mouse(card.get_global_rect().get_center(), true, false)
+	board.refresh()
+	_check(not board._press.is_empty() and is_instance_valid(card) and card in _hand_cards(), "appui en cours : la main doit rester figee")
+	board.notification(Node.NOTIFICATION_APPLICATION_FOCUS_OUT)
+	board.refresh()
+	await get_tree().process_frame
+	_check(board._press.is_empty() and not (is_instance_valid(card) and card in _hand_cards()), "perte de focus : l'appui doit etre abandonne et la main reconstruite")
+	await _mouse(Vector2(5, 5), false, false) # relachement tardif sans effet
 	# un clic simple joue encore un sort sans cible
 	await _new_game()
 	G = gm.G

@@ -276,6 +276,8 @@ func _run_network() -> void:
 		await _scenario_timeout()
 	if _fails.is_empty():
 		await _scenario_sleep()
+	if _fails.is_empty():
+		await _scenario_bruteforce()
 	if FileAccess.file_exists(OnlineClient.SESSION_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(OnlineClient.SESSION_PATH))
 	server.stop()
@@ -402,6 +404,29 @@ func _scenario_reload() -> void:
 	a.queue_free()
 	b2.queue_free()
 	evil.queue_free()
+
+## Anti-force-brute : au-dela de 5 echecs join/resume par seconde (serveur) -> `busy` ; 5 echecs sur une connexion -> coupee ;
+## puis un bon join passe (fenetre de 1 s ecoulee), meme avec des wins/defeats de mauvais type (ignores -> 0).
+func _scenario_bruteforce() -> void:
+	var host := _client("Hote")
+	if not _expect(await host.create_lobby(3, []), "bruteforce : create"):
+		return
+	await get_tree().create_timer(1.1).timeout # fenetre propre
+	var a := _client("Brute")
+	for i in 5:
+		_expect(not await a.join_lobby("QQQQ", "Brute") and a.last_error_code == "not_found", "bruteforce : essai %d -> %s" % [i, a.last_error_code])
+	_expect(await _wait(func(): return not a.connected, 3.0), "bruteforce : 5 echecs doivent couper la connexion")
+	var b := _client("Joueur")
+	_expect(not await b.join_lobby("QQQQ", "Joueur") and b.last_error_code == "busy", "bruteforce : au-dela de la limite serveur -> busy (%s)" % b.last_error_code)
+	b.match_id = ""
+	await get_tree().create_timer(1.1).timeout
+	var r: Dictionary = await b._call({"t": "join", "name": "Joueur", "code": host.match_id, "wins": [1], "defeats": {"x": 1}}, "joined")
+	if _expect(not r.is_empty(), "bruteforce : un bon join doit passer une fois la fenetre ecoulee"):
+		var seat: Dictionary = server.get_room(host.match_id).seats[int(r["seat"])]
+		_expect(int(seat["wins"]) == 0 and int(seat["defeats"]) == 0, "wins/defeats de mauvais type -> 0 : %s" % str(seat))
+	host.queue_free()
+	a.queue_free()
+	b.queue_free()
 
 func _scenario_timeout() -> void:
 	var c := _client("Seul")
