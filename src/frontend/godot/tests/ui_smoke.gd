@@ -1508,8 +1508,9 @@ func _right_click(pos: Vector2, pressed: bool) -> void:
 
 ## Barre verte de l'aventure (3 s, au-dessus du heros) et de la pile de sorts (6 s) : visible tant qu'un sort est jouable, pas de PASS TURN,
 ## cadre dore sur le sort jouable, le jeu continue (passe envoye) quand elle est vide. Etat construit a la main ; temps simule avec _process(dt).
-func _check_windows() -> void:
-	_tag = "[windows]"
+## Etat d'aventure construit a la main : un heros dans ma premiere salle, Giant Size en main, l'IA n'a rien a jouer (la fenetre ne depend que
+## du joueur). Renvoie l'index du sort dans la main (-1 si introuvable).
+func _adventure_window_setup() -> int:
 	await _new_game()
 	board.set_process(false)
 	board.win_time_scale = 1.0
@@ -1534,10 +1535,17 @@ func _check_windows() -> void:
 	G["adventurePausePassed"] = {"1": true, 1: true} # l'IA a deja passe : la fenetre n'attend que le joueur
 	G["activePlayer"] = 0
 	var gi := _take_spell("BMA047") # Giant Size : +3 degats a une salle de monstres (cibles : la salle posee)
-	if not _check(gi >= 0, "fenetres : Giant Size introuvable"):
-		return
 	board.refresh()
 	await get_tree().process_frame
+	return gi
+
+func _check_windows() -> void:
+	_tag = "[windows]"
+	var gi := await _adventure_window_setup()
+	if not _check(gi >= 0, "fenetres : Giant Size introuvable"):
+		return
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
 	var moves: Array = gm.legal_moves(0)
 	if not _check(board._has_decision(moves) and moves.any(func(m): return m["type"] == "pass"), "fenetres : aucun sort jouable / pas de passe dans la fenetre construite"):
 		return
@@ -2016,13 +2024,208 @@ func _check_effects() -> void:
 	board.skip_animations = true
 	_cov("effects")
 
+## Fenetres a l'horloge murale : Godot plafonne delta (~0,13 s) quand les images sont lentes (web, onglet en arriere-plan, ~1 image/s) ; une
+## fenetre de 3 s durait alors 20-30 s. Ici delta est minuscule mais 0,3 s reelles passent entre deux images : la barre doit suivre l'horloge.
+## Une ligne de journal / un siege qui passe ne rouvre pas la fenetre (l'APK ne remet la barre a zero qu'a un pas du heros ou un sort).
+func _check_window_clock() -> void:
+	_tag = "[window-clock]"
+	var gi := await _adventure_window_setup()
+	if not _check(gi >= 0, "horloge : Giant Size introuvable"):
+		return
+	board.win_time_scale = 0.5 # fenetre de 1,5 s
+	var G: Dictionary = gm.G
+	var n := 0
+	for i in 12:
+		OS.delay_msec(300)
+		(G["log"] as Array).append("ligne de journal %d" % i) # un autre siege a agi : ne doit pas rouvrir la fenetre
+		board._process(0.01)
+		n += 1
+		if i == 1:
+			_check(str(G["adventure"].get("pause")) == "post-damage" and board._win_bar.visible and absf(board._win_bar.frac - 0.6) < 0.2, "horloge : apres 0,6 s reelles la barre doit etre a ~60 %% (frac %.2f, pause %s)" % [board._win_bar.frac, str(G["adventure"].get("pause"))])
+		if str(G["adventure"].get("pause")) != "post-damage":
+			break
+	_check(str(G["adventure"].get("pause")) == "pre-exit" and n >= 4 and n <= 7, "horloge : la fenetre de 1,5 s doit finir en 4-7 images lentes de 0,3 s (%d images, pause %s)" % [n, str(G["adventure"].get("pause"))])
+	_cov("window_clock")
+
+## Un seul clic (deplacement, appui, relachement) agit : sur une salle de la main avec plusieurs emplacements il ouvre le ciblage « construire
+## par-dessus », sur la zone doree il construit. Cas qui perdaient le clic : un rafraichissement (coup de l'IA) entre l'appui et le relachement
+## detruisait la carte appuyee ; un appui qui tombait sur le voile pendant la repose des zones.
+func _check_single_click() -> void:
+	_tag = "[single-click]"
+	for variant in ["plain", "refresh-mid-click", "dim-fallback"]:
+		await _new_game()
+		var me: Dictionary = gm.G["players"][0]
+		var hand: Array = me["hand"]
+		var idx := -1
+		for i in hand.size():
+			if bool((hand[i] as Dictionary).get("isRoom", false)) and not bool((hand[i] as Dictionary).get("advanced", false)):
+				idx = i
+				break
+		if not _check(idx >= 0, "clic simple : aucune salle en main"):
+			return
+		for k in 2: # deux salles de meme type en donjon : la salle de la main peut aller sur l'une, l'autre ou l'emplacement libre
+			var host: Dictionary = (hand[idx] as Dictionary).duplicate(true)
+			host["faceDown"] = false
+			(me["dungeon"] as Array).push_front([host])
+		board.refresh()
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var n_targets := _n_build_targets(0, idx)
+		if not _check(n_targets >= 3, "clic simple (%s) : %d emplacements seulement" % [variant, n_targets]):
+			return
+		var dsize: int = (me["dungeon"] as Array).size()
+		var pos: Vector2 = (_hand_cards()[idx] as CardUI).get_global_rect().get_center()
+		await _mouse(pos, false, true) # survol
+		await _mouse(pos, true, false)
+		if variant == "refresh-mid-click":
+			board.refresh() # l'IA a joue entre l'appui et le relachement
+			await get_tree().process_frame
+		await _mouse(pos, false, false)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		if not _check(not board._tgt.is_empty(), "clic simple (%s) : un seul clic sur la salle de la main n'a pas ouvert le ciblage" % variant):
+			return
+		_check(board._tgt_spots.size() == n_targets, "clic simple (%s) : %d zones pour %d emplacements" % [variant, board._tgt_spots.size(), n_targets])
+		var free_spot: Dictionary = {}
+		for s in board._tgt_spots:
+			var e: Dictionary = (board._tgt["entries"] as Array)[int((s["ids"] as Array)[0])]
+			if str((e.get("spot", {}) as Dictionary).get("k", "")) == "free":
+				free_spot = s
+		if not _check(not free_spot.is_empty(), "clic simple (%s) : pas de zone « emplacement libre »" % variant):
+			return
+		var c2: Vector2 = (free_spot["ctrl"] as Control).get_global_rect().get_center()
+		if variant == "dim-fallback":
+			var ev := InputEventMouseButton.new() # appui qui atterrit sur le voile (zones en cours de repose) : la zone qui contient le point joue
+			ev.button_index = MOUSE_BUTTON_LEFT
+			ev.pressed = true
+			ev.position = c2
+			ev.global_position = c2
+			board._target_dim_input(ev)
+		else:
+			await _mouse(c2, false, true)
+			await _mouse(c2, true, false)
+			await _mouse(c2, false, false)
+		await get_tree().process_frame
+		_check(board._tgt.is_empty() and (me["dungeon"] as Array).size() == dsize + 1, "clic simple (%s) : un seul clic sur la zone doree n'a pas construit (donjon %d -> %d)" % [variant, dsize, (me["dungeon"] as Array).size()])
+		_cov("single_click_" + variant)
+
+## Choix du boss : (1) l'IA prend le boss que le joueur vient de valider pendant le retournement (0,65 s) -> le titre montrait ce boss, puis
+## « ... », et le joueur restait sans boss ; l'IA attend desormais que le coup du joueur soit joue. (2) l'IA retire une AUTRE carte : celle du
+## centre reste au centre (les indices se decalaient).
+func _check_boss_race() -> void:
+	_tag = "[boss-race]"
+	await _teardown()
+	CardDB._rng.seed = 99
+	gm = GameManager.new()
+	add_child(gm)
+	gm.start_new_game(2, 1, ["base"])
+	board = load("res://godot/scenes/Board.tscn").instantiate()
+	board.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(board)
+	board.skip_animations = false # retournement reel ; board._process tourne (l'IA joue)
+	board.setup(gm, func(): quit_calls += 1)
+	var picks: Array = gm.G["bossPicks"]
+	var ai_mv = AI.pick_move(gm, 1)
+	if not _check(ai_mv != null and str(ai_mv["type"]) == "pickBoss", "course : l'IA ne propose pas de pickBoss"):
+		return
+	var ai_id := str((ai_mv["args"] as Array)[0])
+	var idx := -1
+	for i in picks.size():
+		if str((picks[i] as Dictionary)["id"]) == ai_id:
+			idx = i
+	var ai_name := str((picks[idx] as Dictionary)["name"]).to_upper()
+	board._boss_select(idx) # le boss que l'IA va prendre
+	board._confirm_btn.pressed.emit()
+	var titles: Array = []
+	for f in 90: # ~1,5 s : l'IA joue a 0,5 s, le retournement finit a 0,65 s
+		await get_tree().process_frame
+		if str(gm.G.get("phase")) == "boss":
+			titles.append([board._boss_flipping, board._carousel_text.text])
+		await _wait(0.016)
+	var me_boss = gm.G["players"][0].get("boss")
+	var foe_boss = gm.G["players"][1].get("boss")
+	_check(me_boss != null and str((me_boss as Dictionary).get("id", "")) == ai_id, "course : le boss valide par le joueur ne lui est pas revenu (%s)" % str(me_boss.get("name") if me_boss != null else "aucun"))
+	_check(foe_boss != null and str((foe_boss as Dictionary).get("id", "")) != ai_id, "course : l'IA a pris le meme boss que le joueur")
+	for t in titles: # retournement : le nom du boss valide ; sinon « ... » (jamais le boss d'un autre)
+		_check(str(t[1]).contains(ai_name) if bool(t[0]) else str(t[1]).contains("..."), "course : titre %s (retournement %s)" % [str(t[1]), str(t[0])])
+	# (2) la carte du centre ne bouge pas quand l'IA retire une autre carte
+	await _teardown()
+	CardDB._rng.seed = 99
+	gm = GameManager.new()
+	add_child(gm)
+	gm.start_new_game(2, 1, ["base"])
+	board = load("res://godot/scenes/Board.tscn").instantiate()
+	board.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(board)
+	board.skip_animations = true
+	board.set_process(false)
+	board.setup(gm, func(): quit_calls += 1)
+	await _wait(0.1)
+	picks = gm.G["bossPicks"]
+	var keep := str((picks[picks.size() - 1] as Dictionary)["id"])
+	board._boss_select(picks.size() - 1)
+	var taken := str((picks[0] as Dictionary)["id"])
+	gm.apply_move(1, {"type": "pickBoss", "args": [taken]})
+	board.refresh()
+	await get_tree().process_frame
+	var now_picks: Array = gm.G["bossPicks"]
+	_check(not now_picks.is_empty() and str((now_picks[board._boss_sel] as Dictionary)["id"]) == keep, "course : la carte du centre a change quand l'IA a pris une autre carte")
+	_cov("boss_race")
+
+## Choix sur le plateau (Centipede Tunnel : echange de 2 salles, y compris chez l'adversaire) : une fois resolu, plus aucune zone doree ni voile,
+## et la barre de temps n'est plus figee. Les entrees portent leur coup (mv) : _target_sync ferme le ciblage quand il n'est plus legal.
+func _check_choice_target() -> void:
+	_tag = "[choice-target]"
+	await _new_game()
+	board.set_process(false)
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	var cent: Dictionary = {}
+	for r in CardDB.rooms:
+		if str((r as Dictionary).get("id", "")) == "BMA033":
+			cent = (r as Dictionary).duplicate(true)
+	if not _check(not cent.is_empty(), "choix plateau : BMA033 introuvable"):
+		return
+	cent["isRoom"] = true
+	(me["hand"] as Array).append(cent)
+	board.refresh()
+	if not _check(gm.build_room_at(0, (me["hand"] as Array).size() - 1, (me["dungeon"] as Array).size()), "choix plateau : Centipede Tunnel non construit"):
+		return
+	gm.apply_move(0, {"type": "passBuild", "args": []})
+	board.refresh()
+	await get_tree().process_frame
+	var pc: Dictionary = G.get("pendingChoice", {})
+	if not _check(str(pc.get("type", "")) == "swap-rooms" and int(pc.get("playerId", -1)) == 0 and board._tgt.has("choice") and board._tgt_spots.size() > 0, "choix plateau : pas de ciblage des salles a echanger (%s)" % str(pc.get("type"))):
+		return
+	var foe_rooms := 0
+	for s in board._tgt_spots:
+		var e: Dictionary = (board._tgt["entries"] as Array)[int((s["ids"] as Array)[0])]
+		if int((e.get("spot", {}) as Dictionary).get("pid", 0)) != 0:
+			foe_rooms += 1
+	_check(foe_rooms > 0, "choix plateau : aucune salle adverse proposee")
+	# resolu hors de l'UI (autre siege, moteur) : au rafraichissement suivant le ciblage disparait
+	var mv: Dictionary = (gm.legal_moves(0).filter(func(m): return m["type"] == "resolveChoice")[0] as Dictionary).duplicate(true)
+	gm.apply_move(0, mv)
+	board.refresh()
+	await get_tree().process_frame
+	var pc2: Dictionary = G.get("pendingChoice", {})
+	_check(board._tgt.is_empty() or (not pc2.is_empty() and int(pc2.get("playerId", -1)) == 0), "choix plateau : ciblage encore ouvert apres la resolution")
+	if board._tgt.is_empty():
+		_check(board._tgt_layer == null and board._tgt_spots.is_empty(), "choix plateau : zones dorees / voile restes apres la resolution")
+		_check(not board._win_paused(), "choix plateau : la barre de temps reste figee apres la resolution")
+	_cov("choice_target_cleared")
+
 func _extra_checks() -> void:
 	await _check_stacks()
 	await _check_boss_flip()
 	await _check_boss_carousel()
+	await _check_boss_race()
 	await _check_main_flow()
 	await _check_hand_room()
 	await _check_windows()
+	await _check_window_clock()
+	await _check_single_click()
+	await _check_choice_target()
 	await _check_drag_and_zoom()
 	await _check_done_and_warning()
 	await _check_apk_gaps()

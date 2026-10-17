@@ -137,6 +137,8 @@ var _win_bar: TimeBar
 var win_time_scale := 1.0                # tests : raccourcit les fenetres chronometrees
 var _win_t := 0.0
 var _win_sig := ""
+var _last_ms := 0                        # horloge reelle du dernier _process : Godot plafonne delta a ~0,13 s par image (web a quelques i/s)
+var _hand_stale := false                 # un refresh() a ete saute pendant un appui sur une carte de la main (voir _refresh_hand)
 var _speed := 1.0                        # GameSettings.GetSpeed : SLOW 1,5 / NORMAL 1 / FAST 0,5 (durees des animations de heros)
 var _warn: Control                       # bulle de mise en garde « YOU CAN BUILD A ROOM »
 var _warn_t := 0.0
@@ -168,6 +170,7 @@ var _boss_cards: Array = []
 var _boss_drag := {}                     # glisser en cours : {x: depart, sel: carte centrale au depart, moved: seuil franchi, n: crans appliques}
 var _boss_flipping := false              # PLAY BOSS MONSTER! presse : les autres cartes se retournent avant l'ecran de defausse
 var _boss_name := ""
+var _boss_sel_id := ""                   # id du boss au centre : la selection suit la carte quand l'IA retire la sienne (les indices se decalent)
 const BOSS_DRAG_STEP := 90.0             # un cran de carrousel tous les 90 px
 const BOSS_DRAG_SLOP := 12.0             # en dessous : un clic (la carte touchee passe au centre), pas un glisser
 const BOSS_FLIP_TIME := 0.5              # FlipCardBehavior de l'APK : 0,5 s
@@ -646,15 +649,22 @@ func _process(delta: float) -> void:
 	if game_manager == null or game_manager.G.get("gameOver") != null:
 		return
 	_tick_warn(delta)
+	# Godot plafonne delta (~0,13 s) quand les images sont lentes (web, onglet en arriere-plan) : les fenetres chronometrees (APK : horloge reelle)
+	# et l'IA suivent donc l'horloge murale si elle avance plus vite (au plus 1 s par image : un onglet endormi ne vide pas la barre d'un coup).
+	var now := Time.get_ticks_msec()
+	var dt: float = maxf(delta, minf(float(now - _last_ms) / 1000.0, 1.0)) if _last_ms > 0 else delta
+	_last_ms = now
 	if _animating_hero:
 		return
 	if _modal_open() and not _is_online():
 		return # menu / regles ouverts : la partie locale est en pause
-	if _auto_pass(delta):
+	if _auto_pass(dt):
 		return
 	var players: Dictionary = game_manager.G.get("players", {})
 	var phase: String = game_manager.G.get("phase", "")
 	var pc: Dictionary = game_manager.G.get("pendingChoice", {})
+	if phase == "boss" and _boss_flipping:
+		return # le joueur a valide son boss (retournement en cours) : l'IA ne peut pas le lui prendre avant que le coup soit joue
 	for pid in players:
 		if not (players[pid] as Dictionary).get("isAI", false):
 			continue
@@ -663,7 +673,7 @@ func _process(delta: float) -> void:
 		# Aventure : l'IA active doit avancer / passer, sinon la partie attend indefiniment (pause : tous les sieges IA passent).
 		var adv_turn: bool = phase == "adventure" and pc.is_empty() and (int(pid) == game_manager.active_player() or ((game_manager.G.get("adventure", {}) as Dictionary).get("pause") != null))
 		if not moves.is_empty() and (has_ai_choice or phase == "boss" or phase == "build" or adv_turn):
-			_ai_timer += delta
+			_ai_timer += dt
 			if _ai_timer > (0.2 if adv_turn else 0.5):
 				_ai_timer = 0.0
 				var mv = AI.pick_move(game_manager, int(pid))
@@ -778,8 +788,9 @@ func _auto_pass(delta: float) -> bool:
 		# Fenetre chronometree : seulement si le joueur a une carte a jouer (pas apres les degats : la fenetre « avant sortie » passe vite)
 		var timed: bool = apk and decision and str(pause) != "pre-exit"
 		var want: float = (WINDOW_STACK if stack_open else WINDOW_ADVENTURE) * win_time_scale if timed else (GO_FAST * _speed if go_mv != null else PASS_FAST)
-		var key := JSON.stringify([phase, G.get("turn"), adv.get("playerId"), adv.get("roomIndex"), adv.get("hp"), pause, (G.get("stack", []) as Array).size(), (G.get("log", []) as Array).size(), int(pid)])
-		if key != _win_sig: # une action (sort, capacite, pas du heros) rouvre une fenetre complete
+		# APK : la barre repart a zero a chaque pas du heros et a chaque sort / capacite jouee (pile), jamais parce qu'un siege passe ou qu'une ligne de journal s'ajoute.
+		var key := JSON.stringify([phase, G.get("turn"), adv.get("playerId"), adv.get("roomIndex"), pause, (G.get("stack", []) as Array).size(), int(pid)])
+		if key != _win_sig: # un pas du heros ou un sort / une capacite sur la pile rouvre une fenetre complete
 			_win_sig = key
 			_win_t = 0.0
 		if not _win_paused():
@@ -1136,6 +1147,12 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 
 ## Main du joueur : eventail en bas ; carrousel central pour le choix du boss et la defausse d'ouverture.
 func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array) -> void:
+	# Un appui est en cours sur une carte de la main : la reconstruire (coup de l'IA, rafraichissement) detruirait la carte qui doit voir le
+	# relachement, donc le clic serait perdu (il en fallait un 2e). On attend le relachement (_press_clear) ; un glisser, lui, reconstruit.
+	if not _press.is_empty() and _drag.is_empty() and phase != "boss" and G.get("gameOver") == null and hand_layer.get_child_count() > 0:
+		_hand_stale = true
+		return
+	_hand_stale = false
 	for c in hand_layer.get_children():
 		c.queue_free()
 	_boss_cards.clear()
@@ -1202,6 +1219,10 @@ func _boss_card_rect(d: int) -> Rect2:
 func _build_boss_carousel(picks: Array) -> void:
 	_boss_cards.clear()
 	_boss_sel = clampi(_boss_sel, 0, maxi(picks.size() - 1, 0))
+	for i in picks.size(): # l'IA a pris une autre carte : celle du centre reste au centre
+		if _boss_sel_id != "" and str((picks[i] as Dictionary).get("id", "")) == _boss_sel_id:
+			_boss_sel = i
+	_boss_sel_id = str((picks[_boss_sel] as Dictionary).get("id", "")) if not picks.is_empty() else ""
 	for i in picks.size():
 		var c = _spawn_card(picks[i], -1, BOSS_CARD)
 		c.custom_minimum_size = Vector2.ZERO # la taille change avec la distance au centre
@@ -1241,6 +1262,7 @@ func _boss_select(i: int) -> void:
 	if i == _boss_sel or _boss_cards.is_empty() or _boss_flipping:
 		return
 	_boss_sel = i
+	_boss_sel_id = str((_boss_cards[i] as CardUI).card_dict.get("id", ""))
 	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
 	_boss_layout(true)
 
@@ -1256,7 +1278,11 @@ func _boss_confirm() -> void:
 	_play_sfx("res://assets/audio/sfx/boss_female_intro.wav" if is_fem else "res://assets/audio/sfx/boss_male_intro.wav")
 	var pick := func():
 		_boss_flipping = false
+		if not (game_manager.G.get("bossPicks", []) as Array).any(func(b): return str((b as Dictionary).get("id", "")) == bid):
+			refresh() # le boss n'est plus disponible (pris entre-temps) : on revient au carrousel au lieu d'un titre qui ment
+			return
 		_boss_sel = 0
+		_boss_sel_id = ""
 		_do({"type": "pickBoss", "args": [bid]})
 	if skip_animations or _boss_cards.is_empty():
 		pick.call()
@@ -1937,6 +1963,7 @@ func _target_open_layer() -> void:
 	var dim := _rect(_tgt_layer, Color(0, 0, 0, 0.5), Vector2(0, 62), Vector2(1920, 1018)) # laisse libres les barres du haut (selecteurs de sieges)
 	dim.mouse_filter = Control.MOUSE_FILTER_STOP
 	dim.z_index = TARGET_Z - 20
+	dim.gui_input.connect(_target_dim_input)
 	var bubble := _img(_tgt_layer, UI_DIR + "top_globe.webp", Vector2(PLAY_CX - 280, 96), Vector2(560, 82))
 	bubble.z_index = TARGET_Z + 10
 	var txt := _lbl(_tgt_layer, str(_tgt["hint"]).to_upper(), 20, Color.WHITE, Vector2(PLAY_CX - 250, 104), 500.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
@@ -1954,6 +1981,17 @@ func _target_open_layer() -> void:
 	_tgt_cancel_btn.z_index = TARGET_Z + 10
 	_tgt_cancel_btn.pressed.connect(_target_cancel)
 	_tgt_layer.add_child(_tgt_cancel_btn)
+
+## Les zones sont reposees apres chaque rafraichissement : un appui qui arrive pendant ce remplacement tombe sur le voile et serait perdu
+## (il fallait cliquer 2 fois). Le voile rejoue alors la zone qui contient le point.
+func _target_dim_input(ev: InputEvent) -> void:
+	if not (ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT):
+		return
+	for s in _tgt_spots:
+		var ctrl = s["ctrl"]
+		if is_instance_valid(ctrl) and (ctrl as Control).get_global_rect().has_point((ev as InputEventMouseButton).global_position):
+			_target_pick(s["ids"])
+			return
 
 func _target_cancel() -> void:
 	_play_sfx("res://assets/audio/sfx/ui_button_goback.wav")
@@ -2184,9 +2222,11 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 		if _popup_kind == "choice":
 			_popup_close() # carrousel central + bouton CONTINUE pour la defausse d'ouverture (_refresh_overlay)
 		return
+	var sig := JSON.stringify([pc.get("type"), pc.get("message"), cmoves])
+	if _tgt.has("choice") and str(_tgt.get("sig", "")) != sig:
+		_target_end() # un autre choix a pris la place de celui que le ciblage montrait : ses zones sont caduques
 	if _popup_kind in ["menu", "quit", "target"] or not _tgt.is_empty():
 		return # un menu ouvert par le joueur reste devant ; le choix reapparait a la fermeture (refresh)
-	var sig := JSON.stringify([pc.get("type"), pc.get("message"), cmoves])
 	if _popup_kind == "choice" and sig == _choice_sig:
 		return
 	var opts: Array = pc.get("options", [])
@@ -2198,7 +2238,7 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 	for m in cmoves:
 		var mv: Dictionary = (m as Dictionary).duplicate()
 		var i := int((mv.get("args", [0]) as Array)[0])
-		var e := {"label": _option_label(opts, i), "cb": func(): _do(mv)}
+		var e := {"label": _option_label(opts, i), "mv": mv, "cb": func(): _do(mv)} # mv : _target_sync ferme le ciblage des que le coup n'est plus legal
 		entries.append(e)
 		if i < 0:
 			skip = e["cb"]
@@ -2227,6 +2267,7 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 		_popup_list("choice", title, entries) # pas des cartes (oui / non, joueur...) : boutons pierre
 	if not _tgt.is_empty():
 		_tgt["choice"] = skip
+		_tgt["sig"] = sig
 		_tgt_cancel_btn.visible = skip.is_valid() # choix obligatoire : pas de CANCEL
 		return
 	_choice_sig = sig
@@ -2553,6 +2594,13 @@ func _can_drag() -> bool:
 func _on_hand_press(card: Control, at: Vector2) -> void:
 	_press = {"card": card, "idx": (card as CardUI).hand_index, "pos": at}
 
+## Fin de l'appui : la main saute-t-elle un rafraichissement, on le rejoue apres le traitement du relachement (le clic de la carte passe d'abord).
+func _press_clear() -> void:
+	_press = {}
+	if _hand_stale:
+		_hand_stale = false
+		refresh.call_deferred()
+
 ## Glisser une carte de la main (appui + deplacement > 12 px) : carte zoomee (cadre noir) accrochee au curseur ; salle = l'emplacement
 ## accepte s'allume en dore, sort = les cibles du plateau s'allument en dore ; relacher sur une cible joue le coup (voir _drag_end).
 func _drag_input(event: InputEvent) -> void:
@@ -2560,7 +2608,7 @@ func _drag_input(event: InputEvent) -> void:
 		var m := event as InputEventMouseMotion
 		if _drag.is_empty():
 			if not (m.button_mask & MOUSE_BUTTON_MASK_LEFT) or _press.is_empty():
-				_press = {}
+				_press_clear()
 				return
 			if m.global_position.distance_to(_press["pos"]) >= DRAG_SLOP and _can_drag():
 				_drag_begin()
@@ -2568,8 +2616,9 @@ func _drag_input(event: InputEvent) -> void:
 			_drag_move(m.global_position)
 	elif event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (event as InputEventMouseButton).pressed:
 		if not _drag.is_empty():
+			_press = {} # _drag_end rafraichit : la main doit etre reconstruite tout de suite
 			_drag_end((event as InputEventMouseButton).global_position)
-		_press = {}
+		_press_clear()
 
 func _my_hand() -> Array:
 	return ((game_manager.G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("hand", [])
@@ -2579,7 +2628,7 @@ func _drag_begin() -> void:
 	var hand := _my_hand()
 	var ci = _press["card"]
 	if idx < 0 or idx >= hand.size():
-		_press = {}
+		_press_clear()
 		return
 	if is_instance_valid(ci):
 		(ci as CardUI).suppress_click = true
