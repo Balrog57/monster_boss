@@ -43,6 +43,9 @@ Accès : http://192.168.1.98:8090
 
 ## 3. Mettre à jour
 
+> Le clone du homelab suit actuellement la branche `parity/apk-oracle` ; après la fusion dans `main` :
+> `git checkout main && git pull`, puis la commande ci-dessous.
+
 ```bash
 cd /DATA/AppData/boss-monster
 git pull
@@ -121,26 +124,14 @@ curl -s -i -N --max-time 5 -H "Connection: Upgrade" -H "Upgrade: websocket" \
   http://192.168.1.98:8090/ws
 ```
 
-## 9. Migration depuis l'ancienne pile (Node + Postgres)
+## 9. Ancienne pile (Node + Postgres) - historique
 
-L'ancienne pile utilisait les conteneurs `boss-monster` et `boss-monster-db`
-et le volume `boss_db`.
-
-```bash
-cd /DATA/AppData/boss-monster
-# 1. Arrêter l'ancienne pile AVANT le git pull (avec l'ANCIEN fichier compose, qui
-#    connaît encore les services db et boss-monster), SANS --remove-orphans
-#    (il supprimerait boss-monster-db). Le volume boss_db est conservé :
-DOCKER_CONFIG=/DATA/.docker-root docker compose -f deploy/docker-compose.yml down
-#    (variante réversible : `stop` au lieu de `down` garde les conteneurs)
-# 2. git pull, puis démarrer la nouvelle pile (section 2)
-```
-
-Le port 8090 est libéré par l'arrêt. Les anciens conteneurs `boss-monster` /
-`boss-monster-db` (s'ils subsistent) et surtout le volume `boss_db` ne doivent
-être supprimés (`docker rm`, `docker volume rm boss_db`) **qu'avec l'accord
-explicite du propriétaire** : le volume contient les données de l'ancien
-Postgres, supprimées définitivement.
+L'ancienne pile (conteneurs `boss-monster` et `boss-monster-db`, volume `boss_db`)
+a été arrêtée puis **supprimée avec l'accord du propriétaire** (conteneurs et
+volume retirés du homelab). Si un homelab en possède encore une copie, ne
+supprimer les conteneurs et surtout le volume `boss_db` (`docker rm`,
+`docker volume rm boss_db`) qu'avec l'accord explicite du propriétaire ; arrêter
+l'ancienne pile avec `docker compose ... stop` (pas `down --remove-orphans`) avant le premier `up` de la nouvelle.
 
 ## 10. Dépannage
 

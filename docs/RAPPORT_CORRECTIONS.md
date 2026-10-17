@@ -5,6 +5,8 @@
 **Référence source :** `boss-monster-2-2-6-android.apk` (SHA-256: `78592B483D8C7C4B8AABA1095F855226344565FB3D1B112A48113C2E90852FFD`)  
 **Statut global :** ✅ **100% Validé (193/193 tests unitaires, 29/29 e2e, build Vite validé)**
 
+> **Note (2026-10-17) : rapport historique.** Les commandes `npm run ...`, les chemins `src/backend/`, `tests/unit/`, `package.json`, Vite/React/Node/Postgres et les décomptes de tests JS ci-dessous décrivent l'ancienne pile JavaScript, supprimée depuis. Équivalents actuels : `python tools/run_godot_tests.py`, `python tools/parity/apk.py`, `python tools/verify_assets.py`. Le décompte des cartes sans visuel est maintenant de **107** (TNL038 a son art).
+
 ---
 
 ## 1. Contexte et Objectifs
@@ -127,7 +129,7 @@ Audit carte-à-carte : **96/96 effets câblés** (boss 8/8, sorts 16/16, salles 
 Audit des 6 packs (`hidden-heroes`, `tools`, `players-choice`, `next-level`, `minibosses`, `crash-landing`).
 
 * **Matrice de conformité** (`npm run card-matrix`) : **442 cartes**, `corrupt=0`, `expansion-pending=0` après correction du scanner (`tools/generate_card_matrix.js` : lecture de `src/items.js`, `src/handAbilities.js`, `src/darkHeroes.js`, `src/expansionEffects.js` + littéraux d'IDs ; les 88 « pending » résiduels étaient des héros data-driven déjà câblés).
-* **Écart connu non bloquant :** **108 cartes sans visuel** — répartition exacte (`RMB` 107 : 42 salles, 24 héros, 15 sorts, 15 héros épiques, 10 minibosses, 1 boss ; `TNL` 1 : `TNL038 Elemental Generator`) ; données et textes complets, l'almanach et la galerie affichent le dos de carte. **Sources auditées et épuisées** — voir §7.10.
+* **Écart connu non bloquant :** **107 cartes sans visuel** (108 avant que `TNL038 Elemental Generator` reçoive son art) — répartition exacte (`RMB` 107 : 42 salles, 24 héros, 15 sorts, 15 héros épiques, 10 minibosses, 1 boss) ; données et textes complets, l'almanach et la galerie affichent le dos de carte. **Sources auditées et épuisées** — voir §7.10.
 
 ### 7.1. Bug n°1 — Miniboss perdu à chaque aller-retour JSON (bloquant)
 
@@ -294,7 +296,7 @@ Validation: npm run test:unit 405/405, npm run build OK, npm run verify:assets O
 
 ### 7.15. Missing expansion faces fixed with labelled placeholders (2026-10-09)
 
-Problem: 108 expansion cards (107 Rise of the Minibosses + TNL038 Elemental Generator) had no face anywhere: absent from the wiki (API probed again, still empty), absent from the APK manifest (0 rmb/tnl/crl faces), BGG blocked (403), DriveThru licence incompatible. In-game they fell back to a card back.
+Problem (2026-10-09; TNL038 has real art since the Godot port, so 107 placeholders remain): 108 expansion cards (107 Rise of the Minibosses + TNL038 Elemental Generator) had no face anywhere: absent from the wiki (API probed again, still empty), absent from the APK manifest (0 rmb/tnl/crl faces), BGG blocked (403), DriveThru licence incompatible. In-game they fell back to a card back.
 
 Fix (tools/generate_placeholder_art.py, Pillow): generates 746x1039 WEBP faces at the exact path the frontend requests ( incl. minibosses/ dir for kind=miniboss, epic-heroes/ for epics), themed per section (name, stats, rules text from cardData.json) with a red MISSING ART - PLACEHOLDER ribbon so they are never mistaken for official art. Re-running the script skips existing files; drop a real face next to a placeholder (same filename) or delete + rerun to replace 1:1. Also fixed cardImagePath in tools/generate_card_matrix.js (minibosses section -> minibosses/ dir, matching the frontend).
 

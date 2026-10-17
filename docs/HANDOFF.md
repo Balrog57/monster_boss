@@ -1,6 +1,6 @@
 # Boss Monster remake — complete project brief and handoff
 
-Written 2026-10-16 for an AI agent (or human) taking over. Self-contained: read this first, then the pointers at the end.
+Written 2026-10-16, updated 2026-10-17, for an AI agent (or human) taking over. Self-contained: read this first, then the pointers at the end.
 Repo: `C:\Users\Marc\Documents\1G1R\_Programmation\monster_boss` (Windows 11), GitHub `Balrog57/monster_boss`. Work branch `parity/apk-oracle` (all recent work, pushed; `main` is its ancestor, so merging is a fast-forward). The user speaks French; the game UI is English (like the original).
 
 ## 1. What this is
@@ -37,11 +37,14 @@ A faithful remake of the card game **Boss Monster: Master of the Dungeon** (Brot
 - **Web export (raw Godot, no npm):** `"/c/Tools/Godot/Godot_v4.7.2-stable_win64_console.exe" --headless --path src/frontend --export-release Web godot/build_web/index.html` (Docker does the same in `deploy/Dockerfile`).
 - **Web build to try by hand:** `Godot console --headless --path src/frontend --export-release Web <scratchdir>/index.html`, then `python -m http.server 8091 --bind 127.0.0.1` in that dir and open `http://127.0.0.1:8091/index.html`. Browser-tool tips: the Godot canvas needs a `hover` before each `left_click`; refresh a stale `index.pck` with `fetch(url,{cache:'reload'})` then `location.reload()`; synthetic JS pointer events do not drive Godot; `left_click_drag` is too coarse for Godot drags; release builds hide GDScript errors (use the headless suites to find them).
 
-## 5. Current state (all green at commit `2cff735` on `parity/apk-oracle`)
-**Engine:** base set + APK extra decks (Player's Choice, Hidden Heroes, Tools of Hero Kind) are bit-identical to the APK oracle on all parity sets. Wiki packs ported: The Next Level (115 cards), Crash Landing (33), Minibosses/RMB (121). AI plays every wiki card sensibly (`AiWiki.gd`, census-verified, base behaviour untouched). Meddling Kids! blanks base room text. 442 cards have art and `implemented` flags; 24 have no implementation (the 20 Tools of Hero Kind items + rooms THK021-024; the APK does nothing with them either).
-**UI (cloned from ~115 original APK frames + the C#):** title screen (TAP TO START), 2x2 stone main menu (Single Player, Multiplayer, Options, Rules), player-count carousel, expansions (APK content only; wiki packs appear behind the "Wiki expansions" option, default OFF), options (music/sound/game speed), pixel fonts rebuilt from APK atlases, board layout (phase banner, heroes in town column, right HUD, 5 slots per lane, fanned hand 175x244 with C# geometry, stacked-room peek), boss pick carousel (+ flip, `PLAY BOSS MONSTER!`), opening discard, click/drag build, DONE! button + "STILL WANT TO PASS?" bubble, spells dragged/clicked with gold-bordered board targets, long-press zoom, Freeze ice overlay, adventure without PASS/GO (3 s green timer bar above the hero, 6 s on the spell stack, heroes advance by themselves; GAME SPEED only scales hero animations), "HAS PLAYED A SPELL / ROOM ABILITY" notice, damage/soul/wound animations, game-over banner (winner, crystals, OK -> title, no score panel), pause menu (RESUME / CARD GALLERY / RULES / SETTINGS / QUIT GAME) with rules overlay and master volume (our addition), card gallery (also from main-menu OPTIONS).
-**Hand-verified in a browser:** menus, boss carousel + confirm, discard, click build, DONE!, adventure with timer bar and automatic crossing, next turn, pause menu, card gallery, rules overlay.
-**Infra:** Godot headless server + `ViewFilter` exist and pass the `online` suite; the web client talks WebSocket via `OnlineClient.gd`. **The old Node server on ZimaOS was stopped on 2026-10-16 by the user's order** (it leaked deck order, boss picks and face-down rooms): `docker stop boss-monster` via `ssh homelab` (192.168.1.98, user marc; alias `zimaos` does not work); container kept (restart policy unless-stopped keeps it down), `boss-monster-db` untouched. Do not restart it. Remove container and volume when the Godot server replaces it.
+## 5. Current state (2026-10-17, branch `parity/apk-oracle`, everything pushed, CI green)
+**Verified:** `python tools/run_godot_tests.py` 9/9; APK parity `python tools/parity/apk.py` 6/6, `--seeds 4 5 6 7 --players 2 3 4` 12/12, `--decks BaseDeck,PlayerChoice,HiddenHeros,ToolsHeroKind` 6/6 (local only, needs the gitignored oracle); CI = `godot` job + `export` job (docker build web + server, curl checks incl. WebSocket 101) green.
+**Engine:** base set + APK extra decks (Player's Choice, Hidden Heroes, Tools of Hero Kind) bit-identical to the APK oracle. Wiki packs ported: The Next Level (115), Crash Landing (33), Minibosses/RMB (121). `Match.gd` no longer lets a non-active seat pass during adventure outside pause/stack (APK `GameBoard.ChooseNextActivePlayer`); the old UI workaround is gone. Building over a face-up room before the dungeon is full is a legal move (`Boss.CanBuildRoom`) and the AI scores it (`AiWiki.gd`, APK `RoomCalculator`), so AI and humans share the same legal moves. Wiki census (`AiCensus.tscn`) is PASS with an allowlist. 442 cards; 24 have `implemented=false` (Tools of Hero Kind items/rooms, which the APK does nothing with either).
+**UI (cloned from original APK frames + the C#):** menus, boss carousel, discard, build, DONE!, timer bar, spells, pause menu, gallery, rules overlay (see git history of this file for the full list) plus, this session: LEVEL UP boss zoom and on-board room choices (APK `ShowZoomCard` / `CardSelector`); APK card carousel for off-board choices, scrollable town column, tap-to-zoom bubbles; pixel pass (hero cards at the entrance, LoseScene layout, pause menu, notices, sidebar, zoom sizes, EPIC header); phase-by-phase audit (boss pick dim, discard band + diamond CONTINUE, hand-size drag, room flip reveal, BAIT plate and hero card flight, hero sprite crossing with HP heart and room focus, boss hit glow, level-up banner, notice target outlines). Robustness: the click is kept alive during a hand refresh, boss-pick race with the AI fixed, timer windows reset only on hero steps/spells. Wiki UI: hand-card menus for coin/miniboss moves, APK backgrounds for wiki bosses, legible placeholders (107 RMB cards still have placeholder art; TNL038 has real art now).
+**Multiplayer (APK screens):** PLAY ONLINE / PASS AND PLAY; WORLDWIDE shows the APK "Unable to join public rooms" box; WITH FRIENDS NEW GAME / ROOM CODE (4-letter codes without I/O); name + avatar scroller; waiting-room panel with WINS/DEFEATS local counters; turn countdown. The web client uses the page origin (`ws(s)://<host>/ws`). Tested by hand with two browser tabs against the real server: create/join, boss pick, discard, build, resume after a page reload, the AI takes over a closed tab's seat after the timeout. `ViewFilter` whitelists every `G` key (hidden info never leaves the server); WINS/DEFEATS sent by clients are cosmetic and unverified.
+**Pixel comparison:** `src/frontend/godot/tests/CaptureScreens.tscn` (windowed run, see the header of `capture_screens.gd`) writes `docs/reference/godot_screens/` (gitignored); `COMPARISON.md` and `PHASES.md` in that folder hold the comparison with `apk_orig` (local only).
+**Deployed (ZimaOS homelab 192.168.1.98:8090, behind the Cloudflare tunnel):** `boss-monster-web` = nginx static Godot export (gzip_static, `no-cache`, PWA off), `boss-monster-server` = Godot headless multiplayer server, nginx proxies `/ws` (the server port is not published). The old Node container, `boss-monster-db` and the `boss_db` volume were removed with the owner's approval. The homelab clone tracks `parity/apk-oracle` until the final merge (see F). Games live in memory only: restarting the server container erases them.
+**Caveat:** the in-app browser pane throttles hidden tabs, so timings seen there (timer bars, AI delays) are not representative.
 
 ## 6. Rules decisions already taken
 - Truth order: APK C# oracle > `docs/rules/rules.md` + PDFs > card text > old JS. Where the old JS contradicts, Godot follows the C#/rules text (examples: Dark Altar cannot recover itself; spell battle follows `EnqueueAbilityTransaction` priority; TNL setup = 5 rooms + 2 spells).
@@ -49,13 +52,23 @@ A faithful remake of the card game **Boss Monster: Master of the Dungeon** (Brot
 - Crash Landing end of game: source found (`rules.md` "Changes to Victory Conditions", 5-6 players: game ends when both Hero decks are depleted). Engine is 2-4 players, so it applies only when nothing can change any more (`Match._check_end_or_next_turn`).
 - `legal_moves` no longer offers `buildRoom` while `buildBlocked` (Kobold Strike).
 
-## 7. Known gaps vs the APK (small, ordered by value)
-1. Not hand-verified: real-mouse drag&drop, spell drag/targeting, the game-over banner, audio (all covered only by headless tests).
-2. Card gallery layout not compared pixel-for-pixel; pass-warning bubble and AI-notice offsets set by eye; RIP tombstone not scaled 1.5 like `LoseScene`; soul/wound flash is a plain white flash; LEVEL UP button is cosmetic (engine levels up at reveal).
-3. Hand-dragged build over a face-up room on a non-full dungeon puts the room at the entrance (engine only offers `[i]`).
-4. Multiplayer screens (`Main.gd` show_multi/profile/friends/waiting) got only font + English, no APK redesign. 3-4 players is paywalled in the APK ("FULL GAME NEEDED"): there is no reference frame, we offer it free.
-5. Engine anomaly (matters for multiplayer): `pass` from a non-active player during adventure with no pause advances `activePlayer` in the middle of another player's hero; with 2+ humans this deadlocks (repro: `UiSmoke.tscn -- --seed=5100 --games=1 --players=3 --humans=3` with the `_auto_pass` guard in `BoardUI` removed). The UI currently works around it.
-6. Some wiki art is generated "MISSING ART" placeholders (`tools/generate_placeholder_art.py`); Witch's Kitchen (BMA024) rarely used by AI (base behaviour left alone on purpose).
+## 7. Known differences vs the APK (honest list, ordered by value)
+**Rules / flow**
+1. Boss pick is a choice (carousel); the APK deals it at random.
+2. The engine has no separate bait phase (the lure happens when the build ends); the BAIT plate is UI only.
+3. The setup turn reveals rooms without DONE; a room ability activates in one click (APK: zoom, then tap).
+4. `BMA029` / `BMA015` position factors read `dungeon[0]` in the AI; RMB063 is never offered in census runs; 24 THK cards are `implemented=false` (the APK ignores them too).
+5. The engine is 2-4 players. The APK paywalls 3-4 players ("FULL GAME NEEDED"); we offer it free.
+**UI**
+6. The APK keeps the greyed hand behind the end screen; we do not.
+7. Wiki: the EXTRA MOVES button does not exist in the APK; wiki bosses reuse APK backgrounds and show a card instead of a sprite; 107 RMB cards still show placeholder art.
+8. Not hand-verified with real mouse input: OS-level spell drag and audio (the browser pane cannot drive Godot drags precisely). Card gallery not compared pixel-for-pixel; RIP tombstone not scaled like `LoseScene`.
+**Multiplayer**
+9. PASS AND PLAY accepts 2-4 players (APK: 2). WORLDWIDE matchmaking is absent (APK-style error box only). NEW GAME fixes the seat count. No fade transitions between online screens.
+10. Games are in memory (no persistence); WINS/DEFEATS are client-declared and cosmetic.
+**Tooling**
+11. Parity is local only (oracle DLL under the gitignored `apk-original/`, .NET SDK needed); CI cannot run it.
+12. `tools/inject_base_heroes.py` reads a path that does not exist any more (dead script).
 
 ## 8. Reference material
 - `docs/reference/apk_orig/` (+ `INDEX.md`): ~115 reliable original 1920x1080 frames (spell drag, timer bar, game over, pause menu, gallery, stacked rooms, hand fan). Older files in `docs/reference/` have **unreliable names** (see `INDEX_part*.md`, partial). Reference dir is gitignored: regenerate by capturing.
@@ -63,21 +76,13 @@ A faithful remake of the card game **Boss Monster: Master of the Dungeon** (Brot
 - Decompiled C# (`apk-original/decompiled/DBMGame/`) for timings/geometry (hand = `CardPositionComponent`, timer bar durations, `FlipCardBehavior`, `CardAbilityBorder`, etc.).
 
 ## 9. What remains to do (priority order, with acceptance criteria)
-**A. Finish the clone**
-1. Hand-verify in the browser what headless tests cover: win/lose game-over banner and OK -> title, spell drag with a real drag (try the `claude-in-chrome` tools or a real-window Godot run with OS input), spell battle on the stack, LEVEL UP flow, a complete game to the end. Fix what breaks. Accept: one full game played by hand with no visual/logic surprise vs the APK frames.
-2. Close the small gaps in section 7 items 2-3 where cheap. Compare each screen again side by side with `apk_orig` frames (render a real window at 1920x1080 and diff).
-3. Capture the few missing original frames if needed (win screen needs beating the AI; level-up popup needs XP) and re-compare.
-**B. Wiki expansions** only polish remains (art placeholders; rules truth is `docs/rules/rules.md`). Keep parity untouched.
-**C. Multiplayer (last)**
-1. Fix the engine anomaly (section 7.5) properly in `Match.gd` (then remove the UI workaround), keeping APK parity 6/6, 12/12, 6/6.
-2. Redesign multiplayer screens like the APK (create/join/lobby/waiting) using `assets/ui` art; friends-only rooms by code; reconnect/resume (`OnlineClient.try_resume`), "Start with bots", turn timers (server `--turn-timeout`), APK-style UI for 3-4 players (opponent selector P2/P3/P4).
-3. Test with 2+ real clients (two browser tabs against the headless server); keep `ViewFilter` whitelisting: any new `G` key must be classified or the `online` suite fails. Never leak hidden info (hands, deck order, face-down rooms, other players' pending choices, private log lines).
-**D. Remove the JS scaffolding - DONE**
-- Done: `src/backend`, `tests/unit`, `package*.json` and every `.js/.mjs` removed; runners are `tools/run_godot_tests.py` and `tools/parity/apk.py`; CI runs the Godot suites (after `--import`) and the Docker export. `tools/apk-oracle` (.NET) stays.
-**E. Deploy**
-- Docker: nginx alpine serving the static web export (`export_presets.cfg` already excludes tests and `godot/server`; add brotli for the wasm, correct `application/wasm`, `/ws` WebSocket proxy) + a Godot headless server container (no Postgres). Rewrite `deploy/docker-compose.yml`, `deploy/Dockerfile`, `deploy/DEPLOYMENT.md` (ZimaOS 192.168.1.98, port 8090, Cloudflare tunnel). Remove the stopped `boss-monster` + `boss-monster-db` containers/volume only with the user's OK. Web size target: pck ~38 MB (lossy webp imports already set).
-**F. Final (only at the very end)**
-- Run the full test + parity suites, `code-review` on the whole diff, merge `parity/apk-oracle` into `main`, delete the extra branch (local + remote, after asking), make sure there is no open PR, no extra worktree/stash, `git status` clean. Update this file and the README.
+A (clone), B (wiki), C (multiplayer), D (JS scaffolding removal) and E (deploy) are done; section 5 says what is verified.
+**F. Final merge (only at the very end, with the owner)**
+- Run `python tools/run_godot_tests.py` and the 3 parity commands, `code-review` on the whole diff, merge `parity/apk-oracle` into `main` (fast-forward), delete the extra branch (local + remote, after asking), no open PR, no extra worktree/stash, `git status` clean. Then on the homelab: `git checkout main && git pull` and rebuild (`deploy/DEPLOYMENT.md` section 3). Update this file and the README.
+**Optional**
+- **A4. BlueStacks captures** of the missing original frames (victory screen, level-up popup, online lobby/waiting room: see section 8), then re-compare with `CaptureScreens.tscn` and close gaps.
+- **Owner check, Cloudflare:** open the public hostname through the tunnel with Rocket Loader disabled for it (Speed > Optimization) and WebSockets enabled; confirm `/ws` answers 101 (`deploy/DEPLOYMENT.md` sections 7-8) and that no stale service worker keeps an old page.
+- The items of section 7, cheapest first: UI-only ones (greyed hand behind the end screen, zoom-then-tap room ability, DONE on the setup reveal); engine ones (random boss pick, a real bait phase) must keep parity 6/6, 12/12, 6/6; real art for the 107 RMB placeholders (`tools/generate_placeholder_art.py`) if a source appears; WORLDWIDE matchmaking and online fades only if the owner asks.
 
 ## 10. Pitfalls and conventions
 - Engine files are shared by the APK parity; after ANY engine change run all 3 parity commands (section 4). UI work must not touch `Match.gd/BossEngine.gd/*Abilities.gd/SpellEffects.gd/AI.gd/GameManager.gd` unless fixing a proven engine bug.

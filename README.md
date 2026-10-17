@@ -1,73 +1,61 @@
-# Boss Monster — Web (Godot 4)
+# Boss Monster - Web (Godot 4)
 
-Jeu **Boss Monster** base set jouable en solo 2 joueurs (humain vs IA) dans le
-navigateur. Le client historique React a été remplacé par **Godot 4
-Compatibility** (export Web, threads désactivés → aucun header COOP/COEP requis).
+Recréation de **Boss Monster: Master of the Dungeon** (APK 2.2.6) jouable dans le navigateur : solo contre l'IA
+(2 à 4 joueurs), pass and play, parties en ligne entre amis par code de salle, extensions de l'APK et du wiki.
+Client **Godot 4.7 Compatibility** (export Web, threads désactivés : aucun header COOP/COEP requis), pas de Node ni de base de données.
+Reprise du projet : `docs/HANDOFF.md`.
 
 ## Stack
 
-- **Client** : Godot 4.7 Compatibility, viewport 1920×1080 (`src/frontend/project.godot`, `src/frontend/godot/`)
-- **Serveur multi** : Godot headless (`src/frontend/godot/server/`, WebSocket)
-- **Moteur GDScript** : `src/frontend/godot/scripts/` (CardDB, BossEngine, Match, AI, Main, Board)
-- **Assets** : `src/frontend/assets/` (cartes WebP, UI extraite WPK, audio, fonts) — l'art HD des
-  cartes est exclu du pack web pour l'instant (voir `src/frontend/export_presets.cfg`)
+- **Client** : Godot 4.7.2 Compatibility, viewport 1920×1080 (`src/frontend/project.godot`, `src/frontend/godot/`)
+- **Moteur GDScript** : `src/frontend/godot/scripts/` (`Match`, `BossEngine`, `AI`, `CardDB`, UI `Main`/`BoardUI`...)
+- **Serveur multijoueur** : Godot headless, WebSocket (`src/frontend/godot/server/`, protocole dans `PROTOCOL.md`), parties en mémoire
+- **Assets** : `src/frontend/assets/` (cartes WebP, UI extraite de l'APK, audio, fonts) ; données de cartes : `src/frontend/godot/data/cards.json` (source unique)
+- **Déploiement** : nginx (export statique) + conteneur serveur Godot derrière `/ws` (`deploy/`)
 
-## Lancer le jeu
+## Démarrage rapide
+
+Prérequis : Godot 4.7.2 (variable `GODOT`, sinon `tools/godot_exe.py` cherche le chemin Windows par défaut puis `godot`), Python 3.
 
 ```bash
-# 1. Éditer / tester sous Godot 4.7 (renderer Compatibility)
-godot --headless --path src/frontend res://godot/tests/Soak.tscn   # soak IA-vs-IA
-
-# 2. Exporter le client web (~38 Mo pck + 39,5 Mo wasm ; ~35 + 8 Mo en brotli)
+# 1. Jouer / éditer : ouvrir src/frontend/project.godot dans l'éditeur Godot 4.7 et lancer la scène principale
+# 2. Exporter le client web (~38 Mo pck)
+godot --headless --path src/frontend --import          # une fois, pour les class_name
 godot --headless --path src/frontend --export-release Web godot/build_web/index.html
-
-# 3. Servir en local (ou `docker build -f deploy/Dockerfile .` : nginx + export, voir deploy/DEPLOYMENT.md)
-python -m http.server 8000 --directory src/frontend/godot/build_web   # → http://localhost:8000
+# 3. Servir en local
+python -m http.server 8000 --directory src/frontend/godot/build_web   # http://localhost:8000
+# 4. Serveur multijoueur local (optionnel, ws://localhost:8091)
+godot --headless --path src/frontend res://godot/server/Server.tscn -- --port=8091
 ```
 
-Solo : menu → **SOLO** → 2 joueurs → partie complète (boss, setup, build, bait,
-adventure pas à pas, fin à 10 âmes).
+Production : `docker compose -f deploy/docker-compose.yml up -d --build` (l'export est fait dans le build Docker, port 8090) ; voir `deploy/DEPLOYMENT.md`.
 
-## Tests & assets
+## Tests & outils
 
 ```bash
-python tools/run_godot_tests.py          # 9 suites Godot headless (goldens, coverage, soak x5, online, ui smoke)
-python tools/parity/apk.py               # parité vs l'APK d'origine (oracle .NET local, voir tools/parity/README.md)
+python tools/run_godot_tests.py          # 9 suites Godot headless (goldens, coverage, soak x5, online, ui smoke) ; c'est ce que lance la CI
+python tools/parity/apk.py               # parité vs l'APK d'origine : LOCAL UNIQUEMENT (oracle .NET + apk-original/ non versionné, voir tools/parity/README.md)
 python tools/verify_assets.py            # faces APK, assets UI, effectifs du set de base
-python tools/fetch_expansion_art.py      # art TNL/RMB/CRL depuis le wiki
 python tools/merge_expansions.py         # fusionne les packs wiki dans cards.json + recalcule `implemented`
 ```
-
-## Règles portées en GDScript (base set, boucle solo)
-
-- Phases : BOSS → SETUP → BUILD → BAIT → ADVENTURE → END
-- Lure APK (égalité → héros reste en ville), dégâts de salles cumulés, âmes/blessures,
-  élimination à 5 blessures, victoire à 10 âmes
-- IA : meilleur coup légal (dégâts + trésors), construction auto
-- Référence des règles : le C# décompilé de l'APK (`apk-original/`), via l'oracle `tools/apk-oracle/`
 
 ## Structure du repo
 
 ```
-src/frontend/            Godot 4 (racine res:// = src/frontend/, assets/ partagés)
-src/frontend/project.godot
-src/frontend/export_presets.cfg   preset Web (threads OFF, art HD exclu du pck)
-src/frontend/godot/scripts/       CardDB (autoload), BossEngine, Match, AI, Main, Board
-src/frontend/godot/scenes/        Main.tscn (+ Board construit en code)
-src/frontend/godot/data/          cards.json (source unique des cartes, 442 entrées)
-src/frontend/godot/tests/         Soak.tscn (partie IA-vs-IA headless)
-src/frontend/assets/              cartes WebP, UI, audio, fonts (versionnés)
-src/frontend/godot/tests/         suites Godot headless (lancées par tools/run_godot_tests.py)
-src/frontend/godot/server/        serveur multi Godot headless
-tools/apk-oracle/    oracle .NET : DBMGame.dll de l'APK rejoué en headless (parité)
-deploy/              Dockerfile + docker-compose.yml + DEPLOYMENT.md
-security/            SECURITY.md + .env.example (jamais de secret commité)
-docs/                règles, matrice cartes, rapports
-tools/               scripts Python (stdlib sauf Pillow pour l'art) : runners de tests/parité, extraction APK / wiki
-apk-original/        APK + décompilation (référence locale, ni versionné ni embarqué)
+src/frontend/            projet Godot 4 (res:// = src/frontend/)
+  godot/scripts/         moteur et UI (Match, BossEngine, AI, CardDB, BoardUI, Main...)
+  godot/data/            cards.json (442 cartes), rules.txt
+  godot/server/          serveur multijoueur headless (+ ViewFilter : informations cachées)
+  godot/tests/           suites Godot headless (lancées par tools/run_godot_tests.py)
+  assets/                cartes WebP, UI, audio, fonts (versionnés)
+deploy/                  Dockerfile (export + nginx), Dockerfile.server, docker-compose.yml, DEPLOYMENT.md
+security/                SECURITY.md + .env.example (jamais de secret commité)
+docs/                    HANDOFF, règles, rapports ; docs/reference/ (captures APK) est local et ignoré par git
+tools/                   scripts Python (stdlib, Pillow pour l'art) : runners de tests/parité, extraction APK / wiki ; apk-oracle/ = oracle .NET
+apk-original/            APK + décompilation (référence locale, ni versionné ni embarqué)
 ```
 
 ## Références
 
-Captures APK : `docs/reference/play_*.png` (non versionné, QA locale)  
-Extracteur WPK : `tools/extract_apk_226.py`
+Règles : le C# décompilé de l'APK (`apk-original/`, via l'oracle `tools/apk-oracle/`), puis `docs/rules/rules.md`.
+Extracteur d'APK : `tools/extract_apk_226.py`.
