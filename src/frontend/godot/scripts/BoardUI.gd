@@ -64,6 +64,11 @@ const SLOT_X0 := 660.0
 const HERO_CARD := Vector2(136, 196)     # APK : carte de heros a l'entree du donjon / en traversee (x 464..600 pour la premiere)
 const HERO_FRONT_X := 464.0
 const HERO_IN_SLOT := Vector2(-4.5, -10.5) # decalage d'une carte de heros posee sur un emplacement (127 x 175), centree dessus
+const HERO_SPRITE_SCALE := 0.78          # APK HeroCardEntity : le personnage du heros (hero_characters) = 0,39 (echelle de la carte) x 2 (ScaleEffectBehavior a l'entree)
+const HERO_SPRITE_DY := -15.0            # centre du personnage par rapport au centre de la salle (APK : un peu au-dessus)
+const HERO_HEART := Vector2(55, 48)      # coeur de PV du heros (health_hero_icon x 0,78), centre 117 px au-dessus du personnage (FollowBehavior -150 x 0,78)
+const HERO_HEART_DY := -117.0
+const ROOM_FOCUS_SCALE := 1.3            # APK CardStackSlotComponent.CreateScaleInTopRoomTask : la salle ou se trouve le heros grossit (x ~1,3), elle reprend sa taille quand il la quitte
 const SLOT_STEP := 140.0
 const PLAY_CX := 945.0                   # centre de la zone de jeu (entre les deux colonnes)
 const STACK_CX := 960.0                  # APK : pile de sorts, zoom central et barre de temps centres au milieu de l'ecran (cadre noir x 785..1135)
@@ -170,7 +175,13 @@ var _town_scroll: ScrollContainer
 var _town_drag := {}                     # glisser la colonne HEROES IN TOWN (VerticalScrollQueueComponent) : {y, sv}
 var _town_sig := ""                      # heros affiches : la colonne n'est reconstruite (et son defilement garde) que s'ils changent
 var _town_ids: Array = []
-var _ent_tok: Dictionary = {}            # pid -> jetons de l'entree, alignes sur les heros de `entrance` (null = pion en marche)
+var _ent_tok: Dictionary = {}            # pid -> cartes de l'entree, alignees sur les heros de `entrance` (la carte du heros qui traverse reste a l'entree)
+var _focus := {}                         # {pid, room} : salle agrandie parce que le heros s'y trouve (voir _set_focus)
+var _bait_t0 := 0                        # BAIT PHASE : horloge (ms) du debut du leurre, 0 = aucun (voir _refresh_phase_banner)
+var _bait_flown := {}                    # cartes deja parties en vol pour ce leurre : {pid:id:rang -> _bait_t0}
+var _foe_down := {}                      # emplacement adverse -> salle face cachee au dernier affichage (retournement a la revelation)
+var _lvl_busy := false                   # la banniere LEVEL UP passe : le choix de niveau attend sa fin (l'APK enchaine banniere puis choix)
+var _lvl_seen := {}                      # pid -> « monte de niveau » deja vu : un passage a vrai joue la banniere LEVEL UP (_show_levelup)
 # Carrousel du choix du boss
 var _boss_sel := 0
 var _boss_cards: Array = []
@@ -182,6 +193,8 @@ const BOSS_DRAG_STEP := 90.0             # un cran de carrousel tous les 90 px
 const BOSS_DRAG_SLOP := 12.0             # en dessous : un clic (la carte touchee passe au centre), pas un glisser
 const BOSS_FLIP_TIME := 0.5              # FlipCardBehavior de l'APK : 0,5 s
 # Fenetres de sorts de l'APK (GamePlayBaseScene) : barre verte de 3 s au-dessus du heros (aventure), de 6 s au-dessus de la pile de sorts.
+const BAIT_TIME := 1.3                   # plaque BAIT PHASE affichee entre la revelation des salles et l'aventure
+const BAIT_FLY := 0.9                    # vol d'une carte de heros depuis la ville jusqu'a l'entree du donjon
 const WINDOW_ADVENTURE := 3.0
 const WINDOW_STACK := 6.0
 const PASS_FAST := 0.45                  # rien a jouer : le siege humain passe presque tout de suite
@@ -288,6 +301,7 @@ func _ready() -> void:
 	hero_crossing_layer = Control.new()
 	hero_crossing_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hero_crossing_layer.size = Vector2(1920, 1080)
+	hero_crossing_layer.z_index = 5 # devant la salle agrandie (z 4, voir _apply_focus)
 	add_child(hero_crossing_layer)
 	_ui_layer = Control.new()
 	_ui_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -487,6 +501,10 @@ func _build_overlay() -> void:
 	_dim.size = Vector2(1523, 890)
 	_dim.visible = false
 	add_child(_dim)
+	for gy in [0.0, 398.0]: # filets or du bandeau de la defausse (APK : y 296 et 696)
+		var gl := _rect(_dim, Color(0.667, 0.533, 0.2), Vector2(0, gy), Vector2(1523, 2))
+		gl.name = "GoldLine"
+		gl.visible = false
 	_bubble = _img(self, UI_DIR + "top_globe.webp", Vector2(PLAY_CX - 440, 150)) # APK : bulle x 510..1430
 	_bubble.visible = false
 	_carousel_text = RichTextLabel.new()
@@ -743,7 +761,7 @@ func _win_show(want: float, stack_open: bool) -> void:
 		var adv: Dictionary = game_manager.G.get("adventure", {})
 		var apid: int = int(adv.get("playerId", game_manager.active_player())) if not adv.is_empty() else game_manager.active_player()
 		if _hero_pawn != null and is_instance_valid(_hero_pawn):
-			anchor = _hero_pawn.global_position + Vector2(HERO_CARD.x / 2.0, -60.0) # APK : barre 60 px au-dessus de la carte
+			anchor = _hero_pawn.global_position + Vector2(HERO_CARD.x / 2.0, HERO_CARD.y / 2.0 + HERO_SPRITE_DY + HERO_HEART_DY - 50.0) # au-dessus du coeur de PV du personnage
 		else:
 			var ent: Control = (_lane[1 if apid == view_pid else 0] as Dictionary)["entrance"]
 			anchor = ent.global_position + Vector2(HERO_CARD.x / 2.0, -60.0)
@@ -874,6 +892,7 @@ func refresh() -> void:
 	_refresh_phase_banner(phase)
 	_refresh_lane_badges(1, p)
 	_refresh_lane_badges(0, foe_dict)
+	_track_levelup(G)
 	_refresh_sidebar(G, p, foe_dict)
 	_refresh_town(G)
 	_refresh_boss_platforms(p, foe_dict)
@@ -895,6 +914,7 @@ func refresh() -> void:
 
 	var my_moves: Array = game_manager.legal_moves(_my_pid())
 	_refresh_foe_dungeon(foe_dict)
+	_apply_focus() # les emplacements adverses viennent d'etre reconstruits
 	_refresh_overlay(G, phase)
 	_refresh_hand(G, p, phase, my_moves)
 	_refresh_activatable(my_moves)
@@ -933,7 +953,16 @@ func _refresh_overlay(G: Dictionary, phase: String) -> void:
 	var boss_pick := phase == "boss" and not over
 	var discard := _is_opening_discard_for_me() and not over
 	_dim.visible = boss_pick or discard
-	_dim.color = Color(0, 0, 0, 1.0 if boss_pick else 0.6)
+	# APK : choix du boss = tout l'ecran s'assombrit (panneaux et plaque de phase compris) ; defausse d'ouverture = seulement le bandeau
+	# des cartes (y 296..696, filets or), le reste du plateau reste visible et la plaque de phase est cachee.
+	_dim.color = Color(0, 0, 0, 0.92 if boss_pick else 0.88)
+	_dim.position = Vector2.ZERO if boss_pick else Vector2(184, 296)
+	_dim.size = Vector2(1920, 1080) if boss_pick else Vector2(1523, 400)
+	for gl in _dim.get_children():
+		gl.visible = discard
+	phase_banner.visible = not over and not discard
+	phase_banner.modulate.a = 0.25 if boss_pick else 1.0
+	top_menu_btn.modulate.a = 0.25 if boss_pick else 1.0
 	_bubble.visible = discard
 	_carousel_text.visible = boss_pick or discard
 	_confirm_btn.visible = boss_pick or (discard and discard_pick.size() == 2) # fin de partie : GameOverBanner (bouton OK)
@@ -943,6 +972,8 @@ func _refresh_overlay(G: Dictionary, phase: String) -> void:
 	_confirm_btn.size = _confirm_btn.custom_minimum_size
 	_confirm_btn.add_theme_font_size_override("font_size", 28 if boss_pick else 24)
 	_confirm_btn.position = Vector2(PLAY_CX - 200, 923) if boss_pick else Vector2(PLAY_CX - 110, 730)
+	_style_confirm(discard)
+	_style_boss_label(boss_pick)
 	if boss_pick:
 		_carousel_text.position = Vector2(PLAY_CX - 600, 108)
 		_carousel_text.size = Vector2(1200, 90)
@@ -951,6 +982,47 @@ func _refresh_overlay(G: Dictionary, phase: String) -> void:
 		_set_carousel_text("SELECT [color=#f0c040]2[/color] CARDS TO DISCARD", 21)
 		_carousel_text.position = Vector2(STACK_CX + 2 - 465, 204) # APK : texte centre en x 962, y 215
 		_carousel_text.size = Vector2(931, 50)
+
+## CONTINUE de la defausse d'ouverture : le losange de l'APK (continue_button, libelle compris, x 1540 y 410) ; PLAY BOSS MONSTER! reste la pierre.
+func _style_confirm(diamond: bool) -> void:
+	_confirm_btn.clip_text = diamond # le libelle (invisible) ne doit pas elargir le losange
+	if diamond:
+		for n in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
+			var sb := StyleBoxTexture.new()
+			sb.texture = _tex(UI_DIR + ("continue_button_pressed.webp" if n in ["pressed", "hover_pressed"] else "continue_button.webp"))
+			if n == "hover":
+				sb.modulate_color = Color(1.2, 1.15, 1.0)
+			_confirm_btn.add_theme_stylebox_override(n, sb)
+		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+			_confirm_btn.add_theme_color_override(c, Color(0, 0, 0, 0)) # le libelle est dans l'image
+		_confirm_btn.custom_minimum_size = Vector2(131, 173)
+		_confirm_btn.size = Vector2(131, 173)
+		_confirm_btn.position = Vector2(1540, 410)
+	else:
+		for n in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
+			_confirm_btn.remove_theme_stylebox_override(n)
+		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+			_confirm_btn.remove_theme_color_override(c)
+
+## PLAY BOSS MONSTER! : « PLAY » blanc, « BOSS MONSTER! » or (APK) ; le texte du bouton (lu par les tests) est cache, deux libelles le remplacent.
+func _style_boss_label(on: bool) -> void:
+	var box := _confirm_btn.get_node_or_null("BossLabel") as HBoxContainer
+	if box == null:
+		box = HBoxContainer.new()
+		box.name = "BossLabel"
+		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.alignment = BoxContainer.ALIGNMENT_CENTER
+		box.add_theme_constant_override("separation", 0)
+		box.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_confirm_btn.add_child(box)
+		_lbl(box, "PLAY ", 28, Color.WHITE, Vector2.ZERO, 0.0, _fb)
+		_lbl(box, "BOSS MONSTER!", 28, GOLD, Vector2.ZERO, 0.0, _fb)
+	box.visible = on
+	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
+		if on:
+			_confirm_btn.add_theme_color_override(c, Color(0, 0, 0, 0))
+		elif not _confirm_btn.clip_text: # le losange gere lui-meme ses couleurs (_style_confirm)
+			_confirm_btn.remove_theme_color_override(c)
 
 func _set_carousel_text(bb: String, font_size: int) -> void:
 	_carousel_text.add_theme_font_size_override("normal_font_size", font_size)
@@ -968,6 +1040,77 @@ func _refresh_lane_badges(idx: int, pl: Dictionary) -> void:
 	(L["lvl"] as Label).text = "2" if bool(pl.get("leveledUp", false)) else "1"
 	var tr: Array = (boss as Dictionary).get("treasures", []) if boss != null else []
 	(L["icon"] as TextureRect).texture = _tex(str(TREASURE_TEX.get(int(tr[0]) if not tr.is_empty() else 0, "")))
+
+## Un boss vient de monter de niveau (leveledUp passe a vrai) : banniere LEVEL UP dans son couloir. Le premier refresh ne fait que memoriser.
+func _track_levelup(G: Dictionary) -> void:
+	for pid in (G.get("players", {}) as Dictionary):
+		var pl: Dictionary = G["players"][pid]
+		var now := bool(pl.get("leveledUp", false))
+		if _lvl_seen.has(pid) and now and not bool(_lvl_seen[pid]) and not skip_animations and pl.get("boss") != null:
+			_show_levelup(int(pid), pl["boss"])
+		_lvl_seen[pid] = now
+
+## LevelUpBanner de l'APK (DungeonFrameEntity.CreateLevelUpAnimationTask) : le portrait du boss (xxx_hr) entre par la droite du couloir devant
+## une etoile qui tourne, avec la plaque « <BOSS> HAS ACTIVATED / LEVEL UP!! » ; 0,5 s d'entree, 1 s d'arret, 0,5 s de sortie. Decoupe au
+## couloir (couches DungeonTop / BottomScissor). Positions : portrait x droit 1886 -> 991, plaque x gauche 2586 -> 251, bas du portrait y 446 (haut) / 881 (bas).
+func _show_levelup(pid: int, boss: Dictionary) -> void:
+	var idx := 1 if pid == view_pid else (0 if pid == foe_pid else -1)
+	if idx < 0:
+		return
+	_play_sfx("res://assets/audio/sfx/sting_levelup.wav")
+	_lvl_busy = true
+	var clip := Control.new()
+	clip.name = "LevelUpBanner"
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clip.clip_contents = true
+	clip.position = Vector2(184, LANE_Y[idx])
+	clip.size = Vector2(1523, LANE_H[idx])
+	_ui_layer.add_child(clip)
+	var bottom := float(LANE_Y[idx]) + 384.0 - clip.position.y
+	var bx := 1886.0 - clip.position.x # bord droit du portrait, repere du decoupage
+	var tex := _tex("res://assets/ui/characters/%s_hr.webp" % str(boss.get("id", "")).to_lower())
+	var boss_node: Control = null
+	if tex != null:
+		boss_node = Control.new()
+		boss_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		boss_node.size = tex.get_size()
+		clip.add_child(boss_node)
+		var shine := Control.new() # 4 quarts de bg_lu_shine_cuarto tournes de 90 degres, l'etoile tourne (Spinner)
+		shine.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		shine.position = tex.get_size() / 2.0
+		boss_node.add_child(shine)
+		for q in 4:
+			var quarter := _img(shine, "res://assets/ui/gradients/bg_lu_shine_cuarto.webp", Vector2(-463, -465), Vector2(463, 465))
+			quarter.pivot_offset = Vector2(463, 465)
+			quarter.rotation = float(q) * PI / 2.0
+			quarter.modulate.a = 0.7
+		shine.create_tween().set_loops().tween_property(shine, "rotation", TAU, 8.0).from(0.0)
+		var spr := _img(boss_node, "", Vector2.ZERO, tex.get_size())
+		spr.texture = tex
+		boss_node.position = Vector2(bx, bottom - tex.get_size().y)
+	var panel := Control.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.size = Vector2(531, 136)
+	clip.add_child(panel)
+	UiKit.ninepatch(panel, "ninepatch/bg_levelup_banner.webp", Vector2.ZERO, Vector2(531, 136), Vector4(0, 1, 0, 1))
+	var nm := str(boss.get("name", "")).strip_edges().to_upper()
+	var nl := _lbl(panel, nm, 30, APK_GOLD, Vector2(40, 22), 0.0, _fa)
+	_lbl(panel, "HAS ACTIVATED", 22, APK_GOLD, Vector2(40 + _fa.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x + 14.0, 30), 0.0, _fa)
+	nl.name = "BossName"
+	_lbl(panel, "LEVEL UP!!", 50, Color.WHITE, Vector2(70, 62), 0.0, _fa)
+	panel.position = Vector2(2586.0 - clip.position.x, bottom - 200.0)
+	var tw := clip.create_tween().set_parallel(true)
+	if boss_node != null:
+		tw.tween_property(boss_node, "position:x", 991.0 - clip.position.x - boss_node.size.x, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(panel, "position:x", 251.0 - clip.position.x, 0.6).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.chain().tween_interval(1.0)
+	tw.chain().tween_property(panel, "position:x", 2586.0 - clip.position.x, 0.33).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	if boss_node != null:
+		tw.tween_property(boss_node, "position:x", bx, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(func():
+		clip.queue_free()
+		_lvl_busy = false
+		refresh()) # le choix de niveau (pendingChoice) peut s'afficher
 
 func _refresh_town(G: Dictionary) -> void:
 	var town: Array = G.get("town", [])
@@ -1045,27 +1188,37 @@ func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 		for c in box.get_children():
 			box.remove_child(c)
 			c.queue_free()
-		var adv: Dictionary = game_manager.G.get("adventure", {})
-		var adv_pl = (game_manager.G.get("players", {}) as Dictionary).get(int(adv.get("playerId", -1))) if not adv.is_empty() else null
-		var walking: bool = adv_pl != null and is_same(adv_pl, r[1]) and _hero_pawn != null and is_instance_valid(_hero_pawn)
 		var ents: Array = (r[1] as Dictionary).get("entrance", [])
-		var skip_k := -1
-		if walking:
-			for k in ents.size(): # ce heros est deja le pion qui traverse le donjon
-				if ents[k] == adv.get("hero"):
-					skip_k = k
-					break
+		var pid_key: int = view_pid if int(r[0]) == 1 else foe_pid
 		var pitch := clampf(30.0 + 6.0 * float(ents.size() - 2), 30.0, 48.0) # APK : 30 px de debord pour 2 cartes, 48 pour 5
 		var toks: Array = []
 		toks.resize(ents.size())
+		var flying: bool = _bait_t0 > 0 and Time.get_ticks_msec() - _bait_t0 < int(BAIT_TIME * 1000.0)
 		for k in range(ents.size() - 1, -1, -1): # la derniere d'abord : la premiere reste au premier plan
-			if k == skip_k:
-				continue
 			var tok := _create_entrance_card(ents[k])
 			tok.position = Vector2(-pitch * float(k), 0.0)
 			box.add_child(tok)
 			toks[k] = tok
-		_ent_tok[view_pid if int(r[0]) == 1 else foe_pid] = toks
+			if flying: # carte arrivee par le leurre : cachee, un double vole depuis la ville (voir _fly_hero_card)
+				tok.modulate.a = 0.0
+				_fly_hero_card(pid_key, ents[k], k, tok)
+		_ent_tok[pid_key] = toks
+
+## Double de la carte d'entree qui vole de la colonne HEROES IN TOWN jusqu'a sa place (un seul par heros et par leurre, meme si l'entree est
+## reconstruite entre-temps) ; l'ecart entre cartes d'un meme couloir decale les departs.
+func _fly_hero_card(pid: int, hero: Dictionary, k: int, tok: Control) -> void:
+	var gk := "%d:%s:%d" % [pid, str(hero.get("id", "")), k]
+	if _bait_flown.get(gk, 0) == _bait_t0:
+		return
+	_bait_flown[gk] = _bait_t0
+	var ghost := _create_entrance_card(hero)
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hero_crossing_layer.add_child(ghost)
+	ghost.global_position = Vector2(23.0, 107.0)
+	var tw := ghost.create_tween()
+	tw.tween_interval(0.12 * float(k))
+	tw.tween_property(ghost, "global_position", tok.global_position, BAIT_FLY).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(ghost.queue_free)
 
 func _create_entrance_card(hero: Dictionary) -> Control:
 	var c = _card_scene.instantiate()
@@ -1126,6 +1279,7 @@ func _ensure_boss_card(container: CenterContainer, boss_dict: Dictionary, is_foe
 	boss_ui.setup(boss_dict)
 
 func _refresh_foe_dungeon(foe: Dictionary) -> void:
+	var prev_down := _foe_down.duplicate()
 	var holder: Control = _lane[0]["slots"]
 	for c in holder.get_children():
 		c.queue_free()
@@ -1134,6 +1288,7 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 	var dungeon: Array = foe.get("dungeon", [])
 	var off: int = maxi(0, CardDB.DUNGEON_SLOTS - dungeon.size())
 	for j in CardDB.DUNGEON_SLOTS:
+		_foe_down[j] = false
 		var slot_ctrl := Control.new()
 		slot_ctrl.custom_minimum_size = SLOT_SIZE
 		slot_ctrl.size = SLOT_SIZE
@@ -1164,6 +1319,10 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 				room_ui.long_released.connect(func(_c): _zoom_hide())
 				room_ui.set_frozen(BossEngine.is_room_deactivated(game_manager.G, foe_pid, di))
 				room_ui.set_face_down_scale()
+				var fd: bool = room_ui.card_data != null and room_ui.card_data.face_down
+				if bool(prev_down.get(j, false)) and not fd and not skip_animations:
+					room_ui.flip_in() # revelation : la salle adverse se retourne
+				_foe_down[j] = fd
 				if Minibosses.active(game_manager.G): # Rise of the Minibosses : le miniboss de la salle adverse (nom cache tant qu'il est face cache)
 					var mb_badge := Minibosses.make_badge(r, false)
 					if mb_badge != null:
@@ -1215,8 +1374,8 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 				glow.visible = true
 		elif not discarding and (phase == "build" or phase == "setup" or phase == "adventure") and not playable.has(i):
 			card_ui.set_greyed(true) # APK : carte injouable = grisee (toute la main pendant l'aventure sans sort jouable)
-		elif not discarding and phase == "adventure" and bool(card_dict.get("isSpell", false)):
-			card_ui.set_gold(true) # APK : sort jouable pendant l'aventure = cadre dore
+		elif not discarding and (phase == "adventure" or not (G.get("stack", []) as Array).is_empty()) and bool(card_dict.get("isSpell", false)):
+			card_ui.set_gold(true) # APK : sort jouable pendant l'aventure ou une pile de sorts = cadre dore
 		cards.append(card_ui)
 	if discarding:
 		_place_cards(cards, sz, 125.0, 1000.0, 338.0)
@@ -1413,10 +1572,28 @@ func _place_fan(cards: Array, sz: Vector2) -> void:
 func _refresh_phase_banner(phase: String) -> void:
 	if phase == _last_phase:
 		return
+	var prev := _last_phase
 	_last_phase = phase
 	var key := "build" if (phase == "setup" or phase == "boss") else phase
 	if PHASE_BANNERS.has(key):
 		phase_banner.texture = _tex(PHASE_BANNERS[key])
+	# APK : entre la revelation des salles et l'aventure, la plaque BAIT PHASE s'affiche pendant que les heros de la ville volent vers les
+	# donjons (leurre). Le moteur n'a pas cette phase : l'interface montre la plaque et le vol, sans retarder la partie.
+	if key == "adventure" and prev == "build" and not skip_animations:
+		_bait_t0 = Time.get_ticks_msec()
+		phase_banner.texture = _tex(PHASE_BANNERS["bait"])
+		var tw := phase_banner.create_tween()
+		tw.tween_interval(BAIT_TIME)
+		tw.tween_callback(_bait_end)
+
+func _bait_end() -> void:
+	_bait_t0 = 0
+	if _last_phase == "adventure":
+		phase_banner.texture = _tex(PHASE_BANNERS["adventure"])
+	for k in _ent_tok:
+		for t in (_ent_tok[k] as Array):
+			if t != null and is_instance_valid(t):
+				(t as Control).modulate.a = 1.0
 
 ## Remplit une zone d'icones de tresor : chaque type est repete `count` fois (grise si 0).
 func _fill_treasures(box: Control, counts: Dictionary, layout: Array, icon_sz: float) -> void:
@@ -1561,14 +1738,16 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 			tw.tween_callback(func():
 				var sfx_path := "res://assets/audio/sfx/sfx_room_magic.wav" if is_magic else "res://assets/audio/sfx/sfx_room_physical.wav"
 				_play_sfx(sfx_path)
-				_bump_slot(target_slot)
+				_set_focus(pid, slot_idx)
 				_show_floating_dmg(pawn, dmg)
 			)
 			current_hp -= dmg
 			tw.tween_interval(0.25 * _speed)
 
 	if killed:
-		tw.tween_callback(func(): _play_sfx("res://assets/audio/sfx/char_hero_death.wav"))
+		tw.tween_callback(func():
+			_set_focus(pid, -1) # APK JumpAndFade : la salle reprend sa taille pendant que le heros saute
+			_play_sfx("res://assets/audio/sfx/char_hero_death.wav"))
 		tw.tween_property(pawn, "position:y", pawn.position.y - 100.0, 0.3).set_trans(Tween.TRANS_CIRC).set_ease(Tween.EASE_OUT)
 		tw.parallel().tween_property(pawn, "modulate:v", 1.6, 0.15)
 		tw.tween_property(pawn, "position:y", pawn.position.y + 220.0, 0.4).set_trans(Tween.TRANS_CIRC).set_ease(Tween.EASE_IN)
@@ -1581,10 +1760,13 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 		)
 	else:
 		var boss_pos := boss_platform.global_position + Vector2(25, 25)
+		tw.tween_callback(func(): _set_focus(pid, -1))
 		tw.tween_property(pawn, "global_position", boss_pos, 0.35 * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 		tw.tween_callback(func():
 			_play_sfx("res://assets/audio/sfx/char_hero_attack.wav")
 			_shake_node(boss_sprite)
+			boss_sprite.modulate = Color(1.8, 0.45, 0.45) # APK CreateBossHitAnimationTask : le boss touche rougeoie (calque additif) puis revient
+			boss_sprite.create_tween().tween_property(boss_sprite, "modulate", Color.WHITE, 0.6)
 			var boss_dict: Dictionary = (game_manager.G.get("players", {}) as Dictionary).get(pid, {}).get("boss", {})
 			var is_female := ["BMA006", "BMA007", "BMA008"].has(str(boss_dict.get("id", "")))
 			_play_sfx("res://assets/audio/sfx/boss_female_hurt.wav" if is_female else "res://assets/audio/sfx/boss_male_hurt.wav")
@@ -1603,6 +1785,8 @@ func _track_adventure(G: Dictionary) -> void:
 	var adv: Dictionary = G.get("adventure", {})
 	if adv.is_empty() or adv.get("hero") == null:
 		_adv_seen = {}
+		if not _focus.is_empty() and not _animating_hero:
+			_set_focus(-1, -1) # plus de heros dans le donjon : la salle agrandie reprend sa taille
 		if _hero_pawn != null and not _animating_hero: # heros parti sans combat final montre (sort, renvoi en ville) : plus de pion
 			if is_instance_valid(_hero_pawn):
 				_hero_pawn.queue_free()
@@ -1649,10 +1833,9 @@ func _animate_step(hero: Dictionary, pid: int, from_room: int, to_room: int, hp_
 	_animating_hero = true
 	if _hero_pawn == null or not is_instance_valid(_hero_pawn):
 		_hero_pawn = _create_hero_pawn(hero, hp_before)
-		_hero_pawn_hp = _hero_pawn.get_node("Hp")
+		_hero_pawn_hp = _hero_pawn.find_child("Hp", true, false)
 		hero_crossing_layer.add_child(_hero_pawn)
 		_hero_pawn.global_position = _step_target(pid, -1)
-		refresh_entrance_only()
 	var pawn := _hero_pawn
 	var hp_lbl := _hero_pawn_hp
 	var target := _step_target(pid, to_room)
@@ -1668,55 +1851,81 @@ func _animate_step(hero: Dictionary, pid: int, from_room: int, to_room: int, hp_
 			var room_dict = BossEngine.active_room(dgn[to_room]) if to_room < dgn.size() else null
 			var is_monster: bool = room_dict != null and str((room_dict as Dictionary).get("type", "")) == "monster"
 			_play_sfx("res://assets/audio/sfx/sfx_room_magic.wav" if is_monster else "res://assets/audio/sfx/sfx_room_physical.wav")
-			_bump_slot(room_ctrl)
 			_show_floating_dmg(pawn, dmg)
 			var badge: Label = (_lane[lane_idx] as Dictionary)["dmg"]
 			badge.modulate = Color(1, 0.35, 0.3)
 			badge.create_tween().tween_property(badge, "modulate", Color.WHITE, 0.5)
+		_set_focus(pid, to_room) # APK : la salle ou entre le heros grossit
 		if is_instance_valid(hp_lbl):
-			hp_lbl.text = "%d HP" % maxi(hp_after, 0))
+			hp_lbl.text = str(maxi(hp_after, 0)))
 	tw.tween_interval(0.3 * _speed)
 	tw.tween_callback(func():
 		_animating_hero = false
 		refresh())
 
-## Les jetons de l'entree ne doivent plus montrer le heros qui marche (voir _refresh_entrances).
-func refresh_entrance_only() -> void:
-	var G: Dictionary = game_manager.G
-	var pl: Dictionary = (G.get("players", {}) as Dictionary).get(view_pid, {})
-	_refresh_entrances(pl, (G["players"] as Dictionary)[foe_pid] if foe_pid >= 0 else {})
+## Personnage du heros (hero_characters de l'APK) : sa carte reste a l'entree du donjon, c'est ce personnage qui traverse les salles, avec
+## au-dessus de lui un coeur rouge portant ses PV restants (HeroCardEntity.HeroCharacter + heroHeart). Le noeud fait la taille d'une carte
+## de heros et se place comme elle (HERO_IN_SLOT : centre sur la salle) ; le personnage est un peu au-dessus du centre.
+func _hero_sprite(hero: Dictionary) -> Texture2D:
+	var t := _tex("res://assets/ui/characters/heroes/%s_character.webp" % str(hero.get("id", "")).to_lower())
+	if t == null: # heros du wiki sans sprite APK : l'icone de sa classe
+		t = _tex("res://assets/ui/icons/icon_%s.webp" % str({1: "cleric", 2: "fighter", 3: "mage", 4: "thief"}.get(int(hero.get("treasure", 0)), "")))
+	return t
 
 func _create_hero_pawn(hero: Dictionary, hp: int) -> Control:
 	var ctrl := Control.new()
 	ctrl.custom_minimum_size = HERO_CARD
 	ctrl.size = HERO_CARD
 	ctrl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var card = _card_scene.instantiate() # APK : le heros qui traverse est sa carte, posee sur la salle
-	card.default_size = HERO_CARD
-	ctrl.add_child(card)
-	card.size = HERO_CARD
-	card.is_in_hand = false
-	card.setup(hero)
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var hp_badge := Label.new()
-	hp_badge.name = "Hp"
-	hp_badge.text = "%d HP" % hp
-	hp_badge.add_theme_font_override("font", _fa)
-	hp_badge.add_theme_font_size_override("font_size", 18)
-	hp_badge.add_theme_color_override("font_color", Color(1, 0.3, 0.3))
-	hp_badge.add_theme_color_override("font_outline_color", Color(0, 0, 0))
-	hp_badge.add_theme_constant_override("outline_size", 4)
-	hp_badge.position = Vector2(4, -22)
-	ctrl.add_child(hp_badge)
+	var cy := HERO_CARD.y / 2.0 + HERO_SPRITE_DY
+	var tex := _hero_sprite(hero)
+	if tex != null:
+		var sz := tex.get_size() * HERO_SPRITE_SCALE
+		if tex.get_size().y > 100.0: # icone de classe (haute) : ramenee a la taille d'un personnage
+			sz = tex.get_size() * (64.0 / tex.get_size().y)
+		var spr := _img(ctrl, "", Vector2(HERO_CARD.x / 2.0 - sz.x / 2.0, cy - sz.y / 2.0), sz)
+		spr.name = "Sprite"
+		spr.texture = tex
+	var heart := Control.new()
+	heart.name = "HeroHeart"
+	heart.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	heart.size = HERO_HEART
+	heart.position = Vector2(HERO_CARD.x / 2.0 - HERO_HEART.x / 2.0, cy + HERO_HEART_DY - HERO_HEART.y / 2.0)
+	ctrl.add_child(heart)
+	_img(heart, UI_DIR + "health_hero_icon.webp", Vector2.ZERO, HERO_HEART)
+	var hp_lbl := _lbl(heart, str(hp), 24, Color.WHITE, Vector2(0, 11), HERO_HEART.x, _fa, HORIZONTAL_ALIGNMENT_CENTER)
+	hp_lbl.name = "Hp"
+	ctrl.set_meta("heart_anchor", heart) # _show_floating_dmg : le « -N » part du coeur
 	return ctrl
 
-func _bump_slot(slot: Control) -> void:
-	var orig_scale := slot.scale
-	var tw := create_tween()
-	tw.tween_property(slot, "scale", orig_scale * 1.08, 0.1)
-	tw.tween_property(slot, "scale", orig_scale, 0.12)
+## Salle ou se trouve le heros : elle grossit (APK : CreateScaleInTopRoomTask / ScaleOut), les autres reprennent leur taille.
+## Les emplacements adverses sont reconstruits a chaque refresh : refresh() rappelle _apply_focus.
+func _set_focus(pid: int, room: int) -> void:
+	_focus = {"pid": pid, "room": room} if room >= 0 else {}
+	_apply_focus(true)
+
+func _apply_focus(animate := false) -> void:
+	for pid in [view_pid, foe_pid]:
+		var want: int = int(_focus.get("room", -1)) if not _focus.is_empty() and int(_focus["pid"]) == int(pid) else -1
+		var target: Control = _slot_at(int(pid), want) if want >= 0 else null
+		for sl in _lane_slots(int(pid)):
+			if not is_instance_valid(sl):
+				continue
+			var c := sl as Control
+			var big := c == target
+			var sc := Vector2.ONE * (ROOM_FOCUS_SCALE if big else 1.0)
+			c.pivot_offset = c.size / 2.0
+			c.z_index = 4 if big else 0
+			if c.scale.is_equal_approx(sc):
+				continue
+			if c.has_meta("focus_tw"):
+				(c.get_meta("focus_tw") as Tween).kill()
+			if animate and not skip_animations:
+				var tw := c.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+				tw.tween_property(c, "scale", sc, 0.3)
+				c.set_meta("focus_tw", tw)
+			else:
+				c.scale = sc
 
 ## HeartDecrementEmitter de l'APK : un coeur « -N » part de la salle / du boss, monte de 140 px en 1,3 s et s'estompe sur la fin (coeur vide health_hero_trans_icon).
 func _show_floating_dmg(parent: Control, dmg: int, color := Color(1.0, 1.0, 1.0)) -> void:
@@ -1727,7 +1936,11 @@ func _show_floating_dmg(parent: Control, dmg: int, color := Color(1.0, 1.0, 1.0)
 	UiKit.image(heart, UI_DIR + "health_hero_trans_icon.webp", Vector2.ZERO, Vector2(70, 62)).modulate = color
 	UiKit.label(heart, "-%d" % dmg, 24, color, Vector2(0, 17), 70.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
 	_ui_layer.add_child(heart)
-	heart.global_position = parent.global_position + Vector2(parent.size.x / 2.0 - 35.0, -20.0)
+	if parent.has_meta("heart_anchor"): # le coeur de PV du heros : le « -N » en part
+		var anchor := parent.get_meta("heart_anchor") as Control
+		heart.global_position = anchor.global_position + anchor.size / 2.0 - Vector2(35.0, 31.0)
+	else:
+		heart.global_position = parent.global_position + Vector2(parent.size.x / 2.0 - 35.0, -20.0)
 	var tw := heart.create_tween().set_parallel(true)
 	tw.tween_property(heart, "position:y", heart.position.y - 140.0, 1.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tw.tween_property(heart, "modulate:a", 0.0, 0.26).set_delay(1.04)
@@ -2136,11 +2349,6 @@ func _spot_node(spot: Dictionary) -> Control:
 						break
 			if idx < 0 or idx >= ent.size():
 				return null
-			var adv: Dictionary = G.get("adventure", {})
-			if not adv.is_empty() and adv.get("hero") != null and int(adv.get("playerId", -1)) == pid2 \
-					and str((adv["hero"] as Dictionary).get("id", "")) == str((ent[idx] as Dictionary).get("id", "")) \
-					and _hero_pawn != null and is_instance_valid(_hero_pawn):
-				return _hero_pawn
 			var toks: Array = _ent_tok.get(pid2, [])
 			return toks[idx] if idx < toks.size() and toks[idx] != null and is_instance_valid(toks[idx]) else null
 		"player":
@@ -2265,6 +2473,8 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 		return # un menu ouvert par le joueur reste devant ; le choix reapparait a la fermeture (refresh)
 	if _popup_kind == "choice" and sig == _choice_sig:
 		return
+	if _lvl_busy:
+		return # banniere LEVEL UP en cours : le choix suivra (refresh a sa fin)
 	var opts: Array = pc.get("options", [])
 	var entries: Array = []
 	var board: Array = [] # options hors SKIP, avec leur zone du plateau
@@ -2686,7 +2896,9 @@ func _drag_begin() -> void:
 		(ci as CardUI).suppress_click = true
 	_zoom_hide()
 	var greyed: bool = is_instance_valid(ci) and (ci as CardUI).texture_rect != null and (ci as CardUI).texture_rect.material != null
-	var prev := UiKit.zoom_card(hand[idx], UiKit.ZOOM_CARD, greyed)
+	# APK (CardExtractBehavior.ExtractCard) : la carte tiree reprend l'echelle de la main (ToScale = NormalScale, rotation 0), cadre noir fin ;
+	# la grande apercu 350 x 490 est le zoom d'appui long, pas le glisser.
+	var prev := UiKit.zoom_card(hand[idx], HAND_CARD, greyed, 4.0)
 	prev.modulate = Color(1, 1, 1, 0.96)
 	_ui_layer.add_child(prev)
 	_drag = {"idx": idx, "preview": prev, "frames": []}
@@ -2737,24 +2949,25 @@ func _drag_refresh() -> void:
 			(_drag["frames"] as Array).append(_gold_frame(_spot_rect(spot, node)))
 
 ## Cadre dore de cible (APK : bordure doree sur la salle / le heros que le sort peut viser) ; ne bloque pas la souris.
-func _gold_frame(r: Rect2) -> Control:
+func _gold_frame(r: Rect2, red := false) -> Control:
 	var f := Control.new()
 	f.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	f.position = r.position - Vector2(8, 8)
 	f.size = r.size + Vector2(16, 16)
 	var glow := TextureRect.new()
-	glow.texture = _tex(TEX_TARGET_GLOW)
+	glow.texture = _tex(TEX_TARGET_GLOW if not red else UI_DIR + "card_border_red.webp")
 	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	glow.stretch_mode = TextureRect.STRETCH_SCALE
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
 	f.add_child(glow)
-	f.draw.connect(func(): f.draw_rect(Rect2(Vector2(7, 7), f.size - Vector2(14, 14)), GOLD, false, 3.0))
-	f.name = "GoldFrame"
+	f.draw.connect(func(): f.draw_rect(Rect2(Vector2(7, 7), f.size - Vector2(14, 14)), Color(0.9, 0.2, 0.2) if red else GOLD, false, 3.0))
+	f.name = "RedFrame" if red else "GoldFrame"
 	_ui_layer.add_child(f)
-	var tw := f.create_tween().set_loops()
-	tw.tween_property(f, "modulate:a", 0.55, 0.5).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(f, "modulate:a", 1.0, 0.5).set_trans(Tween.TRANS_SINE)
+	if not red: # cibles possibles : cadre dore qui pulse ; cibles touchees par la carte jouee (BorderStyles.Red) : cadre rouge fixe
+		var tw := f.create_tween().set_loops()
+		tw.tween_property(f, "modulate:a", 0.55, 0.5).set_trans(Tween.TRANS_SINE)
+		tw.tween_property(f, "modulate:a", 1.0, 0.5).set_trans(Tween.TRANS_SINE)
 	return f
 
 func _drag_clear() -> void:
@@ -2833,6 +3046,9 @@ func _zoom_show(card: Control) -> void:
 
 func _zoom_hide() -> void:
 	if _zoom != null and is_instance_valid(_zoom):
+		for f in (_zoom.get_meta("frames", []) as Array):
+			if is_instance_valid(f):
+				(f as Node).queue_free()
 		_zoom.queue_free()
 	_zoom = null
 	if hand_layer != null:
@@ -2870,6 +3086,41 @@ func _refresh_stack_cards(G: Dictionary) -> void:
 		if bool((stack[i] as Dictionary).get("canceled", false)):
 			z.modulate = Color(0.5, 0.5, 0.5)
 		_stack_ui.add_child(z)
+		var owner_pid := int((stack[i] as Dictionary).get("playerId", -1))
+		if owner_pid != _my_pid(): # APK : sort / capacite de l'adversaire = son portrait rond (BossOwnerIcon) a cheval sur le haut de la carte
+			z.add_child(_owner_badge(owner_pid, z.size.x / 2.0))
+
+## Portrait rond du boss (avatar de profil, cercle rouge) ; centre en (cx, 0) du parent.
+func _owner_badge(pid: int, cx: float) -> Control:
+	var boss = ((game_manager.G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary).get("boss")
+	var nm := str((boss as Dictionary).get("name", "")).to_lower() if boss != null else ""
+	var tex: Texture2D = null
+	for k in ["anererak", "cerebellus", "cleopatra", "croak", "draculord", "gorgona", "robobo", "seducia", "xyzax"]:
+		if nm.contains(k):
+			tex = _tex("res://assets/ui/avatar/avatar_%s.webp" % k)
+	if tex == null:
+		tex = _tex(UI_DIR + "boss_icon.webp")
+	var ring := Panel.new()
+	ring.name = "OwnerBadge"
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.size = Vector2(64, 64)
+	ring.position = Vector2(cx - 32.0, -12.0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.1, 0.05, 0.05)
+	sb.set_corner_radius_all(32)
+	sb.set_border_width_all(4)
+	sb.border_color = Color(0.78, 0.25, 0.25)
+	ring.add_theme_stylebox_override("panel", sb)
+	ring.clip_children = CanvasItem.CLIP_CHILDREN_AND_DRAW
+	var pic := TextureRect.new()
+	pic.texture = tex
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pic.position = Vector2(2, 2)
+	pic.size = Vector2(60, 60)
+	ring.add_child(pic)
+	return ring
 
 ## « <adversaire> HAS PLAYED A SPELL / ROOM ABILITY » : notice sombre en haut a droite (BubblesFactory.CreatePlayBubble), 2,5 s.
 func _notice_ai(pid: int, mv: Dictionary) -> void:
@@ -2880,6 +3131,9 @@ func _notice_ai(pid: int, mv: Dictionary) -> void:
 	var args: Array = mv.get("args", [])
 	var ai := -1 if args.is_empty() or not (args[0] is int) else int(args[0])
 	var card = null # la carte de la capacite (appelee avant le coup) : un appui sur la bulle la montre (ShowBubleDetail)
+	var spot := {} # ce que la carte jouee touche : cadre rouge sur le plateau pendant le zoom (ShowBubleDetail : HighLightCards Red)
+	if t in ["playSpell", "useHandRoom"] and args.size() > 1 and args[1] is Dictionary:
+		spot = _spot_of_target(args[1], pid)
 	if t in ["playSpell", "useHandRoom"]:
 		var hand: Array = pl.get("hand", [])
 		card = hand[ai] if ai >= 0 and ai < hand.size() else null
@@ -2887,11 +3141,11 @@ func _notice_ai(pid: int, mv: Dictionary) -> void:
 		var dng: Array = pl.get("dungeon", [])
 		card = BossEngine.active_room(dng[ai]) if ai >= 0 and ai < dng.size() else null
 	if t == "playSpell":
-		_show_notice("SPELL", card)
+		_show_notice("SPELL", card, spot)
 	elif t in ["activateRoom", "useHandRoom"]:
-		_show_notice("ROOM ABILITY", card)
+		_show_notice("ROOM ABILITY", card, spot)
 
-func _show_notice(what: String, card = null) -> void:
+func _show_notice(what: String, card = null, spot := {}) -> void:
 	if _notice != null and is_instance_valid(_notice):
 		_ui_layer.remove_child(_notice)
 		_notice.queue_free()
@@ -2905,7 +3159,7 @@ func _show_notice(what: String, card = null) -> void:
 		n.gui_input.connect(func(ev: InputEvent):
 			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 				n.accept_event()
-				_notice_zoom(card))
+				_notice_zoom(card, spot))
 	UiKit.image(n, UI_DIR + "action_bubble.webp", Vector2.ZERO, Vector2(234, 136))
 	var fx := UiKit.image(n, UI_DIR + "action_bubble_effect.webp", Vector2.ZERO, Vector2(234, 136))
 	fx.create_tween().set_loops().tween_property(fx, "modulate:a", 0.15, 0.6).from(1.0).set_trans(Tween.TRANS_SINE)
@@ -2919,12 +3173,16 @@ func _show_notice(what: String, card = null) -> void:
 	tw.tween_callback(n.queue_free)
 
 ## Appui sur la bulle de l'adversaire : la carte jouee en grand au centre de l'ecran (GamePlayBaseScene.ShowBubleDetail), jusqu'au clic suivant.
-func _notice_zoom(card: Dictionary) -> void:
+func _notice_zoom(card: Dictionary, spot := {}) -> void:
 	_zoom_hide()
 	_zoom = UiKit.zoom_card(card, UiKit.ZOOM_CARD)
 	_zoom.set_meta("levelup", true) # survit aux refresh (l'IA continue de jouer) ; _input le ferme au clic suivant
 	_zoom.position = Vector2(STACK_CX - _zoom.size.x / 2.0, 498.0 - _zoom.size.y / 2.0)
 	_ui_layer.add_child(_zoom)
+	if not spot.is_empty():
+		var node := _spot_node(spot)
+		if node != null:
+			_zoom.set_meta("frames", [_gold_frame(_spot_rect(spot, node), true)])
 
 ## Nouvelles cartes en main (pioche) : dos de carte au centre (une rangee, plus petit s'il y en a plusieurs), la carte se retourne puis
 ## rejoint la main (DrawCardEmitter). Pas pendant le choix du boss / la defausse d'ouverture ; pas sans animations.

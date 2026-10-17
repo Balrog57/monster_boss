@@ -109,18 +109,18 @@ static func stone_button(parent: Node, text: String, pos: Vector2, sz: Vector2 =
 	return b
 
 ## Carte zoomee (cadre noir arrondi de l'APK) : racine de taille `sz` + 2 x ZOOM_PAD ; la carte est un CardUI sans souris.
-static func zoom_card(card: Dictionary, sz: Vector2 = ZOOM_CARD, greyed: bool = false) -> Control:
+static func zoom_card(card: Dictionary, sz: Vector2 = ZOOM_CARD, greyed: bool = false, pad: float = ZOOM_PAD) -> Control:
 	var root := Panel.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.03, 0.02, 0.03, 0.97)
-	sb.set_corner_radius_all(16)
+	sb.set_corner_radius_all(int(16.0 * pad / ZOOM_PAD))
 	root.add_theme_stylebox_override("panel", sb)
-	root.size = sz + Vector2(ZOOM_PAD, ZOOM_PAD) * 2.0
+	root.size = sz + Vector2(pad, pad) * 2.0
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var c = load("res://godot/scenes/Card.tscn").instantiate()
 	c.default_size = sz
 	root.add_child(c)
-	c.position = Vector2(ZOOM_PAD, ZOOM_PAD)
+	c.position = Vector2(pad, pad)
 	c.size = sz
 	c.is_in_hand = false
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE

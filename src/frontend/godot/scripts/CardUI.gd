@@ -76,6 +76,12 @@ func set_face_down_scale() -> void:
 	_rest_scale = Vector2(175.0 / 127.0, 244.0 / 175.0) if down else Vector2.ONE
 	scale = _rest_scale
 
+## Retournement d'une salle qui vient d'etre revelee (APK FlipCardBehavior : face cachee -> face visible, tous les joueurs en meme temps).
+func flip_in(duration := 0.35) -> void:
+	var target := _rest_scale
+	scale = Vector2(0.0, target.y)
+	create_tween().tween_property(self, "scale", target, duration).set_trans(Tween.TRANS_SINE)
+
 ## Gel de l'APK (Freeze) : voile de glace (frozzen_card) par-dessus la salle.
 func set_frozen(on: bool) -> void:
 	if on and _frozen == null:

@@ -16,6 +16,7 @@ var game_manager: GameManager
 var player_id: int = 0
 var current_stack: Array = []
 var activatable := false
+var _was_down := false                  # la salle du dessus etait face cachee au dernier affichage : si elle ne l'est plus, elle se retourne (CardUI.flip_in)
 var _glow: Control
 const PEEK := 28.0                       # APK : la salle recouverte depasse de ~28 px au-dessus de la salle du dessus (1920x1080)
 const MAX_PEEK := 2                      # nombre de salles recouvertes dessinees
@@ -74,6 +75,10 @@ func _update_view() -> void:
 		card_ui.long_released.connect(func(_c): zoom_off.emit())
 		card_ui.set_frozen(game_manager != null and BossEngine.is_room_deactivated(game_manager.G, player_id, slot_index))
 		card_ui.set_face_down_scale()
+		var down: bool = card_ui.card_data != null and card_ui.card_data.face_down
+		if _was_down and not down and DisplayServer.get_name() != "headless":
+			card_ui.flip_in()
+		_was_down = down
 		add_under_cards(self, current_stack, _card_ui_scene, custom_minimum_size, card_container.get_index())
 		if border:
 			border.border_color = Color(0.4, 0.8, 0.4, 0.0) # pas de liseré : seul le halo d'une salle activable est visible
@@ -84,6 +89,7 @@ func _update_view() -> void:
 				add_child(badge)
 				tooltip_text += "\n" + Minibosses.badge_tooltip(active_room, true)
 	else:
+		_was_down = false
 		if slot_frame:
 			slot_frame.visible = true
 		if border:

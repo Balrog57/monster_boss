@@ -42,6 +42,11 @@ func _ready() -> void:
 			only = a.substr(7)
 	AudioServer.set_bus_mute(0, true)
 	await _wait(0.3)
+	if only == "phases":
+		await _phases()
+		print("PHASE SCREENS CAPTURED: ", n_shots)
+		get_tree().quit(0)
+		return
 	if only == "online":
 		await _online_menus()
 		print("ONLINE SCREENS CAPTURED: ", n_shots)
@@ -51,6 +56,7 @@ func _ready() -> void:
 	await _online_menus()
 	await _board_shots()
 	await _states()
+	await _phases()
 	await _end_screens()
 	print("ALL GODOT SCREENS CAPTURED: ", n_shots)
 	get_tree().quit(0)
@@ -475,12 +481,19 @@ func _states() -> void:
 	G["stackReturnPlayer"] = 1
 	G["stackActivePlayer"] = 1
 	G["activePlayer"] = 0
-	(me["hand"] as Array).append(_take("spells", "BMA043")) # Counterspell
+	var cs := _take("spells", "BMA043") # Counterspell (jouable contre le sort adverse de la pile : cadre dore)
+	if cs.is_empty():
+		for sp in CardDB.spells:
+			if str((sp as Dictionary).get("id", "")) == "BMA043":
+				cs = (sp as Dictionary).duplicate(true)
+				cs["isSpell"] = true
+	(me["hand"] as Array).append(cs)
 	await _settle()
 	board._process(0.5)
 	board._process(0.5)
 	await _frames(3)
 	await _shot("spell_stack_motivation_in_center_with_green_timer_bar")
+	print("PHASE-DBG stack my moves: ", str(gm.legal_moves(0)).substr(0, 300))
 	board._notice_ai(1, {"type": "playSpell", "args": []})
 	await _frames(3)
 	await _shot("spellbattle_has_played_a_spell_notice_top_right_exhaustion_stack")
@@ -575,4 +588,200 @@ func _end_screens() -> void:
 	await _settle(8)
 	await _wait(0.6)
 	await _shot("gameover_lose_you_lose_tombstone")
+	await _teardown()
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Audit par phase (docs/reference/godot_screens/PHASES.md) : vrai flux de partie (animations actives), un cliche par moment
+# ---------------------------------------------------------------------------------------------------------------------
+
+## Attend (au plus max_s) que until() soit vrai ; le plateau tourne en temps reel (IA, fenetres chronometrees, animations).
+func _until(until: Callable, max_s := 30.0) -> bool:
+	board.set_process(true)
+	var t := 0.0
+	while t < max_s:
+		if until.call():
+			return true
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	return false
+
+func _phase() -> String:
+	return str(gm.G.get("phase", ""))
+
+## Premier coup « construire » simple (emplacement libre) de la main, -1 s'il n'y en a pas.
+func _plain_build() -> Dictionary:
+	for m in gm.legal_moves(0):
+		var d: Dictionary = m
+		if str(d.get("type", "")) == "buildRoom" and (d.get("args", []) as Array).size() == 1:
+			return d
+	return {}
+
+func _phases() -> void:
+	# --- 1. choix du boss : confirmation (les autres cartes se retournent, YOU ARE <boss>)
+	await _new_game(424242, "boss")
+	board.skip_animations = false
+	board._boss_select(2)
+	await _wait(0.4)
+	await _shot("boss_pick_carousel_other_card_centered")
+	board._boss_confirm()
+	await _wait(0.35)
+	await _shot("boss_pick_mid_flip_you_are_boss")
+	await _wait(0.5)
+
+	# --- 2. defausse d'ouverture : deux cartes choisies, bouton CONTINUE
+	await _new_game(424242, "discard")
+	board.skip_animations = false
+	await _settle()
+	board._on_hand_card_clicked(1, (_me()["hand"] as Array)[1])
+	board._on_hand_card_clicked(4, (_me()["hand"] as Array)[4])
+	await _settle()
+	await _shot("discard_selected_gold_border_continue_diamond_button")
+
+	# --- 3. construction : tour de mise en place (APK t1), puis tour de construction normal (pose face cachee, DONE!, revelation)
+	await _new_game()
+	board.skip_animations = false
+	board.win_time_scale = 1.0
+	board.set_process(false)
+	await _settle()
+	var mv := _plain_build()
+	if mv.is_empty():
+		push_error("capture phases : pas de coup de construction simple")
+	else:
+		gm.apply_move(0, mv)
+		board.refresh()
+		await _wait(0.9)
+		await _shot("build_t1_first_room_placed_facedown_room_deck_back_done_button")
+		print("PHASE-DBG after setup: phase=", _phase(), " setupBuild=", gm.G.get("setupBuild"), " turn=", gm.G.get("turn"), " builds=", _me().get("buildsThisTurn"))
+		var ok := await _until(func(): return _phase() == "build" and not bool(gm.G.get("setupBuild", false)) and int(_me().get("buildsThisTurn", 0)) == 0 and gm.G.get("buildWindow") == null and not _plain_build().is_empty(), 15.0)
+		board.set_process(false)
+		await _settle()
+		print("PHASE-DBG t2 build ok=", ok, " turn=", gm.G.get("turn"), " town=", (gm.G["town"] as Array).size())
+		await _shot("build_t2_first_room_revealed_succubus_spa_both_dungeons_2heroes_town_5card_hand")
+		mv = _plain_build()
+		gm.apply_move(0, mv)
+		board.refresh()
+		await _wait(0.9)
+		await _shot("build_room_placed_facedown_done_button")
+		for pid in [0, 1]:
+			for st in (gm.G["players"][pid]["dungeon"] as Array):
+				print("PHASE-DBG pid=", pid, " stack=", (st as Array).map(func(r): return "%s fd=%s" % [r.get("name"), r.get("faceDown")]))
+		# DONE : l'IA construit, revelation, aventure
+		board._on_pass_pressed()
+		board.refresh()
+		var dbg_sig := ""
+		var got := await _until(func():
+			var sg := "%s e0=%d e1=%d t=%d" % [_phase(), (_me()["entrance"] as Array).size(), (_foe()["entrance"] as Array).size(), (gm.G["town"] as Array).size()]
+			if sg != dbg_sig:
+				dbg_sig = sg
+				print("PHASE-DBG flow ", sg, " @", Time.get_ticks_msec())
+			return _phase() == "adventure", 20.0)
+		await _wait(0.05)
+		await _shot("reveal_rooms_flipped_faceup_after_done")
+		await _wait(0.12)
+		await _shot("bait_phase_heroes_flying_to_dungeons")
+		await _wait(1.4)
+		await _shot("adventure_phase_banner_start")
+		# le premier heros entre dans une salle
+		var in_room := await _until(func(): return (gm.G.get("adventure", {}) as Dictionary).get("hero") != null and int((gm.G.get("adventure", {}) as Dictionary).get("roomIndex", -1)) >= 0 and board._hero_pawn != null, 20.0)
+		await _wait(0.55)
+		await _shot("adv_hero_in_room_witchs_kitchen_enlarged_damage_heart")
+		print("PHASE-DBG got_adventure=", got, " in_room=", in_room, " adv=", str(gm.G.get("adventure", {})).substr(0, 160))
+		await _wait(1.5)
+		await _shot("adv_hero_in_room_next_step")
+		# pause en pleine aventure
+		board._on_menu_pressed()
+		await _frames(4)
+		await _shot("menu_paused_over_adventure_phase")
+		board._close_menu()
+		await _wait(0.3)
+	await _teardown()
+
+	# --- 7. capacite de salle activable (halo) pendant la traversee, avec le heros dans la salle
+	await _new_game()
+	board.skip_animations = false
+	board.win_time_scale = 1.0
+	board.set_process(false)
+	var pit := {}
+	for r in CardDB.rooms:
+		if str((r as Dictionary).get("name", "")) == "Bottomless Pit":
+			pit = (r as Dictionary).duplicate(true)
+	if pit.is_empty():
+		push_error("capture phases : Bottomless Pit introuvable")
+	else:
+		pit["isRoom"] = true
+		pit["faceDown"] = false
+		_dungeon_fill(_me(), 2)
+		(_me()["dungeon"] as Array)[0] = [pit]
+		_dungeon_fill(_foe(), 3)
+		_heroes_town(1)
+		var h2: Dictionary = (CardDB.heroes[5] as Dictionary).duplicate(true)
+		(_me()["entrance"] as Array).clear()
+		(_me()["entrance"] as Array).append(h2)
+		var G3: Dictionary = gm.G
+		G3["phase"] = "adventure"
+		G3.erase("buildWindow")
+		G3["adventure"] = {"playerId": 0, "hero": h2, "roomIndex": 0, "hp": 6, "pause": "post-damage"}
+		G3["adventurePausePassed"] = {"1": true, 1: true}
+		G3["activePlayer"] = 0
+		_hand_n(5, 2)
+		await _settle()
+		board._set_focus(0, 0)
+		board._hero_pawn = board._create_hero_pawn(h2, 6)
+		board.hero_crossing_layer.add_child(board._hero_pawn)
+		board._hero_pawn.global_position = board._step_target(0, 0)
+		await _wait(0.5)
+		board._process(0.4)
+		print("PHASE-DBG ability moves: ", str(gm.legal_moves(0).filter(func(m): return m["type"] == "activateRoom")))
+		await _shot("ability_bottomless_pit_activated_red_glow_room_zoom_hero_in_room_timer_t9")
+		# appui long : sort dore en main pendant l'aventure, puis le heros a l'entree
+		var hnd: Array = _me()["hand"]
+		var spi := -1
+		for i in hnd.size():
+			if bool((hnd[i] as Dictionary).get("isSpell", false)):
+				spi = i
+		if spi >= 0:
+			var sc0: Vector2 = _hand_cards()[spi].get_global_rect().get_center()
+			await _mouse(sc0, true, false)
+			await _wait(1.1)
+			await _shot("longpress_spell_kobold_strike_zoom_in_adventure")
+			await _mouse(sc0, false, false)
+			await _frames(3)
+		# appui sur la notice adverse : la carte au centre, cible entouree en rouge
+		var fspell := _take("spells")
+		(_foe()["hand"] as Array).append(fspell)
+		board._notice_ai(1, {"type": "playSpell", "args": [(_foe()["hand"] as Array).size() - 1, {"targetPlayerId": 0, "roomIndex": 0}]})
+		await _frames(3)
+		board._notice_zoom(fspell, {"k": "room", "pid": 0, "idx": 0})
+		await _wait(0.3)
+		await _shot("notice_tap_card_at_center_targets_red_frame")
+		board._zoom_hide()
+		await _frames(3)
+		var hc0: Vector2 = (board._ent_tok[0][0] as Control).get_global_rect().get_center()
+		await _mouse(hc0, true, false)
+		await _wait(1.1)
+		await _shot("longpress_hero_card_at_entrance_zoom")
+		await _mouse(hc0, false, false)
+		await _frames(3)
+	await _teardown()
+
+	# --- 8. montee de niveau : 5e salle posee (tour de mise en place), revelation, banniere LEVEL UP, choix du niveau (King Croak : salle avancee)
+	await _new_game()
+	board.skip_animations = false
+	board.win_time_scale = 1.0
+	board.set_process(false)
+	for b in CardDB.bosses:
+		if str((b as Dictionary).get("id", "")) == "BMA003":
+			_me()["boss"] = (b as Dictionary).duplicate(true)
+	_dungeon_fill(_me(), 4)
+	await _settle()
+	mv = _plain_build()
+	if not mv.is_empty():
+		gm.apply_move(0, mv)
+		board.refresh()
+		var lv := await _until(func(): return bool(_me().get("leveledUp", false)), 20.0)
+		await _wait(0.9)
+		await _shot("levelup_banner_boss_hr_has_activated")
+		print("PHASE-DBG leveledUp=", lv, " pc=", str(gm.G.get("pendingChoice", {})).substr(0, 160))
+		await _wait(2.0)
+		await _shot("levelup_choice_carousel_after_banner")
 	await _teardown()

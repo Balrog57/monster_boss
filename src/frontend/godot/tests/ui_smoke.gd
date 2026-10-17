@@ -817,6 +817,8 @@ func _act_discard(pid: int) -> void:
 	board._on_hand_card_clicked(int(order[1]), hand[int(order[1])])
 	await get_tree().process_frame
 	_check(board._confirm_btn.visible and board._confirm_btn.is_visible_in_tree(), "defausse : CONTINUE absent avec 2 cartes choisies")
+	_check(board._confirm_btn.size == Vector2(131, 173) and board._confirm_btn.position == Vector2(1540, 410), "defausse : CONTINUE n'est pas le losange de l'APK (%s a %s)" % [board._confirm_btn.size, board._confirm_btn.position])
+	_check(board._dim.visible and board._dim.size == Vector2(1523, 400) and not board.phase_banner.visible, "defausse : seul le bandeau des cartes s'assombrit, sans plaque de phase")
 	board._on_hand_card_clicked(int(order[2]), hand[int(order[2])]) # une 3e est ignoree
 	_check(board.discard_pick.size() == 2, "defausse : 3 cartes selectionnables")
 	var n_before := hand.size()
@@ -1491,6 +1493,7 @@ func _check_boss_carousel() -> void:
 	await _check_boss_drag()
 	_check_boss_layout()
 	_check(board._confirm_btn.visible and board._confirm_btn.text == "PLAY BOSS MONSTER!" and board._confirm_btn.size.x >= 390.0, "carrousel : bouton PLAY BOSS MONSTER! absent")
+	_check(board._dim.visible and board._dim.size == Vector2(1920, 1080), "carrousel : tout l'ecran doit s'assombrir (panneaux et plaque compris)")
 	_check(board.foe_name_label.text == "", "carrousel : le boss adverse est visible")
 	for k in [1, bc.size() - 1, 0]:
 		(bc[k] as CardUI).card_clicked.emit(null)
@@ -1754,7 +1757,7 @@ func _check_drag_and_zoom() -> void:
 	var n_frames := _n_build_targets(0, idx) # le prochain emplacement libre + les salles recouvrables (Boss.CanBuildRoom)
 	_check(frames.size() == n_frames and n_frames == 1 + dsize, "glisser : %d emplacements dores pour une salle (%d attendus)" % [frames.size(), 1 + dsize])
 	var prev: Control = board._drag.get("preview")
-	_check(prev != null and prev.size.x > 340.0, "glisser : carte zoomee absente")
+	_check(prev != null and absf(prev.size.x - (board.HAND_CARD.x + 8.0)) < 1.0, "glisser : la carte tiree n'a pas la taille de la main (APK : NormalScale)")
 	await _mouse(start + Vector2(0, -20), false, false)
 	_check(board._drag.is_empty() and (me["hand"] as Array).size() == n_hand and (me["dungeon"] as Array).size() == dsize, "glisser : relacher sur la main doit annuler")
 	_check(board.hand_layer.get_children().filter(func(c): return not c.is_queued_for_deletion() and c.modulate.a < 0.9).is_empty(), "glisser : la carte annulee n'est pas revenue dans la main")
@@ -2290,6 +2293,50 @@ func _check_gameover_banner() -> void:
 	_check(spr.texture == board._tex(board.UI_DIR + "bosses_tombstone.webp"), "boss mort : pas de pierre tombale RIP")
 	_cov("tombstone")
 
+## Traversee d'un heros (APK HeroCardEntity) : sa carte reste a l'entree, un personnage et un coeur de PV traversent le donjon, la salle visitee
+## grossit puis reprend sa taille quand le heros part.
+func _check_crossing_ui() -> void:
+	_tag = "[crossing]"
+	await _new_game()
+	board.set_process(false)
+	board.skip_animations = false
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	var dng: Array = me["dungeon"]
+	dng.clear()
+	for i in 3:
+		var r: Dictionary = (CardDB.rooms[i] as Dictionary).duplicate(true)
+		r["isRoom"] = true
+		r["faceDown"] = false
+		dng.push_front([r])
+	var hero: Dictionary = (CardDB.heroes[5] as Dictionary).duplicate(true)
+	(me["entrance"] as Array).clear()
+	(me["entrance"] as Array).append(hero)
+	G["phase"] = "adventure"
+	G.erase("buildWindow")
+	var hp0: int = BossEngine.hero_hp(hero)
+	G["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": 1, "hp": hp0 - 2, "pause": "post-damage"}
+	board.refresh()
+	await _wait(1.8)
+	var pawn = board._hero_pawn
+	if _check(pawn != null and is_instance_valid(pawn), "traversee : pas de personnage de heros dans le donjon"):
+		var hp_lbl = (pawn as Control).find_child("Hp", true, false)
+		_check(pawn.find_child("HeroHeart", true, false) != null and hp_lbl != null and (hp_lbl as Label).text == str(hp0 - 2), "traversee : coeur de PV du heros absent ou faux")
+	var toks: Array = board._ent_tok.get(0, [])
+	_check(toks.size() == 1 and toks[0] != null and is_instance_valid(toks[0]), "traversee : la carte du heros doit rester a l'entree")
+	var hit: Control = board._slot_at(0, 1)
+	_check(hit != null and absf(hit.scale.x - board.ROOM_FOCUS_SCALE) < 0.03, "traversee : la salle visitee n'a pas grossi")
+	var other: Control = board._slot_at(0, 0)
+	_check(other != null and absf(other.scale.x - 1.0) < 0.01, "traversee : une autre salle a change de taille")
+	G.erase("adventure")
+	(me["entrance"] as Array).clear()
+	board.refresh()
+	await _wait(0.6)
+	_check(hit != null and absf(hit.scale.x - 1.0) < 0.03, "traversee : la salle ne reprend pas sa taille apres le depart du heros")
+	_check(board._hero_pawn == null or not is_instance_valid(board._hero_pawn), "traversee : le personnage reste apres le depart du heros")
+	board.skip_animations = true
+	_cov("crossing")
+
 ## Petites animations : coeur qui monte (degats), cristal qui s'allume, pioche au centre, notice « HAS PLAYED A SPELL ».
 func _check_effects() -> void:
 	_tag = "[effects]"
@@ -2525,6 +2572,7 @@ func _extra_checks() -> void:
 	await _check_online_menus()
 	await _check_gameover_banner()
 	await _check_effects()
+	await _check_crossing_ui()
 	_tag = "[base]"
 	await _new_game()
 	var G: Dictionary = gm.G
