@@ -86,6 +86,7 @@ func _ready() -> void:
 	_t_setup_parallel_first_room()
 	_t_extra_build_phase_construction_zone()
 	_t_build_offturn_spell_window()
+	_t_human_build_waits_for_done()
 	_t_destroy_recycling_center_draws_two()
 	_t_crushinator_repeatable_fear_active_hero()
 	_t_trepidation_skips_adventure()
@@ -1249,7 +1250,9 @@ func _t_build_motivation_extra_room() -> void:
 	_ok(m.apply_move(0, {"type": "buildRoom", "args": [0]}), "Motivation : 1re construction")
 	_ok(m.active_player() == 0 and _has_move(m, 0, "buildRoom"), "Motivation : le joueur garde la main pour la 2e")
 	_ok(m.apply_move(0, {"type": "buildRoom", "args": [0]}), "Motivation : 2e construction")
-	_ok(m.active_player() == 1, "apres la 2e construction la main passe")
+	_ok(m.active_player() == 0 and not _has_move(m, 0, "buildRoom") and _has_move(m, 0, "passBuild"), "apres la 2e construction le joueur attend DONE")
+	_ok(m.apply_move(0, {"type": "passBuild", "args": []}), "DONE")
+	_ok(m.active_player() == 1, "apres DONE la main passe")
 	m.queue_free()
 
 ## GameBoard.AvoidMulliganCondition : >= 4 salles avancees ou >= 4 salles au meme tresor => remelange.
@@ -1308,10 +1311,14 @@ func _t_setup_parallel_first_room() -> void:
 	_ok(m.apply_move(2, {"type": "buildRoom", "args": [1]}), "joueur 2 construit")
 	var d2: Array = (m.G["players"][2] as Dictionary)["dungeon"]
 	_ok(d2.size() == 1 and bool((d2[0][0] as Dictionary).get("faceDown", false)), "salle initiale posee face cachee")
-	_ok(m.legal_moves(2).is_empty() and str(m.G["phase"]) == "setup", "une seule salle par joueur ; la phase attend les autres")
+	_ok(m.legal_moves(2).size() == 1 and _has_move(m, 2, "passBuild") and str(m.G["phase"]) == "setup", "une seule salle par joueur ; il attend DONE")
+	_ok(m.apply_move(2, {"type": "passBuild", "args": []}), "joueur 2 : DONE")
+	_ok(m.legal_moves(2).is_empty() and str(m.G["phase"]) == "setup", "DONE donne : la phase attend les autres")
 	_ok(m.apply_move(0, {"type": "passBuild", "args": []}), "joueur 0 ne construit pas")
 	_ok(str(m.G["phase"]) == "setup", "joueur 1 n'a pas encore joue")
 	_ok(m.apply_move(1, {"type": "buildRoom", "args": [0]}), "joueur 1 construit")
+	_ok(str(m.G["phase"]) == "setup", "joueur 1 n'a pas encore appuye sur DONE")
+	_ok(m.apply_move(1, {"type": "passBuild", "args": []}), "joueur 1 : DONE")
 	_ok(str(m.G["phase"]) == "build" and int(m.G["turn"]) == 1, "Setup_c puis BeginningOfTurn : tour 1 en phase BUILD")
 	_ok(not bool((d2[0][0] as Dictionary).get("faceDown", true)), "les salles initiales sont revelees")
 	_ok(int(m.active_player()) == 0, "le premier joueur du rang XP ouvre BuildPhase_a")
@@ -1337,9 +1344,34 @@ func _t_extra_build_phase_construction_zone() -> void:
 			_ok(int(p0["buildsThisTurn"]) == 0 and _has_move(m, 0, "buildRoom"), "il peut poser une salle de plus")
 			_ok(not _has_move(m, 1, "passBuild"), "les autres joueurs n'ont pas la main")
 			_ok(m.apply_move(0, {"type": "buildRoom", "args": [0]}), "construction supplementaire")
+			_ok(m.apply_move(0, {"type": "passBuild", "args": []}), "DONE du tour supplementaire")
 		_ok(str(m.G["phase"]) != "build" and (m.G.get("forcedBuilds", []) as Array).is_empty(),
 			"la phase se referme ensuite (leurre)" if with_room else "sans salle constructible l'extra est saute")
 		m.queue_free()
+
+## DoneButtonEntity : la pose d'une salle par un humain ne finit pas son tour (DONE = passBuild) ; les salles sont revelees ensemble ensuite.
+func _t_human_build_waits_for_done() -> void:
+	var m = _match_with_spell()
+	var p0: Dictionary = m.G["players"][0]
+	p0["hand"] = [_room("N1", "trap", false, [1])]
+	m.G["buildOrder"] = [0, 1]
+	m.G["buildIndex"] = 0
+	m.G["activePlayer"] = 0
+	_ok(m.apply_move(0, {"type": "buildRoom", "args": [0]}), "l'humain pose sa salle")
+	var built: Dictionary = (p0["dungeon"] as Array)[0][0]
+	_ok(int(m.active_player()) == 0 and str(m.G["phase"]) == "build" and bool(built.get("faceDown", false)), "il garde la main, salle face cachee, pas de revelation")
+	_ok(not _has_move(m, 0, "buildRoom") and _has_move(m, 0, "passBuild"), "plus de construction mais DONE (passBuild)")
+	_ok(m.apply_move(0, {"type": "passBuild", "args": []}), "DONE")
+	_ok(not bool(built.get("faceDown", true)) and str(m.G["phase"]) != "build", "le tour passe (l'IA construit) et les salles sont revelees")
+	m.queue_free()
+	# Dernier constructeur humain avec un sort en main : son DONE vaut deja « pret », pas de fenetre rien que pour lui.
+	var m2 = _match_with_spell()
+	m2.G["buildOrder"] = [1, 0]
+	m2.G["buildIndex"] = 1
+	m2.G["activePlayer"] = 0
+	_ok(m2.apply_move(0, {"type": "passBuild", "args": []}), "DONE du dernier constructeur")
+	_ok(not m2.G.has("buildWindow"), "pas de fenetre de sorts ouverte pour le seul siege qui vient de passer")
+	m2.queue_free()
 
 ## Hors tour, un joueur vivant peut jouer un sort en BUILD (ouverture d'une Spell Battle) mais ni construire ni « passer » ;
 ## la main revient au joueur du tour (stack_return_control). Un siege IA n'ouvre pas de Spell Battle hors tour (politique).

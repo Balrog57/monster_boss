@@ -9,6 +9,9 @@ config/name="Boss Monster"
 config/description="Dungeon-building card game. Build your dungeon, lure heroes, steal their souls."
 run/main_scene="res://godot/scenes/Main.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
+boot_splash/image="res://assets/ui/backgrounds/loading_bg.png"
+boot_splash/fullsize=true
+boot_splash/bg_color=Color(0.1529, 0, 0, 1)
 
 [autoload]
 

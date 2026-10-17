@@ -296,6 +296,7 @@ func _t_build_miniboss() -> void:
 	_ok.call(m.apply_move(0, {"type": "buildMiniboss", "args": [0, 0]}), "buildMiniboss applique")
 	var mb: Dictionary = host_room["mb"]
 	_ok.call(bool(mb["faceDown"]) and int(mb["level"]) == 1 and _hand(G, 0).size() == 1 and int(p0["buildsThisTurn"]) == 1, "le miniboss est pose face cachee au niveau 1 et consomme la construction")
+	_ok.call(int(G["activePlayer"]) == 0 and m.apply_move(0, {"type": "passBuild", "args": []}), "le joueur garde la main jusqu'a DONE")
 	_ok.call(int(G["activePlayer"]) == 1, "le tour de construction passe au joueur suivant")
 	_ok.call(Minibosses.host_slots(G, 0).is_empty(), "une pile qui porte deja un miniboss ne peut plus en recevoir")
 

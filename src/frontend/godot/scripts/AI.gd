@@ -67,6 +67,11 @@ static func pick_move(match_obj, pid: int):
 	if moves.is_empty():
 		return null
 	var p: Dictionary = (match_obj.G["players"] as Dictionary)[pid]
+	if str((moves[0] as Dictionary).get("type", "")) == "pickBoss": # APK : le boss de l'IA est tire au hasard, sans score
+		var pick = moves[match_obj.rng.randi_range(0, moves.size() - 1)]
+		if trace.is_valid():
+			trace.call(match_obj, pid, moves, pick)
+		return pick
 	var best = moves[0]
 	var best_score := score_move(match_obj, pid, moves[0])
 	for i in range(1, moves.size()):

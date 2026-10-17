@@ -759,15 +759,21 @@ func _build(s: Dictionary, d: Dictionary, pid: int) -> void:
 			args.append(gi)
 	_auto_resolve(s)
 	if _held_pass.is_empty():
-		_apply_move(pid, {"type": "buildRoom", "args": args}, s, label)
+		_build_and_done(pid, args, s, label)
 		return
 	# Le sort est encore « en file » cote oracle : on construit pendant que la pile Godot attend, puis la main passe au joueur suivant.
 	var saved: Array = run.G["stack"]
 	run.G["stack"] = []
 	run.G["activePlayer"] = int(run.G.get("stackActivePlayer", pid))
-	_apply_move(pid, {"type": "buildRoom", "args": args}, s, label)
+	_build_and_done(pid, args, s, label)
 	run.G["stack"] = saved
 	run.G["stackActivePlayer"] = run.active_player()
+
+
+## L'IA de l'oracle termine seule son tour de construction ; cote Godot un siege non-IA le termine par DONE (passBuild) apres sa pose.
+func _build_and_done(pid: int, args: Array, s: Dictionary, label: String) -> void:
+	if _apply_move(pid, {"type": "buildRoom", "args": args}, s, label) and not run._can_build_again(pid):
+		_apply_type(pid, "passBuild", s)
 
 
 ## La « passe » retenue (voir _on_action) : l'oracle execute le sort en file au NextStep, avant les transactions de capacite.

@@ -185,13 +185,18 @@ var _lvl_seen := {}                      # pid -> « monte de niveau » deja vu 
 # Carrousel du choix du boss
 var _boss_sel := 0
 var _boss_cards: Array = []
-var _boss_drag := {}                     # glisser en cours : {x: depart, sel: carte centrale au depart, moved: seuil franchi, n: crans appliques}
-var _boss_flipping := false              # PLAY BOSS MONSTER! presse : les autres cartes se retournent avant l'ecran de defausse
+var _boss_ready := false                 # la rotation est finie et s'est arretee sur le boss tire (PLAY BOSS MONSTER! / pose automatique possibles)
 var _boss_name := ""
-var _boss_sel_id := ""                   # id du boss au centre : la selection suit la carte quand l'IA retire la sienne (les indices se decalent)
-const BOSS_DRAG_STEP := 90.0             # un cran de carrousel tous les 90 px
-const BOSS_DRAG_SLOP := 12.0             # en dessous : un clic (la carte touchee passe au centre), pas un glisser
+var _boss_pick_id := ""                  # boss tire par la partie pour le siege affiche (RandomBossSelectionScene) ; le carrousel n'est que decoratif
+var _boss_seat := -1                     # siege pour lequel le carrousel a ete construit (-1 = aucun)
+var _boss_gen := 0                       # change a chaque carrousel : invalide les minuteries d'un carrousel abandonne
+var _boss_tw: Tween
 const BOSS_FLIP_TIME := 0.5              # FlipCardBehavior de l'APK : 0,5 s
+const BOSS_WAIT_TIME := 0.5              # attente avant la rotation et apres elle
+const BOSS_SPIN_TIME := 5.0              # rotation : easing cubique in-out sur 2N + rand(N) cartes
+const BOSS_AUTO_TIME := 2.0              # partie a plusieurs (useTimeout) : l'ecran se ferme seul 2 s apres l'arret
+var _handing_over := false               # passage de main (hot-seat) en cours : GamePlayPaPScene
+var _follow_last := -1                   # dernier siege cible par le suivi hot-seat (un changement manuel de siege tient jusqu'au prochain changement)
 # Fenetres de sorts de l'APK (GamePlayBaseScene) : barre verte de 3 s au-dessus du heros (aventure), de 6 s au-dessus de la pile de sorts.
 const BAIT_TIME := 1.3                   # plaque BAIT PHASE affichee entre la revelation des salles et l'aventure
 const BAIT_FLY := 0.9                    # vol d'une carte de heros depuis la ville jusqu'a l'entree du donjon
@@ -606,6 +611,76 @@ func _refresh_seat_bar() -> void:
 		b.pressed.connect(func(): view_pid = p; _sync_slot_pids(); refresh())
 		seat_bar.add_child(b)
 
+## Siege humain que la vue doit montrer (hot-seat, hors aventure) : celui qui doit encore recevoir son boss, poser sa salle initiale,
+## repondre a un choix ou jouer son tour de construction ; -1 = aucun changement.
+func _follow_target(G: Dictionary) -> int:
+	var phase := str(G.get("phase", ""))
+	var players: Dictionary = G.get("players", {})
+	var humans: Array = []
+	for pid in players:
+		var q: Dictionary = players[pid]
+		if not bool(q.get("isAI", false)) and not bool(q.get("eliminated", false)):
+			humans.append(int(pid))
+	humans.sort()
+	if humans.size() < 2 or G.get("gameOver") != null or not (phase in ["boss", "setup", "build"]):
+		return -1
+	var t := -1
+	var pc: Dictionary = G.get("pendingChoice", {})
+	if not pc.is_empty():
+		t = int(pc.get("playerId", -1))
+	elif phase == "boss":
+		for h in humans:
+			if (players[h] as Dictionary).get("boss") == null:
+				t = h
+				break
+	elif phase == "setup" and bool(G.get("setupBuild", false)):
+		for h in humans:
+			if not bool((players[h] as Dictionary).get("passed", false)):
+				t = h
+				break
+	elif phase == "build":
+		t = game_manager.active_player()
+		if G.has("buildWindow"): # fenetre de sorts avant la revelation : le premier humain qui n'a pas encore passe
+			t = -1
+			for h in humans:
+				if not bool((G["buildWindow"] as Dictionary).get(h, false)):
+					t = h
+					break
+	return t if humans.has(t) else -1
+
+## Passage de main du pass and play (GamePlayPaPScene) quand le joueur actif change : la main sort par le bas (0,5 s), les deux donjons
+## s'estompent, la vue passe au nouveau siege, les donjons reviennent et sa main remonte. Le choix manuel d'un siege (barre PLAYER n) tient
+## jusqu'au prochain changement de joueur actif. Vrai si l'animation commence (le rafraichissement reprend a mi-course).
+func _follow_seat(G: Dictionary) -> bool:
+	if _handing_over:
+		return false
+	var t := _follow_target(G)
+	var changed := t != _follow_last
+	_follow_last = t
+	if not changed or t < 0 or t == view_pid:
+		return false
+	if skip_animations:
+		view_pid = t
+		_sync_slot_pids()
+		return false
+	_handing_over = true
+	var lanes: Array = [_lane[0]["root"], _lane[1]["root"]]
+	var tw := create_tween()
+	tw.tween_property(hand_layer, "position:y", 600.0, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	for l in lanes:
+		tw.parallel().tween_property(l, "modulate:a", 0.0, 0.5)
+	tw.tween_callback(func():
+		view_pid = t
+		_sync_slot_pids()
+		refresh())
+	tw.tween_property(hand_layer, "position:y", 0.0, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	for l in lanes:
+		tw.parallel().tween_property(l, "modulate:a", 1.0, 0.5)
+	tw.tween_callback(func():
+		_handing_over = false
+		refresh())
+	return true
+
 ## Adversaires du siege affiche (ordre des sieges) ; foe_pid reste valide et suit l'aventure en cours (l'animation doit se jouer
 ## dans le couloir visible : sans cela, a 3-4 joueurs, seul le premier adversaire etait jamais montre).
 func _update_foe(G: Dictionary) -> Array:
@@ -692,8 +767,8 @@ func _process(delta: float) -> void:
 	var players: Dictionary = game_manager.G.get("players", {})
 	var phase: String = game_manager.G.get("phase", "")
 	var pc: Dictionary = game_manager.G.get("pendingChoice", {})
-	if phase == "boss" and _boss_flipping:
-		return # le joueur a valide son boss (retournement en cours) : l'IA ne peut pas le lui prendre avant que le coup soit joue
+	if phase == "boss" and players.values().any(func(q): return not bool((q as Dictionary).get("isAI", false)) and (q as Dictionary).get("boss") == null):
+		return # les humains tirent leur boss d'abord : l'IA ne peut pas prendre celui que le carrousel va designer
 	for pid in players:
 		if not (players[pid] as Dictionary).get("isAI", false):
 			continue
@@ -852,6 +927,8 @@ func refresh() -> void:
 	if _is_online():
 		view_pid = _my_pid()
 		_sync_slot_pids()
+	elif _follow_seat(G):
+		return # passage de main en cours : la vue est rafraichie a mi-course
 	if not (G.get("players", {}) as Dictionary).has(view_pid):
 		view_pid = 0
 		_sync_slot_pids()
@@ -935,7 +1012,7 @@ func refresh() -> void:
 		btn_pass.visible = can_pass and not apk
 	else:
 		btn_pass.visible = can_pass # pas de PASS TURN quand passer est illegal (choix en attente, pas mon tour de construire)
-	_style_pass_button(phase == "build" and G.has("buildWindow") and not stack_open) # fenetre de sorts apres ma construction : DONE!
+	_style_pass_button((phase == "build" or phase == "setup") and not stack_open) # DoneButtonEntity : DONE! ferme le tour de construction
 	if _warn != null and not _can_still_build(my_moves):
 		_warn_hide() # j'ai construit / ce n'est plus mon tour : la mise en garde n'a plus lieu d'etre
 	_refresh_stack_cards(G)
@@ -946,11 +1023,19 @@ func refresh() -> void:
 		_drag_refresh()
 
 func _carousel_active(G: Dictionary, phase: String) -> bool:
-	return G.get("gameOver") == null and (phase == "boss" or _is_opening_discard_for_me())
+	return G.get("gameOver") == null and (_boss_pending(G) or _is_opening_discard_for_me())
+
+## Le siege affiche doit encore recevoir son boss (carrousel) ; un siege qui a deja le sien voit le plateau.
+func _boss_pending(G: Dictionary) -> bool:
+	return G.get("gameOver") == null and str(G.get("phase", "")) == "boss" and ((G.get("players", {}) as Dictionary).get(view_pid, {}) as Dictionary).get("boss") == null
+
+## Un seul humain (solo) : PLAY BOSS MONSTER! ; plusieurs (pass and play / en ligne) : l'ecran se ferme seul.
+func _boss_solo(G: Dictionary) -> bool:
+	return (G.get("players", {}) as Dictionary).values().filter(func(q): return not bool((q as Dictionary).get("isAI", false))).size() == 1
 
 func _refresh_overlay(G: Dictionary, phase: String) -> void:
 	var over: bool = G.get("gameOver") != null
-	var boss_pick := phase == "boss" and not over
+	var boss_pick := _boss_pending(G)
 	var discard := _is_opening_discard_for_me() and not over
 	_dim.visible = boss_pick or discard
 	# APK : choix du boss = tout l'ecran s'assombrit (panneaux et plaque de phase compris) ; defausse d'ouverture = seulement le bandeau
@@ -965,7 +1050,7 @@ func _refresh_overlay(G: Dictionary, phase: String) -> void:
 	top_menu_btn.modulate.a = 0.25 if boss_pick else 1.0
 	_bubble.visible = discard
 	_carousel_text.visible = boss_pick or discard
-	_confirm_btn.visible = boss_pick or (discard and discard_pick.size() == 2) # fin de partie : GameOverBanner (bouton OK)
+	_confirm_btn.visible = (boss_pick and _boss_ready and _boss_solo(G)) or (discard and discard_pick.size() == 2) # fin de partie : GameOverBanner (bouton OK)
 	_confirm_btn.text = "PLAY BOSS MONSTER!" if boss_pick else "CONTINUE"
 	# APK : PLAY BOSS MONSTER! est une grande pierre au centre du bas de l'ecran (apk game_01_boss), CONTINUE reste plus petit.
 	_confirm_btn.custom_minimum_size = Vector2(400, 92) if boss_pick else Vector2(220, 54)
@@ -977,7 +1062,7 @@ func _refresh_overlay(G: Dictionary, phase: String) -> void:
 	if boss_pick:
 		_carousel_text.position = Vector2(PLAY_CX - 600, 108)
 		_carousel_text.size = Vector2(1200, 90)
-		_set_carousel_text("YOU ARE [color=#f0c040]%s[/color]" % (_boss_name if _boss_flipping else "..."), 56)
+		_set_carousel_text("YOU ARE [color=#f0c040]%s[/color]" % (_boss_name if _boss_ready else "..."), 56)
 	elif discard:
 		_set_carousel_text("SELECT [color=#f0c040]2[/color] CARDS TO DISCARD", 21)
 		_carousel_text.position = Vector2(STACK_CX + 2 - 465, 204) # APK : texte centre en x 962, y 215
@@ -1339,15 +1424,19 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 		_hand_stale = true
 		return
 	_hand_stale = false
+	var boss_pick := _boss_pending(G)
+	if boss_pick and _boss_seat == view_pid and not _boss_cards.is_empty() and hand_layer.get_child_count() > 0 			and (G.get("bossPicks", []) as Array).any(func(b): return str((b as Dictionary).get("id", "")) == _boss_pick_id):
+		return # le carrousel tourne : un rafraichissement (coup de l'IA, journal) ne doit pas le reconstruire
 	for c in hand_layer.get_children():
 		c.queue_free()
 	_boss_cards.clear()
 
 	if G.get("gameOver") != null:
 		return
-	if phase == "boss":
-		_build_boss_carousel(G.get("bossPicks", []))
+	if boss_pick:
+		_build_boss_carousel(G, my_moves)
 		return
+	_boss_stop()
 
 	# Cartes jouables maintenant (construire / sort / capacite de la main) : les autres sont grisees comme dans l'APK.
 	var playable: Dictionary = {}
@@ -1393,40 +1482,133 @@ func _spawn_card(data: Dictionary, hand_idx: int, sz: Vector2) -> Control:
 	card_ui.setup(data, hand_idx)
 	return card_ui
 
-# --- Choix du boss : carrousel (apk_boss00) ; une carte au centre, les autres reduites et chevauchees de part et d'autre.
-# Clic sur une voisine ou glisser pour la ramener au centre ; PLAY BOSS MONSTER! valide la carte centrale. Le boss adverse reste cache.
+# --- Choix du boss (RandomBossSelectionScene) : le boss est tire AU HASARD par la partie avant le carrousel, qui n'est que decoratif.
+# Pool = propositions repetees jusqu'a >= 8 cartes, depart aleatoire, 0,5 s, cartes face cachee, rotation de 5 s (easing cubique) sur
+# 2N + rand(N) cartes, 0,5 s, puis l'indice est force sur le vrai boss (face visible). Un seul humain : PLAY BOSS MONSTER! ; sinon fermeture seule apres 2 s.
 
 func _boss_card_rect(d: int) -> Rect2:
 	var k := mini(absi(d), BOSS_SIDE_X.size() - 1)
 	var sz := BOSS_CARD * float(BOSS_SIDE_SCALE[k])
 	return Rect2(Vector2(PLAY_CX + signf(d) * float(BOSS_SIDE_X[k]) - sz.x / 2.0, BOSS_CENTER_Y - sz.y / 2.0), sz)
 
-func _build_boss_carousel(picks: Array) -> void:
+func _boss_stop() -> void:
+	_boss_gen += 1
+	if _boss_tw != null:
+		_boss_tw.kill()
+	_boss_tw = null
+	_boss_seat = -1
+	_boss_ready = false
+	_boss_pick_id = ""
+	_boss_name = ""
+
+func _build_boss_carousel(G: Dictionary, my_moves: Array) -> void:
+	_boss_stop()
 	_boss_cards.clear()
-	_boss_sel = clampi(_boss_sel, 0, maxi(picks.size() - 1, 0))
-	for i in picks.size(): # l'IA a pris une autre carte : celle du centre reste au centre
-		if _boss_sel_id != "" and str((picks[i] as Dictionary).get("id", "")) == _boss_sel_id:
-			_boss_sel = i
-	_boss_sel_id = str((picks[_boss_sel] as Dictionary).get("id", "")) if not picks.is_empty() else ""
-	for i in picks.size():
-		var c = _spawn_card(picks[i], -1, BOSS_CARD)
+	var cands: Array = []
+	for m in my_moves:
+		if str((m as Dictionary).get("type", "")) == "pickBoss":
+			cands.append(str(((m as Dictionary)["args"] as Array)[0]))
+	var picks: Array = G.get("bossPicks", [])
+	if cands.is_empty() or picks.is_empty():
+		return
+	_boss_seat = view_pid
+	_boss_pick_id = str(cands[game_manager.rng.randi_range(0, cands.size() - 1)])
+	var pool: Array = picks.duplicate()
+	while pool.size() < 8:
+		pool.append_array(picks)
+	for b in pool:
+		var c = _spawn_card(b, -1, BOSS_CARD)
 		c.custom_minimum_size = Vector2.ZERO # la taille change avec la distance au centre
 		c.mouse_entered.disconnect(c._on_mouse_entered) # pas de zoom / premier plan au survol : l'ordre du carrousel prime
 		c.mouse_exited.disconnect(c._on_mouse_exited)
-		var idx := i
-		c.card_clicked.connect(func(_data): _boss_select(idx))
 		_boss_cards.append(c)
+	var n := pool.size()
+	_boss_sel = game_manager.rng.randi_range(0, n - 1)
 	_boss_layout(false)
-	if _boss_flipping: # un rafraichissement en plein retournement ne doit pas remontrer les faces
-		_boss_flip_others(false)
+	if skip_animations:
+		for c in _boss_cards:
+			_boss_flip_card(c, true, false)
+		_boss_snap(false)
+		return
+	var steps := 2 * n + game_manager.rng.randi_range(0, n - 1)
+	var start := _boss_sel
+	_boss_tw = create_tween()
+	_boss_tw.tween_interval(BOSS_WAIT_TIME)
+	_boss_tw.tween_callback(func():
+		for c in _boss_cards:
+			if is_instance_valid(c):
+				_boss_flip_card(c, true, true))
+	_boss_tw.tween_interval(BOSS_FLIP_TIME)
+	_boss_tw.tween_method(_boss_spin.bind(start, n), 0.0, float(steps), BOSS_SPIN_TIME).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	_boss_tw.tween_interval(BOSS_WAIT_TIME)
+	_boss_tw.tween_callback(func(): _boss_snap(true))
+
+## Un cran de rotation : v = nombre de cartes deja passees depuis la carte de depart.
+func _boss_spin(v: float, start: int, n: int) -> void:
+	var i := posmod(start + int(v), n)
+	if i != _boss_sel and _boss_cards.size() == n:
+		_boss_sel = i
+		_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
+		_boss_layout(true)
+
+## Retourne une carte (rotation autour de l'axe vertical : largeur -> 0, changement de texture, 0 -> pleine largeur).
+func _boss_flip_card(c: CardUI, to_back: bool, animate: bool) -> void:
+	if not c.has_meta("face"):
+		c.set_meta("face", c.texture_rect.texture)
+	var tex: Texture2D = _tex(CardDB.card_image("", "back-boss")) if to_back else (c.get_meta("face") as Texture2D)
+	if not animate:
+		c.texture_rect.texture = tex
+		return
+	c.pivot_offset = c.size / 2.0
+	var tw := c.create_tween().set_trans(Tween.TRANS_SINE)
+	tw.tween_property(c, "scale:x", 0.0, BOSS_FLIP_TIME / 2.0).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func(): c.texture_rect.texture = tex)
+	tw.tween_property(c, "scale:x", 1.0, BOSS_FLIP_TIME / 2.0).set_ease(Tween.EASE_OUT)
+
+## Fin de la rotation : l'indice est force sur le vrai boss (la carte la plus proche), carte face visible, nom du boss.
+func _boss_snap(animate: bool) -> void:
+	var n := _boss_cards.size()
+	var half := int(n * 0.5)
+	var best := -1
+	for i in n:
+		if str((_boss_cards[i] as CardUI).card_dict.get("id", "")) == _boss_pick_id and (best < 0 or absi(posmod(i - _boss_sel + half, n) - half) < absi(posmod(best - _boss_sel + half, n) - half)):
+			best = i
+	if best < 0:
+		return
+	_boss_sel = best
+	_boss_layout(false)
+	var boss: Dictionary = (_boss_cards[best] as CardUI).card_dict
+	_boss_flip_card(_boss_cards[best], false, animate)
+	_boss_name = str(boss.get("name", "")).to_upper()
+	_boss_ready = true
+	_play_sfx("res://assets/audio/sfx/boss_female_intro.wav" if ["BMA006", "BMA007", "BMA008"].has(_boss_pick_id) else "res://assets/audio/sfx/boss_male_intro.wav")
+	_refresh_overlay(game_manager.G, "boss")
+	if _boss_solo(game_manager.G):
+		if animate:
+			_confirm_btn.modulate.a = 0.0
+			create_tween().tween_property(_confirm_btn, "modulate:a", 1.0, 0.4) # le bouton apparait en fondu
+		else:
+			_confirm_btn.modulate.a = 1.0
+	elif animate:
+		var gen := _boss_gen
+		get_tree().create_timer(BOSS_AUTO_TIME).timeout.connect(func():
+			if gen == _boss_gen:
+				_boss_confirm())
+	else:
+		_boss_confirm.call_deferred()
 
 func _boss_layout(animate: bool) -> void:
-	var order: Array = range(_boss_cards.size())
-	order.sort_custom(func(a: int, b: int): return absi(a - _boss_sel) > absi(b - _boss_sel)) # la plus eloignee au fond
+	var n := _boss_cards.size()
+	var half := int(n * 0.5)
+	var rel: Array = []
+	for i in n:
+		rel.append(posmod(i - _boss_sel + half, n) - half) # distance signee au centre, le carrousel boucle
+	var order: Array = range(n)
+	order.sort_custom(func(a: int, b: int): return absi(int(rel[a])) > absi(int(rel[b]))) # la plus eloignee au fond
 	for k in order.size():
 		var c: Control = _boss_cards[int(order[k])]
 		hand_layer.move_child(c, k)
-		var d: int = int(order[k]) - _boss_sel
+		var d: int = int(rel[int(order[k])])
 		var r := _boss_card_rect(d)
 		var shade := 1.0 - 0.08 * float(maxi(absi(d) - 1, 0))
 		if c.has_meta("tw"):
@@ -1442,68 +1624,13 @@ func _boss_layout(animate: bool) -> void:
 			c.size = r.size
 			c.modulate = Color(shade, shade, shade)
 
-func _boss_select(i: int) -> void:
-	i = clampi(i, 0, _boss_cards.size() - 1)
-	if i == _boss_sel or _boss_cards.is_empty() or _boss_flipping:
-		return
-	_boss_sel = i
-	_boss_sel_id = str((_boss_cards[i] as CardUI).card_dict.get("id", ""))
-	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
-	_boss_layout(true)
-
-## PLAY BOSS MONSTER! : le boss de la carte centrale est le notre. Comme dans l'APK (game_01_boss), les autres cartes se retournent
-## (dos de carte) et le nom du boss s'affiche (YOU ARE ...) un court instant avant l'ecran de defausse.
+## Le boss tire est le notre : le coup part (PLAY BOSS MONSTER! en solo, minuterie en pass and play). Pas avant la fin de la rotation.
 func _boss_confirm() -> void:
-	var picks: Array = game_manager.G.get("bossPicks", [])
-	if picks.is_empty() or _boss_flipping:
+	if not _boss_ready:
 		return
-	var boss: Dictionary = picks[clampi(_boss_sel, 0, picks.size() - 1)]
-	var bid := str(boss.get("id", ""))
-	var is_fem := ["BMA006", "BMA007", "BMA008"].has(bid)
-	_play_sfx("res://assets/audio/sfx/boss_female_intro.wav" if is_fem else "res://assets/audio/sfx/boss_male_intro.wav")
-	var pick := func():
-		_boss_flipping = false
-		if not (game_manager.G.get("bossPicks", []) as Array).any(func(b): return str((b as Dictionary).get("id", "")) == bid):
-			refresh() # le boss n'est plus disponible (pris entre-temps) : on revient au carrousel au lieu d'un titre qui ment
-			return
-		_boss_sel = 0
-		_boss_sel_id = ""
-		_do({"type": "pickBoss", "args": [bid]})
-	if skip_animations or _boss_cards.is_empty():
-		pick.call()
-		return
-	_boss_flipping = true
-	_boss_drag = {}
-	_boss_name = str(boss.get("name", "")).to_upper()
-	_set_carousel_text("YOU ARE [color=#f0c040]%s[/color]" % _boss_name, 56)
-	_boss_flip_others(true)
-	get_tree().create_timer(BOSS_FLIP_TIME + 0.15).timeout.connect(func():
-		if _boss_flipping: # pas si la partie a ete quittee / le carrousel remplace entre-temps
-			pick.call())
+	_boss_ready = false # un seul appui / une seule minuterie compte
+	_do({"type": "pickBoss", "args": [_boss_pick_id]})
 
-## Retourne les cartes autres que la centrale (rotation autour de l'axe vertical : largeur -> 0, dos de carte, 0 -> pleine largeur).
-func _boss_flip_others(animate: bool) -> void:
-	var back: Texture2D = _tex(CardDB.card_image("", "back-boss"))
-	for i in _boss_cards.size():
-		if i == _boss_sel or not is_instance_valid(_boss_cards[i]):
-			continue
-		var c: CardUI = _boss_cards[i]
-		if c.has_meta("flipped"):
-			continue
-		c.set_meta("flipped", true)
-		if not animate:
-			c.texture_rect.texture = back
-			continue
-		c.pivot_offset = c.size / 2.0
-		var tw := c.create_tween().set_trans(Tween.TRANS_SINE)
-		tw.tween_property(c, "scale:x", 0.0, BOSS_FLIP_TIME / 2.0).set_ease(Tween.EASE_IN)
-		tw.tween_callback(func(): c.texture_rect.texture = back)
-		tw.tween_property(c, "scale:x", 1.0, BOSS_FLIP_TIME / 2.0).set_ease(Tween.EASE_OUT)
-
-## Glisser horizontalement dans la zone des cartes : un cran tous les 90 px (gauche = carte suivante), compte depuis la carte
-## centrale au moment de l'appui. En dessous de 12 px de deplacement, c'est un clic (la carte touchee passe au centre, voir
-## CardUI.card_clicked). Les positions viennent de l'evenement (en _input, la souris du viewport n'est pas encore a jour) ; le
-## relachement hors de la zone ou de la fenetre est vu (pas de _gui_input), et un mouvement sans bouton gauche termine le glisser.
 func _input(event: InputEvent) -> void:
 	# Un nouvel appui gauche alors qu'un appui est encore arme : le relachement precedent s'est perdu (hors canvas / fenetre).
 	if not _press.is_empty() and _drag.is_empty() and event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
@@ -1514,26 +1641,6 @@ func _input(event: InputEvent) -> void:
 	if not _press.is_empty() or not _drag.is_empty():
 		_drag_input(event)
 	_town_input(event)
-	if _boss_cards.is_empty() or _boss_flipping:
-		return
-	if event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
-		var pos: Vector2 = (make_input_local(event) as InputEventMouse).position
-		if (event as InputEventMouseButton).pressed and Rect2(184, 280, 1523, 600).has_point(pos):
-			_boss_drag = {"x": pos.x, "sel": _boss_sel, "moved": false, "n": 0}
-		else:
-			_boss_drag = {}
-	elif event is InputEventMouseMotion and not _boss_drag.is_empty():
-		if not ((event as InputEventMouseMotion).button_mask & MOUSE_BUTTON_MASK_LEFT):
-			_boss_drag = {} # relachement manque (hors fenetre, perte du focus)
-			return
-		var dx: float = (make_input_local(event) as InputEventMouse).position.x - float(_boss_drag["x"])
-		if absf(dx) >= BOSS_DRAG_SLOP:
-			_boss_drag["moved"] = true
-		if bool(_boss_drag["moved"]):
-			var n := int(roundf(dx / BOSS_DRAG_STEP))
-			if n != 0 or int(_boss_drag["n"]) != 0: # 12-45 px : on garde la carte choisie au clic
-				_boss_drag["n"] = n
-				_boss_select(int(_boss_drag["sel"]) - n)
 
 ## Aligne les cartes (chevauchement si necessaire) autour de PLAY_CX, sur une ligne (ecran de defausse d'ouverture).
 func _place_cards(cards: Array, sz: Vector2, step_max: float, span_max: float, top_y: float) -> void:

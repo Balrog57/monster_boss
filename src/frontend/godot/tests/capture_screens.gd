@@ -192,8 +192,7 @@ func _act_simple() -> void:
 			if not mv.is_empty():
 				board._do(mv[0])
 		return
-	if phase == "boss" and me.get("boss") == null and not board._boss_cards.is_empty():
-		board._boss_cards[0].card_clicked.emit(null)
+	if phase == "boss" and me.get("boss") == null and board._boss_ready:
 		board._confirm_btn.pressed.emit()
 
 ## Partie neuve (graine fixe) amenee au debut de la construction du tour 1. stop_at = "boss" / "discard" : s'arrete plus tot (ecrans de debut).
@@ -620,12 +619,15 @@ func _phases() -> void:
 	# --- 1. choix du boss : confirmation (les autres cartes se retournent, YOU ARE <boss>)
 	await _new_game(424242, "boss")
 	board.skip_animations = false
-	board._boss_select(2)
-	await _wait(0.4)
-	await _shot("boss_pick_carousel_other_card_centered")
+	board._boss_stop()
+	board.refresh() # rotation reelle (RandomBossSelectionScene)
+	await _wait(2.0)
+	await _shot("boss_pick_carousel_spinning_face_down")
+	while not board._boss_ready:
+		await _wait(0.2)
+	await _wait(0.6)
+	await _shot("boss_pick_stopped_you_are_boss")
 	board._boss_confirm()
-	await _wait(0.35)
-	await _shot("boss_pick_mid_flip_you_are_boss")
 	await _wait(0.5)
 
 	# --- 2. defausse d'ouverture : deux cartes choisies, bouton CONTINUE

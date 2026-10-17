@@ -25,7 +25,6 @@ const DUNGEON_N := 5
 const MAX_STEPS := 6000
 const STUCK_ITERS := 150
 const ANIM_TIME_SCALE := 6.0
-const BOSS_WAIT := 0.9                # retournement du carrousel : 0,65 s de jeu (le temps est deja accelere par ANIM_TIME_SCALE)
 const STYLES := {
 	"random": {"build": 3.0, "drop": 3.0, "spell": 2.0, "ability": 2.0, "extra": 1.5, "pass": 1.0, "go": 3.0, "noise": 0.08},
 	"spells": {"build": 1.5, "drop": 1.5, "spell": 6.0, "ability": 6.0, "extra": 4.0, "pass": 0.4, "go": 3.0, "noise": 0.08},
@@ -321,12 +320,7 @@ func _act() -> void:
 		await _act_choice(pid, pc, moves)
 		return
 	if str(G.get("phase", "")) == "boss":
-		if board._boss_flipping: # PLAY BOSS MONSTER! presse : les cartes se retournent (animation), on attend la fin
-			await _wait(0.1)
-			return
-		var cards := _hand_cards()
-		if _check(not cards.is_empty(), "choix du boss : aucune carte a l'ecran"):
-			await _act_boss_pick(pid, G, rng.randi_range(0, cards.size() - 1))
+		await _act_boss_pick(pid, G)
 		return
 	_acts_turn += 1
 	var actions := _build_actions(pid, moves)
@@ -344,28 +338,46 @@ func _act() -> void:
 			return
 	_cov(str(a["kind"]))
 
-## Carrousel du choix du boss : un clic sur une carte la ramene au centre (les autres sont reduites et derriere), PLAY BOSS MONSTER! valide.
-func _act_boss_pick(pid: int, G: Dictionary, k: int) -> void:
+## Carrousel du choix du boss (RandomBossSelectionScene) : le boss est tire au hasard, la rotation s'arrete dessus ; un seul humain valide par
+## PLAY BOSS MONSTER!, plusieurs humains : la pose part seule apres 2 s (pas de bouton).
+func _act_boss_pick(pid: int, G: Dictionary) -> void:
 	var picks: Array = G["bossPicks"]
 	var bc: Array = board._boss_cards
-	if not _check(bc.size() == picks.size() and k < bc.size(), "choix du boss : %d cartes pour %d propositions" % [bc.size(), picks.size()]):
+	if not _check(bc.size() == _boss_pool_size(picks.size()), "choix du boss : %d cartes a l'ecran pour %d propositions" % [bc.size(), picks.size()]):
 		return
-	var want := str((picks[k] as Dictionary).get("id", ""))
-	(bc[k] as CardUI).card_clicked.emit(null)
-	if not board.skip_animations:
-		await _wait(0.4)
-	_check(board._boss_sel == k, "choix du boss : clic sur la carte %d, centre = %d" % [k, board._boss_sel])
+	if not board._boss_ready: # rotation en cours (animations reelles) : le bouton ne doit pas etre la, on attend l'arret
+		_check(not board._confirm_btn.visible, "choix du boss : PLAY BOSS MONSTER! visible pendant la rotation")
+		await _wait(0.1)
+		return
+	var want: String = board._boss_pick_id
+	_check(picks.any(func(b): return str((b as Dictionary).get("id", "")) == want), "choix du boss : le boss tire n'est plus propose (%s)" % want)
+	_check(str((bc[board._boss_sel] as CardUI).card_dict.get("id", "")) == want, "choix du boss : la rotation ne s'est pas arretee sur le boss tire (%s)" % want)
 	_check_boss_layout()
-	_check(board._confirm_btn.visible and board._confirm_btn.text == "PLAY BOSS MONSTER!", "choix du boss : bouton PLAY BOSS MONSTER! absent")
-	var before := _sig()
-	board._confirm_btn.pressed.emit()
+	var solo := _humans() == 1
+	_check(board._confirm_btn.visible == solo, "choix du boss : bouton PLAY BOSS MONSTER! %s" % ("absent en solo" if solo else "present avec plusieurs humains"))
+	if solo:
+		var before := _sig()
+		board._confirm_btn.pressed.emit()
+		_check(_sig() != before, "choix du boss : PLAY BOSS MONSTER! n'a eu aucun effet")
+	else:
+		var t := 0.0
+		while (G["players"][pid] as Dictionary).get("boss") == null and t < 4.0: # 2 s de temps de jeu apres l'arret
+			await _wait(0.1)
+			t += 0.1
+		_check(t >= 1.9 or board.skip_animations, "choix du boss : pose automatique avant les 2 s (%.1f)" % t)
 	_cov("boss_pick")
-	if not board.skip_animations: # retournement des autres cartes (0,65 s de jeu) puis le coup part
-		_check(board._boss_flipping, "choix du boss : pas de retournement des autres cartes")
-		await _wait(BOSS_WAIT)
-	_check(_sig() != before, "choix du boss : PLAY BOSS MONSTER! n'a eu aucun effet")
 	var boss = (G["players"][pid] as Dictionary).get("boss")
-	_check(boss != null and str((boss as Dictionary).get("id", "")) == want, "choix du boss : le boss choisi n'est pas la carte centrale (%s)" % want)
+	_check(boss != null and str((boss as Dictionary).get("id", "")) == want, "choix du boss : le boss pose n'est pas le boss tire (%s)" % want)
+
+func _humans() -> int:
+	return (gm.G["players"] as Dictionary).values().filter(func(q): return not bool((q as Dictionary).get("isAI", false))).size()
+
+## Cartes du carrousel : propositions repetees jusqu'a 8 au moins.
+func _boss_pool_size(n: int) -> int:
+	var total := n
+	while total < 8:
+		total += n
+	return total
 
 ## Geometrie du carrousel : carte centrale pleine taille au centre ; les autres plus petites, de part et d'autre, la plus proche devant.
 func _check_boss_layout() -> void:
@@ -373,7 +385,7 @@ func _check_boss_layout() -> void:
 	var cards := _hand_cards()
 	for i in bc.size():
 		var c: Control = bc[i]
-		var d: int = i - board._boss_sel
+		var d: int = posmod(i - board._boss_sel + bc.size() / 2, bc.size()) - bc.size() / 2 # le carrousel boucle
 		var cx := c.position.x + c.size.x / 2.0
 		if d == 0:
 			_check(c.size.is_equal_approx(board.BOSS_CARD) and absf(cx - board.PLAY_CX) < 1.0, "carrousel : carte centrale %s en x=%.0f" % [c.size, cx])
@@ -407,6 +419,7 @@ func _check_stacks() -> void:
 	CardDB._rng.seed = 77
 	gm = GameManager.new()
 	add_child(gm)
+	gm.rng.seed = 77 # Match._ready l'a randomise : le tirage du boss doit etre reproductible
 	gm.start_new_game(2, 1, ["base"])
 	board = load("res://godot/scenes/Board.tscn").instantiate()
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -979,7 +992,7 @@ func _check_ui() -> void:
 	# main / propositions de boss
 	var want_cards := 0
 	if not over:
-		want_cards = (G["bossPicks"] as Array).size() if phase == "boss" else (p["hand"] as Array).size()
+		want_cards = _boss_pool_size((G["bossPicks"] as Array).size()) if phase == "boss" and p.get("boss") == null else (p["hand"] as Array).size()
 	var got_cards := _hand_cards().size()
 	_check(got_cards == want_cards, "main : %d cartes a l'ecran pour %d (phase %s, siege %d)" % [got_cards, want_cards, phase, pid])
 	# pioches, ville
@@ -1054,7 +1067,7 @@ func _check_ui() -> void:
 	_check(board._tgt.is_empty() or (mine and board._tgt.has("choice")), "mode de ciblage reste ouvert apres le geste") # sauf le choix en attente designe sur le plateau
 	if phase == "boss" and not over and p.get("boss") == null:
 		_check(board.foe_name_label.text == "" and board._lane[0]["sprite"].texture == board._tex(board.TEX_UNKNOWN_BOSS), "choix du boss : le boss adverse n'est pas cache")
-		_check(board._confirm_btn.visible and board._confirm_btn.text == "PLAY BOSS MONSTER!", "choix du boss : bouton PLAY BOSS MONSTER! absent")
+		_check(board._confirm_btn.visible == (board._boss_ready and _humans() == 1), "choix du boss : bouton PLAY BOSS MONSTER! mal affiche (pret %s)" % board._boss_ready)
 	# aventure : le donjon traverse est a l'ecran (le mien ou l'adversaire affiche) quand les pions sont animes
 	var adv: Dictionary = G.get("adventure", {})
 	if not board.skip_animations and not adv.is_empty() and adv.get("hero") != null:
@@ -1170,10 +1183,8 @@ func _act_simple() -> void:
 		return
 	match phase:
 		"boss":
-			if me.get("boss") == null:
-				if not board._boss_cards.is_empty():
-					board._boss_cards[0].card_clicked.emit(null)
-					board._confirm_btn.pressed.emit()
+			if me.get("boss") == null and board._boss_ready:
+				board._confirm_btn.pressed.emit()
 		"setup", "build":
 			var builds := int(me.get("buildsThisTurn", 0))
 			var want_build: bool = (phase == "build" and builds == 0) or (phase == "setup" and bool(G.get("setupBuild", false)) and builds == 0)
@@ -1211,6 +1222,7 @@ func _new_game() -> void:
 	CardDB._rng.seed = 424242
 	gm = GameManager.new()
 	add_child(gm)
+	gm.rng.seed = 424242 # Match._ready l'a randomise : le tirage du boss doit etre reproductible
 	gm.start_new_game(2, 1, ["base"])
 	board = load("res://godot/scenes/Board.tscn").instantiate()
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1242,6 +1254,7 @@ func _check_hand_room() -> void:
 	CardDB._rng.seed = 7
 	gm = GameManager.new()
 	add_child(gm)
+	gm.rng.seed = 7 # Match._ready l'a randomise : le tirage du boss doit etre reproductible
 	gm.start_new_game(2, 1, ["crash-landing"])
 	board = load("res://godot/scenes/Board.tscn").instantiate()
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1317,6 +1330,7 @@ func _check_wiki_ui() -> void:
 	CardDB._rng.seed = 31
 	gm = GameManager.new()
 	add_child(gm)
+	gm.rng.seed = 31 # Match._ready l'a randomise : le tirage du boss doit etre reproductible
 	gm.start_new_game(2, 1, ["players-choice", "hidden-heroes", "tools", "next-level", "crash-landing", "minibosses"])
 	board = load("res://godot/scenes/Board.tscn").instantiate()
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1471,13 +1485,15 @@ func _check_target_spots() -> void:
 	board.refresh()
 	_cov("target_spots_synthetic")
 
-## Carrousel du choix du boss (apk_boss00) : carte centrale, voisines reduites, clic / selection, validation, boss adverse cache.
+## Carrousel du choix du boss (RandomBossSelectionScene), sans animations : le boss est tire au hasard, le carrousel (>= 8 cartes) est
+## deja arrete dessus, face visible, les autres cartes face cachee ; aucun clic ne change la carte ; PLAY BOSS MONSTER! (solo) valide.
 func _check_boss_carousel() -> void:
 	_tag = "[boss-carousel]"
 	await _teardown()
 	CardDB._rng.seed = 99
 	gm = GameManager.new()
 	add_child(gm)
+	gm.rng.seed = 5
 	gm.start_new_game(2, 1, ["base"])
 	board = load("res://godot/scenes/Board.tscn").instantiate()
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1487,31 +1503,36 @@ func _check_boss_carousel() -> void:
 	await _wait(0.1)
 	var picks: Array = gm.G["bossPicks"]
 	var bc: Array = board._boss_cards
-	if not _check(picks.size() >= 3 and bc.size() == picks.size() and board._boss_sel == 0, "carrousel : %d cartes pour %d propositions (centre %d)" % [bc.size(), picks.size(), board._boss_sel]):
+	if not _check(picks.size() >= 3 and bc.size() == _boss_pool_size(picks.size()) and bc.size() >= 8, "carrousel : %d cartes pour %d propositions" % [bc.size(), picks.size()]):
 		return
+	var want: String = board._boss_pick_id
+	_check(board._boss_ready and str((bc[board._boss_sel] as CardUI).card_dict.get("id", "")) == want, "carrousel : arret sur le boss tire (%s)" % want)
 	_check_boss_layout()
-	await _check_boss_drag()
-	_check_boss_layout()
+	var back_tex: Texture2D = load(CardDB.card_image("", "back-boss"))
+	var backs := bc.filter(func(c): return (c as CardUI).texture_rect.texture == back_tex).size()
+	_check(backs == bc.size() - 1 and (bc[board._boss_sel] as CardUI).texture_rect.texture != back_tex, "carrousel : seule la carte du boss tire est face visible (%d dos)" % backs)
 	_check(board._confirm_btn.visible and board._confirm_btn.text == "PLAY BOSS MONSTER!" and board._confirm_btn.size.x >= 390.0, "carrousel : bouton PLAY BOSS MONSTER! absent")
 	_check(board._dim.visible and board._dim.size == Vector2(1920, 1080), "carrousel : tout l'ecran doit s'assombrir (panneaux et plaque compris)")
 	_check(board.foe_name_label.text == "", "carrousel : le boss adverse est visible")
-	for k in [1, bc.size() - 1, 0]:
-		(bc[k] as CardUI).card_clicked.emit(null)
-		await get_tree().process_frame
-		_check(board._boss_sel == k, "carrousel : clic sur la carte %d, centre %d" % [k, board._boss_sel])
-		_check_boss_layout()
-	board._boss_select(99) # hors limites : borne
-	_check(board._boss_sel == bc.size() - 1, "carrousel : selection hors limites non bornee (%d)" % board._boss_sel)
-	board._boss_select(-3)
-	_check(board._boss_sel == 0, "carrousel : selection negative non bornee (%d)" % board._boss_sel)
-	(bc[1] as CardUI).card_clicked.emit(null)
-	_check(gm.G["players"][0].get("boss") == null, "carrousel : un clic sur une carte ne doit pas valider le boss")
-	var want := str((picks[1] as Dictionary).get("id", ""))
+	_check(board._carousel_text.text.contains(str((bc[board._boss_sel] as CardUI).card_dict.get("name", "")).to_upper()), "carrousel : nom du boss absent (%s)" % board._carousel_text.text)
+	# pas de choix du joueur : un clic sur une voisine ne change rien
+	var sel0: int = board._boss_sel
+	(bc[(sel0 + 1) % bc.size()] as CardUI).card_clicked.emit(null)
+	await get_tree().process_frame
+	_check(board._boss_sel == sel0 and board._boss_pick_id == want and gm.G["players"][0].get("boss") == null, "carrousel : un clic a change la selection ou valide le boss")
+	# le tirage est aleatoire : plusieurs tirages successifs ne donnent pas toujours le meme boss
+	var seen := {}
+	for k in 12:
+		board._boss_stop()
+		board.refresh()
+		seen[board._boss_pick_id] = true
+	_check(seen.size() > 1, "carrousel : 12 tirages, toujours le meme boss (%s)" % str(seen.keys()))
+	want = board._boss_pick_id
 	board._confirm_btn.pressed.emit()
 	await get_tree().process_frame
 	var boss = gm.G["players"][0].get("boss")
-	_check(boss != null and str((boss as Dictionary).get("id", "")) == want, "carrousel : PLAY BOSS MONSTER! n'a pas valide la carte centrale (%s)" % want)
-	_check(board._boss_sel == 0, "carrousel : centre non remis a zero")
+	_check(boss != null and str((boss as Dictionary).get("id", "")) == want, "carrousel : PLAY BOSS MONSTER! n'a pas valide le boss tire (%s)" % want)
+	_check(board._boss_seat == -1 and not board._boss_ready, "carrousel : etat du tirage non remis a zero")
 	_cov("boss_carousel")
 
 ## Evenements souris reels (push_input avec masque de boutons) : appui, mouvements, relachement.
@@ -1538,72 +1559,83 @@ func _drag(from: Vector2, to: Vector2, release_at = null, steps: int = 6) -> voi
 		await _mouse(from.lerp(to, float(k) / float(steps)), false, true, MOUSE_BUTTON_MASK_LEFT)
 	await _mouse(release_at if release_at != null else to, false, false)
 
-func _check_boss_drag() -> void:
-	var bc: Array = board._boss_cards
-	board._boss_select(0)
-	# glisser vers la gauche de ~100 px depuis le vide (hors cartes) : carte suivante au centre
-	await _drag(Vector2(1500, 840), Vector2(1400, 840))
-	_check(board._boss_sel == 1, "glisser : -100 px -> carte %d (1 attendue)" % board._boss_sel)
-	# vers la droite de 200 px : deux crans en arriere, borne a 0
-	await _drag(Vector2(1000, 840), Vector2(1200, 840))
-	_check(board._boss_sel == 0, "glisser : +200 px -> carte %d (0 attendue, borne)" % board._boss_sel)
-	# un petit tremblement de clic (< seuil) ne change rien
-	await _drag(Vector2(1000, 840), Vector2(1006, 840), null, 2)
-	_check(board._boss_sel == 0 and board._boss_drag.is_empty(), "glisser : un tremblement de 6 px a bouge le carrousel (%d)" % board._boss_sel)
-	# depart hors de la zone des cartes : ignore
-	await _drag(Vector2(100, 200), Vector2(-100, 200))
-	_check(board._boss_sel == 0, "glisser : depart hors zone a bouge le carrousel")
-	# relachement HORS de la zone (et de l'ecran) : le glisser se termine quand meme, on garde les crans deja faits
-	await _drag(Vector2(1500, 840), Vector2(1380, 840), Vector2(-50, 2000))
-	_check(board._boss_sel == 1 and board._boss_drag.is_empty(), "glisser : relachement hors ecran, carte %d, glisser en cours %s" % [board._boss_sel, str(board._boss_drag)])
-	# bouton relache sans evenement de relachement (fenetre quittee) : un mouvement sans masque termine le glisser
-	await _mouse(Vector2(1500, 840), true, false)
-	await _mouse(Vector2(1480, 840), false, true, 0)
-	await _mouse(Vector2(1200, 840), false, true, MOUSE_BUTTON_MASK_LEFT) # ne doit plus rien faire
-	_check(board._boss_sel == 1 and board._boss_drag.is_empty(), "glisser : un mouvement sans bouton gauche n'a pas termine le glisser (carte %d)" % board._boss_sel)
-	await _mouse(Vector2(1200, 840), false, false)
-	# appui sur une voisine puis glisser : le glisser est relatif a la carte centrale de l'appui, pas a la carte touchee
-	board._boss_select(0)
-	var neighbour := (bc[1] as Control).get_global_rect().get_center()
-	await _drag(neighbour, neighbour + Vector2(-100, 0))
-	_check(board._boss_sel == 1, "glisser depuis une voisine : carte %d (1 attendue)" % board._boss_sel)
-	board._boss_select(0)
-	_cov("boss_drag")
-
-## Retournement des autres cartes apres PLAY BOSS MONSTER! (animations reelles) : dos de carte, nom du boss, puis le coup part.
+## Sequence du carrousel avec animations reelles (temps accelere) : 0,5 s, cartes face cachee, rotation, arret sur le boss tire face visible, puis
+## PLAY BOSS MONSTER! (qui ne marche qu'une fois la rotation finie). Plusieurs humains : pose automatique apres 2 s et passage de main.
 func _check_boss_flip() -> void:
 	_tag = "[boss-flip]"
 	await _teardown()
 	CardDB._rng.seed = 123
 	gm = GameManager.new()
 	add_child(gm)
+	gm.rng.seed = 123 # Match._ready l'a randomise : le tirage du boss doit etre reproductible
 	gm.start_new_game(2, 1, ["base"])
 	board = load("res://godot/scenes/Board.tscn").instantiate()
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(board)
 	board.skip_animations = false
 	board.set_process(false) # l'IA ne joue pas pendant ce test
+	Engine.time_scale = ANIM_TIME_SCALE
 	board.setup(gm, func(): quit_calls += 1)
 	await _wait(0.1)
-	var picks: Array = (gm.G["bossPicks"] as Array).duplicate(true) # le coup consomme les propositions
 	var bc: Array = board._boss_cards.duplicate()
-	board._boss_select(1)
-	await _wait(0.3)
-	board._confirm_btn.pressed.emit()
-	_check(board._boss_flipping and gm.G["players"][0].get("boss") == null, "retournement : doit preceder le coup")
-	_check(board._carousel_text.text.contains(str((picks[1] as Dictionary).get("name", "")).to_upper()), "retournement : nom du boss absent (%s)" % board._carousel_text.text)
-	board._confirm_btn.pressed.emit() # un 2e appui ne fait rien
-	await _wait(0.45)
+	var want: String = board._boss_pick_id
 	var back_tex: Texture2D = load(CardDB.card_image("", "back-boss"))
-	var backs := 0
-	for i in bc.size():
-		if is_instance_valid(bc[i]) and not (bc[i] as Node).is_queued_for_deletion() and (bc[i] as CardUI).texture_rect.texture == back_tex:
-			backs += 1
-			_check(i != 1, "retournement : la carte choisie est retournee")
-	_check(backs == bc.size() - 1, "retournement : %d dos de carte pour %d cartes retournables" % [backs, bc.size() - 1])
+	_check(not board._boss_ready and bc.size() >= 8 and not board._confirm_btn.visible, "sequence : la rotation ne doit pas etre finie au depart")
+	_check(bc.all(func(c): return (c as CardUI).texture_rect.texture != back_tex), "sequence : les cartes sont d'abord face visible (attente de 0,5 s)")
+	await _wait(1.2) # 0,5 s + retournement de 0,5 s
+	_check(not board._boss_ready and bc.all(func(c): return (c as CardUI).texture_rect.texture == back_tex), "sequence : toutes les cartes doivent etre face cachee pendant la rotation")
+	var sels := {}
+	var t := 0.0
+	while not board._boss_ready and t < 12.0:
+		sels[board._boss_sel] = true
+		board._confirm_btn.pressed.emit() # un appui pendant la rotation ne fait rien
+		await _wait(0.1)
+		t += 0.1
+	_check(board._boss_ready, "sequence : la rotation ne s'est jamais arretee")
+	_check(sels.size() >= 8, "sequence : la rotation n'a parcouru que %d cartes" % sels.size())
+	_check(gm.G["players"][0].get("boss") == null, "sequence : un appui pendant la rotation a valide le boss")
 	await _wait(0.4)
+	_check(str((bc[board._boss_sel] as CardUI).card_dict.get("id", "")) == want and (bc[board._boss_sel] as CardUI).texture_rect.texture != back_tex, "sequence : arret sur le boss tire, face visible")
+	_check(bc.filter(func(c): return (c as CardUI).texture_rect.texture == back_tex).size() == bc.size() - 1, "sequence : les autres cartes restent face cachee")
+	_check(board._confirm_btn.visible and board._carousel_text.text.contains(str((bc[board._boss_sel] as CardUI).card_dict.get("name", "")).to_upper()), "sequence : bouton et nom du boss attendus apres l'arret")
+	board._confirm_btn.pressed.emit()
+	board._confirm_btn.pressed.emit() # un 2e appui ne fait rien
+	await get_tree().process_frame
 	var boss = gm.G["players"][0].get("boss")
-	_check(boss != null and str((boss as Dictionary).get("id", "")) == str((picks[1] as Dictionary).get("id", "")) and not board._boss_flipping, "retournement : le boss n'a pas ete valide (boss=%s flipping=%s phase=%s)" % [str(boss), board._boss_flipping, gm.G.get("phase")])
+	_check(boss != null and str((boss as Dictionary).get("id", "")) == want, "sequence : le boss tire n'a pas ete valide (boss=%s)" % str(boss))
+	# plusieurs humains : pas de bouton, la pose part seule apres 2 s, la vue passe au 2e siege (passage de main) qui a son propre carrousel
+	await _teardown()
+	CardDB._rng.seed = 321
+	gm = GameManager.new()
+	add_child(gm)
+	gm.rng.seed = 321 # Match._ready l'a randomise : le tirage du boss doit etre reproductible
+	gm.start_new_game(2, 2, ["base"])
+	board = load("res://godot/scenes/Board.tscn").instantiate()
+	board.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(board)
+	board.skip_animations = false
+	board.set_process(false)
+	Engine.time_scale = ANIM_TIME_SCALE
+	board.setup(gm, func(): quit_calls += 1)
+	await _wait(0.1)
+	t = 0.0
+	while not board._boss_ready and t < 12.0:
+		_check(not board._confirm_btn.visible, "hot-seat : PLAY BOSS MONSTER! visible")
+		await _wait(0.1)
+		t += 0.1
+	var want1: String = board._boss_pick_id
+	_check(board._boss_ready and not board._confirm_btn.visible and gm.G["players"][0].get("boss") == null, "hot-seat : arret sans bouton, boss pas encore pose")
+	await _wait(1.5)
+	_check(gm.G["players"][0].get("boss") == null, "hot-seat : la pose automatique est partie avant les 2 s")
+	await _wait(1.0)
+	var b0 = gm.G["players"][0].get("boss")
+	_check(b0 != null and str((b0 as Dictionary).get("id", "")) == want1, "hot-seat : le boss tire n'a pas ete pose apres 2 s")
+	t = 0.0
+	while (board.view_pid != 1 or board._handing_over or board._boss_seat != 1) and t < 6.0:
+		await _wait(0.1)
+		t += 0.1
+	_check(board.view_pid == 1 and board._boss_seat == 1 and board._boss_cards.size() >= 8, "hot-seat : la vue doit passer au 2e siege avec son carrousel (vue %d)" % board.view_pid)
+	_check(board.hand_layer.position.y == 0.0 and (board._lane[1]["root"] as Control).modulate.a == 1.0, "hot-seat : main et donjons doivent etre revenus apres le passage de main")
 	_cov("boss_flip")
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -2004,12 +2036,18 @@ func _check_done_and_warning() -> void:
 	if not _check(built, "DONE : aucune salle construisible"):
 		return
 	await get_tree().process_frame
-	if _check(gm.G.has("buildWindow") and ki >= 0, "DONE : la fenetre de sorts apres construction n'est pas ouverte"):
+	# APK : poser la salle ne finit pas le tour ; le bouton DONE! le finit, et le joueur peut encore jouer un sort avant
+	if _check(not gm.G.has("buildWindow") and ki >= 0 and gm.active_player() == 0 and int(me.get("buildsThisTurn", 0)) == 1, "DONE : la pose a rendu la main (ou ouvert la fenetre)"):
 		var tex_done: Texture2D = board._tex(board.TEX_DONE)
-		_check(board.btn_pass.is_visible_in_tree() and (board.btn_pass as TextureButton).texture_normal == tex_done, "DONE : PASS TURN ne devient pas DONE!")
+		_check(board.btn_pass.is_visible_in_tree() and (board.btn_pass as TextureButton).texture_normal == tex_done, "DONE : le bouton doit etre DONE! apres ma pose")
+		_check(gm.legal_moves(0).any(func(m): return m["type"] == "playSpell") and gm.legal_moves(0).any(func(m): return m["type"] == "passBuild") and not gm.legal_moves(0).any(func(m): return m["type"] == "buildRoom"), "DONE : sorts et DONE seulement apres la pose")
 		var s1 := _sig()
 		board._on_pass_pressed()
-		_check(board._warn == null and _sig() != s1 and not gm.G.has("buildWindow"), "DONE : le bouton DONE! ne referme pas la fenetre")
+		_check(board._warn == null and _sig() != s1 and (gm.active_player() != 0 or gm.G.has("buildWindow") or str(gm.G["phase"]) != "build"), "DONE : le bouton DONE! ne termine pas le tour")
+		if gm.G.has("buildWindow"): # l'IA construit apres moi : fenetre de sorts avant la revelation, un 2e DONE! la ferme
+			s1 = _sig()
+			board._on_pass_pressed()
+			_check(_sig() != s1 and not gm.G.has("buildWindow"), "DONE : le bouton DONE! ne referme pas la fenetre")
 		_cov("done_button")
 
 ## Galerie de cartes : 5 onglets (BOSS / ROOM / SPELL / HERO / EPIC HERO), grille, paquets de l'APK (+ wiki selon l'option), fermeture ;
@@ -2459,67 +2497,37 @@ func _check_single_click() -> void:
 		_check(board._tgt.is_empty() and (me["dungeon"] as Array).size() == dsize + 1, "clic simple (%s) : un seul clic sur la zone doree n'a pas construit (donjon %d -> %d)" % [variant, dsize, (me["dungeon"] as Array).size()])
 		_cov("single_click_" + variant)
 
-## Choix du boss : (1) l'IA prend le boss que le joueur vient de valider pendant le retournement (0,65 s) -> le titre montrait ce boss, puis
-## « ... », et le joueur restait sans boss ; l'IA attend desormais que le coup du joueur soit joue. (2) l'IA retire une AUTRE carte : celle du
-## centre reste au centre (les indices se decalaient).
+## Choix du boss : l'IA ne prend jamais le boss tire pour le joueur (elle attend que l'humain ait le sien), puis tire au hasard parmi le reste.
 func _check_boss_race() -> void:
 	_tag = "[boss-race]"
 	await _teardown()
 	CardDB._rng.seed = 99
 	gm = GameManager.new()
 	add_child(gm)
+	gm.rng.seed = 99 # Match._ready l'a randomise : le tirage du boss doit etre reproductible
 	gm.start_new_game(2, 1, ["base"])
 	board = load("res://godot/scenes/Board.tscn").instantiate()
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(board)
-	board.skip_animations = false # retournement reel ; board._process tourne (l'IA joue)
+	board.skip_animations = false # rotation reelle ; board._process tourne (l'IA joue)
+	Engine.time_scale = ANIM_TIME_SCALE
 	board.setup(gm, func(): quit_calls += 1)
-	var picks: Array = gm.G["bossPicks"]
 	var ai_mv = AI.pick_move(gm, 1)
 	if not _check(ai_mv != null and str(ai_mv["type"]) == "pickBoss", "course : l'IA ne propose pas de pickBoss"):
 		return
-	var ai_id := str((ai_mv["args"] as Array)[0])
-	var idx := -1
-	for i in picks.size():
-		if str((picks[i] as Dictionary)["id"]) == ai_id:
-			idx = i
-	var ai_name := str((picks[idx] as Dictionary)["name"]).to_upper()
-	board._boss_select(idx) # le boss que l'IA va prendre
+	var want: String = board._boss_pick_id
+	var t := 0.0
+	while not board._boss_ready and t < 12.0:
+		await _wait(0.1)
+		t += 0.1
+		_check(gm.G["players"][1].get("boss") == null, "course : l'IA a pris un boss avant le joueur")
+	_check(board._boss_ready and gm.G["players"][1].get("boss") == null, "course : l'IA n'attend pas le joueur apres l'arret")
 	board._confirm_btn.pressed.emit()
-	var titles: Array = []
-	for f in 90: # ~1,5 s : l'IA joue a 0,5 s, le retournement finit a 0,65 s
-		await get_tree().process_frame
-		if str(gm.G.get("phase")) == "boss":
-			titles.append([board._boss_flipping, board._carousel_text.text])
-		await _wait(0.016)
+	await _wait(1.0) # l'IA joue a 0,5 s
 	var me_boss = gm.G["players"][0].get("boss")
 	var foe_boss = gm.G["players"][1].get("boss")
-	_check(me_boss != null and str((me_boss as Dictionary).get("id", "")) == ai_id, "course : le boss valide par le joueur ne lui est pas revenu (%s)" % str(me_boss.get("name") if me_boss != null else "aucun"))
-	_check(foe_boss != null and str((foe_boss as Dictionary).get("id", "")) != ai_id, "course : l'IA a pris le meme boss que le joueur")
-	for t in titles: # retournement : le nom du boss valide ; sinon « ... » (jamais le boss d'un autre)
-		_check(str(t[1]).contains(ai_name) if bool(t[0]) else str(t[1]).contains("..."), "course : titre %s (retournement %s)" % [str(t[1]), str(t[0])])
-	# (2) la carte du centre ne bouge pas quand l'IA retire une autre carte
-	await _teardown()
-	CardDB._rng.seed = 99
-	gm = GameManager.new()
-	add_child(gm)
-	gm.start_new_game(2, 1, ["base"])
-	board = load("res://godot/scenes/Board.tscn").instantiate()
-	board.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(board)
-	board.skip_animations = true
-	board.set_process(false)
-	board.setup(gm, func(): quit_calls += 1)
-	await _wait(0.1)
-	picks = gm.G["bossPicks"]
-	var keep := str((picks[picks.size() - 1] as Dictionary)["id"])
-	board._boss_select(picks.size() - 1)
-	var taken := str((picks[0] as Dictionary)["id"])
-	gm.apply_move(1, {"type": "pickBoss", "args": [taken]})
-	board.refresh()
-	await get_tree().process_frame
-	var now_picks: Array = gm.G["bossPicks"]
-	_check(not now_picks.is_empty() and str((now_picks[board._boss_sel] as Dictionary)["id"]) == keep, "course : la carte du centre a change quand l'IA a pris une autre carte")
+	_check(me_boss != null and str((me_boss as Dictionary).get("id", "")) == want, "course : le boss tire n'est pas revenu au joueur")
+	_check(foe_boss != null and str((foe_boss as Dictionary).get("id", "")) != want, "course : l'IA a pris le meme boss que le joueur")
 	_cov("boss_race")
 
 ## Choix sur le plateau (Centipede Tunnel : echange de 2 salles, y compris chez l'adversaire) : une fois resolu, plus aucune zone doree ni voile,

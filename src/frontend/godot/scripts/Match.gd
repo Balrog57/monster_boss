@@ -197,6 +197,8 @@ func legal_moves(pid: int) -> Array:
 					if BossEngine.can_build_room(p, G, pid, i, -1):
 						out.append({"type": "buildRoom", "args": [i]})
 				out.append({"type": "passBuild", "args": []})
+			elif bool(G.get("setupBuild", false)) and not bool(p.get("isAI", false)) and not bool(p.get("passed", false)):
+				out.append({"type": "passBuild", "args": []}) # DONE : un siege humain valide sa salle initiale (DoneButtonEntity)
 		"build":
 			# BuildPhase_a : seul le joueur du tour construit (GameBoard.IsPlayerBuildTurn), mais tout joueur vivant
 			# peut jouer un sort / une capacite de salle (rien dans GameBoard n'en limite l'usage au joueur actif ;
@@ -424,8 +426,9 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 			p["buildsThisTurn"] = int(p.get("buildsThisTurn", 0)) + 1
 			if bool(G.get("setupBuild", false)):
 				_setup_progress()
-			elif _can_build_again(pid):
+			elif _can_build_again(pid) or not bool(p.get("isAI", false)):
 				# BuildExtraRoom : le joueur garde la main tant qu'il peut (et veut) poser sa salle supplementaire.
+				# Un siege humain garde aussi la main apres sa pose : le tour ne finit qu'au bouton DONE (passBuild), il peut encore jouer des sorts.
 				state_changed.emit()
 				_drive_ai()
 			else:
@@ -502,7 +505,7 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 		"buildMiniboss": # Rise of the Minibosses : un miniboss se pose face cachee a la place d'une salle (meme suite qu'un buildRoom)
 			if not Minibosses.apply_build(G, pid, int(move["args"][0]), int(move["args"][1])):
 				return false
-			if _can_build_again(pid):
+			if _can_build_again(pid) or not bool(p.get("isAI", false)): # humain : fin de tour par DONE (voir buildRoom)
 				state_changed.emit()
 				_drive_ai()
 			else:
@@ -535,8 +538,10 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 				return true
 
 			if bool(G.get("setupBuild", false)):
+				if int(p.get("buildsThisTurn", 0)) == 0:
+					_log("Joueur %d ne construit pas de salle initiale." % pid)
 				p["buildsThisTurn"] = maxi(1, int(p.get("buildsThisTurn", 0)))
-				_log("Joueur %d ne construit pas de salle initiale." % pid)
+				p["passed"] = true # DONE de la mise en place (remis a faux au debut de l'aventure)
 				_setup_progress()
 				return true
 
@@ -975,8 +980,8 @@ func _setup_progress() -> void:
 		return
 	for pid in G["players"]:
 		var q: Dictionary = G["players"][pid]
-		if not bool(q.get("eliminated", false)) and int(q.get("buildsThisTurn", 0)) == 0:
-			return
+		if not bool(q.get("eliminated", false)) and (int(q.get("buildsThisTurn", 0)) == 0 or (not bool(q.get("isAI", false)) and not bool(q.get("passed", false)))):
+			return # un siege humain attend son DONE meme apres avoir pose sa salle
 	_finish_setup()
 
 ## Setup_c : RevealAllRoomCards (declenche « quand tu construis cette salle ») puis BeginningOfTurn.
@@ -1127,6 +1132,8 @@ func _advance_build() -> void:
 ## passent d'office (politique : l'IA de Godot n'ouvre pas de Spell Battle hors de son tour).
 func _open_build_window() -> bool:
 	G["buildWindow"] = _window_auto_passed()
+	if bool(G.get("autoAI", true)) and G.get("activePlayer") != null:
+		(G["buildWindow"] as Dictionary)[int(G["activePlayer"])] = true # le dernier constructeur vient d'appuyer sur DONE : pas de second DONE pour lui
 	for pid in G["players"]:
 		if (G["buildWindow"] as Dictionary).has(pid):
 			continue
