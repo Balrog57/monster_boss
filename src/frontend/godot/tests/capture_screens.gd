@@ -9,6 +9,7 @@ const GameManager = preload("res://godot/scripts/GameManager.gd")
 const OUT_DIR := "res://../../docs/reference/godot_screens"
 
 var out_dir := ""
+var only := ""   # --only=online : seulement les ecrans multijoueur
 var gm: GameManager
 var board
 var main_scene
@@ -37,9 +38,17 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--out="):
 			out_dir = a.substr(6)
+		elif a.begins_with("--only="):
+			only = a.substr(7)
 	AudioServer.set_bus_mute(0, true)
 	await _wait(0.3)
+	if only == "online":
+		await _online_menus()
+		print("ONLINE SCREENS CAPTURED: ", n_shots)
+		get_tree().quit(0)
+		return
 	await _menus()
+	await _online_menus()
 	await _board_shots()
 	await _states()
 	await _end_screens()
@@ -64,6 +73,87 @@ func _menus() -> void:
 	main_scene.queue_free()
 	main_scene = null
 	await _frames()
+
+## Ecrans multijoueur (OnlineMenus.gd) : pas de frame APK de reference, comparaison a la specification C# (MultiplayerScene, MenuOnlineScene, ...).
+class FakeOnline extends RefCounted:
+	var current_G := {"gameOver": null, "turnDeadline": 0}
+	var current_awaited := [0]
+	var current_moves := []
+	var player_id := 0
+	var clock_offset_ms := 0
+
+func _label_buttons() -> Dictionary:
+	var out := {}
+	for b in main_scene.find_children("*", "TextureButton", true, false):
+		if b.get_child_count() > 0 and b.get_child(0) is Label and (b.get_child(0) as Label).name == "Label":
+			out[(b.get_child(0) as Label).text] = b
+	return out
+
+func _online_menus() -> void:
+	main_scene = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main_scene)
+	await _wait(0.5)
+	main_scene.profile = {"name": "Zed the Wise", "avatar": "avatar_gorgona"}
+	main_scene.online.match_id = "KWPF"
+	main_scene.online.player_id = 0
+	main_scene.show_multi()
+	await _wait(0.3)
+	await _shot("online_multiplayer_scene_decks_closed")
+	await _wait(1.8)
+	await _shot("online_multiplayer_scene_play_online_pass_and_play")
+	main_scene.menus.show_online()
+	await _wait(0.4)
+	await _shot("online_menu_worldwide_with_friends_change_user")
+	main_scene.menus.msg_box("NETWORK ERROR", "Unable to join public rooms")
+	await _wait(0.3)
+	await _shot("online_message_box_network_error")
+	main_scene.menus.show_profile(true, false)
+	await _wait(0.4)
+	await _shot("online_change_name_avatar")
+	main_scene.find_children("*", "LineEdit", true, false)[0].grab_focus()
+	await _wait(0.2)
+	await _shot("online_change_name_avatar_entry_focused")
+	main_scene.menus.show_friends()
+	await _wait(0.4)
+	await _shot("online_with_friends_new_game_room_code")
+	_label_buttons()["ROOM CODE"].pressed.emit()
+	await _wait(0.8)
+	var e: LineEdit = main_scene.find_children("*", "LineEdit", true, false)[0] # le nom « Entry » peut etre pris par l'ecran precedent (libere en fin d'image)
+	await _shot("online_with_friends_room_code_entry_empty")
+	e.grab_focus()
+	e.text = "KWPF"
+	await _wait(0.2)
+	await _shot("online_with_friends_room_code_entry_typed")
+	main_scene.show_solo_count("online")
+	await _wait(0.4)
+	await _shot("online_new_game_how_many_players")
+	var o = main_scene.online
+	o.is_host = true
+	main_scene.show_waiting()
+	await _wait(0.2)
+	var seat := func(n, av, w, d, bot): return {"name": n, "bot": bot, "connected": true, "avatar": av, "wins": w, "defeats": d}
+	var free := {"name": null, "bot": false, "connected": false, "avatar": "", "wins": 0, "defeats": 0}
+	o.lobby_changed.emit({"status": "open", "numPlayers": 4, "host": 0, "seats": [seat.call("Zed the Wise", "avatar_gorgona", 12, 7, false), free, free, free]})
+	await _wait(0.5)
+	await _shot("online_waiting_room_host_alone_start_with_bots")
+	o.lobby_changed.emit({"status": "open", "numPlayers": 4, "host": 0, "seats": [seat.call("Zed the Wise", "avatar_gorgona", 12, 7, false), seat.call("player_k3x9", "avatar_robobo", 0, 2, false), seat.call("A very long username that never ends", "avatar_croak", 105, 3, false), free]})
+	await _wait(0.5)
+	await _shot("online_waiting_room_three_players_ok")
+	main_scene.queue_free()
+	main_scene = null
+	await _frames()
+	# compte a rebours sur un plateau
+	await _new_game()
+	var fake := FakeOnline.new()
+	fake.current_G["turnDeadline"] = int(Time.get_unix_time_from_system() * 1000.0) + 42500
+	var cd = load("res://godot/scripts/CountDown.gd").new(fake)
+	board.add_child(cd)
+	await _wait(0.6)
+	await _shot("online_countdown_over_board")
+	fake.current_G["turnDeadline"] = int(Time.get_unix_time_from_system() * 1000.0) + 3500
+	await _wait(0.6)
+	await _shot("online_countdown_under_5s")
+	await _teardown()
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Plateau

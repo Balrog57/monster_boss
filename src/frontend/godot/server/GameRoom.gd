@@ -13,7 +13,7 @@ const MAX_AI_STEPS_PER_TICK := 400 # bot_delay = 0 (tests) : plafond de coups IA
 var code := ""
 var num_players := 2
 var sets: Array = []
-var seats: Array = [] # {name, bot, taken, token, conn, auto, left}
+var seats: Array = [] # {name, bot, taken, token, conn, auto, left, avatar, wins, defeats}
 var host := 0
 var status := "open" # open | running | finished
 var m = null # Match
@@ -23,6 +23,7 @@ var bot_delay_ms := 350
 var send: Callable # (conn_id: int, msg: Dictionary)
 var last_activity_ms := 0
 var deadline_ms := 0 # horloge unix en ms ; 0 = personne n'est attendu
+var awaited_seats: Array = [] # sieges humains dont une decision bloque la partie (calcule avec deadline_ms)
 var _next_ai_ms := 0
 var _dirty := false
 
@@ -31,7 +32,7 @@ func _init(p_code: String, p_players: int, p_sets: Array) -> void:
 	num_players = clampi(p_players, 2, 4)
 	sets = p_sets
 	for i in num_players:
-		seats.append({"name": "", "bot": false, "taken": false, "token": "", "conn": -1, "auto": false, "left": false})
+		seats.append({"name": "", "bot": false, "taken": false, "token": "", "conn": -1, "auto": false, "left": false, "avatar": "", "wins": 0, "defeats": 0})
 	last_activity_ms = _now()
 
 static func _now() -> int:
@@ -72,12 +73,13 @@ func humans_connected() -> int:
 	return c
 
 ## Prend le premier siege libre ; renvoie {"seat", "token"} ou {} si plein / deja lance.
-func join(pname: String, conn: int) -> Dictionary:
+func join(pname: String, conn: int, prof: Dictionary = {}) -> Dictionary:
 	var i := free_seat()
 	if status != "open" or i < 0:
 		return {}
 	var token := _token()
-	seats[i].merge({"name": pname, "taken": true, "token": token, "conn": conn, "auto": false, "left": false}, true)
+	seats[i].merge({"name": pname, "taken": true, "token": token, "conn": conn, "auto": false, "left": false,
+		"avatar": str(prof.get("avatar", "")), "wins": int(prof.get("wins", 0)), "defeats": int(prof.get("defeats", 0))}, true)
 	if i == 0 or not seats[host]["taken"]:
 		host = i
 	touch()
@@ -115,7 +117,7 @@ func seat_of(conn: int) -> int:
 func leave(seat: int) -> void:
 	var s: Dictionary = seats[seat]
 	if status == "open":
-		s.merge({"name": "", "taken": false, "token": "", "conn": -1}, true)
+		s.merge({"name": "", "taken": false, "token": "", "conn": -1, "avatar": "", "wins": 0, "defeats": 0}, true)
 	else:
 		s.merge({"conn": -1, "token": "", "left": true, "auto": true}, true)
 	_dirty = true
@@ -268,7 +270,8 @@ func _awaited() -> Array:
 	return out.filter(func(p): return p == m.active_player())
 
 func _reset_deadline() -> void:
-	if status != "running" or m == null or turn_timeout_ms <= 0 or _awaited().is_empty():
+	awaited_seats = _awaited() if status == "running" and m != null else []
+	if turn_timeout_ms <= 0 or awaited_seats.is_empty():
 		deadline_ms = 0
 	else:
 		deadline_ms = _now() + (adventure_timeout_ms if _in_adventure_pause() else turn_timeout_ms)
@@ -299,7 +302,8 @@ func tick() -> bool:
 func lobby_msg() -> Dictionary:
 	var out: Array = []
 	for s in seats:
-		out.append({"name": (str(s["name"]) if s["taken"] else null), "bot": s["bot"], "connected": int(s["conn"]) >= 0 or bool(s["bot"])})
+		out.append({"name": (str(s["name"]) if s["taken"] else null), "bot": s["bot"], "connected": int(s["conn"]) >= 0 or bool(s["bot"]),
+			"avatar": s["avatar"], "wins": s["wins"], "defeats": s["defeats"]})
 	return {"t": "lobby", "code": code, "status": status, "numPlayers": num_players, "seats": out, "sets": sets, "host": host}
 
 func state_msg(seat: int) -> Dictionary:
@@ -309,6 +313,7 @@ func state_msg(seat: int) -> Dictionary:
 	msg["view"] = NetCodec.encode(ViewFilter.for_seat(m.G, seat))
 	msg["moves"] = m.legal_moves(seat)
 	msg["deadline"] = deadline_ms
+	msg["awaited"] = awaited_seats
 	msg["serverTime"] = _now()
 	return msg
 

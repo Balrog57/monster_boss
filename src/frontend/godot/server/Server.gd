@@ -9,7 +9,9 @@ const NetCodec = preload("res://godot/scripts/NetCodec.gd")
 
 ## Paquets acceptes dans create.sets (le jeu de base est toujours present, voir Match.new_match).
 const KNOWN_SETS := ["players-choice", "hidden-heroes", "tools", "next-level", "minibosses", "crash-landing"]
-const CODE_ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+## Code de salon : 4 lettres comme l'APK (OnlineService.GetNewRoomName, RndWord(4)) ; sans I ni O (confusion avec 1 et 0).
+const CODE_ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ"
+const CODE_LENGTH := 4
 const MAX_MSGS_PER_SEC := 60
 ## Connexion muette (les clients envoient ping toutes les 20 s). Large a dessein : un onglet en arriere-plan est suspendu par le
 ## navigateur et n'envoie plus rien ; couper trop vite le ferait passer pour deconnecte (le client rouvre de toute facon avec resume).
@@ -170,11 +172,20 @@ func _error(id: int, text: String, kind: String = "") -> void:
 # --- messages -----------------------------------------------------------------
 
 static func _clean_name(v) -> String:
-	var n := str(v).strip_edges().left(16)
+	var n := str(v).strip_edges().left(25) # l'APK n'affiche que 25 caracteres (OnlinePanelEntity)
 	return n if n != "" else "Joueur"
 
+## Avatar (nom de fichier sans chemin), victoires et defaites declares par le client : purement cosmetiques (salle d'attente).
+static func _clean_profile(d: Dictionary) -> Dictionary:
+	var av := str(d.get("avatar", ""))
+	var ok := av.length() > 0 and av.length() <= 32
+	for ch in av:
+		if not (ch in "abcdefghijklmnopqrstuvwxyz_"):
+			ok = false
+	return {"avatar": av if ok else "", "wins": clampi(int(d.get("wins", 0)), 0, 99999), "defeats": clampi(int(d.get("defeats", 0)), 0, 99999)}
+
 func _new_code() -> String:
-	var bytes := Crypto.new().generate_random_bytes(6)
+	var bytes := Crypto.new().generate_random_bytes(CODE_LENGTH)
 	var code := ""
 	for b in bytes:
 		code += CODE_ALPHABET[b % CODE_ALPHABET.length()]
@@ -207,7 +218,7 @@ func _on_message(id: int, d: Dictionary) -> void:
 			r.turn_timeout_ms = clampi(tt, 0, 600) * 1000
 			r.adventure_timeout_ms = adventure_timeout_s * 1000
 			_rooms[r.code] = r
-			_join(id, r, _clean_name(d.get("name", "")))
+			_join(id, r, _clean_name(d.get("name", "")), _clean_profile(d))
 		"join":
 			var r: GameRoom = _rooms.get(str(d.get("code", "")).strip_edges().to_upper(), null)
 			if room != null:
@@ -216,7 +227,7 @@ func _on_message(id: int, d: Dictionary) -> void:
 				return _error(id, "salon introuvable", "not_found")
 			if r.status != "open" or r.free_seat() < 0:
 				return _error(id, "salon complet ou deja lance", "full")
-			_join(id, r, _clean_name(d.get("name", "")))
+			_join(id, r, _clean_name(d.get("name", "")), _clean_profile(d))
 		"resume":
 			var r: GameRoom = _rooms.get(str(d.get("code", "")).strip_edges().to_upper(), null)
 			var seat := int(d.get("seat", -1))
@@ -270,8 +281,8 @@ func _on_message(id: int, d: Dictionary) -> void:
 		_:
 			_error(id, "message inconnu", "bad_message")
 
-func _join(id: int, r: GameRoom, pname: String) -> void:
-	var j := r.join(pname, id)
+func _join(id: int, r: GameRoom, pname: String, prof: Dictionary) -> void:
+	var j := r.join(pname, id, prof)
 	if j.is_empty():
 		_error(id, "salon complet", "full")
 		return

@@ -12,6 +12,7 @@ signal request_error(message: String)
 signal _reply(kind: String, data: Dictionary)
 
 const NetCodec = preload("res://godot/scripts/NetCodec.gd")
+const Profile = preload("res://godot/scripts/Profile.gd")
 
 const DEFAULT_URL := "ws://localhost:8091"
 ## Ancienne valeur par defaut du serveur Node (REST) : n'est plus une adresse valide, on prend l'URL par defaut.
@@ -30,12 +31,21 @@ var match_id: String = ""
 var player_id: int = -1
 var credentials: String = "" # jeton de siege
 var player_name: String = ""
+var player_avatar: String = "" # profil cosmetique envoye au serveur (salle d'attente : avatar, victoires, defaites)
+var player_wins := 0
+var player_defeats := 0
+var last_error_code := "" # `code` de la derniere erreur serveur ("not_found", "full"...), "" si c'etait un probleme de liaison
 var current_G: Dictionary = {}
 var current_ctx: Dictionary = {}
 var current_moves: Array = []
 var current_seats: Array = []
 var current_status: String = ""
 var current_num_players: int = 0
+var current_host := -1 # siege de l'hote (donne par le lobby)
+var current_awaited: Array = [] # sieges humains attendus par le serveur (compte a rebours) ; vide si le serveur ne le dit pas
+var clock_offset_ms := 0 # horloge serveur - horloge locale (ms), pour afficher le delai restant
+var count_results := true # faux dans les tests : ne touche pas aux compteurs du profil
+var _result_for := "" # code de la salle dont le resultat est deja compte dans Profile
 var connected := false
 var is_host := false
 
@@ -199,6 +209,7 @@ func _on_message(d: Dictionary) -> void:
 			_store_lobby(d)
 			_store_view(d)
 		"error":
+			last_error_code = str(d.get("code", ""))
 			var bad_token: bool = str(d.get("code", "")) in ["bad_token", "not_found"]
 			if bad_token and match_id != "":
 				_forget() # la salle n'existe plus ou le jeton n'est plus valide : inutile de reessayer
@@ -214,8 +225,9 @@ func _store_lobby(d: Dictionary) -> void:
 	current_status = str(d.get("status", ""))
 	current_num_players = int(d.get("numPlayers", 0))
 	if d.has("host"): # le lobby donne le siege de l'hote (le "joined" donne un bool)
-		is_host = int(d["host"]) == player_id
-	lobby_changed.emit({"status": current_status, "seats": current_seats, "numPlayers": current_num_players})
+		current_host = int(d["host"])
+		is_host = current_host == player_id
+	lobby_changed.emit({"status": current_status, "seats": current_seats, "numPlayers": current_num_players, "host": current_host})
 
 func _store_view(d: Dictionary) -> void:
 	current_G = normalize_view(d.get("view", {}))
@@ -229,10 +241,22 @@ func _store_view(d: Dictionary) -> void:
 	if deadline > 0:
 		current_G["turnDeadline"] = deadline
 	current_ctx = {"serverTime": int(d.get("serverTime", 0)), "seat": int(d.get("seat", player_id))}
+	if int(d.get("serverTime", 0)) > 0:
+		clock_offset_ms = int(d["serverTime"]) - int(Time.get_unix_time_from_system() * 1000.0)
+	current_awaited = d.get("awaited", [])
 	current_moves = d.get("moves", [])
 	if str(d.get("status", "")) == "finished":
+		_count_result()
 		_clear_session() # partie finie : plus rien a reprendre
 	state_received.emit()
+
+## Victoire / defaite du joueur local, une seule fois par salle (compteurs de Profile, montres dans la salle d'attente).
+func _count_result() -> void:
+	var over = current_G.get("gameOver")
+	if not count_results or match_id == "" or match_id == _result_for or not (over is Dictionary):
+		return
+	_result_for = match_id
+	Profile.record_result(int((over as Dictionary).get("winner", -1)) == player_id)
 
 ## La vue serveur est deja au format de Match.G (cles entieres restaurees par NetCodec) ; on ne garde que
 ## le contrat historique : gameOver = null tant que la partie court.
@@ -260,15 +284,19 @@ func stop_state_poll() -> void:
 
 ## Cree un salon (amis uniquement) et prend le siege 0. `bots` : sieges IA deja remplis.
 func create_lobby(num_players: int, expansions: Array, bots: int = 0) -> bool:
-	return await _enter({"t": "create", "name": player_name, "players": num_players, "sets": expansions, "bots": bots})
+	return await _enter({"t": "create", "name": player_name, "players": num_players, "sets": expansions, "bots": bots}.merged(_profile_fields()))
 
 func join_lobby(code: String, pname: String) -> bool:
 	player_name = pname
-	return await _enter({"t": "join", "name": pname, "code": code.strip_edges().to_upper()})
+	return await _enter({"t": "join", "name": pname, "code": code.strip_edges().to_upper()}.merged(_profile_fields()))
+
+func _profile_fields() -> Dictionary:
+	return {"avatar": player_avatar, "wins": player_wins, "defeats": player_defeats}
 
 func _enter(msg: Dictionary) -> bool:
 	current_G = {}
 	current_moves = []
+	last_error_code = ""
 	var r := await _call(msg, "joined")
 	if r.is_empty():
 		if match_id == "":

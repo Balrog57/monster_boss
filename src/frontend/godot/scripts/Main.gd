@@ -2,9 +2,9 @@ extends Control
 ## Main — menus clones de l'APK 2.2.6 (maquette 1920x1080 : coordonnees absolues relevees sur docs/reference/*.png).
 ## Ecran titre (TAP TO START) -> menu 2x2 -> HOW MANY PLAYERS? -> SELECT EXPANSIONS ; OPTIONS ; RULES.
 ## SINGLE PLAYER : 2/3/4 joueurs = vous + 1 a 3 IA.
-## MULTIPLAYER : entre amis uniquement (salon prive + code), pseudo + avatar (ecrans pas encore refaits a l'APK).
+## MULTIPLAYER : PLAY ONLINE (entre amis, salon prive a code de 4 lettres) / PASS AND PLAY ; ecrans dans OnlineMenus.gd (clones de l'APK).
 ## IN-APP STORE supprime -> RULES ; tout est gratuit et debloque.
-## shortcut: pas de matchmaking mondial (bouton WORLDWIDE volontairement absent).
+## shortcut: pas de matchmaking mondial (WORLDWIDE affiche l'erreur « Unable to join public rooms »).
 
 ## Extensions du wiki hors APK (bascule « Options »).
 const EXT_PACKS := ["next-level", "minibosses", "crash-landing"]
@@ -28,6 +28,8 @@ const OnlineGameManager = preload("res://godot/scripts/OnlineGameManager.gd")
 const Profile = preload("res://godot/scripts/Profile.gd")
 const UiKit = preload("res://godot/scripts/UiKit.gd")
 const CardGallery = preload("res://godot/scripts/CardGallery.gd")
+const OnlineMenus = preload("res://godot/scripts/OnlineMenus.gd")
+const CountDown = preload("res://godot/scripts/CountDown.gd")
 
 const UI := "res://assets/ui/"
 const FONT_A := "res://assets/fonts/arcadepix.fnt"   # texte plein (bandeaux, ON/OFF)
@@ -39,7 +41,7 @@ const FANS := {2: ["BMA006", "BMA002", ""], 3: ["BMA005", "", ""], 4: ["BMA001",
 var game_manager: GameManager
 var online: OnlineClient
 var board: Control
-var net_err_lbl: Label = null
+var menus: OnlineMenus
 var use_extensions := false
 var apk_decks: Array = [] # ids des paquets APK coches (voir APK_DECKS)
 var server_host := "http://127.0.0.1:8000"
@@ -47,13 +49,13 @@ var players := 2 # choix courant de « HOW MANY PLAYERS? »
 var dyn_root: Control # contenu redessine a chaque clic (eventails, tuiles)
 var _gray: ShaderMaterial
 var profile := {"name": "Player", "avatar": "avatar_draculord"}
-var selected_avatar := "avatar_draculord"
 
 func _ready() -> void:
 	game_manager = GameManager.new()
 	add_child(game_manager)
 	online = OnlineClient.new()
 	add_child(online)
+	menus = OnlineMenus.new(self)
 	if OS.has_feature("web"):
 		var origin = JavaScriptBridge.eval("window.location.origin")
 		if origin != null and str(origin) != "" and str(origin) != "null":
@@ -64,7 +66,6 @@ func _ready() -> void:
 	use_extensions = bool(settings.get("extensions", false))
 	apk_decks = (settings.get("decks", []) as Array).filter(func(d): return _deck_playable(str(d)))
 	profile = Profile.load_profile()
-	selected_avatar = str(profile.get("avatar", selected_avatar))
 	show_title()
 
 func _clear() -> void:
@@ -83,25 +84,6 @@ func _active_sets() -> Array:
 	# Les paquets du wiki ne comptent que si l'option « Extensions du wiki » est cochee.
 	return apk_decks.filter(func(d): return use_extensions or not EXT_PACKS.has(d))
 
-## Cases a cocher « select expansions » (ExpansionScene) : un paquet non jouable est affiche grise.
-func _add_deck_checks(v: Control) -> void:
-	for d in APK_DECKS:
-		var dd: Dictionary = d
-		if EXT_PACKS.has(dd["id"]) and not use_extensions:
-			continue
-		var cb := CheckBox.new()
-		cb.text = "%s  (%s)" % [str(dd["name"]), str(dd["info"])]
-		cb.disabled = not bool(dd["playable"])
-		cb.button_pressed = apk_decks.has(str(dd["id"]))
-		var did := str(dd["id"])
-		cb.toggled.connect(func(on: bool):
-			if on and not apk_decks.has(did):
-				apk_decks.append(did)
-			elif not on:
-				apk_decks.erase(did)
-			Profile.save_settings(server_host, use_extensions, apk_decks))
-		v.add_child(cb)
-
 # --- widgets ---------------------------------------------------------------
 
 func _bg(path: String) -> TextureRect:
@@ -113,47 +95,6 @@ func _bg(path: String) -> TextureRect:
 		t.texture = load(path)
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return t
-
-func _screen(bg_path: String) -> VBoxContainer:
-	_clear()
-	if bg_path != "":
-		add_child(_bg(bg_path))
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
-	var v := VBoxContainer.new()
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", 14)
-	center.add_child(v)
-	return v
-
-func _menu_btn(text: String, icon_path: String = "") -> Button:
-	var b := Button.new()
-	b.text = text
-	b.custom_minimum_size = Vector2(460, 72)
-	b.add_theme_font_override("font", _font(FONT_B))
-	b.add_theme_font_size_override("font_size", 28)
-	if icon_path != "" and ResourceLoader.exists(icon_path):
-		b.icon = load(icon_path)
-		b.expand_icon = true
-	b.pressed.connect(func(): AudioManager.play_sfx("ui_button_select"))
-	return b
-
-func _title_label(text: String, size: int = 40) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_override("font", _font(FONT_B))
-	l.add_theme_font_size_override("font_size", size)
-	return l
-
-func _back_btn(where: Callable) -> Button:
-	var b := Button.new()
-	b.text = "BACK"
-	b.add_theme_font_override("font", _font(FONT_B))
-	b.pressed.connect(func(): AudioManager.play_sfx("ui_button_goback"))
-	b.pressed.connect(where)
-	return b
 
 # --- widgets APK (positions absolues en 1920x1080) -------------------------------
 
@@ -217,14 +158,18 @@ func _flicker(n: Node) -> void:
 	tw.tween_property(n, "modulate:a", 1.0, 0.25).set_trans(Tween.TRANS_SINE)
 
 ## Decor commun (menu_bg + torches + logo) ; back = fleche verte en haut a gauche (Callable invalide = pas de fleche).
-func _apk_screen(back: Callable) -> void:
+## small_logo : MultiplayerScene (CreateLogo(false) : logo_small a taille native, haut-centre a y = 10).
+func _apk_screen(back: Callable, small_logo: bool = false) -> void:
 	_clear()
 	add_child(_bg(UI + "backgrounds/menu_bg.webp"))
 	for x in [713, 992]: # torch.webp : socle a (820|1100, 900) dans la maquette
 		var t := _tex("gradients/torch.webp", Vector2(x, 690))
 		add_child(t)
 		_flicker(t)
-	add_child(_tex("navigation/bm_logo.webp", Vector2(705, 42), Vector2(540, 218)))
+	if small_logo:
+		add_child(_tex("gradients/logo_small.webp", Vector2(616, 10)))
+	else:
+		add_child(_tex("navigation/bm_logo.webp", Vector2(705, 42), Vector2(540, 218)))
 	if back.is_valid():
 		add_child(_img_btn("buttons/back_bt.webp", "buttons/back_bt_pressed.webp", Vector2(20, 22), back, Vector2.ZERO, "ui_button_goback"))
 
@@ -270,7 +215,6 @@ func _stone_btn(text: String, icon: String, ipos: Vector2, tcx: float, pos: Vect
 func show_menu() -> void:
 	online.stop_lobby_poll()
 	online.stop_state_poll()
-	_net_disconnect()
 	AudioManager.play_music("music_main")  # APK IntroScene
 	_apk_screen(func(): show_title())
 	_stone_btn("SINGLE PLAYER", "boss_icon.webp", Vector2(30, 49), 292, Vector2(460, 317), func(): show_solo_count())
@@ -280,13 +224,20 @@ func show_menu() -> void:
 
 # --- solo : HOW MANY PLAYERS? -------------------------------------------------
 
-func show_solo_count() -> void:
-	_apk_screen(func(): show_menu())
+## mode : "solo" (vous + IA), "pass" (PASS AND PLAY : tous les sieges humains sur le meme ecran), "online" (NEW GAME : salon prive, nombre de sieges).
+func show_solo_count(mode: String = "solo") -> void:
+	_apk_screen(func(): _count_back(mode))
 	_band("HOW MANY PLAYERS?")
 	dyn_root = Control.new()
 	add_child(dyn_root)
 	_draw_fans()
-	_ok_btn(func(): show_setup(players, 1))
+	_ok_btn(func(): show_setup(players, players if mode == "pass" else 1, mode))
+
+func _count_back(mode: String) -> void:
+	match mode:
+		"pass": show_multi()
+		"online": show_friends()
+		_: show_menu()
 
 ## Carrousel 4 | 2 | 3 : l'eventail du centre est le choix courant (colore), les autres sont ternes.
 func _draw_fans() -> void:
@@ -344,13 +295,13 @@ func _gray_mat() -> ShaderMaterial:
 func _is_wiki(d: Dictionary) -> bool:
 	return EXT_PACKS.has(d["id"])
 
-func show_setup(num_players: int, human_count: int) -> void:
-	_apk_screen(func(): show_solo_count())
+func show_setup(num_players: int, human_count: int, mode: String = "solo") -> void:
+	_apk_screen(func(): show_solo_count(mode))
 	_band("SELECT EXPANSIONS")
 	dyn_root = Control.new()
 	add_child(dyn_root)
 	_draw_tiles()
-	_ok_btn(func(): start_match(num_players, human_count))
+	_ok_btn(func(): menus.create_room(num_players) if mode == "online" else start_match(num_players, human_count))
 
 func _draw_tiles() -> void:
 	for c in dyn_root.get_children():
@@ -426,201 +377,19 @@ func _open_board(gm: GameManager) -> void:
 	add_child(board)
 	board.setup(gm, func(): show_title()) # APK LeaveGameplayScene : retour a l'ecran titre (fin de partie : OK ; menu : QUIT GAME)
 
-# --- multi : WITH FRIENDS / CHANGE USER/AVATAR ---------------------------------
+# --- multi : voir OnlineMenus.gd (MultiplayerScene, MenuOnlineScene, WithFriends, ChangeNameAvatar, salle d'attente) -----
 
 func show_multi() -> void:
-	var v := _screen("res://assets/ui/backgrounds/multiplayer_bg.webp")
-	v.add_child(_title_label("%s" % profile.get("name", "Player"), 28))
-	var friends := _menu_btn("WITH FRIENDS")
-	friends.pressed.connect(func(): show_friends())
-	v.add_child(friends)
-	var change := _menu_btn("CHANGE USER/AVATAR")
-	change.pressed.connect(func(): show_profile())
-	v.add_child(change)
-	v.add_child(_back_btn(func(): show_menu()))
+	menus.show_multi()
 
 func show_profile() -> void:
-	var v := _screen("res://assets/ui/backgrounds/multiplayer_bg.webp")
-	v.add_child(_title_label("INSERT USERNAME", 28))
-	var edit := LineEdit.new()
-	edit.text = str(profile.get("name", "Player"))
-	edit.max_length = 16
-	edit.custom_minimum_size = Vector2(460, 56)
-	edit.add_theme_font_size_override("font_size", 28)
-	v.add_child(edit)
-	v.add_child(_title_label("SELECT AVATAR", 28))
-	var grid := GridContainer.new()
-	grid.columns = 5
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
-	v.add_child(grid)
-	var thumbs: Array = []
-	for aid in Profile.AVATARS:
-		var t := TextureRect.new()
-		t.custom_minimum_size = Vector2(96, 96)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		if ResourceLoader.exists(Profile.avatar_path(aid)):
-			t.texture = load(Profile.avatar_path(aid))
-		t.mouse_filter = Control.MOUSE_FILTER_STOP
-		var id: String = aid
-		t.gui_input.connect(func(ev: InputEvent): _on_avatar_click(ev, id, thumbs))
-		t.set_meta("aid", aid)
-		grid.add_child(t)
-		thumbs.append(t)
-	_refresh_thumbs(thumbs)
-	var ok := _menu_btn("OK")
-	ok.pressed.connect(func():
-		profile["name"] = edit.text
-		profile["avatar"] = selected_avatar
-		Profile.save_profile(str(profile["name"]), selected_avatar)
-		show_multi())
-	v.add_child(ok)
-	v.add_child(_back_btn(func(): show_multi()))
-
-func _on_avatar_click(ev: InputEvent, aid: String, thumbs: Array) -> void:
-	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and ev.pressed:
-		selected_avatar = aid
-		_refresh_thumbs(thumbs)
-
-func _refresh_thumbs(thumbs: Array) -> void:
-	for t in thumbs:
-		(t as TextureRect).modulate = Color(1.0, 0.85, 0.3) if str((t as TextureRect).get_meta("aid")) == selected_avatar else Color(1, 1, 1)
-
-# --- amis : CREATE / JOIN + salon d'attente -------------------------------------
+	menus.show_profile()
 
 func show_friends() -> void:
-	online.stop_state_poll()
-	var v := _screen("res://assets/ui/backgrounds/multiplayer_bg.webp")
-	v.add_child(_title_label("WITH FRIENDS (2-4)", 32))
-	_add_deck_checks(v)
-	for n in [2, 3, 4]:
-		var b := _menu_btn("CREATE %dJ" % n)
-		var count: int = n
-		b.pressed.connect(func(): _create_online(count))
-		v.add_child(b)
-	v.add_child(_title_label("Friend code:", 22))
-	var code := LineEdit.new()
-	code.placeholder_text = "ABC123"
-	code.max_length = 6
-	code.custom_minimum_size = Vector2(460, 56)
-	code.add_theme_font_size_override("font_size", 28)
-	code.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(code)
-	var join := _menu_btn("JOIN")
-	join.pressed.connect(func(): _join_online(code.text))
-	v.add_child(join)
-	var err := _title_label("", 20)
-	if online.has_saved_session():
-		var resume := _menu_btn("RESUME")
-		resume.pressed.connect(func():
-			online.host = server_host
-			if await online.try_resume():
-				show_waiting()
-			elif is_instance_valid(err) and err.text == "":
-				err.text = "Error: unable to resume the game")
-		v.add_child(resume)
-	v.add_child(err)
-	_net_error_to(err)
-	v.add_child(_back_btn(func(): show_menu()))
-
-func _net_error_to(lbl: Label) -> void:
-	_net_disconnect()
-	net_err_lbl = lbl
-	online.request_error.connect(_on_net_error)
-
-func _net_disconnect() -> void:
-	if online != null and online.request_error.is_connected(_on_net_error):
-		online.request_error.disconnect(_on_net_error)
-	net_err_lbl = null
-
-func _on_net_error(msg: String) -> void:
-	if is_instance_valid(net_err_lbl):
-		net_err_lbl.text = "Error: %s" % msg
-
-func _create_online(count: int) -> void:
-	online.host = server_host
-	online.player_name = str(profile.get("name", "Player"))
-	if not await online.create_lobby(count, _active_sets()):
-		return
-	show_waiting()
-
-func _join_online(code: String) -> void:
-	online.host = server_host
-	if not await online.join_lobby(code, str(profile.get("name", "Player"))):
-		return
-	show_waiting()
+	menus.show_friends()
 
 func show_waiting() -> void:
-	_net_disconnect()
-	var v := _screen("res://assets/ui/backgrounds/multiplayer_bg.webp")
-	v.add_child(_title_label("Lobby code:", 24))
-	var code_lbl := _title_label(online.match_id, 64)
-	v.add_child(code_lbl)
-	var seats_lbl := _title_label("...", 24)
-	v.add_child(seats_lbl)
-	v.add_child(_title_label("Give this code to your friends. 60 s per turn.", 18))
-	var bots := _menu_btn("START WITH BOTS")
-	bots.visible = online.is_host and online.current_status != "running"
-	bots.add_to_group("waiting_start")
-	bots.pressed.connect(func(): online.start_match())
-	v.add_child(bots)
-	var cancel := Button.new()
-	cancel.text = "LEAVE"
-	cancel.pressed.connect(func(): _leave_waiting())
-	v.add_child(cancel)
-	if not online.lobby_changed.is_connected(_on_lobby_changed):
-		online.lobby_changed.connect(_on_lobby_changed)
-	if not online.request_error.is_connected(_on_waiting_error):
-		online.request_error.connect(_on_waiting_error)
-	online.start_lobby_poll()
-	online.fetch_lobby()
-	# Les callbacks retrouvent les labels via le groupe.
-	seats_lbl.add_to_group("waiting_seats")
-
-func _leave_waiting() -> void:
-	online.stop_lobby_poll()
-	online.stop_state_poll()
-	online.leave_match()
-	if online.lobby_changed.is_connected(_on_lobby_changed):
-		online.lobby_changed.disconnect(_on_lobby_changed)
-	if online.request_error.is_connected(_on_waiting_error):
-		online.request_error.disconnect(_on_waiting_error)
-	if online.state_received.is_connected(_on_first_state):
-		online.state_received.disconnect(_on_first_state)
-	show_friends()
-
-func _on_waiting_error(msg: String) -> void:
-	for n in get_tree().get_nodes_in_group("waiting_seats"):
-		(n as Label).text = "Error: %s" % msg
-
-func _on_lobby_changed(info: Dictionary) -> void:
-	var names: Array = []
-	for s in info.get("seats", []):
-		names.append(str((s as Dictionary).get("name", "?")) if (s as Dictionary).get("name") != null else "...")
-	var txt := "%d/%d : %s" % [names.filter(func(n): return n != "...").size(), info.get("numPlayers", 0), " / ".join(names)]
-	for n in get_tree().get_nodes_in_group("waiting_seats"):
-		(n as Label).text = txt
-	for b in get_tree().get_nodes_in_group("waiting_start"):
-		(b as Button).visible = online.is_host and str(info.get("status", "")) != "running"
-	if str(info.get("status", "")) == "running":
-		online.stop_lobby_poll()
-		if online.lobby_changed.is_connected(_on_lobby_changed):
-			online.lobby_changed.disconnect(_on_lobby_changed)
-		# Premier etat via le polling (reessaie tout seul si le reseau rate).
-		if not online.state_received.is_connected(_on_first_state):
-			online.state_received.connect(_on_first_state)
-		online.start_state_poll()
-		online.fetch_state()
-
-func _on_first_state() -> void:
-	if online.current_G.is_empty():
-		return
-	if online.state_received.is_connected(_on_first_state):
-		online.state_received.disconnect(_on_first_state)
-	if online.request_error.is_connected(_on_waiting_error):
-		online.request_error.disconnect(_on_waiting_error)
-	start_online_match()
+	menus.show_waiting()
 
 func start_online_match() -> void:
 	_clear()
@@ -629,6 +398,10 @@ func start_online_match() -> void:
 	ogm.setup_online(online, online.player_id)
 	online.start_state_poll()
 	_open_board(ogm)
+	# Compte a rebours de l'APK (CountDownEntity) a la place du chiffre simple de BoardUI.
+	if board.get("timer_label") != null:
+		board.timer_label.visible = false
+	board.add_child(CountDown.new(online))
 
 # --- options / regles ------------------------------------------------------------
 

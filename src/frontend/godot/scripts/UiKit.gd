@@ -51,6 +51,29 @@ static func image(parent: Node, path: String, pos: Vector2, sz: Vector2 = Vector
 	parent.add_child(t)
 	return t
 
+## Ninepatch de l'APK (WaveEngine) : l'image porte des reperes (1 ligne en haut, 1 en bas, 2 colonnes a gauche) ; le contenu est
+## (2,1)..(w-1,h-2) et la zone etiree est le pixel central (marges = `margins` : gauche, haut, droite, bas).
+static func np_tex(path: String) -> AtlasTexture:
+	var t := tex(UI + path)
+	var at := AtlasTexture.new()
+	at.atlas = t
+	if t != null:
+		at.region = Rect2(2, 1, t.get_width() - 2, t.get_height() - 2)
+	return at
+
+static func ninepatch(parent: Node, path: String, pos: Vector2, sz: Vector2, margins: Vector4) -> NinePatchRect:
+	var n := NinePatchRect.new()
+	n.texture = np_tex(path)
+	n.patch_margin_left = int(margins.x)
+	n.patch_margin_top = int(margins.y)
+	n.patch_margin_right = int(margins.z)
+	n.patch_margin_bottom = int(margins.w)
+	n.position = pos
+	n.size = sz
+	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(n)
+	return n
+
 ## Bouton plat (aucun style Godot) dont le fond est une texture de l'APK ; `pressed` = texture appuyee ("" = aucune).
 static func texture_button(parent: Node, normal: String, pressed: String, pos: Vector2, sz: Vector2 = Vector2.ZERO) -> TextureButton:
 	var b := TextureButton.new()

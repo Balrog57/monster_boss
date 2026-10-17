@@ -2067,6 +2067,187 @@ func _check_gallery() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 
+## Ecrans multijoueur de l'APK (OnlineMenus.gd) : MultiplayerScene, ChangeNameAvatar, MenuOnline, WithFriends, boite d'erreur, salle d'attente,
+## PASS AND PLAY, compte a rebours. Le profil reel (user://profile.cfg) est sauvegarde puis remis en place.
+func _texts_of(root: Node) -> Array:
+	return root.find_children("*", "Label", true, false).map(func(l): return (l as Label).text)
+
+func _tb_by_texture(root: Node, suffix: String) -> TextureButton:
+	for b in root.find_children("*", "TextureButton", true, false):
+		var t = (b as TextureButton).texture_normal
+		if t != null and str(t.resource_path).ends_with(suffix):
+			return b
+	return null
+
+## Boutons a libelle (bg_bt_multi) de l'ecran courant, par texte.
+func _label_buttons(root: Node) -> Dictionary:
+	var out := {}
+	for b in root.find_children("*", "TextureButton", true, false):
+		if b.get_child_count() > 0 and b.get_child(0) is Label and (b.get_child(0) as Label).name == "Label":
+			out[(b.get_child(0) as Label).text] = b
+	return out
+
+func _check_online_menus() -> void:
+	_tag = "[online-menus]"
+	await _teardown()
+	var Profile = load("res://godot/scripts/Profile.gd")
+	var cfg_path: String = ProjectSettings.globalize_path(Profile.SAVE_PATH)
+	var backup := PackedByteArray()
+	if FileAccess.file_exists(cfg_path):
+		backup = FileAccess.get_file_as_bytes(cfg_path)
+		DirAccess.remove_absolute(cfg_path)
+	var main = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main)
+	await _wait(0.3)
+	# MultiplayerScene : deux boutons avec eventail de bosses
+	main.show_multi()
+	await _wait(0.2)
+	var po = main.find_child("PLAY ONLINE", true, false)
+	var pp = main.find_child("PASS AND PLAY", true, false)
+	if _check(po != null and pp != null, "multi : boutons PLAY ONLINE / PASS AND PLAY"):
+		_check(po.get_children().filter(func(c): return c is TextureRect).size() == 4 and pp.get_children().filter(func(c): return c is TextureRect).size() == 2, "multi : eventails de 4 et 2 bosses")
+		_check(is_equal_approx(po.position.x + 252.0, 1260.0) and is_equal_approx(pp.position.x + 252.0, 660.0) and is_equal_approx(po.position.y + 200.0, 540.0), "multi : boutons centres en (1260,540) et (660,540)")
+		po.button_down.emit()
+		_check((po.get_node("Title") as Label).get_theme_color("font_color") == Color("cdb15f"), "multi : titre dore pendant l'appui")
+		po.button_up.emit()
+		_check((po.get_node("Title") as Label).get_theme_color("font_color") == Color.WHITE, "multi : titre blanc au relachement")
+		# sans pseudo enregistre : ChangeNameAvatarScene d'abord, sans fleche de retour
+		po.pressed.emit()
+		await _wait(0.2)
+		var scroll = main.find_child("AvatarScroll", true, false)
+		if _check(scroll != null, "profil : selecteur d'avatars absent au premier passage"):
+			_check(scroll.ids.size() == 9 and not scroll.ids.has("avatar_none"), "profil : 9 avatars reguliers, pas d'avatar_none")
+			_check(_tb_by_texture(main, "back_bt.webp") == null, "profil : pas de fleche de retour au premier passage")
+			_check(str(main.profile["name"]).begins_with("player_") and str(main.profile["name"]).length() == 11, "profil : pseudo par defaut player_xxxx : %s" % main.profile["name"])
+			_check(_texts_of(main).has("INSERT USERNAME") and _texts_of(main).has("SELECT AVATAR"), "profil : libelles APK")
+			var old_av := str(scroll.selected)
+			scroll.select("avatar_gorgona" if old_av != "avatar_gorgona" else "avatar_croak")
+			await _wait(0.45)
+			var new_av := str(scroll.selected)
+			_check(is_equal_approx((scroll._items[new_av] as Control).scale.x, 0.9) and is_equal_approx((scroll._items[old_av] as Control).scale.x, 0.7), "profil : avatar choisi a l'echelle 0,9, l'ancien a 0,7")
+			var edit: LineEdit = main.find_child("Entry", true, false)
+			edit.text = "Zed"
+			_tb_by_texture(main, "ok_bt.webp").pressed.emit()
+			await _wait(0.2)
+			var saved: Dictionary = Profile.load_profile()
+			_check(saved["name"] == "Zed" and saved["avatar"] == new_av and Profile.has_profile(), "profil : OK n'enregistre pas le profil : %s" % str(saved))
+			_cov("menus_profile")
+	# MenuOnlineScene : WORLDWIDE (erreur APK), CHANGE USER/AVATAR (avec fleche), WITH FRIENDS
+	var lb := _label_buttons(main)
+	if _check(lb.has("WORLDWIDE") and lb.has("WITH FRIENDS") and lb.has("CHANGE USER/AVATAR"), "menu en ligne : boutons %s" % str(lb.keys())):
+		var b0: TextureButton = lb["WORLDWIDE"]
+		_check(is_equal_approx(b0.position.x + 309.5, 960.0) and is_equal_approx(b0.position.y + 88.5, 388.8), "menu en ligne : WORLDWIDE en (960, 388,8)")
+		b0.pressed.emit()
+		await get_tree().process_frame
+		var mb = main.find_child("MessageBox", true, false)
+		if _check(mb != null, "menu en ligne : WORLDWIDE n'ouvre pas la boite d'erreur"):
+			var mt := _texts_of(mb)
+			_check(mt.has("NETWORK ERROR") and mt.has("Unable to join public rooms"), "boite d'erreur : textes %s" % str(mt))
+			(mb.get_node("Ok") as TextureButton).pressed.emit()
+			await get_tree().process_frame
+			await get_tree().process_frame
+			_check(main.find_child("MessageBox", true, false) == null, "boite d'erreur : OK ne la ferme pas")
+		lb["CHANGE USER/AVATAR"].pressed.emit()
+		await _wait(0.2)
+		_check(_tb_by_texture(main, "back_bt.webp") != null and (main.find_child("Entry", true, false) as LineEdit).text == "Zed", "profil (depuis le menu) : fleche de retour et pseudo enregistre")
+		_tb_by_texture(main, "back_bt.webp").pressed.emit()
+		await _wait(0.2)
+		_label_buttons(main)["WITH FRIENDS"].pressed.emit()
+	await _wait(0.2)
+	# WithFriendsOnlineScene : NEW GAME / ROOM CODE, saisie du code qui apparait en fondu
+	var wf := _label_buttons(main)
+	if _check(wf.has("NEW GAME") and wf.has("ROOM CODE"), "amis : boutons %s" % str(wf.keys())):
+		var entry: LineEdit = main.find_child("Entry", true, false)
+		_check(entry != null and entry.modulate.a == 0.0 and not entry.editable, "amis : la saisie du code est cachee au depart")
+		wf["ROOM CODE"].pressed.emit()
+		await _wait(0.7)
+		_check(entry.modulate.a > 0.99 and entry.editable and entry.placeholder_text == "INSERT ROOM CODE", "amis : ROOM CODE ne fait pas apparaitre la saisie")
+		entry.text = "ab"
+		entry.text_changed.emit("ab")
+		_check(entry.text == "AB", "amis : code en majuscules")
+		_tb_by_texture(main, "ok_bt.webp").pressed.emit() # 2 lettres : « Invalid Code » sans reseau
+		await get_tree().process_frame
+		var mb2 = main.find_child("MessageBox", true, false)
+		_check(mb2 != null and _texts_of(mb2).has("Invalid Code"), "amis : code invalide : boite « Invalid Code »")
+		if mb2 != null:
+			(mb2.get_node("Ok") as TextureButton).pressed.emit()
+			await get_tree().process_frame
+		wf["NEW GAME"].pressed.emit()
+		await _wait(0.2)
+		_check(_texts_of(main).has("HOW MANY PLAYERS?"), "amis : NEW GAME n'ouvre pas le choix du nombre de joueurs")
+		_cov("menus_friends")
+	# PASS AND PLAY : choix du nombre de joueurs, extensions, partie a sieges tous humains
+	main.show_multi()
+	await _wait(0.2)
+	main.find_child("PASS AND PLAY", true, false).pressed.emit()
+	await _wait(0.2)
+	_check(_texts_of(main).has("HOW MANY PLAYERS?"), "pass and play : choix du nombre de joueurs")
+	main.players = 3
+	main.show_setup(3, 3, "pass")
+	await _wait(0.2)
+	_check(_texts_of(main).has("SELECT EXPANSIONS"), "pass and play : choix des extensions")
+	_tb_by_texture(main, "ok_bt.webp").pressed.emit()
+	await _wait(0.4)
+	if _check(main.board != null and is_instance_valid(main.board), "pass and play : pas de plateau"):
+		var pls: Dictionary = main.game_manager.G["players"]
+		_check(pls.size() == 3 and pls.values().all(func(p): return not bool(p.get("isAI", false))), "pass and play : les 3 sieges doivent etre humains")
+		_cov("menus_pass_and_play")
+	main._clear()
+	await get_tree().process_frame
+	# salle d'attente : 4 lignes, hote en or, « WAITING... », OK pour l'hote seulement avec plus d'un humain
+	var o = main.online
+	o.match_id = "ABCD"
+	o.player_id = 0
+	o.is_host = true
+	main.show_waiting()
+	await get_tree().process_frame
+	var seat := func(n, av, w, d): return {"name": n, "bot": false, "connected": true, "avatar": av, "wins": w, "defeats": d}
+	var free := {"name": null, "bot": false, "connected": false, "avatar": "", "wins": 0, "defeats": 0}
+	o.lobby_changed.emit({"status": "open", "numPlayers": 4, "host": 0, "seats": [seat.call("Alice", "avatar_croak", 3, 1), free, free, free]})
+	var rows: Array = main.menus._rows
+	if _check(rows.size() == 4, "salle : 4 lignes"):
+		_check((rows[0]["name"] as Label).text == "Alice" and (rows[0]["wins"] as Label).text == "3" and (rows[0]["defeats"] as Label).text == "1", "salle : ligne de l'hote")
+		_check((rows[1]["name"] as Label).text == "WAITING..." and ((rows[1]["avatar"] as TextureRect).texture as Texture2D).resource_path.ends_with("avatar_none.webp"), "salle : siege libre = WAITING... + avatar_none")
+		_check(((rows[0]["avatar"] as TextureRect).texture as Texture2D).resource_path.ends_with("avatar_croak.webp"), "salle : avatar du joueur")
+		_check((rows[0]["name"] as Label).get_theme_color("font_color") == Color("cdb15f") and (rows[1]["name"] as Label).get_theme_color("font_color") == Color.WHITE, "salle : ligne de l'hote en or")
+		_check(main.menus._wait_ok.disabled and main.menus._wait_bots.visible, "salle : OK cache avec un seul humain, START WITH BOTS pour l'hote")
+		o.lobby_changed.emit({"status": "open", "numPlayers": 4, "host": 0, "seats": [seat.call("Alice", "avatar_croak", 3, 1), seat.call("Bob", "avatar_robobo", 0, 2), free, free]})
+		await _wait(0.4)
+		_check((rows[1]["name"] as Label).text == "Bob" and not main.menus._wait_ok.disabled and main.menus._wait_ok.modulate.a > 0.99, "salle : OK pour l'hote avec 2 humains")
+		o.is_host = false
+		o.lobby_changed.emit({"status": "open", "numPlayers": 4, "host": 0, "seats": [seat.call("Alice", "avatar_croak", 3, 1), seat.call("Bob", "avatar_robobo", 0, 2), free, free]})
+		_check(main.menus._wait_ok.disabled and not main.menus._wait_bots.visible, "salle : ni OK ni START WITH BOTS pour un invite")
+	var wt := _texts_of(main)
+	_check(wt.has("ROOM CODE:") and wt.has("ABCD") and wt.has("WAITING FRIENDS..."), "salle : code et titre")
+	_cov("menus_waiting")
+	# compte a rebours (CountDownEntity)
+	var cd = load("res://godot/scripts/CountDown.gd").new(o)
+	main.add_child(cd)
+	o.current_G = {"gameOver": null, "turnDeadline": int(Time.get_unix_time_from_system() * 1000.0) + 7500}
+	o.current_awaited = [0]
+	o.clock_offset_ms = 0
+	var rem: int = cd.remaining()
+	_check(rem >= 7 and rem <= 8, "compte a rebours : %d s restantes pour mon siege" % rem)
+	cd._process(0.0)
+	await _wait(0.4)
+	_check(cd._digits.text == str(rem) and cd.modulate.a > 0.99, "compte a rebours : chiffres et fondu")
+	o.current_awaited = [1]
+	_check(cd.remaining() == -1, "compte a rebours : cache quand ce n'est pas mon siege")
+	o.current_awaited = [0]
+	o.current_G["gameOver"] = {"winner": 0}
+	_check(cd.remaining() == -1, "compte a rebours : cache en fin de partie")
+	_cov("menus_countdown")
+	o.current_G = {}
+	o.match_id = ""
+	o.is_host = false
+	main.queue_free()
+	await get_tree().process_frame
+	DirAccess.remove_absolute(cfg_path)
+	if backup.size() > 0:
+		var f := FileAccess.open(cfg_path, FileAccess.WRITE)
+		f.store_buffer(backup)
+		f.close()
+
 ## Ecran de fin : bandeau du vainqueur (nom, IS THE WINNER!, boss agrandi, 10 cristaux, OK), « YOU LOSE » avec la pierre tombale ;
 ## boss elimine = pierre tombale RIP a la place du sprite.
 func _check_gameover_banner() -> void:
@@ -2341,6 +2522,7 @@ func _extra_checks() -> void:
 	await _check_done_and_warning()
 	await _check_apk_gaps()
 	await _check_gallery()
+	await _check_online_menus()
 	await _check_gameover_banner()
 	await _check_effects()
 	_tag = "[base]"

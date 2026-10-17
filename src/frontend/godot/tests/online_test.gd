@@ -223,6 +223,8 @@ func _client(pname: String) -> OnlineClient:
 	var c := OnlineClient.new()
 	c.host = url
 	c.player_name = pname
+	c.player_avatar = "avatar_croak"
+	c.count_results = false # ne pas polluer les compteurs WINS / DEFEATS du vrai profil (user://profile.cfg)
 	add_child(c)
 	return c
 
@@ -286,13 +288,14 @@ func _scenario_full_game() -> void:
 	if not _expect(await c0.create_lobby(2, ["players-choice"]), "create_lobby a echoue"):
 		return
 	var code := c0.match_id
-	_expect(code.length() == 6, "code salon de 6 caracteres")
+	_expect(code.length() == 4 and code == code.to_upper() and code.to_upper().strip_edges().length() == 4 and not code.contains("I") and not code.contains("O") and code.unicode_at(0) >= 65 and code.unicode_at(0) <= 90, "code salon de 4 lettres majuscules : %s" % code)
 	_expect(c0.player_id == 0, "l'hote prend le siege 0")
 	# mauvais code puis bon code
 	var errs: Array = []
 	c1.request_error.connect(func(msg): errs.append(msg))
-	_expect(not await c1.join_lobby("ZZZZZZ", "Bob"), "join d'un salon inconnu doit echouer")
+	_expect(not await c1.join_lobby("ZZZZ", "Bob"), "join d'un salon inconnu doit echouer")
 	_expect(not errs.is_empty(), "erreur remontee par request_error")
+	_expect(c1.last_error_code == "not_found", "code d'erreur not_found (boite « Invalid Code ») : %s" % c1.last_error_code)
 	_expect(await c1.join_lobby(code, "Bob"), "join_lobby a echoue")
 	_expect(c1.player_id == 1, "le 2e joueur prend le siege 1")
 	if not _fails.is_empty():
@@ -300,6 +303,11 @@ func _scenario_full_game() -> void:
 	if not _expect(await _wait(func(): return not c0.current_G.is_empty() and not c1.current_G.is_empty(), 10.0), "pas d'etat initial recu"):
 		return
 	_expect(lobbies.any(func(i): return str(i["status"]) == "open"), "lobby 'open' non diffuse a l'hote")
+	# profil cosmetique (salle d'attente) : avatar du joueur dans les sieges, hote du lobby, sieges attendus + decalage d'horloge
+	var open_lobby = lobbies.filter(func(i): return str(i["status"]) == "open").back()
+	_expect(int(open_lobby.get("host", -1)) == 0, "le lobby donne le siege de l'hote")
+	_expect(str((open_lobby["seats"][0] as Dictionary).get("avatar", "")) == "avatar_croak", "avatar absent des sieges du lobby : %s" % str(open_lobby["seats"]))
+	_expect(c1.current_awaited is Array and c1.clock_offset_ms > -5000 and c1.clock_offset_ms < 5000, "awaited / decalage d'horloge : %s %d" % [str(c1.current_awaited), c1.clock_offset_ms])
 	var g1: Dictionary = c1.current_G
 	_expect((g1["players"] as Dictionary).has(1), "G.players a des cles entieres cote client")
 	var opp_hand: Array = (g1["players"][0] as Dictionary).get("hand", [])

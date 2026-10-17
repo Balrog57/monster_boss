@@ -8,6 +8,12 @@ const AVATARS: Array = [
 	"avatar_cerebellus", "avatar_seducia", "avatar_cleopatra", "avatar_gorgona",
 	"avatar_anererak", "avatar_none",
 ]
+## Avatars du selecteur, dans l'ordre de l'enum Atlas.AVATAR de l'APK (les « leg_avatar_* » sont reserves aux mecenes, pas d'avatar_none).
+const PICKER: Array = [
+	"avatar_anererak", "avatar_cerebellus", "avatar_cleopatra", "avatar_croak", "avatar_draculord",
+	"avatar_gorgona", "avatar_robobo", "avatar_seducia", "avatar_xyzax",
+]
+const NAME_MAX := 45 # ChangeNameAvatarScene : Truncate(45)
 const SAVE_PATH := "user://profile.cfg"
 
 static func avatar_path(aid: String) -> String:
@@ -23,11 +29,38 @@ static func load_profile() -> Dictionary:
 		d["avatar"] = av if av in AVATARS else AVATARS[0]
 	return d
 
+## Un pseudo a-t-il deja ete enregistre ? (l'APK ouvre ChangeNameAvatarScene avant le menu en ligne sinon.)
+static func has_profile() -> bool:
+	var cfg := ConfigFile.new()
+	return cfg.load(SAVE_PATH) == OK and cfg.has_section_key("profile", "name")
+
+## Valeurs initiales de l'APK : « player_ » + 4 caracteres au hasard (StringFactory.RndWord) et un avatar au hasard.
+static func random_profile() -> Dictionary:
+	var chars := "abcdefghijklmnopqrstuvwxyz123456789"
+	var w := ""
+	for _i in 4:
+		w += chars[randi() % chars.length()]
+	return {"name": "player_" + w, "avatar": PICKER[randi() % PICKER.size()]}
+
 static func save_profile(pname: String, avatar: String) -> void:
 	var cfg := ConfigFile.new()
-	var nm := pname.strip_edges().left(16)
+	cfg.load(SAVE_PATH) # garde reglages et compteurs
+	var nm := pname.strip_edges().left(NAME_MAX)
 	cfg.set_value("profile", "name", nm if nm != "" else "Player")
 	cfg.set_value("profile", "avatar", avatar if avatar in AVATARS else AVATARS[0])
+	cfg.save(SAVE_PATH)
+
+## Victoires / defaites en ligne du joueur local (colonnes WINS / DEFEATS de la salle d'attente), comptees a la fin de chaque partie en ligne.
+static func load_stats() -> Dictionary:
+	var cfg := ConfigFile.new()
+	cfg.load(SAVE_PATH)
+	return {"wins": maxi(0, int(cfg.get_value("stats", "wins", 0))), "defeats": maxi(0, int(cfg.get_value("stats", "defeats", 0)))}
+
+static func record_result(won: bool) -> void:
+	var st := load_stats()
+	var cfg := ConfigFile.new()
+	cfg.load(SAVE_PATH)
+	cfg.set_value("stats", "wins" if won else "defeats", int(st["wins" if won else "defeats"]) + 1)
 	cfg.save(SAVE_PATH)
 
 ## Reglages (serveur multi, extensions du wiki, paquets APK choisis), meme fichier.
