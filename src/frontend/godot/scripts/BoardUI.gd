@@ -776,12 +776,7 @@ func _auto_pass(delta: float) -> bool:
 			pids.push_front(act_pid)
 	var adv: Dictionary = G.get("adventure", {})
 	var pause = adv.get("pause")
-	var in_pause: bool = pause != null
 	for pid in pids:
-		# Hors fenetre de pause, un « passe » d'un siege qui n'est pas le joueur actif ferait avancer le pointeur de joueur en pleine
-		# traversee d'un autre donjon (le moteur le propose quand meme) : l'UI ne passe automatiquement qu'a son tour.
-		if not stack_open and not in_pause and int(pid) != game_manager.active_player():
-			continue
 		var moves: Array = game_manager.legal_moves(int(pid))
 		if moves.is_empty():
 			continue

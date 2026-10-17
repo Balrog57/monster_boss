@@ -323,9 +323,8 @@ func legal_moves(pid: int) -> Array:
 				return out
 
 			if pid != active_player():
-				if not _has_entrance_hero(pid) and (adv.is_empty() or int(adv.get("playerId", -1)) != pid):
-					out.append({"type": "pass", "args": []})
-					out.append({"type": "passBuild", "args": []})
+				# APK (GameBoard.ChooseNextActivePlayer, AdventurePhase_a) : l'aventure est strictement sequentielle, seul ActivePlayer avance ;
+				# hors pause et pile, un siege qui n'est pas actif n'a pas de « passe » (il ferait avancer activePlayer depuis le mauvais siege).
 				return out
 
 			var has_active_hero := not adv.is_empty() and int(adv.get("playerId", -1)) == pid
