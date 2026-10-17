@@ -333,7 +333,9 @@ static func score_spell(G: Dictionary, p: Dictionary, pid: int, sid: String, t: 
 	match sid:
 		"RMB065": return 30.0
 		"RMB066": return 12.0
-		"RMB067": return 4.0 if tid == pid else -5.0
+		"RMB067": # Spirit Dragon : un tresor de chaque type sur ma salle, avant de construire, si cela fait venir un heros que je tue
+			var dr = SpellEffects.find_room(G, tid, int(t.get("roomIndex", -1))) if tid == pid else null
+			return AiWiki.BUILD_FIRST if dr != null and AiWiki.tag_gain(G, pid, dr as Dictionary, "allTreasures") >= 1.0 else (4.0 if tid == pid else -5.0)
 		"RMB068": return 6.0 if tid != pid else -10.0
 		"RMB069": return 40.0 if tid == pid and not (p.get("entrance", []) as Array).is_empty() else -5.0
 		"RMB070": return 60.0
@@ -342,11 +344,16 @@ static func score_spell(G: Dictionary, p: Dictionary, pid: int, sid: String, t: 
 		"RMB073": return (15.0 if tid == pid and int(t.get("pay", 0)) == 0 else -5.0) if not (p.get("entrance", []) as Array).is_empty() else -5.0
 		"RMB074": return 18.0
 		"RMB075": return 8.0
-		"RMB076": return 6.0 if tid != pid else -10.0
+		"RMB076": # Heist : la salle adverse perd ses icones, avant de construire, si un heros qui me blesserait va chez moi plutot que chez elle
+			var hr = SpellEffects.find_room(G, tid, int(t.get("roomIndex", -1))) if tid != pid else null
+			return AiWiki.BUILD_FIRST if hr != null and AiWiki.no_treasure_gain(G, pid, hr as Dictionary) >= 1.0 else (6.0 if tid != pid else -10.0)
 		"RMB077": # Short Circuit (reponse a un sort adverse sur la pile) : il doit payer 1 Coin, sinon son sort est annule
 			var their := Minibosses.coins(_player(G, tid))
 			return 110.0 if their == 0 else (40.0 if their == 1 else 6.0)
-		"RMB078": return 50.0 if coins >= 2 else -5.0
+		"RMB078": # Traitor : prend un miniboss adverse et termine le tour de construction : doit battre la pose d'une salle
+			var tr = SpellEffects.find_room(G, tid, int(t.get("roomIndex", -1))) if tid != pid else null
+			var tm: Dictionary = Minibosses.revealed(tr) if tr != null else {}
+			return 300.0 + 50.0 * float(Minibosses.level(tm)) if not tm.is_empty() and coins >= Minibosses.level(tm) else -5.0
 		"RMB079": # Armor Up! : le heros adverse qui mourrait de justesse (1 PV + 2 par Coin paye) ; le moins de Coins possible
 			var f := AiWiki.fate(G)
 			var n := int(t.get("pay", 0))

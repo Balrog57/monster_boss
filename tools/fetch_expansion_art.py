@@ -31,6 +31,8 @@ HEADERS = {
     "Accept": "*/*",
 }
 EXP_PREFIXES = ("TNL", "RMB", "CRL")
+# Optional card ids on the command line (e.g. `fetch_expansion_art.py TNL038`): only those cards, replacing a placeholder if art is found.
+ONLY = {a.upper() for a in sys.argv[1:]}
 SKIP_IMAGES = {
     "boss_monster_clerics.png",
     "boss_monster_fighters.png",
@@ -117,7 +119,7 @@ def _name_score(filename: str, card: dict) -> int:
         return 0
     if "tbd" in fn:
         return -50
-    if name in fn:
+    if name in fn or name.replace("-", "") in fn.replace("-", ""):  # "Elementalgenerator.jpg" has no word break
         return 100
     tokens = {t for t in name.split("-") if len(t) > 2}
     hit = len(tokens & set(fn.split("-")))
@@ -304,7 +306,7 @@ def download_expansion_art() -> int:
             wanted[c["id"].upper()] = (c, section)
 
     files: list[dict] = []
-    for prefix in EXP_PREFIXES:
+    for prefix in () if ONLY else EXP_PREFIXES:
         print(f"  wiki allimages {prefix}*")
         files.extend(wiki_allimages(prefix))
         time.sleep(0.2)
@@ -349,7 +351,7 @@ def download_expansion_art() -> int:
             cid = card["id"].upper()
             mapped = name_map.get(cid, slug(card["name"]))
             dest = os.path.join(OUT_CARDS, kind_dir(card, section), f"{cid}_{mapped}.webp")
-            if os.path.exists(dest):
+            if ONLY and cid not in ONLY or os.path.exists(dest) and not ONLY:
                 continue
             missing.append((card, section))
 

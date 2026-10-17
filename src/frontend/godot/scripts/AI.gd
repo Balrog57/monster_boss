@@ -108,7 +108,8 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 			if hand_idx < 0 or hand_idx >= hand.size():
 				return -100.0
 			var room: Dictionary = hand[hand_idx]
-			var slot_target := int(args[1]) if args.size() > 1 and args[1] != null else 0
+			# [i] = pose sur le premier emplacement libre (pas de salle recouverte) ; [i, ti] = pose par-dessus la salle ti.
+			var slot_target := int(args[1]) if args.size() > 1 and args[1] != null else (p.get("dungeon", []) as Array).size()
 			return _score_build_room(room, p, G, phase, turn, slot_target)
 
 		"playSpell":
@@ -248,7 +249,7 @@ static func _score_build_room(room: Dictionary, p: Dictionary, G: Dictionary, ph
 			elif not bool(old_dict.get("advanced", false)) and bool(room.get("advanced", false)):
 				score += 0.0 # Upgrade naturel : 0 pénalité
 			else:
-				score -= float(old_dict.get("damage", 0)) * 50.0
+				score -= _calculate_room_value(old_dict, p, G, phase_str) # RoomCalculator.CalculateBuildOverPenalty : valeur de la salle recouverte
 
 	# 2. Facteur de leurre de héros (BaitHeroFactor)
 	if not is_setup:
@@ -386,6 +387,10 @@ static func _score_spell(spell: Dictionary, target: Dictionary, p: Dictionary, G
 			var wanted := false
 			for h in (G.get("town", []) as Array):
 				wanted = wanted or int((h as Dictionary).get("treasure", 0)) == 5
+			# Avant de construire (ne coute pas la pose) si l'Explorer en plus fait venir un heros que mon donjon tue.
+			var mr = SpellEffects.find_room(G, pid, int(target.get("roomIndex", -1))) if wanted and int(target.get("targetPlayerId", pid)) == pid else null
+			if mr != null and AiWiki.extra_treasure_gain(G, pid, mr as Dictionary, 5) >= 1.0:
+				return AiWiki.BUILD_FIRST
 			return 25.0 if wanted and int(target.get("targetPlayerId", pid)) == pid else -20.0
 		"CRL033": # Not Dead Yet
 			return 100.0
@@ -411,9 +416,9 @@ static func _score_activate_room(room_idx: int, p: Dictionary, G: Dictionary, _p
 			return 85.0 if phase == "adventure" else -10.0
 		"BMA025": # All-Seeing Eye
 			return 110.0 if not (G.get("stack", []) as Array).is_empty() else -10.0
-		"BMA024": # Dark Laboratory
+		"BMA024": # Witch's Kitchen
 			return 45.0 if phase == "build" else -10.0
-		"BMA009": # Witch's Kitchen
+		"BMA009": # Dark Altar
 			return 25.0
 		"CRL012": # The Omega 42 (hors APK) : rejouer un effet coute une salle avancee, a ne faire qu'avec une carte avancee dont on n'a pas l'usage
 			var adv_n: int = (p.get("hand", []) as Array).filter(func(c): return bool((c as Dictionary).get("advanced", false))).size()

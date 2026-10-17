@@ -91,14 +91,31 @@ static func icon_gain(G: Dictionary, pid: int, tp: int, treasure: int) -> float:
 	icons.erase(entry)
 	return after - before
 
-## Gain de leurre de `pid` si `room` perd ses icones de tresor jusqu'a la fin du tour (Decapitator, Heist).
-static func no_treasure_gain(G: Dictionary, pid: int, room: Dictionary) -> float:
-	var had := TnlAbilities.flag(room, "noTreasure")
+## Variation de bait_value(`pid`) si `room` porte le drapeau `key` jusqu'a la fin du tour (noTreasure, allTreasures, fairy...).
+static func tag_gain(G: Dictionary, pid: int, room: Dictionary, key: String) -> float:
+	var had := TnlAbilities.flag(room, key)
 	var before := bait_value(G, pid)
-	TnlAbilities._tag(room)["noTreasure"] = true
+	TnlAbilities._tag(room)[key] = true
 	var after := bait_value(G, pid)
 	if not had:
-		(room["tnl"] as Dictionary).erase("noTreasure")
+		(room["tnl"] as Dictionary).erase(key)
+	return after - before
+
+## Gain de leurre de `pid` si `room` perd ses icones de tresor jusqu'a la fin du tour (Decapitator, Heist).
+static func no_treasure_gain(G: Dictionary, pid: int, room: Dictionary) -> float:
+	return tag_gain(G, pid, room, "noTreasure")
+
+## Gain de leurre de `pid` si `room` gagne une icone `treasure` jusqu'a la fin du tour (Meteorite, Secret Stash).
+static func extra_treasure_gain(G: Dictionary, pid: int, room: Dictionary, treasure: int) -> float:
+	var had: bool = room.has("extraTreasures")
+	var old: Array = (room.get("extraTreasures", []) as Array).duplicate()
+	var before := bait_value(G, pid)
+	room["extraTreasures"] = old + [treasure]
+	var after := bait_value(G, pid)
+	if had:
+		room["extraTreasures"] = old
+	else:
+		room.erase("extraTreasures")
 	return after - before
 
 # --- echange de salles -------------------------------------------------------------------------------------------------------------------

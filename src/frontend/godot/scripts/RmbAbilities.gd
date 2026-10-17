@@ -824,7 +824,10 @@ static func score_move(G: Dictionary, p: Dictionary, pid: int, mtype: String, ar
 						return 60.0
 					return 20.0 if mine and coins >= 5 and int(f["margin"]) > 0 and int(f["monsters"]) > 0 else -5.0
 				"RMB009": return 15.0 if coins >= 4 else -5.0
-				"RMB012": return 10.0 if coins >= 5 else -5.0
+				"RMB012": # Kirax (2 Coins) : en construction, une icone de plus sur mon donjon si elle fait venir un heros que je tue
+					if str(G.get("phase", "")) == "build" and coins >= 2 and _best_icon_gain(G, pid, pid) >= 1.0:
+						return AiWiki.BUILD_FIRST
+					return 10.0 if coins >= 5 else -5.0
 				"RMB011": # Scott (je donne 1 Coin) : seulement si son +1 aux Traps fait mourir un heros qui blesserait son proprietaire sinon
 					return 40.0 if bool(f["active"]) and int(f["owner"]) == int(args[1]) and AiWiki.saves(f, int(f["traps"])) else -10.0
 			return -10.0

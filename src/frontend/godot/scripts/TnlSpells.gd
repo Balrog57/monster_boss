@@ -354,9 +354,11 @@ static func score_spell(G: Dictionary, p: Dictionary, pid: int, sid: String, t: 
 	match sid:
 		"TNL056": return 40.0
 		"TNL057": return 8.0
-		"TNL058": return -10.0 if tid == pid else 12.0
+		"TNL058": # Fairy Fountain : avant de construire (ne coute pas la pose), sur la salle adverse dont le zero degat sauve un heros que j'ai leurre vers lui
+			var fr = SpellEffects.find_room(G, tid, int(t.get("roomIndex", -1))) if tid != pid else null
+			return AiWiki.BUILD_FIRST if fr != null and AiWiki.tag_gain(G, tid, fr as Dictionary, "fairy") <= -1.0 else (-10.0 if tid == pid else 12.0)
 		"TNL059", "TNL061": return 90.0
-		"TNL060": return 30.0
+		"TNL060": return AiWiki.BUILD_FIRST if _rooms_in_hand(p) <= 2 else 30.0 # pioche 3 salles, en donne 1 : +2 cartes, a jouer avant de poser
 		"TNL062": return 90.0 if str(t.get("mode", "")) == "nowin" else (-10.0 if tid == pid else 6.0)
 		"TNL063":
 			if str(t.get("mode", "")) != "swap":
@@ -367,13 +369,18 @@ static func score_spell(G: Dictionary, p: Dictionary, pid: int, sid: String, t: 
 		"TNL064": return 15.0 if tid != pid else -10.0
 		"TNL065": return -20.0 if TnlAbilities.hero_in_dungeon(G, pid).is_empty() else 8.0
 		"TNL066": return 85.0
-		"TNL067": return 4.0
+		"TNL067": # Secret Stash : une icone de plus sur ma salle, avant de construire, si elle fait venir un heros que je tue
+			var sr = SpellEffects.find_room(G, tid, int(t.get("roomIndex", -1))) if tid == pid else null
+			return AiWiki.BUILD_FIRST if sr != null and AiWiki.extra_treasure_gain(G, pid, sr as Dictionary, int(t.get("treasure", 1))) >= 1.0 else 4.0
 		"TNL068": return 40.0 if tid != pid else -10.0
 		"TNL069": return 50.0 if not (p.get("entrance", []) as Array).is_empty() else 0.0
 		"TNL070": return AiWiki.BUILD_FIRST if _gift_pays(G, p, pid) else -5.0
 		"TNL071": return 70.0
 		"TNL072": return 25.0
 	return 5.0
+
+static func _rooms_in_hand(p: Dictionary) -> int:
+	return (p.get("hand", []) as Array).filter(func(c): return bool((c as Dictionary).get("isRoom", false))).size()
 
 ## Surprise Gift vaut la peine quand mon donjon est presque plein (construire chez moi n'apporte plus grand-chose) et qu'une salle adverse
 ## de 3 degats ou plus peut etre recouverte par une salle de ma main qui en fait au moins 2 de moins (elle ne la remplace pas : elle la couvre).

@@ -3,9 +3,19 @@ extends Node
 ## Joue des parties IA-vs-IA (meme boucle que BoardUI._process) et compte, par carte, les parties ou un coup l'impliquant etait legal
 ## (« offert ») et celles ou l'IA l'a choisi (« choisi »). Outil de developpement, hors `npm run test:godot:all`.
 ## Usage : godot --headless --path src/frontend res://godot/tests/AiCensus.tscn -- --sets=next-level,crash-landing --games=20 [--players=2] [--seed=1]
-## Sortie : une ligne par cle `type:id` jamais choisie alors qu'elle a ete offerte, puis les cartes jamais offertes.
+## Sortie : une ligne par cle `type:id` jamais choisie alors qu'elle a ete offerte, puis les cartes jamais offertes, puis « CENSUS PASS » ou
+## « CENSUS FAIL » (code de sortie 1) : echec si une carte des paquets demandes est offerte mais jamais choisie sans figurer dans ALLOW.
 
 const MAX_STEPS := 4000
+
+## Cartes dont l'IA ne joue jamais la capacite, a dessein : situation rare ou condition tres etroite (id de carte -> raison).
+const ALLOW := {
+	"CRL012": "The Omega 42 : ne rejoue un effet que contre une salle avancee morte en main (2 offres sur 60 parties)",
+	"TNL041": "Wreck Room : detruit une salle quasi inutile, seulement donjon plein + main <= 3 + salle ordinaire de rechange (jamais reunis sur 60 parties)",
+	"RMB055": "Spike : niveau 2 = 2 degats au heros qui meurt exactement ; niveau 3 = renvoie un miniboss adverse promu (offert 1 fois sur 60 parties)",
+	"RMB056": "Kid Croak : niveau 3 = +/-1 aux Monster seulement si cela tranche la mort du heros (offert 1 fois sur 60 parties)",
+	"RMB058": "Rocky : niveau 3 = sauve un heros de justesse (5) ; condition tres etroite (offert 1 fois sur 60 parties)",
+}
 const SoakSeed = preload("res://godot/tests/soak_seed.gd")
 
 var offered: Dictionary = {}   # cle -> nombre de parties ou le coup a ete legal
@@ -62,19 +72,42 @@ func _ready() -> void:
 	print("CENSUS jamais choisi: ", never)
 	print("CENSUS rarement choisi (<25%): ", rare)
 	var unseen: Array = []
+	var card_set: Dictionary = {}   # id -> paquet
 	for list in [CardDB.rooms, CardDB.spells, CardDB.minibosses]:
 		for c in list:
 			var d: Dictionary = c
-			if not sets.has(str(d.get("set", "base"))) or str(d.get("set", "base")) == "base":
-				continue
 			var id := str(d.get("id", ""))
+			card_set[id] = str(d.get("set", "base"))
+			if not sets.has(card_set[id]) or card_set[id] == "base":
+				continue
 			var seen := false
 			for k in offered:
-				seen = seen or str(k).ends_with(":" + id)
+				seen = seen or (":" + str(k) + ":").contains(":" + id + ":")
 			if not seen:
 				unseen.append(id + " " + str(d.get("name", "")))
 	print("CENSUS jamais offert (cartes du/des paquets): ", unseen)
-	get_tree().quit(0)
+	# Verdict : une cle jamais choisie n'est tolerable que si la carte est dans ALLOW ; seules les cartes des paquets demandes comptent.
+	var failed: Array = []
+	var allowed: Array = []
+	for entry in never:
+		var key: String = str(entry).split(" (")[0]
+		var cid: String = key.split(":")[1] if key.split(":").size() > 1 else ""
+		if not card_set.has(cid) or not sets.has(card_set[cid]):
+			continue
+		if ALLOW.has(cid):
+			allowed.append("%s : %s" % [key, ALLOW[cid]])
+		else:
+			failed.append(key)
+	for a in allowed:
+		print("CENSUS tolere: ", a)
+	if stuck > 0:
+		failed.append("%d partie(s) bloquee(s)" % stuck)
+	if failed.is_empty():
+		print("CENSUS PASS (%d cle(s) tolerees)" % allowed.size())
+		get_tree().quit(0)
+	else:
+		print("CENSUS FAIL: ", failed)
+		get_tree().quit(1)
 
 func _key(m, pid: int, mv: Dictionary) -> String:
 	var G: Dictionary = m.G
@@ -113,7 +146,7 @@ func _on_decision(m, pid: int, moves: Array, best) -> void:
 		var k := _key(m, pid, mv)
 		if k != "":
 			_g_offered[k] = true
-			if k == _debug:
+			if _debug != "" and _debug.split(",").has(k):
 				var f := AiWiki.fate(m.G)
 				print("DEBUG ", k, " pid=", pid, " phase=", m.G.get("phase"), " score=", AI.score_move(m, pid, mv), " margin=", f["margin"], " owner=", f["owner"], " hand=", (m.G["players"][pid]["hand"] as Array).size(), " best=", AI.score_move(m, pid, best) if best != null else "-", " ", best)
 	if best != null:

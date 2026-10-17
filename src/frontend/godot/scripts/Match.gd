@@ -226,11 +226,8 @@ func legal_moves(pid: int) -> Array:
 					if not c.get("advanced", false):
 						if free_slot:
 							out.append({"type": "buildRoom", "args": [i]})
-						# Salle ordinaire par-dessus une pile existante, donjon plein ou non. Politique IA, pas une regle : AI.score_move note le
-						# coup [i] comme une pose sur la salle 0 (cible par defaut) ; lui offrir l'empilement hors donjon plein le ferait
-						# recouvrir ses salles faibles au lieu d'agrandir son donjon (a lever quand AI.gd notera [i] sans cible).
-						if free_slot and bool(p.get("isAI", false)) and bool(G.get("autoAI", true)):
-							continue
+						# Salle ordinaire par-dessus une pile existante, donjon plein ou non. Memes coups pour l'IA et l'humain :
+						# AI.score_move note [i] (premier emplacement libre) et [i, ti] (perte de la salle ti recouverte, DungeonSlotCalculator).
 						for ti in (p.get("dungeon", []) as Array).size():
 							if BossEngine.can_build_room(p, G, pid, i, ti):
 								out.append({"type": "buildRoom", "args": [i, ti]})

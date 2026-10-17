@@ -9,7 +9,12 @@ readable (name, stats, rules text). Each face carries a "MISSING ART" ribbon
 so nobody mistakes it for official art. Re-running the script replaces those
 files 1:1 when real art becomes available under `assets/cards/`.
 
+The body text is shrunk (down to MIN_BODY_PT) until the whole rules text fits
+above the ribbon; nothing is cut.
+
 Usage: python tools/generate_placeholder_art.py [--force]
+  --force regenerates the existing placeholders (never real art: a placeholder
+  is recognised by its 746x1039 size and its red ribbon).
 """
 from __future__ import annotations
 
@@ -47,7 +52,22 @@ THEME = {
     "items": ((28, 20, 8), (110, 80, 30), (255, 220, 150), "ITEM"),
 }
 
-TREASURE = {1: "Cleric", 2: "Fighter", 3: "Mage", 4: "Thief", 5: "Explorer"}
+RIBBON_H, RIBBON_PAD, RIBBON_RED = 64, 46, (150, 20, 20)
+MAX_BODY_PT, MIN_BODY_PT = 30, 14
+
+TREASURE = {1: "CLERIC", 2: "FIGHTER", 3: "MAGE", 4: "THIEF", 5: "EXPLORER"}
+
+
+def is_placeholder(path: str) -> bool:
+    """True if `path` is one of our generated faces (exact face size + the red ribbon), not real art."""
+    try:
+        im = Image.open(path).convert("RGB")
+    except OSError:
+        return False
+    if im.size != (W, H):
+        return False
+    r, g, b = im.getpixel((100, H - RIBBON_PAD - 10))
+    return abs(r - RIBBON_RED[0]) < 12 and g < 40 and b < 40
 
 
 def load_font(name: str, size: int):
@@ -74,7 +94,7 @@ def stats_line(section: str, card: dict) -> str:
     if section == "rooms":
         tr = "+".join(TREASURE.get(t, str(t)) for t in card.get("treasures", []))
         adv = "ADVANCED " if card.get("advanced") else ""
-        return f"{adv}{card.get('type', '?').upper()}  DMG {card.get('damage', '?')}  TREASURE {tr}"
+        return f"{adv}{card.get('type', '?').upper()} ROOM\nDMG {card.get('damage', '?')}  TREASURE {tr}"
     if section == "bosses":
         tr = "+".join(TREASURE.get(t, str(t)) for t in card.get("treasures", []))
         sub = f"  {card.get('subtitle', '').upper()}" if card.get("subtitle") else ""
@@ -86,9 +106,9 @@ def stats_line(section: str, card: dict) -> str:
         dark = "DARK " if card.get("dark") else ""
         tr = TREASURE.get(card.get("treasure"), str(card.get("treasure")))
         return (
-            f"{epic}{dark}{card.get('class', '?').upper()}  "
-            f"HP {card.get('hp', '?')}  TREASURE {tr}  "
-            f"WOUNDS {card.get('wounds', '?')}  SOULS {card.get('souls', '?')}"
+            f"{epic}{dark}{card.get('class', '?').upper()}\n"
+            f"HP {card.get('hp', '?')}  WOUNDS {card.get('wounds', '?')}  SOULS {card.get('souls', '?')}\n"
+            f"TREASURE {tr}"
         )
     if section == "minibosses":
         lvls = card.get("levels", [])
@@ -135,6 +155,18 @@ def wrap(draw: ImageDraw.ImageDraw, text: str, font, max_w: int) -> list[str]:
     return lines
 
 
+def fit_body(draw: ImageDraw.ImageDraw, body: str, max_w: int, max_h: int):
+    """Largest Bookman size (MAX..MIN_BODY_PT) whose wrapped text fits max_h; returns (font, lines, line_height)."""
+    for size in range(MAX_BODY_PT, MIN_BODY_PT - 1, -1):
+        font = load_font("bookman_old_style.TTF", size)
+        lh = size + max(4, size // 4)
+        lines = wrap(draw, body, font, max_w)
+        height = sum(lh if ln else size // 2 for ln in lines)
+        if height <= max_h or size == MIN_BODY_PT:
+            return font, lines, lh, height <= max_h
+    raise AssertionError("unreachable")
+
+
 def render(section: str, card: dict) -> Image.Image:
     bg, frame, accent, label = THEME[section]
     img = Image.new("RGB", (W, H), bg)
@@ -150,7 +182,6 @@ def render(section: str, card: dict) -> Image.Image:
 
     title_f = load_font("arcadepix.TTF", 52)
     sub_f = load_font("arcadepix.TTF", 30)
-    body_f = load_font("bookman_old_style.TTF", 30)
     small_f = load_font("arcadepix.TTF", 24)
 
     y = 70
@@ -186,15 +217,20 @@ def render(section: str, card: dict) -> Image.Image:
 
     body = body_text(section, card)
     if body:
-        for ln in wrap(d, body, body_f, W - 180)[:16]:
+        ribbon_top = H - RIBBON_PAD - RIBBON_H
+        font, lines, lh, fits = fit_body(d, body, W - 180, ribbon_top - 24 - y)
+        if not fits:
+            print(f"[placeholder-art] WARNING {card.get('id')}: text does not fit even at {MIN_BODY_PT}pt", file=sys.stderr)
+        for ln in lines:
             if ln == "":
-                y += 14
+                y += font.size // 2
                 continue
-            y = draw_centered(d, W // 2, y, ln, body_f, (240, 235, 220)) + 10
+            d.text((W // 2, y), ln, font=font, fill=(240, 235, 220), anchor="ma")
+            y += lh
 
     # missing-art ribbon
-    ribbon_h, pad = 64, 46
-    d.rectangle([pad, H - pad - ribbon_h, W - pad, H - pad], fill=(150, 20, 20))
+    ribbon_h, pad = RIBBON_H, RIBBON_PAD
+    d.rectangle([pad, H - pad - ribbon_h, W - pad, H - pad], fill=RIBBON_RED)
     d.rectangle([pad, H - pad - ribbon_h, W - pad, H - pad], outline=(255, 220, 120), width=3)
     draw_centered(d, W // 2, H - pad - ribbon_h + 14, "MISSING ART - PLACEHOLDER",
                   small_f, (255, 240, 200))
@@ -227,7 +263,8 @@ def main() -> int:
                 continue
             slug = name_map.get(cid, cid.lower())
             out = os.path.join(OUT_CARDS, section_dir(section, card), f"{cid}_{slug}.webp")
-            if os.path.exists(out) and not force:
+            # Existing real art is never touched; an existing placeholder is redone only with --force.
+            if os.path.exists(out) and not (force and is_placeholder(out)):
                 skipped += 1
                 continue
             os.makedirs(os.path.dirname(out), exist_ok=True)
