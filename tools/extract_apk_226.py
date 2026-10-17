@@ -37,7 +37,7 @@ OUT_DUNGEON = os.path.join(ROOT, "src", "frontend", "assets", "ui", "dungeon")
 OUT_EXP = os.path.join(ROOT, "src", "frontend", "assets", "ui", "expansions")
 OUT_NINE = os.path.join(ROOT, "src", "frontend", "assets", "ui", "ninepatch")
 OUT_TUT = os.path.join(ROOT, "src", "frontend", "assets", "ui", "tutorial")
-MANIFEST = os.path.join(ROOT, "src", "backend", "game", "apkCardManifest.json")
+MANIFEST = os.path.join(ROOT, "tools", "data", "apkCardManifest.json")
 
 
 def wpk_payload(path):

@@ -1,7 +1,7 @@
 extends Node
 ## Pilote headless du harnais de parite APK : rejoue les traces `oracle-*.json`
 ## (tools/apk-oracle) dans le moteur GDScript, sans aucune aide.
-## Ecrit gd-<trace>.json a cote des traces. La comparaison est faite par tools/parity/apk.mjs.
+## Ecrit gd-<trace>.json a cote des traces. La comparaison est faite par tools/parity/apk.py.
 ##
 ## Usage :
 ##   godot --headless --path src/frontend res://godot/tests/ApkParity.tscn -- --traces=<dossier absolu>

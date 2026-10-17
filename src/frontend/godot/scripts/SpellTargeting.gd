@@ -1,6 +1,6 @@
 class_name SpellTargeting
 extends RefCounted
-## Miroir de src/backend/game/spellTargeting.js.
+## Ciblage des sorts ; reference : le C# de l'APK.
 ## Cibles legales pour un sort, partagees par legalMoves et l'UI.
 
 const SPELL_TARGETS := {

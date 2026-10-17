@@ -1,7 +1,6 @@
 extends Node
-## Goldens — invariants de l'engine derives des tests JS (tests/unit/*.test.js).
-## But : prouver que le port GDScript (Match.gd) respecte les memes regles que
-## src/backend/game (reducer.js / engine.js), avant/pendant le port des modules manquants.
+## Goldens — invariants de l'engine (derives de l'ancienne suite JS, supprimee : voir l'historique git).
+## But : verrouiller les regles du port GDScript (Match.gd) contre les regressions.
 ## Lance par res://godot/tests/Goldens.tscn (headless).
 
 var _failed: Array = []

@@ -7,26 +7,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-      - run: npm ci
-      - run: npm run verify:assets
-      - run: npm run test:unit
-
   godot:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
       - name: Install Godot 4.7
         run: |
           wget -q https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
@@ -34,8 +18,12 @@ jobs:
           sudo mv Godot_v4.7.2-stable_linux.x86_64 /usr/local/bin/godot
           sudo chmod +x /usr/local/bin/godot
           godot --version
-      - run: npm ci
-      - run: npm run test:godot:all
+      # Sans import, les class_name globaux (BossEngine, Match, CardUI...) sont inconnus : "Parse Error: Identifier not declared".
+      - name: Import the Godot project
+        run: godot --headless --path src/frontend --import || true
+      # Parite APK (tools/parity/apk.py) : locale uniquement, elle exige l'oracle .NET (DBMGame.dll de apk-original/, non versionne).
+      - name: Godot suites
+        run: python3 tools/run_godot_tests.py
 
   export:
     runs-on: ubuntu-latest

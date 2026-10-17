@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Merge expansion JSON packs into src/cardData.json (TNL / RMB / CRL)."""
+"""Merge expansion JSON packs into src/frontend/godot/data/cards.json (TNL / RMB / CRL), puis recalcule `implemented` (sync_implemented.py)."""
 from __future__ import annotations
 
 import json
 import os
 import re
-import subprocess
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, "src", "backend", "game", "cardData.json")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import sync_implemented  # noqa: E402
+from cards_io import CARDS as OUT, ROOT, dump_cards  # noqa: E402
+
 EXP_DIR = os.path.join(ROOT, "src", "frontend", "assets", "data", "expansions")
 CORRUPT = re.compile(r"\]\]$")
 
@@ -45,9 +46,12 @@ def main():
     with open(OUT, encoding="utf-8") as f:
         data = json.load(f)
 
-    # Clean previous expansion entries from all sections so moved cards do not linger
+    # Clean previous expansion entries from all sections so moved cards do not linger.
+    # cards.json porte des champs a la main (levelUp, heroAbility, lure, treasures, dark...) absents des packs : on les garde.
+    previous = {}
     for section in ("bosses", "rooms", "spells", "heroes", "items", "minibosses"):
         if section in data:
+            previous.update({c["id"]: c for c in data[section]})
             data[section] = filter_base(data[section])
 
     for name in ("next-level", "minibosses", "crash-landing"):
@@ -58,8 +62,9 @@ def main():
         pack = load(path)
         for section in ("bosses", "rooms", "spells", "heroes", "items", "minibosses"):
             if pack.get(section):
-                for c in pack[section]:
+                for k, c in enumerate(pack[section]):
                     c["name"] = clean_name(c.get("name", ""))
+                    pack[section][k] = {**c, **previous.get(c["id"], {})}  # cards.json (corrections a la main) l'emporte sur le pack
                 existing = data.setdefault(section, [])
                 existing.extend(pack[section])
                 data[section] = sorted(existing, key=lambda c: c["id"])
@@ -83,12 +88,11 @@ def main():
                     flagged += 1
         missing = sorted(implemented - {c["id"] for s in ("bosses", "rooms", "spells", "heroes", "items", "minibosses") for c in data.get(s, [])})
         if missing:
-            print(f"WARNING: implemented.json ids not in cardData: {missing}", file=sys.stderr)
+            print(f"WARNING: implemented.json ids not in cards.json: {missing}", file=sys.stderr)
         print(f"applied implemented flag to {flagged} cards")
 
-    with open(OUT, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-        f.write("\n")
+    with open(OUT, "w", encoding="utf-8", newline="") as f:
+        f.write(dump_cards(data))
     print(f"updated {OUT}")
 
     corrupt = []
@@ -103,8 +107,7 @@ def main():
         print(f"ERROR: corrupt card text in {len(corrupt)} cards: {corrupt[:10]}...", file=sys.stderr)
         sys.exit(1)
 
-    matrix = os.path.join(ROOT, "tools", "generate_card_matrix.js")
-    subprocess.run(["node", matrix], cwd=ROOT, check=True)
+    sync_implemented.main()  # recalcule `implemented` d'apres le moteur Godot
 
 
 if __name__ == "__main__":

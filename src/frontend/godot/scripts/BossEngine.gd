@@ -1,6 +1,6 @@
 class_name BossEngine
 extends RefCounted
-## Miroir de src/backend/game/engine.js (stateless sur des Dictionnaires).
+## Regles du moteur, stateless sur des Dictionnaires (reference : le C# de l'APK).
 ## Ne mute que via les callers (Match.gd).
 
 static func active_room(stack: Array):

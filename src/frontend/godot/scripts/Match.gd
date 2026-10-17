@@ -1,8 +1,7 @@
 class_name Match
 extends Node
-## Match — autorité locale solo (miroir de src/backend/game/reducer.js).
+## Match — autorité locale (règles ; reference : le C# de l'APK, via tools/apk-oracle).
 ## Boucle : BOSS -> SETUP (salle initiale) -> BUILD -> BAIT -> ADVENTURE (pas-a-pas) -> END.
-## shortcut: effets de sorts salles avançés non portés (fodder/discard uniquement), à porter depuis spellEffects.js / roomAbilities.js quand la boucle tourne.
 
 signal state_changed
 

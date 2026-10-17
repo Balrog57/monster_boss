@@ -2,7 +2,7 @@ extends RefCounted
 ## Rejoue une trace de l'ORACLE APK (tools/apk-oracle : DBMGame.dll 2.2.6 headless)
 ## dans le moteur GDScript (Match.gd) et enregistre, apres chaque step de
 ## l'oracle, une projection canonique de l'etat Godot. La comparaison se fait
-## cote Node (tools/parity/apk.mjs) : ce fichier ne juge rien, il rejoue.
+## par tools/parity/apk.py : ce fichier ne juge rien, il rejoue.
 ##
 ## Le harnais ne corrige AUCUNE regle. Il injecte seulement les conditions
 ## initiales (bosses, ordre des pioches) et transmet les choix de l'oracle sous
@@ -268,7 +268,7 @@ func _refresh_bait_snap(s: Dictionary) -> void:
 			snap["players"][k][f] = cur["players"][k][f]
 
 
-# --- projection canonique (miroir de oracleProj dans apk.mjs) ----------------
+# --- projection canonique (miroir de oracle_proj dans tools/parity/apk.py) ----------------
 
 func project() -> Dictionary:
 	var G: Dictionary = run.G

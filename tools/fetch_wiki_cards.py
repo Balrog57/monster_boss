@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Build 2.2.6 cardData.json from APK JSON + wiki HQ art (BMA / BMH / THK / KSA)."""
+"""Refresh the 2.2.6 APK cards (BMA / BMH / THK / KSA) in src/frontend/godot/data/cards.json from APK JSON + wiki HQ art.
+
+The APK values win; fields only cards.json carries (levelUp, heroAbility, implemented...), the expansions and the minibosses are kept."""
 from __future__ import annotations
 
 import json
@@ -18,9 +20,11 @@ except ImportError:
     print("Pillow is required: pip install pillow", file=sys.stderr)
     sys.exit(1)
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import sync_implemented  # noqa: E402
+from cards_io import CARDS as OUT_JSON, ROOT, load_cards, save_cards  # noqa: E402
+
 DECKS = os.path.join(ROOT, "apk-original", "boss-monster-2-2-6", "assets", "Content", "CardDecks")
-OUT_JSON = os.path.join(ROOT, "src", "backend", "game", "cardData.json")
 OUT_CARDS = os.path.join(ROOT, "src", "frontend", "assets", "cards")
 WIKI_API = "https://bossmonster.fandom.com/api.php"
 UA = "BossMonsterFanPort/2.2.6 (local educational rebuild)"
@@ -377,10 +381,18 @@ def main():
         "items": items,
         "nameMap": name_map,
     }
-    os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)
-    with open(OUT_JSON, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2, ensure_ascii=False)
-        f.write("\n")
+    existing = load_cards() if os.path.exists(OUT_JSON) else {}
+    merged = dict(existing)
+    for section, fresh in payload.items():
+        if section == "nameMap":
+            merged[section] = {**existing.get(section, {}), **fresh}
+            continue
+        old = {c["id"]: c for c in existing.get(section, [])}
+        fresh_ids = {f["id"] for f in fresh}
+        kept = [c for c in existing.get(section, []) if c["id"] not in fresh_ids]
+        merged[section] = sorted([{**old.get(f["id"], {}), **f} for f in fresh] + kept, key=lambda c: c["id"])
+    save_cards(merged)
+    sync_implemented.main()
     print(
         f"wrote {OUT_JSON}: "
         f"{len(bosses)} bosses, {len(rooms)} rooms, {len(spells)} spells, "

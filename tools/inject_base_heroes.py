@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""Inject base-set heroes BMA056–096 from wiki BaseDeck into src/cardData.json."""
+"""Inject base-set heroes BMA056–096 from wiki BaseDeck into src/frontend/godot/data/cards.json."""
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from cards_io import ROOT as _ROOT, load_cards, save_cards  # noqa: E402
+
+ROOT = Path(_ROOT)
 BASE = json.loads((ROOT / "assets" / "data" / "BaseDeck" / "data.json").read_text(encoding="utf-8"))
-DATA = json.loads((ROOT / "src" / "backend" / "game" / "cardData.json").read_text(encoding="utf-8"))
+DATA = load_cards()
 
 CLASS_SLUG = {1: "cleric", 2: "fighter", 3: "mage", 4: "thief"}
 
@@ -37,6 +41,5 @@ existing = {c["id"] for c in DATA.get("heroes") or []}
 injected = [h for h in heroes if h["id"] not in existing]
 DATA["heroes"] = injected + (DATA.get("heroes") or [])
 
-out = ROOT / "src" / "backend" / "game" / "cardData.json"
-out.write_text(json.dumps(DATA, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+save_cards(DATA)
 print(f"injected {len(injected)} base heroes (total heroes {len(DATA['heroes'])})")

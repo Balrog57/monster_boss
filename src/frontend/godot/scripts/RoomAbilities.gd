@@ -1,6 +1,6 @@
 class_name RoomAbilities
 extends RefCounted
-## Miroir de src/backend/game/roomAbilities.js — abilities des salles du base set (BMA).
+## Abilities des salles du base set (BMA) ; reference : le C# de l'APK.
 ## Chaque fonction renvoie null si tout s'est bien passe, ou un message d'erreur.
 
 static func _player(G: Dictionary, pid: int) -> Dictionary:

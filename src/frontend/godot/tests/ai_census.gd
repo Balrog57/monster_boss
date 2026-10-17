@@ -1,7 +1,7 @@
 extends Node
 ## Recensement de l'IA : quelles cartes / capacites l'IA se voit offrir (coup legal) mais ne choisit jamais ?
 ## Joue des parties IA-vs-IA (meme boucle que BoardUI._process) et compte, par carte, les parties ou un coup l'impliquant etait legal
-## (« offert ») et celles ou l'IA l'a choisi (« choisi »). Outil de developpement, hors `npm run test:godot:all`.
+## (« offert ») et celles ou l'IA l'a choisi (« choisi »). Outil de developpement, hors `tools/run_godot_tests.py`.
 ## Usage : godot --headless --path src/frontend res://godot/tests/AiCensus.tscn -- --sets=next-level,crash-landing --games=20 [--players=2] [--seed=1]
 ## Sortie : une ligne par cle `type:id` jamais choisie alors qu'elle a ete offerte, puis les cartes jamais offertes, puis « CENSUS PASS » ou
 ## « CENSUS FAIL » (code de sortie 1) : echec si une carte des paquets demandes est offerte mais jamais choisie sans figurer dans ALLOW.

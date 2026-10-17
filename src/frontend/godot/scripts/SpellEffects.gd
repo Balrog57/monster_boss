@@ -1,6 +1,6 @@
 class_name SpellEffects
 extends RefCounted
-## Miroir de src/backend/game/spellEffects.js — effets des sorts du base set (BMA040-BMA055).
+## Effets des sorts du base set (BMA040-BMA055) ; reference : le C# de l'APK.
 ## Chaque fonction renvoie true si le sort a ete resolu, false sinon.
 ## Les effets persistants sont deposes dans G.effects (miroir de emptyEffects).
 

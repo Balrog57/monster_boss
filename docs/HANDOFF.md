@@ -6,7 +6,7 @@ Repo: `C:\Users\Marc\Documents\1G1R\_Programmation\monster_boss` (Windows 11), G
 ## 1. What this is
 A faithful remake of the card game **Boss Monster: Master of the Dungeon** (Brotherwise Games; Android version 2.2.6 by Plain Concepts, package `com.dbm.project`). Each player is a Boss who builds a dungeon of rooms to lure Heroes and steal their Souls (first to 10 Souls wins; 5 Wounds = dead). Phases per turn: BOSS pick (once) -> SETUP (discard 2, build a first room) -> BUILD (place a face-down room / play spells) -> ADVENTURE (Heroes cross dungeons, spell windows) -> reveal/level up.
 
-**Final product (decided):** a **Godot 4 web export** (WASM, Compatibility renderer, single-threaded) served as static files by **nginx alpine** in Docker on the user's ZimaOS homelab (port 8090 behind a Cloudflare tunnel) plus a **Godot headless server** container for online games. All JavaScript/Node in the repo is temporary scaffolding to delete. The original APK decompilation is the **ground truth for rules**.
+**Final product (decided):** a **Godot 4 web export** (WASM, Compatibility renderer, single-threaded) served as static files by **nginx alpine** in Docker on the user's ZimaOS homelab (port 8090 behind a Cloudflare tunnel) plus a **Godot headless server** container for online games. The JavaScript/Node scaffolding has been removed (section 9.D); tooling is Python stdlib + a .NET oracle. The original APK decompilation is the **ground truth for rules**.
 
 ## 2. User's working rules and priorities (binding)
 - **Claude orchestrates only**: Sonnet subagents write code, Haiku subagents explore/index, the orchestrator decides, runs checks, commits and pushes. Commit + push at every green checkpoint, with trailer `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`.
@@ -16,24 +16,25 @@ A faithful remake of the card game **Boss Monster: Master of the Dungeon** (Brot
 
 ## 3. Repo map
 - `apk-original/` the APK + full decompilation (`decompiled/DBMGame/` C#, source of truth for rules, timings, geometry).
-- `tools/apk-oracle/` .NET program that runs the original `DBMGame.dll` headless (the **oracle**). `tools/parity/apk.mjs` drives oracle vs Godot and diffs traces. Keep both.
+- `tools/apk-oracle/` .NET program that runs the original `DBMGame.dll` headless (the **oracle**). `tools/parity/apk.py` drives oracle vs Godot and diffs traces (local only: needs `apk-original/` and the .NET SDK). Keep both.
 - `src/frontend/` Godot project (`project.godot`, `export_presets.cfg`, `assets/` = APK-extracted art/audio/fonts, `godot/` = game):
   - `godot/scripts/` engine + UI. Engine: `Match.gd` (rules/moves, `legal_moves`, `apply_move`, state `G`), `BossEngine.gd`, `RoomAbilities.gd`, `SpellEffects.gd`, `SpellTargeting.gd`, `AI.gd`, wiki packs `TnlAbilities.gd/TnlSpells.gd` (The Next Level), `Minibosses.gd/RmbAbilities.gd/RmbSpells.gd` (Minibosses), `AiWiki.gd` (AI for wiki cards), `CardDB.gd`, `GameManager.gd`. UI: `Main.gd` (title, menus, expansions, options), `BoardUI.gd` (in-game board), `CardUI.gd`, `DungeonSlot.gd`, `InGameMenu.gd`, `CardGallery.gd`, `GameOverBanner.gd`, `RulesViewer.gd`, `TimeBar.gd`, `UiKit.gd`, `AudioManager.gd`, `Profile.gd`. Online: `OnlineClient.gd`, `OnlineGameManager.gd`, `NetCodec.gd`.
   - `godot/server/` headless Godot WebSocket server (`Server.gd`, `GameRoom.gd`, `ViewFilter.gd` = per-seat hidden-info filter, `PROTOCOL.md`). Excluded from the web export.
-  - `godot/data/` `cards.json` (442 cards), `rules.txt` (in-game rules text, English).
+  - `godot/data/` `cards.json` (442 cards, the single card-data file; Python writers go through `tools/cards_io.py`), `rules.txt` (in-game rules text, English). `tools/data/apkCardManifest.json` = APK face manifest (tools only, not shipped).
   - `godot/tests/` all headless suites (below).
-- `src/backend/` OLD Node/Koa/Socket.IO/Postgres server (to delete); `tests/unit/` old JS tests (to delete); `package.json` scripts are the current test entry points (to replace).
-- `deploy/` Dockerfile + compose for the OLD Node app (to rewrite), `deploy/DEPLOYMENT.md`.
+- No `src/backend`, `tests/unit` or `package.json` any more: test entry points are `tools/run_godot_tests.py` and `tools/parity/apk.py`.
+- `deploy/` Dockerfile (Godot web export stage + nginx), compose, `deploy/DEPLOYMENT.md`.
 - `docs/` rules (`docs/rules/rules.md`, wiki PDFs), reports, `docs/reference/` (**gitignored, local only**: APK screenshots, see section 8).
-- `tools/` Python/Node helpers: `run_godot_tests.mjs` (test runner), `build_bmfonts.py` (APK SpriteFont -> BMFont), `sync_implemented.py`, capture/extract scripts.
-- `.github/workflows/ci.yml` CI (Node era; must be rewritten when JS is removed).
-- `AGENTS.md` placement rules per role (backend, frontend, deploy, tests, security, docs).
+- `tools/` Python helpers: `run_godot_tests.py` (suite runner), `godot_exe.py` (Godot path: `$GODOT`, the Windows default, else `godot`), `verify_assets.py`, `build_bmfonts.py` (APK SpriteFont -> BMFont), `sync_implemented.py`, capture/extract scripts.
+- `.github/workflows/ci.yml` CI: `godot` job (import the project, then `python3 tools/run_godot_tests.py`) and `export` job (docker build + curl checks). No parity in CI: it needs the local oracle (`DBMGame.dll` from the gitignored `apk-original/`).
+- `AGENTS.md` placement rules per role (frontend, deploy, security, docs, tools).
 
 ## 4. How to run and test (Windows; Git Bash and PowerShell both available)
-- Godot 4.7.2 console exe: `/c/Tools/Godot/Godot_v4.7.2-stable_win64_console.exe` (also `godot` via npm scripts). Headless run: `--headless --path src/frontend res://godot/tests/<Scene>.tscn`.
-- **`npm run test:godot:all`** (~2-3 min) = 9 suites, all must print OK: goldens, coverage, soak, soak APK decks, soak TNL, soak Minibosses, soak all packs, online, ui smoke. Any `SCRIPT ERROR` is a failure. `ui_smoke` (`tests/ui_smoke.gd`, `UiSmoke.tscn`, options documented at the top: `--games --seed --players --humans --sets --style --turns --anim`) plays complete seeded games through the real UI code paths, with checks after every gesture.
-- **APK parity (the real correctness metric):** `npm run test:parity:apk` (seeds 1-3 x 2,3 players, must be 6/6), `test:parity:apk:wide` (12/12), `test:parity:apk:decks` (6/6). Parallel runs need distinct `$env:APK_PARITY_OUT` (apk.mjs wipes its output dir). The old `npm run test:parity` JS harness is nondeterministic: do not use.
-- Other tools: `tests/AiCensus.tscn` (which wiki moves the AI never plays), `tools/sync_implemented.py` (regenerates `implemented` flags in cards.json; `coverage.gd` checks them).
+- Godot 4.7.2 console exe: `/c/Tools/Godot/Godot_v4.7.2-stable_win64_console.exe` (`godot` on Linux/CI). Headless run: `--headless --path src/frontend res://godot/tests/<Scene>.tscn`.
+- **`python tools/run_godot_tests.py`** (~2-3 min) = 9 suites, all must print OK: goldens, coverage, soak, soak APK decks, soak TNL, soak Minibosses, soak all packs, online, ui smoke. Any `SCRIPT ERROR` in the output fails a suite (the runner checks the marker, since Godot on Windows does not propagate the exit code). `ui_smoke` (`tests/ui_smoke.gd`, `UiSmoke.tscn`, options documented at the top: `--games --seed --players --humans --sets --style --turns --anim`) plays complete seeded games through the real UI code paths, with checks after every gesture.
+- **APK parity (the real correctness metric):** `python tools/parity/apk.py` (seeds 1-3 x 2,3 players, must be 6/6), `python tools/parity/apk.py --seeds 4 5 6 7 --players 2 3 4` (12/12), `python tools/parity/apk.py --decks BaseDeck,PlayerChoice,HiddenHeros,ToolsHeroKind` (6/6). Exit code 1 if any trace is not OK. Never run two in parallel (one Godot at a time); each run wipes its output dir, so give each a distinct `APK_PARITY_OUT` if you ever interleave them.
+- Other tools: `src/frontend/godot/tests/AiCensus.tscn` (which wiki moves the AI never plays), `tools/sync_implemented.py` (regenerates `implemented` flags in cards.json; `coverage.gd` checks them), `tools/verify_assets.py` (APK faces, UI assets, base-set counts), `tools/merge_expansions.py` (wiki packs -> cards.json, then runs sync_implemented), `tools/fetch_wiki_cards.py` / `tools/extract_apk_226.py` (APK + wiki extraction; `fetch_wiki_cards` merges into cards.json and keeps hand-added fields), `tools/fetch_expansion_art.py`.
+- **Web export (raw Godot, no npm):** `"/c/Tools/Godot/Godot_v4.7.2-stable_win64_console.exe" --headless --path src/frontend --export-release Web godot/build_web/index.html` (Docker does the same in `deploy/Dockerfile`).
 - **Web build to try by hand:** `Godot console --headless --path src/frontend --export-release Web <scratchdir>/index.html`, then `python -m http.server 8091 --bind 127.0.0.1` in that dir and open `http://127.0.0.1:8091/index.html`. Browser-tool tips: the Godot canvas needs a `hover` before each `left_click`; refresh a stale `index.pck` with `fetch(url,{cache:'reload'})` then `location.reload()`; synthetic JS pointer events do not drive Godot; `left_click_drag` is too coarse for Godot drags; release builds hide GDScript errors (use the headless suites to find them).
 
 ## 5. Current state (all green at commit `2cff735` on `parity/apk-oracle`)
@@ -71,17 +72,17 @@ A faithful remake of the card game **Boss Monster: Master of the Dungeon** (Brot
 1. Fix the engine anomaly (section 7.5) properly in `Match.gd` (then remove the UI workaround), keeping APK parity 6/6, 12/12, 6/6.
 2. Redesign multiplayer screens like the APK (create/join/lobby/waiting) using `assets/ui` art; friends-only rooms by code; reconnect/resume (`OnlineClient.try_resume`), "Start with bots", turn timers (server `--turn-timeout`), APK-style UI for 3-4 players (opponent selector P2/P3/P4).
 3. Test with 2+ real clients (two browser tabs against the headless server); keep `ViewFilter` whitelisting: any new `G` key must be classified or the `online` suite fails. Never leak hidden info (hands, deck order, face-down rooms, other players' pending choices, private log lines).
-**D. Remove the JS scaffolding**
-- Delete `src/backend`, `tests/unit`, `tools/parity` except `apk.mjs` (+ `canon.mjs` if used) and the Godot harness, `package.json` deps; `tools/apk-oracle` (.NET) stays. Replace `npm run test:*` and `tools/run_godot_tests.mjs` by a non-Node runner (PowerShell/Python script), update `.github/workflows/ci.yml` (run Godot suites + parity; check what CI needs: Godot + .NET). Accept: no Node dependency left in the test path; CI green.
+**D. Remove the JS scaffolding - DONE**
+- Done: `src/backend`, `tests/unit`, `package*.json` and every `.js/.mjs` removed; runners are `tools/run_godot_tests.py` and `tools/parity/apk.py`; CI runs the Godot suites (after `--import`) and the Docker export. `tools/apk-oracle` (.NET) stays.
 **E. Deploy**
 - Docker: nginx alpine serving the static web export (`export_presets.cfg` already excludes tests and `godot/server`; add brotli for the wasm, correct `application/wasm`, `/ws` WebSocket proxy) + a Godot headless server container (no Postgres). Rewrite `deploy/docker-compose.yml`, `deploy/Dockerfile`, `deploy/DEPLOYMENT.md` (ZimaOS 192.168.1.98, port 8090, Cloudflare tunnel). Remove the stopped `boss-monster` + `boss-monster-db` containers/volume only with the user's OK. Web size target: pck ~38 MB (lossy webp imports already set).
 **F. Final (only at the very end)**
 - Run the full test + parity suites, `code-review` on the whole diff, merge `parity/apk-oracle` into `main`, delete the extra branch (local + remote, after asking), make sure there is no open PR, no extra worktree/stash, `git status` clean. Update this file and the README.
 
 ## 10. Pitfalls and conventions
-- Engine files are shared by the APK parity; after ANY engine change run all 3 parity commands. UI work must not touch `Match.gd/BossEngine.gd/*Abilities.gd/SpellEffects.gd/AI.gd/GameManager.gd` unless fixing a proven engine bug.
+- Engine files are shared by the APK parity; after ANY engine change run all 3 parity commands (section 4). UI work must not touch `Match.gd/BossEngine.gd/*Abilities.gd/SpellEffects.gd/AI.gd/GameManager.gd` unless fixing a proven engine bug.
 - Concurrent headless Godot runs can race on the global class cache (transient parse errors): re-run alone; `godot --headless --import` refreshes it.
 - LF/CRLF warnings on commit are harmless. `.uid` files are tracked.
 - UI text and `godot/data/rules.txt` are English. Code comments are mostly French or English: match the surrounding file.
 - Secrets: none in the repo; the ZimaOS access is via the user's ssh config (aliases `homelab`, `homelab-ts`); never print keys.
-- Subagent tips that worked: give each a narrow file scope, tell it not to run git, require `npm run test:godot:all` green twice, ask for "what still differs"; run Haiku agents for image indexing (they hit request limits after ~30 images each).
+- Subagent tips that worked: give each a narrow file scope, tell it not to run git, require `python tools/run_godot_tests.py` green twice, ask for "what still differs"; run Haiku agents for image indexing (they hit request limits after ~30 images each).

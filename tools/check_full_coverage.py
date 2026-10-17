@@ -2,7 +2,7 @@
 
 Pour chaque fichier de `apk-original/boss-monster-2-2-6/` et
 `apk-original/apktool-decoded/`, vérifie qu'il est soit extrait vers
-`assets/` (ou `src/backend/game/`), soit justifié (natif, signature...).
+`assets/` , soit justifié (natif, signature...).
 
 Sortie : apk-original/decompiled/assets_full_coverage.md
 """
@@ -89,7 +89,7 @@ def main():
                 justified.append(f'`{rel}` — décompilé vers `apktool-decoded/smali/` (196 fichiers)')
                 continue
             if sub.startswith('assets/Content/CardDecks') and fn in ('data.json', 'ai_info.json'):
-                ok.append(f'`{rel}` — pipeline cardData (442 ids, faces APK 173/173)')
+                ok.append(f'`{rel}` — pipeline cards.json (442 ids, faces APK 173/173)')
                 continue
             if sub.startswith('assets/Content/CardDecks') and ext == '.wpk':
                 valid, info = wpk_ok(full)
@@ -172,7 +172,7 @@ def main():
     L.append(f'- Audio/Sfx : 42 WPK → 42 `.wav` ; Musique : 2 MP3 à l\'identique')
     L.append(f'- Fonts : 4 WPK → 4 `.TTF` ; NinePatch : 9 WPK → 9 `.webp`')
     L.append(f'- Tutorial : 4 WPK + 1 XML → `.webp` + XML recopié')
-    L.append(f'- CardDecks : 4 `data.json` + 3 `ai_info.json` → `cardData.json` (442 ids)')
+    L.append(f'- CardDecks : 4 `data.json` + 3 `ai_info.json` → `cards.json` (442 ids)')
     L.append(f'- Smali : 196 fichiers ; `res/` décodé : 13 fichiers ; manifest décodé ; `apktool.yml`')
     with open(OUT, 'w', encoding='utf-8') as f:
         f.write('\n'.join(L) + '\n')

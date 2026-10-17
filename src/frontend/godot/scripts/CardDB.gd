@@ -1,6 +1,5 @@
 extends Node
-## CardDB — autoload. Miroir de src/backend/game/cardData.js (référence à supprimer).
-## Charge godot/data/cards.json (copie de cardData.json, 156 Ko).
+## CardDB — autoload. Charge godot/data/cards.json (source unique des cartes).
 
 const CardData = preload("res://godot/scripts/CardData.gd")
 

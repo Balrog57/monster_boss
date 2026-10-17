@@ -1,5 +1,3 @@
-node_modules
-
 # Original APK + decompiled reference (local-only, see apk-original/README.md;
 # never committed, never shipped — excluded from the Docker context too)
 apk-original/*
@@ -20,11 +18,6 @@ src/frontend/godot/build_web/
 # Playwright MCP session snapshots
 .playwright-mcp/
 
-# Test artifacts
-test-results/
-tests/e2e/*.png
-tests/unit/*.png
-
 # Opencode session state
 .opencode/
 
@@ -40,7 +33,7 @@ src/frontend/assets/perm_test_*.jpg
 src/frontend/assets/sample_*.jpg
 test_*.webp
 
-# Harnais de parite JS <-> GDScript (traces et projections generees)
+# Harnais de parite APK <-> Godot (traces et projections generees)
 tools/parity/out/
 
 # Playwright / automation reference captures (local QA only)

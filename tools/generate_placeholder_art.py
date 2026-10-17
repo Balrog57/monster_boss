@@ -29,8 +29,8 @@ except ImportError:
     sys.exit(1)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CARD_DATA = os.path.join(ROOT, "src", "backend", "game", "cardData.json")
-MANIFEST = os.path.join(ROOT, "src", "backend", "game", "apkCardManifest.json")
+CARD_DATA = os.path.join(ROOT, "src", "frontend", "godot", "data", "cards.json")
+MANIFEST = os.path.join(ROOT, "tools", "data", "apkCardManifest.json")
 OUT_CARDS = os.path.join(ROOT, "src", "frontend", "assets", "cards")
 FONT_DIR = os.path.join(ROOT, "src", "frontend", "assets", "fonts")
 
