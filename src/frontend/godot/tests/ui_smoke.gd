@@ -132,6 +132,7 @@ func _main() -> void:
 		games.append({"seed": 22, "players": 2, "humans": 1, "sets": ["players-choice", "hidden-heroes", "tools"], "style": "random", "anim": false, "turns": 0})
 		games.append({"seed": 23, "players": 3, "humans": 1, "sets": ["base"], "style": "spells", "anim": false, "turns": 0})
 		games.append({"seed": 24, "players": 4, "humans": 2, "sets": ["base"], "style": "random", "anim": false, "turns": 4})
+		games.append({"seed": 25, "players": 2, "humans": 1, "sets": ["players-choice", "hidden-heroes", "tools", "next-level", "crash-landing", "minibosses"], "style": "spells", "anim": false, "turns": 5})
 	for g in games:
 		await _play_game(g)
 		if not _log.errors.is_empty():
@@ -488,16 +489,18 @@ func _build_actions(pid: int, moves: Array) -> Array:
 	for m in moves:
 		var t := str(m["type"])
 		var a: Array = m.get("args", [])
+		var hk: int = BoardUI.hand_idx_of(m)
+		if t != "buildRoom" and hk >= 0: # sort, capacite de main, DISCARD: +1 COIN... : menu de la carte
+			if not by_hand.has(hk):
+				by_hand[hk] = []
+			(by_hand[hk] as Array).append(m)
+			continue
 		match t:
 			"buildRoom":
 				if a.size() > 1 and a[1] != null:
 					out.append({"kind": "drop", "w": _style_w("drop"), "desc": "depot salle %d sur %d" % [a[0], a[1]], "run": func(): await _do_drop(pid, int(a[0]), int(a[1]))})
 				else:
 					out.append({"kind": "build", "w": _style_w("build"), "desc": "construire salle %d" % int(a[0]), "run": func(): await _do_build_click(pid, int(a[0]))})
-			"playSpell", "useHandRoom":
-				if not by_hand.has(int(a[0])):
-					by_hand[int(a[0])] = []
-				(by_hand[int(a[0])] as Array).append(m)
 			"activateRoom":
 				if not by_slot.has(int(a[0])):
 					by_slot[int(a[0])] = []
@@ -549,16 +552,21 @@ func _do_build_click(pid: int, idx: int) -> void:
 			_engine_note("buildRoom legal mais can_build_room refuse (buildBlocked=%s)" % str((gm.G.get("effects", {}) as Dictionary).get("buildBlocked")))
 			_cancelled = true
 			return
+		var n_menu := _n_build_targets(pid, idx) + _n_hand_uses(pid, idx) # comptes AVANT le clic : une pose directe change les coups legaux
 		(cards[idx] as CardUI).card_clicked.emit(null)
-		await _pick_target(_n_build_targets(pid, idx), "construire (carte %d)" % idx) # plusieurs emplacements (A3) : le joueur choisit lequel
+		await _pick_target(n_menu, "construire (carte %d)" % idx) # plusieurs emplacements (A3) : le joueur choisit lequel
 
 ## Emplacements de construction offerts par le moteur pour la carte `idx` (salles recouvrables + emplacement libre).
 func _n_build_targets(pid: int, idx: int) -> int:
 	return gm.legal_moves(pid).filter(func(m): return m["type"] == "buildRoom" and int(m["args"][0]) == idx).size()
 
+## Autres coups de la carte `idx` (sort, capacite de main, DISCARD: +1 COIN...) : entrees de son menu, avec ou sans construction.
+func _n_hand_uses(pid: int, idx: int) -> int:
+	return gm.legal_moves(pid).filter(func(m): return m["type"] != "buildRoom" and BoardUI.hand_idx_of(m) == idx).size()
+
 func _do_drop(pid: int, idx: int, ti: int) -> void:
 	if rng.randf() < 0.4: # variante au clic : fenetre « construire par-dessus » (une entree par salle recouvrable + l'emplacement libre)
-		var n_over := _n_build_targets(pid, idx)
+		var n_over := _n_build_targets(pid, idx) + _n_hand_uses(pid, idx)
 		var cards := _hand_cards()
 		if _check(idx < cards.size(), "construire par-dessus : carte %d absente" % idx):
 			(cards[idx] as CardUI).card_clicked.emit(null)
@@ -584,9 +592,9 @@ func _do_hand(pid: int, idx: int, cands: Array) -> void:
 	_check((cards[idx] as CardUI).texture_rect.material == null, "carte jouable %s grisee" % cname)
 	# une salle a capacite de main (CRL007) propose aussi BUILD en phase de construction
 	var phase := str(gm.G.get("phase", ""))
-	var also_build: bool = (phase == "build" or phase == "setup") and bool(hand[idx].get("isRoom", false)) and gm.can_build_room_at(pid, idx, (gm.G["players"][pid]["dungeon"] as Array).size())
+	var n_build: int = _n_build_targets(pid, idx) if (phase == "build" or phase == "setup") and bool(hand[idx].get("isRoom", false)) else 0
 	(cards[idx] as CardUI).card_clicked.emit(null)
-	await _pick_target(cands.size() + (1 if also_build else 0), "carte %s" % cname)
+	await _pick_target(cands.size() + n_build, "carte %s" % cname)
 
 ## Apres un clic qui peut ouvrir un choix de cible : plusieurs coups = les cibles s'allument sur le plateau (clic sur l'une, ou CANCEL) ;
 ## sans representation a l'ecran (ames, defausse...), la liste centrale (une pierre par cible + CANCEL).
@@ -647,9 +655,12 @@ func _pick_in_cards(n_pick: int, has_skip: bool, skip_plays: bool, what: String)
 		(cards[k] as CardUI).card_clicked.emit(null) # re-appui = deselection
 		_check(btn.visible == has_skip and (cards[k] as CardUI).scale.x == 1.0, "%s : la deselection ne remet pas l'etat initial" % what)
 		(cards[k] as CardUI).card_clicked.emit(null)
+		var pc0: Dictionary = (gm.G.get("pendingChoice", {}) as Dictionary).duplicate(true)
 		btn.pressed.emit()
 		await get_tree().process_frame
-		_check(board._popup_kind == "" and _sig() != s0, "%s : CONTINUE n'a pas joue la carte choisie" % what)
+		# un choix en plusieurs etapes (tnl-pick : cout puis cible) laisse un nouveau popup de choix, different du precedent
+		var chained: bool = skip_plays and not (gm.G.get("pendingChoice", {}) as Dictionary).is_empty() and gm.G["pendingChoice"] != pc0
+		_check((board._popup_kind == "" or chained) and _sig() != s0, "%s : CONTINUE n'a pas joue la carte choisie" % what)
 
 ## Vrai clic gauche a la position (coordonnees du plateau 1920x1080) via le viewport : passe par le voile, les zones et les boutons.
 func _click_at(pos: Vector2) -> void:
@@ -726,9 +737,17 @@ func _do_slot(pid: int, di: int, cands: Array) -> void:
 	await _pick_target(cands.size(), "capacite salle %d" % di)
 
 func _do_extra(k: int) -> void:
-	var btns: Array = board.extra_bar.get_children().filter(func(c): return not c.is_queued_for_deletion())
-	if _check(k < btns.size() and board.extra_bar.visible, "coup d'extension %d : pas de bouton (%d affiches)" % [k, btns.size()]):
+	var open: Array = board.extra_bar.get_children().filter(func(c): return not c.is_queued_for_deletion())
+	if not _check(open.size() == 1 and board.extra_bar.visible, "coup d'extension %d : %d boutons EXTRA MOVES (1 attendu)" % [k, open.size()]):
+		return
+	(open[0] as Button).pressed.emit() # un seul bouton ; chaque coup est une ligne de sa liste
+	await get_tree().process_frame
+	if not _check(board._popup_kind == "target", "coup d'extension %d : liste EXTRA MOVES absente" % k):
+		return
+	var btns := _buttons(board._popup)
+	if _check(k < btns.size() - 1, "coup d'extension %d : %d lignes seulement" % [k, btns.size() - 1]):
 		(btns[k] as Button).pressed.emit()
+		_cov("extra_moves_menu")
 
 func _act_choice(pid: int, pc: Dictionary, moves: Array) -> void:
 	var typ := str(pc.get("type", ""))
@@ -816,8 +835,8 @@ func _noise(pid: int) -> void:
 			var hand: Array = G["players"][pid]["hand"]
 			var playable := {}
 			for m in gm.legal_moves(pid):
-				if str(m["type"]) in ["buildRoom", "playSpell", "useHandRoom"] and (m["args"] as Array).size() > 0:
-					playable[int(m["args"][0])] = true
+				if BoardUI.hand_idx_of(m) >= 0:
+					playable[BoardUI.hand_idx_of(m)] = true
 			for i in hand.size():
 				if not playable.has(i):
 					board._on_hand_card_clicked(i, hand[i])
@@ -1008,7 +1027,7 @@ func _check_ui() -> void:
 		var t := str(m["type"])
 		can_go = can_go or t in ["adventureNext", "resolveNextHero"]
 		can_pass = can_pass or t in ["pass", "passBuild"]
-		if not CORE_TYPES.has(t):
+		if not CORE_TYPES.has(t) and BoardUI.hand_idx_of(m) < 0:
 			extras += 1
 	var carousel: bool = (phase == "boss" or board._is_opening_discard_for_me()) and not over
 	var go_usable: bool = board.btn_advance.is_visible_in_tree() and not board.btn_advance.disabled
@@ -1020,6 +1039,8 @@ func _check_ui() -> void:
 		_check(can_pass and not over, "bouton PASS TURN visible alors que passer est illegal (phase %s, fin=%s, siege %d)" % [phase, over, pid])
 	var extra_vis: bool = board.extra_bar.visible and board.extra_bar.get_children().filter(func(c): return not c.is_queued_for_deletion()).size() > 0
 	_check(extra_vis == (extras > 0 and pc.is_empty()), "barre d'extensions : %s pour %d coups d'extension" % ["visible" if extra_vis else "cachee", extras])
+	_check(board.extra_bar.get_children().filter(func(c): return not c.is_queued_for_deletion()).size() <= 1, "barre d'extensions : plusieurs boutons (une grille couvre le donjon)")
+	_check_no_slot_cover()
 	# popup de choix <-> choix en attente
 	var mine: bool = not pc.is_empty() and int(pc.get("playerId", -1)) == pid and str(pc.get("type", "")) != "opening-discard" and not my_moves.is_empty()
 	if board._popup_kind == "choice":
@@ -1258,12 +1279,101 @@ func _check_hand_room() -> void:
 		await get_tree().process_frame
 		if _check(board._popup_kind == "target", "CRL007 en construction : un clic doit proposer BUILD / cible (popup=%s)" % board._popup_kind):
 			var btns := _buttons(board._popup)
-			_check(btns.size() == uses.size() + 2, "CRL007 : %d boutons (BUILD + %d cibles + CANCEL attendus)" % [btns.size(), uses.size()])
-			if btns.size() >= 2:
-				(btns[1] as Button).pressed.emit() # premiere cible
+			var n_b := _n_build_targets(0, idx) # emplacements (libre + recouvrables) d'abord, puis les cibles de la capacite
+			_check(btns.size() == n_b + uses.size() + 1, "CRL007 : %d boutons (%d emplacements + %d cibles + CANCEL attendus)" % [btns.size(), n_b, uses.size()])
+			if btns.size() > n_b:
+				(btns[n_b] as Button).pressed.emit() # premiere cible
 				await get_tree().process_frame
 				_check(board._popup_kind == "" and not (me["hand"] as Array).has(proto), "CRL007 : la capacite n'a pas ete utilisee (carte encore en main)")
 				_cov("hand_room_menu")
+
+## Aucun bouton visible (hors fenetres et main) ne recouvre un emplacement de donjon, le mien comme celui de l'adversaire.
+func _check_no_slot_cover() -> void:
+	var rects: Array = []
+	for sl in board._dungeon_slots:
+		rects.append((sl as Control).get_global_rect())
+	for sc in board._foe_slots:
+		rects.append((sc as Control).get_global_rect())
+	var stack: Array = [board]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			if c.is_queued_for_deletion() or c == board._popup or c == board.hand_layer or c in board._dungeon_slots or c in board._foe_slots:
+				continue
+			stack.append(c)
+			if c is BaseButton and (c as Control).is_visible_in_tree():
+				for r in rects:
+					if (c as Control).get_global_rect().intersects(r):
+						_fail("le bouton « %s » (%s) recouvre un emplacement de donjon %s" % [str(c.get("text")), c.name, r])
+						return
+
+## Extensions du wiki, tous paquets : les coups « DISCARD: +1 COIN » ne forment plus de grille sur le plateau (menu de la carte de la main,
+## qui joue toujours le coup), et un boss du wiki a un fond de donjon APK et sa carte a la place du sprite.
+func _check_wiki_ui() -> void:
+	_tag = "[all-packs ui]"
+	await _teardown()
+	CardDB._rng.seed = 31
+	gm = GameManager.new()
+	add_child(gm)
+	gm.start_new_game(2, 1, ["players-choice", "hidden-heroes", "tools", "next-level", "crash-landing", "minibosses"])
+	board = load("res://godot/scenes/Board.tscn").instantiate()
+	board.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(board)
+	board.skip_animations = true
+	board.setup(gm, func(): quit_calls += 1)
+	await _wait(0.1)
+	for step in 600:
+		var Gs: Dictionary = gm.G
+		if str(Gs.get("phase", "")) == "build" and (Gs.get("pendingChoice", {}) as Dictionary).is_empty() and int((Gs["players"][0] as Dictionary).get("buildsThisTurn", 0)) == 0 and not gm.legal_moves(0).is_empty():
+			break
+		await _wait(0.05)
+		_act_simple()
+	board.refresh()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var me: Dictionary = gm.G["players"][0]
+	var coin_moves := gm.legal_moves(0).filter(func(m): return m["type"] == "discardForCoin")
+	if _check(not coin_moves.is_empty(), "tous paquets : aucun coup DISCARD: +1 COIN en construction"):
+		_check_no_slot_cover()
+		_check(board.extra_bar.get_children().filter(func(c): return not c.is_queued_for_deletion()).size() <= 1, "tous paquets : plusieurs boutons d'extension")
+		var idx: int = int(coin_moves[0]["args"][0])
+		for cm in coin_moves: # de preference une salle aussi constructible : son menu a au moins deux entrees
+			if _n_build_targets(0, int(cm["args"][0])) + _n_hand_uses(0, int(cm["args"][0])) >= 2:
+				idx = int(cm["args"][0])
+				break
+		var menu := _n_build_targets(0, idx) + _n_hand_uses(0, idx) >= 2 # sinon l'unique coup (DISCARD) est joue directement
+		var coins0 := int(me.get("coins", 0))
+		var n_hand := (me["hand"] as Array).size()
+		(_hand_cards()[idx] as CardUI).card_clicked.emit(null)
+		await get_tree().process_frame
+		if menu:
+			var entry: Button = null
+			if _check(board._popup_kind == "target", "tous paquets : le clic sur la salle de la main n'ouvre pas son menu (popup=%s)" % board._popup_kind):
+				for b in _buttons(board._popup):
+					if "+1 COIN" in (b as Button).text:
+						entry = b
+			if not _check(entry != null, "tous paquets : pas d'entree DISCARD: +1 COIN dans le menu de la carte"):
+				return
+			entry.pressed.emit()
+			await get_tree().process_frame
+		_check(int(me.get("coins", 0)) == coins0 + 1 and (me["hand"] as Array).size() == n_hand - 1, "tous paquets : DISCARD: +1 COIN sans effet")
+		_cov("coin_discard_menu" if menu else "coin_discard_direct")
+	# Boss du wiki (aucune image de personnage APK) : fond de donjon jamais vide, carte du boss dans la zone du sprite APK
+	var wiki := CardDB.bosses.filter(func(b): return not ResourceLoader.exists("res://assets/ui/characters/%s_character.webp" % str(b.get("id", "")).to_lower()))
+	if _check(not wiki.is_empty(), "aucun boss du wiki sans sprite APK"):
+		for lane in [0, 1]:
+			var L: Dictionary = board._lane[lane]
+			var area := Rect2(1470, 270, 170, 170) if lane == 0 else Rect2(1465, 690, 145, 160)
+			for b in wiki.slice(0, 6):
+				board._set_boss(L, b)
+				await get_tree().process_frame
+				await get_tree().process_frame
+				_check((L["bg"] as TextureRect).texture != null, "fond de donjon vide pour le boss %s (couloir %d)" % [str(b.get("id")), lane])
+				var cards := (L["container"] as Control).get_children().filter(func(c): return c is CardUI and not c.is_queued_for_deletion())
+				if _check(cards.size() == 1, "boss %s : %d cartes a la place du sprite" % [str(b.get("id")), cards.size()]):
+					var gr: Rect2 = (cards[0] as Control).get_global_rect()
+					_check(area.grow(4.0).encloses(gr), "boss %s : carte %s hors de la zone du sprite %s (couloir %d)" % [str(b.get("id")), gr, area, lane])
+		_cov("wiki_boss_bg")
 
 ## Parcours Main : plateau lance depuis le menu, quelques gestes, QUIT -> menu, nouvelle partie (le plateau precedent doit disparaitre proprement).
 func _check_main_flow() -> void:
@@ -2222,6 +2332,7 @@ func _extra_checks() -> void:
 	await _check_boss_race()
 	await _check_main_flow()
 	await _check_hand_room()
+	await _check_wiki_ui()
 	await _check_windows()
 	await _check_window_clock()
 	await _check_single_click()

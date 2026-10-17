@@ -71,7 +71,8 @@ const HAND_CARD := Vector2(175, 244)     # APK : carte 350x488 a l'echelle 0,5 (
 const HAND_CX := 960.0                   # HandEntity : x = VirtualWidth * 0,5 (1440 centres dans 1920), y = VirtualHeight * 0,9
 const HAND_CY := 972.0
 const BIG_CARD := Vector2(232, 324)
-const BOSS_SPRITE_SCALE := 1.0           # APK : sprite du boss a sa taille native (King Croak ~175 px, Cleopatra ~200 px sur l'estrade)
+const WIKI_BG_IDS := ["bma001", "bma002", "bma003", "bma004", "bma005", "bma006", "bma007", "bma008", "ksa001", "ksa002", "ksa003", "ksa004", "ksa005", "ksa006", "ksa007"] # fonds APK (assets/ui/dungeon) repris par les boss du wiki
+const BOSS_SPRITE_SCALE := 1.0          # APK : sprite du boss a sa taille native (King Croak ~175 px, Cleopatra ~200 px sur l'estrade)
 const BOSS_SPRITE_MAX_W := 300.0         # largeur de l'estrade : un sprite plus large (KSA005, 333 px) est reduit pour ne pas deborder
 const BOSS_CARD := Vector2(362, 506)     # carrousel du choix du boss (apk_boss00) : carte centrale ; les voisines sont reduites et se chevauchent
 const BOSS_SIDE_SCALE := [1.0, 0.58, 0.55, 0.52, 0.5, 0.48]
@@ -436,8 +437,8 @@ func _build_actions() -> void:
 	btn_pass = _tex_button(action_box, UI_DIR + "pass_button.webp", UI_DIR + "pass_button_pressed.webp", Vector2.ZERO, Vector2(201, 82))
 	# Coups propres aux extensions du wiki (aucun equivalent APK) : cachee tant qu'il n'y en a pas.
 	bar_box = VBoxContainer.new()
-	bar_box.position = Vector2(330, 548)
-	bar_box.size = Vector2(1270, 80)
+	bar_box.position = Vector2(PLAY_CX - 150, 548) # un seul bouton entre PASS TURN (y <= 536) et les emplacements (y >= 635)
+	bar_box.size = Vector2(300, 62)
 	bar_box.alignment = BoxContainer.ALIGNMENT_BEGIN
 	bar_box.theme = _make_bar_theme()
 	add_child(bar_box)
@@ -1094,14 +1095,15 @@ func _set_boss(L: Dictionary, boss, dead := false) -> void:
 	if boss != null:
 		var bid := str(boss.get("id", "")).to_lower()
 		var bg := _tex("res://assets/ui/dungeon/%s_bg.webp" % bid)
-		if bg != null:
-			(L["bg"] as TextureRect).texture = bg
+		if bg == null: # boss du wiki sans fond APK : un des fonds APK, choisi d'apres l'id (toujours le meme pour un boss)
+			bg = _tex("res://assets/ui/dungeon/%s_bg.webp" % WIKI_BG_IDS[absi(bid.hash()) % WIKI_BG_IDS.size()])
+		(L["bg"] as TextureRect).texture = bg
 		tex = _tex("res://assets/ui/characters/%s_character.webp" % bid)
 		if tex != null:
 			for child in cont.get_children():
 				child.queue_free()
 		else:
-			_ensure_boss_card(cont, boss)
+			_ensure_boss_card(cont, boss, L["root"] == (_lane[0] as Dictionary)["root"])
 	else:
 		tex = _tex(TEX_UNKNOWN_BOSS)
 	if dead:
@@ -1114,10 +1116,16 @@ func _set_boss(L: Dictionary, boss, dead := false) -> void:
 		if dead:
 			sprite.position.x = plat.size.x - sprite.size.x + 2.0 # APK : la pierre tombale est collee au bord droit du couloir (x ~1707)
 
-func _ensure_boss_card(container: CenterContainer, boss_dict: Dictionary) -> void:
+## Boss sans sprite (wiki) : sa carte tient la place du sprite APK (a 1920x1080 : le mien x 1465..1610 / y 690..850, l'adversaire
+## x 1470..1640 / y 270..440), carte 5:7 centree dans cette zone. Le conteneur centre la carte : on le decale pour viser le centre voulu.
+func _ensure_boss_card(container: CenterContainer, boss_dict: Dictionary, is_foe: bool) -> void:
 	for c in container.get_children():
 		c.queue_free()
+	var area := Rect2(1470, 270, 170, 170) if is_foe else Rect2(1465, 690, 145, 160)
+	var plat := container.get_parent() as Control
+	container.position = area.get_center() - ((plat.get_parent() as Control).position + plat.position) - plat.size / 2.0
 	var boss_ui = _card_scene.instantiate()
+	boss_ui.default_size = Vector2(area.size.y * 5.0 / 7.0, area.size.y)
 	container.add_child(boss_ui)
 	boss_ui.is_in_hand = false
 	boss_ui.setup(boss_dict)
@@ -1190,10 +1198,9 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 	# Cartes jouables maintenant (construire / sort / capacite de la main) : les autres sont grisees comme dans l'APK.
 	var playable: Dictionary = {}
 	for m in my_moves:
-		var mt := str((m as Dictionary).get("type", ""))
-		var ma: Array = (m as Dictionary).get("args", [])
-		if mt in ["buildRoom", "playSpell", "useHandRoom"] and not ma.is_empty() and ma[0] is int:
-			playable[int(ma[0])] = true
+		var hi: int = hand_idx_of(m as Dictionary)
+		if hi >= 0:
+			playable[hi] = true
 	var hand: Array = p.get("hand", [])
 	var discarding := _is_opening_discard_for_me()
 	var sz := BIG_CARD if discarding else HAND_CARD
@@ -2327,29 +2334,33 @@ func _option_label(opts: Array, i: int) -> String:
 			return "Player %d" % (int(o["targetPlayerId"]) + 1)
 	return "Choice %d" % (i + 1)
 
-## Coups propres aux extensions du wiki (Minibosses, TNL...) : aucun equivalent APK, boutons pierre discrets sous la separation.
-## Les sorts (clic sur la carte) et les capacites de salle (clic sur la salle) n'ont PAS de bouton.
+## Coups propres aux extensions du wiki (Minibosses, TNL...) : aucun equivalent APK. Les coups d'une carte de la main (DISCARD: +1 COIN,
+## capacites de main, poser un miniboss...) sont dans le menu de la carte (clic, voir _build_over_menu / _play_hand_menu) ; les sorts
+## (clic sur la carte) et les capacites de salle (clic sur la salle) n'ont pas de bouton. Les autres (boss, paiement, miniboss en place)
+## tiennent derriere UN seul bouton « EXTRA MOVES » sous PASS TURN : aucune grille de boutons sur le donjon.
 func _refresh_extra_bar(G: Dictionary, my_moves: Array) -> void:
 	for c in extra_bar.get_children():
 		c.queue_free()
-	var shown := false
-	var hand: Array = ((G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("hand", [])
 	if not (G.get("pendingChoice", {}) as Dictionary).is_empty():
 		extra_bar.visible = false
 		return
+	var entries: Array = []
+	var hand: Array = ((G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("hand", [])
 	for m in my_moves:
-		if not (m is Dictionary) or str((m as Dictionary).get("type", "")) in CORE_MOVE_TYPES + HAND_CLICK_TYPES + ["activateRoom"]:
+		if not (m is Dictionary) or str((m as Dictionary).get("type", "")) in CORE_MOVE_TYPES + HAND_CLICK_TYPES + ["activateRoom"] or hand_idx_of(m) >= 0:
 			continue
-		var b := Button.new()
-		b.text = _move_label(m, G, hand)
 		var mv := (m as Dictionary).duplicate()
+		entries.append({"label": _move_label(mv, G, hand), "cb": func(): _do(mv)})
+	if not entries.is_empty():
+		var b := Button.new()
+		b.text = "EXTRA MOVES (%d)" % entries.size()
+		b.custom_minimum_size = Vector2(300, 62)
+		b.add_theme_font_size_override("font_size", 22)
 		b.pressed.connect(func():
 			_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
-			_do(mv)
-		)
+			_popup_list("target", "EXTRA MOVES", entries, func(): _popup_close()))
 		extra_bar.add_child(b)
-		shown = true
-	extra_bar.visible = shown
+	extra_bar.visible = not entries.is_empty()
 
 func _move_label(m: Dictionary, _G: Dictionary, hand: Array) -> String:
 	var t := str(m.get("type", ""))
@@ -2414,10 +2425,8 @@ func _on_hand_card_clicked(idx: int, card: Dictionary) -> void:
 	if (phase == "build" or phase == "setup") and card.get("isRoom", false):
 		var dungeon: Array = ((game_manager.G["players"] as Dictionary)[_my_pid()] as Dictionary).get("dungeon", [])
 		var target_slot := dungeon.size()
+		# Autres coups de cette salle en main (CRL007 Frostman Lander, DISCARD: +1 COIN des Minibosses...) : proposes avec les emplacements.
 		var uses := _hand_moves(idx)
-		if not uses.is_empty(): # salle a capacite de main (CRL007 Frostman Lander) : construire OU utiliser (la pose ecrasait la capacite)
-			_play_hand_menu(idx, card, uses, game_manager.can_build_room_at(_my_pid(), idx, target_slot))
-			return
 		# Plusieurs emplacements possibles (Boss.CanBuildRoom : n'importe quelle salle visible peut etre recouverte, meme hors donjon plein) :
 		# on demande lequel, l'emplacement libre compris ; un seul (fin de donjon) = pose directe.
 		var plain := {}
@@ -2430,8 +2439,8 @@ func _on_hand_card_clicked(idx: int, card: Dictionary) -> void:
 				over.append(m)
 			else:
 				plain = m
-		if not over.is_empty():
-			_build_over_menu(card, over, plain)
+		if not over.is_empty() or not uses.is_empty():
+			_build_over_menu(card, over, plain, uses)
 			return
 		_play_sfx("res://assets/audio/sfx/sfx_room_physical.wav")
 		if game_manager.build_room_at(_my_pid(), idx, target_slot):
@@ -2450,20 +2459,18 @@ func _play_from_hand(idx: int) -> void:
 		_do(cands[0])
 		return
 	var hand: Array = ((game_manager.G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("hand", [])
-	_play_hand_menu(idx, hand[idx], cands, false)
+	_play_hand_menu(hand[idx], cands)
 
 ## Fenetre « construire par-dessus » : une entree par salle recouvrable (equivalent du glisser-deposer sur l'emplacement).
-## `plain` : le coup « emplacement libre » (fin de donjon) quand il est legal, propose en premier.
-func _build_over_menu(card: Dictionary, over: Array, plain: Dictionary = {}) -> void:
-	if over.size() == 1 and plain.is_empty(): # un seul emplacement possible : on construit directement
-		_play_sfx("res://assets/audio/sfx/sfx_room_physical.wav")
-		_do((over[0] as Dictionary).duplicate())
-		return
+## `plain` : le coup « emplacement libre » (fin de donjon) quand il est legal, propose en premier. `uses` : autres coups de la carte
+## (capacite de main, DISCARD: +1 COIN...), ajoutes en fin de liste ; l'entree unique est jouee directement.
+func _build_over_menu(card: Dictionary, over: Array, plain: Dictionary = {}, uses: Array = []) -> void:
 	var dungeon: Array = ((game_manager.G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("dungeon", [])
 	var entries: Array = []
+	var on_board := uses.is_empty() # avec d'autres coups, une liste : les entrees sans zone du plateau ne s'allument pas
 	if not plain.is_empty():
 		var pmv: Dictionary = plain.duplicate()
-		entries.append({"label": "NEW ROOM (FREE SLOT)", "mv": pmv, "spot": {"k": "free", "pid": _my_pid()}, "cb": func():
+		entries.append({"label": "NEW ROOM (FREE SLOT)", "mv": pmv, "spot": {"k": "free", "pid": _my_pid()} if on_board else {}, "cb": func():
 			_play_sfx("res://assets/audio/sfx/sfx_room_physical.wav")
 			_do(pmv)})
 	for c in over:
@@ -2471,38 +2478,54 @@ func _build_over_menu(card: Dictionary, over: Array, plain: Dictionary = {}) -> 
 		var ti := int((mv["args"] as Array)[1])
 		var host = BossEngine.active_room(dungeon[ti]) if ti >= 0 and ti < dungeon.size() else null
 		entries.append({"label": "ON %s" % (str((host as Dictionary).get("name", "Room %d" % (ti + 1))) if host != null else "Room %d" % (ti + 1)), "mv": mv,
-			"spot": {"k": "room", "pid": _my_pid(), "idx": ti}, "cb": func():
+			"spot": {"k": "room", "pid": _my_pid(), "idx": ti} if on_board else {}, "cb": func():
 			_play_sfx("res://assets/audio/sfx/sfx_room_physical.wav")
 			_do(mv)})
-	_target_list("%s - build over a Room" % str(card.get("name", "")), "Select a Room to build over" if plain.is_empty() else "Select a Room to build over, or the free slot", entries, func(): _popup_close())
+	for u in uses:
+		entries.append(_hand_entry(card, u))
+	if entries.is_empty():
+		return
+	if entries.size() == 1: # un seul coup possible : on le joue directement
+		(entries[0]["cb"] as Callable).call()
+		return
+	_target_list("%s - build over a Room" % str(card.get("name", "")) if on_board else str(card.get("name", "")),
+		("Select a Room to build over" if plain.is_empty() else "Select a Room to build over, or the free slot") if on_board else "Build, or choose an action", entries, func(): _popup_close())
 
-## Coups legaux (sort / capacite de main) de la carte `idx` de la main.
+## Indice de la carte de la main a laquelle un coup est attache (construire, sort, capacites de main des extensions, defausse contre
+## 1 piece...), -1 si le coup n'est lie a aucune carte de la main (boss, salle, paiement) : ceux-la vont dans le bouton EXTRA MOVES.
+static func hand_idx_of(m: Dictionary) -> int:
+	var a: Array = m.get("args", [])
+	match str(m.get("type", "")):
+		"playSpell", "useHandRoom", "buildRoom", "buildMiniboss", "discardForCoin", "rmbHand", "payDarkHero", "docScarecrow", "timebenderCancel", "antimagicCancel":
+			return int(a[0]) if not a.is_empty() and a[0] is int else -1
+		"rmbCancel", "promoteMiniboss": # [salle, carte] ; promotion contre une carte (alt >= 0) ou 1 piece (-1)
+			return int(a[1]) if a.size() > 1 and a[1] is int else -1
+	return -1
+
+## Coups legaux autres que construire (sort, capacite de main, defausse contre 1 piece...) de la carte `idx` de la main.
 func _hand_moves(idx: int) -> Array:
 	var cands: Array = []
 	for mv in game_manager.legal_moves(_my_pid()):
 		var m: Dictionary = mv
-		var a: Array = m.get("args", [])
-		if str(m.get("type", "")) in HAND_CLICK_TYPES and not a.is_empty() and a[0] is int and int(a[0]) == idx:
+		if str(m.get("type", "")) != "buildRoom" and hand_idx_of(m) == idx:
 			cands.append(m)
 	return cands
 
-## Fenetre de ciblage (une entree par coup) ; `can_build` : une carte salle peut aussi etre construite (entree BUILD en tete).
-func _play_hand_menu(idx: int, card: Dictionary, cands: Array, can_build: bool) -> void:
+## Entree de menu d'un coup de la main : sort / capacite ciblee (zone du plateau si elle en a une) ou coup d'extension (libelle de _move_label).
+func _hand_entry(card: Dictionary, c: Dictionary) -> Dictionary:
+	var mv: Dictionary = c.duplicate()
+	var margs: Array = mv.get("args", [])
+	var is_spell: bool = str(mv.get("type", "")) in HAND_CLICK_TYPES
+	return {"label": _target_label(mv, card) if is_spell else _move_label(mv, game_manager.G, _my_hand()), "mv": mv,
+		"spot": _spot_of_target(margs[1] as Dictionary, _my_pid()) if is_spell and margs.size() > 1 and margs[1] is Dictionary else {}, "cb": func():
+		_play_sfx("res://assets/audio/sfx/sfx_room_magic.wav")
+		_do(mv)}
+
+## Fenetre de ciblage (une entree par coup) d'une carte de la main.
+func _play_hand_menu(card: Dictionary, cands: Array) -> void:
 	var entries: Array = []
-	if can_build:
-		var dsize: int = (((game_manager.G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("dungeon", []) as Array).size()
-		entries.append({"label": "BUILD THIS ROOM", "cb": func():
-			_popup_close()
-			_play_sfx("res://assets/audio/sfx/sfx_room_physical.wav")
-			if game_manager.build_room_at(_my_pid(), idx, dsize):
-				refresh()})
 	for c in cands:
-		var mv: Dictionary = (c as Dictionary).duplicate()
-		var margs: Array = mv.get("args", [])
-		entries.append({"label": _target_label(mv, card), "mv": mv,
-			"spot": _spot_of_target(margs[1] as Dictionary, _my_pid()) if margs.size() > 1 and margs[1] is Dictionary else {}, "cb": func():
-			_play_sfx("res://assets/audio/sfx/sfx_room_magic.wav")
-			_do(mv)})
+		entries.append(_hand_entry(card, c))
 	var hint: String = str((SpellTargeting.SPELL_TARGETS.get(str(card.get("id", "")), {}) as Dictionary).get("label", ""))
 	_target_list("%s - %s" % [str(card.get("name", "")), hint] if hint != "" else str(card.get("name", "")), hint, entries, func(): _popup_close())
 

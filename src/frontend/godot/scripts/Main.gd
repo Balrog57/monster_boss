@@ -59,7 +59,7 @@ func _ready() -> void:
 		if origin != null and str(origin) != "" and str(origin) != "null":
 			server_host = str(origin)
 	var settings := Profile.load_settings()
-	if settings.has("host") and str(settings["host"]) != "":
+	if not OS.has_feature("web") and settings.has("host") and str(settings["host"]) != "": # web : toujours l'origine de la page (un hote enregistre par une ancienne session ne compte pas)
 		server_host = str(settings["host"])
 	use_extensions = bool(settings.get("extensions", false))
 	apk_decks = (settings.get("decks", []) as Array).filter(func(d): return _deck_playable(str(d)))
@@ -635,8 +635,10 @@ func start_online_match() -> void:
 func show_options() -> void:
 	var host := LineEdit.new()
 	host.text = server_host
+	var is_web := OS.has_feature("web")
 	var leave := func():
-		server_host = host.text
+		if not is_web:
+			server_host = host.text
 		Profile.save_settings(server_host, use_extensions, apk_decks)
 		show_menu()
 	_apk_screen(leave)
@@ -663,7 +665,10 @@ func show_options() -> void:
 	host.position = Vector2(1440, 1034)
 	host.size = Vector2(440, 36)
 	host.tooltip_text = "Multiplayer server"
-	add_child(host)
+	if is_web:
+		host.free() # web : le serveur est toujours celui qui sert la page (window.location.origin), pas de champ
+	else:
+		add_child(host)
 
 ## Rangee de segments facon APK : le segment choisi est une pierre verte (settings_bt) dorée, les autres sur une barre mauve.
 func _toggle_row(y: int, text: String, opts: Array, sel: int, cb: Callable) -> void:
