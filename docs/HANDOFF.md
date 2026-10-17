@@ -68,11 +68,10 @@ A faithful remake of the card game **Boss Monster: Master of the Dungeon** (Brot
 10. Games are in memory (no persistence); WINS/DEFEATS are client-declared and cosmetic.
 **Tooling**
 11. Parity is local only (oracle DLL under the gitignored `apk-original/`, .NET SDK needed); CI cannot run it.
-12. `tools/inject_base_heroes.py` reads a path that does not exist any more (dead script).
 
 ## 8. Reference material
 - `docs/reference/apk_orig/` (+ `INDEX.md`): ~115 reliable original 1920x1080 frames (spell drag, timer bar, game over, pause menu, gallery, stacked rooms, hand fan). Older files in `docs/reference/` have **unreliable names** (see `INDEX_part*.md`, partial). Reference dir is gitignored: regenerate by capturing.
-- **Capturing the original APK:** BlueStacks instance `Nougat32` has it installed. Start `"C:\Program Files\BlueStacks_nxt\HD-Player.exe" --instance Nougat32`, wait ~75 s, use ONLY `"C:\Program Files\BlueStacks_nxt\HD-Adb.exe" -s emulator-5554 ...` (the Android SDK adb conflicts and kills the server; the Android Studio AVDs are unusable here). Screen 1920x1080; helper scripts `tools/capture_apk_*.py`, `play_apk_*.py`. Mid-drag frames: `input swipe x1 y1 x2 y2 3000` + a second screencap.
+- **Capturing the original APK:** BlueStacks instance `Nougat32` has it installed. Start `"C:\Program Files\BlueStacks_nxt\HD-Player.exe" --instance Nougat32`, wait ~75 s, use ONLY `"C:\Program Files\BlueStacks_nxt\HD-Adb.exe" -s emulator-5554 ...` (the Android SDK adb conflicts and kills the server; the Android Studio AVDs are unusable here). Screen 1920x1080; helper scripts `tools/capture_apk_full_turn.py`, `tools/play_apk_robust.py`. Mid-drag frames: `input swipe x1 y1 x2 y2 3000` + a second screencap.
 - Decompiled C# (`apk-original/decompiled/DBMGame/`) for timings/geometry (hand = `CardPositionComponent`, timer bar durations, `FlipCardBehavior`, `CardAbilityBorder`, etc.).
 
 ## 9. What remains to do (priority order, with acceptance criteria)

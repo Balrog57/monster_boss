@@ -1,5 +1,5 @@
 """Lecture/ecriture de src/frontend/godot/data/cards.json (source de verite des cartes) avec la mise en page du depot :
-indent 2, UTF-8, `levelUp` des boss sur une seule ligne. Importe par merge_expansions / fetch_wiki_cards / inject_base_heroes."""
+indent 2, UTF-8, `levelUp` des boss sur une seule ligne. Importe par merge_expansions / fetch_wiki_cards."""
 import json
 import os
 

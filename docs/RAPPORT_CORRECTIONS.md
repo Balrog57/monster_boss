@@ -92,7 +92,6 @@ Les erreurs et divergences identifiées ont été corrigées directement dans le
   * `tools/extracted_assemblies/` : Supprimé
   * `tools/ilspycmd/` : Supprimé
 * **Fichiers pérennisés :**
-  * `RAPPORT_COMPARAISON.md` : Rapport d'analyse comparative globale (Phases 1 à 5).
   * `RAPPORT_CORRECTIONS.md` : Présent rapport technique des corrections et alignements.
   * `tools/extract_assemblies.py` : Script réutilisable d'extraction des DLLs depuis le bundle natif.
    * Modifications validées dans `src/ai.js`, `src/spellEffects.js`, `src/spellTargeting.js`, `test/engine.test.js`.

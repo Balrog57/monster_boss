@@ -2,12 +2,8 @@
 # never committed, never shipped — excluded from the Docker context too)
 apk-original/*
 !apk-original/README.md
-boss-monster-2-4-12.apk
-boss-monster-2-4-12/
 boss-monster-2-2-6-android.apk
 boss-monster-2-2-6/
-design_system/
-screenshot_*.png
 
 # Build artifacts & logs
 dist/
@@ -18,20 +14,9 @@ src/frontend/godot/build_web/
 # Playwright MCP session snapshots
 .playwright-mcp/
 
-# Opencode session state
-.opencode/
-
-# IDE / agent session state
-.qoder/
-
 # Python
 __pycache__/
 *.pyc
-
-# Scratch / experiment images
-src/frontend/assets/perm_test_*.jpg
-src/frontend/assets/sample_*.jpg
-test_*.webp
 
 # Harnais de parite APK <-> Godot (traces et projections generees)
 tools/parity/out/

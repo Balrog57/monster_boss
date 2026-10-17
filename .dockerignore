@@ -19,10 +19,6 @@ design_system
 security
 
 # Outillage et artefacts locaux
-**/node_modules
-test-results
-.playwright-mcp
-.opencode
 tools/apk-oracle/bin
 tools/apk-oracle/obj
 tools/apk-oracle/out
