@@ -13,7 +13,7 @@ const APK_SETS := ["base", "players-choice", "hidden-heroes", "tools"]
 ## [titre, dos de carte de l'onglet, genre pour CardDB.card_image]
 const TABS := [["BOSS CARDS", "back-boss", "boss"], ["ROOM CARDS", "back-room", "room"], ["SPELL CARDS", "back-spell", "spell"],
 	["HERO CARDS", "back-hero", "hero"], ["EPIC HERO CARDS", "back-epic", "epic-hero"]]
-const CARD := Vector2(255, 375)
+const CARD := Vector2(280, 400)       # APK : cadre noir compris x 235..514 (280 de large), 400 de haut
 const PITCH := Vector2(310, 410)       # ItemSize de l'APK : 310 x 410 (cartes a l'echelle ~0,82)
 
 var tab := 0
@@ -34,10 +34,10 @@ func _build() -> void:
 	bg.color = Color.BLACK
 	bg.size = Vector2(1920, 1080)
 	add_child(bg)
-	UiKit.image(self, UI + "backgrounds/gallery_bg.webp", Vector2(0, 105), Vector2(1920, 975))
+	UiKit.image(self, UI + "backgrounds/gallery_bg.webp", Vector2(0, 105), Vector2(1920, 975)).modulate = Color(0.3, 0.3, 0.3) # APK : fond presque noir (~13 contre 64)
 	UiKit.image(self, UI + "ingame/bg_top.webp", Vector2(175, -15), Vector2(1745, 77))
 	UiKit.image(self, UI + "ingame/card_gallery_top.webp", Vector2.ZERO, Vector2(175, 96))
-	title_label = UiKit.label(self, "", 46, Color.WHITE, Vector2(175, 12), 1745.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
+	title_label = UiKit.label(self, "", 29, Color.WHITE, Vector2(136, 9), 1745.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # APK : titre 231 x 20 px centre en (1008, 30)
 	UiKit.image(self, UI + "navigation/bm_logo.webp", Vector2(1590, 45), Vector2(260, 105))
 	var panel := ColorRect.new()
 	panel.color = Color(0, 0, 0, 0.4)
@@ -146,7 +146,7 @@ func select_tab(t: int) -> void:
 		t_rect.texture = UiKit.tex(CardDB.card_image(str(d.get("id", "")), str(TABS[tab][2])))
 		t_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t_rect.stretch_mode = TextureRect.STRETCH_SCALE
-		t_rect.position = Vector2(48.0 + PITCH.x * float(k / 2), 23.0 + PITCH.y * float(k % 2))
+		t_rect.position = Vector2(35.0 + PITCH.x * float(k / 2), 15.0 + PITCH.y * float(k % 2))
 		t_rect.size = CARD
 		t_rect.tooltip_text = str(d.get("name", ""))
 		t_rect.mouse_filter = Control.MOUSE_FILTER_PASS

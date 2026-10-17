@@ -35,6 +35,7 @@ var _long := false
 var _press_pos := Vector2.ZERO
 var _press_id := 0
 var _tween: Tween
+var _rest_scale := Vector2.ONE             # echelle au repos (dos de carte pose en salle : voir set_face_down_scale)
 var _gold: TextureRect
 var _frozen: TextureRect
 static var _gray_mat: ShaderMaterial
@@ -67,6 +68,13 @@ func set_gold(on: bool) -> void:
 		add_child(_gold)
 	if _gold != null:
 		_gold.visible = on
+
+## APK : une salle posee face cachee est le dos de carte a l'echelle 0,5 de la main (175 x 244), plus grand que l'emplacement (127 x 175) ;
+## elle est centree sur l'emplacement et retrouve la taille de l'emplacement une fois retournee.
+func set_face_down_scale() -> void:
+	var down: bool = card_data != null and card_data.face_down
+	_rest_scale = Vector2(175.0 / 127.0, 244.0 / 175.0) if down else Vector2.ONE
+	scale = _rest_scale
 
 ## Gel de l'APK (Freeze) : voile de glace (frozzen_card) par-dessus la salle.
 func set_frozen(on: bool) -> void:
@@ -173,7 +181,7 @@ func _on_mouse_entered() -> void:
 	if _tween and _tween.is_valid():
 		_tween.kill()
 	_tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	_tween.tween_property(self, "scale", Vector2.ONE * hover_scale, hover_duration)
+	_tween.tween_property(self, "scale", _rest_scale * hover_scale, hover_duration)
 	card_hovered.emit(card_data, true)
 
 func _on_mouse_exited() -> void:
@@ -185,7 +193,7 @@ func _on_mouse_exited() -> void:
 	if _tween and _tween.is_valid():
 		_tween.kill()
 	_tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	_tween.tween_property(self, "scale", Vector2.ONE, hover_duration)
+	_tween.tween_property(self, "scale", _rest_scale, hover_duration)
 	card_hovered.emit(card_data, false)
 
 func _on_gui_input(event: InputEvent) -> void:

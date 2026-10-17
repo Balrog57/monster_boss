@@ -61,8 +61,12 @@ const LANE_H := [435.0, 455.0]
 const SLOT_Y := [128.0, 138.0]           # haut des emplacements, relatif au couloir
 const SLOT_SIZE := Vector2(127, 175)
 const SLOT_X0 := 660.0
+const HERO_CARD := Vector2(136, 196)     # APK : carte de heros a l'entree du donjon / en traversee (x 464..600 pour la premiere)
+const HERO_FRONT_X := 464.0
+const HERO_IN_SLOT := Vector2(-4.5, -10.5) # decalage d'une carte de heros posee sur un emplacement (127 x 175), centree dessus
 const SLOT_STEP := 140.0
 const PLAY_CX := 945.0                   # centre de la zone de jeu (entre les deux colonnes)
+const STACK_CX := 960.0                  # APK : pile de sorts, zoom central et barre de temps centres au milieu de l'ecran (cadre noir x 785..1135)
 const HAND_CARD := Vector2(175, 244)     # APK : carte 350x488 a l'echelle 0,5 (HandEntity.NormalScale), bas de carte sous le bord de l'ecran
 const HAND_CX := 960.0                   # HandEntity : x = VirtualWidth * 0,5 (1440 centres dans 1920), y = VirtualHeight * 0,9
 const HAND_CY := 972.0
@@ -77,6 +81,7 @@ const TEX_TARGET_GLOW := "res://assets/ui/ingame/card_border_yellow_glow.webp"
 const TARGET_Z := 60                     # salles / heros / boss ciblables : passent devant le voile du mode ciblage (z 40)
 const GOLD := Color(0.95, 0.78, 0.3)
 const CREAM := Color(0.93, 0.87, 0.7)
+const APK_GOLD := Color(0.804, 0.694, 0.373) # texte or de l'APK (nom du boss, nombres de pioche, « XP ») : (205, 177, 95)
 
 var _fa: Font
 var _fb: Font
@@ -159,6 +164,7 @@ var _tgt_layer: Control                  # voile + bulle + CANCEL + zones cliqua
 var _tgt_cancel_btn: Button
 var _tgt_spots: Array = []               # [{ctrl, ids}] : ids = indices dans _tgt.entries atteints par cette zone
 var _tgt_lifted: Array = []              # noeuds du plateau passes devant le voile (remis a z 0 a la fin)
+var _town_header: TextureRect           # « HEROES IN TOWN » ; « EPIC / HEROES IN TOWN » (cadre or) tant qu'un heros epique est en ville
 var _town_scroll: ScrollContainer
 var _town_drag := {}                     # glisser la colonne HEROES IN TOWN (VerticalScrollQueueComponent) : {y, sv}
 var _town_sig := ""                      # heros affiches : la colonne n'est reconstruite (et son defilement garde) que s'ils changent
@@ -307,10 +313,11 @@ func _make_lane(idx: int) -> Dictionary:
 	slots.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(slots)
 	L["slots"] = slots
-	var entrance := HBoxContainer.new()
-	entrance.position = Vector2(215, 285)
-	entrance.size = Vector2(420, 100)
-	entrance.add_theme_constant_override("separation", 6)
+	# Entree : APK = les heros en attente sont des CARTES (136 x 196, centrees sur la rangee des emplacements) ; la 1re est devant,
+	# x 464..600, les suivantes en eventail derriere elle (voir _refresh_entrances).
+	var entrance := Control.new()
+	entrance.position = Vector2(HERO_FRONT_X, SLOT_Y[idx] - 10.5)
+	entrance.size = HERO_CARD
 	entrance.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(entrance)
 	L["entrance"] = entrance
@@ -333,10 +340,11 @@ func _make_lane(idx: int) -> Dictionary:
 	L["container"] = cont
 	# Badges : DAMAGE <coeur n> puis <n>XP + niveau + type de tresor du boss
 	_img(root, TEX_TOTAL_DAMAGE, Vector2(1355, 12))
-	L["dmg"] = _lbl(root, "0", 26, Color.WHITE, Vector2(1355 + 105 - 25, 12 + 28 - 17), 50.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
+	L["dmg"] = _lbl(root, "0", 19, Color.WHITE, Vector2(1355 + 105 - 25, 20), 50.0, _fa, HORIZONTAL_ALIGNMENT_CENTER) # APK : chiffre centre sur le coeur (y 96 / 532), ~13 px de haut
 	_img(root, TEX_XP_BADGE, Vector2(1503, 12))
-	L["xp"] = _lbl(root, "0XP", 22, Color.WHITE, Vector2(1511, 12 + 11), 0.0, _fb)
-	L["lvl"] = _lbl(root, "1", 30, Color.WHITE, Vector2(1503 + 95, 12 + 4), 40.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
+	L["xp"] = _lbl(root, "0XP", 22, Color.WHITE, Vector2(1509, 12 + 11), 0.0, _fb)
+	L["xp_unit"] = _lbl(root, "XP", 22, APK_GOLD, Vector2(1509, 12 + 11), 0.0, _fb) # APK : « XP » en or, les chiffres en blanc (recouvre le « XP » blanc de L["xp"])
+	L["lvl"] = _lbl(root, "1", 24, Color.WHITE, Vector2(1503 + 95, 12 + 7), 40.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
 	L["icon"] = _img(root, "", Vector2(1503 + 153 - 13, 12 + 25 - 13), Vector2(26, 26), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
 	return L
 
@@ -345,8 +353,8 @@ func _build_frame() -> void:
 	for x in [0.0, 1708.0]:
 		var w: float = 183.0 if x == 0.0 else 212.0
 		var stone := _img(self, "res://assets/ui/ingame/bg_levelup_panel.webp", Vector2(x, 0), Vector2(w, 1080), TextureRect.STRETCH_TILE)
-		stone.modulate = Color(0.55, 0.45, 0.7, 1.0)
-		_rect(self, Color(0.08, 0.03, 0.12, 0.86), Vector2(x, 0), Vector2(w, 1080))
+		stone.modulate = Color(0.55, 0.45, 0.7, 0.45)
+		_rect(self, Color(0.08, 0.03, 0.12, 0.62), Vector2(x, 0), Vector2(w, 1080)) # APK : panneau translucide, le couloir se devine derriere
 	_img(self, UI_DIR + "vertical_line.webp", Vector2(183, 0))
 	_img(self, UI_DIR + "vertical_line.webp", Vector2(1707, 0))
 	_img(self, UI_DIR + "bg_top.webp", Vector2(0, -15), Vector2(1920, 77))
@@ -364,19 +372,20 @@ func _build_left() -> void:
 	town_container = VBoxContainer.new()
 	town_container.add_theme_constant_override("separation", 15)
 	scroll.add_child(town_container)
-	_img(self, UI_DIR + "heroes_in_town_top.webp", Vector2(0, 0), Vector2(183, 96))
+	_town_header = _img(self, UI_DIR + "heroes_in_town_top.webp", Vector2(0, 0), Vector2(183, 96))
 	discard_btn = _tex_button(self, UI_DIR + "discard_pile.webp", "", Vector2(0, 907), Vector2(192, 149))
 
 func _build_right() -> void:
-	# --- Boss adverse
-	_img(self, UI_DIR + "boss_icon.webp", Vector2(1716, 74), Vector2(36, 42), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
-	foe_name_label = _lbl(self, "", 20, CREAM, Vector2(1762, 80), 150.0, _fb)
-	foe_sub_label = _lbl(self, "", 12, Color.WHITE, Vector2(1762, 106), 110.0, _fb)
+	# --- Boss adverse (positions mesurees sur les frames de l'APK ; polices : arcadepix A pour tout le texte de la colonne)
+	_img(self, UI_DIR + "boss_icon.webp", Vector2(1712.5, 74.5), Vector2(43, 43), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
+	foe_name_label = _lbl(self, "", 18, APK_GOLD, Vector2(1762, 75), 150.0, _fa)
+	foe_sub_label = _lbl(self, "", 11, Color.WHITE, Vector2(1762, 100), 110.0, _fa)
 	foe_sub_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_img(self, TEX_WOUND, Vector2(1716, 142), Vector2(22, 28), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
-	foe_wounds_label = _lbl(self, "x0", 18, Color.WHITE, Vector2(1746, 144), 0.0, _fa)
-	_img(self, TEX_SOUL, Vector2(1782, 142), Vector2(22, 28), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
-	foe_souls_label = _lbl(self, "x0", 18, Color.WHITE, Vector2(1812, 144), 0.0, _fa)
+	foe_sub_label.add_theme_constant_override("line_spacing", -4)
+	_img(self, TEX_WOUND, Vector2(1715.5, 138), Vector2(27, 35), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
+	foe_wounds_label = _lbl(self, "x0", 18, Color.WHITE, Vector2(1746, 142), 0.0, _fa)
+	_img(self, TEX_SOUL, Vector2(1775.5, 137.5), Vector2(29, 34), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
+	foe_souls_label = _lbl(self, "x0", 18, Color.WHITE, Vector2(1806, 142), 0.0, _fa)
 	foe_treasures_box = Control.new()
 	foe_treasures_box.position = Vector2(1715, 197)
 	foe_treasures_box.size = Vector2(202, 68)
@@ -385,29 +394,30 @@ func _build_right() -> void:
 	_img(foe_treasures_box, UI_DIR + "bg_treasures_boss_profile.webp", Vector2.ZERO, Vector2(202, 68)).modulate = Color(1, 1, 1, 0.6)
 	foe_coins_label = _lbl(self, "", 12, GOLD, Vector2(1718, 268))
 	# --- Pioches
-	_lbl(self, "ROOM DECK", 18, CREAM, Vector2(1718, 288))
-	_img(self, UI_DIR + "rooms_icon.webp", Vector2(1717, 315), Vector2(62, 58))
-	room_deck_label = _lbl(self, "x0", 26, Color.WHITE, Vector2(1812, 334), 0.0, _fa)
-	_lbl(self, "SPELL DECK", 18, CREAM, Vector2(1718, 384))
-	_img(self, UI_DIR + "spells_icon.webp", Vector2(1717, 410), Vector2(62, 58))
-	spell_deck_label = _lbl(self, "x0", 26, Color.WHITE, Vector2(1812, 430), 0.0, _fa)
+	_lbl(self, "ROOM DECK", 16, Color.WHITE, Vector2(1718, 286), 0.0, _fa)
+	_img(self, UI_DIR + "rooms_icon.webp", Vector2(1717, 315), Vector2(50, 48))
+	room_deck_label = _lbl(self, "x0", 20, APK_GOLD, Vector2(1784, 335), 0.0, _fa)
+	_lbl(self, "SPELL DECK", 16, Color.WHITE, Vector2(1718, 382), 0.0, _fa)
+	_img(self, UI_DIR + "spells_icon.webp", Vector2(1717, 410), Vector2(50, 48))
+	spell_deck_label = _lbl(self, "x0", 20, APK_GOLD, Vector2(1784, 431), 0.0, _fa)
 	deck_info_label = _lbl(self, "", 13, GOLD, Vector2(1718, 472))
 	# --- Mon boss
-	_img(self, UI_DIR + "boss_icon.webp", Vector2(1716, 509), Vector2(36, 42), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
-	sidebar_boss_label = _lbl(self, "", 20, CREAM, Vector2(1762, 513), 150.0, _fb)
-	sidebar_sub_label = _lbl(self, "", 12, Color.WHITE, Vector2(1762, 539), 110.0, _fb)
+	_img(self, UI_DIR + "boss_icon.webp", Vector2(1712.5, 507.5), Vector2(43, 43), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
+	sidebar_boss_label = _lbl(self, "", 18, APK_GOLD, Vector2(1762, 508), 150.0, _fa)
+	sidebar_sub_label = _lbl(self, "", 11, Color.WHITE, Vector2(1762, 533), 110.0, _fa)
 	sidebar_sub_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_lbl(self, "WOUNDS", 18, CREAM, Vector2(1718, 580))
+	sidebar_sub_label.add_theme_constant_override("line_spacing", -4)
+	_lbl(self, "WOUNDS", 16, Color.WHITE, Vector2(1718, 578), 0.0, _fa)
 	wounds_container = HBoxContainer.new()
 	wounds_container.position = Vector2(1718, 606)
 	wounds_container.add_theme_constant_override("separation", 3)
 	add_child(wounds_container)
-	_lbl(self, "SOULS", 18, CREAM, Vector2(1718, 644))
+	_lbl(self, "SOULS", 16, Color.WHITE, Vector2(1718, 642), 0.0, _fa)
 	souls_container = HBoxContainer.new()
 	souls_container.position = Vector2(1718, 668)
 	souls_container.add_theme_constant_override("separation", 0)
 	add_child(souls_container)
-	_lbl(self, "TREASURES", 18, CREAM, Vector2(1718, 706))
+	_lbl(self, "TREASURES", 16, Color.WHITE, Vector2(1718, 704), 0.0, _fa)
 	treasures_container = Control.new()
 	treasures_container.position = Vector2(1717, 737)
 	treasures_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -417,7 +427,7 @@ func _build_right() -> void:
 func _build_actions() -> void:
 	# PASS TURN / GO centres sur la separation des deux couloirs.
 	action_box = HBoxContainer.new()
-	action_box.position = Vector2(PLAY_CX - 200, 459)
+	action_box.position = Vector2(PLAY_CX - 195, 464) # APK : PASS TURN x 851..1048, y 465..536
 	action_box.size = Vector2(400, 82)
 	action_box.alignment = BoxContainer.ALIGNMENT_CENTER
 	action_box.add_theme_constant_override("separation", 12)
@@ -476,7 +486,7 @@ func _build_overlay() -> void:
 	_dim.size = Vector2(1523, 890)
 	_dim.visible = false
 	add_child(_dim)
-	_bubble = _img(self, UI_DIR + "top_globe.webp", Vector2(PLAY_CX - 465, 150))
+	_bubble = _img(self, UI_DIR + "top_globe.webp", Vector2(PLAY_CX - 440, 150)) # APK : bulle x 510..1430
 	_bubble.visible = false
 	_carousel_text = RichTextLabel.new()
 	_carousel_text.bbcode_enabled = true
@@ -497,7 +507,7 @@ func _build_overlay() -> void:
 	add_child(_confirm_btn)
 
 func _build_top() -> void:
-	phase_banner = _img(self, "", Vector2(PLAY_CX - 201, -62), Vector2(403, 153))
+	phase_banner = _img(self, "", Vector2(PLAY_CX - 210, -62), Vector2(403, 153)) # APK : plaque x 739..1135 (centre 937)
 	timer_label = _lbl(self, "", 18, GOLD, Vector2(1160, 18))
 	# Engrenage (menu) en haut a droite
 	top_menu_btn = Button.new()
@@ -727,15 +737,15 @@ func _win_hide() -> void:
 func _win_show(want: float, stack_open: bool) -> void:
 	_win_bar.visible = true
 	_win_bar.frac = 1.0 - _win_t / maxf(want, 0.001)
-	var anchor := Vector2(PLAY_CX, 198.0)
+	var anchor := Vector2(STACK_CX + 2.0, 198.0)
 	if not stack_open:
 		var adv: Dictionary = game_manager.G.get("adventure", {})
 		var apid: int = int(adv.get("playerId", game_manager.active_player())) if not adv.is_empty() else game_manager.active_player()
 		if _hero_pawn != null and is_instance_valid(_hero_pawn):
-			anchor = _hero_pawn.global_position + Vector2(45, -50)
+			anchor = _hero_pawn.global_position + Vector2(HERO_CARD.x / 2.0, -60.0) # APK : barre 60 px au-dessus de la carte
 		else:
 			var ent: Control = (_lane[1 if apid == view_pid else 0] as Dictionary)["entrance"]
-			anchor = ent.global_position + Vector2(45, -22)
+			anchor = ent.global_position + Vector2(HERO_CARD.x / 2.0, -60.0)
 	_win_bar.position = anchor - _win_bar.size / 2.0
 
 ## Automatisation UI de l'aventure et de la pile de sorts (aucune regle changee). Un humain qui n'a RIEN a jouer passe presque tout de suite ;
@@ -942,8 +952,8 @@ func _refresh_overlay(G: Dictionary, phase: String) -> void:
 		_carousel_text.size = Vector2(1200, 90)
 		_set_carousel_text("YOU ARE [color=#f0c040]%s[/color]" % (_boss_name if _boss_flipping else "..."), 56)
 	elif discard:
-		_set_carousel_text("SELECT [color=#f0c040]2[/color] CARDS TO DISCARD", 26)
-		_carousel_text.position = Vector2(PLAY_CX - 465, 150 + 40)
+		_set_carousel_text("SELECT [color=#f0c040]2[/color] CARDS TO DISCARD", 21)
+		_carousel_text.position = Vector2(STACK_CX + 2 - 465, 204) # APK : texte centre en x 962, y 215
 		_carousel_text.size = Vector2(931, 50)
 
 func _set_carousel_text(bb: String, font_size: int) -> void:
@@ -954,7 +964,11 @@ func _refresh_lane_badges(idx: int, pl: Dictionary) -> void:
 	var L: Dictionary = _lane[idx]
 	var boss = pl.get("boss")
 	(L["dmg"] as Label).text = str(_get_total_dungeon_damage(pl))
-	(L["xp"] as Label).text = "%dXP" % (int((boss as Dictionary).get("xp", 0)) if boss != null else 0)
+	var xp_n := int((boss as Dictionary).get("xp", 0)) if boss != null else 0
+	(L["xp"] as Label).text = "%dXP" % xp_n
+	var xp_digits := str(xp_n)
+	(L["xp_unit"] as Label).position.x = (L["xp"] as Label).position.x + _fb.get_string_size(xp_digits, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
+	(L["xp_unit"] as Label).text = "XP"
 	(L["lvl"] as Label).text = "2" if bool(pl.get("leveledUp", false)) else "1"
 	var tr: Array = (boss as Dictionary).get("treasures", []) if boss != null else []
 	(L["icon"] as TextureRect).texture = _tex(str(TREASURE_TEX.get(int(tr[0]) if not tr.is_empty() else 0, "")))
@@ -965,6 +979,8 @@ func _refresh_town(G: Dictionary) -> void:
 	if sig == _town_sig:
 		return # memes heros : on garde les cartes (et le defilement de la colonne)
 	_town_sig = sig
+	var epic: bool = town.any(func(h): return bool((h as Dictionary).get("epic", false)))
+	_town_header.texture = _tex(UI_DIR + ("epic_heroes_in_town_top.webp" if epic else "heroes_in_town_top.webp"))
 	var keep_sv := _town_scroll.scroll_vertical
 	for c in town_container.get_children():
 		town_container.remove_child(c) # tout de suite : les zones de ciblage lisent les positions des nouvelles cartes
@@ -1029,35 +1045,40 @@ func _town_input(event: InputEvent) -> void:
 func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 	var rows := [[1, p], [0, foe]]
 	for r in rows:
-		var box: HBoxContainer = (_lane[int(r[0])] as Dictionary)["entrance"]
+		var box: Control = (_lane[int(r[0])] as Dictionary)["entrance"]
 		for c in box.get_children():
 			box.remove_child(c)
 			c.queue_free()
 		var adv: Dictionary = game_manager.G.get("adventure", {})
 		var adv_pl = (game_manager.G.get("players", {}) as Dictionary).get(int(adv.get("playerId", -1))) if not adv.is_empty() else null
 		var walking: bool = adv_pl != null and is_same(adv_pl, r[1]) and _hero_pawn != null and is_instance_valid(_hero_pawn)
-		var skipped := false
+		var ents: Array = (r[1] as Dictionary).get("entrance", [])
+		var skip_k := -1
+		if walking:
+			for k in ents.size(): # ce heros est deja le pion qui traverse le donjon
+				if ents[k] == adv.get("hero"):
+					skip_k = k
+					break
+		var pitch := clampf(30.0 + 6.0 * float(ents.size() - 2), 30.0, 48.0) # APK : 30 px de debord pour 2 cartes, 48 pour 5
 		var toks: Array = []
-		for hero in (r[1] as Dictionary).get("entrance", []):
-			if walking and not skipped and hero == adv.get("hero"): # ce heros est deja le pion qui traverse le donjon
-				skipped = true
-				toks.append(null)
+		toks.resize(ents.size())
+		for k in range(ents.size() - 1, -1, -1): # la derniere d'abord : la premiere reste au premier plan
+			if k == skip_k:
 				continue
-			var tok := _create_mini_hero_token(hero)
+			var tok := _create_entrance_card(ents[k])
+			tok.position = Vector2(-pitch * float(k), 0.0)
 			box.add_child(tok)
-			toks.append(tok)
+			toks[k] = tok
 		_ent_tok[view_pid if int(r[0]) == 1 else foe_pid] = toks
 
-func _create_mini_hero_token(hero: Dictionary) -> Control:
-	var c := TextureRect.new()
-	c.custom_minimum_size = Vector2(90, 90)
-	c.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	c.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var hid := str(hero.get("id", "")).to_lower()
-	var sprite_path := "res://assets/ui/characters/heroes/%s_character.webp" % hid
-	if ResourceLoader.exists(sprite_path):
-		c.texture = load(sprite_path)
-	c.tooltip_text = "%s (HP: %s)" % [str(hero.get("name", "Hero")), str(hero.get("health", 4))]
+func _create_entrance_card(hero: Dictionary) -> Control:
+	var c = _card_scene.instantiate()
+	c.default_size = HERO_CARD
+	c.size = HERO_CARD
+	c.is_in_hand = false
+	c.setup(hero)
+	c.long_pressed.connect(_zoom_show)
+	c.long_released.connect(func(_c): _zoom_hide())
 	return c
 
 func _refresh_boss_platforms(p: Dictionary, foe: Dictionary) -> void:
@@ -1090,6 +1111,8 @@ func _set_boss(L: Dictionary, boss, dead := false) -> void:
 		sprite.texture = tex
 		sprite.size = tex.get_size() * minf(BOSS_SPRITE_SCALE, BOSS_SPRITE_MAX_W / tex.get_size().x)
 		sprite.position = Vector2((plat.size.x - sprite.size.x) / 2.0, plat.size.y - sprite.size.y)
+		if dead:
+			sprite.position.x = plat.size.x - sprite.size.x + 2.0 # APK : la pierre tombale est collee au bord droit du couloir (x ~1707)
 
 func _ensure_boss_card(container: CenterContainer, boss_dict: Dictionary) -> void:
 	for c in container.get_children():
@@ -1137,6 +1160,7 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 				room_ui.long_pressed.connect(_zoom_show)
 				room_ui.long_released.connect(func(_c): _zoom_hide())
 				room_ui.set_frozen(BossEngine.is_room_deactivated(game_manager.G, foe_pid, di))
+				room_ui.set_face_down_scale()
 				if Minibosses.active(game_manager.G): # Rise of the Minibosses : le miniboss de la salle adverse (nom cache tant qu'il est face cache)
 					var mb_badge := Minibosses.make_badge(r, false)
 					if mb_badge != null:
@@ -1432,15 +1456,24 @@ func _icon_row(box: Container, total: int, filled: int, on_path: String, off_pat
 		t.texture = _tex(on_path if i < filled else off_path)
 		box.add_child(t)
 
+## Un nom trop long pour la colonne (1762..1912) est reduit pour y tenir (l'APK ne deborde pas).
+func _fit_label(l: Label, max_w: float, base: int) -> void:
+	var f: Font = l.get_theme_font("font")
+	var sz := base
+	while sz > 9 and f.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x > max_w:
+		sz -= 1
+	l.add_theme_font_size_override("font_size", sz)
+
 func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 	# Mon boss
 	var pb = p.get("boss")
 	sidebar_boss_label.text = str(pb.get("name", "")).to_upper() if pb != null else ""
+	_fit_label(sidebar_boss_label, 150.0, 18)
 	sidebar_sub_label.text = str(pb.get("subtitle", "")) if pb != null else ""
 	var n_souls: int = CardDB.total_souls(p, game_manager.G)
 	var n_wounds: int = CardDB.total_wounds(p)
-	_icon_row(souls_container, 10, n_souls, TEX_SOUL, TEX_SOUL_EMPTY, Vector2(18, 24))
-	_icon_row(wounds_container, 5, n_wounds, TEX_WOUND, TEX_WOUND_EMPTY, Vector2(22, 26))
+	_icon_row(souls_container, 10, n_souls, TEX_SOUL, TEX_SOUL_EMPTY, Vector2(19, 26))
+	_icon_row(wounds_container, 5, n_wounds, TEX_WOUND, TEX_WOUND_EMPTY, Vector2(21, 27))
 	if not skip_animations: # APK : le cristal / la goutte gagnes s'allument
 		_flash_icons(souls_container, _souls_seen, mini(n_souls, 10))
 		_flash_icons(wounds_container, _wounds_seen, mini(n_wounds, 5))
@@ -1452,6 +1485,7 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 	# Boss adverse
 	var fb = foe.get("boss")
 	foe_name_label.text = str(fb.get("name", "")).to_upper() if fb != null else ""
+	_fit_label(foe_name_label, 150.0, 18)
 	foe_sub_label.text = str(fb.get("subtitle", "")) if fb != null else ""
 	foe_wounds_label.text = "x%d" % CardDB.total_wounds(foe)
 	foe_souls_label.text = "x%d" % CardDB.total_souls(foe, game_manager.G)
@@ -1502,9 +1536,9 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 		hero_crossing_layer.add_child(pawn)
 		var death_idx: int = int(lhf.get("deathIndex", -1))
 		if killed and death_idx >= 0 and death_idx + vis_off < slots_list.size():
-			pawn.global_position = (slots_list[death_idx + vis_off] as Control).global_position + Vector2(15, 20)
+			pawn.global_position = (slots_list[death_idx + vis_off] as Control).global_position + HERO_IN_SLOT
 		else:
-			pawn.global_position = entrance_ctrl.global_position + Vector2(10, 10)
+			pawn.global_position = entrance_ctrl.global_position
 	_hero_pawn = null
 	_hero_pawn_hp = null
 
@@ -1517,7 +1551,7 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 		var is_magic: bool = bool(step.get("isMagic", false))
 		if slot_idx + vis_off < slots_list.size():
 			var target_slot: Control = slots_list[slot_idx + vis_off]
-			var target_pos := target_slot.global_position + Vector2(15, 20)
+			var target_pos := target_slot.global_position + HERO_IN_SLOT
 
 			tw.tween_callback(func(): _play_sfx("res://assets/audio/sfx/char_hero_move.wav"))
 			tw.tween_property(pawn, "global_position", target_pos, 0.35 * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
@@ -1603,10 +1637,10 @@ func _slot_at(pid: int, room: int) -> Control:
 func _step_target(pid: int, room: int) -> Vector2:
 	var L: Dictionary = _lane[1 if pid == view_pid else 0]
 	if room < 0:
-		return (L["entrance"] as Control).global_position + Vector2(10, 10)
+		return (L["entrance"] as Control).global_position
 	var sl := _slot_at(pid, room)
 	if sl != null:
-		return sl.global_position + Vector2(15, 20)
+		return sl.global_position + HERO_IN_SLOT
 	return (L["platform"] as Control).global_position + Vector2(25, 25)
 
 func _animate_step(hero: Dictionary, pid: int, from_room: int, to_room: int, hp_before: int, hp_after: int) -> void:
@@ -1652,17 +1686,17 @@ func refresh_entrance_only() -> void:
 
 func _create_hero_pawn(hero: Dictionary, hp: int) -> Control:
 	var ctrl := Control.new()
-	ctrl.custom_minimum_size = Vector2(90, 115)
+	ctrl.custom_minimum_size = HERO_CARD
+	ctrl.size = HERO_CARD
+	ctrl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var tex := TextureRect.new()
-	tex.set_anchors_preset(Control.PRESET_FULL_RECT)
-	tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var hid := str(hero.get("id", "")).to_lower()
-	var sprite_path := "res://assets/ui/characters/heroes/%s_character.webp" % hid
-	if ResourceLoader.exists(sprite_path):
-		tex.texture = load(sprite_path)
-	ctrl.add_child(tex)
+	var card = _card_scene.instantiate() # APK : le heros qui traverse est sa carte, posee sur la salle
+	card.default_size = HERO_CARD
+	ctrl.add_child(card)
+	card.size = HERO_CARD
+	card.is_in_hand = false
+	card.setup(hero)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	var hp_badge := Label.new()
 	hp_badge.name = "Hp"
@@ -2775,7 +2809,7 @@ func _zoom_show(card: Control) -> void:
 	_zoom_hide()
 	var greyed: bool = ci.texture_rect != null and ci.texture_rect.material != null
 	_zoom = UiKit.zoom_card(ci.card_dict, UiKit.ZOOM_CARD, greyed)
-	_zoom.position = Vector2(clampf(ci.get_global_rect().get_center().x - _zoom.size.x / 2.0, 190.0, 1707.0 - _zoom.size.x), 283.0)
+	_zoom.position = Vector2(clampf(ci.get_global_rect().get_center().x - _zoom.size.x / 2.0, 190.0, 1707.0 - _zoom.size.x), 295.0) # APK : cadre noir de 350 x 490 dont le haut est a y ~295
 	_ui_layer.add_child(_zoom)
 	hand_layer.modulate = Color(0.6, 0.6, 0.6)
 
@@ -2813,7 +2847,7 @@ func _refresh_stack_cards(G: Dictionary) -> void:
 		if card.is_empty():
 			continue
 		var z := UiKit.zoom_card(card, csz)
-		var cx := PLAY_CX + (float(i) - float(n - 1) / 2.0) * (z.size.x + 16.0)
+		var cx := STACK_CX + (float(i) - float(n - 1) / 2.0) * (z.size.x + 16.0)
 		z.position = Vector2(cx - z.size.x / 2.0, 498.0 - z.size.y / 2.0)
 		if bool((stack[i] as Dictionary).get("canceled", false)):
 			z.modulate = Color(0.5, 0.5, 0.5)
@@ -2846,19 +2880,19 @@ func _show_notice(what: String, card = null) -> void:
 	var n := Control.new()
 	n.name = "Notice"
 	n.mouse_filter = Control.MOUSE_FILTER_STOP if card is Dictionary else Control.MOUSE_FILTER_IGNORE
-	n.position = Vector2(1432, 60)
-	n.size = Vector2(262, 150)
+	n.position = Vector2(1458, 63) # APK : boite x 1458..1672, y 65..194, queue jusqu'a 1692
+	n.size = Vector2(234, 136)
 	if card is Dictionary:
 		n.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		n.gui_input.connect(func(ev: InputEvent):
 			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 				n.accept_event()
 				_notice_zoom(card))
-	UiKit.image(n, UI_DIR + "action_bubble.webp", Vector2.ZERO, Vector2(262, 152))
-	var fx := UiKit.image(n, UI_DIR + "action_bubble_effect.webp", Vector2.ZERO, Vector2(262, 152))
+	UiKit.image(n, UI_DIR + "action_bubble.webp", Vector2.ZERO, Vector2(234, 136))
+	var fx := UiKit.image(n, UI_DIR + "action_bubble_effect.webp", Vector2.ZERO, Vector2(234, 136))
 	fx.create_tween().set_loops().tween_property(fx, "modulate:a", 0.15, 0.6).from(1.0).set_trans(Tween.TRANS_SINE)
-	UiKit.label(n, "HAS PLAYED A", 22, Color.WHITE, Vector2(0, 38), 238.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
-	UiKit.label(n, what, 30 if what.length() < 8 else 22, GOLD, Vector2(0, 72), 238.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
+	UiKit.label(n, "HAS PLAYED A", 17, Color.WHITE, Vector2(0, 41), 216.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
+	UiKit.label(n, what, 21, APK_GOLD, Vector2(0, 64), 216.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
 	_ui_layer.add_child(n)
 	_notice = n
 	var tw := n.create_tween()
@@ -2871,7 +2905,7 @@ func _notice_zoom(card: Dictionary) -> void:
 	_zoom_hide()
 	_zoom = UiKit.zoom_card(card, UiKit.ZOOM_CARD)
 	_zoom.set_meta("levelup", true) # survit aux refresh (l'IA continue de jouer) ; _input le ferme au clic suivant
-	_zoom.position = Vector2(PLAY_CX - _zoom.size.x / 2.0, 498.0 - _zoom.size.y / 2.0)
+	_zoom.position = Vector2(STACK_CX - _zoom.size.x / 2.0, 498.0 - _zoom.size.y / 2.0)
 	_ui_layer.add_child(_zoom)
 
 ## Nouvelles cartes en main (pioche) : dos de carte au centre (une rangee, plus petit s'il y en a plusieurs), la carte se retourne puis
@@ -2939,13 +2973,14 @@ func _warn_show() -> void:
 	var b := Control.new()
 	b.name = "PassWarning"
 	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.position = Vector2(1226, 542)
+	b.position = Vector2(1230, 542) # APK : bulle x 1231..1461, y 548..673 (queue jusqu'a 692)
 	b.size = Vector2(238, 150)
 	UiKit.image(b, UI_DIR + "boss_globe.webp", Vector2.ZERO, Vector2(238, 150))
-	var t := UiKit.label(b, "HEY! YOU CAN BUILD A ROOM! STILL WANT TO PASS?", 22, Color.WHITE, Vector2(10, 6), 218.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
-	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	t.custom_minimum_size = Vector2(218.0, 118.0)
-	t.size = Vector2(218.0, 118.0) # le libelle avait grandi a la largeur du texte sur une ligne
+	# 4 lignes comme l'APK (le retour a la ligne automatique debordait de la bulle)
+	var t := UiKit.label(b, "HEY! YOU CAN\nBUILD A\nROOM! STILL\nWANT TO PASS?", 21, Color.WHITE, Vector2(2, 6), 232.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
+	t.add_theme_constant_override("line_spacing", -4)
+	t.custom_minimum_size = Vector2(232.0, 118.0)
+	t.size = Vector2(232.0, 118.0)
 	t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_ui_layer.add_child(b)
 	_warn = b
@@ -2978,6 +3013,7 @@ func _show_gameover(G: Dictionary) -> void:
 	_warn_hide()
 	_drag_clear()
 	_zoom_hide()
+	phase_banner.visible = false # APK : plus de bandeau de phase sur l'ecran de fin
 	var w := int((G["gameOver"] as Dictionary).get("winner", -1))
 	var players: Dictionary = G.get("players", {})
 	var boss = (players[w] as Dictionary).get("boss") if players.has(w) else null
@@ -3070,7 +3106,7 @@ func _on_discard_pile_pressed() -> void:
 			dialog.queue_free()) # OK / croix : la fenetre est liberee (sinon une de plus a chaque ouverture)
 	dialog.popup_centered()
 
-## APK (GamePlayBaseScene.ShowZoomCard) : LEVEL UP montre mon boss en grand (x1,3), au-dessus du bouton, aligne a droite sur lui.
+## APK (GamePlayBaseScene.ShowZoomCard) : LEVEL UP montre mon boss en grand (x1,3), cadre noir 450 x 632 en bas a droite (x 1280..1730, y 444..1076).
 func _on_level_up_pressed() -> void:
 	_play_sfx("res://assets/audio/sfx/sting_levelup.wav")
 	var boss = (((game_manager.G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary)).get("boss")
@@ -3079,8 +3115,7 @@ func _on_level_up_pressed() -> void:
 	_zoom_hide()
 	_zoom = UiKit.zoom_card(boss, UiKit.ZOOM_CARD * 1.3)
 	_zoom.set_meta("levelup", true)
-	_zoom.position = Vector2(clampf(levelup_btn.position.x + levelup_btn.size.x - _zoom.size.x, 0.0, 1920.0 - _zoom.size.x),
-		clampf(levelup_btn.position.y - _zoom.size.y - 8.0, 0.0, 1080.0 - _zoom.size.y))
+	_zoom.position = Vector2(1730.0 - _zoom.size.x, 1076.0 - _zoom.size.y) # APK : bord droit x 1730, bas y 1076 (couvre le bouton)
 	_ui_layer.add_child(_zoom)
 
 func _get_total_dungeon_damage(player_dict: Dictionary) -> int:

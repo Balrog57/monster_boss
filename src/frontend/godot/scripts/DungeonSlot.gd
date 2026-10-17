@@ -73,6 +73,7 @@ func _update_view() -> void:
 		card_ui.long_pressed.connect(func(c): zoom_on.emit(c))
 		card_ui.long_released.connect(func(_c): zoom_off.emit())
 		card_ui.set_frozen(game_manager != null and BossEngine.is_room_deactivated(game_manager.G, player_id, slot_index))
+		card_ui.set_face_down_scale()
 		add_under_cards(self, current_stack, _card_ui_scene, custom_minimum_size, card_container.get_index())
 		if border:
 			border.border_color = Color(0.4, 0.8, 0.4, 0.0) # pas de liseré : seul le halo d'une salle activable est visible

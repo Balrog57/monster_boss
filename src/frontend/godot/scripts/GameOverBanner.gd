@@ -27,14 +27,14 @@ func build(winner_name: String, boss_id: String, lose: bool) -> void:
 	dim.size = Vector2(1920, 1080)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(dim)
-	var band_y := 395.0 if lose else 125.0
+	var band_y := 389.0 if lose else 125.0 # LoseScene : bandeau centre sur y 480 (0,445 x 1080)
 	var band := ColorRect.new()
-	band.color = Color(0.0, 0.0, 0.0, 0.88)
+	band.color = Color(0.0, 0.0, 0.0, 0.0 if lose else 0.88) # APK : « ...YOU LOSE! » est posee sur le plateau assombri, sans bandeau noir
 	band.position = Vector2(0, band_y)
 	band.size = Vector2(1920, 183)
 	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(band)
-	for ly in [band_y, band_y + 183.0]:
+	for ly in ([] if lose else [band_y, band_y + 183.0]):
 		var line := ColorRect.new()
 		line.color = Color(0.85, 0.65, 0.2, 0.9)
 		line.position = Vector2(0, ly)
@@ -42,8 +42,8 @@ func build(winner_name: String, boss_id: String, lose: bool) -> void:
 		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(line)
 	if lose:
-		title_label = UiKit.label(self, "...YOU LOSE!", 60, Color.WHITE, Vector2(0, band_y + 55), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
-		var rip := UiKit.image(self, UI + "ingame/bosses_tombstone.webp", Vector2(1306, 464) - Vector2(125, 134), Vector2(250, 268))
+		title_label = UiKit.label(self, "...YOU LOSE!", 40, Color.WHITE, Vector2(-31, 449), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # APK : texte 279 x 26 px centre en (929, 478)
+		var rip := UiKit.image(self, UI + "ingame/bosses_tombstone.webp", Vector2(1217, 464) - Vector2(125, 134), Vector2(250, 268)) # APK : pierre tombale x1,5 centree en (1217, 464)
 		rip.name = "Tombstone"
 	else:
 		title_label = UiKit.label(self, winner_name, 64, Color.WHITE, Vector2(0, 140), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)

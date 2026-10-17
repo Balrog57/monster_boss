@@ -38,14 +38,16 @@ func _build() -> void:
 		_build_main()
 
 func _build_main() -> void:
-	var t := UiKit.label(self, "PAUSED", 60, UiKit.GOLD, Vector2(0, 30), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
+	var t := UiKit.label(self, "PAUSED", 42, UiKit.GOLD, Vector2(1, 45), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # APK : texte 198 x 28 px centre en (961, 76)
 	t.name = "Title"
 	var entries := [["RESUME", func(): resume_requested.emit()], ["CARD GALLERY", _open_gallery], ["RULES", func(): rules_requested.emit()],
 		["SETTINGS", func():
 			page = "settings"
 			_build()], ["QUIT GAME", func(): quit_requested.emit()]]
 	for i in entries.size():
-		var b := UiKit.stone_button(self, str(entries[i][0]), Vector2(960.0 - BTN.x / 2.0, 118.0 + 166.0 * i), BTN)
+		# APK : 4 boutons au pas de 194 px (bordures a y 124, 318, 512, 707) ; RULES (ajout) est place apres eux
+		var row := 4 if str(entries[i][0]) == "RULES" else (i if i < 2 else i - 1)
+		var b := UiKit.stone_button(self, str(entries[i][0]), Vector2(960.0 - BTN.x / 2.0, 122.5 + 194.2 * row), BTN)
 		var cb: Callable = entries[i][1]
 		var sfx := "ui_button_goback" if i == 0 else "ui_button_select"
 		b.pressed.connect(func():

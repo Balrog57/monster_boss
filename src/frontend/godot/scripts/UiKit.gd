@@ -6,8 +6,8 @@ const FONT_A := "res://assets/fonts/arcadepix.fnt"   # texte plein (titres, ON /
 const FONT_B := "res://assets/fonts/arcadepix2.fnt"  # texte strie (boutons, libelles)
 const UI := "res://assets/ui/"
 const GOLD := Color(0.95, 0.78, 0.3)
-const ZOOM_CARD := Vector2(350, 490)                 # zoom d'une carte (appui long, glisser, pioche, pile de sorts) : carte APK 350x488
-const ZOOM_PAD := 12.0                               # cadre noir arrondi autour de la carte zoomee
+const ZOOM_CARD := Vector2(330, 470)                 # zoom d'une carte (appui long, glisser, pioche, pile de sorts) ; cadre noir compris = 350 x 490 (mesure APK : pile de sorts, appui long)
+const ZOOM_PAD := 10.0                               # cadre noir arrondi autour de la carte zoomee
 
 static var _fonts := {}
 
@@ -135,7 +135,7 @@ static func zoom_back(kind: String, sz: Vector2 = ZOOM_CARD) -> Control:
 ## Rangee de segments facon APK (ecran SETTINGS) : le segment choisi est une pierre verte dorée, les autres sur une barre mauve.
 ## Absolu en 1920x1080 : libelle a droite de x=710, segments de 202 px a partir de x=760, centre vertical y.
 static func toggle_row(parent: Control, y: int, text: String, opts: Array, sel: int, cb: Callable) -> void:
-	var l := label(parent, text, 36, Color.WHITE, Vector2(260, y - 50), 450.0, FONT_B, HORIZONTAL_ALIGNMENT_RIGHT)
+	var l := label(parent, text, 36, Color.WHITE, Vector2(264, y - 44), 450.0, FONT_B, HORIZONTAL_ALIGNMENT_RIGHT) # APK : libelle 6 px plus bas que la bascule, bord droit a x=710
 	l.custom_minimum_size.y = 100.0
 	l.size.y = 100.0
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -149,7 +149,7 @@ static func _draw_toggle(row: Control, y: int, opts: Array, sel: int, cb: Callab
 		row.remove_child(c)
 		c.queue_free()
 	var bar := ColorRect.new()
-	bar.color = Color(109 / 255.0, 99 / 255.0, 131 / 255.0)
+	bar.color = Color(109 / 255.0, 99 / 255.0, 131 / 255.0, 0.2) # APK : barre violette quasi transparente
 	bar.position = Vector2(760, y - 48)
 	bar.size = Vector2(202 * opts.size(), 96)
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -158,7 +158,7 @@ static func _draw_toggle(row: Control, y: int, opts: Array, sel: int, cb: Callab
 		var x := 760 + 202 * i
 		if i == sel:
 			image(row, UI + "buttons/settings_bt.webp", Vector2(x, y - 58), Vector2(202, 106))
-		var l := label(row, str(opts[i]), 34, GOLD if i == sel else Color(0.9, 0.88, 0.96), Vector2(x, y - 48), 202.0, FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
+		var l := label(row, str(opts[i]), 34, GOLD if i == sel else Color.WHITE, Vector2(x, y - 48), 202.0, FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
 		l.custom_minimum_size.y = 96.0
 		l.size.y = 96.0
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
