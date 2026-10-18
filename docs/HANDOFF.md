@@ -55,7 +55,7 @@ A faithful remake of the card game **Boss Monster: Master of the Dungeon** (Brot
 
 ## 7. Known differences vs the APK (honest list, ordered by value)
 **Rules / flow**
-1. The engine has no separate bait phase (the lure happens when the build ends); the BAIT plate is UI only.
+1. The engine does not split BaitPhase into its own step (the lure runs in one go when the build ends; the BAIT plate is UI only). Justified, no rule gap: `GameBoard.AssignHeroesToDungeons` (`GameBoard.cs` ~1220-1239) has the same order (reveal, extra build, reveal, lure), the same criteria, and no trigger or choice inside, so no observable state sits between the two. Only the animation could differ (lot 1.3).
 2. A room ability activates in one click (APK: zoom, then tap).
 3. `BMA029` / `BMA015` position factors read `dungeon[0]` in the AI; RMB063 is never offered in census runs; 24 THK cards are `implemented=false` (the APK ignores them too).
 4. The engine is 2-4 players. The APK paywalls 3-4 players ("FULL GAME NEEDED"); we offer it free.

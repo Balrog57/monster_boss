@@ -36,6 +36,7 @@ func run(ok: Callable, h: Node) -> void:
 	_t_spell_meteorite()
 	_t_spell_not_dead_yet()
 	_t_end_of_game_stuck_town()
+	_t_heroes_exhausted_end_not_in_apk_mode()
 	_t_start_turn_clears_temporary_treasure()
 	_t_ai_soak_crl_only()
 
@@ -693,6 +694,19 @@ func _t_end_of_game_stuck_town() -> void:
 	m2._check_end_or_next_turn()
 	_ok.call(G2.get("gameOver") == null, "hors Crash Landing : regle APK inchangee (la partie continue)")
 	m2.queue_free()
+
+## GameBoard.CheckEndOfGame (APK) n'a pas de fin « heros epuises » : pioches et ville vides, la partie continue en mode APK ; avec une extension wiki, elle se termine.
+func _t_heroes_exhausted_end_not_in_apk_mode() -> void:
+	for sets in [["base"], ["base", "players-choice", "tools"], ["base", "crash-landing"]]:
+		var G := _G([_player(0, "BMA001", [_room("A", "trap", [1])]), _player(1, "BMA002", [_room("B", "trap", [1])])])
+		G["sets"] = sets
+		G["luredThisTurn"] = {}
+		for i in 3:
+			(G["decks"]["rooms"] as Array).append(_room("r%d" % i, "trap", [1]))
+		var m := _match(G)
+		m._check_end_or_next_turn()
+		_ok.call((G.get("gameOver") != null) == sets.has("crash-landing"), "pioches de heros et ville vides, sets %s : fin « heros epuises » seulement avec une extension" % str(sets))
+		m.queue_free()
 
 ## Les tresors « jusqu'a la fin du tour » (Decoy Garden, Meteorite) expirent au debut du tour suivant (EndOfTurnPhase : Boss.RestoreDungeon).
 func _t_start_turn_clears_temporary_treasure() -> void:

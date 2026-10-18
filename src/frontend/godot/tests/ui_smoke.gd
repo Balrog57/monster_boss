@@ -852,7 +852,10 @@ func _noise(pid: int) -> void:
 			for m in gm.legal_moves(pid):
 				if BoardUI.hand_idx_of(m) >= 0:
 					playable[BoardUI.hand_idx_of(m)] = true
+			var can_undo: bool = gm.legal_moves(pid).any(func(m): return str((m as Dictionary).get("type", "")) == "undoBuild")
 			for i in hand.size():
+				if can_undo and bool((hand[i] as Dictionary).get("isRoom", false)): # pose en attente : toute salle de la main la remplace (undoBuild + buildRoom)
+					continue
 				if not playable.has(i):
 					board._on_hand_card_clicked(i, hand[i])
 					_cov("noise_dead_card")
@@ -864,7 +867,7 @@ func _noise(pid: int) -> void:
 			ev.button_index = MOUSE_BUTTON_LEFT
 			ev.pressed = true
 			for sl in board._dungeon_slots:
-				if not (sl as DungeonSlot).activatable:
+				if not (sl as DungeonSlot).activatable and not (sl as DungeonSlot).undoable: # (une pose en attente se reprend d'un clic : undoBuild)
 					(sl as DungeonSlot)._gui_input(ev)
 			await get_tree().process_frame
 			_check(_sig() == s0 and board._popup_kind == "", "clic sur des salles non activables : effet inattendu")
@@ -1432,8 +1435,12 @@ func _check_target_spots() -> void:
 	var foe: Dictionary = G["players"][1]
 	var h_a: Dictionary = (CardDB.heroes[5] as Dictionary).duplicate(true)
 	var h_b: Dictionary = (CardDB.heroes[6] as Dictionary).duplicate(true)
+	(me["entrance"] as Array).clear() # (des heros attires plus haut peuvent porter le meme id que h_a / h_b : la zone viserait le mauvais exemplaire)
+	(foe["entrance"] as Array).clear()
 	(me["entrance"] as Array).append(h_a)
 	(foe["entrance"] as Array).append(h_b)
+	if (G["town"] as Array).is_empty(): # la ville depend de la main tiree (sorts joues plus haut) : la zone « town » veut un heros
+		(G["town"] as Array).append((CardDB.heroes[7] as Dictionary).duplicate(true))
 	board.refresh()
 	for i in 2:
 		await get_tree().process_frame
@@ -2045,9 +2052,15 @@ func _check_done_and_warning() -> void:
 		board._on_pass_pressed()
 		_check(board._warn == null and _sig() != s1 and (gm.active_player() != 0 or gm.G.has("buildWindow") or str(gm.G["phase"]) != "build"), "DONE : le bouton DONE! ne termine pas le tour")
 		if gm.G.has("buildWindow"): # l'IA construit apres moi : fenetre de sorts avant la revelation, un 2e DONE! la ferme
-			s1 = _sig()
-			board._on_pass_pressed()
-			_check(_sig() != s1 and not gm.G.has("buildWindow"), "DONE : le bouton DONE! ne referme pas la fenetre")
+			# (l'IA y joue aussi : un sort ou une capacite de sa part ouvre une Spell Battle / un choix a resoudre avant que DONE! ne ferme la fenetre)
+			for _k in 12:
+				if not gm.G.has("buildWindow"):
+					break
+				s1 = _sig()
+				board._on_pass_pressed()
+				board._process(0.6)
+				await get_tree().process_frame
+			_check(not gm.G.has("buildWindow"), "DONE : le bouton DONE! ne referme pas la fenetre")
 		_cov("done_button")
 
 ## Galerie de cartes : 5 onglets (BOSS / ROOM / SPELL / HERO / EPIC HERO), grille, paquets de l'APK (+ wiki selon l'option), fermeture ;
@@ -2557,6 +2570,11 @@ func _check_choice_target() -> void:
 	gm.apply_move(0, {"type": "passBuild", "args": []})
 	board.refresh()
 	await get_tree().process_frame
+	for _k in 12: # fenetre de sorts : l'IA y joue (capacite de salle) et resout son propre choix avant la revelation de Centipede Tunnel
+		var apc: Dictionary = G.get("pendingChoice", {})
+		if (apc.is_empty() and not G.has("buildWindow")) or int(apc.get("playerId", -1)) == 0:
+			break
+		board._process(0.6)
 	var pc: Dictionary = G.get("pendingChoice", {})
 	if not _check(str(pc.get("type", "")) == "swap-rooms" and int(pc.get("playerId", -1)) == 0 and board._tgt.has("choice") and board._tgt_spots.size() > 0, "choix plateau : pas de ciblage des salles a echanger (%s)" % str(pc.get("type"))):
 		return
@@ -2619,7 +2637,7 @@ func _extra_checks() -> void:
 	# Main : cartes 175x244 en eventail (CardPositionComponent de l'APK) a 1920x1080
 	var cards := _hand_cards()
 	if _check(not cards.is_empty(), "main vide a l'ecran"):
-		_check((cards[0] as Control).size == Vector2(175, 244), "carte de main %s != 175x244" % (cards[0] as Control).size)
+		_check((cards[0] as Control).size.is_equal_approx(Vector2(175, 244)), "carte de main %s != 175x244" % (cards[0] as Control).size)
 		_check_fan(cards)
 	_check(board.extra_bar.get_child_count() == 0 or not board.extra_bar.visible, "bouton non-APK visible en partie de base")
 	# 1) Sort sans cible : un clic sur la carte le joue (aucun bouton « Sort : ... »)

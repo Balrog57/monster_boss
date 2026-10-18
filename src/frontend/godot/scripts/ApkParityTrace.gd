@@ -81,7 +81,60 @@ var run: ApkMatch
 var events: Array = []
 var proj: Dictionary = {}
 var unmapped: Dictionary = {}
-var stats := {"decisionsSkipped": 0, "readySkipped": 0, "forcedPass": 0, "autoResolved": 0, "refus": 0}
+var stats := {"decisionsSkipped": 0, "readySkipped": 0, "forcedPass": 0, "autoResolved": 0, "refus": 0, "passiveSkipped": 0, "spellTargetUnmatched": 0, "skippedBy": {}}
+var _skip_key: Dictionary = {} # seq -> classe de la derniere ignorance (pour compter `replayed`)
+var _skip_seqs: Dictionary = {} # classe -> {seq: true} (une decision retenue puis re-tentee est comptee plusieurs fois dans `n`)
+
+
+## Action oracle dont la decision `s` est imbriquee (depth superieur) : « playSpell », « playRoomAbility »... ; « - » = decision de
+## declencheur / de phase (depth egal, aucune action parente).
+func _parent_action(s: Dictionary) -> String:
+	for k in range(_steps.size()):
+		if int((_steps[k] as Dictionary)["seq"]) != int(s["seq"]):
+			continue
+		for j in range(k - 1, -1, -1):
+			var p: Dictionary = _steps[j]
+			if int(p["depth"]) < int(s["depth"]):
+				var pd: Dictionary = p["detail"] if p.get("detail") is Dictionary else {}
+				return str(pd.get("action", p["kind"]))
+		break
+	return "-"
+
+
+## Plafond d'exemples par classe : 3, ou `-- --skip-ex=N` pour un diagnostic detaille (tous les cas d'une classe).
+func _skip_ex() -> int:
+	for a in OS.get_cmdline_user_args():
+		if str(a).begins_with("--skip-ex="):
+			return int(str(a).substr(10))
+	return 3
+
+
+## Compte une decision oracle ignoree (total `decisionsSkipped` + ventilation `skippedBy`, diagnostic seulement : ne change pas le rejeu).
+## Cle = « site:decision:tTargetId » ; garde par classe : n, distinct (seq differents), replayed (retenues puis rejouees), cards (« carte@action parente »), ex (3 exemples).
+func _skip(site: String, s: Dictionary) -> void:
+	var d: Dictionary = s["detail"]
+	# BMA020 Monster's Ballroom : degats passifs, decisions de Boss.GetPassiveDamage (comme BMA015/029) : comptees a part.
+	if str((d.get("owner", {}) as Dictionary).get("card", "")) == "BMA020":
+		stats["passiveSkipped"] += 1
+		return
+	stats["decisionsSkipped"] += 1
+	var key := "%s:%s%s" % [site, str(d["decision"]), (":t%d" % int(d["targetId"])) if d.has("targetId") else ""]
+	var by: Dictionary = stats["skippedBy"]
+	if not by.has(key):
+		by[key] = {"n": 0, "distinct": 0, "replayed": 0, "cards": {}, "ex": []}
+	var c: Dictionary = by[key]
+	c["n"] += 1
+	var card := str((d.get("owner", {}) as Dictionary).get("card", "-"))
+	var ck := "%s@%s" % [card, _parent_action(s)]
+	(c["cards"] as Dictionary)[ck] = int((c["cards"] as Dictionary).get(ck, 0)) + 1
+	var seen: Dictionary = _skip_seqs.get_or_add(key, {})
+	seen[int(s["seq"])] = true
+	c["distinct"] = seen.size()
+	_skip_key[int(s["seq"])] = key
+	if (c["ex"] as Array).size() < _skip_ex() and not (c["ex"] as Array).any(func(e): return int(e["seq"]) == int(s["seq"])):
+		(c["ex"] as Array).append({"seq": int(s["seq"]), "phase": str(s["phase"]), "player": int(d["player"]), "card": ck, "chosen": _oids(d.get("chosen"))})
+
+
 var _tbl: Dictionary = {}
 var _steps: Array = []
 var _prev_players: Array = []
@@ -384,6 +437,10 @@ func _apply_type(pid: int, type: String, s: Dictionary) -> bool:
 
 func _apply_move(pid: int, move: Dictionary, s: Dictionary, label: String) -> bool:
 	if run.apply_move(pid, move):
+		var sk: String = _skip_key.get(int(s["seq"]), "") # decision retenue (_late / _deferred) puis finalement rejouee
+		if sk != "":
+			stats["skippedBy"][sk]["replayed"] += 1
+			_skip_key.erase(int(s["seq"]))
 		return true
 	_refus(s, label, pid, "coup refuse (absent de legal_moves) args=%s" % str(move.get("args", [])))
 	return false
@@ -927,11 +984,15 @@ func _spell(i: int, s: Dictionary, d: Dictionary, pid: int) -> void:
 		_refus(s, label, pid, "aucun playSpell legal pour cette carte")
 		return
 	var pick: Dictionary = cands[0]
+	var hit := false
 	for m in cands:
 		var a: Array = (m as Dictionary)["args"]
 		if a.size() > 1 and _intersects(_refs(a[1], pid), wanted):
 			pick = m
+			hit = true
 			break
+	if cands.size() > 1 and not wanted.is_empty() and not hit: # diagnostic : cible oracle absente des variantes de playSpell, cands[0] joue
+		stats["spellTargetUnmatched"] += 1
 	if not run.apply_move(pid, pick):
 		_refus(s, label, pid, "coup refuse")
 
@@ -986,8 +1047,9 @@ func _on_decision_now(_i: int, s: Dictionary, age := -1) -> void:
 		_apply_move(pid, {"type": "resolveChoice", "args": [0 if bool(d.get("drawRoom", true)) else 1]}, s, "resolveChoice(draw-type)")
 		return
 	if pc.is_empty() or int(pc.get("playerId", -1)) != pid:
-		stats["decisionsSkipped"] += 1
-		if kind == "resolveTarget" and DEATH_TRIGGERS.has(str((d.get("owner", {}) as Dictionary).get("card", ""))):
+		var late := kind == "resolveTarget" and DEATH_TRIGGERS.has(str((d.get("owner", {}) as Dictionary).get("card", "")))
+		_skip("%s-%s" % ["noChoice" if pc.is_empty() else "otherPlayer", "late" if late else ("dropped" if pc.is_empty() else "deferred")], s)
+		if late:
 			# Declencheur (mort de heros / revelation) d'un AUTRE joueur que celui du choix ouvert : retenu au-dela des steps de phase
 			# (la revelation de Setup_c ouvre plusieurs choix en file, la decision oracle de l'un peut preceder le step qui les ouvre).
 			_late.append({"s": s, "age": 0})
@@ -997,7 +1059,7 @@ func _on_decision_now(_i: int, s: Dictionary, age := -1) -> void:
 	var chosen := _oids(d.get("chosen"))
 	if str(pc.get("type", "")) == "opening-discard":
 		if kind != "discard" or chosen.size() != 2:
-			stats["decisionsSkipped"] += 1
+			_skip("openingDiscardMismatch", s)
 			return
 		var a := _hand_index(pid, int(chosen[0]))
 		var b := _hand_index(pid, int(chosen[1]))
@@ -1015,7 +1077,7 @@ func _on_decision_now(_i: int, s: Dictionary, age := -1) -> void:
 	var owner_name := _card_name(str((d.get("owner", {}) as Dictionary).get("card", "")))
 	var pc_name := str(pc.get("bossName", ""))
 	if kind == "resolveTarget" and owner_name != "" and pc_name != "" and pc_name != owner_name and _is_card_name(pc_name):
-		stats["decisionsSkipped"] += 1
+		_skip("otherCardChoice", s)
 		if age < 2 and not chosen.is_empty():
 			_late.append({"s": s, "age": maxi(age, 0)})
 		return
@@ -1034,7 +1096,7 @@ func _on_decision_now(_i: int, s: Dictionary, age := -1) -> void:
 			_abort_trigger(s, d, pid, str(pc.get("bossName", "")))
 			return
 		if not direct:
-			stats["decisionsSkipped"] += 1
+			_skip("implicitTargetNoOption", s)
 			return
 	var m := _match_options(opts, pid, chosen, d.get("chosen"))
 	if Array(OS.get_cmdline_user_args()).any(func(a): return a.begins_with("--dbg=")):
@@ -1049,7 +1111,7 @@ func _on_decision_now(_i: int, s: Dictionary, age := -1) -> void:
 		# Cible sans equivalent Godot (boss ou salle proprietaire, resolue implicitement) : on la consomme
 		# et on garde le choix Godot en attente pour la decision oracle suivante.
 		if not chosen.is_empty() and _implicit_target(chosen, d):
-			stats["decisionsSkipped"] += 1
+			_skip("implicitTargetConsumed", s)
 			_note(s, "DECISION-SKIPPED", "cible oracle %s (boss/salle proprietaire) sans equivalent ; choix Godot '%s' reste en attente" % [str(chosen), ptype])
 			return
 		# L'oracle decide dans l'ordre de MISE EN FILE des transactions, Godot ouvre ses choix dans l'ordre d'EXECUTION (inverse pour

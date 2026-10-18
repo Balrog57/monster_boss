@@ -9,6 +9,9 @@ const BossEngine = preload("res://godot/scripts/BossEngine.gd")
 
 const WIN_SOULS := 10
 
+## Paquets de l'APK (BaseDeck, PlayerChoice, HiddenHeros, ToolsHeroKind) ; les autres sont des extensions wiki.
+const APK_SETS := ["base", "players-choice", "hidden-heroes", "tools"]
+
 ## Salles du base set ayant une abilite activable (roomAbilities.js:activateRoomAbility).
 const ACTIVATABLE_ROOMS := ["BMA009", "BMA013", "BMA024", "BMA027", "BMA028",
 	"BMA030", "BMA032", "BMA038", "BMA039", "CRL012",
@@ -35,7 +38,8 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	sets["base"] = true # GamePlayBaseScene : cardDecks = { BaseDeck } + les extensions choisies (le jeu de base est toujours present)
 	var in_sets := func(c): return (c as Dictionary).get("set", "base") in sets
 	var bosses: Array = CardDB.bosses.filter(in_sets)
-	var rooms: Array = CardDB.rooms.filter(in_sets)
+	# CardInfoService.notInGameCards : BMA023 / BMA033 ne sont jamais distribuees (GetCardInfoFromDeck les ecarte, includeExcludedCards est faux en partie).
+	var rooms: Array = CardDB.rooms.filter(func(c): return in_sets.call(c) and not (str((c as Dictionary).get("id", "")) in ["BMA023", "BMA033"]))
 	var spells: Array = CardDB.spells.filter(in_sets)
 	# CardInfoService.GetCardInfoFromDeck : une carte qui en REMPLACE une autre (ReplacesCardNumber : BMH0xx -> BMA0xx) l'ecarte de la pioche.
 	var replaced := {}
@@ -46,7 +50,7 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	# heros dont MinimumPlayers <= nombre de joueurs (ordinaires d'abord, puis epiques). Les autres paquets (wiki) gardent les tailles de base.
 	var apk_only := true
 	for s in sets:
-		apk_only = apk_only and s in ["base", "players-choice", "hidden-heroes", "tools"]
+		apk_only = apk_only and s in APK_SETS
 	# The Next Level : « decide on just one Hero and Epic Hero deck to use » -> avec TNL, le paquet de heros TNL remplace celui du jeu de base.
 	var tnl: bool = sets.has(TnlAbilities.SET_ID)
 	# Rise of the Minibosses : meme regle (un seul paquet de heros) ; avec TNL, le paquet TNL passe devant celui de RMB.
@@ -211,7 +215,8 @@ func legal_moves(pid: int) -> Array:
 			var my_turn := pid == active_player() and not window
 			# Politique IA, pas une regle : un siege IA n'ouvre pas de Spell Battle hors de son tour
 			# (il ne repond qu'a travers la pile, voir plus haut) ; sinon _drive_ai/BoardUI le feraient jouer en boucle.
-			if not my_turn and bool(p.get("isAI", false)) and bool(G.get("autoAI", true)):
+			# Exception : la fenetre de sorts apres la derniere construction, ou l'IA de l'APK joue aussi (AIPlayerInteraction.DoPlayerActions).
+			if not my_turn and bool(p.get("isAI", false)) and bool(G.get("autoAI", true)) and not (window and not bool((G["buildWindow"] as Dictionary).get(pid, false))):
 				return out
 			# Boss.CanBuildRoom = Dungeon.Any(slot.CanBuildRoom), sans test de taille : une salle (ordinaire ou avancee) se construit
 			# par-dessus une salle face visible meme si le donjon n'est pas plein (DungeonSlot.CheckRoomCanBeBuilt) ; seule la pose
@@ -889,7 +894,11 @@ func _resolve_choice(pid: int, index: int) -> void:
 			return
 	if cur_pc.is_empty() and G.get("phase", "") == CardDB.PHASE["BUILD"]:
 		if resume_build:
-			_close_build_phase()
+			if G.has("buildWindow"): # choix ouvert par un sort / une capacite joue dans la fenetre de sorts : la fenetre reprend, la phase ne se referme pas d'office
+				_build_window_progress()
+				_drive_ai()
+			else:
+				_close_build_phase()
 		else:
 			_drive_ai() # le choix etait ouvert en cours de tour : l'IA active reprend la main
 	elif cur_pc.is_empty() and bool(G.get("setupReveal", false)):
@@ -1177,12 +1186,13 @@ func _advance_build() -> void:
 	G.erase("forcedBuild")
 	if not was_forced and _open_build_window():
 		state_changed.emit()
+		_drive_ai() # les sieges IA jouent (ou passent) dans la fenetre
 		return
 	_close_build_phase()
 
 ## GameBoard : apres la derniere construction (ActivePlayer == null, BuildPhase_a) les joueurs peuvent encore jouer des
-## sorts AVANT la revelation (BuildPhase_b). Ouverte seulement si un siege non-IA a un sort jouable ; les sieges IA
-## passent d'office (politique : l'IA de Godot n'ouvre pas de Spell Battle hors de son tour).
+## sorts AVANT la revelation (BuildPhase_b), IA comprise (AIPlayerInteraction.InternalDoPlayerActions). Ouverte seulement si un
+## siege a un sort jouable ; les sieges IA y jouent via _drive_ai (AI.pick_move), sinon passent.
 func _open_build_window() -> bool:
 	G["buildWindow"] = _window_auto_passed()
 	if bool(G.get("autoAI", true)) and G.get("activePlayer") != null:
@@ -1200,9 +1210,18 @@ func _window_auto_passed() -> Dictionary:
 	var passed := {}
 	for pid in G["players"]:
 		var q: Dictionary = G["players"][pid]
-		if bool(q.get("eliminated", false)) or (bool(q.get("isAI", false)) and bool(G.get("autoAI", true))):
+		if bool(q.get("eliminated", false)):
 			passed[pid] = true
 	return passed
+
+## Premier siege IA vivant qui n'a pas encore passe dans la fenetre de sorts (-1 : aucun).
+func _window_ai_seat() -> int:
+	var passed: Dictionary = G.get("buildWindow", {})
+	for pid in G["players"]:
+		var q: Dictionary = G["players"][pid]
+		if bool(q.get("isAI", false)) and not bool(q.get("eliminated", false)) and not bool(passed.get(pid, false)):
+			return int(pid)
+	return -1
 
 func _build_window_progress() -> void:
 	var passed: Dictionary = G.get("buildWindow", {})
@@ -1338,6 +1357,10 @@ func _drive_ai() -> void:
 		if str(G.get("phase", "")) != CardDB.PHASE["BUILD"]:
 			break
 		var pid := active_player()
+		if G.has("buildWindow") and (G.get("stack", []) as Array).is_empty():
+			pid = _window_ai_seat() # fenetre de sorts : c'est le siege IA qui n'a pas passe, pas le dernier constructeur
+			if pid < 0:
+				break
 		var p: Dictionary = (G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary
 		if p.is_empty() or not p.get("isAI", false):
 			break
@@ -1867,6 +1890,11 @@ func _check_end_or_next_turn() -> void:
 	# Vérification épuisement des héros
 	var decks: Dictionary = G["decks"]
 	var no_more_heroes: bool = (decks.get("heroes", []) as Array).is_empty() and (decks.get("epics", []) as Array).is_empty() and (G.get("town", []) as Array).is_empty()
+	# GameBoard.CheckEndOfGame (APK) ne connait pas la fin « heros epuises » (elle vient du livret) : inactive tant que seuls des paquets APK sont en jeu.
+	var apk_only: bool = G.has("sets") # (un etat construit a la main, sans « sets » : regle historique)
+	for s in G.get("sets", []):
+		apk_only = apk_only and s in APK_SETS
+	no_more_heroes = no_more_heroes and not apk_only
 	# Crash Landing. SOURCE : docs/rules/rules.md (= rules_crash_landing.pdf), « Changes to Victory Conditions » : dans la partie a 5-6 joueurs, elle se termine
 	# quand les pioches de heros ordinaires ET epiques sont epuisees, « Heroes can still be in Town when the game ends ». Le moteur ne gere que 2-4 joueurs :
 	# la regle y est reprise telle quelle, MAIS seulement quand plus rien ne peut changer (aucun heros leurre ce tour ni a une entree), sinon un Explorer
@@ -1894,17 +1922,18 @@ func _check_end_or_next_turn() -> void:
 	_start_turn()
 	state_changed.emit()
 
-## Departage officiel (engine.js:checkEndGame) : ecart ames-blessures le plus haut ;
-## a egalite, le boss de plus faible XP l'emporte.
+## Departage APK (GameBoard.GetWinnerWhenThereAreVariousCandidates / GetLessExperiencePlayerToWin) : ecart ames-blessures le plus haut ;
+## a egalite, PlayerId croissant, or PlayerId est attribue par XP DECROISSANTE (GameBoardExtensions) : le boss de plus HAUTE XP l'emporte.
+## A XP egale, l'ordre des sieges (humains d'abord) tranche : `pids` arrive en ordre croissant et `>` est strict.
 func _tie_break_players(pids: Array) -> int:
 	var best_pid := int(pids[0])
 	var best_diff := -999
-	var best_xp := 999999
+	var best_xp := -1
 	for pid in pids:
 		var p: Dictionary = G["players"][pid]
 		var diff := CardDB.total_souls(p, G) - CardDB.total_wounds(p)
 		var xp := int((p.get("boss", {}) as Dictionary).get("xp", 0))
-		if diff > best_diff or (diff == best_diff and xp < best_xp):
+		if diff > best_diff or (diff == best_diff and xp > best_xp):
 			best_diff = diff
 			best_xp = xp
 			best_pid = int(pid)

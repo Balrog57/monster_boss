@@ -624,11 +624,11 @@ static func _dark_laboratory(G: Dictionary, p: Dictionary, player_id: int) -> Va
 	_draw_into(G, p, "spells", 2)
 	return _spell_discard_choice(G, p, player_id, "BMA022", "Dark Laboratory")
 
-## BMA011 Specter's Sanctum : un adversaire defausse un sort au hasard.
+## BMA011 Specter's Sanctum : un adversaire defausse un sort au hasard. BossOpponent propose TOUS les adversaires vivants (sans filtre sur les sorts :
+## GameBoard.cs:208, BossOpponent.cs:25), auto-resolu seulement s'il n'y en a qu'un (SingleTargetProvider) ; un adversaire sans sort ne perd rien.
 static func _specters_sanctum(G: Dictionary, _p: Dictionary, player_id: int) -> Variant:
-	var opps := opponents_with(G, player_id, true)
+	var opps := opponents_with(G, player_id)
 	if opps.is_empty():
-		_log(G, "Specter's Sanctum: no opponent has a Spell.")
 		return null
 	if opps.size() == 1:
 		_discard_random_spell_from(G, int((opps[0] as Dictionary)["playerId"]), "Specter's Sanctum", player_id)

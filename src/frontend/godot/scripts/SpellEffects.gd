@@ -329,6 +329,8 @@ static func _kobold_strike(G: Dictionary, _caster_id: int, _card: Dictionary, _t
 				back.erase("faceDown")
 				back.erase("builtThisTurn")
 				(p["hand"] as Array).append(back)
+			# Boss.UndoBuildRoom garde l'emplacement vide, mais Godot ne stocke que les piles non vides : meme etat observable (la salle posee ce tour
+			# est la plus recente, donc DungeonSize = dernier emplacement non vide + 1 et le premier emplacement libre sont identiques).
 			if stack.is_empty():
 				dungeon.remove_at(i)
 	_log(G, "Kobold Strike: no rooms can be built this turn.")

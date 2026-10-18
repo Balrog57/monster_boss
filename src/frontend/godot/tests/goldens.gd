@@ -8,7 +8,8 @@ var _passed := 0
 
 func _ready() -> void:
 	_t_tie_break_souls_minus_wounds()
-	_t_tie_break_lowest_boss_xp()
+	_t_tie_break_highest_boss_xp()
+	_t_base_decks_exclude_not_in_game_cards()
 	_t_ten_souls_wins_under_five_wounds()
 	_t_five_wounds_eliminates()
 	_t_souls_counting()
@@ -40,6 +41,8 @@ func _ready() -> void:
 	_t_seducia_picks_from_hero_deck()
 	_t_full_dungeon_ordinary_over_stack()
 	_t_build_window_after_last_build()
+	_t_build_window_ai_plays_spell()
+	_t_choice_in_build_window_keeps_window()
 	_t_ability_kill_finishes_hero()
 	_t_zombie_attack_returns_whole_hero()
 	_t_reveal_heroes_counts_eliminated_and_effects_expire()
@@ -77,6 +80,7 @@ func _ready() -> void:
 	_t_choice_cleopatra_forced_build()
 	_t_room_damage_goblin_dizzygas_target_type()
 	_t_build_specters_sanctum_choice_discards()
+	_t_specters_sanctum_offers_all_opponents()
 	_t_choice_dracolich_lair()
 	_t_room_zombie_prison()
 	_t_room_beast_menagerie()
@@ -130,8 +134,8 @@ func _ok(cond: bool, label: String) -> void:
 	else:
 		_failed.append(label)
 
-## Match.gd:_tie_break_players — ecart ames-blessures d'abord, puis XP boss le plus bas.
-## (cf. engine-invariants.test.js "breaks ties by souls - wounds first, then lowest boss XP")
+## Match.gd:_tie_break_players — ecart ames-blessures d'abord, puis XP boss la plus haute (APK : GetLessExperiencePlayerToWin trie par PlayerId,
+## attribue par XP decroissante).
 func _t_tie_break_souls_minus_wounds() -> void:
 	var m = Match.new()
 	add_child(m)
@@ -144,17 +148,30 @@ func _t_tie_break_souls_minus_wounds() -> void:
 	}
 	_ok(m._tie_break_players([0, 1]) == 1, "tie_break: ecart ames-blessures gagne (attendu 1)")
 
-func _t_tie_break_lowest_boss_xp() -> void:
+func _t_tie_break_highest_boss_xp() -> void:
 	var m = Match.new()
 	add_child(m)
 	m.G = {
 		"players": {
-			0: {"boss": {"xp": 500}, "souls": _n_souls(10), "wounds": _n_wounds(1), "eliminated": false},
-			1: {"boss": {"xp": 200}, "souls": _n_souls(10), "wounds": _n_wounds(1), "eliminated": false},
+			0: {"boss": {"xp": 40}, "souls": _n_souls(10), "wounds": _n_wounds(0), "eliminated": false},
+			1: {"boss": {"xp": 50}, "souls": _n_souls(10), "wounds": _n_wounds(0), "eliminated": false},
+			2: {"boss": {"xp": 50}, "souls": _n_souls(10), "wounds": _n_wounds(0), "eliminated": false},
 		},
 		"phase": "end", "gameOver": null, "turn": 1,
 	}
-	_ok(m._tie_break_players([0, 1]) == 1, "tie_break: XP boss le plus bas gagne (attendu 1)")
+	_ok(m._tie_break_players([0, 1]) == 1, "tie_break: a egalite d'ames, XP 40 vs 50 -> le 50 gagne (attendu 1)")
+	_ok(m._tie_break_players([0, 1, 2]) == 1, "tie_break: XP egale entre 1 et 2 -> l'ordre des sieges (attendu 1)")
+	m.queue_free()
+
+## CardInfoService.notInGameCards : BMA023 / BMA033 ne sont jamais distribuees ; il reste 71 salles dans la pioche du jeu de base.
+func _t_base_decks_exclude_not_in_game_cards() -> void:
+	var m = Match.new()
+	add_child(m)
+	m.new_match(2, 1, ["base"])
+	var ids: Array = (m.G["decks"]["rooms"] as Array).map(func(r): return str((r as Dictionary).get("id", "")))
+	_ok(not ids.has("BMA023") and not ids.has("BMA033"), "pioche de salles : ni BMA023 ni BMA033")
+	_ok(ids.size() == 71, "pioche de salles du jeu de base : 71 cartes (obtenu %d)" % ids.size())
+	m.queue_free()
 
 ## Match.gd:_check_end_or_next_turn — 10 ames avec <5 blessures = victoire.
 func _t_ten_souls_wins_under_five_wounds() -> void:
@@ -1164,6 +1181,26 @@ func _t_build_specters_sanctum_choice_discards() -> void:
 	_ok((m.G["decks"]["spellDiscard"] as Array).size() == 1, "le sort est en defausse")
 	m.queue_free()
 
+## BMA011 : le choix propose tous les adversaires vivants, meme sans sort (BossOpponent) ; en choisir un sans sort ne fait rien ; un seul adversaire est auto-resolu.
+func _t_specters_sanctum_offers_all_opponents() -> void:
+	var m = _match_with_spell()
+	var spell := {"id": "S", "name": "S", "isSpell": true}
+	(m.G["players"][1] as Dictionary)["hand"] = [spell.duplicate()]
+	m.G["players"][2] = {"boss": {"xp": 300, "treasures": [1]}, "dungeon": [], "hand": [],
+		"souls": [], "wounds": [], "eliminated": false, "leveledUp": false, "buildsThisTurn": 0, "isAI": true, "entrance": []}
+	var choice = RoomAbilities.on_build_room(m.G, 0, _room("BMA011", "monster", false, [1]))
+	_ok(choice is Dictionary and ((choice as Dictionary).get("options", []) as Array).size() == 2, "Specter's Sanctum : les 2 adversaires sont proposes, l'un sans sort")
+	RoomAbilities.enqueue_pending(m.G, choice)
+	var opts: Array = (choice as Dictionary)["options"]
+	var idx_nospell := 0 if int((opts[0] as Dictionary)["targetPlayerId"]) == 2 else 1
+	_ok(m.apply_move(0, {"type": "resolveChoice", "args": [idx_nospell]}), "resolveChoice sur l'adversaire sans sort")
+	_ok(((m.G["players"][1] as Dictionary)["hand"] as Array).size() == 1 and (m.G["decks"]["spellDiscard"] as Array).is_empty(), "adversaire sans sort designe : aucune defausse")
+	var m2 = _match_with_spell()
+	(m2.G["players"][1] as Dictionary)["hand"] = []
+	_ok(RoomAbilities.on_build_room(m2.G, 0, _room("BMA011", "monster", false, [1])) == null, "un seul adversaire : auto-resolu, sans choix")
+	m.queue_free()
+	m2.queue_free()
+
 ## BMA013 Dracolich Lair : le joueur choisit les 2 salles defaussees ; le choix dans la defausse est
 ## resolu AVANT (il ne propose pas les 2 salles qu'on vient de defausser).
 func _t_choice_dracolich_lair() -> void:
@@ -1553,6 +1590,43 @@ func _t_build_window_after_last_build() -> void:
 	m2._open_build_window()
 	_ok(not m2.G.has("buildWindow"), "aucun sort jouable : pas de fenetre")
 	m2.queue_free()
+
+## Fenetre de sorts apres la derniere construction : l'IA y joue aussi (AIPlayerInteraction.InternalDoPlayerActions : UseAbility sans condition de joueur actif ;
+## oracle-s2-p2 step 41, oracle-s3-p3 step 170). Elle choisit son sort par AI.pick_move, puis passe quand elle n'en a plus.
+func _t_build_window_ai_plays_spell() -> void:
+	var m = _match_with_spell()
+	((m.G["players"][0] as Dictionary)["hand"] as Array).clear()
+	((m.G["players"][1] as Dictionary)["hand"] as Array).append({"id": "BMA048", "name": "Jeopardy", "isSpell": true})
+	m.G["activePlayer"] = 0 # le dernier constructeur est l'humain (il a appuye sur DONE)
+	m.G["buildOrder"] = [1, 0]
+	m.G["buildIndex"] = 1
+	m._advance_build()
+	var stack: Array = m.G.get("stack", [])
+	_ok(m.G.has("buildWindow") and stack.size() == 1 and int((stack[0] as Dictionary).get("playerId", -1)) == 1
+		and ((m.G["players"][1] as Dictionary)["hand"] as Array).is_empty(), "fenetre : le siege IA joue son sort (Jeopardy) sur la pile")
+	m.queue_free()
+	var m2 = _match_with_spell()
+	((m2.G["players"][0] as Dictionary)["hand"] as Array).clear()
+	m2.G["activePlayer"] = 0
+	m2.G["buildOrder"] = [1, 0]
+	m2.G["buildIndex"] = 1
+	m2._advance_build()
+	_ok(not m2.G.has("buildWindow") and str(m2.G["phase"]) != "build", "ni humain ni IA n'a de sort : pas de fenetre, la phase se referme")
+	m2.queue_free()
+
+## Un choix ouvert pendant la fenetre de sorts (sort ou capacite jouee par un siege, IA comprise) reprend la fenetre une fois resolu : la phase
+## BUILD ne se referme pas d'office (sinon buildWindow resterait pose pendant l'aventure et la partie calerait).
+func _t_choice_in_build_window_keeps_window() -> void:
+	var spell := {"id": "BMA040", "name": "Annihilator", "isSpell": true}
+	var m = load("res://godot/scripts/Match.gd").new()
+	add_child(m)
+	m.G = _choice_G("discard-spell", [{"card": spell}], [spell])
+	m.G["buildWindow"] = {1: true}
+	_ok(m.apply_move(0, {"type": "resolveChoice", "args": [0]}), "choix resolu dans la fenetre")
+	_ok(m.G.has("buildWindow") and str(m.G["phase"]) == "build", "la fenetre reste ouverte tant que le siege 0 n'a pas passe")
+	m.apply_move(0, {"type": "passBuild", "args": []})
+	_ok(not m.G.has("buildWindow") and str(m.G["phase"]) != "build", "tous ont passe : la fenetre se ferme, la phase aussi")
+	m.queue_free()
 
 ## Capacite de salle qui tue le heros (Bottomless Pit) : il meurt tout de suite (KillHeroInRoom), ame comptee.
 func _t_ability_kill_finishes_hero() -> void:

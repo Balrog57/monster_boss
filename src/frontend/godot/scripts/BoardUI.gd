@@ -886,8 +886,10 @@ func _auto_pass(delta: float) -> bool:
 				pass_mv = m
 		if (go_mv == null and pass_mv == null) or not apk and (go_mv != null or decision):
 			continue
-		# Fenetre chronometree : seulement si le joueur a une carte a jouer (pas apres les degats : la fenetre « avant sortie » passe vite)
-		var timed: bool = apk and decision and str(pause) != "pre-exit"
+		# Fenetre chronometree. APK : UNE barre de 3 s par pas du heros (CreateWaitAndMoveHeroToNextSlotTask), qui est la fenetre ou l'humain peut jouer
+		# un sort ; c'est la pause post-damage de Godot (fenetre de sorts de l'oracle), un sort jouable ou non, sans lien avec la vitesse de jeu
+		# (GetSpeed ne touche que les animations). Le GO qui la precede et la pause pre-exit passent vite. Pile de sorts : barre de 6 s si un sort est jouable.
+		var timed: bool = apk and ((not stack_open and str(pause) == "post-damage") or (stack_open and decision and str(pause) != "pre-exit"))
 		var want: float = (WINDOW_STACK if stack_open else WINDOW_ADVENTURE) * win_time_scale if timed else (GO_FAST * _speed if go_mv != null else PASS_FAST)
 		# APK : la barre repart a zero a chaque pas du heros et a chaque sort / capacite jouee (pile), jamais parce qu'un siege passe ou qu'une ligne de journal s'ajoute.
 		var key := JSON.stringify([phase, G.get("turn"), adv.get("playerId"), adv.get("roomIndex"), pause, (G.get("stack", []) as Array).size(), int(pid)])

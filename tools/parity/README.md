@@ -156,6 +156,55 @@ deroule encore, plus aucun coup n'est joue (REFUS `Godot a deja termine ce tour`
 (premiere divergence de chaque groupe de champs sur toute la trace : sert a classer les causes, car
 tout ce qui suit la premiere divergence est en cascade), `stats`, `matched/checks`.
 
+## Decisions oracle ignorees (`stats.decisionsSkipped`)
+
+Le total ne dit pas *quelles* decisions sont ignorees : `stats.skippedBy` les ventile par classe `site:decision:tCible`
+(`tCible` = rang du fournisseur de cible dans la capacite, `BaseTargetProvider.UniqueID`) et `apk.py` l'agrege dans `report.json`
+(`skippedBy`, `decisionsSkipped`, `spellTargetUnmatched`) et l'imprime sous le tableau. Par classe : `n` (comptages, une decision retenue
+puis re-tentee compte plusieurs fois), `distinct` (seq differents), `replayed` (retenues puis finalement rejouees : elles restent
+comptees ignorees), `cards` (`carte@action oracle parente`, `-` = declencheur/phase), `ex` (3 exemples seq/phase/joueur/carte). Sites :
+`noChoice-*` / `otherPlayer-*` (aucun choix Godot ouvert / choix d'un autre joueur ; `-dropped` abandonnee, `-late` retenue dans `_late`,
+`-deferred` dans `_deferred`), `openingDiscardMismatch`, `otherCardChoice`, `implicitTargetNoOption`, `implicitTargetConsumed`.
+`-- --skip-ex=N` (option de `apk_parity.gd`, pas de `apk.py`) releve jusqu'a N exemples par classe (diagnostic : tous les cas = 99999).
+Le comptage ne change ni le rejeu ni la projection (traces `gd-*.json` identiques a la base, hors ces champs).
+
+**Pourquoi tant de decisions ignorees** : `TracingAI` (IA) enregistre une decision `resolveTarget` pour **chaque** fournisseur de cible
+de chaque capacite, y compris `ThisRoom`/`BossOwner` (`NeedPlayerIteraction == false`) et les cas a candidat unique ; un humain
+(`HumanPlayerInteraction`, `tryToAutoresolveTargets = true`, `SingleTargetProvider.TryToAutoresolve`) ne voit jamais ces decisions.
+Quand l'IA remplit les fournisseurs d'une capacite d'un coup, la decision du 1er porte toutes les cibles et celle du 2e est vide.
+
+Classement (a) benin, (b) choix Godot manquant, (c) bogue/artefact oracle. Mesure : defaut = graines 1-3 x 2/3 joueurs (432) ;
+« s3 » = graines 3, 11, 40 x 2/3 joueurs (2211, dont s11-p3 et s40-p3 qui divergent deja pour d'autres causes).
+
+| Classe | defaut | s3,11,40 | Verdict | Preuve |
+|---|---|---|---|---|
+| BMA020 Monster's Ballroom, `noChoice-dropped:t1/t2` | 266 | 2006 | (c) | Degats passifs (`RoomDamageEqualToCount` = `IPassiveDamageCommand`) : `Boss.GetPassiveDamage` cree et resout une `AbilityTransaction` a chaque calcul de degats, donc des decisions sans action ni phase (`@-`), comme Goblin Armory/Dizzygas (BMA015/029, deja exclus du compteur). s3-p2 : 133 x 2 ; s3-p2@128-129 |
+| Cible non interactive (`BossOwner`, `ThisRoom`, `AllBoss`, `BossOpponents`, `HeroInThisRoom`) | 77 | 99 | (a) | `NeedPlayerIteraction = false`, autoresolue pour un humain. s1-p2@78 (BMA030 `ThisRoom`/`BossOwner`), s1-p3@53 (BMA022), s1-p3@377-378 (BMA003 t2) |
+| Selection vide (2e fournisseur d'une capacite) | 31 | 34 | (a) | La decision t1 porte les cibles des deux fournisseurs, t2 est `chosen: []` : s1-p2@79, @116, @197 (BMA030, BMA051, BMA032) |
+| Cible portee par `playSpell` (parent `playSpell`) | 26 | 32 | (a) | `_spell` choisit la variante de `playSpell` dont la cible recouvre la decision (`_refs`/`_intersects`) ; `spellTargetUnmatched` = 0 sur le defaut. s1-p2@115 (BMA051). 1 non apparie : s11-p3 (trace deja en echec) |
+| Cible portee par `activateRoom` (BMA032 / BMA028 `AnotherRoom`) | 15 | 13 | (a) | `_ability` lit la salle visee dans les decisions imbriquees (`args[1]`). s1-p2@196 |
+| Candidat unique autoresolu cote Godot | 5 | 9 | (a) | `TryToAutoresolve` (`num <= TargetsAmount`) : BMA011 en 2 joueurs (un seul adversaire, s1-p2@15, s3-p2@8), BMA014 avec 1 blessure (s2-p2@145 : `players.wounds = 1`), BMA024 avec 1 salle Monster en main (s11-p2@61, @99). Godot fait de meme (`_witchs_kitchen`, `_vampire_bordello`, `_specters_sanctum`) |
+| Retenues puis rejouees (`replayed`) | 5 | 1 | (a) | BMA010 Open Grave t1 (`recover-card`, appariement exact : s2-p2@166 `DBGM`), BMA003/BMA008 t1 (`otherPlayer-deferred`) : le choix est bien rejoue, seul le premier passage compte |
+| `openingDiscard` de Setup_a d'un autre joueur (`otherPlayer-deferred:discard`) | 3 | 6 | (a) | Rejouee des que le choix de ce joueur s'ouvre (`replayed` = n). s1-p2@2 |
+| Cibles main perimees BMA013/BMA024 (`STALE-TARGET`) | 0 | 11 | (c) | Course de l'IA oracle (activation en file, main modifiee avant l'execution) : s11-p3@314, @428, @456 (BMA013) et s11-p2@32 (BMA024) ; voir « Limites assumees » |
+| Succubus Spa sur son propre boss (BMA012) | 4 | 0 | (c) | `chosen = [boss du joueur 1]` pour le proprietaire joueur 1 : s1-p3@60-61 (2 decisions, comptees 2 fois) |
+| **Total** | **432** | **2211** | | (b) : **aucun cas** |
+
+Aucune classe (b) (choix que l'APK propose a un humain et que Godot resout seul) n'est prouvee sur ces traces. Limite de la preuve :
+(a) « cible non interactive » repose sur le rang `tCible` -> fournisseur lu dans `data.json` (ordre des `Targets` des `Effects`) ; les
+classes `otherCardChoice` (8 comptages, 3 decisions) n'ont jamais ete rejouees : BMA019/BMA022/BMA007 sont `BossOwner` (benin), BMA011
+(s40-p3@222, 3 joueurs, trace deja en echec) designait un adversaire que Godot resolvait seul (filtre sur les porteurs de sort, supprime : le choix est maintenant ouvert sur tous les adversaires vivants).
+**Seuil** : BMA020 est sorti de `decisionsSkipped` (compte a part : `stats.passiveSkipped`, `report.passiveSkipped`), sans changer le rejeu ;
+nouveaux totaux : defaut **166** (+266 passives), wide **443** (445 avant le correctif de Specter's Sanctum, BMA011, qui propose maintenant tous les adversaires vivants : s4-p3 seq 151 et s7-p4 seq 465 sont rejoues), decks **163** (+28 passives), graines 3/11/40 : 205 (+2006). `apk.py` marque une
+trace `SKIP` (statut non OK, code de sortie 1, raison dans `skipIssues` et en console) si une classe `skippedBy` n'est pas dans `KNOWN_SKIP`
+(liste codee dans `apk.py`, 13 classes mesurees sur defaut + wide + decks), si `openingDiscardMismatch` apparait, ou si `spellTargetUnmatched` > 0.
+Pas de plafond numerique par classe. Classes connues : `noChoice-dropped:resolveTarget:t1|t2|t3`, `noChoice-late:resolveTarget:t1|t2`,
+`otherPlayer-deferred:discard`, `otherPlayer-deferred:resolveTarget:t1|t2`, `otherPlayer-late:resolveTarget:t1|t2`,
+`implicitTargetNoOption:resolveTarget:t1|t2`, `otherCardChoice:resolveTarget:t2` (cibles `BossOwner`, benignes : 19 comptages sur wide).
+**En attente** : `otherCardChoice:resolveTarget:t1` (wide 17, decks 2 ; BMA036 / BMA037 interactifs, BMA011 pour les restes) est signale
+(`skipWarnings`, avertissement console, `WARN_SKIP_KEYS` dans `apk.py`) mais ne fait pas echouer, tant que la classification n'est pas tranchee ;
+l'exemption est PAR CLE : toute autre cle `otherCardChoice:*` fait echouer la trace.
+
 ## Limites assumees
 
 - **Tirages au hasard** (Specter's Sanctum, Torture Chamber, Succubus Spa) : le harnais releve dans la trace les cartes qui
@@ -179,6 +228,6 @@ tout ce qui suit la premiere divergence est en cascade), `stats`, `matched/check
 - **Graines 10-40 (hors du rapport par defaut)** : `apk.py --seeds 10 ... 40 --players 2 3 4` (93 traces) rejoue a 59/93 apres les correctifs de cette passe
   (30/93 avant) ; le reste est du meme ordre (courses ci-dessus, tour sans heros, etc.), non classe en detail.
 - Paquets supplementaires : voir « Paquets supplementaires ». Les traces `--decks` heritent des echecs du jeu de base (memes cartes de base), qui dominent le bruit : pour savoir si un echec releve d'un paquet, chercher le dernier evenement KSA/BMH (niveau gagne, T.P.K. joue, heros KSA a l'entree) avant la premiere divergence.
-- `chooseDraw` (Haunted Library, BMA023) est rejoue par le harnais (choix Godot `draw-type`) mais ne figure dans aucune trace des graines 1-80 (l'IA oracle ne construit jamais BMA023) : le chemin n'est couvert que par un golden. `undoBuildRoom` n'apparait pas non plus ; il serait un REFUS.
+- `chooseDraw` (Haunted Library, BMA023) est rejoue par le harnais (choix Godot `draw-type`) mais ne figure dans aucune trace des graines 1-80 (BMA023 et BMA033 ne sont jamais distribuees : `CardInfoService.notInGameCards`, ecartees des pioches de `new_match`) : le chemin n'est couvert que par un golden. `undoBuildRoom` n'apparait pas non plus ; il serait un REFUS.
 - Les decisions `resolveTarget` internes aux capacites (cibles d'IA) ne sont transmises que si Godot
   a un choix en attente correspondant ; l'appariement oracle->option est heuristique (`_refs`).

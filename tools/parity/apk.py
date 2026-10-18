@@ -152,6 +152,42 @@ def diff_proj(o, g, kind, skip=()):
 
 # --- comparaison d'une trace ---------------------------------------------------
 
+# Classes `skippedBy` connues (mesurees sur defaut + wide + decks, voir README « Decisions oracle ignorees »). Toute autre classe, ou
+# `openingDiscardMismatch` / `spellTargetUnmatched` > 0, fait echouer la trace (statut SKIP).
+KNOWN_SKIP = {
+    "implicitTargetNoOption:resolveTarget:t1",
+    "implicitTargetNoOption:resolveTarget:t2",
+    "noChoice-dropped:resolveTarget:t1",
+    "noChoice-dropped:resolveTarget:t2",
+    "noChoice-dropped:resolveTarget:t3",
+    "noChoice-late:resolveTarget:t1",
+    "noChoice-late:resolveTarget:t2",
+    "otherCardChoice:resolveTarget:t2",
+    "otherPlayer-deferred:discard",
+    "otherPlayer-deferred:resolveTarget:t1",
+    "otherPlayer-deferred:resolveTarget:t2",
+    "otherPlayer-late:resolveTarget:t1",
+    "otherPlayer-late:resolveTarget:t2",
+}
+FORBIDDEN_SKIP_SITES = ("openingDiscardMismatch",)
+# `otherCardChoice:resolveTarget:t2` est connu (cibles BossOwner, benignes) ; `otherCardChoice:resolveTarget:t1` (BMA011/BMA036/BMA037 interactifs)
+# reste signale (skipWarnings) sans faire echouer, en attendant une decision. Exemption PAR CLE : une autre cle `otherCardChoice:*` fait echouer.
+WARN_SKIP_KEYS = ("otherCardChoice:resolveTarget:t1",)
+
+
+def skip_issues(gd):
+    st = gd.get("stats") or {}
+    out = [f"classe inconnue {k} (n={c['n']})" for k, c in (st.get("skippedBy") or {}).items()
+           if k not in WARN_SKIP_KEYS and (k not in KNOWN_SKIP or k.split(":")[0] in FORBIDDEN_SKIP_SITES)]
+    if st.get("spellTargetUnmatched"):
+        out.append(f"spellTargetUnmatched={st['spellTargetUnmatched']}")
+    return out
+
+
+def skip_warnings(gd):
+    return [f"{k} n={c['n']}" for k, c in ((gd.get("stats") or {}).get("skippedBy") or {}).items() if k in WARN_SKIP_KEYS]
+
+
 def compare_trace(trace, gd):
     steps = trace["steps"]
     checks, matched = 0, 0
@@ -188,10 +224,11 @@ def compare_trace(trace, gd):
             first_by_field.setdefault(x["group"], {"seq": s["seq"], "phase": s["phase"], "field": x["field"], "oracle": x["oracle"], "godot": x["godot"]})
     refus = [e for e in gd["events"] if e["type"] == "REFUS"]
     first_refus = refus[0] if refus else None
+    issues = skip_issues(gd)
     cands = [c for c in (first_refus and ("REFUS", first_refus["seq"]), first_div and ("DIVERGE", first_div["seq"])) if c]
     first = min(cands, key=lambda c: c[1]) if cands else None
     return {
-        "status": f"{first[0]}@{first[1]}" if first else "OK",
+        "status": f"{first[0]}@{first[1]}" if first else ("SKIP" if issues else "OK"), "skipIssues": issues, "skipWarnings": skip_warnings(gd),
         "firstRefus": first_refus, "firstDivergence": first_div, "firstByField": first_by_field,
         "refusCount": len(refus), "checks": checks, "matched": matched,
         "notes": len([e for e in gd["events"] if e["type"] != "REFUS"]),
@@ -243,6 +280,22 @@ def run_godot():
     return [l for l in lines if re.search(r"SCRIPT ERROR|^ERROR|Parse Error", l)]
 
 
+def aggregate_skipped(traces):
+    """Somme `stats.skippedBy` de toutes les traces : classe -> {n, distinct, traces, cards, ex} (diagnostic, aucun seuil)."""
+    agg = {}
+    for t in traces:
+        for key, c in ((t.get("stats") or {}).get("skippedBy") or {}).items():
+            a = agg.setdefault(key, {"n": 0, "distinct": 0, "replayed": 0, "traces": {}, "cards": {}, "ex": []})
+            a["n"] += c["n"]
+            a["distinct"] += c["distinct"]
+            a["replayed"] += c.get("replayed", 0)
+            a["traces"][t["trace"]] = c["n"]
+            for card, k in c["cards"].items():
+                a["cards"][card] = a["cards"].get(card, 0) + k
+            a["ex"] += [{"trace": t["trace"], **e} for e in c["ex"]][: max(0, 3 - len(a["ex"]))]
+    return dict(sorted(agg.items(), key=lambda kv: -kv[1]["n"]))
+
+
 def fmt(v):
     s = json.dumps(v, separators=(",", ":"), ensure_ascii=False)
     return s[:67] + "..." if len(s) > 70 else s
@@ -278,7 +331,11 @@ def main():
         traces.append(entry)
 
     report = {"generatedAt": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"), "godot": godot_exe(),
-              "godotScriptErrors": len(godot_errors), "unmappedCards": sorted(unmapped), "traces": traces}
+              "godotScriptErrors": len(godot_errors), "unmappedCards": sorted(unmapped),
+              "decisionsSkipped": sum((t["stats"] or {}).get("decisionsSkipped", 0) for t in traces),
+              "passiveSkipped": sum((t["stats"] or {}).get("passiveSkipped", 0) for t in traces),
+              "spellTargetUnmatched": sum((t["stats"] or {}).get("spellTargetUnmatched", 0) for t in traces),
+              "skippedBy": aggregate_skipped(traces), "traces": traces}
     with open(os.path.join(OUT, "report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
 
@@ -290,6 +347,10 @@ def main():
         d = r["firstDivergence"]
         print(f"{r['trace']:<10} {r['matched']:>5}/{r['checks']:<5}   {r['refusCount']:>5}  {r['status']:<13}  "
               + (f"seq {d['seq']} {d['phase']} {d['field']} oracle={fmt(d['oracle'])} godot={fmt(d['godot'])}" if d else "-"))
+        if r["skipIssues"]:
+            print(f"           decisions ignorees non classees: {'; '.join(r['skipIssues'])}")
+        if r["skipWarnings"]:
+            print(f"           (avertissement, non bloquant) decisions ignorees a classer: {'; '.join(r['skipWarnings'])}")
         f = r["firstRefus"]
         if f:
             print(f"           premier REFUS: seq {f['seq']} {f['phase']} P{f['player']} {f['move']} ({f['reason']}; godot phase={f['godotPhase']} actif=P{f['godotActive']} legal=[{','.join(map(str, f['legal']))}])")
@@ -301,6 +362,14 @@ def main():
             groups.setdefault(g, []).append(f"{t['trace']}@{v['seq']}")
     for g, v in sorted(groups.items(), key=lambda kv: -len(kv[1])):
         print(f"  {g:<22} {len(v)}/{len(traces)}  {' '.join(v)}")
+    print()
+    print(f"== decisions oracle ignorees (stats.decisionsSkipped = {report['decisionsSkipped']}) par classe site:decision:tCible ; distinct = seq differents ; carte@action oracle parente, - = declencheur")
+    for key, a in report["skippedBy"].items():
+        top = " ".join(f"{k}={v}" for k, v in sorted(a["cards"].items(), key=lambda kv: -kv[1])[:4])
+        worst = " ".join(f"{k}={v}" for k, v in sorted(a["traces"].items(), key=lambda kv: -kv[1])[:3])
+        print(f"  {key:<38} {a['n']:>5} (distinct {a['distinct']:>4}, rejoue apres {a['replayed']:>3})  cartes@action: {top}  traces: {worst}")
+    print(f"  decisions passives BMA020 comptees a part (passiveSkipped) : {report['passiveSkipped']}")
+    print(f"  playSpell dont la cible oracle n'est dans aucune variante Godot (cands[0] joue) : {report['spellTargetUnmatched']}")
     print()
     print(f"[apk-parity] rapport: {os.path.join(OUT, 'report.json')}")
     bad = [t["trace"] for t in traces if t["status"] != "OK"]
