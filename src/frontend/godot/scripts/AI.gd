@@ -7,56 +7,14 @@ extends RefCounted
 
 const BossEngine = preload("res://godot/scripts/BossEngine.gd")
 
-# Constantes de scoring APK RoomCalculator
-const EARLY_DAMAGE_VALUE := [0.0, 25.0, 100.0, 150.0, 175.0, 200.0]
-const MID_DAMAGE_VALUE := [0.0, 25.0, 75.0, 175.0, 200.0, 200.0]
-const LATE_DAMAGE_VALUE := [0.0, 25.0, 75.0, 175.0, 200.0, 200.0]
+## Decisions deterministes de construction / defausse / pioche : voir ApkAI.gd (FixedAI de l'oracle). Ici : l'aiguillage,
+## les sorts, les capacites et les choix (TriggerCalculator / AbilityCalculator, etapes suivantes du portage).
 
-const EARLY_TREASURE_VALUE := [100.0, 50.0, 0.0, 0.0, 0.0]
-const MID_TREASURE_VALUE := [0.0, 25.0, 100.0, 100.0, 125.0, 200.0]
-const LATE_TREASURE_VALUE := [100.0, 75.0, 75.0, 0.0, 0.0]
-
-const BUILD_OVER_ADVANCED_PENALTY := 300.0
-const INVALID_DIZZYGAS_SETUP := -1000.0
-const INVALID_DIZZYGAS := -100.0
-const VALID_DIZZYGAS := 100.0
-const INVALID_GOBLIN_ARMORY := -100.0
-const VALID_GOBLIN_ARMORY := 100.0
-const EARLY_BAIT_MODIFIER := -100.0
-const MID_BAIT_MODIFIER := -100.0
-
-static func choose_boss(picks: Array):
-	var best = null
-	for b in picks:
-		if best == null or int((b as Dictionary).get("xp", 0)) > int((best as Dictionary).get("xp", 0)):
-			best = b
-	return best
-
-## Sélectionne les 2 cartes de main à défausser lors de la phase de setup (DiscardCalculator.cs).
+## Selectionne les 2 cartes de main a defausser lors de la phase de setup (FixedAI.DiscardCards, DiscardCalculator.cs).
 static func select_opening_discards(hand: Array, p: Dictionary, G: Dictionary) -> Array:
 	if hand.size() <= 2:
 		return [0, 1] if hand.size() == 2 else [0]
-	var scores: Array = []
-	var best_room_val := 50.0
-	for i in hand.size():
-		var c: Dictionary = hand[i]
-		if c.get("isRoom", false):
-			var r_val := _calculate_room_value(c, p, G, "setup")
-			if not BossEngine.can_build_room(p, G, int(p.get("pid", 0))) or bool(c.get("advanced", false)):
-				r_val -= 100.0
-			scores.append({"idx": i, "score": r_val})
-			if r_val > best_room_val:
-				best_room_val = r_val
-		else:
-			# Keep spell factor pour le setup = 0.4 * best_room_val (DiscardCalculator.cs)
-			var s_val := best_room_val * 0.4
-			scores.append({"idx": i, "score": s_val})
-	
-	# Tri par score croissant : défausse les 2 plus faibles
-	scores.sort_custom(func(a, b): return a["score"] < b["score"])
-	var res := [scores[0]["idx"], scores[1]["idx"]]
-	res.sort()
-	return res
+	return ApkAI.opening_discards(G, p, hand, 2)
 
 ## Observateur facultatif (tests/ai_census.gd) : appele avec (match_obj, pid, moves, coup choisi) a chaque decision. Aucun effet sur le jeu.
 static var trace: Callable = Callable()
@@ -72,13 +30,32 @@ static func pick_move(match_obj, pid: int):
 		if trace.is_valid():
 			trace.call(match_obj, pid, moves, pick)
 		return pick
-	var best = moves[0]
-	var best_score := score_move(match_obj, pid, moves[0])
-	for i in range(1, moves.size()):
-		var s := score_move(match_obj, pid, moves[i])
-		if s > best_score:
+	var pc: Dictionary = match_obj.G.get("pendingChoice", {})
+	if str(pc.get("type", "")) == "draw-type" and int(pc.get("playerId", -1)) == pid: # StatisticAI.SelectWhereToDrawFrom : rng <= p -> pioche de salles
+		var want := "rooms" if match_obj.rng.randf() <= ApkAI.draw_room_probability(match_obj.G, p, pid) else "spells"
+		for m in moves:
+			var oi := int((m as Dictionary).get("args", [-1])[0])
+			var opts: Array = pc.get("options", [])
+			if oi >= 0 and oi < opts.size() and (str((opts[oi] as Dictionary).get("pile", "")) == "rooms") == (want == "rooms"):
+				if trace.is_valid():
+					trace.call(match_obj, pid, moves, m)
+				return m
+	var builds: Array = []
+	var others: Array = []
+	for m in moves:
+		(builds if str((m as Dictionary).get("type", "")) == "buildRoom" else others).append(m)
+	var best = null
+	var best_score := 0.0
+	for m in others:
+		var s := score_move(match_obj, pid, m)
+		if best == null or s > best_score:
 			best_score = s
-			best = moves[i]
+			best = m
+	# AIPlayerInteraction.InternalDoPlayerActions : une capacite d'abord (UseAbility), PUIS la construction (BuildRoom) ; les deux ne se comparent jamais.
+	if not builds.is_empty() and (best == null or str((best as Dictionary).get("type", "")) in ["passBuild", "pass", "adventureNext", "resolveNextHero"]):
+		var plan := ApkAI.plan(match_obj.G, pid, builds)
+		if int(plan["pick"]) >= 0:
+			best = builds[int(plan["pick"])]
 	if trace.is_valid():
 		trace.call(match_obj, pid, moves, best)
 	return best
@@ -88,7 +65,6 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 	var G: Dictionary = match_obj.G
 	var p: Dictionary = (G["players"] as Dictionary)[pid]
 	var phase: String = str(G.get("phase", ""))
-	var turn: int = int(G.get("turn", 0))
 	var mtype := String(move.get("type", ""))
 	var args: Array = move.get("args", [])
 
@@ -108,14 +84,16 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 			return 500.0
 
 		"buildRoom":
-			var hand_idx := int(args[0]) if not args.is_empty() else -1
-			var hand: Array = p.get("hand", [])
-			if hand_idx < 0 or hand_idx >= hand.size():
+			# Rang lexicographique (ApkAI.plan) : salle puis emplacement, comme FixedAI. pick_move, lui, applique la regle « rien si le max est 0 ».
+			var hand_n := (p.get("hand", []) as Array).size()
+			if args.is_empty() or int(args[0]) < 0 or int(args[0]) >= hand_n:
 				return -100.0
-			var room: Dictionary = hand[hand_idx]
-			# [i] = pose sur le premier emplacement libre (pas de salle recouverte) ; [i, ti] = pose par-dessus la salle ti.
-			var slot_target := int(args[1]) if args.size() > 1 and args[1] != null else (p.get("dungeon", []) as Array).size()
-			return _score_build_room(room, p, G, phase, turn, slot_target)
+			var all_builds: Array = match_obj.legal_moves(pid).filter(func(m): return str((m as Dictionary).get("type", "")) == "buildRoom")
+			var at := all_builds.find(move)
+			if at < 0:
+				all_builds.append(move)
+				at = all_builds.size() - 1
+			return float((ApkAI.plan(G, pid, all_builds)["keys"] as Array)[at])
 
 		"playSpell":
 			var hand_idx := int(args[0]) if not args.is_empty() else -1
@@ -192,13 +170,8 @@ static func _score_choice(G: Dictionary, p: Dictionary, pid: int, idx: int) -> f
 			if bool(card.get("isSpell", false)):
 				return 100000.0 + opp_rank
 			return opp_rank + _calculate_room_value(card, p, G, phase_str) / 1000.0
-		"draw-type": # DrawCalculator.CalculateDeckDrawValue : P(pioche salle) ; l'IA C# tire au sort, ici on suit la probabilite
-			var buildable := 0
-			var hand: Array = p.get("hand", [])
-			for hi in hand.size():
-				if bool((hand[hi] as Dictionary).get("isRoom", false)) and BossEngine.can_build_room(p, G, pid, hi):
-					buildable += 1
-			var p_room := 1.0 if buildable == 0 else ((0.75 if buildable == 1 else (0.25 if turn <= 1 else 0.15)) if phase_str != "late" else 0.1)
+		"draw-type": # DrawCalculator.CalculateDeckDrawValue : P(pioche salle) ; pick_move tire au sort (rng <= p), ici la probabilite
+			var p_room := ApkAI.draw_room_probability(G, p, pid)
 			return p_room if str(o.get("pile", "")) == "rooms" else 1.0 - p_room
 		"heal-wound": # CheckBMA014 : on retourne le heros qui rapporte le plus d'ames
 			return float(BossEngine.hero_souls(card))
@@ -234,125 +207,9 @@ static func _spells_in_hand(p: Dictionary) -> int:
 			n += 1
 	return n
 
-## Scoring d'une salle à construire d'après RoomCalculator.cs
-static func _score_build_room(room: Dictionary, p: Dictionary, G: Dictionary, phase: String, turn: int, target_slot: int) -> float:
-	var is_setup := (phase == "setup" or turn <= 0)
-	var is_early := (turn <= 1)
-	var is_mid := (turn > 1 and turn <= 4)
-	var phase_str := "setup" if is_setup else ("early" if is_early else ("mid" if is_mid else "late"))
-
-	var score := _calculate_room_value(room, p, G, phase_str)
-
-	# 1. Pénalité de construction par-dessus (BuildOverPenalty)
-	var dungeon: Array = p.get("dungeon", [])
-	if target_slot < dungeon.size():
-		var old_room = BossEngine.active_room(dungeon[target_slot])
-		if old_room != null:
-			var old_dict: Dictionary = old_room
-			if bool(old_dict.get("advanced", false)):
-				score -= BUILD_OVER_ADVANCED_PENALTY
-			elif not bool(old_dict.get("advanced", false)) and bool(room.get("advanced", false)):
-				score += 0.0 # Upgrade naturel : 0 pénalité
-			else:
-				score -= _calculate_room_value(old_dict, p, G, phase_str) # RoomCalculator.CalculateBuildOverPenalty : valeur de la salle recouverte
-
-	# 2. Facteur de leurre de héros (BaitHeroFactor)
-	if not is_setup:
-		var bait_mod := EARLY_BAIT_MODIFIER if is_early else MID_BAIT_MODIFIER
-		score += _bait_hero_factor(room, p, G, bait_mod)
-
-	# 3. Synergies de cartes décompilées
-	var card_id := str(room.get("id", ""))
-	if card_id == "BMA029": # Dizzygas Hallway
-		if dungeon.is_empty() or is_setup:
-			score += INVALID_DIZZYGAS_SETUP
-		else:
-			var prev_room = BossEngine.active_room(dungeon[0])
-			if prev_room != null and str((prev_room as Dictionary).get("type", "")) == "trap":
-				score += VALID_DIZZYGAS
-			else:
-				score += INVALID_DIZZYGAS
-	elif card_id == "BMA015": # Goblin Armory
-		if not dungeon.is_empty():
-			var prev_room = BossEngine.active_room(dungeon[0])
-			if prev_room != null and str((prev_room as Dictionary).get("type", "")) == "monster":
-				score += VALID_GOBLIN_ARMORY
-			else:
-				score += INVALID_GOBLIN_ARMORY
-	elif card_id == "BMA034": # Construction Zone
-		# Combo avec salle avancée en main
-		for h in p.get("hand", []):
-			if bool((h as Dictionary).get("advanced", false)):
-				score += 100.0
-				break
-
-	# 4. Bonus d'atteinte de 5 salles (Level-Up rush)
-	var cur_vis: int = BossEngine.count_visible_rooms(p.get("dungeon", []))
-	if cur_vis + 1 >= 5 and not p.get("leveledUp", false):
-		score += 250.0
-
-	return maxf(0.0, score)
-
-## Calcul de base valeur salle selon tables décompilées
+## Valeur de base d'une salle (RoomCalculator.CalculateRoomValue), pour les choix de cartes de TriggerCalculator.
 static func _calculate_room_value(room: Dictionary, _p: Dictionary, _G: Dictionary, phase_str: String) -> float:
-	var dmg: int = clampi(int(room.get("damage", 0)), 0, 5)
-	var treasures: Array = room.get("treasures", [])
-	var t_count: int = clampi(treasures.size(), 0, 4)
-
-	var score := 0.0
-	match phase_str:
-		"setup", "early":
-			score += EARLY_DAMAGE_VALUE[dmg]
-			score += EARLY_TREASURE_VALUE[t_count]
-		"mid":
-			score += MID_DAMAGE_VALUE[dmg]
-			score += MID_TREASURE_VALUE[t_count]
-		"late":
-			score += LATE_DAMAGE_VALUE[dmg]
-			score += LATE_TREASURE_VALUE[t_count]
-
-	if bool(room.get("advanced", false)):
-		score += 30.0
-
-	return score
-
-## Vérifie si la salle va attirer un héros mortel ou au contraire un héros qu'on tue (BaitHeroFactor.cs)
-static func _bait_hero_factor(room: Dictionary, p: Dictionary, G: Dictionary, bait_factor: float) -> float:
-	var town: Array = G.get("town", [])
-	if town.is_empty():
-		return 0.0
-
-	var factor := 0.0
-	var room_treasures: Array = room.get("treasures", [])
-	var dungeon_dmg := _get_total_dungeon_damage(p) + int(room.get("damage", 0))
-	var p_wounds: int = CardDB.total_wounds(p)
-
-	for h in town:
-		var hero: Dictionary = h
-		var h_treasures: Array = hero.get("treasures", [hero.get("treasure", 1)])
-		var matches := false
-		for t in room_treasures:
-			if h_treasures.has(t) or h_treasures.has(int(t)):
-				matches = true
-				break
-		if matches:
-			var hp: int = BossEngine.hero_wounds(hero)
-			if hp > dungeon_dmg:
-				# Le héros survivrait et blesserait le boss : pénalité sévère
-				factor += bait_factor * (float(p_wounds) + 1.0)
-			else:
-				# Le boss tue le héros et prend son âme : bonus
-				factor += 50.0
-
-	return factor
-
-static func _get_total_dungeon_damage(p: Dictionary) -> int:
-	var total := 0
-	for stack in p.get("dungeon", []):
-		var r = BossEngine.active_room(stack)
-		if r != null:
-			total += int((r as Dictionary).get("damage", 0))
-	return total
+	return ApkAI.base_value(room, phase_str)
 
 ## Scoring des sorts d'après AbilityCalculator.cs
 static func _score_spell(spell: Dictionary, target: Dictionary, p: Dictionary, G: Dictionary, pid: int) -> float:

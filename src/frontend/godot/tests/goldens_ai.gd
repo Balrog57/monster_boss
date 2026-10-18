@@ -25,6 +25,11 @@ func run(ok: Callable, h: Node) -> void:
 	_t_rmb_miniboss_powers()
 	_t_swap_weights()
 	_t_build_in_new_slot()
+	_t_apk_factors()
+	_t_apk_values()
+	_t_apk_build_plan()
+	_t_apk_discard()
+	_t_apk_pick_order()
 
 # --- fabriques d'etats minimaux ----------------------------------------------------------------------
 
@@ -485,3 +490,171 @@ func _t_build_in_new_slot() -> void:
 	_ok.call(str(pc3.get("step", "")) == "rmb_build_slot" and (pc3["options"] as Array).size() == 2 and int((pc3["options"] as Array)[0]["roomIndex"]) == -1, "Brassknuckle : la salle piochee peut aller dans un nouvel emplacement ou par-dessus")
 	m3._resolve_choice(0, 0)
 	_ok.call((G3["players"][0]["dungeon"] as Array).size() == 2 and str(((G3["players"][0]["dungeon"] as Array)[0] as Array)[0]["id"]) == "drawn", "Brassknuckle : construite a l'entree du donjon")
+
+
+# --- IA de l'APK (ApkAI.gd, FixedAI) : decisions deterministes de construction, de defausse et de pioche ---------------------
+
+## ApkAI.ROOM_FACTORS = ai_info.json de chaque paquet (les assets ne sont pas exportes : la copie est dans le code).
+func _t_apk_factors() -> void:
+	var seen := 0
+	var ok := true
+	for deck in ["BaseDeck", "PlayerChoice", "HiddenHeros"]:
+		var f := FileAccess.open("res://assets/data/%s/ai_info.json" % deck, FileAccess.READ)
+		var d: Dictionary = JSON.parse_string(f.get_as_text())
+		for r in d.get("RoomCards", []):
+			seen += 1
+			ok = ok and ApkAI.ROOM_FACTORS.has(str(r["CardNumber"])) and ApkAI.ROOM_FACTORS[str(r["CardNumber"])] == r["Factors"]
+	_ok.call(ok and seen == ApkAI.ROOM_FACTORS.size() and seen == 31, "ApkAI.ROOM_FACTORS == ai_info.json (31 salles BaseDeck ; PlayerChoice et HiddenHeros n'en ont pas)")
+
+func _t_apk_values() -> void:
+	var G := _G([_player(0, "BMA001"), _player(1, "BMA002")])
+	G["turn"] = 1
+	_ok.call(ApkAI.phase(G) == "early", "ApkAI.phase : le 1er tour est Early (NumberOfTurns n'est incremente qu'en fin de tour)")
+	G["turn"] = 2
+	var mid_ok: bool = ApkAI.phase(G) == "mid"
+	G["turn"] = 4
+	mid_ok = mid_ok and ApkAI.phase(G) == "mid"
+	G["turn"] = 5
+	_ok.call(mid_ok and ApkAI.phase(G) == "late", "ApkAI.phase : tours 2-4 Mid, a partir du 5e Late")
+	G["phase"] = "setup"
+	_ok.call(ApkAI.phase(G) == "setup", "ApkAI.phase : Setup pendant la mise en place")
+	# Goblin Armory : 1 degat, 2 tresors, facteur Combo -> early 25+0+25, mid 25+100+0, late 25+75+50
+	var gob := _plain("BMA015", "monster", [2, 2], 1)
+	_ok.call(ApkAI.base_value(gob, "early") == 50.0 and ApkAI.base_value(gob, "mid") == 125.0 and ApkAI.base_value(gob, "late") == 150.0, "ApkAI.base_value : tables par phase + facteur Combo de Goblin Armory")
+	# plus aucun bonus invente : une avancee n'a pas +30
+	_ok.call(ApkAI.base_value(_plain("x", "monster", [1], 3, true), "early") == 200.0, "ApkAI.base_value : pas de +30 « avancee » (degats 3 : 150 + 1 tresor : 50)")
+	# Mimic Vault (Lure) : -100 en early, +25 en mid, +150 en late
+	var mimic := _plain("BMA036", "trap", [1], 0)
+	_ok.call(ApkAI.base_value(mimic, "early") == -50.0 and ApkAI.base_value(mimic, "mid") == 50.0 and ApkAI.base_value(mimic, "late") == 225.0, "ApkAI.base_value : facteur Lure par phase")
+	# BaitHeroFactor : un heros de la ville que mon SEUL donjon attire, et qui survit : -100 x blessures + 1
+	var p0 := _player(0, "BMA001")
+	var p1 := _player(1, "BMA002")
+	(p0["boss"] as Dictionary)["treasures"] = []
+	(p1["boss"] as Dictionary)["treasures"] = []
+	p0["wounds"] = [{"wounds": 1}]
+	var G2 := _G([p0, p1])
+	G2["turn"] = 1
+	var hero := {"id": "H", "name": "H", "treasure": 1, "hp": 10, "souls": 1, "wounds": 1}
+	G2["town"] = [hero]
+	var big := _plain("big", "monster", [1], 4)
+	_ok.call(ApkAI.room_value(G2, p0, 0, big, "early", [null]) == 225.0 - 99.0, "ApkAI : leurre d'un heros qui survit = -100 x blessures + 1")
+	hero["hp"] = 3
+	_ok.call(ApkAI.room_value(G2, p0, 0, big, "early", [null]) == 225.0, "ApkAI : ... aucun malus si le donjon tue le heros (pas de bonus invente non plus)")
+	hero["hp"] = 10
+	(p1["dungeon"] as Array).append([_plain("o", "monster", [1], 1)])
+	_ok.call(ApkAI.room_value(G2, p0, 0, big, "early", [null]) == 225.0, "ApkAI : ... ni si l'adversaire a deja autant de tresors (pas l'unique meilleur appat)")
+	# Dizzygas / Goblin Armory : +-100 selon le type de la derniere salle posee (index Godot 0), seulement si le donjon n'est pas plein
+	var G3 := _G([_player(0, "BMA001", [_plain("trap1", "trap", [1], 1)]), _player(1, "BMA002")])
+	G3["turn"] = 3
+	var dz := _plain("BMA029", "trap", [1], 2)
+	var base: float = ApkAI.base_value(dz, "mid")
+	_ok.call(ApkAI.room_value(G3, G3["players"][0], 0, dz, "mid", [null]) == base + 100.0, "ApkAI : Dizzygas Hallway apres une Trap = +100")
+	var G4 := _G([_player(0, "BMA001", [_plain("mon", "monster", [1], 1)]), _player(1, "BMA002")])
+	G4["turn"] = 3
+	_ok.call(ApkAI.room_value(G4, G4["players"][0], 0, dz, "mid", [null]) == base - 100.0, "ApkAI : ... apres une Monster = -100")
+	# Setup : Dizzygas jamais en premier ; Construction Zone +10000 avec une avancee Fighter/Thief en main
+	G4["phase"] = "setup"
+	_ok.call(ApkAI.room_value(G4, _player(0, "BMA001"), 0, dz, "setup", [null]) == 0.0, "ApkAI : Setup, Dizzygas sur un donjon vide = 0 (-1000, plancher)")
+	var cz := _plain("BMA034", "trap", [2, 4], 1)
+	var pz := _player(0, "BMA001")
+	(pz["hand"] as Array).append(_plain("adv", "monster", [4], 2, true))
+	_ok.call(ApkAI.room_value(G4, pz, 0, cz, "setup", [null]) == 10000.0 + ApkAI.base_value(cz, "setup"), "ApkAI : Setup, Construction Zone +10000 avec une avancee Thief en main")
+	# construire par-dessus : 300 si l'ancienne est avancee, 0 si ordinaire -> avancee, sinon la valeur de l'ancienne
+	var old := _plain("old", "monster", [1], 2)
+	_ok.call(ApkAI.over_penalty(big, _plain("a", "monster", [1], 1, true), "early") == 300.0 and ApkAI.over_penalty(_plain("n", "monster", [1], 1, true), old, "early") == 0.0 and ApkAI.over_penalty(big, old, "early") == 150.0, "ApkAI.over_penalty : 300 / 0 / valeur de la salle recouverte")
+
+func _builds(hand_idx: Array, slots: Array = [null]) -> Array:
+	var out: Array = []
+	for hi in hand_idx:
+		for s in slots:
+			out.append(_mv("buildRoom", [hi] if s == null else [hi, s]))
+	return out
+
+func _t_apk_build_plan() -> void:
+	var G := _G([_player(0, "BMA001"), _player(1, "BMA002")])
+	G["turn"] = 1
+	var hand := _hand(G, 0)
+	hand.append(_plain("B", "monster", [1], 2)) # 100 + 50 = 150
+	hand.append(_plain("A", "monster", [1, 1], 3)) # 150 + 0 = 150, plus de degats : gagne l'egalite
+	hand.append(_plain("C", "monster", [1, 1], 3)) # idem, apres A dans la main
+	_ok.call(int(ApkAI.plan(G, 0, _builds([0, 1, 2]))["pick"]) == 1, "FixedAI : egalite de valeur -> degats decroissants, puis ordre de la main")
+	hand.clear()
+	hand.append(_plain("Z", "monster", [1, 1], 0)) # 0 + 0 = 0
+	_ok.call(int(ApkAI.plan(G, 0, _builds([0]))["pick"]) == -1, "FixedAI : aucune construction quand la meilleure salle vaut 0")
+	# emplacements : on couvre la salle qui rapporte le moins ; egalite -> degats du dessus croissants, puis index C# croissant (= index Godot decroissant)
+	var d3 := _plain("d3", "monster", [1, 1], 3) # 150
+	var d2 := _plain("d2", "monster", [1], 2) # 150
+	var d1 := _plain("d1", "monster", [1], 1) # 75
+	var G2 := _G([_player(0, "BMA001", [d3, d2, d1.duplicate(), d1.duplicate()]), _player(1, "BMA002")])
+	G2["turn"] = 1
+	_hand(G2, 0).append(_plain("new", "monster", [1], 4)) # 225
+	var plan: Dictionary = ApkAI.plan(G2, 0, _builds([0], [0, 1, 2, 3]))
+	_ok.call(int(plan["pick"]) == 3, "FixedAI : emplacement = salle recouverte la moins precieuse, egalite -> index C# croissant (pile 3 = la plus ancienne)")
+	G2["players"][0]["dungeon"] = [[d3], [d2]]
+	plan = ApkAI.plan(G2, 0, _builds([0], [0, 1]))
+	_ok.call(int(plan["pick"]) == 1, "FixedAI : egalite de valeur de pose -> le dessus qui fait le moins de degats")
+	# les rangs flottants (utilises par la mesure d'accord) ordonnent comme le choix
+	var keys: Array = plan["keys"]
+	_ok.call(float(keys[1]) > float(keys[0]), "ApkAI.plan : rang flottant coherent avec le choix")
+	# Minotaur's Maze : -1000 dans le dernier emplacement (index C# 4)
+	var G3 := _G([_player(0, "BMA001", [_plain("a"), _plain("b"), _plain("c"), _plain("d")]), _player(1, "BMA002")])
+	G3["turn"] = 3
+	_hand(G3, 0).append(_plain("BMA017", "monster", [1], 3))
+	var p3 := ApkAI.plan(G3, 0, _builds([0], [null, 0, 1, 2, 3]))
+	_ok.call(int(p3["pick"]) in [1, 2, 3, 4], "FixedAI : Minotaur's Maze ne va pas dans le 5e emplacement (nouvel emplacement, index C# 4) quand une pose par-dessus rapporte")
+	# Goblin Armory, donjon plein : voisin Monster +500, non-Monster -500, premier emplacement -200
+	var rooms: Array = [_plain("t0", "trap", [1], 1), _plain("m1", "monster", [1], 1), _plain("t2", "trap", [1], 1), _plain("t3", "trap", [1], 1), _plain("t4", "trap", [1], 1)]
+	var G4 := _G([_player(0, "BMA001", rooms), _player(1, "BMA002")]) # g0 = t0 (la plus recente)
+	G4["turn"] = 3
+	_hand(G4, 0).append(_plain("BMA015", "monster", [2, 2], 1))
+	var p4 := ApkAI.plan(G4, 0, _builds([0], [0, 1, 2, 3, 4]))
+	# c = 4 - g, le voisin est c - 1 : la Monster m1 (g1, c3) a pour voisine suivante c4 = g0
+	_ok.call(int(p4["pick"]) == 0, "FixedAI : Goblin Armory dans un donjon plein se pose juste apres une Monster")
+
+func _t_apk_discard() -> void:
+	var G := _G([_player(0, "BMA001"), _player(1, "BMA002")])
+	G["phase"] = "setup"
+	var p: Dictionary = G["players"][0]
+	var hand := _hand(G, 0)
+	hand.append(_plain("r0", "monster", [1], 4)) # 225
+	hand.append(_plain("r1", "monster", [1], 1)) # 75
+	hand.append(_plain("r2", "monster", [1, 1], 1)) # 25
+	hand.append(_plain("r3", "monster", [1], 2)) # 150
+	hand.append(_plain("r4", "monster", [1], 3, true)) # 200 - 100 : une avancee ne se batit pas sur un donjon vide
+	hand.append(_spell("BMA049")) # 0,4 x 225 = 90
+	hand.append(_spell("BMA048"))
+	_ok.call(ApkAI.opening_discards(G, p, hand) == [1, 2], "FixedAI : defausse d'ouverture = les 2 valeurs les plus basses (r2 = 25, r1 = 75)")
+	hand[2] = _plain("r2", "monster", [1], 4)
+	_ok.call(ApkAI.opening_discards(G, p, hand) == [1, 5], "FixedAI : sort = 0,4 x meilleure salle ; egalite stable (premier sort) ; l'avancee non batie vaut 100")
+	_ok.call(AI.select_opening_discards(hand, p, G) == [1, 5], "AI.select_opening_discards passe par ApkAI")
+	# DrawCalculator : probabilite de piocher une salle selon les salles batissables en main
+	var G2 := _G([_player(0, "BMA001"), _player(1, "BMA002")])
+	G2["turn"] = 1
+	var p2: Dictionary = G2["players"][0]
+	_ok.call(ApkAI.draw_room_probability(G2, p2, 0) == 1.0, "ApkAI.draw_room_probability : main sans salle = 1")
+	_hand(G2, 0).append(_plain("a"))
+	_ok.call(ApkAI.draw_room_probability(G2, p2, 0) == 0.75, "... une salle = 0,75 (Early)")
+	_hand(G2, 0).append(_plain("b"))
+	var early_two: bool = ApkAI.draw_room_probability(G2, p2, 0) == 0.25
+	G2["turn"] = 3
+	var mid_two: bool = ApkAI.draw_room_probability(G2, p2, 0) == 0.15
+	G2["turn"] = 6
+	_ok.call(early_two and mid_two and ApkAI.draw_room_probability(G2, p2, 0) == 0.1, "... deux salles = 0,25 / 0,15 / 0,1 (Early / Mid / Late)")
+
+## InternalDoPlayerActions : une capacite d'abord, PUIS la construction ; la construction ne se compare jamais au score d'un sort.
+func _t_apk_pick_order() -> void:
+	var G := _G([_player(0, "BMA001"), _player(1, "BMA002")])
+	G["turn"] = 1
+	G["phase"] = "build"
+	G["activePlayer"] = 0
+	_hand(G, 0).append(_plain("room", "monster", [1], 4))
+	_hand(G, 0).append(_spell("BMA049"))
+	var m := _match(G)
+	var mv = AI.pick_move(m, 0)
+	_ok.call(mv != null and str(mv["type"]) == "playSpell", "IA : en phase de construction, le sort (Kobold Strike) est joue AVANT la construction")
+	_hand(G, 0).remove_at(1)
+	mv = AI.pick_move(m, 0)
+	_ok.call(mv != null and str(mv["type"]) == "buildRoom", "IA : sans capacite, elle construit")
+	_hand(G, 0)[0] = _plain("zero", "monster", [1, 1], 0)
+	mv = AI.pick_move(m, 0)
+	_ok.call(mv == null or str(mv["type"]) in ["passBuild", "pass"], "IA : une salle qui vaut 0 n'est pas construite (FixedAI)")

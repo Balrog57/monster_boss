@@ -251,11 +251,13 @@ Colonnes : `n`, `agree`, `%` ; `forces` = un seul candidat distinct (accord auto
 premier). Un coup requete indisponible (aucun coup legal, choix deja ferme) va dans `unavailable`, hors `n`. Les repondants de Spell Battle dont le
 joueur n'est pas celui que Godot attend ne sont pas comparables (`unavailable.pass:respond-order`) ; aucun cas sur les 18 traces.
 
-**Nature de la mesure** : l'IA oracle n'est **pas** deterministe. `StatisticAI.RandomSelection` tire carte, emplacement, defausse, capacite et type de
-pioche au sort selon des probabilites (`NormalizeValues` : valeurs moins le minimum, normalisees). Un accord « argmax Godot = tirage oracle » plafonne donc
-bien sous 100 % pour `build`, `buildCard`, `buildSlot`, `discard`, `spell`, `activate`, `draw`. Une partie des cibles est aussi tiree (`Shuffle()` :
-`TriggerCalculator.cs` 363/401/615/621/643, `AbilityCalculator.cs` 485/864/969 ; cartes piochees dans une defausse, sort au hasard...), ce qui borne `target`
-(typiquement `recover-card`).
+**Nature de la mesure** : l'oracle joue avec **`FixedAI`** (`tools/apk-oracle/Program.cs:119`), pas avec `StatisticAI` : `SelectRoomToBuild`,
+`SelectPositionToBuild` et `DiscardCards` y sont des **argmax deterministes** (salle : valeur `RoomCalculator.CalculateValue` avec modificateurs, egalite ->
+degats decroissants puis ordre de la main ; emplacement : `DungeonSlotCalculator`, egalite -> degats du dessus croissants puis index ; defausse : les 2
+valeurs les plus basses, tri stable). Seuls `SelectWhereToDrawFrom` (pioche Haunted Library), `SelectAbilityToUse` (capacite / sort, tirage
+`RandomSelection` selon des probabilites) et les cibles de declencheurs passent par `StatisticAI`/`RandomAI` : ils sont aleatoires, donc `spell`,
+`activate`, `draw` plafonnent sous 100 %. Une partie des cibles est aussi tiree (`Shuffle()` : `TriggerCalculator.cs` 363/401/615/621/643,
+`AbilityCalculator.cs` 485/864/969 ; cartes piochees dans une defausse, sort au hasard...), ce qui borne `target` (typiquement `recover-card`).
 La trace ne porte pas les probabilites de l'oracle ; une mesure plus fine (probabilite attribuee au coup tire) demanderait de les y ajouter
 (`TracingAI.cs`), non fait.
 
@@ -278,7 +280,28 @@ La trace ne porte pas les probabilites de l'oracle ; une mesure plus fine (proba
 forcees hors ouverture : l'oracle n'en trace aucune (`discard` n'existe qu'en `Setup_a`) ; celles des capacites passent par `resolveTarget` donc par `target`
 (ex. `discard-spell[Dark Laboratory]`).
 
-Desaccords les plus frequents (sous-classe `type:carte` ou `target:type de choix[boss]`, desaccords/n sur les 18 traces) : `target:recover-card[Dracolich
+**Apres le lot 1.2, etape 1 (`ApkAI.gd` : valeur de salle, choix de la salle et de l'emplacement, abstention, defausse d'ouverture, probabilite de pioche)**
+(memes 18 traces ; `APK_PARITY_OUT=tools/parity/out/ai1m/{default,wide}`, copies de `ai0` avec `--skip-gen`) :
+
+| Type | n | avant | apres | % apres |
+|---|---:|---:|---:|---:|
+| build (carte + emplacement) | 444 | 306 | **444** | **100,0** |
+| buildCard | 444 | 327 | **444** | **100,0** |
+| buildSlot | 444 | 412 | **444** | **100,0** |
+| discard (ouverture) | 51 | 4 | **51** | **100,0** |
+| spell | 102 | 85 | 85 | 83,3 |
+| spellTarget | 102 | 37 | 37 | 36,3 |
+| activate | 142 | 70 | 70 | 49,3 |
+| target | 210 | 82 | 84 | 40,0 (`_calculate_room_value` sans le +30 invente) |
+| draw | 0 | 0 | 0 | - (non exerce) |
+| pass | 214 | 158 | 168 | 78,5 (les 46 restants : capacites, etapes 2-3) |
+
+**Seuil fixe : 100 % sur `build`, `buildCard`, `buildSlot` et `discard`** (0 desaccord, 0 indifference) ; les autres types restent a mesurer apres les
+etapes 2 (sorts / capacites) et 3 (cibles). `draw` : la decision Godot tire desormais au sort (`rng <= p`, rng de la partie, comme `StatisticAI`) :
+n = 0 sur ces traces, et un accord par tirage ne peut pas etre de 100 %. Les `pass:build` restants (21/34) sont des capacites que Godot activerait la ou
+l'oracle ne joue rien (BMA032, BMA013, BMA030...), pas des constructions.
+
+Desaccords les plus frequents de la mesure initiale (sous-classe `type:carte` ou `target:type de choix[boss]`, desaccords/n sur les 18 traces) : `target:recover-card[Dracolich
 Lair]` 32/38 et `[Dark Altar]` 18/19, `target:dracolich-discard` 20/38 (beaucoup d'indifferences : `_score_choice` rend 0 pour ces choix) ; `spellTarget`
 BMA046 25/25, BMA047 7/7, BMA042 7/8 (Godot prend la premiere variante de cible, score identique) ; `activate:BMA013` 24/42, `BMA032` 16/29, `BMA009` 11/19
 (Godot prefere un sort a score fixe 20 ou toute capacite a score 5 par defaut) ; `pass:build` 30/34 (l'oracle ne construit pas, Godot construirait 20 fois,
