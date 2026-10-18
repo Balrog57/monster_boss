@@ -1048,6 +1048,7 @@ func _t_counterspell_stack_chain() -> void:
 ## Tout sort legal repond (pas seulement Counterspell / All-Seeing Eye) ; l'IA, elle, s'en tient a sa politique (AbilityCalculator).
 func _t_spell_battle_open_responses() -> void:
 	var m = _battle_match()
+	m.G["turn"] = 3 # AbilityCalculator.CheckBMA043 : Counterspell n'est jamais joue en Setup / Early
 	(m.G["players"][0] as Dictionary)["hand"] = [_zspell("ZA")]
 	(m.G["players"][1] as Dictionary)["hand"] = [{"id": "BMA046", "name": "Freeze", "isSpell": true, "category": 2}, {"id": "BMA049", "name": "Kobold", "isSpell": true, "category": 2}]
 	_ok(_play(m, 0, "ZA"), "ZA ouvre la Spell Battle")
@@ -1604,7 +1605,9 @@ func _t_build_window_after_last_build() -> void:
 ## oracle-s2-p2 step 41, oracle-s3-p3 step 170). Elle choisit son sort par AI.pick_move, puis passe quand elle n'en a plus.
 func _t_build_window_ai_plays_spell() -> void:
 	var m = _match_with_spell()
+	m.G["turn"] = 3 # AbilityCalculator.CheckBMA048 : Jeopardy n'est jamais joue en Setup / Early, et seulement avec moins de cartes que la moyenne adverse - 1
 	((m.G["players"][0] as Dictionary)["hand"] as Array).clear()
+	((m.G["players"][0] as Dictionary)["hand"] as Array).append_array([_room("H1", "trap", false, [1]), _room("H2", "trap", false, [1])])
 	((m.G["players"][1] as Dictionary)["hand"] as Array).append({"id": "BMA048", "name": "Jeopardy", "isSpell": true})
 	m.G["activePlayer"] = 0 # le dernier constructeur est l'humain (il a appuye sur DONE)
 	m.G["buildOrder"] = [1, 0]

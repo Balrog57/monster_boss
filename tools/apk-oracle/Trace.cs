@@ -5,6 +5,10 @@
 //  - "phase"    : apres un GameBoard.NextStep() (phase = phase qui vient d'etre executee).
 //  - "action"   : buildRoom / undoBuildRoom / playRoomAbility / playSpell / spellBattleReady (virtuals de PlayerInteractionBase).
 //  - "decision" : chooseDraw / discard / resolveTarget (ce que l'IA a choisi).
+// Cle de tete `abilityChoices` (lot 1.2, etape 2) : hors de `steps` (aucun seq consomme, les steps restent identiques) ; une entree par appel a
+// StatisticAI.SelectAbilityToUse (UseAbility : BuildPhase_a, AdventurePhase_b/c, repondants de Spell Battle) = ensemble des capacites ELIGIBLES
+// (AbilityCalculator.Check* non nul : carte + cibles preregles) AVANT le tirage uniforme, et l'indice tire ; `usable` = cartes dont la capacite est jouable
+// (CanPlayerPlayAbility, avant les Check*). `afterSeq` = dernier seq attribue.
 // L'etat d'un step "action"/"decision" est pris APRES la fin de l'appel ; seq est attribue au DEBUT de l'appel,
 // donc les steps sont tries par seq (ordre d'invocation) : un sort declenche d'abord son step, puis ses effets imbriques.
 using System.Text.Json;
@@ -19,9 +23,18 @@ sealed class Trace
     readonly List<(int seq, Dictionary<string, object> e)> steps = new();
     int seq, depth;
     object error;
+    readonly List<object> abilityChoices = new();
 
     public int Count => steps.Count;
     public int Depth { get => depth; set => depth = value; }
+    public int Seq => seq;
+
+    public void AbilityChoice(Boss player, IEnumerable<LogicCardBase> usable, IEnumerable<object> eligible, int chosen) =>
+        abilityChoices.Add(new
+        {
+            afterSeq = seq, player = player.PlayerId, turn = board.NumberOfTurns, phase = board.CurrentGamePhase.ToString(), spellBattle = board.IsSpellBattleActive,
+            activePlayer = board.ActivePlayer?.PlayerId, usable = usable.Select(C).ToArray(), eligible = eligible.ToArray(), chosen,
+        });
 
     public Trace(GameBoard b, int seed, int players, List<GameDecks> decks)
     {
@@ -80,6 +93,7 @@ sealed class Trace
         winner = board.Winner == null ? null : new { playerId = board.Winner.PlayerId, card = board.Winner.CardNumber, souls = board.Winner.Souls, wounds = board.Winner.Wounds },
         error,
         steps = steps.OrderBy(t => t.seq).Select(t => t.e).ToArray(),
+        abilityChoices = abilityChoices.ToArray(),
     };
 
     public static object C(LogicCardBase c) => new { id = c.UniqueID, card = c.CardNumber };

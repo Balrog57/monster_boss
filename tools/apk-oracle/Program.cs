@@ -116,7 +116,7 @@ static class Program
         var cards = WaveServices.GetService<CardInfoService>().GetCardInfoFromDeck(decks);
         var board = new GameBoard();
         board.InititalizeGameBoard(players, new List<BossInfo>(), cards); // tous les boss sont IA
-        foreach (var b in board.Players) b.PlayerInteraction = new TracingAI(board, b, new FixedAI());
+        foreach (var b in board.Players) b.PlayerInteraction = new TracingAI(board, b, new TracingBrain());
         return board;
     }
 

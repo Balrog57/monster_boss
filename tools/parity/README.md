@@ -239,9 +239,10 @@ duree du rejeu +15 % environ). Sans l'option : aucun appel a l'IA, comportement 
 | `buildCard` | idem | la meme carte (emplacement ignore) |
 | `buildSlot` | idem | etant donnee la carte de l'oracle, Godot choisit le meme emplacement parmi les coups de cette carte |
 | `discard` | defausse d'ouverture (`Setup_a`) | `select_opening_discards` rend le meme multiensemble de 2 codes |
-| `spell` | `playSpell` oracle | decision « capacite » = tous les coups legaux sauf construire, plus « ne rien faire » (`passBuild`/`pass`/`adventureNext`) : le meilleur est un `playSpell` du meme sort ; si Godot ne jouerait rien ou autre chose : desaccord |
-| `spellTarget` | idem, cible oracle connue (decisions imbriquees) | parmi les variantes de `playSpell` de ce sort, la meilleure designe une instance cible de l'oracle (`_refs`) |
-| `activate` | `playRoomAbility` oracle | meme decision « capacite » : le meilleur est un `activateRoom` de la meme salle (le 2e argument de BMA028/032 n'est pas compare) |
+| `usableSet` (diagnostic) | chaque appel d'`UseAbility` de l'oracle (cle de tete `abilityChoices` de la trace), mesure juste avant le step suivant | cartes jouables de l'oracle (`CanPlayerPlayAbility`, avant les `CheckXXX`) == cartes de l'APK qui ont un coup legal `playSpell` / `activateRoom` chez Godot (hors salle face cachee ou gelee) ; mesure la LEGALITE du moteur, pas l'IA |
+| `eligibleSet:spell` / `:activate` / `:pass` | idem | l'ensemble des capacites **eligibles** (un `CheckXXX` non nul, une entree par instance de carte) de l'IA Godot (`ApkAI.abilities`) == celui de l'oracle ; le suffixe est ce que l'oracle a tire (un sort, une capacite de salle, rien : ensemble vide) |
+| `chosenInSet:spell` / `:activate` | idem, l'oracle a tire une capacite | la carte tiree par l'oracle est dans l'ensemble de Godot |
+| `spellTarget` / `activateTarget` | idem, carte tiree dans l'ensemble de Godot | la cible preregle de Godot pour CETTE carte == celle de l'oracle (instances de cartes, par effet et par fournisseur de cible, `SetSelectedTargets`) ; `spellTargetShuffle` / `activateTargetShuffle` : cartes dont la cible vient d'un tirage (`Shuffle()` : BMA040, BMA047, BMA009), comptees a part |
 | `target` | choix Godot ouvert, avant `resolveChoice` | meme indice, ou option equivalente (memes codes de cartes designees, meme joueur proprietaire, meme pile) ; l'option « passer » (-1) et les options non appariees ne comptent pas |
 | `draw` | `chooseDraw` (Haunted Library) | meme pile (salles / sorts) |
 | `pass` | `passBuild`/`pass` rejoue par le harnais parce que l'IA oracle n'a rien joue (salle initiale, tour de construction, tour supplementaire, repondant de Spell Battle) | `AI.pick_move` ne propose aucun coup actif (null, `passBuild`, `pass`, `adventureNext`) ; sous-classes `pass:setup|build|extra|respond`, et `passAlt:*` = ce que Godot jouerait a la place |
@@ -255,11 +256,10 @@ joueur n'est pas celui que Godot attend ne sont pas comparables (`unavailable.pa
 `SelectPositionToBuild` et `DiscardCards` y sont des **argmax deterministes** (salle : valeur `RoomCalculator.CalculateValue` avec modificateurs, egalite ->
 degats decroissants puis ordre de la main ; emplacement : `DungeonSlotCalculator`, egalite -> degats du dessus croissants puis index ; defausse : les 2
 valeurs les plus basses, tri stable). Seuls `SelectWhereToDrawFrom` (pioche Haunted Library), `SelectAbilityToUse` (capacite / sort, tirage
-`RandomSelection` selon des probabilites) et les cibles de declencheurs passent par `StatisticAI`/`RandomAI` : ils sont aleatoires, donc `spell`,
-`activate`, `draw` plafonnent sous 100 %. Une partie des cibles est aussi tiree (`Shuffle()` : `TriggerCalculator.cs` 363/401/615/621/643,
+`RandomSelection` selon des probabilites) et les cibles de declencheurs passent par `StatisticAI`/`RandomAI` : ils sont aleatoires. L'accord point a point est
+donc impossible pour `draw` ; pour les capacites (etape 2) on mesure les ENSEMBLES (`eligibleSet`, `chosenInSet`), voir plus bas. Une partie des cibles est aussi tiree (`Shuffle()` : `TriggerCalculator.cs` 363/401/615/621/643,
 `AbilityCalculator.cs` 485/864/969 ; cartes piochees dans une defausse, sort au hasard...), ce qui borne `target` (typiquement `recover-card`).
-La trace ne porte pas les probabilites de l'oracle ; une mesure plus fine (probabilite attribuee au coup tire) demanderait de les y ajouter
-(`TracingAI.cs`), non fait.
+Depuis l'etape 2 la trace porte, pour chaque appel a `SelectAbilityToUse`, l'ensemble des capacites eligibles (voir « Apres le lot 1.2, etape 2 »).
 
 **Mesure initiale** (18 traces : defaut graines 1-3 x 2/3 joueurs + wide graines 4-7 x 2/3/4 joueurs, `BaseDeck`, 6/6 et 12/12 inchanges ; `AI.gd` non modifie) :
 
@@ -300,6 +300,60 @@ forcees hors ouverture : l'oracle n'en trace aucune (`discard` n'existe qu'en `S
 etapes 2 (sorts / capacites) et 3 (cibles). `draw` : la decision Godot tire desormais au sort (`rng <= p`, rng de la partie, comme `StatisticAI`) :
 n = 0 sur ces traces, et un accord par tirage ne peut pas etre de 100 %. Les `pass:build` restants (21/34) sont des capacites que Godot activerait la ou
 l'oracle ne joue rien (BMA032, BMA013, BMA030...), pas des constructions.
+
+**Apres le lot 1.2, etape 2 (`ApkAI.gd` : sorts et capacites de salle, `AbilityCalculator.cs`)**
+
+*Portage* : chaque `CheckXXX` est une fonction `_chk_XXX` de `ApkAI.gd` (commentaire `Fichier.cs:ligne`) : BMA040/047 (`_chk_040_047`), 041, 042, 043, 044, 045, 046,
+048, 049, 050, 051, 052, 053, 054, 055, KSA013 ; salles BMA009, 013, 024, 025, 027, 028, 030, 032, 038, 039. `ApkAI.abilities(G, pid, moves, rng)` rend les
+capacites eligibles (cartes de l'APK qui ont un coup legal ET un `CheckXXX` non nul, une entree par instance) avec leurs cibles preregles ;
+`AI.pick_move` tire UNIFORMEMENT dans cet ensemble avec le RNG de la partie (`StatisticAI.RandomSelection`, toutes les valeurs valent 1,0), une seule fois par
+fenetre de decision (BuildPhase_a, fenetre d'aventure, repondant de Spell Battle) puis construit. Une carte de l'APK sans `CheckXXX` n'est **jamais** jouee ; en Spell Battle
+seuls BMA043 et BMA025 sont evalues. Les cartes wiki gardent `AiWiki.gd` / `TnlAbilities` / `RmbAbilities`.
+Ecart assume : `CheckBMA040And047` (l.844-847) reprend la liste de salles **Trap** dans sa branche « heros actif » pour Giant Size aussi ; Godot garde le type de la carte
+(une Trap n'est pas une cible legale de Giant Size : bogue du C#, pas une regle). Copies fideles de choix legaux mais etranges : All-Seeing Eye defausse d'abord Jeopardy,
+puis Kobold Strike, puis un sort jouable ; Teleportation (BMA053) n'est jamais eligible (`Take(0)` : les PV apres le donjon ne peuvent pas etre <= 0 dans le slot 0).
+
+*Changement de trace (oracle)* : `TracingAI.cs` branche un `TracingBrain` (FixedAI dont seul `SelectAbilityToUse` est recopie a l'identique de
+`StatisticAI.cs:58-70` : memes appels `CalculateAbilityStatistics` puis un seul `NextDouble` pour la roulette) qui ajoute la cle de tete `abilityChoices` : par appel, `afterSeq`
+(dernier `seq` attribue), joueur, tour, phase, `spellBattle`, `usable` (cartes jouables), `eligible` (carte + cibles preregles par effet et fournisseur) et `chosen`.
+Aucun `seq` n'est consomme : **les 24 traces regenerees (defaut, wide, decks) sont identiques aux anciennes hors cette cle** (verifie, `steps`, `meta`, `result`... egaux).
+
+*Mesure* (memes 18 traces, `APK_PARITY_OUT=tools/parity/out/ai2m/{default,wide}`, copies de `ai2` avec `--skip-gen` ; parite regeneree dans `ai2/{default,wide,decks}` : 6/6, 12/12, 6/6,
+`decisionsSkipped` 166 / 443 / 163 inchanges) :
+
+| Type | n | avant (etape 1) | apres | % apres |
+|---|---:|---:|---:|---:|
+| `eligibleSet:spell` (l'oracle a tire un sort) | 102 | - | 101 | 99,0 (**100** avec le bogue copie) |
+| `eligibleSet:activate` (une capacite de salle) | 142 | - | 142 | **100,0** |
+| `eligibleSet:pass` (l'oracle n'a rien d'eligible) | 7555 | - | 7550 | 99,9 (**100** avec le bogue copie) |
+| `chosenInSet:spell` (ancien `spell` : 83,3 %) | 102 | 85 | 101 | 99,0 (**100** avec le bogue copie) |
+| `chosenInSet:activate` (ancien `activate` : 49,3 %) | 142 | 70 | 142 | **100,0** |
+| `spellTarget` (ancien : 36,3 %), hors `Shuffle` | 88 | 37 sur 102 | 88 | **100,0** |
+| `spellTargetShuffle` (BMA040, BMA047) | 13 | - | 8 | 61,5 (tirage au hasard) |
+| `activateTarget` (BMA013, 024, 027, 028, 030, 032, 038, 039) | 123 | - | 123 | **100,0** |
+| `activateTargetShuffle` (BMA009) | 19 | - | 12 | 63,2 (tirage au hasard) |
+| `pass` (l'oracle ne joue rien) | 214 | 168 (78,5 %) | 214 | **100,0** |
+| `usableSet` (diagnostic de legalite, pas l'IA) | 7799 | - | 7065 | 90,6 (ecarts du moteur ci-dessous) |
+
+`--ai-copy-trap-bug` (option de `ApkParity.tscn`, mesure seulement) reproduit le bogue de `CheckBMA040And047` : `eligibleSet` et `chosenInSet` passent alors a **100 %** partout
+(spell 102/102, activate 142/142, pass 7555/7555), ce qui prouve que le seul ecart d'ensemble restant EST ce bogue.
+
+*Desaccords restants (6 decisions sur 7799 ; tout le reste de la ligne = 0)* : cinq `eligibleSet:pass` et un `eligibleSet:spell` / `chosenInSet:spell`, tous BMA047 Giant Size :
+s4-p4@116, @117, @244, @245, @246 (Godot propose Giant Size sur une Monster devant le heros ; l'oracle regarde ses salles Trap, il n'y en a pas devant le heros) et s5-p2@492
+(l'oracle lance Giant Size sur une Trap, Godot le refuse : c'est le cas documente « Non reproduit » de `s5-p2@498`). Les cibles `Shuffle` (BMA040, BMA047, BMA009 : salle ou carte
+de defausse tiree au hasard) ne sont pas reproductibles point a point : accord attendu ~ 1/n.
+
+*Non mesure* (829 appels d'`UseAbility` sur 8628, `unavailable` du rapport) : 287 fenetres de Spell Battle ouvertes par une capacite de SALLE (l'oracle les ouvre ; Godot applique la
+capacite tout de suite, sans pile : l'ensemble de l'oracle y est toujours vide) ; 369 + 69 fenetres d'aventure / de construction que Godot a deja enchainees (tour sans heros : un
+humain n'a pas cette fenetre, voir « Limites assumees » ; `Godot a deja termine ce tour`) ; 63 pendant un choix ouvert de Godot, 41 apres la fin de partie Godot.
+
+*Ecarts de LEGALITE du moteur reveles par `usableSet` (hors perimetre de l'IA, non corriges ; l'IA les neutralise)* : `activateRoom` BMA030 Jackpot Stash propose pendant l'aventure
+(557 ; la carte exige `DuringPhase Build` ; `CheckBMA030` impose la phase de construction) ; `playSpell` BMA053 Teleportation propose pour n'importe quel heros de l'entree
+(115 ; la cible C# est le heros ACTIF ; jamais eligible de toute facon) ; `playSpell` BMA050 Motivation propose sans la condition `OpponnentDungeonSizeMoreThan(1)` (80 ; condition
+ajoutee dans `_chk_050`) ; `playSpell` BMA055 Zombie Attack propose avec les seules blessures adverses (33 ; la cible est un heros mort, `HeroInScorekeep Dead`) ; `activateRoom`
+BMA032 Crushinator accepte une salle face cachee (posee ce tour) comme « autre salle » (3). `BossEngine.can_build_room` accepte aussi une salle AVANCEE par-dessus une salle face
+cachee (`DungeonSlot.CheckRoomCanBeBuilt` refuse tout slot en attente) : `ApkAI.can_build_anywhere` ajoute ce refus cote IA. L'activation d'une salle face cachee (posee ce tour)
+et d'une salle gelee est egalement acceptee par `Match.legal_moves` : `ApkAI.abilities` les ecarte (`DungeonActiveRooms`).
 
 Desaccords les plus frequents de la mesure initiale (sous-classe `type:carte` ou `target:type de choix[boss]`, desaccords/n sur les 18 traces) : `target:recover-card[Dracolich
 Lair]` 32/38 et `[Dark Altar]` 18/19, `target:dracolich-discard` 20/38 (beaucoup d'indifferences : `_score_choice` rend 0 pour ces choix) ; `spellTarget`

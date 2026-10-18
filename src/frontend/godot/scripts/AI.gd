@@ -7,8 +7,8 @@ extends RefCounted
 
 const BossEngine = preload("res://godot/scripts/BossEngine.gd")
 
-## Decisions deterministes de construction / defausse / pioche : voir ApkAI.gd (FixedAI de l'oracle). Ici : l'aiguillage,
-## les sorts, les capacites et les choix (TriggerCalculator / AbilityCalculator, etapes suivantes du portage).
+## Decisions de construction / defausse / pioche (FixedAI de l'oracle) et sorts / capacites de salle (AbilityCalculator, StatisticAI.SelectAbilityToUse) :
+## voir ApkAI.gd. Ici : l'aiguillage, les cartes wiki (AiWiki) et les choix (TriggerCalculator, etape suivante du portage).
 
 ## Selectionne les 2 cartes de main a defausser lors de la phase de setup (FixedAI.DiscardCards, DiscardCalculator.cs).
 static func select_opening_discards(hand: Array, p: Dictionary, G: Dictionary) -> Array:
@@ -19,8 +19,19 @@ static func select_opening_discards(hand: Array, p: Dictionary, G: Dictionary) -
 ## Observateur facultatif (tests/ai_census.gd) : appele avec (match_obj, pid, moves, coup choisi) a chaque decision. Aucun effet sur le jeu.
 static var trace: Callable = Callable()
 
-## Choisit le meilleur coup légal parmi les options offertes.
-static func pick_move(match_obj, pid: int):
+## Fenetre de decision deja utilisee : "<instance de partie>:<joueur>" -> cle de la derniere fenetre ou une capacite a ete tiree. L'IA de l'APK
+## consulte ses capacites UNE fois par appel de DoPlayerActions (BuildPhase_a, fenetre d'aventure, repondant de Spell Battle), pas en boucle.
+static var _used: Dictionary = {}
+
+static func _window_key(G: Dictionary) -> String:
+	var adv: Dictionary = G.get("adventure", {}) as Dictionary
+	var st: Array = G.get("stack", [])
+	var hero_id := str((adv.get("hero", {}) as Dictionary).get("id", "")) if not adv.is_empty() else ""
+	return "%d|%s|%s|%s|%s|%s" % [int(G.get("turn", 0)), str(G.get("phase", "")), str(adv.get("roomIndex", "-")), hero_id,
+		str((st[st.size() - 1] as Dictionary).get("id", "")) if not st.is_empty() else "", str(G.has("buildWindow"))]
+
+## Choisit le meilleur coup légal parmi les options offertes. `commit` = false : question de mesure, sans memoriser la fenetre de decision.
+static func pick_move(match_obj, pid: int, commit := true):
 	var moves: Array = match_obj.legal_moves(pid).filter(func(m): return str((m as Dictionary).get("type", "")) != "undoBuild") # reprise de pose : coup d'humain, l'IA n'en use jamais
 	if moves.is_empty():
 		return null
@@ -42,8 +53,14 @@ static func pick_move(match_obj, pid: int):
 				return m
 	var builds: Array = []
 	var others: Array = []
+	var apk_abilities := false
 	for m in moves:
-		(builds if str((m as Dictionary).get("type", "")) == "buildRoom" else others).append(m)
+		if str((m as Dictionary).get("type", "")) == "buildRoom":
+			builds.append(m)
+		elif ApkAI.is_apk_ability_move(p, m):
+			apk_abilities = true # sort / capacite d'une carte de l'APK : l'ensemble des capacites eligibles (ApkAI.abilities) les remplace
+		else:
+			others.append(m)
 	var best = null
 	var best_score := 0.0
 	for m in others:
@@ -51,6 +68,18 @@ static func pick_move(match_obj, pid: int):
 		if best == null or s > best_score:
 			best_score = s
 			best = m
+	# StatisticAI.SelectAbilityToUse : tirage UNIFORME parmi les capacites eligibles (AbilityCalculator : toute carte sans CheckXXX n'est jamais jouee), une fois par fenetre.
+	if apk_abilities:
+		var wkey := "%d:%d" % [match_obj.get_instance_id(), pid]
+		var win := _window_key(match_obj.G)
+		if str(_used.get(wkey, "")) != win:
+			var elig: Array = ApkAI.abilities(match_obj.G, pid, moves, match_obj.rng)
+			if not elig.is_empty():
+				if commit:
+					_used[wkey] = win
+				var drawn: Dictionary = elig[match_obj.rng.randi_range(0, elig.size() - 1)]
+				if drawn["move"] != null:
+					best = drawn["move"]
 	# AIPlayerInteraction.InternalDoPlayerActions : une capacite d'abord (UseAbility), PUIS la construction (BuildRoom) ; les deux ne se comparent jamais.
 	if not builds.is_empty() and (best == null or str((best as Dictionary).get("type", "")) in ["passBuild", "pass", "adventureNext", "resolveNextHero"]):
 		var plan := ApkAI.plan(match_obj.G, pid, builds)
@@ -101,19 +130,21 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 			if hand_idx < 0 or hand_idx >= hand.size():
 				return 0.0
 			var spell: Dictionary = hand[hand_idx]
+			if not ApkAI.is_wiki_card(str(spell.get("id", ""))):
+				return _score_apk_ability(match_obj, pid, move)
 			var target: Dictionary = args[1] if args.size() > 1 and args[1] != null else {}
-			# Politique de l'IA pendant une Spell Battle (AbilityCalculator.CalculateAbilityAndTargetValue : si
-			# IsSpellBattleActive, seuls BMA043 et BMA025 sont evalues). La regle, elle, autorise toute reponse legale.
-			if not (G.get("stack", []) as Array).is_empty() and not ["BMA043", "RMB077"].has(str(spell.get("id", ""))): # RMB077 Short Circuit (wiki) : seconde reponse de l'IA
+			# Politique de l'IA pendant une Spell Battle pour les cartes wiki : seul RMB077 Short Circuit repond (seconde reponse de l'IA).
+			# La regle, elle, autorise toute reponse legale.
+			if not (G.get("stack", []) as Array).is_empty() and str(spell.get("id", "")) != "RMB077":
 				return -50.0
 			return _score_spell(spell, target, p, G, pid)
 
 		"activateRoom":
 			var room_idx := int(args[0]) if not args.is_empty() else -1
+			if ApkAI.is_apk_ability_move(p, move):
+				return _score_apk_ability(match_obj, pid, move)
 			if not (G.get("stack", []) as Array).is_empty():
-				var sroom = BossEngine.active_room((p.get("dungeon", []) as Array)[room_idx]) if room_idx >= 0 and room_idx < (p.get("dungeon", []) as Array).size() else null
-				if sroom == null or str((sroom as Dictionary).get("id", "")) != "BMA025":
-					return -50.0 # meme politique : en Spell Battle l'IA n'active que All-Seeing Eye
+				return -50.0 # Spell Battle : l'IA n'active que All-Seeing Eye (APK, ci-dessus) ; aucune capacite de salle wiki en reponse
 			return _score_activate_room(room_idx, p, G, pid)
 
 		"useHandRoom":
@@ -211,7 +242,7 @@ static func _spells_in_hand(p: Dictionary) -> int:
 static func _calculate_room_value(room: Dictionary, _p: Dictionary, _G: Dictionary, phase_str: String) -> float:
 	return ApkAI.base_value(room, phase_str)
 
-## Scoring des sorts d'après AbilityCalculator.cs
+## Scoring des sorts wiki (les sorts de l'APK passent par ApkAI.abilities : AbilityCalculator.cs).
 static func _score_spell(spell: Dictionary, target: Dictionary, p: Dictionary, G: Dictionary, pid: int) -> float:
 	var sid := str(spell.get("id", ""))
 	if TnlSpells.TARGETS.has(sid):
@@ -219,26 +250,6 @@ static func _score_spell(spell: Dictionary, target: Dictionary, p: Dictionary, G
 	if RmbSpells.TARGETS.has(sid):
 		return RmbSpells.score_spell(G, p, pid, sid, target)
 	match sid:
-		"BMA043": # Counterspell : une cible = un sort adverse en attente (SpellCardJustPlayed)
-			return 150.0 if target.has("stackId") else 0.0 # Contre-sort prioritaire !
-		"BMA040", "BMA047": # Buff salle (+3 DMG)
-			if not (p.get("entrance", []) as Array).is_empty() and target.get("roomIndex") != null:
-				return 100.0
-			return 10.0
-		"BMA041", "BMA045": # Buff héros (+HP) sur donjon adverse
-			# Si un adversaire tue de justesse un héros, le buff le blesse !
-			for oid in G.get("players", {}):
-				if int(oid) != pid:
-					var op: Dictionary = G["players"][oid]
-					if not (op.get("entrance", []) as Array).is_empty():
-						return 120.0
-			return 0.0
-		"BMA042": # Détruit salle
-			return 60.0 if target.get("roomIndex") != null else 10.0
-		"BMA048": # Jeopardy
-			return 80.0 if (p.get("hand", []) as Array).size() <= 2 else 10.0
-		"BMA049": # Kobold Strike
-			return 70.0
 		"CRL029": # Finish Him! (hors APK : heuristique maison) : tuer un heros vaut mieux que reprendre un survivant
 			return 100.0 if target.has("entranceIndex") else 60.0
 		"CRL030": # Essence Transfer : donne des PV a un heros adverse (blesse l'adversaire)
@@ -256,12 +267,10 @@ static func _score_spell(spell: Dictionary, target: Dictionary, p: Dictionary, G
 			return 25.0 if wanted and int(target.get("targetPlayerId", pid)) == pid else -20.0
 		"CRL033": # Not Dead Yet
 			return 100.0
-		"KSA013": # T.P.K. : AbilityCalculator.CheckKSA013 la joue toujours (valeur 1.0), sans condition
-			return 90.0
 		_:
 			return 20.0
 
-## Scoring d'activation de salle d'après AbilityCalculator.cs
+## Scoring d'activation des salles wiki (les salles de l'APK passent par ApkAI.abilities : AbilityCalculator.cs).
 static func _score_activate_room(room_idx: int, p: Dictionary, G: Dictionary, _pid: int) -> float:
 	var dungeon: Array = p.get("dungeon", [])
 	if room_idx < 0 or room_idx >= dungeon.size():
@@ -272,24 +281,24 @@ static func _score_activate_room(room_idx: int, p: Dictionary, G: Dictionary, _p
 	var rid := str((room as Dictionary).get("id", ""))
 	var phase: String = str(G.get("phase", ""))
 	match rid:
-		"BMA027": # Bottomless Pit
-			return 95.0 if phase == "adventure" else -10.0
-		"BMA028": # Monster Ballroom
-			return 85.0 if phase == "adventure" else -10.0
-		"BMA025": # All-Seeing Eye
-			return 110.0 if not (G.get("stack", []) as Array).is_empty() else -10.0
-		"BMA024": # Witch's Kitchen
-			return 45.0 if phase == "build" else -10.0
-		"BMA009": # Dark Altar
-			return 25.0
 		"CRL012": # The Omega 42 (hors APK) : rejouer un effet coute une salle avancee, a ne faire qu'avec une carte avancee dont on n'a pas l'usage
 			var adv_n: int = (p.get("hand", []) as Array).filter(func(c): return bool((c as Dictionary).get("advanced", false))).size()
 			return AiWiki.BUILD_FIRST if phase == "build" and adv_n >= 1 and (adv_n >= 2 or AiWiki.dead_advanced(G, p, _pid) >= 1) else -5.0
-		"BMA039": # Zombie Prison : AbilityCalculator.CheckBMA039 ne joue jamais en Setup/Early
-			return 20.0 if int(G.get("turn", 0)) > 1 else -10.0
 		_:
 			if rid.begins_with("TNL"):
 				return TnlAbilities.score_activate(G, p, _pid, rid, room_idx)
 			if rid.begins_with("RMB"):
 				return RmbAbilities.score_activate(G, p, _pid, rid, room_idx)
 			return 5.0
+
+## Sort / capacite d'une carte de l'APK : 20 si sa carte est dans l'ensemble des capacites eligibles (ApkAI.abilities), -50 sinon. Le choix, lui, est un tirage
+## uniforme dans pick_move ; ce score ne sert qu'aux appelants qui refusent un coup « nocif » (< 0).
+static func _score_apk_ability(match_obj, pid: int, move: Dictionary) -> float:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1
+	var a: Array = move.get("args", [])
+	var kind := "spell" if str(move.get("type", "")) == "playSpell" else "room"
+	for o in ApkAI.abilities(match_obj.G, pid, match_obj.legal_moves(pid), rng):
+		if str((o as Dictionary)["kind"]) == kind and int((o as Dictionary)["idx"]) == int(a[0]):
+			return 20.0
+	return -50.0

@@ -1,7 +1,10 @@
 using DBMGameModel.Logic;
+using DBMGameModel.Logic.Abilities;
 using DBMGameModel.Logic.Abilities.Targets;
 using DBMGameProject.AI;
+using DBMGameProject.AI.Statistics;
 using DBMGameProject.Services.PlayerInteraction;
+using WaveEngine.Framework.Services;
 
 // Sous-classe de l'AIPlayerInteraction ORIGINALE : meme comportement (on appelle toujours base),
 // on ajoute seulement l'enregistrement des actions/decisions (le GameBoardFlowLogger de l'APK est
@@ -77,5 +80,55 @@ sealed class TracingAI : AIPlayerInteraction
                 chosen = list?.Cast<LogicCardBase>().Select(Trace.C).ToArray(),
             });
         }, canBeCanceled);
+    }
+}
+
+// FixedAI (celle de l'oracle) dont SEUL SelectAbilityToUse est reecrit, a l'identique de StatisticAI.SelectAbilityToUse (StatisticAI.cs:58-70) :
+// memes appels dans le meme ordre (CalculateAbilityStatistics -> les Check* consomment le RNG comme avant, puis UN WaveServices.Random.NextDouble()
+// pour la roulette RandomSelection, StatisticAI.cs:100-115), donc le comportement de l'oracle ne change pas. En plus : trace de l'ensemble des
+// capacites eligibles (carte + cibles preregles par SetSelectedTargets) avant le tirage. AIHelper est internal : GetUsableAbilities est recopie (AIHelper.cs:20-31).
+sealed class TracingBrain : AIBrain
+{
+    readonly FixedAI inner = new FixedAI();
+
+    public DeckType SelectWhereToDrawFrom(GameBoard g, Boss p) => inner.SelectWhereToDrawFrom(g, p);
+    public IEnumerable<ILogicCard> DiscardCards(GameBoard g, Boss p, IEnumerable<ILogicCard> c, int amount) => inner.DiscardCards(g, p, c, amount);
+    public Room SelectRoomToBuild(GameBoard g, Boss p) => inner.SelectRoomToBuild(g, p);
+    public DungeonSlot SelectPositionToBuild(GameBoard g, Boss p, Room r) => inner.SelectPositionToBuild(g, p, r);
+    public IEnumerable<ILogicCard> SelectTriggerTargets(GameBoard g, Boss p, BaseTargetProvider t) => inner.SelectTriggerTargets(g, p, t);
+    public IEnumerable<ILogicCard> SelectCommandTargets(GameBoard g, BaseTargetProvider t) => inner.SelectCommandTargets(g, t);
+
+    public AbilitySelectedInformation SelectAbilityToUse(GameBoard gameState, Boss player)
+    {
+        var usable = new List<Ability>();
+        usable.AddRange(player.DungeonActiveRooms.Where(d => d.CanPlayerPlayAbility(gameState)).Select(d => d.Ability));
+        usable.AddRange(player.SpellsInHand.Where(s => s.CanPlayerPlayAbility(gameState)).Select(s => s.Ability));
+        IEnumerable<Tuple<double, AbilitySelectedInformation>> stats = null;
+        if (usable.Count != 0)
+            stats = StatisticsCalculator.CalculateAbilityStatistics(gameState, player, usable);
+        var list = stats?.ToList();
+        AbilitySelectedInformation result = null;
+        if (list != null)
+        {
+            double num = WaveServices.Random.NextDouble();
+            foreach (var element in list)
+            {
+                result = element.Item2;
+                if (!(num <= element.Item1)) { num -= element.Item1; continue; }
+                break;
+            }
+        }
+        var eligible = (list ?? new()).Select(t => Describe(t.Item2));
+        TracingAI.Trace.AbilityChoice(player, usable.Select(a => (LogicCardBase)a.AbilityOwner), eligible, list == null ? -1 : list.FindIndex(t => t.Item2 == result));
+        return result;
+    }
+
+    static object Describe(AbilitySelectedInformation info)
+    {
+        var owner = (LogicCardBase)info.Ability.AbilityOwner;
+        // cibles preregles : par effet, par fournisseur de cible, les cartes retenues (GetSelectedTargets)
+        var targets = info.PossibleAbilityTargets.Select(e => e.Item2.Select(tp =>
+            (info.GetSelectedTargets(tp.Item1) ?? Enumerable.Empty<ILogicCard>()).Cast<LogicCardBase>().Select(Trace.C).ToArray()).ToArray()).ToArray();
+        return new { kind = owner is Room ? "room" : "spell", card = Trace.C(owner), targets };
     }
 }

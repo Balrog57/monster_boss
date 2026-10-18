@@ -781,7 +781,6 @@ func _process(delta: float) -> void:
 		if not moves.is_empty() and (has_ai_choice or phase == "boss" or phase == "build" or adv_turn):
 			_ai_timer += dt
 			if _ai_timer > (0.2 if adv_turn else 0.5):
-				_ai_timer = 0.0
 				var mv = AI.pick_move(game_manager, int(pid))
 				# Un coup juge nocif par l'IA (score < 0) n'est joue qu'en dernier recours : on prefere passer (comme soak_runner).
 				if adv_turn and mv != null and AI.score_move(game_manager, int(pid), mv) < 0.0:
@@ -789,10 +788,12 @@ func _process(delta: float) -> void:
 						if str((m as Dictionary).get("type", "")) in ["pass", "passBuild"]:
 							mv = m
 							break
-				if mv != null:
-					_notice_ai(int(pid), mv)
-					game_manager.apply_move(int(pid), mv)
-					refresh()
+				if mv == null:
+					continue # rien a jouer pour ce siege (ses sorts n'ont aucun CheckXXX eligible, il a deja passe) : on regarde les suivants, le minuteur reste arme
+				_ai_timer = 0.0
+				_notice_ai(int(pid), mv)
+				game_manager.apply_move(int(pid), mv)
+				refresh()
 			return
 
 func _modal_open() -> bool:

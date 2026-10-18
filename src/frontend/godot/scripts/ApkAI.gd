@@ -1,9 +1,10 @@
 class_name ApkAI
 extends RefCounted
-## Decisions DETERMINISTES de l'IA de l'APK (FixedAI, celle de l'oracle) portees fonction par fonction :
-## valeur de salle, choix de la salle, de l'emplacement, abstention, defausse d'ouverture, probabilite de pioche (Haunted Library).
+## Decisions de l'IA de l'APK (FixedAI, celle de l'oracle) portees fonction par fonction :
+##  - etape 1 (DETERMINISTE) : valeur de salle, choix de la salle, de l'emplacement, abstention, defausse d'ouverture, probabilite de pioche (Haunted Library) ;
+##  - etape 2 (tirage uniforme, voir « Etape 2 » en bas de fichier) : sorts et capacites de salle eligibles (AbilityCalculator, un CheckXXX par carte) et leurs cibles.
 ## Sources (apk-original/decompiled/DBMGame/) : DBMGameProject.AI/{FixedAI,StatisticAI,AIHelper}.cs et
-## DBMGameProject.AI.Statistics/{StatisticsCalculator,RoomCalculator,DungeonSlotCalculator,DiscardCalculator,DrawCalculator}.cs.
+## DBMGameProject.AI.Statistics/{StatisticsCalculator,RoomCalculator,DungeonSlotCalculator,DiscardCalculator,DrawCalculator,AbilityCalculator}.cs.
 ##
 ## Indices : le C# range le donjon du plus ANCIEN (index 0, au fond) au plus recent (DungeonSize-1) ; Godot fait `push_front`
 ## (index 0 = la plus recente). `c` = index C#, `g` = index Godot, c = taille - 1 - g ; un « nouvel emplacement » a c = taille.
@@ -204,12 +205,13 @@ static func _treasures_for_hero(G: Dictionary, q: Dictionary, hero: Dictionary) 
 	return n
 
 ## AIHelper.GetDungeonDamage (l.95-117) : slots actifs, non vides, non en attente, du fond a l'entree ; la salle qui suit un Minotaur's Maze (BMA017) compte double.
-static func dungeon_damage(G: Dictionary, p: Dictionary, pid: int) -> int:
+## `upto` = AIHelper.SliceDungeon(player, slot) (l.230-240) : seuls les slots d'index C# < upto (les salles que le heros n'a pas encore traversees) ; -1 = tout le donjon.
+static func dungeon_damage(G: Dictionary, p: Dictionary, pid: int, upto := -1) -> int:
 	var view := _view(p)
 	var ds := _dungeon_size(view)
 	var total := 0
 	var prev: Variant = null
-	for c in ds:
+	for c in (ds if upto < 0 else mini(upto, view.size())):
 		var s: Dictionary = view[c]
 		var top = s["top"]
 		if top != null and not bool(s["pending"]) and not BossEngine.is_room_deactivated(G, pid, int(s["g"])):
@@ -369,6 +371,10 @@ static func can_build_anywhere(G: Dictionary, p: Dictionary, pid: int, hi: int) 
 	if BossEngine.can_build_room(q, G, pid, hi, -1):
 		return true
 	for ti in (p.get("dungeon", []) as Array).size():
+		# DungeonSlot.CheckRoomCanBeBuilt : jamais par-dessus un slot en attente (salle posee ce tour), meme pour une salle avancee
+		var top = BossEngine.active_room((p["dungeon"] as Array)[ti])
+		if top != null and bool((top as Dictionary).get("faceDown", false)):
+			continue
 		if BossEngine.can_build_room(q, G, pid, hi, ti):
 			return true
 	return false
@@ -422,3 +428,968 @@ static func draw_room_probability(G: Dictionary, p: Dictionary, pid: int) -> flo
 		"late":
 			return 1.0 if n == 0 else 0.1
 	return 1.0 if n == 0 else (0.75 if n == 1 else 0.25)
+
+# ======================================================================================================================
+# Etape 2 : SORTS et CAPACITES DE SALLE. Sources (apk-original/decompiled/DBMGame/) :
+#  - DBMGameProject.AI.Statistics/AbilityCalculator.cs : un CheckXXX par carte (switch l.30-58) ; `_ => null` = carte JAMAIS jouee ;
+#    en Spell Battle (IsSpellBattleActive) seules BMA043 Counterspell et BMA025 All-Seeing Eye sont evaluees (l.22-30) ;
+#  - StatisticsCalculator.cs l.70-88 (CalculateAbilityStatistics) : chaque CheckXXX non nul vaut 1.0 -> NormalizeValues -> 1/n chacun ;
+#  - StatisticAI.cs l.58-70 + RandomSelection l.100-115 : tirage UNIFORME parmi les capacites eligibles (une copie = une entree) ;
+#  - AIPlayerInteraction.cs : UseAbility (l.188-222), AbilityApplyRequest (l.29-43, Spell Battle), InternalDoPlayerActions (l.60-110) ;
+#  - AIHelper.cs : GetUsableAbilities (l.20-31), CalculateMostDamagingSlot, HasHeroPassedSlot, WhoWouldBaitHero, HasRoomBelow...
+# Les tirages internes du C# (`Shuffle()`, `NextBool()`) utilisent le RNG de la partie Godot (`rng`).
+# Ecart ASSUME avec le C# : AbilityCalculator.CheckBMA040And047 (l.844-847) reprend la liste de salles TRAP dans sa branche « heros actif » pour
+# Giant Size aussi ; on garde le type de la carte (une salle Trap n'est pas une cible legale de Giant Size : bogue, pas une regle).
+# ======================================================================================================================
+
+const AB_SPELLS := ["BMA040", "BMA041", "BMA042", "BMA044", "BMA045", "BMA046", "BMA047", "BMA048", "BMA049", "BMA050", "BMA051", "BMA052", "BMA053", "BMA054", "BMA055", "KSA013"]
+const AB_ROOMS := ["BMA009", "BMA013", "BMA024", "BMA027", "BMA028", "BMA030", "BMA032", "BMA038", "BMA039"]
+const WIKI_PREFIXES := ["TNL", "RMB", "CRL"]
+## Diagnostic de mesure seulement (ApkParityTrace `--ai-copy-trap-bug`) : reproduit le bogue de CheckBMA040And047 (Giant Size sur une salle Trap).
+static var copy_trap_bug := false
+
+## Carte d'un paquet wiki (hors APK) : son IA reste AiWiki / TnlAbilities / RmbAbilities.
+static func is_wiki_card(id: String) -> bool:
+	return WIKI_PREFIXES.has(id.substr(0, 3))
+
+## Le coup `m` est-il le sort ou la capacite de salle d'une carte de l'APK (AbilityCalculator s'applique) ?
+static func is_apk_ability_move(p: Dictionary, m: Dictionary) -> bool:
+	var a: Array = m.get("args", [])
+	match str(m.get("type", "")):
+		"playSpell":
+			var hand: Array = p.get("hand", [])
+			return not a.is_empty() and int(a[0]) >= 0 and int(a[0]) < hand.size() and not is_wiki_card(str((hand[int(a[0])] as Dictionary).get("id", "")))
+		"activateRoom":
+			var d: Array = p.get("dungeon", [])
+			if a.is_empty() or int(a[0]) < 0 or int(a[0]) >= d.size():
+				return false
+			var r = BossEngine.active_room(d[int(a[0])])
+			return r != null and not is_wiki_card(str((r as Dictionary).get("id", "")))
+	return false
+
+# --- vue de la partie ----------------------------------------------------------------------------------------------
+
+## GameBoard.InGamePlayersPriorized : joueurs vivants par PlayerId (= rang d'XP du boss).
+static func prio_players(G: Dictionary) -> Array:
+	var order: Array = G.get("xpOrder", [])
+	if order.is_empty():
+		order = CardDB.order_by_xp(G["players"])
+	var out: Array = []
+	for pid in order:
+		var q = (G["players"] as Dictionary).get(int(pid))
+		if q != null and not bool((q as Dictionary).get("eliminated", false)):
+			out.append(int(pid))
+	return out
+
+## GameBoard.GetOpponents (GameBoard.cs:206).
+static func opponents(G: Dictionary, pid: int) -> Array:
+	return prio_players(G).filter(func(q): return int(q) != pid)
+
+## Hero.CurrentHealth : le heros actif porte ses PV courants (adventure.hp), les autres ceux de la carte + bonus d'effets.
+static func hero_health(G: Dictionary, hero: Dictionary) -> int:
+	var adv: Dictionary = G.get("adventure", {}) as Dictionary
+	if not adv.is_empty() and is_same(adv.get("hero"), hero):
+		return int(adv.get("hp", 0))
+	return BossEngine.hero_health_with_modifiers(G, hero)
+
+## GameBoard.ActiveHero + InsideDungeonSlot. {} = aucun. `owner` = joueur dont le heros est dans le donjon ; `c` = index C# du slot du heros
+## (-1 : le heros est designe mais pas encore entre, fenetre AdventurePhase_b) ; `hp` = PV courants.
+## Fenetres de sorts d'aventure de Godot (pause post-degats / avant sortie) = AdventurePhase_c ; avant `adventureNext` = AdventurePhase_b.
+static func active_hero(G: Dictionary) -> Dictionary:
+	var players: Dictionary = G["players"]
+	var adv: Dictionary = G.get("adventure", {}) as Dictionary
+	if not adv.is_empty():
+		var ow := int(adv.get("playerId", -1))
+		var dsz := ((players[ow] as Dictionary).get("dungeon", []) as Array).size() if players.has(ow) else 0
+		var g := int(adv.get("roomIndex", -1))
+		var inside := g >= 0 and g < dsz
+		if bool(adv.get("roomGone", false)): # sa salle a ete detruite : le slot vide passe en fin de liste (GameBoard.DestroyRoom), le heros y reste
+			return {"hero": adv.get("hero"), "owner": ow, "c": CardDB.DUNGEON_SLOTS - 1, "g": -2, "hp": int(adv.get("hp", 0))}
+		return {"hero": adv.get("hero"), "owner": ow, "c": (dsz - 1 - g) if inside else -1, "g": g if inside else -1, "hp": int(adv.get("hp", 0))}
+	if str(G.get("phase", "")) != CardDB.PHASE["ADVENTURE"] or G.has("afterHero") or G.get("activePlayer") == null:
+		return {}
+	var ap := int(G["activePlayer"])
+	var q: Dictionary = players.get(ap, {}) as Dictionary
+	var ent: Array = q.get("entrance", []) as Array
+	if ent.is_empty() or ((G.get("effects", {}) as Dictionary).get("skipAdventure", []) as Array).has(ap):
+		return {}
+	return {"hero": ent[0], "owner": ap, "c": -1, "g": -1, "hp": hero_health(G, ent[0] as Dictionary)}
+
+# --- contexte d'evaluation ------------------------------------------------------------------------------------------------
+
+static func _ctx(G: Dictionary, pid: int, moves: Array, rng: RandomNumberGenerator) -> Dictionary:
+	var p: Dictionary = G["players"][pid]
+	var view := _view(p)
+	return {"G": G, "p": p, "pid": pid, "ph": phase(G), "rng": rng, "view": view, "ds": _dungeon_size(view), "ah": active_hero(G),
+		"battle": not (G.get("stack", []) as Array).is_empty(), "moves": moves}
+
+static func _early(x: Dictionary) -> bool:
+	return x["ph"] == "setup" or x["ph"] == "early"
+
+static func _early_mid(x: Dictionary) -> bool:
+	return x["ph"] != "late"
+
+## Tri croissant STABLE (LINQ OrderBy) : `keyf` rend un tableau de nombres compares dans l'ordre ; egalite -> ordre d'origine.
+static func _stable(arr: Array, keyf: Callable) -> Array:
+	var ks: Array = []
+	for i in arr.size():
+		ks.append([keyf.call(arr[i]), i])
+	ks.sort_custom(func(a, b):
+		var ka: Array = a[0]
+		var kb: Array = b[0]
+		for j in ka.size():
+			if ka[j] != kb[j]:
+				return ka[j] < kb[j]
+		return int(a[1]) < int(b[1]))
+	return ks.map(func(e): return arr[int(e[1])])
+
+## Slot actif non vide, non en attente (DungeonSlot.IsActive && !PendingToBeBuilt && RoomStack.Any()) : {c, g, top} ou {}.
+static func _active_slot(x: Dictionary, c: int) -> Dictionary:
+	var view: Array = x["view"]
+	if c < 0 or c >= view.size():
+		return {}
+	var s: Dictionary = view[c]
+	if s["top"] == null or bool(s["pending"]) or BossEngine.is_room_deactivated(x["G"], int(x["pid"]), int(s["g"])):
+		return {}
+	return {"c": c, "g": int(s["g"]), "top": s["top"]}
+
+## Boss.DungeonActiveSlots / AIHelper.GetActiveSlots (l.153-165) dans l'ordre C#.
+static func _active_slots(x: Dictionary) -> Array:
+	var out: Array = []
+	for c in int(x["ds"]):
+		var s := _active_slot(x, c)
+		if not s.is_empty():
+			out.append(s)
+	return out
+
+## DungeonSlot.GetTopRoomTotalDamage du slot g d'un joueur.
+static func _slot_damage(G: Dictionary, q: Dictionary, g: int) -> int:
+	return BossEngine.room_damage_with_modifiers(G, q, g, null)
+
+## AIHelper.GetActiveRoomsOfType (l.127-141) : salles du dessus, slots d'index < upto (-1 = tout), de type `rtype` : [{c, g, top}].
+static func _rooms_of_type(x: Dictionary, rtype: String, upto: int) -> Array:
+	var out: Array = []
+	for c in (int(x["ds"]) if upto < 0 else mini(upto, (x["view"] as Array).size())):
+		var s := _active_slot(x, c)
+		if not s.is_empty() and str((s["top"] as Dictionary).get("type", "")) == rtype:
+			out.append(s)
+	return out
+
+## AIHelper.IsActiveHeroLuredByPlayer (l.115-125) : le heros actif est dans un slot du donjon de `who` (et, si `room_g` >= 0, dans CE slot).
+static func _lured_by(x: Dictionary, who: int, room_g := -1) -> bool:
+	var ah: Dictionary = x["ah"]
+	if ah.is_empty() or int(ah["c"]) < 0 or int(ah["owner"]) != who:
+		return false
+	return room_g < 0 or int(ah["g"]) == room_g
+
+## AIHelper.GetActiveHeroHealthAfterDungeon : PV du heros actif moins les degats des salles encore devant lui. Le slot du heros est cherche dans le donjon
+## de `who` (Dungeon.IndexOf) : s'il est dans celui d'un autre joueur, Take(-1) = rien. Heros pas encore entre : donjon entier.
+static func _active_after(x: Dictionary, who: int) -> int:
+	var ah: Dictionary = x["ah"]
+	var G: Dictionary = x["G"]
+	var q: Dictionary = G["players"][who]
+	var dmg := 0
+	if int(ah["c"]) < 0:
+		dmg = dungeon_damage(G, q, who)
+	elif int(ah["owner"]) == who:
+		dmg = dungeon_damage(G, q, who, int(ah["c"]))
+	return int(ah["hp"]) - dmg
+
+## Reponse d'un CheckXXX : cibles preregles (AbilitySelectedInformation.SetSelectedTargets(effet, fournisseur, cartes)) + argument du coup Godot.
+static func _res(t: Array, arg: Variant = null, shuf := false) -> Dictionary:
+	return {"t": t, "arg": arg, "shuf": shuf}
+
+static func _boss_of(G: Dictionary, pid: int) -> Dictionary:
+	return (G["players"][pid] as Dictionary).get("boss", {}) as Dictionary
+
+static func _bosses(G: Dictionary, pids: Array) -> Array:
+	return pids.map(func(q): return _boss_of(G, int(q)))
+
+## Nombre moyen entier chez les adversaires (`sum / Count()` : division ENTIERE en C#) ; `f` prend le dictionnaire d'un joueur.
+static func _opp_avg(x: Dictionary, f: Callable) -> int:
+	var opps := opponents(x["G"], int(x["pid"]))
+	if opps.is_empty():
+		return 0
+	var sum := 0
+	for q in opps:
+		sum += int(f.call(x["G"]["players"][int(q)]))
+	return sum / opps.size()
+
+static func _hand_spells(p: Dictionary) -> int:
+	var n := 0
+	for c in (p.get("hand", []) as Array):
+		if bool((c as Dictionary).get("isSpell", false)):
+			n += 1
+	return n
+
+## AIHelper.WhoWouldBaitHero (l.221-231) : [joueur seul au meilleur total de tresors du heros ou -1 en cas d'egalite, ce total].
+static func _who_would_bait(G: Dictionary, hero: Dictionary) -> Array:
+	var best := -1
+	var tot: Dictionary = {}
+	for q in prio_players(G):
+		tot[int(q)] = _treasures_for_hero(G, G["players"][int(q)], hero)
+		best = maxi(best, int(tot[int(q)]))
+	var who: Array = prio_players(G).filter(func(q): return int(tot[int(q)]) == best)
+	return [int(who[0]) if who.size() == 1 else -1, best]
+
+## Rang d'une carte de la defausse a valeur egale : GameBoard.DestroyRoom trie DiscardPileRooms par UniqueID (LogicCardBase.CompareTo). Godot n'a pas d'identifiant
+## d'instance hors du harnais de parite (`_oid`) : sans lui, l'ordre de la defausse (egalite stable).
+static func _discard_rank(card: Dictionary) -> int:
+	return int(card.get("_oid", 0))
+
+## Boss.CanBuildRoom(gs, r, ignoreGamePhase: true) pour une carte qui n'est pas (forcement) en main : on l'ajoute a une copie de la main.
+static func _can_build_card(G: Dictionary, p: Dictionary, pid: int, card: Dictionary) -> bool:
+	var pp := p.duplicate()
+	var h: Array = (p.get("hand", []) as Array).duplicate()
+	h.append(card)
+	pp["hand"] = h
+	return can_build_anywhere(G, pp, pid, h.size() - 1)
+
+## RoomCalculator.CalculateValue(room, checkModifiers: false).
+static func _val0(x: Dictionary, room: Dictionary) -> float:
+	return room_value(x["G"], x["p"], int(x["pid"]), room, str(x["ph"]), [], false)
+
+static func _hero_entry(hero: Dictionary) -> Dictionary:
+	return _res([[0, 0, [hero]]], {"heroId": hero.get("id")})
+
+# --- CheckXXX : sorts -----------------------------------------------------------------------------------------------
+
+## AbilityCalculator.CheckBMA040/CheckBMA047 + CheckBMA040And047 + BMA040And047Logic (l.64-66, 98-100, 844-880).
+static func _chk_040_047(x: Dictionary, rtype: String) -> Variant:
+	if _early(x):
+		return null
+	var rooms := _rooms_of_type(x, rtype, -1)
+	if rooms.is_empty():
+		return null
+	for hero in (x["p"] as Dictionary).get("entrance", []):
+		var r = _logic_040_047(x, hero as Dictionary, -1, rooms)
+		if r != null:
+			return r
+	if _lured_by(x, int(x["pid"])):
+		var ah: Dictionary = x["ah"]
+		rooms = _rooms_of_type(x, "trap" if copy_trap_bug else rtype, int(ah["c"])) # le C# reprend ici la liste Trap pour Giant Size aussi (voir l'en-tete)
+		if not rooms.is_empty():
+			var r2 = _logic_040_047(x, ah["hero"] as Dictionary, int(ah["c"]), rooms)
+			if r2 != null:
+				return r2
+	return null
+
+## BMA040And047Logic : PV du heros apres le donjon dans (0;3] -> une salle au hasard (`Shuffle().First()`).
+static func _logic_040_047(x: Dictionary, hero: Dictionary, pos_c: int, rooms: Array) -> Variant:
+	var pid := int(x["pid"])
+	var hh := hero_health(x["G"], hero) - dungeon_damage(x["G"], x["p"], pid, pos_c)
+	if hh > 0 and hh <= 3:
+		var pick: Dictionary = rooms[(x["rng"] as RandomNumberGenerator).randi_range(0, rooms.size() - 1)]
+		return _res([[0, 0, [pick["top"]]]], {"targetPlayerId": pid, "roomIndex": int(pick["g"])}, true)
+	return null
+
+## CheckBMA041 Assassin (l.68-86) : l'adversaire qui attire le heros actif le tuerait de justesse (PV apres donjon dans (-3;0]) : +3 PV.
+static func _chk_041(x: Dictionary) -> Variant:
+	if _early(x):
+		return null
+	for q in opponents(x["G"], int(x["pid"])):
+		if _lured_by(x, int(q)):
+			var after := _active_after(x, int(q))
+			if after <= 0 and after > -3:
+				return _hero_entry((x["ah"] as Dictionary)["hero"])
+	return null
+
+## CheckBMA042 Cave-In (l.88-106) : le heros actif est dans NOTRE pire salle (CalculateWorstSlot) et survivrait au reste du donjon.
+static func _chk_042(x: Dictionary) -> Variant:
+	if _early(x):
+		return null
+	var pid := int(x["pid"])
+	if _lured_by(x, pid):
+		var ah: Dictionary = x["ah"]
+		if _active_after(x, pid) > 0 and _worst_slot_c(x) == int(ah["c"]):
+			var s := _active_slot(x, int(ah["c"]))
+			if not s.is_empty():
+				return _res([[0, 0, [s["top"]]]], {"roomIndex": int(s["g"])})
+	return null
+
+## CalculateWorstSlot (l.920-935) : plus petite valeur sans modificateurs (-75 pour une pile de plusieurs salles non avancee) ; premier minimum.
+static func _worst_slot_c(x: Dictionary) -> int:
+	var best := INF
+	var res := -1
+	for s in _active_slots(x):
+		var top: Dictionary = (s as Dictionary)["top"]
+		var v := _val0(x, top)
+		if ((x["p"] as Dictionary)["dungeon"][int((s as Dictionary)["g"])] as Array).size() > 1 and not bool(top.get("advanced", false)):
+			v += -75.0
+		if v < best:
+			best = v
+			res = int((s as Dictionary)["c"])
+	return res
+
+## Joueurs « vises » par un sort de la pile (Ability.GetAgainstPlayers : proprietaires des cibles de ses commandes).
+## Sorts hors APK (jetons de test, cartes wiki) : cible inconnue -> tous les joueurs (le Counterspell d'avant ne distinguait rien).
+static func _against(x: Dictionary, e: Dictionary) -> Array:
+	var G: Dictionary = x["G"]
+	var id := str((e.get("card", {}) as Dictionary).get("id", ""))
+	var tg: Dictionary = {}
+	if e.get("target") is Dictionary:
+		tg = e["target"]
+	var caster := int(e.get("playerId", -1))
+	match id:
+		"BMA040", "BMA046", "BMA047", "BMA054", "BMA055":
+			return [int(tg["targetPlayerId"])] if tg.has("targetPlayerId") else []
+		"BMA042", "BMA050", "BMA051", "BMA052":
+			return [caster]
+		"BMA041", "BMA044", "BMA045", "BMA053":
+			for q in G["players"]:
+				for h in ((G["players"][q] as Dictionary).get("entrance", []) as Array):
+					if str((h as Dictionary).get("id", "")) == str(tg.get("heroId", "")):
+						return [int(q)]
+			return []
+		"BMA043":
+			for s in (G.get("stack", []) as Array):
+				if str((s as Dictionary).get("id", "")) == str(tg.get("stackId", "")):
+					return [int((s as Dictionary).get("playerId", -1))]
+			return []
+		"BMA048", "BMA049", "KSA013":
+			return prio_players(G)
+	return prio_players(G) if not AB_SPELLS.has(id) else []
+
+## Sorts adverses sur la pile = GameBoard.SpellBattleCards (Spell, proprietaire != joueur), dans l'ordre de la pile.
+static func _stack_spells_of_others(x: Dictionary) -> Array:
+	var out: Array = []
+	for e in (x["G"].get("stack", []) as Array):
+		if str((e as Dictionary).get("type", "")) == "spell" and int((e as Dictionary).get("playerId", -1)) != int(x["pid"]):
+			out.append(e)
+	return out
+
+## CheckBMA043 Counterspell (l.108-148) : un sort adverse qui NOUS vise ; sinon BMA040/044/047/053 sans proprietaire de cible, ou T.P.K.
+static func _chk_043(x: Dictionary) -> Variant:
+	if _early(x):
+		return null
+	var spells := _stack_spells_of_others(x)
+	for e in spells:
+		if (_against(x, e) as Array).has(int(x["pid"])):
+			return _res([[0, 0, [(e as Dictionary)["card"]]]], {"stackId": str((e as Dictionary).get("id", ""))})
+	for e in spells:
+		var id := str(((e as Dictionary).get("card", {}) as Dictionary).get("id", ""))
+		if (_against(x, e) as Array).is_empty():
+			if ["BMA040", "BMA044", "BMA047", "BMA053"].has(id):
+				return _res([[0, 0, [(e as Dictionary)["card"]]]], {"stackId": str((e as Dictionary).get("id", ""))})
+		elif id == "KSA013":
+			return _res([[0, 0, [(e as Dictionary)["card"]]]], {"stackId": str((e as Dictionary).get("id", ""))})
+	return null
+
+## CheckBMA044 Exhaustion (l.150-172) : Late ; le heros dans NOTRE donjon survivrait avec 1..DungeonSize PV.
+static func _chk_044(x: Dictionary) -> Variant:
+	if _early_mid(x):
+		return null
+	var pid := int(x["pid"])
+	if _lured_by(x, pid):
+		var after := _active_after(x, pid)
+		if after > 0 and after <= int(x["ds"]):
+			return _hero_entry((x["ah"] as Dictionary)["hero"])
+	return null
+
+## CheckBMA045 Fear (l.174-212) : hors Setup/Early ; (a) 3+ blessures et le heros est dans notre slot 0 avec des PV ; (b) sinon heros epique qui tuerait de
+## justesse un adversaire a 6+ ames.
+static func _chk_045(x: Dictionary) -> Variant:
+	if _early(x):
+		return null
+	var ah: Dictionary = x["ah"]
+	if ah.is_empty():
+		return null
+	var pid := int(x["pid"])
+	var G: Dictionary = x["G"]
+	if CardDB.total_wounds(x["p"]) > 2:
+		if int(ah["owner"]) == pid and int(ah["c"]) == 0 and int(ah["hp"]) > 0:
+			return _hero_entry(ah["hero"])
+	elif bool((ah["hero"] as Dictionary).get("epic", false)):
+		for q in opponents(G, pid):
+			if CardDB.total_souls(G["players"][int(q)], G) > 5 and _lured_by(x, int(q)) and _active_after(x, int(q)) <= 0:
+				return _hero_entry(ah["hero"])
+	return null
+
+## AIHelper.CalculateMostDamagingSlot (l.206-219) : {dmg, g, top} du slot actif de `q` le plus dur parmi ceux devant le heros (premier maximum), ou {}.
+static func _most_damaging(x: Dictionary, q: int, hero_c: int) -> Dictionary:
+	var G: Dictionary = x["G"]
+	var qp: Dictionary = G["players"][q]
+	var view := _view(qp)
+	var best := -2147483648
+	var res := {}
+	for c in mini(hero_c, view.size()):
+		var s: Dictionary = view[c]
+		if BossEngine.is_room_deactivated(G, q, int(s["g"])):
+			continue
+		var dmg := 0 if s["top"] == null else _slot_damage(G, qp, int(s["g"]))
+		if dmg > best:
+			best = dmg
+			res = {"dmg": dmg, "g": int(s["g"]), "top": s["top"]}
+	return res
+
+## CheckBMA046 Freeze (l.214-239) : un adversaire tuerait le heros ; geler sa salle la plus dure le sauverait.
+static func _chk_046(x: Dictionary) -> Variant:
+	if _early(x):
+		return null
+	for q in opponents(x["G"], int(x["pid"])):
+		if not _lured_by(x, int(q)):
+			continue
+		var after := _active_after(x, int(q))
+		if after <= 0:
+			var t := _most_damaging(x, int(q), int((x["ah"] as Dictionary)["c"]))
+			if not t.is_empty() and after + int(t["dmg"]) > 0:
+				return _res([[0, 0, [t["top"]]]], {"targetPlayerId": int(q), "roomIndex": int(t["g"])})
+	return null
+
+## CheckBMA048 Jeopardy (l.246-268) : moins de cartes en main que la moyenne entiere adverse - 1.
+static func _chk_048(x: Dictionary) -> Variant:
+	if _early(x):
+		return null
+	var avg := _opp_avg(x, func(q): return (q.get("hand", []) as Array).size())
+	if float(((x["p"] as Dictionary).get("hand", []) as Array).size()) <= float(avg) - 1.0:
+		return _res([[0, 0, _bosses(x["G"], prio_players(x["G"]))]])
+	return null
+
+## CheckBMA049 Kobold Strike (l.270-292) : donjon d'au moins moyenne entiere adverse + 1 salles.
+static func _chk_049(x: Dictionary) -> Variant:
+	if _early(x):
+		return null
+	var avg := _opp_avg(x, func(q): return _dungeon_size(_view(q)))
+	if float(x["ds"]) >= float(avg) + 1.0:
+		return _res([[0, 0, _bosses(x["G"], prio_players(x["G"]))]])
+	return null
+
+## CheckBMA050 Motivation (l.294-306) : au moins 2 salles de la main constructibles (Boss.CanBuildRoom, phase comprise) = coups buildRoom legaux de Godot.
+## Condition de la carte (data.json, OpponnentDungeonSizeMoreThan(1), non portee par legal_moves) : un adversaire a au moins 1 salle de plus que nous.
+static func _chk_050(x: Dictionary) -> Variant:
+	if _early(x):
+		return null
+	if not opponents(x["G"], int(x["pid"])).any(func(q): return _dungeon_size(_view(x["G"]["players"][int(q)])) - int(x["ds"]) >= 1):
+		return null
+	var cards := {}
+	for m in (x["moves"] as Array):
+		if str((m as Dictionary).get("type", "")) == "buildRoom":
+			cards[int(((m as Dictionary)["args"] as Array)[0])] = true
+	if cards.size() < 2:
+		return null
+	return _res([[0, 0, [_boss_of(x["G"], int(x["pid"]))]]])
+
+## CheckBMA051 Princess in Peril (l.308-343) : un heros de la ville que NOUS ne voulons pas laisser a un autre, et que notre donjon tue.
+static func _chk_051(x: Dictionary) -> Variant:
+	var G: Dictionary = x["G"]
+	var pid := int(x["pid"])
+	var town: Array = G.get("town", [])
+	for i in town.size():
+		var hero: Dictionary = town[i]
+		var flag := false
+		if str(hero.get("id", "")) == "BMA080":
+			var souls: Dictionary = {}
+			var mn := 2147483647
+			for q in prio_players(G):
+				souls[int(q)] = CardDB.total_souls(G["players"][int(q)], G)
+				mn = mini(mn, int(souls[int(q)]))
+			var low: Array = prio_players(G).filter(func(q): return int(souls[int(q)]) == mn)
+			flag = low.size() == 1 and int(low[0]) != pid
+		else:
+			var b := _who_would_bait(G, hero)
+			if int(b[0]) < 0 and CardDB.total_souls(x["p"], G) >= 8:
+				flag = true
+			elif int(b[0]) >= 0 and int(b[0]) != pid:
+				flag = true
+		if flag and hero_health(G, hero) - dungeon_damage(G, x["p"], pid) <= 0:
+			return _res([[0, 0, [hero, _boss_of(G, pid)]]], {"townIndex": i})
+	return null
+
+## CheckBMA052 Soul Harvest (l.345-372) : Late ; moins de sorts en main que la moyenne adverse et une ame ordinaire a rendre.
+static func _chk_052(x: Dictionary) -> Variant:
+	if _early_mid(x):
+		return null
+	var p: Dictionary = x["p"]
+	var avg := _opp_avg(x, func(q): return _hand_spells(q))
+	if _hand_spells(p) < avg:
+		var souls: Array = p.get("souls", [])
+		for i in souls.size():
+			var e: Dictionary = souls[i]
+			if not bool(e.get("epic", false)) and not bool(e.get("tpk", false)):
+				return _res([[0, 0, [e.get("hero", e)]], [0, 1, [_boss_of(x["G"], int(x["pid"]))]]], {"soulIndex": i})
+	return null
+
+## CheckBMA053 Teleportation (l.374-392) : Late ; heros dans NOTRE slot 0 avec des PV, mais « PV apres donjon <= 0 » est impossible (Take(0) = aucun degat
+## restant, donc PV apres = PV > 0) : la carte n'est jamais jouee, comme dans l'APK.
+static func _chk_053(x: Dictionary) -> Variant:
+	if _early_mid(x):
+		return null
+	var ah: Dictionary = x["ah"]
+	if not ah.is_empty() and int(ah["owner"]) == int(x["pid"]) and int(ah["c"]) == 0 and int(ah["hp"]) > 0:
+		if _active_after(x, int(x["pid"])) <= 0:
+			return _hero_entry(ah["hero"])
+	return null
+
+## CheckBMA054 Trepidation (l.394-418) : Late ; l'adversaire (le plus d'ames d'abord) a 2+ ames de plus que nous et un heros a l'entree.
+static func _chk_054(x: Dictionary) -> Variant:
+	if _early_mid(x):
+		return null
+	var G: Dictionary = x["G"]
+	var mine := CardDB.total_souls(x["p"], G)
+	var cand: Array = prio_players(G).filter(func(q): return CardDB.total_souls(G["players"][int(q)], G) >= mine + 2)
+	for q in _stable(cand, func(q): return [-CardDB.total_souls(G["players"][int(q)], G)]):
+		if not ((G["players"][int(q)] as Dictionary).get("entrance", []) as Array).is_empty():
+			return _res([[0, 0, [_boss_of(G, int(q))]]], {"targetPlayerId": int(q)})
+	return null
+
+## CheckBMA055 Zombie Attack (l.420-444) : Late ; un heros epique des ames d'un adversaire (le plus d'ames d'abord, PV de base decroissants) que le donjon de
+## cet adversaire ne tue pas a plus de 1 PV pres (InitialHealth - GetDungeonDamage(adversaire) > -2).
+static func _chk_055(x: Dictionary) -> Variant:
+	if _early_mid(x):
+		return null
+	var G: Dictionary = x["G"]
+	for q in _stable(opponents(G, int(x["pid"])), func(q): return [-CardDB.total_souls(G["players"][int(q)], G)]):
+		var qp: Dictionary = G["players"][int(q)]
+		var heroes: Array = []
+		var first_idx: Array = []
+		var souls: Array = qp.get("souls", [])
+		for i in souls.size():
+			var e: Dictionary = souls[i]
+			var h = e.get("hero")
+			if bool(e.get("epic", false)) and h is Dictionary and not bool(e.get("tpk", false)) and not heroes.any(func(o): return is_same(o, h)):
+				heroes.append(h)
+				first_idx.append(i)
+		var order: Array = range(heroes.size())
+		order = _stable(order, func(k): return [-BossEngine.hero_base_hp(heroes[int(k)])])
+		for k in order:
+			var hh: Dictionary = heroes[int(k)]
+			if BossEngine.hero_base_hp(hh) - dungeon_damage(G, qp, int(q)) > -2:
+				return _res([[0, 0, [hh]]], {"targetPlayerId": int(q), "soulIndex": int(first_idx[int(k)]), "pile": "souls"})
+	return null
+
+## CheckKSA013 T.P.K. (l.822-827) : toujours, sur tous les joueurs (le moteur retient le premier : voir `abilities`).
+static func _chk_ksa013(x: Dictionary) -> Variant:
+	var pl := prio_players(x["G"])
+	return _res([[0, 0, _bosses(x["G"], pl)]], {"targetPlayerId": int(pl[0])} if not pl.is_empty() else null)
+
+# --- CheckXXX : capacites de salle --------------------------------------------------------------------------------------------
+
+## AIHelper.HasRoomBelow : la salle du slot g recouvre une autre (pile de plus d'une carte).
+static func _room_below(x: Dictionary, g: int) -> bool:
+	return ((x["p"] as Dictionary)["dungeon"][g] as Array).size() > 1
+
+## CheckBMA009 Dark Altar (l.446-482) : les defausses ne sont pas vides ; Mid : l'Autel recouvre une salle ; Late : donjon de 5 salles.
+## Cible : la meilleure salle batissable de la defausse qui vaut plus que l'Autel, ou un sort au hasard, pile ou face s'il y a les deux.
+static func _chk_009(x: Dictionary, g: int) -> Variant:
+	if _early(x):
+		return null
+	var G: Dictionary = x["G"]
+	var decks: Dictionary = G.get("decks", {})
+	var rooms: Array = decks.get("roomDiscard", [])
+	var spells: Array = decks.get("spellDiscard", [])
+	if rooms.is_empty() and spells.is_empty():
+		return null
+	if x["ph"] == "mid":
+		if not _room_below(x, g):
+			return null
+	elif int(x["ds"]) <= 4:
+		return null
+	var altar: Dictionary = BossEngine.active_room((x["p"] as Dictionary)["dungeon"][g])
+	var altar_v := _val0(x, altar)
+	var cands: Array = rooms.filter(func(r): return _can_build_card(G, x["p"], int(x["pid"]), r) and _val0(x, r) > altar_v)
+	cands = _stable(cands, func(r): return [-_val0(x, r), _discard_rank(r)])
+	var room2 = cands[0] if not cands.is_empty() else null
+	var rng: RandomNumberGenerator = x["rng"]
+	var spell = spells[rng.randi_range(0, spells.size() - 1)] if not spells.is_empty() else null
+	var pick = null
+	if room2 != null and spell == null:
+		pick = room2
+	elif room2 == null and spell != null:
+		pick = spell
+	elif room2 != null and spell != null:
+		pick = room2 if rng.randi_range(0, 1) == 1 else spell
+	if pick == null:
+		return null
+	return _res([[0, 0, [altar]], [1, 0, [pick]], [1, 1, [_boss_of(G, int(x["pid"]))]]], null, spell != null)
+
+## CheckBMA013 Dracolich Lair (l.557-605) : 2+ salles en main et la defausse en a une batissable ; on defausse 2 salles inutiles (non batissables, sinon les
+## moins precieuses) si la meilleure de la defausse vaut plus que la 2e plus faible de la main.
+static func _chk_013(x: Dictionary, _g: int) -> Variant:
+	var G: Dictionary = x["G"]
+	var p: Dictionary = x["p"]
+	var pid := int(x["pid"])
+	var hand_rooms: Array = (p.get("hand", []) as Array).filter(func(c): return bool((c as Dictionary).get("isRoom", false)))
+	var disc: Array = (G.get("decks", {}) as Dictionary).get("roomDiscard", [])
+	if hand_rooms.size() < 2 or disc.is_empty():
+		return null
+	var cands: Array = disc.filter(func(r): return _can_build_card(G, p, pid, r))
+	cands = _stable(cands, func(r): return [-_val0(x, r), _discard_rank(r)])
+	if cands.is_empty():
+		return null
+	var room: Dictionary = cands[0]
+	var useless: Array = hand_rooms.filter(func(r): return not _can_build_card(G, p, pid, r))
+	var source: Array = []
+	if useless.size() >= 2:
+		source = _stable(useless, func(r): return [_val0(x, r)]).slice(0, 2)
+	else:
+		var s3 := _stable(hand_rooms, func(r): return [_val0(x, r)])
+		if _val0(x, room) > _val0(x, s3[1]):
+			source = s3.slice(0, 2)
+	if source.is_empty():
+		return null
+	return _res([[0, 0, source], [1, 0, [room]], [1, 1, [_boss_of(G, pid)]]])
+
+## CheckBMA024 Witch's Kitchen (l.484-523) : une Monster de la main (la moins precieuse ; a valeur egale la batissable d'abord : deux `orderby` successifs) a
+## defausser et moins de 2 sorts en main.
+static func _chk_024(x: Dictionary, _g: int) -> Variant:
+	if _early(x):
+		return null
+	var G: Dictionary = x["G"]
+	var p: Dictionary = x["p"]
+	var pid := int(x["pid"])
+	var mons: Array = (p.get("hand", []) as Array).filter(func(c): return bool((c as Dictionary).get("isRoom", false)) and str((c as Dictionary).get("type", "")) == "monster")
+	var src := _stable(mons, func(r): return [_val0(x, r), 0 if _can_build_card(G, p, pid, r) else 1])
+	if not src.is_empty() and _hand_spells(p) < 2:
+		return _res([[0, 0, [src[0], _boss_of(G, pid)]]])
+	return null
+
+## CheckBMA027 Bottomless Pit (l.525-545) : le heros est dans CE gouffre et survivrait au reste du donjon.
+static func _chk_027(x: Dictionary, g: int) -> Variant:
+	if _early(x):
+		return null
+	var pid := int(x["pid"])
+	if _lured_by(x, pid, g) and _active_after(x, pid) > 0:
+		return _res([[0, 0, [BossEngine.active_room((x["p"] as Dictionary)["dungeon"][g]), (x["ah"] as Dictionary)["hero"]]]])
+	return null
+
+## AIHelper.HasHeroPassedSlot (l.172-189) : le slot d'index C# `c_slot` est derriere le heros (index plus grand : le heros descend vers le boss).
+static func _passed(ah: Dictionary, c_slot: int) -> bool:
+	return c_slot > int(ah["c"])
+
+## CheckBMA028 Boulder Ramp (l.547-596) : Late ; le heros est dans CETTE rampe et survit au reste ; on detruit la salle la moins utile (avancee d'abord, puis pas
+## encore traversee, puis moins de degats, puis pile la plus haute) si +5 degats l'acheveraient (PV <= degats restants + 5).
+static func _chk_028(x: Dictionary, g: int) -> Variant:
+	if _early_mid(x):
+		return null
+	var pid := int(x["pid"])
+	if not _lured_by(x, pid, g):
+		return null
+	var G: Dictionary = x["G"]
+	var p: Dictionary = x["p"]
+	var ah: Dictionary = x["ah"]
+	var num := dungeon_damage(G, p, pid, int(ah["c"]))
+	if int(ah["hp"]) <= num:
+		return null
+	var src: Array = []
+	for c in (x["view"] as Array).size():
+		var s: Dictionary = (x["view"] as Array)[c]
+		if s["top"] != null and not BossEngine.is_room_deactivated(G, pid, int(s["g"])) and str((s["top"] as Dictionary).get("id", "")) != "BMA028":
+			src.append({"c": c, "g": int(s["g"]), "top": s["top"]})
+	if src.is_empty():
+		return null
+	var best: Dictionary = _stable(src, func(s): return [0 if bool((s["top"] as Dictionary).get("advanced", false)) else 1, 1 if _passed(ah, int(s["c"])) else 0,
+		_slot_damage(G, p, int(s["g"])), -((p["dungeon"][int(s["g"])] as Array).size())])[0]
+	if _passed(ah, int(best["c"])):
+		num -= _slot_damage(G, p, int(best["g"]))
+		var st: Array = p["dungeon"][int(best["g"])]
+		if st.size() > 1:
+			num += room_damage(st[st.size() - 2] as Dictionary)
+	num += 5
+	if int(ah["hp"]) <= num:
+		return _res([[0, 0, [best["top"], ah["hero"]]]], int(best["g"]))
+	return null
+
+## Donjon dont ne restent que les salles visibles (Boss.GetDungeonTreasures exclut les slots en attente).
+static func _shown_only(p: Dictionary) -> Dictionary:
+	var shown: Array = []
+	for stack in p.get("dungeon", []):
+		var top = BossEngine.active_room(stack)
+		if top != null and not bool((top as Dictionary).get("faceDown", false)):
+			shown.append(stack)
+	var q := p.duplicate()
+	q["dungeon"] = shown
+	return q
+
+## BMA030Logic (l.882-918) : plus de heros de la ville que NOUS ne leurrons pas deviendraient attires par nous (tresors des salles doubles) et tues, que de
+## heros que nous attirons deja et tuons.
+static func _bma030_logic(x: Dictionary, g: int) -> bool:
+	var G: Dictionary = x["G"]
+	var p: Dictionary = x["p"]
+	var pid := int(x["pid"])
+	var mine := 0
+	var gain := 0
+	var town: Array = G.get("town", [])
+	for h in town:
+		var b := _who_would_bait(G, h)
+		if int(b[0]) == pid and BossEngine.hero_health_with_modifiers(G, h) - dungeon_damage(G, p, pid) <= 0:
+			mine += 1
+	var stack: Array = p["dungeon"][g]
+	var bt: Array = (p.get("boss", {}) as Dictionary).get("treasures", []) as Array
+	# GetDungeonTreasures = salles ++ boss ++ passifs ; GetDungeonTreasuresOfType retire les |boss.Treasures| DERNIERS : les tresors du boss (Godot les range en tete).
+	var rooms_only: Array = BossEngine.dungeon_treasures(_shown_only(p), G).slice(bt.size() + (p.get("bonusTreasures", []) as Array).size())
+	for h in town:
+		var b := _who_would_bait(G, h)
+		if int(b[0]) == pid:
+			continue
+		var item := int(b[1])
+		var htr: Array = CardDB.hero_treasures(h)
+		var n3 := 0
+		for t in htr:
+			n3 += _count_treasure(rooms_only, int(t))
+		if htr.any(func(t): return int(t) == 4): # Thief
+			n3 -= 2
+		if stack.size() > 1:
+			for t in htr:
+				n3 += _count_treasure((stack[stack.size() - 2] as Dictionary).get("treasures", []), int(t))
+		n3 *= 2
+		for t in htr:
+			n3 += _count_treasure(bt, int(t))
+		if n3 > item:
+			var dd := dungeon_damage(G, p, pid) - _slot_damage(G, p, g)
+			if stack.size() > 1:
+				dd += room_damage(stack[stack.size() - 2] as Dictionary)
+			if dd >= BossEngine.hero_health_with_modifiers(G, h):
+				gain += 1
+	return gain > mine
+
+## CheckBMA030 Jackpot Stash (l.598-612) : hors Setup/Early, en phase de construction, si BMA030Logic.
+static func _chk_030(x: Dictionary, g: int) -> Variant:
+	if _early(x):
+		return null
+	if str((x["G"] as Dictionary).get("phase", "")) == CardDB.PHASE["BUILD"] and _bma030_logic(x, g):
+		return _res([[0, 0, [BossEngine.active_room((x["p"] as Dictionary)["dungeon"][g]), _boss_of(x["G"], int(x["pid"]))]]])
+	return null
+
+## CheckBMA038 Torture Chamber (l.614-636) : Late ; un adversaire qui a une salle batissable en main (le meilleur score d'abord).
+static func _chk_038(x: Dictionary, g: int) -> Variant:
+	if _early_mid(x):
+		return null
+	var G: Dictionary = x["G"]
+	var cand: Array = []
+	for q in opponents(G, int(x["pid"])):
+		var qp: Dictionary = G["players"][int(q)]
+		var hand: Array = qp.get("hand", [])
+		for hi in hand.size():
+			if bool((hand[hi] as Dictionary).get("isRoom", false)) and can_build_anywhere(G, qp, int(q), hi):
+				cand.append(int(q))
+				break
+	if cand.is_empty():
+		return null
+	var first: int = _stable(cand, func(q): return [-(CardDB.total_souls(G["players"][int(q)], G) - CardDB.total_wounds(G["players"][int(q)]))])[0]
+	return _res([[0, 0, [BossEngine.active_room((x["p"] as Dictionary)["dungeon"][g]), _boss_of(G, first)]]])
+
+## CheckBMA039 Zombie Prison (l.638-672) : Mid avec une pile sous la prison -> non ; l'adversaire (meilleur score d'abord) avec des ames dont un heros (PV de base
+## decroissants) depasse les degats de SON propre donjon.
+static func _chk_039(x: Dictionary, g: int) -> Variant:
+	if _early(x):
+		return null
+	if x["ph"] == "mid" and _room_below(x, g):
+		return null
+	var G: Dictionary = x["G"]
+	var cand: Array = opponents(G, int(x["pid"])).filter(func(q): return CardDB.total_souls(G["players"][int(q)], G) > 0)
+	for q in _stable(cand, func(q): return [-(CardDB.total_souls(G["players"][int(q)], G) - CardDB.total_wounds(G["players"][int(q)]))]):
+		var qp: Dictionary = G["players"][int(q)]
+		var dd := dungeon_damage(G, qp, int(q))
+		var heroes: Array = []
+		for e in (qp.get("souls", []) as Array):
+			var h = (e as Dictionary).get("hero")
+			if h is Dictionary and not bool((e as Dictionary).get("tpk", false)) and not heroes.any(func(o): return is_same(o, h)):
+				heroes.append(h)
+		for hh in _stable(heroes, func(h): return [-BossEngine.hero_base_hp(h)]):
+			if dd < BossEngine.hero_base_hp(hh):
+				return _res([[0, 0, [BossEngine.active_room((x["p"] as Dictionary)["dungeon"][g]), hh]]])
+	return null
+
+## CheckBMA025 All-Seeing Eye (l.674-704) : Spell Battle ; un sort adverse en attente dont une commande designe directement NOTRE boss ; on defausse Jeopardy,
+## puis Kobold Strike, sinon un sort jouable (a defaut le premier) : choix legal mais etrange, copie fidelement.
+static func _chk_025(x: Dictionary, _g: int) -> Variant:
+	var p: Dictionary = x["p"]
+	var G: Dictionary = x["G"]
+	var pid := int(x["pid"])
+	var hand: Array = p.get("hand", [])
+	var spells_in_hand: Array = []
+	for hi in hand.size():
+		if bool((hand[hi] as Dictionary).get("isSpell", false)):
+			spells_in_hand.append(hi)
+	if spells_in_hand.is_empty():
+		return null
+	for e in _stack_spells_of_others(x):
+		var ed: Dictionary = e
+		var id := str((ed.get("card", {}) as Dictionary).get("id", ""))
+		var direct: Array = []
+		match id: # GetCommandTargets() : cibles qui SONT des boss (pas leurs proprietaires)
+			"BMA048", "BMA049", "KSA013":
+				direct = prio_players(G)
+			"BMA050", "BMA051", "BMA052":
+				direct = [int(ed.get("playerId", -1))]
+			"BMA054":
+				direct = [int((ed["target"] as Dictionary).get("targetPlayerId", -1))] if ed.get("target") is Dictionary else []
+		if not direct.has(pid):
+			continue
+		var pick := -1
+		for want in ["BMA048", "BMA049"]:
+			for hi in spells_in_hand:
+				if pick < 0 and str((hand[int(hi)] as Dictionary).get("id", "")) == want:
+					pick = int(hi)
+			if pick >= 0:
+				break
+		if pick < 0:
+			var sm := _spell_moves(x)
+			var playable: Array = spells_in_hand.filter(func(hi): return sm.has(int(hi)))
+			pick = int(playable[0]) if not playable.is_empty() else int(spells_in_hand[0])
+		return _res([[0, 0, [hand[pick]]], [1, 0, [ed["card"]]]])
+	return null
+
+## CheckBMA032 Crushinator (l.706-770) : des heros de l'entree (PV de base > degats du donjon) nous blesseraient ; detruire une de nos salles (pas la sienne)
+## en reduirait le nombre de blessures.
+static func _chk_032(x: Dictionary, g: int) -> Variant:
+	var G: Dictionary = x["G"]
+	var p: Dictionary = x["p"]
+	var pid := int(x["pid"])
+	var ent: Array = p.get("entrance", [])
+	if ent.is_empty():
+		return null
+	var dd := dungeon_damage(G, p, pid)
+	var num := 0
+	for h in ent:
+		if BossEngine.hero_base_hp(h) > dd:
+			num += BossEngine.hero_wounds(h)
+	if num <= 0:
+		return null
+	var flag := false
+	var slot: Dictionary = {}
+	var actives := _active_slots(x)
+	if CardDB.total_wounds(p) >= 5 - num or CardDB.total_souls(p, G) >= 10 - num:
+		var src: Array = actives.filter(func(s): return int((s as Dictionary)["g"]) != g)
+		if not src.is_empty():
+			slot = _stable(src, func(s): return [0 if bool((s["top"] as Dictionary).get("advanced", false)) else 1, -((p["dungeon"][int(s["g"])] as Array).size())])[0]
+			flag = true
+	var plain: Array = actives.filter(func(s): return not bool((s["top"] as Dictionary).get("advanced", false)))
+	if not plain.is_empty():
+		slot = _stable(plain, func(s): return [_slot_damage(G, p, int(s["g"])), BossEngine.room_treasures(s["top"] as Dictionary).size()])[0]
+		flag = true
+	if not flag:
+		return null
+	dd -= _slot_damage(G, p, int(slot["g"]))
+	var n3 := actives.size()
+	var st: Array = p["dungeon"][int(slot["g"])]
+	if st.size() <= 1:
+		n3 -= 1
+	else:
+		dd += room_damage(st[st.size() - 2] as Dictionary)
+	dd += n3 * 2
+	var num2 := 0
+	for h in ent:
+		if hero_health(G, h) > dd:
+			num2 += BossEngine.hero_wounds(h)
+	if num2 < num:
+		return _res([[0, 0, [slot["top"], _boss_of(G, pid)]]], int(slot["g"]))
+	return null
+
+# --- ensemble des capacites eligibles ----------------------------------------------------------------------------------------
+
+## Index de main des sorts qui ont un coup `playSpell` legal.
+static func _spell_moves(x: Dictionary) -> Dictionary:
+	var out := {}
+	for m in (x["moves"] as Array):
+		if str((m as Dictionary).get("type", "")) == "playSpell":
+			out[int(((m as Dictionary)["args"] as Array)[0])] = true
+	return out
+
+## Les cles de `want` valent-elles les memes champs de la cible Godot `tg` ?
+static func _target_has(tg: Variant, want: Dictionary) -> bool:
+	if not (tg is Dictionary):
+		return false
+	for k in want:
+		if (tg as Dictionary).get(k) != want[k]:
+			return false
+	return true
+
+## AbilityCalculator.CalculateAbilityAndTargetValue (switch l.30-58) : resultat non nul = capacite eligible (valeur 1.0).
+static func _spell_check(x: Dictionary, id: String) -> Variant:
+	if bool(x["battle"]): # l.22-30 : en Spell Battle seule BMA043 est evaluee (BMA025 est une salle)
+		return _chk_043(x) if id == "BMA043" else null
+	match id:
+		"BMA040": return _chk_040_047(x, "trap")
+		"BMA041": return _chk_041(x)
+		"BMA042": return _chk_042(x)
+		"BMA044": return _chk_044(x)
+		"BMA045": return _chk_045(x)
+		"BMA046": return _chk_046(x)
+		"BMA047": return _chk_040_047(x, "monster")
+		"BMA048": return _chk_048(x)
+		"BMA049": return _chk_049(x)
+		"BMA050": return _chk_050(x)
+		"BMA051": return _chk_051(x)
+		"BMA052": return _chk_052(x)
+		"BMA053": return _chk_053(x)
+		"BMA054": return _chk_054(x)
+		"BMA055": return _chk_055(x)
+		"KSA013": return _chk_ksa013(x)
+	return null
+
+static func _room_check(x: Dictionary, id: String, g: int) -> Variant:
+	if bool(x["battle"]):
+		return _chk_025(x, g) if id == "BMA025" else null
+	match id:
+		"BMA009": return _chk_009(x, g)
+		"BMA013": return _chk_013(x, g)
+		"BMA024": return _chk_024(x, g)
+		"BMA027": return _chk_027(x, g)
+		"BMA028": return _chk_028(x, g)
+		"BMA030": return _chk_030(x, g)
+		"BMA032": return _chk_032(x, g)
+		"BMA038": return _chk_038(x, g)
+		"BMA039": return _chk_039(x, g)
+	return null
+
+## GetUsableAbilities + CalculateAbilityStatistics : les capacites ELIGIBLES du joueur `pid` (cartes de l'APK), dans l'ordre du C# (salles du fond a l'entree, puis
+## sorts de la main). `moves` = coups legaux de Godot (= CanPlayerPlayAbility). Une entree : {kind: "room"|"spell", idx: index de main / de pile, card, t: cibles
+## preregles [[effet, fournisseur, [cartes]]], move: coup Godot qui porte cette cible (null si Godot ne la propose pas), shuf: la cible vient d'un tirage}.
+## Lecture seule sur `G`. `rng` : tirages internes (Shuffle, NextBool).
+static func abilities(G: Dictionary, pid: int, moves: Array, rng: RandomNumberGenerator) -> Array:
+	var out: Array = []
+	if not (G["players"] as Dictionary).has(pid):
+		return out
+	var x := _ctx(G, pid, moves, rng)
+	var p: Dictionary = x["p"]
+	var spell_mv: Dictionary = {}
+	var room_mv: Dictionary = {}
+	for m in moves:
+		var md: Dictionary = m
+		var a: Array = md.get("args", [])
+		match str(md.get("type", "")):
+			"playSpell":
+				if not a.is_empty():
+					spell_mv.get_or_add(int(a[0]), []).append(md)
+			"activateRoom":
+				if not a.is_empty():
+					room_mv.get_or_add(int(a[0]), []).append(md)
+	var view: Array = x["view"]
+	for c in view.size():
+		var g := int((view[c] as Dictionary)["g"])
+		var top = (view[c] as Dictionary)["top"]
+		if top == null or bool((view[c] as Dictionary)["pending"]) or not room_mv.has(g) or BossEngine.is_room_deactivated(G, pid, g): # DungeonActiveRooms : slot actif, hors salle posee ce tour
+			continue
+		var id := str((top as Dictionary).get("id", ""))
+		if is_wiki_card(id):
+			continue
+		var r = _room_check(x, id, g)
+		if r == null:
+			continue
+		var mv: Variant = null
+		for m in (room_mv[g] as Array):
+			var ma: Array = (m as Dictionary)["args"]
+			if r["arg"] == null or (ma.size() > 1 and int(ma[1]) == int(r["arg"])):
+				mv = m
+				break
+		out.append({"kind": "room", "idx": g, "card": top, "t": r["t"], "move": mv, "shuf": bool(r["shuf"])})
+	var hand: Array = p.get("hand", [])
+	for hi in hand.size():
+		var card: Dictionary = hand[hi]
+		if not bool(card.get("isSpell", false)) or not spell_mv.has(hi) or is_wiki_card(str(card.get("id", ""))):
+			continue
+		var sid := str(card.get("id", ""))
+		var r = _spell_check(x, sid)
+		if r == null:
+			continue
+		var mv: Variant = null
+		for m in (spell_mv[hi] as Array):
+			var ma: Array = (m as Dictionary)["args"]
+			if r["arg"] == null or _target_has(ma[1] if ma.size() > 1 else null, r["arg"] as Dictionary):
+				mv = m
+				break
+		if mv == null and sid == "KSA013": # le C# designe tous les boss et retient le premier ; Godot n'offre (hors harnais) que le proprietaire
+			mv = (spell_mv[hi] as Array)[0]
+		out.append({"kind": "spell", "idx": hi, "card": card, "t": r["t"], "move": mv, "shuf": bool(r["shuf"])})
+	return out

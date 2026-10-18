@@ -30,6 +30,11 @@ func run(ok: Callable, h: Node) -> void:
 	_t_apk_build_plan()
 	_t_apk_discard()
 	_t_apk_pick_order()
+	_t_apk_spells_checks()
+	_t_apk_giant_size_type()
+	_t_apk_spell_battle()
+	_t_apk_rooms_checks()
+	_t_apk_draw_uniform()
 
 # --- fabriques d'etats minimaux ----------------------------------------------------------------------
 
@@ -643,8 +648,8 @@ func _t_apk_discard() -> void:
 
 ## InternalDoPlayerActions : une capacite d'abord, PUIS la construction ; la construction ne se compare jamais au score d'un sort.
 func _t_apk_pick_order() -> void:
-	var G := _G([_player(0, "BMA001"), _player(1, "BMA002")])
-	G["turn"] = 1
+	var G := _G([_player(0, "BMA001", [_plain("d1"), _plain("d2")]), _player(1, "BMA002")], ["base"])
+	G["turn"] = 3 # Mid : CheckBMA049 ne joue jamais en Setup / Early ; notre donjon (2 salles) depasse la moyenne adverse (0) d'au moins 1
 	G["phase"] = "build"
 	G["activePlayer"] = 0
 	_hand(G, 0).append(_plain("room", "monster", [1], 4))
@@ -652,9 +657,261 @@ func _t_apk_pick_order() -> void:
 	var m := _match(G)
 	var mv = AI.pick_move(m, 0)
 	_ok.call(mv != null and str(mv["type"]) == "playSpell", "IA : en phase de construction, le sort (Kobold Strike) est joue AVANT la construction")
+	mv = AI.pick_move(m, 0)
+	_ok.call(mv != null and str(mv["type"]) == "buildRoom", "IA : une seule consultation des capacites par fenetre (UseAbility), puis elle construit")
 	_hand(G, 0).remove_at(1)
 	mv = AI.pick_move(m, 0)
 	_ok.call(mv != null and str(mv["type"]) == "buildRoom", "IA : sans capacite, elle construit")
-	_hand(G, 0)[0] = _plain("zero", "monster", [1, 1], 0)
+	_hand(G, 0)[0] = _plain("zero", "monster", [], 0) # Mid : 0 degats, 0 tresor = 0
 	mv = AI.pick_move(m, 0)
 	_ok.call(mv == null or str(mv["type"]) in ["passBuild", "pass"], "IA : une salle qui vaut 0 n'est pas construite (FixedAI)")
+	m.queue_free()
+
+# --- sorts et capacites de salle (AbilityCalculator) --------------------------------------------------------------------------------
+
+## Cartes eligibles (ids tries) du joueur `pid` : ApkAI.abilities sur les coups legaux.
+func _elig(G: Dictionary, pid: int) -> Array:
+	var m := _match(G)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var out: Array = []
+	for o in ApkAI.abilities(G, pid, m.legal_moves(pid), rng):
+		out.append(str(((o as Dictionary)["card"] as Dictionary)["id"]))
+	out.sort()
+	m.queue_free()
+	return out
+
+## L'entree eligible de la carte `id` (null si absente).
+func _entry(G: Dictionary, pid: int, id: String) -> Variant:
+	var m := _match(G)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 7
+	var found = null
+	for o in ApkAI.abilities(G, pid, m.legal_moves(pid), rng):
+		if str(((o as Dictionary)["card"] as Dictionary)["id"]) == id:
+			found = o
+	m.queue_free()
+	return found
+
+## Scene d'aventure : le heros de P1 est dans la salle 0 de son donjon (trap 2 / monster 3 devant lui, marge = hp - 5), P0 tient `spell_id`.
+func _spell_scene(spell_id: String, hp: int, turn := 3) -> Dictionary:
+	var G := _opp_scene(hp)
+	G["sets"] = ["base"]
+	G["turn"] = turn
+	_hand(G, 0).append(_spell(spell_id))
+	return G
+
+func _t_apk_spells_checks() -> void:
+	# CheckBMA041 Assassin : l'adversaire qui attire le heros le tue de justesse (PV apres donjon dans (-3;0])
+	_ok.call(_elig(_spell_scene("BMA041", 5), 0) == ["BMA041"], "Assassin : heros a 0 PV apres le donjon adverse -> eligible")
+	_ok.call(_elig(_spell_scene("BMA041", 3), 0) == ["BMA041"] and _elig(_spell_scene("BMA041", 2), 0).is_empty(), "Assassin : -2 oui, -3 non (borne ouverte)")
+	_ok.call(_elig(_spell_scene("BMA041", 7), 0).is_empty(), "Assassin : le heros survit au donjon adverse -> pas la peine")
+	_ok.call(_elig(_spell_scene("BMA041", 5, 1), 0).is_empty(), "Assassin : jamais en Early (CheckBMA041)")
+	var e = _entry(_spell_scene("BMA041", 5), 0, "BMA041")
+	_ok.call(e != null and e["move"] != null and str((((e["move"] as Dictionary)["args"] as Array)[1] as Dictionary)["heroId"]) == "TNL073" and (e["t"] as Array).size() == 1, "Assassin : cible preregle = le heros actif")
+	# CheckBMA046 Freeze : geler la salle la plus dure (monster 3) sauverait le heros
+	var f = _entry(_spell_scene("BMA046", 3), 0, "BMA046")
+	var ft: Dictionary = (((f["move"] as Dictionary)["args"] as Array)[1] as Dictionary) if f != null and f["move"] != null else {}
+	_ok.call(f != null and int(ft.get("roomIndex", -1)) == 2 and int(ft.get("targetPlayerId", -1)) == 1, "Freeze : cible = la salle la plus dure devant le heros")
+	_ok.call(_elig(_spell_scene("BMA046", 2), 0).is_empty() and _elig(_spell_scene("BMA046", 5), 0) == ["BMA046"], "Freeze : geler ne sauve pas un heros a -3 ; hp 5 (0 apres donjon) : le gel le sauve")
+	# CheckBMA048 Jeopardy : moins de cartes que la moyenne entiere adverse - 1 ; CheckBMA049 Kobold Strike : donjon >= moyenne + 1
+	var G := _G([_player(0, "BMA001"), _player(1, "BMA002")], ["base"])
+	G["turn"] = 3
+	G["phase"] = "build"
+	G["activePlayer"] = 0
+	_hand(G, 0).append(_spell("BMA048"))
+	_fill_hand(G, 1, 2)
+	_ok.call(_elig(G, 0) == ["BMA048"], "Jeopardy : 1 carte contre une moyenne adverse de 2 -> eligible (1 <= 2 - 1)")
+	_hand(G, 1).clear()
+	_fill_hand(G, 1, 1)
+	_ok.call(_elig(G, 0).is_empty(), "Jeopardy : 1 carte contre 1 -> pas moins que la moyenne - 1")
+	var G2 := _G([_player(0, "BMA001", [_plain("a"), _plain("b")]), _player(1, "BMA002", [_plain("c")])], ["base"])
+	G2["turn"] = 3
+	G2["phase"] = "build"
+	G2["activePlayer"] = 0
+	_hand(G2, 0).append(_spell("BMA049"))
+	_ok.call(_elig(G2, 0) == ["BMA049"], "Kobold Strike : 2 salles contre 1 -> eligible")
+	G2["turn"] = 1
+	_ok.call(_elig(G2, 0).is_empty(), "Kobold Strike : jamais en Early")
+	# CheckBMA050 Motivation : un adversaire a au moins 1 salle de plus (condition de la carte) et 2 salles constructibles
+	var G3 := _G([_player(0, "BMA001", [_plain("a")]), _player(1, "BMA002", [_plain("c"), _plain("d")])], ["base"])
+	G3["turn"] = 3
+	G3["phase"] = "build"
+	G3["activePlayer"] = 0
+	_hand(G3, 0).append(_spell("BMA050"))
+	_hand(G3, 0).append(_plain("r1", "monster", [1], 2))
+	_ok.call(_elig(G3, 0).is_empty(), "Motivation : une seule salle constructible -> non")
+	_hand(G3, 0).append(_plain("r2", "trap", [1], 2))
+	_ok.call(_elig(G3, 0) == ["BMA050"], "Motivation : deux salles constructibles et un adversaire plus grand -> eligible")
+	(G3["players"][1] as Dictionary)["dungeon"] = [[_plain("c")]]
+	_ok.call(_elig(G3, 0).is_empty(), "Motivation : aucun adversaire n'a une salle de plus que nous -> condition de la carte fausse")
+	# CheckBMA053 Teleportation : jamais jouee (PV apres donjon <= 0 est impossible dans le slot 0)
+	var G4 := _G([_player(0, "BMA001", [_plain("a"), _plain("b")]), _player(1, "BMA002")], ["base"])
+	G4["turn"] = 6
+	_adventure(G4, 0, _hero("TNL073"), 1, 4)
+	_hand(G4, 0).append(_spell("BMA053"))
+	_ok.call(_elig(G4, 0).is_empty(), "Teleportation : jamais eligible (CheckBMA053)")
+	# toute carte sans CheckXXX n'est JAMAIS jouee (AbilityCalculator : `_ => null`)
+	var G5 := _G([_player(0, "BMA001", [_plain("a")]), _player(1, "BMA002")], ["base"])
+	G5["turn"] = 3
+	G5["phase"] = "build"
+	G5["activePlayer"] = 0
+	_hand(G5, 0).append({"id": "BMA099", "name": "Sans Check", "isSpell": true, "category": 4})
+	var m5 := _match(G5)
+	var legal_n := 0
+	for mv in m5.legal_moves(0):
+		legal_n += 1 if str((mv as Dictionary)["type"]) == "playSpell" else 0
+	var pick = AI.pick_move(m5, 0)
+	_ok.call(legal_n == 1 and _elig(G5, 0).is_empty() and (pick == null or str(pick["type"]) != "playSpell"), "une carte sans CheckXXX est legale mais l'IA ne la joue jamais")
+	m5.queue_free()
+	# CheckKSA013 T.P.K. : toujours, sur tous les boss
+	var G6 := _G([_player(0, "BMA001"), _player(1, "BMA002")], ["base"])
+	G6["phase"] = "build"
+	G6["activePlayer"] = 0
+	_hand(G6, 0).append(_spell("KSA013"))
+	var k = _entry(G6, 0, "KSA013")
+	_ok.call(k != null and k["move"] != null and (((k["t"] as Array)[0] as Array)[2] as Array).size() == 2, "T.P.K. : toujours eligible, cibles = tous les boss")
+	# Exhaustion (BMA044), Late seulement : le heros de NOTRE donjon survivrait avec 1..DungeonSize PV
+	var G7 := _G([_player(0, "BMA001", [_plain("a", "monster", [1], 1), _plain("b", "monster", [1], 2)]), _player(1, "BMA002")], ["base"])
+	_adventure(G7, 0, _hero("TNL073"), 0, 5) # reste a traverser la salle g1 (2 degats) : 3 PV apres le donjon, 2 salles
+	_hand(G7, 0).append(_spell("BMA044"))
+	G7["turn"] = 4
+	var mid_none: bool = _elig(G7, 0).is_empty()
+	G7["turn"] = 6
+	_ok.call(mid_none and _elig(G7, 0).is_empty(), "Exhaustion : 3 PV apres donjon > DungeonSize (2) -> non, et jamais avant Late")
+	(G7["adventure"] as Dictionary)["hp"] = 4 # 4 - 2 = 2 <= 2 salles
+	_ok.call(_elig(G7, 0) == ["BMA044"], "Exhaustion : 2 PV apres donjon <= DungeonSize -> eligible")
+
+## Giant Size ne vise JAMAIS une salle Trap (le bogue de CheckBMA040And047 l.844-847 n'est pas copie), Annihilator jamais une Monster.
+func _t_apk_giant_size_type() -> void:
+	# le heros de P0 est dans sa salle g0 (monster) ; devant lui : trap (g1, 2 degats), monster (g2, 3 degats)
+	for sid in ["BMA047", "BMA040"]:
+		var G := _G([_player(0, "BMA001", [_plain("m0", "monster", [1], 1), _plain("t1", "trap", [1], 2), _plain("m2", "monster", [1], 3)]), _player(1, "BMA002")], ["base"])
+		G["turn"] = 3
+		_adventure(G, 0, _hero("TNL073"), 0, 7) # 7 - 5 = 2 PV apres le donjon : dans (0;3]
+		_hand(G, 0).append(_spell(sid))
+		var want := "monster" if sid == "BMA047" else "trap"
+		var all_ok := true
+		var seen := 0
+		for seed_i in 30:
+			var m := _match(G)
+			var rng := RandomNumberGenerator.new()
+			rng.seed = seed_i + 1
+			for o in ApkAI.abilities(G, 0, m.legal_moves(0), rng):
+				seen += 1
+				var tgt: Dictionary = (((o as Dictionary)["move"] as Dictionary)["args"] as Array)[1]
+				var room: Dictionary = BossEngine.active_room(G["players"][int(tgt["targetPlayerId"])]["dungeon"][int(tgt["roomIndex"])])
+				all_ok = all_ok and str(room["type"]) == want
+			m.queue_free()
+		_ok.call(seen == 30 and all_ok, "%s : la cible est toujours une salle %s (30 tirages)" % [sid, want])
+
+## Spell Battle : seuls Counterspell (BMA043) et All-Seeing Eye (BMA025) sont evalues (AbilityCalculator.cs l.22-30).
+func _t_apk_spell_battle() -> void:
+	var G := _G([_player(0, "BMA001", [_plain("a")]), _player(1, "BMA002", [_plain("b")])], ["base"])
+	G["turn"] = 3
+	G["phase"] = "build"
+	G["activePlayer"] = 0
+	_hand(G, 1).append(_spell("BMA043"))
+	_hand(G, 1).append(_spell("BMA046"))
+	var jeopardy := _spell("BMA048")
+	G["stack"] = [{"id": "spell-x", "type": "spell", "playerId": 0, "card": jeopardy, "target": {}, "resolved": false}]
+	var m := _match(G)
+	G["activePlayer"] = 1 # le repondant courant
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	var opts: Array = ApkAI.abilities(G, 1, m.legal_moves(1), rng)
+	_ok.call(opts.size() == 1 and str((opts[0]["card"] as Dictionary)["id"]) == "BMA043", "Spell Battle : sur un Jeopardy adverse (tous les joueurs vises) -> Counterspell seul (Freeze est ignore)")
+	G["stack"] = [{"id": "spell-y", "type": "spell", "playerId": 0, "card": _spell("BMA050"), "target": {}, "resolved": false}]
+	_ok.call(ApkAI.abilities(G, 1, m.legal_moves(1), rng).is_empty(), "Spell Battle : Motivation adverse ne nous vise pas -> pas de Counterspell")
+	G["stack"] = [{"id": "spell-x", "type": "spell", "playerId": 0, "card": jeopardy, "target": {}, "resolved": false}]
+	G["turn"] = 1
+	_ok.call(ApkAI.abilities(G, 1, m.legal_moves(1), rng).is_empty(), "Spell Battle : pas de Counterspell en Early (CheckBMA043)")
+	# All-Seeing Eye : defausse Jeopardy en priorite (puis Kobold Strike, sinon un sort jouable)
+	var G2 := _G([_player(0, "BMA001"), _player(1, "BMA002", [_room("BMA025")])], ["base"])
+	G2["turn"] = 3
+	G2["phase"] = "build"
+	G2["activePlayer"] = 1
+	_hand(G2, 1).append(_spell("BMA046"))
+	_hand(G2, 1).append(_spell("BMA049"))
+	_hand(G2, 1).append(_spell("BMA048"))
+	G2["stack"] = [{"id": "spell-z", "type": "spell", "playerId": 0, "card": _spell("BMA048"), "target": {}, "resolved": false}]
+	var m2 := _match(G2)
+	var o2: Array = ApkAI.abilities(G2, 1, m2.legal_moves(1), rng)
+	var discarded := ""
+	if o2.size() == 1:
+		discarded = str(((((o2[0]["t"] as Array)[0] as Array)[2] as Array)[0] as Dictionary)["id"])
+	_ok.call(o2.size() == 1 and str((o2[0]["card"] as Dictionary)["id"]) == "BMA025" and discarded == "BMA048", "All-Seeing Eye : un Jeopardy adverse nous vise -> on defausse NOTRE Jeopardy d'abord")
+	G2["stack"] = [{"id": "spell-z", "type": "spell", "playerId": 0, "card": _spell("BMA050"), "target": {}, "resolved": false}]
+	_ok.call(ApkAI.abilities(G2, 1, m2.legal_moves(1), rng).is_empty(), "All-Seeing Eye : un sort adverse qui ne designe pas notre boss -> non")
+	m.queue_free()
+	m2.queue_free()
+
+func _t_apk_rooms_checks() -> void:
+	# CheckBMA027 Bottomless Pit : le heros est dans CE gouffre et survivrait au reste du donjon
+	var G := _G([_player(0, "BMA001", [_room("BMA027"), _plain("t1", "trap", [1], 2)]), _player(1, "BMA002")], ["base"])
+	G["turn"] = 3
+	_adventure(G, 0, _hero("TNL073"), 0, 6) # reste 2 degats devant lui : 4 PV apres donjon
+	_ok.call(_elig(G, 0) == ["BMA027"], "Bottomless Pit : le heros survivrait -> on le jette dans le gouffre")
+	(G["adventure"] as Dictionary)["hp"] = 2
+	_ok.call(_elig(G, 0).is_empty(), "Bottomless Pit : le reste du donjon le tue de toute facon -> non")
+	(G["adventure"] as Dictionary)["hp"] = 6
+	(G["adventure"] as Dictionary)["roomIndex"] = 1
+	_ok.call(_elig(G, 0).is_empty(), "Bottomless Pit : le heros n'est pas dans le gouffre -> non")
+	G["turn"] = 1
+	(G["adventure"] as Dictionary)["roomIndex"] = 0
+	_ok.call(_elig(G, 0).is_empty(), "Bottomless Pit : jamais en Early")
+	# CheckBMA030 Jackpot Stash : jamais pendant l'aventure (phase de construction seulement)
+	var G2 := _G([_player(0, "BMA001", [_room("BMA030")]), _player(1, "BMA002")], ["base"])
+	G2["turn"] = 3
+	_ok.call(_elig(G2, 0).is_empty(), "Jackpot Stash : jamais pendant l'aventure")
+	# CheckBMA038 Torture Chamber : Late seulement ; un adversaire doit avoir une salle batissable en main
+	var G3 := _G([_player(0, "BMA001", [_room("BMA038")]), _player(1, "BMA002", [_plain("x")])], ["base"])
+	G3["phase"] = "build"
+	G3["activePlayer"] = 0
+	_hand(G3, 1).append(_plain("r", "monster", [1], 2))
+	G3["turn"] = 4
+	var mid_no: bool = _elig(G3, 0).is_empty()
+	G3["turn"] = 6
+	_ok.call(mid_no and _elig(G3, 0) == ["BMA038"], "Torture Chamber : Late seulement, adversaire avec une salle batissable")
+	_hand(G3, 1).clear()
+	_ok.call(_elig(G3, 0).is_empty(), "Torture Chamber : adversaire sans salle batissable -> non")
+	# CheckBMA013 Dracolich Lair : 2+ salles en main et une salle batissable dans la defausse, dont la valeur depasse la 2e plus faible de la main
+	var G4 := _G([_player(0, "BMA001", [_room("BMA013")]), _player(1, "BMA002")], ["base"])
+	G4["turn"] = 3
+	G4["phase"] = "build"
+	G4["activePlayer"] = 0
+	_hand(G4, 0).append(_plain("w1", "monster", [1], 0))
+	_hand(G4, 0).append(_plain("w2", "monster", [1], 0))
+	(G4["decks"]["roomDiscard"] as Array).append(_plain("good", "monster", [1], 3))
+	var d = _entry(G4, 0, "BMA013")
+	var recovered := ""
+	var tossed := 0
+	if d != null:
+		recovered = str(((((d["t"] as Array)[1] as Array)[2] as Array)[0] as Dictionary)["id"])
+		tossed = (((d["t"] as Array)[0] as Array)[2] as Array).size()
+	_ok.call(d != null and recovered == "good" and tossed == 2, "Dracolich Lair : defausse 2 salles faibles pour reprendre la meilleure de la defausse")
+	(G4["decks"]["roomDiscard"] as Array).clear()
+	_ok.call(_elig(G4, 0).is_empty(), "Dracolich Lair : defausse vide -> non")
+	# une salle desactivee (Freeze) n'est pas une capacite jouable (DungeonActiveRooms)
+	(G4["decks"]["roomDiscard"] as Array).append(_plain("good", "monster", [1], 3))
+	G4["effects"]["deactivatedRooms"].append({"playerId": 0, "roomIndex": 0})
+	_ok.call(_elig(G4, 0).is_empty(), "Dracolich Lair desactivee : plus jouable")
+
+## StatisticAI.RandomSelection : tirage UNIFORME parmi les capacites eligibles, une seule consultation par fenetre.
+func _t_apk_draw_uniform() -> void:
+	var G := _spell_scene("BMA041", 5)
+	_hand(G, 0).append(_spell("BMA046")) # Freeze eligible aussi : hp 5 (0 apres donjon), geler la salle la plus dure le sauve
+	var m := _match(G)
+	var elig := _elig(G, 0)
+	_ok.call(elig == ["BMA041", "BMA046"], "deux capacites eligibles (Assassin + Freeze)")
+	var counts := {"BMA041": 0, "BMA046": 0}
+	for i in 400:
+		m.rng.seed = i + 11
+		var mv = AI.pick_move(m, 0, false)
+		if mv != null and str(mv["type"]) == "playSpell":
+			counts[str((_hand(G, 0)[int((mv["args"] as Array)[0])] as Dictionary)["id"])] += 1
+	_ok.call(counts["BMA041"] > 140 and counts["BMA046"] > 140 and counts["BMA041"] + counts["BMA046"] == 400, "tirage uniforme : %s sur 400" % str(counts))
+	var first = AI.pick_move(m, 0)
+	var second = AI.pick_move(m, 0)
+	_ok.call(first != null and str(first["type"]) == "playSpell" and (second == null or str(second["type"]) != "playSpell"), "une fois la capacite tiree, la fenetre est consommee (adventureNext / passer)")
+	m.queue_free()

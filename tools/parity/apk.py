@@ -13,6 +13,8 @@ Le harnais ne corrige aucune regle : il rapporte. Code de sortie 1 si une trace 
 
 --ai-agreement (lot 1.2) : le rejeu Godot demande en plus a l'IA Godot (AI.gd) ce qu'elle jouerait sur le meme etat, a chaque decision de l'IA
 oracle, et compte l'accord par type de coup (report.json : `aiAgreement` global et par trace ; tableau console). Aucun effet sur le rejeu.
+Sorts et capacites de salle : l'oracle tire au hasard parmi ses capacites eligibles (cle `abilityChoices` de la trace) ; on compare les ensembles
+(`usableSet`, `eligibleSet:*`, `chosenInSet:*`) et les cibles preregles (`spellTarget`, `activateTarget`, `...Shuffle` pour les cibles tirees au hasard).
 """
 import argparse
 import datetime
@@ -299,7 +301,8 @@ def aggregate_skipped(traces):
     return dict(sorted(agg.items(), key=lambda kv: -kv[1]["n"]))
 
 
-AI_ORDER = ["build", "buildCard", "buildSlot", "discard", "spell", "spellTarget", "activate", "target", "draw", "pass"]
+AI_ORDER = ["build", "buildCard", "buildSlot", "discard", "usableSet", "eligibleSet:spell", "eligibleSet:activate", "eligibleSet:pass", "chosenInSet:spell", "chosenInSet:activate",
+            "spellTarget", "spellTargetShuffle", "activateTarget", "activateTargetShuffle", "target", "draw", "pass"]
 AI_FIELDS = ("n", "agree", "forced", "nt", "ntAgree", "ties")
 
 
@@ -338,10 +341,10 @@ def aggregate_ai(traces):
 def print_ai(ag, traces):
     print()
     print("== accord de l'IA Godot (AI.gd) avec l'IA oracle : coup Godot sur l'etat Godot juste avant le coup oracle (definitions : README « Accord de l'IA »)")
-    print(f"  {'type':<12} {'n':>5} {'accord':>6} {'%':>6}   {'forces':>6}   {'n>=2 cand.':>10} {'accord':>6} {'%':>6}   {'indiff.':>7}")
+    print(f"  {'type':<22} {'n':>5} {'accord':>6} {'%':>6}   {'forces':>6}   {'n>=2 cand.':>10} {'accord':>6} {'%':>6}   {'indiff.':>7}")
     for k, g in ag["types"].items():
         f = lambda v: "-" if v is None else f"{v:.1f}"
-        print(f"  {k:<12} {g['n']:>5} {g['agree']:>6} {f(g['pct']):>6}   {g['forced']:>6}   {g['nt']:>10} {g['ntAgree']:>6} {f(g['ntPct']):>6}   {g['ties']:>7}")
+        print(f"  {k:<22} {g['n']:>5} {g['agree']:>6} {f(g['pct']):>6}   {g['forced']:>6}   {g['nt']:>10} {g['ntAgree']:>6} {f(g['ntPct']):>6}   {g['ties']:>7}")
     print(f"  mutations de l'etat Godot par les requetes IA : {ag['mutations']} (doit etre 0) ; requetes sans coup disponible : {ag['unavailable'] or 'aucune'}")
     worst = sorted((kv for kv in ag["by"].items() if not kv[0].startswith("passAlt") and kv[1]["n"] - kv[1]["agree"] > 0), key=lambda kv: kv[1]["agree"] - kv[1]["n"])[:12]
     print("  desaccords par sous-classe (type:carte|choix, desaccords/n) : " + "  ".join(f"{k}={v['n'] - v['agree']}/{v['n']}" for k, v in worst))
@@ -351,7 +354,7 @@ def print_ai(ag, traces):
         f"{t['trace']}={sum(v['agree'] for v in t['aiAgreement']['types'].values())}/{sum(v['n'] for v in t['aiAgreement']['types'].values())}" for t in traces if t.get("aiAgreement")))
     for k, g in ag["types"].items():
         for e in g["ex"][:2]:
-            print(f"  ex {k:<11} {e['trace']}@{e['seq']} T{e['turn']} P{e['player']}: oracle={e['oracle']} | godot={e['godot']}{' (indifferent)' if e['tie'] else ''}")
+            print(f"  ex {k:<21} {e['trace']}@{e['seq']} T{e['turn']} P{e['player']}: oracle={e['oracle']} | godot={e['godot']}{' (indifferent)' if e['tie'] else ''}")
 
 
 def fmt(v):

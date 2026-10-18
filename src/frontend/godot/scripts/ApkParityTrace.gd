@@ -144,6 +144,8 @@ var _deferred: Array = [] # decisions oracle d'un autre joueur que le choix Godo
 # qui declenche la capacite, Godot ouvre le choix au coup suivant) : rejouees des que le choix existe, 2 steps de phase au plus.
 var _late: Array = []
 var _losses: Array = [] # [oid, seq] des cartes quittant une main sans cause visible (voir _involuntary_losses)
+var _ach: Array = [] # trace["abilityChoices"]
+var _ach_pos := 0
 var _held_pass: Dictionary = {} # derniere passe de Spell Battle retenue jusqu'au prochain step de phase (voir _on_action)
 var _held: Dictionary = {} # activation de capacite de salle retenue jusqu'au prochain step de phase (voir _on_action)
 var _idle_pid := -1 # joueur sans heros dont le « pass » est differe (voir _pass_idle)
@@ -213,6 +215,8 @@ func replay(trace: Dictionary) -> Dictionary:
 			"leveledUp": false, "buildsThisTurn": 0, "isAI": false, "entrance": [],
 		}
 	_steps = trace["steps"]
+	_ach = trace.get("abilityChoices", []) # choix d'IA oracle (UseAbility) : ensemble des capacites eligibles + tirage, voir _ai_measure_choice
+	_ach_pos = 0
 	# Pioches : celles de l'oracle APRES la distribution d'ouverture (AvoidMulliganCondition remelange le
 	# paquet quand une main est mauvaise ; `initial` ne suffit alors plus). Repli sur `initial`.
 	var orders: Dictionary = {}
@@ -263,6 +267,7 @@ func replay(trace: Dictionary) -> Dictionary:
 	proj["0"] = project()
 	for i in _steps.size():
 		var s: Dictionary = _steps[i]
+		_ai_flush_choices(int(s["seq"]))
 		run.release_death()
 		# Un meme exemplaire peut etre perdu, recupere puis re-perdu : on ne propose que les pertes a venir (seq >= step courant), et proches
 		# (l'execution suit son journal de decisions de 1 a 2 steps) : une perte lointaine ne doit pas etre jouee par un declencheur anterieur.
@@ -287,6 +292,7 @@ func replay(trace: Dictionary) -> Dictionary:
 		_prev_players = s["players"]
 		if str(s["kind"]) == "phase": # (les decisions d'un NextStep precedent la ligne de phase : leur hp est deja celui du pas en cours)
 			_prev_hero_dead = s["activeHero"] != null and int((s["activeHero"] as Dictionary).get("hp", 1)) <= 0
+	_ai_flush_choices(1 << 60)
 	var snaps: Dictionary = run.snaps
 	run.free()
 	var out := {"unmapped": unmapped.keys(), "events": events, "stats": stats, "proj": proj, "snaps": snaps}
@@ -784,7 +790,6 @@ func _on_action(i: int, s: Dictionary) -> void:
 			# de l'IA (ex. construire sur la salle qui va etre detruite). Godot l'applique tout de suite : on retient donc
 			# l'activation, ses decisions, jusqu'au prochain step de phase.
 			_release_held()
-			_ai_activate(pid, d, s)
 			# All-Seeing Eye (BMA025) repond a un sort : sa transaction passe DEVANT celle du sort (GameBoard.EnqueueAbilityTransaction : joueur du tour -> tete ;
 			# OnAbilityApplyRequest : un Counterspell se replace avant sa cible). La pile Godot rend cet ordre : on l'applique donc sur le champ, pendant que le sort
 			# attend encore (les « pret » suivants ne la resolvent qu'ensuite), sans retenue.
@@ -1088,7 +1093,6 @@ func _spell(i: int, s: Dictionary, d: Dictionary, pid: int) -> void:
 	if cands.is_empty():
 		_refus(s, label, pid, "aucun playSpell legal pour cette carte")
 		return
-	_ai_spell(pid, d, wanted, s)
 	var pick: Dictionary = cands[0]
 	var hit := false
 	for m in cands:
@@ -1464,10 +1468,9 @@ func _ents() -> String:
 ##  - buildCard   : la meme carte (code), emplacement ignore (une autre copie du meme code est equivalente).
 ##  - buildSlot   : etant donnee la carte de l'oracle, Godot choisit le meme emplacement parmi les coups de cette carte.
 ##  - discard     : defausse d'ouverture (AI.select_opening_discards) : meme multiensemble de 2 codes.
-##  - spell       : decision « capacite » (tous les coups legaux sauf construire, + « ne rien faire » : passBuild/pass/adventureNext) : le meilleur
-##                  est un playSpell du meme sort (code) ; si Godot ne jouerait rien ou autre chose, desaccord.
-##  - spellTarget : (cible oracle connue) parmi les variantes de playSpell de CE sort, la meilleure designe une instance cible de l'oracle.
-##  - activate    : meme decision « capacite » : le meilleur est un activateRoom de la meme salle (code).
+##  - sorts / capacites de salle : l'oracle tire UNIFORMEMENT parmi ses capacites eligibles (StatisticAI.SelectAbilityToUse), on compare donc les ENSEMBLES, a
+##                  chaque appel d'UseAbility de la trace (cle `abilityChoices`, voir _ai_measure_choice) : usableSet, eligibleSet:*, chosenInSet:*,
+##                  spellTarget / activateTarget (+ Shuffle). Les anciens types `spell` / `activate` (meilleur score) n'ont plus de sens.
 ##  - target      : option d'un choix ouvert (resolveChoice) : meme indice, ou option equivalente (memes codes carte, meme joueur proprietaire,
 ##                  meme pile : une autre copie du meme code compte comme accord).
 ##  - draw        : type de pioche (Haunted Library) : meme pile.
@@ -1486,6 +1489,7 @@ var _ai_mut := 0
 func _ai_init() -> void:
 	var args := OS.get_cmdline_user_args()
 	_ai_on = args.has("--ai-agreement")
+	ApkAI.copy_trap_bug = args.has("--ai-copy-trap-bug") # diagnostic : l'oracle joue Giant Size sur une salle Trap (CheckBMA040And047, l.844-847)
 	for a in args:
 		if str(a).begins_with("--ai-ex="):
 			_ai_ex = int(str(a).substr(8))
@@ -1695,82 +1699,139 @@ func _ai_discard(pid: int, a: int, b: int, s: Dictionary) -> void:
 	_ai_guard(h)
 
 
-## Decision « capacite » : tous les coups legaux sauf construire, plus « ne rien faire » (passBuild/pass/adventureNext, sinon un coup virtuel de score 0).
-func _ai_ability(pid: int) -> Dictionary:
-	var cands: Array = []
-	var nothing := false
-	for m in run.legal_moves(pid):
-		var t := str((m as Dictionary).get("type", ""))
-		if t == "buildRoom" or t == "undoBuild":
-			continue
-		nothing = nothing or AI_NOTHING.has(t)
-		cands.append(m)
-	if not nothing:
-		cands.append({"type": "(none)", "args": []})
-	var scores: Array = []
-	var keys := {}
-	for m in cands:
-		scores.append(_ai_score(pid, m))
-		keys[_ai_mv_key(pid, m)] = true
-	var bi := 0
-	for k in range(1, cands.size()):
-		if float(scores[k]) > float(scores[bi]):
-			bi = k
-	return {"cands": cands, "scores": scores, "best": bi, "choices": keys.size()}
-
-
-## Score maximal des coups de la decision « capacite » portant la cle `key` (-INF si aucun) : sert a reperer l'indifference de Godot.
-func _ai_key_score(pid: int, r: Dictionary, key: String) -> float:
-	var best := -INF
-	for k in (r["cands"] as Array).size():
-		if _ai_mv_key(pid, (r["cands"] as Array)[k]) == key:
-			best = maxf(best, float((r["scores"] as Array)[k]))
-	return best
-
-
-func _ai_spell(pid: int, d: Dictionary, wanted: Array, s: Dictionary) -> void:
+## Choix de capacite de l'IA oracle (UseAbility / repondant de Spell Battle ; cle de tete `abilityChoices` de la trace, ecrite par TracingBrain) : l'oracle tire UNIFORMEMENT
+## parmi ses capacites eligibles (StatisticAI.SelectAbilityToUse), l'accord point a point est donc impossible ; on compare les ENSEMBLES. Mesure faite juste AVANT le
+## premier step de seq > afterSeq (etat Godot = etat de l'oracle apres le step afterSeq), sans rien modifier (garde hash(G), etat du RNG de la partie restaure).
+##  - eligibleSet:<spell|activate|pass> : l'ensemble Godot (ApkAI.abilities) == l'ensemble oracle (memes instances de cartes) ; le suffixe = ce que l'oracle a tire.
+##  - chosenInSet:<spell|activate>      : la carte tiree par l'oracle est dans l'ensemble Godot.
+##  - spellTarget / activateTarget      : cible preregle Godot pour la carte tiree par l'oracle == celle de l'oracle ; `...Shuffle` : cibles issues d'un `Shuffle()`
+##                                         (BMA040, BMA047, BMA009 : tirage au hasard, comptees a part).
+func _ai_flush_choices(next_seq: int) -> void:
 	if not _ai_on:
 		return
-	var h := hash(run.G)
-	var code := str((d["spell"] as Dictionary)["card"])
-	var r := _ai_ability(pid)
-	var bi: int = r["best"]
-	var best: Dictionary = (r["cands"] as Array)[bi]
-	var bkey := _ai_mv_key(pid, best)
-	_ai_rec("spell", bkey == "S:" + code, s, pid, int(r["choices"]), "playSpell " + code, _ai_mv_str(pid, best), "spell:" + code,
-		_ai_key_score(pid, r, "S:" + code) == float((r["scores"] as Array)[bi]))
-	if not wanted.is_empty():
-		var vars: Array = []
-		for k in (r["cands"] as Array).size():
-			var m: Dictionary = (r["cands"] as Array)[k]
-			if str(m.get("type", "")) == "playSpell" and _ai_hand_id(pid, int((m["args"] as Array)[0])) == code:
-				vars.append(k)
-		if not vars.is_empty():
-			var bj: int = vars[0]
-			for k in vars:
-				if float((r["scores"] as Array)[k]) > float((r["scores"] as Array)[bj]):
-					bj = k
-			var bm: Dictionary = (r["cands"] as Array)[bj]
-			var ba: Array = bm["args"]
-			var hit := ba.size() > 1 and _intersects(_refs(ba[1], pid), wanted)
-			var tie := false
-			for k in vars:
-				var a: Array = ((r["cands"] as Array)[k] as Dictionary)["args"]
-				tie = tie or (a.size() > 1 and _intersects(_refs(a[1], pid), wanted) and float((r["scores"] as Array)[k]) == float((r["scores"] as Array)[bj]))
-			_ai_rec("spellTarget", hit, s, pid, vars.size(), "%s cible=%s" % [code, ",".join(wanted.map(func(o): return _code_of(int(o))))], _ai_mv_str(pid, bm), "spellTarget:" + code, tie)
-	_ai_guard(h)
+	while _ach_pos < _ach.size() and int((_ach[_ach_pos] as Dictionary)["afterSeq"]) < next_seq:
+		_ai_measure_choice(_ach[_ach_pos])
+		_ach_pos += 1
 
 
-func _ai_activate(pid: int, d: Dictionary, s: Dictionary) -> void:
-	if not _ai_on:
+func _ai_ids(entries: Array, oracle: bool) -> Array:
+	var out: Array = []
+	for e in entries:
+		var c: Dictionary = (e as Dictionary)["card"]
+		out.append(int(c["id"]) if oracle else int(c.get("_oid", -1)))
+	out.sort()
+	return out
+
+
+func _ai_codes(entries: Array, oracle: bool) -> String:
+	var out: Array = []
+	for e in entries:
+		var c: Dictionary = (e as Dictionary)["card"]
+		out.append(str(c["card"]) if oracle else str(c.get("id", "?")))
+	return ",".join(out)
+
+
+## Cibles preregles en cles « effet:fournisseur » -> identifiants d'instances tries (listes vides ignorees).
+func _ai_norm_targets(t: Array, oracle: bool) -> String:
+	var out := {}
+	for i in t.size():
+		if oracle:
+			for j in (t[i] as Array).size():
+				var ids: Array = []
+				for c in (t[i][j] as Array):
+					ids.append(int((c as Dictionary)["id"]))
+				if not ids.is_empty():
+					ids.sort()
+					out["%d:%d" % [i, j]] = ids
+		else:
+			var ids2: Array = []
+			for c in ((t[i] as Array)[2] as Array):
+				ids2.append(int((c as Dictionary).get("_oid", -1)))
+			if not ids2.is_empty():
+				ids2.sort()
+				out["%d:%d" % [int((t[i] as Array)[0]), int((t[i] as Array)[1])]] = ids2
+	var keys: Array = out.keys()
+	keys.sort()
+	return ";".join(keys.map(func(k): return "%s=%s" % [k, str(out[k])]))
+
+
+func _ai_measure_choice(rec: Dictionary) -> void:
+	var G: Dictionary = run.G
+	var pid := int(rec["player"]) - 1
+	var s := {"seq": int(rec["afterSeq"]), "turn": int(rec["turn"]), "phase": str(rec["phase"])}
+	var stack: Array = G.get("stack", [])
+	if not (G["players"] as Dictionary).has(pid) or not (G.get("pendingChoice", {}) as Dictionary).is_empty() or G.get("gameOver") != null:
+		_ai_unavail("ability:%s" % ("pendingChoice" if not (G.get("pendingChoice", {}) as Dictionary).is_empty() else ("over" if G.get("gameOver") != null else "player")))
 		return
-	var h := hash(run.G)
-	var code := str((d["room"] as Dictionary)["card"])
-	var r := _ai_ability(pid)
-	var bi: int = r["best"]
-	var best: Dictionary = (r["cands"] as Array)[bi]
-	_ai_rec("activate", _ai_mv_key(pid, best) == "R:" + code, s, pid, int(r["choices"]), "activateRoom " + code, _ai_mv_str(pid, best), "activate:" + code,
-		_ai_key_score(pid, r, "R:" + code) == float((r["scores"] as Array)[bi]))
+	if bool(rec["spellBattle"]) == stack.is_empty():
+		_ai_unavail("ability:battle:%s:%s" % [str(rec["phase"]), "stack" if not stack.is_empty() else "nostack"])
+		return
+	if str(G.get("phase", "")) != ("build" if str(rec["phase"]) == "BuildPhase_a" else "adventure") or maxi(0, int(G.get("turn", 0)) - 1) != int(rec["turn"]):
+		_ai_unavail("ability:phase:%s:%s:T%d/%d" % [str(rec["phase"]), str(G.get("phase", "")), maxi(0, int(G.get("turn", 0)) - 1), int(rec["turn"])])
+		return
+	var h := hash(G)
+	var rng_state := run.rng.state
+	var scratch := RandomNumberGenerator.new()
+	scratch.seed = 12345
+	var moves: Array = run._stack_response_moves(G["players"][pid], pid, stack.size()) if not stack.is_empty() else run.legal_moves(pid)
+	if rec.get("activePlayer") != null and int(rec["activePlayer"]) != int(rec["player"]): # IsPlayerBuildTurn : seul le joueur actif de l'oracle construit (Godot a deja passe au suivant apres un DONE)
+		moves = moves.filter(func(m): return str((m as Dictionary).get("type", "")) != "buildRoom")
+	var opts: Array = ApkAI.abilities(G, pid, moves, scratch)
+	run.rng.state = rng_state
+	# Diagnostic de legalite : cartes jouables (CanPlayerPlayAbility) cote oracle / coups legaux Godot, avant les CheckXXX.
+	var gp: Dictionary = G["players"][pid]
+	var u_g := {}
+	for m in moves:
+		if ApkAI.is_apk_ability_move(gp, m):
+			var ma: Array = (m as Dictionary)["args"]
+			var uc = (gp["hand"] as Array)[int(ma[0])] if str((m as Dictionary)["type"]) == "playSpell" else BossEngine.active_room((gp["dungeon"] as Array)[int(ma[0])])
+			# salle posee ce tour (DungeonSlot.PendingToBeBuilt) ou geree (IsActive faux) : hors DungeonActiveRooms
+			if not bool((uc as Dictionary).get("faceDown", false)) and not (str((m as Dictionary)["type"]) == "activateRoom" and BossEngine.is_room_deactivated(G, pid, int(ma[0]))):
+				u_g[int((uc as Dictionary).get("_oid", -1))] = str((uc as Dictionary).get("id", "?"))
+	var u_o := {}
+	for u in (rec["usable"] as Array):
+		u_o[int((u as Dictionary)["id"])] = str((u as Dictionary)["card"])
+	var u_og: Array = u_o.keys()
+	u_og.sort()
+	var u_gg: Array = u_g.keys()
+	u_gg.sort()
+	_ai_rec("usableSet", u_og == u_gg, s, pid, 2, "{%s}" % ",".join(u_o.values()), "{%s}" % ",".join(u_g.values()), "usableSet")
+	if u_og != u_gg:
+		for k in u_o:
+			if not u_g.has(k):
+				(_ai_by.get_or_add("usableSet-oracleOnly:" + str(u_o[k]), {"n": 0, "agree": 0}))["n"] += 1
+		for k in u_g:
+			if not u_o.has(k):
+				(_ai_by.get_or_add("usableSet-godotOnly:" + str(u_g[k]), {"n": 0, "agree": 0}))["n"] += 1
+	var elig: Array = rec["eligible"]
+	var ci := int(rec["chosen"])
+	var o_ids := _ai_ids(elig, true)
+	var g_ids := _ai_ids(opts, false)
+	var kind := "pass" if ci < 0 else ("spell" if str((elig[ci] as Dictionary)["kind"]) == "spell" else "activate")
+	var same := o_ids == g_ids
+	_ai_rec("eligibleSet:" + kind, same, s, pid, 2, "{%s}" % _ai_codes(elig, true), "{%s}" % _ai_codes(opts, false), "eligibleSet:" + kind)
+	if not same:
+		for e in elig:
+			if not g_ids.has(int(((e as Dictionary)["card"] as Dictionary)["id"])):
+				(_ai_by.get_or_add("eligibleSet-oracleOnly:" + str(((e as Dictionary)["card"] as Dictionary)["card"]), {"n": 0, "agree": 0}))["n"] += 1
+		for e in opts:
+			if not o_ids.has(int(((e as Dictionary)["card"] as Dictionary).get("_oid", -1))):
+				(_ai_by.get_or_add("eligibleSet-godotOnly:" + str(((e as Dictionary)["card"] as Dictionary).get("id", "?")), {"n": 0, "agree": 0}))["n"] += 1
+	if ci >= 0:
+		var oc: Dictionary = (elig[ci] as Dictionary)["card"]
+		var code := str(oc["card"])
+		var at := g_ids.find(int(oc["id"]))
+		_ai_rec("chosenInSet:" + kind, at >= 0, s, pid, 2, code, "{%s}" % _ai_codes(opts, false), "chosenInSet:" + code)
+		if at >= 0:
+			var ge: Dictionary = opts[0]
+			for e in opts:
+				if int(((e as Dictionary)["card"] as Dictionary).get("_oid", -1)) == int(oc["id"]):
+					ge = e
+			var shuffled: bool = ["BMA040", "BMA047", "BMA009"].has(code)
+			var ot := _ai_norm_targets(((elig[ci] as Dictionary)["targets"] as Array), true)
+			var gt := _ai_norm_targets((ge["t"] as Array), false)
+			var ttype := ("spellTarget" if kind == "spell" else "activateTarget") + ("Shuffle" if shuffled else "")
+			_ai_rec(ttype, ot == gt, s, pid, 2, "%s %s" % [code, ot], "%s %s" % [code, gt], ttype + ":" + code)
 	_ai_guard(h)
 
 
@@ -1797,7 +1858,9 @@ func _ai_pass(pid: int, site: String, s: Dictionary, oracle_pid := -1) -> void:
 		_ai_guard(h)
 		return
 	keys.erase("-")
-	var mv = AI.pick_move(run, pid)
+	var rng_state := run.rng.state
+	var mv = AI.pick_move(run, pid, false)
+	run.rng.state = rng_state
 	var nothing: bool = mv == null or AI_NOTHING.has(str((mv as Dictionary).get("type", "")))
 	_ai_rec("pass", nothing, s, pid, keys.size() + 1, "ne joue rien (%s)" % site, _ai_mv_str(pid, mv) + ("" if nothing else " (score %s)" % str(AI.score_move(run, pid, mv))), "pass:" + site)
 	if not nothing: # ce que Godot jouerait a la place (diagnostic)
@@ -1815,7 +1878,9 @@ func _ai_choice(pid: int, pc: Dictionary, pick: int, s: Dictionary, type: String
 		_ai_unavail(type)
 		return
 	var h := hash(run.G)
-	var mv = AI.pick_move(run, pid)
+	var rng_state := run.rng.state
+	var mv = AI.pick_move(run, pid, false)
+	run.rng.state = rng_state
 	if mv == null or str((mv as Dictionary).get("type", "")) != "resolveChoice":
 		_ai_unavail(type)
 		_ai_guard(h)
