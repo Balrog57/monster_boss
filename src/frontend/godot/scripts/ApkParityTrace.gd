@@ -247,6 +247,7 @@ func replay(trace: Dictionary) -> Dictionary:
 		"stack": [], "stackPassed": {}, "pendingChoice": {}, "choiceQueue": [], "roboboQueue": [], "itemQueue": [],
 	}
 	run.G["aiTargetsAllBosses"] = true # T.P.K. : l'IA de l'oracle designe tous les joueurs (SpellTargeting "tpk-player")
+	run.G["aiMayCancel"] = true # Seducia : l'IA de l'oracle peut ne rien designer (Match.legal_moves, choix `aiCancel`)
 	run.G["aiTargetsAnyRoomType"] = true # Giant Size : l'IA de l'oracle peut viser une salle Trap (AbilityCalculator.CheckBMA040And047, sans revalidation)
 	run.rng.seed = int(meta.get("seed", 1))
 	seed(int(meta.get("seed", 1))) # randi()/randf() globaux du moteur (tirages « au hasard ») : rejeu reproductible
@@ -1240,7 +1241,7 @@ func _on_decision_now(_i: int, s: Dictionary, age := -1) -> void:
 			_late.append({"s": s, "age": maxi(age, 0)})
 			return
 		_note(s, "CHOICE-UNMATCHED", "choix Godot '%s' : aucune option ne correspond a la decision oracle (%s) ; options=%s" % [ptype, str(chosen), str(opts.map(func(o): return _refs(o, pid)))])
-		if opts.is_empty() or bool(pc.get("optional", false)):
+		if opts.is_empty() or bool(pc.get("optional", false)) or bool(pc.get("aiCancel", false)):
 			pick = -1
 		else:
 			# Decision oracle sans option correspondante : l'IA de l'APK designe parfois une carte hors des cibles valides (p.ex. un boss
@@ -1249,7 +1250,7 @@ func _on_decision_now(_i: int, s: Dictionary, age := -1) -> void:
 			return
 	elif not m["exact"] or not (m["ties"] as Array).is_empty():
 		_note(s, "CHOICE-APPROX", "choix Godot '%s' : option %d retenue (%s)%s" % [ptype, pick, str(m["how"]), (" ; ex aequo " + str(m["ties"])) if not (m["ties"] as Array).is_empty() else ""])
-	if pick >= 0 or (pick == -1 and chosen.is_empty() and bool(pc.get("optional", false))): # l'oracle ne designe rien d'un choix facultatif : `targetPass`
+	if pick >= 0 or (pick == -1 and chosen.is_empty() and (bool(pc.get("optional", false)) or bool(pc.get("aiCancel", false)))): # l'oracle ne designe rien d'un choix facultatif : `targetPass`
 		_ai_choice(pid, pc, pick, s, "target")
 	_apply_move(pid, {"type": "resolveChoice", "args": [pick]}, s, "resolveChoice(%s)" % ptype)
 	# Xyzax : une seule decision oracle designe 2 cartes ; Godot pose un 2e choix « recover-card » pour la suivante.

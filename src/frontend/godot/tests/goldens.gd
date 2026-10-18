@@ -127,6 +127,8 @@ func _ready() -> void:
 	_t_apk_another_room_target()
 	_t_apk_advanced_room_not_over_pending_slot()
 	_t_apk_pending_or_frozen_room_cannot_activate()
+	_t_apk_teleportation_restarts_dungeon()
+	_t_apk_seducia_human_cannot_pass()
 
 	load("res://godot/tests/goldens_decks.gd").new().run(_ok, self) # paquets APK : PlayerChoice (KSA), HiddenHeros (BMH), ToolsHeroKind (THK)
 	load("res://godot/tests/goldens_tnl.gd").new().run(_ok, self) # extension The Next Level (TNL, hors APK)
@@ -2282,3 +2284,59 @@ func _t_apk_pending_or_frozen_room_cannot_activate() -> void:
 	_ok(RoomAbilities.activate_room_ability(G.duplicate(true), 0, 0) == null, "Dark Altar visible : acceptee")
 	(SpellEffects._effects(G)["deactivatedRooms"] as Array).append({"playerId": 0, "roomIndex": 0})
 	_ok(RoomAbilities.activate_room_ability(G.duplicate(true), 0, 0) != null, "Dark Altar gelee : refusee")
+
+## BMA053 Teleportation = MoveHeroToRelativeSlot(5) (Commands/MoveHeroToRelativeSlot.cs:Execute) : le heros va au slot C# min(DungeonSize - 1, slot + 5) = la 1re salle ;
+## GameBoard.ProccessActiveHero (num = slot, puis num-- si lastActiveHeroSlotIndex == -1 ou == num) : retraverse le donjon depuis la 1re salle, PV conserves ;
+## depuis la 1re salle (ou avant l'entree) il avance d'un cran.
+func _t_apk_teleportation_restarts_dungeon() -> void:
+	var m = Match.new()
+	add_child(m)
+	var hero := {"id": "H", "name": "H", "hp": 20}
+	var cases := [[2, 0, 14], [1, 0, 14], [0, 1, 14], [-1, 1, 14]] # [salle du heros, salle suivante, PV apres] ; PV 15 avant, 1 degat par salle
+	for c in cases:
+		var G := _ability_G("BMA010")
+		var p: Dictionary = G["players"][0]
+		p["dungeon"] = [[_room("A", "trap", false, [1])], [_room("B", "trap", false, [1])], [_room("C", "trap", false, [1])]]
+		p["entrance"] = [hero]
+		G["log"] = []
+		G["phase"] = "adventure"
+		G["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": int(c[0]), "hp": 15, "pause": null, "nearest": 0}
+		m.G = G
+		_ok(SpellEffects.cast_spell(G, 0, {"id": "BMA053"}, {"heroId": "H"}), "Teleportation acceptee (heros en salle %d)" % int(c[0]))
+		m._advance_adventure_room()
+		var adv: Dictionary = G["adventure"]
+		_ok(int(adv["roomIndex"]) == int(c[1]) and int(adv["hp"]) == int(c[2]), "Teleportation depuis la salle %d : prochaine salle %d, PV %d (obtenu %d / %d)" % [int(c[0]), int(c[1]), int(c[2]), int(adv["roomIndex"]), int(adv["hp"])])
+		_ok(SpellEffects._effects(G)["teleportHero"] == null, "l'effet est consomme")
+	var G2 := _ability_G("BMA010") # sans Teleportation : avance normale
+	var p2: Dictionary = G2["players"][0]
+	p2["dungeon"] = [[_room("A", "trap", false, [1])], [_room("B", "trap", false, [1])], [_room("C", "trap", false, [1])]]
+	G2["log"] = []
+	G2["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": 1, "hp": 15, "pause": null, "nearest": 0}
+	m.G = G2
+	m._advance_adventure_room()
+	_ok(int((G2["adventure"] as Dictionary)["roomIndex"]) == 2, "sans Teleportation : salle suivante")
+	m.queue_free()
+
+## Seducia (BMA006) : CanAvoid = false -> ShowCardSelector(canBeCanceled = false) (TargetResolverBaseSceneBehavior.cs:180-210) : un HUMAIN ne peut pas passer.
+## L'IA de l'APK abandonne en ne designant rien (liste vide -> Cancel(), AbilityTransaction.cs:187-195) : le « passer » (choix `aiCancel`) reste ouvert
+## aux sieges IA et au harnais d'oracle (G.aiMayCancel). Un choix CanAvoid (Centipede Tunnel, The Brothers Wise, Kaw'nee) reste facultatif pour tous.
+func _t_apk_seducia_human_cannot_pass() -> void:
+	var m = load("res://godot/scripts/Match.gd").new()
+	add_child(m)
+	m.G = _ability_G("BMA010")
+	m.G["phase"] = "adventure"
+	m.G["log"] = []
+	m.G["choiceQueue"] = []
+	m.G["decks"]["heroes"] = [{"id": "BMA081", "name": "H81"}]
+	m.G["pendingChoice"] = RoomAbilities._seducia(m.G, 0)
+	var passes := func(): return m.legal_moves(0).any(func(mv): return str((mv as Dictionary)["type"]) == "resolveChoice" and int(((mv as Dictionary)["args"] as Array)[0]) == -1)
+	_ok(not passes.call(), "Seducia : un siege humain ne peut pas passer")
+	(m.G["players"][0] as Dictionary)["isAI"] = true
+	_ok(passes.call(), "Seducia : un siege IA peut abandonner (comme l'IA de l'APK)")
+	(m.G["players"][0] as Dictionary)["isAI"] = false
+	m.G["aiMayCancel"] = true
+	_ok(passes.call(), "Seducia : le harnais d'oracle peut rejouer l'abandon de l'IA")
+	m.G["aiMayCancel"] = false
+	m.G["pendingChoice"]["optional"] = true # CanAvoid vrai : facultatif pour tous
+	_ok(passes.call(), "choix CanAvoid : facultatif pour un humain")
+	m.queue_free()

@@ -421,8 +421,13 @@ devenu illegal (Motivation, Zombie Attack, Teleportation, Jackpot Stash) tenait 
 *Pas de changement pour Mimic Vault (BMA036) ni King Croak / Cleopatra (BMA003/007)* : `data.json` porte `CanAvoid = false` (`Ability.cs:51`) : `AbilityTransaction.PrepareResolveTargetActionsQueue` passe `CanAvoid` a
 `ResolveTarget`, qui le transmet a `ShowCardSelector(..., canBeCanceled)` (`TargetResolverBaseSceneBehavior.cs:180-210`) : un HUMAIN ne peut pas annuler, la cible est obligatoire (malgre le « may » du texte) ;
 le moteur est donc deja conforme (aucun « passer », voir le commentaire de `_search_advanced_choice`). Ce que fait l'IA de l'APK (liste vide -> `Cancel()`, `AbilityTransaction.cs:187-195`) est un
-choix d'IA que `legal_moves` n'offre pas ; `ApkAI.choose` retombe sur l'option 0 (aucun cas dans les 18 traces : `target` 162/162). Seducia (`pick-hero`, `optional: true`) est la seule de ces cartes que Godot rend
-facultative alors que son `CanAvoid` est aussi faux ; la rendre obligatoire ferait echouer le rejeu de l'abstention de l'IA oracle (`targetPass`) sans canal dedie : non change.
+choix d'IA que `legal_moves` n'offre pas ; `ApkAI.choose` retombe sur l'option 0 (aucun cas dans les 18 traces : `target` 162/162). Seducia (BMA006), seule carte a avoir un choix `optional: true` alors que `CanAvoid` est faux (les `optional` restants correspondent a `CanAvoid` vrai : Centipede Tunnel, The Brothers Wise,
+Kaw'nee ; Elicon n'ouvre aucun choix, `BossOwner` etant auto-resolu), est alignee : son choix porte `aiCancel` au lieu de `optional` ; `Match.legal_moves` n'offre « passer » (`resolveChoice -1`) qu'aux sieges IA
+et au harnais d'oracle (`G.aiMayCancel`, pose par `ApkParityTrace`), jamais a un siege humain ; le rejeu de l'abstention de l'IA oracle (`targetPass`) est inchange. Golden `_t_apk_seducia_human_cannot_pass`.
+
+*Effet de BMA053 Teleportation* : `MoveHeroToRelativeSlot(5)` (`Commands/MoveHeroToRelativeSlot.cs`) met le heros au slot C# `min(DungeonSize - 1, slot + 5)` = la 1re salle ; `ProccessActiveHero` fait ensuite `num--` si
+`lastActiveHeroSlotIndex == -1` ou `== num` : depuis la 1re salle (ou avant l'entree) le heros avance d'un cran, sinon il retraverse le donjon depuis la 1re salle, PV conserves.
+`Match._advance_adventure_room` consomme `effects.teleportHero`. Golden `_t_apk_teleportation_restarts_dungeon`. Aucune trace (oracle ou IA) ne joue la carte : la parite ne l'exerce pas.
 
 Desaccords les plus frequents de la mesure initiale (sous-classe `type:carte` ou `target:type de choix[boss]`, desaccords/n sur les 18 traces) : `target:recover-card[Dracolich
 Lair]` 32/38 et `[Dark Altar]` 18/19, `target:dracolich-discard` 20/38 (beaucoup d'indifferences : `_score_choice` rend 0 pour ces choix) ; `spellTarget`

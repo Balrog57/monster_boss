@@ -264,7 +264,7 @@ static func _teleportation(G: Dictionary, caster_id: int, _card: Dictionary, tar
 		_log(G, "Teleportation: no target hero.")
 		return false
 	var eff := _effects(G)
-	eff["teleportHero"] = target["heroId"]
+	eff["teleportHero"] = target["heroId"] # consomme par Match._advance_adventure_room (MoveHeroToRelativeSlot(5))
 	_log(G, "Teleportation: hero will restart at the first room.")
 	return true
 

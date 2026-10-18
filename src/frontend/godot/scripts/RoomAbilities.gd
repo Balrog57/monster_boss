@@ -1133,8 +1133,10 @@ static func _seducia(G: Dictionary, player_id: int) -> Variant:
 	if options.is_empty():
 		_log(G, "Seducia: no Hero in town or the Hero decks.")
 		return null
-	return {"type": "pick-hero", "optional": true, "playerId": player_id, "bossName": "Seducia",
-		"message": "Seducia: choose a Hero (or skip)", "options": options}
+	# data.json : CanAvoid = false -> un HUMAIN ne peut pas passer (ShowCardSelector(canBeCanceled = false), TargetResolverBaseSceneBehavior.cs:180-210). Seule l'IA de
+	# l'APK abandonne (liste vide -> Cancel(), AbilityTransaction.cs:187-195) : `aiCancel` ouvre le « passer » aux sieges IA et au harnais d'oracle (Match.legal_moves).
+	return {"type": "pick-hero", "aiCancel": true, "playerId": player_id, "bossName": "Seducia",
+		"message": "Seducia: choose a Hero", "options": options}
 
 ## BMA008 Gorgona : detruit un heros en ville (le joueur choisit si > 1).
 static func _gorgona(G: Dictionary, p: Dictionary) -> Variant:

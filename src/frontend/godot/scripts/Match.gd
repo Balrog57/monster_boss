@@ -169,8 +169,9 @@ func legal_moves(pid: int) -> Array:
 		else:
 			for i in n:
 				out.append({"type": "resolveChoice", "args": [i]})
-			# Un choix facultatif propose en plus l'option "passer" (index -1).
-			if bool(pc.get("optional", false)):
+			# Un choix facultatif (Ability.CanAvoid) propose en plus l'option "passer" (index -1). `aiCancel` : CanAvoid faux, un humain ne peut pas annuler, mais l'IA de
+			# l'APK abandonne en ne designant rien (AbilityTransaction.cs:187-195) : « passer » reserve aux sieges IA et au harnais d'oracle (G.aiMayCancel).
+			if bool(pc.get("optional", false)) or (bool(pc.get("aiCancel", false)) and (bool((players[pid] as Dictionary).get("isAI", false)) or bool(G.get("aiMayCancel", false)))):
 				out.append({"type": "resolveChoice", "args": [-1]})
 		return out
 	var p: Dictionary = players[pid]
@@ -1670,6 +1671,13 @@ func _advance_adventure_room() -> void:
 	var went_back: bool = adv.erase("back") # Minotaur's Maze : recule d'une salle (l'index du pas courant reste celui de la salle du Maze)
 	if went_back:
 		i -= 2
+	# BMA053 Teleportation = MoveHeroToRelativeSlot(5) (Commands/MoveHeroToRelativeSlot.cs:Execute) : le heros va au slot C# min(DungeonSize - 1, slot + 5), soit la 1re salle
+	# (index Godot 0). GameBoard.ProccessActiveHero fait ensuite num = slot ; « lastActiveHeroSlotIndex == -1 ou == num » => num-- : depuis la 1re salle (ou avant l'entree,
+	# last = -1) le heros avance d'un cran (pas d'effet / il saute la 1re salle) ; ailleurs il retraverse le donjon depuis la 1re salle, PV conserves.
+	var eff := SpellEffects._effects(G)
+	if eff.get("teleportHero") != null and str(eff["teleportHero"]) == str(hero.get("id", "")):
+		eff["teleportHero"] = null
+		i = 1 if prev <= 0 else 0
 	adv["roomIndex"] = i
 	if TnlAbilities.active(G) and not replayed and not went_back:
 		# The Next Level : le heros quitte la salle `prev` en vie (Collapsing Bridge, Bom-Boy Factory), puis saute des salles (Shortcut!, Archer).
@@ -1778,6 +1786,7 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 	elif not entrance.is_empty():
 		entrance.pop_front()
 
+	SpellEffects._effects(G)["teleportHero"] = null # Teleportation jouee sur un heros qui n'a pas avance depuis : sans objet
 	var death_index: int = int(G.get("adventure", {}).get("roomIndex", -1))
 	# KSA017 : le declencheur de mort (CheckTriggerInRoom -> CheckConditions) est evalue AVANT RemoveHeroFromGame, donc verrouille.
 	var abilities_locked := BossEngine.abilities_locked(G, pid)
