@@ -74,13 +74,13 @@ static func record_result(won: bool, code: String = "") -> void:
 
 ## Reglages (serveur multi, extensions du wiki, paquets APK choisis), meme fichier.
 static func load_settings() -> Dictionary:
-	var d := {"host": "http://127.0.0.1:8000", "extensions": false, "decks": []}
+	var d := {"host": "http://127.0.0.1:8000", "extensions": true, "decks": []}
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
 		d["host"] = str(cfg.get_value("settings", "host", d["host"])).strip_edges()
 		if d["host"] == "":
 			d["host"] = "http://127.0.0.1:8000"
-		d["extensions"] = bool(cfg.get_value("settings", "extensions", false))
+		d["extensions"] = bool(cfg.get_value("settings", "extensions", true))
 		var dk = cfg.get_value("settings", "decks", [])
 		d["decks"] = Array(dk) if dk is Array or dk is PackedStringArray else []
 	return d

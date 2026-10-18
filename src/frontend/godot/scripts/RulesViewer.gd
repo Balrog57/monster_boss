@@ -80,17 +80,27 @@ func _build() -> void:
 	scroll.position = Vector2(300, 190)
 	scroll.size = Vector2(1320, 860)
 	add_child(scroll)
-	var body := Label.new()
+	var body := RichTextLabel.new()
+	body.bbcode_enabled = true
+	body.fit_content = true
+	body.scroll_active = false # le ScrollContainer defile
 	body.custom_minimum_size = Vector2(1300, 0)
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var fv := FontVariation.new() # police pixel de l'APK (taille native 21 : nette) ; la police par defaut couvre les glyphes absents
 	fv.base_font = load(FONT_A)
 	fv.fallbacks = [ThemeDB.fallback_font]
-	body.add_theme_font_override("font", fv)
-	body.add_theme_font_size_override("font_size", BODY_SIZE)
-	body.add_theme_constant_override("line_spacing", 6)
-	body.text = str(secs[tab][1])
+	body.add_theme_font_override("normal_font", fv)
+	body.add_theme_font_size_override("normal_font_size", BODY_SIZE)
+	body.add_theme_constant_override("line_separation", 8)
+	body.text = _bbcode(str(secs[tab][1]).strip_edges())
 	scroll.add_child(body)
+
+## Texte brut -> bbcode : « ** » = or, « - » en debut de ligne = puce, « [ » echappe.
+static func _bbcode(s: String) -> String:
+	s = s.replace("[", "[lb]")
+	var gold := RegEx.create_from_string("\\*\\*(.+?)\\*\\*")
+	s = gold.sub(s, "[color=#%s]$1[/color]" % GOLD.to_html(false), true)
+	return RegEx.create_from_string("(?m)^- ").sub(s, "• ", true)
 
 func close_viewer() -> void:
 	closed.emit()
@@ -138,5 +148,4 @@ static func _load_text() -> String:
 	var f := FileAccess.open("res://godot/data/rules.txt", FileAccess.READ)
 	if f == null:
 		return "Rules not found (godot/data/rules.txt)."
-	return f.get_as_text().replace("
-", "")
+	return f.get_as_text().replace("\r\n", "\n").replace("\r", "\n") # fins de ligne CRLF/CR -> LF

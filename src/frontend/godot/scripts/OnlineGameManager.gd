@@ -9,6 +9,7 @@ const OnlineClient = preload("res://godot/scripts/OnlineClient.gd")
 var client: OnlineClient
 var my_pid: int = 0
 var server_moves: Array = []
+var _queued_build := {} ## {idx, id, ti} : pose a jouer des que le serveur a confirme la reprise (undoBuild) de la salle en attente
 
 func setup_online(p_client: OnlineClient, p_pid: int) -> void:
 	client = p_client
@@ -22,6 +23,12 @@ func _on_remote_state() -> void:
 	G = client.current_G
 	server_moves = client.current_moves
 	state_changed.emit()
+	if not _queued_build.is_empty(): # reprise confirmee par le serveur : on pose maintenant la salle qui la remplace
+		var q := _queued_build
+		_queued_build = {}
+		var hand: Array = ((G.get("players", {}) as Dictionary).get(my_pid, {}) as Dictionary).get("hand", [])
+		if int(q["idx"]) < hand.size() and str((hand[int(q["idx"])] as Dictionary).get("id", "")) == str(q["id"]):
+			super._build_after_undo(my_pid, int(q["idx"]), int(q["ti"]))
 
 ## Meme coup que le serveur : memes alias (pass/passBuild...) et arguments nuls de fin ignores (Match).
 static func _same(a: Dictionary, b: Dictionary) -> bool:
@@ -45,6 +52,14 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 	if not (found is Dictionary):
 		return false
 	client.send_move(found)
+	return true
+
+## En ligne le serveur ne repond qu'a l'etat suivant : on envoie la reprise et la pose attend (_on_remote_state).
+func _build_after_undo(pid: int, hand_idx: int, ti: int) -> bool:
+	var hand: Array = ((G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary).get("hand", [])
+	if hand_idx < 0 or hand_idx >= hand.size():
+		return false
+	_queued_build = {"idx": hand_idx, "id": str((hand[hand_idx] as Dictionary).get("id", "")), "ti": ti}
 	return true
 
 ## Traduit (main, emplacement) local vers le coup du serveur : buildRoom [i] (salle ordinaire, posee a

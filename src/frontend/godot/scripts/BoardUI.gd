@@ -28,9 +28,11 @@ var foe_pid: int = -1                    # adversaire dont le donjon occupe le c
 var _foe_follow_seen := -1               # dernier donjon adverse suivi automatiquement (aventure en cours)
 var extra_bar: HFlowContainer
 var discard_pick: Array = []
+var _swap_idx := -1                       # salle de la main a poser des que la reprise de la pose en attente est confirmee (_swap_resume)
+var _swap_until := 0                      # delai (ms) apres lequel on abandonne l'attente
 var _last_phase: String = ""
 
-const CORE_MOVE_TYPES := ["pickBoss", "buildRoom", "pass", "passBuild", "adventureNext", "resolveNextHero", "openingDiscard", "resolveLevelUpChoice"]
+const CORE_MOVE_TYPES := ["pickBoss", "buildRoom", "undoBuild", "pass", "passBuild", "adventureNext", "resolveNextHero", "openingDiscard", "resolveLevelUpChoice"]
 
 # Textures de l'APK
 const UI_DIR := "res://assets/ui/ingame/"
@@ -995,6 +997,7 @@ func refresh() -> void:
 	_refresh_overlay(G, phase)
 	_refresh_hand(G, p, phase, my_moves)
 	_refresh_activatable(my_moves)
+	_refresh_undoable(my_moves)
 
 	_target_sync(my_moves)
 	var carousel := _carousel_active(G, phase)
@@ -1021,6 +1024,7 @@ func refresh() -> void:
 	_refresh_extra_bar(G, my_moves)
 	if not _drag.is_empty():
 		_drag_refresh()
+	_swap_resume()
 
 func _carousel_active(G: Dictionary, phase: String) -> bool:
 	return G.get("gameOver") == null and (_boss_pending(G) or _is_opening_discard_for_me())
@@ -1445,6 +1449,10 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 		if hi >= 0:
 			playable[hi] = true
 	var hand: Array = p.get("hand", [])
+	if not _moves_of(my_moves, "undoBuild").is_empty(): # APK : toute salle de la main reste prenable, elle remplace la pose en attente
+		for hi in hand.size():
+			if bool((hand[hi] as Dictionary).get("isRoom", false)) and not bool((hand[hi] as Dictionary).get("isMiniboss", false)):
+				playable[hi] = true
 	var discarding := _is_opening_discard_for_me()
 	var sz := BIG_CARD if discarding else HAND_CARD
 	var cards: Array = []
@@ -2105,6 +2113,15 @@ func _refresh_activatable(my_moves: Array) -> void:
 		var sl: DungeonSlot = slot
 		sl.set_activatable(act.has(sl.slot_index) and not sl.current_stack.is_empty())
 
+## Emplacements dont la salle du dessus est une pose en attente : un clic la reprend (BoardUI._on_slot_activate).
+func _refresh_undoable(my_moves: Array) -> void:
+	var und: Dictionary = {}
+	for m in _moves_of(my_moves, "undoBuild"):
+		und[int(((m as Dictionary)["args"] as Array)[0])] = true
+	for slot in _dungeon_slots:
+		var sl: DungeonSlot = slot
+		sl.set_undoable(und.has(sl.slot_index) and not sl.current_stack.is_empty())
+
 func _moves_of(moves: Array, mtype: String) -> Array:
 	var out: Array = []
 	for m in moves:
@@ -2747,6 +2764,15 @@ func _on_hand_card_clicked(idx: int, card: Dictionary) -> void:
 		# on demande lequel, l'emplacement libre compris ; un seul (fin de donjon) = pose directe.
 		var plain := {}
 		var over: Array = []
+		var builds: Array = _moves_of(game_manager.legal_moves(_my_pid()), "buildRoom").filter(func(m): return int(((m as Dictionary).get("args", [-1]) as Array)[0]) == idx)
+		if builds.is_empty() and uses.is_empty() and not bool(card.get("isMiniboss", false)): # limite de poses atteinte : la pose en attente est reprise, puis cette salle se pose (APK CheckMaxBuildRooms)
+			var undo: Dictionary = game_manager.pending_undo(_my_pid())
+			if not undo.is_empty():
+				_swap_idx = idx
+				_swap_until = Time.get_ticks_msec() + 3000
+				_play_sfx("res://assets/audio/sfx/sfx_room_physical.wav")
+				_do(undo) # en ligne la reprise n'est confirmee que par l'etat suivant : _swap_resume rejoue le clic alors
+				return
 		for m in _moves_of(game_manager.legal_moves(_my_pid()), "buildRoom"):
 			var a: Array = (m as Dictionary).get("args", [])
 			if a.is_empty() or int(a[0]) != idx:
@@ -2763,6 +2789,21 @@ func _on_hand_card_clicked(idx: int, card: Dictionary) -> void:
 			refresh() # apply_move n'emet pas toujours state_changed en fin de coup (transition de phase)
 	else:
 		_play_from_hand(idx)
+
+## Suite d'un clic sur une salle qui remplace la pose en attente : une fois la reprise visible dans l'etat, la salle se pose normalement.
+func _swap_resume() -> void:
+	if _swap_idx < 0:
+		return
+	var idx := _swap_idx
+	if Time.get_ticks_msec() > _swap_until:
+		_swap_idx = -1
+		return
+	if not game_manager.pending_undo(_my_pid()).is_empty():
+		return # pas encore confirmee (serveur)
+	_swap_idx = -1
+	var hand := _my_hand()
+	if idx < hand.size():
+		_on_hand_card_clicked(idx, hand[idx])
 
 ## Clic sur une carte de la main hors construction : sort (build / aventure / pile) ou capacite jouable depuis la main.
 ## Un seul coup legal = joue direct ; plusieurs cibles = fenetre de ciblage au centre (comme la bulle d'ouverture).
@@ -2886,6 +2927,11 @@ func _target_label(m: Dictionary, card: Dictionary) -> String:
 func _on_slot_activate(di: int) -> void:
 	if _modal_open() or (_popup != null and is_instance_valid(_popup)) or not _tgt.is_empty():
 		return
+	for m in _moves_of(game_manager.legal_moves(_my_pid()), "undoBuild"): # clic sur la pose en attente : elle revient en main
+		if int(((m as Dictionary)["args"] as Array)[0]) == di:
+			_play_sfx("res://assets/audio/sfx/sfx_room_physical.wav")
+			_do(m)
+			return
 	var cands: Array = []
 	for m in _moves_of(game_manager.legal_moves(_my_pid()), "activateRoom"):
 		var a: Array = (m as Dictionary).get("args", [])

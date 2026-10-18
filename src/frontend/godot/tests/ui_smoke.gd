@@ -30,7 +30,7 @@ const STYLES := {
 	"spells": {"build": 1.5, "drop": 1.5, "spell": 6.0, "ability": 6.0, "extra": 4.0, "pass": 0.4, "go": 3.0, "noise": 0.08},
 	"passive": {"build": 4.0, "drop": 2.0, "spell": 0.0, "ability": 0.0, "extra": 0.0, "pass": 3.0, "go": 3.0, "noise": 0.04},
 }
-const CORE_TYPES := ["pickBoss", "buildRoom", "pass", "passBuild", "adventureNext", "resolveNextHero", "openingDiscard", "resolveLevelUpChoice", "resolveChoice", "playSpell", "useHandRoom", "activateRoom"]
+const CORE_TYPES := ["pickBoss", "buildRoom", "undoBuild", "pass", "passBuild", "adventureNext", "resolveNextHero", "openingDiscard", "resolveLevelUpChoice", "resolveChoice", "playSpell", "useHandRoom", "activateRoom"]
 
 ## Compte les erreurs moteur / script (en headless, un SCRIPT ERROR n'arrete pas le processus).
 class ErrLogger extends Logger:
@@ -2056,8 +2056,8 @@ func _check_gallery() -> void:
 	_tag = "[gallery]"
 	await _new_game()
 	board.set_process(false)
-	var ext: bool = bool(Profile.load_settings().get("extensions", false))
-	var allowed: Array = ["base", "players-choice", "hidden-heroes", "tools"]
+	var ext: bool = bool(Profile.load_settings().get("extensions", true))
+	var allowed: Array = ["base", "players-choice", "hidden-heroes"] # APK : les Tools ne sont pas dans la galerie
 	if ext:
 		allowed.append_array(["next-level", "crash-landing", "minibosses"])
 	board._on_menu_pressed()
@@ -2084,7 +2084,7 @@ func _check_gallery() -> void:
 		var want := 0
 		for c in sources[t]:
 			var d: Dictionary = c
-			if not (str(d.get("set", "base")) in allowed):
+			if not (str(d.get("set", "base")) in allowed) or str(d.get("id", "")) in ["BMA023", "BMA033"]: # notInGameCards de l'APK
 				continue
 			if t >= 3 and bool(d.get("epic", false)) != (t == 4):
 				continue
@@ -2093,6 +2093,8 @@ func _check_gallery() -> void:
 		var grid = g.scroll.get_node_or_null("Grid")
 		_check(grid != null and grid.get_child_count() == want, "galerie : grille de %d cartes pour %d" % [grid.get_child_count() if grid != null else -1, want])
 	g.select_tab(0)
+	var order: Array = g.cards_for(0).map(func(c): return str(c["id"]))
+	_check(order.size() > 1 and order[0] == "KSA007" and order[1] == "KSA006", "galerie : ordre APK (CardNumber decroissant), Elicon puis Jarin en tete : %s" % [order.slice(0, 3)])
 	var tile = g.scroll.get_node("Grid").get_child(0)
 	g.show_detail(tile.get_meta("card"), tile.texture)
 	_check(g._detail != null, "galerie : le detail d'une carte ne s'ouvre pas")

@@ -80,7 +80,9 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	elif not apk_only:
 		hero_deck = hero_deck.slice(0, int(counts.get("ordinary", 13)))
 		epic_deck = epic_deck.slice(0, int(counts.get("epic", 8)))
-	var picks: Array = CardDB.shuffled(bosses).slice(0, n + 2)
+	# APK (RandomBossSelectionScene, GameBoardExtensions) : le carrousel montre TOUS les boss des paquets choisis ; le boss de l'humain est
+	# tire parmi eux, ceux des IA parmi les restants (pickBoss les retire de la liste).
+	var picks: Array = CardDB.shuffled(bosses)
 	var players := {}
 	for i in n:
 		players[i] = {
@@ -199,6 +201,7 @@ func legal_moves(pid: int) -> Array:
 				out.append({"type": "passBuild", "args": []})
 			elif bool(G.get("setupBuild", false)) and not bool(p.get("isAI", false)) and not bool(p.get("passed", false)):
 				out.append({"type": "passBuild", "args": []}) # DONE : un siege humain valide sa salle initiale (DoneButtonEntity)
+				out.append_array(_undo_build_moves(p))
 		"build":
 			# BuildPhase_a : seul le joueur du tour construit (GameBoard.IsPlayerBuildTurn), mais tout joueur vivant
 			# peut jouer un sort / une capacite de salle (rien dans GameBoard n'en limite l'usage au joueur actif ;
@@ -275,6 +278,8 @@ func legal_moves(pid: int) -> Array:
 			if my_turn or (window and not bool((G["buildWindow"] as Dictionary).get(pid, false))):
 				out.append({"type": "passBuild", "args": []})
 				out.append({"type": "pass", "args": []})
+			if my_turn:
+				out.append_array(_undo_build_moves(p))
 		"adventure":
 			var adv: Dictionary = G.get("adventure", {})
 			var has_pause: bool = adv.has("pause") and adv["pause"] != null
@@ -340,6 +345,47 @@ func legal_moves(pid: int) -> Array:
 				out.append({"type": "passBuild", "args": []})
 	return out
 
+## Reprise d'une salle posee ce tour (APK BuildRoomHandSceneBehavior.UndoBuild) : la salle est face cachee et provisoire jusqu'a DONE.
+## Un coup par emplacement dont le dessus est une pose en attente de ce siege humain (marque undoBuild = rang de la pose ce tour).
+## Regle choisie : tout sort / capacite joue ensuite (par n'importe qui) rend les poses definitives (voir _lock_undo).
+func _undo_build_moves(p: Dictionary) -> Array:
+	var out: Array = []
+	if bool(p.get("isAI", false)):
+		return out
+	var dungeon: Array = p.get("dungeon", [])
+	for i in dungeon.size():
+		var top = BossEngine.active_room(dungeon[i])
+		if top is Dictionary and (top as Dictionary).has("undoBuild") and bool(top.get("faceDown", false)) and bool(top.get("builtThisTurn", false)) and not top.has("mb"):
+			out.append({"type": "undoBuild", "args": [i]})
+	return out
+
+## Applique la reprise sur un joueur : la salle du dessus de l'emplacement `ui` retourne en fin de main, la salle recouverte
+## (s'il y en avait une) redevient visible, buildsThisTurn redescend. Statique : GameManager l'essaie aussi sur une copie.
+static func undo_build_on(p: Dictionary, ui: int) -> Dictionary:
+	var ud: Array = p["dungeon"]
+	var ustack: Array = ud[ui]
+	var back: Dictionary = ustack.pop_back()
+	if ustack.is_empty():
+		ud.remove_at(ui)
+	for k in ["faceDown", "builtThisTurn", "undoBuild"]:
+		back.erase(k)
+	(p["hand"] as Array).append(back)
+	p["buildsThisTurn"] = maxi(0, int(p.get("buildsThisTurn", 0)) - 1)
+	return back
+
+## Verrouille les poses en attente : un sort, une capacite ou un DONE adverse les rend definitives (le coup precedent ne se rejoue pas a l'envers).
+## pass / passBuild ne verrouille que le siege qui passe (DONE) ; pose, reprise, choix de boss et defausse d'ouverture n'y touchent pas.
+func _lock_undo(pid: int, mtype: String) -> void:
+	if mtype in ["buildRoom", "undoBuild", "pickBoss", "openingDiscard"]:
+		return
+	for q in G["players"]:
+		if mtype in ["pass", "passBuild"] and int(q) != pid:
+			continue
+		for stack in ((G["players"][q] as Dictionary).get("dungeon", []) as Array):
+			for r in stack:
+				if r is Dictionary:
+					(r as Dictionary).erase("undoBuild")
+
 # --- Application (miroir applyMove) ---
 static func _is_same_move_type(a: String, b: String) -> bool:
 	if a == b:
@@ -366,6 +412,8 @@ static func _trim_args(args: Variant) -> Array:
 
 func apply_move(pid: int, move: Dictionary) -> bool:
 	var ok := _apply_move_core(pid, move)
+	if ok:
+		_lock_undo(pid, str(move.get("type", "")))
 	if TnlAbilities.active(G):
 		TnlAbilities.flush_torix(G) # TNL003 Torix : les salles Monster defaussees / detruites pendant le coup rejoignent sa main
 		TnlAbilities.sync_hero(G) # TNL108 Druid : +X PV selon les sorts en main
@@ -416,6 +464,7 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 			# "quand tu construis cette salle" qu'a ce moment-la (endPhaseBuild).
 			card["faceDown"] = true
 			card["builtThisTurn"] = true
+			card["undoBuild"] = int(p.get("buildsThisTurn", 0)) + 1 # reprise possible jusqu'au DONE (rang de la pose : la plus ancienne part d'abord)
 			var dungeon: Array = p["dungeon"]
 			if slot >= 0 and slot < dungeon.size():
 				(dungeon[slot] as Array).append(card)
@@ -433,6 +482,10 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 				_drive_ai()
 			else:
 				_advance_build()
+		"undoBuild":
+			var back := undo_build_on(p, int(move["args"][0]))
+			_log("Joueur %d reprend %s en main." % [pid, str(back.get("name", "?"))], "Joueur %d reprend une salle posée." % pid, [pid])
+			state_changed.emit()
 		"playSpell":
 			var si := int(move["args"][0])
 			var target: Dictionary = move["args"][1] if move["args"].size() > 1 and move["args"][1] != null else {}
@@ -1255,6 +1308,7 @@ func _build_reveal_queue() -> Array:
 			for o in RoomAbilities.another_room_triggers(G, int(pid)): # avant faceDown=false : la salle compte comme « en attente » (C#)
 				mine.append({"pid": int(pid), "kind": "another", "room": o})
 			r["faceDown"] = false
+			r.erase("undoBuild")
 			_log("Salle révélée : %s pour le joueur %s" % [str(r.get("name", "?")), str(pid)])
 			if BossEngine.count_visible_rooms(p["dungeon"]) >= 5 and not p.get("leveledUp", false):
 				p["leveledUp"] = true

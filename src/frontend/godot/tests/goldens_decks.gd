@@ -118,7 +118,7 @@ func _t_new_match_decks() -> void:
 	_ok.call((pc["decks"]["epics"] as Array).size() == 11 and _count_prefix(pc["decks"]["epics"], "KSA") == 3, "PlayerChoice : 3 epiques KSA en plus des 8")
 	_ok.call(_count_prefix(pc["decks"]["spells"], "KSA") == 1, "PlayerChoice : T.P.K. dans la pioche de sorts")
 	var picks: Array = pc["bossPicks"]
-	_ok.call(picks.size() == 4, "n + 2 boss proposes")
+	_ok.call(picks.size() == CardDB.bosses.filter(func(b): return (b as Dictionary).get("set", "base") in ["base", "players-choice"]).size(), "tous les boss des paquets choisis sont proposes")
 	var pc3: Dictionary = m.new_match(3, 1, ["players-choice", "hidden-heroes"])
 	_ok.call((pc3["decks"]["heroes"] as Array).size() == 17 and (pc3["decks"]["epics"] as Array).size() == 15,
 		"PlayerChoice + HiddenHeros 3j : 17 ordinaires, 12 + 3 epiques")

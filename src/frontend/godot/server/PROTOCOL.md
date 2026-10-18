@@ -36,6 +36,7 @@ Les cles entieres des dictionnaires (`players`, `stackPassed`...) voyagent en te
 - Minuteur : une decision attendue d'un humain (choix en attente, choix de boss, pose initiale, fenetre de sorts, pause d'aventure, tour de construction)
   a `turnTimeout` secondes (10 s pour une pause d'aventure). A l'echeance l'IA (AI.gd) joue pour lui et continue jusqu'a ce qu'il rejoue
   ou se reconnecte (`resume`). Aucun etat n'est persiste : salle supprimee `ttl` s apres le dernier humain, 10 min apres la fin de partie.
+- Coup `undoBuild` (`args: [emplacement]`, sieges humains seulement, jamais l'IA) : legal tant que la salle posee CE tour par ce siege est encore face cachee et non verrouillee, donc avant son DONE (`pass`/`passBuild`) et tant qu'aucun sort ni capacite n'a ete joue depuis (par n'importe qui ; `buildRoom`, `undoBuild`, `pickBoss`, `openingDiscard` ne verrouillent pas). Effet : la carte retourne en fin de main, la salle recouverte redevient visible, `buildsThisTurn` redescend de 1. Listee dans `moves` seulement quand elle est legale (`Match._undo_build_moves`).
 - Filtrage (`ViewFilter.gd`) : mains adverses, pioches (rooms/spells/heroes/epics/items), salles face cachee adverses, options des choix d'autrui
   deviennent `{"hidden": true}` (tailles conservees) ; `bossPicks` vide hors phase boss ; files internes et crochets de test retires ;
   minibosses face caches reduits a `{faceDown, hidden}` (sur la salle visible ou sur le dos d'une salle face cachee) ; journal : le moteur ecrit les lignes privees

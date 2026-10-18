@@ -137,7 +137,7 @@ func _t_new_match_deck() -> void:
 	_ok.call(crl["sets"].has("crash-landing") and crl["sets"].has("base"), "G.sets garde les paquets choisis (+ le jeu de base)")
 	_ok.call((crl["decks"]["heroes"] as Array).size() == 13 and (crl["decks"]["epics"] as Array).size() == 8, "2 joueurs : 13 + 8 heros (paquets wiki : tailles du jeu de base)")
 	var found_crl_boss := false
-	for i in 40: # 3 CRL parmi 11 boss : tirage de n + 2 = 4 propositions
+	for i in 3: # tous les boss du paquet sont proposes
 		var picks: Array = (m.new_match(2, 1, ["crash-landing"]))["bossPicks"]
 		for b in picks:
 			found_crl_boss = found_crl_boss or str((b as Dictionary).get("id", "")).begins_with("CRL")

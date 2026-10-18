@@ -112,6 +112,7 @@ func _ready() -> void:
 	load("res://godot/tests/goldens_tnl.gd").new().run(_ok, self) # extension The Next Level (TNL, hors APK)
 	load("res://godot/tests/goldens_crl.gd").new().run(_ok, self) # extension wiki Crash Landing (CRL, hors APK)
 	load("res://godot/tests/goldens_rmb.gd").new().run(_ok, self) # extension wiki Rise of the Minibosses (RMB, hors APK)
+	load("res://godot/tests/goldens_undo.gd").new().run(_ok, self) # APK : pool de boss complet, pose de salle revocable jusqu'a DONE
 	load("res://godot/tests/goldens_ai.gd").new().run(_ok, self) # IA : cartes wiki jouees dans la bonne situation, construction immediate dans un nouvel emplacement
 
 	print("GOLDENS passed=", _passed, " failed=", _failed.size())
@@ -1311,7 +1312,7 @@ func _t_setup_parallel_first_room() -> void:
 	_ok(m.apply_move(2, {"type": "buildRoom", "args": [1]}), "joueur 2 construit")
 	var d2: Array = (m.G["players"][2] as Dictionary)["dungeon"]
 	_ok(d2.size() == 1 and bool((d2[0][0] as Dictionary).get("faceDown", false)), "salle initiale posee face cachee")
-	_ok(m.legal_moves(2).size() == 1 and _has_move(m, 2, "passBuild") and str(m.G["phase"]) == "setup", "une seule salle par joueur ; il attend DONE")
+	_ok(m.legal_moves(2).size() == 2 and _has_move(m, 2, "passBuild") and _has_move(m, 2, "undoBuild") and not _has_move(m, 2, "buildRoom") and str(m.G["phase"]) == "setup", "une seule salle par joueur ; il attend DONE (ou reprend sa salle)")
 	_ok(m.apply_move(2, {"type": "passBuild", "args": []}), "joueur 2 : DONE")
 	_ok(m.legal_moves(2).is_empty() and str(m.G["phase"]) == "setup", "DONE donne : la phase attend les autres")
 	_ok(m.apply_move(0, {"type": "passBuild", "args": []}), "joueur 0 ne construit pas")

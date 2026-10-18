@@ -51,6 +51,66 @@ func build_room_at(pid: int, hand_idx: int, slot_idx: int = -1) -> bool:
 	var args: Array = [hand_idx, slot_idx] if bool(card.get("advanced", false)) else [hand_idx]
 	return apply_move(pid, {"type": "buildRoom", "args": args})
 
+## Coup undoBuild de la pose en attente la PLUS ANCIENNE du siege (APK CheckMaxBuildRooms : toRevealRooms.First), {} s'il n'y en a pas.
+func pending_undo(pid: int) -> Dictionary:
+	var best := {}
+	var best_rank := 1 << 30
+	var dungeon: Array = ((G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary).get("dungeon", [])
+	for m in legal_moves(pid):
+		if str((m as Dictionary).get("type", "")) != "undoBuild":
+			continue
+		var ui := int(((m as Dictionary)["args"] as Array)[0])
+		var rank := int(((dungeon[ui] as Array).back() as Dictionary).get("undoBuild", 0)) if ui >= 0 and ui < dungeon.size() else 0
+		if rank < best_rank:
+			best_rank = rank
+			best = m
+	return best
+
+## Emplacement cible apres la reprise du coup `undo` : un emplacement tout seul disparait (les suivants glissent d'un cran) ;
+## deposer sur lui ou sur l'emplacement libre = nouvel emplacement (-1).
+func _slot_after_undo(undo: Dictionary, slot_idx: int, pid: int) -> int:
+	var dungeon: Array = ((G["players"] as Dictionary)[pid] as Dictionary).get("dungeon", [])
+	var ui := int((undo["args"] as Array)[0])
+	if (dungeon[ui] as Array).size() > 1:
+		return slot_idx if slot_idx < dungeon.size() else -1
+	if slot_idx >= dungeon.size() or slot_idx == ui:
+		return -1
+	return slot_idx - 1 if slot_idx > ui else slot_idx
+
+## Une autre salle peut-elle remplacer la pose en attente (reprise puis pose, un seul geste du joueur) ? Essai sur une copie du joueur.
+func can_swap_build_at(pid: int, hand_idx: int, slot_idx: int = -1) -> bool:
+	var undo := pending_undo(pid)
+	if undo.is_empty() or G.get("gameOver") != null:
+		return false
+	var p2: Dictionary = ((G["players"] as Dictionary)[pid] as Dictionary).duplicate(true)
+	if hand_idx < 0 or hand_idx >= (p2["hand"] as Array).size() or not bool(((p2["hand"] as Array)[hand_idx] as Dictionary).get("isRoom", false)):
+		return false
+	var ti := _slot_after_undo(undo, slot_idx, pid)
+	undo_build_on(p2, int((undo["args"] as Array)[0]))
+	var pl2: Dictionary = (G["players"] as Dictionary).duplicate()
+	pl2[pid] = p2
+	var g2: Dictionary = G.duplicate()
+	g2["players"] = pl2
+	return BossEngine.can_build_room(p2, g2, pid, hand_idx, ti if ti >= 0 else (p2["dungeon"] as Array).size())
+
+## Reprend la pose en attente puis pose la salle `hand_idx` (la carte reprise va en fin de main : les indices de la main ne bougent pas).
+func swap_build(pid: int, hand_idx: int, slot_idx: int = -1) -> bool:
+	if not can_swap_build_at(pid, hand_idx, slot_idx):
+		return false
+	var undo := pending_undo(pid)
+	var ti := _slot_after_undo(undo, slot_idx, pid)
+	return apply_move(pid, undo) and _build_after_undo(pid, hand_idx, ti)
+
+## Pose de la salle `hand_idx` sur l'emplacement `ti` (-1 = nouvel emplacement) parmi les coups legaux courants.
+func _build_after_undo(pid: int, hand_idx: int, ti: int) -> bool:
+	for m in legal_moves(pid):
+		var a: Array = (m as Dictionary).get("args", [])
+		if str((m as Dictionary).get("type", "")) != "buildRoom" or a.is_empty() or int(a[0]) != hand_idx:
+			continue
+		if (a.size() > 1 and a[1] != null and int(a[1]) == ti) or ((a.size() < 2 or a[1] == null) and ti < 0):
+			return apply_move(pid, m)
+	return false
+
 ## Phase de leurre : détermine pour chaque héros en ville quel donjon l'attire
 func calculate_lure() -> Array:
 	var results: Array = []

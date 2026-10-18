@@ -63,7 +63,7 @@ static var trace: Callable = Callable()
 
 ## Choisit le meilleur coup légal parmi les options offertes.
 static func pick_move(match_obj, pid: int):
-	var moves: Array = match_obj.legal_moves(pid)
+	var moves: Array = match_obj.legal_moves(pid).filter(func(m): return str((m as Dictionary).get("type", "")) != "undoBuild") # reprise de pose : coup d'humain, l'IA n'en use jamais
 	if moves.is_empty():
 		return null
 	var p: Dictionary = (match_obj.G["players"] as Dictionary)[pid]

@@ -16,6 +16,7 @@ var game_manager: GameManager
 var player_id: int = 0
 var current_stack: Array = []
 var activatable := false
+var undoable := false                    # pose en attente (face cachee) : un clic la reprend en main (undoBuild), sans halo
 var _was_down := false                  # la salle du dessus etait face cachee au dernier affichage : si elle ne l'est plus, elle se retourne (CardUI.flip_in)
 var _glow: Control
 const PEEK := 28.0                       # APK : la salle recouverte depasse de ~28 px au-dessus de la salle du dessus (1920x1080)
@@ -118,6 +119,9 @@ static func add_under_cards(host: Control, stack: Array, card_scene: PackedScene
 		if at >= 0:
 			host.move_child(c, at + (older - k))
 
+func set_undoable(on: bool) -> void:
+	undoable = on
+
 ## BoardUI l'allume quand la salle a un coup activateRoom legal pour le joueur affiche (halo vert pulse, comme l'APK).
 func set_activatable(on: bool) -> void:
 	activatable = on
@@ -170,7 +174,7 @@ func _glow_tex(name: String, sz: Vector2) -> TextureRect:
 
 func _gui_input(event: InputEvent) -> void:
 	# Clic (gauche ou droit) sur une salle activable : BoardUI choisit le coup (et la cible s'il y en a plusieurs).
-	if event is InputEventMouseButton and event.pressed and activatable \
+	if event is InputEventMouseButton and event.pressed and (activatable or undoable) \
 			and (event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT) and not current_stack.is_empty():
 		accept_event()
 		activate_requested.emit(slot_index)
@@ -182,7 +186,7 @@ func _can_drop_data(_at_position: Vector2, data) -> bool:
 	if game_manager == null:
 		return false
 	var hand_idx = int(data.get("hand_index", -1))
-	return game_manager.can_build_room_at(player_id, hand_idx, slot_index)
+	return game_manager.can_build_room_at(player_id, hand_idx, slot_index) or game_manager.can_swap_build_at(player_id, hand_idx, slot_index)
 
 ## Coup de construction que le moteur propose pour (carte de la main -> cet emplacement) : [i, cible] pour une salle avancee ou une
 ## salle ordinaire sur un donjon plein, sinon [i] (salle ordinaire posee a l'entree du donjon). {} si aucun.
@@ -208,7 +212,11 @@ func _drop_data(_at_position: Vector2, data) -> void:
 		return
 	var hand_idx = int(data.get("hand_index", -1))
 	var mv := _drop_move(hand_idx)
-	if mv.is_empty() or not game_manager.apply_move(player_id, mv):
+	if mv.is_empty() or not game_manager.can_build_room_at(player_id, hand_idx, slot_index):
+		# pas de pose directe : une pose en attente est reprise puis remplacee (APK MyHand_CardExtracted -> UndoBuild)
+		if not game_manager.swap_build(player_id, hand_idx, slot_index):
+			return
+	elif not game_manager.apply_move(player_id, mv):
 		return
 	room_dropped.emit(hand_idx, slot_index) # BoardUI rafraichit l'ecran (apply_move n'emet pas toujours state_changed en fin de coup)
 

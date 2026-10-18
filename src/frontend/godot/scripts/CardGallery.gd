@@ -1,7 +1,9 @@
 extends Control
 ## Galerie de cartes de l'APK (GalleryScene) : colonne d'onglets a gauche (dos de carte : BOSS, ROOM DECK, SPELL DECK, HERO, EPIC HERO),
 ## titre « BOSS CARDS » & co, grille de cartes sur 2 lignes qui defile horizontalement, un clic ouvre la carte en grand.
-## Seuls les paquets de l'APK (base, Player's Choice, Hidden Heroes, Tools) ; les extensions du wiki si l'option « Wiki expansions » est cochee.
+## Seuls les paquets de l'APK (base, Player's Choice, Hidden Heroes ; pas les Tools, GetAvailableDecks les ecarte) ; les extensions du wiki (apres les cartes APK) si l'option « Wiki expansions » est cochee.
+## Ordre APK : numero de carte decroissant ; BMA023 / BMA033 masquees (notInGameCards).
+## Pas de tuiles d'art alternatif (ScrollCardBehavior) : les images « b » de l'APK ne sont pas extraites (bma0XXa.webp = copie octet pour octet de bma0XX.webp).
 ## Accessible depuis le menu en jeu (engrenage) et depuis OPTIONS du menu principal ; `closed` puis liberation a la fermeture.
 
 signal closed
@@ -9,7 +11,9 @@ signal closed
 const UiKit = preload("res://godot/scripts/UiKit.gd")
 const Profile = preload("res://godot/scripts/Profile.gd")
 const UI := "res://assets/ui/"
-const APK_SETS := ["base", "players-choice", "hidden-heroes", "tools"]
+const APK_SETS := ["base", "players-choice", "hidden-heroes"]
+const HIDDEN_IDS := ["BMA023", "BMA033"]
+const GOLD := Color(1.0, 0.85, 0.1)  # cadre jaune de l'APK (onglet choisi, carte en grand)
 ## [titre, dos de carte de l'onglet, genre pour CardDB.card_image]
 const TABS := [["BOSS CARDS", "back-boss", "boss"], ["ROOM CARDS", "back-room", "room"], ["SPELL CARDS", "back-spell", "spell"],
 	["HERO CARDS", "back-hero", "hero"], ["EPIC HERO CARDS", "back-epic", "epic-hero"]]
@@ -23,6 +27,8 @@ var tab_buttons: Array = []
 var _detail: Control
 var _tab_box: Control
 var cards_shown := 0
+var _scroll_pos := [0, 0, 0, 0, 0] # position horizontale de chaque onglet
+var _detail_closing := false
 
 func _ready() -> void:
 	size = Vector2(1920, 1080)
@@ -93,37 +99,42 @@ func _build() -> void:
 ## Cartes de l'onglet : [dictionnaire, genre] ; jeu de base + paquets APK (+ wiki si l'option est cochee).
 func cards_for(t: int) -> Array:
 	var allowed: Array = APK_SETS.duplicate()
-	if bool(Profile.load_settings().get("extensions", false)):
+	if bool(Profile.load_settings().get("extensions", true)):
 		allowed.append_array(["next-level", "crash-landing", "minibosses"])
 	var src: Array = [CardDB.bosses, CardDB.rooms, CardDB.spells, CardDB.heroes, CardDB.heroes][t]
 	var out: Array = []
 	for c in src:
 		var d: Dictionary = c
-		if not (str(d.get("set", "base")) in allowed):
+		if not (str(d.get("set", "base")) in allowed) or str(d.get("id", "")) in HIDDEN_IDS:
 			continue
 		if t >= 3 and bool(d.get("epic", false)) != (t == 4):
 			continue
 		out.append(d)
+	# APK : CardNumber decroissant ; les cartes du wiki (hors APK) viennent apres, dans le meme ordre.
+	out.sort_custom(func(a, b):
+		var wa: bool = not (str(a.get("set", "base")) in APK_SETS)
+		var wb: bool = not (str(b.get("set", "base")) in APK_SETS)
+		return str(a.get("id", "")) > str(b.get("id", "")) if wa == wb else wb)
 	return out
 
 func select_tab(t: int) -> void:
+	_scroll_pos[tab] = scroll.scroll_horizontal
 	tab = clampi(t, 0, TABS.size() - 1)
 	title_label.text = str(TABS[tab][0])
 	for i in tab_buttons.size():
 		var b: TextureButton = tab_buttons[i]
-		b.modulate = Color.WHITE if i == tab else Color(0.62, 0.62, 0.62)
 		var sel := i == tab
 		b.size = Vector2(150, 210) if sel else Vector2(135, 188)
 		b.position = Vector2(12 if sel else 19, 10 if sel else 20) + Vector2(0, 230.0 * i)
 		var old := b.get_node_or_null("Sel")
 		if old != null:
 			old.queue_free()
-		if sel: # cadre blanc de l'onglet choisi
+		if sel: # cadre jaune de l'onglet choisi (les autres n'ont pas de cadre)
 			var f := Panel.new()
 			f.name = "Sel"
 			var sb := StyleBoxFlat.new()
 			sb.bg_color = Color(0, 0, 0, 0)
-			sb.border_color = Color.WHITE
+			sb.border_color = GOLD
 			sb.set_border_width_all(4)
 			sb.set_corner_radius_all(6)
 			f.add_theme_stylebox_override("panel", sb)
@@ -140,6 +151,8 @@ func select_tab(t: int) -> void:
 	grid.name = "Grid"
 	grid.custom_minimum_size = Vector2(60.0 + PITCH.x * ceilf(list.size() / 2.0), 830)
 	scroll.add_child(grid)
+	grid.modulate.a = 0.0
+	grid.create_tween().tween_property(grid, "modulate:a", 1.0, 0.5)
 	for k in list.size():
 		var d: Dictionary = list[k]
 		var t_rect := TextureRect.new()
@@ -157,30 +170,63 @@ func select_tab(t: int) -> void:
 				if ev.pressed:
 					press[0] = ev.global_position
 				elif (ev.global_position - (press[0] as Vector2)).length() < 12.0:
-					show_detail(d, t_rect.texture))
+					show_detail(d, t_rect.texture, t_rect.get_global_rect()))
 		grid.add_child(t_rect)
 	scroll.scroll_horizontal = 0
+	await get_tree().process_frame # la plage de defilement n'existe qu'apres la mise en page
+	if tab == t and is_instance_valid(grid):
+		scroll.scroll_horizontal = _scroll_pos[tab]
 
-func show_detail(card: Dictionary, texture: Texture2D) -> void:
+## APK : la carte glisse de sa tuile au centre (~1,8x, 0,2 s), cadre jaune, fond noir a 0,7 ; un clic la ramene a sa tuile puis ferme.
+func show_detail(card: Dictionary, texture: Texture2D, from: Rect2 = Rect2()) -> void:
 	if _detail != null and is_instance_valid(_detail):
 		return
 	AudioManager.play_sfx("ui_button_select")
+	_detail_closing = false
+	if from.size == Vector2.ZERO:
+		from = Rect2(Vector2(960, 540) - CARD / 2.0, CARD)
 	_detail = Control.new()
 	_detail.size = Vector2(1920, 1080)
 	_detail.mouse_filter = Control.MOUSE_FILTER_STOP
 	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.78)
+	dim.color = Color(0, 0, 0, 0)
 	dim.size = Vector2(1920, 1080)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_detail.add_child(dim)
-	var z := UiKit.zoom_texture(texture, Vector2(560, 780))
-	z.position = Vector2(960, 540) - z.size / 2.0
+	var z := TextureRect.new()
+	z.texture = texture
+	z.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	z.stretch_mode = TextureRect.STRETCH_SCALE
+	z.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	z.position = from.position - global_position
+	z.size = from.size
+	var frame := Panel.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0)
+	sb.border_color = GOLD
+	sb.set_border_width_all(4)
+	frame.add_theme_stylebox_override("panel", sb)
+	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	z.add_child(frame)
 	_detail.add_child(z)
-	_detail.gui_input.connect(func(ev: InputEvent):
-		if ev is InputEventMouseButton and ev.pressed:
-			close_detail())
 	_detail.set_meta("card", card)
+	_detail.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed and not _detail_closing:
+			_detail_closing = true
+			_animate_detail(0.0, from.position - global_position, from.size, close_detail))
 	add_child(_detail)
+	var big := CARD * 1.8
+	_animate_detail(0.7, Vector2(960, 540) - big / 2.0, big)
+
+func _animate_detail(dim_alpha: float, pos: Vector2, sz: Vector2, then: Callable = Callable()) -> void:
+	var z: Control = _detail.get_child(1)
+	var tw := _detail.create_tween().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_detail.get_child(0), "color:a", dim_alpha, 0.2)
+	tw.tween_property(z, "position", pos, 0.2)
+	tw.tween_property(z, "size", sz, 0.2)
+	if then.is_valid():
+		tw.chain().tween_callback(then)
 
 func close_detail() -> void:
 	if _detail != null and is_instance_valid(_detail):
