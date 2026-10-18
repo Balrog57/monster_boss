@@ -163,10 +163,16 @@ var _press := {}                         # appui sur une carte de la main : {car
 var _drag := {}                          # glisser en cours : {idx, preview, frames}
 var _zoom: Control                       # zoom d'appui long
 var _stack_sig := ""
+var _pass_tw: Tween                      # fondu du bouton PASS TURN / DONE! (voir _set_pass_visible)
+var _pass_want := false
+var _stack_keys: Array = []              # cartes de la pile au dernier affichage : celles qui arrivent sont animees (_refresh_stack_cards)
 var _stack_ui: Control
 var _notice: Control
 var _hand_seen: Array = []               # cartes de la main deja vues (animation de pioche)
 var _hand_seen_pid := -1
+var _deal_pending := false               # le choix du boss vient de finir : toute la main est distribuee (DrawCardEmitter.cs:46-49 : lastHands vide)
+var _draw_hide := {}                     # id de carte -> nombre d'exemplaires encore en vol vers la main : leurs cartes restent cachees (voir _refresh_hand)
+var _draw_until := 0                     # horloge (ms) apres laquelle _draw_hide est ignore (filet de securite si un vol est interrompu)
 var _souls_seen := -1
 var _wounds_seen := -1
 # Choix de la cible sur le plateau : {} = inactif ; sinon {pid, title, hint, entries: [{label, cb, mv, spot}]}.
@@ -183,7 +189,11 @@ var _town_ids: Array = []
 var _ent_tok: Dictionary = {}            # pid -> cartes de l'entree, alignees sur les heros de `entrance` (la carte du heros qui traverse reste a l'entree)
 var _focus := {}                         # {pid, room} : salle agrandie parce que le heros s'y trouve (voir _set_focus)
 var _bait_t0 := 0                        # BAIT PHASE : horloge (ms) du debut du leurre, 0 = aucun (voir _refresh_phase_banner)
+var _bait_ms := 0                        # duree du leurre (ms) : un vol de BAIT_FLY x vitesse par heros, l'un apres l'autre
 var _bait_flown := {}                    # cartes deja parties en vol pour ce leurre : {pid:id:rang -> _bait_t0}
+var _bait_landed := {}                   # cartes deja arrivees a l'entree du donjon pour ce leurre : {pid:id:rang -> _bait_t0}
+var _phase_tw: Tween                     # saut de la plaque de phase (PhaseTitleControl + JumpBehavior)
+var _foe_frozen := {}                    # emplacement adverse -> salle gelee au dernier affichage (voile de glace en fondu au gel)
 var _foe_down := {}                      # emplacement adverse -> salle face cachee au dernier affichage (retournement a la revelation)
 var _lvl_busy := false                   # la banniere LEVEL UP passe : le choix de niveau attend sa fin (l'APK enchaine banniere puis choix)
 var _lvl_seen := {}                      # pid -> « monte de niveau » deja vu : un passage a vrai joue la banniere LEVEL UP (_show_levelup)
@@ -203,8 +213,9 @@ const BOSS_AUTO_TIME := 2.0              # partie a plusieurs (useTimeout) : l'e
 var _handing_over := false               # passage de main (hot-seat) en cours : GamePlayPaPScene
 var _follow_last := -1                   # dernier siege cible par le suivi hot-seat (un changement manuel de siege tient jusqu'au prochain changement)
 # Fenetres de sorts de l'APK (GamePlayBaseScene) : barre verte de 3 s au-dessus du heros (aventure), de 6 s au-dessus de la pile de sorts.
-const BAIT_TIME := 1.3                   # plaque BAIT PHASE affichee entre la revelation des salles et l'aventure
-const BAIT_FLY := 0.9                    # vol d'une carte de heros depuis la ville jusqu'a l'entree du donjon
+const PHASE_BANNER_Y := -62.0
+const DRAW_LAND := 0.3                   # une carte piochee rejoint sa place dans la main : lerp de CardMoveBehavior (0,009 x ms par image, ~0,3 s pour 95 %, CardMoveBehavior.cs:13,129-133)
+const BAIT_FLY := 1.0                    # vol d'une carte de heros depuis la ville jusqu'a l'entree du donjon, x vitesse (VerticalScrollQueueComponent.cs:261-262) ; la plaque BAIT PHASE dure tant que les vols (chacun apres le precedent)
 const WINDOW_ADVENTURE := 3.0
 const WINDOW_STACK := 6.0
 const PASS_FAST := 0.45                  # rien a jouer : le siege humain passe presque tout de suite
@@ -536,7 +547,7 @@ func _build_overlay() -> void:
 	add_child(_confirm_btn)
 
 func _build_top() -> void:
-	phase_banner = _img(self, "", Vector2(PLAY_CX - 210, -62), Vector2(403, 153)) # APK : plaque x 739..1135 (centre 937)
+	phase_banner = _img(self, "", Vector2(PLAY_CX - 210, PHASE_BANNER_Y), Vector2(403, 153)) # APK : plaque x 739..1135 (centre 937)
 	timer_label = _lbl(self, "", 18, GOLD, Vector2(1160, 18))
 	# Engrenage (menu) en haut a droite
 	top_menu_btn = Button.new()
@@ -579,6 +590,7 @@ func _draw_gear(c: Control) -> void:
 
 func setup(p_gm: GameManager, p_exit_cb: Callable) -> void:
 	game_manager = p_gm
+	_speed = _speed_factor() # _ready() tourne avant setup() : en ligne le facteur ne se connait qu'ici
 	on_exit_callback = p_exit_cb
 	game_manager.state_changed.connect(refresh)
 	btn_advance.pressed.connect(_on_advance_pressed)
@@ -763,8 +775,8 @@ func _process(delta: float) -> void:
 	var now := Time.get_ticks_msec()
 	var dt: float = maxf(delta, minf(float(now - _last_ms) / 1000.0, 1.0)) if _last_ms > 0 else delta
 	_last_ms = now
-	if _animating_hero:
-		return
+	if _animating_hero or _bait_active():
+		return # le heros ne part qu'une fois tous les heros arrives a leur donjon
 	if _modal_open() and not _is_online():
 		return # menu / regles ouverts : la partie locale est en pause
 	if _auto_pass(dt):
@@ -823,6 +835,8 @@ func _apk_flow() -> bool:
 
 ## GameSettings.GetSpeed de l'APK : SLOW 1,5 / NORMAL 1 / FAST 0,5 (durees des animations ; les barres de temps ne dependent pas de la vitesse).
 func _speed_factor() -> float:
+	if _is_online():
+		return 0.5 # GameSettings.cs:45-68 : en partie en ligne (ConnectionStates.InGame) la vitesse est forcee a 0,5
 	return [1.5, 1.0, 0.5][Profile.load_speed()]
 
 ## La barre de temps s'arrete tant que le joueur manipule une carte (glisse / zoom) ou une fenetre (APK : SlowDown pendant le zoom).
@@ -1009,6 +1023,7 @@ func refresh() -> void:
 	_refresh_foe_dungeon(foe_dict)
 	_apply_focus() # les emplacements adverses viennent d'etre reconstruits
 	_refresh_overlay(G, phase)
+	_track_hand_draw(G, p, phase) # avant _refresh_hand : les cartes piochees sont cachees des la reconstruction de la main
 	_refresh_hand(G, p, phase, my_moves)
 	_refresh_activatable(my_moves)
 	_refresh_undoable(my_moves)
@@ -1024,11 +1039,11 @@ func refresh() -> void:
 	btn_advance.disabled = not can_go
 	btn_advance.modulate = Color.WHITE if can_go else Color(0.5, 0.5, 0.5, 0.75)
 	if phase == "adventure": # PASS TURN seulement s'il reste quelque chose a decider (sort / capacite)
-		btn_pass.visible = can_pass and _has_decision(my_moves) and not apk
+		_set_pass_visible(can_pass and _has_decision(my_moves) and not apk)
 	elif stack_open:
-		btn_pass.visible = can_pass and not apk
+		_set_pass_visible(can_pass and not apk)
 	else:
-		btn_pass.visible = can_pass # pas de PASS TURN quand passer est illegal (choix en attente, pas mon tour de construire)
+		_set_pass_visible(can_pass) # pas de PASS TURN quand passer est illegal (choix en attente, pas mon tour de construire)
 	# BuildRoomHandSceneBehavior.cs:115 : IsPassTurnModeActive = IsPlayerBuildTurn && !IsBuildTurnDone (:41, poses en attente >= MaxBuildRoomLimit) ;
 	# DoneButtonBehavior.cs:25-40 : PASS TURN (pass_button) en mode passe, sinon DONE! (done_button_unlimited). Fenetre de sorts apres la derniere pose : pas mon tour de construction -> DONE!.
 	var builds_done: bool = int(p.get("buildsThisTurn", 0)) >= 1 + BossEngine.extra_builds_for(G, _my_pid()) or G.has("buildWindow")
@@ -1036,7 +1051,6 @@ func refresh() -> void:
 	if _warn != null and not _can_still_build(my_moves):
 		_warn_hide() # j'ai construit / ce n'est plus mon tour : la mise en garde n'a plus lieu d'etre
 	_refresh_stack_cards(G)
-	_track_hand_draw(G, p, phase)
 	_refresh_choice_popup(G, my_moves)
 	_refresh_extra_bar(G, my_moves)
 	if not _drag.is_empty():
@@ -1189,8 +1203,11 @@ func _show_levelup(pid: int, boss: Dictionary) -> void:
 			var quarter := _img(shine, "res://assets/ui/gradients/bg_lu_shine_cuarto.webp", Vector2(-463, -465), Vector2(463, 465))
 			quarter.pivot_offset = Vector2(463, 465)
 			quarter.rotation = float(q) * PI / 2.0
-			quarter.modulate.a = 0.7
 		shine.create_tween().set_loops().tween_property(shine, "rotation", TAU, 8.0).from(0.0)
+		# BlinkBehavior 0,8 s, MinOpacity 0,7 (LevelUpBanner.cs:79-81) : l'opacite de l'etoile monte puis redescend entre 0,7 et 1, lineairement (BlinkBehavior.cs:44-61)
+		var blink := shine.create_tween().set_loops()
+		blink.tween_property(shine, "modulate:a", 1.0, 0.8).from(0.7)
+		blink.tween_property(shine, "modulate:a", 0.7, 0.8)
 		var spr := _img(boss_node, "", Vector2.ZERO, tex.get_size())
 		spr.texture = tex
 		boss_node.position = Vector2(bx, bottom - tex.get_size().y)
@@ -1289,6 +1306,7 @@ func _town_input(event: InputEvent) -> void:
 
 func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 	var rows := [[1, p], [0, foe]]
+	var seq := 0 # rang de vol : les heros partent l'un apres l'autre (VerticalScrollQueueComponent.cs:229-263)
 	for r in rows:
 		var box: Control = (_lane[int(r[0])] as Dictionary)["entrance"]
 		for c in box.get_children():
@@ -1299,32 +1317,48 @@ func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 		var pitch := clampf(30.0 + 6.0 * float(ents.size() - 2), 30.0, 48.0) # APK : 30 px de debord pour 2 cartes, 48 pour 5
 		var toks: Array = []
 		toks.resize(ents.size())
-		var flying: bool = _bait_t0 > 0 and Time.get_ticks_msec() - _bait_t0 < int(BAIT_TIME * 1000.0)
+		var flying: bool = _bait_active()
 		for k in range(ents.size() - 1, -1, -1): # la derniere d'abord : la premiere reste au premier plan
 			var tok := _create_entrance_card(ents[k])
 			tok.position = Vector2(-pitch * float(k), 0.0)
 			box.add_child(tok)
 			toks[k] = tok
-			if flying: # carte arrivee par le leurre : cachee, un double vole depuis la ville (voir _fly_hero_card)
+			if flying and _bait_landed.get(_bait_key(pid_key, ents[k], k), 0) != _bait_t0: # carte arrivee par le leurre : cachee jusqu'a l'arrivee de son double, qui vole depuis la ville (voir _fly_hero_card)
 				tok.modulate.a = 0.0
-				_fly_hero_card(pid_key, ents[k], k, tok)
+				_fly_hero_card(pid_key, ents[k], k, tok, seq + k)
 		_ent_tok[pid_key] = toks
+		seq += ents.size()
+
+func _bait_active() -> bool:
+	return _bait_t0 > 0 and Time.get_ticks_msec() - _bait_t0 < _bait_ms
+
+func _bait_key(pid: int, hero: Dictionary, k: int) -> String:
+	return "%d:%s:%d" % [pid, str(hero.get("id", "")), k]
 
 ## Double de la carte d'entree qui vole de la colonne HEROES IN TOWN jusqu'a sa place (un seul par heros et par leurre, meme si l'entree est
-## reconstruite entre-temps) ; l'ecart entre cartes d'un meme couloir decale les departs.
-func _fly_hero_card(pid: int, hero: Dictionary, k: int, tok: Control) -> void:
-	var gk := "%d:%s:%d" % [pid, str(hero.get("id", "")), k]
+## reconstruite entre-temps) ; `order` = rang dans la file : chaque vol dure BAIT_FLY x vitesse et attend la fin du precedent.
+func _fly_hero_card(pid: int, hero: Dictionary, k: int, tok: Control, order: int) -> void:
+	var gk := _bait_key(pid, hero, k)
 	if _bait_flown.get(gk, 0) == _bait_t0:
 		return
 	_bait_flown[gk] = _bait_t0
+	var t0 := _bait_t0
 	var ghost := _create_entrance_card(hero)
 	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ghost.visible = false
 	hero_crossing_layer.add_child(ghost)
 	ghost.global_position = Vector2(23.0, 107.0)
 	var tw := ghost.create_tween()
-	tw.tween_interval(0.12 * float(k))
-	tw.tween_property(ghost, "global_position", tok.global_position, BAIT_FLY).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tw.tween_callback(ghost.queue_free)
+	tw.tween_interval(BAIT_FLY * _speed * float(order))
+	tw.tween_callback(func(): ghost.visible = true)
+	# CubicEase sans mode = EaseOut (VerticalScrollQueueComponent.cs:262 ; EasingFunctionBase.cs:8)
+	tw.tween_property(ghost, "global_position", tok.global_position, BAIT_FLY * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func():
+		_bait_landed[gk] = t0
+		var toks: Array = _ent_tok.get(pid, [])
+		if t0 == _bait_t0 and k < toks.size() and is_instance_valid(toks[k]):
+			(toks[k] as Control).modulate.a = 1.0
+		ghost.queue_free())
 
 func _create_entrance_card(hero: Dictionary) -> Control:
 	var c = _card_scene.instantiate()
@@ -1405,6 +1439,7 @@ func _ensure_boss_card(container: CenterContainer, boss_dict: Dictionary, is_foe
 
 func _refresh_foe_dungeon(foe: Dictionary) -> void:
 	var prev_down := _foe_down.duplicate()
+	var prev_frozen := _foe_frozen.duplicate()
 	var holder: Control = _lane[0]["slots"]
 	for c in holder.get_children():
 		c.queue_free()
@@ -1414,6 +1449,7 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 	var off: int = maxi(0, CardDB.DUNGEON_SLOTS - dungeon.size())
 	for j in CardDB.DUNGEON_SLOTS:
 		_foe_down[j] = false
+		_foe_frozen[j] = false
 		var slot_ctrl := Control.new()
 		slot_ctrl.custom_minimum_size = SLOT_SIZE
 		slot_ctrl.size = SLOT_SIZE
@@ -1445,7 +1481,9 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 				room_ui.mouse_filter = Control.MOUSE_FILTER_PASS
 				room_ui.long_pressed.connect(_zoom_show)
 				room_ui.long_released.connect(func(_c): _zoom_hide())
-				room_ui.set_frozen(BossEngine.is_room_deactivated(game_manager.G, foe_pid, di))
+				var fz: bool = BossEngine.is_room_deactivated(game_manager.G, foe_pid, di)
+				room_ui.set_frozen(fz, fz and not bool(prev_frozen.get(j, false)) and not skip_animations)
+				_foe_frozen[j] = fz
 				room_ui.set_face_down_scale()
 				var fd: bool = room_ui.card_data != null and room_ui.card_data.face_down
 				if bool(prev_down.get(j, false)) and not fd and not skip_animations:
@@ -1496,9 +1534,20 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 	var sz := BIG_CARD if discarding else HAND_CARD
 	var cards: Array = []
 	var grey_next: Dictionary = {}
+	var hide_idx := {} # cartes piochees encore en vol vers la main (_show_draw) : les derniers exemplaires de chaque id restent cachees
+	if Time.get_ticks_msec() < _draw_until:
+		var hide_left: Dictionary = _draw_hide.duplicate()
+		for i in range(hand.size() - 1, -1, -1):
+			var hid := str((hand[i] as Dictionary).get("id", ""))
+			if int(hide_left.get(hid, 0)) > 0:
+				hide_left[hid] = int(hide_left[hid]) - 1
+				hide_idx[i] = hid
 	for i in hand.size():
 		var card_dict: Dictionary = hand[i]
 		var card_ui = _spawn_card(card_dict, i, sz)
+		if hide_idx.has(i):
+			card_ui.visible = false
+			card_ui.set_meta("draw_id", hide_idx[i])
 		var idx := i
 		card_ui.card_clicked.connect(func(_data): _on_hand_card_clicked(idx, card_dict))
 		card_ui.press_started.connect(_on_hand_press)
@@ -1751,25 +1800,68 @@ func _refresh_phase_banner(phase: String) -> void:
 	var prev := _last_phase
 	_last_phase = phase
 	var key := "build" if (phase == "setup" or phase == "boss") else phase
-	if PHASE_BANNERS.has(key):
-		phase_banner.texture = _tex(PHASE_BANNERS[key])
+	if prev == "boss" and phase != "boss" and not skip_animations:
+		_fade_in_lanes() # fin du choix du boss : les donjons apparaissent en fondu
+		_deal_pending = true # puis la main d'ouverture est distribuee
 	# APK : entre la revelation des salles et l'aventure, la plaque BAIT PHASE s'affiche pendant que les heros de la ville volent vers les
-	# donjons (leurre). Le moteur n'a pas cette phase : l'interface montre la plaque et le vol, sans retarder la partie.
+	# donjons (leurre), l'un apres l'autre. Le moteur n'a pas cette phase : l'interface montre la plaque et les vols, sans retarder la partie.
+	var bait_n := 0
 	if key == "adventure" and prev == "build" and not skip_animations:
+		for q in [view_pid, foe_pid]:
+			if int(q) >= 0:
+				bait_n += ((game_manager.G.get("players", {}) as Dictionary).get(int(q), {}) as Dictionary).get("entrance", []).size()
+	if bait_n > 0:
 		_bait_t0 = Time.get_ticks_msec()
-		phase_banner.texture = _tex(PHASE_BANNERS["bait"])
-		var tw := phase_banner.create_tween()
-		tw.tween_interval(BAIT_TIME)
+		_bait_ms = int(float(bait_n) * BAIT_FLY * _speed * 1000.0)
+		key = "bait"
+	if PHASE_BANNERS.has(key):
+		_set_phase_banner(_tex(PHASE_BANNERS[key]))
+	if bait_n > 0:
+		var tw := create_tween()
+		tw.tween_interval(float(_bait_ms) / 1000.0)
 		tw.tween_callback(_bait_end)
 
 func _bait_end() -> void:
 	_bait_t0 = 0
 	if _last_phase == "adventure":
-		phase_banner.texture = _tex(PHASE_BANNERS["adventure"])
+		_set_phase_banner(_tex(PHASE_BANNERS["adventure"]))
 	for k in _ent_tok:
 		for t in (_ent_tok[k] as Array):
 			if t != null and is_instance_valid(t):
 				(t as Control).modulate.a = 1.0
+
+## PhaseTitleControl.Refresh (PhaseTitleControl.cs:80-96) : la plaque precedente saute hors de l'ecran, la nouvelle entre en sautant.
+func _set_phase_banner(tex: Texture2D) -> void:
+	if tex == phase_banner.texture:
+		return
+	if _phase_tw != null:
+		_phase_tw.kill()
+	if skip_animations:
+		phase_banner.position.y = PHASE_BANNER_Y
+		phase_banner.texture = tex
+		return
+	_phase_tw = create_tween()
+	if phase_banner.texture != null:
+		_phase_tw.tween_method(_phase_jump, 1.0, 0.0, 0.5) # JumpBehavior.cs:57 : 0,5 s
+	else:
+		_phase_jump(0.0) # InitHide (PhaseTitleControl.cs:40) : la plaque entre depuis le haut
+	_phase_tw.tween_callback(func(): phase_banner.texture = tex)
+	_phase_tw.tween_method(_phase_jump, 0.0, 1.0, 0.5)
+
+## JumpBehavior.Update (JumpBehavior.cs:12,58-62,75-79) : decalage = Lerp(300, 0, BackEase(montee)) vers le haut (DirectionUp), BackEase amplitude 0,4 en EaseOut
+## (EasingFunctionBase.cs:8,24 ; BackEase.cs:21-22 : EaseIn(t) = t^3 - 0,4 t sin(pi t), EaseOut(t) = 1 - EaseIn(1 - t)).
+func _phase_jump(a: float) -> void:
+	var u := 1.0 - a
+	phase_banner.position.y = PHASE_BANNER_Y - 300.0 * (u * u * u - 0.4 * u * sin(PI * u))
+
+## DungeonFrameEntity.cs:236 (Opacity 0 + FadeBehavior 0,5 s) ; GamePlayBaseScene.cs:570 puis GamePlaySPScene.cs:69 : mon donjon d'abord, puis celui du haut, 0,5 s chacun.
+func _fade_in_lanes() -> void:
+	for i in [1, 0]:
+		var root: Control = (_lane[i] as Dictionary)["root"]
+		root.modulate.a = 0.0
+		var tw := root.create_tween()
+		tw.tween_interval(0.5 * float(1 - i))
+		tw.tween_property(root, "modulate:a", 1.0, 0.5)
 
 ## Remplit une zone d'icones de tresor : chaque type est repete `count` fois (grise si 0).
 func _fill_treasures(box: Control, counts: Dictionary, layout: Array, icon_sz: float) -> void:
@@ -1791,14 +1883,28 @@ func _fill_treasures(box: Control, counts: Dictionary, layout: Array, icon_sz: f
 			t.name = "T_%d_%d" % [tp, k]
 			t.modulate = Color(1, 1, 1, 1) if count > 0 else Color(1, 1, 1, 0.3)
 
-## Les icones apparues depuis le dernier rafraichissement (from -> to) s'allument : flash blanc qui retombe.
-func _flash_icons(box: Container, from: int, to: int) -> void:
+## Les icones apparues depuis le dernier rafraichissement (from -> to) apparaissent en fondu lineaire de 0,5 s sur l'icone vide
+## (IconCounterControlEntity.cs:134,173 : FadeBehavior 0,5 s ; l'icone « allumee » fond par-dessus l'icone vide).
+func _flash_icons(box: Container, from: int, to: int, off_path: String) -> void:
 	if from < 0 or to <= from:
 		return
-	for i in range(from, mini(to, box.get_child_count())):
-		var ic: Control = box.get_child(i)
-		ic.modulate = Color(3.0, 3.0, 2.2)
-		ic.create_tween().tween_property(ic, "modulate", Color.WHITE, 0.9)
+	var live := box.get_children().filter(func(c): return not c.is_queued_for_deletion()) # _icon_row vient de vider la rangee (queue_free)
+	for i in range(from, mini(to, live.size())):
+		var ic := live[i] as TextureRect
+		var fill := TextureRect.new()
+		fill.texture = ic.texture
+		fill.expand_mode = ic.expand_mode
+		fill.stretch_mode = ic.stretch_mode
+		fill.set_anchors_preset(Control.PRESET_FULL_RECT)
+		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ic.texture = _tex(off_path)
+		ic.add_child(fill)
+		var tw := fill.create_tween()
+		tw.tween_property(fill, "modulate:a", 1.0, 0.5).from(0.0)
+		tw.tween_callback(func():
+			if is_instance_valid(ic):
+				ic.texture = fill.texture
+			fill.queue_free())
 
 func _icon_row(box: Container, total: int, filled: int, on_path: String, off_path: String, sz: Vector2) -> void:
 	for c in box.get_children():
@@ -1830,8 +1936,8 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 	_icon_row(souls_container, 10, n_souls, TEX_SOUL, TEX_SOUL_EMPTY, Vector2(19, 26))
 	_icon_row(wounds_container, 5, n_wounds, TEX_WOUND, TEX_WOUND_EMPTY, Vector2(21, 27))
 	if not skip_animations: # APK : le cristal / la goutte gagnes s'allument
-		_flash_icons(souls_container, _souls_seen, mini(n_souls, 10))
-		_flash_icons(wounds_container, _wounds_seen, mini(n_wounds, 5))
+		_flash_icons(souls_container, _souls_seen, mini(n_souls, 10), TEX_SOUL_EMPTY)
+		_flash_icons(wounds_container, _wounds_seen, mini(n_wounds, 5), TEX_WOUND_EMPTY)
 	_souls_seen = n_souls
 	_wounds_seen = n_wounds
 	_fill_treasures(treasures_container, BossEngine.treasure_counts(p),
@@ -1908,47 +2014,51 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 			var target_slot: Control = slots_list[slot_idx + vis_off]
 			var target_pos := target_slot.global_position + HERO_IN_SLOT
 
-			tw.tween_callback(func(): _play_sfx("res://assets/audio/sfx/char_hero_move.wav"))
-			tw.tween_property(pawn, "global_position", target_pos, 0.35 * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+			# MoveHeroToSlot : la salle visitee grossit (et l'ancienne reprend sa taille) pendant la marche (HeroCrossingBehavior.cs:56-63)
+			tw.tween_callback(func():
+				_play_sfx("res://assets/audio/sfx/char_hero_move.wav")
+				_set_focus(pid, slot_idx))
+			# 1,0 x vitesse, CubicEase sans mode = EaseOut (HeroCrossingBehavior.cs:24,67-68 ; EasingFunctionBase.cs:8) ; aucune pause ensuite (HeroCardEntity.cs:105 : RefreshHeroHeart ne bloque pas, WaitAny)
+			tw.tween_property(pawn, "global_position", target_pos, 1.0 * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 			tw.tween_callback(func():
 				var sfx_path := "res://assets/audio/sfx/sfx_room_magic.wav" if is_magic else "res://assets/audio/sfx/sfx_room_physical.wav"
 				_play_sfx(sfx_path)
-				_set_focus(pid, slot_idx)
 				_show_floating_dmg(pawn, dmg)
 			)
 			current_hp -= dmg
-			tw.tween_interval(0.25 * _speed)
 
 	if killed:
+		# JumpAndFade (HeroCrossingBehavior.cs:91-103) : l'ordonnee locale du personnage passe de -40 (HeroCardEntity.cs:55) a -200 puis +400 ; x l'echelle de la carte (HERO_CARD.x / 350) = pixels
+		var ky := HERO_CARD.x / 350.0
+		tw.tween_callback(func(): _play_sfx("res://assets/audio/sfx/char_hero_death.wav"))
+		tw.tween_property(pawn, "position:y", pawn.position.y + (-200.0 + 40.0) * ky, 0.5 * _speed).set_trans(Tween.TRANS_CIRC).set_ease(Tween.EASE_OUT) # HeroCrossingBehavior.cs:93,95-98
+		tw.tween_callback(func(): _set_focus(pid, -1)) # ScaleOutAllSlotsTopRoom, en meme temps que la chute (HeroCrossingBehavior.cs:99)
+		tw.tween_property(pawn, "modulate:a", 0.0, 0.7 * _speed) # fondu lineaire (HeroCrossingBehavior.cs:94,99)
+		tw.parallel().tween_property(pawn, "position:y", pawn.position.y + (400.0 + 40.0) * ky, 0.7 * _speed).set_trans(Tween.TRANS_CIRC).set_ease(Tween.EASE_IN) # HeroCrossingBehavior.cs:99-102
 		tw.tween_callback(func():
-			_set_focus(pid, -1) # APK JumpAndFade : la salle reprend sa taille pendant que le heros saute
-			_play_sfx("res://assets/audio/sfx/char_hero_death.wav"))
-		tw.tween_property(pawn, "position:y", pawn.position.y - 100.0, 0.3).set_trans(Tween.TRANS_CIRC).set_ease(Tween.EASE_OUT)
-		tw.parallel().tween_property(pawn, "modulate:v", 1.6, 0.15)
-		tw.tween_property(pawn, "position:y", pawn.position.y + 220.0, 0.4).set_trans(Tween.TRANS_CIRC).set_ease(Tween.EASE_IN)
-		tw.parallel().tween_property(pawn, "modulate:a", 0.0, 0.4)
-		tw.tween_callback(func():
-			_spawn_flying_soul(pawn.global_position, souls_container.global_position if is_my_dungeon else foe_souls_label.global_position)
 			pawn.queue_free()
 			_animating_hero = false
 			refresh()
 		)
 	else:
 		var boss_pos := boss_platform.global_position + Vector2(25, 25)
-		tw.tween_callback(func(): _set_focus(pid, -1))
-		tw.tween_property(pawn, "global_position", boss_pos, 0.35 * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+		# MoveToBossAndFade (HeroCrossingBehavior.cs:106-118) : 0,5 x vitesse, X en CubicEase EaseOut et Y en EaseIn (:111-116), les salles reprennent leur taille en meme temps (:111), puis fondu 0,5 x vitesse (:117)
 		tw.tween_callback(func():
-			_play_sfx("res://assets/audio/sfx/char_hero_attack.wav")
-			_shake_node(boss_sprite)
-			boss_sprite.modulate = Color(1.8, 0.45, 0.45) # APK CreateBossHitAnimationTask : le boss touche rougeoie (calque additif) puis revient
-			boss_sprite.create_tween().tween_property(boss_sprite, "modulate", Color.WHITE, 0.6)
+			_set_focus(pid, -1)
+			_play_sfx("res://assets/audio/sfx/char_hero_move.wav"))
+		tw.tween_property(pawn, "global_position:x", boss_pos.x, 0.5 * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(pawn, "global_position:y", boss_pos.y, 0.5 * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		tw.tween_callback(func(): _play_sfx("res://assets/audio/sfx/char_hero_attack.wav"))
+		tw.tween_property(pawn, "modulate:a", 0.0, 0.5 * _speed)
+		tw.tween_callback(func():
+			# CreateBossHitAnimationTask (DungeonFrameEntity.cs:489-496) : apres le fondu du heros, calque additif + secousse + son
+			_boss_hit(boss_sprite)
 			var boss_dict: Dictionary = (game_manager.G.get("players", {}) as Dictionary).get(pid, {}).get("boss", {})
 			var is_female := ["BMA006", "BMA007", "BMA008"].has(str(boss_dict.get("id", "")))
 			_play_sfx("res://assets/audio/sfx/boss_female_hurt.wav" if is_female else "res://assets/audio/sfx/boss_male_hurt.wav")
 			_show_floating_dmg(boss_platform, 1, Color(1, 0.3, 0.3))
 		)
-		tw.tween_property(pawn, "modulate:a", 0.0, 0.3)
 		tw.tween_callback(func():
 			pawn.queue_free()
 			_animating_hero = false
@@ -2018,8 +2128,11 @@ func _animate_step(hero: Dictionary, pid: int, from_room: int, to_room: int, hp_
 	var dmg := hp_before - hp_after
 	var lane_idx := 1 if pid == view_pid else 0
 	var tw := create_tween()
-	tw.tween_callback(func(): _play_sfx("res://assets/audio/sfx/char_hero_move.wav"))
-	tw.tween_property(pawn, "global_position", target, 0.4 * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_callback(func():
+		_play_sfx("res://assets/audio/sfx/char_hero_move.wav")
+		_set_focus(pid, to_room)) # APK : la salle ou entre le heros grossit pendant la marche (HeroCrossingBehavior.cs:56-63)
+	# 1,0 x vitesse, CubicEase sans mode = EaseOut (HeroCrossingBehavior.cs:24,67-68 ; EasingFunctionBase.cs:8) ; aucune pause ensuite (HeroCardEntity.cs:105 : RefreshHeroHeart ne bloque pas, WaitAny)
+	tw.tween_property(pawn, "global_position", target, 1.0 * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(func():
 		var room_ctrl: Control = _slot_at(pid, to_room) # les emplacements adverses sont reconstruits a chaque refresh : on ne garde pas de reference
 		if dmg > 0 and room_ctrl != null:
@@ -2029,12 +2142,10 @@ func _animate_step(hero: Dictionary, pid: int, from_room: int, to_room: int, hp_
 			_play_sfx("res://assets/audio/sfx/sfx_room_magic.wav" if is_monster else "res://assets/audio/sfx/sfx_room_physical.wav")
 			_show_floating_dmg(pawn, dmg)
 			var badge: Label = (_lane[lane_idx] as Dictionary)["dmg"]
-			badge.modulate = Color(1, 0.35, 0.3)
-			badge.create_tween().tween_property(badge, "modulate", Color.WHITE, 0.5)
-		_set_focus(pid, to_room) # APK : la salle ou entre le heros grossit
+			badge.modulate.a = 0.0 # UpdatableTextBlock : le nouveau compteur apparait en fondu lineaire de 0,25 s (UpdatableTextBlock.cs:24,43)
+			badge.create_tween().tween_property(badge, "modulate:a", 1.0, 0.25)
 		if is_instance_valid(hp_lbl):
 			hp_lbl.text = str(maxi(hp_after, 0)))
-	tw.tween_interval(0.3 * _speed)
 	tw.tween_callback(func():
 		_animating_hero = false
 		refresh())
@@ -2097,7 +2208,7 @@ func _apply_focus(animate := false) -> void:
 			if c.has_meta("focus_tw"):
 				(c.get_meta("focus_tw") as Tween).kill()
 			if animate and not skip_animations:
-				var tw := c.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+				var tw := c.create_tween() # ScaleEffectBehavior de la carte : 0,3 s (CardEntity.cs:71), sans EasingFunction donc lineaire (ScaleEffectBehavior.cs:57-60)
 				tw.tween_property(c, "scale", sc, 0.3)
 				c.set_meta("focus_tw", tw)
 			else:
@@ -2122,30 +2233,38 @@ func _show_floating_dmg(parent: Control, dmg: int, color := Color(1.0, 1.0, 1.0)
 	tw.tween_property(heart, "modulate:a", 0.0, 0.26).set_delay(1.04)
 	tw.chain().tween_callback(heart.queue_free)
 
+## ShakeBehavior (ShakeBehavior.cs:11,33-34,49-60,63,77) : x = sin(72 rad/s * t) * amplitude, amplitude 20 px diminuee de 2 a chaque demi-periode, fin a 0 : 10 demi-periodes ~0,44 s.
 func _shake_node(node: Control) -> void:
 	if node == null:
 		return
-	var orig_x := node.position.x
+	var half := PI / 72.0
 	var tw := create_tween()
-	tw.tween_property(node, "position:x", orig_x - 10.0, 0.05)
-	tw.tween_property(node, "position:x", orig_x + 10.0, 0.05)
-	tw.tween_property(node, "position:x", orig_x - 5.0, 0.05)
-	tw.tween_property(node, "position:x", orig_x + 5.0, 0.05)
-	tw.tween_property(node, "position:x", orig_x, 0.05)
+	tw.tween_method(_shake_step.bind(node, node.position.x), 0.0, 10.0 * half, 10.0 * half)
+	tw.tween_callback(_shake_step.bind(10.0 * half, node, node.position.x))
 
-func _spawn_flying_soul(from_pos: Vector2, to_pos: Vector2) -> void:
-	var t := TextureRect.new()
-	t.custom_minimum_size = Vector2(26, 26)
-	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	if ResourceLoader.exists(TEX_SOUL):
-		t.texture = load(TEX_SOUL)
-	hero_crossing_layer.add_child(t)
-	t.global_position = from_pos
-	var tw := create_tween()
-	tw.tween_property(t, "global_position", to_pos, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.tween_property(t, "scale", Vector2.ZERO, 0.15)
-	tw.tween_callback(func(): t.queue_free())
+func _shake_step(t: float, node: Control, orig_x: float) -> void:
+	if is_instance_valid(node):
+		node.position.x = orig_x + sin(t * 72.0) * maxf(20.0 - 2.0 * floorf(t / (PI / 72.0)), 0.0)
+
+## CreateBossHitAnimationTask (DungeonFrameEntity.cs:489-496) : calque additif du sprite du boss (opacite 1, :493) qui s'efface en 0,25 s lineaire (:284) pendant la secousse.
+func _boss_hit(sprite: Control) -> void:
+	_shake_node(sprite)
+	var tr := sprite as TextureRect
+	if tr == null or tr.texture == null or not tr.visible:
+		return
+	var add := TextureRect.new()
+	add.texture = tr.texture
+	add.expand_mode = tr.expand_mode
+	add.stretch_mode = tr.stretch_mode
+	add.size = tr.size
+	add.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var mat := CanvasItemMaterial.new()
+	mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	add.material = mat
+	tr.add_child(add) # enfant du boss (BossCharacter.AddChild, DungeonFrameEntity.cs:285) : il suit la secousse
+	var tw := add.create_tween()
+	tw.tween_property(add, "modulate:a", 0.0, 0.25).from(1.0)
+	tw.tween_callback(add.queue_free)
 
 func _has_move(moves: Array, mtype: String) -> bool:
 	for m in moves:
@@ -3027,6 +3146,7 @@ func _on_slot_activate(di: int) -> void:
 			cx = (sl as Control).get_global_rect().get_center().x
 	_zoom.position = Vector2(clampf(cx - _zoom.size.x / 2.0, 190.0, 1707.0 - _zoom.size.x), 295.0)
 	_ui_layer.add_child(_zoom)
+	_zoom_appear()
 	hand_layer.modulate = Color(0.6, 0.6, 0.6)
 	var k := UiKit.ZOOM_CARD / Vector2(350.0, 488.0) # meme repere que DungeonSlot._update_glow : zone de texte a 116/488 sous le centre
 	var ab := Rect2(Vector2(UiKit.ZOOM_PAD, UiKit.ZOOM_PAD) + UiKit.ZOOM_CARD / 2.0 + Vector2(0, 116.0 * k.y) - Vector2(306, 102) * k / 2.0, Vector2(306, 102) * k)
@@ -3075,7 +3195,7 @@ func _is_opening_discard_for_me() -> bool:
 	return str(pc.get("type", "")) == "opening-discard" and int(pc.get("playerId", -1)) == _my_pid()
 
 func _on_advance_pressed() -> void:
-	if _animating_hero or _modal_open() or not _tgt.is_empty():
+	if _animating_hero or _bait_active() or _modal_open() or not _tgt.is_empty():
 		return
 	_play_sfx("res://assets/audio/sfx/char_hero_move.wav")
 	if _is_online():
@@ -3348,7 +3468,20 @@ func _zoom_show(card: Control) -> void:
 	_zoom = UiKit.zoom_card(ci.card_dict, UiKit.ZOOM_CARD, greyed)
 	_zoom.position = Vector2(clampf(ci.get_global_rect().get_center().x - _zoom.size.x / 2.0, 190.0, 1707.0 - _zoom.size.x), 295.0) # APK : cadre noir de 350 x 490 dont le haut est a y ~295
 	_ui_layer.add_child(_zoom)
+	_zoom_appear()
 	hand_layer.modulate = Color(0.6, 0.6, 0.6)
+
+## AppearBehavior (AppearBehavior.cs:33-41,59-69) : le zoom entre en 0,2 s, CubicEase EaseInOut, opacite 0,5 -> 1 et echelle 0,8 -> 1,3 (soit 0,615 -> 1 de sa taille finale).
+## La fermeture est instantanee : AppearOut met l'opacite a 0 sans animation (AppearBehavior.cs:94-101).
+func _zoom_appear() -> void:
+	if skip_animations or _zoom == null:
+		return
+	_zoom.pivot_offset = _zoom.size / 2.0
+	_zoom.scale = Vector2.ONE * (0.8 / 1.3)
+	_zoom.modulate.a = 0.5
+	var tw := _zoom.create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(_zoom, "scale", Vector2.ONE, 0.2)
+	tw.tween_property(_zoom, "modulate:a", 1.0, 0.2)
 
 func _zoom_hide() -> void:
 	if _zoom != null and is_instance_valid(_zoom):
@@ -3368,6 +3501,10 @@ func _refresh_stack_cards(G: Dictionary) -> void:
 		sig += "%s:%s," % [str((e as Dictionary).get("id", "")), str((e as Dictionary).get("playerId", ""))]
 	if sig == _stack_sig:
 		return
+	var old_keys := _stack_keys
+	_stack_keys = []
+	for e in stack:
+		_stack_keys.append("%s:%s" % [str((e as Dictionary).get("id", "")), str((e as Dictionary).get("playerId", ""))])
 	_stack_sig = sig
 	if _stack_ui != null and is_instance_valid(_stack_ui):
 		_ui_layer.remove_child(_stack_ui)
@@ -3395,6 +3532,11 @@ func _refresh_stack_cards(G: Dictionary) -> void:
 			z.modulate = Color(0.5, 0.5, 0.5)
 		_stack_ui.add_child(z)
 		var owner_pid := int((stack[i] as Dictionary).get("playerId", -1))
+		if not skip_animations and not old_keys.has(_stack_keys[i]) and str((stack[i] as Dictionary).get("type", "")) == "spell" and owner_pid == _my_pid():
+			# mon sort qui vient d'etre joue : ScaleEffectBehavior 0 -> 1 en 0,3 s lineaire (PlaySpellsInHandSceneBehavior.cs:37 ; CardEntity.cs:71 ; ScaleEffectBehavior.cs:57-60)
+			z.pivot_offset = z.size / 2.0
+			z.scale = Vector2.ZERO
+			z.create_tween().tween_property(z, "scale", Vector2.ONE, 0.3)
 		if owner_pid != _my_pid(): # APK : sort / capacite de l'adversaire = son portrait rond (BossOwnerIcon) a cheval sur le haut de la carte
 			z.add_child(_owner_badge(owner_pid, z.size.x / 2.0))
 
@@ -3493,9 +3635,12 @@ func _show_notice(what: String, card = null, spot := {}) -> void:
 	UiKit.label(n, what, 21, APK_GOLD, Vector2(0, 64), 216.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
 	_ui_layer.add_child(n)
 	_notice = n
+	if not skip_animations:
+		n.modulate.a = 0.0
 	var tw := n.create_tween()
-	tw.tween_interval(2.5)
-	tw.tween_property(n, "modulate:a", 0.0, 0.4)
+	tw.tween_property(n, "modulate:a", 1.0, 0.5) # fondu d'entree 0,5 s (BubbleEntity.cs:67,83)
+	tw.tween_interval(3.0) # PLAY_BUBBLE_TIME (BubblesPlayerEmitter.cs:22,117)
+	tw.tween_property(n, "modulate:a", 0.0, 0.5) # fondu de sortie 0,5 s (BubbleEntity.cs:67 ; BubblesPlayerEmitter.cs:118)
 	tw.tween_callback(n.queue_free)
 
 ## Appui sur la bulle de l'adversaire : la carte jouee en grand au centre de l'ecran (GamePlayBaseScene.ShowBubleDetail), jusqu'au clic suivant.
@@ -3505,20 +3650,28 @@ func _notice_zoom(card: Dictionary, spot := {}) -> void:
 	_zoom.set_meta("levelup", true) # survit aux refresh (l'IA continue de jouer) ; _input le ferme au clic suivant
 	_zoom.position = Vector2(STACK_CX - _zoom.size.x / 2.0, 498.0 - _zoom.size.y / 2.0)
 	_ui_layer.add_child(_zoom)
+	_zoom_appear()
 	if not spot.is_empty():
 		var node := _spot_node(spot)
 		if node != null:
 			_zoom.set_meta("frames", [_gold_frame(_spot_rect(spot, node), true)])
 
-## Nouvelles cartes en main (pioche) : dos de carte au centre (une rangee, plus petit s'il y en a plusieurs), la carte se retourne puis
-## rejoint la main (DrawCardEmitter). Pas pendant le choix du boss / la defausse d'ouverture ; pas sans animations.
+## Nouvelles cartes en main (pioche, distribution d'ouverture) : le dos de la carte glisse jusqu'au centre, se retourne puis rejoint la main (DrawCardEmitter).
+## Pas pendant le choix du boss / la defausse d'ouverture (sauf la distribution elle-meme) ; pas sans animations.
 func _track_hand_draw(G: Dictionary, p: Dictionary, phase: String) -> void:
 	var hand: Array = p.get("hand", [])
 	var seen_before := _hand_seen.duplicate()
 	var same_seat := _hand_seen_pid == view_pid
+	var deal := _deal_pending and not hand.is_empty() and phase != "boss"
+	if deal:
+		_deal_pending = false
+		seen_before = []
+		same_seat = true
 	_hand_seen = hand.duplicate()
 	_hand_seen_pid = view_pid
-	if skip_animations or not same_seat or seen_before.is_empty() or phase == "boss" or phase == "setup" or _is_opening_discard_for_me() or G.get("gameOver") != null:
+	if skip_animations or not same_seat or phase == "boss" or G.get("gameOver") != null:
+		return
+	if not deal and (seen_before.is_empty() or phase == "setup" or _is_opening_discard_for_me()):
 		return
 	var counts := {}
 	for c in seen_before:
@@ -3529,15 +3682,21 @@ func _track_hand_draw(G: Dictionary, p: Dictionary, phase: String) -> void:
 			counts[c] = int(counts[c]) - 1
 		else:
 			fresh.append(c)
-	if not fresh.is_empty() and fresh.size() <= 4:
+	if not fresh.is_empty():
 		_show_draw(fresh)
 
+## DrawCardEmitter.CreateSingleCardDrawTask (DrawCardEmitter.cs:147-165) : la carte part de x = -0,5 L (:23) et glisse en X jusqu'a sa place au centre (0,5 s, CubicEase = EaseOut), se retourne (0,5 s, :157),
+## attend 2 s + 0,1 s x rang (:157,100) puis rejoint la main (Attach, :162). La main reelle est reconstruite a part : les cartes qu'elle recoit restent cachees (_draw_hide) jusqu'a l'arrivee.
 func _show_draw(cards: Array) -> void:
 	var n := cards.size()
-	var sc := lerpf(0.37, 1.0, 1.0 / float(n))
+	var sc := lerpf(0.37, 1.0, 1.0 / float(n)) # DrawCardEmitter.cs:107
 	var csz := UiKit.ZOOM_CARD * sc
+	var fly_ms := int((0.5 + 0.5 + 2.0 + 0.1 * float(n) + DRAW_LAND) * 1000.0)
+	_draw_until = maxi(_draw_until, Time.get_ticks_msec() + fly_ms + 1000)
 	for i in n:
 		var card: Dictionary = cards[i]
+		var cid := str(card.get("id", ""))
+		_draw_hide[cid] = int(_draw_hide.get(cid, 0)) + 1
 		var holder := Control.new()
 		holder.name = "DrawnCard"
 		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3549,21 +3708,41 @@ func _show_draw(cards: Array) -> void:
 		holder.size = back.size
 		holder.pivot_offset = back.size / 2.0
 		var cx := lerpf(400.0, 1490.0, float(i + 1) / float(n + 1))
-		holder.position = Vector2(cx, 520.0) - back.size / 2.0
+		holder.position = Vector2(-480.0, 520.0) - back.size / 2.0
 		_ui_layer.add_child(holder)
 		var tw := holder.create_tween()
-		tw.tween_interval(0.12 * i)
-		tw.tween_interval(0.45) # le dos de carte
-		tw.tween_property(holder, "scale:x", 0.0, 0.12)
+		tw.tween_property(holder, "position:x", cx - back.size.x / 2.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT) # CubicEase sans mode = EaseOut (:156 ; EasingFunctionBase.cs:8)
+		tw.tween_callback(func(): _play_sfx("res://assets/audio/sfx/ui_card_slide_up.wav")) # FlipCardBehavior.cs:113
+		tw.tween_property(holder, "scale:x", 0.0, 0.25).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN) # FlipCardBehavior 0,5 s (CardEntity.cs:72), pivot en pi / 2
 		tw.tween_callback(func():
 			back.visible = false
 			face.visible = true)
-		tw.tween_property(holder, "scale:x", 1.0, 0.12)
-		tw.tween_interval(0.6)
-		tw.set_parallel(true)
-		tw.tween_property(holder, "position:y", 1000.0, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-		tw.tween_property(holder, "modulate:a", 0.0, 0.3)
-		tw.chain().tween_callback(holder.queue_free)
+		tw.tween_property(holder, "scale:x", 1.0, 0.25).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		tw.tween_interval(2.0 + 0.1 * float(i))
+		tw.tween_callback(_draw_land.bind(holder, cid))
+
+## Attach a la main (DrawCardEmitter.cs:161-162, ui_card_slide_general) : la carte rejoint sa place dans la main (CardMoveBehavior : lerp 0,009 x ms par image, ~0,3 s pour 95 % du trajet, CardMoveBehavior.cs:13,129-133),
+## puis la vraie carte de la main (cachee jusque-la) apparait.
+func _draw_land(holder: Control, cid: String) -> void:
+	_play_sfx("res://assets/audio/sfx/ui_card_slide_general.wav")
+	var dest: CardUI = null
+	for c in hand_layer.get_children():
+		var cu := c as CardUI
+		if cu != null and cu.has_meta("draw_id") and str(cu.get_meta("draw_id")) == cid and not cu.has_meta("draw_claimed"):
+			cu.set_meta("draw_claimed", true)
+			dest = cu
+			break
+	var tw := holder.create_tween()
+	if dest != null:
+		tw.tween_property(holder, "position", dest.position + dest.size / 2.0 - holder.size / 2.0, DRAW_LAND).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(holder, "scale", dest.size / holder.size, DRAW_LAND).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(holder, "rotation_degrees", dest.rotation_degrees, DRAW_LAND)
+	else:
+		tw.tween_property(holder, "modulate:a", 0.0, DRAW_LAND)
+	tw.tween_callback(func():
+		_draw_hide[cid] = maxi(int(_draw_hide.get(cid, 0)) - 1, 0)
+		holder.queue_free()
+		refresh())
 
 ## Bulle de mise en garde de mon boss (APK : BossHint) quand on veut passer alors qu'une salle peut encore etre construite.
 func _can_still_build(moves: Array) -> bool:
@@ -3600,6 +3779,31 @@ func _tick_warn(delta: float) -> void:
 		_warn_t -= delta
 		if _warn_t <= 0.0:
 			_warn_hide()
+
+## PASS TURN / DONE! apparait et disparait en fondu lineaire de 0,15 s (DoneButtonEntity.cs:93 fadeTime ; ButtonBaseEntity.cs:166-175). Seuls les changements d'etat animent (refresh() est appele souvent).
+## Etat voulu du bouton (il reste visible jusqu'a la fin de son fondu de sortie).
+func pass_shown() -> bool:
+	return (_pass_want if _pass_tw != null else btn_pass.visible) and btn_pass.get_parent().is_visible_in_tree()
+
+func _set_pass_visible(want: bool) -> void:
+	if want == (_pass_want if _pass_tw != null else btn_pass.visible):
+		return
+	_pass_want = want
+	if _pass_tw != null:
+		_pass_tw.kill()
+		_pass_tw = null
+	if skip_animations or not is_inside_tree():
+		btn_pass.visible = want
+		btn_pass.modulate.a = 1.0
+		return
+	if want and not btn_pass.visible:
+		btn_pass.modulate.a = 0.0
+		btn_pass.visible = true
+	_pass_tw = btn_pass.create_tween()
+	_pass_tw.tween_property(btn_pass, "modulate:a", 1.0 if want else 0.0, 0.15)
+	if not want:
+		_pass_tw.tween_callback(func(): btn_pass.visible = false)
+	_pass_tw.tween_callback(func(): _pass_tw = null)
 
 ## PASS TURN (tour de construction pas encore fait) / DONE! (pose faite ou fenetre de sorts apres la derniere construction) : DoneButtonBehavior.cs:25-40.
 func _style_pass_button(done: bool) -> void:
@@ -3719,6 +3923,7 @@ func _on_level_up_pressed() -> void:
 	_zoom.set_meta("levelup", true)
 	_zoom.position = Vector2(1730.0 - _zoom.size.x, 1076.0 - _zoom.size.y) # APK : bord droit x 1730, bas y 1076 (couvre le bouton)
 	_ui_layer.add_child(_zoom)
+	_zoom_appear()
 
 func _get_total_dungeon_damage(player_dict: Dictionary) -> int:
 	var total := 0

@@ -12,7 +12,7 @@ signal long_pressed(card: Control)        ## appui long (~0,8 s sans bouger) ou 
 signal long_released(card: Control)       ## fin du maintien : le zoom se ferme
 
 @export var default_size := Vector2(140, 200)
-@export var hover_scale := 1.15
+@export var hover_scale := 1.2 # CardPositionComponent.cs:35 (SelectedScale 1,2)
 @export var hover_duration := 0.15
 
 var card_data: CardData
@@ -26,7 +26,7 @@ var is_in_hand: bool = true
 @onready var border: ReferenceRect = $Border
 @onready var glow_rect: TextureRect = get_node_or_null("GlowRect")
 
-const LONG_PRESS_TIME := 0.8             # APK : appui long ~1 s ; CLICK_SLOP : en dessous, c'est un clic (au relachement)
+const LONG_PRESS_TIME := 1.0             # APK : appui long 1,0 s (CardCarrouselEntity.cs:124, LongTouchBehavior) ; CLICK_SLOP : en dessous, c'est un clic (au relachement)
 const CLICK_SLOP := 12.0
 
 var suppress_click := false               # BoardUI l'active quand un glisser a commence : le relachement n'est pas un clic
@@ -104,14 +104,28 @@ func set_face_down_scale() -> void:
 	_rest_scale = Vector2(175.0 / default_size.x, 244.0 / default_size.y) if down else Vector2.ONE
 	scale = _rest_scale
 
-## Retournement d'une salle qui vient d'etre revelee (APK FlipCardBehavior : face cachee -> face visible, tous les joueurs en meme temps).
-func flip_in(duration := 0.35) -> void:
+## Retournement d'une salle qui vient d'etre revelee (APK CreateFlipUpTopRoomTask, CardStackSlotComponent.cs:274-296, tous les joueurs en meme temps) : la salle en attente est a l'echelle 0,5
+## (:139-140), elle se retourne en 0,5 s (FlipCardBehavior, CardEntity.cs:72, sans EasingFunction : pitch lineaire donc largeur en cosinus) puis reprend sa taille en 0,3 s (ScaleOut, CardEntity.cs:71, lineaire).
+func flip_in(duration := 0.5) -> void:
 	var target := _rest_scale
-	scale = Vector2(0.0, target.y)
-	create_tween().tween_property(self, "scale", target, duration).set_trans(Tween.TRANS_SINE)
+	var big := Vector2(175.0 / default_size.x, 244.0 / default_size.y)
+	var back := TextureRect.new() # la face cachee, qui se referme avant que la face visible s'ouvre
+	back.texture = load(CardDB.card_image("", "back-room"))
+	back.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	back.stretch_mode = TextureRect.STRETCH_SCALE
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	back.size = default_size
+	add_child(back)
+	scale = big
+	var tw := create_tween()
+	tw.tween_property(self, "scale:x", 0.0, duration / 2.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_callback(back.queue_free)
+	tw.tween_property(self, "scale:x", big.x, duration / 2.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_property(self, "scale", target, 0.3)
 
-## Gel de l'APK (Freeze) : voile de glace (frozzen_card) par-dessus la salle.
-func set_frozen(on: bool) -> void:
+## Gel de l'APK (Freeze) : voile de glace (frozzen_card) par-dessus la salle ; animate : il apparait en fondu lineaire de 0,5 s (CardStackSlotComponent.cs:102 ; DungeonFrameEntity.cs:341).
+## Il grossit avec la salle ou se trouve le heros (1 -> 1,35, CubicEase, DungeonFrameEntity.cs:336-340) : ici il est enfant de la salle, qui grossit deja (BoardUI._apply_focus).
+func set_frozen(on: bool, animate := false) -> void:
 	if on and _frozen == null:
 		_frozen = TextureRect.new()
 		_frozen.texture = load("res://assets/ui/ingame/frozzen_card.webp")
@@ -123,6 +137,9 @@ func set_frozen(on: bool) -> void:
 		_frozen.position = Vector2(-6, -6) * k
 		_frozen.size = default_size + Vector2(12, 12) * k
 		add_child(_frozen)
+		if animate:
+			_frozen.modulate.a = 0.0
+			_frozen.create_tween().tween_property(_frozen, "modulate:a", 1.0, 0.5)
 	if _frozen != null:
 		_frozen.visible = on
 

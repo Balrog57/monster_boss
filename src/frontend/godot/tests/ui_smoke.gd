@@ -541,7 +541,7 @@ func _build_actions(pid: int, moves: Array) -> Array:
 		out.append({"kind": "go", "w": _style_w("go"), "desc": "GO", "run": func(): await _do_button(board.btn_advance, "GO")})
 	elif has_go:
 		_cov("go_auto") # flux APK : pas de bouton GO, le heros suivant avance de lui-meme (board._process / _auto_pass)
-	if has_pass and board.btn_pass.visible:
+	if has_pass and board.pass_shown():
 		out.append({"kind": "pass", "w": _style_w("pass"), "desc": "PASS TURN", "effect": false, "run": func(): await _do_button(board.btn_pass, "PASS TURN")})
 	elif has_pass:
 		_cov("pass_auto") # bouton cache : l'UI doit passer toute seule (board._process / _auto_pass), sinon le garde-fou « bloquee » le dira
@@ -1076,8 +1076,8 @@ func _check_ui() -> void:
 	var go_usable: bool = board.btn_advance.is_visible_in_tree() and not board.btn_advance.disabled
 	_check(go_usable == (can_go and not carousel and not board._apk_flow()), "bouton GO : %s alors que le coup est %s" % ["utilisable" if go_usable else "inutilisable", "legal" if can_go else "illegal"])
 	if board._apk_flow() and phase == "adventure":
-		_check(not board.btn_pass.is_visible_in_tree(), "aventure : PASS TURN visible (l'APK n'en a pas, voir la barre de temps)")
-	var pass_vis: bool = board.btn_pass.is_visible_in_tree()
+		_check(not board.pass_shown(), "aventure : PASS TURN visible (l'APK n'en a pas, voir la barre de temps)")
+	var pass_vis: bool = board.pass_shown()
 	if pass_vis:
 		_check(can_pass and not over, "bouton PASS TURN visible alors que passer est illegal (phase %s, fin=%s, siege %d)" % [phase, over, pid])
 	var extra_vis: bool = board.extra_bar.visible and board.extra_bar.get_children().filter(func(c): return not c.is_queued_for_deletion()).size() > 0
@@ -1739,7 +1739,7 @@ func _check_windows() -> void:
 		if bool((me["hand"][i] as Dictionary).get("isRoom", false)):
 			var gf = (cards[i] as CardUI).get_node_or_null("GoldFrame")
 			_check(gf == null or not gf.visible, "fenetres : cadre dore sur une salle")
-	_check(not board.btn_pass.is_visible_in_tree() and not board.btn_advance.is_visible_in_tree(), "fenetres : PASS TURN / GO visibles en aventure (flux APK)")
+	_check(not board.pass_shown() and not board.btn_advance.is_visible_in_tree(), "fenetres : PASS TURN / GO visibles en aventure (flux APK)")
 	board._process(0.5)
 	_check(board._win_bar.visible, "fenetres : barre de temps absente")
 	var f0: float = board._win_bar.frac
@@ -1788,7 +1788,7 @@ func _check_windows() -> void:
 		var lay0: Array = board._stack_layout([{"type": "spell", "playerId": board._my_pid()}])
 		var lay3: Array = board._stack_layout([{"type": "spell", "playerId": 1}, {"type": "spell", "playerId": 0}, {"type": "spell", "playerId": 1}])
 		_check(is_equal_approx(float(lay1[0]["k"]), 1.0) and is_equal_approx(float(lay0[0]["k"]), 0.5) and is_equal_approx(float(lay3[2]["k"]), 0.6) and is_equal_approx(float(lay3[2]["cx"]) - float(lay3[0]["cx"]), 600.0), "pile : disposition APK de la pile de sorts")
-		_check(not board.btn_pass.is_visible_in_tree(), "pile : PASS TURN visible (flux APK : barre de temps)")
+		_check(not board.pass_shown(), "pile : PASS TURN visible (flux APK : barre de temps)")
 		board._process(0.5)
 		_check(board._win_bar.visible and absf(board._win_bar.position.x + board._win_bar.size.x / 2.0 - board.STACK_CX) < 3.0, "pile : barre au-dessus de la pile absente")
 		var fr: float = board._win_bar.frac
@@ -2470,6 +2470,10 @@ func _check_effects() -> void:
 	var drawn := _take_spell("BMA053")
 	await get_tree().process_frame
 	_check(drawn >= 0 and board._ui_layer.find_child("DrawnCard", true, false) != null, "pioche : pas de carte au centre pour un nouveau sort en main (main %d)" % seen_hand)
+	var in_flight: Array = _hand_cards().filter(func(c): return not c.visible)
+	_check(in_flight.size() == 1, "pioche : la carte piochee doit rester cachee dans la main pendant son vol (%d cachee(s))" % in_flight.size())
+	await _wait(3.6) # glisse 0,5 s + retournement 0,5 s + attente 2 s + arrivee 0,3 s (DrawCardEmitter.cs:147-165)
+	_check(board._ui_layer.find_child("DrawnCard", true, false) == null and _hand_cards().all(func(c): return c.visible), "pioche : la carte piochee n'a pas rejoint la main")
 	board._notice_ai(1, {"type": "playSpell", "args": []})
 	var notice = board._ui_layer.find_child("Notice", true, false)
 	var texts: Array = notice.find_children("*", "Label", true, false).map(func(l): return (l as Label).text) if notice != null else []
