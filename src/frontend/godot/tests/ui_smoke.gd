@@ -2709,6 +2709,11 @@ func _extra_checks() -> void:
 	board._open_rules()
 	await get_tree().process_frame
 	_check(board._rules != null and is_instance_valid(board._rules) and board._rules.get_parent() == board, "regles : pas de superposition sur le plateau")
+	_check(RulesViewer._page_files("base").size() == 24 and board._rules.page_count == 24 and board._rules.page == 0, "regles : onglet BOSS MONSTER = %d pages (24 attendues), page %d" % [board._rules.page_count, board._rules.page])
+	board._rules.turn(1)
+	_check(board._rules.page == 1, "regles : page suivante")
+	board._rules.turn(-2)
+	_check(board._rules.page == 0, "regles : retour borne a la premiere page")
 	_check(board.hand_layer != null and is_instance_valid(board.hand_layer) and board.is_inside_tree(), "regles : plateau detruit")
 	board._rules.close_viewer()
 	await get_tree().process_frame

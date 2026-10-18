@@ -44,10 +44,10 @@ python tools/merge_expansions.py         # fusionne les packs wiki dans cards.js
 ```
 src/frontend/            projet Godot 4 (res:// = src/frontend/)
   godot/scripts/         moteur et UI (Match, BossEngine, AI, CardDB, BoardUI, Main...)
-  godot/data/            cards.json (442 cartes), rules.txt
+  godot/data/            cards.json (442 cartes)
   godot/server/          serveur multijoueur headless (+ ViewFilter : informations cachées)
   godot/tests/           suites Godot headless (lancées par tools/run_godot_tests.py)
-  assets/                cartes WebP, UI, audio, fonts (versionnés)
+  assets/                cartes WebP, UI, audio, fonts, pages des livrets de règles (versionnés)
 deploy/                  Dockerfile (export + nginx), Dockerfile.server, docker-compose.yml, DEPLOYMENT.md
 security/                SECURITY.md + .env.example (jamais de secret commité)
 docs/                    HANDOFF, règles, rapports ; docs/reference/ (captures APK) est local et ignoré par git
