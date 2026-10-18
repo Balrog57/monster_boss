@@ -14,7 +14,7 @@ const SPELL_TARGETS := {
 	"BMA047": {"type": "any-room-monster", "label": "Choose a Monster Room"},
 	"BMA051": {"type": "hero-town", "label": "Choose a Hero in town"},
 	"BMA052": {"type": "own-soul", "label": "Choose a face-down Hero"},
-	"BMA053": {"type": "hero-own-dungeon", "label": "Choose a Hero in your dungeon"},
+	"BMA053": {"type": "hero-own-active", "label": "Send the active Hero in your dungeon back"},
 	"BMA054": {"type": "trepidation-player", "label": "Choose a player with 2+ more Souls"},
 	"BMA055": {"type": "opponent-soul", "label": "Choose a dead Hero"},
 	"KSA013": {"type": "tpk-player", "label": "T.P.K."},
@@ -122,6 +122,10 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 		"hero-own-dungeon":
 			for h in (me.get("entrance", []) as Array):
 				out.append({"heroId": (h as Dictionary).get("id")})
+		"hero-own-active":
+			var ah = active_entrance_hero(G, me, pid)
+			if ah != null:
+				out.append({"heroId": (ah as Dictionary).get("id")})
 		"hero-any-dungeon":
 			for opid in (G.get("players", {}) as Dictionary):
 				var op: Dictionary = G["players"][opid]
@@ -170,12 +174,11 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 				var op: Dictionary = G["players"][opid]
 				if int(opid) == pid or op.get("eliminated", false):
 					continue
+				# BMA055 = HeroInScorekeep(Opponent, Dead, Any) : SoulsHeroes seulement (HeroStates.Dead) ; les heros blesses (WoundsHeroes) sont « Alive ».
 				for i in (op.get("souls", []) as Array).size():
 					var s: Dictionary = (op["souls"] as Array)[i]
 					if not bool(s.get("tpk", false)):
 						out.append({"targetPlayerId": int(opid), "soulIndex": i, "pile": "souls"})
-				for i in (op.get("wounds", []) as Array).size():
-					out.append({"targetPlayerId": int(opid), "soulIndex": i, "pile": "wounds"})
 		"any-item":
 			for opid in (G.get("players", {}) as Dictionary):
 				var op: Dictionary = G["players"][opid]
@@ -291,6 +294,13 @@ static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary
 				out.append({"key": "hero-%s" % str(hd.get("id", "")), "card": hd,
 					"kind": "epic-hero" if hd.get("epic", false) else "hero",
 					"value": {"heroId": hd.get("id")}, "label": str(hd.get("name", ""))})
+		"hero-own-active":
+			var ah = active_entrance_hero(G, me, pid)
+			if ah != null:
+				var ahd: Dictionary = ah
+				out.append({"key": "hero-%s" % str(ahd.get("id", "")), "card": ahd,
+					"kind": "epic-hero" if ahd.get("epic", false) else "hero",
+					"value": {"heroId": ahd.get("id")}, "label": str(ahd.get("name", ""))})
 		"hero-any-dungeon", "hero-opponent-dungeon":
 			for opid in (G.get("players", {}) as Dictionary):
 				var op: Dictionary = G["players"][opid]
@@ -339,11 +349,6 @@ static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary
 					out.append({"key": "osoul-%s-%d" % [str(opid), i], "card": s, "kind": "hero",
 						"value": {"targetPlayerId": int(opid), "soulIndex": i, "pile": "souls"},
 						"label": "%s (P%d soul)" % [s.get("name", "Hero"), int(opid)]})
-				for i in (op.get("wounds", []) as Array).size():
-					out.append({"key": "owound-%s-%d" % [str(opid), i], "kind": "hero",
-						"card": (op["wounds"] as Array)[i],
-						"value": {"targetPlayerId": int(opid), "soulIndex": i, "pile": "wounds"},
-						"label": "Heros (P%d wound)" % int(opid)})
 		"any-item":
 			for opid in (G.get("players", {}) as Dictionary):
 				var op: Dictionary = G["players"][opid]
@@ -355,8 +360,29 @@ static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary
 			pass
 	return out
 
+## Heros ACTIF (Hero.IsActiveHero) de la file d'entree de `pid`, ou null (ActiveHeroInDungeon(Any, Owner)). L'APK le designe a la fin d'AdventurePhase_a
+## (GameBoard.ChooseNextActiveHero, sauf Boss.ForceSkipAdventure) et le garde jusqu'a la fin de son passage : c'est le heros de G.adventure ou, dans la fenetre
+## qui precede (Godot fusionne les fenetres APK a/b), le premier heros libre de l'entree du joueur actif. Seul son proprietaire le voit dans SA file.
+static func active_entrance_hero(G: Dictionary, me: Dictionary, pid: int) -> Variant:
+	var adv: Dictionary = G.get("adventure", {})
+	if not adv.is_empty():
+		return adv.get("hero") if int(adv.get("playerId", -1)) == pid else null
+	if (G.get("stack", []) as Array).is_empty() and int(G.get("activePlayer", -1)) != pid: # pendant une Spell Battle, activePlayer est le repondant courant
+		return null
+	if ((G.get("effects", {}) as Dictionary).get("skipAdventure", []) as Array).has(pid):
+		return null
+	var ent: Array = me.get("entrance", [])
+	var first := Minibosses.first_free_hero(G, ent) if Minibosses.active(G) else 0
+	return ent[first] if first >= 0 and first < ent.size() else null
+
+## Conditions de l'Ability (data.json) hors phase (voir CardDB.SPELL_PHASE) et hors cibles : BMA050 Motivation = OpponnentDungeonSizeMoreThan(1).
+static func conditions_ok(G: Dictionary, pid: int, spell_id: String) -> bool:
+	return spell_id != "BMA050" or BossEngine.opponent_dungeon_larger(G, pid, 1)
+
 ## Toutes les cibles legales pour un sort donne (hors extensions).
 static func spell_targets_for(G: Dictionary, player: Dictionary, player_id: int, spell_id: String) -> Array:
+	if not conditions_ok(G, player_id, spell_id):
+		return []
 	if TnlSpells.TARGETS.has(spell_id): # The Next Level : TNL056-TNL072 (liste vide = injouable maintenant)
 		return TnlSpells.targets_for(G, player, player_id, spell_id)
 	if RmbSpells.TARGETS.has(spell_id): # Rise of the Minibosses : RMB065-RMB079

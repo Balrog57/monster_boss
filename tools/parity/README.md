@@ -239,7 +239,7 @@ duree du rejeu +15 % environ). Sans l'option : aucun appel a l'IA, comportement 
 | `buildCard` | idem | la meme carte (emplacement ignore) |
 | `buildSlot` | idem | etant donnee la carte de l'oracle, Godot choisit le meme emplacement parmi les coups de cette carte |
 | `discard` | defausse d'ouverture (`Setup_a`) | `select_opening_discards` rend le meme multiensemble de 2 codes |
-| `usableSet` (diagnostic) | chaque appel d'`UseAbility` de l'oracle (cle de tete `abilityChoices` de la trace), mesure juste avant le step suivant | cartes jouables de l'oracle (`CanPlayerPlayAbility`, avant les `CheckXXX`) == cartes de l'APK qui ont un coup legal `playSpell` / `activateRoom` chez Godot (hors salle face cachee ou gelee) ; mesure la LEGALITE du moteur, pas l'IA |
+| `usableSet` (diagnostic) | chaque appel d'`UseAbility` de l'oracle (cle de tete `abilityChoices` de la trace), mesure juste avant le step suivant | cartes jouables de l'oracle (`CanPlayerPlayAbility`, avant les `CheckXXX`) == cartes de l'APK qui ont un coup legal `playSpell` / `activateRoom` chez Godot ; mesure la LEGALITE du moteur, pas l'IA. Seul BMA053 Teleportation (heros ACTIF) est retire des deux ensembles quand la fenetre APK n'existe pas chez Godot (oracle deja au joueur suivant, ou AdventurePhase_c apres la fin d'un heros ; `unavailable.usableSet:BMA053:window`) |
 | `eligibleSet:spell` / `:activate` / `:pass` | idem | l'ensemble des capacites **eligibles** (un `CheckXXX` non nul, une entree par instance de carte) de l'IA Godot (`ApkAI.abilities`) == celui de l'oracle ; le suffixe est ce que l'oracle a tire (un sort, une capacite de salle, rien : ensemble vide) |
 | `chosenInSet:spell` / `:activate` | idem, l'oracle a tire une capacite | la carte tiree par l'oracle est dans l'ensemble de Godot |
 | `spellTarget` / `activateTarget` | idem, carte tiree dans l'ensemble de Godot | la cible preregle de Godot pour CETTE carte == celle de l'oracle (instances de cartes, par effet et par fournisseur de cible, `SetSelectedTargets`) ; `spellTargetShuffle` / `activateTargetShuffle` : cartes dont la cible vient d'un tirage (`Shuffle()` : BMA040, BMA047, BMA009), comptees a part |
@@ -335,7 +335,7 @@ Aucun `seq` n'est consomme : **les 24 traces regenerees (defaut, wide, decks) so
 | `activateTarget` (BMA013, 024, 027, 028, 030, 032, 038, 039) | 123 | - | 123 | **100,0** |
 | `activateTargetShuffle` (BMA009) | 19 | - | 12 | 63,2 (tirage au hasard) |
 | `pass` (l'oracle ne joue rien) | 214 | 168 (78,5 %) | 214 | **100,0** |
-| `usableSet` (diagnostic de legalite, pas l'IA) | 7799 | - | 7065 | 90,6 (ecarts du moteur ci-dessous) |
+| `usableSet` (legalite du moteur, pas l'IA) | 7799 | - | 7065 | 90,6 a ce stade ; **100 %** apres la passe de legalite (voir plus bas) |
 
 `--ai-copy-trap-bug` (option de `ApkParity.tscn`, mesure seulement) reproduit le bogue de `CheckBMA040And047` : `eligibleSet` et `chosenInSet` passent alors a **100 %** partout
 (spell 102/102, activate 142/142, pass 7555/7555), ce qui prouve que le seul ecart d'ensemble restant EST ce bogue.
@@ -349,13 +349,7 @@ de defausse tiree au hasard) ne sont pas reproductibles point a point : accord a
 capacite tout de suite, sans pile : l'ensemble de l'oracle y est toujours vide) ; 369 + 69 fenetres d'aventure / de construction que Godot a deja enchainees (tour sans heros : un
 humain n'a pas cette fenetre, voir « Limites assumees » ; `Godot a deja termine ce tour`) ; 63 pendant un choix ouvert de Godot, 41 apres la fin de partie Godot.
 
-*Ecarts de LEGALITE du moteur reveles par `usableSet` (hors perimetre de l'IA, non corriges ; l'IA les neutralise)* : `activateRoom` BMA030 Jackpot Stash propose pendant l'aventure
-(557 ; la carte exige `DuringPhase Build` ; `CheckBMA030` impose la phase de construction) ; `playSpell` BMA053 Teleportation propose pour n'importe quel heros de l'entree
-(115 ; la cible C# est le heros ACTIF ; jamais eligible de toute facon) ; `playSpell` BMA050 Motivation propose sans la condition `OpponnentDungeonSizeMoreThan(1)` (80 ; condition
-ajoutee dans `_chk_050`) ; `playSpell` BMA055 Zombie Attack propose avec les seules blessures adverses (33 ; la cible est un heros mort, `HeroInScorekeep Dead`) ; `activateRoom`
-BMA032 Crushinator accepte une salle face cachee (posee ce tour) comme « autre salle » (3). `BossEngine.can_build_room` accepte aussi une salle AVANCEE par-dessus une salle face
-cachee (`DungeonSlot.CheckRoomCanBeBuilt` refuse tout slot en attente) : `ApkAI.can_build_anywhere` ajoute ce refus cote IA. L'activation d'une salle face cachee (posee ce tour)
-et d'une salle gelee est egalement acceptee par `Match.legal_moves` : `ApkAI.abilities` les ecarte (`DungeonActiveRooms`).
+*Ecarts de LEGALITE du moteur reveles par `usableSet`* : corriges dans le moteur apres l'etape 3, voir « Passe de legalite du moteur » ci-dessous.
 
 **Apres le lot 1.2, etape 3 (`ApkAI.gd` : cibles des declencheurs et des commandes, `TriggerCalculator.cs`)**
 
@@ -398,8 +392,37 @@ Laboratory]` 4 et `[Cerebellus]` 2, `kitchen-discard[Witch's Kitchen]` 4, `recov
 Aucune des 162 cibles deterministes ne desaccorde : le seuil du lot est donc **100 %** (voir « Seuil du lot 1.2 »).
 
 **Seuil du lot 1.2 (fixe)** : 0 desaccord et 0 indifference sur `build`, `buildCard`, `buildSlot`, `discard`, `eligibleSet:activate`, `chosenInSet:activate`, `spellTarget`, `activateTarget`,
-`target`, `targetPass` et `pass` ; >= 99 % sur `eligibleSet:*` et `chosenInSet:spell` (le seul ecart est le bogue de `CheckBMA040And047`, 100 % avec `--ai-copy-trap-bug`). Hors seuil : les types
-`...Shuffle` (tirages au hasard, accord attendu ~ 1/n), `draw` (non exerce) et `usableSet` (legalite du moteur, pas l'IA).
+`target`, `targetPass`, `pass` et `usableSet` (code de sortie 1 de `apk.py --ai-agreement` au moindre ecart) ; >= 99 % sur `eligibleSet:*` et `chosenInSet:spell` (le seul ecart est le bogue de `CheckBMA040And047`, 100 % avec `--ai-copy-trap-bug`). Hors seuil : les types
+`...Shuffle` (tirages au hasard, accord attendu ~ 1/n), `draw` (non exerce).
+
+**Passe de legalite du moteur (apres l'etape 3 ; `usableSet` 7065/7799 -> 7778/7778, 100 %)**
+
+Ventilation avant (18 traces, `godotOnly` = coup legal chez Godot que `CanPlayerPlayAbility` interdit ; `oracleOnly` = 0 partout) : BMA030 557, BMA053 115, BMA050 80, BMA055 33, BMA032 3.
+Chaque ecart etait un ecart de REGLE (un humain pouvait jouer le coup). Regles corrigees (le C# gagne ; `Ability.CheckConditions` = phase + conditions + chaque fournisseur de cibles a >= `MinTargetsAmount`) :
+
+| Carte | Regle de l'APK | Moteur |
+|---|---|---|
+| BMA030 Jackpot Stash | `DuringPhase(Build)` = `BuildPhase_a` seule (`Conditions/DuringPhase.cs:19`) | `RoomAbilities.activate_room_ability` : refus hors `phase == build` |
+| BMA053 Teleportation | `ActiveHeroInDungeon(Any, Owner)` : le heros `IsActiveHero` de la file d'entree du LANCEUR (`Targets/ActiveHeroInDungeon.cs:44`) ; actif des `ChooseNextActiveHero` (fin d'AdventurePhase_a) a la fin de son passage | `SpellTargeting.active_entrance_hero` + type de cible `hero-own-active` : le heros de `G.adventure`, ou le 1er heros libre de l'entree du joueur actif avant la traversee |
+| BMA050 Motivation | `OpponnentDungeonSizeMoreThan(1)` verifiee a la legalite (`Conditions/OpponnentDungeonSizeMoreThan.cs`), `Boss.DungeonSize` hors salle en attente (`Boss.cs:135`) | `BossEngine.opponent_dungeon_larger` via `SpellTargeting.conditions_ok` (+ meme test dans l'effet) ; le garde-fou de `ApkAI._chk_050` est retire |
+| BMA055 Zombie Attack | `HeroInScorekeep(Opponent, Dead, Any)` : `SoulsHeroes` seulement, les blesses sont `Alive` (`Targets/HeroInScorekeep.cs:50-57`) | `SpellTargeting` `opponent-soul` : plus de pile `wounds` (cibles et interface) |
+| BMA032 Crushinator, BMA028 Boulder Ramp | `AnotherRoom` : slots C# d'index < `DungeonSize`, `IsActive`, autres que la salle (`Targets/AnotherRoom.cs`) ; une salle en attente EN QUEUE est hors `DungeonSize`, en plein donjon elle compte | `BossEngine.is_another_room_target` |
+| Salle avancee | `DungeonSlot.CheckRoomCanBeBuilt` (l.84) : jamais par-dessus un slot en attente, avancee comprise | `BossEngine.can_build_room` ; le garde-fou de `ApkAI.can_build_anywhere` est retire |
+| Toute salle de l'APK | `GameBoard.PlayRoomAbility` (l.817) exige `Boss.DungeonActiveRooms` (slot actif, hors `PendingToBeBuilt`) : ni salle posee ce tour, ni salle gelee | `RoomAbilities.activate_room_ability` (hors cartes wiki TNL/RMB/CRL, inchangees) ; le masque correspondant de `usableSet` et le filtre de `ApkAI.abilities` sont retires |
+
+Goldens (`GODOT/tests/goldens.gd`, un par regle) : `_t_apk_jackpot_stash_build_phase_only`, `_t_apk_teleportation_targets_active_hero`, `_t_apk_motivation_needs_larger_opponent_dungeon`,
+`_t_apk_zombie_attack_targets_dead_heroes_only`, `_t_apk_another_room_target`, `_t_apk_advanced_room_not_over_pending_slot`, `_t_apk_pending_or_frozen_room_cannot_activate`.
+
+*Fenetres non comparables* : Godot fusionne deux fenetres APK (a/b : « heros suivant designe ») et n'en ouvre aucune pour un joueur sans heros. Pour BMA053 seul, quand l'oracle est deja au joueur actif
+suivant ou dans AdventurePhase_c APRES la fin d'un heros (aucun heros actif), la carte est retiree des DEUX ensembles (44 cas, `unavailable.usableSet:BMA053:window`) ; les autres cartes de ces fenetres
+restent comparees. 21 appels de plus sont `unavailable` (7799 -> 7778 ; +13 « Godot a deja passe en aventure », +8 pendant un choix ouvert) : une fenetre de sorts / d'aventure que seul un coup
+devenu illegal (Motivation, Zombie Attack, Teleportation, Jackpot Stash) tenait ouverte se referme plus tot (`Match._open_build_window`, `_adventure_window_has_actions`), voir « Limites assumees ».
+
+*Pas de changement pour Mimic Vault (BMA036) ni King Croak / Cleopatra (BMA003/007)* : `data.json` porte `CanAvoid = false` (`Ability.cs:51`) : `AbilityTransaction.PrepareResolveTargetActionsQueue` passe `CanAvoid` a
+`ResolveTarget`, qui le transmet a `ShowCardSelector(..., canBeCanceled)` (`TargetResolverBaseSceneBehavior.cs:180-210`) : un HUMAIN ne peut pas annuler, la cible est obligatoire (malgre le « may » du texte) ;
+le moteur est donc deja conforme (aucun « passer », voir le commentaire de `_search_advanced_choice`). Ce que fait l'IA de l'APK (liste vide -> `Cancel()`, `AbilityTransaction.cs:187-195`) est un
+choix d'IA que `legal_moves` n'offre pas ; `ApkAI.choose` retombe sur l'option 0 (aucun cas dans les 18 traces : `target` 162/162). Seducia (`pick-hero`, `optional: true`) est la seule de ces cartes que Godot rend
+facultative alors que son `CanAvoid` est aussi faux ; la rendre obligatoire ferait echouer le rejeu de l'abstention de l'IA oracle (`targetPass`) sans canal dedie : non change.
 
 Desaccords les plus frequents de la mesure initiale (sous-classe `type:carte` ou `target:type de choix[boss]`, desaccords/n sur les 18 traces) : `target:recover-card[Dracolich
 Lair]` 32/38 et `[Dark Altar]` 18/19, `target:dracolich-discard` 20/38 (beaucoup d'indifferences : `_score_choice` rend 0 pour ces choix) ; `spellTarget`

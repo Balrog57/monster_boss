@@ -148,9 +148,17 @@ static func activate_room_ability(G: Dictionary, player_id: int, room_index: int
 		if TnlAbilities.ACTIVATED.has(str(r.get("id", ""))): # The Next Level : capacites activees des salles TNL
 			return TnlAbilities.activate(G, p, player_id, room_index, r)
 
+	var id := str(r.get("id", ""))
+	if not ApkAI.is_wiki_card(id):
+		# GameBoard.PlayRoomAbility (GameBoard.cs:817, « must be in the player dungeon ») : seules les salles de Boss.DungeonActiveRooms (Boss.cs:116 :
+		# slot actif, hors PendingToBeBuilt) activent leur capacite ; ThisRoom (ThisRoom.cs) exige aussi le slot actif. Ni salle posee ce tour, ni salle gelee.
+		if bool(r.get("faceDown", false)) or BossEngine.is_room_deactivated(G, player_id, room_index):
+			return "room is face down or frozen"
+		# BMA030 Jackpot Stash : DuringPhase(Build) = BuildPhase_a seule (Conditions/DuringPhase.cs:19) ; aucune autre salle du base set n'a de condition de phase.
+		if id == "BMA030" and str(G.get("phase", "")) != CardDB.PHASE["BUILD"]:
+			return "Jackpot Stash: build phase only"
 	if ONCE_PER_TURN.has(str(r.get("id", ""))):
 		r["usedThisTurn"] = true # data.json : seules BMA013/024/025 portent OncePerTurn (Crushinator et Boulder Ramp sont rejouables)
-	var id := str(r.get("id", ""))
 	match id:
 		"BMA009": return _dark_altar(G, p, room_index, player_id, r)
 		"BMA025": return _all_seeing_eye(G, p, player_id)
@@ -302,13 +310,9 @@ static func _bottomless_pit(G: Dictionary, p: Dictionary, player_id: int, room_i
 
 ## BMA028 Boulder Ramp : detruit une autre salle, 5 degats au hero de celle-ci.
 static func _boulder_ramp(G: Dictionary, p: Dictionary, player_id: int, room_index: int, other: int, room: Dictionary):
-	if other < 0 or other == room_index:
-		return "must target another room"
 	var dungeon: Array = p.get("dungeon", [])
-	if other < 0 or other >= dungeon.size():
-		return "no room at other index"
-	if BossEngine.active_room(dungeon[other]) == null:
-		return "no room at other index"
+	if not BossEngine.is_another_room_target(G, player_id, dungeon, room_index, other):
+		return "must target another active room" # AnotherRoom.cs : slot C# < DungeonSize, actif, autre que la salle
 	if not hero_is_in_room(G, player_id, room_index):
 		return "no hero in this room"
 	var adv: Dictionary = G.get("adventure", {}) as Dictionary
@@ -333,11 +337,9 @@ static func _jackpot_stash(G: Dictionary, p: Dictionary, player_id: int, room_in
 
 ## BMA032 The Crushinator : detruit une autre salle, vos salles font +2 degats.
 static func _crushinator(G: Dictionary, p: Dictionary, player_id: int, room_index: int, other: int):
-	if other < 0 or other == room_index:
-		return "must target another room"
 	var dungeon: Array = p.get("dungeon", [])
-	if other < 0 or other >= dungeon.size() or BossEngine.active_room(dungeon[other]) == null:
-		return "no room at other index"
+	if not BossEngine.is_another_room_target(G, player_id, dungeon, room_index, other):
+		return "must target another active room" # AnotherRoom.cs : slot C# < DungeonSize, actif, autre que la salle
 	var destroyed = BossEngine.destroy_room(p, other, G)
 	BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
 	var eff := _effects(G)

@@ -372,10 +372,6 @@ static func can_build_anywhere(G: Dictionary, p: Dictionary, pid: int, hi: int) 
 	if BossEngine.can_build_room(q, G, pid, hi, -1):
 		return true
 	for ti in (p.get("dungeon", []) as Array).size():
-		# DungeonSlot.CheckRoomCanBeBuilt : jamais par-dessus un slot en attente (salle posee ce tour), meme pour une salle avancee
-		var top = BossEngine.active_room((p["dungeon"] as Array)[ti])
-		if top != null and bool((top as Dictionary).get("faceDown", false)):
-			continue
 		if BossEngine.can_build_room(q, G, pid, hi, ti):
 			return true
 	return false
@@ -856,11 +852,10 @@ static func _chk_049(x: Dictionary) -> Variant:
 	return null
 
 ## CheckBMA050 Motivation (l.294-306) : au moins 2 salles de la main constructibles (Boss.CanBuildRoom, phase comprise) = coups buildRoom legaux de Godot.
-## Condition de la carte (data.json, OpponnentDungeonSizeMoreThan(1), non portee par legal_moves) : un adversaire a au moins 1 salle de plus que nous.
+## La condition de la carte (OpponnentDungeonSizeMoreThan(1)) est dans la legalite du moteur (SpellTargeting.conditions_ok) : `abilities` n'appelle ce
+## CheckXXX que pour un playSpell legal.
 static func _chk_050(x: Dictionary) -> Variant:
 	if _early(x):
-		return null
-	if not opponents(x["G"], int(x["pid"])).any(func(q): return _dungeon_size(_view(x["G"]["players"][int(q)])) - int(x["ds"]) >= 1):
 		return null
 	var cards := {}
 	for m in (x["moves"] as Array):
@@ -1360,7 +1355,7 @@ static func abilities(G: Dictionary, pid: int, moves: Array, rng: RandomNumberGe
 	for c in view.size():
 		var g := int((view[c] as Dictionary)["g"])
 		var top = (view[c] as Dictionary)["top"]
-		if top == null or bool((view[c] as Dictionary)["pending"]) or not room_mv.has(g) or BossEngine.is_room_deactivated(G, pid, g): # DungeonActiveRooms : slot actif, hors salle posee ce tour
+		if top == null or not room_mv.has(g): # DungeonActiveRooms (slot actif, hors salle posee ce tour) est dans la legalite du moteur (RoomAbilities.activate_room_ability)
 			continue
 		var id := str((top as Dictionary).get("id", ""))
 		if is_wiki_card(id):

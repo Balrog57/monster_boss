@@ -21,6 +21,31 @@ static func count_visible_rooms(dungeon: Array) -> int:
 			n += 1
 	return n
 
+## Boss.DungeonSize (Boss.cs:135) : dernier emplacement C# non vide et sans salle en attente (face cachee), + 1. Le donjon Godot est range a l'envers
+## (index C# = taille - 1 - index Godot) : le plus petit index Godot valide est donc le dernier emplacement C#.
+static func apk_dungeon_size(dungeon: Array) -> int:
+	for g in dungeon.size():
+		var r = active_room(dungeon[g])
+		if r != null and not bool((r as Dictionary).get("faceDown", false)):
+			return dungeon.size() - g
+	return 0
+
+## Condition OpponnentDungeonSizeMoreThan(n) (Conditions/OpponnentDungeonSizeMoreThan.cs) : un adversaire en vie (GetOpponents) a au moins `n` salles
+## (DungeonSize) de plus que `pid`.
+static func opponent_dungeon_larger(G: Dictionary, pid: int, n: int) -> bool:
+	var players: Dictionary = G.get("players", {})
+	var mine := apk_dungeon_size((players.get(pid, players.get(str(pid), {})) as Dictionary).get("dungeon", []))
+	for opid in players:
+		var op: Dictionary = players[opid]
+		if int(opid) != pid and not bool(op.get("eliminated", false)) and apk_dungeon_size(op.get("dungeon", [])) - mine >= n:
+			return true
+	return false
+
+## Cible AnotherRoom (Targets/AnotherRoom.cs) : emplacement C# d'index < DungeonSize, actif (non gele), autre que celui de la salle. Une salle en attente
+## AU MILIEU du donjon (avancee posee ce tour sur un emplacement ancien) compte : le C# fait Peek() sans regarder PendingToBeBuilt.
+static func is_another_room_target(G: Dictionary, pid: int, dungeon: Array, room_index: int, other: int) -> bool:
+	return other != room_index and other >= dungeon.size() - apk_dungeon_size(dungeon) and other < dungeon.size() 		and active_room(dungeon[other]) != null and not is_room_deactivated(G, pid, other)
+
 ## Tresors d'une salle : imprimes + gagnes « jusqu'a la fin du tour » (CRL006 Decoy Garden, CRL032 Meteorite : `extraTreasures`).
 static func room_treasures(room: Dictionary) -> Array:
 	var out: Array = []
@@ -122,7 +147,7 @@ static func can_build_room(player: Dictionary, G: Dictionary = {}, pid: int = -1
 		if idx < 0 or idx >= dungeon.size():
 			return false
 		var target = active_room(dungeon[idx])
-		if target == null:
+		if target == null or bool((target as Dictionary).get("faceDown", false)): # DungeonSlot.CheckRoomCanBeBuilt (l.84) : jamais par-dessus un slot en attente (salle posee ce tour)
 			return false
 		# BMA018 Neanderthal Cave : on ne peut pas batir par-dessus.
 		if str((target as Dictionary).get("id", "")) == "BMA018" and not TnlAbilities.no_text(target as Dictionary): # Meddling Kids! : plus de texte, plus d'interdiction

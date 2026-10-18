@@ -138,19 +138,7 @@ static func _freeze(G: Dictionary, caster_id: int, _card: Dictionary, target: Di
 # --- BMA050 Motivation : construction supplementaire si moins de salles qu'un adversaire ---
 
 static func _motivation(G: Dictionary, caster_id: int, _card: Dictionary, _target: Dictionary) -> bool:
-	var me := _player(G, caster_id)
-	var mine := BossEngine.count_visible_rooms(me.get("dungeon", []))
-	var has_more := false
-	for opid in (G.get("players", {}) as Dictionary):
-		if int(opid) == caster_id:
-			continue
-		var op: Dictionary = G["players"][opid]
-		if op.get("eliminated", false):
-			continue
-		if BossEngine.count_visible_rooms(op.get("dungeon", [])) > mine:
-			has_more = true
-			break
-	if not has_more:
+	if not BossEngine.opponent_dungeon_larger(G, caster_id, 1): # meme condition que la legalite (SpellTargeting.conditions_ok)
 		_log(G, "Motivation: you do not have fewer rooms than an opponent.")
 		return false
 	(_effects(G)["extraBuild"] as Array).append(caster_id)

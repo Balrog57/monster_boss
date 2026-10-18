@@ -1791,12 +1791,21 @@ func _ai_measure_choice(rec: Dictionary) -> void:
 		if ApkAI.is_apk_ability_move(gp, m):
 			var ma: Array = (m as Dictionary)["args"]
 			var uc = (gp["hand"] as Array)[int(ma[0])] if str((m as Dictionary)["type"]) == "playSpell" else BossEngine.active_room((gp["dungeon"] as Array)[int(ma[0])])
-			# salle posee ce tour (DungeonSlot.PendingToBeBuilt) ou geree (IsActive faux) : hors DungeonActiveRooms
-			if not bool((uc as Dictionary).get("faceDown", false)) and not (str((m as Dictionary)["type"]) == "activateRoom" and BossEngine.is_room_deactivated(G, pid, int(ma[0]))):
-				u_g[int((uc as Dictionary).get("_oid", -1))] = str((uc as Dictionary).get("id", "?"))
+			u_g[int((uc as Dictionary).get("_oid", -1))] = str((uc as Dictionary).get("id", "?"))
 	var u_o := {}
 	for u in (rec["usable"] as Array):
 		u_o[int((u as Dictionary)["id"])] = str((u as Dictionary)["card"])
+	# Teleportation (ActiveHeroInDungeon : Hero.IsActiveHero) depend de la fenetre APK, que Godot fusionne (un humain n'a que la fusion) : si l'oracle est deja au joueur
+	# actif suivant (le notre n'a plus de heros : Godot a enchaine), ou dans AdventurePhase_c APRES la fin d'un heros (aucun heros actif) alors que Godot est deja
+	# dans la fenetre « heros suivant designe » (AdventurePhase_b APK), la carte n'est pas comparable : retiree des DEUX ensembles et comptee a part.
+	if stack.is_empty() and str(rec["phase"]) != "BuildPhase_a" and (
+			(rec.get("activePlayer") != null and int(rec["activePlayer"]) - 1 != run.active_player())
+			or (str(rec["phase"]) == "AdventurePhase_c" and bool(G.get("afterHero", false)) and (G.get("adventure", {}) as Dictionary).is_empty())):
+		for k in u_o.keys() + u_g.keys():
+			if (u_o.get(k, u_g.get(k)) as String) == "BMA053":
+				u_o.erase(k)
+				u_g.erase(k)
+				_ai_unavail("usableSet:BMA053:window")
 	var u_og: Array = u_o.keys()
 	u_og.sort()
 	var u_gg: Array = u_g.keys()

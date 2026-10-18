@@ -1212,6 +1212,12 @@ func _act_simple() -> void:
 			elif types.has("passBuild") or types.has("pass"):
 				board._on_pass_pressed()
 
+## Motivation (OpponnentDungeonSizeMoreThan(1)) n'est jouable que si un adversaire a au moins une salle de plus : on en pose deux chez le siege 1.
+func _foe_rooms(G: Dictionary) -> void:
+	var foe_dungeon: Array = (G["players"][1] as Dictionary)["dungeon"]
+	for i in 2:
+		foe_dungeon.append([(CardDB.rooms[i] as Dictionary).duplicate(true)])
+
 func _take_spell(id: String) -> int:
 	var G: Dictionary = gm.G
 	var deck: Array = G["decks"]["spells"]
@@ -1896,6 +1902,7 @@ func _check_drag_and_zoom() -> void:
 	G = gm.G
 	me = G["players"][0]
 	var mi := _take_spell("BMA050")
+	_foe_rooms(G)
 	board.refresh()
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -2646,6 +2653,7 @@ func _extra_checks() -> void:
 	_check(board.extra_bar.get_child_count() == 0 or not board.extra_bar.visible, "bouton non-APK visible en partie de base")
 	# 1) Sort sans cible : un clic sur la carte le joue (aucun bouton « Sort : ... »)
 	var idx := _take_spell("BMA050") # Motivation : phase de construction, sans cible
+	_foe_rooms(G)
 	if _check(idx >= 0, "BMA050 introuvable dans la pioche de sorts"):
 		var n_before := (me["hand"] as Array).size()
 		var legal := gm.legal_moves(0).filter(func(m): return m["type"] == "playSpell" and int(m["args"][0]) == idx)

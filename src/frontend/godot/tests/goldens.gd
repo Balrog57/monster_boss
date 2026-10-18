@@ -120,6 +120,13 @@ func _ready() -> void:
 	_t_apk_kill_effects_raise_no_death_trigger()
 	_t_apk_destroy_room_of_hero_at_entrance_slot_no_empty_step()
 	_t_apk_hero_added_to_passed_player_waits_next_turn()
+	_t_apk_jackpot_stash_build_phase_only()
+	_t_apk_teleportation_targets_active_hero()
+	_t_apk_motivation_needs_larger_opponent_dungeon()
+	_t_apk_zombie_attack_targets_dead_heroes_only()
+	_t_apk_another_room_target()
+	_t_apk_advanced_room_not_over_pending_slot()
+	_t_apk_pending_or_frozen_room_cannot_activate()
 
 	load("res://godot/tests/goldens_decks.gd").new().run(_ok, self) # paquets APK : PlayerChoice (KSA), HiddenHeros (BMH), ToolsHeroKind (THK)
 	load("res://godot/tests/goldens_tnl.gd").new().run(_ok, self) # extension The Next Level (TNL, hors APK)
@@ -443,7 +450,7 @@ func _ability_G(room_id: String, room_cards: Array = []) -> Dictionary:
 		"souls": [], "wounds": [], "entrance": [], "items": [], "eliminated": false, "buildsThisTurn": 0}
 	return {"players": {0: p, 1: {"id": 1, "dungeon": [], "hand": [], "souls": [], "wounds": [],
 		"entrance": [], "items": [], "eliminated": false}},
-		"town": [], "logs": [], "adventure": {},
+		"town": [], "logs": [], "adventure": {}, "phase": "build", # Jackpot Stash : DuringPhase(Build)
 		"effects": SpellEffects.empty_effects(),
 		"decks": {"rooms": [], "spells": [], "heroes": [], "roomDiscard": [], "spellDiscard": [], "heroDiscard": []}}
 
@@ -1429,6 +1436,7 @@ func _t_build_offturn_spell_window() -> void:
 	m.G["buildIndex"] = 0
 	m.G["activePlayer"] = 0
 	(m.G["players"][0] as Dictionary)["hand"] = []
+	((m.G["players"][0] as Dictionary)["dungeon"] as Array).append_array([[_room("T2", "trap", false, [1])], [_room("T3", "trap", false, [1])]]) # Motivation : le joueur 1 (2 salles) a moins de salles que le joueur 0 (3)
 	var p1: Dictionary = m.G["players"][1]
 	p1["isAI"] = false
 	p1["hand"] = [{"id": "BMA050", "name": "Motivation", "isSpell": true}, _room("InHand", "trap", false, [1])]
@@ -2163,3 +2171,114 @@ func _t_apk_hero_added_to_passed_player_waits_next_turn() -> void:
 	_ok(m.apply_move(1, {"type": "pass", "args": []}), "le dernier joueur passe")
 	_ok(int(m.G["turn"]) == 5 and (p0["entrance"] as Array).size() == 1, "fin de l'aventure : le heros reste a l'entree pour le tour suivant")
 	m.queue_free()
+
+
+## Legalite du moteur = Ability.CheckConditions de l'APK (mesure `usableSet`, tools/parity/README.md « Accord de l'IA »).
+## BMA030 Jackpot Stash : DuringPhase(Build) = BuildPhase_a seule (Conditions/DuringPhase.cs:19) ; ni en aventure, ni salle posee ce tour.
+func _t_apk_jackpot_stash_build_phase_only() -> void:
+	var G := _ability_G("BMA030")
+	G["phase"] = "adventure"
+	_ok(RoomAbilities.activate_room_ability(G, 0, 0) != null, "Jackpot Stash refuse en aventure")
+	G["phase"] = "build"
+	_ok(RoomAbilities.activate_room_ability(G, 0, 0) == null, "Jackpot Stash accepte en construction")
+	var m = _match_with_spell()
+	(m.G["players"][0] as Dictionary)["dungeon"] = [[_room("BMA030", "trap", false, [1])]]
+	_ok(_has_move(m, 0, "activateRoom"), "legal_moves : Jackpot Stash en construction")
+	m.G["phase"] = "adventure"
+	m.G["adventure"] = {}
+	m.G["activePlayer"] = 0
+	_ok(not _has_move(m, 0, "activateRoom"), "legal_moves : pas de Jackpot Stash en aventure")
+	m.queue_free()
+
+## BMA053 Teleportation = ActiveHeroInDungeon(Any, Owner) : le heros ACTIF (IsActiveHero) de la file d'entree du lanceur, pas n'importe quel heros de l'entree
+## (Targets/ActiveHeroInDungeon.cs:44). Avant sa designation (AdventurePhase_a) ou chez un autre joueur : aucune cible.
+func _t_apk_teleportation_targets_active_hero() -> void:
+	var m = _match_with_spell()
+	var p0: Dictionary = m.G["players"][0]
+	p0["hand"] = [{"id": "BMA053", "name": "Teleportation", "isSpell": true, "category": 1}]
+	p0["entrance"] = [{"id": "H1", "name": "H1", "hp": 4}, {"id": "H2", "name": "H2", "hp": 4}]
+	m.G["phase"] = "adventure"
+	m.G["adventure"] = {}
+	m.G["activePlayer"] = 0
+	var targets := func(): return m.legal_moves(0).filter(func(mv): return str((mv as Dictionary)["type"]) == "playSpell").map(func(mv): return ((mv as Dictionary)["args"] as Array)[1])
+	var t: Array = targets.call()
+	_ok(t.size() == 1 and str((t[0] as Dictionary)["heroId"]) == "H1", "fenetre pre-aventure du proprietaire : le premier heros de l'entree (un seul coup)")
+	m.G["activePlayer"] = 1
+	_ok(targets.call().is_empty(), "pre-aventure d'un autre joueur : pas de heros actif dans MA file")
+	m.G["adventure"] = {"playerId": 0, "hero": (p0["entrance"] as Array)[1], "roomIndex": 0, "hp": 3, "pause": null}
+	t = targets.call()
+	_ok(t.size() == 1 and str((t[0] as Dictionary)["heroId"]) == "H2", "heros en cours de traversee : lui seul, pas H1")
+	m.G["adventure"]["playerId"] = 1
+	_ok(targets.call().is_empty(), "le heros actif est dans le donjon d'un autre joueur : aucune cible")
+	m.queue_free()
+
+## BMA050 Motivation : OpponnentDungeonSizeMoreThan(1) (Conditions/OpponnentDungeonSizeMoreThan.cs) = un adversaire en vie a au moins 1 salle (Boss.DungeonSize,
+## hors salle en attente) de plus que le lanceur. Le C# la verifie a la legalite (Ability.CheckConditions), pas seulement a l'effet.
+func _t_apk_motivation_needs_larger_opponent_dungeon() -> void:
+	var m = _match_with_spell() # joueur 0 : 1 salle ; joueur 1 : 2 salles
+	_ok(_has_move(m, 0, "playSpell"), "Motivation legale : un adversaire a une salle de plus")
+	var foe: Dictionary = m.G["players"][1]
+	(foe["dungeon"] as Array).pop_back()
+	_ok(not _has_move(m, 0, "playSpell"), "Motivation illegale a egalite")
+	((foe["dungeon"] as Array)[0] as Array)[0]["faceDown"] = true # salle posee ce tour : hors DungeonSize
+	_ok(not _has_move(m, 0, "playSpell"), "la salle adverse en attente ne compte pas : DungeonSize 0")
+	(foe["dungeon"] as Array).insert(0, [_room("F3", "trap", false, [1])])
+	(foe["dungeon"] as Array).insert(0, [_room("F4", "trap", false, [1])])
+	_ok(_has_move(m, 0, "playSpell"), "deux salles visibles chez l'adversaire (la pending est au fond) : DungeonSize 3 contre 1")
+	m.queue_free()
+
+## BMA055 Zombie Attack = HeroInScorekeep(Opponent, Dead, Any) : SoulsHeroes seulement ; un heros blesse (WoundsHeroes) est « Alive »
+## (Targets/HeroInScorekeep.cs:50-57).
+func _t_apk_zombie_attack_targets_dead_heroes_only() -> void:
+	var G := _spell_state()
+	var foe: Dictionary = G["players"][1]
+	foe["wounds"] = [{"wounds": 1, "hero": {"id": "W", "name": "W"}}]
+	_ok(SpellTargeting.enumerate_targets("opponent-soul", G, G["players"][0], 0).is_empty(), "adversaire avec seulement des blessures : aucune cible")
+	_ok(SpellTargeting.get_spell_target_options("opponent-soul", G, G["players"][0], 0).is_empty(), "idem pour la liste de l'interface")
+	foe["souls"] = [{"souls": 1, "hero": {"id": "D", "name": "D"}}]
+	var t := SpellTargeting.enumerate_targets("opponent-soul", G, G["players"][0], 0)
+	_ok(t.size() == 1 and str((t[0] as Dictionary)["pile"]) == "souls", "un heros mort : une cible")
+
+## AnotherRoom (Targets/AnotherRoom.cs) : slots C# d'index < DungeonSize, actifs, autres que la salle. Le donjon Godot est range a l'envers
+## (index Godot 0 = dernier slot C#). Une salle en attente EN QUEUE (au-dela de DungeonSize) n'est pas ciblable ; en plein donjon elle l'est (Peek).
+func _t_apk_another_room_target() -> void:
+	var G := _ability_G("BMA032")
+	var dg: Array = (G["players"][0] as Dictionary)["dungeon"]
+	var pending := _room("PEND", "trap", false, [1])
+	pending["faceDown"] = true
+	dg.insert(0, [pending]) # queue du donjon C#, salle posee ce tour
+	dg.append([_room("X", "trap", false, [1])])
+	# [PEND, Crushinator, X]
+	_ok(RoomAbilities.activate_room_ability(G.duplicate(true), 0, 1, 0) != null, "salle en attente en queue : pas une cible de Crushinator")
+	_ok(RoomAbilities.activate_room_ability(G.duplicate(true), 0, 1, 2) == null, "salle ordinaire : cible valide")
+	_ok(RoomAbilities.activate_room_ability(G.duplicate(true), 0, 1, 1) != null, "la salle elle-meme n'est pas « une autre salle »")
+	(SpellEffects._effects(G)["deactivatedRooms"] as Array).append({"playerId": 0, "roomIndex": 2})
+	_ok(RoomAbilities.activate_room_ability(G.duplicate(true), 0, 1, 2) != null, "emplacement gele (IsActive faux) : pas une cible")
+	var G2 := _ability_G("BMA032")
+	var dg2: Array = (G2["players"][0] as Dictionary)["dungeon"]
+	dg2.append([_room("MID", "trap", false, [1])])
+	dg2.append([_room("X", "trap", false, [1])])
+	(dg2[1] as Array)[0]["faceDown"] = true
+	# [Crushinator, MID(en attente), X] : le slot en attente precede le dernier slot valide (index Godot 0), donc compte dans DungeonSize
+	_ok(RoomAbilities.activate_room_ability(G2.duplicate(true), 0, 0, 1) == null, "salle en attente en plein donjon : ciblable (Peek sans test de PendingToBeBuilt)")
+
+## DungeonSlot.CheckRoomCanBeBuilt (l.84) : jamais par-dessus un slot en attente (PendingToBeBuilt), ordinaire ou AVANCEE.
+func _t_apk_advanced_room_not_over_pending_slot() -> void:
+	var host := _room("H", "trap", false, [1])
+	var adv := _room("A", "trap", true, [1])
+	_ok(BossEngine.can_build_room(_player([[host]], [adv]), {}, 0, 0, 0), "avancee sur une salle visible : acceptee")
+	host["faceDown"] = true
+	_ok(not BossEngine.can_build_room(_player([[host]], [adv]), {}, 0, 0, 0), "avancee sur une salle posee ce tour : refusee")
+	_ok(not BossEngine.can_build_room(_player([[host]], [_room("O", "trap", false, [1])]), {}, 0, 0, 0), "ordinaire sur une salle posee ce tour : refusee")
+
+## GameBoard.PlayRoomAbility (GameBoard.cs:817) : « The room ability to be applied must be in the player dungeon » = Boss.DungeonActiveRooms
+## (Boss.cs:116 : slot actif et hors PendingToBeBuilt). Ni salle posee ce tour (face cachee), ni salle gelee (Freeze).
+func _t_apk_pending_or_frozen_room_cannot_activate() -> void:
+	var G := _ability_G("BMA009")
+	(G["decks"]["roomDiscard"] as Array).append(_room("D", "trap", false, [1]))
+	((G["players"][0] as Dictionary)["dungeon"] as Array)[0][0]["faceDown"] = true
+	_ok(RoomAbilities.activate_room_ability(G.duplicate(true), 0, 0) != null, "Dark Altar posee ce tour (face cachee) : refusee")
+	((G["players"][0] as Dictionary)["dungeon"] as Array)[0][0]["faceDown"] = false
+	_ok(RoomAbilities.activate_room_ability(G.duplicate(true), 0, 0) == null, "Dark Altar visible : acceptee")
+	(SpellEffects._effects(G)["deactivatedRooms"] as Array).append({"playerId": 0, "roomIndex": 0})
+	_ok(RoomAbilities.activate_room_ability(G.duplicate(true), 0, 0) != null, "Dark Altar gelee : refusee")

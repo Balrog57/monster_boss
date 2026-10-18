@@ -9,7 +9,7 @@
 3. ce script projette l'etat de l'oracle de la meme facon, compare aux points de
    controle (voir README.md) et ecrit <OUT>/report.json
 
-Le harnais ne corrige aucune regle : il rapporte. Code de sortie 1 si une trace n'est pas OK.
+Le harnais ne corrige aucune regle : il rapporte. Code de sortie 1 si une trace n'est pas OK (ou, avec --ai-agreement, si `usableSet` a un ecart).
 
 --ai-agreement (lot 1.2) : le rejeu Godot demande en plus a l'IA Godot (AI.gd) ce qu'elle jouerait sur le meme etat, a chaque decision de l'IA
 oracle, et compte l'accord par type de coup (report.json : `aiAgreement` global et par trace ; tableau console). Aucun effet sur le rejeu.
@@ -349,6 +349,9 @@ def print_ai(ag, traces):
     print(f"  mutations de l'etat Godot par les requetes IA : {ag['mutations']} (doit etre 0) ; requetes sans coup disponible : {ag['unavailable'] or 'aucune'}")
     worst = sorted((kv for kv in ag["by"].items() if not kv[0].startswith("passAlt") and kv[1]["n"] - kv[1]["agree"] > 0), key=lambda kv: kv[1]["agree"] - kv[1]["n"])[:12]
     print("  desaccords par sous-classe (type:carte|choix, desaccords/n) : " + "  ".join(f"{k}={v['n'] - v['agree']}/{v['n']}" for k, v in worst))
+    us = sorted(((k, v["n"]) for k, v in ag["by"].items() if k.startswith("usableSet-")), key=lambda kv: -kv[1])
+    print("  usableSet, ecarts par carte et par sens (godotOnly = coup legal chez Godot que l'APK interdit ; oracleOnly = l'inverse) : "
+          + ("  ".join(f"{k[len('usableSet-'):]}={n}" for k, n in us) or "aucun ecart"))
     alt = sorted(((k, v["n"]) for k, v in ag["by"].items() if k.startswith("passAlt")), key=lambda kv: -kv[1])
     print("  oracle ne joue rien mais Godot jouerait (site>coup) : " + ("  ".join(f"{k[8:]}={n}" for k, n in alt) or "aucun cas"))
     print("  par trace (accord / n tous types) : " + "  ".join(
@@ -445,7 +448,11 @@ def main():
     print(f"[apk-parity] rapport: {os.path.join(OUT, 'report.json')}")
     bad = [t["trace"] for t in traces if t["status"] != "OK"]
     print(f"APK PARITY RAPPORT: {len(traces) - len(bad)}/{len(traces)} traces OK" + (f" (hors OK: {', '.join(bad)})" if bad else ""))
-    return 1 if bad else 0
+    # Seuil d'echec de --ai-agreement : `usableSet` (legalite du moteur) est a 100 % depuis la passe « ecarts de legalite » ; tout ecart est un ecart de REGLE.
+    us = report["aiAgreement"]["types"]["usableSet"] if ai else None
+    if us and us["agree"] != us["n"]:
+        print(f"ECHEC usableSet: {us['n'] - us['agree']} ecart(s) de legalite sur {us['n']} (voir la ventilation par carte ci-dessus)")
+    return 1 if bad or (us and us["agree"] != us["n"]) else 0
 
 
 if __name__ == "__main__":
