@@ -1,3 +1,4 @@
+using DBMGameModel;
 using DBMGameModel.Logic;
 using DBMGameModel.Logic.Abilities;
 using DBMGameModel.Logic.Abilities.Targets;
@@ -69,15 +70,17 @@ sealed class TracingAI : AIPlayerInteraction
     protected override void InternalResolveTarget(BaseTargetProvider target, Action<IEnumerable<ILogicCard>> callback, bool canBeCanceled = true)
     {
         int s = Trace.Begin();
+        int draws0 = RandomProvider.NumberOfCallsToNext; // trace seulement : la cible vient-elle d'un Shuffle() (TriggerCalculator) ?
         base.InternalResolveTarget(target, r =>
         {
+            bool shuffled = RandomProvider.NumberOfCallsToNext != draws0; // lu AVANT callback(list) : les effets ulterieurs (melanges de pioche) ne comptent pas
             var list = r?.ToList();
             callback(list);
             Trace.Add(s, "decision", new
             {
                 decision = "resolveTarget", player = playerOwner.PlayerId, targetId = target.UniqueID, amount = target.TargetsAmount,
                 owner = (target.Ability?.AbilityOwner as LogicCardBase) is LogicCardBase o ? Trace.C(o) : null,
-                chosen = list?.Cast<LogicCardBase>().Select(Trace.C).ToArray(),
+                chosen = list?.Cast<LogicCardBase>().Select(Trace.C).ToArray(), shuffled,
             });
         }, canBeCanceled);
     }

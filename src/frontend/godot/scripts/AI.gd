@@ -8,7 +8,7 @@ extends RefCounted
 const BossEngine = preload("res://godot/scripts/BossEngine.gd")
 
 ## Decisions de construction / defausse / pioche (FixedAI de l'oracle) et sorts / capacites de salle (AbilityCalculator, StatisticAI.SelectAbilityToUse) :
-## voir ApkAI.gd. Ici : l'aiguillage, les cartes wiki (AiWiki) et les choix (TriggerCalculator, etape suivante du portage).
+## voir ApkAI.gd, qui porte aussi les CIBLES des declencheurs et des commandes (TriggerCalculator, choix ouverts par le moteur). Ici : l'aiguillage et les cartes wiki (AiWiki).
 
 ## Selectionne les 2 cartes de main a defausser lors de la phase de setup (FixedAI.DiscardCards, DiscardCalculator.cs).
 static func select_opening_discards(hand: Array, p: Dictionary, G: Dictionary) -> Array:
@@ -22,6 +22,21 @@ static var trace: Callable = Callable()
 ## Fenetre de decision deja utilisee : "<instance de partie>:<joueur>" -> cle de la derniere fenetre ou une capacite a ete tiree. L'IA de l'APK
 ## consulte ses capacites UNE fois par appel de DoPlayerActions (BuildPhase_a, fenetre d'aventure, repondant de Spell Battle), pas en boucle.
 static var _used: Dictionary = {}
+
+## `AIPlayerInteraction.abilitySelected` : la capacite que l'IA a tiree en dernier (entree de ApkAI.abilities, cibles preregles), par partie et par joueur. Les choix
+## ouverts ensuite par cette capacite (Dracolich Lair, Dark Altar...) lisent ces cibles (StatisticAI : GetSelectedTargets avant TriggerCalculator).
+static var _sel: Dictionary = {}
+## Liste calculee au premier choix d'une carte a plusieurs choix (Xyzax), par partie et par joueur.
+static var _memo: Dictionary = {}
+## Mesure seulement : la derniere reponse a un choix venait-elle d'un tirage (`Shuffle()`) ?
+static var last_choice_shuf := false
+
+static func _key(match_obj, pid: int) -> String:
+	return "%d:%d" % [match_obj.get_instance_id(), pid]
+
+## abilitySelected = l'entree tiree, ou null ({}) quand l'IA n'a rien tire. Appele aussi par le harnais de parite (qui rejoue l'oracle au lieu de tirer).
+static func remember(match_obj, pid: int, entry: Variant) -> void:
+	_sel[_key(match_obj, pid)] = entry if entry is Dictionary else {}
 
 static func _window_key(G: Dictionary) -> String:
 	var adv: Dictionary = G.get("adventure", {}) as Dictionary
@@ -51,6 +66,15 @@ static func pick_move(match_obj, pid: int, commit := true):
 				if trace.is_valid():
 					trace.call(match_obj, pid, moves, m)
 				return m
+	if str(pc.get("type", "")) != "" and str((moves[0] as Dictionary).get("type", "")) == "resolveChoice" and int(pc.get("playerId", -1)) == pid:
+		var ch: Variant = ApkAI.choose(match_obj.G, pid, pc, match_obj.rng, _sel.get(_key(match_obj, pid), {}), _memo.get_or_add(_key(match_obj, pid), {}))
+		if ch != null:
+			for m in moves:
+				if int((m as Dictionary)["args"][0]) == int((ch as Dictionary)["idx"]):
+					last_choice_shuf = bool((ch as Dictionary)["shuf"])
+					if trace.is_valid():
+						trace.call(match_obj, pid, moves, m)
+					return m
 	var builds: Array = []
 	var others: Array = []
 	var apk_abilities := false
@@ -74,10 +98,14 @@ static func pick_move(match_obj, pid: int, commit := true):
 		var win := _window_key(match_obj.G)
 		if str(_used.get(wkey, "")) != win:
 			var elig: Array = ApkAI.abilities(match_obj.G, pid, moves, match_obj.rng)
+			if commit:
+				remember(match_obj, pid, null)
 			if not elig.is_empty():
 				if commit:
 					_used[wkey] = win
 				var drawn: Dictionary = elig[match_obj.rng.randi_range(0, elig.size() - 1)]
+				if commit:
+					remember(match_obj, pid, drawn)
 				if drawn["move"] != null:
 					best = drawn["move"]
 	# AIPlayerInteraction.InternalDoPlayerActions : une capacite d'abord (UseAbility), PUIS la construction (BuildRoom) ; les deux ne se comparent jamais.
@@ -100,7 +128,7 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 	match mtype:
 		"resolveChoice", "resolveLevelUpChoice":
 			# Résolution immédiate des choix obligatoires ; l'option est départagée par _score_choice.
-			return 1000.0 + _score_choice(G, p, pid, int(args[0]) if not args.is_empty() else -1)
+			return 1000.0 + _score_choice(G, p, pid, int(args[0]) if not args.is_empty() else -1, _sel.get(_key(match_obj, pid), {}))
 
 		"pickBoss":
 			var bid := str(args[0]) if not args.is_empty() else ""
@@ -174,51 +202,26 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 		return Minibosses.score_move(G, p, pid, mtype, args)
 	return 0.0
 
-## Départage les options d'un pendingChoice (TriggerCalculator.cs : CheckBMA001/004/005/007/022).
-## Les parties aléatoires du C# (Shuffle) deviennent "la première option" : le moteur reste déterministe.
-static func _score_choice(G: Dictionary, p: Dictionary, pid: int, idx: int) -> float:
+## Note les options d'un pendingChoice. Les choix de l'APK (TriggerCalculator, cibles de capacites) viennent de ApkAI.choose (pick_move l'appelle directement avec le
+## RNG de la partie ; ici un RNG fixe, pour comparer deux options sans tirer). Reste : les choix des cartes wiki (heuristiques maison).
+static func _score_choice(G: Dictionary, p: Dictionary, pid: int, idx: int, sel: Dictionary = {}) -> float:
 	var pc: Dictionary = G.get("pendingChoice", {})
 	var opts: Array = pc.get("options", [])
+	var scratch := RandomNumberGenerator.new()
+	scratch.seed = 1
+	var apk: Variant = ApkAI.choose(G, pid, pc, scratch, sel, {})
+	if apk != null:
+		return 100.0 if int((apk as Dictionary)["idx"]) == idx else 0.0
 	if idx < 0 or idx >= opts.size():
 		return -1.0 # "passer" : dernier recours
 	var o: Dictionary = opts[idx]
 	var card: Dictionary = o.get("card", {}) as Dictionary
-	var turn := int(G.get("turn", 0))
-	var phase_str := "early" if turn <= 1 else ("mid" if turn <= 4 else "late")
 	match str(pc.get("type", "")):
-		"discard-spell": # SelectSpellToDiscard : BMA048/BMA049 d'abord
-			return 100.0 if str(card.get("id", "")) in ["BMA048", "BMA049"] else 0.0
-		"pick-opponent": # CheckBMA012 (Succubus Spa) : l'adversaire au meilleur score (ames - blessures) qui a des cartes, puis le plus de sorts
-			if str(pc.get("action", "")) != "steal-random":
-				return 0.0
-			var vic: Dictionary = (G.get("players", {}) as Dictionary).get(int(o.get("targetPlayerId", -1)), {}) as Dictionary
-			if (vic.get("hand", []) as Array).is_empty():
-				return 0.0
-			return 1000.0 + float(CardDB.total_souls(vic, G) - CardDB.total_wounds(vic)) * 10.0 + float(_spells_in_hand(vic))
-		"steal-card": # CheckBMA001 : un sort de l'adversaire au meilleur score, sinon sa meilleure salle
-			var opp: Dictionary = (G.get("players", {}) as Dictionary).get(int(o.get("fromPid", -1)), {}) as Dictionary
-			var opp_rank := float(CardDB.total_souls(opp, G)) * 10.0 + float(_spells_in_hand(opp))
-			if bool(card.get("isSpell", false)):
-				return 100000.0 + opp_rank
-			return opp_rank + _calculate_room_value(card, p, G, phase_str) / 1000.0
 		"draw-type": # DrawCalculator.CalculateDeckDrawValue : P(pioche salle) ; pick_move tire au sort (rng <= p), ici la probabilite
 			var p_room := ApkAI.draw_room_probability(G, p, pid)
 			return p_room if str(o.get("pile", "")) == "rooms" else 1.0 - p_room
-		"heal-wound": # CheckBMA014 : on retourne le heros qui rapporte le plus d'ames
+		"heal-wound": # CRL031 Healing Tank (hors APK) : on retourne le heros qui rapporte le plus d'ames
 			return float(BossEngine.hero_souls(card))
-		"destroy-room": # CheckBMA004 : salle avancée d'abord, la moins précieuse
-			var tp: Dictionary = (G.get("players", {}) as Dictionary).get(int(o.get("targetPlayerId", pid)), {}) as Dictionary
-			return (1000.0 if bool(card.get("advanced", false)) else 0.0) - _calculate_room_value(card, tp, G, phase_str)
-		"search-advanced": # CheckBMA003/007 : salle constructible (trésor commun), la plus précieuse
-			var fits := false
-			for stack in (p.get("dungeon", []) as Array):
-				var r = BossEngine.active_room(stack)
-				if r == null:
-					continue
-				for t in card.get("treasures", []):
-					if ((r as Dictionary).get("treasures", []) as Array).has(t):
-						fits = true
-			return (1000.0 if fits else 0.0) + _calculate_room_value(card, p, G, phase_str)
 		"omega-discard": # CRL012 The Omega 42 : l'avancee qui ne se construit nulle part d'abord, sinon la moins precieuse
 			var hi := int(o.get("handIndex", -1))
 			var fits := false
@@ -230,17 +233,6 @@ static func _score_choice(G: Dictionary, p: Dictionary, pid: int, idx: int) -> f
 		"tnl-pick": # The Next Level : chaque option porte son poids (`ai`) ; defausser / detruire = le moins precieux d'abord
 			return float(o.get("ai", 0.0))
 	return 0.0
-
-static func _spells_in_hand(p: Dictionary) -> int:
-	var n := 0
-	for c in (p.get("hand", []) as Array):
-		if bool((c as Dictionary).get("isSpell", false)):
-			n += 1
-	return n
-
-## Valeur de base d'une salle (RoomCalculator.CalculateRoomValue), pour les choix de cartes de TriggerCalculator.
-static func _calculate_room_value(room: Dictionary, _p: Dictionary, _G: Dictionary, phase_str: String) -> float:
-	return ApkAI.base_value(room, phase_str)
 
 ## Scoring des sorts wiki (les sorts de l'APK passent par ApkAI.abilities : AbilityCalculator.cs).
 static func _score_spell(spell: Dictionary, target: Dictionary, p: Dictionary, G: Dictionary, pid: int) -> float:

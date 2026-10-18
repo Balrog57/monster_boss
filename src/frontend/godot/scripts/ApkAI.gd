@@ -2,9 +2,10 @@ class_name ApkAI
 extends RefCounted
 ## Decisions de l'IA de l'APK (FixedAI, celle de l'oracle) portees fonction par fonction :
 ##  - etape 1 (DETERMINISTE) : valeur de salle, choix de la salle, de l'emplacement, abstention, defausse d'ouverture, probabilite de pioche (Haunted Library) ;
-##  - etape 2 (tirage uniforme, voir « Etape 2 » en bas de fichier) : sorts et capacites de salle eligibles (AbilityCalculator, un CheckXXX par carte) et leurs cibles.
+##  - etape 2 (tirage uniforme, voir « Etape 2 » en bas de fichier) : sorts et capacites de salle eligibles (AbilityCalculator, un CheckXXX par carte) et leurs cibles ;
+##  - etape 3 (voir « Etape 3 » en bas de fichier) : cibles des declencheurs et des commandes (TriggerCalculator, un CheckXXX par carte) = reponse de l'IA aux choix ouverts par le moteur.
 ## Sources (apk-original/decompiled/DBMGame/) : DBMGameProject.AI/{FixedAI,StatisticAI,AIHelper}.cs et
-## DBMGameProject.AI.Statistics/{StatisticsCalculator,RoomCalculator,DungeonSlotCalculator,DiscardCalculator,DrawCalculator,AbilityCalculator}.cs.
+## DBMGameProject.AI.Statistics/{StatisticsCalculator,RoomCalculator,DungeonSlotCalculator,DiscardCalculator,DrawCalculator,AbilityCalculator,TriggerCalculator}.cs.
 ##
 ## Indices : le C# range le donjon du plus ANCIEN (index 0, au fond) au plus recent (DungeonSize-1) ; Godot fait `push_front`
 ## (index 0 = la plus recente). `c` = index C#, `g` = index Godot, c = taille - 1 - g ; un « nouvel emplacement » a c = taille.
@@ -1393,3 +1394,398 @@ static func abilities(G: Dictionary, pid: int, moves: Array, rng: RandomNumberGe
 			mv = (spell_mv[hi] as Array)[0]
 		out.append({"kind": "spell", "idx": hi, "card": card, "t": r["t"], "move": mv, "shuf": bool(r["shuf"])})
 	return out
+
+# ======================================================================================================================
+# Etape 3 : CIBLES de declencheurs et de commandes. Sources (apk-original/decompiled/DBMGame/) :
+#  - DBMGameProject.AI.Statistics/TriggerCalculator.cs : switch par carte (l.50-141, `default` = liste VIDE : l'IA ne designe rien) ;
+#  - DBMGameProject.AI/StatisticAI.cs l.72-98 (SelectTriggerTargets / SelectCommandTargets) + StatisticsCalculator.cs l.90-111 : un fournisseur SIMPLE
+#    (SingleTargetProvider) dont le nombre de cibles <= TargetsAmount est pris tel quel (le moteur Godot l'auto-resout) ; les fournisseurs COMPOSES
+#    (CardInHand, RoomInHand, SpellInHand, RoomInDungeon, HeroInScorekeep) passent par TriggerCalculator ;
+#  - DBMGameProject.Services.PlayerInteraction/AIPlayerInteraction.cs l.45-74 : une capacite que l'IA vient de tirer (`abilitySelected`) fournit
+#    ses cibles preregles (AbilityCalculator, etape 2) ; seules les autres cibles passent par TriggerCalculator.
+# Les niveaux de boss (LevelUpAbility) suivent le meme chemin. FixedAI.SelectTriggerTargets deleguait a StatisticAI (aucun tri propre).
+# Ecarts ASSUMES (bogues du C#, pas des regles) : le cache `resolvingCard` / `selectedTargets` (l.22-27, l.40-45, l.143-149) rend des cibles PERIMEES (liste d'une autre
+# carte ou deja consommee : Mimic Vault et Open Grave 2e fois, tout CheckXXX qui ne remet pas `resolvingCard` a null) -> chaque choix est calcule a neuf ;
+# Succubus Spa (CheckBMA012) renvoie `player` pour le fournisseur BossOpponent (l'ordre des listes est inverse) -> on prend l'adversaire que la carte designe.
+# Copies fideles de choix legaux mais etranges : Open Grave recupere d'abord une salle NON batissable (orderby sur un booleen), Kaw'nee prend le heros de
+# plus de PV de base (CalculateHeroValuetoSteal : `Intersect` n'est jamais nul), Xyzax peut viser deux fois la meme salle.
+# Tirages (`Shuffle()`, WaveServices.Random) : le RNG de la partie Godot ; ils sont signales (`shuf`) pour que la mesure les compte a part.
+# BMA033 Centipede Tunnel (CheckBMA033) n'est pas porte : la carte n'est jamais distribuee (CardInfoService.notInGameCards), aucun choix ne peut s'ouvrir.
+# ======================================================================================================================
+
+## Cartes dont l'IA a tire la capacite (etape 2) : le choix suivant de la meme carte lit les cibles preregles (`sel`, voir AI.remember).
+const TR_ACTIVATED := {"Dracolich Lair": "BMA013", "Dark Altar": "BMA009", "Witch's Kitchen": "BMA024", "All-Seeing Eye": "BMA025",
+	"Torture Chamber": "BMA038", "Zombie Prison": "BMA039"}
+
+## Reponse de l'IA a un choix en attente : {"idx": indice de l'option (-1 = ne rien designer), "shuf": la cible vient d'un tirage} ou null
+## (carte hors APK, cible introuvable parmi les options : l'appelant garde son ancien comportement).
+## `sel` = entree de ApkAI.abilities que l'IA a tiree (cibles preregles), `memo` = liste calculee au premier choix d'une carte a deux choix (Xyzax).
+static func choose(G: Dictionary, pid: int, pc: Dictionary, rng: RandomNumberGenerator, sel: Dictionary = {}, memo: Dictionary = {}) -> Variant:
+	var opts: Array = pc.get("options", [])
+	if opts.is_empty() or not (G["players"] as Dictionary).has(pid):
+		return null
+	var x := _ctx(G, pid, [], rng)
+	var name := str(pc.get("bossName", ""))
+	if TR_ACTIVATED.has(name):
+		return _tr_activated(x, pc, opts, sel, name)
+	match name:
+		"Draculord": return _tr_001(x, opts)
+		"Xyzax": return _tr_002(x, pc, opts, memo)
+		"King Croak", "Cleopatra": return _tr_003_007(x, opts)
+		"Robobo": return _tr_004(x, opts)
+		"Cerebellus", "Dark Laboratory": return _tr_005_022(x, opts)
+		"Seducia": return _tr_006(x, opts)
+		"Gorgona": return _tr_008(x, opts)
+		"Open Grave": return _tr_010(x, opts)
+		"Specter's Sanctum": return _tr_011_012(x, opts, false)
+		"Succubus Spa": return _tr_011_012(x, opts, true)
+		"Vampire Bordello": return _tr_014(x, opts)
+		"Mimic Vault": return _tr_036(x, opts)
+		"Monstrous Monument": return _tr_037(x, opts)
+		"Hellcow": return _tr_ksa002(x, pc, opts)
+		"The Brothers Wise": return _tr_ksa003(x, opts)
+		"Kaw'nee": return _tr_ksa004(opts)
+	return null
+
+# --- outils ----------------------------------------------------------------------------------------------------------------
+
+## Meme carte : meme objet, ou meme instance du harnais (`_oid`).
+static func _same(a: Variant, b: Variant) -> bool:
+	if a == null or b == null:
+		return false
+	if is_same(a, b):
+		return true
+	return a is Dictionary and b is Dictionary and (a as Dictionary).has("_oid") and (b as Dictionary).has("_oid") and int((a as Dictionary)["_oid"]) == int((b as Dictionary)["_oid"])
+
+static func _opt_of(opts: Array, card: Variant, key := "card") -> int:
+	for i in opts.size():
+		if _same((opts[i] as Dictionary).get(key), card):
+			return i
+	return -1
+
+static func _out(idx: int, shuf := false) -> Dictionary:
+	return {"idx": idx, "shuf": shuf}
+
+## Reponse pour la carte `card` (null = le C# ne designe rien : abstention) ; null si la carte n'est pas parmi les options.
+static func _pick_card(opts: Array, card: Variant, shuf := false) -> Variant:
+	if card == null:
+		return _out(-1, shuf)
+	var i := _opt_of(opts, card)
+	return _out(i, shuf) if i >= 0 else null
+
+## Premier element de `list` qui est une option (une carte deja prise n'en est plus une).
+static func _pick_first(opts: Array, list: Array, shuf := false) -> Variant:
+	for c in list:
+		var i := _opt_of(opts, c)
+		if i >= 0:
+			return _out(i, shuf)
+	return null
+
+## Cartes des options (cle `card`).
+static func _opt_cards(opts: Array) -> Array:
+	return opts.map(func(o): return (o as Dictionary)["card"])
+
+## Enumerable.Shuffle() (RandomProvider.cs:43-62) : Fisher-Yates paresseux depuis la fin, `k` elements pris ; aucun tirage si la liste n'en a qu'un.
+static func _shuffle_take(x: Dictionary, arr: Array, k: int) -> Array:
+	var a := arr.duplicate()
+	var out: Array = []
+	var i := a.size() - 1
+	while i > 0 and out.size() < k:
+		var j := (x["rng"] as RandomNumberGenerator).randi_range(0, i)
+		var t = a[i]
+		a[i] = a[j]
+		a[j] = t
+		out.append(a[i])
+		i -= 1
+	if out.size() < k and not a.is_empty() and i == 0:
+		out.append(a[0])
+	return out
+
+## Cartes de la main d'un joueur : sorts (`spell`) ou salles.
+static func _hand_cards(q: Dictionary, spell: bool) -> Array:
+	return (q.get("hand", []) as Array).filter(func(c): return bool((c as Dictionary).get("isSpell", false)) == spell)
+
+static func _score(G: Dictionary, q: int) -> int:
+	return CardDB.total_souls(G["players"][q], G) - CardDB.total_wounds(G["players"][q])
+
+## Adversaires avec des sorts (`spells_only`) ou des cartes en main, `orderby Score descending, SpellsInHand.Count descending` (tri stable).
+static func _opps_by_score(x: Dictionary, spells_only: bool) -> Array:
+	var G: Dictionary = x["G"]
+	var cand: Array = opponents(G, int(x["pid"])).filter(func(q):
+		var h: Dictionary = G["players"][int(q)]
+		return (_hand_spells(h) > 0) if spells_only else ((h.get("hand", []) as Array).size() > 0))
+	return _stable(cand, func(q): return [-_score(G, int(q)), -_hand_spells(G["players"][int(q)])])
+
+## `OrderByDescending(CalculateValue(checkModifiers: false))` ; egalite -> ordre d'origine (puis rang d'instance pour la defausse).
+static func _by_value_desc(x: Dictionary, rooms: Array) -> Array:
+	return _stable(rooms, func(r): return [-_val0(x, r), _discard_rank(r)])
+
+static func _buildable(x: Dictionary, rooms: Array) -> Array:
+	return rooms.filter(func(r): return _can_build_card(x["G"], x["p"], int(x["pid"]), r))
+
+## Rang d'une option dans l'ordre du C# : la ville puis les pioches de heros, les pioches de cartes puis les defausses. Godot range chaque pioche sommet en DERNIER
+## (draw = pop_back) alors que le C# enumere DeckHeroes / DeckRooms / DeckSpells du sommet vers le fond : on inverse les pioches ; les defausses gardent leur ordre.
+static func _cs_rank(o: Dictionary) -> Array:
+	if str(o.get("source", "")) == "town":
+		return [0, int(o.get("townIndex", 0))]
+	if str(o.get("source", "")) == "deck":
+		return [1 if str(o.get("pile", "heroes")) == "heroes" else 2, -int(o.get("deckIndex", 0))]
+	if str(o.get("pile", "")) == "deck":
+		return [0, -int(o.get("pileIndex", 0))]
+	return [1, int(o.get("pileIndex", 0))]
+
+## Indices de `opts` dans l'ordre du C# (voir _cs_rank).
+static func _cs_order(opts: Array) -> Array:
+	return _stable(range(opts.size()), func(i): return _cs_rank(opts[int(i)]))
+
+## Indice (parmi `opts`) du premier element dans l'ordre de tri `keyf(option)`.
+static func _best_opt(opts: Array, keyf: Callable) -> int:
+	return int(_stable(_cs_order(opts), func(i): return keyf.call(opts[int(i)]))[0])
+
+# --- TriggerCalculator.cs : une fonction par carte ----------------------------------------------------------------------------
+
+## CheckBMA001 Draculord (l.354-396) : l'adversaire au meilleur score (puis le plus de sorts) qui a une carte ; un de ses sorts AU HASARD, sinon sa salle batissable
+## de plus grande valeur, sinon sa salle de plus grande valeur.
+static func _tr_001(x: Dictionary, opts: Array) -> Variant:
+	var G: Dictionary = x["G"]
+	var ord := _opps_by_score(x, false)
+	var pick = null
+	var shuf := false
+	for q in ord:
+		var sp := _hand_cards(G["players"][int(q)], true)
+		shuf = shuf or sp.size() >= 2
+		var t := _shuffle_take(x, sp, 1)
+		if not t.is_empty():
+			pick = t[0]
+			break
+	if pick == null:
+		for q in ord:
+			var rooms := _hand_cards(G["players"][int(q)], false)
+			var best := _by_value_desc(x, _buildable(x, rooms))
+			if best.is_empty():
+				best = _by_value_desc(x, rooms)
+			if not best.is_empty():
+				pick = best[0]
+				break
+	return _pick_card(opts, pick, shuf)
+
+## CheckBMA002 Xyzax (l.398-416) : 2 sorts de la defausse au hasard, sinon (ou en complement) ses salles batissables par valeur, sinon ses salles par valeur (la meme
+## salle peut revenir deux fois). Godot ouvre un choix par carte : la liste est calculee au premier et reprise au second (`memo`).
+static func _tr_002(x: Dictionary, pc: Dictionary, opts: Array, memo: Dictionary) -> Variant:
+	var G: Dictionary = x["G"]
+	var decks: Dictionary = G.get("decks", {})
+	var list: Array
+	var shuf := false
+	if int(pc.get("remaining", 1)) < 2 and memo.has("Xyzax"):
+		list = memo["Xyzax"]["list"]
+		shuf = bool(memo["Xyzax"]["shuf"])
+	else:
+		var spells: Array = decks.get("spellDiscard", [])
+		var rooms: Array = decks.get("roomDiscard", [])
+		shuf = spells.size() >= 2
+		list = _shuffle_take(x, spells, 2)
+		if list.size() < 2:
+			list.append_array(_by_value_desc(x, _buildable(x, rooms)).slice(0, 2 - list.size()))
+		if list.size() < 2:
+			list.append_array(_by_value_desc(x, rooms).slice(0, 2 - list.size()))
+		memo["Xyzax"] = {"list": list, "shuf": shuf}
+	return _pick_first(opts, list, shuf)
+
+## CheckBMA003 King Croak / CheckBMA007 Cleopatra (l.418-435, 478-495) : parmi les salles avancees du type (pioche et defausse), celles que l'on peut batir ;
+## la plus precieuse. Aucune batissable : le C# ne designe rien.
+static func _tr_003_007(x: Dictionary, opts: Array) -> Variant:
+	var cand := _cs_order(opts).filter(func(i): return not _buildable(x, [(opts[int(i)] as Dictionary)["card"]]).is_empty())
+	var best := _stable(cand, func(i): return [-_val0(x, (opts[int(i)] as Dictionary)["card"])])
+	return _out(int(best[0])) if not best.is_empty() else _out(-1)
+
+## CheckBMA004 Robobo (l.437-449) : `player` = l'adversaire qui detruit : sa salle avancee d'abord, la moins precieuse (DungeonActiveRooms, ordre du fond a l'entree).
+static func _tr_004(x: Dictionary, opts: Array) -> Variant:
+	var slots := _active_slots(x)
+	if slots.is_empty():
+		return _out(-1)
+	var best: Dictionary = _stable(slots, func(s): return [0 if bool((s["top"] as Dictionary).get("advanced", false)) else 1, _val0(x, s["top"])])[0]
+	for i in opts.size():
+		var o: Dictionary = opts[i]
+		if int(o.get("targetPlayerId", -1)) == int(x["pid"]) and int(o.get("roomIndex", -1)) == int(best["g"]):
+			return _out(i)
+	return null
+
+## SelectSpellToDiscard (l.638-646) : Jeopardy / Kobold Strike d'abord, sinon un sort au hasard.
+static func _select_spell_to_discard(x: Dictionary) -> Dictionary:
+	var sp := _hand_cards(x["p"], true)
+	for c in sp:
+		if ["BMA048", "BMA049"].has(str((c as Dictionary).get("id", ""))):
+			return {"card": c, "shuf": false}
+	var t := _shuffle_take(x, sp, 1)
+	return {"card": t[0] if not t.is_empty() else null, "shuf": sp.size() >= 2}
+
+## CheckBMA005 Cerebellus (l.451-457) / CheckBMA022 Dark Laboratory (l.219-225) : SelectSpellToDiscard.
+static func _tr_005_022(x: Dictionary, opts: Array) -> Variant:
+	var d := _select_spell_to_discard(x)
+	return _pick_card(opts, d["card"], bool(d["shuf"]))
+
+## CheckBMA006 Seducia (l.459-476) : heros de la ville puis de la pioche dont les PV sont <= aux degats de notre donjon, le plus d'ames ; sinon rien (facultatif).
+static func _tr_006(x: Dictionary, opts: Array) -> Variant:
+	var G: Dictionary = x["G"]
+	var dmg := dungeon_damage(G, x["p"], int(x["pid"]))
+	var cand: Array = _cs_order(opts).filter(func(i): return hero_health(G, (opts[int(i)] as Dictionary)["card"]) <= dmg)
+	if cand.is_empty():
+		return _out(-1)
+	return _out(int(_stable(cand, func(i): return [-BossEngine.hero_souls((opts[int(i)] as Dictionary)["card"])])[0]))
+
+## CheckBMA008 Gorgona (l.497-513) : `orderby Souls descending orderby CurrentHealth - damage descending` : PV restants apres NOTRE donjon, le plus haut ; a egalite, le plus d'ames.
+static func _tr_008(x: Dictionary, opts: Array) -> Variant:
+	var G: Dictionary = x["G"]
+	var dmg := dungeon_damage(G, x["p"], int(x["pid"]))
+	return _out(_best_opt(opts, func(o): return [-(hero_health(G, (o as Dictionary)["card"]) - dmg), -BossEngine.hero_souls((o as Dictionary)["card"])]))
+
+## CheckBMA010 Open Grave (l.151-162) : `orderby CanBuildRoom, value descending` : une salle NON batissable d'abord (False < True), puis la plus precieuse.
+static func _tr_010(x: Dictionary, opts: Array) -> Variant:
+	var G: Dictionary = x["G"]
+	return _out(_best_opt(opts, func(o):
+		var r: Dictionary = (o as Dictionary)["card"]
+		return [1 if _can_build_card(G, x["p"], int(x["pid"]), r) else 0, -_val0(x, r), _discard_rank(r)]))
+
+## CheckBMA011 Specter's Sanctum (l.164-182) : l'adversaire avec des sorts au meilleur score (puis le plus de sorts), sinon le premier adversaire.
+## CheckBMA012 Succubus Spa (l.184-201, `spa`) : idem avec des cartes quelconques (l'APK renvoie ici `player` pour BossOpponent : voir l'en-tete).
+static func _tr_011_012(x: Dictionary, opts: Array, spa: bool) -> Variant:
+	var ord := _opps_by_score(x, not spa)
+	var opps := opponents(x["G"], int(x["pid"]))
+	var who := int(ord[0]) if not ord.is_empty() else (int(opps[0]) if not opps.is_empty() else -1)
+	for i in opts.size():
+		if int((opts[i] as Dictionary).get("targetPlayerId", -2)) == who:
+			return _out(i)
+	return null
+
+## CheckBMA014 Vampire Bordello (l.319-328) : le heros de nos blessures qui rapporte le plus d'ames.
+static func _tr_014(x: Dictionary, opts: Array) -> Variant:
+	if CardDB.total_wounds(x["p"]) <= 0:
+		return _out(-1)
+	return _out(_best_opt(opts, func(o): return [-BossEngine.hero_souls((o as Dictionary)["card"])]))
+
+## CheckBMA036 Mimic Vault (l.290-303) : le premier heros ordinaire de la ville que l'IA n'attire pas seule et que NOTRE donjon tue ; sinon rien.
+static func _tr_036(x: Dictionary, opts: Array) -> Variant:
+	var G: Dictionary = x["G"]
+	var dmg := dungeon_damage(G, x["p"], int(x["pid"]))
+	for i in _cs_order(opts):
+		var h: Dictionary = (opts[int(i)] as Dictionary)["card"]
+		if not bool(h.get("epic", false)) and int(_who_would_bait(G, h)[0]) != int(x["pid"]) and hero_health(G, h) <= dmg:
+			return _out(int(i))
+	return _out(-1)
+
+## CheckBMA037 Monstrous Monument (l.305-317) : la salle Monster de la defausse de plus grande valeur.
+static func _tr_037(x: Dictionary, opts: Array) -> Variant:
+	var best := _by_value_desc(x, _opt_cards(opts))
+	return _pick_card(opts, best[0] if not best.is_empty() else null)
+
+## CheclKSA003 The Brothers Wise (l.575-588) : le sort de la pioche de plus grande valeur (CalculateSpellValue, AbilityCalculator.cs:954-972 : KSA013 > BMA051 > BMA043 >
+## BMA046 > BMA045, les autres valent 1 / Random.Next(1, 100), un tirage chacun).
+static func _tr_ksa003(x: Dictionary, opts: Array) -> Variant:
+	var order := ["KSA013", "BMA051", "BMA043", "BMA046", "BMA045"]
+	var idx := -1
+	var top := -1.0
+	var shuf := false
+	for i in _cs_order(opts):
+		var at := order.find(str(((opts[int(i)] as Dictionary)["card"] as Dictionary).get("id", "")))
+		var v := float(order.size() - at) if at >= 0 else 1.0 / float((x["rng"] as RandomNumberGenerator).randi_range(1, 99))
+		shuf = shuf or at < 0
+		if v > top:
+			top = v
+			idx = int(i)
+	return _out(idx, shuf)
+
+## CheclKSA004 Kaw'nee (l.590-607) : le heros mort (adversaires) de plus de PV de base (CalculateHeroValuetoSteal = InitialHealth - 40 : `Intersect` n'est jamais nul).
+static func _tr_ksa004(opts: Array) -> Variant:
+	return _out(_best_opt(opts, func(o): return [-BossEngine.hero_base_hp((o as Dictionary)["card"] as Dictionary)]))
+
+## CheclKSA002 Hellcow (l.515-573) : le donjon de l'adversaire au meilleur score ; ordre voulu des salles (BMA014 d'abord ; les pieges ordinaires, BMA015 inseree apres le
+## premier d'entre eux ; Dizzygas apres les pieges ; le reste dans l'ordre). Godot ouvre un choix par salle, du fond a l'entree.
+static func _tr_ksa002(x: Dictionary, pc: Dictionary, opts: Array) -> Variant:
+	var G: Dictionary = x["G"]
+	if str(pc.get("step", "")) == "dungeon":
+		var best := _stable(opponents(G, int(x["pid"])), func(q): return [-_score(G, int(q))])
+		var who := int(best[0]) if not best.is_empty() else -1
+		for i in opts.size():
+			if int((opts[i] as Dictionary).get("targetPlayerId", -2)) == who:
+				return _out(i)
+		return null
+	var tops: Array = []
+	for s in _view(G["players"][int(pc.get("targetPlayerId", -1))]):
+		if (s as Dictionary)["top"] != null:
+			tops.append(s["top"])
+	var want: Array = []
+	var gob = null
+	var diz = null
+	var bordello = null
+	var traps: Array = []
+	for r in tops:
+		var id := str((r as Dictionary).get("id", ""))
+		if id == "BMA014" and bordello == null:
+			bordello = r
+		elif id == "BMA015" and gob == null:
+			gob = r
+		elif id == "BMA029" and diz == null:
+			diz = r
+		if str((r as Dictionary).get("type", "")) == "trap" and id != "BMA029":
+			traps.append(r)
+	if bordello != null:
+		want.append(bordello)
+	if gob != null:
+		if not traps.is_empty():
+			want.append(traps[0])
+		want.append(gob)
+		want.append_array(traps.slice(1))
+	else:
+		want.append_array(traps)
+	if diz != null:
+		want.append(diz)
+	for r in tops:
+		if not want.any(func(w): return is_same(w, r)):
+			want.append(r)
+	return _pick_first(opts, want)
+
+# --- capacites que l'IA vient de tirer : cibles preregles (AbilitySelectedInformation.GetSelectedTargets) ----------------------------
+
+static func _t_cards(sel: Dictionary, effect: int, provider: int) -> Array:
+	for e in (sel.get("t", []) as Array):
+		if int((e as Array)[0]) == effect and int((e as Array)[1]) == provider:
+			return (e as Array)[2]
+	return []
+
+static func _pid_of_boss(G: Dictionary, boss: Variant) -> int:
+	for q in (G["players"] as Dictionary):
+		if is_same((G["players"][q] as Dictionary).get("boss"), boss):
+			return int(q)
+	return -1
+
+## Choix ouvert par une capacite de salle tiree par l'IA : on lit les cibles de CheckBMA009 / 013 / 024 / 025 / 038 / 039 (`sel`).
+static func _tr_activated(x: Dictionary, pc: Dictionary, opts: Array, sel: Dictionary, name: String) -> Variant:
+	if sel.is_empty() or str((sel.get("card", {}) as Dictionary).get("id", "")) != str(TR_ACTIVATED[name]):
+		return null
+	var shuf := bool(sel.get("shuf", false))
+	match name:
+		"Dracolich Lair": # les 2 salles a defausser (effet 0), puis la salle de la defausse (effet 1)
+			if str(pc.get("type", "")) != "dracolich-discard":
+				return _pick_first(opts, _t_cards(sel, 1, 0), shuf)
+			var want := _t_cards(sel, 0, 0)
+			var hand: Array = x["p"].get("hand", [])
+			for i in opts.size():
+				var pair: Array = []
+				for hi in ((opts[i] as Dictionary).get("handIndices", []) as Array):
+					if int(hi) >= 0 and int(hi) < hand.size():
+						pair.append(hand[int(hi)])
+				if pair.size() == want.size() and want.all(func(w): return pair.any(func(c): return _same(c, w))):
+					return _out(i, shuf)
+		"Dark Altar": # la carte de la defausse (effet 1)
+			return _pick_first(opts, _t_cards(sel, 1, 0), shuf)
+		"Witch's Kitchen", "All-Seeing Eye": # la carte de la main a defausser
+			return _pick_first(opts, _t_cards(sel, 0, 0), shuf)
+		"Torture Chamber": # le boss designe (2e cible de l'effet 0)
+			var tb := _t_cards(sel, 0, 0)
+			var who := _pid_of_boss(x["G"], tb[1]) if tb.size() > 1 else -1
+			for i in opts.size():
+				if int((opts[i] as Dictionary).get("targetPlayerId", -2)) == who:
+					return _out(i, shuf)
+		"Zombie Prison": # le heros mort (2e cible de l'effet 0)
+			return _pick_first(opts, _t_cards(sel, 0, 0).slice(1), shuf)
+	return null

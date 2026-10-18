@@ -243,7 +243,9 @@ duree du rejeu +15 % environ). Sans l'option : aucun appel a l'IA, comportement 
 | `eligibleSet:spell` / `:activate` / `:pass` | idem | l'ensemble des capacites **eligibles** (un `CheckXXX` non nul, une entree par instance de carte) de l'IA Godot (`ApkAI.abilities`) == celui de l'oracle ; le suffixe est ce que l'oracle a tire (un sort, une capacite de salle, rien : ensemble vide) |
 | `chosenInSet:spell` / `:activate` | idem, l'oracle a tire une capacite | la carte tiree par l'oracle est dans l'ensemble de Godot |
 | `spellTarget` / `activateTarget` | idem, carte tiree dans l'ensemble de Godot | la cible preregle de Godot pour CETTE carte == celle de l'oracle (instances de cartes, par effet et par fournisseur de cible, `SetSelectedTargets`) ; `spellTargetShuffle` / `activateTargetShuffle` : cartes dont la cible vient d'un tirage (`Shuffle()` : BMA040, BMA047, BMA009), comptees a part |
-| `target` | choix Godot ouvert, avant `resolveChoice` | meme indice, ou option equivalente (memes codes de cartes designees, meme joueur proprietaire, meme pile) ; l'option « passer » (-1) et les options non appariees ne comptent pas |
+| `target` | choix Godot ouvert, avant `resolveChoice` | meme indice, ou option equivalente (memes codes de cartes designees, meme joueur proprietaire, meme pile) ; les options non appariees ne comptent pas. Cible DETERMINISTE (`TriggerCalculator`, ou cibles preregles de la capacite tiree par l'IA) |
+| `targetShuffle` | idem | idem, quand la cible vient d'un tirage : cle `shuffled` de la decision oracle (voir « etape 3 ») ou `shuf` de la reponse Godot (cibles preregles de `CheckBMA009`, `The Brothers Wise`) ; hors seuil, accord attendu ~ 1/n |
+| `targetPass` | idem, l'oracle ne designe rien d'un choix facultatif (`optional`) | Godot ne designe rien non plus (`resolveChoice -1`) |
 | `draw` | `chooseDraw` (Haunted Library) | meme pile (salles / sorts) |
 | `pass` | `passBuild`/`pass` rejoue par le harnais parce que l'IA oracle n'a rien joue (salle initiale, tour de construction, tour supplementaire, repondant de Spell Battle) | `AI.pick_move` ne propose aucun coup actif (null, `passBuild`, `pass`, `adventureNext`) ; sous-classes `pass:setup|build|extra|respond`, et `passAlt:*` = ce que Godot jouerait a la place |
 
@@ -258,7 +260,7 @@ degats decroissants puis ordre de la main ; emplacement : `DungeonSlotCalculator
 valeurs les plus basses, tri stable). Seuls `SelectWhereToDrawFrom` (pioche Haunted Library), `SelectAbilityToUse` (capacite / sort, tirage
 `RandomSelection` selon des probabilites) et les cibles de declencheurs passent par `StatisticAI`/`RandomAI` : ils sont aleatoires. L'accord point a point est
 donc impossible pour `draw` ; pour les capacites (etape 2) on mesure les ENSEMBLES (`eligibleSet`, `chosenInSet`), voir plus bas. Une partie des cibles est aussi tiree (`Shuffle()` : `TriggerCalculator.cs` 363/401/615/621/643,
-`AbilityCalculator.cs` 485/864/969 ; cartes piochees dans une defausse, sort au hasard...), ce qui borne `target` (typiquement `recover-card`).
+`AbilityCalculator.cs` 485/864/969 ; cartes piochees dans une defausse, sort au hasard...), ce qui borne `target` (typiquement `recover-card`) jusqu'a l'etape 3, qui les compte a part (`targetShuffle`).
 Depuis l'etape 2 la trace porte, pour chaque appel a `SelectAbilityToUse`, l'ensemble des capacites eligibles (voir « Apres le lot 1.2, etape 2 »).
 
 **Mesure initiale** (18 traces : defaut graines 1-3 x 2/3 joueurs + wide graines 4-7 x 2/3/4 joueurs, `BaseDeck`, 6/6 et 12/12 inchanges ; `AI.gd` non modifie) :
@@ -354,6 +356,50 @@ ajoutee dans `_chk_050`) ; `playSpell` BMA055 Zombie Attack propose avec les seu
 BMA032 Crushinator accepte une salle face cachee (posee ce tour) comme « autre salle » (3). `BossEngine.can_build_room` accepte aussi une salle AVANCEE par-dessus une salle face
 cachee (`DungeonSlot.CheckRoomCanBeBuilt` refuse tout slot en attente) : `ApkAI.can_build_anywhere` ajoute ce refus cote IA. L'activation d'une salle face cachee (posee ce tour)
 et d'une salle gelee est egalement acceptee par `Match.legal_moves` : `ApkAI.abilities` les ecarte (`DungeonActiveRooms`).
+
+**Apres le lot 1.2, etape 3 (`ApkAI.gd` : cibles des declencheurs et des commandes, `TriggerCalculator.cs`)**
+
+*Portage* : une fonction `_tr_XXX` par carte du switch de `TriggerCalculator` (commentaire `Fichier.cs:ligne`), aiguillee par `ApkAI.choose(G, pid, choix, rng, sel, memo)` d'apres le `bossName` du choix ouvert ;
+`AI.pick_move` l'appelle des qu'un choix en attente est a ce joueur (`AI._score_choice` ne garde que les choix des cartes wiki : Healing Tank, Omega 42, `tnl-pick`). Cartes : Draculord
+`CheckBMA001` (`steal-card`), Xyzax `CheckBMA002` (2 choix, liste memorisee), King Croak / Cleopatra `CheckBMA003/007` (`search-advanced`), Robobo `CheckBMA004` (c'est l'ADVERSAIRE qui
+choisit), Cerebellus / Dark Laboratory `CheckBMA005/022` (`SelectSpellToDiscard`), Seducia `CheckBMA006`, Gorgona `CheckBMA008`, Open Grave `CheckBMA010`, Specter's Sanctum / Succubus Spa
+`CheckBMA011/012`, Vampire Bordello `CheckBMA014`, Mimic Vault `CheckBMA036`, Monstrous Monument `CheckBMA037`, Hellcow / The Brothers Wise / Kaw'nee `CheclKSA002/003/004`. Les capacites de salle
+que l'IA a TIREE (etape 2 : Dracolich Lair, Dark Altar, Witch's Kitchen, All-Seeing Eye, Torture Chamber, Zombie Prison) ouvrent leurs choix avec les cibles preregles (`AIPlayerInteraction.cs:45-74`,
+`abilitySelected.GetSelectedTargets` avant `TriggerCalculator`) : `AI.remember` garde l'entree tiree par joueur. Un fournisseur SIMPLE (`SingleTargetProvider`) dont les cibles tiennent dans
+`TargetsAmount` est pris tel quel (`StatisticsCalculator.cs:90-111`) : c'est l'auto-resolution du moteur Godot. Un `default:` du switch (Goblin Armory, Dizzygas...) rend une liste vide : rien n'est designe ;
+quand le C# ne trouve rien (Seducia, Mimic Vault, King Croak sans salle batissable...) la reponse est l'abstention (`resolveChoice -1`) si le choix est facultatif, sinon l'ancien comportement (option 0).
+Les deux piles de Godot rangent le SOMMET en dernier (`draw` = `pop_back`) alors que le C# enumere `DeckHeroes` / `DeckRooms` / `DeckSpells` du sommet au fond : `_cs_order` remet l'ordre du C#
+pour les departages (Seducia a souls egaux : le heros du sommet de la pioche ; King Croak / Cleopatra a valeur egale).
+Tirages (`Shuffle()` : un sort de Draculord, les 2 sorts de Xyzax, `SelectSpellToDiscard`, `CheckBMA009`, `CalculateSpellValue` de The Brothers Wise) : RNG de la partie Godot, signales (`shuf`).
+Ecarts ASSUMES : le cache `resolvingCard` / `selectedTargets` rend des cibles perimees (Mimic Vault et Open Grave aux activations suivantes, tout `CheckXXX` qui ne remet pas `resolvingCard` a null) ->
+chaque choix est calcule a neuf ; Succubus Spa (`CheckBMA012`) rend `player` pour le fournisseur `BossOpponent` (ordre des listes) -> on designe l'adversaire que la carte vise. Copies fideles de choix
+legaux mais etranges : Open Grave prend d'abord une salle NON batissable (`orderby` sur un booleen), Kaw'nee prend le heros de plus de PV de base (`Intersect` n'est jamais nul), Xyzax peut viser deux fois la
+meme salle. Non porte : `CheckBMA033` Centipede Tunnel (carte jamais distribuee, `notInGameCards`) ; `CheckBMA017/019/021/031/034` (cible = soi-meme ou premier heros : le moteur les auto-resout).
+
+*Changement de trace (oracle)* : `TracingAI.InternalResolveTarget` ajoute la cle `shuffled` a chaque decision `resolveTarget` : `RandomProvider.NumberOfCallsToNext` a change entre l'entree de l'appel et
+l'appel du callback (donc un `Shuffle()` du `TriggerCalculator` a tire la cible ; les tirages des effets qui suivent le callback ne comptent pas). Comportement de l'oracle inchange : **les 24 traces
+regenerees sont identiques aux anciennes hors cette cle** (verifie, y compris `steps`, `meta`, `result`).
+
+*Mesure* (memes 18 traces, `APK_PARITY_OUT=tools/parity/out/ai3m/{default,wide}`, copies de `ai3` avec `--skip-gen` ; parite regeneree dans `ai3/{default,wide,decks}` : 6/6, 12/12, 6/6, `decisionsSkipped`
+166 / 443 / 163 inchanges). Le type `target` se scinde en `target` (deterministe), `targetShuffle` (tirage, de l'oracle ou de la reponse Godot) et `targetPass` (l'oracle s'abstient d'un choix facultatif) :
+
+| Type | n | avant (etape 2) | apres | % apres |
+|---|---:|---:|---:|---:|
+| `target` (cible deterministe) | 162 | 84 sur 210 (tous types confondus, 40,0 %) | 162 | **100,0** |
+| `targetShuffle` (tirage `Shuffle()`) | 48 | (dans `target`) | 21 | 43,8 (tirage au hasard) |
+| `targetPass` (abstention de Seducia) | 1 | - | 1 | **100,0** |
+
+Sous-classes de `target` (toutes a 100 % : desaccords 0) : `dracolich-discard` + `recover-card[Dracolich Lair]` 38 + 38 (avant 18/38 et 6/38), `pick-opponent[Specter's Sanctum]` 16, `recover-card[Open Grave]` 10,
+`destroy-room[Robobo]` 7, `pick-hero[Mimic Vault]` 6 et `[Seducia]` 6, `search-advanced[Cleopatra]` 5 et `[King Croak]` 4, `revive-hero[Zombie Prison]` 5, `pick-opponent[Torture Chamber]` 5, `discard-spell[Dark
+Laboratory]` 4 et `[Cerebellus]` 2, `kitchen-discard[Witch's Kitchen]` 4, `recover-card[Monstrous Monument]` 4, `heal-wound[Vampire Bordello]` 3, `steal-card[Draculord]` 3, `kill-hero[Gorgona]` 2.
+`targetShuffle` : `discard-spell[Dark Laboratory]` 6/17, `recover-card[Dark Altar]` 12/19 (`CheckBMA009` tire un sort au hasard ou joue pile ou face), `discard-spell[Cerebellus]` 2/3, `recover-card[Xyzax]` 1/6,
+`steal-card[Draculord]` 0/3 : l'accord attendu d'un tirage uniforme parmi n sorts est 1/n. Diagnostic `shuffleOracleOnly:*` (tirage de l'oracle que Godot ne fait pas) : vide. Traces `--decks BaseDeck,PlayerChoice,HiddenHeros,ToolsHeroKind`
+(copie `ai3m/decks`, hors seuil) : `target` 36/36 dont Kaw'nee 2/2, `targetShuffle` 4/12 (The Brothers Wise 1/1).
+Aucune des 162 cibles deterministes ne desaccorde : le seuil du lot est donc **100 %** (voir « Seuil du lot 1.2 »).
+
+**Seuil du lot 1.2 (fixe)** : 0 desaccord et 0 indifference sur `build`, `buildCard`, `buildSlot`, `discard`, `eligibleSet:activate`, `chosenInSet:activate`, `spellTarget`, `activateTarget`,
+`target`, `targetPass` et `pass` ; >= 99 % sur `eligibleSet:*` et `chosenInSet:spell` (le seul ecart est le bogue de `CheckBMA040And047`, 100 % avec `--ai-copy-trap-bug`). Hors seuil : les types
+`...Shuffle` (tirages au hasard, accord attendu ~ 1/n), `draw` (non exerce) et `usableSet` (legalite du moteur, pas l'IA).
 
 Desaccords les plus frequents de la mesure initiale (sous-classe `type:carte` ou `target:type de choix[boss]`, desaccords/n sur les 18 traces) : `target:recover-card[Dracolich
 Lair]` 32/38 et `[Dark Altar]` 18/19, `target:dracolich-discard` 20/38 (beaucoup d'indifferences : `_score_choice` rend 0 pour ces choix) ; `spellTarget`

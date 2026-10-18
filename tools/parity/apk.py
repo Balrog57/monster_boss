@@ -15,6 +15,7 @@ Le harnais ne corrige aucune regle : il rapporte. Code de sortie 1 si une trace 
 oracle, et compte l'accord par type de coup (report.json : `aiAgreement` global et par trace ; tableau console). Aucun effet sur le rejeu.
 Sorts et capacites de salle : l'oracle tire au hasard parmi ses capacites eligibles (cle `abilityChoices` de la trace) ; on compare les ensembles
 (`usableSet`, `eligibleSet:*`, `chosenInSet:*`) et les cibles preregles (`spellTarget`, `activateTarget`, `...Shuffle` pour les cibles tirees au hasard).
+Cibles des declencheurs et des commandes (choix ouverts par le moteur) : `target` (deterministe), `targetShuffle` (tirage `Shuffle()`), `targetPass` (abstention).
 """
 import argparse
 import datetime
@@ -302,7 +303,7 @@ def aggregate_skipped(traces):
 
 
 AI_ORDER = ["build", "buildCard", "buildSlot", "discard", "usableSet", "eligibleSet:spell", "eligibleSet:activate", "eligibleSet:pass", "chosenInSet:spell", "chosenInSet:activate",
-            "spellTarget", "spellTargetShuffle", "activateTarget", "activateTargetShuffle", "target", "draw", "pass"]
+            "spellTarget", "spellTargetShuffle", "activateTarget", "activateTargetShuffle", "target", "targetShuffle", "targetPass", "draw", "pass"]
 AI_FIELDS = ("n", "agree", "forced", "nt", "ntAgree", "ties")
 
 

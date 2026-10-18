@@ -35,6 +35,7 @@ func run(ok: Callable, h: Node) -> void:
 	_t_apk_spell_battle()
 	_t_apk_rooms_checks()
 	_t_apk_draw_uniform()
+	_t_apk_triggers()
 
 # --- fabriques d'etats minimaux ----------------------------------------------------------------------
 
@@ -915,3 +916,194 @@ func _t_apk_draw_uniform() -> void:
 	var second = AI.pick_move(m, 0)
 	_ok.call(first != null and str(first["type"]) == "playSpell" and (second == null or str(second["type"]) != "playSpell"), "une fois la capacite tiree, la fenetre est consommee (adventureNext / passer)")
 	m.queue_free()
+
+# --- cibles des declencheurs et des commandes (TriggerCalculator) -----------------------------------------------------------------------
+
+func _choose(G: Dictionary, pid: int, pc: Dictionary, sel := {}, memo := {}, seed := 5) -> Variant:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed
+	return ApkAI.choose(G, pid, pc, rng, sel, memo)
+
+## Code de la carte (ou joueur designe) de l'option choisie ; "-" = abstention, "?" = pas d'avis de l'IA de l'APK.
+func _pick_of(pc: Dictionary, r: Variant) -> String:
+	if r == null:
+		return "?"
+	if int(r["idx"]) < 0:
+		return "-"
+	var o: Dictionary = (pc["options"] as Array)[int(r["idx"])]
+	return str((o.get("card", {}) as Dictionary).get("id", "p%s" % str(o.get("targetPlayerId", ""))))
+
+func _hero_hp(id: String, hp: int, souls := 1) -> Dictionary:
+	var h := _hero(id)
+	h["hp"] = hp
+	h["souls"] = souls
+	return h
+
+func _g3() -> Dictionary:
+	var G := _G([_player(0, "BMA001"), _player(1, "BMA002"), _player(2, "BMA003")], ["base"])
+	G["turn"] = 3
+	G["phase"] = "build"
+	G["activePlayer"] = 0
+	return G
+
+func _t_apk_triggers() -> void:
+	# CheckBMA001 Draculord : le meilleur score d'abord ; ses sorts (au hasard), sinon sa salle batissable de plus grande valeur
+	var G := _g3()
+	(G["players"][1] as Dictionary)["souls"] = [{"souls": 2}]
+	_hand(G, 1).append(_plain("lo", "monster", [1], 1))
+	_hand(G, 1).append(_plain("hi", "monster", [1], 3))
+	_hand(G, 2).append(_spell("BMA041"))
+	_hand(G, 2).append(_spell("BMA042"))
+	var pc: Dictionary = RoomAbilities._draculord(G, 0)
+	var r = _choose(G, 0, pc)
+	_ok.call(r != null and int((pc["options"][int(r["idx"])] as Dictionary)["fromPid"]) == 2 and bool(r["shuf"]), "Draculord : P1 (meilleur score) n'a pas de sort -> un sort de P2 AU HASARD")
+	_hand(G, 2).clear()
+	_hand(G, 2).append(_plain("top", "monster", [1], 4))
+	pc = RoomAbilities._draculord(G, 0)
+	r = _choose(G, 0, pc)
+	_ok.call(_pick_of(pc, r) == "hi" and not bool(r["shuf"]), "Draculord : sans sort, la salle de plus grande valeur du MEILLEUR SCORE (pas celle de P2)")
+	# CheckBMA010 Open Grave : une salle non batissable d'abord, puis la plus precieuse
+	var G2 := _g3()
+	var adv := _plain("adv", "trap", [1], 3, true)
+	(G2["decks"]["roomDiscard"] as Array).append_array([_plain("easy", "monster", [1], 1), adv, _plain("hi", "monster", [1], 4)])
+	var pc2: Dictionary = RoomAbilities._open_grave(G2, G2["players"][0], 0)
+	_ok.call(not ApkAI._can_build_card(G2, G2["players"][0], 0, adv) and _pick_of(pc2, _choose(G2, 0, pc2)) == "adv", "Open Grave : la salle que l'on ne peut pas batir est prise d'abord (orderby sur un booleen)")
+	(G2["players"][0]["dungeon"] as Array).append([_plain("d")])
+	_ok.call(_pick_of(pc2, _choose(G2, 0, pc2)) == "hi", "Open Grave : toutes batissables -> la plus precieuse")
+	# CheckBMA036 Mimic Vault : le premier heros ordinaire que notre donjon tue et qu'on n'attire pas seul ; sinon rien
+	var G3 := _g3()
+	(G3["players"][0]["dungeon"] as Array).append([_plain("d", "monster", [], 4)])
+	G3["town"] = [_hero_hp("TNL073", 6), _hero_hp("TNL073", 3), _hero_hp("TNL073", 2)]
+	var pc3: Dictionary = RoomAbilities._mimic_vault(G3, G3["players"][0], 0)
+	var r3 = _choose(G3, 0, pc3)
+	_ok.call(r3 != null and int(r3["idx"]) == 1, "Mimic Vault : le premier heros dont les PV <= degats du donjon")
+	G3["town"] = [_hero_hp("TNL073", 9), _hero_hp("TNL073", 8)]
+	pc3 = RoomAbilities._mimic_vault(G3, G3["players"][0], 0)
+	_ok.call(int(_choose(G3, 0, pc3)["idx"]) == -1, "Mimic Vault : aucun heros a portee -> ne rien designer")
+	G3["town"] = [_hero_hp("TNL073", 9), _hero_hp("TNL073", 3)]
+	pc3 = RoomAbilities._mimic_vault(G3, G3["players"][0], 0)
+	G3["pendingChoice"] = pc3
+	var m3 := _match(G3)
+	var mv3 = AI.pick_move(m3, 0)
+	_ok.call(mv3 != null and str(mv3["type"]) == "resolveChoice" and int((mv3["args"] as Array)[0]) == 1, "Mimic Vault : AI.pick_move repond par resolveChoice sur l'option de l'APK")
+	m3.queue_free()
+	# CheckBMA008 Gorgona : PV restants apres NOTRE donjon, le plus haut ; a egalite le plus d'ames
+	var G4 := _g3()
+	(G4["players"][0]["dungeon"] as Array).append([_plain("d", "monster", [], 2)])
+	G4["town"] = [_hero_hp("TNL073", 5), _hero_hp("TNL073", 3), _hero_hp("TNL073", 5, 2)]
+	var pc4: Dictionary = RoomAbilities._gorgona(G4, G4["players"][0])
+	_ok.call(int(_choose(G4, 0, pc4)["idx"]) == 2, "Gorgona : PV - degats le plus haut, puis le plus d'ames")
+	# CheckBMA006 Seducia : ville puis pioche (du sommet vers le fond), PV <= degats, le plus d'ames ; sinon rien
+	var G5 := _g3()
+	(G5["players"][0]["dungeon"] as Array).append([_plain("d", "monster", [], 3)])
+	G5["town"] = [_hero_hp("TNL073", 6)]
+	G5["decks"]["heroes"] = [_hero_hp("TNL073", 2), _hero_hp("TNL073", 2)]
+	var pc5: Dictionary = RoomAbilities._seducia(G5, 0)
+	var r5 = _choose(G5, 0, pc5)
+	_ok.call(r5 != null and int(r5["idx"]) == 2, "Seducia : a souls egaux, le heros du SOMMET de la pioche (dernier element de Godot)")
+	((G5["decks"]["heroes"] as Array)[0] as Dictionary)["souls"] = 2
+	r5 = _choose(G5, 0, pc5)
+	_ok.call(int(r5["idx"]) == 1, "Seducia : le plus d'ames d'abord")
+	G5["town"] = [_hero_hp("TNL073", 6)]
+	G5["decks"]["heroes"] = [_hero_hp("TNL073", 8)]
+	pc5 = RoomAbilities._seducia(G5, 0)
+	_ok.call(int(_choose(G5, 0, pc5)["idx"]) == -1, "Seducia : aucun heros a portee -> passer (choix facultatif)")
+	# SelectSpellToDiscard : Jeopardy / Kobold Strike d'abord, sinon au hasard
+	var G6 := _g3()
+	for sid in ["BMA041", "BMA049", "BMA042"]:
+		_hand(G6, 0).append(_spell(sid))
+	var pc6: Dictionary = RoomAbilities._spell_discard_choice(G6, G6["players"][0], 0, "BMA022", "Dark Laboratory")
+	var r6 = _choose(G6, 0, pc6)
+	_ok.call(_pick_of(pc6, r6) == "BMA049" and not bool(r6["shuf"]), "Dark Laboratory : Kobold Strike d'abord")
+	_hand(G6, 0).remove_at(1)
+	pc6 = RoomAbilities._spell_discard_choice(G6, G6["players"][0], 0, "BMA005", "Cerebellus")
+	var seen := {}
+	for sd in 30:
+		var rr = _choose(G6, 0, pc6, {}, {}, sd + 1)
+		seen[_pick_of(pc6, rr)] = bool(rr["shuf"])
+	_ok.call(seen.size() == 2 and seen.values().all(func(v): return v), "Cerebellus : sinon un sort AU HASARD (tirage signale)")
+	# CheckBMA002 Xyzax : deux sorts au hasard ; la liste du premier choix sert au second
+	var G7 := _g3()
+	G7["decks"]["spellDiscard"] = [_spell("BMA041"), _spell("BMA042"), _spell("BMA043")]
+	var pc7: Dictionary = RoomAbilities._xyzax(G7, G7["players"][0])
+	var memo := {}
+	var r7a = _choose(G7, 0, pc7, {}, memo)
+	var first_card: Dictionary = (pc7["options"][int(r7a["idx"])] as Dictionary)["card"]
+	(G7["decks"]["spellDiscard"] as Array).erase(first_card)
+	var pc7b: Dictionary = {"type": "recover-card", "bossName": "Xyzax", "remaining": 1, "options": RoomAbilities.discard_card_options(G7, "any")}
+	var r7b = _choose(G7, 0, pc7b, {}, memo)
+	var second_card: Dictionary = (pc7b["options"][int(r7b["idx"])] as Dictionary)["card"]
+	_ok.call(bool(r7a["shuf"]) and not is_same(first_card, second_card) and is_same(second_card, (memo["Xyzax"]["list"] as Array)[1]), "Xyzax : deux sorts tires au hasard, le 2e choix reprend la liste memorisee")
+	G7["decks"]["spellDiscard"] = []
+	G7["decks"]["roomDiscard"] = [_plain("lo", "monster", [1], 1), _plain("hi", "monster", [1], 4), _plain("mid", "monster", [1], 2)]
+	pc7 = RoomAbilities._xyzax(G7, G7["players"][0])
+	memo.clear()
+	_ok.call(_pick_of(pc7, _choose(G7, 0, pc7, {}, memo)) == "hi" and not bool(_choose(G7, 0, pc7, {}, {})["shuf"]), "Xyzax : sans sort, les salles batissables par valeur")
+	# CheckBMA004 Robobo : la salle avancee d'abord, sinon la moins precieuse (c'est l'adversaire qui choisit)
+	var G8 := _g3()
+	(G8["players"][1]["dungeon"] as Array).append_array([[_plain("a", "monster", [1], 3)], [_plain("b", "trap", [1], 1, true)], [_plain("c", "monster", [1], 0)]])
+	var pc8: Dictionary = RoomAbilities.robobo_choice(G8, 1)
+	_ok.call(_pick_of(pc8, _choose(G8, 1, pc8)) == "b", "Robobo : l'adversaire detruit sa salle avancee d'abord")
+	((G8["players"][1]["dungeon"] as Array)[1] as Array)[0]["advanced"] = false
+	_ok.call(_pick_of(pc8, _choose(G8, 1, pc8)) == "c", "Robobo : sinon la moins precieuse")
+	# CheckBMA011 / CheckBMA012 : l'adversaire au meilleur score avec des sorts / des cartes, sinon le premier
+	var G9 := _g3()
+	(G9["players"][1] as Dictionary)["souls"] = [{"souls": 3}]
+	(G9["players"][2] as Dictionary)["souls"] = [{"souls": 1}]
+	_hand(G9, 2).append(_spell("BMA041"))
+	var pc9: Dictionary = RoomAbilities._specters_sanctum(G9, G9["players"][0], 0)
+	_ok.call(_pick_of(pc9, _choose(G9, 0, pc9)) == "p2", "Specter's Sanctum : seul P2 a des sorts")
+	_hand(G9, 2).clear()
+	_ok.call(_pick_of(pc9, _choose(G9, 0, pc9)) == "p%d" % int(ApkAI.opponents(G9, 0)[0]), "Specter's Sanctum : personne n'a de sort -> le premier adversaire (GetOpponents)")
+	_hand(G9, 1).append(_plain("x"))
+	var pc9b: Dictionary = RoomAbilities._succubus_spa(G9, 0)
+	_ok.call(_pick_of(pc9b, _choose(G9, 0, pc9b)) == "p1", "Succubus Spa : l'adversaire designe, jamais son propre boss (bogue de l'APK non copie)")
+	# CheckBMA014 Vampire Bordello : le heros qui rapporte le plus d'ames ; CheckBMA037 Monstrous Monument : la salle Monster la plus precieuse
+	var G10 := _g3()
+	(G10["players"][0] as Dictionary)["wounds"] = [{"hero": _hero_hp("TNL073", 4), "wounds": 1}, {"hero": _hero_hp("TNL073", 4, 2), "wounds": 2}]
+	var pc10: Dictionary = RoomAbilities._vampire_bordello(G10, G10["players"][0], 0)
+	_ok.call(int(_choose(G10, 0, pc10)["idx"]) == 1, "Vampire Bordello : le heros qui rapporte le plus d'ames")
+	G10["decks"]["roomDiscard"] = [_plain("lo", "monster", [1], 1), _plain("trap", "trap", [1], 5), _plain("hi", "monster", [1], 4)]
+	var pc10b: Dictionary = RoomAbilities._monstrous_monument(G10, G10["players"][0], 0)
+	_ok.call(_pick_of(pc10b, _choose(G10, 0, pc10b)) == "hi", "Monstrous Monument : la Monster de plus grande valeur")
+	# capacites tirees par l'IA : le choix qu'elles ouvrent lit leurs cibles preregles (AbilitySelectedInformation)
+	var G11 := _G([_player(0, "BMA001", [_room("BMA013")]), _player(1, "BMA002")], ["base"])
+	G11["turn"] = 3
+	G11["phase"] = "build"
+	G11["activePlayer"] = 0
+	_hand(G11, 0).append_array([_plain("w1", "monster", [1], 0), _plain("w2", "monster", [1], 0), _plain("w3", "monster", [1], 2)])
+	(G11["decks"]["roomDiscard"] as Array).append_array([_plain("meh", "monster", [1], 1), _plain("good", "monster", [1], 3)])
+	var d = _entry(G11, 0, "BMA013")
+	var lair: Dictionary = BossEngine.active_room((G11["players"][0]["dungeon"] as Array)[0])
+	RoomAbilities._dracolich_lair(G11, G11["players"][0], 0, lair)
+	var pc11: Dictionary = G11["pendingChoice"]
+	var sel: Dictionary = d if d != null else {}
+	var r11 = _choose(G11, 0, pc11, sel)
+	var pair: Array = ((pc11["options"] as Array)[int(r11["idx"])] as Dictionary).get("handIndices", []) if r11 != null else []
+	_ok.call(d != null and pair == [0, 1], "Dracolich Lair : la paire preregle (les deux plus faibles) est defaussee")
+	var pc11b: Dictionary = {"type": "recover-card", "bossName": "Dracolich Lair", "options": pc11["pileOptions"]}
+	_ok.call(_pick_of(pc11b, _choose(G11, 0, pc11b, sel)) == "good", "Dracolich Lair : puis la salle preregle de la defausse")
+	_ok.call(_choose(G11, 0, pc11b, {}) == null and _choose(G11, 0, pc11b, {"card": {"id": "BMA009"}, "t": []}) == null, "Dracolich Lair : sans capacite tiree (ou d'une autre carte) l'IA n'a pas d'avis")
+	var pc11c: Dictionary = {"type": "pick-opponent", "action": "discard-room", "bossName": "Torture Chamber", "options": [{"targetPlayerId": 0}, {"targetPlayerId": 1}]}
+	var tsel := {"card": {"id": "BMA038"}, "t": [[0, 0, [lair, G11["players"][1]["boss"]]]], "shuf": false}
+	_ok.call(_pick_of(pc11c, _choose(G11, 0, pc11c, tsel)) == "p1", "Torture Chamber : le boss designe par CheckBMA038")
+	# niveaux KSA : Kaw'nee (heros de plus de PV), The Brothers Wise (KSA013 d'abord)
+	var heroes: Array = CardDB.heroes.duplicate()
+	heroes.sort_custom(func(a, b): return BossEngine.hero_hp(a) < BossEngine.hero_hp(b))
+	var weak: Dictionary = (heroes[0] as Dictionary).duplicate(true)
+	var strong: Dictionary = (heroes[heroes.size() - 1] as Dictionary).duplicate(true)
+	var pc12: Dictionary = {"type": "steal-hero", "bossName": "Kaw'nee", "options": [{"card": weak, "fromPid": 1}, {"card": strong, "fromPid": 2}]}
+	_ok.call(int(_choose(G, 0, pc12)["idx"]) == 1, "Kaw'nee : le heros mort de plus de PV de base")
+	var pc13: Dictionary = {"type": "search-spell", "bossName": "The Brothers Wise", "options": [{"card": _spell("BMA041"), "pile": "deck", "pileIndex": 0}, {"card": _spell("KSA013"), "pile": "deck", "pileIndex": 1}, {"card": _spell("BMA043"), "pile": "deck", "pileIndex": 2}]}
+	_ok.call(int(_choose(G, 0, pc13)["idx"]) == 1, "The Brothers Wise : T.P.K. (KSA013) d'abord")
+	# CheclKSA002 Hellcow : le donjon de l'adversaire au meilleur score, puis BMA014 d'abord
+	var G14 := _g3()
+	(G14["players"][1] as Dictionary)["souls"] = [{"souls": 3}]
+	(G14["players"][1]["dungeon"] as Array).append_array([[_plain("a")], [_room("BMA014")], [_plain("t", "trap", [1], 1)]])
+	(G14["players"][2]["dungeon"] as Array).append_array([[_plain("x")], [_plain("y")]])
+	var pc14: Dictionary = RoomAbilities.rearrange_choice(G14, 0, -1, [])
+	var r14 = _choose(G14, 0, pc14)
+	_ok.call(r14 != null and int((pc14["options"][int(r14["idx"])] as Dictionary)["targetPlayerId"]) == 1, "Hellcow : le donjon de l'adversaire au meilleur score")
+	var pc14b: Dictionary = RoomAbilities.rearrange_choice(G14, 0, 1, [])
+	_ok.call(_pick_of(pc14b, _choose(G14, 0, pc14b)) == "BMA014", "Hellcow : Vampire Bordello en premier, du fond du donjon")
+	_ok.call(_choose(G, 0, {"type": "tnl-pick", "bossName": "Un boss wiki", "options": [{"ai": 1.0}]}) == null, "carte hors APK : pas d'avis (AiWiki garde la main)")

@@ -1249,7 +1249,7 @@ func _on_decision_now(_i: int, s: Dictionary, age := -1) -> void:
 			return
 	elif not m["exact"] or not (m["ties"] as Array).is_empty():
 		_note(s, "CHOICE-APPROX", "choix Godot '%s' : option %d retenue (%s)%s" % [ptype, pick, str(m["how"]), (" ; ex aequo " + str(m["ties"])) if not (m["ties"] as Array).is_empty() else ""])
-	if pick >= 0:
+	if pick >= 0 or (pick == -1 and chosen.is_empty() and bool(pc.get("optional", false))): # l'oracle ne designe rien d'un choix facultatif : `targetPass`
 		_ai_choice(pid, pc, pick, s, "target")
 	_apply_move(pid, {"type": "resolveChoice", "args": [pick]}, s, "resolveChoice(%s)" % ptype)
 	# Xyzax : une seule decision oracle designe 2 cartes ; Godot pose un 2e choix « recover-card » pour la suivante.
@@ -1472,7 +1472,10 @@ func _ents() -> String:
 ##                  chaque appel d'UseAbility de la trace (cle `abilityChoices`, voir _ai_measure_choice) : usableSet, eligibleSet:*, chosenInSet:*,
 ##                  spellTarget / activateTarget (+ Shuffle). Les anciens types `spell` / `activate` (meilleur score) n'ont plus de sens.
 ##  - target      : option d'un choix ouvert (resolveChoice) : meme indice, ou option equivalente (memes codes carte, meme joueur proprietaire,
-##                  meme pile : une autre copie du meme code compte comme accord).
+##                  meme pile : une autre copie du meme code compte comme accord). Cible DETERMINISTE (TriggerCalculator, ou cibles preregles de la capacite tiree).
+##  - targetShuffle : meme mesure quand la cible vient d'un tirage (`Shuffle()` : cle `shuffled` de la decision oracle, `shuf` de la reponse Godot) : accord ~ 1/n.
+##  - targetPass  : l'oracle ne designe rien d'un choix facultatif (Seducia) : accord si Godot ne designe rien non plus.
+##                  `shuffleOracleOnly:*` (cle `by`) = tirage de l'oracle que Godot ne fait pas (diagnostic, doit rester vide).
 ##  - draw        : type de pioche (Haunted Library) : meme pile.
 ##  - pass        : le joueur n'a rien joue (passBuild/pass du harnais) : AI.pick_move ne propose aucun coup actif (null ou passBuild/pass/adventureNext).
 ## `forced` = un seul candidat distinct (accord automatique) ; `nt`/`ntAgree` = decisions a >= 2 candidats distincts. `ties` = desaccords ou
@@ -1489,6 +1492,8 @@ var _ai_mut := 0
 func _ai_init() -> void:
 	var args := OS.get_cmdline_user_args()
 	_ai_on = args.has("--ai-agreement")
+	AI._sel.clear() # abilitySelected / listes memorisees d'une partie precedente
+	AI._memo.clear()
 	ApkAI.copy_trap_bug = args.has("--ai-copy-trap-bug") # diagnostic : l'oracle joue Giant Size sur une salle Trap (CheckBMA040And047, l.844-847)
 	for a in args:
 		if str(a).begins_with("--ai-ex="):
@@ -1778,6 +1783,7 @@ func _ai_measure_choice(rec: Dictionary) -> void:
 		moves = moves.filter(func(m): return str((m as Dictionary).get("type", "")) != "buildRoom")
 	var opts: Array = ApkAI.abilities(G, pid, moves, scratch)
 	run.rng.state = rng_state
+	AI.remember(run, pid, null) # abilitySelected : remplace a chaque UseAbility (null si l'oracle ne tire rien)
 	# Diagnostic de legalite : cartes jouables (CanPlayerPlayAbility) cote oracle / coups legaux Godot, avant les CheckXXX.
 	var gp: Dictionary = G["players"][pid]
 	var u_g := {}
@@ -1827,6 +1833,7 @@ func _ai_measure_choice(rec: Dictionary) -> void:
 			for e in opts:
 				if int(((e as Dictionary)["card"] as Dictionary).get("_oid", -1)) == int(oc["id"]):
 					ge = e
+			AI.remember(run, pid, ge) # l'oracle a tire cette capacite : ses cibles preregles servent aux choix qu'elle ouvre (AIPlayerInteraction.InternalResolveTarget)
 			var shuffled: bool = ["BMA040", "BMA047", "BMA009"].has(code)
 			var ot := _ai_norm_targets(((elig[ci] as Dictionary)["targets"] as Array), true)
 			var gt := _ai_norm_targets((ge["t"] as Array), false)
@@ -1869,16 +1876,19 @@ func _ai_pass(pid: int, site: String, s: Dictionary, oracle_pid := -1) -> void:
 	_ai_guard(h)
 
 
-## Option d'un choix ouvert (resolveChoice) : AI.pick_move sur le choix en attente. `type` = « target » ou « draw ».
+## Option d'un choix ouvert (resolveChoice) : AI.pick_move sur le choix en attente. `type` = « target » ou « draw ». Un choix dont la cible vient d'un tirage
+## (`Shuffle()` : cle `shuffled` de la decision oracle, ou tirage de l'IA Godot) est compte a part (`targetShuffle`) ; l'abstention de l'oracle sur un choix facultatif
+## (`pick` = -1) est `targetPass` (accord : Godot ne designe rien non plus).
 func _ai_choice(pid: int, pc: Dictionary, pick: int, s: Dictionary, type: String) -> void:
 	if not _ai_on:
 		return
 	var opts: Array = pc.get("options", [])
-	if pick < 0 or pick >= opts.size():
+	if pick >= opts.size() or (pick < 0 and type != "target"):
 		_ai_unavail(type)
 		return
 	var h := hash(run.G)
 	var rng_state := run.rng.state
+	AI.last_choice_shuf = false
 	var mv = AI.pick_move(run, pid, false)
 	run.rng.state = rng_state
 	if mv == null or str((mv as Dictionary).get("type", "")) != "resolveChoice":
@@ -1886,9 +1896,9 @@ func _ai_choice(pid: int, pc: Dictionary, pick: int, s: Dictionary, type: String
 		_ai_guard(h)
 		return
 	var gi := int(((mv as Dictionary)["args"] as Array)[0])
-	var ko := _ai_opt_key(opts[pick], pid)
+	var ko := "(passer)" if pick < 0 else _ai_opt_key(opts[pick], pid)
 	var kg := "(passer)" if gi < 0 or gi >= opts.size() else _ai_opt_key(opts[gi], pid)
-	var agree := gi == pick or (gi >= 0 and kg == ko)
+	var agree := gi == pick or (gi >= 0 and pick >= 0 and kg == ko)
 	var tie := false
 	if not agree:
 		tie = AI.score_move(run, pid, {"type": "resolveChoice", "args": [pick]}) == AI.score_move(run, pid, mv)
@@ -1896,8 +1906,14 @@ func _ai_choice(pid: int, pc: Dictionary, pick: int, s: Dictionary, type: String
 	for o in opts:
 		keys[_ai_opt_key(o, pid)] = true
 	var ptype := str(pc.get("type", ""))
-	_ai_rec(type, agree, s, pid, keys.size(), "option %d %s" % [pick, ko], "option %d %s" % [gi, kg],
-		"%s:%s[%s]" % [type, ptype, str(pc.get("bossName", ""))], tie)
+	var det = s.get("detail")
+	var rtype := type
+	if type == "target":
+		rtype = "targetPass" if pick < 0 else ("targetShuffle" if (AI.last_choice_shuf or (det is Dictionary and bool((det as Dictionary).get("shuffled", false)))) else "target")
+	if type == "target" and det is Dictionary and bool((det as Dictionary).get("shuffled", false)) and not AI.last_choice_shuf: # diagnostic : tirage de l'oracle que Godot ne fait pas
+		(_ai_by.get_or_add("shuffleOracleOnly:%s[%s]" % [ptype, str(pc.get("bossName", ""))], {"n": 0, "agree": 0}))["n"] += 1
+	_ai_rec(rtype, agree, s, pid, keys.size() + (1 if pick < 0 else 0), "option %d %s" % [pick, ko], "option %d %s" % [gi, kg],
+		"%s:%s[%s]" % [rtype, ptype, str(pc.get("bossName", ""))], tie)
 	_ai_guard(h)
 
 
