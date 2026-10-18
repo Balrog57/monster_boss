@@ -1424,6 +1424,7 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 		frame.stretch_mode = TextureRect.STRETCH_SCALE
 		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		frame.texture = _tex(UI_DIR + "card_slot.webp")
+		frame.material = UiKit.premult_material() # card_slot est pre-multiplie : filet clair de l'APK (DungeonFrameEntity.cs:359)
 		slot_ctrl.add_child(frame)
 
 		var di := j - off
@@ -1504,7 +1505,7 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 		card_ui.long_pressed.connect(_zoom_show)
 		card_ui.long_released.connect(func(_c): _zoom_hide())
 		# APK : carte injouable = grisee (toute la main pendant l'aventure sans sort jouable) ; fondu 0,5 s a chaque changement d'etat (CardAttributesComponent.cs:73-90)
-		var grey_now: bool = not discard_pick.has(idx) and not discarding and (phase == "build" or phase == "setup" or phase == "adventure") and not playable.has(i)
+		var grey_now: bool = not discard_pick.has(idx) and not discarding and (phase == "build" or phase == "setup" or phase == "adventure" or G.get("gameOver") != null) and not playable.has(i) # fin de partie : plus rien de jouable, main grisee sous le voile (APK : etat du dernier RefreshCardsStatus, CardAttributesComponent.cs:92-96)
 		var gk := "%d:%s" % [i, str(card_dict.get("id", ""))]
 		var pv: Dictionary = _grey_prev.get(gk, {"g": grey_now, "t": -100000})
 		if bool(pv["g"]) != grey_now:

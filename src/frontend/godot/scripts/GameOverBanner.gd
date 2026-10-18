@@ -1,5 +1,5 @@
 extends Control
-## Ecran de fin de l'APK (WinnerScene / LoseScene) : voile sombre, bandeau noir a filets dores avec le nom du vainqueur puis
+## Ecran de fin de l'APK (WinnerScene / LoseScene) : voile sombre, bandeau winner_bg translucide a filets dores avec le nom du vainqueur puis
 ## « IS THE WINNER! » (winner_txt), le boss gagnant agrandi (x2) entoure de 10 cristaux dores qui tournent (CircleOfRotatingRupisBehavior :
 ## rayon 160 x 2, un cran de cercle par seconde), bouton OK en bas a droite. Pas de tableau des scores. Perdu : « ...YOU LOSE! » + pierre tombale.
 ## OK emet `ok_pressed` (le plateau ramene au TITRE).
@@ -27,26 +27,16 @@ func build(winner_name: String, boss_id: String, lose: bool) -> void:
 	dim.size = Vector2(1920, 1080)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(dim)
-	var band_y := 389.0 if lose else 125.0 # LoseScene : bandeau centre sur y 480 (0,445 x 1080)
-	var band := ColorRect.new()
-	band.color = Color(0.0, 0.0, 0.0, 0.0 if lose else 0.88) # APK : « ...YOU LOSE! » est posee sur le plateau assombri, sans bandeau noir
-	band.position = Vector2(0, band_y)
-	band.size = Vector2(1920, 183)
-	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(band)
-	for ly in ([] if lose else [band_y, band_y + 183.0]):
-		var line := ColorRect.new()
-		line.color = Color(0.85, 0.65, 0.2, 0.9)
-		line.position = Vector2(0, ly)
-		line.size = Vector2(1920, 2)
-		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(line)
+	if not lose: # APK : winner_bg translucide (alpha 127, filets dores 1 px dans la texture) x1,82, centre (960, 216), sans opacite : ControlsFactory.cs:129-139 ; « ...YOU LOSE! » n'a pas de bandeau (LoseScene.cs)
+		var bg := UiKit.image(self, UI + "gradients/winner_bg.webp", Vector2(3.6, 122), Vector2(1912.8, 188))
+		bg.name = "WinnerBg"
+		bg.material = UiKit.premult_material() # winner_bg est pre-multiplie (halo dore sous les filets)
 	if lose:
-		title_label = UiKit.label(self, "...YOU LOSE!", 40, Color.WHITE, Vector2(-31, 449), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # APK : texte 279 x 26 px centre en (929, 478)
+		title_label = UiKit.label(self, "...YOU LOSE!", 38, Color.WHITE, Vector2(-31, 449), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # 38 = arcadepix 21 x 1,8 (LoseScene.cs:22) ; APK : texte 279 x 26 px centre en (929, 478)
 		var rip := UiKit.image(self, UI + "ingame/bosses_tombstone.webp", Vector2(1217, 464) - Vector2(125, 134), Vector2(250, 268)) # APK : pierre tombale x1,5 centree en (1217, 464)
 		rip.name = "Tombstone"
 	else:
-		title_label = UiKit.label(self, winner_name, 64, Color.WHITE, Vector2(0, 140), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
+		title_label = UiKit.label(self, winner_name, 52, Color.WHITE, Vector2(0, 153), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # 52 = arcadepix 21 x 2,5 (WinnerScene.cs:50)
 		var w := UiKit.image(self, UI + "ingame/winner_txt.webp", Vector2(960 - 233, 228))
 		w.name = "WinnerText"
 		_boss(boss_id)

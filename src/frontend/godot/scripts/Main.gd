@@ -152,6 +152,12 @@ func _img_btn(normal: String, pressed: String, pos: Vector2, cb: Callable, sz: V
 	b.pressed.connect(cb)
 	return b
 
+## BlinkBehavior (WaveEngine) : opacite lineaire 0 -> 1 en `d` s puis 1 -> 0 en `d` s, en boucle (BlinkBehavior.cs:36-60).
+func _blink(n: CanvasItem, d: float) -> void:
+	var tw := n.create_tween().set_loops()
+	tw.tween_property(n, "modulate:a", 1.0, d)
+	tw.tween_property(n, "modulate:a", 0.0, d)
+
 func _flicker(n: Node) -> void:
 	var tw := n.create_tween().set_loops()
 	tw.tween_property(n, "modulate:a", 0.78, 0.35).set_trans(Tween.TRANS_SINE)
@@ -187,20 +193,19 @@ func show_title() -> void:
 	AudioManager.play_music("music_main")  # APK IntroScene
 	add_child(_bg(UI + "backgrounds/intro_bg.webp"))
 	for x in [424, 1094]:
-		var c := _tex("gradients/candle.webp", Vector2(x, 484))
+		var c := _tex("gradients/candle.webp", Vector2(x, 484)) # bougies statiques : ControlsFactory.cs:369-377 (aucun scintillement)
+		c.material = UiKit.premult_material() # candle.webp est pre-multiplie : le halo orange n'apparait qu'avec ce melange
 		add_child(c)
-		_flicker(c)
-	var eyes := _tex("gradients/monster_eyes.webp", Vector2(905, 733))
+	var eyes := _tex("gradients/monster_eyes.webp", Vector2(898, 733)) # x 898 : points rouges APK mesures en (924|985, 759) contre (931|993) a 905
+	eyes.material = UiKit.premult_material() # monster_eyes.webp est pre-multiplie
+	eyes.modulate.a = 0.0 # invisibles au depart : BlinkBehavior(5 s), Opacity MinOpacity 0 (IntroScene.cs:49-55, BlinkBehavior.cs:36-60)
 	add_child(eyes)
-	var blink := eyes.create_tween().set_loops()
-	blink.tween_interval(2.5)
-	blink.tween_property(eyes, "modulate:a", 0.0, 0.1)
-	blink.tween_interval(0.25)
-	blink.tween_property(eyes, "modulate:a", 1.0, 0.1)
+	_blink(eyes, 5.0)
 	add_child(_tex("navigation/bm_logo.webp", Vector2(537, 78), Vector2(850, 343)))
-	var tap := _lbl("TAP TO START", 50, Color(0.82, 0.7, 0.36), Vector2(560, 600), Vector2(800, 86))
+	var tap := _lbl("TAP TO START", 42, Color("bfca7a"), Vector2(547, 600), Vector2(800, 86), FONT_A) # x 547 : texte APK centre vers x 948 (CreateArcadepixTB(515, 620) + decalage 240) ; arcadepix x2 = 42, PistachioColor #bfca7a (IntroScene.cs:57, CustomColors.cs:18)
+	tap.modulate.a = 0.0
 	add_child(tap)
-	_flicker(tap)
+	_blink(tap, 0.3) # BlinkBehavior(0,3 s) (IntroScene.cs:59)
 	add_child(_hit(Vector2.ZERO, Vector2(1920, 1080), func(): show_menu()))
 
 # --- menu principal ----------------------------------------------------------
@@ -208,8 +213,17 @@ func show_title() -> void:
 ## Bouton pierre noire (button.webp) : icone a ipos, texte centre en x = tcx (releve sur 11_menu.png).
 func _stone_btn(text: String, icon: String, ipos: Vector2, tcx: float, pos: Vector2, cb: Callable) -> void:
 	var b := _img_btn("buttons/button.webp", "buttons/button_pressed.webp", pos, cb, Vector2(500, 180))
-	b.add_child(_tex("navigation/" + icon, ipos))
-	b.add_child(_lbl(text, 39, Color.WHITE, Vector2(tcx - 250, 10), Vector2(500, 180)))
+	var ic := _tex("navigation/" + icon, ipos)
+	b.add_child(ic)
+	var lb := _lbl(text, 32, Color.WHITE, Vector2(tcx - 250, 3), Vector2(500, 180), FONT_A) # 32 = arcadepix 21 x 1,5 (ButtonWithDecoratorEntity.cs:39)
+	b.add_child(lb)
+	# appui : texte et icone descendent de 3 px, pas de changement de couleur (ButtonWithDecoratorEntity.cs:49-51)
+	b.button_down.connect(func():
+		ic.position.y += 3.0
+		lb.position.y += 3.0)
+	b.button_up.connect(func():
+		ic.position.y -= 3.0
+		lb.position.y -= 3.0)
 	add_child(b)
 
 func show_menu() -> void:
@@ -255,7 +269,7 @@ func _draw_fans() -> void:
 			dyn_root.add_child(_tex("navigation/bg_number.webp", Vector2(922, 371)))
 			dyn_root.add_child(_lbl(str(n), 56, GOLD, Vector2(922, 371), Vector2(77, 77)))
 		else:
-			dyn_root.add_child(_lbl(str(n), 36, Color(0.95, 0.95, 1.0), Vector2(cx - 32, 415), Vector2(80, 44)))
+			dyn_root.add_child(_lbl(str(n), 32, Color.WHITE, Vector2(cx - 32, 415), Vector2(80, 44), FONT_A)) # arcadepix blanc (PlayerNumberDeckEntity.cs:66) ; 32 px donne l'encre 21 x 21 mesuree sur la capture APK (a 42 px : 28 x 28)
 			dyn_root.add_child(_hit(Vector2(cx - 110, 480), Vector2(220, 240), func():
 				players = n
 				_draw_fans()))

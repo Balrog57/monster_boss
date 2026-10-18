@@ -52,6 +52,17 @@ func _ready() -> void:
 		print("BOARD SCREENS CAPTURED: ", n_shots)
 		get_tree().quit(0)
 		return
+	if only == "menus": # menus + ecrans de fin (iteration rapide sur l'interface)
+		await _menus()
+		await _end_screens()
+		print("MENU + END SCREENS CAPTURED: ", n_shots)
+		get_tree().quit(0)
+		return
+	if only == "states":
+		await _states()
+		print("STATE SCREENS CAPTURED: ", n_shots)
+		get_tree().quit(0)
+		return
 	if only == "online":
 		await _online_menus()
 		print("ONLINE SCREENS CAPTURED: ", n_shots)
@@ -74,6 +85,9 @@ func _menus() -> void:
 	main_scene = load("res://godot/scenes/Main.tscn").instantiate()
 	add_child(main_scene)
 	await _wait(0.5)
+	main_scene.show_title()
+	await _wait(0.3) # TAP TO START : BlinkBehavior 0,3 s, pleine opacite a t = 0,3 s
+	await _shot("title_screen_after_gameover_ok_returns_here_no_score_panel")
 	main_scene.show_menu() # l'APK montre le menu 2x2 (l'ecran titre TAP TO START est celui d'avant)
 	await _wait(0.4)
 	await _shot("menu_main_single_multiplayer_options_store")

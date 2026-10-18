@@ -2152,7 +2152,15 @@ func _check_gallery() -> void:
 	g.select_tab(0)
 	var order: Array = g.cards_for(0).map(func(c): return str(c["id"]))
 	_check(order.size() > 1 and order[0] == "KSA007" and order[1] == "KSA006", "galerie : ordre APK (CardNumber decroissant), Elicon puis Jarin en tete : %s" % [order.slice(0, 3)])
+	_check(g.tab_buttons[0].get_node_or_null("Sel") == null, "galerie : l'onglet BOSS n'a pas de cadre jaune a l'ouverture (capture APK)")
+	g.select_tab(2, true) # onglet touche : cadre jaune (ScrollItemComponent) ; select_tab(0) ci-dessus ne le portait pas
+	_check(g.tab_buttons[2].get_node_or_null("Sel") != null, "galerie : l'onglet touche prend le cadre jaune")
+	g.select_tab(0)
 	var tile = g.scroll.get_node("Grid").get_child(0)
+	var tile2 = g.scroll.get_node("Grid").get_child(1)
+	g._select_tile(tile)
+	g._select_tile(tile2)
+	_check(tile2.get_node_or_null("Sel") != null and tile.get_node_or_null("Sel") == null, "galerie : seule la derniere tuile touchee porte le cadre jaune (0,85 / 0,8)")
 	g.show_detail(tile.get_meta("card"), tile.texture)
 	_check(g._detail != null, "galerie : le detail d'une carte ne s'ouvre pas")
 	g.close_gallery() # ferme d'abord le detail

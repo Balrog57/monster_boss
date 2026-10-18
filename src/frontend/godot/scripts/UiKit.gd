@@ -5,7 +5,7 @@ extends RefCounted
 const FONT_A := "res://assets/fonts/arcadepix.fnt"   # texte plein (titres, ON / OFF)
 const FONT_B := "res://assets/fonts/arcadepix2.fnt"  # texte strie (boutons, libelles)
 const UI := "res://assets/ui/"
-const GOLD := Color(0.95, 0.78, 0.3)
+const GOLD := Color("cdb15f")                        # or de l'APK : CustomColors.cs:16
 const ZOOM_CARD := Vector2(330, 470)                 # zoom d'une carte (appui long, glisser, pioche, pile de sorts) ; cadre noir compris = 350 x 490 (mesure APK : pile de sorts, appui long)
 const ZOOM_PAD := 10.0                               # cadre noir arrondi autour de la carte zoomee
 
@@ -19,6 +19,16 @@ static func font(path: String) -> Font:
 		fv.fallbacks = [ThemeDB.fallback_font]
 		_fonts[path] = fv
 	return _fonts[path]
+
+static var _premult: CanvasItemMaterial
+
+## Textures de l'APK a alpha pre-multiplie (card_slot, winner_bg : le filet clair est stocke en (119, 119, 119, 119) = blanc a 47 %) : melange PREMULT_ALPHA,
+## sinon Godot (alpha droit) les dessine gris x alpha donc trop sombres (filets des emplacements vides : 0,22 au lieu de 0,47).
+static func premult_material() -> CanvasItemMaterial:
+	if _premult == null:
+		_premult = CanvasItemMaterial.new()
+		_premult.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
+	return _premult
 
 static func tex(path: String) -> Texture2D:
 	return load(path) if ResourceLoader.exists(path) else null
@@ -88,7 +98,7 @@ static func texture_button(parent: Node, normal: String, pressed: String, pos: V
 	return b
 
 ## Bouton pierre de l'APK (options_bt) avec libelle : un vrai `Button` (texte lisible par les tests), style = la texture.
-static func stone_button(parent: Node, text: String, pos: Vector2, sz: Vector2 = Vector2(546, 144), font_size: int = 38) -> Button:
+static func stone_button(parent: Node, text: String, pos: Vector2, sz: Vector2 = Vector2(546, 144), font_size: int = 27) -> Button: # 27 = arcadepix 21 x 1,3 (PauseScene.cs:52, LabelAndBackground.cs:70)
 	var b := Button.new()
 	b.text = text
 	b.position = pos
@@ -98,13 +108,16 @@ static func stone_button(parent: Node, text: String, pos: Vector2, sz: Vector2 =
 	for n in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
 		var sb := StyleBoxTexture.new()
 		sb.texture = tex(UI + ("buttons/options_bt_pressed.webp" if n in ["pressed", "hover_pressed"] else "buttons/options_bt.webp"))
+		sb.content_margin_bottom = 6.0 # remonte le libelle de 3 px : l'encre APK est centree 3 px plus haut qu'avec arcadepix centre par Godot
 		if n == "hover":
 			sb.modulate_color = Color(1.25, 1.2, 1.05)
 		b.add_theme_stylebox_override(n, sb)
-	b.add_theme_font_override("font", font(FONT_B))
+	b.add_theme_font_override("font", font(FONT_A)) # arcadepix (Fonts.cs:6-12, LabelAndBackground.cs:89-91), pas arcadepix2
 	b.add_theme_font_size_override("font_size", font_size)
-	for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
-		b.add_theme_color_override(c, Color.WHITE)
+	for c in ["font_color", "font_hover_color", "font_focus_color"]:
+		b.add_theme_color_override(c, Color.WHITE) # repos blanc : ButtonWithLabelEntity.cs:21
+	for c in ["font_pressed_color", "font_hover_pressed_color"]:
+		b.add_theme_color_override(c, GOLD) # appuye or #cdb15f : ButtonWithLabelEntity.cs:32
 	parent.add_child(b)
 	return b
 

@@ -38,7 +38,7 @@ func _build() -> void:
 		_build_main()
 
 func _build_main() -> void:
-	var t := UiKit.label(self, "PAUSED", 42, UiKit.GOLD, Vector2(1, 45), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # APK : texte 198 x 28 px centre en (961, 76)
+	var t := UiKit.label(self, "PAUSED", 42, UiKit.GOLD, Vector2(1, 45), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # or #cdb15f (PauseScene.cs:42, CustomColors.cs:16) ; APK : texte 198 x 28 px centre en (961, 76)
 	t.name = "Title"
 	var entries := [["RESUME", func(): resume_requested.emit()], ["CARD GALLERY", _open_gallery], ["RULES", func(): rules_requested.emit()],
 		["SETTINGS", func():
