@@ -213,7 +213,10 @@ l'exemption est PAR CLE : toute autre cle `otherCardChoice:*` fait echouer la tr
   forcee = aucune carte n'a bouge (l'IA oracle a parfois designe son propre boss : transaction sans effet net) : pas de vol.
 - `_sync_build(-1)` (l'oracle a clos la construction) force des `passBuild` mais s'arrete des que Godot ouvre un tour de
   construction supplementaire (`forcedBuild`) ou change de tour : c'est alors l'oracle qui pilote.
-- Les melanges de reconstitution (pioche vide) ne sont pas reproductibles ; aucune des traces par defaut n'en declenche.
+- Les melanges de reconstitution (pioche vide) ne sont pas reproductibles : l'ordre tire est inconnu du harnais, et `GameBoard.ReShuffleDiscardsPilesBackToDeck`
+  remet les DEUX defausses (salles ET sorts) dans leurs pioches a la fois ; Godot fait pareil (`CardDB.draw_pile`, pioche de tour et pioches d'effet). Aucune
+  des traces par defaut n'en declenche ; s16-p4@593 (Recycling Center sur pioche vide) reste en echec : cartes piochees au hasard, et la salle detruite
+  entre dans la defausse AVANT le declencheur cote APK (transaction mise en file) alors que Godot pioche avant que l'appelant la defausse (1 carte d'ecart de pioche).
 - **Courses et bogues de l'IA oracle** (pas des regles : un humain attend la fin de la Spell Battle) : l'IA enchaine, dans une seule liste d'actions
   precalculee (`AIPlayerInteraction.InternalDoPlayerActions`), une capacite/un sort PUIS une construction. `GameBoard.EnqueueAbilityTransaction`
   met l'effet en file ; il ne s'execute qu'au `NextStep` suivant (`GameBoard.NextStep`, `PendingAbilityTransactions`), apres la construction.
@@ -223,10 +226,19 @@ l'exemption est PAR CLE : toute autre cle `otherCardChoice:*` fait echouer la tr
   Open Grave avortes (`_abort_trigger`, `TriggerCalculator` renvoie des cibles deja calculees), Succubus Spa sur son propre boss, decisions de
   Goblin Armory / Dizzygas Hallway ignorees (`Boss.GetPassiveDamage` « resout » une transaction a chaque calcul de degats). **Non reproduit** :
   s5-p2@498 (Giant Size lance par l'IA sur une salle PIEGE, `AbilityCalculator.CheckBMA040And047` mele Trap/Monster ; le C# ne valide pas le type
-  a l'execution, Godot le refuse) ; fenetres `AdventurePhase_a/b` d'un tour sans heros (Godot enchaine le tour, l'IA oracle y active des capacites :
-  REFUS « Godot a deja termine ce tour »).
-- **Graines 10-40 (hors du rapport par defaut)** : `apk.py --seeds 10 ... 40 --players 2 3 4` (93 traces) rejoue a 59/93 apres les correctifs de cette passe
-  (30/93 avant) ; le reste est du meme ordre (courses ci-dessus, tour sans heros, etc.), non classe en detail.
+  a l'execution, Godot le refuse) ; fenetres `AdventurePhase_a/b` sans heros actif, qu'il s'agisse d'un tour sans heros ou de la fenetre APRES la sortie du dernier
+  heros (s20-p2@677, s28-p3@329 : Dracolich Lair active apres le dernier heros, partie deja close a 10 ames cote Godot) : Godot enchaine
+  le tour, l'IA oracle y active des capacites (REFUS « Godot a deja termine ce tour » / `activateRoom` absent de `legal_moves`). Un humain n'y a PAS de
+  fenetre : `GameBoard.IsAdventureInteractionTurn` exige `ActiveHero != null` et `GamePlayBaseScene.CreateWaitAndMoveHeroToNextSlotTask`
+  n'ouvre la barre de temps qu'avec un heros actif ; `CheckEndOfGame` ne tourne qu'en `EndOfTurnPhase` (Godot : `_check_end_or_next_turn`
+  seulement quand l'aventure est finie, donc pas d'arret premature a 10 ames).
+- **Graines 10-40 (hors du rapport par defaut)** : `apk.py --seeds 10 ... 40 --players 2 3 4` (93 traces) rejoue a 76/93 apres les correctifs de la passe l11c
+  (69/93 avant, 30/93 deux passes plus tot). Corriges : Jeopardy / Kobold Strike / Centipede Tunnel / Kaw'nee ignorent les joueurs elimines
+  (`InGamePlayersPriorized`), un Liger's Den par salle, pioche vide = remelange des deux defausses (`CardDB.draw_pile`), Bottomless Pit / Cave-In
+  (`KillHero` / `KillHeroInRoom`) ne levent aucun declencheur de mort, destruction de la salle du heros au slot C# 4 sans pas « vide »,
+  un heros ajoute a un joueur deja passe (Zombie Prison) attend le tour suivant (une seule ronde). Restent en echec (17) : s16-p4, s19-p4, s20-p2,
+  s20-p4, s21-p2, s21-p4, s23-p2, s26-p2, s27-p3, s28-p3, s30-p4, s31-p2, s33-p2, s35-p2, s36-p3, s36-p4, s38-p3 ; s20-p2 et s28-p3 sont la fenetre
+  d'IA sans heros actif ci-dessus, s16-p4 le remelange ; les autres ne sont pas classes en detail.
 - Paquets supplementaires : voir « Paquets supplementaires ». Les traces `--decks` heritent des echecs du jeu de base (memes cartes de base), qui dominent le bruit : pour savoir si un echec releve d'un paquet, chercher le dernier evenement KSA/BMH (niveau gagne, T.P.K. joue, heros KSA a l'entree) avant la premiere divergence.
 - `chooseDraw` (Haunted Library, BMA023) est rejoue par le harnais (choix Godot `draw-type`) mais ne figure dans aucune trace des graines 1-80 (BMA023 et BMA033 ne sont jamais distribuees : `CardInfoService.notInGameCards`, ecartees des pioches de `new_match`) : le chemin n'est couvert que par un golden. `undoBuildRoom` n'apparait pas non plus ; il serait un REFUS.
 - Les decisions `resolveTarget` internes aux capacites (cibles d'IA) ne sont transmises que si Godot

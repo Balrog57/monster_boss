@@ -295,6 +295,7 @@ static func _bottomless_pit(G: Dictionary, p: Dictionary, player_id: int, room_i
 	var adv: Dictionary = G.get("adventure", {}) as Dictionary
 	_log(G, "Bottomless Pit: killed %s." % str((adv.get("hero", {}) as Dictionary).get("name", "?")))
 	adv["hp"] = 0
+	adv["noDeathTrigger"] = true # KillHero = RemoveHeroFromGame + SoulsHeroes.Add : ni HeroDiesInThisRoom ni HeroDiesAnotherRoom (seul ProccessActiveHero les leve)
 	var destroyed = BossEngine.destroy_room(p, room_index, G)
 	BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
 	return null
@@ -505,13 +506,7 @@ static func kitchen_discard(G: Dictionary, player_id: int, option: Dictionary) -
 
 static func _draw_into(G: Dictionary, player: Dictionary, pile: String, n: int) -> Array:
 	var decks: Dictionary = G.get("decks", {})
-	var deck: Array = decks.get(pile, []) as Array
-	decks[pile] = deck
-	var out: Array = []
-	for i in n:
-		if deck.is_empty():
-			break
-		out.append(deck.pop_back())
+	var out: Array = CardDB.draw_pile(decks, pile, n) # DrawCards -> GameBoard.DrawRooms/DrawSpells (pioche vide : defausses remelangees)
 	if not out.is_empty():
 		var hand: Array = player.get("hand", []) as Array
 		hand.append_array(out)
@@ -729,6 +724,8 @@ static func _centipede_tunnel(G: Dictionary, player_id: int) -> Variant:
 	var options: Array = []
 	for pid in (G.get("players", {}) as Dictionary):
 		var p: Dictionary = G["players"][pid]
+		if p.get("eliminated", false):
+			continue # RoomInDungeon Any : proprietaire + GetOpponents (InGamePlayersPriorized, sans les elimines)
 		for i in (p.get("dungeon", []) as Array).size():
 			if BossEngine.active_room((p["dungeon"] as Array)[i]) != null:
 				options.append({"targetPlayerId": int(pid), "roomIndex": i})
@@ -899,8 +896,8 @@ static func _apk_level_up(G: Dictionary, player_id: int, p: Dictionary, lu: Dict
 		"PlaceAtScorekeep": # KSA004 Kaw'nee : un heros ORDINAIRE mort (SoulsHeroes) d'un adversaire passe face cachee chez soi
 			var opts: Array = []
 			for opid in (G.get("players", {}) as Dictionary):
-				if int(opid) == player_id:
-					continue
+				if int(opid) == player_id or bool((G["players"][opid] as Dictionary).get("eliminated", false)):
+					continue # HeroInScorekeep : GetOpponents (sans les elimines)
 				var souls: Array = (G["players"][opid] as Dictionary).get("souls", [])
 				for i in souls.size():
 					var e: Dictionary = souls[i]

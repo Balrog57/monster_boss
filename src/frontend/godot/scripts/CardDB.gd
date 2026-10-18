@@ -102,6 +102,32 @@ static func refill_from_discard(deck: Array, discard: Array, rng: RandomNumberGe
 		deck[i] = deck[j]
 		deck[j] = t
 
+## GameBoard.DrawRooms / DrawSpells : a CHAQUE carte, pioche vide => ReShuffleDiscardsPilesBackToDeck remet les DEUX defausses
+## (salles ET sorts) dans leurs pioches et melange les deux. Pioche d'effet (DrawCards) et pioche de debut de tour passent par ici.
+static func draw_pile(decks: Dictionary, pile: String, n: int, rng: RandomNumberGenerator = null) -> Array:
+	var deck: Array = decks.get(pile, [])
+	decks[pile] = deck
+	var out: Array = []
+	for _i in n:
+		if deck.is_empty():
+			for pr in [["rooms", "roomDiscard"], ["spells", "spellDiscard"]]:
+				var d: Array = decks.get(pr[0], [])
+				var disc: Array = decks.get(pr[1], [])
+				while not disc.is_empty():
+					d.append(disc.pop_back())
+				for i in range(d.size() - 1, 0, -1):
+					var j := rng.randi_range(0, i) if rng != null else randi_range(0, i) # sans rng : alea global (seed() des soaks)
+					var t = d[i]
+					d[i] = d[j]
+					d[j] = t
+				decks[pr[0]] = d
+				decks[pr[1]] = disc
+			deck = decks[pile]
+		if deck.is_empty():
+			break
+		out.append(deck.pop_back())
+	return out
+
 ## Chemin d'image carte, miroir de getWikiCardImage/getApkCardImage (web: /cards/...).
 ## Priorité : textures authentiques de l'APK (res://assets/apk_cards/), puis wiki (res://assets/cards/).
 func card_image(id: String, kind: String) -> String:

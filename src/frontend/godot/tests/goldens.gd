@@ -111,6 +111,12 @@ func _ready() -> void:
 	_t_entrance_persists_across_turns()
 	_t_haunted_library_chooses_draw()
 	_t_succubus_spa_steals_random_card()
+	_t_apk_all_boss_effects_skip_eliminated_players()
+	_t_apk_each_liger_den_draws()
+	_t_apk_draw_on_empty_pile_reshuffles_both_discards()
+	_t_apk_kill_effects_raise_no_death_trigger()
+	_t_apk_destroy_room_of_hero_at_entrance_slot_no_empty_step()
+	_t_apk_hero_added_to_passed_player_waits_next_turn()
 
 	load("res://godot/tests/goldens_decks.gd").new().run(_ok, self) # paquets APK : PlayerChoice (KSA), HiddenHeros (BMH), ToolsHeroKind (THK)
 	load("res://godot/tests/goldens_tnl.gd").new().run(_ok, self) # extension The Next Level (TNL, hors APK)
@@ -1972,4 +1978,126 @@ func _t_succubus_spa_steals_random_card() -> void:
 	m._resolve_choice(0, 1)
 	_ok(((G3["players"][0] as Dictionary)["hand"] as Array).size() == 1 and ((G3["players"][2] as Dictionary)["hand"] as Array).is_empty(),
 		"la carte de l'adversaire choisi rejoint la main du proprietaire")
+	m.queue_free()
+
+
+# --- Parite APK (graines 10-40) : regles corrigees ---
+
+## AllBoss / GetOpponents = GameBoard.InGamePlayersPriorized (Boss.IsAlive : Wounds < 5) : un joueur elimine ne defausse/pioche pas
+## (Jeopardy), ne reprend pas ses salles (Kobold Strike), n'est cible ni de Centipede Tunnel ni de Kaw'nee. Oracle s40-p4 seq 213-218.
+func _t_apk_all_boss_effects_skip_eliminated_players() -> void:
+	var G := _spell_state()
+	(G["players"][0] as Dictionary)["id"] = 0
+	var dead: Dictionary = G["players"][1]
+	dead["eliminated"] = true
+	dead["hand"] = [_room("Keep", "trap", false, [1])]
+	(G["decks"]["rooms"] as Array).append_array([_room("R1", "trap", false, [1]), _room("R2", "trap", false, [1])])
+	(G["decks"]["spells"] as Array).append({"id": "BMA040", "name": "Annihilator", "isSpell": true})
+	_ok(SpellEffects.cast_spell(G, 0, {"id": "BMA048"}, {}), "Jeopardy accepte")
+	_ok((dead["hand"] as Array).size() == 1 and str(((dead["hand"] as Array)[0] as Dictionary)["id"]) == "Keep", "Jeopardy : le joueur elimine garde sa main")
+	_ok(((G["players"][0] as Dictionary)["hand"] as Array).size() == 3, "Jeopardy : le joueur vivant pioche 1 sort + 2 salles")
+	var built := _room("B", "trap", false, [1])
+	built["faceDown"] = true
+	built["builtThisTurn"] = true
+	dead["dungeon"] = [[built]]
+	SpellEffects.cast_spell(G, 0, {"id": "BMA049"}, {})
+	_ok((dead["dungeon"] as Array).size() == 1 and (dead["hand"] as Array).size() == 1, "Kobold Strike : la salle du joueur elimine reste posee")
+	(G["players"][0] as Dictionary)["dungeon"] = [[_room("M", "trap", false, [1])]]
+	dead["dungeon"] = [[_room("D", "trap", false, [1])]]
+	_ok(RoomAbilities._centipede_tunnel(G, 0) == null, "Centipede Tunnel : la seule autre salle est celle d'un joueur elimine, pas de swap")
+
+## OncePerTurn est par salle : chaque Liger's Den actif pioche un sort quand son proprietaire joue un sort (GameBoard.cs:796, 1290-1305).
+func _t_apk_each_liger_den_draws() -> void:
+	var m = _battle_match()
+	var p0: Dictionary = m.G["players"][0]
+	p0["dungeon"] = [[_room("BMA026", "trap", false, [1])], [_room("BMA026", "trap", false, [1])]]
+	p0["hand"] = [_zspell("ZA")]
+	for i in 4:
+		(m.G["decks"]["spells"] as Array).append({"id": "S%d" % i, "name": "S%d" % i, "isSpell": true})
+	_ok(_play(m, 0, "ZA") and _pass(m, 1) and _pass(m, 2), "ZA joue puis resolu")
+	_ok((p0["hand"] as Array).size() == 2, "deux Liger's Den : deux sorts pioches (obtenu %d)" % (p0["hand"] as Array).size())
+	m.queue_free()
+
+## GameBoard.DrawRooms / DrawSpells : pioche vide => ReShuffleDiscardsPilesBackToDeck remet les DEUX defausses dans leurs pioches.
+## Vaut pour la pioche de debut de tour comme pour les pioches d'effet (Recycling Center BMA031, Brainsucker Hive...). Oracle s16-p4 seq 593.
+func _t_apk_draw_on_empty_pile_reshuffles_both_discards() -> void:
+	var G := _ability_G("BMA030")
+	((G["players"][0] as Dictionary)["dungeon"] as Array).append([_room("BMA031", "trap", true, [1])])
+	(G["decks"]["roomDiscard"] as Array).append_array([_room("A", "trap", false, [1]), _room("B", "trap", false, [1]), _room("C", "trap", false, [1])])
+	(G["decks"]["spellDiscard"] as Array).append_array([{"id": "S1", "name": "S1", "isSpell": true}, {"id": "S2", "name": "S2", "isSpell": true}])
+	_ok(RoomAbilities.activate_room_ability(G, 0, 0) == null, "Jackpot Stash detruit sa salle avec un Recycling Center")
+	_ok(((G["players"][0] as Dictionary)["hand"] as Array).size() == 2, "Recycling Center sur pioche vide : 2 salles piochees dans la defausse remelangee")
+	_ok((G["decks"]["spells"] as Array).size() == 2 and (G["decks"]["spellDiscard"] as Array).is_empty(), "la defausse de sorts est remelangee en meme temps")
+	var G2 := _ability_G("BMA021")
+	(G2["decks"]["spellDiscard"] as Array).append({"id": "S1", "name": "S1", "isSpell": true})
+	var room: Dictionary = BossEngine.active_room(((G2["players"][0] as Dictionary)["dungeon"] as Array)[0])
+	RoomAbilities.on_hero_died_in_room(G2, 0, room)
+	_ok(((G2["players"][0] as Dictionary)["hand"] as Array).size() == 1, "Brainsucker Hive sur pioche vide : sort repioche depuis la defausse")
+
+## KillHero (Bottomless Pit) et KillHeroInRoom (Cave-In) = RemoveHeroFromGame + SoulsHeroes.Add : ni HeroDiesInThisRoom ni
+## HeroDiesAnotherRoom (seul ProccessActiveHero les leve), meme si une salle empilee reste au sommet du slot. Oracle s18-p3 seq 393-400, s40-p3 seq 357-365.
+func _t_apk_kill_effects_raise_no_death_trigger() -> void:
+	for kind in ["pit", "cave-in"]:
+		var m = Match.new()
+		add_child(m)
+		var hero := {"id": "H", "name": "H", "hp": 9, "souls": 1, "wounds": 1}
+		var below := _room("BMA016", "monster", false, [1])
+		var top := _room("BMA027" if kind == "pit" else "T", "trap", false, [1])
+		var p := {"id": 0, "dungeon": [[below, top]], "entrance": [hero], "hand": [], "souls": [], "wounds": []}
+		m.G = {"players": {0: p}, "log": [], "logs": [], "effects": SpellEffects.empty_effects(), "town": [], "turn": 1,
+			"decks": {"rooms": [_room("D", "trap", false, [1])], "spells": [], "roomDiscard": [], "spellDiscard": [], "heroDiscard": []},
+			"adventure": {"playerId": 0, "hero": hero, "roomIndex": 0, "hp": 5, "pause": "post-damage"}}
+		if kind == "pit":
+			_ok(RoomAbilities.activate_room_ability(m.G, 0, 0) == null, "Bottomless Pit s'active")
+		else:
+			_ok(SpellEffects.cast_spell(m.G, 0, {"id": "BMA042"}, {"roomIndex": 0}), "Cave-In accepte")
+		m._finish_hero_if_dead()
+		_ok((p["hand"] as Array).is_empty() and (p["souls"] as Array).size() == 1, "%s : ame capturee, la salle restee dessous (Golem Factory) ne pioche pas" % kind)
+		m.queue_free()
+
+## ProccessActiveHero : lastActiveHeroSlotIndex == IndexOf(slot) == 4 (heros a l'entree d'un donjon plein) => num-- directement, donc
+## aucun pas « emplacement vide » quand sa propre salle est detruite (Crushinator). Oracle s11-p3 seq 404-405, s12-p2 seq 814-815.
+func _t_apk_destroy_room_of_hero_at_entrance_slot_no_empty_step() -> void:
+	var m = Match.new()
+	add_child(m)
+	var hero := {"id": "H", "name": "H", "hp": 20}
+	var G := _ability_G("BMA010")
+	var p: Dictionary = G["players"][0]
+	p["dungeon"] = [[_room("A", "trap", false, [1])], [_room("B", "trap", false, [1])], [_room("C", "trap", false, [1])], [_room("D", "trap", false, [1])], [_room("E", "trap", false, [1])]]
+	p["entrance"] = [hero]
+	G["log"] = []
+	G["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": 0, "hp": 9, "pause": null}
+	m.G = G
+	BossEngine.destroy_room(p, 0, G)
+	m._advance_adventure_room()
+	_ok(int((G["adventure"] as Dictionary)["roomIndex"]) == 0 and int((G["adventure"] as Dictionary)["hp"]) == 8, "slot 4 detruit : le heros subit directement la salle suivante")
+	# Slot 3 (un cran apres l'entree) : un pas vide, puis la salle.
+	var G2 := _ability_G("BMA010")
+	var p2: Dictionary = G2["players"][0]
+	p2["dungeon"] = [[_room("A", "trap", false, [1])], [_room("B", "trap", false, [1])], [_room("C", "trap", false, [1])], [_room("D", "trap", false, [1])], [_room("E", "trap", false, [1])]]
+	G2["log"] = []
+	G2["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": 1, "hp": 9, "pause": null}
+	m.G = G2
+	BossEngine.destroy_room(p2, 1, G2)
+	m._advance_adventure_room()
+	_ok(int((G2["adventure"] as Dictionary)["roomIndex"]) == -1 and int((G2["adventure"] as Dictionary)["hp"]) == 9, "slot 3 detruit : un emplacement vide traverse")
+	m.queue_free()
+
+## ChooseNextActivePlayer ne regarde que les joueurs d'indice superieur : un heros ajoute a l'entree d'un joueur qui a deja passe
+## (Zombie Prison) n'ouvre pas de seconde ronde ; il attend le tour suivant. Oracle s24-p4 seq 266-278.
+func _t_apk_hero_added_to_passed_player_waits_next_turn() -> void:
+	var m = _match_with_spell()
+	m.G["autoAI"] = false
+	m.G["phase"] = "adventure"
+	m.G["turn"] = 4
+	m.G["sets"] = ["base"] # sinon la regle historique « heros epuises » clot la partie
+	(m.G["decks"]["rooms"] as Array).append_array([_room("R1", "trap", false, [1]), _room("R2", "trap", false, [1])])
+	var p0: Dictionary = m.G["players"][0]
+	p0["entrance"] = [{"id": "H1", "name": "H1"}]
+	p0["passed"] = true
+	p0["hasActed"] = true
+	(m.G["players"][1] as Dictionary)["passed"] = false
+	m.G["activePlayer"] = 1
+	_ok(m.apply_move(1, {"type": "pass", "args": []}), "le dernier joueur passe")
+	_ok(int(m.G["turn"]) == 5 and (p0["entrance"] as Array).size() == 1, "fin de l'aventure : le heros reste a l'entree pour le tour suivant")
 	m.queue_free()

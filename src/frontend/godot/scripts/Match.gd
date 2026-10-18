@@ -1131,9 +1131,7 @@ func _start_turn() -> void:
 
 ## Pioche de debut de tour (DrawRooms / DrawSpells : une carte, la defausse remelangee si la pioche est vide).
 func _draw_turn_card(p: Dictionary, pile: String) -> void:
-	var discard := "roomDiscard" if pile == "rooms" else "spellDiscard"
-	CardDB.refill_from_discard(G["decks"][pile], G["decks"][discard], rng)
-	var drawn := CardDB.draw_cards(G["decks"][pile], 1)
+	var drawn := CardDB.draw_pile(G["decks"], pile, 1, rng)
 	if not drawn.is_empty():
 		(p["hand"] as Array).append(drawn[0])
 
@@ -1570,15 +1568,11 @@ func _resolve_pending_stack() -> void:
 			for st in (caster.get("dungeon", []) as Array):
 				var r = BossEngine.active_room(st)
 				if r != null and str(r.get("id", "")) == "BMA026" and not bool(r.get("faceDown", false)) and not bool(r.get("usedThisTurn", false)) and not TnlAbilities.no_text(r):
-					var dsp: Array = decks.get("spells", [])
-					var dsd: Array = decks.get("spellDiscard", [])
-					CardDB.refill_from_discard(dsp, dsd, rng)
-					var drawn = CardDB.draw_cards(dsp, 1)
+					var drawn = CardDB.draw_pile(decks, "spells", 1, rng)
 					if not drawn.is_empty():
 						(caster.get("hand", []) as Array).append(drawn[0])
 						_log("Liger's Den : pioche un sort.")
-					r["usedThisTurn"] = true
-					break
+					r["usedThisTurn"] = true # OncePerTurn est PAR salle (Ability.CheckConditions) : chaque Liger's Den actif pioche (GameBoard.cs:796, 1290-1305)
 		effect["resolved"] = true
 	G["stack"] = []
 	RoomAbilities.stack_return_control(G)
@@ -1595,7 +1589,7 @@ func _finish_hero_if_dead() -> void:
 	var hero: Dictionary = adv.get("hero", {})
 	var pid: int = int(adv.get("playerId", 0))
 	var death_room: Dictionary = G.get("_deathRoom", {})
-	if death_room.is_empty() and not bool(adv.get("roomGone", false)):
+	if death_room.is_empty() and not bool(adv.get("roomGone", false)) and not bool(adv.get("noDeathTrigger", false)):
 		var p: Dictionary = G["players"][pid]
 		var idx: int = int(adv.get("roomIndex", -1))
 		var d: Array = p.get("dungeon", [])
@@ -1752,25 +1746,14 @@ func _advance_adventure_player() -> void:
 				all_acted = false
 				break
 
-	if not _has_adventure_work():
-		if all_acted:
-			_check_end_or_next_turn()
-			return
-
+	# Une seule ronde (GameBoard.ChooseNextActivePlayer : ne regarde que les joueurs d'indice superieur, jamais en arriere) : un heros
+	# ajoute a l'entree d'un joueur qui a deja passe (Zombie Prison) attend le tour suivant (s24-p4@277).
 	if all_acted:
-		for pid in G["players"]:
-			var pl: Dictionary = G["players"][pid]
-			pl["passed"] = false
-			pl["hasActed"] = false
-		for pid in CardDB.order_by_xp(G["players"]):
-			var pl: Dictionary = G["players"][pid]
-			if not pl.get("eliminated", false) and _has_entrance_hero(int(pid)):
-				G["activePlayer"] = int(pid)
-				return
-	else:
-		var nxt := _next_xp_active_player(active_player())
-		if nxt >= 0:
-			G["activePlayer"] = nxt
+		_check_end_or_next_turn()
+		return
+	var nxt := _next_xp_active_player(active_player())
+	if nxt >= 0:
+		G["activePlayer"] = nxt
 
 func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -> void:
 	var p: Dictionary = G["players"][pid]

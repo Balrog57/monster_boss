@@ -436,7 +436,9 @@ static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}
 					# GameBoard.DestroyRoom : le slot passe en fin de liste (Dungeon.Remove + Add, 5 slots fixes), le heros le suit
 					# (InsideDungeonSlot) : il traverse les emplacements vides (5 - taille restante, 1 pas chacun) puis repart de
 					# l'entree (index C# decroissant) ; voir Match._advance_adventure_room (i < 0 = emplacement vide).
-					adv["roomIndex"] = -(5 - dungeon.size()) - 1
+					# Exception : heros au slot C# 4 (donjon plein, entree) => lastActiveHeroSlotIndex == 4 == IndexOf(slot), donc num-- directement
+					# (ProccessActiveHero, GameBoard.cs:1108-1116) : aucun pas « vide » (s11-p3@404, s12-p2@814).
+					adv["roomIndex"] = -(5 - dungeon.size()) - (0 if dungeon.size() == 4 and h == 0 else 1)
 	if triggers and not G.is_empty():
 		_on_other_room_destroyed(G, player)
 	# Regle « uncover » (Crash Landing) : la salle du dessous redevient le sommet de sa pile (l'emplacement n'a pas disparu).
@@ -452,16 +454,14 @@ static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}
 ## actif du donjon (la salle detruite n'y est plus) fait piocher 2 salles a son proprietaire (DrawCards 2 Room).
 static func _on_other_room_destroyed(G: Dictionary, player: Dictionary) -> void:
 	var dungeon: Array = player.get("dungeon", [])
-	var deck: Array = (G.get("decks", {}) as Dictionary).get("rooms", []) as Array
 	for i in dungeon.size():
 		var top = active_room(dungeon[i])
 		if top == null or bool((top as Dictionary).get("faceDown", false)) or str((top as Dictionary).get("id", "")) != "BMA031":
 			continue
 		if is_room_deactivated(G, int(player.get("id", -1)), i) or TnlAbilities.no_text(top as Dictionary):
 			continue
-		for _k in 2:
-			if not deck.is_empty():
-				(player.get("hand", []) as Array).append(deck.pop_back())
+		# DrawRooms : pioche vide => defausses remelangees (GameBoard.cs:529-545, 1335-1349), puis la suite de la pioche.
+		(player.get("hand", []) as Array).append_array(CardDB.draw_pile(G.get("decks", {}) as Dictionary, "rooms", 2))
 
 static func discard_room_to_pile(decks: Dictionary, card) -> void:
 	if card == null:

@@ -47,14 +47,7 @@ static func _target_id(target: Dictionary, caster_id: int) -> int:
 	return int(target["targetPlayerId"]) if target.has("targetPlayerId") else caster_id
 
 static func _draw(decks: Dictionary, pile: String, n: int) -> Array:
-	var deck: Array = decks.get(pile, [])
-	decks[pile] = deck
-	var out: Array = []
-	for i in n:
-		if deck.is_empty():
-			break
-		out.append(deck.pop_back())
-	return out
+	return CardDB.draw_pile(decks, pile, n) # DrawCards -> GameBoard.DrawRooms/DrawSpells (pioche vide : defausses remelangees)
 
 ## Point d'entree : resout le sort. Renvoie false si aucun effet pour cette carte.
 static func cast_spell(G: Dictionary, caster_id: int, card: Dictionary, target: Dictionary) -> bool:
@@ -177,6 +170,7 @@ static func _cave_in(G: Dictionary, caster_id: int, _card: Dictionary, target: D
 	var adv: Dictionary = G.get("adventure", {}) as Dictionary
 	if not adv.is_empty() and int(adv.get("playerId", -1)) == caster_id and int(adv.get("roomIndex", -1)) == idx:
 		adv["hp"] = 0
+		adv["noDeathTrigger"] = true # KillHeroInRoom = RemoveHeroFromGame + SoulsHeroes.Add : aucun declencheur de mort (KillHeroInRoom.cs:37-45), ni sur la salle detruite ni sur celle qui remonte
 		_log(G, "Cave-In: %s is destroyed." % str((adv.get("hero", {}) as Dictionary).get("name", "?")))
 	var destroyed = BossEngine.destroy_room(p, idx, G)
 	if destroyed != null:
@@ -292,6 +286,8 @@ static func _jeopardy(G: Dictionary, _caster_id: int, _card: Dictionary, _target
 	var decks: Dictionary = G.get("decks", {})
 	for opid in (G.get("players", {}) as Dictionary):
 		var p: Dictionary = G["players"][opid]
+		if p.get("eliminated", false):
+			continue # AllBoss -> GameBoard.InGamePlayersPriorized (Boss.IsAlive : Wounds < 5)
 		var hand: Array = p.get("hand", [])
 		p["hand"] = hand
 		var held := hand.duplicate()
@@ -317,6 +313,8 @@ static func _kobold_strike(G: Dictionary, _caster_id: int, _card: Dictionary, _t
 	_effects(G)["buildBlocked"] = true
 	for opid in (G.get("players", {}) as Dictionary):
 		var p: Dictionary = G["players"][opid]
+		if p.get("eliminated", false):
+			continue # AllBoss -> InGamePlayersPriorized
 		var dungeon: Array = p.get("dungeon", [])
 		for i in range(dungeon.size() - 1, -1, -1):
 			var stack: Array = dungeon[i]
