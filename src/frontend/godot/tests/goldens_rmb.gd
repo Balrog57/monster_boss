@@ -1,7 +1,7 @@
 extends RefCounted
 ## Goldens de l'extension Rise of the Minibosses (RMB, 121 cartes : 12 boss, 42 salles, 15 sorts, 42 heros, 10 minibosses). Hors APK.
 ## References, par priorite : docs/rules/rules.md (livret Minibosses, guide officieux : Minibosses / Coins / sequence de jeu), texte des cartes
-## (cards.json, wiki), puis les cas de tests/unit/minibosses.test.js (+ expansions.test.js) portes ici avec la regle quand le JS s'en ecarte.
+## (cards.json, wiki).
 ## Appele par goldens.gd : `load("res://godot/tests/goldens_rmb.gd").new().run(_ok, self)`.
 
 var _ok: Callable

@@ -2,6 +2,9 @@
 
 Généré le 2026-10-10 à partir du C# décompilé de l'APK, du moteur JS existant et du port Godot 4 en cours.
 
+> **Note : document historique daté du 2026-10-10**, écrit face au moteur JS supprimé depuis. Les constats de la section 2 sur les manques de Godot sont obsolètes (capacités, BAIT, ouverture 5+2, ExtraBuildPhase, départage existent désormais : voir `docs/HANDOFF.md` §5).
+> La section 3 (analyse IA vs APK) reste la référence jusqu'à son remplacement par `docs/plans/partie-1-clone-apk.md` lot 1.2.
+
 ## 0. Provenance et méthode
 
 | Élément | Valeur |

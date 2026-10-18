@@ -43,8 +43,7 @@ Accès : http://192.168.1.98:8090
 
 ## 3. Mettre à jour
 
-> Le clone du homelab suit actuellement la branche `parity/apk-oracle` ; après la fusion dans `main` :
-> `git checkout main && git pull`, puis la commande ci-dessous.
+> Le clone du homelab suit la branche `main` : `git checkout main && git pull`, puis la commande ci-dessous.
 
 ```bash
 cd /DATA/AppData/boss-monster

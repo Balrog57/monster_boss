@@ -1,6 +1,6 @@
 extends RefCounted
 ## Goldens de l'extension Crash Landing (CRL, 33 cartes : 3 boss, 13 salles, 5 sorts, 12 heros). Hors APK : references = rules.md
-## (section « Crash Landing »), texte des cartes (wiki), puis le JS (tests/unit/crash-landing.test.js, dont les 24 cas sont portes ici).
+## (section « Crash Landing »), puis texte des cartes (wiki).
 ## Appele par goldens.gd : `load("res://godot/tests/goldens_crl.gd").new().run(_ok, self)`.
 
 var _ok: Callable

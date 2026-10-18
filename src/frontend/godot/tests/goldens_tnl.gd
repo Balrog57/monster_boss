@@ -1,6 +1,6 @@
 extends RefCounted
 ## Goldens de l'extension The Next Level (TNL, hors APK). References, par priorite : docs/rules/rules.md (livret TNL + FAQ des cartes), texte des
-## cartes (cards.json), puis les 59 cas de tests/unit/next-level.test.js (portes ici avec la regle du livret quand le JS s'en ecarte).
+## cartes (cards.json).
 ## Appele par goldens.gd : `load("res://godot/tests/goldens_tnl.gd").new().run(_ok, self)`.
 
 var _ok: Callable

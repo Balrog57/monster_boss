@@ -15,7 +15,6 @@ src/frontend/godot/build_web
 
 # Docs, design, audits
 docs
-design_system
 security
 
 # Outillage et artefacts locaux
