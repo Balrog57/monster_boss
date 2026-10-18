@@ -1602,6 +1602,7 @@ func _finish_hero_if_dead() -> void:
 
 func _init_adventure_phase() -> void:
 	G.erase("afterHero")
+	G.erase("apkSkippedHero")
 	G["adventure"] = {}
 	G["adventurePausePassed"] = {}
 	var xp: Array = CardDB.order_by_xp(G["players"])
@@ -1625,6 +1626,18 @@ func _adventure_window_has_actions() -> bool:
 			if not (str((m as Dictionary).get("type", "")) in ["pass", "passBuild", "adventureNext", "resolveNextHero"]):
 				return true
 	return false
+
+## Equivalent Godot de `GameBoard.ActiveHero != null` (IsAdventureInteractionTurn, GameBoard.cs:285-293) : un heros est actif, ou designe et sur le point
+## d'entrer (AdventurePhase_b), ou une Spell Battle est ouverte. Trepidation joue dans la fenetre pre-aventure de sa cible retire le heros de l'entree
+## alors que l'APK le garde actif jusqu'a ProccessActiveHero (flag `apkSkippedHero`, pose par SpellEffects._trepidation). Seule l'interface humaine
+## l'interroge (BoardUI : cartes grisees, aucune fenetre d'activation) ; `legal_moves` n'en depend pas (IA et rejeu de l'oracle inchanges).
+func apk_active_hero() -> bool:
+	if str(G.get("phase", "")) != CardDB.PHASE["ADVENTURE"]:
+		return true
+	if not (G.get("adventure", {}) as Dictionary).is_empty() or not (G.get("stack", []) as Array).is_empty():
+		return true
+	var ap := active_player()
+	return _has_entrance_hero(ap) or int(G.get("apkSkippedHero", -1)) == ap
 
 ## Heros a l'entree du donjon qui vont encore agir ce tour : Trepidation (Boss.ForceSkipAdventure) les laisse a l'entree
 ## (GameBoard.ChooseNextActiveHero : AdventurePhase_a direct).
@@ -1738,6 +1751,7 @@ func _next_xp_active_player(current: int) -> int:
 	return -1
 
 func _advance_adventure_player() -> void:
+	G.erase("apkSkippedHero")
 	var all_acted := true
 	for pid in G["players"]:
 		var pl: Dictionary = G["players"][pid]

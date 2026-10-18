@@ -348,6 +348,7 @@ static func _trepidation(G: Dictionary, caster_id: int, _card: Dictionary, targe
 	if str(G.get("phase", "")) == CardDB.PHASE["ADVENTURE"] and (G.get("adventure", {}) as Dictionary).is_empty() and not bool(G.get("afterHero", false)) \
 			and int(G.get("stackActivePlayer", G.get("activePlayer", -1))) == tid and not (victim.get("entrance", []) as Array).is_empty():
 		(victim["entrance"] as Array).pop_front()
+		G["apkSkippedHero"] = tid # l'APK garde ce heros actif jusqu'a ProccessActiveHero : la fenetre d'interaction humaine reste ouverte (Match.apk_active_hero)
 	return true
 
 # --- BMA055 Zombie Attack : un hero mort revient avec +2 PV ---
@@ -395,7 +396,7 @@ static func _zombie_attack(G: Dictionary, caster_id: int, _card: Dictionary, tar
 		if at >= 0:
 			discard.remove_at(at)
 		var back: Dictionary = hero.duplicate()
-		back["hp"] = BossEngine.hero_hp(hero) + 2
+		back["hp"] = BossEngine.hero_base_hp(hero) + 2 # SendBackToDungeonEntrance : RestoreHealth(), puis DealHero(-2)
 		entrance.append(back)
 		victim["entrance"] = entrance
 		_log(G, "Zombie Attack: %s returns with +2 HP." % str(hero.get("name", "a dead Hero")))

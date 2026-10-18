@@ -872,7 +872,7 @@ func _auto_pass(delta: float) -> bool:
 	var adv: Dictionary = G.get("adventure", {})
 	var pause = adv.get("pause")
 	for pid in pids:
-		var moves: Array = game_manager.legal_moves(int(pid))
+		var moves: Array = _my_moves(int(pid))
 		if moves.is_empty():
 			continue
 		var decision := _has_decision(moves)
@@ -993,7 +993,7 @@ func refresh() -> void:
 			slot.slot_index = n
 			slot.set_stack([])
 
-	var my_moves: Array = game_manager.legal_moves(_my_pid())
+	var my_moves: Array = _my_moves(_my_pid())
 	_refresh_foe_dungeon(foe_dict)
 	_apply_focus() # les emplacements adverses viennent d'etre reconstruits
 	_refresh_overlay(G, phase)
@@ -2124,6 +2124,18 @@ func _refresh_undoable(my_moves: Array) -> void:
 		var sl: DungeonSlot = slot
 		sl.set_undoable(und.has(sl.slot_index) and not sl.current_stack.is_empty())
 
+## Coups legaux de l'interface HUMAINE. APK : cartes et capacites ne sont jouables que si un heros est actif (IsAdventureInteractionTurn,
+## CardManagerComponent.RefreshCardsStatus:162, HumanPlayerInteraction:140) ; l'IA, elle, joue ces fenetres via DoPlayerActions. `legal_moves`
+## reste donc inchange (IA Godot, rejeu de l'oracle) et seule la vue du joueur filtre : cartes grisees, aucune fenetre, aucun clic d'activation.
+const NO_HERO_BLOCKED := ["playSpell", "activateRoom", "useHandRoom", "docScarecrow", "payDarkHero", "timebenderCancel", "antimagicCancel",
+	"promoteMiniboss", "activateMiniboss", "discardForCoin", "rmbBoss", "rmbHand", "rmbPay", "rmbCancel"]
+
+func _my_moves(pid: int) -> Array:
+	var moves: Array = game_manager.legal_moves(pid)
+	if game_manager.apk_active_hero():
+		return moves
+	return moves.filter(func(m): return not (str((m as Dictionary).get("type", "")) in NO_HERO_BLOCKED))
+
 func _moves_of(moves: Array, mtype: String) -> Array:
 	var out: Array = []
 	for m in moves:
@@ -2864,7 +2876,7 @@ static func hand_idx_of(m: Dictionary) -> int:
 ## Coups legaux autres que construire (sort, capacite de main, defausse contre 1 piece...) de la carte `idx` de la main.
 func _hand_moves(idx: int) -> Array:
 	var cands: Array = []
-	for mv in game_manager.legal_moves(_my_pid()):
+	for mv in _my_moves(_my_pid()):
 		var m: Dictionary = mv
 		if str(m.get("type", "")) != "buildRoom" and hand_idx_of(m) == idx:
 			cands.append(m)
@@ -2935,7 +2947,7 @@ func _on_slot_activate(di: int) -> void:
 			_do(m)
 			return
 	var cands: Array = []
-	for m in _moves_of(game_manager.legal_moves(_my_pid()), "activateRoom"):
+	for m in _moves_of(_my_moves(_my_pid()), "activateRoom"):
 		var a: Array = (m as Dictionary).get("args", [])
 		if not a.is_empty() and int(a[0]) == di:
 			cands.append(m)

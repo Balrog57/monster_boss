@@ -314,7 +314,7 @@ func _act() -> void:
 		await get_tree().process_frame
 		_check(board.view_pid == pid, "selecteur de sieges : vue %d au lieu de %d" % [board.view_pid, pid])
 		return
-	var moves: Array = gm.legal_moves(pid)
+	var moves: Array = _ui_moves(pid)
 	var pc: Dictionary = G.get("pendingChoice", {})
 	if not pc.is_empty():
 		await _act_choice(pid, pc, moves)
@@ -569,13 +569,17 @@ func _do_build_click(pid: int, idx: int) -> void:
 		(cards[idx] as CardUI).card_clicked.emit(null)
 		await _pick_target(n_menu, "construire (carte %d)" % idx) # plusieurs emplacements (A3) : le joueur choisit lequel
 
+## Coups que l'interface HUMAINE offre (APK : ni sort ni capacite sans heros actif, BoardUI._my_moves) ; `gm.legal_moves` reste celui du moteur.
+func _ui_moves(pid: int) -> Array:
+	return board._my_moves(pid) if board != null else gm.legal_moves(pid)
+
 ## Emplacements de construction offerts par le moteur pour la carte `idx` (salles recouvrables + emplacement libre).
 func _n_build_targets(pid: int, idx: int) -> int:
-	return gm.legal_moves(pid).filter(func(m): return m["type"] == "buildRoom" and int(m["args"][0]) == idx).size()
+	return _ui_moves(pid).filter(func(m): return m["type"] == "buildRoom" and int(m["args"][0]) == idx).size()
 
 ## Autres coups de la carte `idx` (sort, capacite de main, DISCARD: +1 COIN...) : entrees de son menu, avec ou sans construction.
 func _n_hand_uses(pid: int, idx: int) -> int:
-	return gm.legal_moves(pid).filter(func(m): return m["type"] != "buildRoom" and BoardUI.hand_idx_of(m) == idx).size()
+	return _ui_moves(pid).filter(func(m): return m["type"] != "buildRoom" and BoardUI.hand_idx_of(m) == idx).size()
 
 func _do_drop(pid: int, idx: int, ti: int) -> void:
 	if rng.randf() < 0.4: # variante au clic : fenetre « construire par-dessus » (une entree par salle recouvrable + l'emplacement libre)
@@ -849,10 +853,10 @@ func _noise(pid: int) -> void:
 		0: # clic sur une carte de la main sans coup legal
 			var hand: Array = G["players"][pid]["hand"]
 			var playable := {}
-			for m in gm.legal_moves(pid):
+			for m in _ui_moves(pid):
 				if BoardUI.hand_idx_of(m) >= 0:
 					playable[BoardUI.hand_idx_of(m)] = true
-			var can_undo: bool = gm.legal_moves(pid).any(func(m): return str((m as Dictionary).get("type", "")) == "undoBuild")
+			var can_undo: bool = _ui_moves(pid).any(func(m): return str((m as Dictionary).get("type", "")) == "undoBuild")
 			for i in hand.size():
 				if can_undo and bool((hand[i] as Dictionary).get("isRoom", false)): # pose en attente : toute salle de la main la remplace (undoBuild + buildRoom)
 					continue
@@ -1037,7 +1041,7 @@ func _check_ui() -> void:
 			shown += (s as Control).get_children().filter(func(c): return c is CardUI and not c.is_in_group("under_card") and not c.is_queued_for_deletion()).size()
 		_check(shown == fd.size(), "donjon adverse (siege %d) : %d salles affichees pour %d" % [foe_pid, shown, fd.size()])
 	# boutons
-	var my_moves: Array = gm.legal_moves(pid)
+	var my_moves: Array = _ui_moves(pid)
 	var can_go := false
 	var can_pass := false
 	var extras := 0
@@ -2679,6 +2683,9 @@ func _extra_checks() -> void:
 				_check(board._tgt.is_empty() and (me["hand"] as Array).size() == n2 - 1, "cible choisie par un clic : le sort doit etre joue")
 			await _drain()
 	# 3) Capacite de salle : halo + clic gauche sur la salle (aucun bouton « Capacite : ... »)
+	if str(G.get("phase", "")) == "adventure" and not gm.apk_active_hero():
+		_check(board._my_moves(0).all(func(m): return not (str(m["type"]) in BoardUI.NO_HERO_BLOCKED)), "aventure sans heros actif : l'interface humaine offre encore un sort / une capacite")
+		G["apkSkippedHero"] = gm.active_player() # sans heros actif l'interface humaine n'offre aucune capacite (voir _check_apk_hero_gate) : on en suppose un
 	var done := false
 	for rid in Match.ACTIVATABLE_ROOMS:
 		if not str(rid).begins_with("BMA") or done:
@@ -2694,7 +2701,7 @@ func _extra_checks() -> void:
 		proto.erase("usedThisTurn")
 		(me["dungeon"] as Array).push_front([proto])
 		board.refresh()
-		var acts := gm.legal_moves(0).filter(func(m): return m["type"] == "activateRoom" and int(m["args"][0]) == 0)
+		var acts: Array = board._my_moves(0).filter(func(m): return m["type"] == "activateRoom" and int(m["args"][0]) == 0)
 		if acts.is_empty():
 			(me["dungeon"] as Array).pop_front()
 			board.refresh()

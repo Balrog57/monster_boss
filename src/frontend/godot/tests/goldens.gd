@@ -45,6 +45,9 @@ func _ready() -> void:
 	_t_choice_in_build_window_keeps_window()
 	_t_ability_kill_finishes_hero()
 	_t_zombie_attack_returns_whole_hero()
+	_t_zombie_restores_base_hp()
+	_t_maze_after_destroyed_nearer_room()
+	_t_apk_active_hero_ui_gate()
 	_t_reveal_heroes_counts_eliminated_and_effects_expire()
 	_t_room_ability_unknown_rejected()
 	_t_activate_room_appears_in_legal_moves()
@@ -1713,6 +1716,62 @@ func _t_minotaur_maze_sends_hero_back() -> void:
 		m._advance_adventure_room()
 		seen.append(int((m.G["adventure"] as Dictionary)["roomIndex"]))
 	_ok(seen == [0, 1, 0, 1, 2], "Minotaur's Maze : A, Maze, A, Maze, C (obtenu %s)" % str(seen))
+
+## SendBackToDungeonEntrance.Execute (DBMGameModel.Logic.Abilities.Commands:62) : un heros mort du scorekeeping fait Target1.RestoreHealth() avant de
+## rejoindre l'entree. Zombie Attack ajoute ensuite DealHero(-2) (+2 PV) ; un heros ranime puis tue (hp 13) revient a 11 par Zombie Prison (s27-p3@562).
+func _t_zombie_restores_base_hp() -> void:
+	var hero := {"id": "BMA090", "name": "Thief", "souls": 2, "hp": 13}
+	var G := _spell_state([])
+	var foe: Dictionary = G["players"][1]
+	foe["souls"] = [{"souls": 1, "hero": hero}, {"souls": 1, "hero": hero}]
+	_ok(SpellEffects.cast_spell(G, 0, {"id": "BMA055"}, {"targetPlayerId": 1, "soulIndex": 0, "pile": "souls"}), "Zombie Attack accepte (heros a 13 PV)")
+	_ok(BossEngine.hero_hp((foe["entrance"] as Array)[0]) == 13, "Zombie Attack : PV de base (11) + 2, pas 13 + 2")
+	var G2 := _spell_state([])
+	var foe2: Dictionary = G2["players"][1]
+	var hero2 := {"id": "BMA090", "name": "Thief", "souls": 2, "hp": 13}
+	foe2["souls"] = [{"souls": 1, "hero": hero2}, {"souls": 1, "hero": hero2}]
+	RoomAbilities.zombie_prison_send_back(G2, {"targetPlayerId": 1, "card": hero2})
+	_ok(BossEngine.hero_hp((foe2["entrance"] as Array)[0]) == 11, "Zombie Prison : le heros mort revient avec ses PV de base (RestoreHealth)")
+
+## Hero.NearestBossSlotIndex (GameBoard.cs:1127-1129) est un entier stocke : un slot detruit (Dungeon.Remove + Add) ne le change pas, donc en index Godot
+## (g = DungeonSize - 1 - c) il baisse de 1 ; le Maze plus profond que « nearest » garde alors son FirstTimeHeroEnterThisRoom (s21-p2@518).
+func _t_maze_after_destroyed_nearer_room() -> void:
+	var m = Match.new()
+	add_child(m)
+	var hero := {"id": "H", "name": "H", "hp": 20}
+	var p := {"id": 0, "dungeon": [[_room("Z", "monster", false, [1])], [_room("B", "trap", false, [1])], [_room("BMA017", "trap", false, [1])]],
+		"entrance": [hero], "hand": [], "souls": [], "wounds": []}
+	m.G = {"players": {0: p}, "log": [], "effects": SpellEffects.empty_effects(), "decks": {"roomDiscard": [], "heroDiscard": []},
+		"adventure": {"playerId": 0, "hero": hero, "roomIndex": 1, "hp": 20, "pause": null, "nearest": 1}}
+	BossEngine.destroy_room(p, 0, m.G) # la salle d'entree detruite pendant que le heros est en B
+	var adv: Dictionary = m.G["adventure"]
+	_ok(int(adv["roomIndex"]) == 0 and int(adv["nearest"]) == 0, "slot detruit devant le heros : sa salle et nearest baissent de 1")
+	m._advance_adventure_room()
+	_ok(int(adv["roomIndex"]) == 1 and adv.has("back"), "le heros entre dans le Maze pour la 1re fois : il recule d'une salle")
+
+## IsAdventureInteractionTurn (GameBoard.cs:285-293) exige ActiveHero != null : l'interface humaine n'offre ni sort ni capacite sans heros actif
+## (BoardUI._my_moves s'appuie sur Match.apk_active_hero), mais legal_moves reste inchange (IA de l'oracle / rejeu, IA Godot).
+func _t_apk_active_hero_ui_gate() -> void:
+	var m = _match_with_spell()
+	((m.G["players"][0] as Dictionary)["hand"] as Array).assign([{"id": "BMA041", "name": "Freeze", "isSpell": true}])
+	m.G["phase"] = "adventure"
+	m.G["activePlayer"] = 0
+	m.G["adventure"] = {}
+	((m.G["players"][1] as Dictionary)["entrance"] as Array).append({"id": "H2", "name": "H2", "hp": 4})
+	_ok(not m.apk_active_hero(), "aventure sans heros actif ni a l'entree : pas de fenetre humaine")
+	_ok(_has_move(m, 0, "playSpell"), "legal_moves inchange : le sort reste legal (IA / rejeu)")
+	((m.G["players"][0] as Dictionary)["entrance"] as Array).append({"id": "H", "name": "H", "hp": 4})
+	_ok(m.apk_active_hero(), "heros a l'entree (designe, AdventurePhase_b) : fenetre ouverte")
+	((m.G["players"][0] as Dictionary)["entrance"] as Array).clear()
+	m.G["apkSkippedHero"] = 0 # Trepidation dans la fenetre pre-aventure : le heros sort de l'entree mais reste actif cote APK jusqu'a ProccessActiveHero
+	_ok(m.apk_active_hero(), "Trepidation a retire le heros de l'entree : l'APK le garde actif")
+	m.G.erase("apkSkippedHero")
+	m.G["adventure"] = {"playerId": 1, "hero": {"id": "H"}, "roomIndex": 0, "hp": 3, "pause": null}
+	_ok(m.apk_active_hero(), "heros actif d'un autre joueur : fenetre ouverte (ActiveHero est global)")
+	m.G["adventure"] = {}
+	m.G["stack"] = [{"id": "x"}]
+	_ok(m.apk_active_hero(), "Spell Battle ouverte : reponses possibles")
+	m.queue_free()
 
 ## EnqueueAbilityTransaction : une transaction du meme joueur passe AVANT celles deja en file => le level-up (mis en file apres
 ## le declencheur de la 5e salle) s'execute avant lui.

@@ -185,6 +185,13 @@ static func hero_wounds(hero: Dictionary) -> int:
 static func hero_hp(hero: Dictionary) -> int:
 	return int(hero.get("hp", hero.get("health", 4)))
 
+## PV de la carte (Hero.RestoreHealth : CurrentHealth = MaxHealth) : `hp` d'un exemplaire peut avoir ete modifie (Zombie Attack : +2 PV).
+static func hero_base_hp(hero: Dictionary) -> int:
+	for c in CardDB.heroes:
+		if str((c as Dictionary).get("id", "")) == str(hero.get("id", "")):
+			return hero_hp(c)
+	return hero_hp(hero)
+
 # --- engine.js: index visuel <-> index de donjon (5 emplacements, 0 = fond a gauche) ---
 
 static func extend_visual_index(dungeon: Array):
@@ -426,6 +433,11 @@ static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}
 		var adv: Dictionary = G.get("adventure", {}) as Dictionary
 		var h := int(adv.get("roomIndex", -1))
 		if not adv.is_empty() and int(adv.get("playerId", -1)) == pid and h >= 0:
+			# Hero.NearestBossSlotIndex est un entier C# stocke (GameBoard.cs:1127-1129) : le slot detruit sort de la liste (Dungeon.Remove + Add),
+			# DungeonSize baisse de 1 mais la valeur ne bouge pas. En index Godot (entree = 0, g = DungeonSize - 1 - c) elle baisse donc de 1,
+			# sinon une salle deja plus pres du boss que le « nearest » perdrait son FirstTimeHeroEnterThisRoom (Minotaur's Maze, s21-p2@518).
+			if adv.has("nearest"):
+				adv["nearest"] = int(adv["nearest"]) - 1
 			if room_index > h:
 				adv["replay"] = true
 			elif room_index < h:

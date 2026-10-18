@@ -146,6 +146,7 @@ var _late: Array = []
 var _losses: Array = [] # [oid, seq] des cartes quittant une main sans cause visible (voir _involuntary_losses)
 var _held_pass: Dictionary = {} # derniere passe de Spell Battle retenue jusqu'au prochain step de phase (voir _on_action)
 var _held: Dictionary = {} # activation de capacite de salle retenue jusqu'au prochain step de phase (voir _on_action)
+var _idle_pid := -1 # joueur sans heros dont le « pass » est differe (voir _pass_idle)
 var _extra_pid := -1 # joueur du dernier ExtraBuildPhase oracle (voir _close_forced)
 ## Salles a declencheur (mort de heros, revelation) : l'oracle journalise leurs decisions avant le step qui les execute.
 const DEATH_TRIGGERS := ["BMA010", "BMA012", "BMA014", "BMA016", "BMA021", # HeroDiesInThisRoom
@@ -274,7 +275,7 @@ func replay(trace: Dictionary) -> Dictionary:
 			_deferred.clear()
 		match str(s["kind"]):
 			"phase":
-				_on_phase(s)
+				_on_phase(s, i)
 			"action":
 				_on_action(i, s)
 			"decision":
@@ -299,13 +300,23 @@ func _dbg(s: Dictionary) -> void:
 			if q >= int(r[0]) and q <= int(r[1]):
 				var G: Dictionary = run.G
 				var adv: Dictionary = G.get("adventure", {})
-				print("DBG %d %s %s ph=%s act=%d adv=%s eff=%s pc=%s ent=%s log=%s" % [q, s["kind"], str(s.get("detail", {})).substr(0, 90), G.get("phase"), run.active_player() + 1,
-					str(adv.get("hp", "-")) + "@" + str(adv.get("roomIndex", "-")), _eff(), _pcs(), _ents(), str((G["log"] as Array).slice(-3))])
+				print("DBG %d %s %s ph=%s act=%d%s adv=%s eff=%s pc=%s ent=%s log=%s" % [q, s["kind"], str(s.get("detail", {})).substr(0, 90), G.get("phase"), run.active_player() + 1,
+					(" forced=" + str(G["forcedBuild"]) if G.has("forcedBuild") else "") + (" window" if G.has("buildWindow") else ""),
+					str(adv.get("hp", "-")) + "@" + str(adv.get("roomIndex", "-")), _eff(), _pcs(), _ents(), str((G["log"] as Array).slice(-_dbg_log()))])
+
+
+## `--dbglog=N` : nombre de lignes de journal Godot affichees par `--dbg` (3 par defaut).
+func _dbg_log() -> int:
+	for a in OS.get_cmdline_user_args():
+		if str(a).begins_with("--dbglog="):
+			return int(str(a).substr(9))
+	return 3
 
 
 ## Harnais : l'oracle a une fenetre de sorts APRES la derniere construction (BuildPhase_a, joueur nul)
 ## alors que Godot a deja enchaine sur l'aventure (photo « bait » prise avant). Au pas BaitPhase
-## on rafraichit donc pioches/mains/sorts/donjon de la photo ; entree, ville, ames restent ceux du leurre.
+## on rafraichit donc pioches/mains/sorts/donjon/ames/entree de la photo (une capacite de la fenetre, Zombie Prison, agit AVANT le
+## leurre cote oracle) ; la ville reste celle du leurre.
 func _refresh_bait_snap(s: Dictionary) -> void:
 	if str(s["kind"]) != "phase" or str(s["phase"]) != "BaitPhase":
 		return
@@ -317,7 +328,7 @@ func _refresh_bait_snap(s: Dictionary) -> void:
 	for f in ["rooms", "spells", "discardRooms", "discardSpells"]: # pas « heroes » : deja tires au leurre
 		snap["decks"][f] = cur["decks"][f]
 	for k in (snap["players"] as Dictionary).keys():
-		for f in ["hand", "spells", "dungeon", "pending"]:
+		for f in ["hand", "spells", "dungeon", "pending", "souls", "wounds", "entrance"]: # ames / entree : Zombie Prison de la fenetre agit AVANT le leurre cote oracle
 			snap["players"][k][f] = cur["players"][k][f]
 
 
@@ -546,7 +557,7 @@ func _ahead(s: Dictionary) -> bool:
 	return maxi(0, int(run.G.get("turn", 0)) - 1) > int(s["turn"])
 
 
-func _on_phase(s: Dictionary) -> void:
+func _on_phase(s: Dictionary, i := 0) -> void:
 	# NextStep() de l'oracle sorti sans executer de phase (fin de duel de sorts) : rien a rejouer.
 	if (s.get("detail", {}) as Dictionary).get("executed", true) == false:
 		return
@@ -554,10 +565,11 @@ func _on_phase(s: Dictionary) -> void:
 		if str(s["phase"]) in ["AdventurePhase_c"]:
 			_refus(s, "adventureNext", int(s["activePlayer"]) - 1 if s["activePlayer"] != null else -1, "Godot a deja termine ce tour (il est au tour %d, l'oracle au tour %d)" % [int(run.G.get("turn", 0)) - 1, int(s["turn"])])
 		return
+	_pass_idle(s)
 	if str(s["phase"]) != "BuildPhase_a":
 		_close_window(s)
 	if str(s["phase"]) in ["Setup_c", "BeginningOfTurn", "BuildPhase_b", "BaitPhase"]:
-		_close_forced(s)
+		_close_forced(s, i)
 	match str(s["phase"]):
 		"Setup_c", "BeginningOfTurn":
 			_close_setup(s)
@@ -572,10 +584,15 @@ func _on_phase(s: Dictionary) -> void:
 			_extra_pid = int(s["activePlayer"]) - 1 # Godot a ouvert le tour de construction supplementaire (forcedBuild) : refermer s'il n'est pas joue
 			_note(s, "NOTE", "ExtraBuildPhase : tour supplementaire (forcedBuild cote Godot)")
 		"AdventurePhase_b":
-			# Plus de heros pour ce joueur : Godot attend son "pass".
+			# Plus de heros pour ce joueur : Godot attend son "pass". L'oracle le garde actif jusqu'au NextStep suivant (AdventurePhase_a) :
+			# un SORT joue entre-temps depend du joueur actif (Trepidation de la cible, s35-p2@233 : Godot ne doit pas avoir deja passe la main) ;
+			# le « pass » est alors differe (_pass_idle). Sans sort dans la fenetre, on passe tout de suite : un heros ajoute par une capacite
+			# (Zombie Prison, s24-p4@266) ne doit pas entrer, ChooseNextActiveHero (AdventurePhase_b) ayant deja designe personne.
 			if s["activeHero"] == null and s["activePlayer"] != null:
 				var ap := int(s["activePlayer"]) - 1
-				if str(run.G.get("phase", "")) == "adventure" and run.active_player() == ap and _adventure_idle(ap):
+				if _window_has_spell(i):
+					_idle_pid = ap
+				elif str(run.G.get("phase", "")) == "adventure" and run.active_player() == ap and _adventure_idle(ap):
 					_auto_resolve(s)
 					_apply_type(ap, "pass", s)
 		"AdventurePhase_a":
@@ -585,10 +602,35 @@ func _on_phase(s: Dictionary) -> void:
 			_adv_step(s)
 
 
+## Un sort est-il joue avant le prochain NextStep execute (fenetre de sorts du joueur actif de l'oracle) ?
+func _window_has_spell(i: int) -> bool:
+	for k in range(i + 1, _steps.size()):
+		var n: Dictionary = _steps[k]
+		var nd: Dictionary = n["detail"] if n.get("detail") is Dictionary else {}
+		if str(n["kind"]) == "phase" and nd.get("executed", true) != false:
+			return false
+		if str(n["kind"]) == "action" and str(nd.get("action", "")) == "playSpell":
+			return true
+	return false
+
+
+## Joueur sans heros (AdventurePhase_b) dont le « pass » attend le prochain step de phase execute.
+func _pass_idle(s: Dictionary) -> void:
+	var ap := _idle_pid
+	_idle_pid = -1
+	if ap >= 0 and str(run.G.get("phase", "")) == "adventure" and run.active_player() == ap and _adventure_idle(ap):
+		_auto_resolve(s)
+		_apply_type(ap, "pass", s)
+
+
 ## ExtraBuildPhase : l'oracle l'a refermee sans que son IA construise (pas d'action) : Godot attend encore le coup du joueur.
-func _close_forced(s: Dictionary) -> void:
+func _close_forced(s: Dictionary, i: int) -> void:
 	var pid := _extra_pid
 	_extra_pid = -1
+	# Un autre ExtraBuildPhase du meme joueur suit tout de suite (Construction Zone puis niveau King Croak, s38-p3@98-99) : le tour supplementaire
+	# ouvert par Godot est celui-la, pas a refermer.
+	if i + 1 < _steps.size() and str((_steps[i + 1] as Dictionary)["phase"]) == "ExtraBuildPhase" and int((_steps[i + 1] as Dictionary)["activePlayer"]) - 1 == pid:
+		return
 	for _k in 4:
 		if pid < 0 or run.active_player() != pid or not run.G.has("forcedBuild") or str(run.G.get("phase", "")) != "build" 				or not (run.G.get("pendingChoice", {}) as Dictionary).is_empty():
 			return
@@ -729,12 +771,18 @@ func _on_action(i: int, s: Dictionary) -> void:
 		return
 	match act:
 		"buildRoom":
-			_build(s, d, pid)
+			_build(i, s, d, pid)
 		"playRoomAbility":
 			# L'oracle met la capacite en file (transaction) : elle ne s'execute qu'au NextStep suivant, apres d'eventuelles actions
 			# de l'IA (ex. construire sur la salle qui va etre detruite). Godot l'applique tout de suite : on retient donc
 			# l'activation, ses decisions, jusqu'au prochain step de phase.
 			_release_held()
+			# All-Seeing Eye (BMA025) repond a un sort : sa transaction passe DEVANT celle du sort (GameBoard.EnqueueAbilityTransaction : joueur du tour -> tete ;
+			# OnAbilityApplyRequest : un Counterspell se replace avant sa cible). La pile Godot rend cet ordre : on l'applique donc sur le champ, pendant que le sort
+			# attend encore (les « pret » suivants ne la resolvent qu'ensuite), sans retenue.
+			if str((d["room"] as Dictionary)["card"]) == "BMA025" and not (run.G["stack"] as Array).is_empty():
+				_ability(i, s, d, pid)
+				return
 			_held = {"i": i, "s": s, "d": d, "pid": pid, "decs": []}
 		"playSpell":
 			_spell(i, s, d, pid)
@@ -778,6 +826,19 @@ func _involuntary_losses() -> Array:
 			if nd is Dictionary and (nd as Dictionary).get("chosen") is Array:
 				for c in (nd as Dictionary)["chosen"]:
 					keep[int((c as Dictionary)["id"])] = true
+		# Un NextStep execute les transactions mises en file (et decidees) pendant la fenetre precedente : les cartes designees par ces decisions
+		# (Draculord : vol d'une carte, s31-p2@185 -> perte vue au step 188) ne sont pas des tirages au hasard.
+		if str(s["kind"]) == "phase":
+			var seen := 0
+			for k in range(i - 1, -1, -1):
+				var pk: Dictionary = _steps[k]
+				if str(pk["kind"]) == "phase":
+					seen += 1
+					if seen >= 2:
+						break
+				elif str(pk["kind"]) == "decision" and (pk["detail"] as Dictionary).get("chosen") is Array:
+					for c in (pk["detail"] as Dictionary)["chosen"]:
+						keep[int((c as Dictionary)["id"])] = true
 		var now := {} # oid -> joueur qui la detient : une carte qui CHANGE de main sans cause visible est aussi tiree (Succubus Spa)
 		for p in (s["players"] as Array):
 			for k in ["hand", "spells"]:
@@ -801,7 +862,7 @@ func _prev_slot_rooms(player_id: int, slot: int) -> Array:
 	return []
 
 
-func _build(s: Dictionary, d: Dictionary, pid: int) -> void:
+func _build(i: int, s: Dictionary, d: Dictionary, pid: int) -> void:
 	var oid := int((d["room"] as Dictionary)["id"])
 	var hi := _hand_index(pid, oid)
 	var label := "buildRoom(%s)" % str((d["room"] as Dictionary)["card"])
@@ -815,22 +876,36 @@ func _build(s: Dictionary, d: Dictionary, pid: int) -> void:
 		if gi >= 0:
 			args.append(gi)
 	_auto_resolve(s)
+	_release_covered(pid, oid, under)
 	if _held_pass.is_empty():
-		_build_and_done(pid, args, s, label)
+		_build_and_done(pid, args, s, label, i)
 		return
 	# Le sort est encore « en file » cote oracle : on construit pendant que la pile Godot attend, puis la main passe au joueur suivant.
 	var saved: Array = run.G["stack"]
 	run.G["stack"] = []
 	run.G["activePlayer"] = int(run.G.get("stackActivePlayer", pid))
-	_build_and_done(pid, args, s, label)
+	_build_and_done(pid, args, s, label, i)
 	run.G["stack"] = saved
 	run.G["stackActivePlayer"] = run.active_player()
 
 
 ## L'IA de l'oracle termine seule son tour de construction ; cote Godot un siege non-IA le termine par DONE (passBuild) apres sa pose.
-func _build_and_done(pid: int, args: Array, s: Dictionary, label: String) -> void:
-	if _apply_move(pid, {"type": "buildRoom", "args": args}, s, label) and not run._can_build_again(pid):
+func _build_and_done(pid: int, args: Array, s: Dictionary, label: String, i: int) -> void:
+	if _apply_move(pid, {"type": "buildRoom", "args": args}, s, label) and not run._can_build_again(pid) and not _builds_again(i, pid):
 		_apply_type(pid, "passBuild", s)
+
+
+## Le meme joueur construit-il encore avant le prochain vrai NextStep (phase executee) ? L'IA de l'oracle joue Motivation (BMA050) APRES sa 1re
+## construction puis pose la 2e dans le meme tour (s30-p4@305-314) : Godot attend alors le DONE de ce siege, on ne passe pas encore.
+func _builds_again(i: int, pid: int) -> bool:
+	for k in range(i + 1, _steps.size()):
+		var n: Dictionary = _steps[k]
+		var nd: Dictionary = n["detail"] if n.get("detail") is Dictionary else {}
+		if str(n["kind"]) == "phase" and nd.get("executed", true) != false:
+			return false
+		if str(n["kind"]) == "action" and str(nd.get("action", "")) == "buildRoom":
+			return int(nd.get("player", 0)) - 1 == pid
+	return false
 
 
 ## La « passe » retenue (voir _on_action) : l'oracle execute le sort en file au NextStep, avant les transactions de capacite.
@@ -876,8 +951,9 @@ func _build_follows(i: int) -> bool:
 
 
 ## Applique l'activation retenue (puis ses decisions) : execution de la transaction cote oracle.
-func _release_held() -> void:
-	_release_held_pass()
+func _release_held(with_pass := true) -> void:
+	if with_pass:
+		_release_held_pass()
 	if _held.is_empty():
 		return
 	var h := _held
@@ -886,6 +962,24 @@ func _release_held() -> void:
 		_ability(int(h["i"]), h["s"], h["d"], int(h["pid"]))
 	for e in (h["decs"] as Array):
 		_on_decision(int((e as Array)[0]), (e as Array)[1])
+
+
+## Capacite NON destructive (Dracolich Lair, Witch's Kitchen) activee puis recouverte par la construction suivante de la meme action IA : l'oracle
+## l'execute quand meme (Ability.DoEffect ne regarde pas la position de la salle ; seules les capacites « Destroy this room » levent a l'execution,
+## GameBoard.DestroyRoom : Dungeon.First(slot.TopRoom == room), donc FIZZLE dans _ability). Godot n'applique une capacite que sur la salle du dessus : on la
+## joue donc juste AVANT la construction qui la recouvre (s36-p4@357-364), sauf si la carte construite est une de ses cibles en main (cas _stale_hand_targets).
+func _release_covered(pid: int, built_oid: int, under: Array) -> void:
+	if _held.is_empty() or int(_held["pid"]) != pid:
+		return
+	var room: Dictionary = (_held["d"] as Dictionary)["room"]
+	if not str(room["card"]) in ["BMA013", "BMA024"]:
+		return
+	if not under.any(func(r): return int((r as Dictionary)["id"]) == int(room["id"])):
+		return
+	for e in (_held["decs"] as Array):
+		if _oids(((e as Array)[1] as Dictionary)["detail"].get("chosen")).has(built_oid):
+			return
+	_release_held(false)
 
 
 ## Dracolich Lair / Witch's Kitchen : les cibles de la transaction sont designees a la mise en file, mais le build de l'IA
@@ -1025,16 +1119,17 @@ func _on_decision_inner(i: int, s: Dictionary) -> void:
 
 
 func _on_decision_now(_i: int, s: Dictionary, age := -1) -> void:
-	if not bool(s.get("spellBattle", false)):
-		_close_window(s) # decision hors Spell Battle = la revelation a commence : la fenetre de sorts est close
 	var d: Dictionary = s["detail"]
 	var pid := int(d["player"]) - 1
 	var kind := str(d["decision"])
 	var G: Dictionary = run.G
 	# Goblin Armory / Dizzygas Hallway : passifs de degats (Boss.GetPassiveDamage cree une transaction a chaque calcul de degats et
-	# la resout : l'IA « decide » une cible a chaque fois). Aucun choix de joueur : ne jamais les rapprocher d'un choix Godot ouvert.
+	# la resout : l'IA « decide » une cible a chaque fois). Aucun choix de joueur : ne jamais les rapprocher d'un choix Godot ouvert, et
+	# ce ne sont pas des decisions de revelation (la fenetre de sorts avant la revelation reste ouverte : Jackpot Stash la precede, s23-p2@330).
 	if str((d.get("owner", {}) as Dictionary).get("card", "")) in ["BMA015", "BMA029"]:
 		return
+	if not bool(s.get("spellBattle", false)):
+		_close_window(s) # decision hors Spell Battle = la revelation a commence : la fenetre de sorts est close
 	var pc: Dictionary = G.get("pendingChoice", {})
 	if kind == "chooseDraw":
 		# BMA023 : la decision oracle precede le step BeginningOfTurn (Godot n'a pas encore ouvert son choix) -> retenue (_late).
@@ -1104,6 +1199,13 @@ func _on_decision_now(_i: int, s: Dictionary, age := -1) -> void:
 	var pick: int = m["pick"]
 	var ptype := str(pc.get("type", ""))
 	if pick == -2:
+		# Deux transactions ont designe le MEME heros a leur mise en file (Seducia niveau 2 + Mimic Vault, s26-p2@124-127 ; Gorgona + Mimic Vault, s36-p3@186-190) : la 1re execute
+		# RemoveHeroFromGame(hero), qui retire aussi les transactions en file ciblant ce heros (GameBoard.cs:743 RemovePendingTransactionsByTarget).
+		# La 2e est donc abandonnee ; Godot ouvre son choix apres la 1re et propose un autre heros.
+		if ptype in ["pick-hero", "kill-hero"] and not chosen.is_empty() and chosen.all(func(c): return _in_entrance(int(c))):
+			_note(s, "CANCELED", "%s : heros %s deja place a l'entree par une transaction precedente (RemovePendingTransactionsByTarget), capacite abandonnee" % [str(pc.get("bossName", "")), str(chosen)])
+			run._resolve_choice(pid, -1)
+			return
 		# L'IA oracle a designe une carte qui n'est meme pas une option (Mimic Vault : un SORT pour HeroInTown) : meme abandon.
 		if str(pc.get("bossName", "")) in ["Mimic Vault", "Open Grave"] and int(d.get("targetId", 0)) == 1 and not chosen.is_empty() and not _implicit_target(chosen, d):
 			_abort_trigger(s, d, pid, str(pc.get("bossName", "")))
@@ -1265,6 +1367,15 @@ func _match_options(opts: Array, pid: int, chosen: Array, chosen_cards: Variant)
 	return {"pick": best, "exact": best_score >= 3000, "how": how, "ties": ties}
 
 
+## Le heros `oid` est-il a l'entree d'un donjon ?
+func _in_entrance(oid: int) -> bool:
+	for pid in (run.G["players"] as Dictionary).keys():
+		for h in ((run.G["players"][pid] as Dictionary).get("entrance", []) as Array):
+			if int((h as Dictionary).get("_oid", -1)) == oid:
+				return true
+	return false
+
+
 ## Code carte d'une instance Godot (mains, donjons, ville, defausses), "" si introuvable.
 func _code_of(oid: int) -> String:
 	var G: Dictionary = run.G
@@ -1316,7 +1427,7 @@ func _pcs() -> String:
 	for x in (pc.get("options", []) as Array):
 		var c = (x as Dictionary).get("card", (x as Dictionary).get("hero", {}))
 		o.append("%s#%s" % [str((c as Dictionary).get("id", "?")) if c is Dictionary else "?", str((c as Dictionary).get("_oid", "?")) if c is Dictionary else "?"])
-	return "%s p%d %s" % [str(pc.get("type", "")), int(pc.get("playerId", -1)) + 1, str(o)]
+	return "%s[%s] p%d %s" % [str(pc.get("type", "")), str(pc.get("bossName", "")), int(pc.get("playerId", -1)) + 1, str(o)]
 
 
 func _ents() -> String:

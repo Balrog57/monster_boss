@@ -466,6 +466,9 @@ static func zombie_prison_send_back(G: Dictionary, option: Dictionary) -> void:
 	if at >= 0:
 		discard.remove_at(at)
 	var entrance: Array = tp.get("entrance", []) as Array
+	# SendBackToDungeonEntrance.Execute (heros mort du scorekeeping) : Target1.RestoreHealth() avant de rejoindre l'entree (s27-p3@562 :
+	# un heros ranime par Zombie Attack (+2 PV) puis tue revient avec ses PV de base).
+	hero["hp"] = BossEngine.hero_base_hp(hero)
 	entrance.append(hero)
 	tp["entrance"] = entrance
 	_log(G, "Zombie Prison: %s est renvoye a l'entree du donjon du joueur %d." % [str(hero.get("name", "?")), int(option.get("targetPlayerId", -1))])
