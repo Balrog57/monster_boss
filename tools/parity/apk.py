@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Parite Godot <-> APK ORIGINALE (oracle = DBMGame.dll 2.2.6 headless, tools/apk-oracle).
 
-  python tools/parity/apk.py [--seeds 1 2 3] [--players 2 3] [--decks BaseDeck,PlayerChoice] [--skip-gen]
+  python tools/parity/apk.py [--seeds 1 2 3] [--players 2 3] [--decks BaseDeck,PlayerChoice] [--skip-gen] [--ai-agreement]
 
 1. genere les traces oracle (seeds x joueurs) dans tools/parity/out/apk/ (ou $APK_PARITY_OUT)
 2. Godot (ApkParity.tscn) rejoue chaque trace (aucune aide) et enregistre sa projection
@@ -10,6 +10,9 @@
    controle (voir README.md) et ecrit <OUT>/report.json
 
 Le harnais ne corrige aucune regle : il rapporte. Code de sortie 1 si une trace n'est pas OK.
+
+--ai-agreement (lot 1.2) : le rejeu Godot demande en plus a l'IA Godot (AI.gd) ce qu'elle jouerait sur le meme etat, a chaque decision de l'IA
+oracle, et compte l'accord par type de coup (report.json : `aiAgreement` global et par trace ; tableau console). Aucun effet sur le rejeu.
 """
 import argparse
 import datetime
@@ -258,10 +261,10 @@ def generate(seeds, players, decks):
     return names
 
 
-def run_godot():
+def run_godot(ai=False):
     exe = godot_exe()
     p = subprocess.Popen([exe, "--headless", "--path", os.path.join(REPO, "src", "frontend"), "res://godot/tests/ApkParity.tscn", "--",
-                          "--traces=" + OUT.replace("\\", "/")],
+                          "--traces=" + OUT.replace("\\", "/"), *(["--ai-agreement"] if ai else [])],
                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
     try:
         raw, _ = p.communicate(timeout=900)
@@ -296,6 +299,61 @@ def aggregate_skipped(traces):
     return dict(sorted(agg.items(), key=lambda kv: -kv[1]["n"]))
 
 
+AI_ORDER = ["build", "buildCard", "buildSlot", "discard", "spell", "spellTarget", "activate", "target", "draw", "pass"]
+AI_FIELDS = ("n", "agree", "forced", "nt", "ntAgree", "ties")
+
+
+def pct(a, n):
+    return round(100.0 * a / n, 1) if n else None
+
+
+def aggregate_ai(traces):
+    """Somme `aiAgreement` des traces : types (n, agree, forced, nt, ntAgree, ties, pct, ntPct, ex), by (n, agree, pct), unavailable, mutations."""
+    types, by, unav, mut = {}, {}, {}, 0
+    for t in traces:
+        a = t.get("aiAgreement")
+        if not a:
+            continue
+        mut += a.get("mutations", 0)
+        for k, v in a["unavailable"].items():
+            unav[k] = unav.get(k, 0) + v
+        for k, v in a["by"].items():
+            b = by.setdefault(k, {"n": 0, "agree": 0})
+            b["n"] += v["n"]
+            b["agree"] += v["agree"]
+        for k, v in a["types"].items():
+            g = types.setdefault(k, {**{f: 0 for f in AI_FIELDS}, "ex": []})
+            for f in AI_FIELDS:
+                g[f] += v[f]
+            g["ex"] += [{"trace": t["trace"], **e} for e in v["ex"][:2]]
+    for g in types.values():
+        g["pct"], g["ntPct"] = pct(g["agree"], g["n"]), pct(g["ntAgree"], g["nt"])
+        g["ex"] = g["ex"][:12]
+    for b in by.values():
+        b["pct"] = pct(b["agree"], b["n"])
+    empty = {**{f: 0 for f in AI_FIELDS}, "ex": [], "pct": None, "ntPct": None}
+    return {"types": {k: types.get(k, empty) for k in AI_ORDER}, "by": dict(sorted(by.items())), "unavailable": unav, "mutations": mut}
+
+
+def print_ai(ag, traces):
+    print()
+    print("== accord de l'IA Godot (AI.gd) avec l'IA oracle : coup Godot sur l'etat Godot juste avant le coup oracle (definitions : README « Accord de l'IA »)")
+    print(f"  {'type':<12} {'n':>5} {'accord':>6} {'%':>6}   {'forces':>6}   {'n>=2 cand.':>10} {'accord':>6} {'%':>6}   {'indiff.':>7}")
+    for k, g in ag["types"].items():
+        f = lambda v: "-" if v is None else f"{v:.1f}"
+        print(f"  {k:<12} {g['n']:>5} {g['agree']:>6} {f(g['pct']):>6}   {g['forced']:>6}   {g['nt']:>10} {g['ntAgree']:>6} {f(g['ntPct']):>6}   {g['ties']:>7}")
+    print(f"  mutations de l'etat Godot par les requetes IA : {ag['mutations']} (doit etre 0) ; requetes sans coup disponible : {ag['unavailable'] or 'aucune'}")
+    worst = sorted((kv for kv in ag["by"].items() if not kv[0].startswith("passAlt") and kv[1]["n"] - kv[1]["agree"] > 0), key=lambda kv: kv[1]["agree"] - kv[1]["n"])[:12]
+    print("  desaccords par sous-classe (type:carte|choix, desaccords/n) : " + "  ".join(f"{k}={v['n'] - v['agree']}/{v['n']}" for k, v in worst))
+    alt = sorted(((k, v["n"]) for k, v in ag["by"].items() if k.startswith("passAlt")), key=lambda kv: -kv[1])
+    print("  oracle ne joue rien mais Godot jouerait (site>coup) : " + ("  ".join(f"{k[8:]}={n}" for k, n in alt) or "aucun cas"))
+    print("  par trace (accord / n tous types) : " + "  ".join(
+        f"{t['trace']}={sum(v['agree'] for v in t['aiAgreement']['types'].values())}/{sum(v['n'] for v in t['aiAgreement']['types'].values())}" for t in traces if t.get("aiAgreement")))
+    for k, g in ag["types"].items():
+        for e in g["ex"][:2]:
+            print(f"  ex {k:<11} {e['trace']}@{e['seq']} T{e['turn']} P{e['player']}: oracle={e['oracle']} | godot={e['godot']}{' (indifferent)' if e['tie'] else ''}")
+
+
 def fmt(v):
     s = json.dumps(v, separators=(",", ":"), ensure_ascii=False)
     return s[:67] + "..." if len(s) > 70 else s
@@ -312,13 +370,15 @@ def main():
     ap.add_argument("--players", type=int, nargs="+", default=[2, 3])
     ap.add_argument("--decks", default="BaseDeck")
     ap.add_argument("--skip-gen", action="store_true")
+    ap.add_argument("--ai-agreement", action="store_true", help="lot 1.2 : accord de l'IA Godot (AI.gd) avec l'IA oracle, par type de coup (report.json `aiAgreement`)")
     a = ap.parse_args()
     if a.skip_gen:
         names = sorted(f for f in os.listdir(OUT) if re.match(r"^oracle-.*\.json$", f))
     else:
         names = generate(a.seeds, a.players, a.decks)
 
-    godot_errors = run_godot()
+    ai = a.ai_agreement
+    godot_errors = run_godot(ai)
     traces, unmapped = [], set()
     for name in names:
         trace = load(os.path.join(OUT, name))
@@ -328,6 +388,8 @@ def main():
         gd = load(os.path.join(OUT, f"gd-{tid}"))
         unmapped.update(gd.get("unmapped", []))
         entry.update(compare_trace(trace, gd))
+        if ai:
+            entry["aiAgreement"] = gd.get("aiAgreement")
         traces.append(entry)
 
     report = {"generatedAt": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"), "godot": godot_exe(),
@@ -336,6 +398,8 @@ def main():
               "passiveSkipped": sum((t["stats"] or {}).get("passiveSkipped", 0) for t in traces),
               "spellTargetUnmatched": sum((t["stats"] or {}).get("spellTargetUnmatched", 0) for t in traces),
               "skippedBy": aggregate_skipped(traces), "traces": traces}
+    if ai:
+        report["aiAgreement"] = aggregate_ai(traces)
     with open(os.path.join(OUT, "report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
 
@@ -371,6 +435,9 @@ def main():
     print(f"  decisions passives BMA020 comptees a part (passiveSkipped) : {report['passiveSkipped']}")
     print(f"  playSpell dont la cible oracle n'est dans aucune variante Godot (cands[0] joue) : {report['spellTargetUnmatched']}")
     print()
+    if ai:
+        print_ai(report["aiAgreement"], traces)
+        print()
     print(f"[apk-parity] rapport: {os.path.join(OUT, 'report.json')}")
     bad = [t["trace"] for t in traces if t["status"] != "OK"]
     print(f"APK PARITY RAPPORT: {len(traces) - len(bad)}/{len(traces)} traces OK" + (f" (hors OK: {', '.join(bad)})" if bad else ""))

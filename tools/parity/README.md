@@ -49,6 +49,7 @@ python tools/parity/apk.py                                     # graines 1-3 x 2
 python tools/parity/apk.py --seeds 4 5 6 7 --players 2 3 4     # « wide » : 12/12
 python tools/parity/apk.py --decks BaseDeck,PlayerChoice,HiddenHeros,ToolsHeroKind   # 6/6 ; un paquet a la fois : voir « Paquets supplementaires »
 python tools/parity/apk.py --skip-gen                          # rejoue les traces deja generees
+python tools/parity/apk.py --skip-gen --ai-agreement           # + accord de l'IA Godot avec l'IA oracle par type de coup (voir « Accord de l'IA »)
 GODOT=<exe> python tools/parity/apk.py                         # sinon tools/godot_exe.py : C:/Tools/Godot/...console.exe, puis `godot`
 APK_PARITY_OUT=<dossier> python tools/parity/apk.py            # dossier de sortie dedie
 ```
@@ -214,6 +215,83 @@ Pas de plafond numerique par classe. Classes connues : `noChoice-dropped:resolve
 **En attente** : `otherCardChoice:resolveTarget:t1` (wide 17, decks 2 ; BMA036 / BMA037 interactifs, BMA011 pour les restes) est signale
 (`skipWarnings`, avertissement console, `WARN_SKIP_KEYS` dans `apk.py`) mais ne fait pas echouer, tant que la classification n'est pas tranchee ;
 l'exemption est PAR CLE : toute autre cle `otherCardChoice:*` fait echouer la trace.
+
+## Accord de l'IA (`--ai-agreement`, lot 1.2)
+
+```bash
+python tools/parity/apk.py --skip-gen --ai-agreement     # sur des traces deja generees (APK_PARITY_OUT=<dossier avec oracle-*.json>)
+godot ... ApkParity.tscn -- --traces=<dossier> --ai-agreement [--ai-ex=N]     # N exemples de desaccord par type et par trace (6 par defaut)
+```
+
+A chaque decision de l'IA oracle (`TracingAI`), le rejeu demande a l'IA Godot (`AI.gd` : `AI.pick_move`, `AI.score_move`, `AI.select_opening_discards`)
+ce qu'elle jouerait sur **le meme etat Godot, juste avant que le harnais applique le coup oracle**, et compare. Sortie : `report.json`
+(`aiAgreement` global et, par trace, dans `traces[*].aiAgreement`) et un tableau console. Mesure pure : les requetes ne modifient rien
+(`hash(G)` avant/apres, compteur `mutations` = 0 ; `legal_moves` copie deja `G` pour tester les capacites), le rejeu ne depend jamais du resultat ;
+`report.json`, `gd-*.json` (hors cle `aiAgreement`), statuts et projections sont **identiques** avec et sans l'option (verifie sur les 18 traces ;
+duree du rejeu +15 % environ). Sans l'option : aucun appel a l'IA, comportement inchange.
+
+**Definition de l'accord** (par type ; « meme carte » = meme code, une autre copie ne compte pas comme desaccord ; le departage de Godot est celui de
+`pick_move` : premier meilleur score) :
+
+| Type | Point de mesure (harnais) | Accord si |
+|---|---|---|
+| `build` | `buildRoom` oracle, avant la pose | le meilleur `buildRoom` de Godot est la meme carte **et** le meme emplacement (pile recouverte, ou « nouvelle pile ») |
+| `buildCard` | idem | la meme carte (emplacement ignore) |
+| `buildSlot` | idem | etant donnee la carte de l'oracle, Godot choisit le meme emplacement parmi les coups de cette carte |
+| `discard` | defausse d'ouverture (`Setup_a`) | `select_opening_discards` rend le meme multiensemble de 2 codes |
+| `spell` | `playSpell` oracle | decision « capacite » = tous les coups legaux sauf construire, plus « ne rien faire » (`passBuild`/`pass`/`adventureNext`) : le meilleur est un `playSpell` du meme sort ; si Godot ne jouerait rien ou autre chose : desaccord |
+| `spellTarget` | idem, cible oracle connue (decisions imbriquees) | parmi les variantes de `playSpell` de ce sort, la meilleure designe une instance cible de l'oracle (`_refs`) |
+| `activate` | `playRoomAbility` oracle | meme decision « capacite » : le meilleur est un `activateRoom` de la meme salle (le 2e argument de BMA028/032 n'est pas compare) |
+| `target` | choix Godot ouvert, avant `resolveChoice` | meme indice, ou option equivalente (memes codes de cartes designees, meme joueur proprietaire, meme pile) ; l'option « passer » (-1) et les options non appariees ne comptent pas |
+| `draw` | `chooseDraw` (Haunted Library) | meme pile (salles / sorts) |
+| `pass` | `passBuild`/`pass` rejoue par le harnais parce que l'IA oracle n'a rien joue (salle initiale, tour de construction, tour supplementaire, repondant de Spell Battle) | `AI.pick_move` ne propose aucun coup actif (null, `passBuild`, `pass`, `adventureNext`) ; sous-classes `pass:setup|build|extra|respond`, et `passAlt:*` = ce que Godot jouerait a la place |
+
+Colonnes : `n`, `agree`, `%` ; `forces` = un seul candidat distinct (accord automatique) ; `n>=2 cand.` = decisions avec au moins 2 candidats distincts
+(le vrai taux de decision) ; `indiff.` = desaccords ou le coup oracle a **le meme score** que le choix Godot (l'IA Godot ne les distingue pas et prend le
+premier). Un coup requete indisponible (aucun coup legal, choix deja ferme) va dans `unavailable`, hors `n`. Les repondants de Spell Battle dont le
+joueur n'est pas celui que Godot attend ne sont pas comparables (`unavailable.pass:respond-order`) ; aucun cas sur les 18 traces.
+
+**Nature de la mesure** : l'IA oracle n'est **pas** deterministe. `StatisticAI.RandomSelection` tire carte, emplacement, defausse, capacite et type de
+pioche au sort selon des probabilites (`NormalizeValues` : valeurs moins le minimum, normalisees). Un accord « argmax Godot = tirage oracle » plafonne donc
+bien sous 100 % pour `build`, `buildCard`, `buildSlot`, `discard`, `spell`, `activate`, `draw`. Une partie des cibles est aussi tiree (`Shuffle()` :
+`TriggerCalculator.cs` 363/401/615/621/643, `AbilityCalculator.cs` 485/864/969 ; cartes piochees dans une defausse, sort au hasard...), ce qui borne `target`
+(typiquement `recover-card`).
+La trace ne porte pas les probabilites de l'oracle ; une mesure plus fine (probabilite attribuee au coup tire) demanderait de les y ajouter
+(`TracingAI.cs`), non fait.
+
+**Mesure initiale** (18 traces : defaut graines 1-3 x 2/3 joueurs + wide graines 4-7 x 2/3/4 joueurs, `BaseDeck`, 6/6 et 12/12 inchanges ; `AI.gd` non modifie) :
+
+| Type | n | accord | % | forces | n>=2 cand. | accord | % | indiff. |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| build (carte + emplacement) | 444 | 306 | 68,9 | 19 | 425 | 287 | 67,5 | 33 |
+| buildCard (carte seule) | 444 | 327 | 73,6 | 80 | 364 | 247 | 67,9 | 13 |
+| buildSlot (emplacement, carte oracle) | 444 | 412 | 92,8 | 134 | 310 | 278 | 89,7 | 29 |
+| discard (ouverture) | 51 | 4 | 7,8 | 0 | 51 | 4 | 7,8 | 0 |
+| spell (jouer tel sort ou passer) | 102 | 85 | 83,3 | 0 | 102 | 85 | 83,3 | 2 |
+| spellTarget (cible oracle) | 102 | 37 | 36,3 | 26 | 76 | 22 | 28,9 | 54 |
+| activate (capacite de salle) | 142 | 70 | 49,3 | 0 | 142 | 70 | 49,3 | 11 |
+| target (option d'un choix ouvert) | 210 | 82 | 39,0 | 10 | 200 | 72 | 36,0 | 126 |
+| draw | 0 | 0 | - | 0 | 0 | 0 | - | 0 |
+| pass (l'oracle ne joue rien) | 214 | 158 | 73,8 | 58 | 156 | 100 | 64,1 | 0 |
+
+`draw` : `chooseDraw` n'apparait dans aucune de ces traces (BMA023 jamais distribuee, voir « Limites assumees ») ; chemin mesure mais non exerce. Defausses
+forcees hors ouverture : l'oracle n'en trace aucune (`discard` n'existe qu'en `Setup_a`) ; celles des capacites passent par `resolveTarget` donc par `target`
+(ex. `discard-spell[Dark Laboratory]`).
+
+Desaccords les plus frequents (sous-classe `type:carte` ou `target:type de choix[boss]`, desaccords/n sur les 18 traces) : `target:recover-card[Dracolich
+Lair]` 32/38 et `[Dark Altar]` 18/19, `target:dracolich-discard` 20/38 (beaucoup d'indifferences : `_score_choice` rend 0 pour ces choix) ; `spellTarget`
+BMA046 25/25, BMA047 7/7, BMA042 7/8 (Godot prend la premiere variante de cible, score identique) ; `activate:BMA013` 24/42, `BMA032` 16/29, `BMA009` 11/19
+(Godot prefere un sort a score fixe 20 ou toute capacite a score 5 par defaut) ; `pass:build` 30/34 (l'oracle ne construit pas, Godot construirait 20 fois,
+surtout BMA034/035/037 ; cause a instruire : position nulle, `CanBuildRoom` ou valeur nulle cote C#, ou activerait une capacite) ; `pass:respond` 25/179 (Godot contre-sortirait avec
+BMA043 ou activerait All-Seeing Eye BMA025 la ou l'IA oracle laisse passer) ; `discard` 47/51 (sur les exemples, Godot defausse les sorts, l'oracle des salles).
+
+Limites de la mesure : (1) les types sont evalues isolement (`build` parmi les `buildRoom`, `spell`/`activate` parmi les coups sans construction) :
+l'ordre entre construire et jouer un sort, que l'oracle fixe en une liste (`AIPlayerInteraction.InternalDoPlayerActions`), n'est pas mesure ;
+(2) les joueurs du harnais ne sont pas `isAI` : `legal_moves` est celui d'un humain (un siege IA du vrai jeu n'ouvre pas de Spell Battle hors de son tour, alors
+que l'IA oracle consulte ses capacites a chaque fenetre) ; (3) l'etat est celui du rejeu : sort deja mis sur la pile ou capacite retenue avant une
+construction (`_held`, `_held_pass`) peuvent differer legerement de celui que l'oracle a vu en precalculant sa liste ; (4) la main d'ouverture est dans l'ordre
+des `options` oracle ; (5) non mesures : fenetres d'aventure (`_settle`) et de revelation (`_close_window`), cibles de `playRoomAbility` imbriquees
+(BMA028/032 2e salle), `rearrange-dungeon` (KSA002), 2e carte de `recover-card` (Xyzax), cartes wiki.
 
 ## Limites assumees
 

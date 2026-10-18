@@ -5,6 +5,10 @@ extends Node
 ##
 ## Usage :
 ##   godot --headless --path src/frontend res://godot/tests/ApkParity.tscn -- --traces=<dossier absolu>
+##
+## Options (lues par scripts/ApkParityTrace.gd via OS.get_cmdline_user_args) : --only=sN-pM, --dbg=a-b, --dbglog=N, --skip-ex=N,
+## --ai-agreement (lot 1.2 : accord de l'IA Godot avec l'IA oracle, ajoute `aiAgreement` aux gd-*.json ; aucun effet sur le rejeu),
+## --ai-ex=N (exemples de desaccord gardes par type, 6 par defaut).
 
 const Apk = preload("res://godot/scripts/ApkParityTrace.gd")
 
