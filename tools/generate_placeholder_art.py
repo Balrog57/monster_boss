@@ -32,7 +32,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CARD_DATA = os.path.join(ROOT, "src", "frontend", "godot", "data", "cards.json")
 MANIFEST = os.path.join(ROOT, "tools", "data", "apkCardManifest.json")
 OUT_CARDS = os.path.join(ROOT, "src", "frontend", "assets", "cards")
-FONT_DIR = os.path.join(ROOT, "src", "frontend", "assets", "fonts")
+FONT_DIR = os.path.join(ROOT, "tools", ".cache", "fonts")  # TTF reconstruits par build_fonts.py (cache gitignore)
 
 W, H = 746, 1039  # matches official faces
 PLACEHOLDER_SETS = ("minibosses", "next-level")
@@ -71,7 +71,13 @@ def is_placeholder(path: str) -> bool:
 
 
 def load_font(name: str, size: int):
-    return ImageFont.truetype(os.path.join(FONT_DIR, name), size)
+    path = os.path.join(FONT_DIR, name)
+    if not os.path.exists(path):
+        import build_fonts  # meme dossier que ce script
+        if not os.path.isdir(build_fonts.APK_FONTS):
+            sys.exit(f"{path} manquant et apk-original/ absent : impossible de reconstruire les polices (tools/build_fonts.py)")
+        build_fonts.main()
+    return ImageFont.truetype(path, size)
 
 
 def section_dir(section: str, card: dict) -> str:

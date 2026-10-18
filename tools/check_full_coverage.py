@@ -26,7 +26,7 @@ ONE_TO_ONE = {
     os.path.join('assets', 'Content', 'Loading'): ('src/frontend/assets/ui', '.webp'),
     os.path.join('assets', 'Content', 'NinePatch'): ('src/frontend/assets/ui/ninepatch', '.webp'),
     os.path.join('assets', 'Content', 'Tutorial'): ('src/frontend/assets/ui/tutorial', '.webp'),
-    os.path.join('assets', 'Content', 'Fonts'): ('src/frontend/assets/fonts', '.TTF'),
+    os.path.join('assets', 'Content', 'Fonts'): ('src/frontend/assets/fonts', '.fnt'),
     os.path.join('assets', 'Content', 'Audio', 'Sfx'): ('src/frontend/assets/audio/sfx', '.wav'),
 }
 
@@ -170,7 +170,7 @@ def main():
     L.append('## Détail par catégorie (extrait)')
     L.append('')
     L.append(f'- Audio/Sfx : 42 WPK → 42 `.wav` ; Musique : 2 MP3 à l\'identique')
-    L.append(f'- Fonts : 4 WPK → 4 `.TTF` ; NinePatch : 9 WPK → 9 `.webp`')
+    L.append(f'- Fonts : 4 WPK → 4 `.fnt` (BMFont) ; NinePatch : 9 WPK → 9 `.webp`')
     L.append(f'- Tutorial : 4 WPK + 1 XML → `.webp` + XML recopié')
     L.append(f'- CardDecks : 4 `data.json` + 3 `ai_info.json` → `cards.json` (442 ids)')
     L.append(f'- Smali : 196 fichiers ; `res/` décodé : 13 fichiers ; manifest décodé ; `apktool.yml`')

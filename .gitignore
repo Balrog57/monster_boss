@@ -20,7 +20,7 @@ __pycache__/
 
 # Harnais de parite APK <-> Godot (traces et projections generees)
 tools/parity/out/
-
+tools/.cache/
 # Playwright / automation reference captures (local QA only)
 docs/reference/
 

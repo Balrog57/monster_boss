@@ -62,7 +62,7 @@ A faithful remake of the card game **Boss Monster: Master of the Dungeon** (Brot
 **UI**
 5. The APK keeps the greyed hand behind the end screen; we do not.
 6. Wiki: the EXTRA MOVES button does not exist in the APK; wiki bosses reuse APK backgrounds and show a card instead of a sprite; 107 RMB cards still show placeholder art.
-7. Not hand-verified with real mouse input: OS-level spell drag and audio (the browser pane cannot drive Godot drags precisely). Card gallery not compared pixel-for-pixel and has no alt-art tiles (the second APK art per card was never extracted); RIP tombstone not scaled like `LoseScene`.
+7. Not hand-verified with real mouse input: OS-level spell drag and audio (the browser pane cannot drive Godot drags precisely). Card gallery not compared pixel-for-pixel (it does show the alt-art tiles: Room/Spell cards with `AlternativeArts` get one tile per copy, art cycling a,b,a… as in `ScrollCardBehavior.AddElements`); RIP tombstone not scaled like `LoseScene`.
 **Multiplayer**
 8. PASS AND PLAY accepts 2-4 players (APK: 2). WORLDWIDE matchmaking is absent (APK-style error box only). NEW GAME fixes the seat count. No fade transitions between online screens.
 9. Games are in memory (no persistence); WINS/DEFEATS are client-declared and cosmetic.

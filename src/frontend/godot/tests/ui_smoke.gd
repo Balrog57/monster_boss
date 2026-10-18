@@ -2082,6 +2082,7 @@ func _check_gallery() -> void:
 		await get_tree().process_frame
 		_check(g.title_label.text == want_titles[t], "galerie : titre « %s » au lieu de %s" % [g.title_label.text, want_titles[t]])
 		var want := 0
+		var want_tiles := 0 # Room/Spell : une tuile par exemplaire si une image « b » (art alternatif) existe
 		for c in sources[t]:
 			var d: Dictionary = c
 			if not (str(d.get("set", "base")) in allowed) or str(d.get("id", "")) in ["BMA023", "BMA033"]: # notInGameCards de l'APK
@@ -2089,9 +2090,11 @@ func _check_gallery() -> void:
 			if t >= 3 and bool(d.get("epic", false)) != (t == 4):
 				continue
 			want += 1
+			var alt: bool = t in [1, 2] and ResourceLoader.exists("res://assets/apk_cards/base/%sb.webp" % str(d.get("id", "")).to_lower())
+			want_tiles += int(d.get("quantity", 1)) if alt else 1
 		_check(g.cards_shown == want and want > 0, "galerie : onglet %d : %d cartes pour %d attendues" % [t, g.cards_shown, want])
 		var grid = g.scroll.get_node_or_null("Grid")
-		_check(grid != null and grid.get_child_count() == want, "galerie : grille de %d cartes pour %d" % [grid.get_child_count() if grid != null else -1, want])
+		_check(grid != null and grid.get_child_count() == want_tiles, "galerie : grille de %d tuiles pour %d" % [grid.get_child_count() if grid != null else -1, want_tiles])
 	g.select_tab(0)
 	var order: Array = g.cards_for(0).map(func(c): return str(c["id"]))
 	_check(order.size() > 1 and order[0] == "KSA007" and order[1] == "KSA006", "galerie : ordre APK (CardNumber decroissant), Elicon puis Jarin en tete : %s" % [order.slice(0, 3)])

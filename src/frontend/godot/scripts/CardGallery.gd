@@ -3,7 +3,8 @@ extends Control
 ## titre « BOSS CARDS » & co, grille de cartes sur 2 lignes qui defile horizontalement, un clic ouvre la carte en grand.
 ## Seuls les paquets de l'APK (base, Player's Choice, Hidden Heroes ; pas les Tools, GetAvailableDecks les ecarte) ; les extensions du wiki (apres les cartes APK) si l'option « Wiki expansions » est cochee.
 ## Ordre APK : numero de carte decroissant ; BMA023 / BMA033 masquees (notInGameCards).
-## Pas de tuiles d'art alternatif (ScrollCardBehavior) : les images « b » de l'APK ne sont pas extraites (bma0XXa.webp = copie octet pour octet de bma0XX.webp).
+## Art alternatif (ScrollCardBehavior.AddElements) : Room et Spell ont une tuile par exemplaire (quantity) si une image « b » existe ; l'art est cyclique, num % (AlternativeArts + 1) + 1 (1 -> a, 2 -> b, ...).
+## AlternativeArts n'est pas dans cards.json : on le deduit des images bma0XXb.webp extraites (tools/verify_assets.py les exige d'apres BaseDeck/data.json) ; sans art alternatif, une seule tuile.
 ## Accessible depuis le menu en jeu (engrenage) et depuis OPTIONS du menu principal ; `closed` puis liberation a la fermeture.
 
 signal closed
@@ -147,16 +148,27 @@ func select_tab(t: int) -> void:
 		content.queue_free()
 	var list := cards_for(tab)
 	cards_shown = list.size()
+	var tiles: Array = [] # [carte, id de l'image] ; plusieurs tuiles par carte avec art alternatif
+	for c in list:
+		var d: Dictionary = c
+		var id := str(d.get("id", ""))
+		var alts := 0
+		while tab in [1, 2] and ResourceLoader.exists("res://assets/apk_cards/base/%s%s.webp" % [id.to_lower(), char(98 + alts)]):
+			alts += 1
+		var num := 0
+		for _i in (int(d.get("quantity", 1)) if alts > 0 else 1):
+			num = num % (alts + 1) + 1
+			tiles.append([d, id if num == 1 else id + char(96 + num)])
 	var grid := Control.new()
 	grid.name = "Grid"
-	grid.custom_minimum_size = Vector2(60.0 + PITCH.x * ceilf(list.size() / 2.0), 830)
+	grid.custom_minimum_size = Vector2(60.0 + PITCH.x * ceilf(tiles.size() / 2.0), 830)
 	scroll.add_child(grid)
 	grid.modulate.a = 0.0
 	grid.create_tween().tween_property(grid, "modulate:a", 1.0, 0.5)
-	for k in list.size():
-		var d: Dictionary = list[k]
+	for k in tiles.size():
+		var d: Dictionary = tiles[k][0]
 		var t_rect := TextureRect.new()
-		t_rect.texture = UiKit.tex(CardDB.card_image(str(d.get("id", "")), str(TABS[tab][2])))
+		t_rect.texture = UiKit.tex(CardDB.card_image(str(tiles[k][1]), str(TABS[tab][2])))
 		t_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t_rect.stretch_mode = TextureRect.STRETCH_SCALE
 		t_rect.position = Vector2(35.0 + PITCH.x * float(k / 2), 15.0 + PITCH.y * float(k % 2))

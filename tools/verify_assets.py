@@ -8,6 +8,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(ROOT, "src", "frontend", "assets")
 MANIFEST = os.path.join(ROOT, "tools", "data", "apkCardManifest.json")
 CARDS = os.path.join(ROOT, "src", "frontend", "godot", "data", "cards.json")
+BASE_DECK = os.path.join(ASSETS, "data", "BaseDeck", "data.json")
 UI_SAMPLES = ["ui/ingame/pass_button.webp", "ui/ingame/discard_pile.webp", "ui/ingame/card_slot.webp",
               "ui/ingame/room_icon_monster.webp", "ui/ingame/room_icon_trap.webp", "ui/icons/icon_cleric.webp"]
 
@@ -43,6 +44,15 @@ def main() -> int:
             issues.append(f"no APK face for {c['id']}")
         if not c.get("name"):
             issues.append(f"{c['id']} missing name")
+
+    # Art alternatif de la galerie APK : AlternativeArts = N -> <id>a ... <id><lettre N+1> (a = copie de <id>).
+    for sec in ("RoomCards", "SpellCards"):
+        for c in load(BASE_DECK).get(sec, []):
+            n = int(c.get("AlternativeArts") or 0)
+            for k in range(n + 1 if n else 0):
+                m = problem("apk_cards/base/%s%s.webp" % (str(c["CardNumber"]).lower(), chr(97 + k)))
+                if m:
+                    missing.append(m)
 
     for title, items in (("missing or empty files", missing), ("card-data issues", issues)):
         if items:

@@ -34,8 +34,12 @@ is placed at (leftBearing, topOffset) inside that cell and the text baseline
 sits `B` rows below the top of the cell, where B is the (statistical) bottom
 of the capital letters.  We recover B as the mode of (topOffset + h).
 
+The game itself uses the BMFont exports of tools/build_bmfonts.py; these TTFs
+are only a local cache (tools/.cache/fonts/, gitignored) for the PIL-based
+tools/generate_placeholder_art.py.
+
 Usage:
-  python tools/build_fonts.py            # rebuild all four fonts
+  python tools/build_fonts.py            # rebuild all four fonts into the cache
 """
 import gzip
 import os
@@ -47,8 +51,9 @@ from PIL import Image
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 
-APK_FONTS = "apk-original/boss-monster-2-2-6/assets/Content/Fonts"
-OUT_DIR = "src/frontend/assets/fonts"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+APK_FONTS = os.path.join(ROOT, "apk-original", "boss-monster-2-2-6", "assets", "Content", "Fonts")
+OUT_DIR = os.path.join(ROOT, "tools", ".cache", "fonts")
 
 # Each output font -> source WPK + friendly family name
 FONTS = {

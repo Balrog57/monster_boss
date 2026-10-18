@@ -6,7 +6,7 @@ WPK types in this APK:
   TextureAtlas  fmt 6 = ETC1 (Android), fmt 9 = RGBA4444, fmt 1 = RGBA8888
   Texture2D     fmt 8 = RGB565, fmt 1 = RGBA8888
   SoundEffect   WAV payload after a 16-byte header
-  SpriteFont    handled by tools/build_fonts.py
+  SpriteFont    handled by tools/build_bmfonts.py
 
 Color notes (calibrated against APK 2.2.6 screenshots):
   Dungeon backgrounds (fmt 6) are ETC1, not DXT1. Decoding them as BC1/DXT1
