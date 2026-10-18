@@ -1460,7 +1460,6 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 		frame.stretch_mode = TextureRect.STRETCH_SCALE
 		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		frame.texture = _tex(UI_DIR + "card_slot.webp")
-		frame.material = UiKit.premult_material() # card_slot est pre-multiplie : filet clair de l'APK (DungeonFrameEntity.cs:359)
 		slot_ctrl.add_child(frame)
 
 		var di := j - off
@@ -3827,6 +3826,7 @@ func _show_gameover(G: Dictionary) -> void:
 	_gameover = GameOverBanner.new()
 	_gameover.z_index = 90
 	add_child(_gameover)
+	UiKit.cross_fade_in(_gameover) # WinnerScene / LoseScene = modales : CrossFade 0,2 s (GamePlayBaseScene.cs:889,895 ; ModalSceneService.cs:112-115)
 	_gameover.build(str((boss as Dictionary).get("name", "")) if boss != null else "PLAYER %d" % (w + 1), str((boss as Dictionary).get("id", "")) if boss != null else "", lose)
 	_gameover.ok_pressed.connect(_confirm_quit)
 
@@ -3852,6 +3852,7 @@ func _open_game_menu() -> void:
 	var pop := _popup_begin("menu", 0.72)
 	var menu := InGameMenu.new()
 	pop.add_child(menu)
+	UiKit.cross_fade_in(pop) # PauseScene = modale : CrossFade 0,2 s (GamePlayBaseScene.cs:1093-1099 ; ModalSceneService.cs:89,112-115)
 	menu.resume_requested.connect(_close_menu)
 	menu.rules_requested.connect(_open_rules)
 	menu.quit_requested.connect(_open_quit_confirm)

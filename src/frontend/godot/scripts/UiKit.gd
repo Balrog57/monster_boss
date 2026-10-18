@@ -20,15 +20,11 @@ static func font(path: String) -> Font:
 		_fonts[path] = fv
 	return _fonts[path]
 
-static var _premult: CanvasItemMaterial
-
-## Textures de l'APK a alpha pre-multiplie (card_slot, winner_bg : le filet clair est stocke en (119, 119, 119, 119) = blanc a 47 %) : melange PREMULT_ALPHA,
-## sinon Godot (alpha droit) les dessine gris x alpha donc trop sombres (filets des emplacements vides : 0,22 au lieu de 0,47).
-static func premult_material() -> CanvasItemMaterial:
-	if _premult == null:
-		_premult = CanvasItemMaterial.new()
-		_premult.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
-	return _premult
+## CrossFadeTransition(ModalTransitionsTime 0,2 s) : la modale apparait en fondu lineaire sur l'ecran dessous (DBMBaseScene.cs:17 ; CrossFadeTransition.cs:35,40 ;
+## ModalSceneService.cs:89,112-115). `n` doit deja etre dans l'arbre ; la fermeture d'une modale est une coupure (Pop sans transition).
+static func cross_fade_in(n: CanvasItem) -> void:
+	n.modulate.a = 0.0
+	n.create_tween().tween_property(n, "modulate:a", 1.0, 0.2)
 
 static func tex(path: String) -> Texture2D:
 	return load(path) if ResourceLoader.exists(path) else null

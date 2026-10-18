@@ -48,6 +48,8 @@ var server_host := "http://127.0.0.1:8000"
 var players := 2 # choix courant de « HOW MANY PLAYERS? »
 var dyn_root: Control # contenu redessine a chaque clic (eventails, tuiles)
 var _gray: ShaderMaterial
+var _fade_layer: CanvasLayer # voile noir des transitions : survit a _clear()
+var _fading := false
 var profile := {"name": "Player", "avatar": "avatar_draculord"}
 
 func _ready() -> void:
@@ -66,11 +68,14 @@ func _ready() -> void:
 	use_extensions = bool(settings.get("extensions", false))
 	apk_decks = (settings.get("decks", []) as Array).filter(func(d): return _deck_playable(str(d)))
 	profile = Profile.load_profile()
+	_fade_layer = CanvasLayer.new()
+	_fade_layer.layer = 128
+	add_child(_fade_layer)
 	show_title()
 
 func _clear() -> void:
 	for c in get_children():
-		if c != game_manager and c != online:
+		if c != game_manager and c != online and c != _fade_layer:
 			c.queue_free()
 	board = null
 
@@ -83,6 +88,30 @@ func _deck_playable(id: String) -> bool:
 func _active_sets() -> Array:
 	# Les paquets du wiki ne comptent que si l'option « Extensions du wiki » est cochee.
 	return apk_decks.filter(func(d): return use_extensions or not EXT_PACKS.has(d))
+
+# --- transitions ----------------------------------------------------------------
+
+## ColorFadeTransition(noir, NormalTransitionsTime 1,0 s) des Push / Pop entre menus : noir 0 -> 1 en 0,5 s sur l'ecran source, `swap` change d'ecran, puis noir 1 -> 0 en 0,5 s,
+## lineaire (DBMBaseScene.cs:19 ; ColorFadeTransition.cs:40-47,61 ; ScreenTransition.cs:28,109). Une transition en cours refuse tout nouvel ordre (ScreenContextManager.cs:233-236).
+## Les Push / Pop / To sans transition = coupure nette (ScreenContextManager.cs:237-240 ; fleche de retour : ControlsFactory.cs:238 ; Expansions -> partie : ExpansionScene.cs:117-128) appellent show_* directement.
+func go(swap: Callable) -> void:
+	if _fading:
+		return
+	_fading = true
+	var veil := ColorRect.new()
+	veil.color = Color(0, 0, 0, 0)
+	veil.size = Vector2(1920, 1080)
+	_fade_layer.add_child(veil) # mouse_filter STOP par defaut : aucun clic pendant la transition
+	var tw := create_tween()
+	tw.tween_property(veil, "color:a", 1.0, 0.5)
+	tw.tween_callback(swap)
+	tw.tween_property(veil, "color:a", 0.0, 0.5)
+	tw.tween_callback(func():
+		veil.queue_free()
+		_fading = false)
+
+func is_fading() -> bool:
+	return _fading
 
 # --- widgets ---------------------------------------------------------------
 
@@ -194,10 +223,8 @@ func show_title() -> void:
 	add_child(_bg(UI + "backgrounds/intro_bg.webp"))
 	for x in [424, 1094]:
 		var c := _tex("gradients/candle.webp", Vector2(x, 484)) # bougies statiques : ControlsFactory.cs:369-377 (aucun scintillement)
-		c.material = UiKit.premult_material() # candle.webp est pre-multiplie : le halo orange n'apparait qu'avec ce melange
 		add_child(c)
 	var eyes := _tex("gradients/monster_eyes.webp", Vector2(898, 733)) # x 898 : points rouges APK mesures en (924|985, 759) contre (931|993) a 905
-	eyes.material = UiKit.premult_material() # monster_eyes.webp est pre-multiplie
 	eyes.modulate.a = 0.0 # invisibles au depart : BlinkBehavior(5 s), Opacity MinOpacity 0 (IntroScene.cs:49-55, BlinkBehavior.cs:36-60)
 	add_child(eyes)
 	_blink(eyes, 5.0)
@@ -206,7 +233,7 @@ func show_title() -> void:
 	tap.modulate.a = 0.0
 	add_child(tap)
 	_blink(tap, 0.3) # BlinkBehavior(0,3 s) (IntroScene.cs:59)
-	add_child(_hit(Vector2.ZERO, Vector2(1920, 1080), func(): show_menu()))
+	add_child(_hit(Vector2.ZERO, Vector2(1920, 1080), func(): go(show_menu))) # IntroScene.cs:107-114 (ColorFade 1,0 s)
 
 # --- menu principal ----------------------------------------------------------
 
@@ -230,11 +257,11 @@ func show_menu() -> void:
 	online.stop_lobby_poll()
 	online.stop_state_poll()
 	AudioManager.play_music("music_main")  # APK IntroScene
-	_apk_screen(func(): show_title())
-	_stone_btn("SINGLE PLAYER", "boss_icon.webp", Vector2(30, 49), 292, Vector2(460, 317), func(): show_solo_count())
-	_stone_btn("MULTIPLAYER", "boss_multi_icon.webp", Vector2(25, 57), 327, Vector2(990, 317), func(): show_multi())
-	_stone_btn("OPTIONS", "options_icon.webp", Vector2(27, 51), 267, Vector2(460, 527), func(): show_options())
-	_stone_btn("RULES", "rules_icon.webp", Vector2(40, 58), 306, Vector2(990, 527), func(): show_rules())
+	_apk_screen(func(): go(show_title)) # la fleche du menu appelle NavigatedBack = Pop ColorFade (MainMenuScene.cs:49-54,199-202)
+	_stone_btn("SINGLE PLAYER", "boss_icon.webp", Vector2(30, 49), 292, Vector2(460, 317), func(): go(show_solo_count)) # MainMenuScene.cs:84-87
+	_stone_btn("MULTIPLAYER", "boss_multi_icon.webp", Vector2(25, 57), 327, Vector2(990, 317), func(): go(show_multi)) # MainMenuScene.cs:92-104
+	_stone_btn("OPTIONS", "options_icon.webp", Vector2(27, 51), 267, Vector2(460, 527), func(): go(show_options)) # MainMenuScene.cs:107-112
+	_stone_btn("RULES", "rules_icon.webp", Vector2(40, 58), 306, Vector2(990, 527), func(): go(show_rules)) # emplacement du store : MainMenuScene.cs:114-119
 
 # --- solo : HOW MANY PLAYERS? -------------------------------------------------
 
@@ -245,7 +272,7 @@ func show_solo_count(mode: String = "solo") -> void:
 	dyn_root = Control.new()
 	add_child(dyn_root)
 	_draw_fans()
-	_ok_btn(func(): show_setup(players, players if mode == "pass" else 1, mode))
+	_ok_btn(func(): go(func(): show_setup(players, players if mode == "pass" else 1, mode))) # PlayerNumberScene.cs:48-54 (ColorFade 1,0 s)
 
 func _count_back(mode: String) -> void:
 	match mode:
@@ -437,7 +464,7 @@ func show_options() -> void:
 	gal.name = "CardGallery"
 	gal.pressed.connect(func():
 		AudioManager.play_sfx("ui_button_select")
-		add_child(CardGallery.new()))
+		go(func(): add_child(CardGallery.new()))) # OptionsScene.cs:85-90 (ColorFade 1,0 s)
 	# Controles secondaires discrets (multijoueur / extensions du wiki : hors APK).
 	var ext := CheckBox.new()
 	ext.text = "Wiki expansions (not in the APK)"

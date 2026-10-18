@@ -34,7 +34,6 @@ var _card_ui_scene = preload("res://godot/scenes/Card.tscn")
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(127, 175)
-	slot_frame.material = preload("res://godot/scripts/UiKit.gd").premult_material() # card_slot est pre-multiplie (filet clair, DungeonFrameEntity.cs:359)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_update_view()
 

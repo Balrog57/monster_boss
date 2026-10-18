@@ -43,7 +43,9 @@ func _build_main() -> void:
 	var entries := [["RESUME", func(): resume_requested.emit()], ["CARD GALLERY", _open_gallery], ["RULES", func(): rules_requested.emit()],
 		["SETTINGS", func():
 			page = "settings"
-			_build()], ["QUIT GAME", func(): quit_requested.emit()]]
+			_build()
+			# SettingsScene = modale : CrossFade 0,2 s (PauseScene.cs:77-84 ; ModalSceneService.cs:63-71,89)
+			UiKit.cross_fade_in(self)], ["QUIT GAME", func(): quit_requested.emit()]]
 	for i in entries.size():
 		# APK : 4 boutons au pas de 194 px (bordures a y 124, 318, 512, 707) ; RULES (ajout) est place apres eux
 		var row := 4 if str(entries[i][0]) == "RULES" else (i if i < 2 else i - 1)
@@ -60,7 +62,8 @@ func _build_settings() -> void:
 	back.pressed.connect(func():
 		AudioManager.play_sfx("ui_button_goback")
 		page = "main"
-		_build())
+		_build()
+		UiKit.cross_fade_in(self)) # le Pop re-empile PauseScene avec le meme CrossFade (ModalSceneService.cs:69-72,112-115)
 	UiKit.toggle_row(self, 358, "MUSIC", ["ON", "OFF"], 0 if AudioManager.music_on else 1, func(i: int): AudioManager.set_music_on(i == 0))
 	UiKit.toggle_row(self, 478, "SOUND", ["ON", "OFF"], 0 if AudioManager.sfx_on else 1, func(i: int): AudioManager.set_sfx_on(i == 0))
 	UiKit.toggle_row(self, 598, "GAME SPEED", ["SLOW", "NORMAL", "FAST"], Profile.load_speed(), func(i: int):
@@ -105,5 +108,8 @@ func _open_gallery() -> void:
 		return
 	gallery = CardGallery.new()
 	gallery.z_index = 5
-	gallery.closed.connect(func(): gallery = null)
+	gallery.closed.connect(func():
+		gallery = null
+		UiKit.cross_fade_in(self)) # retour au menu PAUSED : re-empile avec CrossFade (ModalSceneService.cs:69-72)
 	add_child(gallery)
+	UiKit.cross_fade_in(gallery) # PauseScene.cs:67-70 : GalleryScene(fromGameplay) = modale, CrossFade 0,2 s

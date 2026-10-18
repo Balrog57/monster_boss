@@ -82,6 +82,7 @@ func msg_box(title: String, text: String, ok: Callable = Callable()) -> Control:
 	dim.color = Color(0, 0, 0, 0.7)
 	dim.size = Vector2(1920, 1080)
 	m.add_child(dim)
+	UiKit.cross_fade_in(dim) # DBMBaseScene.cs:55-67 : Push(modale, CrossFade 0,2 s)
 	dim.add_child(m._tex("gradients/winner_bg.webp", Vector2(960.0 - 956.5, 486.0 - 94.0), Vector2(1913.0, 188.0)))
 	if title != "":
 		dim.add_child(m._tex("gradients/bg_txt.webp", Vector2(394, 75.6 - 32.0)))
@@ -163,10 +164,10 @@ func show_multi() -> void:
 	m._apk_screen(func(): m.show_menu(), true)
 	_deck_btn(1260.0, 4, "PLAY ONLINE", "Play online two to four player games", func():
 		if Profile.has_profile():
-			show_online()
+			m.go(show_online) # MultiplayerScene.cs:56 (ColorFade 1,0 s)
 		else: # pas encore de pseudo : ChangeNameAvatarScene(canGoBack: false, setDefaultValues: true) d'abord
-			show_profile(false, true))
-	_deck_btn(660.0, 2, "PASS AND PLAY", "Play versus another player\n using the same device", func(): m.show_solo_count("pass"))
+			m.go(func(): show_profile(false, true))) # MultiplayerScene.cs:60-62
+	_deck_btn(660.0, 2, "PASS AND PLAY", "Play versus another player\n using the same device", func(): m.go(func(): m.show_solo_count("pass"))) # MultiplayerScene.cs:78 (ColorFade 1,0 s)
 
 ## ButtonWithDeckEntity : big_button 504x400 centre en (cx, 540), titre (-305,-170) x 1,3, sous-titre Bookman (-250,-125) ; eventail de bosses a (0, +80) x 0,7.
 func _deck_btn(cx: float, count: int, title: String, sub: String, cb: Callable) -> void:
@@ -231,8 +232,8 @@ func _deck_btn(cx: float, count: int, title: String, sub: String, cb: Callable) 
 func show_online() -> void:
 	_screen(func(): show_multi())
 	_label_btn("WORLDWIDE", 960, 388.8, func(): msg_box("NETWORK ERROR", "Unable to join public rooms"), GOLD)
-	_label_btn("WITH FRIENDS", 960, 583.2, func(): show_friends(), GOLD)
-	_label_btn("CHANGE USER/AVATAR", 960, 777.6, func(): show_profile(true, false), GOLD)
+	_label_btn("WITH FRIENDS", 960, 583.2, func(): m.go(show_friends), GOLD) # MenuOnlineScene.cs:63 (ColorFade 1,0 s)
+	_label_btn("CHANGE USER/AVATAR", 960, 777.6, func(): m.go(func(): show_profile(true, false)), GOLD) # MenuOnlineScene.cs:73
 
 # --- ChangeNameAvatarScene -------------------------------------------------------
 
@@ -400,7 +401,7 @@ func show_friends() -> void:
 	_label_btn("NEW GAME", 960, 378, func():
 		if ui["shown"]:
 			show_code.call(false)
-		m.show_solo_count("online"))
+		m.go(func(): m.show_solo_count("online"))) # WithFriendsOnlineScene.cs:75 (ColorFade 1,0 s)
 	ui["code_btn"] = _label_btn("ROOM CODE", 960, 594, func(): show_code.call(true))
 	if m.online.has_saved_session(): # hors APK : reprise de la partie en cours (rechargement de page, relance du jeu)
 		_label_btn("RESUME", 390.0 + 216.5, 950.0 + 62.0, func(): resume_room(), GOLD, 0.7, 1.9).name = "Resume"
@@ -424,7 +425,7 @@ func create_room(count: int) -> void:
 	var ok: bool = await m.online.create_lobby(count, m._active_sets())
 	_busy = false
 	if ok:
-		show_waiting()
+		m.go(show_waiting) # ExpansionScene.cs:153 (ColorFade 1,0 s)
 	else:
 		msg_box("NETWORK ERROR", "Unable to create private room", func(): show_friends())
 
@@ -439,7 +440,7 @@ func join_room(code: String) -> void:
 	var ok: bool = await m.online.join_lobby(code, str(m.profile.get("name", "Player")))
 	_busy = false
 	if ok:
-		show_waiting()
+		m.go(show_waiting) # WithFriendsOnlineScene.cs:56 (ColorFade 1,0 s)
 		return
 	var text := "Unable to join private room"
 	match str(m.online.last_error_code):

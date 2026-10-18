@@ -94,6 +94,15 @@ func _parse_args() -> Dictionary:
 func _wait(s: float) -> void:
 	await get_tree().create_timer(s).timeout
 
+## Attend la fin d'une transition ColorFade de Main (1,0 s, APK : Main.go) ; les durees de l'APK ne sont pas raccourcies.
+func _nav(main) -> void:
+	await get_tree().process_frame
+	for i in 300:
+		if not main.is_fading():
+			break
+		await get_tree().process_frame
+	await get_tree().process_frame
+
 func _fail(msg: String) -> void:
 	if _fails.size() < 60:
 		_fails.append("%s %s" % [_tag, msg])
@@ -2181,7 +2190,7 @@ func _check_gallery() -> void:
 	var ob = main.find_child("CardGallery", true, false)
 	if _check(ob != null, "galerie : bouton CARD GALLERY absent de OPTIONS"):
 		(ob as Button).pressed.emit()
-		await get_tree().process_frame
+		await _nav(main)
 		_check(main.get_children().any(func(c): return c.get_script() != null and str(c.get_script().resource_path).ends_with("CardGallery.gd")), "galerie : non ouverte depuis OPTIONS")
 		_cov("gallery_options")
 	main.queue_free()
@@ -2233,7 +2242,7 @@ func _check_online_menus() -> void:
 		_check((po.get_node("Title") as Label).get_theme_color("font_color") == Color.WHITE, "multi : titre blanc au relachement")
 		# sans pseudo enregistre : ChangeNameAvatarScene d'abord, sans fleche de retour
 		po.pressed.emit()
-		await _wait(0.2)
+		await _nav(main)
 		var scroll = main.find_child("AvatarScroll", true, false)
 		if _check(scroll != null, "profil : selecteur d'avatars absent au premier passage"):
 			_check(scroll.ids.size() == 9 and not scroll.ids.has("avatar_none"), "profil : 9 avatars reguliers, pas d'avatar_none")
@@ -2268,12 +2277,12 @@ func _check_online_menus() -> void:
 			await get_tree().process_frame
 			_check(main.find_child("MessageBox", true, false) == null, "boite d'erreur : OK ne la ferme pas")
 		lb["CHANGE USER/AVATAR"].pressed.emit()
-		await _wait(0.2)
+		await _nav(main)
 		_check(_tb_by_texture(main, "back_bt.webp") != null and (main.find_child("Entry", true, false) as LineEdit).text == "Zed", "profil (depuis le menu) : fleche de retour et pseudo enregistre")
 		_tb_by_texture(main, "back_bt.webp").pressed.emit()
 		await _wait(0.2)
 		_label_buttons(main)["WITH FRIENDS"].pressed.emit()
-	await _wait(0.2)
+	await _nav(main)
 	# WithFriendsOnlineScene : NEW GAME / ROOM CODE, saisie du code qui apparait en fondu
 	var wf := _label_buttons(main)
 	if _check(wf.has("NEW GAME") and wf.has("ROOM CODE"), "amis : boutons %s" % str(wf.keys())):
@@ -2293,14 +2302,14 @@ func _check_online_menus() -> void:
 			(mb2.get_node("Ok") as TextureButton).pressed.emit()
 			await get_tree().process_frame
 		wf["NEW GAME"].pressed.emit()
-		await _wait(0.2)
+		await _nav(main)
 		_check(_texts_of(main).has("HOW MANY PLAYERS?"), "amis : NEW GAME n'ouvre pas le choix du nombre de joueurs")
 		_cov("menus_friends")
 	# PASS AND PLAY : choix du nombre de joueurs, extensions, partie a sieges tous humains
 	main.show_multi()
 	await _wait(0.2)
 	main.find_child("PASS AND PLAY", true, false).pressed.emit()
-	await _wait(0.2)
+	await _nav(main)
 	_check(_texts_of(main).has("HOW MANY PLAYERS?"), "pass and play : choix du nombre de joueurs")
 	main.players = 3
 	main.show_setup(3, 3, "pass")

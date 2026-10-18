@@ -30,7 +30,6 @@ func build(winner_name: String, boss_id: String, lose: bool) -> void:
 	if not lose: # APK : winner_bg translucide (alpha 127, filets dores 1 px dans la texture) x1,82, centre (960, 216), sans opacite : ControlsFactory.cs:129-139 ; « ...YOU LOSE! » n'a pas de bandeau (LoseScene.cs)
 		var bg := UiKit.image(self, UI + "gradients/winner_bg.webp", Vector2(3.6, 122), Vector2(1912.8, 188))
 		bg.name = "WinnerBg"
-		bg.material = UiKit.premult_material() # winner_bg est pre-multiplie (halo dore sous les filets)
 	if lose:
 		title_label = UiKit.label(self, "...YOU LOSE!", 38, Color.WHITE, Vector2(-31, 449), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # 38 = arcadepix 21 x 1,8 (LoseScene.cs:22) ; APK : texte 279 x 26 px centre en (929, 478)
 		var rip := UiKit.image(self, UI + "ingame/bosses_tombstone.webp", Vector2(1217, 464) - Vector2(125, 134), Vector2(250, 268)) # APK : pierre tombale x1,5 centree en (1217, 464)

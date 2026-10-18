@@ -206,6 +206,49 @@ def chroma_key_standee(img, threshold=18, max_transparent=0.99):
     return im
 
 
+def unpremultiply(img, bleed_passes=4):
+    """WaveEngine blends everything One/OneMinusSrcAlpha (RenderState.cs:231-235) and the WPK header carries no
+    premultiplied flag (Texture2D.cs:65-68; PremultipliedAlpha is editor-only, TextureProfileModel.cs:49), so
+    textures are stored premultiplied. Godot blends straight alpha: rgb = rgb*255/a (a > 0). Fully transparent
+    pixels then get the alpha-weighted colour of their neighbours (bleed) : sans cela le filtrage bilineaire de
+    Godot melange du noir dans les bords et assombrit les halos (le melange premultiplie de l'APK ne le fait pas)."""
+    import numpy as np
+    a = np.asarray(img.convert("RGBA")).copy()
+    al = a[..., 3].astype(np.uint32)
+    m = al > 0
+    for c in range(3):
+        v = a[..., c].astype(np.uint32)
+        a[..., c] = np.where(m, np.minimum(255, (v * 255 + al // 2) // np.maximum(al, 1)), v).astype(np.uint8)
+    rgb, w = a[..., :3].astype(np.float64), al.astype(np.float64)
+    filled = np.zeros(m.shape, bool)
+    for _ in range(bleed_passes):
+        hole = ~m & ~filled
+        if not hole.any():
+            break
+        acc, ws = np.zeros_like(rgb), np.zeros_like(w)
+        pr, pw = np.pad(rgb * w[..., None], ((1, 1), (1, 1), (0, 0))), np.pad(w, 1)
+        for dy in (0, 1, 2):
+            for dx in (0, 1, 2):
+                if dy != 1 or dx != 1:
+                    acc += pr[dy:dy + m.shape[0], dx:dx + m.shape[1]]
+                    ws += pw[dy:dy + m.shape[0], dx:dx + m.shape[1]]
+        fill = hole & (ws > 0)
+        rgb[fill] = acc[fill] / ws[fill][:, None]
+        w[fill] = 1.0
+        filled |= fill
+    a[..., :3] = np.where((~m & filled)[..., None], np.rint(rgb), a[..., :3]).astype(np.uint8)
+    return Image.fromarray(a, "RGBA")
+
+
+def is_premultiplied(img):
+    """Heuristic (no flag in the data): some semi-transparent coloured pixel and max(r,g,b) <= a+2 everywhere."""
+    import numpy as np
+    a = np.asarray(img.convert("RGBA")).astype(np.int32)
+    al, mx = a[..., 3], a[..., :3].max(axis=2)
+    semi = (al > 0) & (al < 255)
+    return bool(semi.any() and (mx[semi] > 0).any() and not (mx > al + 2).any())
+
+
 def save_webp(img, dest, *, lossy=False, quality=90):
     dest = os.path.splitext(dest)[0] + ".webp"
     os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
@@ -213,6 +256,8 @@ def save_webp(img, dest, *, lossy=False, quality=90):
         img.convert("RGB").save(dest, "WEBP", quality=quality, method=4)
         return dest
     rgba = img.convert("RGBA")
+    if is_premultiplied(rgba):
+        rgba = unpremultiply(rgba)
     if rgba.getchannel("A").getextrema() == (255, 255):
         img.convert("RGB").save(dest, "WEBP", quality=quality, method=4)
     else:
