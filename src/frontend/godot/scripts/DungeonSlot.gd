@@ -21,6 +21,8 @@ var _was_down := false                  # la salle du dessus etait face cachee a
 var _glow: Control
 const PEEK := 28.0                       # APK : la salle recouverte depasse de ~28 px au-dessus de la salle du dessus (1920x1080)
 const MAX_PEEK := 2                      # nombre de salles recouvertes dessinees
+## Salle posee dans un couloir : carte 350 x 488 a l'echelle 0,37 (CardStackSlotComponent.cs:112,116), centree sur l'emplacement de 127 x 175 (APK : 130 x 180 mesure).
+const CARD_SIZE := Vector2(129.5, 180.56)
 
 @onready var slot_frame: TextureRect = $SlotFrame
 @onready var slot_label: Label = $SlotLabel
@@ -66,7 +68,7 @@ func _update_view() -> void:
 		if slot_frame:
 			slot_frame.visible = false
 		var card_ui = _card_ui_scene.instantiate()
-		card_ui.default_size = custom_minimum_size
+		card_ui.default_size = CARD_SIZE
 		card_container.add_child(card_ui)
 		card_ui.is_in_hand = false
 		card_ui.setup(active_room)
@@ -80,7 +82,7 @@ func _update_view() -> void:
 		if _was_down and not down and DisplayServer.get_name() != "headless":
 			card_ui.flip_in()
 		_was_down = down
-		add_under_cards(self, current_stack, _card_ui_scene, custom_minimum_size, card_container.get_index())
+		add_under_cards(self, current_stack, _card_ui_scene, CARD_SIZE, card_container.get_index())
 		if border:
 			border.border_color = Color(0.4, 0.8, 0.4, 0.0) # pas de liseré : seul le halo d'une salle activable est visible
 		tooltip_text = str(active_room.get("name", ""))
@@ -98,6 +100,12 @@ func _update_view() -> void:
 		tooltip_text = ""
 	_update_glow()
 
+## Un Card.tscn pose dans un hote qui n'est pas encore dans l'arbre garde la taille de la scene (140 x 200) malgre `size` : on la fixe une fois l'hote dans l'arbre.
+static func fit_cards(host: Control) -> void:
+	for c in host.get_children():
+		if c.has_meta("fit"):
+			(c as Control).size = c.get_meta("fit")
+
 ## Salles recouvertes d'une pile (une salle avancee construite sur une autre) : comme l'APK, la plus ancienne depasse de PEEK px
 ## au-dessus de celle du dessus (son bandeau de titre reste lisible). `at` : rang d'insertion dans `host` (derriere la salle du dessus).
 static func add_under_cards(host: Control, stack: Array, card_scene: PackedScene, sz: Vector2, at: int = -1) -> void:
@@ -105,10 +113,12 @@ static func add_under_cards(host: Control, stack: Array, card_scene: PackedScene
 	for k in range(older, 0, -1): # la plus profonde d'abord (au fond)
 		var c: CardUI = card_scene.instantiate()
 		c.default_size = sz
+		c.custom_minimum_size = sz
+		c.set_meta("fit", sz)
 		c.add_to_group("under_card")
 		host.add_child(c)
 		c.size = sz
-		c.position = Vector2(0, -PEEK * k * sz.y / 175.0)
+		c.position = (host.custom_minimum_size - sz) / 2.0 + Vector2(0, -PEEK * k) # CardStackSlotComponent.cs:29 DIFF_BENEATH = -28 (la carte du dessus est centree sur l'emplacement)
 		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		c.is_in_hand = false
 		c.setup(stack[stack.size() - 1 - k])
@@ -139,7 +149,7 @@ Click to use its ability", "")
 			return
 		_glow = Control.new()
 		_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var k := Vector2(custom_minimum_size.x / 350.0, custom_minimum_size.y / 488.0) # la carte APK fait 350x488 a l'echelle 1
+		var k := CARD_SIZE / Vector2(350.0, 488.0) # la carte APK fait 350x488 a l'echelle 1
 		var sz := Vector2(306, 102) * k
 		var centre := custom_minimum_size / 2.0 + Vector2(0, 116.0 * k.y)
 		_glow.position = centre - sz / 2.0

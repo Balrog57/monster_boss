@@ -47,6 +47,11 @@ func _ready() -> void:
 		print("PHASE SCREENS CAPTURED: ", n_shots)
 		get_tree().quit(0)
 		return
+	if only == "board":
+		await _board_shots()
+		print("BOARD SCREENS CAPTURED: ", n_shots)
+		get_tree().quit(0)
+		return
 	if only == "online":
 		await _online_menus()
 		print("ONLINE SCREENS CAPTURED: ", n_shots)
@@ -69,6 +74,8 @@ func _menus() -> void:
 	main_scene = load("res://godot/scenes/Main.tscn").instantiate()
 	add_child(main_scene)
 	await _wait(0.5)
+	main_scene.show_menu() # l'APK montre le menu 2x2 (l'ecran titre TAP TO START est celui d'avant)
+	await _wait(0.4)
 	await _shot("menu_main_single_multiplayer_options_store")
 	main_scene.show_solo_count()
 	await _wait(0.4)
@@ -220,6 +227,8 @@ func _new_game(seed_: int = 424242, stop_at := "") -> void:
 			board.set_process(false)
 			return
 		await _wait(0.05)
+		if stop_at == "discard" and board._is_opening_discard_for_me(): # le choix peut apparaitre pendant l'attente : _act_simple le defausserait
+			return
 		_act_simple()
 		board._process(0.21)
 	var Gd: Dictionary = gm.G
@@ -351,9 +360,13 @@ func _board_shots() -> void:
 	_dungeon_fill(_me(), 3)
 	_dungeon_fill(_foe(), 4)
 	_hand_n(7, 2)
+	_me()["buildsThisTurn"] = 1
+	_me()["passed"] = true # APK t6 : ni PASS TURN ni DONE!, main entierement grisee = j'ai deja appuye sur DONE! (le bouton s'efface, DoneButtonEntity.StopAndHideButton)
 	await _settle()
 	print("SPAN ", _hand_span())
 	await _shot("build_t6_hand_7_cards_fan_epic_heroes_gold_cards_in_town")
+	_me()["passed"] = false
+	_me()["buildsThisTurn"] = 0
 	_heroes_town(5, true)
 	_dungeon_fill(_foe(), 5)
 	_hand_n(8, 3)
@@ -376,7 +389,7 @@ func _board_shots() -> void:
 	# --- carte selectionnee (survol / appui) puis glisser au-dessus d'un emplacement, puis appui long
 	_hand_n(6, 2)
 	_heroes_town(3)
-	_dungeon_fill(_me(), 1)
+	_dungeon_fill(_me(), 0) # APK : donjon vide, le seul emplacement libre est celui du boss (1220)
 	_dungeon_fill(_foe(), 3)
 	await _settle()
 	var hand: Array = _me()["hand"]
@@ -392,13 +405,14 @@ func _board_shots() -> void:
 	await _shot("build_card_selected_in_hand")
 	await _mouse(Vector2(1000, 400), false, true, 0)
 	await _wait(0.3)
-	var slot_c: Vector2 = (board._dungeon_slots[3] as Control).get_global_rect().get_center()
+	var slot_c := Vector2(1170, 810) # APK : centre de la carte glissee ~ (1170, 780) (la carte est tenue 0,12 x hauteur au-dessus du doigt), a gauche du seul emplacement libre
 	await _mouse(c0, true, false)
 	for k in range(1, 9):
 		await _mouse(c0.lerp(slot_c, float(k) / 8.0), false, true, MOUSE_BUTTON_MASK_LEFT)
 	await _wait(0.2)
 	await _shot("build_dragging_card_over_slot_midway")
 	await _mouse(c0, false, false) # annule (relache sur la main)
+	_dungeon_fill(_me(), 1)
 	await _settle()
 	card = _hand_cards()[idx]
 	c0 = card.get_global_rect().get_center()
@@ -475,7 +489,7 @@ func _states() -> void:
 	if spell.is_empty():
 		spell = (CardDB.spells[0] as Dictionary).duplicate(true)
 	spell["isSpell"] = true
-	G["stack"] = [{"id": "spell-x-1", "type": "spell", "playerId": 1, "card": spell, "target": {}, "resolved": false}]
+	G["stack"] = [{"id": "spell-x-1", "type": "spell", "playerId": 0, "card": spell, "target": {}, "resolved": false}] # APK : mon Motivation, a l'echelle de la main
 	G["stackPassed"] = {"1": true, 1: true}
 	G["stackReturnPlayer"] = 1
 	G["stackActivePlayer"] = 1
@@ -492,6 +506,9 @@ func _states() -> void:
 	board._process(0.5)
 	await _frames(3)
 	await _shot("spell_stack_motivation_in_center_with_green_timer_bar")
+	(G["stack"][0] as Dictionary)["playerId"] = 1 # le sort de l'adversaire arrive a l'echelle 1 (APK : 350 x 490)
+	board.refresh()
+	board._process(0.1)
 	print("PHASE-DBG stack my moves: ", str(gm.legal_moves(0)).substr(0, 300))
 	board._notice_ai(1, {"type": "playSpell", "args": []})
 	await _frames(3)
@@ -536,17 +553,44 @@ func _states() -> void:
 	await _frames(3)
 	await _shot("spell_freeze_resolved_target_room_frozen_ice")
 
-	# --- coups portes : ames / blessures
+	# --- aventure contre le boss adverse (frames APK adv_t10 / adv_boss_dead) : phase ADVENTURE, pile de heros epiques a l'entree du donjon du haut,
+	# un heros sur le boss (blessure prise), puis boss elimine (pierre tombale RIP)
+	await _new_game()
+	board.set_process(false)
 	var G2: Dictionary = gm.G
+	(_foe()["hand"] as Array).clear()
+	_dungeon_fill(_foe(), 5)
+	_dungeon_fill(_me(), 3)
+	_heroes_town(0)
+	var epics: Array = CardDB.heroes.filter(func(h): return bool((h as Dictionary).get("epic", false)))
+	var ents: Array = _foe()["entrance"]
+	ents.clear()
+	for k in 4:
+		ents.append((epics[k] as Dictionary).duplicate(true))
+	var boss_hero: Dictionary = ents[0]
+	G2["phase"] = "adventure"
+	G2.erase("buildWindow")
+	G2["adventure"] = {"playerId": 1, "hero": boss_hero, "roomIndex": 5, "hp": 1, "pause": "post-damage"}
+	G2["adventurePausePassed"] = {"1": true, 1: true}
+	G2["activePlayer"] = 1
 	for i in 3:
-		(_me()["wounds"] as Array).append({"name": "x", "wounds": 1})
+		(_foe()["wounds"] as Array).append({"name": "x", "wounds": 1})
 	for i in 4:
+		(_me()["wounds"] as Array).append({"name": "x", "wounds": 1})
+	for i in 2:
 		(_me()["souls"] as Array).append({"name": "x", "souls": 1})
-	(_foe()["souls"] as Array).append({"name": "x", "souls": 1})
-	(_foe()["wounds"] as Array).append({"name": "x", "wounds": 1})
-	(_foe()["wounds"] as Array).append({"name": "x", "wounds": 1})
+	_hand_n(8, 3)
 	await _settle()
+	board._hero_pawn = board._create_hero_pawn((CardDB.heroes[5] as Dictionary).duplicate(true), 1) # le heros est sur le boss (HeroCharacter sur l'estrade, APK : centre ~ (1555, 350))
+	board.hero_crossing_layer.add_child(board._hero_pawn)
+	board._hero_pawn.global_position = Vector2(1487, 277)
+	await _frames(3)
 	await _shot("adv_t10_cleric_reaches_boss_wound_taken_boss_wounds_x5")
+	board._hero_pawn.queue_free()
+	board._hero_pawn = null
+	G2["adventure"] = {}
+	(_foe()["wounds"] as Array).append({"name": "x", "wounds": 1})
+	(_foe()["wounds"] as Array).append({"name": "x", "wounds": 1})
 	G2["players"][1]["eliminated"] = true
 	await _settle()
 	await _shot("adv_boss_dead_rip_tombstone_hero_card_stack_town_left")
@@ -615,6 +659,24 @@ func _plain_build() -> Dictionary:
 			return d
 	return {}
 
+## Appuie sur DONE! (le bouton central) jusqu'a ce que pred() soit vrai : seulement quand ma pose est faite (ou pendant la fenetre de sorts avant la
+## revelation, qui demande un 2e DONE!), jamais au debut de mon tour de construction ; le plateau tourne en temps reel (IA, animations).
+func _done_until(pred: Callable, max_s := 30.0) -> bool:
+	board.set_process(true)
+	var t := 0.0
+	var since := 1.0
+	while t < max_s:
+		if pred.call():
+			return true
+		var G: Dictionary = gm.G
+		since += get_process_delta_time()
+		if since > 0.3 and _phase() in ["setup", "build"] and (G.get("pendingChoice", {}) as Dictionary).is_empty() and (G.get("stack", []) as Array).is_empty() 				and (G.has("buildWindow") or int(_me().get("buildsThisTurn", 0)) >= 1) and gm.legal_moves(0).any(func(m): return str((m as Dictionary).get("type", "")) == "passBuild"):
+			since = 0.0
+			board._on_pass_pressed()
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	return false
+
 func _phases() -> void:
 	# --- 1. choix du boss : confirmation (les autres cartes se retournent, YOU ARE <boss>)
 	await _new_game(424242, "boss")
@@ -653,9 +715,10 @@ func _phases() -> void:
 		board.refresh()
 		await _wait(0.9)
 		await _shot("build_t1_first_room_placed_facedown_room_deck_back_done_button")
-		print("PHASE-DBG after setup: phase=", _phase(), " setupBuild=", gm.G.get("setupBuild"), " turn=", gm.G.get("turn"), " builds=", _me().get("buildsThisTurn"))
-		var ok := await _until(func(): return _phase() == "build" and not bool(gm.G.get("setupBuild", false)) and int(_me().get("buildsThisTurn", 0)) == 0 and gm.G.get("buildWindow") == null and not _plain_build().is_empty(), 15.0)
+		# DONE valide ma salle de depart (setupBuild), l'IA pose la sienne, revelation : premier tour de construction (APK t2)
+		var ok := await _done_until(func(): return _phase() == "build" and not bool(gm.G.get("setupBuild", false)) and int(_me().get("buildsThisTurn", 0)) == 0 and gm.G.get("buildWindow") == null and not _plain_build().is_empty(), 25.0)
 		board.set_process(false)
+		await _wait(2.5) # fin de l'animation de pioche du debut de tour
 		await _settle()
 		print("PHASE-DBG t2 build ok=", ok, " turn=", gm.G.get("turn"), " town=", (gm.G["town"] as Array).size())
 		await _shot("build_t2_first_room_revealed_succubus_spa_both_dungeons_2heroes_town_5card_hand")
@@ -664,19 +727,8 @@ func _phases() -> void:
 		board.refresh()
 		await _wait(0.9)
 		await _shot("build_room_placed_facedown_done_button")
-		for pid in [0, 1]:
-			for st in (gm.G["players"][pid]["dungeon"] as Array):
-				print("PHASE-DBG pid=", pid, " stack=", (st as Array).map(func(r): return "%s fd=%s" % [r.get("name"), r.get("faceDown")]))
-		# DONE : l'IA construit, revelation, aventure
-		board._on_pass_pressed()
-		board.refresh()
-		var dbg_sig := ""
-		var got := await _until(func():
-			var sg := "%s e0=%d e1=%d t=%d" % [_phase(), (_me()["entrance"] as Array).size(), (_foe()["entrance"] as Array).size(), (gm.G["town"] as Array).size()]
-			if sg != dbg_sig:
-				dbg_sig = sg
-				print("PHASE-DBG flow ", sg, " @", Time.get_ticks_msec())
-			return _phase() == "adventure", 20.0)
+		# DONE : l'IA construit, fenetre de sorts (2e DONE), revelation, aventure
+		var got := await _done_until(func(): return _phase() == "adventure", 30.0)
 		await _wait(0.05)
 		await _shot("reveal_rooms_flipped_faceup_after_done")
 		await _wait(0.12)
@@ -734,7 +786,11 @@ func _phases() -> void:
 		await _wait(0.5)
 		board._process(0.4)
 		print("PHASE-DBG ability moves: ", str(gm.legal_moves(0).filter(func(m): return m["type"] == "activateRoom")))
+		board._on_slot_activate(0) # capacite de salle = zoom puis appui (APK GamePlayBaseScene.cs:681-718) : 1er appui = zoom de la salle, bordure de capacite en rouge
+		await _frames(4)
 		await _shot("ability_bottomless_pit_activated_red_glow_room_zoom_hero_in_room_timer_t9")
+		board._zoom_hide()
+		await _frames(3)
 		# appui long : sort dore en main pendant l'aventure, puis le heros a l'entree
 		var hnd: Array = _me()["hand"]
 		var spi := -1

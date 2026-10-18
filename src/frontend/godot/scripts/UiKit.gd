@@ -129,6 +129,10 @@ static func zoom_card(card: Dictionary, sz: Vector2 = ZOOM_CARD, greyed: bool = 
 	if greyed:
 		c.set_greyed(true)
 	root.set_meta("card", c)
+	# CardUI._ready (lance a l'entree dans l'arbre, apres les lignes ci-dessus) remet mouse_filter a STOP : la carte zoomee / glissee recevait le survol (echelle 1,15 + liseré or).
+	root.ready.connect(func():
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		c.set_process_input(false))
 	return root
 
 ## Une texture de carte (dos de pioche, carte de galerie) dans le meme cadre noir arrondi.

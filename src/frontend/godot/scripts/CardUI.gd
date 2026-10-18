@@ -38,20 +38,48 @@ var _tween: Tween
 var _rest_scale := Vector2.ONE             # echelle au repos (dos de carte pose en salle : voir set_face_down_scale)
 var _gold: TextureRect
 var _frozen: TextureRect
-static var _gray_mat: ShaderMaterial
+var greyed := false                        # etat cible du grisage (le fondu peut etre en cours)
+var _grey_tw: Tween
+static var _gray_shader: Shader
 
-## Carte injouable : desaturee (l'APK grise les cartes que l'on ne peut pas jouer maintenant).
-func set_greyed(on: bool) -> void:
-	if _gray_mat == null:
-		var sh := Shader.new()
-		sh.code = "shader_type canvas_item;
-void fragment() { vec4 c = texture(TEXTURE, UV); float g = dot(c.rgb, vec3(0.3, 0.59, 0.11)) * 0.62; COLOR = vec4(vec3(g), c.a); }"
-		_gray_mat = ShaderMaterial.new()
-		_gray_mat.shader = sh
+## Carte injouable : desaturee + opacite 0,8 (l'APK grise les cartes que l'on ne peut pas jouer maintenant, CardAttributesComponent.cs:73-96).
+## animate : fondu depuis l'etat oppose ; elapsed : secondes deja ecoulees (la main est reconstruite a chaque refresh, le fondu reprend a mi-course).
+func set_greyed(on: bool, animate := false, elapsed := 0.0) -> void:
 	if texture_rect == null:
 		texture_rect = get_node_or_null("TextureRect")
-	if texture_rect != null:
-		texture_rect.material = _gray_mat if on else null
+	if texture_rect == null:
+		return
+	if _grey_tw != null:
+		_grey_tw.kill()
+		_grey_tw = null
+	var was := greyed
+	greyed = on
+	var mat := texture_rect.material as ShaderMaterial
+	if mat == null:
+		if _gray_shader == null:
+			_gray_shader = Shader.new()
+			_gray_shader.code = "shader_type canvas_item;
+uniform float amt = 0.0;
+void fragment() { vec4 c = texture(TEXTURE, UV); float g = dot(c.rgb, vec3(0.3, 0.59, 0.11)) * 0.62; COLOR = vec4(mix(vec3(g), c.rgb, amt), c.a); }"
+		mat = ShaderMaterial.new()
+		mat.shader = _gray_shader
+		texture_rect.material = mat
+	if not animate or was == on:
+		mat.set_shader_parameter("amt", 0.0 if on else 1.0)
+		modulate.a = 0.8 if on else 1.0
+		if not on:
+			texture_rect.material = null
+		return
+	_grey_tw = create_tween()
+	# tween_method sur le temps t (0 -> 0,5 s, repris a `elapsed`) : la courbe est exacte meme si la main est reconstruite en cours de fondu.
+	# Amount : ColorFadeBehavior 0,5 s, CubicEase EaseOut appliquee a la progression (ColorFadeBehavior.cs:35,56) -> vers le gris 1 - f^3 (EASE_IN), vers la couleur 1 - (1-f)^3 (EASE_OUT).
+	# Opacite : FadeBehavior 0,3 s lineaire (CardEntity.cs:69 ; FadeBehavior.cs:87), MinOpacity 0,8 (CardAttributesComponent.cs:83).
+	_grey_tw.tween_method(func(t: float):
+		var f := minf(t / 0.5, 1.0)
+		mat.set_shader_parameter("amt", 1.0 - pow(f, 3.0) if on else 1.0 - pow(1.0 - f, 3.0))
+		modulate.a = lerpf(1.0 if on else 0.8, 0.8 if on else 1.0, minf(t / 0.3, 1.0)), elapsed, 0.5, maxf(0.5 - elapsed, 0.001))
+	if not on:
+		_grey_tw.tween_callback(func(): texture_rect.material = null)
 
 ## Cadre dore de l'APK (sort jouable pendant l'aventure) : card_border_yellow (354x492 pour une carte de 350x488).
 func set_gold(on: bool) -> void:
@@ -69,11 +97,11 @@ func set_gold(on: bool) -> void:
 	if _gold != null:
 		_gold.visible = on
 
-## APK : une salle posee face cachee est le dos de carte a l'echelle 0,5 de la main (175 x 244), plus grand que l'emplacement (127 x 175) ;
-## elle est centree sur l'emplacement et retrouve la taille de l'emplacement une fois retournee.
+## APK : une salle posee face cachee est le dos de carte a l'echelle 0,5 (350 x 488 -> 175 x 244, CardStackSlotComponent.cs:139-140), plus grand que la salle
+## visible (0,37) ; elle est centree sur l'emplacement et retrouve la taille de la salle une fois retournee.
 func set_face_down_scale() -> void:
 	var down: bool = card_data != null and card_data.face_down
-	_rest_scale = Vector2(175.0 / 127.0, 244.0 / 175.0) if down else Vector2.ONE
+	_rest_scale = Vector2(175.0 / default_size.x, 244.0 / default_size.y) if down else Vector2.ONE
 	scale = _rest_scale
 
 ## Retournement d'une salle qui vient d'etre revelee (APK FlipCardBehavior : face cachee -> face visible, tous les joueurs en meme temps).

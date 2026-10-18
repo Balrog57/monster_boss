@@ -451,7 +451,8 @@ func _check_stacks() -> void:
 		_check(unders.size() == want, "pile de %d salles : %d cartes recouvertes dessinees (%d attendues)" % [d.current_stack.size(), unders.size(), want])
 		for k in unders.size(): # la plus profonde d'abord, chacune 28 px plus haut que la suivante
 			var depth := unders.size() - k
-			_check(is_equal_approx((unders[k] as Control).position.y, -28.0 * depth) and (unders[k] as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE, "carte recouverte %d a y=%s (-%d attendu)" % [k, (unders[k] as Control).position.y, 28 * depth])
+			var want_y: float = (d.custom_minimum_size.y - DungeonSlot.CARD_SIZE.y) / 2.0 - 28.0 * depth # DIFF_BENEATH = -28 sous la salle du dessus, centree sur l'emplacement
+			_check(is_equal_approx((unders[k] as Control).position.y, want_y) and (unders[k] as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE, "carte recouverte %d a y=%s (%s attendu)" % [k, (unders[k] as Control).position.y, want_y])
 		if not unders.is_empty():
 			_check(unders[unders.size() - 1].get_index() < d.card_container.get_index(), "la salle recouverte doit etre derriere la salle du dessus")
 		seen[unders.size()] = true
@@ -533,7 +534,7 @@ func _build_actions(pid: int, moves: Array) -> Array:
 		var cands: Array = by_slot[di]
 		var d: int = di
 		out.append({"kind": "ability", "w": _style_w("ability"), "desc": "capacite salle %d (%d coups)" % [d, cands.size()], "run": func(): await _do_slot(pid, d, cands)})
-	for k in extras.size():
+	for k in (0 if _apk_only_sets() else extras.size()): # APK : pas de bouton EXTRA MOVES
 		var ki := k
 		out.append({"kind": "extra", "w": _style_w("extra"), "desc": "coup extension %s" % str(extras[k]["type"]), "run": func(): await _do_extra(ki)})
 	if has_go and not board._apk_flow():
@@ -558,7 +559,7 @@ func _do_build_click(pid: int, idx: int) -> void:
 	var cards := _hand_cards()
 	var hand: Array = gm.G["players"][pid]["hand"]
 	if _check(idx < cards.size() and cards.size() == hand.size(), "construire : la main affichee (%d) != main reelle (%d)" % [cards.size(), hand.size()]):
-		_check((cards[idx] as CardUI).texture_rect.material == null, "construire : la carte %d est grisee alors que le coup est legal" % idx)
+		_check(not (cards[idx] as CardUI).greyed, "construire : la carte %d est grisee alors que le coup est legal" % idx)
 		var dsize: int = (gm.G["players"][pid]["dungeon"] as Array).size()
 		if not gm.can_build_room_at(pid, idx, dsize):
 			# legal_moves propose buildRoom mais BossEngine.can_build_room(carte) refuse (ex. apres Kobold Strike : buildBlocked) : anomalie MOTEUR
@@ -606,7 +607,7 @@ func _do_hand(pid: int, idx: int, cands: Array) -> void:
 	if not _check(idx < cards.size() and cards.size() == hand.size(), "carte jouable : main affichee (%d) != main reelle (%d)" % [cards.size(), hand.size()]):
 		return
 	var cname := str(hand[idx].get("name"))
-	_check((cards[idx] as CardUI).texture_rect.material == null, "carte jouable %s grisee" % cname)
+	_check(not (cards[idx] as CardUI).greyed, "carte jouable %s grisee" % cname)
 	# une salle a capacite de main (CRL007) propose aussi BUILD en phase de construction
 	var phase := str(gm.G.get("phase", ""))
 	var n_build: int = _n_build_targets(pid, idx) if (phase == "build" or phase == "setup") and bool(hand[idx].get("isRoom", false)) else 0
@@ -747,11 +748,31 @@ func _do_slot(pid: int, di: int, cands: Array) -> void:
 	if not _check(slot.activatable, "capacite : la salle %d n'a pas de halo alors qu'elle est activable" % di):
 		return
 	_dbg = "salle %s" % str(BossEngine.active_room(slot.current_stack).get("id"))
+	var s0 := _sig()
 	var ev := InputEventMouseButton.new()
 	ev.button_index = MOUSE_BUTTON_LEFT if rng.randf() < 0.7 else MOUSE_BUTTON_RIGHT
 	ev.pressed = true
 	slot._gui_input(ev)
+	# APK : 1er appui = zoom de la pile, 2e appui sur la bordure de capacite = resolution (GamePlayBaseScene.cs:681-718)
+	await get_tree().process_frame
+	if not _check(board._zoom != null and is_instance_valid(board._zoom) and board._zoom.has_meta("ability"), "capacite salle %d : pas de zoom au 1er appui" % di):
+		return
+	_check(_sig() == s0, "capacite salle %d : jouee des le 1er appui" % di)
+	var ab: Rect2 = board._zoom.get_meta("ability")["rect"]
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = board._zoom.get_global_transform() * ab.get_center()
+	board._input(click)
+	_check(board._zoom == null, "capacite salle %d : le zoom reste apres le tap sur la bordure" % di)
 	await _pick_target(cands.size(), "capacite salle %d" % di)
+
+func _apk_only_sets() -> bool:
+	var G: Dictionary = board.game_manager.G
+	var a: bool = G.has("sets") # meme regle que BoardUI._refresh_extra_bar
+	for st in G.get("sets", []):
+		a = a and st in Match.APK_SETS
+	return a
 
 func _do_extra(k: int) -> void:
 	var open: Array = board.extra_bar.get_children().filter(func(c): return not c.is_queued_for_deletion())
@@ -997,9 +1018,9 @@ func _check_ui() -> void:
 	if not over:
 		_check(board._last_phase == phase, "ecran fige : bandeau %s != phase %s (tour %s)" % [board._last_phase, phase, G.get("turn")])
 	# main / propositions de boss
-	var want_cards := 0
-	if not over:
-		want_cards = _boss_pool_size((G["bossPicks"] as Array).size()) if phase == "boss" and p.get("boss") == null else (p["hand"] as Array).size()
+	var want_cards: int = (p["hand"] as Array).size() # APK : la main reste dessinee sous le voile de l'ecran de fin
+	if not over and phase == "boss" and p.get("boss") == null:
+		want_cards = _boss_pool_size((G["bossPicks"] as Array).size())
 	var got_cards := _hand_cards().size()
 	_check(got_cards == want_cards, "main : %d cartes a l'ecran pour %d (phase %s, siege %d)" % [got_cards, want_cards, phase, pid])
 	# pioches, ville
@@ -1060,7 +1081,7 @@ func _check_ui() -> void:
 	if pass_vis:
 		_check(can_pass and not over, "bouton PASS TURN visible alors que passer est illegal (phase %s, fin=%s, siege %d)" % [phase, over, pid])
 	var extra_vis: bool = board.extra_bar.visible and board.extra_bar.get_children().filter(func(c): return not c.is_queued_for_deletion()).size() > 0
-	_check(extra_vis == (extras > 0 and pc.is_empty()), "barre d'extensions : %s pour %d coups d'extension" % ["visible" if extra_vis else "cachee", extras])
+	_check(extra_vis == (extras > 0 and pc.is_empty() and not _apk_only_sets()), "barre d'extensions : %s pour %d coups d'extension" % ["visible" if extra_vis else "cachee", extras])
 	_check(board.extra_bar.get_children().filter(func(c): return not c.is_queued_for_deletion()).size() <= 1, "barre d'extensions : plusieurs boutons (une grille couvre le donjon)")
 	_check_no_slot_cover()
 	# popup de choix <-> choix en attente
@@ -1112,7 +1133,7 @@ func _check_final(full: bool) -> void:
 		_check_ui()
 		var gb = board._gameover
 		if _check(gb != null and is_instance_valid(gb), "fin de partie : bandeau du vainqueur absent"):
-			_check(_hand_cards().is_empty(), "fin de partie : cartes encore en main a l'ecran")
+			_check(_hand_cards().size() == (G["players"][0]["hand"] as Array).size(), "fin de partie : la main doit rester a l'ecran sous le voile (APK)")
 			var w := int(G["gameOver"].get("winner", -1))
 			var wboss = G["players"][w].get("boss") if G["players"].has(w) else null
 			var lose: bool = board._apk_flow() and w != 0
@@ -1762,6 +1783,11 @@ func _check_windows() -> void:
 	await get_tree().process_frame
 	if _check(ci >= 0 and gm.legal_moves(0).any(func(m): return m["type"] == "playSpell"), "pile : Counterspell non jouable sur la pile construite"):
 		_check(board._stack_ui != null and board._stack_ui.get_child_count() == 1, "pile : le sort en attente n'est pas au centre")
+		# APK : sort adverse a l'echelle 1 (zoom 350 x 490), mon sort a l'echelle de la main 0,5 ; plusieurs cartes = 0,6 espacees de 200 (SimplePositionComponent)
+		var lay1: Array = board._stack_layout([{"type": "spell", "playerId": 1}])
+		var lay0: Array = board._stack_layout([{"type": "spell", "playerId": board._my_pid()}])
+		var lay3: Array = board._stack_layout([{"type": "spell", "playerId": 1}, {"type": "spell", "playerId": 0}, {"type": "spell", "playerId": 1}])
+		_check(is_equal_approx(float(lay1[0]["k"]), 1.0) and is_equal_approx(float(lay0[0]["k"]), 0.5) and is_equal_approx(float(lay3[2]["k"]), 0.6) and is_equal_approx(float(lay3[2]["cx"]) - float(lay3[0]["cx"]), 600.0), "pile : disposition APK de la pile de sorts")
 		_check(not board.btn_pass.is_visible_in_tree(), "pile : PASS TURN visible (flux APK : barre de temps)")
 		board._process(0.5)
 		_check(board._win_bar.visible and absf(board._win_bar.position.x + board._win_bar.size.x / 2.0 - board.STACK_CX) < 3.0, "pile : barre au-dessus de la pile absente")
@@ -1807,9 +1833,9 @@ func _check_drag_and_zoom() -> void:
 	_check(frames.size() == n_frames and n_frames == 1 + dsize, "glisser : %d emplacements dores pour une salle (%d attendus)" % [frames.size(), 1 + dsize])
 	var prev: Control = board._drag.get("preview")
 	_check(prev != null and absf(prev.size.x - (board.HAND_CARD.x + 8.0)) < 1.0, "glisser : la carte tiree n'a pas la taille de la main (APK : NormalScale)")
-	await _mouse(start + Vector2(0, -20), false, false)
+	await _mouse(start, false, false) # sur la main (y >= 940, CardExtractBehavior.cs:~176 upperLimit) : annule
 	_check(board._drag.is_empty() and (me["hand"] as Array).size() == n_hand and (me["dungeon"] as Array).size() == dsize, "glisser : relacher sur la main doit annuler")
-	_check(board.hand_layer.get_children().filter(func(c): return not c.is_queued_for_deletion() and c.modulate.a < 0.9).is_empty(), "glisser : la carte annulee n'est pas revenue dans la main")
+	_check(board.hand_layer.get_children().filter(func(c): return not c.is_queued_for_deletion() and c.modulate.a < 0.5).is_empty(), "glisser : la carte annulee n'est pas revenue dans la main")
 	# salle : depot sur l'emplacement dore
 	card = _hand_cards()[idx]
 	start = card.get_global_rect().get_center()
@@ -1818,6 +1844,9 @@ func _check_drag_and_zoom() -> void:
 	for k in range(1, 7):
 		await _mouse(start.lerp(slot_c, float(k) / 6.0), false, true, MOUSE_BUTTON_MASK_LEFT)
 	_check(not board._drag.is_empty(), "glisser : salle - glisser perdu en route")
+	# APK : l'emplacement survole par la carte porte card_border_yellow_glow_scaled, les autres card_border_yellow_scaled (BuildRoomHandSceneBehavior.cs:120-127)
+	var glows: Array = board._ui_layer.find_children("SlotGlow", "TextureRect", true, false).filter(func(f): return not f.is_queued_for_deletion() and str((f as TextureRect).texture.resource_path).ends_with("card_border_yellow_glow_scaled.webp"))
+	_check(glows.size() == 1, "glisser : %d emplacements au cadre lumineux sous la carte (1 attendu)" % glows.size())
 	await _mouse(slot_c, false, false)
 	_check((me["dungeon"] as Array).size() == dsize + 1 and (me["hand"] as Array).size() == n_hand - 1, "glisser : la salle n'a pas ete construite sur l'emplacement vise")
 	_check(board._drag.is_empty() and board._ui_layer.find_children("GoldFrame", "Control", true, false).is_empty(), "glisser : cadres dores restes apres le depot")
@@ -2029,6 +2058,7 @@ func _check_done_and_warning() -> void:
 	board.set_process(false)
 	var s0 := _sig()
 	_check(board.btn_pass.is_visible_in_tree(), "mise en garde : PASS TURN absent en construction")
+	_check((board.btn_pass as TextureButton).texture_normal == board._tex(board.TEX_PASS), "PASS TURN : avant ma pose le bouton doit etre PASS TURN (BuildRoomHandSceneBehavior.cs:115)")
 	board._on_pass_pressed()
 	_check(board._warn != null and _sig() == s0, "mise en garde : la bulle n'apparait pas au 1er appui (ou la partie a avance)")
 	var lbls: Array = board._warn.find_children("*", "Label", true, false)
@@ -2726,6 +2756,13 @@ func _extra_checks() -> void:
 			ev.pressed = true
 			slot._gui_input(ev)
 			await get_tree().process_frame
+			if _check(board._zoom != null and board._zoom.has_meta("ability"), "clic sur la salle %s : pas de zoom au 1er appui" % rid): # APK : 1er appui = zoom
+				var tap := InputEventMouseButton.new()
+				tap.button_index = MOUSE_BUTTON_LEFT
+				tap.pressed = true
+				tap.position = board._zoom.get_global_transform() * (board._zoom.get_meta("ability")["rect"] as Rect2).get_center()
+				board._input(tap) # 2e appui, sur la bordure de capacite
+				await get_tree().process_frame
 			var changed: bool = (G.get("log", []) as Array).size() != log_n or bool((proto).get("usedThisTurn", false)) or board._popup_kind != "" or not (G.get("pendingChoice", {}) as Dictionary).is_empty()
 			_check(changed, "clic gauche sur la salle %s : capacite non declenchee" % rid)
 			if board._popup_kind == "choice": # la capacite ouvre un choix : il s'affiche en popup centre, avec un bouton par option

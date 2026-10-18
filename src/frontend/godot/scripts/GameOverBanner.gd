@@ -23,7 +23,7 @@ func build(winner_name: String, boss_id: String, lose: bool) -> void:
 	size = Vector2(1920, 1080)
 	mouse_filter = Control.MOUSE_FILTER_STOP # plus rien n'est jouable derriere
 	var dim := ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.66)
+	dim.color = Color(0, 0, 0, 0.7) # ControlsFactory.cs:117-122 (CreateBlackBack opacity 0.7) ; la main reste dessinee dessous
 	dim.size = Vector2(1920, 1080)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(dim)
