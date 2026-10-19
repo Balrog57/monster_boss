@@ -78,7 +78,7 @@ func _update_view() -> void:
 		card_ui.long_pressed.connect(func(c): zoom_on.emit(c))
 		card_ui.long_released.connect(func(_c): zoom_off.emit())
 		var frozen: bool = game_manager != null and BossEngine.is_room_deactivated(game_manager.G, player_id, slot_index)
-		card_ui.set_frozen(frozen, frozen and not _was_frozen and DisplayServer.get_name() != "headless")
+		card_ui.set_frozen(frozen, frozen != _was_frozen and DisplayServer.get_name() != "headless")
 		_was_frozen = frozen
 		card_ui.set_face_down_scale()
 		var down: bool = card_ui.card_data != null and card_ui.card_data.face_down

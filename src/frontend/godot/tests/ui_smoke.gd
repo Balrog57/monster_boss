@@ -562,7 +562,17 @@ func _build_actions(pid: int, moves: Array) -> Array:
 func _do_button(btn: BaseButton, label: String) -> void:
 	if _check(btn.visible and not btn.disabled and btn.is_visible_in_tree(), "bouton %s indisponible alors que le coup est legal" % label):
 		_dbg = "vue=%d actif=%d animating=%s modal=%s" % [board.view_pid, gm.active_player(), board._animating_hero, board._modal_open()]
-		btn.pressed.emit()
+		if btn == board.btn_pass:
+			_press_pass()
+		else:
+			btn.pressed.emit()
+
+## PASS TURN en mode « tour de construction pas fait » : le 1er appui leve seulement le drapeau (DoneButtonEntity.cs:118-143), le 2e passe ; DONE! passe d'un appui.
+func _press_pass() -> void:
+	var s0 := _sig()
+	board._on_pass_pressed()
+	if _sig() == s0 and board._pass_turn_mode():
+		board._on_pass_pressed()
 
 func _do_build_click(pid: int, idx: int) -> void:
 	var cards := _hand_cards()
@@ -1234,7 +1244,7 @@ func _act_simple() -> void:
 							(board._tgt["entries"][0]["cb"] as Callable).call()
 						return
 			if not gm.legal_moves(0).is_empty():
-				board._on_pass_pressed()
+				_press_pass()
 		"adventure":
 			var types: Array = gm.legal_moves(0).map(func(m): return m["type"])
 			if types.has("adventureNext"):
@@ -2010,6 +2020,32 @@ func _check_apk_gaps() -> void:
 	board._notice_ai(1, {"type": "activateRoom", "args": [0]})
 	_check(board._notice != null and is_instance_valid(board._notice) and board._notice.mouse_filter == Control.MOUSE_FILTER_STOP, "bulle de capacite de salle adverse : pas cliquable")
 	_cov("notice_tap")
+	# Bottomless Pit (« Destroy this Room ») : le zoom de la bulle porte le cadre rouge card_border_red (ShowBubleDetail, GamePlayBaseScene.cs:1249-1260)
+	var pit: Dictionary = {}
+	for rc in CardDB.rooms:
+		if str((rc as Dictionary).get("id", "")) == "BMA027":
+			pit = (rc as Dictionary).duplicate(true)
+	pit["faceDown"] = false
+	(foe["dungeon"] as Array).push_front([pit])
+	board._notice_ai(1, {"type": "activateRoom", "args": [0]})
+	var tap2 := InputEventMouseButton.new()
+	tap2.button_index = MOUSE_BUTTON_LEFT
+	tap2.pressed = true
+	board._notice.gui_input.emit(tap2)
+	var red := false
+	for t in (board._zoom.find_children("*", "TextureRect", true, false) if board._zoom != null else []):
+		red = red or ((t as TextureRect).texture != null and (t as TextureRect).texture.resource_path.ends_with("card_border_red.webp"))
+	_check(red, "bulle de capacite « Destroy this Room » : le zoom n'a pas le cadre rouge")
+	board._zoom_hide()
+	(foe["dungeon"] as Array).pop_front() # retire Bottomless Pit
+	# degel : le voile de glace s'efface en fondu de 0,5 s au lieu de disparaitre (CardStackSlotComponent.cs:98)
+	var fcard: CardUI = (load("res://godot/scenes/Card.tscn") as PackedScene).instantiate()
+	board.add_child(fcard)
+	fcard.set_frozen(true, false)
+	fcard.set_frozen(false, true)
+	var ghost = fcard.find_child("Frozen", true, false)
+	_check(ghost != null and ghost.visible and fcard._frozen == null, "degel : le voile de glace doit rester le temps de son fondu")
+	fcard.queue_free()
 	# --- choix de cartes : carrousel central ; autre chose que des cartes : boutons pierre
 	G["pendingChoice"] = {"type": "ui-test", "playerId": 0, "message": "Choose one Hero", "optional": true, "options": [{"card": town[0]}, {"card": town[1]}, {"card": town[2]}]}
 	board.refresh()
@@ -2075,6 +2111,17 @@ func _check_done_and_warning() -> void:
 	board._on_pass_pressed()
 	_check(board._warn == null and _sig() != s0, "mise en garde : le 2e appui doit passer")
 	_cov("pass_warning")
+	# Aucune salle constructible : PASS TURN demande quand meme deux appuis (DoneButtonEntity.cs:118-143), sans bulle (GamePlayBaseScene.cs:259-269)
+	await _new_game()
+	board.set_process(false)
+	var hand0: Array = gm.G["players"][0]["hand"]
+	gm.G["players"][0]["hand"] = hand0.filter(func(c): return not bool((c as Dictionary).get("isRoom", false)))
+	board.refresh()
+	s0 = _sig()
+	board._on_pass_pressed()
+	_check(board._warn == null and _sig() == s0, "PASS TURN sans salle constructible : le 1er appui ne doit ni passer ni montrer la bulle")
+	board._on_pass_pressed()
+	_check(board._warn == null and _sig() != s0, "PASS TURN sans salle constructible : le 2e appui doit passer")
 	await _new_game()
 	board.set_process(false)
 	var G: Dictionary = gm.G

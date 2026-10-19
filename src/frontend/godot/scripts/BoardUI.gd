@@ -156,6 +156,7 @@ var _last_ms := 0                        # horloge reelle du dernier _process : 
 var _grey_prev: Dictionary = {}              # main : cle "index:id" -> {g: grise ?, t: ms du dernier changement} (fondu de grisage, voir _refresh_hand)
 var _hand_stale := false                 # un refresh() a ete saute pendant un appui sur une carte de la main (voir _refresh_hand)
 var _speed := 1.0                        # GameSettings.GetSpeed : SLOW 1,5 / NORMAL 1 / FAST 0,5 (durees des animations de heros)
+var _pass_raised_key := ""                # tour/phase ou le 1er appui sur PASS TURN a deja eu lieu (le 2e passe)
 var _warn: Control                       # bulle de mise en garde « YOU CAN BUILD A ROOM »
 var _warn_t := 0.0
 var _gameover: Control
@@ -221,6 +222,7 @@ const WINDOW_STACK := 6.0
 const PASS_FAST := 0.45                  # rien a jouer : le siege humain passe presque tout de suite
 const GO_FAST := 0.55                    # le heros suivant avance de lui-meme (multiplie par la vitesse de jeu)
 const DRAG_SLOP := 12.0                  # glisser d'une carte de la main : au-dela de 12 px
+const NOTICE_HOLD := 3.5                 # bulle « HAS PLAYED A » : fondu d'entree 0,5 s + 3,0 s (BubblesPlayerEmitter.cs:22) ; la salle reste agrandie pendant ce temps (deduit des captures APK)
 const WARN_TIME := 6.0                   # bulle « YOU CAN BUILD A ROOM » : le 2e appui sur PASS TURN confirme tant qu'elle est la
 const TEX_PASS := UI_DIR + "pass_button.webp"
 const TEX_DONE := UI_DIR + "done_button_unlimited.webp"
@@ -1046,8 +1048,7 @@ func refresh() -> void:
 		_set_pass_visible(can_pass) # pas de PASS TURN quand passer est illegal (choix en attente, pas mon tour de construire)
 	# BuildRoomHandSceneBehavior.cs:115 : IsPassTurnModeActive = IsPlayerBuildTurn && !IsBuildTurnDone (:41, poses en attente >= MaxBuildRoomLimit) ;
 	# DoneButtonBehavior.cs:25-40 : PASS TURN (pass_button) en mode passe, sinon DONE! (done_button_unlimited). Fenetre de sorts apres la derniere pose : pas mon tour de construction -> DONE!.
-	var builds_done: bool = int(p.get("buildsThisTurn", 0)) >= 1 + BossEngine.extra_builds_for(G, _my_pid()) or G.has("buildWindow")
-	_style_pass_button((phase == "build" or phase == "setup") and not stack_open and builds_done)
+	_style_pass_button((phase == "build" or phase == "setup") and not stack_open and _builds_done(G, p))
 	if _warn != null and not _can_still_build(my_moves):
 		_warn_hide() # j'ai construit / ce n'est plus mon tour : la mise en garde n'a plus lieu d'etre
 	_refresh_stack_cards(G)
@@ -1481,12 +1482,18 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 				room_ui.long_pressed.connect(_zoom_show)
 				room_ui.long_released.connect(func(_c): _zoom_hide())
 				var fz: bool = BossEngine.is_room_deactivated(game_manager.G, foe_pid, di)
-				room_ui.set_frozen(fz, fz and not bool(prev_frozen.get(j, false)) and not skip_animations)
+				room_ui.set_frozen(fz, fz != bool(prev_frozen.get(j, false)) and not skip_animations)
 				_foe_frozen[j] = fz
 				room_ui.set_face_down_scale()
 				var fd: bool = room_ui.card_data != null and room_ui.card_data.face_down
 				if bool(prev_down.get(j, false)) and not fd and not skip_animations:
-					room_ui.flip_in() # revelation : la salle adverse se retourne
+					# revelation : la salle adverse se retourne. Si elle declenche « when you build... », la bulle ROOM ABILITY de l'adversaire s'affiche
+					# (GamePlayBaseScene.cs:668 : Gameboard_AbilityApplyRequest pour toute capacite) et, sur les captures APK (notice_opponent_has_played_a_room_ability_*,
+					# ability_opponent_dark_lab_*), la salle reste agrandie (0,5 : CardStackSlotComponent.cs:138-141, ScaleBehavior.MaxScale 0,5 CardsFactory.cs:101) pendant la bulle.
+					var trigger: bool = str((r as Dictionary).get("description", "")).to_lower().begins_with("when you build")
+					room_ui.flip_in(0.5, NOTICE_HOLD if trigger else 0.0)
+					if trigger:
+						_show_notice("ROOM ABILITY", r)
 				_foe_down[j] = fd
 				if Minibosses.active(game_manager.G): # Rise of the Minibosses : le miniboss de la salle adverse (nom cache tant qu'il est face cache)
 					var mb_badge := Minibosses.make_badge(r, false)
@@ -3203,12 +3210,27 @@ func _on_advance_pressed() -> void:
 		game_manager.apply_move(_my_pid(), {"type": "adventureNext", "args": []})
 		refresh()
 
+## Poses faites : BuildRoomHandSceneBehavior.IsBuildTurnDone (:41, poses en attente >= MaxBuildRoomLimit) ou fenetre de sorts apres la derniere pose.
+func _builds_done(G: Dictionary, p: Dictionary) -> bool:
+	return int(p.get("buildsThisTurn", 0)) >= 1 + BossEngine.extra_builds_for(G, _my_pid()) or G.has("buildWindow")
+
+## Mode « PASS TURN » du bouton central (BuildRoomHandSceneBehavior.cs:115 : IsPlayerBuildTurn && !IsBuildTurnDone) : tour de construction pas encore fait.
+func _pass_turn_mode() -> bool:
+	var G: Dictionary = game_manager.G
+	return str(G.get("phase", "")) in ["build", "setup"] and (G.get("stack", []) as Array).is_empty() and not _builds_done(G, (G.get("players", {}) as Dictionary).get(_my_pid(), {}))
+
 func _on_pass_pressed() -> void:
 	if not _tgt.is_empty():
 		return
 	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
-	if _warn == null and _can_still_build(game_manager.legal_moves(_my_pid())):
-		_warn_show() # APK : « HEY! YOU CAN BUILD A ROOM! STILL WANT TO PASS? », un 2e appui confirme
+	# DoneButtonEntity.cs:118-143 : en mode PASS TURN le 1er relachement ne passe jamais, il leve le drapeau (ShowHintComponent.Hint, IsRaised) ; la bulle « HEY! YOU CAN
+	# BUILD A ROOM! STILL WANT TO PASS? » (GamePlayBaseScene.cs:259-269) n'apparait que si une salle de la main est constructible. Le 2e relachement passe. Le drapeau
+	# retombe au tour suivant (CreateShowAndActivateTimer, DoneButtonEntity.cs:177), pas quand la bulle disparait ; en mode DONE! un seul appui passe.
+	var raise_key := "%s/%s" % [game_manager.G.get("turn", 0), game_manager.G.get("phase", "")]
+	if _pass_turn_mode() and _pass_raised_key != raise_key:
+		_pass_raised_key = raise_key
+		if _can_still_build(game_manager.legal_moves(_my_pid())):
+			_warn_show()
 		return
 	_warn_hide()
 	if _is_online():
@@ -3607,6 +3629,10 @@ func _notice_ai(pid: int, mv: Dictionary) -> void:
 	elif t == "activateRoom":
 		var dng: Array = pl.get("dungeon", [])
 		card = BossEngine.active_room(dng[ai]) if ai >= 0 and ai < dng.size() else null
+		# « Destroy this Room: ... » : la salle est l'une de ses propres cibles de commande (GetCommandTargets) ; le zoom de la bulle la montre cerclee de rouge
+		# (ShowBubleDetail, GamePlayBaseScene.cs:1249-1260 ; capture ability_bottomless_pit_activated_red_glow_*)
+		if card is Dictionary and str((card as Dictionary).get("description", "")).to_lower().begins_with("destroy this room"):
+			spot = {"self": true}
 	if t == "playSpell":
 		_show_notice("SPELL", card, spot)
 	elif t in ["activateRoom", "useHandRoom"]:
@@ -3650,7 +3676,9 @@ func _notice_zoom(card: Dictionary, spot := {}) -> void:
 	_zoom.position = Vector2(STACK_CX - _zoom.size.x / 2.0, 498.0 - _zoom.size.y / 2.0)
 	_ui_layer.add_child(_zoom)
 	_zoom_appear()
-	if not spot.is_empty():
+	if bool(spot.get("self", false)): # BorderStyles.Red sur la carte zoomee elle-meme : card_border_red (354 x 492 pour 350 x 488, CardBorderBehavior.cs:52-53)
+		UiKit.image(_zoom, UI_DIR + "card_border_red.webp", Vector2(-2, -2), _zoom.size + Vector2(4, 4)).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	elif not spot.is_empty():
 		var node := _spot_node(spot)
 		if node != null:
 			_zoom.set_meta("frames", [_gold_frame(_spot_rect(spot, node), true)])
