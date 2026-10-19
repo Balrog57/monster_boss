@@ -2,8 +2,9 @@
 
 Généré le 2026-10-10 à partir du C# décompilé de l'APK, du moteur JS existant et du port Godot 4 en cours.
 
-> **Note : document historique daté du 2026-10-10**, écrit face au moteur JS supprimé depuis. Les constats de la section 2 sur les manques de Godot sont obsolètes (capacités, BAIT, ouverture 5+2, ExtraBuildPhase, départage existent désormais : voir `docs/HANDOFF.md` §5).
-> La section 3 (analyse IA vs APK) reste la référence jusqu'à son remplacement par `docs/plans/partie-1-clone-apk.md` lot 1.2.
+> **DOCUMENT HISTORIQUE — ne pas s'y fier pour l'état actuel.** Ce rapport a été écrit à la date indiquée, face à un état antérieur du dépôt (ancien moteur JavaScript et ancienne pile, supprimés depuis) ; il n'est plus tenu à jour et peut contredire le code actuel. Sources de vérité : le C# de l'APK (`apk-original/decompiled/DBMGame/`, local) et l'oracle `python tools/parity/apk.py`, puis l'état courant dans `docs/HANDOFF.md` (§5 état vérifié, §7 écarts connus). Plan de travail : `docs/plans/README.md`.
+>
+> Rapport daté du 2026-10-10, écrit face au moteur JS et à un port Godot alors incomplet. Les constats de la section 2 sur les manques de Godot sont obsolètes (capacités, BAIT, ouverture 5+2, ExtraBuildPhase, départage existent désormais). La section 3 (analyse de l'IA vs APK) est remplacée par le port `ApkAI.gd` et la mesure `python tools/parity/apk.py --ai-agreement` (lot 1.2 ; `docs/HANDOFF.md` §5, `tools/parity/README.md`).
 
 ## 0. Provenance et méthode
 
@@ -144,6 +145,7 @@ Le C# cité est une **reconstruction IL→source** : les chemins et numéros de 
 - Godot réinitialise la ville à chaque fin de Build et ne révèle que 4 héros (`Match.gd:199-210`), alors que l'APK et le JS révèlent 1 héros par joueur et laissent la ville se cumuler.
 - Godot jette en défausse le héros dont le leurre fait égalité (`Match.gd:219-221`), alors que l'APK et le JS le laissent en ville (`BaseLuredCondition.cs:17-25`, `engine.js:207`).
 - Godot déclare le vainqueur dès 10 âmes sans contrôle de blessures et ne connaît aucun départage par âmes − blessures ni par XP (`Match.gd:256-272`), alors que l'APK et le JS appliquent ces règles — et divergent entre eux : l'APK retient l'XP la plus élevée (`orderby PlayerId`, `GameBoard.cs:1030`) quand le JS et les règles retiennent la plus basse (`engine.js:728,742`).
+  - *Correction 2026-10-19 (lot 1.6) :* la divergence de départage est résolue et la formulation ci-dessus est imprécise. `GetLessExperiencePlayerToWin` (`GameBoard.cs:1025-1033`) trie les ex æquo par `PlayerId` croissant (`GameBoard.cs:1030`), et `PlayerId` est attribué par XP décroissante (`GameBoardExtensions.cs:89,119`) : à égalité de différence âmes − blessures, le boss de plus haute XP l'emporte (à XP égale, l'ordre de la liste des joueurs). `Match._tie_break_players` suit cette règle depuis le lot 1.1 ; Godot contrôle aussi les blessures (< 5) et départage par âmes − blessures (`Match._check_end_or_next_turn`).
 - Le JS conclut la partie à l'épuisement des héros (`engine.js:747-760`) et porte les constructions supplémentaires en compteur (`reducer.js:204,934`) ; l'APK continue à piocher à vide (`GameBoard.cs:1241-1255`) et ajoute une phase `ExtraBuildPhase` (`GameBoard.cs:316-319`) ; Godot n'a ni l'un ni l'autre.
 - Les minuteurs (70 s sur le bouton Done, 60 s de tour, 3 s par palier d'aventure) n'existent ni en JS ni en Godot (`GamePlayBaseScene.cs:131-141,215,272`).
 

@@ -5,7 +5,9 @@
 **Référence source :** `boss-monster-2-2-6-android.apk` (SHA-256: `78592B483D8C7C4B8AABA1095F855226344565FB3D1B112A48113C2E90852FFD`)  
 **Statut global :** ✅ **100% Validé (193/193 tests unitaires, 29/29 e2e, build Vite validé)**
 
-> **Note (2026-10-17) : rapport historique.** Les commandes `npm run ...`, les chemins `src/backend/`, `tests/unit/`, `package.json`, Vite/React/Node/Postgres et les décomptes de tests JS ci-dessous décrivent l'ancienne pile JavaScript, supprimée depuis. Équivalents actuels : `python tools/run_godot_tests.py`, `python tools/parity/apk.py`, `python tools/verify_assets.py`. Le décompte des cartes sans visuel est maintenant de **107** (TNL038 a son art).
+> **DOCUMENT HISTORIQUE — ne pas s'y fier pour l'état actuel.** Ce rapport a été écrit à la date indiquée, face à un état antérieur du dépôt (ancien moteur JavaScript et ancienne pile, supprimés depuis) ; il n'est plus tenu à jour et peut contredire le code actuel. Sources de vérité : le C# de l'APK (`apk-original/decompiled/DBMGame/`, local) et l'oracle `python tools/parity/apk.py`, puis l'état courant dans `docs/HANDOFF.md` (§5 état vérifié, §7 écarts connus). Plan de travail : `docs/plans/README.md`.
+>
+> Rapport daté du 2026-10-08. Les commandes `npm run ...`, les chemins `src/backend/`, `tests/unit/`, `package.json`, Vite/React/Node/Postgres et les décomptes de tests JS ci-dessous décrivent l'ancienne pile JavaScript. Équivalents actuels : `python tools/run_godot_tests.py`, `python tools/parity/apk.py`, `python tools/verify_assets.py`. Le décompte des cartes sans visuel est maintenant de **107** (TNL038 a son art).
 
 ---
 
