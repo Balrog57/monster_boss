@@ -127,6 +127,7 @@ func _cov(k: String) -> void:
 # ---------------------------------------------------------------------------------------------------------------------
 
 func _main() -> void:
+	AudioManager.rec_enabled = true # espion de lecture (rien ne s'entend en headless) : voir _check_audio
 	var games: Array = []
 	if int(cfg["games"]) > 0 or int(cfg["seed"]) >= 0:
 		var n: int = maxi(1, int(cfg["games"]))
@@ -1507,6 +1508,7 @@ func _check_target_spots() -> void:
 	for i in 3:
 		await get_tree().process_frame
 	_check(board._tgt_spots.size() == specs.size() - 1, "zones allumees : %d (%d attendues, 2 coups sur la salle)" % [board._tgt_spots.size(), specs.size() - 1])
+	_check(AudioManager.loop_count("sfx_sparklecard") == 1, "ciblage : la boucle sfx_sparklecard doit tourner (surbrillance verte d'une salle), compteur %d" % AudioManager.loop_count("sfx_sparklecard")) # CardStackSlotComponent.cs:312
 	var lifted: Array = board._tgt_lifted.duplicate()
 	for sp in board._tgt_spots.duplicate():
 		var ids: Array = sp["ids"]
@@ -1529,6 +1531,7 @@ func _check_target_spots() -> void:
 	board._target_cancel()
 	await get_tree().process_frame
 	_check(board._tgt.is_empty(), "ciblage : mode non referme")
+	_check(AudioManager.loop_count("sfx_sparklecard") == 0, "ciblage ferme : la boucle sfx_sparklecard doit s'arreter") # CardStackSlotComponent.cs:334
 	for n in lifted:
 		if is_instance_valid(n):
 			_check((n as CanvasItem).z_index == 0, "ciblage : un noeud du plateau reste devant le voile (z %d)" % (n as CanvasItem).z_index)
@@ -2433,8 +2436,15 @@ func _check_gameover_banner() -> void:
 	var G: Dictionary = gm.G
 	var boss = G["players"][0].get("boss")
 	G["gameOver"] = {"winner": 0, "reason": "souls"}
+	var m0: int = AudioManager.rec.size()
 	board.refresh()
 	await get_tree().process_frame
+	var ev: Array = AudioManager.rec.slice(m0)
+	_check(ev.has("sting:sting_player_win") and not ev.has("sting:sting_player_lose"), "fin gagnee : sting_player_win attendu (WinnerScene.cs:125), vu %s" % str(ev))
+	_check(AudioManager.duck_gain() < 1.0, "fin gagnee : la musique doit baisser sous le sting (AudioService.cs:159)")
+	await _wait(0.7) # la voix du boss part 0,5 s apres le sting (WinnerScene.cs:127-130)
+	ev = AudioManager.rec.slice(m0)
+	_check(ev.has("sfx:" + AudioManager.boss_voice(str((boss as Dictionary).get("id", "")), "victory")), "fin gagnee : voix de victoire du boss absente, vu %s" % str(ev))
 	var gb = board._gameover
 	if _check(gb != null and is_instance_valid(gb), "fin : bandeau absent"):
 		_check(gb.title_label.text == str((boss as Dictionary).get("name", "")), "fin : nom du vainqueur %s" % gb.title_label.text)
@@ -2451,8 +2461,12 @@ func _check_gameover_banner() -> void:
 	board.set_process(false)
 	G = gm.G
 	G["gameOver"] = {"winner": 1, "reason": "wounds"}
+	m0 = AudioManager.rec.size()
 	board.refresh()
 	await get_tree().process_frame
+	await _wait(0.7)
+	ev = AudioManager.rec.slice(m0)
+	_check(ev.has("sting:sting_player_lose") and not ev.any(func(e): return str(e).begins_with("sfx:boss_")), "fin perdue : sting_player_lose seul attendu (LoseScene.cs:21, pas de voix), vu %s" % str(ev))
 	gb = board._gameover
 	_check(gb != null and gb.title_label.text.contains("YOU LOSE") and gb.get_node_or_null("Tombstone") != null, "fin : ecran perdu (YOU LOSE + tombe) absent")
 	_cov("gameover_banner")
@@ -2725,6 +2739,7 @@ func _extra_checks() -> void:
 	await _check_gameover_banner()
 	await _check_effects()
 	await _check_crossing_ui()
+	await _check_audio()
 	_tag = "[base]"
 	await _new_game()
 	var G: Dictionary = gm.G
@@ -2878,3 +2893,165 @@ func _extra_checks() -> void:
 		(cb[0] as Button).pressed.emit() # YES
 		await get_tree().process_frame
 		_check(quit_calls == q0 + 1, "YES : callback de sortie non appele")
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Audio (lot 1.4) : rien ne s'entend en headless ; on verifie ce qu'AudioManager recoit (espion `rec`) contre la table de l'APK.
+# Chaque ligne cite le C# (apk-original/decompiled/DBMGame) dont elle est tiree ; docs/reference/AUDIO_MATRIX.md detaille la matrice.
+# ---------------------------------------------------------------------------------------------------------------------
+
+## Attend la fin de l'animation de heros en cours (le temps de jeu est accelere : on compte les images, pas les secondes).
+func _wait_anim() -> void:
+	await get_tree().process_frame
+	for i in 900:
+		if not board._animating_hero:
+			return
+		await get_tree().process_frame
+
+func _audio_since(m: int) -> Array:
+	return AudioManager.rec.slice(m)
+
+func _check_audio() -> void:
+	_tag = "[audio]"
+	var am = AudioManager
+	# 1. fichiers : les 42 SFX et les 2 musiques existent, et tout ce que la campagne a demande existe
+	_check(am.SFX_NAMES.size() == 42, "audio : %d SFX listes (42 attendus, Audio.cs)" % am.SFX_NAMES.size())
+	for n in am.SFX_NAMES:
+		_check(ResourceLoader.exists(am.SFX_DIR + n + ".wav"), "audio : %s.wav absent" % n)
+	for n in ["music_main", "music_dungeon_v3"]:
+		_check(ResourceLoader.exists(am.MUSIC_DIR + n + ".mp3"), "audio : %s.mp3 absent" % n)
+	for e in am.rec:
+		var kv: PackedStringArray = str(e).split(":", true, 1)
+		var dir: String = am.MUSIC_DIR if kv[0] == "music" else am.SFX_DIR
+		var ext := ".mp3" if kv[0] == "music" else ".wav"
+		_check(ResourceLoader.exists(dir + kv[1] + ext), "audio : demande inconnue « %s »" % e)
+		if not _fails.is_empty():
+			break
+	for n in am.SFX_NAMES:
+		_check(am._cache.has(am.SFX_DIR + n + ".wav") and am._cache[am.SFX_DIR + n + ".wav"] != null, "audio : %s non precharge (LoadingScene.cs:54-56)" % n)
+	# 2. volumes et voix
+	_check(is_equal_approx(am.music_volume, 1.0), "audio : volume musique %s (APK : 1.0, GameSettings.cs:36 / Game.cs:98)" % am.music_volume)
+	_check(am._voices.size() == 10 and am.VOICES == 10, "audio : %d voix (10 attendues, AudioService.cs:97)" % am._voices.size())
+	# 3. table salle -> son (CardAssetService.cs:328-360 + RoomCategory des donnees APK)
+	var room_want := {"BMA010": "sfx_room_fall", "BMA027": "sfx_room_fall", "BMA012": "sfx_room_monster_med", "BMA009": "sfx_room_undead", "BMA011": "sfx_room_undead",
+		"BMA028": "sfx_room_physical", "BMA013": "sfx_room_monster_lrg", "BMA037": "sfx_room_monster_lrg", "BMA023": "sfx_room_magic", "BMA029": "sfx_room_magic",
+		"THK021": "sfx_room_physical", "": "sfx_room_physical", "RMB999": "sfx_room_physical"}
+	for k in room_want:
+		_check(am.room_sfx(k) == room_want[k], "audio : salle « %s » -> %s (attendu %s)" % [k, am.room_sfx(k), room_want[k]])
+	var cat_total := 0
+	for c in am.ROOM_CATEGORY:
+		cat_total += (am.ROOM_CATEGORY[c] as Array).size()
+	_check(cat_total == 31, "audio : %d salles categorisees (31 dans BaseDeck)" % cat_total)
+	# 4. voix des boss (CardAssetService.cs:246-300, BossInfo.IsMale) : BMA001-005 masculins, BMA006-008 et KSA001-007 feminins dans les donnees APK
+	for id in ["BMA001", "BMA005", "TNL001"]:
+		_check(am.boss_voice(id, "victory") == "boss_male_victory", "audio : voix de %s" % id)
+	for id in ["BMA006", "BMA008", "KSA001", "KSA007"]:
+		_check(am.boss_voice(id, "death") == "boss_female_death", "audio : voix de %s" % id)
+	# 5. baisse de la musique sous un sting (AudioService.cs:153-164, 209-225) : x0,5 puis retour lineaire en 2 s
+	am._duck_left = 0.0
+	am.play_sting("sting_levelup")
+	_check(is_equal_approx(am.duck_gain(), 0.5), "audio : gain %s au debut du sting (0,5 attendu)" % am.duck_gain())
+	_check(is_equal_approx(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music")), linear_to_db(0.5)), "audio : le bus Music ne baisse pas de 6 dB")
+	am._process(1.0)
+	_check(is_equal_approx(am.duck_gain(), 0.75), "audio : gain %s apres 1 s (0,75 attendu)" % am.duck_gain())
+	am._process(1.5)
+	_check(is_equal_approx(am.duck_gain(), 1.0) and is_equal_approx(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music")), 0.0), "audio : la musique ne revient pas a 1.0 apres 2 s")
+	# 6. boucle a compteur (AudioService.cs:129-143, 166-176)
+	am.play_loop("sfx_sparklecard")
+	am.play_loop("sfx_sparklecard")
+	_check(am.loop_count("sfx_sparklecard") == 2 and am._loops.size() == 1, "audio : deux demandes de boucle = une seule instance")
+	am.stop_loop("sfx_sparklecard")
+	_check(am.loop_count("sfx_sparklecard") == 1, "audio : la boucle doit continuer tant qu'un demandeur reste")
+	am.stop_loop("sfx_sparklecard")
+	_check(am.loop_count("sfx_sparklecard") == 0 and am._loops.is_empty(), "audio : la boucle ne s'arrete pas au dernier demandeur")
+	# 7. evenements du plateau : un jeu neuf, chaque geste note ce que l'APK joue
+	await _new_game()
+	board.set_process(false)
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	var m: int = am.rec.size()
+	board.levelup_btn.pressed.emit() # TopRightPanelEntity.cs:155 (pas de son propre) -> GamePlayBaseScene.cs:779,1272 : zoom = ui_card_slide_up, pas le sting
+	await get_tree().process_frame
+	var ev := _audio_since(m)
+	_check(ev == ["sfx:ui_card_slide_up"], "LEVEL UP : %s (ui_card_slide_up seul attendu)" % str(ev))
+	m = am.rec.size()
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	board._input(click)
+	ev = _audio_since(m)
+	_check(ev == ["sfx:ui_card_slide_down"], "fermeture du zoom : %s (ui_card_slide_down attendu, GamePlayBaseScene.cs:1267)" % str(ev))
+	# bulle « HAS PLAYED A » de l'adversaire (BubblesPlayerEmitter.cs:115)
+	m = am.rec.size()
+	board._show_notice("SPELL")
+	_check(_audio_since(m) == ["sfx:sfx_activatecard"], "bulle adverse : %s (sfx_activatecard attendu)" % str(_audio_since(m)))
+	# main : survol d'une carte puis de la suivante, puis sortie (CardPositionComponent.cs:73-100)
+	m = am.rec.size()
+	board._hand_last = -1
+	board._hand_hover(2, true)
+	board._hand_hover(2, false)
+	board._hand_hover(3, true)
+	await get_tree().process_frame
+	board._hand_hover(1, true)
+	board._hand_hover(1, false)
+	await get_tree().process_frame
+	ev = _audio_since(m)
+	_check(ev == ["sfx:ui_shuffle_left", "sfx:ui_shuffle_left", "sfx:ui_shuffle_right", "sfx:ui_card_slide_general"], "survol de la main : %s" % str(ev))
+	# arrivee du heros dans une salle (HeroCrossingBehavior.cs:72-76) : move + son de categorie, meme sans degats ; PV perdus = hurt, rendus = buff
+	var dng: Array = me["dungeon"]
+	dng.clear()
+	var ids := ["BMA010", "BMA013", "BMA023"]
+	for rid in ids:
+		var r: Dictionary = CardDB.rooms.filter(func(x): return str((x as Dictionary).get("id", "")) == rid)[0].duplicate(true)
+		r["isRoom"] = true
+		r["faceDown"] = false
+		dng.append([r])
+	var hero: Dictionary = (CardDB.heroes[5] as Dictionary).duplicate(true)
+	(me["entrance"] as Array).clear()
+	(me["entrance"] as Array).append(hero)
+	G["phase"] = "adventure"
+	G.erase("buildWindow")
+	var hp0: int = BossEngine.hero_hp(hero)
+	board.skip_animations = false
+	Engine.time_scale = ANIM_TIME_SCALE
+	m = am.rec.size()
+	G["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": -1, "hp": hp0, "pause": "pre"}
+	board.refresh()
+	await _wait_anim()
+	ev = _audio_since(m)
+	_check(ev.has("sfx:char_hero_intro") and not ev.has("sfx:char_hero_move"), "entree du heros : %s (char_hero_intro seul attendu, GamePlayBaseScene.cs:932-934)" % str(ev))
+	# [salle, PV, sons attendus, nombre de char_hero_move] : debut de pas + arrivee quand la salle change (HeroCrossingBehavior.cs:70,75), aucun si seuls les PV changent
+	var step_want := [[0, hp0, ["sfx_room_fall"], 2], [1, hp0, ["sfx_room_monster_lrg"], 2], [2, hp0 - 1, ["sfx_room_magic", "char_hero_hurt"], 2], [2, hp0, ["sfx_spell_buff"], 0]]
+	for sw in step_want:
+		m = am.rec.size()
+		(G["adventure"] as Dictionary)["roomIndex"] = sw[0]
+		(G["adventure"] as Dictionary)["hp"] = sw[1]
+		board.refresh()
+		await _wait_anim()
+		ev = _audio_since(m)
+		for w in sw[2]:
+			_check(ev.has("sfx:" + str(w)), "heros en salle %d (pv %d) : %s absent de %s" % [sw[0], sw[1], w, str(ev)])
+		_check(ev.count("sfx:char_hero_move") == int(sw[3]), "heros en salle %d (pv %d) : %d char_hero_move attendus, vu %s" % [sw[0], sw[1], sw[3], str(ev)])
+	# derniere traversee : le heros atteint le boss mort (APK : hurt puis death, voix selon IsMale)
+	var boss_id: String = str(((me["boss"] as Dictionary) if me["boss"] != null else {}).get("id", ""))
+	G.erase("adventure")
+	(me["entrance"] as Array).clear()
+	me["eliminated"] = true
+	board.refresh()
+	await _wait(0.4)
+	m = am.rec.size()
+	board._hero_pawn = null
+	board._play_hero_crossing_animation({"pid": 0, "hero": hero, "initialHp": hp0, "killed": false, "deathIndex": -1})
+	await _wait_anim()
+	ev = _audio_since(m)
+	for w in ["sfx:char_hero_attack", "sfx:" + am.boss_voice(boss_id, "hurt"), "sfx:" + am.boss_voice(boss_id, "death")]:
+		_check(ev.has(w), "hero contre boss mort : %s absent de %s" % [w, str(ev)])
+	Engine.time_scale = 1.0
+	board.skip_animations = true
+	# toute la campagne : musiques, construction (la salle posee se retourne face cachee, BuildRoomHandSceneBehavior.cs:182), clics ; jamais ui_card_flip (aucun appelant dans l'APK)
+	for want in ["music:music_main", "music:music_dungeon_v3", "sfx:ui_card_slide_down", "sfx:ui_button_select", "sfx:ui_button_goback"]:
+		_check(am.rec.has(want), "audio : %s jamais demande pendant la campagne" % want)
+	_check(not am.rec.has("sfx:ui_card_flip"), "audio : ui_card_flip n'est joue nulle part dans l'APK")
+	for e in am.rec:
+		_cov("snd:" + str(e))
+	_cov("audio")

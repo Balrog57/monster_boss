@@ -164,7 +164,8 @@ func _hit(pos: Vector2, sz: Vector2, cb: Callable, sfx: String = "ui_button_sele
 	b.focus_mode = Control.FOCUS_NONE
 	b.position = pos
 	b.size = sz
-	b.pressed.connect(func(): AudioManager.play_sfx(sfx))
+	if sfx != "":
+		b.pressed.connect(func(): AudioManager.play_sfx(sfx))
 	b.pressed.connect(cb)
 	return b
 
@@ -233,7 +234,7 @@ func show_title() -> void:
 	tap.modulate.a = 0.0
 	add_child(tap)
 	_blink(tap, 0.3) # BlinkBehavior(0,3 s) (IntroScene.cs:59)
-	add_child(_hit(Vector2.ZERO, Vector2(1920, 1080), func(): go(show_menu))) # IntroScene.cs:107-114 (ColorFade 1,0 s)
+	add_child(_hit(Vector2.ZERO, Vector2(1920, 1080), func(): go(show_menu), "")) # IntroScene.cs:107-114 (ColorFade 1,0 s) ; aucun son au tap (IntroScene.cs ne joue que la musique, :84)
 
 # --- menu principal ----------------------------------------------------------
 

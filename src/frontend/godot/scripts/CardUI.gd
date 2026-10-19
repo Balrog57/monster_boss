@@ -107,6 +107,7 @@ func set_face_down_scale() -> void:
 ## Retournement d'une salle qui vient d'etre revelee (APK CreateFlipUpTopRoomTask, CardStackSlotComponent.cs:274-296, tous les joueurs en meme temps) : la salle en attente est a l'echelle 0,5
 ## (:139-140), elle se retourne en 0,5 s (FlipCardBehavior, CardEntity.cs:72, sans EasingFunction : pitch lineaire donc largeur en cosinus) puis reprend sa taille en 0,3 s (ScaleOut, CardEntity.cs:71, lineaire).
 func flip_in(duration := 0.5, hold := 0.0) -> void:
+	AudioManager.play_sfx("ui_card_slide_up") # FlipCardBehavior.cs:113 (CardStackSlotComponent.cs:283 : CreateFaceUpTask de la salle revelee)
 	var target := _rest_scale
 	var big := Vector2(175.0 / default_size.x, 244.0 / default_size.y)
 	var back := TextureRect.new() # la face cachee, qui se referme avant que la face visible s'ouvre
