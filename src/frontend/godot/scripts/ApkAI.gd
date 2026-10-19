@@ -441,13 +441,15 @@ static func draw_room_probability(G: Dictionary, p: Dictionary, pid: int) -> flo
 
 const AB_SPELLS := ["BMA040", "BMA041", "BMA042", "BMA044", "BMA045", "BMA046", "BMA047", "BMA048", "BMA049", "BMA050", "BMA051", "BMA052", "BMA053", "BMA054", "BMA055", "KSA013"]
 const AB_ROOMS := ["BMA009", "BMA013", "BMA024", "BMA027", "BMA028", "BMA030", "BMA032", "BMA038", "BMA039"]
-const WIKI_PREFIXES := ["TNL", "RMB", "CRL", "THK"]
+const WIKI_PREFIXES := ["TNL", "RMB", "CRL", "THK", "IOD"]
+## Cartes KSA que l'APK ne joue pas (pseudo-paquet players-choice-wiki) : leur IA est maison, comme celle des autres paquets wiki.
+const WIKI_KSA := ["KSA008", "KSA009", "KSA010", "KSA011", "KSA012", "KSA015"]
 ## Diagnostic de mesure seulement (ApkParityTrace `--ai-copy-trap-bug`) : reproduit le bogue de CheckBMA040And047 (Giant Size sur une salle Trap).
 static var copy_trap_bug := false
 
 ## Carte d'un paquet wiki (hors APK) : son IA reste AiWiki / TnlAbilities / RmbAbilities.
 static func is_wiki_card(id: String) -> bool:
-	return WIKI_PREFIXES.has(id.substr(0, 3))
+	return WIKI_PREFIXES.has(id.substr(0, 3)) or WIKI_KSA.has(id)
 
 ## Le coup `m` est-il le sort ou la capacite de salle d'une carte de l'APK (AbilityCalculator s'applique) ?
 static func is_apk_ability_move(p: Dictionary, m: Dictionary) -> bool:

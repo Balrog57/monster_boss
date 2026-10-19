@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download wiki card art for expansion packs (TNL / RMB / CRL) only."""
+"""Download wiki card art for expansion packs (TNL / RMB / CRL / IOD, plus the 6 wiki-only Player's Choice cards KSA) only."""
 from __future__ import annotations
 
 import json
@@ -30,7 +30,13 @@ HEADERS = {
     "Referer": "https://bossmonster.fandom.com/",
     "Accept": "*/*",
 }
-EXP_PREFIXES = ("TNL", "RMB", "CRL")
+EXP_PREFIXES = ("TNL", "RMB", "CRL", "IOD")
+# Cartes du pseudo-paquet `players-choice-wiki` (KSA008-012, KSA015) : les autres KSA ont leur face dans l'APK.
+WIKI_SETS = ("players-choice-wiki",)
+
+
+def is_exp_card(c: dict) -> bool:
+    return (c.get("id") or "").upper().startswith(EXP_PREFIXES) or c.get("set") in WIKI_SETS
 # Optional card ids on the command line (e.g. `fetch_expansion_art.py TNL038`): only those cards, replacing a placeholder if art is found.
 ONLY = {a.upper() for a in sys.argv[1:]}
 SKIP_IMAGES = {
@@ -143,11 +149,8 @@ def load_expansion_cards() -> tuple[dict[str, list[dict]], dict[str, str]]:
         data = json.load(f)
     name_map = data.get("nameMap", {})
     by_section: dict[str, list[dict]] = {}
-    for section in ("bosses", "rooms", "spells", "heroes", "minibosses"):
-        cards = [
-            c for c in data.get(section, [])
-            if (c.get("id") or "").upper().startswith(EXP_PREFIXES)
-        ]
+    for section in ("bosses", "rooms", "spells", "heroes", "minibosses", "items"):
+        cards = [c for c in data.get(section, []) if is_exp_card(c)]
         if cards:
             by_section[section] = cards
     return by_section, name_map
@@ -180,7 +183,7 @@ def build_name_art_index() -> dict[str, str]:
     for section in ("bosses", "rooms", "spells", "heroes", "minibosses"):
         for card in data.get(section, []):
             cid = (card.get("id") or "").upper()
-            if cid.startswith(EXP_PREFIXES):
+            if is_exp_card(card):
                 continue
             mapped = name_map.get(cid, slug(card.get("name") or ""))
             dest = os.path.join(OUT_CARDS, kind_dir(card, section), f"{cid}_{mapped}.webp")
@@ -327,7 +330,7 @@ def download_expansion_art() -> int:
     candidates: dict[str, list[tuple[int, dict]]] = {}
     for info in files:
         title = info.get("name") or info.get("title") or ""
-        m = re.match(r"(TNL|RMB|CRL)(\d{3})", title.upper())
+        m = re.match(r"(TNL|RMB|CRL|IOD)(\d{3})", title.upper())
         if not m:
             continue
         key = m.group(1) + m.group(2)

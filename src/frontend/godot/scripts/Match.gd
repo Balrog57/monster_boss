@@ -41,7 +41,9 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 		sets["tools"] = true # Tools of Hero-Kind wiki : les memes cartes que le paquet de l'APK, jouees par ThkAbilities
 	sets["base"] = true # GamePlayBaseScene : cardDecks = { BaseDeck } + les extensions choisies (le jeu de base est toujours present)
 	var in_sets := func(c): return (c as Dictionary).get("set", "base") in sets
-	var bosses: Array = CardDB.bosses.filter(in_sets)
+	var crl: bool = sets.has("crash-landing")
+	# IOD (wiki) : « without Crash Landing, remove the Explorer items and Banseer Bivan » (livret des regles, section Items).
+	var bosses: Array = CardDB.bosses.filter(func(c): return in_sets.call(c) and (crl or str((c as Dictionary).get("id", "")) != "IOD025") and _playable_wiki(c))
 	# CardInfoService.notInGameCards : BMA023 / BMA033 ne sont jamais distribuees (GetCardInfoFromDeck les ecarte, includeExcludedCards est faux en partie).
 	var rooms: Array = CardDB.rooms.filter(func(c): return in_sets.call(c) and not (str((c as Dictionary).get("id", "")) in ["BMA023", "BMA033"]))
 	var spells: Array = CardDB.spells.filter(in_sets)
@@ -81,7 +83,15 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 			if str((sc as Dictionary).get("id", "")) == "THK025":
 				sc["thkLive"] = true
 	# ItemInfo (ToolsHeroKind) : GameBoard.DeckItems, une carte revelee par tour (2 a 4 joueurs) dans RevealedItemsQueue ; l'APK n'en fait rien d'autre.
-	var items: Array = CardDB.items.filter(func(c): return in_sets.call(c) and int((c as Dictionary).get("playerCount", 2)) <= n)
+	var items: Array = CardDB.items.filter(func(c):
+		var d: Dictionary = c
+		if not in_sets.call(d) or int(d.get("playerCount", 2)) > n:
+			return false
+		if not _playable_wiki(d):
+			return false
+		if str(d.get("set", "")) == IodAbilities.SET_ID and int(d.get("treasure", 0)) == 5 and not crl:
+			return false # IOD : sans Crash Landing, pas d'Objets Explorer
+		return sets.has(ThkAbilities.SET_ID) or not sets.has(IodAbilities.SET_ID) or not str(d.get("id", "")).begins_with("THK")) # IOD sans tools-wiki : le moteur des Objets est actif, les Objets THK restent ecartes
 	var item_deck: Array = CardDB.shuffled(CardDB.expanded_deck(items).map(func(i): var d = (i as Dictionary).duplicate(); d["isItem"] = true; return d))
 	var hero_deck: Array = CardDB.shuffled(CardDB.expanded_deck(heroes).map(func(h): var d = (h as Dictionary).duplicate(); d["souls"] = 1; d["wounds"] = 1; return d))
 	var epic_deck: Array = CardDB.shuffled(CardDB.expanded_deck(epics).map(func(h): var d = (h as Dictionary).duplicate(); d["souls"] = 2; d["wounds"] = 2; return d))
@@ -388,6 +398,11 @@ func _undo_build_moves(p: Dictionary) -> Array:
 		if top is Dictionary and (top as Dictionary).has("undoBuild") and bool(top.get("faceDown", false)) and bool(top.get("builtThisTurn", false)) and not top.has("mb"):
 			out.append({"type": "undoBuild", "args": [i]})
 	return out
+
+## Une carte IOD non implementee (implemented=false dans cards.json : texte ambigu ou moteur disproportionne) reste hors des pioches jouables.
+static func _playable_wiki(c) -> bool:
+	var d: Dictionary = c
+	return str(d.get("set", "")) != IodAbilities.SET_ID or bool(d.get("implemented", true))
 
 ## Applique la reprise sur un joueur : la salle du dessus de l'emplacement `ui` retourne en fin de main, la salle recouverte
 ## (s'il y en avait une) redevient visible, buildsThisTurn redescend. Statique : GameManager l'essaie aussi sur une copie.
@@ -700,7 +715,7 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 				if TnlAbilities.active(G) or Minibosses.active(G) or ThkAbilities.active(G):
 					hp += TnlAbilities.on_hero_start(G, pid, hero) # PV retenus jusqu'a l'entree (Werewolf Den, Lightning Bolt!, Shrooman Aviary), Party Up
 				if ThkAbilities.active(G):
-					hp += ThkAbilities.on_hero_start(G, pid, hero) # Staff of Healing, Oversized Sword, Magic Mirror, Ten Foot Pole, Pet Monster
+					hp += ThkAbilities.on_hero_start(G, pid, hero, hp) # Staff of Healing, Oversized Sword, Magic Mirror, Ten Foot Pole, Pet Monster
 				G["adventure"] = {
 					"playerId": pid,
 					"hero": hero,
@@ -1189,6 +1204,10 @@ func _start_turn() -> void:
 				"options": [{"label": "Room deck", "pile": "rooms"}, {"label": "Spell deck", "pile": "spells"}]})
 		G["pendingChoice"] = queue.pop_front()
 		G["choiceQueue"] = queue
+	if bool(G.erase("lincolnReveal")): # KSA015 Pixel Lincoln : chaque joueur, par XP, choisit combien de sorts piocher (jusqu'a 3)
+		var lc = PcwAbilities.lincoln_start(G)
+		if lc != null:
+			RoomAbilities.enqueue_pending(G, lc as Dictionary)
 	if Minibosses.active(G): # Jinx (salle de plus puis defausse), The Dreadmill (un Coin sur la salle, sinon elle est detruite)
 		for rc in Minibosses.on_build_start(G):
 			RoomAbilities.enqueue_pending(G, rc)
@@ -1226,6 +1245,8 @@ func _reveal_heroes_in_town() -> void:
 			drawn = CardDB.draw_cards(decks["epics"], 1)
 		if not drawn.is_empty():
 			(G["town"] as Array).append(drawn[0])
+			if str((drawn[0] as Dictionary).get("id", "")) == "KSA015":
+				G["lincolnReveal"] = true # Pixel Lincoln : choix de pioche des joueurs une fois les pioches de debut de tour faites (_start_turn)
 	if ThkAbilities.active(G):
 		ThkAbilities.attach_all(G) # un Objet encore en ville s'attache aux heros qui viennent d'arriver
 	_log("%d héros sont en ville." % (G["town"] as Array).size())
@@ -1898,6 +1919,7 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 	G["adventure"] = {}
 	G["adventurePausePassed"] = {}
 
+	var dead_item := ThkAbilities.item_id(hero) # IOD015 Blast Box : lu avant que l'Objet quitte le heros
 	var returned := hp <= 0 and ThkAbilities.active(G) and ThkAbilities.extra_life(G, pid, hero) # THK001 Extra Life : le heros retourne en ville
 	if returned:
 		pass
@@ -1914,6 +1936,8 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 			RmbAbilities.on_hero_killed(G, pid) # RMB001 Gregore
 		if not death_room.is_empty() and not abilities_locked:
 			_hero_died_trigger(pid, death_room)
+		if dead_item == "IOD015" and ThkAbilities.active(G) and not death_room.is_empty():
+			IodAbilities.blast_death_room(G, pid, death_index) # Power-Up : la salle ou le heros est mort est detruite
 	else:
 		var wounds := BossEngine.hero_wounds(hero)
 		for w in wounds:

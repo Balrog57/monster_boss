@@ -12,8 +12,10 @@ const SET_ID := "tools-wiki"
 ## Salles a capacite activee (Magnetic Ceiling, THK024, est un declencheur : voir on_room_enter).
 const ACTIVATED := ["THK021", "THK022", "THK023"]
 
+## Le moteur des Objets sert aussi Implements of Destruction (IodAbilities, pseudo-paquet `iod`), qui ne joue que ses propres Objets.
 static func active(G: Dictionary) -> bool:
-	return (G.get("sets", []) as Array).has(SET_ID)
+	var s: Array = G.get("sets", [])
+	return s.has(SET_ID) or s.has(IodAbilities.SET_ID) or s.has(PcwAbilities.SET_ID)
 
 # --- acces d'etat ------------------------------------------------------------------------------------------------------
 
@@ -80,7 +82,7 @@ static func _random_discard(G: Dictionary, victim: int, kind: String, n: int, la
 
 ## Heros marques d'une etoile (capacite propre) : les Objets ne s'y attachent pas (sauf Orcish Smithy).
 static func is_star(h: Dictionary) -> bool:
-	return h.get("heroAbility") is Dictionary or bool(h.get("dark", false))
+	return h.get("heroAbility") is Dictionary or bool(h.get("dark", false)) or bool(h.get("star", false)) # KSA015 Pixel Lincoln : etoile sans heroAbility
 
 ## L'Objet `item` s'attache-t-il a `hero` par la regle de base ? Un seul Objet par heros ; Universel : tout heros sans etoile ;
 ## sinon l'icone de tresor doit correspondre (un heros « ? » ne prend que les Universels).
@@ -163,6 +165,8 @@ static func detach(hero: Dictionary) -> Dictionary:
 
 ## Valeur d'un Objet pour l'IA (qui garde le meilleur face visible).
 static func item_value(item: Dictionary) -> float:
+	if str(item.get("id", "")).begins_with("IOD"):
+		return IodAbilities.value(str(item.get("id", "")))
 	match str(item.get("id", "")):
 		"THK016", "THK008", "THK003", "THK019":
 			return 4.0
@@ -175,6 +179,9 @@ static func claim_item(G: Dictionary, pid: int, item: Dictionary) -> Variant:
 	if item.is_empty():
 		return null
 	var p := _p(G, pid)
+	var iod := IodAbilities.claim(G, pid, item) # Pandora's Box, Banseer Bivan : places face visible
+	if bool(iod[0]):
+		return iod[1]
 	var cur := face_up_item(p)
 	if cur.is_empty():
 		add_item(G, pid, item, false)
@@ -216,6 +223,7 @@ static func use_item(G: Dictionary, pid: int, id: String) -> Variant:
 				return err
 			d["faceDown"] = true
 			_log(G, "Player %d uses %s." % [pid + 1, _label(d)])
+			IodAbilities.on_item_used(G, pid) # Franz
 			TnlAbilities.emit(G, run_effect(G, pid, id))
 			return null
 	return "no such Item"
@@ -314,6 +322,8 @@ static func effect_check(G: Dictionary, pid: int, id: String) -> String:
 	if not (phase in ["build", "adventure"]):
 		return "wrong phase"
 	var a := TnlAbilities.adv(G)
+	if id.begins_with("IOD"):
+		return IodAbilities.effect_check(G, pid, id)
 	match id:
 		"THK001", "THK002", "THK005":
 			return ""
@@ -375,6 +385,10 @@ static func _ask_room(G: Dictionary, pid: int, id: String, opts: Array, msg: Str
 		(o as Dictionary)["ai"] = _room_ai(G, pid, id, o)
 	return TnlAbilities.ask(G, pid, "thk_room", opts, {"id": id}, msg, item_name(id))
 
+## Choix de salle d'une capacite de Boss dont l'etape de resolution est `step` (IodAbilities) ; les poids IA sont ceux de room_options.
+static func _ask_room_step(G: Dictionary, pid: int, step: String, id: String, opts: Array, msg: String) -> Variant:
+	return TnlAbilities.ask(G, pid, step, opts, {"id": id}, msg, item_name(id))
+
 static func _ask_hero(G: Dictionary, pid: int, id: String, n: int, msg: String) -> Variant:
 	var opts: Array = []
 	var a := TnlAbilities.adv(G)
@@ -388,6 +402,8 @@ static func _ask_hero(G: Dictionary, pid: int, id: String, n: int, msg: String) 
 	return TnlAbilities.ask(G, pid, "thk_hero", opts, {"id": id, "n": n}, msg, item_name(id))
 
 static func run_effect(G: Dictionary, pid: int, id: String) -> Variant:
+	if id.begins_with("IOD"):
+		return IodAbilities.run_effect(G, pid, id)
 	var p := _p(G, pid)
 	var name := item_name(id)
 	var a := TnlAbilities.adv(G)
@@ -492,6 +508,10 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 	var o: Dictionary = (opts[idx] as Dictionary) if idx >= 0 and idx < opts.size() else {}
 	if idx < 0 and step != "thk_ceiling":
 		return null
+	if step.begins_with("thk_iod_"):
+		return IodAbilities.resolve_pick(G, pid, pc, idx)
+	if step.begins_with("thk_pcw_"):
+		return PcwAbilities.resolve_pick(G, pid, pc, idx)
 	match step:
 		"thk_claim":
 			var item: Dictionary = ctx.get("item", {})
@@ -681,7 +701,7 @@ static func ceiling_take(G: Dictionary, pid: int) -> void:
 # --- crochets du moteur ------------------------------------------------------------------------------------------------------------
 
 ## Le heros `hero` commence son aventure chez `pid` (avant la premiere salle) : renvoie ses PV supplementaires.
-static func on_hero_start(G: Dictionary, pid: int, hero: Dictionary) -> int:
+static func on_hero_start(G: Dictionary, pid: int, hero: Dictionary, hp_now: int = 0) -> int:
 	var p := _p(G, pid)
 	var bonus := 0
 	var staff := _flags(G, "staff")
@@ -692,6 +712,8 @@ static func on_hero_start(G: Dictionary, pid: int, hero: Dictionary) -> int:
 	if bool(staff.get(pid, false)): # Staff of Healing : tout heros a l'entree +2 jusqu'a la fin du tour
 		bonus += 2
 		_log(G, "Staff of Healing: %s gets +2 Health until end of turn." % _label(hero))
+	if item_id(hero).begins_with("IOD"):
+		bonus += IodAbilities.on_hero_start(G, pid, hero, hp_now + bonus)
 	match item_id(hero):
 		"THK007":
 			bonus += 5
@@ -726,6 +748,7 @@ static func sync_hero(G: Dictionary) -> void:
 
 ## Degats d'une salle pour un heros qui porte un Objet (Goblin Suit, Star of Invulnerability) ; appele par BossEngine.room_damage_with_modifiers.
 static func adjust_damage(player: Dictionary, G: Dictionary, room_index: int, r: Dictionary, hero: Dictionary, dmg: int) -> int:
+	dmg = IodAbilities.adjust_damage(G, r, hero, dmg) # Force Field
 	match item_id(hero):
 		"THK005": # pas de degats des salles Monster ordinaires (meme relevees)
 			if str(r.get("type", "")) == "monster" and not bool(r.get("advanced", false)):
@@ -747,7 +770,11 @@ static func cheat_code(G: Dictionary, pid: int) -> bool:
 
 ## Ring of Invisibility : pas de sorts pendant la phase d'aventure ou un heros qui le porte est a l'entree (ou dans) le donjon de `pid`.
 static func spells_blocked(G: Dictionary, pid: int) -> bool:
-	if not active(G) or str(G.get("phase", "")) != "adventure":
+	if not active(G):
+		return false
+	if IodAbilities.spells_blocked(G): # Surprise Box : personne, a aucune phase
+		return true
+	if str(G.get("phase", "")) != "adventure":
 		return false
 	for h in (_p(G, pid).get("entrance", []) as Array):
 		if item_id(h) == "THK020":
@@ -785,6 +812,13 @@ static func on_room_enter(G: Dictionary, pid: int, i: int, room: Dictionary) -> 
 
 ## Le heros quitte la salle `prev` en vie (il va en `i`) : Ice Rod, Inquisitor's Robes, Bag of Holding, Boots of Jumping. Renvoie l'index de salle a jouer.
 static func on_room_exit(G: Dictionary, pid: int, prev: int, i: int) -> int:
+	var j := _on_room_exit_thk(G, pid, prev, i)
+	if TnlAbilities.adv(G).is_empty():
+		return j
+	j = IodAbilities.on_room_exit(G, pid, prev, j)
+	return PcwAbilities.on_room_exit(G, pid, prev, j)
+
+static func _on_room_exit_thk(G: Dictionary, pid: int, prev: int, i: int) -> int:
 	var a := TnlAbilities.adv(G)
 	var hero = a.get("hero")
 	if a.is_empty() or not (hero is Dictionary):
@@ -792,6 +826,7 @@ static func on_room_exit(G: Dictionary, pid: int, prev: int, i: int) -> int:
 	var d: Array = _p(G, pid).get("dungeon", [])
 	var id := item_id(hero)
 	var skip := bool(a.erase("thkSkip")) # Boots of Jumping (capacite de Boss) : « ignores the next Room »
+	skip = bool((hero as Dictionary).erase("iodSkip")) or skip # Portal Wand (Reward) sur un heros qui n'etait pas encore entre
 	if prev >= 0 and prev < d.size() and not bool(a.get("thkBombed", false)) and int(a.get("hp", 0)) > 0:
 		var rv = BossEngine.active_room(d[prev])
 		if rv != null and not bool((rv as Dictionary).get("faceDown", false)) and not BossEngine.is_room_deactivated(G, pid, prev):
@@ -824,6 +859,8 @@ static func on_room_exit(G: Dictionary, pid: int, prev: int, i: int) -> int:
 
 ## Extra Life : un heros tue qui porte l'Objet retourne en ville a la place, l'Objet rejoint le scorekeeping du proprietaire du donjon.
 static func extra_life(G: Dictionary, pid: int, hero: Dictionary) -> bool:
+	if IodAbilities.lich_crown(G, pid, hero): # IOD009 : le heros garde son Objet
+		return true
 	if item_id(hero) != "THK001":
 		return false
 	var it := detach(hero)
@@ -867,6 +904,8 @@ static func score_move(G: Dictionary, p: Dictionary, pid: int, mtype: String, ar
 
 ## Valeur de la capacite de Boss `id` pour `pid` maintenant (> 0 : a jouer). Cartes « de situation » : seulement quand elles changent l'issue.
 static func score_effect(G: Dictionary, p: Dictionary, pid: int, id: String) -> float:
+	if id.begins_with("IOD"):
+		return IodAbilities.score_effect(G, p, pid, id)
 	var f := AiWiki.fate(G)
 	var mine := bool(f["active"]) and int(f["owner"]) == pid
 	var theirs := bool(f["active"]) and int(f["owner"]) != pid

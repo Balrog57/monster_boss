@@ -102,7 +102,7 @@ func _build() -> void:
 func cards_for(t: int) -> Array:
 	var allowed: Array = APK_SETS.duplicate()
 	if bool(Profile.load_settings().get("extensions", true)):
-		allowed.append_array(["next-level", "crash-landing", "minibosses", "tools"])
+		allowed.append_array(["next-level", "crash-landing", "minibosses", "tools", "iod", "players-choice-wiki"])
 	var src: Array = [CardDB.bosses, CardDB.rooms, CardDB.spells, CardDB.heroes, CardDB.heroes][t]
 	var out: Array = []
 	for c in src:

@@ -21,7 +21,7 @@ GODOT = os.path.join(ROOT, "src", "frontend", "godot")
 CARDS = os.path.join(GODOT, "data", "cards.json")
 # Scripts qui portent les regles (pas l'IA, l'interface, les traces de parite ni les tests : un id cite par l'IA n'implemente rien). CardDB: Jarin (passive_souls).
 ENGINE = ["Match", "BossEngine", "RoomAbilities", "SpellEffects", "SpellTargeting", "TnlAbilities", "TnlSpells",
-          "RmbAbilities", "RmbSpells", "Minibosses", "ThkAbilities", "CardDB"]
+          "RmbAbilities", "RmbSpells", "Minibosses", "ThkAbilities", "IodAbilities", "PcwAbilities", "CardDB"]
 SECTIONS = ["bosses", "rooms", "spells", "heroes", "items", "minibosses"]
 
 

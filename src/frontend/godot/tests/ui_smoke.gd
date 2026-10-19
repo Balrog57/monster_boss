@@ -143,6 +143,8 @@ func _main() -> void:
 		games.append({"seed": 24, "players": 4, "humans": 2, "sets": ["base"], "style": "random", "anim": false, "turns": 4})
 		games.append({"seed": 25, "players": 2, "humans": 1, "sets": ["players-choice", "hidden-heroes", "tools", "tools-wiki", "next-level", "crash-landing", "minibosses"], "style": "spells", "anim": false, "turns": 5})
 		games.append({"seed": 26, "players": 2, "humans": 1, "sets": ["tools-wiki"], "style": "spells", "anim": false, "turns": 5}) # Tools of Hero-Kind (wiki) : Objets, useItem, salles THK
+		games.append({"seed": 27, "players": 2, "humans": 1, "sets": ["iod", "crash-landing"], "style": "spells", "anim": false, "turns": 5}) # Implements of Destruction (wiki) : Objets IOD, useItem, boss de niveau
+		games.append({"seed": 28, "players": 2, "humans": 1, "sets": ["players-choice", "players-choice-wiki"], "style": "spells", "anim": false, "turns": 5}) # Player's Choice (wiki) : Ghoulyard, Bone Crank, Agent of Evil, Pixel Lincoln
 	for g in games:
 		await _play_game(g)
 		if not _log.errors.is_empty():
@@ -2255,7 +2257,7 @@ func _check_gallery() -> void:
 	var ext: bool = bool(Profile.load_settings().get("extensions", true))
 	var allowed: Array = ["base", "players-choice", "hidden-heroes"] # APK : les Tools ne sont pas dans la galerie (ils s'y ajoutent avec la case wiki : jouables derriere elle)
 	if ext:
-		allowed.append_array(["next-level", "crash-landing", "minibosses", "tools"])
+		allowed.append_array(["next-level", "crash-landing", "minibosses", "tools", "iod", "players-choice-wiki"])
 	board._on_menu_pressed()
 	await get_tree().process_frame
 	var gal_btn: Button = null
@@ -2446,6 +2448,14 @@ func _check_online_menus() -> void:
 	_check(not (main._active_sets() as Array).has("tools") and not (main._active_sets() as Array).has("tools-wiki"), "case wiki decochee : la tuile Tools n'ajoute aucun paquet")
 	main.use_extensions = true
 	_check((main._active_sets() as Array).has("tools") and (main._active_sets() as Array).has("tools-wiki"), "case wiki cochee : Tools ajoute tools + tools-wiki")
+	# Implements of Destruction (iod) et cartes wiki du Player's Choice : meme regle, derriere la case wiki
+	main.apk_decks = ["players-choice"]
+	main.use_extensions = false
+	_check(not (main._active_sets() as Array).has("players-choice-wiki"), "case wiki decochee : Player's Choice n'ajoute pas players-choice-wiki")
+	main.use_extensions = true
+	_check((main._active_sets() as Array).has("players-choice-wiki"), "case wiki cochee : Player's Choice ajoute players-choice-wiki (6 cartes manquantes)")
+	main.apk_decks = ["iod"]
+	_check((main._active_sets() as Array).has("iod"), "tuile Implements of Destruction : ajoute le paquet iod")
 	main.apk_decks = saved_decks
 	main.use_extensions = saved_ext
 	# PASS AND PLAY : choix du nombre de joueurs, extensions, partie a sieges tous humains

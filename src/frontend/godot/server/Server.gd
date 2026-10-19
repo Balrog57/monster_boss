@@ -8,7 +8,7 @@ const GameRoom = preload("res://godot/server/GameRoom.gd")
 const NetCodec = preload("res://godot/scripts/NetCodec.gd")
 
 ## Paquets acceptes dans create.sets (le jeu de base est toujours present, voir Match.new_match).
-const KNOWN_SETS := ["players-choice", "hidden-heroes", "tools", "tools-wiki", "next-level", "minibosses", "crash-landing"]
+const KNOWN_SETS := ["players-choice", "hidden-heroes", "tools", "tools-wiki", "next-level", "minibosses", "crash-landing", "iod", "players-choice-wiki"]
 ## Code de salon : 4 lettres comme l'APK (OnlineService.GetNewRoomName, RndWord(4)) ; sans I ni O (confusion avec 1 et 0).
 const CODE_ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ"
 const CODE_LENGTH := 4

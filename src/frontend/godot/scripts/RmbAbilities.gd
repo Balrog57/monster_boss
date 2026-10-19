@@ -127,7 +127,7 @@ static func passive_room_damage(G: Dictionary, player: Dictionary, room_index: i
 		if i != room_index - 1:
 			continue
 		var other = BossEngine.active_room(dungeon[i])
-		if other != null and str((other as Dictionary).get("id", "")) == "RMB024" and rt == "monster" and not bool((other as Dictionary).get("faceDown", false)) \
+		if other != null and not bool(G.get("iodFlame", false)) and str((other as Dictionary).get("id", "")) == "RMB024" and rt == "monster" and not bool((other as Dictionary).get("faceDown", false)) \
 				and not BossEngine.is_room_deactivated(G, pid, i) and not TnlAbilities.no_text(other as Dictionary):
 			dmg += 2 # Power Leech : la salle a sa droite (vers le boss), si Monster, +2
 	match str(r.get("id", "")):

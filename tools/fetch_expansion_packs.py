@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 import urllib.parse
 import urllib.request
 
@@ -13,7 +14,15 @@ EXP_DIR = os.path.join(ROOT, "src", "frontend", "assets", "data", "expansions")
 WIKI_API = "https://bossmonster.fandom.com/api.php"
 UA = "BossMonsterFanPort/expansion-fetch"
 
-PREFIX_TO_PACK = {"TNL": "next-level", "RMB": "minibosses", "CRL": "crash-landing"}
+PREFIX_TO_PACK = {"TNL": "next-level", "RMB": "minibosses", "CRL": "crash-landing", "IOD": "iod", "KSA": "players-choice-wiki"}
+# Player's Choice (KSA) : l'APK en joue 11 ; ces 6 cartes n'y sont pas (pack wiki distinct, jamais dans le deck APK PlayerChoice).
+KSA_WIKI_IDS = {"KSA008", "KSA009", "KSA010", "KSA011", "KSA012", "KSA015"}
+# Champs absents de la liste du wiki (comme les corrections a la main de cards.json) : ils suivent la carte a chaque regeneration.
+HAND_FIELDS = {
+    "IOD029": {"quantity": 1},  # la derniere ligne du tableau porte l'annee du pied de page dans sa cellule de quantite
+    # Pixel Lincoln : heros epique etoile, sans tresor ("?"), leurre = joueur ayant le plus de cartes en main (comme KSA014 Demigod)
+    "KSA015": {"description": "When Pixel Lincoln appears in town, each player may draw up to three spell cards. During the Bait Phase, Pixel Lincoln is lured to the dungeon of the player with the most cards in hand.", "treasure": 0, "treasures": [0], "class": "The Fool", "lure": "mostCards", "star": True, "playerCount": 2},
+}
 TREASURE = {"Cleric": 1, "Fighter": 2, "Mage": 3, "Thief": 4, "Explorer": 5}
 SPELL_PHASE = {"Build": 1, "Adventure": 3, "Both": 4, "Either": 4}
 
@@ -214,6 +223,8 @@ def map_boss(cid: str, cells: list[str], row: str = "") -> dict:
         "set": PREFIX_TO_PACK[cid[:3]],
         "quantity": qty,
     }
+    if cid.startswith("IOD"):
+        card["levelUpDesc"] = fix_item_text(card["levelUpDesc"])
     tag_boss(card)
     return card
 
@@ -385,10 +396,48 @@ def map_miniboss(cid: str, cells: list[str]) -> dict:
     }
 
 
+def fix_item_text(text: str) -> str:
+    """Les textes IOD du wiki sont saisis a la main : italiques ''...'', espaces manquants, quelques fautes de frappe."""
+    t = re.sub(r"<[^>]+>", "", text).replace("'''", "").replace("''", "")
+    t = re.sub(r"(?<=[a-z\)])\.(?=[A-Z])", ". ", t)  # "...Hero.That Hero" -> "...Hero. That Hero"
+    t = re.sub(r"(?<=\w)\(", " (", t)
+    t = re.sub(r"\)(?=\w)", ") ", t)
+    t = re.sub(r"\n{2,}", "\n", t)
+    t = re.sub(r"[ \t]+", " ", t).strip()
+    for wrong, right in (("last tree Rooms", "last three Rooms"), ("Choose oe revealed", "Choose one revealed"), ("for ever y", "for every"),
+                         ("yours dungeon", "your dungeon"), ("Heros", "Heroes"), ("Power-up:", "Power-Up:"), ("first )", "first)")):
+        t = t.replace(wrong, right)
+    return t.replace("\n ", "\n")
+
+
+def map_item(cid: str, cells: list[str]) -> dict:
+    """Implements of Destruction : Objet (Power-Up / Reward), tresor du heros auquel il s'attache (0 = Universel)."""
+    name = clean_name(clean_cell(cells[1])) if len(cells) > 1 else cid
+    name = name.split("|")[-1]  # [[Lazer Drill|Laser Drill]]
+    subtitle = clean_cell(cells[2]).replace("Univarsal", "Universal") if len(cells) > 2 else ""
+    treasure_col = clean_cell(cells[4]) if len(cells) > 4 else ""
+    t = 0 if "univ" in treasure_col.lower() else parse_treasures(treasure_col)[0]
+    desc = fix_item_text(cells[6]) if len(cells) > 6 else ""
+    qty_match = re.search(r"\d+", clean_cell(cells[-1])) if cells else None
+    return {
+        "id": cid,
+        "name": name,
+        "subtitle": subtitle,
+        "treasures": [t],
+        "treasure": t,
+        "quantity": int(qty_match.group()) if qty_match else 1,
+        "description": desc,
+        "set": PREFIX_TO_PACK[cid[:3]],
+        "isItem": True,
+    }
+
+
 def classify_and_map(cid: str, cells: list[str], row: str) -> tuple[str, dict] | None:
     type_col = clean_cell(cells[5]) if len(cells) > 5 else ""
     sub_col = clean_cell(cells[2]) if len(cells) > 2 else ""
-    
+
+    if type_col.lower() in ("item", "items|item"):
+        return "items", map_item(cid, cells)
     if type_col in ("Boss", "Bosses|Boss") or "Bosses|Boss" in row or (sub_col not in ("Monster Room", "Trap Room", "Advanced Monster Room", "Advanced Trap Room", "Spell") and any(re.search(r"\b" + re.escape(k) + r"\b", type_col, re.I) for k in ["boss"])):
         return "bosses", map_boss(cid, cells, row)
     if "miniboss" in type_col.lower() or "miniboss" in sub_col.lower() or (cid.startswith("RMB") and 55 <= int(cid[3:]) <= 64):
@@ -409,6 +458,7 @@ def parse_pack(prefix: str, text: str) -> dict:
         "spells": [],
         "heroes": [],
         "minibosses": [],
+        "items": [],
     }
     seen = set()
     for row in split_rows(text):
@@ -423,10 +473,13 @@ def parse_pack(prefix: str, text: str) -> dict:
                 break
         if not cid or not cid.startswith(prefix) or cid in seen:
             continue
+        if prefix == "KSA" and cid not in KSA_WIKI_IDS:
+            continue
         mapped = classify_and_map(cid, raw_cells, row)
         if not mapped:
             continue
         key, card = mapped
+        card.update(HAND_FIELDS.get(cid, {}))
         out[key].append(card)
         seen.add(cid)
     return out
@@ -446,8 +499,12 @@ def write_pack(pack_id: str, data: dict) -> None:
 
 
 def main():
+    """Sans argument : tous les paquets. `fetch_expansion_packs.py iod players-choice-wiki` : seulement ceux-la (les autres JSON restent tels quels)."""
+    wanted = set(sys.argv[1:])
     text = wiki_wikitext("List_of_Cards")
     for prefix, pack_id in PREFIX_TO_PACK.items():
+        if wanted and pack_id not in wanted:
+            continue
         data = parse_pack(prefix, text)
         write_pack(pack_id, data)
 

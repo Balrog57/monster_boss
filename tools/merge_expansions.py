@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Merge expansion JSON packs into src/frontend/godot/data/cards.json (TNL / RMB / CRL), puis recalcule `implemented` (sync_implemented.py)."""
+"""Merge expansion JSON packs into src/frontend/godot/data/cards.json (TNL / RMB / CRL / IOD / KSA wiki), puis recalcule `implemented` (sync_implemented.py)."""
 from __future__ import annotations
 
 import json
@@ -20,7 +20,9 @@ def load(path: str) -> dict:
         return json.load(f)
 
 
-EXP_PREFIXES = ("TNL", "RMB", "CRL")
+EXP_PREFIXES = ("TNL", "RMB", "CRL", "IOD")
+# Cartes KSA hors APK (pack wiki distinct) : retrouvees par leur `set`, car le prefixe KSA est aussi celui des cartes de l'APK (players-choice).
+WIKI_ONLY_SETS = ("players-choice-wiki",)
 
 
 def clean_name(raw: str) -> str:
@@ -39,7 +41,7 @@ def clean_name(raw: str) -> str:
 
 
 def filter_base(cards: list, key="id") -> list:
-    return [c for c in cards if not any(c[key].startswith(p) for p in EXP_PREFIXES)]
+    return [c for c in cards if not any(c[key].startswith(p) for p in EXP_PREFIXES) and c.get("set") not in WIKI_ONLY_SETS]
 
 
 def main():
@@ -54,7 +56,7 @@ def main():
             previous.update({c["id"]: c for c in data[section]})
             data[section] = filter_base(data[section])
 
-    for name in ("next-level", "minibosses", "crash-landing"):
+    for name in ("next-level", "minibosses", "crash-landing", "iod", "players-choice-wiki"):
         path = os.path.join(EXP_DIR, f"{name}.json")
         if not os.path.exists(path):
             print(f"skip missing {path}")
@@ -64,6 +66,8 @@ def main():
             if pack.get(section):
                 for k, c in enumerate(pack[section]):
                     c["name"] = clean_name(c.get("name", ""))
+                    if c["id"] in previous and "gainCoin" not in previous[c["id"]]:
+                        c.pop("gainCoin", None)  # etiquette inerte du wiki, retiree a la main de cards.json (RMB014/015/020) : ne pas la remettre
                     pack[section][k] = {**c, **previous.get(c["id"], {})}  # cards.json (corrections a la main) l'emporte sur le pack
                 existing = data.setdefault(section, [])
                 existing.extend(pack[section])

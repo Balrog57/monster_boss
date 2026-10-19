@@ -35,11 +35,13 @@ OUT_CARDS = os.path.join(ROOT, "src", "frontend", "assets", "cards")
 FONT_DIR = os.path.join(ROOT, "tools", ".cache", "fonts")  # TTF reconstruits par build_fonts.py (cache gitignore)
 
 W, H = 746, 1039  # matches official faces
-PLACEHOLDER_SETS = ("minibosses", "next-level")
+PLACEHOLDER_SETS = ("minibosses", "next-level", "iod", "players-choice-wiki")
 
 SET_LABEL = {
     "minibosses": "RISE OF THE MINIBOSSES",
     "next-level": "BOSS MONSTER 2",
+    "iod": "IMPLEMENTS OF DESTRUCTION",
+    "players-choice-wiki": "THE PLAYER'S CHOICE",
 }
 
 # section -> (background, frame, accent, label)

@@ -24,6 +24,7 @@ const SPELL_TARGETS := {
 	"CRL031": {"type": "crl-healing-tank", "label": "Healing Tank"},
 	"CRL032": {"type": "any-room", "label": "Choose a Room"},
 	"CRL033": {"type": "crl-not-dead-yet", "label": "Not Dead Yet"},
+	"KSA012": {"type": "agent-of-evil", "label": "Choose a Hero in town and an opponent's dungeon"}, # Player's Choice (case wiki)
 }
 
 static func spell_needs_target(spell_id: String) -> bool:
@@ -218,6 +219,8 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 						continue
 					for i in (op.get("entrance", []) as Array).size():
 						out.append({"targetPlayerId": int(opid), "entranceIndex": i})
+		"agent-of-evil": # KSA012 Agent of Evil : un heros de la ville, le donjon d'un adversaire
+			out.append_array(PcwAbilities.agent_targets(G, pid))
 		"crl-healing-tank": # CRL031 : aucun heros leurre chez vous a la phase de leurre, et une blessure de heros ordinaire a soigner
 			if int(((G.get("luredThisTurn", {}) as Dictionary)).get(pid, 0)) == 0 and not ordinary_wound_heroes(me).is_empty():
 				out.append({})
@@ -392,6 +395,12 @@ static func conditions_ok(G: Dictionary, pid: int, spell_id: String) -> bool:
 
 ## Toutes les cibles legales pour un sort donne (hors extensions).
 static func spell_targets_for(G: Dictionary, player: Dictionary, player_id: int, spell_id: String) -> Array:
+	var out := _spell_targets_for(G, player, player_id, spell_id)
+	if ThkAbilities.active(G):
+		return IodAbilities.filter_targets(G, out) # IOD010 Shining Armor : un heros qui la porte n'est pas ciblable par un sort
+	return out
+
+static func _spell_targets_for(G: Dictionary, player: Dictionary, player_id: int, spell_id: String) -> Array:
 	if not conditions_ok(G, player_id, spell_id):
 		return []
 	if TnlSpells.TARGETS.has(spell_id): # The Next Level : TNL056-TNL072 (liste vide = injouable maintenant)

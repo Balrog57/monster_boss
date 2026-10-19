@@ -1,0 +1,87 @@
+{
+  "rooms": [
+    {
+      "id": "KSA008",
+      "name": "Ghoulyard",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "This room deals double damage to Epic Heroes.",
+      "set": "players-choice-wiki"
+    },
+    {
+      "id": "KSA009",
+      "name": "Shark Tank",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "If a Hero has taken damage equal to half its Health before entering this room, this room deals +2 damage to that Hero.",
+      "set": "players-choice-wiki"
+    },
+    {
+      "id": "KSA010",
+      "name": "Bone Crank",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        3
+      ],
+      "quantity": 1,
+      "description": "When you build this room, deactivate one room in any Dungeon. (It is turned sideways until end of turn.)",
+      "set": "players-choice-wiki"
+    },
+    {
+      "id": "KSA011",
+      "name": "Trash Compactor",
+      "advanced": false,
+      "type": "trap",
+      "damage": 3,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "If a Hero survives this room, this room deals no more damage until end of turn.",
+      "set": "players-choice-wiki"
+    }
+  ],
+  "spells": [
+    {
+      "id": "KSA012",
+      "name": "Agent of Evil",
+      "category": 1,
+      "quantity": 1,
+      "description": "Choose one Hero in town, Place it at the entrance to an Opponent's dungeon.",
+      "set": "players-choice-wiki"
+    }
+  ],
+  "heroes": [
+    {
+      "id": "KSA015",
+      "name": "Pixel Lincoln",
+      "treasure": 0,
+      "hp": 15,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "description": "When Pixel Lincoln appears in town, each player may draw up to three spell cards. During the Bait Phase, Pixel Lincoln is lured to the dungeon of the player with the most cards in hand.",
+      "class": "The Fool",
+      "set": "players-choice-wiki",
+      "quantity": 1,
+      "treasures": [
+        0
+      ],
+      "lure": "mostCards",
+      "star": true,
+      "playerCount": 2
+    }
+  ]
+}

@@ -51,7 +51,7 @@ const FILTER_MAX_GAMES := 8
 
 func _check_filter_unit() -> void:
 	_check_room_view()
-	for sets in [["base"], ["next-level", "crash-landing", "players-choice", "hidden-heroes", "minibosses", "tools-wiki"]]:
+	for sets in [["base"], ["next-level", "crash-landing", "players-choice", "hidden-heroes", "minibosses", "tools-wiki", "iod", "players-choice-wiki"]]:
 		var checks := 0
 		var priv_before := _priv_lines
 		for g in FILTER_MAX_GAMES:

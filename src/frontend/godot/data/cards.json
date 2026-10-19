@@ -152,6 +152,67 @@
       "implemented": true
     },
     {
+      "id": "IOD025",
+      "name": "Banseer Bivan",
+      "xp": 595,
+      "treasures": [
+        5
+      ],
+      "levelUpDesc": "For the rest of the game, you may have two Items face up in your scorekeeping area.",
+      "set": "iod",
+      "quantity": 1,
+      "implemented": true
+    },
+    {
+      "id": "IOD026",
+      "name": "Malakill",
+      "xp": 785,
+      "treasures": [
+        2
+      ],
+      "levelUpDesc": "Take one of your Items (face-up or face-down) and place it under a Monster Room. That Room has +3 until it is destroyed or covered.",
+      "set": "iod",
+      "quantity": 1,
+      "implemented": false
+    },
+    {
+      "id": "IOD027",
+      "name": "Franz",
+      "xp": 190,
+      "treasures": [
+        3
+      ],
+      "levelUpDesc": "For the rest of the game, whenever you use an Item's Boss ability, draw a Spell.",
+      "set": "iod",
+      "quantity": 1,
+      "genericLevelUp": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD028",
+      "name": "Lady Vix",
+      "xp": 365,
+      "treasures": [
+        4
+      ],
+      "levelUpDesc": "Take a face-up Item from a Hero in town or another player. Place it face up in your scorekeeping area.",
+      "set": "iod",
+      "quantity": 1,
+      "implemented": true
+    },
+    {
+      "id": "IOD029",
+      "name": "Umbra",
+      "xp": 755,
+      "treasures": [
+        1
+      ],
+      "levelUpDesc": "Look at all face-up Items in all players' scorekeeping areas. Choose one and place it face up in your scorekeeping area.",
+      "set": "iod",
+      "quantity": 1,
+      "implemented": true
+    },
+    {
       "id": "KSA001",
       "name": "Kirax",
       "xp": 1000,
@@ -1294,6 +1355,62 @@
       "quantity": 2,
       "description": "When you uncover this Room, deal 3 damage to a Hero in your dungeon or at the entrance to your dungeon.",
       "set": "crash-landing",
+      "implemented": true
+    },
+    {
+      "id": "KSA008",
+      "name": "Ghoulyard",
+      "advanced": false,
+      "type": "monster",
+      "damage": 2,
+      "treasures": [
+        1
+      ],
+      "quantity": 1,
+      "description": "This room deals double damage to Epic Heroes.",
+      "set": "players-choice-wiki",
+      "implemented": true
+    },
+    {
+      "id": "KSA009",
+      "name": "Shark Tank",
+      "advanced": false,
+      "type": "monster",
+      "damage": 1,
+      "treasures": [
+        2
+      ],
+      "quantity": 1,
+      "description": "If a Hero has taken damage equal to half its Health before entering this room, this room deals +2 damage to that Hero.",
+      "set": "players-choice-wiki",
+      "implemented": true
+    },
+    {
+      "id": "KSA010",
+      "name": "Bone Crank",
+      "advanced": false,
+      "type": "trap",
+      "damage": 1,
+      "treasures": [
+        3
+      ],
+      "quantity": 1,
+      "description": "When you build this room, deactivate one room in any Dungeon. (It is turned sideways until end of turn.)",
+      "set": "players-choice-wiki",
+      "implemented": true
+    },
+    {
+      "id": "KSA011",
+      "name": "Trash Compactor",
+      "advanced": false,
+      "type": "trap",
+      "damage": 3,
+      "treasures": [
+        4
+      ],
+      "quantity": 1,
+      "description": "If a Hero survives this room, this room deals no more damage until end of turn.",
+      "set": "players-choice-wiki",
       "implemented": true
     },
     {
@@ -2757,6 +2874,15 @@
       "quantity": 2,
       "description": "Do X damage to each Hero in your dungeon or at the entrance to your dungeon, where X equals the number of Wounds you have.",
       "set": "crash-landing",
+      "implemented": true
+    },
+    {
+      "id": "KSA012",
+      "name": "Agent of Evil",
+      "category": 1,
+      "quantity": 1,
+      "description": "Choose one Hero in town, Place it at the entrance to an Opponent's dungeon.",
+      "set": "players-choice-wiki",
       "implemented": true
     },
     {
@@ -4943,6 +5069,26 @@
       "implemented": true
     },
     {
+      "id": "KSA015",
+      "name": "Pixel Lincoln",
+      "treasure": 0,
+      "hp": 15,
+      "wounds": 2,
+      "souls": 2,
+      "epic": true,
+      "description": "When Pixel Lincoln appears in town, each player may draw up to three spell cards. During the Bait Phase, Pixel Lincoln is lured to the dungeon of the player with the most cards in hand.",
+      "class": "The Fool",
+      "set": "players-choice-wiki",
+      "quantity": 1,
+      "treasures": [
+        0
+      ],
+      "lure": "mostCards",
+      "star": true,
+      "playerCount": 2,
+      "implemented": true
+    },
+    {
       "id": "KSA016",
       "name": "Monster Hunter",
       "treasure": 1,
@@ -6166,6 +6312,342 @@
   ],
   "items": [
     {
+      "id": "IOD001",
+      "name": "Mega Hammer",
+      "subtitle": "Fighter Item",
+      "treasures": [
+        2
+      ],
+      "treasure": 2,
+      "quantity": 1,
+      "description": "Power-Up: Double this hero's Health.\nReward: Give one hero +2 for every Wound you have.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD002",
+      "name": "Minotaur's Mantle",
+      "subtitle": "Fighter Item",
+      "treasures": [
+        2
+      ],
+      "treasure": 2,
+      "quantity": 1,
+      "description": "Power-Up: When this Hero is at the entrance to your dungeon, deactivate the first Fighter Room in your dungeon.\nReward: Choose one Room in your dungeon. Until end of turn, all Heroes pass through that Room twice.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD003",
+      "name": "Energy Bow",
+      "subtitle": "Fighter Item",
+      "treasures": [
+        2
+      ],
+      "treasure": 2,
+      "quantity": 1,
+      "description": "Power-Up: This Hero ignores the last three Rooms of your dungeon.\nReward: Choose a Hero at the entrance to another player's dungeon. That Hero ignores the last three Rooms of the dungeon.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD004",
+      "name": "Tamer's Whip",
+      "subtitle": "Fighter Item",
+      "treasures": [
+        2
+      ],
+      "treasure": 2,
+      "quantity": 1,
+      "description": "Power-Up: All your Monster Rooms have a base damage of 1 while this Hero is in (or at the entrance to) your dungeon.\nReward: Give one Monster Room in your dungeon +x damage until end of turn, where X is equal to the number of Monster Rooms in your dungeon.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD005",
+      "name": "Surprise Box",
+      "subtitle": "Mage Item",
+      "treasures": [
+        3
+      ],
+      "treasure": 3,
+      "quantity": 1,
+      "description": "Power-Up: No one may play Spells while this Hero is in (or at the entrance to) your dungeon.\nReward: Discard your hand and draw Rooms and Spells, each equal to the number of each you discarded.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD006",
+      "name": "Portal Wand",
+      "subtitle": "Mage Item",
+      "treasures": [
+        3
+      ],
+      "treasure": 3,
+      "quantity": 1,
+      "description": "Power-Up: This Hero skips one Room in your dungeon (beginning with the first) for every Spell card in your hand.\nReward: Choose a Hero in any dungeon. It skips the next Room it would enter.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD007",
+      "name": "Crystal Ball",
+      "subtitle": "Mage Item",
+      "treasures": [
+        3
+      ],
+      "treasure": 3,
+      "quantity": 1,
+      "description": "Power-Up: When this Hero enters your dungeon, all players reveal their Spells. Discard any of your Spells that match those in other players' hands.\nReward: All players reveal one Spell (if they have one or more). Choose one revealed Spell and put it into your hand.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": false
+    },
+    {
+      "id": "IOD008",
+      "name": "Flame of Achoom",
+      "subtitle": "Mage Item",
+      "treasures": [
+        3
+      ],
+      "treasure": 3,
+      "quantity": 1,
+      "description": "Power-Up: This Hero ignores the ability text of all Rooms that modify the damage of other Rooms.\nReward: Until end of turn, your Rooms with Mage treasure give +1 to adjacent Rooms.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD009",
+      "name": "Lich Crown",
+      "subtitle": "Cleric Item",
+      "treasures": [
+        1
+      ],
+      "treasure": 1,
+      "quantity": 1,
+      "description": "Power-Up: If this Hero would be killed in your dungeon, return it to town instead. You keep this Item.\nReward: Choose one face-down Hero. Do damage to another Hero equal to the chosen Hero's Health.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD010",
+      "name": "Shining Armor",
+      "subtitle": "Cleric Item",
+      "treasures": [
+        1
+      ],
+      "treasure": 1,
+      "quantity": 1,
+      "description": "Power-Up: This Hero may not be targeted by Spells.\nReward: Take one Spell from the discard pile.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD011",
+      "name": "Heart Container",
+      "subtitle": "Cleric Item",
+      "treasures": [
+        1
+      ],
+      "treasure": 1,
+      "quantity": 1,
+      "description": "Power-Up: If this Hero survives your dungeon, choose a face-down Hero in your scorekeeping area and flip it face-up.\nReward: Choose a face-down Hero in an opponent's scorekeeping area. Return it to the entrance of that player's dungeon with +3.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": false
+    },
+    {
+      "id": "IOD012",
+      "name": "Angel Wings",
+      "subtitle": "Cleric Item",
+      "treasures": [
+        1
+      ],
+      "treasure": 1,
+      "quantity": 1,
+      "description": "Power-Up: This Hero gains +x, where X is equal to the number of Souls you have.\nReward: Give a Hero +x, where X is equal to the number of Souls you have.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD013",
+      "name": "Divining Rod",
+      "subtitle": "Thief Item",
+      "treasures": [
+        4
+      ],
+      "treasure": 4,
+      "quantity": 1,
+      "description": "Power-Up: This Hero gets +1 for every treasure type you have in your dungeon (including your Boss's).\nReward: Give a Hero +1 for every treasure type you have in your dungeon (including your Boss's).",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD014",
+      "name": "Super Magnet",
+      "subtitle": "Thief Item",
+      "treasures": [
+        4
+      ],
+      "treasure": 4,
+      "quantity": 1,
+      "description": "Power-Up: When this Hero is at the entrance to your dungeon, deactivate all Rooms in your dungeon with two or more treasure icons.\nReward: Choose a player and one treasure type. Until end of turn, Heroes ignore all icons of that type in that player's dungeon.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD015",
+      "name": "Blast Box",
+      "subtitle": "Thief Item",
+      "treasures": [
+        4
+      ],
+      "treasure": 4,
+      "quantity": 1,
+      "description": "Power-Up: Destroy the Room this Hero dies in.\nReward: Destroy a Room in any dungeon with a Hero in it. That Hero is killed.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD016",
+      "name": "Secret Map",
+      "subtitle": "Thief Item",
+      "treasures": [
+        4
+      ],
+      "treasure": 4,
+      "quantity": 1,
+      "description": "Power-Up: This Hero skips all Rooms that have treasure matching the treasure types of any Heroes at the entrance to your dungeon.\nReward: Switch the first and last Rooms of a dungeon.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD017",
+      "name": "Antifreeze",
+      "subtitle": "Universal Item",
+      "treasures": [
+        0
+      ],
+      "treasure": 0,
+      "quantity": 1,
+      "description": "Power-Up: When this Hero is at the entrance to your dungeon, if your dungeon contains any deactivated Rooms, immediately destroy those Rooms.\nReward: Reactivate all Rooms in your dungeon. Draw a Spell for each Room reactivated.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD018",
+      "name": "Stolen Blueprints",
+      "subtitle": "Universal Item",
+      "treasures": [
+        0
+      ],
+      "treasure": 0,
+      "quantity": 1,
+      "description": "Power-Up: The turn this Hero enters town, no one may build a Room with a treasure icon matching this Hero's.\nReward: You may immediately build an additional Room in your dungeon, even if it is a sixth Room. At end of turn, destroy all Rooms you built after using this Item.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": false
+    },
+    {
+      "id": "IOD019",
+      "name": "Pandora's Box",
+      "subtitle": "Universal Item",
+      "treasures": [
+        0
+      ],
+      "treasure": 0,
+      "quantity": 1,
+      "description": "Power-Up: If this Hero is at the entrance to your dungeon, you may choose another Hero at the entrance to your dungeon to immediately kill.\nReward: You must take this Item face-up. While this Item is face-up in your scorekeeping area, any new Items you gain must be turned face-down. Discard a Spell to turn this Item face-down.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD020",
+      "name": "Doppelganger Cloak",
+      "subtitle": "Universal Item",
+      "treasures": [
+        0
+      ],
+      "treasure": 0,
+      "quantity": 1,
+      "description": "Power-Up: This Hero has Health equal to the highest (modified) Health value of any Hero in a dungeon or in town.\nReward: During the Build phase, choose one Hero in town and designate a treasure type. That Hero is lured only by that treasure type until end of turn.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD021",
+      "name": "Stun Gun",
+      "subtitle": "Explorer Item",
+      "treasures": [
+        5
+      ],
+      "treasure": 5,
+      "quantity": 1,
+      "description": "Power-Up: Whenever this Hero survives an Advanced Monster Room, return that Room to your hand.\nReward: Each opponent must choose an Advanced Room and return it to his or her hand. This is only useable during the Build Phase.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD022",
+      "name": "Force Field",
+      "subtitle": "Explorer Item",
+      "treasures": [
+        5
+      ],
+      "treasure": 5,
+      "quantity": 1,
+      "description": "Power-Up: This Hero takes two less damage from Advanced Rooms.\nReward: Choose a Hero in an opponent's dungeon. Until end of turn, it ignores damage from Advanced Rooms.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
+      "id": "IOD023",
+      "name": "Laser Drill",
+      "subtitle": "Explorer Item",
+      "treasures": [
+        5
+      ],
+      "treasure": 5,
+      "quantity": 1,
+      "description": "Power-Up: When this Hero enters your dungeon, choose a covered Room from each Room stack and bring it to the top of that stack.\nReward: Until end of turn, treat all your Rooms as if they were just uncovered.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": false
+    },
+    {
+      "id": "IOD024",
+      "name": "Flying Saucer",
+      "subtitle": "Explorer Item",
+      "treasures": [
+        5
+      ],
+      "treasure": 5,
+      "quantity": 1,
+      "description": "Power-Up: If your dungeon contains only ordinary Rooms, give this Hero +3.\nReward: Search the Room deck for an Advanced Room and put it into your hand.",
+      "set": "iod",
+      "isItem": true,
+      "implemented": true
+    },
+    {
       "id": "THK001",
       "name": "Extra Life",
       "subtitle": "Cleric Item",
@@ -6900,7 +7382,42 @@
     "CRL027": "aliff",
     "CRL028": "the-king",
     "RMB005": "king-croak",
-    "RMB012": "kirax"
+    "RMB012": "kirax",
+    "IOD025": "banseer-bivan",
+    "IOD026": "malakill",
+    "IOD027": "franz",
+    "IOD028": "lady-vix",
+    "IOD029": "umbra",
+    "IOD001": "mega-hammer",
+    "IOD002": "minotaur-s-mantle",
+    "IOD003": "energy-bow",
+    "IOD004": "tamer-s-whip",
+    "IOD005": "surprise-box",
+    "IOD006": "portal-wand",
+    "IOD007": "crystal-ball",
+    "IOD008": "flame-of-achoom",
+    "IOD009": "lich-crown",
+    "IOD010": "shining-armor",
+    "IOD011": "heart-container",
+    "IOD012": "angel-wings",
+    "IOD013": "divining-rod",
+    "IOD014": "super-magnet",
+    "IOD015": "blast-box",
+    "IOD016": "secret-map",
+    "IOD017": "antifreeze",
+    "IOD018": "stolen-blueprints",
+    "IOD019": "pandora-s-box",
+    "IOD020": "doppelganger-cloak",
+    "IOD021": "stun-gun",
+    "IOD022": "force-field",
+    "IOD023": "laser-drill",
+    "IOD024": "flying-saucer",
+    "KSA008": "ghoulyard",
+    "KSA009": "shark-tank",
+    "KSA010": "bone-crank",
+    "KSA011": "trash-compactor",
+    "KSA012": "agent-of-evil",
+    "KSA015": "pixel-lincoln"
   },
   "minibosses": [
     {

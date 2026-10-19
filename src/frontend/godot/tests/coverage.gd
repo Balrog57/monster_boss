@@ -110,14 +110,14 @@ func _expansion_tiles() -> Array:
 	var consts: Dictionary = (load("res://godot/scripts/Main.gd") as GDScript).get_script_constant_map()
 	var wiki: Array = consts["EXT_PACKS"]
 	var re := RegEx.new()
-	re.compile("(\\d+) (bosses|rooms|spells|heroes|minibosses)")
+	re.compile("(\\d+) (bosses|rooms|spells|heroes|minibosses|items)")
 	var seen: Array = []
 	for d in consts["APK_DECKS"]:
 		var id := str((d as Dictionary)["id"])
 		if not wiki.has(id):
 			continue
 		seen.append(id)
-		var counts := {"bosses": 0, "rooms": 0, "spells": 0, "heroes": 0, "minibosses": 0}
+		var counts := {"bosses": 0, "rooms": 0, "spells": 0, "heroes": 0, "minibosses": 0, "items": 0}
 		for key in counts:
 			for c in CardDB.get(key):
 				if str((c as Dictionary).get("set", "")) == id:
@@ -142,7 +142,7 @@ func _implemented_flags() -> Array:
 	var words := {}
 	var re := RegEx.new()
 	re.compile("\"([A-Za-z0-9]+)\"")
-	for name in ["Match", "BossEngine", "RoomAbilities", "SpellEffects", "SpellTargeting", "TnlAbilities", "TnlSpells", "RmbAbilities", "RmbSpells", "Minibosses", "ThkAbilities", "CardDB"]:
+	for name in ["Match", "BossEngine", "RoomAbilities", "SpellEffects", "SpellTargeting", "TnlAbilities", "TnlSpells", "RmbAbilities", "RmbSpells", "Minibosses", "ThkAbilities", "IodAbilities", "PcwAbilities", "CardDB"]:
 		var f := FileAccess.open("res://godot/scripts/%s.gd" % name, FileAccess.READ)
 		if f == null:
 			return ["script introuvable : " + name]

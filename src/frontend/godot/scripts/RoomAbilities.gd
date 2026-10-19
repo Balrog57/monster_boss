@@ -538,6 +538,8 @@ static func on_build_room(G: Dictionary, player_id: int, room: Dictionary) -> Va
 		var tnl_choice = TnlAbilities.on_build(G, player_id, room)
 		if tnl_choice != null:
 			return tnl_choice
+	if id == "KSA010" and ThkAbilities.active(G): # Bone Crank (case wiki) : desactive une salle
+		return PcwAbilities.on_build(G, player_id, room)
 	match id:
 		"BMA022": return _dark_laboratory(G, p, player_id)
 		"BMA011": return _specters_sanctum(G, p, player_id)
@@ -874,6 +876,8 @@ static func process_level_up(G: Dictionary, player_id: int, boss_override: Dicti
 		return TnlAbilities.level_up(G, player_id, p, boss)
 	if str(boss.get("id", "")).begins_with("RMB"): # Rise of the Minibosses : RMB001-RMB012 (drapeaux « pour le reste de la partie »)
 		return RmbAbilities.level_up(G, player_id, p, boss)
+	if str(boss.get("id", "")).begins_with("IOD"): # Implements of Destruction (case wiki) : IOD025-IOD029
+		return IodAbilities.level_up(G, player_id, p, boss)
 	match str(boss.get("id", "")):
 		"BMA001": return _draculord(G, player_id)
 		"BMA002": return _xyzax(G, p)

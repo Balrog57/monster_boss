@@ -263,6 +263,8 @@ static func _score_spell(spell: Dictionary, target: Dictionary, p: Dictionary, G
 			return 25.0 if wanted and int(target.get("targetPlayerId", pid)) == pid else -20.0
 		"CRL033": # Not Dead Yet
 			return 100.0
+		"KSA012": # Agent of Evil (case wiki, heuristique maison)
+			return PcwAbilities.score_agent(G, pid, target)
 		_:
 			return 20.0
 

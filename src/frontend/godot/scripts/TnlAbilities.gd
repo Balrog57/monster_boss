@@ -746,7 +746,7 @@ static func passive_damage(G: Dictionary, player: Dictionary, room_index: int, r
 		if str(r.get("id", "")) == "TNL038" and not no_text(r): # Elemental Generator : +X, X = sorts en main
 			dmg += spells_in_hand(player)
 		for i in dungeon.size():
-			if i == room_index:
+			if i == room_index or bool(G.get("iodFlame", false)): # IOD008 : le heros ignore le texte des autres salles qui modifient les degats
 				continue
 			var other = BossEngine.active_room(dungeon[i])
 			if other == null or BossEngine.is_room_deactivated(G, pid, i) or bool((other as Dictionary).get("faceDown", false)) or no_text(other as Dictionary):

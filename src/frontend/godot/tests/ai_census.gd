@@ -29,6 +29,8 @@ const ALLOW := {
 	"THK007": "Oversized Sword (Boss) : +5 PV a un heros, joue seulement pour sauver de la marge exacte le heros qui blesserait un adversaire (heros d'un donjon adverse) ; choisi 5 fois sur 22 offres avec tools-wiki (180 parties), 0 sur 5 offres sur les seeds 1-20",
 	"THK017": "Boots of Jumping (Boss) : le heros adverse ignore sa prochaine salle, joue seulement si cela le sauve de la marge exacte ; choisi 1 fois sur 21 offres avec tools-wiki (180 parties), 0 sur 15 offres sur les seeds 101-140",
 	"THK018": "Pet Monster (Boss) : desactive la pire salle Monster restante devant le heros adverse, joue seulement si cela le sauve de la marge exacte ; choisi 2 fois sur 36 offres avec tools-wiki (180 parties), 0 sur 23 offres sur les seeds 101-140",
+	"IOD005": "Surprise Box (Reward) : defausse la main pour repiocher le meme nombre de Rooms et de Spells, un echange un pour un sans gain mesurable ; l'IA ne le joue qu'avec 2 Spells ou plus et aucune Room en main : offert 35 fois sans jamais etre choisi sur 180 parties avec iod+crash-landing, choisi 2 fois sur 30 offres sur 120 parties avec iod seul (seeds 1-60 et 1-40)",
+	"IOD016": "Secret Map (Reward) : echange la premiere et la derniere salle d'un donjon ; aucun gain simple a mesurer (la somme des degats ne change pas, seuls les bonus de voisinage et le placement du Boss) : offert 16 fois sur 180 parties avec iod+crash-landing et 13 fois sur 120 parties avec iod seul, jamais choisi",
 	"THK022": "Burial Mound : defausse 2 salles pour remettre un Objet en service, joue seulement avec 5 cartes en main ou plus ; choisi 4 fois sur 10 offres avec tools-wiki seul, 0 sur 2 offres avec tous les paquets (60 parties)",
 	"RMB059": "Cerebella : niveau 3 = les heros ignorent leur texte dans un donjon ; sans objet quand aucun heros n'a de capacite de carte (les heros RMB n'en ont pas, hors les noirs dont le paiement en Coins n'est pas valorise par l'IA) : offert 8 fois sur 60 parties, 0 choix",
 }
@@ -109,8 +111,8 @@ func _ready() -> void:
 			var d: Dictionary = c
 			var id := str(d.get("id", ""))
 			card_set[id] = _pack_of(d, sets)
-			if not sets.has(card_set[id]) or card_set[id] == "base":
-				continue
+			if not sets.has(card_set[id]) or card_set[id] == "base" or not bool(d.get("implemented", true)) or (str(d.get("set", "")) == IodAbilities.SET_ID and int(d.get("treasure", 0)) == 5 and not sets.has("crash-landing")):
+				continue # hors des pioches jouables : non implementee (implemented=false), ou Objet Explorer d'IOD sans Crash Landing (livret) : rien a recenser
 			var seen := false
 			for k in offered:
 				seen = seen or (":" + str(k) + ":").contains(":" + id + ":")

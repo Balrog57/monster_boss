@@ -97,6 +97,8 @@ static func level_ups(player: Dictionary) -> Array:
 	return out
 
 static func treasure_count(player: Dictionary, treasure: int, G: Dictionary = {}) -> int:
+	if not G.is_empty() and ThkAbilities.active(G) and IodAbilities.icons_ignored(G, int(player.get("id", -1)), treasure):
+		return 0 # IOD014 Super Magnet (Reward) : les heros ignorent ces icones jusqu'a la fin du tour
 	var n := 0
 	for t in dungeon_treasures(player, G):
 		if int(t) == treasure:
@@ -173,6 +175,8 @@ static func lure_target(players: Dictionary, order: Array, treasure: int, hero: 
 	# BaseLuredCondition par type de condition (HeroInfo.LuredCondition), pas par id : BMH0xx = BMA0xx, KSA014 = LuredByWounds.
 	var lure := CardDB.hero_lure(hero)
 	var htr: Array = CardDB.hero_treasures(hero) if hero.has("treasures") else [treasure]
+	if hero.has("iodLure") and int(hero.get("iodLureTurn", -1)) == int(G.get("turn", -2)): # IOD020 Doppelganger Cloak : un seul type de tresor
+		htr = [int(hero["iodLure"])]
 	var best := -1
 	var best_n := -999999
 	var tied := false
@@ -186,6 +190,8 @@ static func lure_target(players: Dictionary, order: Array, treasure: int, hero: 
 				n = -CardDB.total_souls(p, G if G.has("players") else {"players": players})
 			"wounds": # LuredByWounds : min Wounds
 				n = -CardDB.total_wounds(p)
+			"mostCards": # KSA015 Pixel Lincoln (hors APK) : le plus de cartes en main
+				n = (p.get("hand", []) as Array).size()
 			"soulsMinusWounds": # TNL114 The Brothers (hors APK) : le plus haut total Ames - Blessures
 				n = CardDB.total_souls(p, G if G.has("players") else {"players": players}) - CardDB.total_wounds(p)
 			_: # LuredByTreasures : somme, sur les tresors du heros, des tresors du donjon (heros a deux classes : Monster Hunter...)
@@ -323,16 +329,20 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 	var r: Dictionary = room
 	var dmg := int(r.get("damage", 0))
 	var pid := int(player.get("id", 0))
+	var thk := ThkAbilities.active(G) # Objets IOD / cartes KSA wiki : jamais hors de la case wiki
+	if thk:
+		dmg = IodAbilities.base_damage(G, pid, r, dmg) # IOD004 Tamer's Whip : base 1 pour les salles Monster
 
 	# Freeze (DeactivateRoom) : DungeonSlot.IsActive=false -> aucun degat au heros (GameBoard.cs ~1135)
 	if is_room_deactivated(G, pid, room_index):
 		return 0
-	if TnlAbilities.active(G) and TnlAbilities.zero_damage(r): # TNL058 Fairy Fountain : degats a zero, rien ne les releve plus
+	if (TnlAbilities.active(G) or thk) and TnlAbilities.zero_damage(r): # TNL058 Fairy Fountain : degats a zero, rien ne les releve plus
 		return 0
 
 	# KSA017 Trap Master : DeactivateDungeonAbility verrouille Ability.IsLocked de chaque salle (CheckConditions faux) :
 	# ni capacite, ni declencheur, ni bonus de degats passif (Boss.GetPassiveDamage) tant que le heros est dans le donjon.
 	var locked := abilities_locked(G, pid)
+	var flame: bool = thk and IodAbilities.flame(hero)
 
 	# TNL062 Meddling Kids! : « no ability text » (pas le nom, ni les degats imprimes, ni le tresor) -> la salle perd son propre bonus passif
 	# (Ballroom, Alien Ooze) et ne donne plus rien aux voisines (Goblin Armory, Dizzygas, Invasion Swarm, Reactor Core).
@@ -359,7 +369,9 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 		var o: Dictionary = other
 		if is_room_deactivated(G, pid, i):  # AdjacentsRoom/NextRoom ignorent les slots inactifs
 			continue
-		if locked or TnlAbilities.no_text(o):
+		if thk and absi(i - room_index) == 1:
+			dmg += IodAbilities.mage_adjacent(G, pid, o) # IOD008 Flame of Achoom (Reward) : les salles Mage donnent +1 aux voisines
+		if locked or TnlAbilities.no_text(o) or flame:  # IOD008 (Power-Up) : le heros ignore le texte des salles qui modifient les autres salles
 			continue
 		if str(o.get("id", "")) == "BMA015" and absi(i - room_index) == 1 and rt == "monster":
 			dmg += 1
@@ -380,6 +392,8 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 
 	# Room.Damage = InitialDamage + DealDamage (sorts Annihilator / Giant Size, portes par la carte)
 	dmg += int(r.get("dealDamage", 0))
+	if thk:
+		dmg += PcwAbilities.damage_bonus(G, pid, r, hero, own_off) # KSA009 Shark Tank
 	# Bonus de degats poses par les sorts/effets
 	for e in _effects(G).get("roomDamageBonus", []):
 		var ed: Dictionary = e
@@ -390,10 +404,13 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 	for id in _effects(G).get("ordinaryMonsterBonus", []):
 		if int(id) == pid and str(r.get("type", "")) == "monster" and not bool(r.get("advanced", false)):
 			dmg += 1
+	if flame:
+		G["iodFlame"] = true # lu par TnlAbilities.passive_damage / RmbAbilities.passive_room_damage : ignorer les AUTRES salles
 	if TnlAbilities.active(G): # The Next Level : Goblin Nursery / Mess Hall, Elemental Generator, Killa
 		dmg += TnlAbilities.passive_damage(G, player, room_index, r, locked)
 	if Minibosses.active(G): # Rise of the Minibosses : niveaux 1 des minibosses, Power Leech, Magipede, Dreadmill, Scott...
 		dmg += Minibosses.passive_damage(G, player, room_index, r, locked)
+	G.erase("iodFlame")
 
 	# Boss.GetPassiveDamage : level-up LastRoomDealDamage (KSA005 Scythe) = +N a la salle du fond (Dungeon.First(), index Godot dernier).
 	for lu in level_ups(player):
@@ -406,6 +423,8 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 				if int(t) == want:
 					dmg += 1
 
+	if thk:
+		dmg = PcwAbilities.double_for(r, hero, dmg, own_off) # KSA008 Ghoulyard : apres tous les autres bonus et malus
 	# GameBoard.ProccessActiveHero : Hero.Ability.GetPassiveDamageCommand ; HeroResistDamageRoomType (KSA016 Monster Hunter) rend N PV
 	# si le slot inflige des degats et que la salle est du type : degats totaux - N.
 	var ha = (hero as Dictionary).get("heroAbility") if hero is Dictionary else null

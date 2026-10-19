@@ -7,7 +7,7 @@ extends Control
 ## shortcut: pas de matchmaking mondial (WORLDWIDE affiche l'erreur « Unable to join public rooms »).
 
 ## Extensions du wiki hors APK (bascule « Options »).
-const EXT_PACKS := ["next-level", "minibosses", "crash-landing"]
+const EXT_PACKS := ["next-level", "minibosses", "crash-landing", "iod"]
 ## Paquet de l'APK dont les cartes ne se jouent QUE derriere la case wiki (Tools of Hero-Kind : l'APK ne les joue pas) : grise sans la case.
 const WIKI_GATED := ["tools"]
 ## Paquets de l'APK (ExpansionScene) : le jeu de base est toujours present, les autres se combinent librement.
@@ -22,6 +22,8 @@ const APK_DECKS := [
 	{"id": "crash-landing", "name": "CRASH LANDING", "info": "3 bosses, 13 rooms, 5 spells, 12 heroes - wiki", "playable": true},
 	# Extension du wiki hors APK (livret « Rise of the Minibosses » + guide officieux) : minibosses (niveaux 1-3), Coins, paquet de heros RMB, 3 Coins au depart.
 	{"id": "minibosses", "name": "MINIBOSSES", "info": "12 bosses, 42 rooms, 15 spells, 42 heroes, 10 minibosses - wiki", "playable": true},
+	# Mini-extension du wiki hors APK (2017) : 24 Objets + 5 Boss, jouee par IodAbilities (meme mecanique d'Objets que Tools of Hero-Kind). Sans Crash Landing, les Objets Explorer et Banseer Bivan sont ecartes.
+	{"id": "iod", "name": "IMPLEMENTS OF DESTRUCTION", "info": "5 bosses, 24 items - wiki", "playable": true},
 ]
 
 const GameManager = preload("res://godot/scripts/GameManager.gd")
@@ -92,6 +94,8 @@ func _active_sets() -> Array:
 	var sets: Array = apk_decks.filter(func(d): return use_extensions or not (EXT_PACKS.has(d) or WIKI_GATED.has(d)))
 	if sets.has("tools"):
 		sets.append(ThkAbilities.SET_ID) # case wiki cochee : les Objets et les salles THK se jouent (ThkAbilities)
+	if sets.has("players-choice") and use_extensions:
+		sets.append(PcwAbilities.SET_ID) # case wiki cochee : les 6 cartes KSA que l'APK ne joue pas (PcwAbilities)
 	return sets
 
 # --- transitions ----------------------------------------------------------------

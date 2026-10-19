@@ -71,7 +71,7 @@ static func _handler(id: String) -> Callable:
 		"BMA047": _giant_size, "BMA048": _jeopardy, "BMA049": _kobold_strike,
 		"BMA050": _motivation, "BMA051": _princess_in_peril, "BMA052": _soul_harvest,
 		"BMA053": _teleportation, "BMA054": _trepidation, "BMA055": _zombie_attack,
-		"KSA013": _tpk, "THK025": _excavation,
+		"KSA013": _tpk, "THK025": _excavation, "KSA012": _agent_of_evil,
 			"CRL029": _finish_him, "CRL030": _essence_transfer, "CRL031": _healing_tank,
 			"CRL032": _meteorite, "CRL033": _not_dead_yet,
 	}.get(id, Callable())
@@ -233,6 +233,11 @@ static func _princess_in_peril(G: Dictionary, caster_id: int, _card: Dictionary,
 	me["entrance"] = entrance
 	_log(G, "Princess in Peril: %s placed at your entrance." % str(hero.get("name", "?")))
 	return true
+
+# --- KSA012 Agent of Evil (case wiki) : un heros de la ville vers l'entree d'un adversaire ---
+
+static func _agent_of_evil(G: Dictionary, caster_id: int, _card: Dictionary, target: Dictionary) -> bool:
+	return PcwAbilities.cast_agent(G, caster_id, target)
 
 # --- BMA052 Soul Harvest : retire une ame face cachee, pioche 2 sorts ---
 

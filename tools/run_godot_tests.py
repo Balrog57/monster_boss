@@ -14,7 +14,7 @@ from godot_exe import godot_exe  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 T = "res://godot/tests/"
-SOAK_ALL = "players-choice,hidden-heroes,tools,tools-wiki,next-level,crash-landing,minibosses"
+SOAK_ALL = "players-choice,players-choice-wiki,hidden-heroes,tools,tools-wiki,next-level,crash-landing,minibosses,iod"
 SUITES = [
     ("goldens", T + "Goldens.tscn", "GOLDENS OK", []),
     ("coverage", T + "Coverage.tscn", "COVERAGE OK", []),
@@ -23,6 +23,8 @@ SUITES = [
     ("soak The Next Level", T + "Soak.tscn", "SOAK OK", ["--", "--sets=next-level", "--runs=4"]),
     ("soak Minibosses", T + "Soak.tscn", "SOAK OK", ["--", "--sets=minibosses", "--runs=4"]),
     ("soak Tools of Hero-Kind (wiki)", T + "Soak.tscn", "SOAK OK", ["--", "--sets=tools-wiki", "--runs=4"]),
+    ("soak Implements of Destruction (wiki)", T + "Soak.tscn", "SOAK OK", ["--", "--sets=iod,crash-landing", "--runs=4"]),
+    ("soak Player's Choice (wiki)", T + "Soak.tscn", "SOAK OK", ["--", "--sets=players-choice,players-choice-wiki", "--runs=4"]),
     ("soak all packs", T + "Soak.tscn", "SOAK OK", ["--", f"--sets={SOAK_ALL}", "--runs=3"]),
     ("online", T + "OnlineTest.tscn", "ONLINE OK", []),
     ("ui smoke", T + "UiSmoke.tscn", "UISMOKE OK", []),
