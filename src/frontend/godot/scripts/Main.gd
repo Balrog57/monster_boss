@@ -238,12 +238,13 @@ func show_title() -> void:
 
 # --- menu principal ----------------------------------------------------------
 
-## Bouton pierre noire (button.webp) : icone a ipos, texte centre en x = tcx (releve sur 11_menu.png).
-func _stone_btn(text: String, icon: String, ipos: Vector2, tcx: float, pos: Vector2, cb: Callable) -> void:
-	var b := _img_btn("buttons/button.webp", "buttons/button_pressed.webp", pos, cb, Vector2(500, 180))
-	var ic := _tex("navigation/" + icon, ipos)
+## Bouton pierre noire (button.webp) : sprite a taille native 504 x 192, coin haut-gauche a `pos` ; icone a ipos (relatif au sprite, isz = taille si redimensionnee) ; texte centre en x = tcx, releves par correlation sur 11_menu.png
+## (sprites en (458|988, 314|524), icones boss/multi/options en (489,369) (1014,377) (482,581)).
+func _stone_btn(text: String, icon: String, ipos: Vector2, tcx: float, pos: Vector2, cb: Callable, isz: Vector2 = Vector2.ZERO) -> void:
+	var b := _img_btn("buttons/button.webp", "buttons/button_pressed.webp", pos, cb)
+	var ic := _tex("navigation/" + icon, ipos, isz)
 	b.add_child(ic)
-	var lb := _lbl(text, 32, Color.WHITE, Vector2(tcx - 250, 3), Vector2(500, 180), FONT_A) # 32 = arcadepix 21 x 1,5 (ButtonWithDecoratorEntity.cs:39)
+	var lb := _lbl(text, 32, Color.WHITE, Vector2(tcx - 250, 6), Vector2(500, 180), FONT_A) # 32 = arcadepix 21 x 1,5 (ButtonWithDecoratorEntity.cs:39)
 	b.add_child(lb)
 	# appui : texte et icone descendent de 3 px, pas de changement de couleur (ButtonWithDecoratorEntity.cs:49-51)
 	b.button_down.connect(func():
@@ -259,10 +260,10 @@ func show_menu() -> void:
 	online.stop_state_poll()
 	AudioManager.play_music("music_main")  # APK IntroScene
 	_apk_screen(func(): go(show_title)) # la fleche du menu appelle NavigatedBack = Pop ColorFade (MainMenuScene.cs:49-54,199-202)
-	_stone_btn("SINGLE PLAYER", "boss_icon.webp", Vector2(30, 49), 292, Vector2(460, 317), func(): go(show_solo_count)) # MainMenuScene.cs:84-87
-	_stone_btn("MULTIPLAYER", "boss_multi_icon.webp", Vector2(25, 57), 327, Vector2(990, 317), func(): go(show_multi)) # MainMenuScene.cs:92-104
-	_stone_btn("OPTIONS", "options_icon.webp", Vector2(27, 51), 267, Vector2(460, 527), func(): go(show_options)) # MainMenuScene.cs:107-112
-	_stone_btn("RULES", "rules_icon.webp", Vector2(40, 58), 306, Vector2(990, 527), func(): go(show_rules)) # emplacement du store : MainMenuScene.cs:114-119
+	_stone_btn("SINGLE PLAYER", "boss_icon.webp", Vector2(31, 55), 294, Vector2(458, 314), func(): go(show_solo_count)) # MainMenuScene.cs:84-87
+	_stone_btn("MULTIPLAYER", "boss_multi_icon.webp", Vector2(26, 63), 329, Vector2(988, 314), func(): go(show_multi)) # MainMenuScene.cs:92-104
+	_stone_btn("OPTIONS", "options_icon.webp", Vector2(24, 57), 269, Vector2(458, 524), func(): go(show_options)) # MainMenuScene.cs:107-112
+	_stone_btn("RULES", "rules_icon.webp", Vector2(23, 46), 308, Vector2(988, 524), func(): go(show_rules), Vector2(96, 96)) # icone 64 -> 96 px : encre 80 px de haut comme inapp_icon (60 x 81) ; emplacement du store : MainMenuScene.cs:114-119
 
 # --- solo : HOW MANY PLAYERS? -------------------------------------------------
 
@@ -516,5 +517,5 @@ func show_rules(tab: int = 0) -> void:
 	_clear()
 	var v := RulesViewer.new()
 	v.tab = tab
-	v.closed.connect(func(): show_menu())
+	v.closed.connect(func(): go(show_menu)) # sortie en ColorFade comme les autres ecrans du menu
 	add_child(v)

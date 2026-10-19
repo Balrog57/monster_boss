@@ -47,8 +47,8 @@ func _build_main() -> void:
 			# SettingsScene = modale : CrossFade 0,2 s (PauseScene.cs:77-84 ; ModalSceneService.cs:63-71,89)
 			UiKit.cross_fade_in(self)], ["QUIT GAME", func(): quit_requested.emit()]]
 	for i in entries.size():
-		# APK : 4 boutons au pas de 194 px (bordures a y 124, 318, 512, 707) ; RULES (ajout) est place apres eux
-		var row := 4 if str(entries[i][0]) == "RULES" else (i if i < 2 else i - 1)
+		# APK : boutons au pas de 194 px (bordures a y 124, 318, 512, 707, PauseScene.cs:44-94) ; RULES (ajout) est insere avant SETTINGS, QUIT GAME reste le dernier (5e bouton : bas a 1043 px)
+		var row := i
 		var b := UiKit.stone_button(self, str(entries[i][0]), Vector2(960.0 - BTN.x / 2.0, 122.5 + 194.2 * row), BTN)
 		var cb: Callable = entries[i][1]
 		var sfx := "ui_button_goback" if i == 0 else "ui_button_select"

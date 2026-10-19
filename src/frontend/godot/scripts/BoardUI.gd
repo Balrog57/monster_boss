@@ -3966,7 +3966,7 @@ func _open_game_menu() -> void:
 	menu.quit_requested.connect(_open_quit_confirm)
 	menu.speed_changed.connect(func(): _speed = _speed_factor())
 
-## RULES : la visionneuse des regles (RulesViewer, la meme que le menu principal) se superpose au plateau ; fermer = retour au jeu.
+## RULES : la visionneuse des regles (RulesViewer, la meme que le menu principal) se superpose au plateau ; fermer = retour au menu pause, toujours ouvert dessous.
 func _open_rules() -> void:
 	if _rules != null and is_instance_valid(_rules):
 		return

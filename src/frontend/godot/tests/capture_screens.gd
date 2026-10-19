@@ -97,6 +97,9 @@ func _menus() -> void:
 	main_scene.show_options()
 	await _wait(0.4)
 	await _shot("menu_options")
+	main_scene.show_rules() # RULES (remplace l'IN-APP STORE) : pas de frame APK, comparaison au menu 2x2 / aux autres ecrans a fleche
+	await _wait(0.4)
+	await _shot("menu_rules")
 	main_scene.queue_free()
 	main_scene = null
 	await _frames()
@@ -614,7 +617,7 @@ func _states() -> void:
 	_hand_n(5, 1)
 	await _settle()
 	board._on_menu_pressed()
-	await _frames(4)
+	await _wait(0.4) # CrossFade 0,2 s de la modale (UiKit.cross_fade_in)
 	await _shot("menu_paused_resume_card_gallery_settings_quit_game")
 	var menu = board._popup.find_children("*", "Control", true, false).filter(func(c): return c.get_script() != null and str(c.get_script().resource_path).ends_with("InGameMenu.gd"))[0]
 	menu.page = "settings"
