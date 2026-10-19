@@ -150,6 +150,7 @@ var _hero_pawn: Control                  # pion du heros en aventure : persiste 
 var _hero_pawn_hp: Label
 var _adv_seen := {}                      # dernier pas d'aventure anime : {pid, hid, room, hp}
 var _stone_theme_cache: Theme
+var _compact_theme_cache: Theme
 var _ui_layer: Control                   # barre de temps, pile de sorts, notices, zoom, glisser (devant la main, derriere les fenetres)
 var _win_bar: TimeBar
 var win_time_scale := 1.0                # tests : raccourcit les fenetres chronometrees
@@ -489,8 +490,10 @@ func _build_actions() -> void:
 	bar_box.add_child(extra_bar)
 
 ## Boutons « pierre » de l'APK (buttons/button.webp en 9-patch) : seat bar, CONTINUE, popups de choix.
-func _make_bar_theme() -> Theme:
-	if _stone_theme_cache != null:
+func _make_bar_theme(compact := false) -> Theme:
+	if compact and _compact_theme_cache != null:
+		return _compact_theme_cache
+	if _stone_theme_cache != null and not compact:
 		return _stone_theme_cache
 	var th := Theme.new()
 	var tex_n := _tex("res://assets/ui/buttons/button.webp")
@@ -502,8 +505,8 @@ func _make_bar_theme() -> Theme:
 		var sb := StyleBoxTexture.new()
 		sb.texture = tex_p if n == "pressed" and tex_p != null else tex_n
 		sb.set_texture_margin_all(26)
-		sb.content_margin_left = 30
-		sb.content_margin_right = 30
+		sb.content_margin_left = 12 if compact else 30 # compact : barre des 4-5 adversaires (6 joueurs) qui doit tenir a gauche de l'engrenage
+		sb.content_margin_right = 12 if compact else 30
 		sb.content_margin_top = 12
 		sb.content_margin_bottom = 12
 		if n == "hover":
@@ -512,11 +515,14 @@ func _make_bar_theme() -> Theme:
 			sb.modulate_color = Color(0.55, 0.55, 0.55)
 		th.set_stylebox(n, "Button", sb)
 	th.set_font("font", "Button", _fb)
-	th.set_font_size("font_size", "Button", 24)
+	th.set_font_size("font_size", "Button", 22 if compact else 24)
 	th.set_color("font_color", "Button", Color.WHITE)
 	th.set_color("font_hover_color", "Button", GOLD)
 	th.set_color("font_pressed_color", "Button", GOLD)
-	_stone_theme_cache = th
+	if compact:
+		_compact_theme_cache = th
+	else:
+		_stone_theme_cache = th
 	return th
 
 func _build_overlay() -> void:
@@ -579,6 +585,7 @@ func _build_top() -> void:
 	foe_bar.position = Vector2(1500, 8)
 	foe_bar.size = Vector2(340, 50)
 	foe_bar.alignment = BoxContainer.ALIGNMENT_END
+	foe_bar.grow_horizontal = Control.GROW_DIRECTION_BEGIN # si les boutons depassent 340 px, la barre s'etend vers la gauche (jamais sur l'engrenage)
 	foe_bar.add_theme_constant_override("separation", 8)
 	foe_bar.theme = _make_bar_theme()
 	foe_bar.visible = false
@@ -737,6 +744,7 @@ func _refresh_foe_bar(others: Array) -> void:
 	foe_bar.visible = others.size() > 1
 	if others.size() <= 1:
 		return
+	foe_bar.theme = _make_bar_theme(others.size() > 3) # 5-6 joueurs : boutons plus serres
 	for pid in others:
 		var b := Button.new()
 		b.text = "P%d" % (int(pid) + 1)

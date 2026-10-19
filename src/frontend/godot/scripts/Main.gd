@@ -1,7 +1,7 @@
 extends Control
 ## Main — menus clones de l'APK 2.2.6 (maquette 1920x1080 : coordonnees absolues relevees sur docs/reference/*.png).
 ## Ecran titre (TAP TO START) -> menu 2x2 -> HOW MANY PLAYERS? -> SELECT EXPANSIONS ; OPTIONS ; RULES.
-## SINGLE PLAYER : 2/3/4 joueurs = vous + 1 a 3 IA.
+## SINGLE PLAYER : 2/3/4 joueurs = vous + 1 a 3 IA ; 5/6 joueurs seulement avec Crash Landing coche (Match.setup_error).
 ## MULTIPLAYER : PLAY ONLINE (entre amis, salon prive a code de 4 lettres) / PASS AND PLAY ; ecrans dans OnlineMenus.gd (clones de l'APK).
 ## IN-APP STORE supprime -> RULES ; tout est gratuit et debloque.
 ## shortcut: pas de matchmaking mondial (WORLDWIDE affiche l'erreur « Unable to join public rooms »).
@@ -19,7 +19,8 @@ const APK_DECKS := [
 	# Extension du wiki hors APK (livret docs/rules « The Next Level » + FAQ) : paquets de heros TNL (noirs, hybrides), defausse amorcee, main de depart de 7.
 	{"id": "next-level", "name": "THE NEXT LEVEL", "info": "13 bosses, 43 rooms, 17 spells, 42 heroes - wiki", "playable": true},
 	# Extension du wiki hors APK, selectionnable seule (en plus de la bascule « Extensions du wiki » qui active tous les paquets wiki).
-	{"id": "crash-landing", "name": "CRASH LANDING", "info": "3 bosses, 13 rooms, 5 spells, 12 heroes - wiki", "playable": true},
+	{"id": "crash-landing", "name": "CRASH LANDING", "info": "3 bosses, 13 rooms, 5 spells, 12 heroes - wiki", "playable": true,
+		"desc": "3 bosses, 13 rooms, 5 spells and 12 heroes. Unlocks 5 and 6 player games (only with the base game, Hidden Heroes and Tools): nobody is eliminated, and the game ends at 10 souls or when both hero decks run out."},
 	# Extension du wiki hors APK (livret « Rise of the Minibosses » + guide officieux) : minibosses (niveaux 1-3), Coins, paquet de heros RMB, 3 Coins au depart.
 	{"id": "minibosses", "name": "MINIBOSSES", "info": "12 bosses, 42 rooms, 15 spells, 42 heroes, 10 minibosses - wiki", "playable": true},
 	# Mini-extension du wiki hors APK (2017) : 24 Objets + 5 Boss, jouee par IodAbilities (meme mecanique d'Objets que Tools of Hero-Kind). Sans Crash Landing, les Objets Explorer et Banseer Bivan sont ecartes.
@@ -40,7 +41,8 @@ const FONT_A := "res://assets/fonts/arcadepix.fnt"   # texte plein (bandeaux, ON
 const FONT_B := "res://assets/fonts/arcadepix2.fnt"  # texte strie (boutons, libelles)
 const GOLD := Color("cdb15f")
 ## Carrousel « HOW MANY PLAYERS? » : carte du dessus (ou "" = dos) de chaque eventail.
-const FANS := {2: ["BMA006", "BMA002", ""], 3: ["BMA005", "", ""], 4: ["BMA001", "", ""]}
+## 5 et 6 (Crash Landing) : pas de frame APK, les trois boss CRL.
+const FANS := {2: ["BMA006", "BMA002", ""], 3: ["BMA005", "", ""], 4: ["BMA001", "", ""], 5: ["CRL002", "CRL001", ""], 6: ["CRL001", "CRL002", "CRL003"]}
 
 var game_manager: GameManager
 var online: OnlineClient
@@ -50,6 +52,7 @@ var use_extensions := false
 var apk_decks: Array = [] # ids des paquets APK coches (voir APK_DECKS)
 var server_host := "http://127.0.0.1:8000"
 var players := 2 # choix courant de « HOW MANY PLAYERS? »
+var _setup_players := 2 # nombre de joueurs de l'ecran SELECT EXPANSIONS (pour le message d'erreur 5-6)
 var dyn_root: Control # contenu redessine a chaque clic (eventails, tuiles)
 var _gray: ShaderMaterial
 var _fade_layer: CanvasLayer # voile noir des transitions : survit a _clear()
@@ -280,10 +283,39 @@ func show_menu() -> void:
 func show_solo_count(mode: String = "solo") -> void:
 	_apk_screen(func(): _count_back(mode))
 	_band("HOW MANY PLAYERS?")
+	players = mini(players, Match.max_players(_active_sets())) # 5-6 : seulement si Crash Landing est coche
+	if use_extensions and Match.max_players(_active_sets()) < 5: # case wiki cochee, Crash Landing pas encore : on dit ou se debloquent 5-6 joueurs (sans la case wiki, ecran inchange)
+		add_child(_note_box("Hint56", "5-6 players: tick Crash Landing in SELECT EXPANSIONS", GOLD, Color.WHITE, Vector2(560, 925), Vector2(800, 52)))
 	dyn_root = Control.new()
 	add_child(dyn_root)
 	_draw_fans()
 	_ok_btn(func(): go(func(): show_setup(players, players if mode == "pass" else 1, mode))) # PlayerNumberScene.cs:48-54 (ColorFade 1,0 s)
+
+## Cartouche sombre a bord colore (le decor du menu est clair) ; police par defaut (accents et guillemets absents de arcadepix).
+func _note_box(node_name: String, text: String, border: Color, font_color: Color, pos: Vector2, sz: Vector2) -> Panel:
+	var box := Panel.new()
+	box.name = node_name
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.05, 0.07, 0.94)
+	sb.border_color = border
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(12)
+	box.add_theme_stylebox_override("panel", sb)
+	box.position = pos
+	box.size = sz
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 24)
+	l.add_theme_color_override("font_color", font_color)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size = sz - Vector2(24, 0)
+	l.position = Vector2(12, 0)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(l)
+	return box
 
 func _count_back(mode: String) -> void:
 	match mode:
@@ -291,14 +323,19 @@ func _count_back(mode: String) -> void:
 		"online": show_friends()
 		_: show_menu()
 
-## Carrousel 4 | 2 | 3 : l'eventail du centre est le choix courant (colore), les autres sont ternes.
+## Nombres proposes : 2-4, plus 5-6 quand Crash Landing est coche.
+func _count_ring() -> Array:
+	return [2, 3, 4, 5, 6] if Match.max_players(_active_sets()) >= 5 else [2, 3, 4]
+
+## Carrousel (4 | 2 | 3, ou 6 | 2 | 3 ... avec 5-6) : l'eventail du centre est le choix courant (colore), les autres sont ternes.
 func _draw_fans() -> void:
 	for c in dyn_root.get_children():
 		dyn_root.remove_child(c)
 		c.queue_free()
-	var ring := [2, 3, 4]
+	var ring := _count_ring()
 	var i := ring.find(players)
-	for slot in [[ring[(i + 2) % 3], 577.0, 200.0], [players, 958.0, 310.0], [ring[(i + 1) % 3], 1335.0, 200.0]]:
+	var k := ring.size()
+	for slot in [[ring[(i + k - 1) % k], 577.0, 200.0], [players, 958.0, 310.0], [ring[(i + 1) % k], 1335.0, 200.0]]:
 		var n: int = slot[0]
 		var cx: float = slot[1]
 		var sel: bool = n == players
@@ -350,10 +387,14 @@ func _is_wiki(d: Dictionary) -> bool:
 func show_setup(num_players: int, human_count: int, mode: String = "solo") -> void:
 	_apk_screen(func(): show_solo_count(mode))
 	_band("SELECT EXPANSIONS")
+	_setup_players = num_players
 	dyn_root = Control.new()
 	add_child(dyn_root)
 	_draw_tiles()
-	_ok_btn(func(): menus.create_room(num_players) if mode == "online" else start_match(num_players, human_count))
+	_ok_btn(func():
+		if Match.setup_error(num_players, _active_sets()) != "":
+			return # 5-6 joueurs avec un paquet non pris en charge : le message est affiche, on ne lance rien
+		menus.create_room(num_players) if mode == "online" else start_match(num_players, human_count))
 
 func _draw_tiles() -> void:
 	for c in dyn_root.get_children():
@@ -367,6 +408,9 @@ func _draw_tiles() -> void:
 	var x0 := (1920.0 - ((tiles.size() - 1) * pitch + 285.0 * s)) / 2.0
 	for i in tiles.size():
 		_draw_tile(tiles[i], Vector2(x0 + i * pitch, 405.0 if s == 1.0 else 430.0), s)
+	var err := Match.setup_error(_setup_players, _active_sets())
+	if err != "":
+		dyn_root.add_child(_note_box("SetupError", err, Color("e0584c"), Color("ff9a8f"), Vector2(300, 872), Vector2(1320, 76)))
 
 func _draw_tile(d: Dictionary, pos: Vector2, s: float) -> void:
 	var id := str(d["id"])

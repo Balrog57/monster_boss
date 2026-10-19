@@ -17,7 +17,9 @@ const GOLD := Color("cdb15f")
 const AV_STEP := 240.0
 const AV_ORIGIN_X := 400.0 # AvatarScrollComponent a (160, 620) APK
 const ROW_Y := [394.0, 525.0, 652.0, 779.0]            # OnlinePanelEntity : 300 + 94 + i * 127 (+ 4 pour i > 0)
+const ROW_STEP_BIG := 83.0 # 6 lignes (5-6 joueurs) dans le cadre 300-904 : pas de 83 px, avatar a 0,29
 const CODE_LEN := 4
+const BIG_GAME_MSG := "5 or 6 players need Crash Landing, with the base game, Hidden Heroes and Tools only" # (police arcadepix : pas d'accents, d'ou pas le texte de Match.setup_error)
 
 var m # Main (type volontairement libre : on appelle ses utilitaires _tex / _hit / _img_btn / _clear ...)
 var _busy := false
@@ -162,7 +164,7 @@ const DECKS := {
 
 func show_multi() -> void:
 	m._apk_screen(func(): m.show_menu(), true)
-	_deck_btn(1260.0, 4, "PLAY ONLINE", "Play online two to four player games", func():
+	_deck_btn(1260.0, 4, "PLAY ONLINE", "Play online two to six player games", func():
 		if Profile.has_profile():
 			m.go(show_online) # MultiplayerScene.cs:56 (ColorFade 1,0 s)
 		else: # pas encore de pseudo : ChangeNameAvatarScene(canGoBack: false, setDefaultValues: true) d'abord
@@ -420,12 +422,18 @@ func _prepare_client() -> void:
 func create_room(count: int) -> void:
 	if _busy:
 		return
+	var setup_err := Match.setup_error(count, m._active_sets()) # 5-6 joueurs : Crash Landing obligatoire (le serveur refuse aussi : bad_setup)
+	if setup_err != "":
+		msg_box("INVALID SETUP", BIG_GAME_MSG, func(): show_friends())
+		return
 	_busy = true
 	_prepare_client()
 	var ok: bool = await m.online.create_lobby(count, m._active_sets())
 	_busy = false
 	if ok:
 		m.go(show_waiting) # ExpansionScene.cs:153 (ColorFade 1,0 s)
+	elif str(m.online.last_error_code) == "bad_setup":
+		msg_box("INVALID SETUP", BIG_GAME_MSG, func(): show_friends())
 	else:
 		msg_box("NETWORK ERROR", "Unable to create private room", func(): show_friends())
 
@@ -466,25 +474,39 @@ func show_waiting() -> void:
 	var o = m.online
 	_screen(func(): leave_waiting())
 	_wait_err_shown = false
-	UiKit.ninepatch(m, "ninepatch/searching_bg.webp", Vector2(390, 300), Vector2(1140, 604), Vector4(10, 0, 10, 0))
+	var n_rows := maxi(4, o.current_num_players) # 5-6 joueurs (Crash Landing) : 6 lignes plus serrees dans le meme cadre
+	var big := n_rows > 4
+	if not big:
+		UiKit.ninepatch(m, "ninepatch/searching_bg.webp", Vector2(390, 300), Vector2(1140, 604), Vector4(10, 0, 10, 0))
+	else: # la texture porte les 4 separateurs de lignes (y 91, 219, 347, 475 de la texture) : on n'en garde que l'en-tete, une bande sans trait etiree, le bas ; separateurs retraces
+		for part in [[0, 92, 300.0, 92.0], [93, 125, 392.0, 509.0], [601, 3, 901.0, 3.0]]:
+			UiKit.ninepatch(m, "ninepatch/searching_bg.webp", Vector2(390, part[2]), Vector2(1140, part[3]), Vector4(10, 0, 10, 0)).region_rect = Rect2(0, part[0], 21, part[1]) # (np_tex rogne deja 2 px a gauche et 1 en haut : x 0-21, traits a y 90, 218, 346, 474, 602)
+		for i in range(1, n_rows):
+			var sep := ColorRect.new()
+			sep.color = Color(120.0 / 255.0, 155.0 / 255.0, 161.0 / 255.0)
+			sep.position = Vector2(391, ROW_Y[0] + ROW_STEP_BIG * i - 3.0)
+			sep.size = Vector2(1138, 2)
+			sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			m.add_child(sep)
 	m.add_child(_t("WAITING FRIENDS...", 1.3, Color.WHITE, Vector2(420, 330)))
 	m.add_child(_t("WINS", 1.0, Color.WHITE, Vector2(1190, 340)))
 	m.add_child(_t("DEFEATS", 1.0, Color.WHITE, Vector2(1370, 340)))
 	_rows = []
-	for i in 4:
-		var y: float = ROW_Y[i]
+	for i in n_rows:
+		var y: float = ROW_Y[i] if not big else ROW_Y[0] + ROW_STEP_BIG * i
+		var ty := y + (40.0 if not big else 25.0)
 		var av := TextureRect.new()
 		av.texture = load(UI + "avatar/avatar_none.webp")
 		av.position = Vector2(410, y)
-		av.scale = Vector2(0.45, 0.45)
+		av.scale = Vector2(0.45, 0.45) if not big else Vector2(0.29, 0.29)
 		av.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		m.add_child(av)
-		var nm := _t("", 1.3, Color.WHITE, Vector2(580, y + 40), 520.0)
+		var nm := _t("", 1.3, Color.WHITE, Vector2(580, ty), 520.0)
 		nm.clip_text = true
 		m.add_child(nm)
-		var w := _t("", 1.3, Color.WHITE, Vector2(1040, y + 40), 208.0, HORIZONTAL_ALIGNMENT_RIGHT)
+		var w := _t("", 1.3, Color.WHITE, Vector2(1040, ty), 208.0, HORIZONTAL_ALIGNMENT_RIGHT)
 		m.add_child(w)
-		var d := _t("", 1.3, Color.WHITE, Vector2(1270, y + 40), 208.0, HORIZONTAL_ALIGNMENT_RIGHT)
+		var d := _t("", 1.3, Color.WHITE, Vector2(1270, ty), 208.0, HORIZONTAL_ALIGNMENT_RIGHT)
 		m.add_child(d)
 		_rows.append({"avatar": av, "name": nm, "wins": w, "defeats": d})
 	# RoomCodeEntity
@@ -558,13 +580,13 @@ func _on_first_state() -> void:
 		o.request_error.disconnect(_on_waiting_error)
 	m.start_online_match()
 
-## OnlinePanelEntity.UpdatePanel : 4 lignes (avatar, pseudo <= 25 car., victoires, defaites) ; ligne de l'hote en or ; siege libre = « WAITING... ».
+## OnlinePanelEntity.UpdatePanel : 4 lignes (6 avec 5-6 joueurs) (avatar, pseudo <= 25 car., victoires, defaites) ; ligne de l'hote en or ; siege libre = « WAITING... ».
 func _update_waiting(info: Dictionary) -> void:
 	var seats: Array = info.get("seats", [])
 	var host := int(info.get("host", -1))
 	var humans := 0
-	for i in 4:
-		if i >= _rows.size() or not is_instance_valid((_rows[i] as Dictionary)["name"]):
+	for i in _rows.size():
+		if not is_instance_valid((_rows[i] as Dictionary)["name"]):
 			return
 		var r: Dictionary = _rows[i]
 		var s = seats[i] if i < seats.size() else null

@@ -151,6 +151,7 @@ func _main() -> void:
 		games.append({"seed": 28, "players": 2, "humans": 1, "sets": ["players-choice", "players-choice-wiki"], "style": "spells", "anim": false, "turns": 5}) # Player's Choice (wiki) : Ghoulyard, Bone Crank, Agent of Evil, Pixel Lincoln
 		games.append({"seed": 29, "players": 5, "humans": 1, "sets": ["crash-landing"], "style": "random", "anim": false, "turns": 4}) # 5-6 joueurs (Crash Landing)
 		games.append({"seed": 30, "players": 6, "humans": 2, "sets": ["crash-landing", "tools"], "style": "spells", "anim": false, "turns": 4})
+		games.append({"seed": 31, "players": 6, "humans": 6, "sets": ["crash-landing"], "style": "random", "anim": false, "turns": 3}) # Pass and Play a 6 : barre des 6 sieges + barre des 5 adversaires
 	for g in games:
 		await _play_game(g)
 		if not _log.errors.is_empty():
@@ -1053,6 +1054,17 @@ func _check_ui() -> void:
 		want_cards = _boss_pool_size((G["bossPicks"] as Array).size())
 	var got_cards := _hand_cards().size()
 	_check(got_cards == want_cards, "main : %d cartes a l'ecran pour %d (phase %s, siege %d)" % [got_cards, want_cards, phase, pid])
+	# barres du haut (5-6 joueurs) : un bouton par adversaire, tous entre la barre de sieges et l'engrenage
+	if board.foe_bar.visible:
+		var foes := _buttons(board.foe_bar)
+		_check(foes.size() == (G["players"] as Dictionary).size() - 1, "selecteur d'adversaire : %d boutons pour %d joueurs" % [foes.size(), (G["players"] as Dictionary).size()])
+		var left_edge := 1e9
+		for b in foes:
+			left_edge = minf(left_edge, (b as Button).get_global_rect().position.x)
+			_check((b as Button).get_global_rect().end.x <= board.top_menu_btn.position.x, "selecteur d'adversaire : %s deborde sur l'engrenage" % (b as Button).text)
+		for b in _buttons(board.seat_bar):
+			if board.seat_bar.visible:
+				_check((b as Button).get_global_rect().end.x <= left_edge, "barres du haut : %s chevauche le selecteur d'adversaire" % (b as Button).text)
 	# pioches, ville
 	var decks: Dictionary = G["decks"]
 	_check(board.room_deck_label.text == "x%d" % (decks["rooms"] as Array).size(), "pioche de salles : %s != x%d" % [board.room_deck_label.text, (decks["rooms"] as Array).size()])

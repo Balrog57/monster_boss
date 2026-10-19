@@ -63,6 +63,11 @@ func _ready() -> void:
 		print("STATE SCREENS CAPTURED: ", n_shots)
 		get_tree().quit(0)
 		return
+	if only == "big": # 5-6 joueurs (Crash Landing) : selecteur, erreur d'extension, salle d'attente, plateau
+		await _big_games()
+		print("BIG GAME SCREENS CAPTURED: ", n_shots)
+		get_tree().quit(0)
+		return
 	if only == "online":
 		await _online_menus()
 		print("ONLINE SCREENS CAPTURED: ", n_shots)
@@ -103,6 +108,52 @@ func _menus() -> void:
 	main_scene.queue_free()
 	main_scene = null
 	await _frames()
+
+## 5-6 joueurs (lot 2.4b) : pas de frame APK, captures de controle de lisibilite.
+func _big_games() -> void:
+	main_scene = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main_scene)
+	await _wait(0.5)
+	main_scene.use_extensions = true
+	main_scene.apk_decks = ["crash-landing"]
+	main_scene.players = 5
+	main_scene.show_solo_count()
+	await _wait(0.4)
+	await _shot("big_player_count_carousel_5_center_with_crash_landing")
+	main_scene.players = 6
+	main_scene._draw_fans()
+	await _wait(0.2)
+	await _shot("big_player_count_carousel_6_center_with_crash_landing")
+	main_scene.apk_decks = []
+	main_scene.show_solo_count()
+	await _wait(0.4)
+	await _shot("big_player_count_carousel_without_crash_landing_hint")
+	main_scene.apk_decks = ["crash-landing", "players-choice"]
+	main_scene.show_setup(6, 1)
+	await _wait(0.4)
+	await _shot("big_setup_6_players_refused_players_choice")
+	main_scene.apk_decks = ["crash-landing", "hidden-heroes"]
+	main_scene.show_setup(6, 1)
+	await _wait(0.4)
+	await _shot("big_setup_6_players_accepted")
+	main_scene.queue_free()
+	main_scene = null
+	await _frames()
+	for n in [5, 6]:
+		await _new_game(424242, "", n, 1, ["crash-landing"])
+		await _settle()
+		await _shot("big_board_%d_players_foe_selector" % n)
+		if n == 6: # 6 heros en ville (colonne defilante) et un donjon adverse garni
+			_heroes_town(6)
+			_dungeon_fill(_me(), 3)
+			_dungeon_fill(_foe(), 5)
+			await _settle()
+			await _shot("big_board_6_players_six_heroes_in_town_foe_dungeon")
+		await _teardown()
+	await _new_game(424242, "boss", 6, 6, ["crash-landing"])
+	await _wait(0.3)
+	await _shot("big_board_6_players_pass_and_play_seat_selector")
+	await _teardown()
 
 ## Ecrans multijoueur (OnlineMenus.gd) : pas de frame APK de reference, comparaison a la specification C# (MultiplayerScene, MenuOnlineScene, ...).
 class FakeOnline extends RefCounted:
@@ -169,6 +220,13 @@ func _online_menus() -> void:
 	o.lobby_changed.emit({"status": "open", "numPlayers": 4, "host": 0, "seats": [seat.call("Zed the Wise", "avatar_gorgona", 12, 7, false), seat.call("player_k3x9", "avatar_robobo", 0, 2, false), seat.call("A very long username that never ends", "avatar_croak", 105, 3, false), free]})
 	await _wait(0.5)
 	await _shot("online_waiting_room_three_players_ok")
+	o.current_num_players = 6 # salle de 6 sieges (Crash Landing) : 6 lignes plus serrees
+	main_scene.show_waiting()
+	await _wait(0.2)
+	o.lobby_changed.emit({"status": "open", "numPlayers": 6, "host": 0, "seats": [seat.call("Zed the Wise", "avatar_gorgona", 12, 7, false), seat.call("player_k3x9", "avatar_robobo", 0, 2, false), seat.call("A very long username that never ends", "avatar_croak", 105, 3, false), seat.call("Bot", "avatar_croak", 0, 0, true), free, free]})
+	await _wait(0.5)
+	await _shot("online_waiting_room_six_seats_crash_landing")
+	o.current_num_players = 4
 	main_scene.queue_free()
 	main_scene = null
 	await _frames()
@@ -220,14 +278,14 @@ func _act_simple() -> void:
 		board._confirm_btn.pressed.emit()
 
 ## Partie neuve (graine fixe) amenee au debut de la construction du tour 1. stop_at = "boss" / "discard" : s'arrete plus tot (ecrans de debut).
-func _new_game(seed_: int = 424242, stop_at := "") -> void:
+func _new_game(seed_: int = 424242, stop_at := "", n_players := 2, n_humans := 1, sets := ["base"]) -> void:
 	await _teardown()
 	seed(seed_)
 	CardDB._rng.seed = seed_
 	gm = GameManager.new()
 	add_child(gm)
 	gm.rng.seed = seed_
-	gm.start_new_game(2, 1, ["base"])
+	gm.start_new_game(n_players, n_humans, sets)
 	board = load("res://godot/scenes/Board.tscn").instantiate()
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(board)
