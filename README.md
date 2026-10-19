@@ -1,7 +1,7 @@
 # Boss Monster - Web (Godot 4)
 
 Recréation de **Boss Monster: Master of the Dungeon** (APK 2.2.6) jouable dans le navigateur : solo contre l'IA
-(2 à 4 joueurs), pass and play, parties en ligne entre amis par code de salle, extensions de l'APK et du wiki.
+(2 à 4 joueurs, 2 à 6 avec Crash Landing), pass and play, parties en ligne entre amis par code de salle, extensions de l'APK et du wiki.
 Client **Godot 4.7 Compatibility** (export Web, threads désactivés : aucun header COOP/COEP requis), pas de Node ni de base de données.
 Reprise du projet : `docs/HANDOFF.md`.
 
@@ -33,7 +33,7 @@ Production : `docker compose -f deploy/docker-compose.yml up -d --build` (l'expo
 ## Tests & outils
 
 ```bash
-python tools/run_godot_tests.py          # 9 suites Godot headless (goldens, coverage, soak x5, online, ui smoke) ; c'est ce que lance la CI
+python tools/run_godot_tests.py          # 14 suites Godot headless (goldens, coverage, 10 soak dont THK / IOD / CRL 5-6 joueurs, online, ui smoke) ; c'est ce que lance la CI
 python tools/parity/apk.py               # parité vs l'APK d'origine : LOCAL UNIQUEMENT (oracle .NET + apk-original/ non versionné, voir tools/parity/README.md)
 python tools/verify_assets.py            # faces APK, assets UI, effectifs du set de base
 python tools/merge_expansions.py         # fusionne les packs wiki dans cards.json + recalcule `implemented`
@@ -44,7 +44,7 @@ python tools/merge_expansions.py         # fusionne les packs wiki dans cards.js
 ```
 src/frontend/            projet Godot 4 (res:// = src/frontend/)
   godot/scripts/         moteur et UI (Match, BossEngine, AI, CardDB, BoardUI, Main...)
-  godot/data/            cards.json (442 cartes)
+  godot/data/            cards.json (477 cartes)
   godot/server/          serveur multijoueur headless (+ ViewFilter : informations cachées)
   godot/tests/           suites Godot headless (lancées par tools/run_godot_tests.py)
   assets/                cartes WebP, UI, audio, fonts, pages des livrets de règles (versionnés)

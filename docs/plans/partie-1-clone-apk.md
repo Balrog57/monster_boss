@@ -13,7 +13,7 @@ Le jeu Godot (web) se **comporte, s'affiche, s'anime, sonne et « réfléchit »
 ## État de départ (vérifié le 2026-10-18)
 
 - Décompilation complète au niveau assemblage : 27/27 DLL, 0 marqueur d'échec ILSpy, 4915 `.cs`, index `apk-original/decompiled/INDEX.md`. 560 `.cs` pour `DBMGame.dll` (`CS/`). Reste à **prouver que rien d'utile ne manque**.
-- Parité 6/6, 12/12, 6/6 ; tests 9/9. Écarts connus : `docs/HANDOFF.md` §7, `tools/parity/README.md` section « Limites assumees », `docs/RAPPORT_REGLES.md` (§3 « Limites connues » ; le rapport est en partie périmé : il compare aussi à un ancien JS supprimé).
+- Parité 6/6, 12/12, 6/6 ; tests 14/14. Écarts connus : `docs/HANDOFF.md` §7, `tools/parity/README.md` section « Limites assumees », `docs/RAPPORT_REGLES.md` (§3 « Limites connues » ; le rapport est en partie périmé : il compare aussi à un ancien JS supprimé).
 - Trous jamais mesurés : IA, animations, audio, 22 `throw new NotImplementedException()` dans `CS/`, `stats.decisionsSkipped` élevé dans des traces « OK » (288 sur `s3-p2`, 45 sur `s1-p3`), graines 10-40 à 59/93.
 - Les sorties `apk-original/*` sont **gitignorées** (sauf `apk-original/README.md`) : les livrables de lecture du C# qui doivent survivre vont dans `apk-original/README.md` ou dans le dépôt (docs/tools), jamais ailleurs sous `apk-original/`.
 
@@ -57,7 +57,7 @@ Le jeu Godot (web) se **comporte, s'affiche, s'anime, sonne et « réfléchit »
 6. **`undoBuildRoom` et `chooseDraw` (BMA023)** jamais couverts par l'oracle. **Sonnet** : soit un mode oracle qui force ces chemins (modifier `tools/apk-oracle/TracingAI.cs`), soit des goldens (`GODOT/tests/goldens.gd`, `goldens_undo.gd`) avec justification écrite.
 7. **THK** (Tools of Hero-Kind) reste grisé comme dans l'APK : **ne rien implémenter** (partie 2, derrière la case wiki).
 
-**Critère d'acceptation** : parité 6/6, 12/12, 6/6 **inchangée** ; graines 10-40 classées (tableau dans `tools/parity/README.md`) ; un golden par règle touchée ; `python tools/run_godot_tests.py` 9/9 ; seuil `decisionsSkipped` appliqué dans `apk.py`.
+**Critère d'acceptation** : parité 6/6, 12/12, 6/6 **inchangée** ; graines 10-40 classées (tableau dans `tools/parity/README.md`) ; un golden par règle touchée ; `python tools/run_godot_tests.py` 14/14 ; seuil `decisionsSkipped` appliqué dans `apk.py`.
 
 ---
 
@@ -95,7 +95,7 @@ Le jeu Godot (web) se **comporte, s'affiche, s'anime, sonne et « réfléchit »
 - **Sonnet, ensuite** : chaque ligne « différent » de la matrice animations, par lots de 5-10, `ui_smoke` vert entre chaque lot.
 - **Vérification manuelle à la fin** : export web, deux parties complètes à la souris (drag de sort compris, non vérifiable par l'outil navigateur) : **à faire par l'utilisateur**, ou via BlueStacks côté APK pour comparer.
 
-**Critère d'acceptation** : matrices 100 % « conforme » ou « écart justifié » ; `GODOT/tests/ui_smoke.gd` et `CaptureScreens.tscn` verts ; aucune durée sans origine ; `python tools/run_godot_tests.py` 9/9 ; la parité n'est pas à relancer tant que seuls des fichiers d'UI sont touchés.
+**Critère d'acceptation** : matrices 100 % « conforme » ou « écart justifié » ; `GODOT/tests/ui_smoke.gd` et `CaptureScreens.tscn` verts ; aucune durée sans origine ; `python tools/run_godot_tests.py` 14/14 ; la parité n'est pas à relancer tant que seuls des fichiers d'UI sont touchés.
 
 ---
 
@@ -111,7 +111,7 @@ Le jeu Godot (web) se **comporte, s'affiche, s'anime, sonne et « réfléchit »
 - **Haiku** : liste des appels C# avec l'événement déclencheur, puis **matrice événement → fichier son C# → appel Godot**. Volume, boucle, fondu, coupure (mute) depuis les options.
 - **Sonnet** : combler les manques selon la matrice.
 
-**Critère d'acceptation** : matrice 100 % « conforme » ou « écart justifié » ; `python tools/run_godot_tests.py` 9/9 ; l'écoute réelle reste à confirmer par l'utilisateur (non vérifiable par les outils headless).
+**Critère d'acceptation** : matrice 100 % « conforme » ou « écart justifié » ; `python tools/run_godot_tests.py` 14/14 ; l'écoute réelle reste à confirmer par l'utilisateur (non vérifiable par les outils headless).
 
 ---
 
@@ -141,6 +141,6 @@ Le jeu Godot (web) se **comporte, s'affiche, s'anime, sonne et « réfléchit »
   - retirer `design_system` de `.dockerignore` (ligne 18) ;
   - supprimer les outils morts identifiés au lot 1.0 (`tools/extract_music.py`, `tools/ensure_fonts.py`, `tools/build_decompiled_index.py` ou `tools/play_apk_robust.py` si doublon — vérifier d'abord qu'aucun script ni la doc n'en dépend : `docs/HANDOFF.md` §8 cite `play_apk_robust.py`).
   - mettre à jour `docs/HANDOFF.md` §5 et §7 (liste honnête des écarts restants, idéalement vide hors « bogues de l'IA oracle non reproduits »).
-- **Orchestrateur** : `python tools/run_godot_tests.py` 9/9, parité 3 variantes, `--ai-agreement`, `code-review` du diff complet, merge dans `main` (au 2026-10-18 la branche courante est déjà `main` ; `docs/HANDOFF.md` mentionne encore `parity/apk-oracle` : si cette branche existe toujours, la fusionner puis demander avant de la supprimer), puis **redéploiement homelab** (`deploy/DEPLOYMENT.md` §3) **après accord de l'utilisateur**.
+- **Orchestrateur** : `python tools/run_godot_tests.py` 14/14, parité 3 variantes, `--ai-agreement`, `code-review` du diff complet, merge dans `main` (au 2026-10-18 la branche courante est déjà `main` ; `docs/HANDOFF.md` mentionne encore `parity/apk-oracle` : si cette branche existe toujours, la fusionner puis demander avant de la supprimer), puis **redéploiement homelab** (`deploy/DEPLOYMENT.md` §3) **après accord de l'utilisateur**.
 
 **Critère d'acceptation** : tous les critères du README §7 point 1 ; une seule branche `main`, aucune PR, `git status` propre ; `docs/HANDOFF.md` §5/§7 à jour.

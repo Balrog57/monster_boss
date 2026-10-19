@@ -62,7 +62,7 @@ Chemins : sauf mention contraire, relatifs à la racine du dépôt. Raccourcis e
 
 Commandes (Windows ; Godot = `C:/Tools/Godot/Godot_v4.7.2-stable_win64_console.exe` ou la variable `$GODOT`, résolu par `tools/godot_exe.py`) :
 
-- **Tests** : `python tools/run_godot_tests.py` → **9 suites, ~3 min, doit être 9/9** (goldens, coverage, soak, soak decks APK, soak TNL, soak Minibosses, soak tous packs, online, ui smoke). Toute ligne `SCRIPT ERROR` fait échouer une suite.
+- **Tests** : `python tools/run_godot_tests.py` → **14 suites, doit être 14/14** (goldens, coverage, soak, soak decks APK, soak TNL, soak Minibosses, soak THK / IOD / Player's Choice wiki, soak CRL 5-6 joueurs (x2), soak tous packs, online, ui smoke). Toute ligne `SCRIPT ERROR` fait échouer une suite.
 - **Parité APK**, **toujours en séquence, jamais deux Godot en parallèle**, un `APK_PARITY_OUT` distinct par run :
   1. `python tools/parity/apk.py` → 6/6
   2. `python tools/parity/apk.py --seeds 4 5 6 7 --players 2 3 4` → 12/12
@@ -77,7 +77,7 @@ Commandes (Windows ; Godot = `C:/Tools/Godot/Godot_v4.7.2-stable_win64_console.e
 
 ## 6. Règles de travail
 
-- **Fichiers moteur** : `Match.gd`, `BossEngine.gd`, `RoomAbilities.gd`, `TnlAbilities.gd`, `RmbAbilities.gd`, `TnlSpells.gd`, `RmbSpells.gd`, `SpellEffects.gd`, `SpellTargeting.gd`, `AI.gd`, `AiWiki.gd`, `GameManager.gd`, `Minibosses.gd` (tous sous `GODOT/scripts/`). Après **tout** changement d'un fichier moteur : les **3 commandes de parité** (§5). Le travail d'UI ne touche pas ces fichiers, sauf bogue moteur prouvé.
+- **Fichiers moteur** : `Match.gd`, `BossEngine.gd`, `RoomAbilities.gd`, `TnlAbilities.gd`, `RmbAbilities.gd`, `TnlSpells.gd`, `RmbSpells.gd`, `ThkAbilities.gd`, `IodAbilities.gd`, `PcwAbilities.gd`, `SpellEffects.gd`, `SpellTargeting.gd`, `AI.gd`, `AiWiki.gd`, `GameManager.gd`, `Minibosses.gd` (tous sous `GODOT/scripts/`). Après **tout** changement d'un fichier moteur : les **3 commandes de parité** (§5). Le travail d'UI ne touche pas ces fichiers, sauf bogue moteur prouvé.
 - Les cartes wiki ne doivent **jamais** faire bouger la parité (conditionner sur le pack actif). Le harnais de parité n'appelle jamais `AI.gd`.
 - **Commit à chaque point vert**, avec le trailer `Co-Authored-By: Claude <modèle> <noreply@anthropic.com>` (le modèle qui a écrit le code, ex. `Claude Sonnet 5.5`). `.uid` suivis par git ; avertissements LF/CRLF sans conséquence.
 - **Langue** : textes d'UI en anglais (comme l'original) ; commentaires dans la langue du fichier (français ou anglais) ; briefs et docs de ce dossier en français.
@@ -88,7 +88,7 @@ Commandes (Windows ; Godot = `C:/Tools/Godot/Godot_v4.7.2-stable_win64_console.e
 
 ## 7. Ordre et critères de passage
 
-1. **Partie 1 est close quand** : tests 9/9 ; parité 6/6 + 12/12 + 6/6 ; graines 10-40 classées (chaque échec = bogue de l'IA oracle documenté, ou corrigé) ; accord IA ≥ seuil fixé au **lot 1.2** ; matrices animations/audio à 100 % « conforme ou écart justifié » ; captures comparées sans écart visible non justifié.
+1. **Partie 1 est close quand** : tests 14/14 ; parité 6/6 + 12/12 + 6/6 ; graines 10-40 classées (chaque échec = bogue de l'IA oracle documenté, ou corrigé) ; accord IA ≥ seuil fixé au **lot 1.2** ; matrices animations/audio à 100 % « conforme ou écart justifié » ; captures comparées sans écart visible non justifié.
 2. **Partie 2 ensuite, partie 3 en dernier.** Les trois briefs sont indépendants dans le texte, mais le lot 3.x « 6 sièges » dépend du **lot 2.4**.
 3. Une partie ne démarre pas tant que la précédente n'a pas ses critères atteints, sauf accord explicite de l'utilisateur.
 
@@ -98,7 +98,7 @@ Commandes (Windows ; Godot = `C:/Tools/Godot/Godot_v4.7.2-stable_win64_console.e
 Tu es un agent Sonnet. Contexte : lis docs/plans/README.md (§5-§6) et la section du lot <X.Y> de docs/plans/partie-<n>-....md.
 Périmètre STRICT — tu peux modifier uniquement : <liste de fichiers>. N'exécute aucune commande git.
 Tâche : <objectif et sources du lot, copiés du brief>.
-Vérification : `python tools/run_godot_tests.py` doit être 9/9, deux fois de suite <+ les 3 commandes de parité si tu touches un fichier moteur, une à la fois>.
+Vérification : `python tools/run_godot_tests.py` doit être 14/14, deux fois de suite <+ les 3 commandes de parité si tu touches un fichier moteur, une à la fois>.
 Réponse finale : fichiers modifiés, résultats des commandes, puis « Qu'est-ce qui diffère encore ? ».
 ```
 

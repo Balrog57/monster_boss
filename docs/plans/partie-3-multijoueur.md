@@ -50,7 +50,7 @@ Remplacer le WORLDWIDE « Unable to join public rooms » par un **vrai lobby : l
 
 **Fichiers cibles** : `GODOT/server/Server.gd`, `GameRoom.gd`, `ViewFilter.gd` (si de nouvelles clés de `G`), `PROTOCOL.md`, `GODOT/tests/online_test.gd`, `deploy/nginx.conf`, `security/SECURITY.md`.
 
-**Critère d'acceptation** : `online_test` couvre le scénario lobby et passe ; `python tools/run_godot_tests.py` 9/9 (deux fois) ; chaque contrôle de sécurité implémenté est coché dans `security/SECURITY.md` **avec la preuve** (test ou commande) ; `PROTOCOL.md` documente tous les nouveaux messages. La parité APK n'est pas concernée (`server/` n'est pas un fichier moteur), sauf si `Match.gd` est touché pour les sièges (alors : 3 commandes, README §5).
+**Critère d'acceptation** : `online_test` couvre le scénario lobby et passe ; `python tools/run_godot_tests.py` 14/14 (deux fois) ; chaque contrôle de sécurité implémenté est coché dans `security/SECURITY.md` **avec la preuve** (test ou commande) ; `PROTOCOL.md` documente tous les nouveaux messages. La parité APK n'est pas concernée (`server/` n'est pas un fichier moteur), sauf si `Match.gd` est touché pour les sièges (alors : 3 commandes, README §5).
 
 ---
 
@@ -68,7 +68,7 @@ Remplacer le WORLDWIDE « Unable to join public rooms » par un **vrai lobby : l
 
 **Fichiers cibles** : `GODOT/scripts/OnlineMenus.gd`, `UiKit.gd`, `OnlineClient.gd`, `Main.gd`, `GODOT/tests/ui_smoke.gd`, `capture_screens.gd`.
 
-**Critère d'acceptation** : la liste apparaît, se rafraîchit, un clic JOIN rejoint une salle publique d'un autre client (test `online_test`/`ui_smoke`) ; plus aucune boîte « Unable to join public rooms » ; décision pass-and-play enregistrée dans `docs/HANDOFF.md` ; captures du lobby dans `docs/reference/godot_screens/` (local) ; `python tools/run_godot_tests.py` 9/9.
+**Critère d'acceptation** : la liste apparaît, se rafraîchit, un clic JOIN rejoint une salle publique d'un autre client (test `online_test`/`ui_smoke`) ; plus aucune boîte « Unable to join public rooms » ; décision pass-and-play enregistrée dans `docs/HANDOFF.md` ; captures du lobby dans `docs/reference/godot_screens/` (local) ; `python tools/run_godot_tests.py` 14/14.
 
 ---
 
