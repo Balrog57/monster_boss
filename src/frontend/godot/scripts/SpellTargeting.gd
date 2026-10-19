@@ -179,11 +179,16 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 					var s: Dictionary = (op["souls"] as Array)[i]
 					if not bool(s.get("tpk", false)):
 						out.append({"targetPlayerId": int(opid), "soulIndex": i, "pile": "souls"})
-		"any-item":
+		"any-item": # THK025 Excavation (case wiki) : face-up seulement s'il n'y a pas deja un autre Objet face visible chez le proprietaire
 			for opid in (G.get("players", {}) as Dictionary):
 				var op: Dictionary = G["players"][opid]
-				for i in (op.get("items", []) as Array).size():
-					out.append({"targetPlayerId": int(opid), "itemIndex": i})
+				var items: Array = op.get("items", [])
+				var has_up := not ThkAbilities.face_up_item(op).is_empty()
+				for i in items.size():
+					var down := bool((items[i] as Dictionary).get("faceDown", false))
+					if down and has_up:
+						continue
+					out.append({"targetPlayerId": int(opid), "itemIndex": i, "flipTo": not down})
 		"crl-finish-him": # CRL029 : tuer un heros a 2 PV ou moins ; OU (si moins d'ames que tous les autres) prendre un heros ayant survecu ce tour
 			for opid in (G.get("players", {}) as Dictionary):
 				var op: Dictionary = G["players"][opid]
@@ -352,10 +357,16 @@ static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary
 		"any-item":
 			for opid in (G.get("players", {}) as Dictionary):
 				var op: Dictionary = G["players"][opid]
+				var has_up := not ThkAbilities.face_up_item(op).is_empty()
 				for i in (op.get("items", []) as Array).size():
 					var it: Dictionary = (op["items"] as Array)[i]
-					out.append({"key": "item-%s-%d" % [str(opid), i], "card": it, "kind": "item",
-						"value": {"targetPlayerId": int(opid), "itemIndex": i}, "label": str(it.get("name", ""))})
+					var down := bool(it.get("faceDown", false))
+					if down and has_up:
+						continue
+					# un Objet face cachee adverse reste secret : ni nom ni carte dans la liste
+					var secret: bool = down and int(opid) != player_id
+					out.append({"key": "item-%s-%d" % [str(opid), i], "card": {"faceDown": true, "name": "Face-down Item"} if secret else it, "kind": "item",
+						"value": {"targetPlayerId": int(opid), "itemIndex": i, "flipTo": not down}, "label": "Face-down Item (P%d)" % (int(opid) + 1) if secret else str(it.get("name", ""))})
 		_:
 			pass
 	return out

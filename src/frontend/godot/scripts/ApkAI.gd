@@ -441,7 +441,7 @@ static func draw_room_probability(G: Dictionary, p: Dictionary, pid: int) -> flo
 
 const AB_SPELLS := ["BMA040", "BMA041", "BMA042", "BMA044", "BMA045", "BMA046", "BMA047", "BMA048", "BMA049", "BMA050", "BMA051", "BMA052", "BMA053", "BMA054", "BMA055", "KSA013"]
 const AB_ROOMS := ["BMA009", "BMA013", "BMA024", "BMA027", "BMA028", "BMA030", "BMA032", "BMA038", "BMA039"]
-const WIKI_PREFIXES := ["TNL", "RMB", "CRL"]
+const WIKI_PREFIXES := ["TNL", "RMB", "CRL", "THK"]
 ## Diagnostic de mesure seulement (ApkParityTrace `--ai-copy-trap-bug`) : reproduit le bogue de CheckBMA040And047 (Giant Size sur une salle Trap).
 static var copy_trap_bug := false
 

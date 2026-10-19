@@ -19,7 +19,9 @@ const ACTIVATABLE_ROOMS := ["BMA009", "BMA013", "BMA024", "BMA027", "BMA028",
 	"TNL013", "TNL017", "TNL022", "TNL030", "TNL032", "TNL033", "TNL035", "TNL040", "TNL041", "TNL042", "TNL045", "TNL046",
 	"TNL048", "TNL049", "TNL053", "TNL055",
 	# Rise of the Minibosses (voir RmbAbilities.ACTIVATED)
-	"RMB013", "RMB015", "RMB019", "RMB022", "RMB026", "RMB038", "RMB042", "RMB043", "RMB044", "RMB045", "RMB047", "RMB052", "RMB053", "RMB054"]
+	"RMB013", "RMB015", "RMB019", "RMB022", "RMB026", "RMB038", "RMB042", "RMB043", "RMB044", "RMB045", "RMB047", "RMB052", "RMB053", "RMB054",
+	# Tools of Hero-Kind (voir ThkAbilities.ACTIVATED ; seulement avec la case wiki)
+	"THK021", "THK022", "THK023"]
 
 var G: Dictionary = {}
 var human_count := 1
@@ -35,6 +37,8 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	var sets := {}
 	for s in p_sets:
 		sets[String(s)] = true
+	if sets.has(ThkAbilities.SET_ID):
+		sets["tools"] = true # Tools of Hero-Kind wiki : les memes cartes que le paquet de l'APK, jouees par ThkAbilities
 	sets["base"] = true # GamePlayBaseScene : cardDecks = { BaseDeck } + les extensions choisies (le jeu de base est toujours present)
 	var in_sets := func(c): return (c as Dictionary).get("set", "base") in sets
 	var bosses: Array = CardDB.bosses.filter(in_sets)
@@ -70,7 +74,12 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	if rmb: # les 10 minibosses sont dans la pioche de salles (livret : « Room Deck with 82 cards »)
 		room_src.append_array(CardDB.expanded_deck(CardDB.minibosses.filter(in_sets)))
 	var room_deck: Array = CardDB.shuffled(room_src.map(_room_card))
+	var thk_live: bool = sets.has(ThkAbilities.SET_ID) # Excavation (THK025) n'est jouable que derriere la case wiki (l'APK : Ability nulle)
 	var spell_deck: Array = CardDB.shuffled(CardDB.expanded_deck(spells).map(func(s): var d = (s as Dictionary).duplicate(); d["isSpell"] = true; return d))
+	if thk_live:
+		for sc in spell_deck:
+			if str((sc as Dictionary).get("id", "")) == "THK025":
+				sc["thkLive"] = true
 	# ItemInfo (ToolsHeroKind) : GameBoard.DeckItems, une carte revelee par tour (2 a 4 joueurs) dans RevealedItemsQueue ; l'APK n'en fait rien d'autre.
 	var items: Array = CardDB.items.filter(func(c): return in_sets.call(c) and int((c as Dictionary).get("playerCount", 2)) <= n)
 	var item_deck: Array = CardDB.shuffled(CardDB.expanded_deck(items).map(func(i): var d = (i as Dictionary).duplicate(); d["isItem"] = true; return d))
@@ -188,6 +197,8 @@ func legal_moves(pid: int) -> Array:
 			out.append_array(TnlAbilities.stack_moves(G, p, pid))
 		if Minibosses.active(G): # Mageseeker niveau 2 : defausse un sort pour annuler un sort adverse
 			out.append_array(Minibosses.stack_moves(G, p, pid))
+		if ThkAbilities.active(G): # Tools of Hero-Kind : capacite de Boss d'un Objet (Ring of Invisibility annule un sort, Excavation peut etre contree)
+			out.append_array(ThkAbilities.use_moves(G, p, pid))
 		out.append({"type": "pass", "args": []})
 		return out
 
@@ -266,6 +277,10 @@ func legal_moves(pid: int) -> Array:
 				var rid := str(rd.get("id", ""))
 				if not ACTIVATABLE_ROOMS.has(rid) or bool(rd.get("usedThisTurn", false)):
 					continue
+				if ThkAbilities.ACTIVATED.has(rid): # Tools of Hero-Kind : verification pure ; jamais hors de la case wiki
+					if ThkAbilities.active(G) and ThkAbilities.check(G, p, pid, i, rd) == "":
+						out.append({"type": "activateRoom", "args": [i]})
+					continue
 				if Minibosses.active(G) and RmbAbilities.ACTIVATED.has(rid): # RMB : verification pure, sans copie de l'etat
 					if RmbAbilities.check(G, p, pid, i, rd) == "":
 						out.append({"type": "activateRoom", "args": [i]})
@@ -279,6 +294,8 @@ func legal_moves(pid: int) -> Array:
 						out.append({"type": "activateRoom", "args": [i]})
 			if TnlAbilities.active(G): # Doc Scarecrow
 				out.append_array(TnlAbilities.extra_moves(G, p, pid))
+			if ThkAbilities.active(G): # Tools of Hero-Kind : capacite de Boss d'un Objet
+				out.append_array(ThkAbilities.use_moves(G, p, pid))
 			if Minibosses.active(G): # Rise of the Minibosses : pose / promotion / pouvoirs des minibosses, capacites de boss et de main, Coins
 				out.append_array(Minibosses.extra_moves(G, p, pid, my_turn))
 			if my_turn or (window and not bool((G["buildWindow"] as Dictionary).get(pid, false))):
@@ -290,10 +307,11 @@ func legal_moves(pid: int) -> Array:
 			var adv: Dictionary = G.get("adventure", {})
 			var has_pause: bool = adv.has("pause") and adv["pause"] != null
 
-			# Sorts jouables en phase ADVENTURE
+			# Sorts jouables en phase ADVENTURE (Ring of Invisibility : aucun sort pour le proprietaire du donjon)
+			var no_spells: bool = ThkAbilities.spells_blocked(G, pid)
 			for i in (p.get("hand", []) as Array).size():
 				var c: Dictionary = (p["hand"] as Array)[i]
-				if not c.get("isSpell", false):
+				if not c.get("isSpell", false) or no_spells:
 					continue
 				if not CardDB.can_play_spell(c, CardDB.PHASE["ADVENTURE"], stack.size()):
 					continue
@@ -310,6 +328,10 @@ func legal_moves(pid: int) -> Array:
 				var rid := str(rd.get("id", ""))
 				if not ACTIVATABLE_ROOMS.has(rid) or bool(rd.get("usedThisTurn", false)):
 					continue
+				if ThkAbilities.ACTIVATED.has(rid): # Tools of Hero-Kind : verification pure ; jamais hors de la case wiki
+					if ThkAbilities.active(G) and ThkAbilities.check(G, p, pid, i, rd) == "":
+						out.append({"type": "activateRoom", "args": [i]})
+					continue
 				if Minibosses.active(G) and RmbAbilities.ACTIVATED.has(rid): # RMB : verification pure, sans copie de l'etat
 					if RmbAbilities.check(G, p, pid, i, rd) == "":
 						out.append({"type": "activateRoom", "args": [i]})
@@ -322,6 +344,8 @@ func legal_moves(pid: int) -> Array:
 					if RoomAbilities.activate_room_ability(G.duplicate(true), pid, i) == null:
 						out.append({"type": "activateRoom", "args": [i]})
 
+			if ThkAbilities.active(G): # Tools of Hero-Kind : capacite de Boss d'un Objet
+				out.append_array(ThkAbilities.use_moves(G, p, pid))
 			if TnlAbilities.active(G) or Minibosses.active(G): # paiement des heros noirs (TNL et RMB)
 				out.append_array(TnlAbilities.extra_moves(G, p, pid))
 			if Minibosses.active(G):
@@ -432,6 +456,8 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 		TnlAbilities.sync_hero(G) # TNL108 Druid : +X PV selon les sorts en main
 	if Minibosses.active(G):
 		Minibosses.normalize(G) # RMB : le miniboss suit la salle du sommet de sa pile
+	if ThkAbilities.active(G):
+		ThkAbilities.sync_hero(G) # Claws of the Berserker : +1 PV par salle Monster du donjon
 	return ok
 
 func _apply_move_core(pid: int, move: Dictionary) -> bool:
@@ -562,6 +588,21 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 			elif not in_battle:
 				_finish_hero_if_dead()
 			return true
+		"useItem": # Tools of Hero-Kind : capacite de Boss d'un Objet face visible (comme une capacite de salle, voir ThkAbilities.use_moves)
+			var in_battle3 := not (G.get("stack", []) as Array).is_empty()
+			var uerr = ThkAbilities.use_item(G, pid, str(move["args"][0]))
+			if uerr != null:
+				_log(str(uerr))
+				return false
+			if G.has("buildWindow"):
+				G["buildWindow"] = _window_auto_passed()
+			if in_battle3:
+				if not (G.get("stack", []) as Array).is_empty():
+					_reopen_stack_window(pid)
+				# pile vide = Ring of Invisibility a annule le dernier sort : la main est deja rendue (stack_return_control), rien a rouvrir
+			else:
+				_finish_hero_if_dead()
+			return true
 		"useHandRoom": # CRL007 Frostman Lander : defausse depuis la main, desactive une salle avancee jusqu'a la fin du tour
 			RoomAbilities.use_hand_room(G, pid, int(move["args"][0]), move["args"][1] if move["args"].size() > 1 and move["args"][1] != null else {})
 			if G.has("buildWindow"):
@@ -656,8 +697,10 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 					return false
 				var hero: Dictionary = entrance[first]
 				var hp := BossEngine.hero_hp(hero)
-				if TnlAbilities.active(G) or Minibosses.active(G):
+				if TnlAbilities.active(G) or Minibosses.active(G) or ThkAbilities.active(G):
 					hp += TnlAbilities.on_hero_start(G, pid, hero) # PV retenus jusqu'a l'entree (Werewolf Den, Lightning Bolt!, Shrooman Aviary), Party Up
+				if ThkAbilities.active(G):
+					hp += ThkAbilities.on_hero_start(G, pid, hero) # Staff of Healing, Oversized Sword, Magic Mirror, Ten Foot Pole, Pet Monster
 				G["adventure"] = {
 					"playerId": pid,
 					"hero": hero,
@@ -665,6 +708,8 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 					"hp": hp,
 					"pause": null
 				}
+				if ThkAbilities.active(G):
+					ThkAbilities.sync_hero(G) # Claws of the Berserker
 				_advance_adventure_room()
 			else:
 				if int(adv.get("playerId", -1)) != pid or adv.get("pause") != null:
@@ -868,6 +913,7 @@ func _resolve_choice(pid: int, index: int) -> void:
 			if index >= 0:
 				RoomAbilities.omega_finish(G, pid, pc.get("omega", {}), int((opts[index] as Dictionary).get("handIndex", -1)))
 		"tnl-pick": # The Next Level : choix generique (TnlAbilities.resolve_pick) ; renvoie l'etape suivante, ou null
+			finish_dead = ThkAbilities.active(G) # THK : Vorpal Blade, The Bomb... peuvent tuer le heros actif
 			var tnext = TnlAbilities.resolve_pick(G, pid, pc, index)
 			if tnext != null:
 				G["pendingChoice"] = tnext
@@ -899,6 +945,9 @@ func _resolve_choice(pid: int, index: int) -> void:
 	# doit se clore (revelation groupee puis leurre).
 	if finish_dead and (G.get("pendingChoice", {}) as Dictionary).is_empty():
 		_finish_hero_if_dead()
+		state_changed.emit()
+	if ThkAbilities.active(G) and (G.get("pendingChoice", {}) as Dictionary).is_empty() and (G.get("adventure", {}) as Dictionary).has("enterPending"):
+		_thk_resume_enter() # Magnetic Ceiling resolu : la salle inflige ses degats
 		state_changed.emit()
 	var cur_pc: Dictionary = G.get("pendingChoice", {}) as Dictionary if G.get("pendingChoice", null) is Dictionary else {}
 	if cur_pc.is_empty() and G.has("tnlGiftBuilt"): # TNL070 Surprise Gift : la salle posee chez l'adversaire a consomme le tour de construction
@@ -980,7 +1029,7 @@ func _deal_opening_hands() -> void:
 		var p: Dictionary = G["players"][pid]
 		var drawn: Array = _draw_opening_rooms(G["decks"]["rooms"]) + CardDB.draw_cards(G["decks"]["spells"], 2)
 		p["hand"] = drawn
-		if p.get("isAI", false) and not _big_hand(): # TNL / RMB : « larger starting hand » = 5 salles + 2 sorts, sans defausse (le mode Classic defausse 2 cartes)
+		if p.get("isAI", false): # tous les modes : 5 salles + 2 sorts, puis defausse de 2 cartes (l'IA ici, l'humain via le choix opening-discard)
 			var pair = AI.select_opening_discards(drawn, p, G)
 			_apply_opening_discard(pid, pair[0], pair[1])
 	if _big_hand():
@@ -988,7 +1037,7 @@ func _deal_opening_hands() -> void:
 	G["xpOrder"] = CardDB.order_by_xp(G["players"])
 	_queue_next_opening_discard()
 
-## Mise en place des livrets TNL et RMB : 5 salles + 2 sorts gardes (7 cartes), defausse amorcee.
+## Mise en place des livrets TNL et RMB : la defausse est amorcee par 4 salles + 2 sorts au hasard (la defausse de 2 cartes a l'ouverture vaut pour tous les modes).
 func _big_hand() -> bool:
 	return TnlAbilities.active(G) or Minibosses.active(G)
 
@@ -1011,7 +1060,7 @@ func _apply_opening_discard(pid: int, a: int, b: int) -> void:
 func _queue_next_opening_discard() -> void:
 	for pid in G["players"]:
 		var p: Dictionary = G["players"][pid]
-		if not p.get("eliminated", false) and not p.get("isAI", false) and (p.get("hand", []) as Array).size() > (7 if _big_hand() else 5):
+		if not p.get("eliminated", false) and not p.get("isAI", false) and (p.get("hand", []) as Array).size() > 5:
 			G["pendingChoice"] = {
 				"type": "opening-discard",
 				"playerId": int(pid),
@@ -1079,6 +1128,8 @@ func _finish_setup() -> void:
 func _start_turn() -> void:
 	G["setupBuild"] = false
 	G["turn"] = int(G.get("turn", 0)) + 1
+	if ThkAbilities.active(G):
+		ThkAbilities.on_turn_start(G) # la Blessure supplementaire de Vorpal Blade disparait
 	# Les effets « jusqu'a la fin du tour » (Jackpot Stash, bonus de degats...) expirent (reducer.js beginPhaseBeginning).
 	G["effects"] = SpellEffects.empty_effects()
 	# Phase 1 : BEGINNING (Début de tour)
@@ -1153,6 +1204,9 @@ func _draw_turn_card(p: Dictionary, pile: String) -> void:
 ## GameBoard.RevealItems : 1 objet par tour (2 a 4 joueurs), vers RevealedItemsQueue. Rien ne l'attache a un heros dans l'APK 2.2.6
 ## (FlipItem.Execute leve NotImplemented, ItemInfo.HeroAbility/BossAbility sont nuls) : ce sont des cartes inertes.
 func _reveal_items() -> void:
+	if ThkAbilities.active(G): # case wiki : l'Objet rejoint la ville et s'attache a un heros (ThkAbilities)
+		ThkAbilities.reveal_items(G)
+		return
 	var deck: Array = (G["decks"] as Dictionary).get("items", [])
 	var queue: Array = G.get("itemQueue", [])
 	G["itemQueue"] = queue
@@ -1172,6 +1226,8 @@ func _reveal_heroes_in_town() -> void:
 			drawn = CardDB.draw_cards(decks["epics"], 1)
 		if not drawn.is_empty():
 			(G["town"] as Array).append(drawn[0])
+	if ThkAbilities.active(G):
+		ThkAbilities.attach_all(G) # un Objet encore en ville s'attache aux heros qui viennent d'arriver
 	_log("%d héros sont en ville." % (G["town"] as Array).size())
 
 ## Le joueur actif vient de consommer son tour de construction : on passe au
@@ -1433,7 +1489,7 @@ func _stack_response_moves(p: Dictionary, pid: int, stack_len: int) -> Array:
 	var hand: Array = p.get("hand", []) as Array
 	for i in hand.size():
 		var c: Dictionary = hand[i]
-		if not c.get("isSpell", false) or not CardDB.can_play_spell(c, phase, stack_len):
+		if not c.get("isSpell", false) or not CardDB.can_play_spell(c, phase, stack_len) or ThkAbilities.spells_blocked(G, pid):
 			continue
 		for t in SpellTargeting.spell_targets_for(G, p, pid, str(c.get("id", ""))):
 			out.append({"type": "playSpell", "args": [i, t]})
@@ -1448,6 +1504,9 @@ func _stack_response_moves(p: Dictionary, pid: int, stack_len: int) -> Array:
 			continue
 		if rid == "BMA025":
 			if RoomAbilities.can_cancel_spell(G, pid) and not TnlAbilities.no_text(rd):
+				out.append({"type": "activateRoom", "args": [i]})
+		elif ThkAbilities.ACTIVATED.has(rid): # Tools of Hero-Kind : verification pure
+			if ThkAbilities.active(G) and ThkAbilities.check(G, p, pid, i, rd) == "":
 				out.append({"type": "activateRoom", "args": [i]})
 		elif Minibosses.active(G) and RmbAbilities.ACTIVATED.has(rid): # RMB : verification pure (une copie profonde de l'etat perd l'identite des heros)
 			if RmbAbilities.check(G, p, pid, i, rd) == "":
@@ -1701,6 +1760,9 @@ func _advance_adventure_room() -> void:
 	if Minibosses.active(G) and not replayed and not went_back:
 		i = RmbAbilities.on_advance(G, pid, prev, i) # RMB : Foyer Elemental (le heros survit a la salle), Mageseeker niveau 3 (saute la premiere salle)
 		adv["roomIndex"] = i
+	if ThkAbilities.active(G) and not replayed and not went_back:
+		i = ThkAbilities.on_room_exit(G, pid, prev, i) # THK : Ice Rod, Inquisitor's Robes, Bag of Holding, Boots of Jumping
+		adv["roomIndex"] = i
 
 	if i < 0: # emplacement vide traverse apres la destruction de la salle du heros (BossEngine.destroy_room) : aucun degat
 		adv["pause"] = "post-damage"
@@ -1719,8 +1781,34 @@ func _advance_adventure_room() -> void:
 
 	if TnlAbilities.active(G):
 		TnlAbilities.on_room_enter(G, pid, i, room as Dictionary) # Fairy Fountain (+1 PV), memoire d'entree (Inner Sanctum)
+	if ThkAbilities.active(G):
+		var thk_enter := ThkAbilities.on_room_enter(G, pid, i, room as Dictionary)
+		if thk_enter == "pending": # Magnetic Ceiling : le choix est ouvert, la salle est jouee a sa resolution (_thk_resume_enter)
+			return
+		if thk_enter == "bomb": # The Bomb : la derniere salle est detruite, aucun degat
+			adv["pause"] = "post-damage"
+			G["adventurePausePassed"] = {}
+			return
+	_room_damage(pid, i)
+
+## Reprise de la salle `i` apres le choix de Magnetic Ceiling.
+func _thk_resume_enter() -> void:
+	var adv: Dictionary = G.get("adventure", {})
+	if adv.is_empty() or not adv.has("enterPending"):
+		return
+	var i := int(adv["enterPending"])
+	adv.erase("enterPending")
+	_room_damage(int(adv["playerId"]), i)
+
+## Degats de la salle `i` au heros actif de `pid`, puis pause « apres les degats ».
+func _room_damage(pid: int, i: int) -> void:
+	var adv: Dictionary = G.get("adventure", {})
+	var p: Dictionary = G["players"][pid]
+	var hero: Dictionary = adv["hero"]
+	var room = BossEngine.active_room((p.get("dungeon", []) as Array)[i])
 	var dmg := BossEngine.room_damage_with_modifiers(G, p, i, hero)
 	adv["hp"] = int(adv["hp"]) - dmg
+	adv["thkDamage"] = int(adv.get("thkDamage", 0)) + dmg # Vorpal Blade : degats deja subis par le heros
 	adv["pause"] = "post-damage"
 	G["adventurePausePassed"] = {}
 	# FirstTimeHeroEnterThisRoom (GameBoard.ProccessActiveHero : slot plus proche du boss que jamais, salle active) :
@@ -1810,11 +1898,16 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 	G["adventure"] = {}
 	G["adventurePausePassed"] = {}
 
-	if hp <= 0:
+	var returned := hp <= 0 and ThkAbilities.active(G) and ThkAbilities.extra_life(G, pid, hero) # THK001 Extra Life : le heros retourne en ville
+	if returned:
+		pass
+	elif hp <= 0:
 		var souls := BossEngine.hero_souls(hero)
 		for s in souls:
 			(p["souls"] as Array).append(CardDB.soul_entry(hero))
 		_log("Âme capturée ! (%d/%d)" % [CardDB.total_souls(p, G), WIN_SOULS])
+		if ThkAbilities.active(G): # l'Objet du heros tue : face visible chez le tueur (choix s'il a deja un Objet face visible)
+			TnlAbilities.emit(G, ThkAbilities.claim_item(G, pid, ThkAbilities.detach(hero)))
 		if TnlAbilities.active(G):
 			TnlAbilities.on_hero_killed(G, pid) # TNL011 Angstigoth
 		if Minibosses.active(G):
@@ -1833,20 +1926,23 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 				"turn": int(G.get("turn", 0)), # tour ou il a survecu (CRL029 Finish Him!)
 					"hero": hero # identite du heros blesse (Vampire Bordello : FlipHero cible un heros)
 			})
+		if ThkAbilities.active(G):
+			ThkAbilities.on_hero_survived(G, pid, hero) # THK : Vorpal Blade, Holy Hand Grenade, Antimagic Lizard, Necronomicon ; l'Objet va face cachee
 		_log("Le héros survit et blesse le boss ! (%d blessures)" % CardDB.total_wounds(p))
-		if CardDB.total_wounds(p) >= 5:
+		if CardDB.total_wounds(p) >= 5 and not ThkAbilities.wound_immune(G, pid):
 			p["eliminated"] = true
 			entrance.clear() # GameBoard.ChooseNextActiveHero : !IsAlive => EntranceQueue.Clear()
 			_log("Joueur %d éliminé !" % pid)
 		if TnlAbilities.active(G) and not bool(p.get("eliminated", false)):
 			TnlAbilities.on_hero_survived(G, pid, hero) # TNL100 Necromancer
 
-	(G["decks"]["heroDiscard"] as Array).append(hero)
+	if not returned:
+		(G["decks"]["heroDiscard"] as Array).append(hero)
 	G["lastHeroFight"] = {
 		"pid": pid,
 		"hero": hero,
 		"initialHp": BossEngine.hero_hp(hero),
-		"killed": (hp <= 0),
+		"killed": (hp <= 0 and not returned),
 		"deathIndex": death_index,
 	}
 	# Le joueur actif vient d'etre elimine : plus aucun coup possible pour lui, la main passe au suivant
@@ -1868,14 +1964,14 @@ func _check_end_or_next_turn() -> void:
 	# Vérification des éliminations (5 blessures)
 	for pid in G["players"]:
 		var p: Dictionary = G["players"][pid]
-		if CardDB.total_wounds(p) >= 5:
+		if CardDB.total_wounds(p) >= 5 and not ThkAbilities.wound_immune(G, int(pid)): # THK001 Extra Life : aucune perte par Blessures ce tour
 			p["eliminated"] = true
 
 	# Joueurs ayant 10 âmes et moins de 5 blessures (règle GameBoard.cs:1041-1049)
 	var winners_10_souls: Array = []
 	for pid in G["players"]:
 		var p: Dictionary = G["players"][pid]
-		if CardDB.total_souls(p, G) >= WIN_SOULS and CardDB.total_wounds(p) < 5 and not (TnlAbilities.active(G) and TnlAbilities.cannot_win(G, int(pid))): # TNL062 Meddling Kids!
+		if CardDB.total_souls(p, G) >= WIN_SOULS and (CardDB.total_wounds(p) < 5 or ThkAbilities.wound_immune(G, int(pid))) and not (TnlAbilities.active(G) and TnlAbilities.cannot_win(G, int(pid))): # TNL062 Meddling Kids!
 			winners_10_souls.append(int(pid))
 
 	if not winners_10_souls.is_empty():

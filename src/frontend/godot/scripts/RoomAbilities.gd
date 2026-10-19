@@ -144,6 +144,8 @@ static func activate_room_ability(G: Dictionary, player_id: int, room_index: int
 	# Les salles de l'APK gardent leur propre controle plus bas (parite), les coups legaux passent par cette fonction.
 	if ApkAI.is_wiki_card(str(r.get("id", ""))) and (bool(r.get("faceDown", false)) or BossEngine.is_room_deactivated(G, player_id, room_index)):
 		return "room is face down or frozen"
+	if ThkAbilities.ACTIVATED.has(str(r.get("id", ""))): # Tools of Hero-Kind : Orcish Smithy, Burial Mound, Artificer's Workbench (seulement avec la case wiki)
+		return ThkAbilities.activate(G, p, player_id, room_index, r)
 	if Minibosses.active(G) and RmbAbilities.ACTIVATED.has(str(r.get("id", ""))): # Rise of the Minibosses : capacites activees des salles RMB
 		return RmbAbilities.activate(G, p, player_id, room_index, r)
 	if TnlAbilities.active(G):

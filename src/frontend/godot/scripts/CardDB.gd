@@ -306,7 +306,7 @@ static func can_play_spell(card: Dictionary, phase: String, stack_len: int = 0) 
 	if (cid == "BMA043" or cid == "RMB077") and stack_len == 0:
 		return false # Counterspell / Short Circuit : exigent un sort adverse en attente (SpellCardJustPlayed)
 	if cid == "THK025":
-		return false # ToolsHeroKind : Ability nulle dans data.json (CheckConditions exige >= 1 effet) -> jamais jouable dans l'APK
+		return bool(card.get("thkLive", false)) # ToolsHeroKind : Ability nulle dans data.json (CheckConditions exige >= 1 effet) -> jamais jouable dans l'APK ; seule la case wiki la rend jouable (n'importe quand)
 	if SPELL_PHASE.has(cid):
 		var w: String = SPELL_PHASE[cid]
 		return w == phase or (w == "any" and (phase == PHASE["BUILD"] or phase == PHASE["ADVENTURE"]))

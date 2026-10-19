@@ -264,7 +264,7 @@ func _t_new_match_decks() -> void:
 	_ok.call(only_tnl and _count(both["decks"]["rooms"], "RMB") == 82 and _count(both["decks"]["rooms"], "TNL") == 75, "TNL + RMB : un seul paquet de heros (TNL), salles des deux extensions")
 	m.queue_free()
 
-## Livret : 5 salles + 2 sorts sans defausse (main de 7), 3 Coins ; defausse amorcee par 4 salles + 2 sorts.
+## Livret : 5 salles + 2 sorts (puis defausse de 2 cartes, regle commune a tous les modes), 3 Coins ; defausse amorcee par 4 salles + 2 sorts.
 func _t_setup_hands() -> void:
 	var m = load("res://godot/scripts/Match.gd").new()
 	host.add_child(m)
@@ -272,8 +272,11 @@ func _t_setup_hands() -> void:
 	for pid in [0, 1]:
 		var pick: Dictionary = (G["bossPicks"] as Array)[0]
 		m.apply_move(pid, {"type": "pickBoss", "args": [pick["id"]]})
-	_ok.call(_hand(G, 0).size() == 7 and _hand(G, 1).size() == 7 and _pending(G).is_empty(), "RMB : main de depart de 7 cartes, sans defausse d'ouverture")
+	_ok.call(_hand(G, 0).size() == 7 and _hand(G, 1).size() == 7 and str(_pending(G).get("type", "")) == "opening-discard", "RMB : 5 salles + 2 sorts, puis defausse de 2 cartes au choix")
 	_ok.call(_decks(G, "roomDiscard").size() == 4 and _decks(G, "spellDiscard").size() == 2, "RMB : defausse amorcee par 4 salles + 2 sorts")
+	m.apply_move(0, {"type": "openingDiscard", "args": [0, 1]})
+	m.apply_move(1, {"type": "openingDiscard", "args": [0, 1]})
+	_ok.call(_hand(G, 0).size() == 5 and _hand(G, 1).size() == 5 and _pending(G).is_empty(), "RMB : 5 cartes gardees apres la defausse d'ouverture")
 	_ok.call(_coins(G, 0) == 3 and _coins(G, 1) == 3, "RMB : 3 Coins au depart")
 	m.queue_free()
 

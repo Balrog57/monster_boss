@@ -8,10 +8,12 @@ extends Control
 
 ## Extensions du wiki hors APK (bascule « Options »).
 const EXT_PACKS := ["next-level", "minibosses", "crash-landing"]
+## Paquet de l'APK dont les cartes ne se jouent QUE derriere la case wiki (Tools of Hero-Kind : l'APK ne les joue pas) : grise sans la case.
+const WIKI_GATED := ["tools"]
 ## Paquets de l'APK (ExpansionScene) : le jeu de base est toujours present, les autres se combinent librement.
 ## Boutique supprimee : tout est debloque (ToolsHeroKind, « COMING SOON » dans l'APK, est jouable ici : Match gere deja les Items).
 const APK_DECKS := [
-	{"id": "tools", "name": "TOOLS OF HERO KIND", "info": "20 item cards", "playable": true, "art": "tools_of_hero_front", "desc": "Adds 20 Item cards. One Item is revealed each turn: Heroes carry Power-Ups, and killing them earns the Reward."},
+	{"id": "tools", "name": "TOOLS OF HERO KIND", "info": "20 item cards", "playable": true, "art": "tools_of_hero_front", "desc": "Adds 20 Item cards. One Item is revealed each turn: Heroes carry Power-Ups, and killing them earns the Reward. The APK leaves the Items inert: they are only played with the wiki expansions option checked."},
 	{"id": "players-choice", "name": "THE PLAYER'S CHOICE", "info": "7 bosses, 3 epic heroes, 1 spell", "playable": true, "art": "the_players_choice_front", "desc": "Cards chosen by the community: 7 new Bosses, 3 Epic Heroes and 1 Spell."},
 	{"id": "hidden-heroes", "name": "HIDDEN HEROES", "info": "+41 new heroes", "playable": true, "art": "hidden_heroes_front", "desc": "An alternate set of 41 Heroes, hidden in the shadows of Arcadia's dungeons, that replace their base set counterparts."},
 	# Extension du wiki hors APK (livret docs/rules « The Next Level » + FAQ) : paquets de heros TNL (noirs, hybrides), defausse amorcee, main de depart de 7.
@@ -87,7 +89,10 @@ func _deck_playable(id: String) -> bool:
 
 func _active_sets() -> Array:
 	# Les paquets du wiki ne comptent que si l'option « Extensions du wiki » est cochee.
-	return apk_decks.filter(func(d): return use_extensions or not EXT_PACKS.has(d))
+	var sets: Array = apk_decks.filter(func(d): return use_extensions or not (EXT_PACKS.has(d) or WIKI_GATED.has(d)))
+	if sets.has("tools"):
+		sets.append(ThkAbilities.SET_ID) # case wiki cochee : les Objets et les salles THK se jouent (ThkAbilities)
+	return sets
 
 # --- transitions ----------------------------------------------------------------
 
@@ -361,12 +366,16 @@ func _draw_tiles() -> void:
 
 func _draw_tile(d: Dictionary, pos: Vector2, s: float) -> void:
 	var id := str(d["id"])
-	var on := id == "base" or apk_decks.has(id)
+	var gated := WIKI_GATED.has(id) and not use_extensions # THK : grise et non selectionnable sans la case wiki
+	var on := id == "base" or (apk_decks.has(id) and not gated)
 	var w := 285.0 * s
 	var h := 453.0 * s
 	dyn_root.add_child(_tex("expansions/bg_expansion_selected.webp" if on else "expansions/bg_expansion.webp", pos, Vector2(w, h)))
 	if d.has("art"):
-		dyn_root.add_child(_tex("expansions/%s.webp" % d["art"], pos + Vector2(15, 13) * s, Vector2(249, 304) * s))
+		var art := _tex("expansions/%s.webp" % d["art"], pos + Vector2(15, 13) * s, Vector2(249, 304) * s)
+		if gated:
+			art.material = _gray_mat()
+		dyn_root.add_child(art)
 	else: # extension du wiki : pas d'illustration, le nom tient lieu de couverture
 		dyn_root.add_child(_lbl(str(d["name"]), int(26 * s), GOLD, pos + Vector2(14, 20) * s, Vector2(257, 280) * s, FONT_A))
 	if id == "base":
@@ -374,6 +383,8 @@ func _draw_tile(d: Dictionary, pos: Vector2, s: float) -> void:
 	if not _is_wiki(d): # les infos des paquets du wiki sont trop longues : elles sont dans la fenetre « ? »
 		dyn_root.add_child(_lbl(str(d.get("info", "")).to_upper(), int(17 * s), Color.WHITE, pos + Vector2(14, 322) * s, Vector2(257, 62) * s, FONT_A))
 	dyn_root.add_child(_hit(pos, Vector2(w, h - 70 * s), func():
+		if gated:
+			return
 		if apk_decks.has(id):
 			apk_decks.erase(id)
 		else:

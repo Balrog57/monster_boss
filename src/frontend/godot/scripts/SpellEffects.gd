@@ -423,7 +423,10 @@ static func _excavation(G: Dictionary, caster_id: int, _card: Dictionary, target
 		_log(G, "Excavation: no item to flip.")
 		return true
 	var it: Dictionary = items[idx]
-	it["faceDown"] = not bool(it.get("faceDown", false))
+	var flip_to: bool = bool(target["flipTo"]) if target.has("flipTo") else not bool(it.get("faceDown", false)) # le sens est choisi au lancer (le proprietaire a pu repondre avec l'Objet)
+	if not flip_to and not ThkAbilities.face_up_item(owner).is_empty() and not is_same(ThkAbilities.face_up_item(owner), it):
+		flip_to = true # un seul Objet face visible par scorekeeping
+	it["faceDown"] = flip_to
 	var face := "face-down" if bool(it["faceDown"]) else "face-up"
 	if bool(it["faceDown"]): # l'objet retourne face cachee redevient secret pour les autres joueurs
 		_log(G, "Excavation: flipped %s %s." % [str(it.get("name", "?")), face], "Excavation: flipped an item face-down.", [pid, caster_id])

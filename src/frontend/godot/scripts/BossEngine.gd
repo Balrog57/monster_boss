@@ -286,6 +286,8 @@ static func abilities_locked(G: Dictionary, player_id: int) -> bool:
 	var ha = ((adv as Dictionary).get("hero", {}) as Dictionary).get("heroAbility")
 	if Minibosses.active(G) and Minibosses.hero_text_ignored(G, int(player_id)): # RMB061 Icicle Man niveau 2, RMB059 Cerebella niveau 3
 		return false
+	if ThkAbilities.cheat_code(G, int(player_id)): # THK014 Cheat Code : le texte des salles du donjon est ignore tant que ce heros y est
+		return true
 	return ha is Dictionary and str((ha as Dictionary).get("cmd", "")) == "DeactivateDungeonAbility"
 
 static func is_build_blocked(G: Dictionary) -> bool:
@@ -410,6 +412,8 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 	if ha is Dictionary and str((ha as Dictionary).get("cmd", "")) == "HeroResistDamageRoomType" and dmg != 0 and not (Minibosses.active(G) and Minibosses.hero_text_ignored(G, pid)) \
 			and str(r.get("type", "")) == str(((ha as Dictionary).get("args", ["0", ""]) as Array)[1]).to_lower():
 		dmg -= int(((ha as Dictionary)["args"] as Array)[0])
+	if hero is Dictionary and ThkAbilities.active(G): # Tools of Hero-Kind : Goblin Suit, Star of Invulnerability (Objet porte par le heros)
+		dmg = ThkAbilities.adjust_damage(player, G, room_index, r, hero as Dictionary, dmg)
 
 	return maxi(0, dmg)
 

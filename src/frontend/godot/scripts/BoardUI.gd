@@ -1264,6 +1264,7 @@ func _refresh_town(G: Dictionary) -> void:
 		town_container.add_child(hero_card)
 		hero_card.is_in_hand = false
 		hero_card.setup(hero)
+		_item_tag(hero_card, hero)
 		hero_card.long_pressed.connect(_zoom_show)
 		hero_card.long_released.connect(func(_c): _zoom_close())
 		ids.append(hero.get("id", hero))
@@ -1375,9 +1376,28 @@ func _create_entrance_card(hero: Dictionary) -> Control:
 	c.size = HERO_CARD
 	c.is_in_hand = false
 	c.setup(hero)
+	_item_tag(c, hero)
 	c.long_pressed.connect(_zoom_show)
 	c.long_released.connect(func(_c): _zoom_close())
 	return c
+
+## Tools of Hero-Kind (case wiki) : le nom de l'Objet attache au heros, en bandeau au pied de sa carte.
+func _item_tag(card: Control, hero: Dictionary) -> void:
+	var it := ThkAbilities.item_of(hero)
+	if it.is_empty():
+		return
+	var tag := Label.new()
+	tag.text = "ITEM: " + str(it.get("name", "?")).to_upper()
+	tag.add_theme_font_size_override("font_size", 13)
+	tag.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	tag.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	tag.add_theme_constant_override("outline_size", 5)
+	tag.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tag.size = Vector2(card.default_size.x if "default_size" in card else 154.0, 34.0)
+	tag.position = Vector2(0.0, (card.default_size.y if "default_size" in card else 215.0) - 38.0)
+	card.add_child(tag)
 
 func _refresh_boss_platforms(p: Dictionary, foe: Dictionary) -> void:
 	_set_boss(_lane[1], p.get("boss"), bool(p.get("eliminated", false)))
@@ -2346,7 +2366,7 @@ func _refresh_undoable(my_moves: Array) -> void:
 ## CardManagerComponent.RefreshCardsStatus:162, HumanPlayerInteraction:140) ; l'IA, elle, joue ces fenetres via DoPlayerActions. `legal_moves`
 ## reste donc inchange (IA Godot, rejeu de l'oracle) et seule la vue du joueur filtre : cartes grisees, aucune fenetre, aucun clic d'activation.
 const NO_HERO_BLOCKED := ["playSpell", "activateRoom", "useHandRoom", "docScarecrow", "payDarkHero", "payDarkCoins", "timebenderCancel", "antimagicCancel",
-	"promoteMiniboss", "activateMiniboss", "discardForCoin", "rmbBoss", "rmbHand", "rmbPay", "rmbCancel"]
+	"promoteMiniboss", "activateMiniboss", "discardForCoin", "rmbBoss", "rmbHand", "rmbPay", "rmbCancel", "useItem"]
 
 func _my_moves(pid: int) -> Array:
 	var moves: Array = game_manager.legal_moves(pid)
@@ -2966,6 +2986,8 @@ func _move_label(m: Dictionary, _G: Dictionary, hand: Array) -> String:
 			return "%s: LEVEL %d POWER" % [mname, int(args[1])]
 		"discardForCoin":
 			return "DISCARD %s: +1 COIN" % hand_name
+		"useItem":
+			return "ITEM: %s" % ThkAbilities.item_name(str(args[0]))
 		"rmbBoss":
 			return "BOSS: %s (%s)" % [str(args[0]), "CANCEL THE TRAPS' +1" if str(args[0]) == "RMB011" else "2 COINS"]
 		"rmbHand":

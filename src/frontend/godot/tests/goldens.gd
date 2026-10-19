@@ -134,6 +134,7 @@ func _ready() -> void:
 	load("res://godot/tests/goldens_tnl.gd").new().run(_ok, self) # extension The Next Level (TNL, hors APK)
 	load("res://godot/tests/goldens_crl.gd").new().run(_ok, self) # extension wiki Crash Landing (CRL, hors APK)
 	load("res://godot/tests/goldens_rmb.gd").new().run(_ok, self) # extension wiki Rise of the Minibosses (RMB, hors APK)
+	load("res://godot/tests/goldens_thk.gd").new().run(_ok, self) # extension wiki Tools of Hero-Kind (THK, hors APK : derriere la case wiki)
 	load("res://godot/tests/goldens_undo.gd").new().run(_ok, self) # APK : pool de boss complet, pose de salle revocable jusqu'a DONE
 	load("res://godot/tests/goldens_ai.gd").new().run(_ok, self) # IA : cartes wiki jouees dans la bonne situation, construction immediate dans un nouvel emplacement
 

@@ -22,6 +22,14 @@ const ALLOW := {
 	"TNL048": "The Smashinator : +6 mais detruit le reste du donjon, joue seulement pour tuer un heros avec 3 blessures ou plus ; choisi 3 fois sur 20 offres avec next-level seul, 0 sur 3 offres avec tous les paquets (60 parties)",
 	"TNL063": "Oh, Yeah! : l'echange de deux salles ne vaut que par les bonus de voisinage (gain > 0 jamais vu sur 137 offres en construction) et la destruction exige 2 de vos salles detruites ce tour (jamais reunie) ; choisi 2 fois sur 14 avec next-level seul, 0 sur 14 avec next-level+crash-landing (60 parties)",
 	"RMB053": "The Keystone : se detruit pour 1 Coin par salle restante, joue seulement en construction avec 3 salles restantes ou plus et un miniboss a poser ; choisi 2 fois sur 21 offres avec minibosses seul, 0 sur 17 offres avec tous les paquets (60 parties)",
+	"RMB026": "Training Camp : double la salle Monster la plus forte, joue seulement si cela tue le heros de mon donjon ; choisi 2 fois sur 33 offres avec minibosses seul (180 parties : seeds 1-20 et 101-140), 0 sur 13 offres sur les seeds 1-20",
+	"THK005": "Goblin Suit (Boss) : +1 a mes Monster ordinaires, joue seulement si cela tue le heros adverse qui atteindrait le Boss ; choisi 1 fois sur 24 offres avec tools-wiki (180 parties : seeds 1-20 et 101-140, 2 a 4 joueurs), 0 sur 7 offres sur les seeds 1-20",
+	"THK006": "Claws of the Berserker (Boss) : +1 PV par salle Monster a un heros, joue seulement pour sauver de la marge exacte le heros qui blesserait un adversaire ; choisi 3 fois sur 25 offres avec tools-wiki seul (180 parties), 0 sur 10 offres avec tools-wiki+next-level (120 parties : seeds 1-40)",
+	"THK020": "Ring of Invisibility (Boss) : annule un sort adverse joue pendant MA phase d'aventure, donc exige un Anneau en service ET un sort adverse sur la pile : offert 6 fois sur 180 parties avec tools-wiki seul (choisi 4 fois), 0 offre sur 120 parties avec tools-wiki+crash-landing (seeds 1-40)",
+	"THK007": "Oversized Sword (Boss) : +5 PV a un heros, joue seulement pour sauver de la marge exacte le heros qui blesserait un adversaire (heros d'un donjon adverse) ; choisi 5 fois sur 22 offres avec tools-wiki (180 parties), 0 sur 5 offres sur les seeds 1-20",
+	"THK017": "Boots of Jumping (Boss) : le heros adverse ignore sa prochaine salle, joue seulement si cela le sauve de la marge exacte ; choisi 1 fois sur 21 offres avec tools-wiki (180 parties), 0 sur 15 offres sur les seeds 101-140",
+	"THK018": "Pet Monster (Boss) : desactive la pire salle Monster restante devant le heros adverse, joue seulement si cela le sauve de la marge exacte ; choisi 2 fois sur 36 offres avec tools-wiki (180 parties), 0 sur 23 offres sur les seeds 101-140",
+	"THK022": "Burial Mound : defausse 2 salles pour remettre un Objet en service, joue seulement avec 5 cartes en main ou plus ; choisi 4 fois sur 10 offres avec tools-wiki seul, 0 sur 2 offres avec tous les paquets (60 parties)",
 	"RMB059": "Cerebella : niveau 3 = les heros ignorent leur texte dans un donjon ; sans objet quand aucun heros n'a de capacite de carte (les heros RMB n'en ont pas, hors les noirs dont le paiement en Coins n'est pas valorise par l'IA) : offert 8 fois sur 60 parties, 0 choix",
 }
 const SoakSeed = preload("res://godot/tests/soak_seed.gd")
@@ -33,6 +41,7 @@ var _g_chosen: Dictionary = {}
 var level3: Dictionary = {}    # id de miniboss -> nombre de parties ou il a atteint le niveau 3 (revele)
 var _g_level3: Dictionary = {}
 var _m = null
+var _count := ""   # --count=useItem : affiche choisi/offert (en parties) de chaque cle commencant par ce prefixe
 var _debug := ""   # --debug=cle : affiche le score de chaque coup offert portant cette cle (phase, marge du heros actif)
 
 func _ready() -> void:
@@ -47,6 +56,8 @@ func _ready() -> void:
 			games = int(a.substr(8))
 		elif a.begins_with("--players="):
 			counts = [int(a.substr(10))]
+		elif a.begins_with("--count="):
+			_count = a.substr(8)
 		elif a.begins_with("--debug="):
 			_debug = a.substr(8)
 		elif a.begins_with("--seed="):
@@ -82,15 +93,22 @@ func _ready() -> void:
 			rare.append("%s (%d/%d)" % [k, chosen[k], offered[k]])
 	never.sort()
 	rare.sort()
+	if _count != "":
+		var lines: Array = []
+		for k in offered:
+			if str(k).begins_with(_count):
+				lines.append("%s %d/%d" % [k, int(chosen.get(k, 0)), int(offered[k])])
+		lines.sort()
+		print("CENSUS compteurs (choisi/offert en parties) : ", lines)
 	print("CENSUS jamais choisi: ", never)
 	print("CENSUS rarement choisi (<25%): ", rare)
 	var unseen: Array = []
 	var card_set: Dictionary = {}   # id -> paquet
-	for list in [CardDB.rooms, CardDB.spells, CardDB.minibosses]:
+	for list in [CardDB.rooms, CardDB.spells, CardDB.minibosses, CardDB.items]:
 		for c in list:
 			var d: Dictionary = c
 			var id := str(d.get("id", ""))
-			card_set[id] = str(d.get("set", "base"))
+			card_set[id] = _pack_of(d, sets)
 			if not sets.has(card_set[id]) or card_set[id] == "base":
 				continue
 			var seen := false
@@ -144,6 +162,11 @@ func _ready() -> void:
 		print("CENSUS FAIL: ", failed)
 		get_tree().quit(1)
 
+## Paquet recense d'une carte : les cartes « tools » (THK) sont des cartes WIKI quand la case wiki (`tools-wiki`) est demandee ; sans elle, c'est le deck inerte de l'APK.
+func _pack_of(d: Dictionary, sets: Array) -> String:
+	var st := str(d.get("set", "base"))
+	return ThkAbilities.SET_ID if st == "tools" and sets.has(ThkAbilities.SET_ID) else st
+
 func _key(m, pid: int, mv: Dictionary) -> String:
 	var G: Dictionary = m.G
 	var p: Dictionary = (G["players"] as Dictionary)[pid]
@@ -166,6 +189,12 @@ func _key(m, pid: int, mv: Dictionary) -> String:
 				var r = BossEngine.active_room(dungeon[ri])
 				if r != null:
 					return t + ":" + str((r as Dictionary).get("id", ""))
+		"useItem": # Tools of Hero-Kind : capacite de Boss d'un Objet face visible
+			return t + ":" + str(a[0])
+		"resolveChoice": # Magnetic Ceiling (declencheur facultatif) : prendre l'Objet du heros (indice >= 0) plutot que refuser (-1)
+			var pc: Dictionary = G.get("pendingChoice", {})
+			if str(pc.get("step", "")) == "thk_ceiling" and not a.is_empty() and int(a[0]) >= 0:
+				return "resolveChoice:THK024"
 		"rmbBoss":
 			return t + ":" + str(a[0])
 		"rmbPay":
@@ -213,7 +242,7 @@ func _play(n_players: int, sets: Array, s: int) -> bool:
 	_m = m
 	m.start_new_game(n_players, 0, sets)
 	# Les cartes des paquets wiki sont rares dans une pioche melangee : on en ajoute 2 exemplaires, et les 4 premiers boss sont des boss wiki tournants.
-	var wiki := func(c): return str((c as Dictionary).get("set", "base")) != "base" and sets.has(str((c as Dictionary).get("set", "base")))
+	var wiki := func(c): return str((c as Dictionary).get("set", "base")) != "base" and sets.has(_pack_of(c as Dictionary, sets))
 	for pile in ["rooms", "spells"]:
 		var extra: Array = []
 		for c in (m.G["decks"][pile] as Array):
@@ -274,7 +303,7 @@ func _play(n_players: int, sets: Array, s: int) -> bool:
 		print("STUCK steps=", steps, " phase=", m.G.get("phase"), " active=", m.active_player(), " pending=", m.G.get("pendingChoice"), " adventure=", m.G.get("adventure"), " stack=", (m.G.get("stack", []) as Array).size())
 		for pid in m.G["players"]:
 			print("  P", pid, " moves=", m.legal_moves(int(pid)), " entrance=", (m.G["players"][pid]["entrance"] as Array).size(), " passed=", m.G["players"][pid].get("passed"), " acted=", m.G["players"][pid].get("hasActed"))
-		print("  pausePassed=", m.G.get("adventurePausePassed"))
+		print("  pausePassed=", m.G.get("adventurePausePassed"), " stackActive=", m.G.get("stackActivePlayer"), " stackReturn=", m.G.get("stackReturnPlayer"), " log=", (m.G.get("log", []) as Array).slice(-8))
 		var mv1: Array = m.legal_moves(1)
 		print("  P1 coins=", m.G["players"][1].get("coins"), " apply rmbPay -> ", m.apply_move(1, mv1[0]) if not mv1.is_empty() else "-", " log=", (m.G.get("log", []) as Array).slice(-3))
 		for k in 4:

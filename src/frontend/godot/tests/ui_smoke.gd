@@ -14,7 +14,7 @@ extends Node
 ## Options (toutes optionnelles ; --games=K ou --seed=N lance la campagne SEULE, sans les checks de base) :
 ##   --games=K      nombre de parties (defaut 1 avec --seed)      --seed=N      graine de la 1re partie (puis N+1, ...)
 ##   --players=P    2|3|4 (defaut : alterne 2,2,3,4)               --humans=H    sieges humains (defaut 1 ; 0 = IA seulement)
-##   --sets=a,b     paquets (ex. players-choice,hidden-heroes,tools,next-level,crash-landing,minibosses ; defaut base)
+##   --sets=a,b     paquets (ex. players-choice,hidden-heroes,tools,tools-wiki,next-level,crash-landing,minibosses ; defaut base)
 ##   --style=S      random | spells | passive (defaut : alterne)    --turns=N     arrete apres N tours au lieu d'aller a la fin
 ##   --anim         animations de traversee des heros reelles (temps accelere x6) pour toutes les parties
 ## Chaque anomalie est affichee avec sa graine : « [seed=7 players=3 ...] ... » = la commande pour la rejouer.
@@ -141,7 +141,8 @@ func _main() -> void:
 		games.append({"seed": 22, "players": 2, "humans": 1, "sets": ["players-choice", "hidden-heroes", "tools"], "style": "random", "anim": false, "turns": 0})
 		games.append({"seed": 23, "players": 3, "humans": 1, "sets": ["base"], "style": "spells", "anim": false, "turns": 0})
 		games.append({"seed": 24, "players": 4, "humans": 2, "sets": ["base"], "style": "random", "anim": false, "turns": 4})
-		games.append({"seed": 25, "players": 2, "humans": 1, "sets": ["players-choice", "hidden-heroes", "tools", "next-level", "crash-landing", "minibosses"], "style": "spells", "anim": false, "turns": 5})
+		games.append({"seed": 25, "players": 2, "humans": 1, "sets": ["players-choice", "hidden-heroes", "tools", "tools-wiki", "next-level", "crash-landing", "minibosses"], "style": "spells", "anim": false, "turns": 5})
+		games.append({"seed": 26, "players": 2, "humans": 1, "sets": ["tools-wiki"], "style": "spells", "anim": false, "turns": 5}) # Tools of Hero-Kind (wiki) : Objets, useItem, salles THK
 	for g in games:
 		await _play_game(g)
 		if not _log.errors.is_empty():
@@ -859,6 +860,7 @@ func _act_discard(pid: int) -> void:
 	var cards := _hand_cards()
 	if not _check(cards.size() == hand.size() and hand.size() >= 2, "defausse d'ouverture : %d cartes a l'ecran pour une main de %d" % [cards.size(), hand.size()]):
 		return
+	_check(hand.size() == 7, "defausse d'ouverture : 5 salles + 2 sorts = 7 cartes dans tous les modes (%d)" % hand.size()) # TNL / RMB inclus : plus de grosse main sans choix
 	var i0 := rng.randi_range(0, hand.size() - 1)
 	board._on_hand_card_clicked(i0, hand[i0])
 	board._on_hand_card_clicked(i0, hand[i0]) # re-clic = deselection
@@ -1385,7 +1387,7 @@ func _check_wiki_ui() -> void:
 	gm = GameManager.new()
 	add_child(gm)
 	gm.rng.seed = 31 # Match._ready l'a randomise : le tirage du boss doit etre reproductible
-	gm.start_new_game(2, 1, ["players-choice", "hidden-heroes", "tools", "next-level", "crash-landing", "minibosses"])
+	gm.start_new_game(2, 1, ["players-choice", "hidden-heroes", "tools", "tools-wiki", "next-level", "crash-landing", "minibosses"])
 	board = load("res://godot/scenes/Board.tscn").instantiate()
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(board)
@@ -2251,9 +2253,9 @@ func _check_gallery() -> void:
 	await _new_game()
 	board.set_process(false)
 	var ext: bool = bool(Profile.load_settings().get("extensions", true))
-	var allowed: Array = ["base", "players-choice", "hidden-heroes"] # APK : les Tools ne sont pas dans la galerie
+	var allowed: Array = ["base", "players-choice", "hidden-heroes"] # APK : les Tools ne sont pas dans la galerie (ils s'y ajoutent avec la case wiki : jouables derriere elle)
 	if ext:
-		allowed.append_array(["next-level", "crash-landing", "minibosses"])
+		allowed.append_array(["next-level", "crash-landing", "minibosses", "tools"])
 	board._on_menu_pressed()
 	await get_tree().process_frame
 	var gal_btn: Button = null
@@ -2436,6 +2438,16 @@ func _check_online_menus() -> void:
 		await _nav(main)
 		_check(_texts_of(main).has("HOW MANY PLAYERS?"), "amis : NEW GAME n'ouvre pas le choix du nombre de joueurs")
 		_cov("menus_friends")
+	# Tools of Hero-Kind : les Objets ne se jouent que derriere la case wiki (sans elle la tuile est grisee, « tools » reste inerte pour l'APK)
+	var saved_decks: Array = main.apk_decks.duplicate()
+	var saved_ext: bool = main.use_extensions
+	main.apk_decks = ["tools"]
+	main.use_extensions = false
+	_check(not (main._active_sets() as Array).has("tools") and not (main._active_sets() as Array).has("tools-wiki"), "case wiki decochee : la tuile Tools n'ajoute aucun paquet")
+	main.use_extensions = true
+	_check((main._active_sets() as Array).has("tools") and (main._active_sets() as Array).has("tools-wiki"), "case wiki cochee : Tools ajoute tools + tools-wiki")
+	main.apk_decks = saved_decks
+	main.use_extensions = saved_ext
 	# PASS AND PLAY : choix du nombre de joueurs, extensions, partie a sieges tous humains
 	main.show_multi()
 	await _wait(0.2)

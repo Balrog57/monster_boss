@@ -8,7 +8,7 @@ extends RefCounted
 
 ## Cles de G publiques, recopiees telles quelles.
 const PUBLIC_KEYS := ["activePlayer", "adventure", "adventurePausePassed", "afterHero", "autoAI", "buildIndex",
-	"buildOrder", "buildWindow", "effects", "forcedBuild", "gameOver", "itemQueue", "lastHeroFight", "luredThisTurn",
+	"buildOrder", "buildWindow", "effects", "forcedBuild", "gameOver", "itemQueue", "townItems", "lastHeroFight", "luredThisTurn",
 	"mandoQueue", "numPlayers", "phase", "roboboQueue", "sets", "setupBuild", "setupForced", "setupReveal", "stack",
 	"stackActivePlayer", "stackPassed", "stackReturnPlayer", "tnlEndPending", "tnlGiftBuilt", "town", "turn", "xpOrder"]
 ## Cles traitees a part (filtrees) ou volontairement jamais emises (revealQueue, forcedBuilds, forcedRandom, aiTargets*).

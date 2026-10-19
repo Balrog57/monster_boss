@@ -200,6 +200,8 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 		return TnlAbilities.score_move(G, p, pid, mtype, args)
 	if Minibosses.is_rmb_move(mtype): # Rise of the Minibosses (heuristiques maison)
 		return Minibosses.score_move(G, p, pid, mtype, args)
+	if mtype == "useItem": # Tools of Hero-Kind (heuristiques maison)
+		return ThkAbilities.score_move(G, p, pid, mtype, args)
 	return 0.0
 
 ## Note les options d'un pendingChoice. Les choix de l'APK (TriggerCalculator, cibles de capacites) viennent de ApkAI.choose (pick_move l'appelle directement avec le
@@ -242,6 +244,8 @@ static func _score_spell(spell: Dictionary, target: Dictionary, p: Dictionary, G
 	if RmbSpells.TARGETS.has(sid):
 		return RmbSpells.score_spell(G, p, pid, sid, target)
 	match sid:
+		"THK025": # Excavation (case wiki Tools of Hero-Kind, heuristique maison)
+			return ThkAbilities.score_excavation(G, pid, target)
 		"CRL029": # Finish Him! (hors APK : heuristique maison) : tuer un heros vaut mieux que reprendre un survivant
 			return 100.0 if target.has("entranceIndex") else 60.0
 		"CRL030": # Essence Transfer : donne des PV a un heros adverse (blesse l'adversaire)
@@ -281,6 +285,8 @@ static func _score_activate_room(room_idx: int, p: Dictionary, G: Dictionary, _p
 				return TnlAbilities.score_activate(G, p, _pid, rid, room_idx)
 			if rid.begins_with("RMB"):
 				return RmbAbilities.score_activate(G, p, _pid, rid, room_idx)
+			if rid.begins_with("THK"):
+				return ThkAbilities.score_activate(G, p, _pid, rid)
 			return 5.0
 
 ## Sort / capacite d'une carte de l'APK : 20 si sa carte est dans l'ensemble des capacites eligibles (ApkAI.abilities), -50 sinon. Le choix, lui, est un tirage

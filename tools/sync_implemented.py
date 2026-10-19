@@ -6,7 +6,7 @@ Une carte est « implementee » quand :
   - boss        : son id, ou la commande de son level-up (`levelUp.cmd`), apparait dans le moteur ;
   - heros       : sa capacite (`heroAbility.cmd`) et sa condition de leurre (`lure`) apparaissent dans le moteur (un heros sans capacite l'est d'office) ;
   - miniboss    : son id apparait dans le moteur ;
-  - objet (Tools of Hero Kind) : jamais (comme dans l'APK, les objets ne font rien).
+  - objet (Tools of Hero Kind) : son id apparait dans le moteur (ThkAbilities ; l'APK ne les joue pas : elles ne se jouent que derriere la case wiki).
 
 La meme regle est rejouee par src/frontend/godot/tests/coverage.gd (ECHEC si un drapeau ment) : lancer ce script apres toute carte ajoutee ou implementee.
 Usage : python tools/sync_implemented.py [--check]   (--check : n'ecrit rien, sort 1 si cards.json n'est pas a jour)
@@ -21,7 +21,7 @@ GODOT = os.path.join(ROOT, "src", "frontend", "godot")
 CARDS = os.path.join(GODOT, "data", "cards.json")
 # Scripts qui portent les regles (pas l'IA, l'interface, les traces de parite ni les tests : un id cite par l'IA n'implemente rien). CardDB: Jarin (passive_souls).
 ENGINE = ["Match", "BossEngine", "RoomAbilities", "SpellEffects", "SpellTargeting", "TnlAbilities", "TnlSpells",
-          "RmbAbilities", "RmbSpells", "Minibosses", "CardDB"]
+          "RmbAbilities", "RmbSpells", "Minibosses", "ThkAbilities", "CardDB"]
 SECTIONS = ["bosses", "rooms", "spells", "heroes", "items", "minibosses"]
 
 
@@ -40,7 +40,7 @@ def text_of(card):
 def is_implemented(section, card, words):
     cid = card["id"]
     if section == "items":
-        return False
+        return cid in words
     if section == "minibosses":
         return cid in words
     if section == "heroes":
@@ -92,6 +92,8 @@ def rewrite(raw, flags):
 def main():
     with open(CARDS, encoding="utf-8", newline="") as f:
         raw = f.read()
+    crlf = "\r\n" in raw  # checkout Windows (autocrlf) : rewrite() lit des lignes finies par un seul LF
+    raw = raw.replace("\r\n", "\n")
     data = json.loads(raw)
     flags = census(data, engine_words())
     new_raw, changed = rewrite(raw, flags)
@@ -105,7 +107,7 @@ def main():
         sys.exit(0 if new_raw == raw else 1)
     if new_raw != raw:
         with open(CARDS, "w", encoding="utf-8", newline="") as f:
-            f.write(new_raw)
+            f.write(new_raw.replace("\n", "\r\n") if crlf else new_raw)
         print("cards.json mis a jour (%d cartes)" % changed)
 
 

@@ -137,12 +137,12 @@ func _expansion_tiles() -> Array:
 
 ## Memes regles que tools/sync_implemented.py : une carte est « implementee » si son id (ou la commande de son level-up / de son heros) apparait entre guillemets
 ## dans un script du moteur, ou si son texte ne porte aucune capacite. Renvoie les cartes dont le drapeau ment (absent ou faux/vrai a tort) ;
-## affiche les cartes sans implementation (objets de Tools of Hero Kind et 4 salles Tools : l'APK ne les fait pas agir non plus).
+## affiche les cartes sans implementation (objets / salles Tools of Hero Kind : jouees par ThkAbilities derriere la case wiki ; l'APK ne les fait pas agir).
 func _implemented_flags() -> Array:
 	var words := {}
 	var re := RegEx.new()
 	re.compile("\"([A-Za-z0-9]+)\"")
-	for name in ["Match", "BossEngine", "RoomAbilities", "SpellEffects", "SpellTargeting", "TnlAbilities", "TnlSpells", "RmbAbilities", "RmbSpells", "Minibosses", "CardDB"]:
+	for name in ["Match", "BossEngine", "RoomAbilities", "SpellEffects", "SpellTargeting", "TnlAbilities", "TnlSpells", "RmbAbilities", "RmbSpells", "Minibosses", "ThkAbilities", "CardDB"]:
 		var f := FileAccess.open("res://godot/scripts/%s.gd" % name, FileAccess.READ)
 		if f == null:
 			return ["script introuvable : " + name]
@@ -164,7 +164,7 @@ func _implemented_flags() -> Array:
 func _has_handler(section: String, d: Dictionary, words: Dictionary) -> bool:
 	var id := str(d.get("id", ""))
 	if section == "items":
-		return false
+		return words.has(id)
 	if section == "minibosses":
 		return words.has(id)
 	if section == "heroes":

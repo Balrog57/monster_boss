@@ -1909,7 +1909,7 @@
       "quantity": 1,
       "description": "Once per turn during the Build phase, choose an unattached Item in town. You may attach it to any Hero, regardless of Treasure type.",
       "set": "tools",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK022",
@@ -1923,7 +1923,7 @@
       "quantity": 1,
       "description": "Once per turn, you may discard two Room cards to flip over a face-down Item card in your scorekeeping area.",
       "set": "tools",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK023",
@@ -1937,7 +1937,7 @@
       "quantity": 1,
       "description": "Once per turn, you may choose a face-up Item in your scorekeeping area and flip it face-down to draw a Spell card.",
       "set": "tools",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK024",
@@ -1951,7 +1951,7 @@
       "quantity": 1,
       "description": "Once per turn, if a Hero enters this Room with an attached Item, you may place that Item face-down in your scorekeeping area.",
       "set": "tools",
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "TNL013",
@@ -6177,7 +6177,7 @@
       "description": "Power-Up: If this Hero would be killed, it returns to town instead. (You get to keep this Item.)\nReward: This turn, you cannot lose due to Wounds. (Another player can still win due to Souls.)",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK002",
@@ -6191,7 +6191,7 @@
       "description": "Power-Up: If this Hero survices your dungeon, you must discard two Room cards at random.\nReward: Each of your opponents must discard one Room card at random.",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK003",
@@ -6205,7 +6205,7 @@
       "description": "Power-Up: Destroy the first Advanced Room that this Hero survives.\nReward: Choose and destroy an Advanced Room in any dungeon.",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK004",
@@ -6219,7 +6219,7 @@
       "description": "Power-Up: Until end of turn, each Hero entering your dungeon has +2\nReward: Heal one ordinary Wound.",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK005",
@@ -6233,7 +6233,7 @@
       "description": "Power-Up: This Hero takes no damage from ordinary Monster Rooms.\nReward: Until end of turn, give all your ordinary Monster Rooms +1",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK006",
@@ -6247,7 +6247,7 @@
       "description": "Power-Up: For each Monster Room in your dungeon, this Hero has +1\nReward: Choose a Hero. Until end of turn, for each Monster Room in your dungeon, give that hero +1",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK007",
@@ -6261,7 +6261,7 @@
       "description": "Power-Up: This Hero has +5\nReward: Choose a Hero in any dungeon. Until end of turn, it has +5",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK008",
@@ -6275,7 +6275,7 @@
       "description": "Power-Up: If this Hero survives your dungeon, until end of turn you have +1 Wound.\nReward: Kill a Hero who has taken damage equal to at least half its Health.",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK009",
@@ -6289,7 +6289,7 @@
       "description": "Power-Up: If this Hero survives your dungeon, discard two random Spell Cards.\nReward: Choose an opponent. That opponent discards a random Spell Card.",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK010",
@@ -6303,7 +6303,7 @@
       "description": "Power-Up: Any Room that this Hero survives is deactivated until end of turn.\nReward: Choose a Room in an opponent's dungeon. It is deactivated until end of turn.",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK011",
@@ -6317,7 +6317,7 @@
       "description": "Power-Up: Before this Hero enters your dungeon, rearrange your Rooms so their order is reversed.\nReward: Copy the Boss Ability of any face-up Item card.",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK012",
@@ -6331,7 +6331,7 @@
       "description": "Power-Up: If this Hero survives your dungeon, each of your opponents draws one Spell card.\nReward: Draw a Spell card.",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK013",
@@ -6345,7 +6345,7 @@
       "description": "Power-Up: When this Hero survives a ROom with at least two treasure icons, destroy that Room.\nReward: Search the discard pile for a Room with at least two treasure icons and put it into your hand.",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK014",
@@ -6359,7 +6359,7 @@
       "description": "Power-Up: While this Hero is in your dungeon, ignore all Room ability text in your dungeon.\nReward: Choose a Room in any dungeon. Ignore its ability text until end of turn.",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK015",
@@ -6373,7 +6373,7 @@
       "description": "Power-Up: When this Hero enters your dungeon, deactivate the first Trap ROom in your dungeon.\nReward: Choose a Trap ROom in any dungeon. Deactivate that Room until end of turn.",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK016",
@@ -6387,7 +6387,7 @@
       "description": "Power-Up: If this Hero enters the last Room of your dungeon, destroy that Room. (It deals no damage.)\nReward: Destroy a ROom in your dungeon: Deal 5 damage to a Hero in that Room.",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK017",
@@ -6401,7 +6401,7 @@
       "description": "Power-Up: Every time this Hero survives a Room, it ignores the next Room it would enter.\nReward: Choose a Hero in any dungeon. It ignores the next Room in that dungeon.",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK018",
@@ -6415,7 +6415,7 @@
       "description": "Power-Up: When this Hero enters your dungeon, deactivate the first Monster Room in your dungeon.\nReward: Choose a Monster Room in any dungeon. Deactivate that Room until end of turn.",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK019",
@@ -6429,7 +6429,7 @@
       "description": "Power-Up: This Hero ignores any damage from the first three Rooms of your dungeon.\nReward: Choose a Hero that survived your dungeon this turn. Remove that Hero from the game.",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "THK020",
@@ -6443,7 +6443,7 @@
       "description": "Power-Up: While this Hero is in your dungeon or at the entrance to your dungeon, you may not play Spells.\nReward: Cancel a Spell played during your Adventure Phase.",
       "set": "tools",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     }
   ],
   "nameMap": {

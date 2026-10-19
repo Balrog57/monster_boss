@@ -1190,6 +1190,8 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 		return TnlSpells.resolve_pick(G, pid, pc, idx)
 	if step.begins_with("rmb_"): # Rise of the Minibosses (RmbAbilities.resolve_pick, RmbSpells pour « rmb_sp_ »)
 		return RmbAbilities.resolve_pick(G, pid, pc, idx)
+	if step.begins_with("thk_"): # Tools of Hero-Kind (ThkAbilities.resolve_pick)
+		return ThkAbilities.resolve_pick(G, pid, pc, idx)
 	if step == "torix": # TNL003 Torix : la salle attrapee rejoint sa main (option 0) ou, s'il passe, la defausse
 		var tcard: Dictionary = (opts[0] as Dictionary)["card"]
 		if idx >= 0:
