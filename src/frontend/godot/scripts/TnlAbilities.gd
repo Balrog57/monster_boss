@@ -8,6 +8,8 @@ extends RefCounted
 
 const SET_ID := "next-level"
 const DARK_PAY := "DarkHeroPay"
+## Heros noirs de Rise of the Minibosses (RMB084/090/096/102) : « each opponent may pay any number of Coins to give this hero +1 per Coin ».
+const DARK_COIN := "DarkHeroCoin"
 
 static var _rng := RandomNumberGenerator.new()
 static var _rng_ready := false
@@ -999,6 +1001,19 @@ static func insert_slot(G: Dictionary, pid: int, card: Dictionary) -> void:
 			if int(a.get(k, -1)) >= 0:
 				a[k] = int(a[k]) + 1
 
+## L'emplacement `idx` du donjon de `pid` vient de disparaitre (pose reprise) : ses effets indexes tombent, les suivants reculent d'un cran.
+static func remove_slot_effects(G: Dictionary, pid: int, idx: int) -> void:
+	for key in ["deactivatedRooms", "roomDamageBonus"]:
+		var arr: Array = SpellEffects._effects(G).get(key, [])
+		for k in range(arr.size() - 1, -1, -1):
+			var e: Dictionary = arr[k]
+			if int(e.get("playerId", -1)) != pid:
+				continue
+			if int(e.get("roomIndex", -1)) == idx:
+				arr.remove_at(k)
+			elif int(e.get("roomIndex", -1)) > idx:
+				e["roomIndex"] = int(e["roomIndex"]) - 1
+
 # --- activation des salles du donjon --------------------------------------------------------------------------------------------
 
 const ACTIVATED := ["TNL013", "TNL017", "TNL022", "TNL030", "TNL032", "TNL033", "TNL035", "TNL040", "TNL041", "TNL042", "TNL045", "TNL046",
@@ -1355,7 +1370,10 @@ static func dark_heroes(G: Dictionary, payer: int) -> Array:
 		var ent: Array = _player(G, int(owner)).get("entrance", []) as Array
 		for h in ent:
 			var hd: Dictionary = h
-			if hero_cmd(hd) == DARK_PAY and not _list(G, "darkPaid").has(str(hd.get("id", ""))) and not text_ignored(G, int(owner)):
+			var dcmd := hero_cmd(hd)
+			# TNL : une fois par tour et par heros ; RMB : « each opponent » -> une fois par tour, par heros et par payeur
+			var paid_key := str(hd.get("id", "")) + (":%d" % payer if dcmd == DARK_COIN else "")
+			if (dcmd == DARK_PAY or dcmd == DARK_COIN) and not _list(G, "darkPaid").has(paid_key) and not text_ignored(G, int(owner)):
 				out.append({"owner": int(owner), "hero": hd, "active": not a.is_empty() and is_same(a.get("hero"), hd)})
 	return out
 
@@ -1374,6 +1392,10 @@ static func extra_moves(G: Dictionary, p: Dictionary, pid: int) -> Array:
 					out.append({"type": "docScarecrow", "args": [hi, ti]})
 	if phase == "adventure":
 		for dh in dark_heroes(G, pid):
+			if hero_cmd((dh as Dictionary)["hero"]) == DARK_COIN:
+				for n in range(1, Minibosses.coins(p) + 1): # « any number of Coins » : de 1 a tout votre Hoard
+					out.append({"type": "payDarkCoins", "args": [n, int((dh as Dictionary)["owner"]), str(((dh as Dictionary)["hero"] as Dictionary).get("id", ""))]})
+				continue
 			for hi in hand.size():
 				if _pays_dark(hand[hi], (dh as Dictionary)["hero"]):
 					out.append({"type": "payDarkHero", "args": [hi, int((dh as Dictionary)["owner"]), str(((dh as Dictionary)["hero"] as Dictionary).get("id", ""))]})
@@ -1395,12 +1417,31 @@ static func stack_moves(G: Dictionary, p: Dictionary, pid: int) -> Array:
 	return out
 
 static func is_tnl_move(mtype: String) -> bool:
-	return ["docScarecrow", "payDarkHero", "timebenderCancel", "antimagicCancel"].has(mtype)
+	return ["docScarecrow", "payDarkHero", "payDarkCoins", "timebenderCancel", "antimagicCancel"].has(mtype)
+
+## Heros noir RMB : `n` Coins payes = +n PV jusqu'a la fin du tour. Renvoie null ou un message d'erreur.
+static func _pay_dark_coins(G: Dictionary, pid: int, args: Array) -> Variant:
+	var n := int(args[0]) if args.size() > 2 else 0
+	var hero: Dictionary = {}
+	for h in (_player(G, int(args[1]) if args.size() > 2 else -1).get("entrance", []) as Array):
+		if str((h as Dictionary).get("id", "")) == str(args[2]):
+			hero = h
+	var key := str(hero.get("id", "")) + ":%d" % pid
+	if n < 1 or hero.is_empty() or hero_cmd(hero) != DARK_COIN or int(args[1]) == pid or _list(G, "darkPaid").has(key) or text_ignored(G, int(args[1])):
+		return "no such Hero"
+	if not Minibosses.pay_coin(G, pid, n):
+		return "not enough Coins"
+	_list(G, "darkPaid").append(key)
+	add_hero_hp(G, hero, n)
+	_log(G, "%s: Player %d pays %d Coin(s), +%d Health until end of turn." % [_label(hero), pid + 1, n, n])
+	return null
 
 ## Applique un coup TNL deja valide par legal_moves. Renvoie null ou un message d'erreur.
 static func apply_move(G: Dictionary, pid: int, move: Dictionary) -> Variant:
 	var args: Array = move.get("args", [])
 	var p := _player(G, pid)
+	if str(move.get("type", "")) == "payDarkCoins": # args = [Coins, proprietaire du donjon, heros] : pas de carte de la main
+		return _pay_dark_coins(G, pid, args)
 	var hand: Array = p.get("hand", []) as Array
 	var hi := int(args[0]) if not args.is_empty() else -1
 	if hi < 0 or hi >= hand.size():
@@ -1457,6 +1498,15 @@ static func score_move(G: Dictionary, p: Dictionary, pid: int, mtype: String, ar
 					hero = h
 			if not a.is_empty() and is_same(a.get("hero"), hero) and int(a.get("hp", 1)) <= 0 and int(a.get("hp", 1)) + 3 > 0:
 				return 60.0
+			return -5.0
+		"payDarkCoins": # sauver un heros noir qui allait mourir, au moindre Coin
+			var ac := adv(G)
+			var dhero: Dictionary = {}
+			for h in (_player(G, int(args[1])).get("entrance", []) as Array):
+				if str((h as Dictionary).get("id", "")) == str(args[2]):
+					dhero = h
+			if not ac.is_empty() and is_same(ac.get("hero"), dhero) and int(ac.get("hp", 1)) <= 0 and int(args[0]) == 1 - int(ac.get("hp", 1)):
+				return 60.0 - float(int(args[0]))
 			return -5.0
 		"timebenderCancel":
 			return 100.0

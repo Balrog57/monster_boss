@@ -545,7 +545,9 @@ static func on_build_room(G: Dictionary, player_id: int, room: Dictionary) -> Va
 		"BMA033": return _centipede_tunnel(G, player_id)
 		"CRL004": return _alien_excavator(G, player_id)
 		"CRL006": # Decoy Garden : gagne 2 tresors Explorer jusqu'a la fin du tour (effacee a _start_turn)
-			room["extraTreasures"] = [5, 5]
+			var extra: Array = (room.get("extraTreasures", []) as Array).duplicate()
+			extra.append_array([5, 5]) # « it gains Explorer*2 » a chaque fois que l'effet se declenche (rejeu par The Omega 42 : cumulatif)
+			room["extraTreasures"] = extra
 			_log(G, "Decoy Garden : Explorer x2 jusqu'a la fin du tour.")
 		"CRL010": # Digicron Library : au moins 2 salles avancees visibles (elle comprise) -> 2 sorts
 			var adv := 0
@@ -1226,7 +1228,8 @@ static func on_uncover(G: Dictionary, player_id: int, room_index: int) -> void:
 		"CRL014": # Caged Gundarf : degats doubles jusqu'a la fin du tour
 			var arr: Array = _effects(G).get("roomDamageBonus", []) as Array
 			_effects(G)["roomDamageBonus"] = arr
-			arr.append({"playerId": player_id, "roomIndex": room_index, "amount": int(room.get("damage", 0))})
+			# « its damage is doubled » : les degats du moment (imprimes + modificateurs), comme Training Camp / Ravenus (RmbAbilities._room_target « double »)
+			arr.append({"playerId": player_id, "roomIndex": room_index, "amount": BossEngine.room_damage_with_modifiers(G, p, room_index, null)})
 			_log(G, "Caged Gundarf : degats doubles jusqu'a la fin du tour.")
 		"CRL015": # Celestial Map : pioche un sort puis se detruit (la salle du dessous est a son tour decouverte)
 			var drawn := _draw_into(G, p, "spells", 1)

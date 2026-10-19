@@ -199,7 +199,7 @@ static func entrance_has_text(p: Dictionary) -> bool:
 ## Le heros actif a-t-il une capacite de carte (ce que « ignorer le texte » lui retire) ?
 static func hero_has_text(hero) -> bool:
 	var cmd := TnlAbilities.hero_cmd(hero)
-	return cmd != "" and cmd != TnlAbilities.DARK_PAY
+	return cmd != "" and cmd != TnlAbilities.DARK_PAY and cmd != TnlAbilities.DARK_COIN
 
 ## Interet de Doc Scarecrow sur le heros `town_idx` de la ville : 2 par blessure evitee a `pid` (le heros survivrait a son donjon),
 ## sinon l'ame qu'il ne donne pas a un adversaire en tete (>= 8 ames ou 2 de plus que moi), 0 si le heros resterait de toute facon en ville.

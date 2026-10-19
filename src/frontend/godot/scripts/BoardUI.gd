@@ -2345,7 +2345,7 @@ func _refresh_undoable(my_moves: Array) -> void:
 ## Coups legaux de l'interface HUMAINE. APK : cartes et capacites ne sont jouables que si un heros est actif (IsAdventureInteractionTurn,
 ## CardManagerComponent.RefreshCardsStatus:162, HumanPlayerInteraction:140) ; l'IA, elle, joue ces fenetres via DoPlayerActions. `legal_moves`
 ## reste donc inchange (IA Godot, rejeu de l'oracle) et seule la vue du joueur filtre : cartes grisees, aucune fenetre, aucun clic d'activation.
-const NO_HERO_BLOCKED := ["playSpell", "activateRoom", "useHandRoom", "docScarecrow", "payDarkHero", "timebenderCancel", "antimagicCancel",
+const NO_HERO_BLOCKED := ["playSpell", "activateRoom", "useHandRoom", "docScarecrow", "payDarkHero", "payDarkCoins", "timebenderCancel", "antimagicCancel",
 	"promoteMiniboss", "activateMiniboss", "discardForCoin", "rmbBoss", "rmbHand", "rmbPay", "rmbCancel"]
 
 func _my_moves(pid: int) -> Array:
@@ -2976,6 +2976,8 @@ func _move_label(m: Dictionary, _G: Dictionary, hand: Array) -> String:
 			return "MAGESEEKER: DISCARD %s, CANCEL THE SPELL" % (str((hand[int(args[1])] as Dictionary).get("name", "?")) if args.size() > 1 and int(args[1]) < hand.size() else "?")
 		"payDarkHero":
 			return "PAY %s (DARK HERO)" % hand_name
+		"payDarkCoins":
+			return "PAY %d COIN%s (DARK HERO: +%d HEALTH)" % [int(args[0]), "" if int(args[0]) == 1 else "S", int(args[0])]
 		"docScarecrow":
 			var town: Array = _G.get("town", [])
 			var ti := int(args[1]) if args.size() > 1 else -1

@@ -5073,7 +5073,7 @@
       "set": "minibosses",
       "quantity": 1,
       "dark": true,
-      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]},
+      "heroAbility": {"cmd": "DarkHeroCoin"},
       "implemented": true
     },
     {
@@ -5153,7 +5153,7 @@
       "set": "minibosses",
       "quantity": 1,
       "dark": true,
-      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]},
+      "heroAbility": {"cmd": "DarkHeroCoin"},
       "implemented": true
     },
     {
@@ -5233,7 +5233,7 @@
       "set": "minibosses",
       "quantity": 1,
       "dark": true,
-      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]},
+      "heroAbility": {"cmd": "DarkHeroCoin"},
       "implemented": true
     },
     {
@@ -5313,7 +5313,7 @@
       "set": "minibosses",
       "quantity": 1,
       "dark": true,
-      "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]},
+      "heroAbility": {"cmd": "DarkHeroCoin"},
       "implemented": true
     },
     {

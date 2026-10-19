@@ -73,8 +73,9 @@ static func gain_coin(G: Dictionary, pid: int, n: int, label: String) -> void:
 	var total := n
 	if not used(G, pid, "paddywhack"):
 		for stack in (p.get("dungeon", []) as Array):
-			var m := revealed(BossEngine.active_room(stack))
-			if not m.is_empty() and mb_id(m) == "RMB060" and level(m) >= 2:
+			var top = BossEngine.active_room(stack)
+			var m := revealed(top)
+			if not m.is_empty() and mb_id(m) == "RMB060" and level(m) >= 2 and not TnlAbilities.no_text(top as Dictionary):
 				mark_used(G, pid, "paddywhack")
 				total += 1
 				break
@@ -235,15 +236,18 @@ static func passive_damage(G: Dictionary, player: Dictionary, room_index: int, r
 	var pid := int(player.get("id", 0))
 	var dungeon: Array = player.get("dungeon", [])
 	var m := revealed(r)
-	if not m.is_empty():
+	var no_text := TnlAbilities.no_text(r) # Sabotage! / Meddling Kids! : la salle « n'a plus de texte », celui de son miniboss non plus (livret : « your Room now has that ability text »)
+	if not m.is_empty() and not no_text:
 		var id := mb_id(m)
 		if L1_DAMAGE.has(id):
 			dmg += 1
 		elif id == "RMB062": # Mageseeker : +1 par icone de tresor de la salle
 			dmg += BossEngine.room_treasures(r).size()
-	if locked or TnlAbilities.no_text(r):
+	if locked:
 		return dmg
-	dmg += RmbAbilities.passive_room_damage(G, player, room_index, r, dungeon)
+	if not no_text:
+		dmg += RmbAbilities.passive_room_damage(G, player, room_index, r, dungeon)
+	# Scott est un effet du boss, pas du texte de la salle : une salle « sans texte » garde son +1
 	if RmbAbilities.has_boss(player, "RMB011") and str(r.get("type", "")) == "trap" and not RmbAbilities._scott_off(G, pid):
 		dmg += 1 # Scott : vos salles Trap ont +1 (un adversaire peut payer un Coin pour l'annuler jusqu'a la fin du tour)
 	return dmg
@@ -253,8 +257,9 @@ static func hero_text_ignored(G: Dictionary, pid: int) -> bool:
 	if list(G, "ignoreText").has(pid):
 		return true
 	for stack in (_player(G, pid).get("dungeon", []) as Array):
-		var m := revealed(BossEngine.active_room(stack))
-		if not m.is_empty() and mb_id(m) == "RMB061" and level(m) >= 2:
+		var top = BossEngine.active_room(stack)
+		var m := revealed(top)
+		if not m.is_empty() and mb_id(m) == "RMB061" and level(m) >= 2 and not TnlAbilities.no_text(top as Dictionary):
 			return true
 	return false
 
@@ -271,7 +276,7 @@ static func extra_icons(G: Dictionary, pid: int) -> Array:
 ## Rocky niveau 1 : n'importe quelle salle se construit par-dessus, quelle que soit l'icone de tresor.
 static func rocky_host(room) -> bool:
 	var m := revealed(room)
-	return not m.is_empty() and mb_id(m) == "RMB058"
+	return not m.is_empty() and mb_id(m) == "RMB058" and not TnlAbilities.no_text(room as Dictionary)
 
 # --- heros bloques a l'entree (Haunted Cavern), debut d'aventure -----------------------------------------------------------------
 
@@ -406,7 +411,7 @@ static func _opponents_with_cards(G: Dictionary, pid: int) -> Array:
 	var out: Array = []
 	for o in TnlAbilities._opponents(G, pid):
 		for c in (_player(G, int(o)).get("hand", []) as Array):
-			if bool((c as Dictionary).get("isSpell", false)) or bool((c as Dictionary).get("isRoom", false)):
+			if bool((c as Dictionary).get("isSpell", false)) or (bool((c as Dictionary).get("isRoom", false)) and not bool((c as Dictionary).get("isMiniboss", false))): # un miniboss n'est pas une salle
 				out.append(int(o))
 				break
 	return out
@@ -423,6 +428,8 @@ static func check_activate(G: Dictionary, p: Dictionary, pid: int, slot: int, lv
 	var m := revealed(room)
 	if m.is_empty() or BossEngine.is_room_deactivated(G, pid, slot):
 		return "no revealed Miniboss"
+	if TnlAbilities.no_text(room as Dictionary):
+		return "this Room has no ability text"
 	var id := mb_id(m)
 	if lvl == 2:
 		if level(m) < 2 or int(m.get("usedTurn", -1)) == int(G.get("turn", 0)):
@@ -613,8 +620,9 @@ static func stack_moves(G: Dictionary, p: Dictionary, pid: int) -> Array:
 	var d: Array = p.get("dungeon", [])
 	var hand: Array = p.get("hand", [])
 	for i in d.size():
-		var m := revealed(BossEngine.active_room(d[i]))
-		if m.is_empty() or mb_id(m) != "RMB062" or level(m) < 2 or int(m.get("usedTurn", -1)) == int(G.get("turn", 0)) or BossEngine.is_room_deactivated(G, pid, i):
+		var top = BossEngine.active_room(d[i])
+		var m := revealed(top)
+		if m.is_empty() or mb_id(m) != "RMB062" or level(m) < 2 or int(m.get("usedTurn", -1)) == int(G.get("turn", 0)) or BossEngine.is_room_deactivated(G, pid, i) or TnlAbilities.no_text(top as Dictionary):
 			continue
 		for hi in hand.size():
 			if bool((hand[hi] as Dictionary).get("isSpell", false)):
@@ -627,7 +635,7 @@ static func stack_moves(G: Dictionary, p: Dictionary, pid: int) -> Array:
 static func on_hero_died(G: Dictionary, pid: int, room: Dictionary) -> void:
 	var p := _player(G, pid)
 	var m := revealed(room)
-	if not m.is_empty() and level(m) >= 2:
+	if not m.is_empty() and level(m) >= 2 and not TnlAbilities.no_text(room):
 		var id := mb_id(m)
 		var name := mb_name(m)
 		match id:
@@ -667,7 +675,7 @@ static func on_build_start(G: Dictionary) -> Array:
 			if top == null or bool((top as Dictionary).get("faceDown", false)):
 				continue
 			var m := revealed(top)
-			if not m.is_empty() and mb_id(m) == "RMB064": # Jinx niveau 1
+			if not m.is_empty() and mb_id(m) == "RMB064" and not TnlAbilities.no_text(top as Dictionary): # Jinx niveau 1
 				TnlAbilities.draw_logged(G, int(pid), "rooms", 1, "Jinx")
 				var c = TnlAbilities.ask(G, int(pid), "rmb_cost", TnlAbilities.hand_options(p, "room"), {"then": "none", "label": "Jinx"}, "Jinx: choose a Room to discard", "Jinx")
 				if c != null:

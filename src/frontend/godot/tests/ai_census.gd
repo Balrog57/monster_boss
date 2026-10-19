@@ -4,7 +4,9 @@ extends Node
 ## (« offert ») et celles ou l'IA l'a choisi (« choisi »). Outil de developpement, hors `tools/run_godot_tests.py`.
 ## Usage : godot --headless --path src/frontend res://godot/tests/AiCensus.tscn -- --sets=next-level,crash-landing --games=20 [--players=2] [--seed=1]
 ## Sortie : une ligne par cle `type:id` jamais choisie alors qu'elle a ete offerte, puis les cartes jamais offertes, puis « CENSUS PASS » ou
-## « CENSUS FAIL » (code de sortie 1) : echec si une carte des paquets demandes est offerte mais jamais choisie sans figurer dans ALLOW.
+## « CENSUS FAIL » (code de sortie 1) : echec si une carte des paquets demandes est offerte mais jamais choisie, OU jamais offerte (y compris le
+## pouvoir de niveau 3 d'un miniboss), sans figurer dans ALLOW. Cles des minibosses par carte : `buildMiniboss:<id>`, `promoteMiniboss:<id>:<niveau vise>`,
+## `activateMiniboss:<id>:<niveau>` ; compteur « niveau 3 atteint » par miniboss (parties ou il a ete revele au niveau 3).
 
 const MAX_STEPS := 4000
 
@@ -15,6 +17,12 @@ const ALLOW := {
 	"RMB055": "Spike : niveau 2 = 2 degats au heros qui meurt exactement ; niveau 3 = renvoie un miniboss adverse promu (offert 1 fois sur 60 parties)",
 	"RMB056": "Kid Croak : niveau 3 = +/-1 aux Monster seulement si cela tranche la mort du heros (offert 1 fois sur 60 parties)",
 	"RMB058": "Rocky : niveau 3 = sauve un heros de justesse (5) ; condition tres etroite (offert 1 fois sur 60 parties)",
+	"TNL022": "Rust Monster Pen : -1 a une Trap ne sert qu'a sauver de justesse (marge exactement 0) un heros d'un donjon adverse ; choisi 2 fois sur 10 offres avec next-level+crash-landing, 0 sur 12 offres avec next-level seul (60 parties)",
+	"TNL040": "Bullet Builder : -1 a une Monster, meme condition (marge exactement 0 chez l'adversaire) ; choisi 1 fois sur 11 offres avec next-level+crash-landing, 0 sur 8 offres avec next-level seul (60 parties)",
+	"TNL048": "The Smashinator : +6 mais detruit le reste du donjon, joue seulement pour tuer un heros avec 3 blessures ou plus ; choisi 3 fois sur 20 offres avec next-level seul, 0 sur 3 offres avec tous les paquets (60 parties)",
+	"TNL063": "Oh, Yeah! : l'echange de deux salles ne vaut que par les bonus de voisinage (gain > 0 jamais vu sur 137 offres en construction) et la destruction exige 2 de vos salles detruites ce tour (jamais reunie) ; choisi 2 fois sur 14 avec next-level seul, 0 sur 14 avec next-level+crash-landing (60 parties)",
+	"RMB053": "The Keystone : se detruit pour 1 Coin par salle restante, joue seulement en construction avec 3 salles restantes ou plus et un miniboss a poser ; choisi 2 fois sur 21 offres avec minibosses seul, 0 sur 17 offres avec tous les paquets (60 parties)",
+	"RMB059": "Cerebella : niveau 3 = les heros ignorent leur texte dans un donjon ; sans objet quand aucun heros n'a de capacite de carte (les heros RMB n'en ont pas, hors les noirs dont le paiement en Coins n'est pas valorise par l'IA) : offert 8 fois sur 60 parties, 0 choix",
 }
 const SoakSeed = preload("res://godot/tests/soak_seed.gd")
 
@@ -22,6 +30,8 @@ var offered: Dictionary = {}   # cle -> nombre de parties ou le coup a ete legal
 var chosen: Dictionary = {}    # cle -> nombre de parties ou l'IA l'a choisi
 var _g_offered: Dictionary = {}
 var _g_chosen: Dictionary = {}
+var level3: Dictionary = {}    # id de miniboss -> nombre de parties ou il a atteint le niveau 3 (revele)
+var _g_level3: Dictionary = {}
 var _m = null
 var _debug := ""   # --debug=cle : affiche le score de chaque coup offert portant cette cle (phase, marge du heros actif)
 
@@ -48,6 +58,7 @@ func _ready() -> void:
 		for n in counts:
 			_g_offered = {}
 			_g_chosen = {}
+			_g_level3 = {}
 			if _play(n, sets, seed0 + g):
 				done += 1
 			else:
@@ -57,6 +68,8 @@ func _ready() -> void:
 				offered[k] = int(offered.get(k, 0)) + 1
 			for k in _g_chosen:
 				chosen[k] = int(chosen.get(k, 0)) + 1
+			for k in _g_level3:
+				level3[k] = int(level3.get(k, 0)) + 1
 	AI.trace = Callable()
 	SoakSeed.unseed()
 	print("CENSUS sets=", sets, " parties=", done, " bloquees=", stuck)
@@ -86,9 +99,31 @@ func _ready() -> void:
 			if not seen:
 				unseen.append(id + " " + str(d.get("name", "")))
 	print("CENSUS jamais offert (cartes du/des paquets): ", unseen)
+	var mb_l3: Array = []   # minibosses des paquets demandes dont le pouvoir de niveau 3 n'a jamais ete offert
+	if sets.has(Minibosses.SET_ID):
+		var l3_line: Array = []
+		for c in CardDB.minibosses:
+			var mid := str((c as Dictionary).get("id", ""))
+			l3_line.append("%s %s: niveau 3 atteint %d, offert %d" % [mid, str((c as Dictionary).get("name", "")), int(level3.get(mid, 0)), int(offered.get("activateMiniboss:%s:3" % mid, 0))])
+			if not offered.has("activateMiniboss:%s:3" % mid):
+				mb_l3.append(mid)
+		print("CENSUS minibosses (niveau 3 atteint / pouvoir de niveau 3 offert, en parties): ", l3_line)
 	# Verdict : une cle jamais choisie n'est tolerable que si la carte est dans ALLOW ; seules les cartes des paquets demandes comptent.
 	var failed: Array = []
 	var allowed: Array = []
+	for u in unseen:   # une carte d'un paquet wiki demande qui n'est jamais offerte echoue, sauf ligne ALLOW chiffree (les decks de l'APK ont leur propre IA : ApkAI)
+		var uid: String = str(u).split(" ")[0]
+		if Match.APK_SETS.has(card_set[uid]):
+			continue
+		if ALLOW.has(uid):
+			allowed.append("%s (jamais offert) : %s" % [uid, ALLOW[uid]])
+		else:
+			failed.append("%s jamais offert" % uid)
+	for mid in mb_l3:
+		if ALLOW.has(mid):
+			allowed.append("%s (pouvoir de niveau 3 jamais offert) : %s" % [mid, ALLOW[mid]])
+		else:
+			failed.append("%s : pouvoir de niveau 3 jamais offert" % mid)
 	for entry in never:
 		var key: String = str(entry).split(" (")[0]
 		var cid: String = key.split(":")[1] if key.split(":").size() > 1 else ""
@@ -135,13 +170,29 @@ func _key(m, pid: int, mv: Dictionary) -> String:
 			return t + ":" + str(a[0])
 		"rmbPay":
 			return t + ":RMB046"
-		"payDarkHero":
+		"payDarkHero", "payDarkCoins":
 			return t + ":" + str(a[2])
-		"promoteMiniboss", "rmbCancel", "docScarecrow", "discardForCoin", "buildMiniboss", "timebenderCancel":
+		"buildMiniboss": # [carte de la main, emplacement]
+			var bi := int(a[0]) if not a.is_empty() else -1
+			if bi >= 0 and bi < hand.size():
+				return t + ":" + str((hand[bi] as Dictionary).get("id", ""))
+		"promoteMiniboss": # [emplacement, carte a defausser (Calabeza) ou -1] ; le niveau vise = niveau actuel + 1
+			var pi := int(a[0]) if not a.is_empty() else -1
+			if pi >= 0 and pi < dungeon.size():
+				var pm: Dictionary = Minibosses.revealed(BossEngine.active_room(dungeon[pi]))
+				if not pm.is_empty():
+					return t + ":" + Minibosses.mb_id(pm) + ":" + str(Minibosses.level(pm) + 1)
+		"rmbCancel", "docScarecrow", "discardForCoin", "timebenderCancel":
 			return t + ":"
 	return ""
 
+func _note_levels(m) -> void:
+	for e in Minibosses.all_mbs(m.G):
+		if Minibosses.level((e as Dictionary)["mb"]) >= 3:
+			_g_level3[Minibosses.mb_id((e as Dictionary)["mb"])] = true
+
 func _on_decision(m, pid: int, moves: Array, best) -> void:
+	_note_levels(m)
 	for mv in moves:
 		var k := _key(m, pid, mv)
 		if k != "":

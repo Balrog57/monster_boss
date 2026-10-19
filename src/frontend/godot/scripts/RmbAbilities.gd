@@ -34,6 +34,10 @@ static func level_up(G: Dictionary, pid: int, p: Dictionary, boss: Dictionary) -
 static func _scott_off(G: Dictionary, pid: int) -> bool:
 	return Minibosses.list(G, "scottOff").has(pid)
 
+## Tomb of Terrors : « a room or spell card » de la defausse. Un miniboss n'est pas une salle (livret p.6) : il reste dans la defausse.
+static func tomb_options(G: Dictionary) -> Array:
+	return RoomAbilities.discard_card_options(G, "any").filter(func(o): return not bool(((o as Dictionary)["card"] as Dictionary).get("isMiniboss", false)))
+
 # --- utilitaires de cibles ---------------------------------------------------------------------------------------------------
 
 static func _ai_player(G: Dictionary, q: int, me: int) -> float:
@@ -206,7 +210,7 @@ static func on_hero_died(G: Dictionary, pid: int, room: Dictionary) -> void:
 	if souls.is_empty() or not ((souls[souls.size() - 1] as Dictionary).get("hero") is Dictionary) or not _spell_source_left(G):
 		return
 	var hero: Dictionary = (souls[souls.size() - 1] as Dictionary)["hero"]
-	TnlAbilities.emit(G, TnlAbilities.ask(G, pid, "rmb_mind", [{"card": hero, "label": "Remove %s from the game: draw 2 Spells" % _label(hero), "ai": -5.0}], {"room": room},
+	TnlAbilities.emit(G, TnlAbilities.ask(G, pid, "rmb_mind", [{"card": hero, "label": "Remove %s from the game: draw 2 Spells" % _label(hero), "ai": -5.0}], {"room": room, "slot": TnlAbilities._index_of_room(p, room)},
 		"Mind Thresher: remove %s from the game to draw two Spells?" % _label(hero), "Mind Thresher", true))
 
 # --- construction / decouverte -----------------------------------------------------------------------------------------------------
@@ -505,7 +509,7 @@ static func extra_moves(G: Dictionary, p: Dictionary, pid: int) -> Array:
 		var c: Dictionary = hand[hi]
 		match str(c.get("id", "")):
 			"RMB016":
-				if not RoomAbilities.discard_card_options(G, "any").is_empty():
+				if not tomb_options(G).is_empty():
 					out.append({"type": "rmbHand", "args": [hi, ""]})
 			"RMB027":
 				if not TnlAbilities.hero_options(G).is_empty():
@@ -560,7 +564,7 @@ static func apply_move(G: Dictionary, pid: int, move: Dictionary) -> Variant:
 				return "no such card"
 			var card: Dictionary = hand[hi]
 			var cid := str(card.get("id", ""))
-			var pre: Array = RoomAbilities.discard_card_options(G, "any")
+			var pre: Array = tomb_options(G)
 			TnlAbilities.discard_from_hand(G, pid, card)
 			match cid:
 				"RMB016": # Tomb of Terrors : une salle ou un sort de la defausse (pas elle-meme) rejoint la main
@@ -672,6 +676,9 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 		"rmb_mind": # Mind Thresher : le heros mort quitte la partie, pioche 2 sorts
 			var dead: Dictionary = o.get("card", {})
 			if TnlAbilities.remove_soul_hero(p, dead):
+				for mt in [SpellEffects.find_room(G, pid, int(ctx.get("slot", -1))), ctx.get("room")]: # « once per turn » : consomme a l'acceptation seulement
+					if mt is Dictionary and str((mt as Dictionary).get("id", "")) == "RMB034":
+						(mt as Dictionary)["usedThisTurn"] = true
 				TnlAbilities._remove_from_game(G, dead)
 				_log(G, "Mind Thresher: %s is removed from the game." % _label(dead))
 				TnlAbilities.draw_logged(G, pid, "spells", 2, "Mind Thresher")
@@ -712,7 +719,7 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 			var cands: Array = []
 			for c in (_player(G, vid).get("hand", []) as Array):
 				var cd: Dictionary = c
-				if bool(cd.get("isSpell", false)) or bool(cd.get("isRoom", false)):
+				if bool(cd.get("isSpell", false)) or (bool(cd.get("isRoom", false)) and not bool(cd.get("isMiniboss", false))): # un miniboss n'est pas une salle
 					cands.append({"card": cd, "victim": vid, "label": _label(cd), "ai": 1.0 + (3.0 if bool(cd.get("isSpell", false)) else TnlAbilities._ai_value(cd))})
 			return TnlAbilities.ask(G, pid, "rmb_steal", cands, {}, "Draculad: take one Spell or Room (or skip)", "Draculad", true)
 		"rmb_steal":
@@ -841,7 +848,7 @@ static func score_move(G: Dictionary, p: Dictionary, pid: int, mtype: String, ar
 			if hid == "RMB027": # Shrooman Aviary : +3 au heros adverse qui meurt de justesse
 				return 45.0 if not mine and AiWiki.saves(f, 3) else -5.0
 			if hid == "RMB016": # Tomb of Terrors : seulement s'il y a dans les defausses autre chose qu'une autre Tomb of Terrors
-				return 4.0 if RoomAbilities.discard_card_options(G, "any").any(func(o): return str(((o as Dictionary)["card"] as Dictionary).get("id", "")) != "RMB016") else -5.0
+				return 4.0 if tomb_options(G).any(func(o): return str(((o as Dictionary)["card"] as Dictionary).get("id", "")) != "RMB016") else -5.0
 			return -5.0
 	return 0.0
 

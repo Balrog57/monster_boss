@@ -367,6 +367,13 @@ func _undo_build_moves(p: Dictionary) -> Array:
 
 ## Applique la reprise sur un joueur : la salle du dessus de l'emplacement `ui` retourne en fin de main, la salle recouverte
 ## (s'il y en avait une) redevient visible, buildsThisTurn redescend. Statique : GameManager l'essaie aussi sur une copie.
+## Un paquet wiki (TNL / RMB / CRL) est-il en jeu ? Les corrections propres aux cartes wiki n'atteignent jamais une partie APK pure.
+static func wiki_active(G: Dictionary) -> bool:
+	for s in G.get("sets", []):
+		if not (s in APK_SETS):
+			return true
+	return false
+
 static func undo_build_on(p: Dictionary, ui: int) -> Dictionary:
 	var ud: Array = p["dungeon"]
 	var ustack: Array = ud[ui]
@@ -476,7 +483,10 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 				(dungeon[slot] as Array).append(card)
 				_log("Joueur %d améliore l'emplacement %d avec %s." % [pid, slot + 1, str(card.get("name", "?"))], "Joueur %d améliore l'emplacement %d (face cachée)." % [pid, slot + 1], [pid])
 			else:
-				dungeon.push_front([card])
+				if wiki_active(G):
+					TnlAbilities.insert_slot(G, pid, card) # les effets indexes par emplacement (Sabotage!, Rage!...) glissent avec leur salle
+				else:
+					dungeon.push_front([card])
 				_log("Joueur %d place %s face cachée." % [pid, str(card.get("name", "?"))], "Joueur %d place une salle face cachée." % pid, [pid])
 			p["buildsThisTurn"] = int(p.get("buildsThisTurn", 0)) + 1
 			if bool(G.get("setupBuild", false)):
@@ -489,7 +499,11 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 			else:
 				_advance_build()
 		"undoBuild":
-			var back := undo_build_on(p, int(move["args"][0]))
+			var undo_slot := int(move["args"][0])
+			var slot_freed: bool = wiki_active(G) and undo_slot >= 0 and undo_slot < (p["dungeon"] as Array).size() and ((p["dungeon"] as Array)[undo_slot] as Array).size() == 1
+			var back := undo_build_on(p, undo_slot)
+			if slot_freed:
+				TnlAbilities.remove_slot_effects(G, pid, undo_slot)
 			_log("Joueur %d reprend %s en main." % [pid, str(back.get("name", "?"))], "Joueur %d reprend une salle posée." % pid, [pid])
 			state_changed.emit()
 		"playSpell":
@@ -553,7 +567,7 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 			if G.has("buildWindow"):
 				G["buildWindow"] = _window_auto_passed()
 			return true
-		"docScarecrow", "payDarkHero", "timebenderCancel", "antimagicCancel": # The Next Level (voir TnlAbilities.extra_moves / stack_moves)
+		"docScarecrow", "payDarkHero", "payDarkCoins", "timebenderCancel", "antimagicCancel": # The Next Level (voir TnlAbilities.extra_moves / stack_moves)
 			var terr = TnlAbilities.apply_move(G, pid, move)
 			if terr != null:
 				_log(str(terr))

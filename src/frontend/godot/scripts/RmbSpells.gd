@@ -82,7 +82,7 @@ static func targets_for(G: Dictionary, me: Dictionary, pid: int, spell_id: Strin
 			for t in SpellTargeting.enumerate_targets("any-room", G, me, pid):
 				if int((t as Dictionary)["targetPlayerId"]) != pid:
 					continue
-				for n in range(0, mini(3, coins) + 1):
+				for n in range(0, coins + 1): # « for each Coin you pay » : de 0 a tous vos Coins (aucun plafond de la carte)
 					out.append({"targetPlayerId": (t as Dictionary)["targetPlayerId"], "roomIndex": (t as Dictionary)["roomIndex"], "pay": n})
 		"respawn":
 			if not SpellTargeting.enumerate_targets("own-room", G, me, pid).is_empty():
@@ -102,7 +102,7 @@ static func targets_for(G: Dictionary, me: Dictionary, pid: int, spell_id: Strin
 						out.append({"targetPlayerId": int(ed["pid"]), "roomIndex": int(ed["idx"])})
 		"armor":
 			for h in TnlAbilities.hero_options(G):
-				for n in range(0, mini(2, coins) + 1):
+				for n in range(0, coins + 1): # « for every Coin you spend » : de 0 a tous vos Coins (aucun plafond de la carte)
 					out.append({"heroId": ((h as Dictionary)["card"] as Dictionary).get("id"), "pay": n})
 	return out
 

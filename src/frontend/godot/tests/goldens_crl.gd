@@ -28,6 +28,7 @@ func run(ok: Callable, h: Node) -> void:
 	_t_room_omega_42_choices()
 	_t_uncover_crash_site()
 	_t_uncover_caged_gundarf()
+	_t_uncover_caged_gundarf_modifiers()
 	_t_uncover_celestial_map()
 	_t_uncover_darkling_lair()
 	_t_spell_finish_him()
@@ -303,6 +304,14 @@ func _t_room_decoy_garden() -> void:
 	var discard := garden.duplicate()
 	BossEngine.discard_room_to_pile(G["decks"], discard)
 	_ok.call(not discard.has("extraTreasures"), "CRL006 : defaussee, la salle perd ses tresors temporaires")
+	# The Omega 42 rejoue « when you build this Room » : la salle gagne Explorer*2 de nouveau (cumul), l'effet n'ecrase plus le precedent
+	var garden2 := _real("CRL006")
+	var q0 := _player(0, "BMA001", [garden2])
+	(q0["hand"] as Array).append(_room("adv", "monster", [2], 3, true))
+	var G2 := _G([q0, _player(1, "BMA002")])
+	RoomAbilities.on_build_room(G2, 0, garden2)
+	RoomAbilities.omega_finish(G2, 0, {"roomIndex": 0, "mode": "build"}, 0)
+	_ok.call(BossEngine.treasure_count(q0, 5, G2) == 5 and (garden2["extraTreasures"] as Array).size() == 4, "CRL006 rejoue par The Omega 42 : Explorer*2 de plus (1 imprime + 4 = 5), pas de remplacement")
 
 ## CRL007 Frostman Lander : defausse depuis la main -> une salle avancee (n'importe quel donjon) desactivee jusqu'a la fin du tour.
 func _t_room_frostman_lander() -> void:
@@ -484,6 +493,15 @@ func _t_uncover_caged_gundarf() -> void:
 	_ok.call(_stack_ids(p0, 0) == ["CRL014"] and _dmg(G, p0, 0) == 2, "CRL014 : decouvert, degats doubles (1 -> 2)")
 	G["effects"] = SpellEffects.empty_effects() # fin du tour
 	_ok.call(_dmg(G, p0, 0) == 1, "CRL014 : le bonus disparait avec les effets de fin de tour")
+
+## CRL014 : « its damage is doubled » double les degats du moment, modificateurs compris (Invasion Swarm adjacent : 1 + 1 = 2 -> 4, pas 3).
+func _t_uncover_caged_gundarf_modifiers() -> void:
+	var p0 := _player(0, "BMA001", [[_real("CRL014"), _room("top", "trap", [1])], _real("CRL008")])
+	var G := _G([p0, _player(1, "BMA002")])
+	BossEngine.destroy_room(p0, 0, G)
+	_ok.call(_stack_ids(p0, 0) == ["CRL014"] and _dmg(G, p0, 0) == 4, "CRL014 + Invasion Swarm adjacent : (1 imprime + 1) doubles = 4, pas 3 (le doublement ne porte pas que sur le degat imprime)")
+	G["effects"] = SpellEffects.empty_effects()
+	_ok.call(_dmg(G, p0, 0) == 2, "CRL014 : fin de tour, retour a 1 + 1")
 
 ## CRL015 Celestial Map : decouverte -> pioche un sort puis se detruit ; la salle du dessous est a son tour decouverte (cascade).
 func _t_uncover_celestial_map() -> void:

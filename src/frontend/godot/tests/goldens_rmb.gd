@@ -54,6 +54,7 @@ func run(ok: Callable, h: Node) -> void:
 	_t_ai_soak_rmb()
 	_t_ai_soak_each_boss()
 	_t_ai_soak_all_packs()
+	_t_audit_fixes()
 
 # --- fabriques d'etats minimaux ----------------------------------------------------------------------
 
@@ -1477,9 +1478,9 @@ func _t_spell_phases_and_targets() -> void:
 	_ok.call(_targets(G, 0, "RMB070").size() == 1, "Ambush : deux salles Monster en main suffisent")
 	(G["players"][0]["dungeon"] as Array)[0] = [_with_mb(_plain("A"), "RMB056", 1)]
 	_ok.call(_targets(G, 0, "RMB072").size() == 2, "Smash! : heros dans une salle avec miniboss -> aussi 4 degats")
-	G["players"][0]["coins"] = 2
-	_ok.call(_targets(G, 0, "RMB073").size() == 2 * 3, "Pay to Win : vos 2 salles x 0, 1 ou 2 Coins payes")
-	_ok.call(_targets(G, 0, "RMB079").size() == 1 * 3, "Armor Up! : le heros x 0, 1 ou 2 Coins")
+	G["players"][0]["coins"] = 5
+	_ok.call(_targets(G, 0, "RMB073").size() == 2 * 6, "Pay to Win : vos 2 salles x 0 a 5 Coins payes (aucun plafond a 3 : un Coin paye = +1)")
+	_ok.call(_targets(G, 0, "RMB079").size() == 1 * 6, "Armor Up! : le heros x 0 a 5 Coins (aucun plafond a 2 : un Coin paye = +2)")
 	_ok.call(_targets(G, 0, "RMB077").is_empty() and _targets(G, 0, "RMB078").is_empty(), "Short Circuit, Traitor : rien a cibler")
 	G["players"][1]["dungeon"] = [[_with_mb(_plain("D"), "RMB058", 2)]]
 	G["players"][0]["coins"] = 1
@@ -1675,28 +1676,40 @@ func _t_heroes() -> void:
 	d["boss"]["treasures"] = []
 	var G2 := _G([c, d])
 	_ok.call(BossEngine.lure_target(G2["players"], [0, 1], 1, pal, G2) == 0, "RMB107 Paladin (Cleric + Fighter) : somme des deux tresors")
-	# heros noirs : l'adversaire paie une salle au tresor du heros pour +3 PV
+	# heros noirs RMB (texte wiki) : « Once per turn, each opponent may pay any number of (c) to give this hero +1 per (c) spent until end of turn. »
 	var dark := _hero("RMB084")
-	_ok.call(str((dark["heroAbility"] as Dictionary)["cmd"]) == "DarkHeroPay" and bool(dark["dark"]), "RMB084 Inquisitor : heros noir (capacite DarkHeroPay)")
-	var p0 := _player(0, "BMA001", [_plain("A")], 0)
+	_ok.call(str((dark["heroAbility"] as Dictionary)["cmd"]) == "DarkHeroCoin" and bool(dark["dark"]), "RMB084 Inquisitor : heros noir (capacite DarkHeroCoin : des Coins, pas une salle)")
+	for hid in ["RMB090", "RMB096", "RMB102"]:
+		_ok.call(str((_hero(hid)["heroAbility"] as Dictionary)["cmd"]) == "DarkHeroCoin", "%s : meme texte que l'Inquisitor (Coins)" % hid)
+	var p0 := _player(0, "BMA001", [_plain("A")], 3)
 	var p1 := _player(1, "BMA002", [_plain("B")], 0)
-	p0["hand"] = [_plain("PAY", "monster", [1], 1), _plain("NOPE", "monster", [2], 1)]
+	p0["hand"] = [_plain("PAY", "monster", [1], 1)]
 	(p1["entrance"] as Array).append(dark)
 	var G3 := _G([p0, p1])
 	G3["phase"] = "adventure"
 	G3["activePlayer"] = 1
 	var m3 := _match(G3)
-	var pays := _types(m3.legal_moves(0), "payDarkHero")
-	_ok.call(pays.size() == 1 and m3.apply_move(0, pays[0]), "heros noirs RMB : l'adversaire paie une salle au tresor du heros (Cleric)")
-	_ok.call(TnlAbilities.on_hero_start(G3, 1, dark) == 3 and _hand(G3, 0).size() == 1, "heros noir : +3 PV a l'entree dans le donjon, la salle est defaussee")
+	var pays := _types(m3.legal_moves(0), "payDarkCoins")
+	_ok.call(pays.size() == 3 and _types(m3.legal_moves(0), "payDarkHero").is_empty() and _types(m3.legal_moves(1), "payDarkCoins").is_empty(), "heros noirs RMB : l'adversaire peut payer 1, 2 ou 3 Coins (tout son Hoard), jamais une salle ; pas le proprietaire du donjon")
+	var pay2 := pays.filter(func(mv): return int((mv as Dictionary)["args"][0]) == 2)
+	_ok.call(pay2.size() == 1 and m3.apply_move(0, pay2[0]) and _coins(G3, 0) == 1, "heros noir : payer 2 Coins")
+	_ok.call(TnlAbilities.on_hero_start(G3, 1, dark) == 2 and _hand(G3, 0).size() == 1, "heros noir : +1 PV par Coin paye (+2), la main n'est pas touchee")
+	_ok.call(_types(m3.legal_moves(0), "payDarkCoins").is_empty(), "heros noir : une seule fois par tour pour cet adversaire")
+	# la regle est « each opponent » : un deuxieme adversaire peut payer a son tour
+	var p2 := _player(2, "BMA003", [_plain("C")], 4)
+	var G3b := _G([_player(0, "BMA001", [_plain("A")], 3), _player(1, "BMA002", [_plain("B")], 0), p2])
+	(G3b["players"][1]["entrance"] as Array).append(dark.duplicate(true))
+	G3b["phase"] = "adventure"
+	G3b["activePlayer"] = 1
+	var m3b := _match(G3b)
+	_ok.call(m3b.apply_move(0, _types(m3b.legal_moves(0), "payDarkCoins")[0]) and _types(m3b.legal_moves(2), "payDarkCoins").size() == 4 and _types(m3b.legal_moves(0), "payDarkCoins").is_empty(), "heros noir : chaque adversaire peut payer une fois par tour")
 	# Icicle Man ou Cerebella : le texte du heros noir est ignore
-	var G4 := _G([_player(0, "BMA001", [_with_mb(_plain("C"), "RMB061", 2)], 0), _player(1, "BMA002", [_plain("D")], 0)])
+	var G4 := _G([_player(0, "BMA001", [_with_mb(_plain("C"), "RMB061", 2)], 3), _player(1, "BMA002", [_plain("D")], 0)])
 	G4["phase"] = "adventure"
 	(G4["players"][1]["entrance"] as Array).append(_hero("RMB090"))
-	(G4["players"][0]["hand"] as Array).append(_plain("PAY", "monster", [2], 1))
-	_ok.call(_types(_match(G4).legal_moves(0), "payDarkHero").size() == 1, "controle : le heros noir de l'adversaire est payable")
+	_ok.call(_types(_match(G4).legal_moves(0), "payDarkCoins").size() == 3, "controle : le heros noir de l'adversaire est payable")
 	(G4["players"][1]["dungeon"] as Array)[0] = [_with_mb(_plain("D"), "RMB061", 2)]
-	_ok.call(_types(_match(G4).legal_moves(0), "payDarkHero").is_empty(), "Icicle Man niveau 2 chez le defenseur : le texte du heros noir est ignore, rien a payer")
+	_ok.call(_types(_match(G4).legal_moves(0), "payDarkCoins").is_empty(), "Icicle Man niveau 2 chez le defenseur : le texte du heros noir est ignore, rien a payer")
 
 func _t_state_roundtrip() -> void:
 	# L'etat circule en JSON (sauvegarde, reseau) : les minibosses, Coins et sacs d'effets survivent a l'aller-retour.
@@ -1939,3 +1952,115 @@ func _t_stack_probe_identity() -> void:
 	(p0["entrance"] as Array).append(_hero("RMB095"))
 	var moves := _types(m.legal_moves(0), "activateRoom")
 	_ok.call(moves.size() == 1 and RmbAbilities.check(G, p0, 0, 0, cav) == "", "Haunted Cavern : un heros en attente -> coup propose, et il s'applique")
+
+# --- lot 2.1 : correctifs de l'audit RMB ----------------------------------------------------------------------------------------------
+
+func _t_audit_fixes() -> void:
+	_t_fix_build_slot_shift()
+	_t_fix_mind_thresher_once()
+	_t_fix_draculad_no_miniboss()
+	_t_fix_tomb_no_miniboss()
+	_t_fix_pay_without_cap()
+	_t_fix_sabotage_cuts_miniboss_text()
+
+## Une salle posee a l'entree (nouvel emplacement) decale d'un cran les effets indexes par emplacement deja poses ce tour (Sabotage! « desactivee »).
+func _t_fix_build_slot_shift() -> void:
+	var p0 := _player(0, "BMA001", [_with_mb(_plain("A"), "RMB056", 1)], 3)
+	var b := _plain("B")
+	var p1 := _player(1, "BMA002", [b], 3)
+	p1["hand"] = [_plain("NEW")]
+	var G := _G([p0, p1])
+	_build_phase(G, 1)
+	_ok.call(RmbSpells.cast(G, 0, _spell("RMB068"), {"mode": "deactivate", "targetPlayerId": 1, "roomIndex": 0}), "controle : Sabotage! desactive la salle B (emplacement 0)")
+	var m := _match(G)
+	_ok.call(m.apply_move(1, {"type": "buildRoom", "args": [0]}), "la salle NEW est posee a l'entree du donjon adverse (nouvel emplacement)")
+	_ok.call(BossEngine.active_room((p1["dungeon"] as Array)[1]) == b and BossEngine.is_room_deactivated(G, 1, 1) and not BossEngine.is_room_deactivated(G, 1, 0),
+		"un nouvel emplacement decale l'effet : B (maintenant l'emplacement 1) reste desactivee, la nouvelle salle ne l'est pas")
+	_ok.call(m.apply_move(1, {"type": "undoBuild", "args": [0]}) and BossEngine.is_room_deactivated(G, 1, 0) and not BossEngine.is_room_deactivated(G, 1, 1),
+		"la pose reprise rend l'effet a son emplacement d'origine")
+
+## RMB034 Mind Thresher : « once per turn » -- la deuxieme mort du tour, dans la meme salle, ne declenche rien.
+func _t_fix_mind_thresher_once() -> void:
+	var mt := _room("RMB034")
+	var p := _player(0, "BMA001", [mt], 0)
+	var G := _G([p, _player(1, "BMA002")])
+	_fill(G, "spells", 6, "spell")
+	var m := _match(G)
+	var h1 := _hero("RMB090")
+	_adventure(G, 0, h1, 0, 0)
+	m._finish_hero(0, h1, 0, mt)
+	m._resolve_choice(0, 0)
+	_ok.call(_hand(G, 0).size() == 2 and bool(mt.get("usedThisTurn", false)), "RMB034 : premier heros retire du jeu, la salle est marquee « utilisee ce tour »")
+	var h2 := _hero("RMB091")
+	_adventure(G, 0, h2, 0, 0)
+	m._finish_hero(0, h2, 0, mt)
+	_ok.call(_pending(G).is_empty() and (p["souls"] as Array).size() == 1 and _hand(G, 0).size() == 2, "RMB034 : deuxieme mort du tour -> aucun choix, l'ame reste, pas de nouveaux sorts")
+	mt["usedThisTurn"] = false # tour suivant
+	var h3 := _hero("RMB092")
+	_adventure(G, 0, h3, 0, 0)
+	m._finish_hero(0, h3, 0, mt)
+	_ok.call(str(_pending(G).get("step", "")) == "rmb_mind", "RMB034 : au tour suivant la capacite est de nouveau proposee")
+
+## RMB057 Draculad niveau 3 : « one Spell or Room card » -- un miniboss en main n'est pas une salle (livret p.6).
+func _t_fix_draculad_no_miniboss() -> void:
+	var dr := _with_mb(_plain("A"), "RMB057", 3)
+	var foe := _player(1, "BMA002")
+	foe["hand"] = [_minicard("RMB058")]
+	var G := _G([_player(0, "BMA001", [dr]), foe])
+	_ok.call(Minibosses.check_activate(G, G["players"][0], 0, 0, 3) != "", "Draculad niveau 3 : une main qui ne contient qu'un miniboss ne peut pas etre regardee")
+	(foe["hand"] as Array).append(_spl("SP"))
+	Minibosses.activate(G, 0, 0, 3)
+	var opts: Array = _pending(G)["options"]
+	_ok.call(opts.size() == 1 and str(((opts[0] as Dictionary)["card"] as Dictionary)["id"]) == "SP", "Draculad niveau 3 : le miniboss n'est pas proposable, seul le sort l'est")
+
+## RMB016 Tomb of Terrors : « a room or spell card » de la defausse -- jamais un miniboss.
+func _t_fix_tomb_no_miniboss() -> void:
+	var p := _player(0, "BMA001", [], 0)
+	p["hand"] = [_room("RMB016")]
+	var G := _G([p, _player(1, "BMA002")])
+	_build_phase(G)
+	(G["decks"]["roomDiscard"] as Array).append(_minicard("RMB055"))
+	var m := _match(G)
+	_ok.call(_types(m.legal_moves(0), "rmbHand").is_empty(), "RMB016 : une defausse ne contenant qu'un miniboss -> pas de coup")
+	(G["decks"]["roomDiscard"] as Array).append(_plain("OLD"))
+	var mv := _types(m.legal_moves(0), "rmbHand")
+	_ok.call(mv.size() == 1 and m.apply_move(0, mv[0]), "RMB016 : avec une vraie salle en defausse, la capacite est jouable")
+	# une seule carte eligible : prise d'office, le miniboss defausse reste dans la defausse
+	_ok.call(_ids(_hand(G, 0)) == ["OLD"] and _ids(_decks(G, "roomDiscard")).has("RMB055"), "RMB016 : la salle est reprise, le miniboss defausse n'etait pas dans le choix et y reste")
+
+## RMB073 / RMB079 : « for each Coin you pay / spend » -- aucun plafond invente (3 / 2) : 5 Coins payes donnent +6 / +1 +10.
+func _t_fix_pay_without_cap() -> void:
+	var G := _G([_player(0, "BMA001", [_plain("A", "monster", [1], 2)], 5), _player(1, "BMA002")])
+	_ok.call(_cast(G, 0, "RMB073", {"targetPlayerId": 0, "roomIndex": 0, "pay": 5}) and _coins(G, 0) == 0 and BossEngine.room_damage_with_modifiers(G, G["players"][0], 0, null) == 2 + 6, "RMB073 Pay to Win : 5 Coins payes -> +6 (pas de plafond a 3)")
+	var h := _hero("RMB099")
+	var G2 := _G([_player(0, "BMA001", [], 5), _player(1, "BMA002")])
+	G2["town"] = [h]
+	_ok.call(_cast(G2, 0, "RMB079", {"heroId": h["id"], "pay": 5}) and _coins(G2, 0) == 0 and TnlAbilities.on_hero_start(G2, 0, h) == 11, "RMB079 Armor Up! : 5 Coins -> +1 +10 = +11 PV (pas de plafond a 2)")
+
+## RMB068 Sabotage! : une salle « sans texte » coupe aussi le texte du miniboss pose dessus (« your Room now has that ability text »), mais pas le +1 de Scott (effet du boss).
+func _t_fix_sabotage_cuts_miniboss_text() -> void:
+	var spike := _with_mb(_plain("A", "trap", [1], 2), "RMB055", 2) # niveau 1 : +1 ; niveau 2 : defausse -> 2 degats
+	var cere := _with_mb(_plain("C", "trap", [1], 2), "RMB059", 2) # niveau 2 : la mort d'un heros fait piocher un sort
+	var drac := _with_mb(_plain("D", "trap", [1], 2), "RMB057", 2) # niveau 2 : renvoie le heros en ville
+	var p0 := _player(0, "BMA001", [spike, cere, drac], 3)
+	p0["hand"] = [_plain("X")]
+	var G := _G([p0, _player(1, "BMA002")])
+	_fill(G, "spells", 3, "spell")
+	_adventure(G, 0, _hero("RMB090"), 0, 5)
+	_ok.call(BossEngine.room_damage_with_modifiers(G, p0, 0, null) == 3 and Minibosses.check_activate(G, p0, 0, 0, 2) == "" and Minibosses.check_activate(G, p0, 0, 2, 2) == "", "controle : Spike niveau 1 (+1) et les pouvoirs de niveau 2 sont disponibles")
+	for i in [0, 1, 2]:
+		RmbSpells.cast(G, 1, _spell("RMB068"), {"mode": "text", "targetPlayerId": 0, "roomIndex": i})
+	_ok.call(BossEngine.room_damage_with_modifiers(G, p0, 0, null) == 2, "Sabotage! : le +1 de Spike niveau 1 est coupe avec le texte de la salle")
+	_ok.call(Minibosses.check_activate(G, p0, 0, 0, 2) != "" and Minibosses.check_activate(G, p0, 0, 2, 2) != "", "Sabotage! : les pouvoirs de niveau 2 (Spike, Draculad) ne sont plus utilisables")
+	_ok.call(Minibosses.activate_moves(G, p0, 0).is_empty(), "Sabotage! : aucun coup activateMiniboss")
+	var hand0 := _hand(G, 0).size()
+	Minibosses.on_hero_died(G, 0, cere)
+	_ok.call(_hand(G, 0).size() == hand0, "Sabotage! : Cerebella niveau 2 ne fait plus piocher a la mort d'un heros")
+	# Scott : « Trap Rooms +1 » est un effet du boss, la salle sans texte le garde
+	var pt := _player(0, "RMB011")
+	pt["leveledUp"] = true
+	pt["dungeon"] = [[_plain("T", "trap", [1], 2)]]
+	var G2 := _G([pt, _player(1, "BMA002")])
+	_ok.call(BossEngine.room_damage_with_modifiers(G2, pt, 0, null) == 3, "controle : Scott, salle Trap 2 -> 3")
+	TnlAbilities._tag(BossEngine.active_room((pt["dungeon"] as Array)[0]))["noText"] = true
+	_ok.call(BossEngine.room_damage_with_modifiers(G2, pt, 0, null) == 3, "Scott : une salle sans texte garde le +1 du boss")
