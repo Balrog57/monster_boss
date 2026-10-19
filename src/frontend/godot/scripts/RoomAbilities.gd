@@ -140,6 +140,10 @@ static func activate_room_ability(G: Dictionary, player_id: int, room_index: int
 		return "already used this turn"
 	if BossEngine.abilities_locked(G, player_id):
 		return "abilities locked (Trap Master)" # KSA017 : Ability.IsLocked -> CheckConditions faux
+	# Cartes wiki (TNL / RMB / CRL) : glossaire « Face-Down » / « Deactivate » -> une salle face cachee (posee ce tour) ou gelee n'a aucune capacite.
+	# Les salles de l'APK gardent leur propre controle plus bas (parite), les coups legaux passent par cette fonction.
+	if ApkAI.is_wiki_card(str(r.get("id", ""))) and (bool(r.get("faceDown", false)) or BossEngine.is_room_deactivated(G, player_id, room_index)):
+		return "room is face down or frozen"
 	if Minibosses.active(G) and RmbAbilities.ACTIVATED.has(str(r.get("id", ""))): # Rise of the Minibosses : capacites activees des salles RMB
 		return RmbAbilities.activate(G, p, player_id, room_index, r)
 	if TnlAbilities.active(G):

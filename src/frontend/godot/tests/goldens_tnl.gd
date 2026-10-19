@@ -72,6 +72,7 @@ func run(ok: Callable, h: Node) -> void:
 	_t_shortcut()
 	_t_surprise_gift()
 	_t_wild_monster()
+	_t_audit_lot21()
 	# heros
 	_t_lure_kinds()
 	_t_dark_heroes()
@@ -331,16 +332,27 @@ func _t_torix() -> void:
 	BossEngine.discard_room_to_pile(G["decks"], d1)
 	_ok.call(_decks(G, "roomDiscard").is_empty() and not _decks(G, "torixQueue").is_empty(), "TNL003 : la salle Monster detruite n'atteint pas la defausse")
 	TnlAbilities.flush_torix(G)
-	_ok.call(_ids(_hand(G, 0)) == ["mon"] and _decks(G, "torixQueue").is_empty(), "TNL003 : elle rejoint la main de Torix")
+	_ok.call(str(_pending(G).get("step", "")) == "torix" and bool(_pending(G)["optional"]) and int(_pending(G)["playerId"]) == 0 and _hand(G, 0).is_empty() and _decks(G, "torixQueue").is_empty(),
+		"TNL003 : « you may » -> la salle est proposee a Torix (facultatif), pas prise d'office")
+	_match(G)._resolve_choice(0, 0)
+	_ok.call(_ids(_hand(G, 0)) == ["mon"] and _pending(G).is_empty(), "TNL003 : elle rejoint la main de Torix")
 	var d2 = BossEngine.destroy_room(p1, 0, G)
 	BossEngine.discard_room_to_pile(G["decks"], d2)
 	TnlAbilities.flush_torix(G)
-	_ok.call(_ids(_decks(G, "roomDiscard")) == ["trap"] and _hand(G, 0).size() == 1, "TNL003 : une salle Trap va normalement a la defausse")
+	_ok.call(_ids(_decks(G, "roomDiscard")) == ["trap"] and _hand(G, 0).size() == 1 and _pending(G).is_empty(), "TNL003 : une salle Trap va normalement a la defausse")
 	# defaussee depuis une main (cout d'une capacite)
 	var mon2 := _plain("mon2", "monster")
 	BossEngine.discard_room_to_pile(G["decks"], mon2)
 	TnlAbilities.flush_torix(G)
+	_match(G)._resolve_choice(0, 0)
 	_ok.call(_ids(_hand(G, 0)).has("mon2"), "TNL003 : une salle Monster defaussee de la main aussi")
+	# refus (« may ») : la salle va a la defausse, la main ne change pas
+	var mon3 := _plain("mon3", "monster")
+	BossEngine.discard_room_to_pile(G["decks"], mon3)
+	TnlAbilities.flush_torix(G)
+	var before := _hand(G, 0).size()
+	_match(G)._resolve_choice(0, -1)
+	_ok.call(_hand(G, 0).size() == before and _ids(_decks(G, "roomDiscard")).has("mon3") and _pending(G).is_empty(), "TNL003 : Torix peut refuser (passer) -> defausse normale")
 	# Sans Torix rien ne change
 	var G2 := _G([_player(0, "BMA001"), _player(1, "BMA002", [_plain("x", "monster")])])
 	BossEngine.discard_room_to_pile(G2["decks"], BossEngine.destroy_room(G2["players"][1], 0, G2))
@@ -358,6 +370,7 @@ func _t_torix_jeopardy() -> void:
 	_fill(G, "spells", 3, "spell")
 	SpellEffects.cast_spell(G, 1, _spell("BMA048"), {})
 	TnlAbilities.flush_torix(G)
+	_drain(_match(G))
 	_ok.call(_hand(G, 1).size() == 3, "Jeopardy + Torix : 1 sort + 2 salles repioches (obtenu %d)" % _hand(G, 1).size())
 	_ok.call(_ids(_hand(G, 0)).has("m1") and _ids(_hand(G, 0)).has("m2") and _hand(G, 0).size() == 5, "Jeopardy + Torix : Torix garde ses salles Monster ET prend celle de l'adversaire")
 
@@ -554,10 +567,18 @@ func _t_build_effects() -> void:
 	var crypt := _room("TNL016")
 	(G["players"][0]["dungeon"] as Array).append([crypt])
 	(G["decks"]["spellDiscard"] as Array).append(_spl("old"))
-	_ok.call(RoomAbilities.on_build_room(G, 0, crypt) == null and _ids(_hand(G, 0)) == ["old"] and _decks(G, "spellDiscard").is_empty(), "TNL016 Arcane Crypt : le seul sort de la defausse est recupere")
+	var c1 = RoomAbilities.on_build_room(G, 0, crypt)
+	_ok.call(c1 != null and str(c1["type"]) == "tnl-pick" and bool(c1["optional"]) and (c1["options"] as Array).size() == 1 and _hand(G, 0).is_empty(),
+		"TNL016 Arcane Crypt : « you may » -> meme avec un seul sort, choix facultatif (rien n'est pris d'office)")
+	G["pendingChoice"] = c1
+	_match(G)._resolve_choice(0, 0)
+	_ok.call(_ids(_hand(G, 0)) == ["old"] and _decks(G, "spellDiscard").is_empty(), "TNL016 : le sort choisi est recupere")
 	(G["decks"]["spellDiscard"] as Array).append_array([_spl("a"), _spl("b")])
 	var c = RoomAbilities.on_build_room(G, 0, crypt)
-	_ok.call(c != null and str(c["type"]) == "tnl-pick" and (c["options"] as Array).size() == 2, "TNL016 : plusieurs sorts -> choix")
+	_ok.call(c != null and str(c["type"]) == "tnl-pick" and (c["options"] as Array).size() == 2 and bool(c["optional"]), "TNL016 : plusieurs sorts -> choix facultatif")
+	G["pendingChoice"] = c
+	_match(G)._resolve_choice(0, -1)
+	_ok.call(_ids(_hand(G, 0)) == ["old"] and _decks(G, "spellDiscard").size() == 2 and _pending(G).is_empty(), "TNL016 : refuser (passer) ne prend rien")
 	# Barbarian Hall
 	var hall := _room("TNL024")
 	var G2 := _G([_player(0, "BMA001", [hall]), _player(1, "BMA002")])
@@ -626,7 +647,9 @@ func _t_uncover_effects() -> void:
 	G3["decks"]["spellDiscard"] = [_spl("only")]
 	G3["players"][0]["dungeon"] = [[_room("TNL016"), _plain("over")]]
 	BossEngine.destroy_room(G3["players"][0], 0, G3)
-	_ok.call(_ids(_hand(G3, 0)) == ["only"], "TNL016 : decouverte -> recupere un sort")
+	_ok.call(not _pending(G3).is_empty() and bool(_pending(G3)["optional"]) and _hand(G3, 0).is_empty(), "TNL016 : decouverte -> choix facultatif d'un sort")
+	_drain(_match(G3))
+	_ok.call(_ids(_hand(G3, 0)) == ["only"], "TNL016 : decouverte -> recupere le sort choisi")
 	# la salle decouverte face cachee ou gelee ne declenche rien
 	var G4 := _G([_player(0, "BMA001"), _player(1, "BMA002")])
 	_fill(G4, "spells", 2, "spell")
@@ -1397,6 +1420,8 @@ func _t_wild_monster() -> void:
 	(p0["hand"] as Array).append_array([_plain("mon", "monster", [2], 4), _plain("trapcard", "trap")])
 	_ok.call(SpellTargeting.spell_targets_for(G, p0, 0, "TNL072") == [{}], "TNL072 Wild Monster : jouable avec une salle Monster en main")
 	SpellEffects.cast_spell(G, 0, _spell("TNL072"), {})
+	_ok.call(not _pending(G).is_empty() and bool(_pending(G)["optional"]) and (p0["dungeon"][0] as Array).size() == 1, "TNL072 : « you may » -> la construction est facultative (rien n'est pose d'office)")
+	_drain(_match(G))
 	var stack: Array = p0["dungeon"][0]
 	_ok.call(stack.size() == 2 and str((stack[1] as Dictionary)["id"]) == "mon" and not bool((stack[1] as Dictionary).get("faceDown", false)) and _ids(_hand(G, 0)) == ["trapcard"],
 		"TNL072 : une seule salle Monster, un seul emplacement -> construite tout de suite, face visible")
@@ -1406,11 +1431,123 @@ func _t_wild_monster() -> void:
 	_fill(G2, "spells", 2, "spell")
 	(p1["hand"] as Array).append(_room("TNL036")) # Sorcerobe School (Monster)
 	SpellEffects.cast_spell(G2, 0, _spell("TNL072"), {})
+	_drain(_match(G2))
 	_ok.call(_hand(G2, 0).size() == 1 and str((_hand(G2, 0)[0] as Dictionary).get("isSpell", false)) == "true", "TNL072 (FAQ) : les effets « when you build this Room » s'appliquent a l'instant")
+	# refus : la main et le donjon restent intacts
+	var p3 := _player(0, "BMA001", [_plain("base3", "trap", [1], 1)])
+	var G4 := _G([p3, _player(1, "BMA002")])
+	(p3["hand"] as Array).append(_plain("mon3", "monster"))
+	SpellEffects.cast_spell(G4, 0, _spell("TNL072"), {})
+	_match(G4)._resolve_choice(0, -1)
+	_ok.call(_pending(G4).is_empty() and _ids(_hand(G4, 0)) == ["mon3"] and (p3["dungeon"][0] as Array).size() == 1, "TNL072 : passer -> aucune salle construite, elle reste en main")
 	var p2 := _player(0, "BMA001")
 	var G3 := _G([p2, _player(1, "BMA002")])
 	(p2["hand"] as Array).append(_plain("mon", "monster"))
 	_ok.call(SpellTargeting.spell_targets_for(G3, p2, 0, "TNL072").is_empty(), "TNL072 : aucune salle sur laquelle construire -> injouable")
+
+# --- lot 2.1 : correctifs de l'audit (garde commune, Blockpile Puzzle, Fairy Fountain, declencheurs geles, Surprise Gift) -----------------------------
+
+## Gele la salle `idx` du donjon de `pid` (Freeze / Frostbat Cave).
+func _freeze(G: Dictionary, pid: int, idx: int) -> void:
+	(SpellEffects._effects(G)["deactivatedRooms"] as Array).append({"playerId": pid, "roomIndex": idx})
+
+## Trap Master dans le donjon de `pid` : les capacites des salles sont verrouillees (BossEngine.abilities_locked).
+func _lock(G: Dictionary, pid: int) -> void:
+	G["adventure"] = {"playerId": pid, "hero": {"id": "TM", "name": "Trap Master", "heroAbility": {"cmd": "DeactivateDungeonAbility"}}, "roomIndex": 0, "hp": 5, "pause": "post-damage"}
+
+func _off(G: Dictionary, mode: String, pid: int = 0, idx: int = 0) -> void:
+	if mode == "frozen":
+		_freeze(G, pid, idx)
+	else:
+		_lock(G, pid)
+
+func _t_audit_lot21() -> void:
+	# 1. Garde commune : une salle wiki face cachee (posee ce tour) ou gelee n'active pas sa capacite, et le coup n'est pas propose.
+	var tread := _room("TNL042")
+	var G := _G([_player(0, "BMA001", [tread]), _player(1, "BMA002")])
+	G["phase"] = "build"
+	G["activePlayer"] = 0
+	_hand(G, 0).append(_plain("r1"))
+	var m := _match(G)
+	var offered := func() -> bool: return m.legal_moves(0).any(func(mv): return str((mv as Dictionary)["type"]) == "activateRoom")
+	_ok.call(offered.call(), "garde commune : salle TNL visible -> activateRoom propose")
+	tread["faceDown"] = true
+	_ok.call(_act(G, 0, 0) == "room is face down or frozen" and not offered.call() and not bool(tread.get("usedThisTurn", false)), "garde commune (TNL042) : face cachee -> refusee et non proposee")
+	tread["faceDown"] = false
+	_freeze(G, 0, 0)
+	_ok.call(_act(G, 0, 0) == "room is face down or frozen" and not offered.call(), "garde commune (TNL042) : gelee -> refusee et non proposee")
+	var G2 := _G([_player(0, "BMA001", [_card(CardDB.rooms, "CRL012")]), _player(1, "BMA002")])
+	G2["phase"] = "build"
+	(G2["players"][0]["dungeon"][0][0] as Dictionary)["faceDown"] = true
+	_ok.call(_act(G2, 0, 0) == "room is face down or frozen", "garde commune (CRL012) : face cachee -> refusee")
+	var G3 := _G([_player(0, "BMA001", [_room("TNL042")]), _player(1, "BMA002")])
+	G3["phase"] = "build"
+	_hand(G3, 0).append(_plain("r1"))
+	_fill(G3, "rooms", 2)
+	_ok.call(_act(G3, 0, 0) == null, "garde commune : visible et degelee -> activee")
+
+	# 2. Blockpile Puzzle : un exemplaire = une destruction (deux exemplaires = deux destructions, options recalculees entre les deux).
+	var G4 := _G([_player(0, "BMA001", [_room("TNL047"), _room("TNL047"), _plain("a", "trap", [1], 1), _plain("b", "trap", [1], 3)]), _player(1, "BMA002")])
+	_ok.call(TnlAbilities.end_of_turn(G4) and (_pending(G4)["options"] as Array).size() == 4, "TNL047 : deux exemplaires -> premier choix parmi 4 salles")
+	var m4 := _match(G4)
+	m4._resolve_choice(0, 2) # detruit « a » (index 2)
+	_ok.call(not _pending(G4).is_empty() and (_pending(G4)["options"] as Array).size() == 3 and (G4["players"][0]["dungeon"] as Array).size() == 3, "TNL047 : une salle detruite, second choix parmi les 3 restantes")
+	m4._resolve_choice(0, 2) # detruit « b » (nouvel index 2)
+	var left: Array = (G4["players"][0]["dungeon"] as Array).map(func(st): return (st as Array)[0])
+	_ok.call(_pending(G4).is_empty() and _ids(_decks(G4, "roomDiscard")) == ["a", "b"] and _ids(left) == ["TNL047", "TNL047"], "TNL047 : deux destructions au total (les deux Blockpile Puzzle restent)")
+	for mode in ["frozen", "locked"]:
+		var G5 := _G([_player(0, "BMA001", [_room("TNL047"), _plain("solo")]), _player(1, "BMA002")])
+		_off(G5, mode)
+		_ok.call(not TnlAbilities.end_of_turn(G5) and (G5["players"][0]["dungeon"] as Array).size() == 2, "TNL047 Blockpile Puzzle (%s) : aucune destruction" % mode)
+
+	# 6. Declencheurs : gel et verrou Trap Master (Inner Sanctum, Imp Temple, Hall of Mirrors, Spellslime Pit, Dragon Graveyard).
+	for mode in ["frozen", "locked"]:
+		var Gs := _G([_player(0, "BMA001", [_room("TNL018")]), _player(1, "BMA002")])
+		_fill(Gs, "rooms", 3)
+		_off(Gs, mode)
+		TnlAbilities.end_of_turn(Gs)
+		_ok.call(_hand(Gs, 0).is_empty(), "TNL018 Inner Sanctum (%s) : aucune pioche" % mode)
+		var imp := _room("TNL014")
+		var Gi := _G([_player(0, "BMA001", [imp]), _player(1, "BMA002")])
+		_off(Gi, mode)
+		_ok.call(not TnlAbilities.imp_take(Gi, 0, _plain("x")) and not bool(imp.get("usedThisTurn", false)), "TNL014 Imp Temple (%s) : la carte n'est pas prise" % mode)
+		var slime := _room("TNL034")
+		var Gm := _G([_player(0, "BMA001", [slime]), _player(1, "BMA002")])
+		_off(Gm, mode)
+		TnlAbilities.on_spell_resolving(Gm, 0, _spl("a"))
+		_ok.call(int(slime.get("dealDamage", 0)) == 0, "TNL034 Spellslime Pit (%s) : pas de +1" % mode)
+		var Gh := _G([_player(0, "BMA001", [_room("TNL037")]), _player(1, "BMA002")])
+		_fill(Gh, "spells", 3, "spell")
+		_off(Gh, mode)
+		TnlAbilities.on_spell_resolving(Gh, 1, _spl("b"))
+		_ok.call(_hand(Gh, 0).is_empty(), "TNL037 Hall of Mirrors (%s) : aucune pioche" % mode)
+		var Gd := _G([_player(0, "BMA001", [_room("TNL020")]), _player(1, "BMA002")])
+		_fill(Gd, "rooms", 3)
+		_decks(Gd, "spellDiscard").append(_spl("x"))
+		_off(Gd, mode)
+		RoomAbilities.take_discard_card(Gd, Gd["players"][0], {"card": _spl("x"), "pile": "spell", "pileIndex": 0})
+		_ok.call(_hand(Gd, 0).size() == 1, "TNL020 Dragon Graveyard (%s) : pas de pioche" % mode)
+
+	# 4. Fairy Fountain : l'effet prend fin si la salle est couverte ; une fois decouverte (la salle du dessus detruite) elle fait de nouveau ses degats.
+	var fairy_room := _plain("fr", "trap", [1], 3)
+	var Gf := _G([_player(0, "BMA001"), _player(1, "BMA002")])
+	Gf["players"][0]["dungeon"] = [[fairy_room, _plain("cover", "monster", [1], 1)]]
+	TnlAbilities._tag(fairy_room)["fairy"] = true
+	BossEngine.destroy_room(Gf["players"][0], 0, Gf)
+	_ok.call(not TnlAbilities.flag(fairy_room, "fairy") and BossEngine.room_damage_with_modifiers(Gf, Gf["players"][0], 0, {}) == 3, "TNL058 Fairy Fountain : couverte puis decouverte -> l'effet a pris fin (3 degats)")
+	var fr2 := _plain("fr2", "trap", [1], 3)
+	var Gf2 := _G([_player(0, "BMA001", [fr2]), _player(1, "BMA002")])
+	TnlAbilities._tag(fr2)["fairy"] = true
+	_ok.call(BossEngine.room_damage_with_modifiers(Gf2, Gf2["players"][0], 0, {}) == 0, "TNL058 : non couverte -> toujours zero degat")
+
+	# 7. Surprise Gift : le sort n'est jouable que si une salle de la main tient sur une salle adverse (avancee : tresor commun).
+	var Gg := _G([_player(0, "BMA001"), _player(1, "BMA002", [_plain("host", "trap", [1], 2)])])
+	Gg["phase"] = "build"
+	Gg["activePlayer"] = 0
+	_hand(Gg, 0).append(_plain("adv", "trap", [4], 3, true))
+	_ok.call(not TnlSpells.gift_ready(Gg, Gg["players"][0], 0) and TnlSpells.gift_slots(Gg, 0).is_empty(), "TNL070 Surprise Gift : seule une avancee sans tresor commun en main -> injouable")
+	_hand(Gg, 0).append(_plain("ord"))
+	_ok.call(TnlSpells.gift_ready(Gg, Gg["players"][0], 0) and TnlSpells.gift_slots(Gg, 0).size() == 1, "TNL070 : une salle ordinaire en main -> jouable")
 
 # --- heros ------------------------------------------------------------------------------------------------------------------------------
 
@@ -1691,7 +1828,8 @@ func _t_torix_via_apply_move() -> void:
 	G["activePlayer"] = 0
 	var m := _match(G)
 	_ok.call(m.apply_move(0, {"type": "activateRoom", "args": [0]}), "Torix : Frostbat Cave activee par apply_move")
-	_ok.call(_ids(_hand(G, 0)) == ["TNL033"] and _decks(G, "roomDiscard").is_empty(), "Torix : Frostbat Cave (Monster) detruite par son propre cout rejoint la main a la fin du coup")
+	_ok.call(str(_pending(G).get("step", "")) == "torix" and _hand(G, 0).is_empty() and _decks(G, "roomDiscard").is_empty(), "Torix : Frostbat Cave (Monster) detruite par son propre cout est proposee a Torix a la fin du coup")
+	_ok.call(m.apply_move(0, {"type": "resolveChoice", "args": [0]}) and _ids(_hand(G, 0)) == ["TNL033"] and _pending(G).is_empty(), "Torix : acceptee via resolveChoice, elle rejoint la main")
 
 func _t_ui_labels_and_menu() -> void:
 	var G := _G([_player(0, "BMA001", [_plain("A"), _plain("B")]), _player(1, "BMA002", [_plain("C")])])

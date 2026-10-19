@@ -110,6 +110,11 @@ static func flag(r: Dictionary, key: String) -> bool:
 static func no_text(r: Dictionary) -> bool:
 	return flag(r, "noText")
 
+## Capacite DECLENCHEE d'une salle TNL (pas une capacite activee) en vigueur : face visible, texte present, ni gelee / desactivee (glossaire « Deactivate »),
+## ni verrouillee par Trap Master (« ignores all Room ability text »). `idx` = emplacement de la salle dans le donjon de `pid`.
+static func live(G: Dictionary, pid: int, idx: int, room: Dictionary) -> bool:
+	return not bool(room.get("faceDown", false)) and not no_text(room) and not BossEngine.is_room_deactivated(G, pid, idx) and not BossEngine.abilities_locked(G, pid)
+
 static func has_boss(p: Dictionary, boss_id: String) -> bool:
 	if bool((p.get("tnlBoss", {}) as Dictionary).get(boss_id, false)):
 		return true
@@ -415,7 +420,8 @@ static func torix_catch(decks: Dictionary, card: Dictionary) -> bool:
 	q.append(card)
 	return true
 
-## Fin de coup : les salles attrapees partent dans la main de Torix (« you may » : toujours pris), sinon en defausse.
+## Fin de coup : chaque salle attrapee est proposee a Torix (« you may » : choix facultatif, voir resolve_pick « torix » ; refuser = defausse normale),
+## en defausse directe si Torix est elimine.
 static func flush_torix(G: Dictionary) -> void:
 	var decks: Dictionary = G.get("decks", {})
 	var q: Array = decks.get("torixQueue", [])
@@ -431,10 +437,9 @@ static func flush_torix(G: Dictionary) -> void:
 			decks["roomDiscard"] = pile
 			pile.append(card)
 			continue
-		var hand: Array = owner.get("hand", []) as Array
-		hand.append(card)
-		owner["hand"] = hand
-		_log(G, "Torix Uz'Kali: %s joins his hand." % _label(card))
+		RoomAbilities.enqueue_pending(G, {"type": "tnl-pick", "step": "torix", "ctx": {}, "playerId": int(owner.get("id", -1)), "bossName": "Torix Uz'Kali",
+			"message": "Torix Uz'Kali: put %s into your hand? (or skip)" % _label(card), "options": [{"card": card, "label": _label(card), "ai": 1.0}],
+			"optional": true, "resume": false})
 
 # --- declencheurs : construction / decouverte ---------------------------------------------------------------------
 
@@ -456,7 +461,11 @@ static func on_uncover(G: Dictionary, pid: int, room_index: int) -> void:
 	if room_index < 0 or room_index >= dungeon.size():
 		return
 	var rv = BossEngine.active_room(dungeon[room_index])
-	if rv == null or bool((rv as Dictionary).get("faceDown", false)):
+	if rv == null:
+		return
+	if (rv as Dictionary).get("tnl") is Dictionary:
+		((rv as Dictionary)["tnl"] as Dictionary).erase("fairy") # TNL058 Fairy Fountain : « This effect ends if the Room is covered » (FAQ), sa salle redevient normale
+	if bool((rv as Dictionary).get("faceDown", false)):
 		return
 	var room: Dictionary = rv
 	if has_boss(p, "TNL012"):
@@ -473,7 +482,7 @@ static func _build_or_uncover(G: Dictionary, pid: int, room: Dictionary, built: 
 	var out: Array = []
 	match str(room.get("id", "")):
 		"TNL016": # Arcane Crypt : recupere un sort de la defausse
-			out.append(recover_choice(G, pid, "spell", "Arcane Crypt"))
+			out.append(recover_choice(G, pid, "spell", "Arcane Crypt", true)) # « you may »
 		"TNL027": # Shrooman Cave : une AUTRE salle Monster +3 jusqu'a la fin du tour (la FAQ interdit de se cibler)
 			var idx := _index_of_room(p, room)
 			out.append(ask(G, pid, "room_target", room_options(G, "monster", pid, idx), {"then": "buff", "amount": 3},
@@ -498,8 +507,8 @@ static func _build_or_uncover(G: Dictionary, pid: int, room: Dictionary, built: 
 				draw_logged(G, pid, "spells", 1, "Genie Lounge")
 	return out
 
-## Choix « recupere une carte de la defausse » (kind = spell | room), auto s'il n'y a qu'une carte.
-static func recover_choice(G: Dictionary, pid: int, kind: String, label: String) -> Variant:
+## Choix « recupere une carte de la defausse » (kind = spell | room), auto s'il n'y a qu'une carte (sauf `optional` : « you may », le joueur peut refuser).
+static func recover_choice(G: Dictionary, pid: int, kind: String, label: String, optional: bool = false) -> Variant:
 	var opts: Array = RoomAbilities.discard_card_options(G, kind)
 	if opts.is_empty():
 		_log(G, "%s: nothing to recover." % label)
@@ -507,7 +516,7 @@ static func recover_choice(G: Dictionary, pid: int, kind: String, label: String)
 	for o in opts:
 		(o as Dictionary)["label"] = _label((o as Dictionary)["card"] as Dictionary)
 		(o as Dictionary)["ai"] = _ai_value((o as Dictionary)["card"] as Dictionary)
-	return ask(G, pid, "take_discard", opts, {"label": label}, "%s: choose a card from the discard pile" % label, label)
+	return ask(G, pid, "take_discard", opts, {"label": label}, "%s: choose a card from the discard pile" % label, label, optional)
 
 ## Defausse un sort au choix (auto s'il n'y en a qu'un ; rien s'il n'y en a aucun).
 static func discard_spell_choice(G: Dictionary, pid: int, label: String) -> Variant:
@@ -521,12 +530,13 @@ static func imp_take(G: Dictionary, actor: int, card: Dictionary) -> bool:
 	if actor < 0 or not active(G):
 		return false
 	var p := _player(G, actor)
-	for stack in (p.get("dungeon", []) as Array):
-		var rv = BossEngine.active_room(stack)
+	var dungeon: Array = p.get("dungeon", [])
+	for i in dungeon.size():
+		var rv = BossEngine.active_room(dungeon[i])
 		if rv == null:
 			continue
 		var r: Dictionary = rv
-		if str(r.get("id", "")) != "TNL014" or bool(r.get("faceDown", false)) or no_text(r) or bool(r.get("usedThisTurn", false)):
+		if str(r.get("id", "")) != "TNL014" or not live(G, actor, i, r) or bool(r.get("usedThisTurn", false)):
 			continue
 		r["usedThisTurn"] = true
 		var hand: Array = p.get("hand", []) as Array
@@ -574,12 +584,13 @@ static func on_destroyed(G: Dictionary, pid: int, room: Dictionary) -> void:
 
 ## TNL020 Dragon Graveyard : une fois par tour, prendre une carte dans la defausse fait piocher une salle.
 static func on_take_from_discard(G: Dictionary, player: Dictionary) -> void:
-	for stack in (player.get("dungeon", []) as Array):
-		var rv = BossEngine.active_room(stack)
+	var dungeon: Array = player.get("dungeon", [])
+	for i in dungeon.size():
+		var rv = BossEngine.active_room(dungeon[i])
 		if rv == null:
 			continue
 		var r: Dictionary = rv
-		if str(r.get("id", "")) == "TNL020" and not bool(r.get("faceDown", false)) and not no_text(r) and not bool(r.get("usedThisTurn", false)):
+		if str(r.get("id", "")) == "TNL020" and live(G, int(player.get("id", -1)), i, r) and not bool(r.get("usedThisTurn", false)):
 			r["usedThisTurn"] = true
 			draw_logged(G, int(player.get("id", -1)), "rooms", 1, "Dragon Graveyard")
 			return
@@ -809,9 +820,10 @@ static func on_spell_resolving(G: Dictionary, caster: int, card: Dictionary) -> 
 	_list(G, "played").append({"pid": caster, "card": card})
 	for pid in _alive(G):
 		var p := _player(G, int(pid))
-		for stack in (p.get("dungeon", []) as Array):
-			var rv = BossEngine.active_room(stack)
-			if rv == null or bool((rv as Dictionary).get("faceDown", false)) or no_text(rv as Dictionary):
+		var dungeon: Array = p.get("dungeon", [])
+		for i in dungeon.size():
+			var rv = BossEngine.active_room(dungeon[i])
+			if rv == null or not live(G, int(pid), i, rv as Dictionary):
 				continue
 			var r: Dictionary = rv
 			match str(r.get("id", "")):
@@ -848,10 +860,10 @@ static func end_of_turn(G: Dictionary) -> bool:
 		return false
 	for pid in _alive(G):
 		var p := _player(G, int(pid))
-		for stack in (p.get("dungeon", []) as Array):
-			var rv = BossEngine.active_room(stack)
-			if rv != null and str((rv as Dictionary).get("id", "")) == "TNL018" and not bool((rv as Dictionary).get("faceDown", false)) \
-					and not no_text(rv as Dictionary) and not flag(rv as Dictionary, "entered"):
+		var d1: Array = p.get("dungeon", [])
+		for i in d1.size():
+			var rv = BossEngine.active_room(d1[i])
+			if rv != null and str((rv as Dictionary).get("id", "")) == "TNL018" and live(G, int(pid), i, rv as Dictionary) and not flag(rv as Dictionary, "entered"):
 				draw_logged(G, int(pid), "rooms", 1, "Inner Sanctum") # aucun heros n'y est entre ce tour
 		if has_boss(p, "TNL009"):
 			var mine := CardDB.total_souls(p, G) - int(p.get("tnlSoulsStart", 0))
@@ -866,16 +878,23 @@ static func end_of_turn(G: Dictionary) -> bool:
 		var p2 := _player(G, int(pid))
 		if has_boss(p2, "TNL005"):
 			emit(G, _shellda_choice(G, int(pid)))
-		for stack in (p2.get("dungeon", []) as Array):
-			var rv2 = BossEngine.active_room(stack)
-			if rv2 != null and str((rv2 as Dictionary).get("id", "")) == "TNL047" and not bool((rv2 as Dictionary).get("faceDown", false)) and not no_text(rv2 as Dictionary):
-				var opts := room_options(G, "any", -1, -1, int(pid))
-				for o in opts:
-					(o as Dictionary)["ai"] = -float(int(((o as Dictionary)["card"] as Dictionary).get("damage", 0)))
-				emit(G, ask(G, int(pid), "room_target", opts, {"then": "destroy", "label": "Blockpile Puzzle"},
-					"Blockpile Puzzle: destroy a Room in your dungeon", "Blockpile Puzzle"))
-				break
+		var piles := 0 # « one Room per Blockpile Puzzle » : un exemplaire de plus = une destruction de plus (choix enchaines, voir _blockpile_choice)
+		var d2: Array = p2.get("dungeon", [])
+		for i in d2.size():
+			var rv2 = BossEngine.active_room(d2[i])
+			if rv2 != null and str((rv2 as Dictionary).get("id", "")) == "TNL047" and live(G, int(pid), i, rv2 as Dictionary):
+				piles += 1
+		if piles > 0:
+			emit(G, _blockpile_choice(G, int(pid), piles))
 	return not (G.get("pendingChoice", {}) as Dictionary).is_empty()
+
+## Blockpile Puzzle : choix de la salle a detruire ; `remaining` exemplaires restent a honorer (options recalculees apres chaque destruction : les index glissent).
+static func _blockpile_choice(G: Dictionary, pid: int, remaining: int) -> Variant:
+	var opts := room_options(G, "any", -1, -1, pid)
+	for o in opts:
+		(o as Dictionary)["ai"] = -float(int(((o as Dictionary)["card"] as Dictionary).get("damage", 0)))
+	return ask(G, pid, "room_target", opts, {"then": "destroy", "label": "Blockpile Puzzle", "more": remaining - 1},
+		"Blockpile Puzzle: destroy a Room in your dungeon", "Blockpile Puzzle")
 
 ## Shellda : echanger deux salles d'un donjon (facultatif) ; d'abord le donjon, puis la paire.
 static func _shellda_choice(G: Dictionary, pid: int) -> Variant:
@@ -945,7 +964,7 @@ static func build_choice(G: Dictionary, pid: int, kind: String, label: String) -
 	if opts.is_empty():
 		_log(G, "%s: no Room can be built." % label)
 		return null
-	return ask(G, pid, "build_card", opts, {"label": label, "new": allow_new}, "%s: choose a Room to build%s" % [label, "" if allow_new else " over an existing Room"], label, kind == "any")
+	return ask(G, pid, "build_card", opts, {"label": label, "new": allow_new}, "%s: choose a Room to build%s" % [label, "" if allow_new else " over an existing Room"], label, true) # Fangroot Garden et Wild Monster : « you may »
 
 ## Pose `card` (venant de la main) face visible par-dessus l'emplacement `slot` ; ses effets « build » s'appliquent a l'instant.
 static func build_now(G: Dictionary, pid: int, card: Dictionary, slot: int, label: String) -> Variant:
@@ -1156,6 +1175,19 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 		return TnlSpells.resolve_pick(G, pid, pc, idx)
 	if step.begins_with("rmb_"): # Rise of the Minibosses (RmbAbilities.resolve_pick, RmbSpells pour « rmb_sp_ »)
 		return RmbAbilities.resolve_pick(G, pid, pc, idx)
+	if step == "torix": # TNL003 Torix : la salle attrapee rejoint sa main (option 0) ou, s'il passe, la defausse
+		var tcard: Dictionary = (opts[0] as Dictionary)["card"]
+		if idx >= 0:
+			var th: Array = p.get("hand", []) as Array
+			th.append(tcard)
+			p["hand"] = th
+			_log(G, "Torix Uz'Kali: %s joins his hand." % _label(tcard))
+		else:
+			var tdecks: Dictionary = G.get("decks", {})
+			var tpile: Array = tdecks.get("roomDiscard", [])
+			tdecks["roomDiscard"] = tpile
+			tpile.append(tcard)
+		return null
 	if idx < 0 and step != "swap_dungeon" and step != "swap_pair":
 		return null
 	match step:
@@ -1274,6 +1306,8 @@ static func _room_target(G: Dictionary, pid: int, ctx: Dictionary, o: Dictionary
 			_log(G, "%s: %s %s%d until end of turn." % [label, _label(room), "+" if amount >= 0 else "", amount])
 		"destroy":
 			destroy_room_at(G, tp, ri, label)
+			if int(ctx.get("more", 0)) > 0: # Blockpile Puzzle : exemplaire suivant
+				return _blockpile_choice(G, pid, int(ctx["more"]))
 		"deactivate":
 			(SpellEffects._effects(G)["deactivatedRooms"] as Array).append({"playerId": tp, "roomIndex": ri})
 			_log(G, "%s: %s is deactivated until end of turn." % [label, _label(room)])

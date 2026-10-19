@@ -104,7 +104,7 @@ static func gift_slots(G: Dictionary, pid: int) -> Array:
 		var d: Array = _player(G, int(o)).get("dungeon", [])
 		for i in d.size():
 			var rv = SpellTargeting._targetable_top(G, int(o), i, d[i])
-			if rv != null and not TnlAbilities.hand_options(_player(G, pid), "room").is_empty():
+			if rv != null and TnlAbilities.hand_options(_player(G, pid), "room").any(func(h): return _gift_fits((h as Dictionary)["card"], rv as Dictionary)): # une salle de la main doit tenir sur cet hote
 				out.append({"targetPlayerId": int(o), "roomIndex": i, "card": rv, "label": "%s (P%d)" % [TnlAbilities._label(rv as Dictionary), int(o) + 1], "ai": float(int((rv as Dictionary).get("damage", 0)))})
 	return out
 
