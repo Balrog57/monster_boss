@@ -172,14 +172,19 @@ static func can_build_room(player: Dictionary, G: Dictionary = {}, pid: int = -1
 ## reste en ville (retour -1). LuredByTreasures : max du tresor du heros ; The Fool (BMA080, LuredByFewerSouls) :
 ## min d'ames (CardDB.total_souls).
 static func lure_target(players: Dictionary, order: Array, treasure: int, hero: Dictionary = {}, G: Dictionary = {}) -> int:
+	var tied := lure_tied(players, order, treasure, hero, G)
+	return -1 if tied.size() > 1 else (int(tied[0]) if tied.size() == 1 else -1)
+
+## Joueurs vivants a egalite pour le meilleur critere de leurre de ce heros (ordre de `order`, donc XP decroissante) ; un seul = il l'emporte.
+## Sert a lure_target (APK : egalite = le heros reste en ville) et au partage des egalites a 5-6 joueurs (lure_split_targets).
+static func lure_tied(players: Dictionary, order: Array, treasure: int, hero: Dictionary = {}, G: Dictionary = {}) -> Array:
 	# BaseLuredCondition par type de condition (HeroInfo.LuredCondition), pas par id : BMH0xx = BMA0xx, KSA014 = LuredByWounds.
 	var lure := CardDB.hero_lure(hero)
 	var htr: Array = CardDB.hero_treasures(hero) if hero.has("treasures") else [treasure]
 	if hero.has("iodLure") and int(hero.get("iodLureTurn", -1)) == int(G.get("turn", -2)): # IOD020 Doppelganger Cloak : un seul type de tresor
 		htr = [int(hero["iodLure"])]
-	var best := -1
 	var best_n := -999999
-	var tied := false
+	var tied: Array = []
 	for pid in order:
 		var p: Dictionary = players[pid]
 		if p.get("eliminated", false):
@@ -199,13 +204,42 @@ static func lure_target(players: Dictionary, order: Array, treasure: int, hero: 
 					n += treasure_count(p, int(t), G)
 		if n > best_n:
 			best_n = n
-			best = int(pid)
-			tied = false
+			tied = [int(pid)]
 		elif n == best_n:
-			tied = true
-	if tied:
-		return -1
-	return best
+			tied.append(int(pid))
+	return tied
+
+## Livret CRL, « Changes to the Bait Phase » (5-6 joueurs) : ex aequo sur un type de tresor => si la ville compte au moins autant de heros de ce
+## type que de joueurs a egalite, on les partage : le plus ancien va au joueur a egalite de plus haute XP, le suivant au suivant, et on recommence
+## tant que le reste suffit ; le surplus (les plus recents) reste en ville. Donc floor(H / k) heros chacun. Renvoie {index dans `town`: joueur}
+## pour les seuls heros partages (les autres suivent lure_target). Sans tresor du type chez personne (tout le monde a 0), le heros reste en ville.
+static func lure_split_targets(players: Dictionary, order: Array, town: Array, G: Dictionary = {}) -> Dictionary:
+	var groups := {} # (condition, tresors, joueurs a egalite) -> {"tied": [...], "idx": [indices de ville, du plus ancien au plus recent]}
+	for i in town.size():
+		var hero: Dictionary = town[i]
+		var treasure := int(hero.get("treasure", 1))
+		var tied := lure_tied(players, order, treasure, hero, G)
+		if tied.size() < 2:
+			continue
+		var lure := CardDB.hero_lure(hero)
+		if lure == "treasures": # « if no player has treasure of that Hero's type [...] the Hero stays in town »
+			var any := false
+			for t in (CardDB.hero_treasures(hero) if hero.has("treasures") else [treasure]):
+				any = any or treasure_count(players[tied[0]], int(t), G) > 0
+			if not any:
+				continue
+		var key := "%s|%s|%s" % [lure, str(CardDB.hero_treasures(hero) if hero.has("treasures") else [treasure]), str(tied)]
+		if not groups.has(key):
+			groups[key] = {"tied": tied, "idx": []}
+		(groups[key]["idx"] as Array).append(i)
+	var out := {}
+	for g in groups.values():
+		var tied: Array = g["tied"]
+		var idx: Array = g["idx"]
+		var lured: int = idx.size() - idx.size() % tied.size()
+		for j in lured:
+			out[int(idx[j])] = int(tied[j % tied.size()])
+	return out
 
 static func hero_souls(hero: Dictionary) -> int:
 	return int(hero.get("souls", 1))

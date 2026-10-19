@@ -13,7 +13,7 @@ extends Node
 ##   ... -- --games=10 --players=3 --humans=2            3 joueurs dont 2 humains (siege a siege : selecteur de sieges)
 ## Options (toutes optionnelles ; --games=K ou --seed=N lance la campagne SEULE, sans les checks de base) :
 ##   --games=K      nombre de parties (defaut 1 avec --seed)      --seed=N      graine de la 1re partie (puis N+1, ...)
-##   --players=P    2|3|4 (defaut : alterne 2,2,3,4)               --humans=H    sieges humains (defaut 1 ; 0 = IA seulement)
+##   --players=P    2|3|4|5|6 (defaut : alterne 2,2,3,4 ; 5-6 exigent --sets=crash-landing, voir Match.setup_error)               --humans=H    sieges humains (defaut 1 ; 0 = IA seulement)
 ##   --sets=a,b     paquets (ex. players-choice,hidden-heroes,tools,tools-wiki,next-level,crash-landing,minibosses ; defaut base)
 ##   --style=S      random | spells | passive (defaut : alterne)    --turns=N     arrete apres N tours au lieu d'aller a la fin
 ##   --anim         animations de traversee des heros reelles (temps accelere x6) pour toutes les parties
@@ -89,6 +89,10 @@ func _parse_args() -> Dictionary:
 				d["style"] = v
 			"anim":
 				d["anim"] = true
+	var err := Match.setup_error(int(d["players"]), d["sets"])
+	if err != "":
+		print("UISMOKE ECHEC : ", err)
+		get_tree().quit(1)
 	return d
 
 func _wait(s: float) -> void:
@@ -145,6 +149,8 @@ func _main() -> void:
 		games.append({"seed": 26, "players": 2, "humans": 1, "sets": ["tools-wiki"], "style": "spells", "anim": false, "turns": 5}) # Tools of Hero-Kind (wiki) : Objets, useItem, salles THK
 		games.append({"seed": 27, "players": 2, "humans": 1, "sets": ["iod", "crash-landing"], "style": "spells", "anim": false, "turns": 5}) # Implements of Destruction (wiki) : Objets IOD, useItem, boss de niveau
 		games.append({"seed": 28, "players": 2, "humans": 1, "sets": ["players-choice", "players-choice-wiki"], "style": "spells", "anim": false, "turns": 5}) # Player's Choice (wiki) : Ghoulyard, Bone Crank, Agent of Evil, Pixel Lincoln
+		games.append({"seed": 29, "players": 5, "humans": 1, "sets": ["crash-landing"], "style": "random", "anim": false, "turns": 4}) # 5-6 joueurs (Crash Landing)
+		games.append({"seed": 30, "players": 6, "humans": 2, "sets": ["crash-landing", "tools"], "style": "spells", "anim": false, "turns": 4})
 	for g in games:
 		await _play_game(g)
 		if not _log.errors.is_empty():

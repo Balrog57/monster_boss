@@ -12,7 +12,7 @@ Les cles entieres des dictionnaires (`players`, `stackPassed`...) voyagent en te
 
 | t | champs | effet |
 |---|---|---|
-| `create` | `name`, `players` (2-4), `sets` (ids de paquets, base toujours present), `bots` (0..players-1 : sieges IA prerempli), `turnTimeout` (s, defaut serveur), `avatar`, `wins`, `defeats` (profil affiche en salle d'attente, optionnels) | cree la salle (code de 4 lettres majuscules sans I ni O, comme l'APK ; collision => nouveau tirage), l'hote prend le siege 0 |
+| `create` | `name`, `players` (2-4 ; 5-6 seulement avec `crash-landing` dans `sets`, et alors seulement avec `hidden-heroes` / `tools` en plus : sinon `error` `bad_setup`), `sets` (ids de paquets, base toujours present), `bots` (0..players-1 : sieges IA prerempli), `turnTimeout` (s, defaut serveur), `avatar`, `wins`, `defeats` (profil affiche en salle d'attente, optionnels) | cree la salle (code de 4 lettres majuscules sans I ni O, comme l'APK ; collision => nouveau tirage), l'hote prend le siege 0 |
 | `join` | `code`, `name`, `avatar`, `wins`, `defeats` (optionnels, comme `create`) | prend le premier siege humain libre ; salle pleine => la partie demarre |
 | `resume` | `code`, `seat`, `token` | reprend un siege (reconnexion, rechargement de page) ; rend le siege a l'humain si l'IA l'avait pris |
 | `start` | - | hote seulement : lance la partie, les sieges vides deviennent des IA |
@@ -27,7 +27,7 @@ Les cles entieres des dictionnaires (`players`, `stackPassed`...) voyagent en te
 - `lobby` (avant la partie, a chaque changement) : `code`, `status` (`open|running|finished`), `numPlayers`, `seats: [{name|null, bot, connected, avatar, wins, defeats}]` (`avatar` = nom de fichier d'avatar sans extension, "" si inconnu ; `name` borne a 25 caracteres ; `wins` / `defeats` = compteurs locaux du joueur, cosmetiques), `sets`, `host`.
 - `state` (en partie, apres chaque coup ; contient aussi les champs de `lobby`) : `seat`, `view` (G filtre pour CE siege, format de `Match.G`),
   `moves` (coups legaux de ce siege), `deadline` (ms unix de fin du delai en cours, 0 = aucun), `awaited` (sieges humains dont une decision bloque la partie : le client affiche le compte a rebours quand son siege y figure), `serverTime` (le client en deduit le decalage d'horloge).
-- `error` : `message`, `code` (`bad_message|busy|full|not_found|bad_token|forbidden|bad_state|no_seat|illegal`). Un coup illegal est suivi d'un `state` de resynchronisation. Anti-force-brute : au-dela de 5 echecs `join`/`resume` (`not_found`/`bad_token`) par seconde sur tout le serveur, `join`/`resume` repondent `busy` sans consulter les salles ; 5 echecs sur une connexion la coupent (1008).
+- `error` : `message`, `code` (`bad_message|bad_setup|busy|full|not_found|bad_token|forbidden|bad_state|no_seat|illegal`). Un coup illegal est suivi d'un `state` de resynchronisation. Anti-force-brute : au-dela de 5 echecs `join`/`resume` (`not_found`/`bad_token`) par seconde sur tout le serveur, `join`/`resume` repondent `busy` sans consulter les salles ; 5 echecs sur une connexion la coupent (1008).
 - `closed` : la salle n'existe plus (hote parti, TTL). `pong`.
 
 ## Regles serveur

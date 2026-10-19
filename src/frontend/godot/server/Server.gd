@@ -6,6 +6,7 @@ extends Node
 
 const GameRoom = preload("res://godot/server/GameRoom.gd")
 const NetCodec = preload("res://godot/scripts/NetCodec.gd")
+const MatchScript = preload("res://godot/scripts/Match.gd")
 
 ## Paquets acceptes dans create.sets (le jeu de base est toujours present, voir Match.new_match).
 const KNOWN_SETS := ["players-choice", "hidden-heroes", "tools", "tools-wiki", "next-level", "minibosses", "crash-landing", "iod", "players-choice-wiki"]
@@ -237,7 +238,10 @@ func _on_message(id: int, d: Dictionary) -> void:
 			for s in (d.get("sets", []) if d.get("sets", []) is Array else []):
 				if str(s) in KNOWN_SETS and not sets.has(str(s)):
 					sets.append(str(s))
-			var n := clampi(int(d.get("players", 2)), 2, 4)
+			var n := clampi(int(d.get("players", 2)), 2, 6)
+			var setup_err := MatchScript.setup_error(n, sets) # 5-6 joueurs : Crash Landing obligatoire, paquets limites (sinon la salle serait plafonnee a 4)
+			if setup_err != "":
+				return _error(id, setup_err, "bad_setup")
 			var r := GameRoom.new(_new_code(), n, sets)
 			r.send = _send
 			r.add_bots(clampi(int(d.get("bots", 0)), 0, n - 1))

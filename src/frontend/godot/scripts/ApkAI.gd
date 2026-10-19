@@ -1247,7 +1247,7 @@ static func _chk_032(x: Dictionary, g: int) -> Variant:
 	var flag := false
 	var slot: Dictionary = {}
 	var actives := _active_slots(x)
-	if CardDB.total_wounds(p) >= 5 - num or CardDB.total_souls(p, G) >= 10 - num:
+	if (CardDB.total_wounds(p) >= 5 - num and not CardDB.big_game(G)) or CardDB.total_souls(p, G) >= 10 - num: # 5-6 joueurs : pas d'elimination par blessures
 		var src: Array = actives.filter(func(s): return int((s as Dictionary)["g"]) != g)
 		if not src.is_empty():
 			slot = _stable(src, func(s): return [0 if bool((s["top"] as Dictionary).get("advanced", false)) else 1, -((p["dungeon"][int(s["g"])] as Array).size())])[0]

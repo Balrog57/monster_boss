@@ -137,6 +137,10 @@ func _t_items_revealed_each_turn() -> void:
 	m.new_match(4, 1, ["tools"])
 	m._reveal_items()
 	_ok.call((m.G["itemQueue"] as Array).size() == 2 and (m.G["decks"]["items"] as Array).size() == 18, "4 joueurs : 2 objets reveles")
+	for n in [5, 6]: # livret « Beginning of Turn » : trois objets pour 5-6 joueurs (avec Crash Landing, seul moyen d'y jouer)
+		m.new_match(n, 1, ["crash-landing", "tools"])
+		m._reveal_items()
+		_ok.call((m.G["itemQueue"] as Array).size() == 3 and (m.G["decks"]["items"] as Array).size() == 17, "%d joueurs : 3 objets reveles" % n)
 	m.queue_free()
 
 # --- bosses PlayerChoice -----------------------------------------------------------------------------------

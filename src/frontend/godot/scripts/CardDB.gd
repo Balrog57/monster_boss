@@ -15,7 +15,14 @@ const PHASE := {
 
 const TREASURE_NAMES := ["?", "Cleric", "Fighter", "Mage", "Thief", "Explorer"]
 const DUNGEON_SLOTS := 5
-const HERO_COUNTS := {2: {"ordinary": 13, "epic": 8}, 3: {"ordinary": 17, "epic": 12}, 4: {"ordinary": 25, "epic": 16}}
+## 5-6 joueurs (Crash Landing, livret « Hero setup ») : un jeu de base complet (25 + 16) + tous les heros CRL (7 + 5).
+const HERO_COUNTS := {2: {"ordinary": 13, "epic": 8}, 3: {"ordinary": 17, "epic": 12}, 4: {"ordinary": 25, "epic": 16},
+	5: {"ordinary": 32, "epic": 21}, 6: {"ordinary": 32, "epic": 21}}
+
+## Partie a 5-6 joueurs (Match.new_match ne la cree qu'avec Crash Landing) : regles du livret CRL (pas d'elimination, fin au 10e ame / pioches
+## de heros vides, depart a l'XP la plus basse, egalites de leurre partagees). Un etat sans « numPlayers » (monte a la main) suit les regles 2-4.
+static func big_game(G: Dictionary) -> bool:
+	return int(G.get("numPlayers", 0)) >= 5
 
 var bosses: Array = []
 var rooms: Array = []

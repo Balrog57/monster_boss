@@ -12,6 +12,12 @@ func run(ok: Callable, h: Node) -> void:
 	_t_card_data()
 	_t_new_match_deck()
 	_t_explorer_lure()
+	_t_crl_heroes_2_to_4()
+	_t_big_game_setup()
+	_t_big_game_bait_split()
+	_t_big_game_no_elimination()
+	_t_big_game_end_and_winner()
+	_t_tie_break_xp_direction()
 	_t_boss_imperiatrix()
 	_t_boss_klonos()
 	_t_boss_klonos_queues_choice()
@@ -137,7 +143,7 @@ func _t_new_match_deck() -> void:
 	_ok.call(rooms.size() == base_rooms + 23 and _count_set(rooms, "crash-landing") == 23, "CRL : 23 exemplaires de salles ajoutes a la pioche")
 	_ok.call(spells.size() == base_spells + 7 and _count_set(spells, "crash-landing") == 7, "CRL : 7 exemplaires de sorts ajoutes a la pioche")
 	_ok.call(crl["sets"].has("crash-landing") and crl["sets"].has("base"), "G.sets garde les paquets choisis (+ le jeu de base)")
-	_ok.call((crl["decks"]["heroes"] as Array).size() == 13 and (crl["decks"]["epics"] as Array).size() == 8, "2 joueurs : 13 + 8 heros (paquets wiki : tailles du jeu de base)")
+	_ok.call((crl["decks"]["heroes"] as Array).size() == 20 and (crl["decks"]["epics"] as Array).size() == 13, "CRL 2 joueurs : 13 + 8 heros de base (icones de 2 joueurs) + 7 + 5 heros CRL")
 	var found_crl_boss := false
 	for i in 3: # tous les boss du paquet sont proposes
 		var picks: Array = (m.new_match(2, 1, ["crash-landing"]))["bossPicks"]
@@ -165,6 +171,270 @@ func _t_explorer_lure() -> void:
 	(p3["dungeon"] as Array).append([_room("E", "trap", [5])])
 	m._resolve_bait()
 	_ok.call((G2["town"] as Array).is_empty() and (p3["entrance"] as Array).size() == 2 and int(G2["luredThisTurn"][1]) == 2, "un seul donjon avec des Explorers : ils y vont tous les 2 (luredThisTurn[1] = 2)")
+	m.queue_free()
+
+## Heros CRL en 2-4 joueurs (livret : « remove all cards with the Three/Four player icons » ; seule l'icone « Five and six players (with Crash Landing) »
+## porte les heros CRL, que cette regle ne retire pas) : le paquet de base est filtre par icone (13/8, 17/12, 25/16) et TOUS les heros CRL s'y ajoutent.
+func _t_crl_heroes_2_to_4() -> void:
+	var m = load("res://godot/scripts/Match.gd").new()
+	host.add_child(m)
+	for n in [2, 3, 4]:
+		var G: Dictionary = m.new_match(n, 1, ["crash-landing"])
+		var heroes: Array = G["decks"]["heroes"]
+		var epics: Array = G["decks"]["epics"]
+		var base_o: int = int(CardDB.HERO_COUNTS[n]["ordinary"])
+		var base_e: int = int(CardDB.HERO_COUNTS[n]["epic"])
+		_ok.call(heroes.size() == base_o + 7 and epics.size() == base_e + 5, "CRL %d joueurs : %d + %d heros (base filtre par icone + 12 heros CRL)" % [n, base_o + 7, base_e + 5])
+		var too_big := 0
+		for h in heroes + epics:
+			if str((h as Dictionary).get("set", "")) != "crash-landing" and int((h as Dictionary).get("playerCount", 2)) > n:
+				too_big += 1
+		_ok.call(too_big == 0, "CRL %d joueurs : aucun heros d'icone superieure a %d joueurs" % [n, n])
+		_ok.call(_count_set(heroes, "crash-landing") == 7 and _count_set(epics, "crash-landing") == 5, "CRL %d joueurs : les 12 heros CRL sont tous la" % n)
+	m.queue_free()
+
+## 5-6 joueurs : plafond selon les paquets, pool exact 32 + 21, 3 objets par tour, paquets non pris en charge ecartes / refuses.
+func _t_big_game_setup() -> void:
+	var m = load("res://godot/scripts/Match.gd").new()
+	host.add_child(m)
+	_ok.call(m.max_players(["base"]) == 4 and m.max_players(["crash-landing"]) == 6, "plafond : 4 joueurs, 6 avec Crash Landing")
+	_ok.call(m.setup_error(6, ["crash-landing"]) == "" and m.setup_error(5, ["crash-landing", "tools", "hidden-heroes"]) == "" and m.setup_error(4, ["next-level"]) == "",
+		"setup_error : 5-6 avec CRL (+ Tools / Hidden Heroes) accepte, 2-4 toujours accepte")
+	_ok.call(m.setup_error(5, ["base"]) != "" and m.setup_error(6, []) != "" and m.setup_error(5, ["crash-landing", "next-level"]) != ""
+		and m.setup_error(5, ["crash-landing", "minibosses"]) != "" and m.setup_error(5, ["crash-landing", "players-choice"]) != "" and m.setup_error(5, ["crash-landing", "iod"]) != ""
+		and m.setup_error(5, ["crash-landing", "tools-wiki"]) != "" and m.setup_error(5, ["crash-landing", "players-choice-wiki"]) != "",
+		"setup_error : 5-6 sans CRL, ou avec TNL / Minibosses / Player's Choice / IOD / THK wiki, refuse")
+	_ok.call(CardDB.HERO_COUNTS[5] == {"ordinary": 32, "epic": 21} and CardDB.HERO_COUNTS[6] == {"ordinary": 32, "epic": 21}, "HERO_COUNTS : 32 + 21 heros a 5 et 6 joueurs")
+	for n in [5, 6]:
+		for sets in [["crash-landing"], ["crash-landing", "hidden-heroes"], ["crash-landing", "tools"]]:
+			var G: Dictionary = m.new_match(n, 1, sets)
+			var heroes: Array = G["decks"]["heroes"]
+			var epics: Array = G["decks"]["epics"]
+			_ok.call(int(G["numPlayers"]) == n and (G["players"] as Dictionary).size() == n, "%d joueurs %s : %d sieges" % [n, str(sets), n])
+			_ok.call(heroes.size() == 32 and epics.size() == 21, "%d joueurs %s : 32 + 21 heros (obtenu %d + %d)" % [n, str(sets), heroes.size(), epics.size()])
+			var ids := {}
+			for h in heroes + epics:
+				ids[str((h as Dictionary)["id"])] = true
+			_ok.call(ids.size() == 53, "%d joueurs %s : 53 heros tous differents" % [n, str(sets)])
+			_ok.call(_count_set(heroes + epics, "crash-landing") == 12 and _count_set(heroes + epics, "players-choice") == 0, "%d joueurs %s : les 12 heros CRL, aucun Player's Choice" % [n, str(sets)])
+			_ok.call((G["bossPicks"] as Array).size() >= n, "%d joueurs %s : assez de boss proposes (%d)" % [n, str(sets), (G["bossPicks"] as Array).size()])
+	# paquets non pris en charge ecartes (Match ne plante jamais) ; 5 joueurs sans CRL : repli a 4.
+	var G2: Dictionary = m.new_match(6, 1, ["crash-landing", "next-level", "minibosses", "players-choice"])
+	_ok.call(not (G2["sets"] as Array).has("next-level") and not (G2["sets"] as Array).has("minibosses") and not (G2["sets"] as Array).has("players-choice")
+		and (G2["decks"]["heroes"] as Array).size() == 32 and (G2["decks"]["epics"] as Array).size() == 21, "6 joueurs + TNL / RMB / PC : ecartes, pool 32 + 21")
+	var G3: Dictionary = m.new_match(5, 1, ["base"])
+	_ok.call(int(G3["numPlayers"]) == 4, "5 joueurs sans CRL : repli a 4 (le serveur refuse avant)")
+	# objets : 1 (2-3 joueurs), 2 (4), 3 (5-6)
+	for n in [2, 3, 4, 5, 6]:
+		m.new_match(n, 1, ["crash-landing", "tools"] if n >= 5 else ["tools"])
+		m._reveal_items()
+		var want := 3 if n >= 5 else (2 if n == 4 else 1)
+		_ok.call((m.G["itemQueue"] as Array).size() == want and (m.G["decks"]["items"] as Array).size() == 20 - want, "%d joueurs : %d objet(s) revele(s) par tour" % [n, want])
+	# heros reveles : un par joueur
+	m.new_match(6, 1, ["crash-landing"])
+	m._reveal_heroes_in_town()
+	_ok.call((m.G["town"] as Array).size() == 6, "6 joueurs : 6 heros reveles par tour")
+	m.queue_free()
+
+func _big_players(n: int, xps: Array) -> Array:
+	var out: Array = []
+	for i in n:
+		var p := _player(i, "BMA001")
+		(p["boss"] as Dictionary)["xp"] = int(xps[i])
+		out.append(p)
+	return out
+
+func _big_G(players: Array) -> Dictionary:
+	var G := _G(players)
+	G["numPlayers"] = players.size()
+	return G
+
+func _tagged(id: String, tag: int) -> Dictionary:
+	var h := _hero(id)
+	h["tag"] = tag
+	return h
+
+func _tags(arr: Array) -> Array:
+	return arr.map(func(h): return int((h as Dictionary).get("tag", -1)))
+
+## Livret CRL (exemple) : 3 joueurs ont chacun 2 tresors Explorer, 7 Explorers en ville : chacun en leurre 2 (par XP, le plus ancien au plus haut XP) ; le dernier arrive reste.
+func _t_big_game_bait_split() -> void:
+	var ps := _big_players(5, [100, 300, 200, 50, 40])
+	for i in 3:
+		(ps[i]["dungeon"] as Array).append([_room("A%d" % i, "trap", [5, 5])])
+	var G := _big_G(ps)
+	var ids := ["CRL018", "CRL019", "CRL020", "CRL021", "CRL022", "CRL023", "CRL019"]
+	for i in ids.size():
+		(G["town"] as Array).append(_tagged(ids[i], i))
+	var m := _match(G)
+	m._resolve_bait()
+	# ordre d'XP des ex aequo : joueur 1 (300), 2 (200), 0 (100) ; les heros 0..5 leur vont a tour de role, du plus ancien au plus recent
+	_ok.call(_tags(ps[1]["entrance"]) == [0, 3] and _tags(ps[2]["entrance"]) == [1, 4] and _tags(ps[0]["entrance"]) == [2, 5], "exemple du livret : 3 ex aequo, 7 Explorers = 2 chacun, par XP decroissante (obtenu %s %s %s)" % [str(_tags(ps[1]["entrance"])), str(_tags(ps[2]["entrance"])), str(_tags(ps[0]["entrance"]))])
+	_ok.call(_tags(G["town"]) == [6] and (ps[3]["entrance"] as Array).is_empty() and (ps[4]["entrance"] as Array).is_empty(), "exemple du livret : le dernier Explorer arrive reste en ville")
+	_ok.call(int(G["luredThisTurn"][0]) == 2 and int(G["luredThisTurn"][1]) == 2 and int(G["luredThisTurn"][2]) == 2, "luredThisTurn compte 2 heros par joueur a egalite")
+	m.queue_free()
+	# moins de heros que d'ex aequo : tous restent en ville ; puis un seul gagnant : tout lui revient
+	var ps2 := _big_players(5, [100, 300, 200, 50, 40])
+	(ps2[0]["dungeon"] as Array).append([_room("A", "trap", [5])])
+	(ps2[1]["dungeon"] as Array).append([_room("B", "trap", [5])])
+	(ps2[2]["dungeon"] as Array).append([_room("C", "trap", [5])])
+	var G2 := _big_G(ps2)
+	G2["town"] = [_tagged("CRL018", 0), _tagged("CRL019", 1)]
+	var m2 := _match(G2)
+	m2._resolve_bait()
+	_ok.call((G2["town"] as Array).size() == 2 and (G2["luredThisTurn"] as Dictionary).is_empty(), "3 ex aequo mais 2 Explorers : le partage est impossible, tous restent en ville")
+	G2["town"] = [_tagged("CRL018", 0), _tagged("CRL019", 1), _tagged("CRL020", 2), _tagged("CRL021", 3), _tagged("CRL022", 4)]
+	(ps2[2]["dungeon"] as Array).append([_room("D", "trap", [5, 5])]) # le joueur 2 passe a 3 tresors Explorer : seul gagnant
+	m2._resolve_bait()
+	_ok.call((G2["town"] as Array).is_empty() and (ps2[2]["entrance"] as Array).size() == 5, "un seul gagnant en 5-6 : tous les Explorers vont chez lui")
+	m2.queue_free()
+	# personne n'a de tresor du type (tous a 0) : le heros reste en ville
+	var ps3 := _big_players(6, [100, 300, 200, 50, 40, 10])
+	var G3 := _big_G(ps3)
+	G3["town"] = [_tagged("CRL018", 0)]
+	for i in 6:
+		(ps3[i]["dungeon"] as Array).append([_room("Z%d" % i, "trap", [1 + i % 2])]) # aucun tresor Explorer
+	var m3 := _match(G3)
+	m3._resolve_bait()
+	_ok.call((G3["town"] as Array).size() == 1, "personne n'a de tresor Explorer (tous a 0) : le heros reste en ville, pas de partage")
+	m3.queue_free()
+	# deux types disputes en meme temps (Explorer entre P0 et P1, Cleric entre P0 et P2), epique compris dans le meme type : partages separes
+	var ps4 := _big_players(5, [100, 300, 200, 50, 40])
+	(ps4[0]["dungeon"] as Array).append([_room("A", "trap", [5, 1])])
+	(ps4[1]["dungeon"] as Array).append([_room("B", "trap", [5])])
+	(ps4[2]["dungeon"] as Array).append([_room("C", "trap", [1])])
+	var G4 := _big_G(ps4)
+	G4["town"] = [_tagged("CRL018", 0), _tagged("CRL017", 1), _tagged("CRL024", 2), _tagged("CRL017", 3), _tagged("CRL019", 4), _tagged("CRL017", 5)]
+	var m4 := _match(G4)
+	m4._resolve_bait()
+	# Explorers 0, 2, 4 : P1 (300) puis P0 (100), 1 chacun, le plus recent (4) reste ; Clerics 1, 3, 5 : P2 (200) puis P0 (100), le 5 reste
+	_ok.call(_tags(ps4[1]["entrance"]) == [0] and _tags(ps4[0]["entrance"]) == [2, 3] and _tags(ps4[2]["entrance"]) == [1] and _tags(G4["town"]) == [4, 5], "deux types a egalite : partages separes, un heros de chaque type reste (obtenu %s %s %s ville %s)" % [str(_tags(ps4[1]["entrance"])), str(_tags(ps4[0]["entrance"])), str(_tags(ps4[2]["entrance"])), str(_tags(G4["town"]))])
+	m4.queue_free()
+	# 2-4 joueurs (et partie montee a la main sans numPlayers) : l'egalite laisse toujours le heros en ville
+	var ps5 := _big_players(4, [100, 300, 200, 50])
+	(ps5[0]["dungeon"] as Array).append([_room("A", "trap", [5])])
+	(ps5[1]["dungeon"] as Array).append([_room("B", "trap", [5])])
+	var G5 := _G(ps5)
+	G5["numPlayers"] = 4
+	G5["town"] = [_tagged("CRL018", 0), _tagged("CRL019", 1)]
+	var m5 := _match(G5)
+	m5._resolve_bait()
+	_ok.call((G5["town"] as Array).size() == 2 and (G5["luredThisTurn"] as Dictionary).is_empty(), "4 joueurs avec CRL : l'egalite laisse les heros en ville (pas de partage)")
+	m5.queue_free()
+
+## 5-6 joueurs : aucune elimination ; 2-4 joueurs avec CRL : 5 blessures eliminent toujours.
+func _t_big_game_no_elimination() -> void:
+	var ps := _big_players(5, [100, 300, 200, 50, 40])
+	var G := _big_G(ps)
+	for i in 10:
+		(G["decks"]["rooms"] as Array).append(_room("r%d" % i, "trap", [1]))
+		(G["decks"]["heroes"] as Array).append(_hero("CRL019"))
+	G["phase"] = "end"
+	ps[0]["wounds"] = _wounds(5)
+	ps[1]["wounds"] = _wounds(7)
+	var m := _match(G)
+	m._check_end_or_next_turn()
+	_ok.call(G.get("gameOver") == null and not bool(ps[0]["eliminated"]) and not bool(ps[1]["eliminated"]), "5 joueurs : 5 ou 7 blessures n'eliminent personne, la partie continue")
+	_ok.call(int(G["turn"]) == 2, "5 joueurs : le tour suivant demarre")
+	# un heros qui survit ajoute sa blessure sans eliminer
+	var hero := _hero("CRL019")
+	(ps[0]["entrance"] as Array).append(hero)
+	m._finish_hero(0, hero, 2, {})
+	_ok.call(not bool(ps[0]["eliminated"]) and CardDB.total_wounds(ps[0]) >= 6, "5 joueurs : un heros survivant blesse sans eliminer (blessures %d)" % CardDB.total_wounds(ps[0]))
+	m.queue_free()
+	# 4 joueurs avec CRL : elimination inchangee
+	var ps4 := _big_players(4, [100, 300, 200, 50])
+	var G4 := _G(ps4)
+	G4["numPlayers"] = 4
+	G4["phase"] = "end"
+	ps4[0]["wounds"] = _wounds(5)
+	var m4 := _match(G4)
+	m4._check_end_or_next_turn()
+	_ok.call(bool(ps4[0]["eliminated"]), "4 joueurs avec CRL : 5 blessures eliminent toujours")
+	m4.queue_free()
+	var ps4b := _big_players(4, [100, 300, 200, 50])
+	ps4b[1]["wounds"] = _wounds(4)
+	var G4b := _G(ps4b)
+	G4b["numPlayers"] = 4
+	var m4b := _match(G4b)
+	var hero4 := _hero("CRL019")
+	(ps4b[1]["entrance"] as Array).append(hero4)
+	m4b._finish_hero(1, hero4, 2, {})
+	_ok.call(bool(ps4b[1]["eliminated"]), "4 joueurs avec CRL : la 5e blessure d'un heros survivant elimine toujours")
+	m4b.queue_free()
+
+func _souls(n: int) -> Array:
+	var a: Array = []
+	for i in n:
+		a.append({"souls": 1})
+	return a
+
+func _wounds(n: int) -> Array:
+	var a: Array = []
+	for i in n:
+		a.append({"wounds": 1})
+	return a
+
+## 5-6 joueurs : fin de partie quand un joueur a 10 ames (fin de tour) ou quand les deux pioches de heros sont vides (heros encore en ville ou a l'entree) ;
+## gagnant = meilleur (ames - blessures) parmi TOUS les joueurs (meme sans 10 ames, meme avec beaucoup de blessures), a egalite l'XP la plus basse.
+func _t_big_game_end_and_winner() -> void:
+	var ps := _big_players(6, [100, 300, 200, 50, 40, 10])
+	var G := _big_G(ps)
+	G["phase"] = "end"
+	for i in 10:
+		(G["decks"]["rooms"] as Array).append(_room("r%d" % i, "trap", [1]))
+		(G["decks"]["heroes"] as Array).append(_hero("CRL019"))
+	ps[0]["souls"] = _souls(10) # 10 ames mais 6 blessures : 4 net ; ne gagne pas
+	ps[0]["wounds"] = _wounds(6)
+	ps[1]["souls"] = _souls(9) # 9 - 1 = 8
+	ps[1]["wounds"] = _wounds(1)
+	ps[2]["souls"] = _souls(5)
+	var m := _match(G)
+	m._check_end_or_next_turn()
+	var go = G.get("gameOver")
+	_ok.call(go != null and int(go["winner"]) == 1 and str(go["reason"]) == "10 âmes", "6 joueurs : 10 ames chez P0 (4 net) mais P1 a 8 net : P1 gagne")
+	m.queue_free()
+	# egalite d'ames - blessures : l'XP la plus basse gagne (P4 xp 40 contre P3 xp 50)
+	var ps2 := _big_players(5, [100, 300, 200, 50, 40])
+	var G2 := _big_G(ps2)
+	G2["phase"] = "end"
+	for i in [0, 1, 3, 4]:
+		ps2[i]["souls"] = _souls(10)
+	var m2 := _match(G2)
+	m2._check_end_or_next_turn()
+	_ok.call(G2.get("gameOver") != null and int(G2["gameOver"]["winner"]) == 4, "5 joueurs : egalite 10 - 0, l'XP la plus BASSE (40) gagne")
+	m2.queue_free()
+	# pioches de heros vides : fin meme avec des heros en ville / a l'entree et sans 10 ames
+	var ps3 := _big_players(5, [100, 300, 200, 50, 40])
+	var G3 := _big_G(ps3)
+	G3["phase"] = "end"
+	G3["town"] = [_hero("CRL019")]
+	(ps3[2]["entrance"] as Array).append(_hero("CRL018"))
+	ps3[2]["souls"] = _souls(4)
+	ps3[3]["souls"] = _souls(3)
+	ps3[3]["wounds"] = _wounds(9) # beaucoup de blessures, jamais elimine
+	var m3 := _match(G3)
+	m3._check_end_or_next_turn()
+	_ok.call(G3.get("gameOver") != null and int(G3["gameOver"]["winner"]) == 2 and str(G3["gameOver"]["reason"]) == "héros épuisés", "5 joueurs : pioches de heros vides, heros restants en ville / a l'entree : fin, P2 (4) gagne")
+	m3.queue_free()
+	# une pioche non vide : la partie continue
+	var ps4 := _big_players(5, [100, 300, 200, 50, 40])
+	var G4 := _big_G(ps4)
+	G4["phase"] = "end"
+	(G4["decks"]["epics"] as Array).append(_hero("CRL024"))
+	for i in 10:
+		(G4["decks"]["rooms"] as Array).append(_room("r%d" % i, "trap", [1]))
+	var m4 := _match(G4)
+	m4._check_end_or_next_turn()
+	_ok.call(G4.get("gameOver") == null, "5 joueurs : une pioche d'epiques non vide, la partie continue")
+	m4.queue_free()
+
+## Egalite : 2-4 joueurs = XP la plus HAUTE (APK, inchange) ; 5-6 joueurs = XP la plus BASSE (livret CRL).
+func _t_tie_break_xp_direction() -> void:
+	var ps := _big_players(4, [100, 300, 200, 50])
+	var m := _match(_G(ps))
+	_ok.call(m._tie_break_players([0, 1, 2, 3]) == 1, "2-4 joueurs : a egalite, l'XP la plus haute gagne (APK)")
+	_ok.call(m._tie_break_players([0, 1, 2, 3], true) == 3, "5-6 joueurs : a egalite, l'XP la plus basse gagne (livret CRL)")
 	m.queue_free()
 
 # --- boss --------------------------------------------------------------------------------------------------------

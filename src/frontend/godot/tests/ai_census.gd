@@ -2,7 +2,8 @@ extends Node
 ## Recensement de l'IA : quelles cartes / capacites l'IA se voit offrir (coup legal) mais ne choisit jamais ?
 ## Joue des parties IA-vs-IA (meme boucle que BoardUI._process) et compte, par carte, les parties ou un coup l'impliquant etait legal
 ## (« offert ») et celles ou l'IA l'a choisi (« choisi »). Outil de developpement, hors `tools/run_godot_tests.py`.
-## Usage : godot --headless --path src/frontend res://godot/tests/AiCensus.tscn -- --sets=next-level,crash-landing --games=20 [--players=2] [--seed=1]
+## Usage : godot --headless --path src/frontend res://godot/tests/AiCensus.tscn -- --sets=next-level,crash-landing --games=20 [--players=2 | 2,5,6] [--seed=1]
+## Sans --players : 2, 3 et 4 joueurs, plus 5 et 6 quand les paquets le permettent (Match.setup_error : Crash Landing, Hidden Heroes, Tools seulement).
 ## Sortie : une ligne par cle `type:id` jamais choisie alors qu'elle a ete offerte, puis les cartes jamais offertes, puis « CENSUS PASS » ou
 ## « CENSUS FAIL » (code de sortie 1) : echec si une carte des paquets demandes est offerte mais jamais choisie, OU jamais offerte (y compris le
 ## pouvoir de niveau 3 d'un miniboss), sans figurer dans ALLOW. Cles des minibosses par carte : `buildMiniboss:<id>`, `promoteMiniboss:<id>:<niveau vise>`,
@@ -49,7 +50,7 @@ var _debug := ""   # --debug=cle : affiche le score de chaque coup offert portan
 func _ready() -> void:
 	var sets: Array = ["base"]
 	var games := 20
-	var counts: Array = [2, 3, 4]
+	var counts: Array = []
 	var seed0 := 1
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--sets="):
@@ -57,13 +58,15 @@ func _ready() -> void:
 		elif a.begins_with("--games="):
 			games = int(a.substr(8))
 		elif a.begins_with("--players="):
-			counts = [int(a.substr(10))]
+			counts = Array(a.substr(10).split(",", false)).map(func(x): return int(x))
 		elif a.begins_with("--count="):
 			_count = a.substr(8)
 		elif a.begins_with("--debug="):
 			_debug = a.substr(8)
 		elif a.begins_with("--seed="):
 			seed0 = int(a.substr(7))
+	if counts.is_empty():
+		counts = [2, 3, 4, 5, 6] if Match.setup_error(5, sets) == "" else [2, 3, 4]
 	AI.trace = Callable(self, "_on_decision")
 	var done := 0
 	var stuck := 0

@@ -5,6 +5,8 @@ extends Node
 ##     reconnexion avec jeton en cours de partie ;
 ##  3. rechargement de page (nouvelle instance + try_resume) ;
 ##  4. minuteur : l'IA prend le relais d'un humain muet, le joueur reprend la main a la reconnexion ;
+##  6. 5 et 6 joueurs (Crash Landing) : refus sans CRL / avec un paquet non pris en charge (`bad_setup`), filtrage des vues a 5-6 sieges,
+##     partie complete (1 humain + IA) jusqu'a la fin, sur le nombre de sieges demande.
 ##  5. onglet endormi : un grand trou entre deux images declenche un ping, une liaison muette est rouverte avec le jeton.
 ## Usage : godot --headless --path src/frontend res://godot/tests/OnlineTest.tscn   -> "ONLINE OK"
 
@@ -63,20 +65,23 @@ func _check_filter_unit() -> void:
 		_expect(checks > 10, "filtre : trop peu de verifications (%d)" % checks)
 		_expect(_priv_lines > priv_before, "filtre : aucune ligne de journal privee rencontree (%s)" % str(sets))
 	_expect(_mb_tagged > 0, "filtre : aucun miniboss face cachee rencontre")
+	for n in [5, 6]: # 5-6 joueurs (Crash Landing) : memes verifications de fuite sur 5 / 6 sieges
+		var big_checks: int = _filter_game(["crash-landing"], 7100 + n, n)
+		_expect(big_checks > 10, "filtre %d joueurs : trop peu de verifications (%d)" % [n, big_checks])
 
 ## Une partie IA-vs-IA a 3 joueurs (graine `rng_seed`) ; renvoie le nombre de vues verifiees.
-func _filter_game(sets: Array, rng_seed: int) -> int:
+func _filter_game(sets: Array, rng_seed: int, players: int = 3) -> int:
 	seed(rng_seed) # randi() global (capacites de salle)
 	CardDB._rng.seed = rng_seed # melanges des pioches
 	var m = GameManager.new()
 	add_child(m)
 	m.rng.seed = rng_seed # Match._ready l'a randomise
-	m.start_new_game(3, 0, sets)
+	m.start_new_game(players, 0, sets)
 	var steps := 0
 	var checks := 0
 	var mb_done := not sets.has("minibosses")
 	var mb_pids := {}
-	while m.G.get("gameOver") == null and steps < 4000 and _fails.is_empty():
+	while m.G.get("gameOver") == null and steps < 4000 * (3 if players >= 5 else 1) and _fails.is_empty():
 		steps += 1
 		if not mb_done and steps >= 40: # l'IA pose rarement un miniboss : on en pose un face cache chez chaque joueur (des qu'il a une salle)
 			for pid in m.G["players"]:
@@ -270,6 +275,9 @@ func _run_network() -> void:
 	seed(4242) # melanges de la partie en ligne reproductibles (le temps reseau, lui, ne l'est pas)
 	CardDB._rng.seed = 4242
 	await _scenario_full_game()
+	for n in [5, 6]:
+		if _fails.is_empty():
+			await _scenario_big_game(n)
 	if _fails.is_empty():
 		await _scenario_reload()
 	if _fails.is_empty():
@@ -375,6 +383,47 @@ func _scenario_full_game() -> void:
 	_expect(JSON.stringify(room.m.G["gameOver"]) == JSON.stringify(gos), "etat modifie apres la fin")
 	c0.queue_free()
 	c1.queue_free()
+
+## 5-6 joueurs : le serveur refuse sans Crash Landing (ou avec un paquet non pris en charge) au lieu de plafonner a 4 ; avec CRL, une salle de n sieges
+## (n - 1 IA) joue une partie complete et Match.new_match cree bien n joueurs.
+func _scenario_big_game(n: int) -> void:
+	var bad := _client("Refus")
+	for sets in [[], ["tools"], ["crash-landing", "next-level"], ["crash-landing", "minibosses"], ["crash-landing", "players-choice"]]:
+		_expect(not await bad.create_lobby(n, sets, 1) and bad.last_error_code == "bad_setup", "%d joueurs %s : refus attendu (bad_setup), obtenu '%s'" % [n, str(sets), bad.last_error_code])
+	bad.queue_free()
+	if not _fails.is_empty():
+		return
+	var c0 := _client("Alice")
+	if not _expect(await c0.create_lobby(n, ["crash-landing"], n - 1), "%d joueurs : create_lobby a echoue (%s)" % [n, c0.last_error_code]):
+		return
+	var room = server.get_room(c0.match_id)
+	_expect(room.num_players == n and room.seats.size() == n, "%d joueurs : %d sieges attendus, obtenu %d" % [n, n, room.seats.size()])
+	if not _expect(await _wait(func(): return not c0.current_G.is_empty() and room.m != null, 10.0), "%d joueurs : la partie n'a pas demarre" % n):
+		return
+	_expect(int(room.m.G["numPlayers"]) == n and (room.m.G["players"] as Dictionary).size() == n, "%d joueurs : Match a %d joueurs" % [n, (room.m.G["players"] as Dictionary).size()])
+	_expect((c0.current_G["players"] as Dictionary).size() == n, "%d joueurs : la vue du client a %d joueurs" % [n, (c0.current_G["players"] as Dictionary).size()])
+	var gm0 := OnlineGameManager.new()
+	add_child(gm0)
+	gm0.setup_online(c0, 0)
+	var d0 := Driver.new(c0, gm0)
+	var t0 := Time.get_ticks_msec()
+	var sampled := 0
+	while room.status != "finished" and _fails.is_empty():
+		if (Time.get_ticks_msec() - t0) / 1000.0 > GAME_TIMEOUT_S:
+			_expect(false, "%d joueurs : partie trop longue (phase %s tour %s, coups %d, actif=%s)" % [n, room.m.G.get("phase"), room.m.G.get("turn"), d0.moves_sent, room.m.active_player()])
+			break
+		d0.step()
+		if room.m != null and Engine.get_process_frames() % 40 == 0 and sampled < 20:
+			_check_view(room.m.G, "serveur %d joueurs" % n)
+			sampled += 1
+		await get_tree().process_frame
+	if _fails.is_empty():
+		_expect(await _wait(func(): return c0.current_G.get("gameOver") != null, 10.0), "%d joueurs : le client n'a pas recu la fin de partie" % n)
+		_expect(JSON.stringify(c0.current_G.get("gameOver")) == JSON.stringify(room.m.G["gameOver"]), "%d joueurs : gameOver different entre client et serveur" % n)
+		for pid in room.m.G["players"]:
+			_expect(not bool((room.m.G["players"][pid] as Dictionary).get("eliminated", false)), "%d joueurs : le siege %d ne devrait jamais etre elimine" % [n, pid])
+		print("ONLINE %d joueurs: tours=%d gameOver=%s coups=%d" % [n, room.m.G["turn"], JSON.stringify(room.m.G["gameOver"]), d0.moves_sent])
+	c0.queue_free()
 
 func _scenario_reload() -> void:
 	var a := _client("Alice")

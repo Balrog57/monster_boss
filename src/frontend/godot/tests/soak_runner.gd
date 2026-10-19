@@ -1,11 +1,13 @@
 extends Node
-## Soak : parties IA-vs-IA a 2, 3 et 4 joueurs. Scène exécutée en headless avec autoloads.
+## Soak : parties IA-vs-IA a 2, 3 et 4 joueurs (5 et 6 avec --sets=crash-landing). Scène exécutée en headless avec autoloads.
 ## Usage : godot --headless --path src/frontend res://godot/tests/Soak.tscn [-- --players=3] [--runs=10]
-## Sans argument : 3 parties a 2, puis a 3, puis a 4 joueurs. --players=N : N seul ; --runs=K : K parties par nombre de joueurs.
+## Sans argument : 3 parties a 2, puis a 3, puis a 4 joueurs. --players=N ou N,M : ces nombres seuls (5-6 : exigent --sets=crash-landing, sinon echec) ; --runs=K : K parties par nombre de joueurs.
 ## Plafond de pas : une partie a 4 joueurs en demande ~1300 (chaque salle franchie ouvre 2 fenetres de pause que tous les joueurs
-## passent), donc 500 coupait des parties qui progressaient ; 4000 ne coupe que de vraies boucles.
+## passent), donc 500 coupait des parties qui progressaient ; 4000 ne coupe que de vraies boucles. A 5-6 joueurs (une partie dure ~9 tours de 5-6
+## heros, et chaque pause est passee par 5-6 joueurs) le plafond est triple.
 
 const MAX_STEPS := 4000
+const MAX_STEPS_BIG := 12000
 
 
 const CardData = preload("res://godot/scripts/CardData.gd")
@@ -37,7 +39,7 @@ func _ready() -> void:
 	var runs := 3
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--players="):
-			counts = [clampi(int(a.substr(len("--players="))), 2, 4)]
+			counts = Array(a.substr(len("--players=")).split(",", false)).map(func(x): return clampi(int(x), 2, 6))
 		elif a.begins_with("--runs="):
 			runs = maxi(1, int(a.substr(len("--runs="))))
 	for n in counts:
@@ -57,8 +59,13 @@ func _play(n_players: int) -> bool:
 		if a.begins_with("--sets="):
 			sets = Array(a.substr(len("--sets=")).split(",", false))
 	m.start_new_game(n_players, 0, sets)
+	if n_players >= 5 and not sets.has("crash-landing"):
+		print("SOAK ECHEC : %d joueurs exigent --sets=crash-landing" % n_players)
+		m.queue_free()
+		return false
 	var steps := 0
-	while m.G.get("gameOver") == null and steps < MAX_STEPS:
+	var max_steps := MAX_STEPS_BIG if n_players >= 5 else MAX_STEPS
+	while m.G.get("gameOver") == null and steps < max_steps:
 		var acted := false
 		var phase: String = m.G["phase"]
 		# Un choix en attente se resout en priorite, quel que soit le joueur concerne.
@@ -113,6 +120,9 @@ func _play(n_players: int) -> bool:
 		steps += 1
 		if not acted:
 			break
+	if int(m.G.get("numPlayers", 0)) != n_players:
+		print("SOAK ECHEC : ", n_players, " joueurs demandes, ", m.G.get("numPlayers"), " sieges")
+		return false
 	print("SOAK players=", n_players, " steps=", steps, " turn=", m.G.get("turn", -1), " gameOver=", m.G.get("gameOver"))
 	var done: bool = m.G.get("gameOver") != null
 	if not done:

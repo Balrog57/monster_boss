@@ -613,12 +613,13 @@ static func seed_discards(G: Dictionary) -> void:
 		if not spells.is_empty():
 			sd.append(spells.pop_back())
 
+## (TNL / RMB sont refuses a 5-6 joueurs, voir Match.setup_error : 2-4 seulement.)
 const HERO_COUNTS := {2: {"ordinary": 13, "epic": 9}, 3: {"ordinary": 17, "epic": 13}, 4: {"ordinary": 25, "epic": 17}}
 
 ## Livret TNL : 13 heros + 9 epiques (2 joueurs), 17 + 13 (3), 25 + 17 (4). Les heros marques d'une etoile (noirs, hybrides, Fool, Brothers) sont
 ## toujours inclus ; les autres completent au hasard. Le tout est remelange (la pioche se tire par la fin).
 static func limit_heroes(deck: Array, n: int, epic: bool) -> Array:
-	var want := int((HERO_COUNTS.get(n, HERO_COUNTS[2]) as Dictionary)["epic" if epic else "ordinary"])
+	var want := int((HERO_COUNTS[clampi(n, 2, 4)] as Dictionary)["epic" if epic else "ordinary"])
 	var special: Array = []
 	var plain: Array = []
 	for h in deck:

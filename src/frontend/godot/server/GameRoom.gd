@@ -29,7 +29,7 @@ var _dirty := false
 
 func _init(p_code: String, p_players: int, p_sets: Array) -> void:
 	code = p_code
-	num_players = clampi(p_players, 2, 4)
+	num_players = clampi(p_players, 2, MatchScript.max_players(p_sets)) # meme plafond que Match.new_match (6 avec Crash Landing, 4 sinon)
 	sets = p_sets
 	for i in num_players:
 		seats.append({"name": "", "bot": false, "taken": false, "token": "", "conn": -1, "auto": false, "left": false, "avatar": "", "wins": 0, "defeats": 0})

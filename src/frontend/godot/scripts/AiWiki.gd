@@ -71,11 +71,13 @@ static func bait_value(G: Dictionary, pid: int) -> float:
 	var p: Dictionary = players.get(pid, {})
 	var order := CardDB.order_by_xp(players)
 	var total := 0.0
-	for h in (G.get("town", []) as Array):
-		var hd: Dictionary = h
+	var town: Array = G.get("town", [])
+	var split: Dictionary = BossEngine.lure_split_targets(players, order, town, G) if CardDB.big_game(G) else {} # 5-6 joueurs : egalites partagees
+	for i in town.size():
+		var hd: Dictionary = town[i]
 		if TnlAbilities.no_lure(G, hd):
 			continue
-		if BossEngine.lure_target(players, order, int(hd.get("treasure", 1)), hd, G) != pid:
+		if (int(split[i]) if split.has(i) else BossEngine.lure_target(players, order, int(hd.get("treasure", 1)), hd, G)) != pid:
 			continue
 		total += float(BossEngine.hero_souls(hd)) if BossEngine.hero_hp(hd) <= dungeon_damage(G, p, hd) else -1.5 * float(BossEngine.hero_wounds(hd))
 	return total

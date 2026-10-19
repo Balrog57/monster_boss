@@ -12,6 +12,28 @@ const WIN_SOULS := 10
 ## Paquets de l'APK (BaseDeck, PlayerChoice, HiddenHeros, ToolsHeroKind) ; les autres sont des extensions wiki.
 const APK_SETS := ["base", "players-choice", "hidden-heroes", "tools"]
 
+## 5-6 joueurs : seulement avec Crash Landing (livret CRL), et seulement avec ces paquets (jeu de base, Hidden Heroes qui le remplace, Tools et CRL) ;
+## les autres (Player's Choice, TNL, Minibosses, THK, IOD, Player's Choice wiki) sont refuses (voir setup_error) pour garder le pool exact de 32 + 21 heros.
+const BIG_GAME_SETS := ["base", "hidden-heroes", "tools", "crash-landing"]
+
+## Nombre de joueurs maximal selon les paquets choisis : 6 avec Crash Landing, 4 sinon.
+static func max_players(p_sets: Array) -> int:
+	return 6 if p_sets.has("crash-landing") else 4
+
+## Message d'erreur (vide = acceptable) pour une partie a `num_players` avec `p_sets` : 5-6 joueurs exigent Crash Landing et n'admettent que BIG_GAME_SETS.
+## Partage entre Match.new_match (qui ecarte), le serveur et le lobby (qui refusent).
+static func setup_error(num_players: int, p_sets: Array) -> String:
+	if num_players < 5:
+		return ""
+	if num_players > 6:
+		return "6 joueurs au maximum"
+	if not p_sets.has("crash-landing"):
+		return "5 ou 6 joueurs : l'extension Crash Landing est obligatoire"
+	for s in p_sets:
+		if not str(s) in BIG_GAME_SETS:
+			return "5 ou 6 joueurs : le paquet « %s » n'est pas pris en charge (seulement Crash Landing, Hidden Heroes et Tools)" % str(s)
+	return ""
+
 ## Salles du base set ayant une abilite activable (roomAbilities.js:activateRoomAbility).
 const ACTIVATABLE_ROOMS := ["BMA009", "BMA013", "BMA024", "BMA027", "BMA028",
 	"BMA030", "BMA032", "BMA038", "BMA039", "CRL012",
@@ -33,10 +55,11 @@ func _ready() -> void:
 
 func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["base"]) -> Dictionary:
 	human_count = p_human_count
-	var n := clampi(num_players, 2, 4)
+	var n := clampi(num_players, 2, max_players(p_sets)) # 5-6 joueurs sans Crash Landing : repli a 4 (le serveur et le lobby refusent avant, voir setup_error)
 	var sets := {}
 	for s in p_sets:
-		sets[String(s)] = true
+		if n < 5 or String(s) in BIG_GAME_SETS: # a 5-6 joueurs un paquet non pris en charge est ecarte (garantit les 32 + 21 heros)
+			sets[String(s)] = true
 	if sets.has(ThkAbilities.SET_ID):
 		sets["tools"] = true # Tools of Hero-Kind wiki : les memes cartes que le paquet de l'APK, jouees par ThkAbilities
 	sets["base"] = true # GamePlayBaseScene : cardDecks = { BaseDeck } + les extensions choisies (le jeu de base est toujours present)
@@ -69,7 +92,7 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 			return false
 		if tnl and str(d.get("set", "base")) == Minibosses.SET_ID:
 			return false
-		return not apk_only or int(d.get("playerCount", 2)) <= n
+		return not (apk_only or crl) or int(d.get("playerCount", 2)) <= n # CRL : icones de joueurs respectees (les heros CRL, sans icone, sont toujours inclus)
 	var heroes: Array = CardDB.heroes.filter(func(c): return hero_ok.call(c, false))
 	var epics: Array = CardDB.heroes.filter(func(c): return hero_ok.call(c, true))
 	var room_src: Array = CardDB.expanded_deck(rooms)
@@ -96,13 +119,15 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	var hero_deck: Array = CardDB.shuffled(CardDB.expanded_deck(heroes).map(func(h): var d = (h as Dictionary).duplicate(); d["souls"] = 1; d["wounds"] = 1; return d))
 	var epic_deck: Array = CardDB.shuffled(CardDB.expanded_deck(epics).map(func(h): var d = (h as Dictionary).duplicate(); d["souls"] = 2; d["wounds"] = 2; return d))
 	# Tailles officielles (base set) selon le nombre de joueurs.
-	var counts: Dictionary = CardDB.HERO_COUNTS.get(n, {"ordinary": 13, "epic": 8})
+	var counts: Dictionary = CardDB.HERO_COUNTS[n]
 	if tnl or rmb: # livrets TNL / RMB : 13+9 / 17+13 / 25+17 heros, les heros a capacite (etoile) toujours inclus
 		hero_deck = TnlAbilities.limit_heroes(hero_deck, n, false)
 		epic_deck = TnlAbilities.limit_heroes(epic_deck, n, true)
-	elif not apk_only:
-		hero_deck = hero_deck.slice(0, int(counts.get("ordinary", 13)))
-		epic_deck = epic_deck.slice(0, int(counts.get("epic", 8)))
+	elif not apk_only and not crl: # (avec CRL, hero_ok a deja filtre par icone : 2-4 = base de n joueurs + 12 heros CRL ; 5-6 = 32 + 21)
+		hero_deck = hero_deck.slice(0, int(counts["ordinary"]))
+		epic_deck = epic_deck.slice(0, int(counts["epic"]))
+	if n >= 5 and (hero_deck.size() != int(counts["ordinary"]) or epic_deck.size() != int(counts["epic"])):
+		push_error("5-6 joueurs : pool de heros %d + %d au lieu de %d + %d" % [hero_deck.size(), epic_deck.size(), counts["ordinary"], counts["epic"]])
 	# APK (RandomBossSelectionScene, GameBoardExtensions) : le carrousel montre TOUS les boss des paquets choisis ; le boss de l'humain est
 	# tire parmi eux, ceux des IA parmi les restants (pickBoss les retire de la liste).
 	var picks: Array = CardDB.shuffled(bosses)
@@ -1220,7 +1245,7 @@ func _draw_turn_card(p: Dictionary, pile: String) -> void:
 	if not drawn.is_empty():
 		(p["hand"] as Array).append(drawn[0])
 
-## GameBoard.RevealItems : 1 objet par tour (2 a 4 joueurs), vers RevealedItemsQueue. Rien ne l'attache a un heros dans l'APK 2.2.6
+## GameBoard.RevealItems : 1 objet par tour (2-3 joueurs), 2 (4 joueurs) ou 3 (5-6 joueurs, livret « Beginning of Turn »), vers RevealedItemsQueue. Rien ne l'attache a un heros dans l'APK 2.2.6
 ## (FlipItem.Execute leve NotImplemented, ItemInfo.HeroAbility/BossAbility sont nuls) : ce sont des cartes inertes.
 func _reveal_items() -> void:
 	if ThkAbilities.active(G): # case wiki : l'Objet rejoint la ville et s'attache a un heros (ThkAbilities)
@@ -1229,7 +1254,8 @@ func _reveal_items() -> void:
 	var deck: Array = (G["decks"] as Dictionary).get("items", [])
 	var queue: Array = G.get("itemQueue", [])
 	G["itemQueue"] = queue
-	for _i in (2 if (G["players"] as Dictionary).size() == 4 else 1):
+	var seats: int = (G["players"] as Dictionary).size()
+	for _i in (3 if seats >= 5 else (2 if seats == 4 else 1)):
 		if not deck.is_empty():
 			queue.append(deck.pop_back())
 
@@ -1466,13 +1492,16 @@ func _resolve_bait() -> void:
 	G["luredThisTurn"] = {} # heros leurres par joueur ce tour (CRL031 Healing Tank)
 	var town: Array = G.get("town", [])
 	var order := CardDB.order_by_xp(G["players"])
-	for hero in town:
+	# 5-6 joueurs (livret CRL) : les heros a egalite de tresors sont partages entre les joueurs a egalite (BossEngine.lure_split_targets).
+	var split: Dictionary = BossEngine.lure_split_targets(G["players"], order, town, G) if CardDB.big_game(G) else {}
+	for i in town.size():
+		var hero = town[i]
 		if TnlAbilities.active(G) and TnlAbilities.no_lure(G, hero): # TNL001 Doc Scarecrow : ce heros ne peut pas etre leurre ce tour
 			remaining_town.append(hero)
 			_log("%s ne peut pas etre leurre ce tour (Doc Scarecrow)." % (hero as Dictionary).get("name", "?"))
 			continue
 		var treasure := int((hero as Dictionary).get("treasure", 1))
-		var target := BossEngine.lure_target(G["players"], order, treasure, hero, G)
+		var target: int = int(split[i]) if split.has(i) else BossEngine.lure_target(G["players"], order, treasure, hero, G)
 		if target >= 0:
 			var target_player: Dictionary = G["players"][target]
 			(target_player["entrance"] as Array).append(hero)
@@ -1953,7 +1982,7 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 		if ThkAbilities.active(G):
 			ThkAbilities.on_hero_survived(G, pid, hero) # THK : Vorpal Blade, Holy Hand Grenade, Antimagic Lizard, Necronomicon ; l'Objet va face cachee
 		_log("Le héros survit et blesse le boss ! (%d blessures)" % CardDB.total_wounds(p))
-		if CardDB.total_wounds(p) >= 5 and not ThkAbilities.wound_immune(G, pid):
+		if CardDB.total_wounds(p) >= 5 and not ThkAbilities.wound_immune(G, pid) and not CardDB.big_game(G): # 5-6 joueurs : plus d'elimination (livret CRL)
 			p["eliminated"] = true
 			entrance.clear() # GameBoard.ChooseNextActiveHero : !IsAlive => EntranceQueue.Clear()
 			_log("Joueur %d éliminé !" % pid)
@@ -1984,6 +2013,10 @@ func _hero_died_trigger(pid: int, death_room: Dictionary) -> void:
 func _check_end_or_next_turn() -> void:
 	# Phase 5 : END (Fin de tour et conditions de victoire)
 	G["phase"] = CardDB.PHASE["END"]
+
+	if CardDB.big_game(G):
+		_check_end_big_game()
+		return
 
 	# Vérification des éliminations (5 blessures)
 	for pid in G["players"]:
@@ -2036,8 +2069,9 @@ func _check_end_or_next_turn() -> void:
 		apk_only = apk_only and s in APK_SETS
 	no_more_heroes = no_more_heroes and not apk_only
 	# Crash Landing. SOURCE : docs/rules/rules.md (= rules_crash_landing.pdf), « Changes to Victory Conditions » : dans la partie a 5-6 joueurs, elle se termine
-	# quand les pioches de heros ordinaires ET epiques sont epuisees, « Heroes can still be in Town when the game ends ». Le moteur ne gere que 2-4 joueurs :
-	# la regle y est reprise telle quelle, MAIS seulement quand plus rien ne peut changer (aucun heros leurre ce tour ni a une entree), sinon un Explorer
+	# quand les pioches de heros ordinaires ET epiques sont epuisees, « Heroes can still be in Town when the game ends » : a 5-6 joueurs c'est
+	# _check_end_big_game (sans garde). Ici, 2-4 joueurs avec CRL (le livret n'y prevoit que « Hero stack depleted [...] and any remaining Heroes can't be distributed anymore ») :
+	# la regle est reprise MAIS seulement quand plus rien ne peut changer (aucun heros leurre ce tour ni a une entree), sinon un Explorer
 	# que personne ne peut leurrer (aucun tresor Explorer, ou egalite) bloquerait la partie pour toujours. Sans Crash Landing : regle APK inchangee.
 	if not no_more_heroes and G.get("sets", []).has("crash-landing") and (decks.get("heroes", []) as Array).is_empty() and (decks.get("epics", []) as Array).is_empty():
 		var any_lured := false
@@ -2062,18 +2096,42 @@ func _check_end_or_next_turn() -> void:
 	_start_turn()
 	state_changed.emit()
 
+## Fin de partie a 5-6 joueurs (livret CRL, « Changes to Victory Conditions » et « End of Game ») : pas d'elimination ; la partie s'arrete en fin de tour
+## quand un joueur a au moins 10 ames OU quand les pioches de heros ordinaires et epiques sont toutes deux vides (des heros peuvent rester en ville ou a
+## une entree) ; le gagnant est le meilleur total ames - blessures de TOUS les joueurs, a egalite l'XP la plus BASSE.
+func _check_end_big_game() -> void:
+	var all_pids: Array = []
+	for pid in G["players"]:
+		all_pids.append(int(pid))
+	all_pids.sort()
+	var souls_reached := false
+	for pid in all_pids:
+		souls_reached = souls_reached or CardDB.total_souls(G["players"][pid], G) >= WIN_SOULS
+	var decks: Dictionary = G["decks"]
+	var exhausted: bool = (decks.get("heroes", []) as Array).is_empty() and (decks.get("epics", []) as Array).is_empty()
+	if souls_reached or exhausted:
+		var win_pid := _tie_break_players(all_pids, true)
+		var reason := "10 âmes" if souls_reached else "héros épuisés"
+		G["gameOver"] = {"winner": win_pid, "reason": reason}
+		_log("Partie terminée (%s) : joueur %d gagne !" % [reason, win_pid])
+		state_changed.emit()
+		return
+	_start_turn()
+	state_changed.emit()
+
 ## Departage APK (GameBoard.GetWinnerWhenThereAreVariousCandidates / GetLessExperiencePlayerToWin) : ecart ames-blessures le plus haut ;
 ## a egalite, PlayerId croissant, or PlayerId est attribue par XP DECROISSANTE (GameBoardExtensions) : le boss de plus HAUTE XP l'emporte.
 ## A XP egale, l'ordre des sieges (humains d'abord) tranche : `pids` arrive en ordre croissant et `>` est strict.
-func _tie_break_players(pids: Array) -> int:
+## `low_xp` (5-6 joueurs, livret CRL : « the Boss with the lowest XP wins ») : a egalite, l'XP la plus BASSE l'emporte ; jamais en 2-4 (APK).
+func _tie_break_players(pids: Array, low_xp: bool = false) -> int:
 	var best_pid := int(pids[0])
 	var best_diff := -999
-	var best_xp := -1
+	var best_xp := 1 << 30 if low_xp else -1
 	for pid in pids:
 		var p: Dictionary = G["players"][pid]
 		var diff := CardDB.total_souls(p, G) - CardDB.total_wounds(p)
 		var xp := int((p.get("boss", {}) as Dictionary).get("xp", 0))
-		if diff > best_diff or (diff == best_diff and xp > best_xp):
+		if diff > best_diff or (diff == best_diff and (xp < best_xp if low_xp else xp > best_xp)):
 			best_diff = diff
 			best_xp = xp
 			best_pid = int(pid)
