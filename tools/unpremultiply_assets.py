@@ -10,15 +10,12 @@ import sys
 from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from extract_apk_226 import ROOT, is_premultiplied, unpremultiply  # noqa: E402
-
-ASSETS = os.path.join(ROOT, "src", "frontend", "assets")
-DONE = os.path.join(ROOT, "tools", "data", "unpremultiplied_assets.txt")
+from extract_apk_226 import ASSETS, is_premultiplied, mark_unpremultiplied, read_unpremultiplied, unpremultiply  # noqa: E402
 
 
 def main() -> int:
     apply = "--apply" in sys.argv
-    done = set(open(DONE, encoding="utf-8").read().split()) if os.path.exists(DONE) else set()
+    done = read_unpremultiplied()
     n = 0
     for dp, dn, fn in os.walk(ASSETS):
         dn[:] = [d for d in dn if d != "fonts"]
@@ -28,16 +25,15 @@ def main() -> int:
                 continue
             rel = os.path.relpath(p, ASSETS).replace("\\", "/")
             im = Image.open(p).convert("RGBA")
-            if rel in done or not is_premultiplied(im):
+            if rel in done or not is_premultiplied(im):  # liste d'abord : un fichier deja converti n'est jamais reconverti
                 continue
             n += 1
             print(rel)
             if apply:
-                unpremultiply(im).save(p, "WEBP", lossless=True, exact=True)
-                done.add(rel)
-    if apply:
-        with open(DONE, "w", encoding="utf-8", newline="\n") as fh:
-            fh.write("\n".join(sorted(done)) + "\n")
+                tmp = p + ".tmp"
+                unpremultiply(im).save(tmp, "WEBP", lossless=True, exact=True)
+                os.replace(tmp, p)
+                mark_unpremultiplied(p)  # liste mise a jour fichier par fichier : un plantage ne perd pas les conversions deja faites
     print(f"{n} fichier(s) {'convertis' if apply else 'a convertir'}")
     return 0
 

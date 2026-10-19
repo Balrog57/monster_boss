@@ -159,7 +159,7 @@ var _last_ms := 0                        # horloge reelle du dernier _process : 
 var _grey_prev: Dictionary = {}              # main : cle "index:id" -> {g: grise ?, t: ms du dernier changement} (fondu de grisage, voir _refresh_hand)
 var _hand_stale := false                 # un refresh() a ete saute pendant un appui sur une carte de la main (voir _refresh_hand)
 var _speed := 1.0                        # GameSettings.GetSpeed : SLOW 1,5 / NORMAL 1 / FAST 0,5 (durees des animations de heros)
-var _pass_raised_key := ""                # tour/phase ou le 1er appui sur PASS TURN a deja eu lieu (le 2e passe)
+var _pass_raised_key := ""                # siege/tour/phase ou le 1er appui sur PASS TURN a deja eu lieu (le 2e passe)
 var _warn: Control                       # bulle de mise en garde « YOU CAN BUILD A ROOM »
 var _warn_t := 0.0
 var _gameover: Control
@@ -176,7 +176,7 @@ var _hand_seen: Array = []               # cartes de la main deja vues (animatio
 var _hand_seen_pid := -1
 var _deal_pending := false               # le choix du boss vient de finir : toute la main est distribuee (DrawCardEmitter.cs:46-49 : lastHands vide)
 var _draw_hide := {}                     # id de carte -> nombre d'exemplaires encore en vol vers la main : leurs cartes restent cachees (voir _refresh_hand)
-var _draw_until := 0                     # horloge (ms) apres laquelle _draw_hide est ignore (filet de securite si un vol est interrompu)
+var _undo_ids: Array = []                # salles de ma pose en attente au dernier affichage : si elles reviennent en main (undoBuild), ce n'est pas une pioche
 var _souls_seen := -1
 var _wounds_seen := -1
 # Choix de la cible sur le plateau : {} = inactif ; sinon {pid, title, hint, entries: [{label, cb, mv, spot}]}.
@@ -197,7 +197,7 @@ var _bait_ms := 0                        # duree du leurre (ms) : un vol de BAIT
 var _bait_flown := {}                    # cartes deja parties en vol pour ce leurre : {pid:id:rang -> _bait_t0}
 var _bait_landed := {}                   # cartes deja arrivees a l'entree du donjon pour ce leurre : {pid:id:rang -> _bait_t0}
 var _phase_tw: Tween                     # saut de la plaque de phase (PhaseTitleControl + JumpBehavior)
-var _foe_frozen := {}                    # emplacement adverse -> salle gelee au dernier affichage (voile de glace en fondu au gel)
+var _foe_frozen := {}                    # « adversaire:indice de salle » -> salle gelee au dernier affichage (voile de glace en fondu au gel)
 var _foe_down := {}                      # emplacement adverse -> salle face cachee au dernier affichage (retournement a la revelation)
 var _lvl_busy := false                   # la banniere LEVEL UP passe : le choix de niveau attend sa fin (l'APK enchaine banniere puis choix)
 var _lvl_seen := {}                      # pid -> « monte de niveau » deja vu : un passage a vrai joue la banniere LEVEL UP (_show_levelup)
@@ -635,7 +635,7 @@ func _refresh_seat_bar() -> void:
 		b.text = "PLAYER %d" % (pid + 1)
 		b.disabled = (pid == view_pid)
 		var p: int = int(pid)
-		b.pressed.connect(func(): view_pid = p; _sync_slot_pids(); refresh())
+		b.pressed.connect(func(): _draw_clear(); view_pid = p; _sync_slot_pids(); refresh())
 		seat_bar.add_child(b)
 
 ## Siege humain que la vue doit montrer (hot-seat, hors aventure) : celui qui doit encore recevoir son boss, poser sa salle initiale,
@@ -687,6 +687,7 @@ func _follow_seat(G: Dictionary) -> bool:
 	if not changed or t < 0 or t == view_pid:
 		return false
 	if skip_animations:
+		_draw_clear()
 		view_pid = t
 		_sync_slot_pids()
 		return false
@@ -697,6 +698,7 @@ func _follow_seat(G: Dictionary) -> bool:
 	for l in lanes:
 		tw.parallel().tween_property(l, "modulate:a", 0.0, 0.5)
 	tw.tween_callback(func():
+		_draw_clear() # la pioche du siege precedent ne doit pas suivre la main au siege suivant
 		view_pid = t
 		_sync_slot_pids()
 		refresh())
@@ -1337,7 +1339,7 @@ func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 		seq += ents.size()
 
 func _bait_active() -> bool:
-	return _bait_t0 > 0 and Time.get_ticks_msec() - _bait_t0 < _bait_ms
+	return _bait_t0 > 0 # _bait_end (tween de _bait_ms) le remet a 0 : pas d'horloge reelle, le tween suit delta plafonne (~0,13 s) comme les vols
 
 func _bait_key(pid: int, hero: Dictionary, k: int) -> String:
 	return "%d:%s:%d" % [pid, str(hero.get("id", "")), k]
@@ -1454,9 +1456,9 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 
 	var dungeon: Array = foe.get("dungeon", [])
 	var off: int = maxi(0, CardDB.DUNGEON_SLOTS - dungeon.size())
+	_foe_down.clear()
+	_foe_frozen.clear()
 	for j in CardDB.DUNGEON_SLOTS:
-		_foe_down[j] = false
-		_foe_frozen[j] = false
 		var slot_ctrl := Control.new()
 		slot_ctrl.custom_minimum_size = SLOT_SIZE
 		slot_ctrl.size = SLOT_SIZE
@@ -1488,11 +1490,12 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 				room_ui.long_pressed.connect(_zoom_show)
 				room_ui.long_released.connect(func(_c): _zoom_close())
 				var fz: bool = BossEngine.is_room_deactivated(game_manager.G, foe_pid, di)
-				room_ui.set_frozen(fz, fz != bool(prev_frozen.get(j, false)) and not skip_animations)
-				_foe_frozen[j] = fz
+				var fk := "%d:%d" % [foe_pid, di] # par salle (indice du moteur), pas par noeud : les salles glissent d'un noeud a l'autre quand le donjon grandit
+				room_ui.set_frozen(fz, fz != bool(prev_frozen.get(fk, false)) and not skip_animations)
+				_foe_frozen[fk] = fz
 				room_ui.set_face_down_scale()
 				var fd: bool = room_ui.card_data != null and room_ui.card_data.face_down
-				if bool(prev_down.get(j, false)) and not fd and not skip_animations:
+				if bool(prev_down.get(fk, false)) and not fd and not skip_animations:
 					# revelation : la salle adverse se retourne. Si elle declenche « when you build... », la bulle ROOM ABILITY de l'adversaire s'affiche
 					# (GamePlayBaseScene.cs:668 : Gameboard_AbilityApplyRequest pour toute capacite) et, sur les captures APK (notice_opponent_has_played_a_room_ability_*,
 					# ability_opponent_dark_lab_*), la salle reste agrandie (0,5 : CardStackSlotComponent.cs:138-141, ScaleBehavior.MaxScale 0,5 CardsFactory.cs:101) pendant la bulle.
@@ -1500,7 +1503,7 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 					room_ui.flip_in(0.5, NOTICE_HOLD if trigger else 0.0)
 					if trigger:
 						_show_notice("ROOM ABILITY", r)
-				_foe_down[j] = fd
+				_foe_down[fk] = fd
 				if Minibosses.active(game_manager.G): # Rise of the Minibosses : le miniboss de la salle adverse (nom cache tant qu'il est face cache)
 					var mb_badge := Minibosses.make_badge(r, false)
 					if mb_badge != null:
@@ -1547,7 +1550,7 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 	var cards: Array = []
 	var grey_next: Dictionary = {}
 	var hide_idx := {} # cartes piochees encore en vol vers la main (_show_draw) : les derniers exemplaires de chaque id restent cachees
-	if Time.get_ticks_msec() < _draw_until:
+	if not _draw_hide.is_empty():
 		var hide_left: Dictionary = _draw_hide.duplicate()
 		for i in range(hand.size() - 1, -1, -1):
 			var hid := str((hand[i] as Dictionary).get("id", ""))
@@ -3291,7 +3294,7 @@ func _on_pass_pressed() -> void:
 	# DoneButtonEntity.cs:118-143 : en mode PASS TURN le 1er relachement ne passe jamais, il leve le drapeau (ShowHintComponent.Hint, IsRaised) ; la bulle « HEY! YOU CAN
 	# BUILD A ROOM! STILL WANT TO PASS? » (GamePlayBaseScene.cs:259-269) n'apparait que si une salle de la main est constructible. Le 2e relachement passe. Le drapeau
 	# retombe au tour suivant (CreateShowAndActivateTimer, DoneButtonEntity.cs:177), pas quand la bulle disparait ; en mode DONE! un seul appui passe.
-	var raise_key := "%s/%s" % [game_manager.G.get("turn", 0), game_manager.G.get("phase", "")]
+	var raise_key := "%d/%s/%s" % [_my_pid(), game_manager.G.get("turn", 0), game_manager.G.get("phase", "")] # par siege : en pass and play, le 1er appui du 2e siege ne passe pas d'emblee
 	if _pass_turn_mode() and _pass_raised_key != raise_key:
 		_pass_raised_key = raise_key
 		if _can_still_build(game_manager.legal_moves(_my_pid())):
@@ -3768,6 +3771,12 @@ func _track_hand_draw(G: Dictionary, p: Dictionary, phase: String) -> void:
 		same_seat = true
 	_hand_seen = hand.duplicate()
 	_hand_seen_pid = view_pid
+	var taken_back := _undo_ids # DrawCardEmitter n'anime que les cartes tirees, pas une salle reprise (Match.undo_build_on)
+	_undo_ids = []
+	for stack in p.get("dungeon", []):
+		var top = BossEngine.active_room(stack)
+		if top is Dictionary and (top as Dictionary).has("undoBuild"):
+			_undo_ids.append(str((top as Dictionary).get("id", "")))
 	if skip_animations or not same_seat or phase == "boss" or G.get("gameOver") != null:
 		return
 	if not deal and (seen_before.is_empty() or phase == "setup" or _is_opening_discard_for_me()):
@@ -3779,6 +3788,8 @@ func _track_hand_draw(G: Dictionary, p: Dictionary, phase: String) -> void:
 	for c in hand:
 		if int(counts.get(c, 0)) > 0:
 			counts[c] = int(counts[c]) - 1
+		elif taken_back.has(str((c as Dictionary).get("id", ""))):
+			taken_back.erase(str((c as Dictionary).get("id", "")))
 		else:
 			fresh.append(c)
 	if not fresh.is_empty():
@@ -3790,14 +3801,14 @@ func _show_draw(cards: Array) -> void:
 	var n := cards.size()
 	var sc := lerpf(0.37, 1.0, 1.0 / float(n)) # DrawCardEmitter.cs:107
 	var csz := UiKit.ZOOM_CARD * sc
-	var fly_ms := int((0.5 + 0.5 + 2.0 + 0.1 * float(n) + DRAW_LAND) * 1000.0)
-	_draw_until = maxi(_draw_until, Time.get_ticks_msec() + fly_ms + 1000)
 	for i in n:
 		var card: Dictionary = cards[i]
 		var cid := str(card.get("id", ""))
 		_draw_hide[cid] = int(_draw_hide.get(cid, 0)) + 1
 		var holder := Control.new()
 		holder.name = "DrawnCard"
+		holder.add_to_group("drawn_card")
+		holder.tree_exiting.connect(_draw_release.bind(holder, cid)) # filet de securite : un vol interrompu rend quand meme sa carte a la main
 		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var back := UiKit.zoom_back("back-spell" if bool(card.get("isSpell", false)) else "back-room", csz)
 		var face := UiKit.zoom_card(card, csz)
@@ -3839,9 +3850,25 @@ func _draw_land(holder: Control, cid: String) -> void:
 	else:
 		tw.tween_property(holder, "modulate:a", 0.0, DRAW_LAND)
 	tw.tween_callback(func():
-		_draw_hide[cid] = maxi(int(_draw_hide.get(cid, 0)) - 1, 0)
+		_draw_release(holder, cid)
 		holder.queue_free()
 		refresh())
+
+## La carte piochee a fini son vol (ou son holder disparait) : sa vraie carte de la main redevient visible. Une seule fois par holder.
+func _draw_release(holder: Control, cid: String) -> void:
+	if holder.has_meta("released"):
+		return
+	holder.set_meta("released", true)
+	_draw_hide[cid] = maxi(int(_draw_hide.get(cid, 0)) - 1, 0)
+	if int(_draw_hide[cid]) == 0:
+		_draw_hide.erase(cid)
+
+## Coupe toute pioche en vol (changement de siege en pass and play) : holders liberes, plus aucune carte de la main cachee.
+func _draw_clear() -> void:
+	for h in get_tree().get_nodes_in_group("drawn_card"):
+		h.set_meta("released", true)
+		h.queue_free()
+	_draw_hide.clear()
 
 ## Bulle de mise en garde de mon boss (APK : BossHint) quand on veut passer alors qu'une salle peut encore etre construite.
 func _can_still_build(moves: Array) -> bool:

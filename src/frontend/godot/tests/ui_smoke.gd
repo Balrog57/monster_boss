@@ -97,11 +97,11 @@ func _wait(s: float) -> void:
 ## Attend la fin d'une transition ColorFade de Main (1,0 s, APK : Main.go) ; les durees de l'APK ne sont pas raccourcies.
 func _nav(main) -> void:
 	await get_tree().process_frame
-	for i in 300:
-		if not main.is_fading():
-			break
+	var t0 := Time.get_ticks_msec()
+	while main.is_fading() and Time.get_ticks_msec() - t0 < 4000: # horloge reelle : la transition dure 1,0 s quel que soit le nombre d'images
 		await get_tree().process_frame
 	await get_tree().process_frame
+	_check(not main.is_fading(), "transition : le voile reste bloque apres 4 s")
 
 func _fail(msg: String) -> void:
 	if _fails.size() < 60:
@@ -2163,6 +2163,87 @@ func _check_done_and_warning() -> void:
 			_check(not gm.G.has("buildWindow"), "DONE : le bouton DONE! ne referme pas la fenetre")
 		_cov("done_button")
 
+## Corrections de relecture : reprise d'une pose (pas de pioche animee), cle PASS TURN par siege, pioche coupee au changement de siege,
+## RULES en ColorFade (la visionneuse reste sous le fondu), nouvel ordre de transition refuse pendant un fondu et voile qui bloque les clics.
+func _check_review_fixes() -> void:
+	_tag = "[review]"
+	await _new_game()
+	board.set_process(false)
+	board.skip_animations = false # la pioche animee est coupee en mode sans animation : elle doit l'etre ici aussi pour la reprise
+	board.refresh()
+	var me: Dictionary = gm.G["players"][0]
+	var hand: Array = me["hand"]
+	var bi := -1
+	for i in hand.size():
+		if (hand[i] as Dictionary).get("isRoom", false) and gm.can_build_room_at(0, i, (me["dungeon"] as Array).size()):
+			bi = i
+			break
+	if _check(bi >= 0, "reprise : aucune salle construisible"):
+		board._on_hand_card_clicked(bi, hand[bi])
+		if not board._tgt.is_empty():
+			(board._tgt["entries"][0]["cb"] as Callable).call()
+		await get_tree().process_frame
+		var und: Array = gm.legal_moves(0).filter(func(m): return m["type"] == "undoBuild")
+		if _check(not und.is_empty(), "reprise : pas de coup undoBuild apres la pose"):
+			var n0 := (me["hand"] as Array).size()
+			board._on_slot_activate(int((und[0]["args"] as Array)[0]))
+			await get_tree().process_frame
+			_check((me["hand"] as Array).size() == n0 + 1, "reprise : la salle n'est pas revenue en main")
+			_check(board._draw_hide.is_empty() and get_tree().get_nodes_in_group("drawn_card").is_empty(), "reprise : la salle reprise ne doit pas etre animee comme une pioche")
+			var hidden := _hand_hidden()
+			_check(hidden == 0, "reprise : %d carte(s) de la main cachee(s) (salle reprise injouable)" % hidden)
+			_cov("undo_not_drawn")
+		# vraie pioche : carte cachee le temps du vol, rendue par _draw_clear
+		(me["hand"] as Array).append(CardDB.rooms[0].duplicate(true))
+		board.refresh()
+		_check(not board._draw_hide.is_empty() and not get_tree().get_nodes_in_group("drawn_card").is_empty(), "pioche : aucune animation pour une vraie carte tiree")
+		board._draw_clear()
+		board.refresh()
+		await get_tree().process_frame
+		_check(board._draw_hide.is_empty() and _hand_hidden() == 0, "pioche coupee : la main doit etre entierement visible")
+		_cov("draw_clear")
+	# PASS TURN : le 1er appui d'un siege leve son drapeau, quel que soit celui de l'autre siege
+	await _new_game()
+	board.set_process(false)
+	board._on_pass_pressed()
+	var k0: String = board._pass_raised_key
+	gm.G["players"][1]["buildsThisTurn"] = 0 # siege 2 (pass and play) : pas encore construit, donc mode PASS TURN
+	board.view_pid = 1
+	board._sync_slot_pids()
+	board._on_pass_pressed()
+	_check(k0 != "" and board._pass_raised_key != k0 and board._pass_raised_key.begins_with("1/"), "PASS TURN : la cle du drapeau doit dependre du siege (%s puis %s)" % [k0, board._pass_raised_key])
+	_cov("pass_key_seat")
+	# RULES (menu) : la visionneuse reste a l'ecran sous le voile jusqu'au changement d'ecran
+	await _teardown()
+	var main = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main)
+	await _wait(0.3)
+	main.show_rules()
+	await get_tree().process_frame
+	var rv = main.get_children().filter(func(c): return c is RulesViewer)
+	if _check(rv.size() == 1, "RULES : visionneuse absente"):
+		(rv[0] as RulesViewer).close_viewer()
+		await _wait(0.2)
+		_check(main.is_fading() and is_instance_valid(rv[0]) and not rv[0].is_queued_for_deletion(), "RULES : la visionneuse doit rester a l'ecran pendant le fondu")
+		var calls := [0]
+		main.go(func(): calls[0] += 1)
+		var veil: Control = main._fade_layer.get_child(0)
+		_check(main._fade_layer.get_child_count() == 1 and veil.mouse_filter == Control.MOUSE_FILTER_STOP, "transition : un go() pendant un fondu doit etre refuse, le voile bloque les clics")
+		await _nav(main)
+		_check(calls[0] == 0, "transition : l'ordre recu pendant le fondu a ete execute")
+		_check(not is_instance_valid(rv[0]) or rv[0].is_queued_for_deletion(), "RULES : la visionneuse n'est pas liberee apres le fondu")
+		_cov("rules_fade")
+	main.queue_free()
+	await get_tree().process_frame
+
+## Cartes de la main du plateau cachees (visible = false).
+func _hand_hidden() -> int:
+	var n := 0
+	for c in board.hand_layer.get_children():
+		if not (c as CanvasItem).visible:
+			n += 1
+	return n
+
 ## Galerie de cartes : 5 onglets (BOSS / ROOM / SPELL / HERO / EPIC HERO), grille, paquets de l'APK (+ wiki selon l'option), fermeture ;
 ## ouverte depuis le menu en jeu et depuis OPTIONS du menu principal.
 func _check_gallery() -> void:
@@ -2733,6 +2814,7 @@ func _extra_checks() -> void:
 	await _check_choice_target()
 	await _check_drag_and_zoom()
 	await _check_done_and_warning()
+	await _check_review_fixes()
 	await _check_apk_gaps()
 	await _check_gallery()
 	await _check_online_menus()

@@ -517,5 +517,6 @@ func show_rules(tab: int = 0) -> void:
 	_clear()
 	var v := RulesViewer.new()
 	v.tab = tab
+	v.free_on_close = false # reste a l'ecran pendant le fondu au noir (source du ColorFade) ; show_menu -> _clear() la libere au changement d'ecran
 	v.closed.connect(func(): go(show_menu)) # sortie en ColorFade comme les autres ecrans du menu
 	add_child(v)

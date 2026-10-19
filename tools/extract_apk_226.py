@@ -38,6 +38,8 @@ OUT_EXP = os.path.join(ROOT, "src", "frontend", "assets", "ui", "expansions")
 OUT_NINE = os.path.join(ROOT, "src", "frontend", "assets", "ui", "ninepatch")
 OUT_TUT = os.path.join(ROOT, "src", "frontend", "assets", "ui", "tutorial")
 MANIFEST = os.path.join(ROOT, "tools", "data", "apkCardManifest.json")
+ASSETS = os.path.join(ROOT, "src", "frontend", "assets")
+UNPREMULTIPLIED = os.path.join(ROOT, "tools", "data", "unpremultiplied_assets.txt")  # webp deja passes en alpha droit (voir unpremultiply_assets.py)
 
 
 def wpk_payload(path):
@@ -249,19 +251,37 @@ def is_premultiplied(img):
     return bool(semi.any() and (mx[semi] > 0).any() and not (mx > al + 2).any())
 
 
-def save_webp(img, dest, *, lossy=False, quality=90):
+def read_unpremultiplied():
+    return set(open(UNPREMULTIPLIED, encoding="utf-8").read().split()) if os.path.exists(UNPREMULTIPLIED) else set()
+
+
+def mark_unpremultiplied(path):
+    """Inscrit `path` (sous src/frontend/assets) dans la liste des fichiers convertis ; ecriture atomique (jamais de liste tronquee)."""
+    done = read_unpremultiplied()
+    done.add(os.path.relpath(path, ASSETS).replace("\\", "/"))
+    tmp = UNPREMULTIPLIED + ".tmp"
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write("\n".join(sorted(done)) + "\n")
+    os.replace(tmp, UNPREMULTIPLIED)
+
+
+def save_webp(img, dest, *, lossy=False, quality=90, fresh=True):
+    """`fresh` : `img` sort tel quel du decodage APK (premultiplie). Faux pour une image relue d'un asset deja extrait : jamais reconvertie."""
     dest = os.path.splitext(dest)[0] + ".webp"
     os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
     if lossy:
         img.convert("RGB").save(dest, "WEBP", quality=quality, method=4)
         return dest
     rgba = img.convert("RGBA")
-    if is_premultiplied(rgba):
+    converted = fresh and is_premultiplied(rgba)
+    if converted:
         rgba = unpremultiply(rgba)
     if rgba.getchannel("A").getextrema() == (255, 255):
         img.convert("RGB").save(dest, "WEBP", quality=quality, method=4)
     else:
         rgba.save(dest, "WEBP", lossless=True, exact=True)
+        if converted and os.path.abspath(dest).startswith(ASSETS + os.sep):
+            mark_unpremultiplied(dest)
     return dest
 
 

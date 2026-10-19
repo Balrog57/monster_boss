@@ -18,7 +18,9 @@ var current_stack: Array = []
 var activatable := false
 var undoable := false                    # pose en attente (face cachee) : un clic la reprend en main (undoBuild), sans halo
 var _was_down := false                  # la salle du dessus etait face cachee au dernier affichage : si elle ne l'est plus, elle se retourne (CardUI.flip_in)
-var _was_frozen := false                # la salle etait gelee au dernier affichage : sinon le voile de glace apparait en fondu (CardUI.set_frozen)
+## Salles gelees au dernier affichage, par « joueur:indice de salle » (l'indice du moteur, pas le noeud : les salles glissent d'un noeud a l'autre quand le donjon grandit) :
+## sinon le voile de glace apparait en fondu (CardUI.set_frozen).
+static var frozen_seen := {}
 var _glow: Control
 const PEEK := 28.0                       # APK : la salle recouverte depasse de ~28 px au-dessus de la salle du dessus (1920x1080)
 const MAX_PEEK := 2                      # nombre de salles recouvertes dessinees
@@ -78,8 +80,12 @@ func _update_view() -> void:
 		card_ui.long_pressed.connect(func(c): zoom_on.emit(c))
 		card_ui.long_released.connect(func(_c): zoom_off.emit())
 		var frozen: bool = game_manager != null and BossEngine.is_room_deactivated(game_manager.G, player_id, slot_index)
-		card_ui.set_frozen(frozen, frozen != _was_frozen and DisplayServer.get_name() != "headless")
-		_was_frozen = frozen
+		var fkey := "%d:%d" % [player_id, slot_index]
+		card_ui.set_frozen(frozen, frozen != frozen_seen.has(fkey) and DisplayServer.get_name() != "headless")
+		if frozen:
+			frozen_seen[fkey] = true
+		else:
+			frozen_seen.erase(fkey)
 		card_ui.set_face_down_scale()
 		var down: bool = card_ui.card_data != null and card_ui.card_data.face_down
 		if _was_down and not down and DisplayServer.get_name() != "headless":
@@ -96,7 +102,7 @@ func _update_view() -> void:
 				tooltip_text += "\n" + Minibosses.badge_tooltip(active_room, true)
 	else:
 		_was_down = false
-		_was_frozen = false
+		frozen_seen.erase("%d:%d" % [player_id, slot_index])
 		if slot_frame:
 			slot_frame.visible = true
 		if border:

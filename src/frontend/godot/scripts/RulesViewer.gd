@@ -2,7 +2,7 @@ class_name RulesViewer
 extends Control
 ## Visionneuse des regles : les livrets officiels Brotherwise (assets/rules/<livre>/pNN.webp, generes par tools/render_rules_pages.py), un onglet par livret.
 ## Partagee par le menu principal (plein ecran) et le plateau (superposee, sans detruire la partie).
-## Se ferme en emettant `closed` puis en se liberant.
+## Se ferme en emettant `closed` puis en se liberant (sauf `free_on_close` = false : l'hote la libere, Main la garde sous le ColorFade jusqu'au changement d'ecran).
 
 signal closed
 
@@ -12,6 +12,7 @@ const GOLD := Color("cdb15f")
 const BOOKS := [["base", "BOSS MONSTER"], ["next-level", "THE NEXT LEVEL"], ["minibosses", "RISE OF THE MINIBOSSES"], ["crash-landing", "CRASH LANDING"]]
 
 var tab := 0
+var free_on_close := true
 var page := 0 # page courante (0 = premiere) ; reinitialisee au changement d'onglet
 var page_count := 0 # pages du livret de l'onglet courant
 
@@ -139,7 +140,8 @@ static func _page_files(book: String) -> PackedStringArray:
 
 func close_viewer() -> void:
 	closed.emit()
-	queue_free()
+	if free_on_close:
+		queue_free()
 
 func _lbl(text: String, font_size: int, color: Color, pos: Vector2, sz: Vector2, align: int = HORIZONTAL_ALIGNMENT_CENTER) -> Label:
 	var l := Label.new()
