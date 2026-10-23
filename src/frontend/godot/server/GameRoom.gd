@@ -13,8 +13,11 @@ const MAX_AI_STEPS_PER_TICK := 400 # bot_delay = 0 (tests) : plafond de coups IA
 var code := ""
 var num_players := 2
 var sets: Array = []
-var seats: Array = [] # {name, bot, taken, token, conn, auto, left, avatar, wins, defeats}
+var seats: Array = [] # {name, bot, taken, token, conn, auto, left, avatar, wins, defeats, gone_ms (horloge unix du dernier detach)}
 var host := 0
+var public := false # liste dans listRooms (salon prive : jamais liste, le code est son seul secret)
+var title := "" # nom affiche dans la liste publique (25 caracteres max, nettoye par le serveur)
+var empty_since_ms := 0 # horloge unix ; > 0 : plus aucun humain connecte depuis cet instant
 var status := "open" # open | running | finished
 var m = null # Match
 var turn_timeout_ms := 60000 # 0 = pas de minuteur
@@ -32,7 +35,7 @@ func _init(p_code: String, p_players: int, p_sets: Array) -> void:
 	num_players = clampi(p_players, 2, MatchScript.max_players(p_sets)) # meme plafond que Match.new_match (6 avec Crash Landing, 4 sinon)
 	sets = p_sets
 	for i in num_players:
-		seats.append({"name": "", "bot": false, "taken": false, "token": "", "conn": -1, "auto": false, "left": false, "avatar": "", "wins": 0, "defeats": 0})
+		seats.append({"name": "", "bot": false, "taken": false, "token": "", "conn": -1, "auto": false, "left": false, "avatar": "", "wins": 0, "defeats": 0, "gone_ms": 0})
 	last_activity_ms = _now()
 
 static func _now() -> int:
@@ -82,6 +85,7 @@ func join(pname: String, conn: int, prof: Dictionary = {}) -> Dictionary:
 		"avatar": str(prof.get("avatar", "")), "wins": int(prof.get("wins", 0)), "defeats": int(prof.get("defeats", 0))}, true)
 	if i == 0 or not seats[host]["taken"]:
 		host = i
+	empty_since_ms = 0
 	touch()
 	_dirty = true
 	return {"seat": i, "token": token}
@@ -95,6 +99,7 @@ func resume(seat: int, token: String, conn: int) -> bool:
 		return false
 	s["conn"] = conn
 	s["auto"] = false
+	empty_since_ms = 0
 	touch()
 	if status == "running" and m != null:
 		_reset_deadline() # le joueur de retour repart avec un delai complet
@@ -105,7 +110,33 @@ func detach(conn: int) -> void:
 	for s in seats:
 		if int(s["conn"]) == conn:
 			s["conn"] = -1
+			s["gone_ms"] = _now()
 			_dirty = true
+	if empty_since_ms == 0 and humans_connected() == 0:
+		empty_since_ms = _now()
+
+## Salle d'attente : libere les sieges humains (hors hote) dont la connexion est absente depuis plus de `grace_ms`
+## (onglet ferme sans `leave`). Le delai laisse passer un rechargement de page (resume). Renvoie le nombre de sieges liberes.
+## L'hote n'est jamais libere ici : fermer sa salle sur une simple absence tuerait les salons dont l'hote partage le code dans une autre appli.
+func release_ghosts(grace_ms: int) -> int:
+	var n := 0
+	if status != "open":
+		return 0
+	var now := _now()
+	for i in num_players:
+		var s: Dictionary = seats[i]
+		if i != host and s["taken"] and not s["bot"] and int(s["conn"]) < 0 and now - int(s["gone_ms"]) > grace_ms:
+			leave(i)
+			n += 1
+	return n
+
+## Entree de la liste publique (sans jeton, sans detail de siege).
+func list_entry() -> Dictionary:
+	var free := 0
+	for s in seats:
+		if not s["taken"]:
+			free += 1
+	return {"code": code, "title": title, "host": str(seats[host]["name"]), "numPlayers": num_players, "free": free, "sets": sets, "status": status}
 
 func seat_of(conn: int) -> int:
 	for i in num_players:

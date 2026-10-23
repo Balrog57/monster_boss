@@ -8,6 +8,11 @@ extends Node
 ##  6. 5 et 6 joueurs (Crash Landing) : refus sans CRL / avec un paquet non pris en charge (`bad_setup`), filtrage des vues a 5-6 sieges,
 ##     partie complete (1 humain + IA) jusqu'a la fin, sur le nombre de sieges demande.
 ##  5. onglet endormi : un grand trou entre deux images declenche un ping, une liaison muette est rouverte avec le jeton.
+##  7. anti-force-brute par connexion (un joueur innocent n'est pas bloque), rafale coupee a 5 reponses, soupape globale ;
+##  8. lobby public (lot 3.1) : listRooms / push `rooms`, salon prive jamais liste, 50 entrees au plus, sortie de liste quand plein / demarre ;
+##  9. sieges fantomes liberes apres la grace (rechargement dans la grace = siege repris, hote jamais libere), salle publique vide fermee ;
+## 10. taille maximale de message (1009) et debit par connexion (1008) ;
+## 11. audit 3.0 §4.3 : deux connexions sur le meme jeton s'evincent en boucle (reproduit ; a corriger au lot 3.3).
 ## Usage : godot --headless --path src/frontend res://godot/tests/OnlineTest.tscn   -> "ONLINE OK"
 
 const Server = preload("res://godot/server/Server.gd")
@@ -286,6 +291,14 @@ func _run_network() -> void:
 		await _scenario_sleep()
 	if _fails.is_empty():
 		await _scenario_bruteforce()
+	if _fails.is_empty():
+		await _scenario_lobby()
+	if _fails.is_empty():
+		await _scenario_ghosts()
+	if _fails.is_empty():
+		await _scenario_limits()
+	if _fails.is_empty():
+		await _scenario_eviction()
 	if FileAccess.file_exists(OnlineClient.SESSION_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(OnlineClient.SESSION_PATH))
 	server.stop()
@@ -454,28 +467,296 @@ func _scenario_reload() -> void:
 	b2.queue_free()
 	evil.queue_free()
 
-## Anti-force-brute : au-dela de 5 echecs join/resume par seconde (serveur) -> `busy` ; 5 echecs sur une connexion -> coupee ;
-## puis un bon join passe (fenetre de 1 s ecoulee), meme avec des wins/defeats de mauvais type (ignores -> 0).
+## Anti-force-brute PAR CONNEXION (lot 3.1). Avant : un compteur global de 5 echecs/s faisait repondre `busy` a tout le monde, y compris
+## a un joueur innocent (audit 3.0 §5.2-1 ; l'ancienne version de ce test attendait d'ailleurs ce `busy` pour le client suivant).
 func _scenario_bruteforce() -> void:
 	var host := _client("Hote")
-	if not _expect(await host.create_lobby(3, []), "bruteforce : create"):
+	if not _expect(await host.create_lobby(4, []), "bruteforce : create"):
 		return
-	await get_tree().create_timer(1.1).timeout # fenetre propre
 	var a := _client("Brute")
 	for i in 5:
 		_expect(not await a.join_lobby("QQQQ", "Brute") and a.last_error_code == "not_found", "bruteforce : essai %d -> %s" % [i, a.last_error_code])
 	_expect(await _wait(func(): return not a.connected, 3.0), "bruteforce : 5 echecs doivent couper la connexion")
+	# un joueur innocent, dans la meme seconde, n'est PAS bloque par les echecs d'un autre ; wins/defeats de mauvais type -> 0
 	var b := _client("Joueur")
-	_expect(not await b.join_lobby("QQQQ", "Joueur") and b.last_error_code == "busy", "bruteforce : au-dela de la limite serveur -> busy (%s)" % b.last_error_code)
-	b.match_id = ""
-	await get_tree().create_timer(1.1).timeout
 	var r: Dictionary = await b._call({"t": "join", "name": "Joueur", "code": host.match_id, "wins": [1], "defeats": {"x": 1}}, "joined")
-	if _expect(not r.is_empty(), "bruteforce : un bon join doit passer une fois la fenetre ecoulee"):
+	if _expect(not r.is_empty(), "bruteforce : un joueur innocent doit pouvoir rejoindre juste apres les echecs d'un autre (%s)" % b.last_error_code):
 		var seat: Dictionary = server.get_room(host.match_id).seats[int(r["seat"])]
 		_expect(int(seat["wins"]) == 0 and int(seat["defeats"]) == 0, "wins/defeats de mauvais type -> 0 : %s" % str(seat))
+	# rafale : 30 join rates dans une seule image -> exactement 5 reponses `not_found`, puis fermeture 1008 (avant : jusqu'a 60/s traites)
+	var burst := await _raw()
+	for i in 30:
+		burst.send({"t": "join", "code": "QQQQ", "name": "Rafale"})
+	_expect(await _wait(func(): return burst.closed, 3.0), "bruteforce : rafale non coupee")
+	_expect(burst.close_code == 1008, "bruteforce : rafale coupee en %d au lieu de 1008" % burst.close_code)
+	_expect(burst.count("error") == 5, "bruteforce : %d reponses a la rafale (5 attendues)" % burst.count("error"))
+	# soupape globale (reglee a 8/s ici) : 2 connexions font 10 echecs, puis un join valide dans la meme seconde -> `busy` ; la fenetre passee, ca joue
+	server.max_failed_joins_global_per_sec = 8
+	var x1 := await _raw()
+	var x2 := await _raw()
+	var x3 := await _raw()
+	for i in 5:
+		x1.send({"t": "join", "code": "QQQQ", "name": "X1"})
+		x2.send({"t": "join", "code": "QQQQ", "name": "X2"})
+	_expect(await _wait(func(): return x1.closed and x2.closed, 3.0), "soupape : x1 / x2 non coupes")
+	x3.send({"t": "join", "code": host.match_id, "name": "X3"}) # < 1 s apres les echecs : meme fenetre
+	_expect(await _wait(func(): return x3.count("error") > 0, 3.0), "soupape : pas de reponse")
+	_expect(x3.last("error").get("code", "") == "busy", "soupape globale : busy attendu, obtenu %s" % str(x3.last("error")))
+	await get_tree().create_timer(1.1).timeout
+	x3.send({"t": "join", "code": host.match_id, "name": "X3"})
+	_expect(await _wait(func(): return x3.count("joined") > 0, 3.0), "soupape : le join valide doit passer une fois la fenetre ecoulee")
+	server.max_failed_joins_global_per_sec = Server.GLOBAL_FAILED_JOINS_PER_SEC
+	for n in [burst, x1, x2, x3]:
+		n.queue_free()
 	host.queue_free()
 	a.queue_free()
 	b.queue_free()
+
+# --- lot 3.1 : lobby public, nettoyage, limites ----------------------------------------
+
+## Connexion WebSocket brute (le client de jeu ne connait pas encore listRooms : lot 3.2) : garde tout ce qui arrive.
+class Raw extends Node:
+	var ws := WebSocketPeer.new()
+	var msgs: Array = []
+	var closed := false
+	var close_code := -1
+	func open(url: String) -> void:
+		ws.outbound_buffer_size = 1 << 20
+		ws.inbound_buffer_size = 1 << 20
+		ws.connect_to_url(url)
+	func _process(_d: float) -> void:
+		ws.poll()
+		_drain()
+		if ws.get_ready_state() == WebSocketPeer.STATE_CLOSED and not closed:
+			_drain()
+			closed = true
+			close_code = ws.get_close_code()
+	func _drain() -> void:
+		while ws.get_available_packet_count() > 0:
+			var d = JSON.parse_string(ws.get_packet().get_string_from_utf8())
+			if d is Dictionary:
+				msgs.append(d)
+	func is_open() -> bool:
+		return ws.get_ready_state() == WebSocketPeer.STATE_OPEN
+	func send(d: Dictionary) -> void:
+		ws.send_text(JSON.stringify(d))
+	func count(t: String) -> int:
+		return msgs.filter(func(m): return m.get("t", "") == t).size()
+	func last(t: String) -> Dictionary:
+		for i in range(msgs.size() - 1, -1, -1):
+			if msgs[i].get("t", "") == t:
+				return msgs[i]
+		return {}
+
+func _raw() -> Raw:
+	var r := Raw.new()
+	add_child(r)
+	r.open(url)
+	await _wait(func(): return r.is_open(), 5.0)
+	return r
+
+## Entree de la derniere liste `rooms` recue par `r` pour ce code ({} si absente).
+func _listed(r: Raw, code: String) -> Dictionary:
+	for e in r.last("rooms").get("rooms", []):
+		if str(e.get("code", "")) == code:
+			return e
+	return {}
+
+func _in_any_rooms_msg(r: Raw, code: String) -> bool:
+	for m in r.msgs:
+		if m.get("t", "") == "rooms" and JSON.stringify(m).contains(code):
+			return true
+	return false
+
+func _create_raw(msg: Dictionary) -> Raw:
+	var r := await _raw()
+	msg["t"] = "create"
+	r.send(msg)
+	await _wait(func(): return r.count("joined") > 0 or r.count("error") > 0, 5.0)
+	return r
+
+func _scenario_lobby() -> void:
+	server.rooms_push_interval_ms = 50
+	var by := await _raw() # n'a jamais demande la liste : ne doit jamais recevoir `rooms`
+	var watcher := await _raw()
+	watcher.send({"t": "listRooms"})
+	_expect(await _wait(func(): return watcher.count("rooms") > 0, 5.0), "lobby : pas de reponse a listRooms")
+	var host := await _create_raw({"name": "Alice", "players": 3, "sets": [], "public": true, "title": "  Salon du mardi  "})
+	if not _expect(host.count("joined") > 0, "lobby : create public refuse : %s" % str(host.last("error"))):
+		return
+	var code: String = host.last("joined")["code"]
+	_expect(await _wait(func(): return not _listed(watcher, code).is_empty(), 5.0), "lobby : push `rooms` non recu apres la creation")
+	var e := _listed(watcher, code)
+	var keys: Array = e.keys()
+	keys.sort()
+	_expect(keys == ["code", "free", "host", "numPlayers", "sets", "status", "title"], "lobby : champs de l'entree : %s" % str(keys))
+	_expect(e.get("title") == "Salon du mardi" and e.get("host") == "Alice" and int(e.get("numPlayers", 0)) == 3 and int(e.get("free", 0)) == 2 and e.get("status") == "open" and e.get("sets") == [], "lobby : entree %s" % str(e))
+	_expect(not JSON.stringify(watcher.last("rooms")).contains(str(server.get_room(code).seats[0]["token"])), "lobby : un jeton fuit dans la liste")
+	# salon prive (champ absent, ou texte « true » : seul le booleen JSON compte) : jamais liste, ni en reponse ni en push
+	var priv := await _create_raw({"name": "Prive", "players": 3, "sets": []})
+	var priv2 := await _create_raw({"name": "Prive2", "players": 3, "sets": [], "public": "true", "title": "secret"})
+	var pcode: String = priv.last("joined")["code"]
+	var pcode2: String = priv2.last("joined")["code"]
+	# titre par defaut, titre trop long, setup invalide refuse meme en public
+	var zed := await _create_raw({"name": "Zed", "players": 2, "sets": [], "public": true})
+	var longt := await _create_raw({"name": "Long", "players": 2, "sets": [], "public": true, "title": "x".repeat(40)})
+	var bad := await _create_raw({"name": "Bad", "players": 5, "sets": [], "public": true})
+	_expect(bad.last("error").get("code", "") == "bad_setup" and bad.count("joined") == 0, "lobby : create public invalide : %s" % str(bad.last("error")))
+	var zcode: String = zed.last("joined")["code"]
+	var lcode: String = longt.last("joined")["code"]
+	_expect(await _wait(func(): return not _listed(watcher, zcode).is_empty() and not _listed(watcher, lcode).is_empty(), 5.0), "lobby : push des salons suivants non recu")
+	_expect(_listed(watcher, zcode).get("title") == "Zed's game", "lobby : titre par defaut : %s" % str(_listed(watcher, zcode)))
+	_expect(str(_listed(watcher, lcode).get("title", "")).length() == 25, "lobby : titre tronque a 25 : %s" % str(_listed(watcher, lcode)))
+	_expect(not _in_any_rooms_msg(watcher, pcode) and not _in_any_rooms_msg(watcher, pcode2), "lobby : un salon prive est apparu dans un push")
+	var late := await _raw()
+	late.send({"t": "listRooms"})
+	await _wait(func(): return late.count("rooms") > 0, 5.0)
+	_expect(not _in_any_rooms_msg(late, pcode) and not _in_any_rooms_msg(late, pcode2) and not _listed(late, code).is_empty(), "lobby : listRooms d'un 2e client")
+	# un client qui a demande la liste puis rejoint une salle ne recoit plus de push
+	var g1 := await _raw()
+	g1.send({"t": "listRooms"})
+	await _wait(func(): return g1.count("rooms") > 0, 5.0)
+	g1.send({"t": "join", "code": code, "name": "Bob"})
+	_expect(await _wait(func(): return g1.count("joined") > 0, 5.0), "lobby : join de la salle publique")
+	var n_rooms := g1.count("rooms")
+	_expect(await _wait(func(): return int(_listed(watcher, code).get("free", 0)) == 1, 5.0), "lobby : free doit tomber a 1 apres une jonction")
+	# remplir la salle : elle demarre et disparait de la liste (push, et reponse a un nouveau listRooms)
+	var g2 := await _raw()
+	g2.send({"t": "join", "code": code, "name": "Carl"})
+	_expect(await _wait(func(): return g2.count("joined") > 0, 5.0), "lobby : 2e jonction")
+	_expect(server.get_room(code).status == "running", "lobby : la salle pleine doit demarrer")
+	_expect(await _wait(func(): return _listed(watcher, code).is_empty(), 5.0), "lobby : une salle pleine / demarree doit disparaitre de la liste")
+	late.send({"t": "listRooms"})
+	var before := late.count("rooms")
+	await _wait(func(): return late.count("rooms") > before, 5.0)
+	_expect(_listed(late, code).is_empty(), "lobby : listRooms ne doit pas lister une salle demarree")
+	await get_tree().create_timer(0.3).timeout
+	_expect(g1.count("rooms") == n_rooms, "lobby : un client en salle recoit encore des `rooms`")
+	_expect(by.count("rooms") == 0, "lobby : un client qui n'a pas demande la liste a recu `rooms`")
+	# plafond de 50 entrees
+	var many: Array = []
+	for i in 55:
+		many.append(await _raw())
+	for i in many.size():
+		many[i].send({"t": "create", "name": "M%d" % i, "players": 2, "sets": [], "public": true})
+	_expect(await _wait(func(): return many.all(func(m): return m.count("joined") > 0), 10.0), "lobby : 55 creations publiques")
+	watcher.send({"t": "listRooms"})
+	var before_w := watcher.count("rooms")
+	await _wait(func(): return watcher.count("rooms") > before_w, 5.0)
+	_expect(watcher.last("rooms")["rooms"].size() == 50, "lobby : %d entrees au lieu de 50" % watcher.last("rooms")["rooms"].size())
+	await get_tree().create_timer(0.3).timeout # le push de la liste a 50 entrees part (au plus un par intervalle), puis les fermetures le suivent
+	_expect(watcher.msgs.any(func(m): return m.get("t", "") == "rooms" and (m["rooms"] as Array).size() == 50), "lobby : push de 50 entrees non recu")
+	for m in many: # l'hote qui quitte une salle d'attente la ferme
+		m.send({"t": "leave"})
+	_expect(await _wait(func(): return (watcher.last("rooms")["rooms"] as Array).size() <= 4, 10.0), "lobby : les salles fermees doivent quitter la liste (%d)" % watcher.last("rooms")["rooms"].size())
+	for m in many:
+		m.queue_free()
+	for n in [by, watcher, host, priv, priv2, zed, longt, bad, late, g1, g2]:
+		n.queue_free()
+	server.rooms_push_interval_ms = 250
+
+## Sieges fantomes (onglet ferme sans `leave`) liberes apres la grace ; un rechargement dans la grace reprend son siege ; l'hote n'est jamais libere ;
+## salle publique ouverte sans humain fermee apres public_idle_s.
+func _scenario_ghosts() -> void:
+	server.seat_grace_s = 2
+	server.gc_interval_ms = 100
+	server.public_idle_s = 1
+	var h := await _create_raw({"name": "Hote", "players": 3, "sets": []})
+	var code: String = h.last("joined")["code"]
+	var g := await _raw()
+	g.send({"t": "join", "code": code, "name": "Fantome"})
+	await _wait(func(): return g.count("joined") > 0, 5.0)
+	var token: String = g.last("joined")["token"]
+	var room = server.get_room(code)
+	# rechargement dans la grace : le siege est repris
+	g.ws.close()
+	_expect(await _wait(func(): return room.seats[1]["conn"] == -1, 3.0), "fantome : detach non vu")
+	var g2 := await _raw()
+	g2.send({"t": "resume", "code": code, "seat": 1, "token": token})
+	_expect(await _wait(func(): return g2.count("joined") > 0, 3.0), "fantome : resume dans la grace refuse : %s" % str(g2.last("error")))
+	await get_tree().create_timer(0.5).timeout
+	_expect(bool(room.seats[1]["taken"]) and int(room.seats[1]["conn"]) >= 0, "fantome : le siege repris doit rester occupe")
+	# onglet ferme pour de bon : siege libere apres la grace, lobby diffuse, ancien jeton mort
+	g2.ws.close()
+	_expect(await _wait(func(): return not bool(room.seats[1]["taken"]), 8.0), "fantome : siege non libere apres la grace")
+	_expect(await _wait(func(): return h.last("lobby").get("seats", [{}, {}])[1].get("name", "x") == null, 3.0), "fantome : le lobby de l'hote n'a pas ete mis a jour")
+	var g3 := await _raw()
+	g3.send({"t": "resume", "code": code, "seat": 1, "token": token})
+	_expect(await _wait(func(): return g3.count("error") > 0, 3.0) and g3.last("error").get("code", "") == "bad_token", "fantome : l'ancien jeton doit etre mort")
+	# l'hote absent garde son siege et sa salle privee (il peut partager le code dans une autre appli)
+	h.ws.close()
+	await get_tree().create_timer(3.0).timeout
+	_expect(server.get_room(code) != null and bool(room.seats[0]["taken"]), "fantome : l'hote absent ne doit pas perdre sa salle privee")
+	# salle publique : plus aucun humain connecte -> fermee apres public_idle_s, et retiree de la liste
+	var watcher := await _raw()
+	watcher.send({"t": "listRooms"})
+	var p := await _create_raw({"name": "Pub", "players": 3, "sets": [], "public": true})
+	var pcode: String = p.last("joined")["code"]
+	_expect(await _wait(func(): return not _listed(watcher, pcode).is_empty(), 3.0), "fantome : salle publique non listee")
+	await get_tree().create_timer(1.5).timeout
+	_expect(server.get_room(pcode) != null, "fantome : une salle publique avec son hote connecte ne doit pas etre fermee")
+	p.ws.close()
+	_expect(await _wait(func(): return server.get_room(pcode) == null, 6.0), "fantome : salle publique vide non fermee")
+	_expect(await _wait(func(): return _listed(watcher, pcode).is_empty(), 3.0), "fantome : salle publique fermee encore listee")
+	server.seat_grace_s = 30
+	server.gc_interval_ms = 5000
+	server.public_idle_s = 120
+	for n in [h, g, g2, g3, watcher, p]:
+		n.queue_free()
+
+## Taille maximale d'un message (16 Kio, puis le tampon d'entree) et limite de debit par connexion (60 messages/s).
+func _scenario_limits() -> void:
+	var ok := await _raw()
+	ok.send({"t": "create", "name": "N".repeat(5000), "players": 2, "sets": [], "title": "T".repeat(5000)}) # gros mais sous la borne : accepte, puis nettoye
+	_expect(await _wait(func(): return ok.count("joined") > 0, 3.0), "limites : un message de 10 Kio doit passer : %s" % str(ok.last("error")))
+	_expect(str(server.get_room(ok.last("joined")["code"]).seats[0]["name"]).length() == 25, "limites : nom non tronque")
+	var big := await _raw()
+	big.send({"t": "ping", "pad": "x".repeat(20000)})
+	_expect(await _wait(func(): return big.closed, 3.0) and big.close_code == 1009, "limites : 20 Kio -> fermeture 1009 attendue (code %d)" % big.close_code)
+	_expect(big.count("pong") == 0, "limites : un message trop gros ne doit pas etre traite")
+	var huge := await _raw()
+	huge.send({"t": "ping", "pad": "x".repeat(300000)})
+	# 300 Kio > tampon d'entree : Godot coupe lui-meme (1009 cote serveur) ; le client voit la liaison tomber (code de fermeture -1 ou 1009)
+	_expect(await _wait(func(): return huge.closed, 3.0) and huge.close_code in [1009, -1], "limites : 300 Kio -> fermeture attendue (closed=%s code %d)" % [huge.closed, huge.close_code])
+	var flood := await _raw()
+	for i in 100:
+		flood.send({"t": "ping"})
+	_expect(await _wait(func(): return flood.closed, 3.0) and flood.close_code == 1008, "limites : 100 messages dans la seconde -> fermeture 1008 attendue (code %d)" % flood.close_code)
+	_expect(flood.count("pong") <= Server.MAX_MSGS_PER_SEC, "limites : %d reponses a la rafale (plafond %d)" % [flood.count("pong"), Server.MAX_MSGS_PER_SEC])
+	for n in [ok, big, huge, flood]:
+		n.queue_free()
+
+## Audit 3.0 §4.3 : deux connexions qui reprennent le MEME siege avec le meme jeton s'evincent en boucle (chaque client evince se reconnecte
+## apres 1 s et reprend le siege). CONFIRME ici ; c'est un comportement connu, a corriger cote client au lot 3.3 (jeton par onglet) : ce test
+## devra alors etre inverse. Le serveur, lui, ne se trompe pas : un seul siege, une seule connexion vivante, jeton intact.
+func _scenario_eviction() -> void:
+	var a := _client("Alice")
+	var b := _client("Bob")
+	if not _expect(await a.create_lobby(2, []), "eviction : create"):
+		return
+	_expect(await b.join_lobby(a.match_id, "Bob"), "eviction : join")
+	var room = server.get_room(a.match_id)
+	# « deuxieme onglet » : meme session que Bob (fichier de session partage), il reprend le siege 1
+	var b2 := _client("")
+	b2.match_id = b.match_id
+	b2.player_id = b.player_id
+	b2.credentials = b.credentials
+	b2._resume_on_open = true
+	_expect(await b2._ensure_open(), "eviction : ouverture du 2e onglet")
+	var changes := 0
+	var last_conn: int = int(room.seats[1]["conn"])
+	var t0 := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 5000:
+		await get_tree().process_frame
+		var cur: int = int(room.seats[1]["conn"])
+		if cur != last_conn and cur >= 0:
+			changes += 1
+		last_conn = cur
+	print("ONLINE eviction : %d evictions du siege 1 en 5 s (deux connexions, meme jeton)" % changes)
+	_expect(changes >= 2, "eviction : la boucle de l'audit §4.3 n'a pas ete reproduite (%d changements)" % changes)
+	_expect(bool(room.seats[1]["taken"]) and str(room.seats[1]["token"]) == b.credentials, "eviction : le jeton du siege doit rester intact")
+	for n in [a, b, b2]:
+		n.queue_free()
 
 func _scenario_timeout() -> void:
 	var c := _client("Seul")

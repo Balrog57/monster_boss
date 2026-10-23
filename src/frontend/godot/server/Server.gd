@@ -1,7 +1,7 @@
 extends Node
 ## Server — serveur multijoueur Boss Monster (Godot headless). TCPServer + WebSocketPeer, messages JSON texte.
 ## Lancement : godot --headless --path src/frontend res://godot/server/Server.tscn -- --port=8091
-## Options : --port --turn-timeout=60 --adventure-timeout=10 --bot-delay=350 --ttl=3600 --max-rooms=200
+## Options : --port --turn-timeout=60 --adventure-timeout=10 --bot-delay=350 --ttl=3600 --max-rooms=200 --seat-grace=30 --public-idle=120
 ## Protocole : voir PROTOCOL.md. Ce noeud route seulement ; la logique de partie est dans GameRoom.gd.
 
 const GameRoom = preload("res://godot/server/GameRoom.gd")
@@ -14,10 +14,19 @@ const KNOWN_SETS := ["players-choice", "hidden-heroes", "tools", "tools-wiki", "
 const CODE_ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ"
 const CODE_LENGTH := 4
 const MAX_MSGS_PER_SEC := 60
-## Anti-force-brute des codes de salon (24^4 = 331 776) : echecs join/resume tolerables par seconde sur TOUT le serveur
-## (au-dela : `busy` sans consulter les salles) et par connexion (au-dela : connexion coupee).
-const MAX_FAILED_JOINS_PER_SEC := 5
+## Taille maximale d'une trame texte (un message client legitime fait quelques centaines d'octets). Au-dela : fermeture 1009.
+## inbound_buffer_size (64 Kio) est un second filet : Godot coupe lui-meme en 1009 « Message too big » une trame qui ne tient pas.
+const MAX_PACKET_BYTES := 16384
+const INBOUND_BUFFER_BYTES := 1 << 16
+## Anti-force-brute des codes de salon (24^4 = 331 776) : par CONNEXION, 5 echecs join/resume coupent la connexion (1008) ; le
+## nombre de connexions neuves par IP est borne par nginx (limit_req). Le compteur global n'est plus qu'une soupape : il etait a 5/s
+## et un seul client pouvait donc faire repondre `busy` a tout le monde (audit 3.0 §5.2). Godot ne donne pas l'IP reelle derriere
+## nginx (get_connected_host = l'IP de nginx) : pas de compteur par IP cote serveur.
 const MAX_FAILED_JOINS_PER_CONN := 5
+const GLOBAL_FAILED_JOINS_PER_SEC := 100
+## Liste publique : 50 salles au plus ; titre de salle comme les noms (25 caracteres).
+const MAX_LISTED_ROOMS := 50
+const TITLE_MAX := 25
 ## Connexion muette (les clients envoient ping toutes les 20 s). Large a dessein : un onglet en arriere-plan est suspendu par le
 ## navigateur et n'envoie plus rien ; couper trop vite le ferait passer pour deconnecte (le client rouvre de toute facon avec resume).
 const IDLE_TIMEOUT_MS := 120000
@@ -31,6 +40,11 @@ var room_ttl_s := 3600 # salle sans humain connecte, inactive depuis
 var finished_ttl_s := 600
 var max_rooms := 200
 var max_conns := 512
+var max_failed_joins_global_per_sec := GLOBAL_FAILED_JOINS_PER_SEC
+var seat_grace_s := 30 # salle d'attente : siege non-hote sans connexion libere apres ce delai (un rechargement de page reprend avant)
+var public_idle_s := 120 # salle publique ouverte sans aucun humain connecte depuis ce delai : fermee
+var gc_interval_ms := 5000
+var rooms_push_interval_ms := 250 # au plus un controle / push de la liste publique par intervalle
 
 var _tcp := TCPServer.new()
 var _conns := {} # id -> {ws, room, born, seen, window_start, window_count}
@@ -39,6 +53,8 @@ var _next_id := 1
 var _gc_at := 0
 var _fail_window_start := 0
 var _fail_count := 0
+var _rooms_push_at := 0
+var _rooms_sig := ""
 
 func _ready() -> void:
 	if not auto_start:
@@ -53,6 +69,8 @@ func _ready() -> void:
 				"bot-delay": bot_delay_ms = int(kv[1])
 				"ttl": room_ttl_s = int(kv[1])
 				"max-rooms": max_rooms = int(kv[1])
+				"seat-grace": seat_grace_s = int(kv[1])
+				"public-idle": public_idle_s = int(kv[1])
 	Engine.max_fps = 60 # boucle headless : sinon l'image tourne a 100 % CPU
 	if start(port) != OK:
 		push_error("Server : impossible d'ecouter sur le port %d" % port)
@@ -95,7 +113,7 @@ func _process(_delta: float) -> void:
 			continue
 		var ws := WebSocketPeer.new()
 		ws.outbound_buffer_size = 2 << 20 # un etat complet depasse les 64 Kio par defaut
-		ws.inbound_buffer_size = 1 << 18
+		ws.inbound_buffer_size = INBOUND_BUFFER_BYTES
 		ws.accept_stream(s)
 		var now := Time.get_ticks_msec()
 		_conns[_next_id] = {"ws": ws, "room": "", "born": now, "seen": now, "window_start": now, "window_count": 0}
@@ -110,10 +128,13 @@ func _process(_delta: float) -> void:
 				if c.get("kill", false):
 					ws.close(1008, "trop d'essais")
 					continue
-				while ws.get_available_packet_count() > 0:
+				while ws.get_available_packet_count() > 0 and not c.get("kill", false): # kill : on n'execute plus rien de ce qui suit
 					var pkt := ws.get_packet()
 					if not ws.was_string_packet():
 						continue
+					if pkt.size() > MAX_PACKET_BYTES:
+						ws.close(1009, "message trop gros")
+						break
 					c["seen"] = now
 					if now - int(c["window_start"]) > 1000:
 						c["window_start"] = now
@@ -132,8 +153,11 @@ func _process(_delta: float) -> void:
 		if r.tick():
 			r.broadcast()
 	if now >= _gc_at:
-		_gc_at = now + 5000
+		_gc_at = now + gc_interval_ms
 		_collect_rooms()
+	if now >= _rooms_push_at:
+		_rooms_push_at = now + rooms_push_interval_ms
+		_push_rooms()
 
 func _drop(id: int) -> void:
 	var c: Dictionary = _conns.get(id, {})
@@ -142,7 +166,7 @@ func _drop(id: int) -> void:
 	if r != null:
 		(r as GameRoom).detach(id)
 
-## Salles sans humain depuis trop longtemps (en memoire uniquement, pas de base).
+## Salles sans humain depuis trop longtemps (en memoire uniquement, pas de base) ; sieges fantomes des salles d'attente.
 func _collect_rooms() -> void:
 	var now := int(Time.get_unix_time_from_system() * 1000.0)
 	for code in _rooms.keys():
@@ -151,6 +175,10 @@ func _collect_rooms() -> void:
 		var gone: bool = r.humans_connected() == 0 and (idle > room_ttl_s * 1000 or not r.has_active_human())
 		if r.status == "finished" and idle > finished_ttl_s * 1000:
 			gone = true
+		if r.public and r.status == "open" and r.empty_since_ms > 0 and r.humans_connected() == 0 and now - r.empty_since_ms > public_idle_s * 1000:
+			gone = true
+		if not gone:
+			r.release_ghosts(seat_grace_s * 1000) # _dirty : le tick suivant diffuse le lobby aux sieges restants
 		if gone:
 			_close_room(code)
 
@@ -165,6 +193,33 @@ func _close_room(code: String) -> void:
 				_conns[int(s["conn"])]["room"] = ""
 	r.dispose()
 	_rooms.erase(code)
+
+# --- liste publique -------------------------------------------------------------
+
+## Salles publiques ouvertes avec au moins un siege libre (50 au plus). Rien de secret : ni jeton, ni connexion, ni detail de siege.
+func public_rooms() -> Array:
+	var out: Array = []
+	for r in _rooms.values():
+		if (r as GameRoom).public and r.status == "open":
+			var e: Dictionary = r.list_entry()
+			if int(e["free"]) > 0:
+				out.append(e)
+				if out.size() >= MAX_LISTED_ROOMS:
+					break
+	return out
+
+## Pousse `rooms` aux connexions sans salle qui ont demande la liste, quand elle a change (regroupe creation, jonction, depart,
+## demarrage, fermeture, liberation de siege fantome en un seul message par intervalle).
+func _push_rooms() -> void:
+	var list := public_rooms()
+	var sig := JSON.stringify(list)
+	if sig == _rooms_sig:
+		return
+	_rooms_sig = sig
+	for id in _conns.keys():
+		var c: Dictionary = _conns[id]
+		if c.get("watch", false) and str(c["room"]) == "":
+			_send(id, {"t": "rooms", "rooms": list})
 
 # --- envoi --------------------------------------------------------------------
 
@@ -185,6 +240,11 @@ static func _clean_name(v) -> String:
 	var n := str(v).strip_edges().left(25) # l'APK n'affiche que 25 caracteres (OnlinePanelEntity)
 	return n if n != "" else "Joueur"
 
+## Titre de salon public : comme un nom (25 caracteres), defaut « <hote>'s game ».
+static func _clean_title(v, host_name: String) -> String:
+	var t := (v as String).strip_edges().left(TITLE_MAX) if v is String else ""
+	return t if t != "" else ("%s's game" % host_name).left(TITLE_MAX)
+
 ## Avatar (nom de fichier sans chemin), victoires et defaites declares par le client : purement cosmetiques (salle d'attente).
 static func _clean_profile(d: Dictionary) -> Dictionary:
 	var av := str(d.get("avatar", ""))
@@ -196,13 +256,13 @@ static func _clean_profile(d: Dictionary) -> Dictionary:
 	var df = d.get("defeats", 0)
 	return {"avatar": av if ok else "", "wins": clampi(int(w) if typeof(w) in [TYPE_INT, TYPE_FLOAT] else 0, 0, 99999), "defeats": clampi(int(df) if typeof(df) in [TYPE_INT, TYPE_FLOAT] else 0, 0, 99999)}
 
-## Vrai si le serveur a deja eu trop d'echecs join/resume dans la seconde en cours.
+## Vrai si le serveur a deja eu un nombre anormal d'echecs join/resume dans la seconde en cours (soupape globale, voir les constantes).
 func _join_throttled() -> bool:
 	var now := Time.get_ticks_msec()
 	if now - _fail_window_start > 1000:
 		_fail_window_start = now
 		_fail_count = 0
-	return _fail_count >= MAX_FAILED_JOINS_PER_SEC
+	return _fail_count >= max_failed_joins_global_per_sec
 
 func _join_failed(id: int, text: String, kind: String, count_global := true) -> void:
 	if count_global:
@@ -243,6 +303,10 @@ func _on_message(id: int, d: Dictionary) -> void:
 			if setup_err != "":
 				return _error(id, setup_err, "bad_setup")
 			var r := GameRoom.new(_new_code(), n, sets)
+			var host_name := _clean_name(d.get("name", ""))
+			var pub = d.get("public", false)
+			r.public = typeof(pub) == TYPE_BOOL and pub # strictement le booleen JSON : le texte « true » ne rend pas la salle publique
+			r.title = _clean_title(d.get("title", ""), host_name)
 			r.send = _send
 			r.add_bots(clampi(int(d.get("bots", 0)), 0, n - 1))
 			r.bot_delay_ms = bot_delay_ms
@@ -250,7 +314,11 @@ func _on_message(id: int, d: Dictionary) -> void:
 			r.turn_timeout_ms = clampi(tt, 0, 600) * 1000
 			r.adventure_timeout_ms = adventure_timeout_s * 1000
 			_rooms[r.code] = r
-			_join(id, r, _clean_name(d.get("name", "")), _clean_profile(d))
+			_join(id, r, host_name, _clean_profile(d))
+		"listRooms":
+			if room == null:
+				c["watch"] = true # recevra `rooms` a chaque changement tant qu'il n'est dans aucune salle
+			_send(id, {"t": "rooms", "rooms": public_rooms()})
 		"join":
 			if room != null:
 				return _error(id, "deja dans une salle", "busy")
@@ -278,6 +346,7 @@ func _on_message(id: int, d: Dictionary) -> void:
 				_conns[old]["room"] = ""
 				(_conns[old]["ws"] as WebSocketPeer).close(1000, "siege repris ailleurs")
 			c["room"] = r.code
+			c["watch"] = false
 			_send(id, {"t": "joined", "code": r.code, "seat": seat, "token": d.get("token", ""), "host": seat == r.host})
 			_send(id, r.message_for(seat))
 			r.broadcast() # les autres voient le retour (connected)
@@ -323,6 +392,7 @@ func _join(id: int, r: GameRoom, pname: String, prof: Dictionary) -> void:
 		_error(id, "salon complet", "full")
 		return
 	_conns[id]["room"] = r.code
+	_conns[id]["watch"] = false # dans une salle : plus de push `rooms`
 	_send(id, {"t": "joined", "code": r.code, "seat": j["seat"], "token": j["token"], "host": int(j["seat"]) == r.host})
 	if r.free_seat() < 0 and r.status == "open":
 		r.start()
