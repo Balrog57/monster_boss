@@ -93,6 +93,14 @@ le navigateur revalide à chaque chargement (ETag, réponses 304 peu coûteuses)
 - Les tunnels Cloudflare gèrent les WebSockets sans réglage particulier ; il faut
   seulement laisser **WebSockets** activé dans les paramètres Network de la zone
   (activé par défaut). Le tunnel pointe toujours vers le port 8090 : `/ws` passe par nginx.
+  Contrôle **Origin** : nginx refuse (403) tout `/ws` dont l'en-tête `Origin` n'est pas
+  `http(s)://<Host de la requête>`. Pour servir le jeu sous un autre nom d'hôte, il suffit
+  que le tunnel transmette le `Host` public (c'est le cas par défaut) ; pour autoriser un
+  autre site, ajouter une ligne dans le `map $ws_origin_ok` de `deploy/nginx.conf`.
+- **Limites par IP** : nginx lit l'IP du visiteur dans `CF-Connecting-IP`, mais seulement
+  si la connexion arrive d'une adresse privée/locale (cloudflared). Sans cet en-tête (tunnel
+  qui ne le transmet pas, autre reverse proxy), tous les joueurs partagent l'adresse du
+  tunnel, donc le même panier `limit_req` / `limit_conn`.
 - **Désactiver Rocket Loader** pour ce nom d'hôte (Speed > Optimization) : il
   réécrit les `<script>` et casse le chargeur Emscripten/Godot.
 - Service worker : le PWA est désactivé dans l'export. Les navigateurs ayant
@@ -114,6 +122,9 @@ le navigateur revalide à chaque chargement (ETag, réponses 304 peu coûteuses)
   `deploy/Dockerfile.server`. Autres options : `--port`, `--adventure-timeout`,
   `--bot-delay`, `--ttl`, `--max-rooms` (voir `src/frontend/godot/server/PROTOCOL.md`).
   Après modification : `docker compose -f deploy/docker-compose.yml up -d --build server`.
+- Le binaire Godot du serveur est téléchargé depuis la release GitHub officielle puis vérifié par SHA-256
+  (`sha256sum -c` dans `deploy/Dockerfile.server`, mêmes valeur et source que dans `.github/workflows/ci.yml`) ;
+  le build échoue si l'archive diffère. Changer de version de Godot = recalculer l'empreinte (et la comparer à `SHA512-SUMS.txt` de la release).
 - Logs : `docker logs -f boss-monster-server`.
 - Test du proxy (doit répondre `101 Switching Protocols`) :
 
@@ -122,6 +133,34 @@ curl -s -i -N --max-time 5 -H "Connection: Upgrade" -H "Upgrade: websocket" \
   -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
   http://192.168.1.98:8090/ws
 ```
+
+### Vérifications propriétaire (après chaque déploiement)
+
+Ni la CI ni le poste de développement n'ont prouvé le comportement de nginx en conditions réelles
+(Cloudflare, IP réelle) : c'est à faire une fois sur le homelab, puis à reporter dans `security/SECURITY.md`.
+
+- [ ] Cloudflare, zone : **WebSockets** activé (Network) ; **Rocket Loader** désactivé pour le nom d'hôte (Speed > Optimization).
+- [ ] `https://<nom-public>/ws` répond `101 Switching Protocols` (mêmes en-têtes que ci-dessus, `-H 'Origin: https://<nom-public>'` pour un navigateur) ; la page de lobby « WITH FRIENDS » liste bien les salons publics.
+- [ ] Aucun service worker périmé : DevTools > Application > Service Workers vide (sinon « Unregister » ou recharger deux fois).
+- [ ] Syntaxe nginx : `docker compose -f deploy/docker-compose.yml exec web nginx -t`.
+- [ ] Les limites par IP voient la vraie adresse : `docker logs boss-monster-web` montre des adresses clientes différentes (pas toujours celle du tunnel) pour deux joueurs réels. Si ce n'est pas le cas, `CF-Connecting-IP` n'arrive pas jusqu'à nginx et tout le monde partage le même quota.
+
+Tests nginx (à lancer depuis le homelab, `127.0.0.1:8090` ; adapter l'hôte sinon) :
+
+```bash
+H='-H Connection:Upgrade -H Upgrade:websocket -H Sec-WebSocket-Version:13 -H Sec-WebSocket-Key:dGhlIHNhbXBsZSBub25jZQ=='
+
+# Origin étranger -> 403
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Origin: https://evil.example' $H --max-time 3 http://127.0.0.1:8090/ws
+# Origin identique à l'hôte, ou aucun Origin -> 101
+curl -s -o /dev/null -w '%{http_code}\n' -H 'Origin: http://127.0.0.1:8090' $H --max-time 3 http://127.0.0.1:8090/ws
+curl -s -o /dev/null -w '%{http_code}\n' $H --max-time 3 http://127.0.0.1:8090/ws
+
+# Limite par IP : 40 ouvertures en rafale, des 429 doivent apparaître après la rafale (5/s + 20 d'avance)
+for i in $(seq 40); do curl -s -o /dev/null -w '%{http_code}\n' $H --max-time 1 http://127.0.0.1:8090/ws; done | sort | uniq -c
+```
+
+Une liaison `101` reste ouverte jusqu'à `--max-time` (curl signale alors un délai dépassé, c'est normal) ; la rafale dure donc quelques dizaines de secondes.
 
 ## 9. Ancienne pile (Node + Postgres) - historique
 

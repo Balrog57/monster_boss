@@ -14,6 +14,8 @@ jobs:
       - name: Install Godot 4.7
         run: |
           wget -q https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          # SHA-256 calcule le 2026-10-24 sur l'archive officielle (release godotengine/godot 4.7.2-stable), son SHA-512 egale SHA512-SUMS.txt.
+          echo "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4  Godot_v4.7.2-stable_linux.x86_64.zip" | sha256sum -c -
           unzip -q Godot_v4.7.2-stable_linux.x86_64.zip
           sudo mv Godot_v4.7.2-stable_linux.x86_64 /usr/local/bin/godot
           sudo chmod +x /usr/local/bin/godot
@@ -74,6 +76,52 @@ jobs:
           echo "$out"
           echo "FAIL: /ws did not return 101 Switching Protocols"
           exit 1
+      # Lobby : une vraie connexion WebSocket via nginx (Origin identique a l'hote, comme un navigateur), listRooms -> rooms.
+      # Client en stdlib pure (pas de pip : PEP 668 sur ubuntu-latest). Echoue si la liste n'arrive pas dans les 15 s.
+      - name: Assert lobby listRooms through nginx
+        run: |
+          python3 - <<'PY'
+          import base64, json, os, socket, struct, sys, time
+          host, port = "127.0.0.1", 8090
+          s = socket.create_connection((host, port), timeout=15)
+          f = s.makefile("rb")
+          key = base64.b64encode(os.urandom(16)).decode()
+          s.sendall((f"GET /ws HTTP/1.1\r\nHost: {host}:{port}\r\nOrigin: http://{host}:{port}\r\n"
+                     f"Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: {key}\r\n"
+                     "Sec-WebSocket-Version: 13\r\n\r\n").encode())
+          status = f.readline().decode().strip()
+          if " 101 " not in status:
+              sys.exit(f"FAIL: handshake -> {status!r}")
+          while f.readline().strip():
+              pass
+          payload = b'{"t":"listRooms"}'
+          mask = os.urandom(4)
+          s.sendall(bytes([0x81, 0x80 | len(payload)]) + mask + bytes(b ^ mask[i % 4] for i, b in enumerate(payload)))
+          deadline = time.time() + 15
+          while time.time() < deadline:
+              b1, n = f.read(1)[0], f.read(1)[0] & 0x7F
+              if n == 126:
+                  n = struct.unpack(">H", f.read(2))[0]
+              elif n == 127:
+                  n = struct.unpack(">Q", f.read(8))[0]
+              data = f.read(n)
+              if b1 & 0x0F == 8:
+                  sys.exit("FAIL: server closed the connection before sending rooms")
+              if b1 & 0x0F == 1:
+                  msg = json.loads(data)
+                  print(msg)
+                  if msg.get("t") == "rooms" and isinstance(msg.get("rooms"), list):
+                      sys.exit(0)
+          sys.exit("FAIL: no rooms message within 15 s")
+          PY
+      # Origin etranger : nginx doit refuser (403) avant d'atteindre le serveur.
+      - name: Assert foreign Origin is refused on /ws
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 -H 'Origin: https://evil.example' \
+            -H "Connection: Upgrade" -H "Upgrade: websocket" \
+            -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" \
+            http://127.0.0.1:8090/ws || true)
+          [ "$code" = 403 ] || { echo "FAIL: foreign Origin returned $code (expected 403)"; exit 1; }
       - name: Container logs
         if: always()
         run: |
