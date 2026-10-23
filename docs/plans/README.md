@@ -16,7 +16,7 @@ Rédigé le 2026-10-18. Ces briefs s'adressent à une IA qui clone le dépôt et
 - Jeu : clone de *Boss Monster: Master of the Dungeon* (APK Android 2.2.6, paquet `com.dbm.project`, WaveEngine/Xamarin, pas Unity). Produit final : export web Godot 4.7 (nginx en Docker) + serveur WebSocket Godot headless, sur le homelab ZimaOS de l'utilisateur.
 - `apk-original/` : APK et décompilation (27/27 DLL, ILSpy 9.1, 4915 `.cs`), **local, gitignoré** (seul `apk-original/README.md` est suivi). `apk-original/decompiled/INDEX.md` en est l'index.
 - Un **oracle .NET** (`tools/apk-oracle/`) fait tourner le vrai `DBMGame.dll` ; le harnais `tools/parity/apk.py` compare ses traces au moteur Godot : **c'est la vraie métrique de justesse** (6/6, 12/12, 6/6 aujourd'hui).
-- Packs wiki déjà portés : The Next Level (115 cartes), Minibosses/RMB (121), Crash Landing/CRL (33). Boutique remplacée par un écran RULES. Serveur multijoueur déployé (salons par code).
+- Packs wiki déjà portés : The Next Level (115 cartes), Minibosses/RMB (121), Crash Landing/CRL (33). Boutique remplacée par un écran RULES. Serveur multijoueur déployé (salons par code) ; lobby public WORLDWIDE et durcissement serveur faits (partie 3, commités mais pas encore redéployés : voir `docs/HANDOFF.md` §5 et §9).
 - Les écarts connus sont dispersés (`docs/HANDOFF.md` §7, `tools/parity/README.md` « Limites assumees », `docs/RAPPORT_REGLES.md` en partie périmé) et plusieurs trous n'ont jamais été mesurés (IA, animations, audio, `NotImplementedException` du C#, décisions ignorées des traces, graines 10-40). La partie 1 les ferme.
 
 ## 2. Décisions de l'utilisateur (2026-10-18)

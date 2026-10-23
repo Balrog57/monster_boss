@@ -1,7 +1,7 @@
 # Boss Monster - Web (Godot 4)
 
 Recréation de **Boss Monster: Master of the Dungeon** (APK 2.2.6) jouable dans le navigateur : solo contre l'IA
-(2 à 4 joueurs, 2 à 6 avec Crash Landing), pass and play, parties en ligne entre amis par code de salle, extensions de l'APK et du wiki.
+(2 à 4 joueurs, 2 à 6 avec Crash Landing), pass and play, parties en ligne par code de salle ou par liste publique de salons (WORLDWIDE), extensions de l'APK et du wiki.
 Client **Godot 4.7 Compatibility** (export Web, threads désactivés : aucun header COOP/COEP requis), pas de Node ni de base de données.
 Reprise du projet : `docs/HANDOFF.md`.
 
