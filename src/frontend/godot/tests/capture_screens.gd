@@ -185,9 +185,30 @@ func _online_menus() -> void:
 	main_scene.menus.show_online()
 	await _wait(0.4)
 	await _shot("online_menu_worldwide_with_friends_change_user")
-	main_scene.menus.msg_box("NETWORK ERROR", "Unable to join public rooms")
+	# WORLDWIDE (hors APK) : liste des salons publics ; serveur absent, les etats sont injectes comme le ferait un push `rooms`
+	main_scene.server_host = "ws://127.0.0.1:1"
+	main_scene.menus.show_public()
 	await _wait(0.3)
-	await _shot("online_message_box_network_error")
+	await _shot("online_worldwide_public_games_loading")
+	main_scene.menus._on_rooms([])
+	await _wait(0.3)
+	await _shot("online_worldwide_public_games_empty")
+	var rooms: Array = []
+	var titles := ["Duel du soir", "Zed's game", "Crash Landing 6 players", "A very long public game title!", "Newbies welcome", "Friday night", "Hidden Heroes only", "Late night", "Casual"]
+	for i in titles.size():
+		rooms.append({"code": "AB%02d" % i, "title": titles[i], "host": ["Hosty", "Zed the Wise", "A very long username that never ends", "player_k3x9", "Bob", "Cara", "Dan", "Eve", "Fay"][i], "numPlayers": [2, 4, 6, 3, 4, 2, 4, 3, 2][i], "free": [1, 3, 5, 1, 2, 1, 2, 2, 1][i],
+			"sets": [[], ["players-choice"], ["crash-landing", "hidden-heroes", "tools", "players-choice"], ["next-level", "minibosses"], ["tools", "tools-wiki"], [], ["hidden-heroes"], ["iod", "crash-landing"], []][i], "status": "open"})
+	main_scene.menus._on_rooms(rooms)
+	await _wait(0.3)
+	await _shot("online_worldwide_public_games_list")
+	main_scene.menus._pub["scroll"].scroll_vertical = 300
+	await _wait(0.3)
+	await _shot("online_worldwide_public_games_list_scrolled")
+	await _wait(3.2) # PUBLIC_UNREACHABLE_S : plus de liaison, la liste cede la place au message
+	await _shot("online_worldwide_public_games_server_unreachable")
+	main_scene.menus.msg_box("NETWORK ERROR", "Game is full")
+	await _wait(0.3)
+	await _shot("online_message_box_network_error_game_is_full")
 	main_scene.menus.show_profile(true, false)
 	await _wait(0.4)
 	await _shot("online_change_name_avatar")

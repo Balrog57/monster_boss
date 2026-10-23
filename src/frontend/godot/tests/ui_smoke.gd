@@ -17,9 +17,13 @@ extends Node
 ##   --sets=a,b     paquets (ex. players-choice,hidden-heroes,tools,tools-wiki,next-level,crash-landing,minibosses ; defaut base)
 ##   --style=S      random | spells | passive (defaut : alterne)    --turns=N     arrete apres N tours au lieu d'aller a la fin
 ##   --anim         animations de traversee des heros reelles (temps accelere x6) pour toutes les parties
+##   --only=NAME    une seule verification supplementaire (ex. --only=public_lobby ou --only=online_menus : appelle _check_NAME), pour iterer vite
 ## Chaque anomalie est affichee avec sa graine : « [seed=7 players=3 ...] ... » = la commande pour la rejouer.
 
 const GameManager = preload("res://godot/scripts/GameManager.gd")
+const OnlineMenus = preload("res://godot/scripts/OnlineMenus.gd")
+const Server = preload("res://godot/server/Server.gd")
+const OnlineClient = preload("res://godot/scripts/OnlineClient.gd")
 
 const DUNGEON_N := 5
 const MAX_STEPS := 6000
@@ -74,7 +78,7 @@ func _ready() -> void:
 		get_tree().quit(1)
 
 func _parse_args() -> Dictionary:
-	var d := {"turns": 0, "games": 0, "seed": -1, "players": 0, "humans": 1, "sets": ["base"], "style": "", "anim": false}
+	var d := {"turns": 0, "games": 0, "seed": -1, "players": 0, "humans": 1, "sets": ["base"], "style": "", "anim": false, "only": ""}
 	for a in OS.get_cmdline_user_args():
 		if not a.begins_with("--"):
 			continue
@@ -89,6 +93,8 @@ func _parse_args() -> Dictionary:
 				d["style"] = v
 			"anim":
 				d["anim"] = true
+			"only":
+				d["only"] = v
 	var err := Match.setup_error(int(d["players"]), d["sets"])
 	if err != "":
 		print("UISMOKE ECHEC : ", err)
@@ -133,6 +139,9 @@ func _cov(k: String) -> void:
 func _main() -> void:
 	AudioManager.rec_enabled = true # espion de lecture (rien ne s'entend en headless) : voir _check_audio
 	var games: Array = []
+	if str(cfg["only"]) != "":
+		await call("_check_" + str(cfg["only"]))
+		return
 	if int(cfg["games"]) > 0 or int(cfg["seed"]) >= 0:
 		var n: int = maxi(1, int(cfg["games"]))
 		var s0: int = maxi(0, int(cfg["seed"]))
@@ -2414,21 +2423,25 @@ func _check_online_menus() -> void:
 			var saved: Dictionary = Profile.load_profile()
 			_check(saved["name"] == "Zed" and saved["avatar"] == new_av and Profile.has_profile(), "profil : OK n'enregistre pas le profil : %s" % str(saved))
 			_cov("menus_profile")
-	# MenuOnlineScene : WORLDWIDE (erreur APK), CHANGE USER/AVATAR (avec fleche), WITH FRIENDS
+	# MenuOnlineScene : WORLDWIDE (liste des salons publics), CHANGE USER/AVATAR (avec fleche), WITH FRIENDS
 	var lb := _label_buttons(main)
 	if _check(lb.has("WORLDWIDE") and lb.has("WITH FRIENDS") and lb.has("CHANGE USER/AVATAR"), "menu en ligne : boutons %s" % str(lb.keys())):
 		var b0: TextureButton = lb["WORLDWIDE"]
 		_check(is_equal_approx(b0.position.x + 309.5, 960.0) and is_equal_approx(b0.position.y + 88.5, 388.8), "menu en ligne : WORLDWIDE en (960, 388,8)")
+		main.server_host = "ws://127.0.0.1:1" # aucun serveur : la liste doit le dire (pas de boite d'erreur APK)
 		b0.pressed.emit()
-		await get_tree().process_frame
-		var mb = main.find_child("MessageBox", true, false)
-		if _check(mb != null, "menu en ligne : WORLDWIDE n'ouvre pas la boite d'erreur"):
-			var mt := _texts_of(mb)
-			_check(mt.has("NETWORK ERROR") and mt.has("Unable to join public rooms"), "boite d'erreur : textes %s" % str(mt))
-			(mb.get_node("Ok") as TextureButton).pressed.emit()
-			await get_tree().process_frame
-			await get_tree().process_frame
-			_check(main.find_child("MessageBox", true, false) == null, "boite d'erreur : OK ne la ferme pas")
+		await _nav(main)
+		_check(main.find_child("MessageBox", true, false) == null, "WORLDWIDE : la boite « Unable to join public rooms » ne doit plus s'ouvrir")
+		var pt := _texts_of(main)
+		_check(pt.has("PUBLIC GAMES") and pt.has("HOST") and pt.has("FREE") and pt.has("PACKS") and main.find_child("CreatePublic", true, false) != null, "WORLDWIDE : liste publique absente %s" % str(pt))
+		_check(_tb_by_texture(main, "back_bt.webp") != null, "WORLDWIDE : fleche de retour absente")
+		await _wait(OnlineMenus.PUBLIC_UNREACHABLE_S + 1.0)
+		_check(_texts_of(main).has("UNABLE TO REACH THE SERVER"), "WORLDWIDE : serveur injoignable non signale : %s" % str(_texts_of(main)))
+		_cov("menus_public_unreachable")
+		_tb_by_texture(main, "back_bt.webp").pressed.emit()
+		await _wait(0.2)
+		lb = _label_buttons(main)
+		_check(lb.has("WORLDWIDE") and not main.online._watching and not main.online.connected, "WORLDWIDE : la fleche ne ramene pas au menu en ligne / la liaison reste ouverte")
 		lb["CHANGE USER/AVATAR"].pressed.emit()
 		await _nav(main)
 		_check(_tb_by_texture(main, "back_bt.webp") != null and (main.find_child("Entry", true, false) as LineEdit).text == "Zed", "profil (depuis le menu) : fleche de retour et pseudo enregistre")
@@ -2547,6 +2560,136 @@ func _check_online_menus() -> void:
 		var f := FileAccess.open(cfg_path, FileAccess.WRITE)
 		f.store_buffer(backup)
 		f.close()
+
+## WORLDWIDE contre un VRAI serveur (dans le processus) : la liste affiche le salon public cree par un autre client (titre, hote, sieges libres / total, packs),
+## un salon prive n'y figure pas, JOIN rejoint la salle (salle d'attente), la fleche de la salle d'attente ramene a la liste, CREATE PUBLIC GAME cree un salon visible des autres.
+func _check_public_lobby() -> void:
+	_tag = "[public-lobby]"
+	await _teardown()
+	var sess_path: String = ProjectSettings.globalize_path(OnlineClient.SESSION_PATH)
+	var sess_backup := PackedByteArray()
+	if FileAccess.file_exists(sess_path):
+		sess_backup = FileAccess.get_file_as_bytes(sess_path)
+	var srv = Server.new()
+	srv.auto_start = false
+	srv.bot_delay_ms = 0
+	srv.rooms_push_interval_ms = 50
+	add_child(srv)
+	var prng := RandomNumberGenerator.new()
+	prng.randomize()
+	var url := ""
+	for _i in 20:
+		var port := prng.randi_range(20000, 40000)
+		if srv.start(port) == OK:
+			url = "ws://127.0.0.1:%d" % port
+			break
+	if not _check(url != "", "lobby public : aucun port libre pour le serveur de test"):
+		srv.queue_free()
+		return
+	var other := OnlineClient.new() # « un autre client » : l'hote du salon public
+	other.host = url
+	other.player_name = "Hosty"
+	other.player_avatar = "avatar_croak"
+	other.count_results = false
+	add_child(other)
+	var main = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main)
+	await _wait(0.3)
+	main.server_host = url
+	main.profile = {"name": "Zed", "avatar": "avatar_gorgona"}
+	main.online.count_results = false
+	main.menus.show_online()
+	await _wait(0.2)
+	_label_buttons(main)["WORLDWIDE"].pressed.emit()
+	await _nav(main)
+	# liste vide : message clair, pas de ligne
+	var empty_ok := await _wait_until(func(): return _texts_of(main).any(func(t): return str(t).begins_with("NO PUBLIC GAMES YET")), 5.0)
+	_check(empty_ok and main.find_children("Room_*", "Control", true, false).is_empty(), "lobby public : liste vide non signalee %s" % str(_texts_of(main)))
+	# un salon prive (jamais liste) puis un public cree par l'autre client
+	var priv := OnlineClient.new()
+	priv.host = url
+	priv.player_name = "Secret"
+	priv.count_results = false
+	add_child(priv)
+	_check(await priv.create_lobby(3, []), "lobby public : creation du salon prive")
+	_check(await other.create_lobby(3, ["players-choice"], 0, true, "Duel du soir"), "lobby public : creation du salon public")
+	var code: String = other.match_id
+	var row_ok := await _wait_until(func(): return main.find_child("Room_" + code, true, false) != null, 5.0)
+	if _check(row_ok, "lobby public : le salon public n'apparait pas dans la liste (push `rooms`)"):
+		var row = main.find_child("Room_" + code, true, false)
+		var rt := _texts_of(row)
+		_check(rt.has("Duel du soir") and rt.has("Hosty") and rt.has("2/3") and rt.has("PC") and row.find_child("Join", true, false) != null, "lobby public : ligne %s" % str(rt))
+		_check(main.find_child("Room_" + priv.match_id, true, false) == null, "lobby public : un salon prive est liste")
+		_check(not (main.find_child("Status", true, false) as Label).visible, "lobby public : message « liste vide » encore affiche")
+		# JOIN : rejoint la salle publique d'un autre client -> salle d'attente existante
+		(row.find_child("Join", true, false) as TextureButton).pressed.emit()
+		var o = main.online
+		await _wait_until(func(): return o.match_id == code, 5.0)
+		await _nav(main)
+		_check(o.match_id == code and o.player_id == 1 and bool(srv.get_room(code).seats[1]["taken"]) and str(srv.get_room(code).seats[1]["name"]) == "Zed", "lobby public : JOIN n'a pas pris le siege 1 de la salle de l'autre client (%s)" % o.match_id)
+		var wt := _texts_of(main)
+		_check(wt.has("WAITING FRIENDS...") and wt.has(code), "lobby public : JOIN n'ouvre pas la salle d'attente %s" % str(wt))
+		_check(await _wait_until(func(): return main.menus._rows.size() == 4 and (main.menus._rows[0]["name"] as Label).text == "Hosty" and (main.menus._rows[1]["name"] as Label).text == "Zed", 5.0), "lobby public : salle d'attente sans l'hote et moi")
+		_cov("menus_public_join")
+		# fleche de la salle d'attente : retour a la liste (pas a WITH FRIENDS), siege libere
+		_tb_by_texture(main, "back_bt.webp").pressed.emit()
+		await _wait(0.3)
+		_check(main.find_child("CreatePublic", true, false) != null and _texts_of(main).has("PUBLIC GAMES"), "lobby public : la fleche de la salle d'attente ne ramene pas a la liste")
+		_check(await _wait_until(func(): return not bool(srv.get_room(code).seats[1]["taken"]), 5.0), "lobby public : le siege n'est pas libere au depart")
+		_check(await _wait_until(func(): return main.find_child("Room_" + code, true, false) != null, 8.0), "lobby public : la liste ne revient pas apres le retour (reconnexion)")
+	# CREATE PUBLIC GAME : meme parcours que NEW GAME (nombre de joueurs puis extensions) puis salon visible des autres
+	main.find_child("CreatePublic", true, false).pressed.emit()
+	await _nav(main)
+	_check(_texts_of(main).has("HOW MANY PLAYERS?"), "CREATE PUBLIC GAME : pas de choix du nombre de joueurs")
+	main.players = 3
+	_tb_by_texture(main, "back_bt.webp").pressed.emit()
+	await _wait(0.2)
+	_check(_texts_of(main).has("PUBLIC GAMES"), "CREATE PUBLIC GAME : la fleche du choix de joueurs ne ramene pas a la liste")
+	main.find_child("CreatePublic", true, false).pressed.emit()
+	await _nav(main)
+	main.players = 3
+	main.show_setup(3, 1, "public")
+	await _wait(0.2)
+	_tb_by_texture(main, "ok_bt.webp").pressed.emit()
+	var mine = main.online
+	await _wait_until(func(): return mine.match_id != "", 5.0)
+	await _nav(main)
+	_check(mine.match_id != "" and mine.player_id == 0 and bool(mine.is_host) and mine.public_room, "CREATE PUBLIC GAME : salon non cree (%s)" % mine.match_id)
+	var made = srv.get_room(mine.match_id)
+	_check(made != null and made.public and made.title == "Zed's game" and _texts_of(main).has("WAITING FRIENDS..."), "CREATE PUBLIC GAME : salon public a titre par defaut attendu")
+	_cov("menus_public_create")
+	# l'autre client le voit dans la liste du serveur
+	var seen := OnlineClient.new()
+	seen.host = url
+	add_child(seen)
+	var lists: Array = []
+	seen.rooms_received.connect(func(rs): lists.append(rs))
+	seen.watch_rooms()
+	_check(await _wait_until(func(): return not lists.is_empty() and (lists.back() as Array).any(func(e): return e["code"] == mine.match_id and e["title"] == "Zed's game"), 5.0), "CREATE PUBLIC GAME : le salon n'est pas dans la liste d'un autre client")
+	seen.unwatch_rooms()
+	for c in [seen, priv, other]:
+		c._forget()
+		c.queue_free()
+	mine._forget()
+	main.queue_free()
+	await get_tree().process_frame
+	srv.stop()
+	srv.queue_free()
+	if sess_backup.size() > 0:
+		var fa := FileAccess.open(sess_path, FileAccess.WRITE)
+		fa.store_buffer(sess_backup)
+		fa.close()
+	elif FileAccess.file_exists(sess_path):
+		DirAccess.remove_absolute(sess_path)
+
+## Attend `cond` (horloge reelle) ; faux apres `timeout_s`.
+func _wait_until(cond: Callable, timeout_s: float) -> bool:
+	var t0 := Time.get_ticks_msec()
+	while not cond.call():
+		if (Time.get_ticks_msec() - t0) / 1000.0 > timeout_s:
+			return false
+		await get_tree().process_frame
+	return true
 
 ## Ecran de fin : bandeau du vainqueur (nom, IS THE WINNER!, boss agrandi, 10 cristaux, OK), « YOU LOSE » avec la pierre tombale ;
 ## boss elimine = pierre tombale RIP a la place du sprite.
@@ -2858,6 +3001,7 @@ func _extra_checks() -> void:
 	await _check_apk_gaps()
 	await _check_gallery()
 	await _check_online_menus()
+	await _check_public_lobby()
 	await _check_gameover_banner()
 	await _check_effects()
 	await _check_crossing_ui()

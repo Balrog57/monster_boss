@@ -12,7 +12,8 @@ extends Node
 ##  8. lobby public (lot 3.1) : listRooms / push `rooms`, salon prive jamais liste, 50 entrees au plus, sortie de liste quand plein / demarre ;
 ##  9. sieges fantomes liberes apres la grace (rechargement dans la grace = siege repris, hote jamais libere), salle publique vide fermee ;
 ## 10. taille maximale de message (1009) et debit par connexion (1008) ;
-## 11. audit 3.0 §4.3 : deux connexions sur le meme jeton s'evincent en boucle (reproduit ; a corriger au lot 3.3).
+## 11. lot 3.2 : API client du lobby public (watch_rooms / rooms_received / create_lobby public / join_lobby / reconnexion qui redemande la liste) ;
+## 12. lot 3.3 (audit 3.0 §4.3, test INVERSE) : deux connexions sur le meme jeton -> la plus ancienne est evincee et NE se reconnecte PAS (plus de boucle).
 ## Usage : godot --headless --path src/frontend res://godot/tests/OnlineTest.tscn   -> "ONLINE OK"
 
 const Server = preload("res://godot/server/Server.gd")
@@ -298,6 +299,8 @@ func _run_network() -> void:
 	if _fails.is_empty():
 		await _scenario_limits()
 	if _fails.is_empty():
+		await _scenario_public_client()
+	if _fails.is_empty():
 		await _scenario_eviction()
 	if FileAccess.file_exists(OnlineClient.SESSION_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(OnlineClient.SESSION_PATH))
@@ -514,7 +517,7 @@ func _scenario_bruteforce() -> void:
 
 # --- lot 3.1 : lobby public, nettoyage, limites ----------------------------------------
 
-## Connexion WebSocket brute (le client de jeu ne connait pas encore listRooms : lot 3.2) : garde tout ce qui arrive.
+## Connexion WebSocket brute (message par message, sans la logique du client de jeu) : garde tout ce qui arrive.
 class Raw extends Node:
 	var ws := WebSocketPeer.new()
 	var msgs: Array = []
@@ -726,9 +729,60 @@ func _scenario_limits() -> void:
 	for n in [ok, big, huge, flood]:
 		n.queue_free()
 
-## Audit 3.0 §4.3 : deux connexions qui reprennent le MEME siege avec le meme jeton s'evincent en boucle (chaque client evince se reconnecte
-## apres 1 s et reprend le siege). CONFIRME ici ; c'est un comportement connu, a corriger cote client au lot 3.3 (jeton par onglet) : ce test
-## devra alors etre inverse. Le serveur, lui, ne se trompe pas : un seul siege, une seule connexion vivante, jeton intact.
+## Lot 3.2 : le lobby public cote client contre le vrai serveur. `watch_rooms` n'attend rien (l'ecran lit `connected`) ; la liste arrive par `rooms_received`
+## (reponse puis pushes) ; un salon prive n'y figure pas ; join_lobby rejoint la salle d'un autre client ; une liaison coupee se rouvre et redemande la liste.
+func _scenario_public_client() -> void:
+	server.rooms_push_interval_ms = 50
+	var host := _client("Alice")
+	var priv := _client("Secret")
+	var guest := _client("Bob")
+	var lists: Array = []
+	guest.rooms_received.connect(func(rs): lists.append(rs))
+	guest.watch_rooms()
+	if not _expect(await _wait(func(): return guest.connected and not lists.is_empty(), 5.0), "lobby client : pas de liste initiale"):
+		return
+	_expect(await priv.create_lobby(3, []), "lobby client : create prive")
+	_expect(await host.create_lobby(3, ["players-choice"], 0, true, "Duel du soir"), "lobby client : create public")
+	var code := host.match_id
+	_expect(host.public_room and not priv.public_room, "lobby client : public_room")
+	_expect(await _wait(func(): return (lists.back() as Array).any(func(e): return e["code"] == code), 5.0), "lobby client : push `rooms` non recu apres la creation")
+	var e: Dictionary = (lists.back() as Array).filter(func(x): return x["code"] == code)[0]
+	_expect(e["title"] == "Duel du soir" and e["host"] == "Alice" and int(e["free"]) == 2 and int(e["numPlayers"]) == 3 and e["sets"] == ["players-choice"], "lobby client : entree %s" % str(e))
+	_expect(not lists.any(func(rs): return (rs as Array).any(func(x): return x["code"] == priv.match_id)), "lobby client : salon prive liste")
+	# liaison coupee : elle se rouvre toute seule et redemande la liste (rooms_received) tant que l'ecran est ouvert
+	var n_lists := lists.size()
+	guest._ws.close()
+	_expect(await _wait(func(): return not guest.connected, 5.0), "lobby client : coupure non vue")
+	_expect(await _wait(func(): return guest.connected and lists.size() > n_lists, 10.0), "lobby client : la liaison ne se rouvre pas / la liste n'est pas redemandee")
+	# JOIN d'une salle d'un autre client : siege 1, le client ne regarde plus la liste
+	_expect(await guest.join_lobby(code, "Bob"), "lobby client : join de la salle publique")
+	_expect(guest.player_id == 1 and not guest._watching and server.get_room(code).seats[1]["name"] == "Bob", "lobby client : mauvais siege apres le join")
+	n_lists = lists.size()
+	await get_tree().create_timer(0.3).timeout
+	_expect(lists.size() == n_lists, "lobby client : un client en salle recoit encore des listes")
+	# quitter la salle d'attente libere le siege TOUT DE SUITE (avant : close() jetait `leave`, siege fantome jusqu'a la fin de la grace de 30 s), liaison gardee ou fermee
+	guest.leave_match(true)
+	_expect(await _wait(func(): return not bool(server.get_room(code).seats[1]["taken"]), 3.0) and guest.connected, "lobby client : leave_match(true) ne libere pas le siege / ferme la liaison")
+	_expect(await guest.join_lobby(code, "Bob"), "lobby client : re-join apres leave")
+	guest.leave_match()
+	_expect(await _wait(func(): return not bool(server.get_room(code).seats[1]["taken"]), 3.0), "lobby client : leave_match() ne libere pas le siege")
+	_expect(await _wait(func(): return not guest.connected, 3.0) and guest._ws == null, "lobby client : leave_match() doit fermer la liaison apres le depart de `leave`")
+	# join d'un code inconnu depuis la liste : echec propre, il continue de suivre la liste
+	var late := _client("Cara")
+	var late_lists: Array = []
+	late.rooms_received.connect(func(rs): late_lists.append(rs))
+	late.watch_rooms()
+	_expect(await _wait(func(): return late.connected and not late_lists.is_empty(), 5.0), "lobby client : 2e observateur")
+	_expect(not await late.join_lobby("ZZZZ", "Cara") and late.last_error_code == "not_found" and late._watching and late._want_open, "lobby client : echec de join depuis la liste")
+	late.unwatch_rooms() # sans salle : la liaison est fermee
+	_expect(await _wait(func(): return not late.connected, 5.0) and not late._want_open, "lobby client : unwatch_rooms doit fermer la liaison")
+	for c in [host, priv, guest, late]:
+		c.queue_free()
+	server.rooms_push_interval_ms = 250
+
+## Lot 3.3 (audit 3.0 §4.3, test INVERSE de l'ancien « la boucle existe ») : un deuxieme onglet reprend le MEME siege avec le meme jeton ; le serveur evince
+## le premier en 1000 « siege repris ailleurs ». Avant : le client evince se reconnectait apres 1 s et evincait l'autre, sans fin. Maintenant il ne se
+## reconnecte PAS : session oubliee, signal `evicted`, le siege reste au 2e onglet, sans le moindre changement de connexion ensuite.
 func _scenario_eviction() -> void:
 	var a := _client("Alice")
 	var b := _client("Bob")
@@ -736,25 +790,30 @@ func _scenario_eviction() -> void:
 		return
 	_expect(await b.join_lobby(a.match_id, "Bob"), "eviction : join")
 	var room = server.get_room(a.match_id)
-	# « deuxieme onglet » : meme session que Bob (fichier de session partage), il reprend le siege 1
+	var token := b.credentials
+	var evicted := [0]
+	b.evicted.connect(func(): evicted[0] += 1)
+	# « deuxieme onglet » : meme session que Bob (c'etait le fichier de session partage), il reprend le siege 1
 	var b2 := _client("")
 	b2.match_id = b.match_id
 	b2.player_id = b.player_id
 	b2.credentials = b.credentials
 	b2._resume_on_open = true
 	_expect(await b2._ensure_open(), "eviction : ouverture du 2e onglet")
+	_expect(await _wait(func(): return evicted[0] > 0, 5.0), "eviction : le client evince n'a pas ete prevenu (evicted)")
+	_expect(b.match_id == "" and b.credentials == "" and b.player_id == -1 and not b._want_open and not b.connected, "eviction : le client evince doit oublier sa session et ne plus vouloir se reconnecter")
+	# 3 s d'observation (la boucle d'avant evincait environ une fois par seconde) : plus aucun changement de connexion sur le siege
+	var conn: int = int(room.seats[1]["conn"])
 	var changes := 0
-	var last_conn: int = int(room.seats[1]["conn"])
 	var t0 := Time.get_ticks_msec()
-	while Time.get_ticks_msec() - t0 < 5000:
+	while Time.get_ticks_msec() - t0 < 3000:
 		await get_tree().process_frame
-		var cur: int = int(room.seats[1]["conn"])
-		if cur != last_conn and cur >= 0:
+		if int(room.seats[1]["conn"]) != conn:
 			changes += 1
-		last_conn = cur
-	print("ONLINE eviction : %d evictions du siege 1 en 5 s (deux connexions, meme jeton)" % changes)
-	_expect(changes >= 2, "eviction : la boucle de l'audit §4.3 n'a pas ete reproduite (%d changements)" % changes)
-	_expect(bool(room.seats[1]["taken"]) and str(room.seats[1]["token"]) == b.credentials, "eviction : le jeton du siege doit rester intact")
+			conn = int(room.seats[1]["conn"])
+	print("ONLINE eviction : %d changement(s) de connexion du siege 1 en 3 s apres l'eviction, evicted=%d" % [changes, evicted[0]])
+	_expect(changes == 0 and evicted[0] == 1, "eviction : la boucle existe encore (%d changements, %d evictions)" % [changes, evicted[0]])
+	_expect(b2.connected and b2.match_id == a.match_id and bool(room.seats[1]["taken"]) and str(room.seats[1]["token"]) == token and conn >= 0, "eviction : le siege doit rester au 2e onglet, jeton intact")
 	for n in [a, b, b2]:
 		n.queue_free()
 

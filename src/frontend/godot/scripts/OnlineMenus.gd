@@ -1,11 +1,13 @@
 extends RefCounted
 ## Ecrans multijoueur de l'APK 2.2.6 (maquette 1920x1080, coordonnees de decompiled/DBMGame/) :
 ##   MultiplayerScene (PLAY ONLINE / PASS AND PLAY) -> MenuOnlineScene (WORLDWIDE / WITH FRIENDS / CHANGE USER/AVATAR)
+##   -> WORLDWIDE : liste des salons publics (hors APK, voir show_public) ; CREATE PUBLIC GAME reprend NEW GAME avec `public`
 ##   -> WithFriendsOnlineScene (NEW GAME / ROOM CODE) -> WaitingPrivateRoomScene ; ChangeNameAvatarScene ; MessageBoxScene.
 ## Repere : l'APK dessine dans 1440x1080 (Game.VIEWPORT_WIDTH) et un ecran 16:9 montre 240 px de plus de chaque cote : x ecran = x APK + 240 pour les
 ## constantes en dur (ex. champ de saisie (210,375) -> 450 ; les positions « VirtualWidth * 0.5 » = 720 donnent 960). Toutes les coordonnees ci-dessous sont en px ecran.
 ## `m` = Main (decor, widgets absolus, navigation) ; l'API d'OnlineClient (create_lobby / join_lobby / start_match / leave_match / try_resume) est inchangee.
-## shortcut: pas de matchmaking mondial, WORLDWIDE ouvre la boite « NETWORK ERROR / Unable to join public rooms » comme l'APK sans paquets.
+## Hors APK : WORLDWIDE (l'APK sans paquets ouvrait « NETWORK ERROR / Unable to join public rooms ») liste les salons publics du serveur (listRooms / rooms, sans comptes).
+## Fondus : Main.go (ColorFade 1,0 s) entre les ecrans en ligne, UiKit.cross_fade_in (0,2 s) pour les modales ; la fleche de retour coupe net (comme l'APK).
 
 const UiKit = preload("res://godot/scripts/UiKit.gd")
 const Profile = preload("res://godot/scripts/Profile.gd")
@@ -19,6 +21,9 @@ const AV_ORIGIN_X := 400.0 # AvatarScrollComponent a (160, 620) APK
 const ROW_Y := [394.0, 525.0, 652.0, 779.0]            # OnlinePanelEntity : 300 + 94 + i * 127 (+ 4 pour i > 0)
 const ROW_STEP_BIG := 83.0 # 6 lignes (5-6 joueurs) dans le cadre 300-904 : pas de 83 px, avatar a 0,29
 const CODE_LEN := 4
+const PUBLIC_REFRESH_S := 5.0       # liste publique : le serveur pousse chaque changement, on redemande quand meme toutes les 5 s
+const PUBLIC_UNREACHABLE_S := 3.0   # liaison absente depuis ce delai : « UNABLE TO REACH THE SERVER »
+const PACK_ABBR := {"tools": "THK", "players-choice": "PC", "hidden-heroes": "HH", "next-level": "TNL", "crash-landing": "CRL", "minibosses": "RMB", "iod": "IOD"}
 const BIG_GAME_MSG := "5 or 6 players need Crash Landing, with the base game, Hidden Heroes and Tools only" # (police arcadepix : pas d'accents, d'ou pas le texte de Match.setup_error)
 
 var m # Main (type volontairement libre : on appelle ses utilitaires _tex / _hit / _img_btn / _clear ...)
@@ -28,6 +33,7 @@ var _wait_ok: TextureButton = null
 var _wait_bots: TextureButton = null
 var _wait_err_shown := false
 var _bgn: Control = null  # fond de l'ecran courant (un clic dessus deselectionne le champ de saisie)
+var _pub: Dictionary = {} # liste publique : {scroll, box, status, thumb, sig, loaded, down, since}
 
 func _init(main) -> void:
 	m = main
@@ -58,7 +64,7 @@ func _screen(back: Callable) -> void:
 		m.add_child(m._img_btn("buttons/back_bt.webp", "buttons/back_bt_pressed.webp", Vector2(20, 22), back, Vector2.ZERO, "ui_button_goback"))
 
 ## ButtonWithLabelEntity : bg_bt_multi (619x177, taille native) centre en (cx, cy), libelle arcadepix x 1.3 centre ; `pressed_color` = couleur pendant l'appui.
-func _label_btn(text: String, cx: float, cy: float, cb: Callable, pressed_color: Color = Color.WHITE, s: float = 1.0, text_scale: float = 1.3) -> TextureButton:
+func _label_btn(text: String, cx: float, cy: float, cb: Callable, pressed_color: Color = Color.WHITE, s: float = 1.0, text_scale: float = 1.3, parent: Node = null) -> TextureButton:
 	var b := TextureButton.new()
 	b.texture_normal = load(UI + "navigation/bg_bt_multi.webp")
 	b.texture_pressed = load(UI + "navigation/bg_bt_multi_pressed.webp")
@@ -74,7 +80,7 @@ func _label_btn(text: String, cx: float, cy: float, cb: Callable, pressed_color:
 	b.button_up.connect(func(): l.add_theme_color_override("font_color", Color.WHITE))
 	b.pressed.connect(func(): AudioManager.play_sfx("ui_button_select"))
 	b.pressed.connect(cb)
-	m.add_child(b)
+	(parent if parent != null else m).add_child(b)
 	return b
 
 ## Boite modale de l'APK (MessageBoxScene) : voile noir 0,7, bande winner_bg etiree x 1,82, titre dore sur bg_txt (y 7 %), message x 1,5, bouton OK.
@@ -233,9 +239,177 @@ func _deck_btn(cx: float, count: int, title: String, sub: String, cb: Callable) 
 
 func show_online() -> void:
 	_screen(func(): show_multi())
-	_label_btn("WORLDWIDE", 960, 388.8, func(): msg_box("NETWORK ERROR", "Unable to join public rooms"), GOLD)
+	_label_btn("WORLDWIDE", 960, 388.8, func(): m.go(show_public), GOLD) # hors APK : liste des salons publics
 	_label_btn("WITH FRIENDS", 960, 583.2, func(): m.go(show_friends), GOLD) # MenuOnlineScene.cs:63 (ColorFade 1,0 s)
 	_label_btn("CHANGE USER/AVATAR", 960, 777.6, func(): m.go(func(): show_profile(true, false)), GOLD) # MenuOnlineScene.cs:73
+
+# --- WORLDWIDE : salons publics (hors APK) ----------------------------------------
+
+## Liste defilante dans le cadre de la salle d'attente : TITRE / HOST / FREE (sieges libres / total) / PACKS + JOIN par ligne. Le serveur POUSSE `rooms` a chaque
+## changement (OnlineClient.rooms_received) ; une minuterie redemande la liste toutes les PUBLIC_REFRESH_S et signale un serveur injoignable.
+func show_public() -> void:
+	var o = m.online
+	_prepare_client()
+	_screen(func():
+		_leave_public()
+		show_online())
+	_panel_plain()
+	m.add_child(_t("PUBLIC GAMES", 1.3, Color.WHITE, Vector2(420, 330)))
+	for h in [["HOST", 830.0], ["FREE", 1070.0], ["PACKS", 1190.0]]:
+		m.add_child(_t(h[0], 1.0, Color.WHITE, Vector2(h[1], 340)))
+	var scroll := ScrollContainer.new()
+	scroll.name = "Rooms"
+	scroll.position = Vector2(391, 392)
+	scroll.size = Vector2(1138, 509)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER # pas de barre grise : un filet dore (thumb) la remplace
+	m.add_child(scroll)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 0)
+	box.custom_minimum_size.x = 1138.0
+	scroll.add_child(box)
+	var thumb := ColorRect.new()
+	thumb.color = GOLD
+	thumb.size = Vector2(4, 40)
+	thumb.position = Vector2(1522, 392)
+	thumb.visible = false
+	thumb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	m.add_child(thumb)
+	var status := _t("LOADING...", 1.3, Color.WHITE, Vector2(390, 590), 1140.0, HORIZONTAL_ALIGNMENT_CENTER)
+	status.name = "Status"
+	m.add_child(status)
+	_pub = {"scroll": scroll, "box": box, "status": status, "thumb": thumb, "sig": "", "loaded": false, "down": 0.0, "since": 0.0}
+	scroll.get_v_scroll_bar().value_changed.connect(func(_v): _update_thumb())
+	var btn := _label_btn("CREATE PUBLIC GAME", 960, 1005, func():
+		_leave_public()
+		m.go(func(): m.show_solo_count("public")), GOLD, 0.7, 1.8) # NEW GAME : meme parcours (joueurs 2-4, 5-6 avec Crash Landing, packs), puis create_room(n, true)
+	btn.name = "CreatePublic"
+	if o.rooms_received.is_connected(_on_rooms):
+		o.rooms_received.disconnect(_on_rooms)
+	o.rooms_received.connect(_on_rooms)
+	var tick := Timer.new() # libere avec l'ecran (Main._clear)
+	tick.wait_time = 0.5
+	tick.timeout.connect(_public_tick)
+	m.add_child(tick)
+	tick.start()
+	o.watch_rooms()
+
+func _leave_public() -> void:
+	var o = m.online
+	if o.rooms_received.is_connected(_on_rooms):
+		o.rooms_received.disconnect(_on_rooms)
+	o.unwatch_rooms()
+	_pub = {}
+
+func _public_tick() -> void:
+	if _busy or not is_instance_valid(_pub.get("box")):
+		return
+	var o = m.online
+	if o.connected:
+		_pub["down"] = 0.0
+		_pub["since"] = float(_pub["since"]) + 0.5
+		if float(_pub["since"]) >= PUBLIC_REFRESH_S:
+			_pub["since"] = 0.0
+			o.watch_rooms()
+		return
+	_pub["down"] = float(_pub["down"]) + 0.5
+	o.watch_rooms() # rouvre la liaison si elle ne se rouvre pas toute seule
+	if float(_pub["down"]) >= PUBLIC_UNREACHABLE_S:
+		_show_rows([])
+		_pub["sig"] = ""
+		_pub["loaded"] = false
+		(_pub["status"] as Label).text = "UNABLE TO REACH THE SERVER"
+		(_pub["status"] as Label).visible = true
+
+func _on_rooms(rooms: Array) -> void:
+	if not is_instance_valid(_pub.get("box")):
+		return
+	_pub["loaded"] = true
+	_pub["down"] = 0.0
+	var sig := JSON.stringify(rooms)
+	if sig == _pub["sig"]:
+		return
+	_pub["sig"] = sig
+	_show_rows(rooms)
+	var status: Label = _pub["status"]
+	status.text = "NO PUBLIC GAMES YET\nCREATE ONE BELOW"
+	status.visible = rooms.is_empty()
+
+func _show_rows(rooms: Array) -> void:
+	var box: VBoxContainer = _pub["box"]
+	var scroll: ScrollContainer = _pub["scroll"]
+	var sv := scroll.scroll_vertical
+	for c in box.get_children():
+		box.remove_child(c)
+		c.queue_free()
+	for e in rooms:
+		if e is Dictionary:
+			box.add_child(_public_row(e))
+	scroll.set_deferred("scroll_vertical", sv)
+	_update_thumb.call_deferred()
+
+## Filet dore a droite du cadre : position / taille du contenu defilant (cache s'il tient en entier).
+func _update_thumb() -> void:
+	if not is_instance_valid(_pub.get("box")):
+		return
+	var scroll: ScrollContainer = _pub["scroll"]
+	var thumb: ColorRect = _pub["thumb"]
+	var content := float((_pub["box"] as Control).size.y)
+	var view := scroll.size.y
+	thumb.visible = content > view + 1.0
+	if thumb.visible:
+		thumb.size.y = maxf(30.0, view * view / content)
+		thumb.position.y = 392.0 + (view - thumb.size.y) * float(scroll.scroll_vertical) / (content - view)
+
+func _pack_text(sets: Array) -> String:
+	var out: Array = []
+	for s in sets:
+		if not str(s).ends_with("-wiki"): # paquets internes des cases wiki (tools-wiki...) : deja couverts par leur paquet
+			out.append(PACK_ABBR.get(str(s), str(s).left(3).to_upper()))
+	return " ".join(out) if not out.is_empty() else "BASE"
+
+func _public_row(e: Dictionary) -> Control:
+	var code := str(e.get("code", ""))
+	var row := Control.new()
+	row.name = "Room_" + code
+	row.custom_minimum_size = Vector2(1138, ROW_STEP_BIG)
+	var sep := ColorRect.new()
+	sep.color = Color(120.0 / 255.0, 155.0 / 255.0, 161.0 / 255.0)
+	sep.position = Vector2(0, ROW_STEP_BIG - 3.0)
+	sep.size = Vector2(1138, 2)
+	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(sep)
+	var cells := [ # [texte, echelle, x (ligne), largeur, y] : colonnes TITRE 420 / HOST 830 / FREE 1070 / PACKS 1190 (ecran)
+		[str(e.get("title", "?")).left(25), 1.1, 29.0, 395.0, 28.0],
+		[str(e.get("host", "?")).left(25), 1.0, 439.0, 230.0, 29.0],
+		["%d/%d" % [int(e.get("free", 0)), int(e.get("numPlayers", 0))], 1.0, 679.0, 100.0, 29.0],
+		[_pack_text(e.get("sets", [])), 1.0, 799.0, 170.0, 29.0],
+	]
+	for c in cells:
+		var l := _t(str(c[0]), float(c[1]), Color.WHITE, Vector2(float(c[2]), float(c[4])), float(c[3]))
+		l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		row.add_child(l)
+	var join := _label_btn("JOIN", 1048.0, 40.0, func(): join_public(code), GOLD, 0.24, 5.2, row)
+	join.name = "Join"
+	return row
+
+func join_public(code: String) -> void:
+	if _busy:
+		return
+	_busy = true
+	_prepare_client()
+	var ok: bool = await m.online.join_lobby(code, str(m.profile.get("name", "Player")))
+	_busy = false
+	if ok:
+		_leave_public()
+		m.online.public_room = true
+		m.go(show_waiting) # ColorFade 1,0 s comme WithFriendsOnlineScene.cs:56
+		return
+	var text := "Unable to join public game"
+	match str(m.online.last_error_code):
+		"not_found": text = "This game is no longer open"
+		"full": text = "Game is full"
+	msg_box("NETWORK ERROR", text, func(): m.online.watch_rooms()) # la liste se met a jour tout de suite
 
 # --- ChangeNameAvatarScene -------------------------------------------------------
 
@@ -419,23 +593,25 @@ func _prepare_client() -> void:
 	o.player_wins = int(st["wins"])
 	o.player_defeats = int(st["defeats"])
 
-func create_room(count: int) -> void:
+## `is_public` : salon visible dans WORLDWIDE (CREATE PUBLIC GAME), titre par defaut « <pseudo>'s game » ; sinon salon prive a code.
+func create_room(count: int, is_public: bool = false) -> void:
 	if _busy:
 		return
+	var back := func(): show_public() if is_public else show_friends()
 	var setup_err := Match.setup_error(count, m._active_sets()) # 5-6 joueurs : Crash Landing obligatoire (le serveur refuse aussi : bad_setup)
 	if setup_err != "":
-		msg_box("INVALID SETUP", BIG_GAME_MSG, func(): show_friends())
+		msg_box("INVALID SETUP", BIG_GAME_MSG, back)
 		return
 	_busy = true
 	_prepare_client()
-	var ok: bool = await m.online.create_lobby(count, m._active_sets())
+	var ok: bool = await m.online.create_lobby(count, m._active_sets(), 0, is_public, "%s's game" % m.online.player_name)
 	_busy = false
 	if ok:
 		m.go(show_waiting) # ExpansionScene.cs:153 (ColorFade 1,0 s)
 	elif str(m.online.last_error_code) == "bad_setup":
-		msg_box("INVALID SETUP", BIG_GAME_MSG, func(): show_friends())
+		msg_box("INVALID SETUP", BIG_GAME_MSG, back)
 	else:
-		msg_box("NETWORK ERROR", "Unable to create private room", func(): show_friends())
+		msg_box("NETWORK ERROR", "Unable to create public room" if is_public else "Unable to create private room", back)
 
 func join_room(code: String) -> void:
 	if _busy:
@@ -464,7 +640,7 @@ func resume_room() -> void:
 	var ok: bool = await m.online.try_resume()
 	_busy = false
 	if ok:
-		show_waiting()
+		m.go(show_waiting)
 	else:
 		msg_box("NETWORK ERROR", "Unable to resume the game", func(): show_friends())
 
@@ -478,9 +654,8 @@ func show_waiting() -> void:
 	var big := n_rows > 4
 	if not big:
 		UiKit.ninepatch(m, "ninepatch/searching_bg.webp", Vector2(390, 300), Vector2(1140, 604), Vector4(10, 0, 10, 0))
-	else: # la texture porte les 4 separateurs de lignes (y 91, 219, 347, 475 de la texture) : on n'en garde que l'en-tete, une bande sans trait etiree, le bas ; separateurs retraces
-		for part in [[0, 92, 300.0, 92.0], [93, 125, 392.0, 509.0], [601, 3, 901.0, 3.0]]:
-			UiKit.ninepatch(m, "ninepatch/searching_bg.webp", Vector2(390, part[2]), Vector2(1140, part[3]), Vector4(10, 0, 10, 0)).region_rect = Rect2(0, part[0], 21, part[1]) # (np_tex rogne deja 2 px a gauche et 1 en haut : x 0-21, traits a y 90, 218, 346, 474, 602)
+	else:
+		_panel_plain()
 		for i in range(1, n_rows):
 			var sep := ColorRect.new()
 			sep.color = Color(120.0 / 255.0, 155.0 / 255.0, 161.0 / 255.0)
@@ -534,18 +709,25 @@ func show_waiting() -> void:
 	o.start_lobby_poll()
 	o.fetch_lobby()
 
+## Cadre de la salle d'attente SANS separateurs de lignes : la texture porte les 4 separateurs (y 91, 219, 347, 475 de la texture) ; on n'en garde que l'en-tete,
+## une bande sans trait etiree, le bas. Les lignes (6 places, ou la liste publique defilante) tracent leurs propres separateurs.
+func _panel_plain() -> void:
+	for part in [[0, 92, 300.0, 92.0], [93, 125, 392.0, 509.0], [601, 3, 901.0, 3.0]]:
+		UiKit.ninepatch(m, "ninepatch/searching_bg.webp", Vector2(390, part[2]), Vector2(1140, part[3]), Vector4(10, 0, 10, 0)).region_rect = Rect2(0, part[0], 21, part[1]) # (np_tex rogne deja 2 px a gauche et 1 en haut : x 0-21, traits a y 90, 218, 346, 474, 602)
+
 func leave_waiting() -> void:
 	var o = m.online
+	var was_public: bool = o.public_room # leave_match() l'efface
 	o.stop_lobby_poll()
 	o.stop_state_poll()
-	o.leave_match()
+	o.leave_match(was_public) # retour a la liste publique : la liaison est reutilisee
 	if o.lobby_changed.is_connected(_on_lobby_changed):
 		o.lobby_changed.disconnect(_on_lobby_changed)
 	if o.request_error.is_connected(_on_waiting_error):
 		o.request_error.disconnect(_on_waiting_error)
 	if o.state_received.is_connected(_on_first_state):
 		o.state_received.disconnect(_on_first_state)
-	show_friends()
+	show_public() if was_public else show_friends()
 
 func _on_waiting_error(msg: String) -> void:
 	if msg.contains("reconnexion") or _wait_err_shown: # coupure passagere : le client rouvre tout seul

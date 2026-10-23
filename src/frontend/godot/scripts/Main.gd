@@ -4,7 +4,7 @@ extends Control
 ## SINGLE PLAYER : 2/3/4 joueurs = vous + 1 a 3 IA ; 5/6 joueurs seulement avec Crash Landing coche (Match.setup_error).
 ## MULTIPLAYER : PLAY ONLINE (entre amis, salon prive a code de 4 lettres) / PASS AND PLAY ; ecrans dans OnlineMenus.gd (clones de l'APK).
 ## IN-APP STORE supprime -> RULES ; tout est gratuit et debloque.
-## shortcut: pas de matchmaking mondial (WORLDWIDE affiche l'erreur « Unable to join public rooms »).
+## WORLDWIDE (hors APK) : liste des salons publics du serveur, sans comptes ; CREATE PUBLIC GAME = NEW GAME avec le mode « public ».
 
 ## Extensions du wiki hors APK (bascule « Options »).
 const EXT_PACKS := ["next-level", "minibosses", "crash-landing", "iod"]
@@ -65,6 +65,7 @@ func _ready() -> void:
 	online = OnlineClient.new()
 	add_child(online)
 	menus = OnlineMenus.new(self)
+	online.evicted.connect(_on_seat_taken)
 	if OS.has_feature("web"):
 		var origin = JavaScriptBridge.eval("window.location.origin")
 		if origin != null and str(origin) != "" and str(origin) != "null":
@@ -279,7 +280,8 @@ func show_menu() -> void:
 
 # --- solo : HOW MANY PLAYERS? -------------------------------------------------
 
-## mode : "solo" (vous + IA), "pass" (PASS AND PLAY : tous les sieges humains sur le meme ecran), "online" (NEW GAME : salon prive, nombre de sieges).
+## mode : "solo" (vous + IA), "pass" (PASS AND PLAY : tous les sieges humains sur le meme ecran), "online" (NEW GAME : salon prive, nombre de sieges),
+## "public" (CREATE PUBLIC GAME de WORLDWIDE : meme parcours, salon visible dans la liste).
 func show_solo_count(mode: String = "solo") -> void:
 	_apk_screen(func(): _count_back(mode))
 	_band("HOW MANY PLAYERS?")
@@ -321,6 +323,7 @@ func _count_back(mode: String) -> void:
 	match mode:
 		"pass": show_multi()
 		"online": show_friends()
+		"public": menus.show_public()
 		_: show_menu()
 
 ## Nombres proposes : 2-4, plus 5-6 quand Crash Landing est coche.
@@ -394,7 +397,10 @@ func show_setup(num_players: int, human_count: int, mode: String = "solo") -> vo
 	_ok_btn(func():
 		if Match.setup_error(num_players, _active_sets()) != "":
 			return # 5-6 joueurs avec un paquet non pris en charge : le message est affiche, on ne lance rien
-		menus.create_room(num_players) if mode == "online" else start_match(num_players, human_count))
+		if mode == "online" or mode == "public":
+			await menus.create_room(num_players, mode == "public")
+		else:
+			start_match(num_players, human_count))
 
 func _draw_tiles() -> void:
 	for c in dyn_root.get_children():
@@ -492,6 +498,10 @@ func show_friends() -> void:
 
 func show_waiting() -> void:
 	menus.show_waiting()
+
+## Un autre onglet a repris notre siege (OnlineClient.evicted) : session oubliee, pas de reconnexion ; on previent puis retour au menu.
+func _on_seat_taken() -> void:
+	menus.msg_box("SEAT TAKEN ELSEWHERE", "This seat is now used in another tab", func(): go(show_menu))
 
 func start_online_match() -> void:
 	_clear()
