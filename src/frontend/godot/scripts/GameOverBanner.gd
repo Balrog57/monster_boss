@@ -36,6 +36,12 @@ func build(winner_name: String, boss_id: String, lose: bool) -> void:
 		rip.name = "Tombstone"
 	else:
 		title_label = UiKit.label(self, winner_name, 52, Color.WHITE, Vector2(0, 153), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # 52 = arcadepix 21 x 2,5 (WinnerScene.cs:50)
+		# Particules derriere « IS THE WINNER! » : enfant du sprite winner_txt (467 x 41), emetteur 0,9 x ce rectangle, Emit = true des la creation et jamais coupee
+		# (WinnerScene.cs:63-74) ; ecran du vainqueur seulement (le perdant n'en a pas, LoseScene.cs).
+		var fx := ApkParticles.creer(self, Vector2(467, 41) * ApkParticles.ECHELLE)
+		fx.name = "WinnerFx"
+		fx.position = Vector2(960 - 233 + 467.0 / 2.0, 228 + 41.0 / 2.0)
+		fx.set_emit(true)
 		var w := UiKit.image(self, UI + "ingame/winner_txt.webp", Vector2(960 - 233, 228))
 		w.name = "WinnerText"
 		_boss(boss_id)

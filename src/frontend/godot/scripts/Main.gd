@@ -35,6 +35,8 @@ const UiKit = preload("res://godot/scripts/UiKit.gd")
 const CardGallery = preload("res://godot/scripts/CardGallery.gd")
 const OnlineMenus = preload("res://godot/scripts/OnlineMenus.gd")
 const CountDown = preload("res://godot/scripts/CountDown.gd")
+const CreditsScreen = preload("res://godot/scripts/CreditsScreen.gd")
+const TutorialOverlay = preload("res://godot/scripts/TutorialOverlay.gd")
 
 const UI := "res://assets/ui/"
 const FONT_A := "res://assets/fonts/arcadepix.fnt"   # texte plein (bandeaux, ON/OFF)
@@ -273,12 +275,68 @@ func show_menu() -> void:
 	online.stop_state_poll()
 	AudioManager.play_music("music_main")  # APK IntroScene
 	_apk_screen(func(): go(show_title)) # la fleche du menu appelle NavigatedBack = Pop ColorFade (MainMenuScene.cs:49-54,199-202)
-	_stone_btn("SINGLE PLAYER", "boss_icon.webp", Vector2(31, 55), 294, Vector2(458, 314), func(): go(show_solo_count)) # MainMenuScene.cs:84-87
+	_stone_btn("SINGLE PLAYER", "boss_icon.webp", Vector2(31, 55), 294, Vector2(458, 314), _solo_pressed) # MainMenuScene.cs:84-87
 	_stone_btn("MULTIPLAYER", "boss_multi_icon.webp", Vector2(26, 63), 329, Vector2(988, 314), func(): go(show_multi)) # MainMenuScene.cs:92-104
 	_stone_btn("OPTIONS", "options_icon.webp", Vector2(24, 57), 269, Vector2(458, 524), func(): go(show_options)) # MainMenuScene.cs:107-112
 	_stone_btn("RULES", "rules_icon.webp", Vector2(23, 46), 308, Vector2(988, 524), func(): go(show_rules), Vector2(96, 96)) # icone 64 -> 96 px : encre 80 px de haut comme inapp_icon (60 x 81) ; emplacement du store : MainMenuScene.cs:114-119
 
 # --- solo : HOW MANY PLAYERS? -------------------------------------------------
+
+## SINGLE PLAYER (MainMenuScene.cs:60-88) : au 1er lancement l'APK propose le tutoriel (OK -> GamePlayTutScene sans transition ; CANCEL -> drapeau a faux, puis le choix
+## du nombre de joueurs) ; ensuite le bouton va directement a HOW MANY PLAYERS?.
+func _solo_pressed() -> void:
+	if not Profile.first_gameplay():
+		go(show_solo_count)
+		return
+	_confirm_box("TUTORIAL", "DO YOU WANT TO PLAY A TUTORIAL GAME?", start_tutorial, func():
+		Profile.set_first_gameplay(false)
+		go(show_solo_count))
+
+## ConfirmationBoxScene : meme boite que OnlineMenus.msg_box (voile 0,7, bande winner_bg, titre dore sur bg_txt, message x 1,5) avec deux boutons OK / CANCEL
+## (ConfirmationBoxScene.cs : centres a 0,35 et 0,65 de la largeur, 0,56 de la hauteur = (744 ; 604,8) et (1176 ; 604,8)).
+func _confirm_box(title: String, text: String, ok: Callable, cancel: Callable) -> Control:
+	var dim := ColorRect.new()
+	dim.name = "ConfirmationBox"
+	dim.color = Color(0, 0, 0, 0.7)
+	dim.size = Vector2(1920, 1080)
+	add_child(dim)
+	UiKit.cross_fade_in(dim)
+	dim.add_child(_tex("gradients/winner_bg.webp", Vector2(960.0 - 956.5, 486.0 - 94.0), Vector2(1913.0, 188.0)))
+	dim.add_child(_tex("gradients/bg_txt.webp", Vector2(394, 75.6 - 32.0)))
+	var tl := menus._t(title.to_upper(), 2.0, GOLD, Vector2(394, 75.6 - 32.0), 1132.0, HORIZONTAL_ALIGNMENT_CENTER)
+	tl.size.y = 64.0
+	tl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	dim.add_child(tl)
+	var ml := menus._t(text, 1.5, Color.WHITE, Vector2(160, 480.6 - 40.0), 1600.0, HORIZONTAL_ALIGNMENT_CENTER)
+	ml.size.y = 80.0
+	ml.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	ml.name = "Message"
+	dim.add_child(ml)
+	for spec in [["Ok", "OK", 744.0, ok], ["Cancel", "CANCEL", 1176.0, cancel]]:
+		var cb: Callable = spec[3]
+		var b := TextureButton.new()
+		b.texture_normal = load(UI + "ingame/bt_apply_effects.webp")
+		b.texture_pressed = load(UI + "ingame/bt_apply_effects_pressed.webp")
+		b.position = Vector2(float(spec[2]) - 200.0, 604.8 - 51.5)
+		b.focus_mode = Control.FOCUS_NONE
+		b.name = str(spec[0])
+		var l := menus._t(str(spec[1]), 1.5, Color.WHITE, Vector2.ZERO, 400.0, HORIZONTAL_ALIGNMENT_CENTER)
+		l.size.y = 103.0
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		b.add_child(l)
+		b.pressed.connect(func(): AudioManager.play_sfx("ui_button_select"))
+		b.pressed.connect(func():
+			dim.queue_free()
+			cb.call())
+		dim.add_child(b)
+	return dim
+
+## Partie tutoriel (GamePlayTutScene) : pioches forcees (GameManager.start_tutorial), TutorialOverlay monte sur le plateau AVANT setup().
+func start_tutorial() -> void:
+	Profile.set_first_gameplay(false) # GamePlayTutScene.cs:79-86 : le constructeur consomme le drapeau
+	_clear()
+	game_manager.start_tutorial()
+	_open_board(game_manager, true)
 
 ## mode : "solo" (vous + IA), "pass" (PASS AND PLAY : tous les sieges humains sur le meme ecran), "online" (NEW GAME : salon prive, nombre de sieges),
 ## "public" (CREATE PUBLIC GAME de WORLDWIDE : meme parcours, salon visible dans la liste).
@@ -478,11 +536,13 @@ func start_match(num_players: int, human_count: int) -> void:
 	game_manager.start_new_game(num_players, human_count, _active_sets())
 	_open_board(game_manager)
 
-func _open_board(gm: GameManager) -> void:
+func _open_board(gm: GameManager, tutorial := false) -> void:
 	var board_scene = load("res://godot/scenes/Board.tscn")
 	board = board_scene.instantiate()
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(board)
+	if tutorial:
+		board.mount_tutorial(TutorialOverlay.new())
 	board.setup(gm, func(): show_title()) # APK LeaveGameplayScene : retour a l'ecran titre (fin de partie : OK ; menu : QUIT GAME)
 
 # --- multi : voir OnlineMenus.gd (MultiplayerScene, MenuOnlineScene, WithFriends, ChangeNameAvatar, salle d'attente) -----
@@ -527,6 +587,7 @@ func show_options() -> void:
 		Profile.save_settings(server_host, use_extensions, apk_decks)
 		show_menu()
 	_apk_screen(leave)
+	var decor := get_children() # fond, torches, logo, fleche (et les noeuds d'avant, deja condamnes) : tout ce qui s'ajoute ensuite = commandes d'OPTIONS (masquees par CREDITS)
 	_toggle_row(360, "MUSIC", ["ON", "OFF"], 0 if AudioManager.music_on else 1, func(i: int): AudioManager.set_music_on(i == 0))
 	_toggle_row(480, "SOUND", ["ON", "OFF"], 0 if AudioManager.sfx_on else 1, func(i: int): AudioManager.set_sfx_on(i == 0))
 	_toggle_row(600, "GAME SPEED", ["SLOW", "NORMAL", "FAST"], Profile.load_speed(), func(i: int): Profile.save_speed(i))
@@ -536,6 +597,23 @@ func show_options() -> void:
 	gal.pressed.connect(func():
 		AudioManager.play_sfx("ui_button_select")
 		go(func(): add_child(CardGallery.new()))) # OptionsScene.cs:85-90 (ColorFade 1,0 s)
+	# TUTORIAL : 1er rang de l'APK (OptionsScene.cs:58-67, y 356) ; ici ce rang est pris par les reglages (MUSIC / SOUND / GAME SPEED), le bouton se place a gauche de CARD GALLERY (hors APK).
+	var tut := UiKit.stone_button(self, "TUTORIAL", Vector2(121, 730))
+	tut.name = "Tutorial"
+	tut.pressed.connect(func():
+		AudioManager.play_sfx("ui_button_select")
+		if not is_web:
+			server_host = host.text
+		Profile.save_settings(server_host, use_extensions, apk_decks)
+		start_tutorial()) # OptionsScene.cs:62-67 : To(GamePlayTutScene) sans transition
+	# CREDITS : 4e bouton d'OPTIONS, 162 px sous le precedent (OptionsScene.cs:55-57,91-102).
+	var cred := UiKit.stone_button(self, "CREDITS", Vector2(687, 892))
+	cred.name = "Credits"
+	cred.pressed.connect(func():
+		AudioManager.play_sfx("ui_button_select")
+		if not is_web:
+			server_host = host.text # la sortie des credits reconstruit OPTIONS : on garde le champ serveur
+		_open_credits(decor))
 	# Controles secondaires discrets (multijoueur / extensions du wiki : hors APK).
 	var ext := CheckBox.new()
 	ext.text = "Wiki expansions (not in the APK)"
@@ -554,6 +632,17 @@ func show_options() -> void:
 		host.free() # web : le serveur est toujours celui qui sert la page (window.location.origin), pas de champ
 	else:
 		add_child(host)
+
+## Push SANS transition (OptionsScene.cs:100-102) : OPTIONS reste dessine derriere le voile, ses boutons et son logo sont masques (ShowButtons(false), :101) ;
+## retour = fondu noir 1,0 s vers OPTIONS (CreditsScene.cs:132).
+func _open_credits(decor: Array) -> void:
+	for c in get_children():
+		var is_logo: bool = c is TextureRect and (c as TextureRect).texture != null and (c as TextureRect).texture.resource_path.ends_with("bm_logo.webp")
+		if c is CanvasItem and (is_logo or not decor.has(c)):
+			(c as CanvasItem).visible = false
+	var cs := CreditsScreen.new()
+	cs.closed.connect(func(): go(show_options))
+	add_child(cs)
 
 ## Rangee de segments facon APK : le segment choisi est une pierre verte (settings_bt) dorée, les autres sur une barre mauve.
 func _toggle_row(y: int, text: String, opts: Array, sel: int, cb: Callable) -> void:

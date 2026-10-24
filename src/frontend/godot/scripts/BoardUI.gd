@@ -32,6 +32,11 @@ var _swap_idx := -1                       # salle de la main a poser des que la 
 var _swap_until := 0                      # delai (ms) apres lequel on abandonne l'attente
 var _last_phase: String = ""
 
+## Tutoriel (TutorialOverlay) : `tutorial_gate` vide = aucun effet, le plateau se comporte exactement comme avant. Rempli par mount_tutorial,
+## il est interroge par _tg(genre, argument, defaut) aux points sensibles (voir TutorialOverlay.gate pour la liste des genres).
+signal room_detail_shown(di: int) # le zoom d'une salle activable vient de s'afficher (GamePlayTutScene.OnRoomDetailShow)
+var tutorial_gate: Callable
+
 const CORE_MOVE_TYPES := ["pickBoss", "buildRoom", "undoBuild", "pass", "passBuild", "adventureNext", "resolveNextHero", "openingDiscard", "resolveLevelUpChoice"]
 
 # Textures de l'APK
@@ -106,6 +111,7 @@ var btn_pass: BaseButton
 var action_box: HBoxContainer
 var bar_box: VBoxContainer
 var hand_layer: Control
+var _fx_hand: Control                    # particules des cartes selectionnees (ApkParticles), derriere la main et persistantes d'un refresh a l'autre (la main est reconstruite a chaque fois)
 var phase_banner: TextureRect
 var timer_label: Label
 var hero_crossing_layer: Control
@@ -320,6 +326,10 @@ func _ready() -> void:
 	_build_right()
 	_build_actions()
 	_build_overlay()
+	_fx_hand = Control.new()
+	_fx_hand.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fx_hand.size = Vector2(1920, 1080)
+	add_child(_fx_hand)
 	hand_layer = Control.new()
 	hand_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hand_layer.size = Vector2(1920, 1080)
@@ -617,6 +627,17 @@ func setup(p_gm: GameManager, p_exit_cb: Callable) -> void:
 func _play_sfx(path: String) -> void:
 	AudioManager.play_sfx(path)
 
+## Reponse de la garde du tutoriel ; `default` quand il n'y en a pas (partie normale).
+func _tg(kind: String, arg = null, default = true):
+	return tutorial_gate.call(kind, arg) if tutorial_gate.is_valid() else default
+
+## Monte le tutoriel sur ce plateau : a appeler AVANT setup() (la garde « carousel » doit tenir le choix du boss).
+func mount_tutorial(ov: Control) -> void:
+	ov.name = "TutorialOverlay"
+	ov.set("board", self)
+	tutorial_gate = Callable(ov, "gate")
+	add_child(ov)
+
 func _exit_tree() -> void:
 	if _sparkle_on: # quitter la partie en plein ciblage : la boucle ne doit pas survivre au plateau
 		_sparkle_on = false
@@ -699,6 +720,8 @@ func _follow_seat(G: Dictionary) -> bool:
 		_sync_slot_pids()
 		return false
 	_handing_over = true
+	for e in _fx_hand.get_children():
+		e.queue_free() # la main du siege precedent part avec ses particules
 	var lanes: Array = [_lane[0]["root"], _lane[1]["root"]]
 	var tw := create_tween()
 	tw.tween_property(hand_layer, "position:y", 600.0, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
@@ -795,6 +818,8 @@ func _process(delta: float) -> void:
 	var now := Time.get_ticks_msec()
 	var dt: float = maxf(delta, minf(float(now - _last_ms) / 1000.0, 1.0)) if _last_ms > 0 else delta
 	_last_ms = now
+	if not _tg("run"):
+		return # tutoriel : une scene est affichee (le jeu est fige derriere, GamePlayTutScene.cs:135) ou une consigne attend le joueur
 	if _animating_hero or _bait_active():
 		return # le heros ne part qu'une fois tous les heros arrives a leur donjon
 	if _modal_open() and not _is_online():
@@ -1077,7 +1102,7 @@ func _carousel_active(G: Dictionary, phase: String) -> bool:
 
 ## Le siege affiche doit encore recevoir son boss (carrousel) ; un siege qui a deja le sien voit le plateau.
 func _boss_pending(G: Dictionary) -> bool:
-	return G.get("gameOver") == null and str(G.get("phase", "")) == "boss" and ((G.get("players", {}) as Dictionary).get(view_pid, {}) as Dictionary).get("boss") == null
+	return G.get("gameOver") == null and str(G.get("phase", "")) == "boss" and ((G.get("players", {}) as Dictionary).get(view_pid, {}) as Dictionary).get("boss") == null and _tg("carousel") # tutoriel : le carrousel attend la fin de l'intro
 
 ## Un seul humain (solo) : PLAY BOSS MONSTER! ; plusieurs (pass and play / en ligne) : l'ecran se ferme seul.
 func _boss_solo(G: Dictionary) -> bool:
@@ -1182,6 +1207,8 @@ func _track_levelup(G: Dictionary) -> void:
 		var pl: Dictionary = G["players"][pid]
 		var now := bool(pl.get("leveledUp", false))
 		if _lvl_seen.has(pid) and now and not bool(_lvl_seen[pid]) and not skip_animations and pl.get("boss") != null:
+			if not _tg("levelup"):
+				continue # tutoriel : la banniere attend les consignes (ne pas marquer « vu »)
 			_show_levelup(int(pid), pl["boss"])
 		_lvl_seen[pid] = now
 
@@ -1345,7 +1372,29 @@ func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 				tok.modulate.a = 0.0
 				_fly_hero_card(pid_key, ents[k], k, tok, seq + k)
 		_ent_tok[pid_key] = toks
+		_fx_hero_entry(box, pid_key, ents, toks)
 		seq += ents.size()
+
+## Heros qui entre dans le donjon du joueur actif (AdventurePhase_b) : sa carte d'entree emet (HeroesQueueComponent.cs:105-107, 142-145 EmitParticles = true), jusqu'a
+## son retrait de la file (ShiftAndRemoveFirstHero, :293-296). Ici : tant que l'aventure de ce joueur a un heros, sur sa carte d'entree. Emetteur 0,9 x la carte (CardEntity.cs:88-91),
+## derriere les cartes ; il est un frere de `box` (les jetons sont reconstruits a chaque refresh, pas lui : les particules vivantes ne sautent pas).
+func _fx_hero_entry(box: Control, pid: int, ents: Array, toks: Array) -> void:
+	var adv: Dictionary = game_manager.G.get("adventure", {})
+	var k := -1
+	if not adv.is_empty() and adv.get("hero") != null and int(adv.get("playerId", -1)) == pid:
+		for i in ents.size():
+			if str((ents[i] as Dictionary).get("id", "")) == str((adv["hero"] as Dictionary).get("id", "")):
+				k = i
+				break
+	var par := box.get_parent() as Control
+	if k < 0 or k >= toks.size():
+		var old := par.get_node_or_null("HeroFx") as ApkParticles
+		if old != null:
+			old.set_emit(false)
+		return
+	var fx := ApkParticles.sur(par, "HeroFx", box.position + (toks[k] as Control).position + HERO_CARD * 0.5, HERO_CARD * ApkParticles.ECHELLE, true, false) # (la taille d'un Card.tscn n'est definitive qu'une fois dans l'arbre : constante)
+	if fx.get_index() > box.get_index():
+		par.move_child(fx, box.get_index())
 
 func _bait_active() -> bool:
 	return _bait_t0 > 0 # _bait_end (tween de _bait_ms) le remet a 0 : pas d'horloge reelle, le tween suit delta plafonne (~0,13 s) comme les vols
@@ -1554,6 +1603,11 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 		return # le carrousel tourne : un rafraichissement (coup de l'IA, journal) ne doit pas le reconstruire
 	for c in hand_layer.get_children():
 		c.queue_free()
+	for e in _fx_hand.get_children(): # carte deselectionnee : Emit = false, les particules vivantes finissent (CardBorderBehavior.cs:42) ; la selection finie, les cartes partent avec leurs particules
+		if _is_opening_discard_for_me():
+			(e as ApkParticles).set_emit(false) # les cartes encore selectionnees le rallument plus bas (_fx_selected)
+		else:
+			e.queue_free()
 	_boss_cards.clear()
 
 	if boss_pick:
@@ -1624,8 +1678,15 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 		for i in cards.size():
 			if discard_pick.has(i):
 				(cards[i] as Control).position.y -= 30.0
+				_fx_selected(i, cards[i] as Control)
 	else:
 		_place_fan(cards, sz)
+
+## Carte choisie dans le selecteur (defausse d'ouverture) : bordure YellowGlow (CardSelectorComponent.cs:137) = particules (CardBorderBehavior.cs:48-50 Emit = true).
+## Emetteur 0,9 x la carte (CardEntity.cs:88-91, ParticlesParentSizeBehavior), derriere elle ; il survit a la reconstruction de la main.
+func _fx_selected(i: int, card: Control) -> void:
+	var r := card.get_global_rect()
+	ApkParticles.sur(_fx_hand, "sel%d" % i, r.get_center() - _fx_hand.global_position, r.size * ApkParticles.ECHELLE, true, false)
 
 func _spawn_card(data: Dictionary, hand_idx: int, sz: Vector2) -> Control:
 	var card_ui = _card_scene.instantiate()
@@ -1666,6 +1727,9 @@ func _build_boss_carousel(G: Dictionary, my_moves: Array) -> void:
 		return
 	_boss_seat = view_pid
 	_boss_pick_id = str(cands[game_manager.rng.randi_range(0, cands.size() - 1)])
+	var forced := str(_tg("boss", cands, "")) # tutoriel : le carrousel s'arrete sur King Croak (GamePlayTutScene.cs:115)
+	if forced != "" and cands.has(forced):
+		_boss_pick_id = forced
 	var pool: Array = picks.duplicate()
 	while pool.size() < 8:
 		pool.append_array(picks)
@@ -1796,6 +1860,8 @@ func _boss_confirm() -> void:
 	_do({"type": "pickBoss", "args": [_boss_pick_id]})
 
 func _input(event: InputEvent) -> void:
+	if not _tg("input", event):
+		return # tutoriel : une scene est affichee, le tap lui appartient (il ne doit ni fermer le zoom ni armer un glisser)
 	# Un nouvel appui gauche alors qu'un appui est encore arme : le relachement precedent s'est perdu (hors canvas / fenetre).
 	if not _press.is_empty() and _drag.is_empty() and event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		_press = {}
@@ -2646,6 +2712,7 @@ func _target_end() -> void:
 	for n in _tgt_lifted:
 		if is_instance_valid(n):
 			(n as CanvasItem).z_index = 0
+			_fx_target(n as Control, false)
 	_tgt_lifted.clear()
 	_tgt_spots.clear()
 	if _tgt_layer != null and is_instance_valid(_tgt_layer):
@@ -2770,6 +2837,7 @@ func _target_apply_now(settle := true) -> void:
 	for n in _tgt_lifted:
 		if is_instance_valid(n):
 			(n as CanvasItem).z_index = 0
+			_fx_target(n as Control, false) # rallume plus bas par _target_make_spot si la salle reste ciblable
 	_tgt_lifted.clear()
 	for s in _tgt_spots:
 		if is_instance_valid(s["ctrl"]):
@@ -2810,12 +2878,21 @@ func _target_apply_now(settle := true) -> void:
 		elif b is Button:
 			(b as Button).remove_theme_color_override("font_color")
 
+## Salle ciblable = bordure GreenGlow : CardStackSlotComponent.HighLightCards met EmitParticles (cs:309-311), CleanHighLightCards l'eteint (cs:331-334) ; seulement les salles
+## (le heros, la ville, le joueur n'en ont pas). Emetteur 0,9 x la salle (CardEntity.cs:88-91), enfant de l'emplacement, derriere elle.
+func _fx_target(node: Control, on: bool) -> void:
+	ApkParticles.sur(node, "TargetFx", node.size * 0.5, node.size * ApkParticles.ECHELLE, on)
+
 func _target_make_spot(g: Dictionary) -> void:
 	var node: Control = g["node"]
 	var r: Rect2 = g["rect"]
 	var ids: Array = g["ids"]
 	node.z_index = TARGET_Z
 	_tgt_lifted.append(node)
+	for i in ids:
+		if str((((_tgt["entries"] as Array)[int(i)] as Dictionary)["spot"] as Dictionary).get("k", "")) == "room":
+			_fx_target(node, true)
+			break
 	var sp := Control.new()
 	sp.position = r.position - Vector2(10, 10)
 	sp.size = r.size + Vector2(20, 20)
@@ -2876,8 +2953,8 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 		return # un menu ouvert par le joueur reste devant ; le choix reapparait a la fermeture (refresh)
 	if _popup_kind == "choice" and sig == _choice_sig:
 		return
-	if _lvl_busy:
-		return # banniere LEVEL UP en cours : le choix suivra (refresh a sa fin)
+	if _lvl_busy or not _tg("choice", pc):
+		return # banniere LEVEL UP en cours : le choix suivra (refresh a sa fin) ; tutoriel : le choix attend la fin des consignes
 	var opts: Array = pc.get("options", [])
 	var entries: Array = []
 	var board: Array = [] # options hors SKIP, avec leur zone du plateau
@@ -3026,6 +3103,8 @@ func _do(move: Dictionary) -> void:
 	refresh() # toujours : ce qui reste a decider (nouveau choix) doit reapparaitre
 
 func _on_hand_card_clicked(idx: int, card: Dictionary) -> void:
+	if not _tg("tap", {"idx": idx, "card": card}):
+		return # tutoriel : seule la carte imposee reagit (CardExtractBehavior.cs:216)
 	if _is_opening_discard_for_me():
 		if discard_pick.has(idx):
 			discard_pick.erase(idx)
@@ -3163,7 +3242,7 @@ func _hand_moves(idx: int) -> Array:
 	var cands: Array = []
 	for mv in _my_moves(_my_pid()):
 		var m: Dictionary = mv
-		if str(m.get("type", "")) != "buildRoom" and hand_idx_of(m) == idx:
+		if str(m.get("type", "")) != "buildRoom" and hand_idx_of(m) == idx and _tg("move", m): # tutoriel : un seul coup de sort permis
 			cands.append(m)
 	return cands
 
@@ -3227,7 +3306,8 @@ func _on_slot_activate(di: int) -> void:
 		return
 	for m in _moves_of(game_manager.legal_moves(_my_pid()), "undoBuild"): # clic sur la pose en attente : elle revient en main
 		if int(((m as Dictionary)["args"] as Array)[0]) == di:
-			_do(m)
+			if _tg("undo"): # tutoriel : la pose imposee ne se reprend pas
+				_do(m)
 			return
 	var cands: Array = []
 	for m in _moves_of(_my_moves(_my_pid()), "activateRoom"):
@@ -3259,6 +3339,7 @@ func _on_slot_activate(di: int) -> void:
 	var glow := UiKit.image(_zoom, "res://assets/ui/ingame/card_border_ability_glow.webp", ab.position, ab.size)
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_zoom.set_meta("ability", {"rect": ab, "di": di, "cands": cands})
+	room_detail_shown.emit(di)
 
 ## Resolution de la capacite d'une salle (apres le tap sur la bordure du zoom) : coup direct, ou choix de la salle cible (Centipede Tunnel...).
 func _resolve_slot_ability(di: int, cands: Array) -> void:
@@ -3293,8 +3374,8 @@ func _on_discard_confirm() -> void:
 	var pair := discard_pick.duplicate()
 	pair.sort()
 	_play_sfx("ui_button_select") # bouton CONTINUE du selecteur (CarouselSelectorEntity.cs:21, ButtonBaseEntity.cs:202) ; l'APK n'appelle jamais ui_card_flip
+	discard_pick.clear() # avant _do : son refresh reconstruit la main (du siege suivant en pass and play), sans la selection de celui-ci
 	_do({"type": "openingDiscard", "args": pair})
-	discard_pick.clear()
 
 func _is_opening_discard_for_me() -> bool:
 	var pc: Dictionary = game_manager.G.get("pendingChoice", {})
@@ -3322,6 +3403,8 @@ func _pass_turn_mode() -> bool:
 func _on_pass_pressed() -> void:
 	if not _tgt.is_empty():
 		return
+	if not _tg("pass"):
+		return # tutoriel : DONE verrouille tant que la pose imposee n'est pas faite (GamePlayTutScene.cs:185,194,203)
 	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
 	# DoneButtonEntity.cs:118-143 : en mode PASS TURN le 1er relachement ne passe jamais, il leve le drapeau (ShowHintComponent.Hint, IsRaised) ; la bulle « HEY! YOU CAN
 	# BUILD A ROOM! STILL WANT TO PASS? » (GamePlayBaseScene.cs:259-269) n'apparait que si une salle de la main est constructible. Le 2e relachement passe. Le drapeau
@@ -3393,7 +3476,7 @@ func _drag_begin() -> void:
 	var idx: int = int(_press["idx"])
 	var hand := _my_hand()
 	var ci = _press["card"]
-	if idx < 0 or idx >= hand.size():
+	if idx < 0 or idx >= hand.size() or not _tg("drag", idx): # tutoriel : seule la carte imposee se glisse
 		_press_clear()
 		return
 	if is_instance_valid(ci):
@@ -3440,7 +3523,7 @@ func _drag_refresh() -> void:
 			# salle avancee : les salles recouvrables ; ordinaire : les salles recouvrables (DungeonSlot.CheckRoomCanBeBuilt, meme donjon
 			# non plein) et le prochain emplacement libre ; _can_drop_data ne garde que ceux que le moteur accepte
 			var wanted: bool = filled or (not advanced and dungeon.size() < CardDB.DUNGEON_SLOTS and j == off - 1)
-			if wanted and slot._can_drop_data(Vector2.ZERO, {"type": "card", "hand_index": idx}):
+			if wanted and _tg("drop", slot) and slot._can_drop_data(Vector2.ZERO, {"type": "card", "hand_index": idx}):
 				(_drag["frames"] as Array).append(_slot_frame(slot))
 		_drag_hover()
 		return
@@ -3485,6 +3568,10 @@ func _drag_hover() -> void:
 		if is_instance_valid(f) and (f as Node).has_meta("slot"):
 			var hot := _slot_hovered((f as Node).get_meta("slot") as Control, prev.position + prev.size / 2.0)
 			((f as Node) as TextureRect).texture = _tex(UI_DIR + ("card_border_yellow_glow_scaled.webp" if hot else "card_border_yellow_scaled.webp"))
+			# Particules seulement sur l'emplacement survole (SlotGlow pose en YellowGlow : BuildRoomHandSceneBehavior.cs:125-132, DungeonFrameEntity.cs:309-318, CardBorderBehavior.cs:48-50) ;
+			# les emplacements simplement constructibles (HighLightBuildableSlots, bordure Yellow) n'en ont pas. Emetteur = l'emplacement (card_slot, ParticlesParentSizeBehavior Scale 1), derriere le cadre.
+			var slot := (f as Node).get_meta("slot") as Control
+			ApkParticles.sur(f as Control, "SlotFx", (f as Control).size * 0.5, slot.size, hot)
 
 ## Cadre dore de cible (APK : bordure doree sur la salle / le heros que le sort peut viser) ; ne bloque pas la souris.
 func _gold_frame(r: Rect2, red := false) -> Control:
@@ -3539,7 +3626,7 @@ func _drag_end(pos: Vector2) -> void:
 					if _slot_hovered(slot as Control, card_center) and (slot as DungeonSlot)._can_drop_data(Vector2.ZERO, data):
 						target = slot
 						break
-			if target != null and target._can_drop_data(Vector2.ZERO, data):
+			if target != null and _tg("drop", target) and target._can_drop_data(Vector2.ZERO, data):
 				target._drop_data(Vector2.ZERO, data)
 		else:
 			_spell_drop(idx, pos)
@@ -3549,7 +3636,7 @@ func _drag_end(pos: Vector2) -> void:
 ## plusieurs coups sur la meme cible = petite liste ; cibles sans representation (ames, pile...) = la liste centrale.
 func _spell_drop(idx: int, pos: Vector2) -> void:
 	var cands := _hand_moves(idx)
-	if cands.is_empty():
+	if cands.is_empty() or not _tg("spell_drop", pos): # tutoriel : le sort doit tomber sur le heros designe
 		return
 	var inside := Rect2(184, 62, 1523, 890).has_point(pos)
 	var hits: Array = []
@@ -3852,6 +3939,14 @@ func _show_draw(cards: Array) -> void:
 		var cx := lerpf(400.0, 1490.0, float(i + 1) / float(n + 1))
 		holder.position = Vector2(-480.0, 520.0) - back.size / 2.0
 		_ui_layer.add_child(holder)
+		# Particules de la pioche : EmitParticles = true des la creation de la carte (DrawCardEmitter.cs:153), jusqu'a Attach a la main (CardManagerComponent.cs:108, _draw_land).
+		# Emetteur 0,9 x la carte (CardEntity.cs:88-91), derriere elle ; frere du holder (qui se retourne en echelle X) : il suit seulement son centre.
+		var fx := ApkParticles.creer(_ui_layer, back.size * ApkParticles.ECHELLE)
+		fx.position = holder.position + back.size * 0.5
+		fx.suit = holder
+		fx.set_emit(true)
+		_ui_layer.move_child(fx, holder.get_index())
+		holder.set_meta("fx", fx)
 		var tw := holder.create_tween()
 		tw.tween_property(holder, "position:x", cx - back.size.x / 2.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT) # CubicEase sans mode = EaseOut (:156 ; EasingFunctionBase.cs:8)
 		tw.tween_callback(func(): _play_sfx("res://assets/audio/sfx/ui_card_slide_up.wav")) # FlipCardBehavior.cs:113
@@ -3867,6 +3962,9 @@ func _show_draw(cards: Array) -> void:
 ## puis la vraie carte de la main (cachee jusque-la) apparait.
 func _draw_land(holder: Control, cid: String) -> void:
 	_play_sfx("res://assets/audio/sfx/ui_card_slide_general.wav")
+	var fx = holder.get_meta("fx", null) # Attach : EmitParticles = false (CardManagerComponent.cs:108) ; les particules vivantes finissent leur vie
+	if fx != null and is_instance_valid(fx):
+		(fx as ApkParticles).finir()
 	var dest: CardUI = null
 	for c in hand_layer.get_children():
 		var cu := c as CardUI

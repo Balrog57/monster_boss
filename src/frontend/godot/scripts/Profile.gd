@@ -94,6 +94,18 @@ static func save_settings(host: String, extensions: bool, decks: Variant = null)
 		cfg.set_value("settings", "decks", decks)
 	cfg.save(SAVE_PATH)
 
+## Premier lancement du jeu solo : l'APK propose le tutoriel une seule fois (GameStats.IsFirstGameplay, MainMenuScene.cs:60-88). Consomme des qu'on repond a la boite.
+static func first_gameplay() -> bool:
+	var cfg := ConfigFile.new()
+	cfg.load(SAVE_PATH)
+	return bool(cfg.get_value("settings", "first_gameplay", true))
+
+static func set_first_gameplay(v: bool) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(SAVE_PATH)
+	cfg.set_value("settings", "first_gameplay", v)
+	cfg.save(SAVE_PATH)
+
 ## Vitesse de jeu (Options APK : 0 SLOW, 1 NORMAL, 2 FAST). Ecrite par Main.gd et InGameMenu.gd (lignes GAME SPEED), lue par BoardUI._speed_factor (SLOW x1.5, NORMAL x1, FAST x0.5 ; forcee a 0.5 en ligne).
 static func load_speed() -> int:
 	var cfg := ConfigFile.new()

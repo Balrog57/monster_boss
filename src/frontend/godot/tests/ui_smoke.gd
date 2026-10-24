@@ -17,13 +17,14 @@ extends Node
 ##   --sets=a,b     paquets (ex. players-choice,hidden-heroes,tools,tools-wiki,next-level,crash-landing,minibosses ; defaut base)
 ##   --style=S      random | spells | passive (defaut : alterne)    --turns=N     arrete apres N tours au lieu d'aller a la fin
 ##   --anim         animations de traversee des heros reelles (temps accelere x6) pour toutes les parties
-##   --only=NAME    une seule verification supplementaire (ex. --only=public_lobby ou --only=online_menus : appelle _check_NAME), pour iterer vite
+##   --only=NAME    une seule verification supplementaire (ex. --only=public_lobby, --only=online_menus ou --only=apk_particles : appelle _check_NAME), pour iterer vite
 ## Chaque anomalie est affichee avec sa graine : « [seed=7 players=3 ...] ... » = la commande pour la rejouer.
 
 const GameManager = preload("res://godot/scripts/GameManager.gd")
 const OnlineMenus = preload("res://godot/scripts/OnlineMenus.gd")
 const Server = preload("res://godot/server/Server.gd")
 const OnlineClient = preload("res://godot/scripts/OnlineClient.gd")
+const TutorialScript = preload("res://godot/scripts/TutorialOverlay.gd")
 
 const DUNGEON_N := 5
 const MAX_STEPS := 6000
@@ -899,11 +900,13 @@ func _act_discard(pid: int) -> void:
 	_check(board._dim.visible and board._dim.size == Vector2(1523, 400) and not board.phase_banner.visible, "defausse : seul le bandeau des cartes s'assombrit, sans plaque de phase")
 	board._on_hand_card_clicked(int(order[2]), hand[int(order[2])]) # une 3e est ignoree
 	_check(board.discard_pick.size() == 2, "defausse : 3 cartes selectionnables")
+	_check(_emitting(board._fx_hand).size() == 2, "defausse : une carte choisie doit emettre (YellowGlow, CardBorderBehavior.cs:48-50), %d emetteur(s) actifs pour 2 cartes" % _emitting(board._fx_hand).size())
 	var n_before := hand.size()
 	board._confirm_btn.pressed.emit()
 	await get_tree().process_frame
 	_check((gm.G["players"][pid]["hand"] as Array).size() == n_before - 2 or not (gm.G.get("pendingChoice", {}) as Dictionary).is_empty(), "defausse : la main n'a pas perdu 2 cartes")
 	_check(board.discard_pick.is_empty(), "defausse : selection non remise a zero")
+	_check(_emitting(board._fx_hand).is_empty(), "defausse : plus de carte choisie, plus d'emission")
 	_cov("opening_discard")
 
 ## Gestes parasites : ne doivent rien casser ni changer l'etat de la partie.
@@ -1541,6 +1544,8 @@ func _check_target_spots() -> void:
 	_check(board._tgt_spots.size() == specs.size() - 1, "zones allumees : %d (%d attendues, 2 coups sur la salle)" % [board._tgt_spots.size(), specs.size() - 1])
 	_check(AudioManager.loop_count("sfx_sparklecard") == 1, "ciblage : la boucle sfx_sparklecard doit tourner (surbrillance verte d'une salle), compteur %d" % AudioManager.loop_count("sfx_sparklecard")) # CardStackSlotComponent.cs:312
 	var lifted: Array = board._tgt_lifted.duplicate()
+	var fx_nodes: Array = lifted.filter(func(n): return is_instance_valid(n) and not _emitting(n).is_empty())
+	_check(fx_nodes.size() == 1 and fx_nodes[0] is DungeonSlot, "ciblage : seule la salle ciblable emet (GreenGlow, CardStackSlotComponent.cs:309-311), %d noeud(s) emetteur(s)" % fx_nodes.size())
 	for sp in board._tgt_spots.duplicate():
 		var ids: Array = sp["ids"]
 		await _click_at((sp["ctrl"] as Control).get_global_rect().get_center())
@@ -1563,6 +1568,7 @@ func _check_target_spots() -> void:
 	await get_tree().process_frame
 	_check(board._tgt.is_empty(), "ciblage : mode non referme")
 	_check(AudioManager.loop_count("sfx_sparklecard") == 0, "ciblage ferme : la boucle sfx_sparklecard doit s'arreter") # CardStackSlotComponent.cs:334
+	_check(fx_nodes.all(func(n): return not is_instance_valid(n) or _emitting(n).is_empty()), "ciblage ferme : la salle doit cesser d'emettre (CardStackSlotComponent.cs:331-334)")
 	for n in lifted:
 		if is_instance_valid(n):
 			_check((n as CanvasItem).z_index == 0, "ciblage : un noeud du plateau reste devant le voile (z %d)" % (n as CanvasItem).z_index)
@@ -1900,6 +1906,8 @@ func _check_drag_and_zoom() -> void:
 	# APK : l'emplacement survole par la carte porte card_border_yellow_glow_scaled, les autres card_border_yellow_scaled (BuildRoomHandSceneBehavior.cs:120-127)
 	var glows: Array = board._ui_layer.find_children("SlotGlow", "TextureRect", true, false).filter(func(f): return not f.is_queued_for_deletion() and str((f as TextureRect).texture.resource_path).ends_with("card_border_yellow_glow_scaled.webp"))
 	_check(glows.size() == 1, "glisser : %d emplacements au cadre lumineux sous la carte (1 attendu)" % glows.size())
+	var slot_fx: Array = _emitting(board._ui_layer)
+	_check(slot_fx.size() == 1 and (slot_fx[0] as Node).get_parent() == glows[0], "glisser : seul l'emplacement survole emet (BuildRoomHandSceneBehavior.cs:125-132), %d emetteur(s)" % slot_fx.size())
 	await _mouse(slot_c, false, false)
 	_check((me["dungeon"] as Array).size() == dsize + 1 and (me["hand"] as Array).size() == n_hand - 1, "glisser : la salle n'a pas ete construite sur l'emplacement vise")
 	_check(board._drag.is_empty() and board._ui_layer.find_children("GoldFrame", "Control", true, false).is_empty(), "glisser : cadres dores restes apres le depot")
@@ -2355,6 +2363,132 @@ func _check_gallery() -> void:
 		await _nav(main)
 		_check(main.get_children().any(func(c): return c.get_script() != null and str(c.get_script().resource_path).ends_with("CardGallery.gd")), "galerie : non ouverte depuis OPTIONS")
 		_cov("gallery_options")
+	main.queue_free()
+	await get_tree().process_frame
+
+## OPTIONS > CREDITS (CreditsScreen.gd ; CreditsScene.cs, CreditRollBehavior.cs) : 4e bouton d'OPTIONS, textes de credits.json, logo immobile 8,8 s puis qui monte (100 px/s),
+## pied arrete a y = 400, glisser, retour en fondu noir vers OPTIONS. Le temps est avance a la main (_process(dt)) : la scene ne tourne pas seule.
+func _check_credits() -> void:
+	_tag = "[credits]"
+	await _teardown()
+	var CS = load("res://godot/scripts/CreditsScreen.gd")
+	var main = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main)
+	await _wait(0.2)
+	main.show_options()
+	await get_tree().process_frame
+	var cb = main.find_child("Credits", true, false)
+	var gal = main.find_child("CardGallery", true, false)
+	if not _check(cb is Button and (cb as Button).text == "CREDITS" and gal != null, "credits : bouton CREDITS absent d'OPTIONS"):
+		main.queue_free()
+		return
+	_check(is_equal_approx(cb.position.y - gal.position.y, 162.0) and is_equal_approx(cb.position.x, gal.position.x), "credits : CREDITS pas 162 px sous CARD GALLERY (%s / %s)" % [cb.position, gal.position]) # OptionsScene.cs:55-57
+	_check(Rect2(0, 0, 1920, 1080).encloses(Rect2(cb.position, cb.size)), "credits : bouton hors ecran")
+	for c in main.find_children("*", "Control", true, false):
+		if c != cb and (c is Button or c is CheckBox or c is LineEdit) and (c as Control).visible:
+			_check(not (c as Control).get_global_rect().intersects(Rect2(cb.position, cb.size)), "credits : le bouton CREDITS chevauche %s" % c.name)
+	cb.pressed.emit()
+	await get_tree().process_frame
+	_check(not main.is_fading(), "credits : l'ouverture est un Push sans transition")
+	var cs = main.find_child("CreditsScreen", true, false)
+	if not _check(cs != null, "credits : ecran non ouvert"):
+		main.queue_free()
+		return
+	cs.set_process(false)
+	cs.roll.node.position.y = 1180.0 # une image s'est ecoulee avant set_process(false) : retour a l'etat de depart
+	cs.footer.node.position.y = 4620.0
+	cs.logo.delay = 880.0
+	_check(not cb.visible and not gal.visible, "credits : les boutons d'OPTIONS restent visibles")
+	await _wait(0.45)
+	_check(is_equal_approx(cs.veil.color.a, 0.7) and cs.veil.color.r == 0.0, "credits : voile noir alpha 0,7 apres 0,3 s : %s" % cs.veil.color)
+	_check(cs.veil.get_global_rect() == Rect2(0, 0, 1920, 1080) and cs.get_global_rect() == Rect2(0, 0, 1920, 1080), "credits : le voile ne couvre pas l'ecran (%s)" % cs.veil.get_global_rect())
+	# textes : un libelle par H1 / H2 / nom non vide de credits.json (cles a casse variable)
+	var data: Dictionary = CS.load_data()
+	var n_h1 := 0
+	var n_h2 := 0
+	var n_names := 0
+	for e in CS.ci(data, "Element"):
+		if CS.ci(e, "H1") != null:
+			n_h1 += 1
+		var paras = CS.ci(e, "Paragraph")
+		for p in (paras if paras is Array else []):
+			if CS.ci(p, "H2") != null:
+				n_h2 += 1
+			var nms = CS.ci(p, "Names")
+			for n in (nms if nms is Array else []):
+				if str(n) != "":
+					n_names += 1
+	var labels: Array = cs.find_children("*", "Label", true, false)
+	var by_kind := {"h1": [], "h2": [], "name": []}
+	for l in labels:
+		(by_kind[str(l.get_meta("kind"))] as Array).append(l)
+	_check(n_h1 == 3 and n_h2 == 16 and n_names == 45, "credits : donnees inattendues (h1 %d, h2 %d, noms %d)" % [n_h1, n_h2, n_names])
+	_check((by_kind["h1"] as Array).size() == n_h1 and (by_kind["h2"] as Array).size() == n_h2 + 1 and (by_kind["name"] as Array).size() == n_names, "credits : %d H1 / %d H2 (+ pied) / %d noms affiches" % [(by_kind["h1"] as Array).size(), (by_kind["h2"] as Array).size(), (by_kind["name"] as Array).size()])
+	var all_up := true
+	for l in labels:
+		all_up = all_up and (l as Label).text == (l as Label).text.to_upper() and (l as Label).text != ""
+	_check(all_up, "credits : texte non MAJUSCULE ou vide")
+	var powered: Label = cs.footer.node.find_children("*", "Label", true, false)[0]
+	_check(powered.text == "POWERED BY" and powered.get_theme_color("font_color") == Color("bfca7a"), "credits : pied sans POWERED BY (%s)" % powered.text)
+	for l in labels: # rien ne deborde en largeur ; axe des noms 1090 x 1,3 / 2 + 240 = 948,5 (frame APK : ~949)
+		var r := Rect2((l as Label).position, (l as Label).size)
+		_check(r.position.x >= 0.0 and r.end.x <= 1920.0, "credits : %s deborde en largeur %s" % [(l as Label).text, r])
+		if l.get_meta("kind") != "h1":
+			_check(is_equal_approx(r.position.x + r.size.x / 2.0, 948.5), "credits : axe de %s en %f (948,5 attendu)" % [(l as Label).text, r.position.x + r.size.x / 2.0])
+	# defilement : le rouleau part tout de suite de y = 1180, le logo attend 8,8 s, le pied part de 4620
+	_check(is_equal_approx(cs.logo.node.position.y, 170.0) and is_equal_approx(cs.roll.node.position.y, 1180.0) and is_equal_approx(cs.footer.node.position.y, 4620.0), "credits : positions de depart (logo %f, rouleau %f, pied %f)" % [cs.logo.node.position.y, cs.roll.node.position.y, cs.footer.node.position.y])
+	for i in 80:
+		cs._process(0.1) # 8,0 s
+	_check(is_equal_approx(cs.logo.node.position.y, 170.0), "credits : le logo bouge avant 8,8 s (%f)" % cs.logo.node.position.y)
+	_check(absf(cs.roll.node.position.y - (1180.0 - 800.0)) < 0.01 and absf(cs.footer.node.position.y - (4620.0 - 800.0)) < 0.01, "credits : le rouleau / le pied ne montent pas a 100 px/s (%f, %f)" % [cs.roll.node.position.y, cs.footer.node.position.y])
+	_check(not cs.touch_on, "credits : glisser actif avant que le logo monte")
+	for i in 15:
+		cs._process(0.1) # 9,5 s
+	_check(cs.logo.node.position.y < 170.0 and cs.logo.node.position.y > 90.0 and cs.touch_on, "credits : le logo ne monte pas apres 8,8 s (%f, glisser %s)" % [cs.logo.node.position.y, str(cs.touch_on)])
+	# glisser : vers le haut = les trois rouleaux montent de ce delta ; vers le bas seulement si le logo est sous y = 150 ; l'appui fige le defilement
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	cs._gui_input(press)
+	var mv := InputEventMouseMotion.new()
+	var ry0: float = cs.roll.node.position.y
+	mv.relative = Vector2(0, -30)
+	cs._gui_input(mv)
+	_check(absf(cs.roll.node.position.y - (ry0 - 30.0)) < 0.01, "credits : glisser vers le haut de 30 px : rouleau %f -> %f" % [ry0, cs.roll.node.position.y])
+	cs._process(0.1)
+	_check(absf(cs.roll.node.position.y - (ry0 - 30.0)) < 0.01, "credits : le defilement ne se fige pas pendant l'appui")
+	mv.relative = Vector2(0, 20)
+	cs._gui_input(mv)
+	_check(absf(cs.roll.node.position.y - (ry0 - 10.0)) < 0.01, "credits : glisser vers le bas refuse alors que le logo est sous 150 (%f)" % cs.logo.node.position.y)
+	var ly: float = cs.logo.node.position.y
+	cs.logo.node.position.y = 200.0
+	var ry1: float = cs.roll.node.position.y
+	cs._gui_input(mv)
+	_check(is_equal_approx(cs.roll.node.position.y, ry1), "credits : glisser vers le bas accepte alors que le logo est au-dessus de 150")
+	cs.logo.node.position.y = ly
+	press.pressed = false
+	cs._gui_input(press)
+	var ry2: float = cs.roll.node.position.y
+	cs._process(0.1)
+	_check(absf(cs.roll.node.position.y - (ry2 - 10.0)) < 0.01, "credits : le defilement ne repart pas au relachement")
+	# le pied s'arrete a MinY = 400 (au plus un pas de depassement), le glisser est alors coupe
+	for i in 700:
+		if cs.footer.reached:
+			break
+		cs._process(0.1)
+	var fy: float = cs.footer.node.position.y
+	_check(cs.footer.reached and fy <= 400.0 and fy > 389.0 and not cs.touch_on, "credits : pied non arrete a 400 (y=%f, touche=%s)" % [fy, str(cs.touch_on)])
+	for i in 20:
+		cs._process(0.1)
+	_check(is_equal_approx(cs.footer.node.position.y, fy), "credits : le pied bouge apres MinY")
+	_cov("credits")
+	# retour : fondu noir 1,0 s vers OPTIONS reconstruit
+	cs.get_node("Back").pressed.emit()
+	await _nav(main)
+	_check(main.find_child("CreditsScreen", true, false) == null, "credits : ecran encore la apres le retour")
+	var btns: Array = main.find_children("*", "Button", true, false).filter(func(b): return (b as Button).text == "CREDITS" or (b as Button).text == "CARD GALLERY") # les noeuds de l'ancien ecran portent encore le nom : le nouveau devient « Credits2 »
+	_check(btns.size() == 2 and btns.all(func(b): return (b as Button).visible), "credits : OPTIONS n'est pas restaure (%d boutons visibles)" % btns.size())
+	_cov("credits_back")
 	main.queue_free()
 	await get_tree().process_frame
 
@@ -2817,6 +2951,69 @@ func _check_effects() -> void:
 	board.skip_animations = true
 	_cov("effects")
 
+## Emetteurs ApkParticles qui emettent sous `root`.
+func _emitting(root: Node) -> Array:
+	return root.find_children("*", "ApkParticles", true, false).filter(func(e): return (e as ApkParticles).emitting)
+
+## Particules de l'APK (ApkParticles = CreateBackParticles) : pioche, heros qui entre, ecran de victoire ; aucune sur une carte simplement jouable.
+## (Defausse d'ouverture, salle ciblable, emplacement survole : verifies dans _act_discard, _check_target_spots, _check_drag_and_zoom.)
+func _check_apk_particles() -> void:
+	_tag = "[particles]"
+	await _new_game()
+	board.set_process(false)
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	board.refresh()
+	await get_tree().process_frame
+	_check(board.hand_layer.find_children("*", "ApkParticles", true, false).is_empty() and _emitting(board).is_empty(), "particules : une carte simplement jouable ne doit rien emettre (%d emetteur(s))" % _emitting(board).size())
+	# pioche : emet de la creation de la carte jusqu'a son arrivee en main (DrawCardEmitter.cs:153, CardManagerComponent.cs:108)
+	board.skip_animations = false
+	_take_spell("BMA053")
+	await get_tree().process_frame
+	var fx: Array = _emitting(board._ui_layer)
+	if _check(fx.size() == 1, "particules : la carte piochee doit emettre (%d emetteur(s))" % fx.size()):
+		var e: ApkParticles = fx[0]
+		_check(e.amount == ApkParticles.AMOUNT and not e.local_coords and e.texture != null and e.texture.resource_path.ends_with("ui/particle_01.webp"), "particules : reglages (texture, coordonnees monde, quantite)")
+		_check(is_equal_approx(e.lifetime * (1.0 - e.lifetime_randomness), 1.5) and is_equal_approx(e.lifetime, 3.0), "particules : vie 1,5-3 s (ParticlesFactory.cs:13-14)")
+		_check(e.emission_points.size() == 400 and e.emission_normals.size() == 400, "particules : contour du rectangle en 4 x 100 points")
+		var holder := e.get_parent().get_child(e.get_index() + 1) as Control # l'emetteur est juste derriere la carte piochee
+		_check(is_equal_approx(absf(e.emission_points[0].x) * 2.0, holder.size.x * ApkParticles.ECHELLE), "particules : emetteur = 0,9 x la carte")
+		var v_ok := true
+		for v in e.emission_normals:
+			v_ok = v_ok and v.x >= -102.01 and v.x <= -41.99 and v.y >= -102.01 and v.y <= -41.99 # [-1,7 ; -0,7] x 60 px/s, haut-gauche
+		_check(v_ok, "particules : vitesse par axe dans [-102 ; -42] px/s")
+	await _wait(3.6) # vol 0,5 s + retournement 0,5 s + attente 2 s + arrivee 0,3 s
+	_check(_emitting(board._ui_layer).is_empty(), "particules : la pioche arrivee en main ne doit plus emettre")
+	board.skip_animations = true
+	# heros qui entre dans le donjon du joueur actif (HeroesQueueComponent.cs:105-107, 142-145)
+	var hero: Dictionary = (CardDB.heroes[5] as Dictionary).duplicate(true)
+	(me["entrance"] as Array).clear()
+	(me["entrance"] as Array).append(hero)
+	G["phase"] = "adventure"
+	G["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": -1, "hp": 4, "pause": null}
+	board.refresh()
+	await get_tree().process_frame
+	var hfx: Array = _emitting(board._lane[1]["root"])
+	_check(hfx.size() == 1 and (hfx[0] as Node).name == "HeroFx", "particules : le heros qui entre dans mon donjon doit emettre (%d emetteur(s))" % hfx.size())
+	_check(_emitting(board._lane[0]["root"]).is_empty(), "particules : le donjon adverse n'a pas de heros qui entre")
+	G["adventure"] = {}
+	G["phase"] = "build"
+	board.refresh()
+	_check(_emitting(board._lane[1]["root"]).is_empty(), "particules : plus de heros dans le donjon, plus d'emission (HeroesQueueComponent.cs:293-296)")
+	# ecran de victoire du joueur local : emission continue derriere « IS THE WINNER! » (WinnerScene.cs:63-74) ; l'ecran perdu n'en a pas
+	G["gameOver"] = {"winner": 0, "reason": "souls"}
+	board.refresh()
+	await get_tree().process_frame
+	var wfx: Array = _emitting(board._gameover)
+	_check(wfx.size() == 1 and (wfx[0] as Node).name == "WinnerFx" and (wfx[0] as Node).get_index() < board._gameover.get_node("WinnerText").get_index(), "particules : l'ecran de victoire doit emettre derriere le titre (%d emetteur(s))" % wfx.size())
+	await _new_game()
+	board.set_process(false)
+	gm.G["gameOver"] = {"winner": 1, "reason": "wounds"}
+	board.refresh()
+	await get_tree().process_frame
+	_check(board._gameover != null and board._gameover.find_children("*", "ApkParticles", true, false).is_empty(), "particules : l'ecran perdu ne doit pas emettre")
+	_cov("apk_particles")
+
 ## Fenetres a l'horloge murale : Godot plafonne delta (~0,13 s) quand les images sont lentes (web, onglet en arriere-plan, ~1 image/s) ; une
 ## fenetre de 3 s durait alors 20-30 s. Ici delta est minuscule mais 0,3 s reelles passent entre deux images : la barre doit suivre l'horloge.
 ## Une ligne de journal / un siege qui passe ne rouvre pas la fenetre (l'APK ne remet la barre a zero qu'a un pas du heros ou un sort).
@@ -3000,9 +3197,12 @@ func _extra_checks() -> void:
 	await _check_review_fixes()
 	await _check_apk_gaps()
 	await _check_gallery()
+	await _check_credits()
 	await _check_online_menus()
 	await _check_public_lobby()
 	await _check_gameover_banner()
+	await _check_apk_particles()
+	await _check_tutorial()
 	await _check_effects()
 	await _check_crossing_ui()
 	await _check_audio()
@@ -3321,3 +3521,422 @@ func _check_audio() -> void:
 	for e in am.rec:
 		_cov("snd:" + str(e))
 	_cov("audio")
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Tutoriel (TutorialOverlay) : jeu de bout en bout par de vrais gestes
+# ---------------------------------------------------------------------------------------------------------------------
+
+## Avance le plateau ET le tutoriel de `secs` secondes de jeu (images de dt s) : l'horloge du tutoriel est manuelle (manual = true).
+func _tut_pump(ov, secs: float, dt := 0.1) -> void:
+	var t := 0.0
+	while t < secs:
+		t += dt
+		if board != null and is_instance_valid(board):
+			board._process(dt)
+		if is_instance_valid(ov):
+			ov.step(dt)
+		await get_tree().process_frame
+
+## Etiquette de la bulle de la scene courante (la derniere etiquette arcadepix 25).
+func _tut_label(ov) -> Label:
+	var out: Label = null
+	if not is_instance_valid(ov) or ov._scene == null:
+		return out
+	for l in ov._scene.find_children("*", "Label", true, false):
+		if (l as Label).get_theme_font_size("font_size") == 25 and not l.is_queued_for_deletion():
+			out = l
+	return out
+
+func _tut_text(ov) -> String:
+	var lb := _tut_label(ov)
+	return lb.text if lb != null else ""
+
+## Fait defiler la scene modale courante par de vrais taps (un tap saute la frappe, le suivant passe a la bulle suivante) ; rend les textes complets lus.
+## typing : verifie aussi que la frappe est progressive avant le 1er tap.
+func _tut_scene(ov, typing := false) -> Array:
+	var seen: Array = []
+	var n := 0
+	var first := true
+	var sc: int = ov._scene.get_instance_id() if ov._scene != null else 0 # une seule scene : la suivante (declenchee juste apres) est lue par un autre appel
+	while is_instance_valid(ov) and sc != 0 and ov._scene != null and ov._scene.get_instance_id() == sc and n < 200:
+		n += 1
+		if not ov._tap_wait:
+			await _tut_pump(ov, 0.3)
+			var lb2 := _tut_label(ov)
+			if typing and first and lb2 != null and not ov._tap_wait:
+				_check(lb2.visible_characters >= 0 and lb2.visible_characters < lb2.text.length(), "tutoriel : la frappe n'est pas progressive (%s / %d)" % [lb2.visible_characters, lb2.text.length()])
+			first = false
+		if ov._tap_wait and ov._scene != null and ov._scene.get_instance_id() == sc:
+			var lb := _tut_label(ov)
+			_check(lb != null and lb.visible_characters == -1, "tutoriel : un tap attendu alors que la frappe n'est pas finie")
+			if lb != null:
+				_check(lb.get_minimum_size().y <= lb.size.y + 1.0 and lb.position.x >= 0.0 and lb.position.x + lb.size.x <= 1920.0 and lb.position.y >= 0.0, "tutoriel : le texte deborde de sa bulle (%s, %s)" % [lb.get_minimum_size(), Rect2(lb.position, lb.size)])
+			seen.append(_tut_text(ov))
+		await _click_at(Vector2(960, 540))
+		await _tut_pump(ov, 0.1)
+	_check(not is_instance_valid(ov) or ov._scene == null or ov._scene.get_instance_id() != sc, "tutoriel : la scene ne se ferme pas par des taps (%s)" % str(seen))
+	return seen
+
+func _tut_card_node(idx: int) -> CardUI:
+	for c in board.hand_layer.get_children():
+		if c is CardUI and not c.is_queued_for_deletion() and (c as CardUI).hand_index == idx:
+			return c
+	return null
+
+## Glisse la carte de main `idx` jusqu'a `to` (appui, mouvements, relachement).
+func _tut_drag(idx: int, to: Vector2) -> void:
+	var node := _tut_card_node(idx)
+	if not _check(node != null, "tutoriel : carte %d absente de la main affichee" % idx):
+		return
+	var start := node.get_global_rect().get_center()
+	await _mouse(start, true, false)
+	for k in range(1, 7):
+		await _mouse(start.lerp(to, float(k) / 6.0), false, true, MOUSE_BUTTON_MASK_LEFT)
+	await _mouse(to, false, false)
+
+func _tut_hand_ids() -> Array:
+	return (gm.G["players"][0]["hand"] as Array).map(func(c): return str((c as Dictionary).get("id", "")))
+
+func _tut_btn(root: Node, text: String) -> BaseButton:
+	for b in root.find_children("*", "BaseButton", true, false):
+		if b is Button and (b as Button).text == text:
+			return b
+		for l in b.find_children("*", "Label", true, false):
+			if (l as Label).text == text:
+				return b
+	return null
+
+func _tut_step_texts(key: String) -> Array:
+	var T = TutorialScript.TEXT
+	match key:
+		"intro1": return [T["page01"][0], T["page02"][0], T["page03"][0]]
+		"intro2": return [T["page04"][0], T["page05"][0], T["page08"][0] + T["page08"][1]]
+		"discard": return [TutorialScript.DISCARD_TEXT]
+		"build1": return T["page13"]
+		"done1": return T["page18"]
+		"build2": return T["page19"]
+		"done2": return [TutorialScript.HIT_DONE]
+		"firstdraw": return T["page19_a"]
+		"bait": return [T["page20"][0], T["page21"][0]]
+		"build3": return T["page16"]
+		"done3": return [TutorialScript.HIT_DONE]
+		"adv22": return T["page22"]
+		"adv23": return T["page23"]
+		"adv24": return T["page24"]
+		"adv25": return T["page25"]
+		"adv26": return T["page26"]
+		"adv27": return T["page27"]
+		"adv28": return T["page28"]
+		"adv29": return T["page29"]
+		"lvl": return [T["page30"][0], T["page31"][0]]
+	return []
+
+func _check_tutorial() -> void:
+	_tag = "[tutorial]"
+	await _teardown()
+	var cfg_path: String = ProjectSettings.globalize_path(Profile.SAVE_PATH)
+	var backup := PackedByteArray()
+	var had := FileAccess.file_exists(cfg_path)
+	if had:
+		backup = FileAccess.get_file_as_bytes(cfg_path)
+		DirAccess.remove_absolute(cfg_path)
+	var main = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main)
+	await _wait(0.3)
+	await _tut_launch_flag(main)
+	await _tut_play(main)
+	main.queue_free()
+	await get_tree().process_frame
+	board = null
+	gm = null
+	if had:
+		var f := FileAccess.open(cfg_path, FileAccess.WRITE)
+		f.store_buffer(backup)
+		f.close()
+	else:
+		DirAccess.remove_absolute(cfg_path)
+	_cov("tutorial")
+
+## Drapeau de premier lancement : la boite TUTORIAL apparait au 1er SINGLE PLAYER (jamais ensuite), la garde du plateau est vide hors tutoriel.
+func _tut_launch_flag(main) -> void:
+	_check(Profile.first_gameplay(), "tutoriel : sans profil, le drapeau de premier lancement doit etre vrai")
+	main.show_menu()
+	await _nav(main)
+	var solo := _tut_btn(main, "SINGLE PLAYER")
+	if not _check(solo != null, "tutoriel : bouton SINGLE PLAYER introuvable"):
+		return
+	solo.pressed.emit()
+	await get_tree().process_frame
+	var box = main.find_child("ConfirmationBox", true, false)
+	if _check(box != null, "tutoriel : pas de boite au 1er SINGLE PLAYER"):
+		var txt := _texts_of(box)
+		_check(txt.has("TUTORIAL") and txt.has("DO YOU WANT TO PLAY A TUTORIAL GAME?"), "tutoriel : textes de la boite %s" % str(txt))
+		_check(box.find_child("Ok", true, false) != null and box.find_child("Cancel", true, false) != null, "tutoriel : boutons OK / CANCEL de la boite")
+		(box.find_child("Cancel", true, false) as BaseButton).pressed.emit()
+		await _nav(main)
+		_check(not Profile.first_gameplay(), "tutoriel : CANCEL doit consommer le drapeau")
+		_check(_texts_of(main).has("HOW MANY PLAYERS?"), "tutoriel : CANCEL doit mener a HOW MANY PLAYERS?")
+	main.show_menu()
+	await _nav(main)
+	_tut_btn(main, "SINGLE PLAYER").pressed.emit()
+	await get_tree().process_frame
+	_check(main.find_child("ConfirmationBox", true, false) == null, "tutoriel : la boite ne revient pas apres CANCEL")
+	await _nav(main)
+	# partie normale : garde vide, aucun tutoriel
+	main.start_match(2, 1)
+	await _wait(0.3)
+	var b = main.board
+	if _check(b != null, "tutoriel : partie normale absente"):
+		_check(not b.tutorial_gate.is_valid() and b.find_children("TutorialOverlay", "", true, false).is_empty(), "tutoriel : la partie normale porte un tutoriel / une garde")
+		_check(b._tg("run") == true and b._tg("input", null) == true and b._tg("drag", 0) == true and str(b._tg("boss", [], "")) == "" and b._tg("levelup") == true, "tutoriel : la garde vide doit tout laisser passer")
+	main.show_menu()
+	await _nav(main)
+
+func _tut_play(main) -> void:
+	# OPTIONS -> TUTORIAL : lance aussi le tutoriel (et le drapeau reste faux)
+	main.show_options()
+	await _nav(main)
+	var ob := _tut_btn(main, "TUTORIAL")
+	if _check(ob != null, "tutoriel : bouton TUTORIAL absent des OPTIONS"):
+		ob.pressed.emit()
+		await _wait(0.3)
+		_check(main.board != null and not main.board.find_children("TutorialOverlay", "", true, false).is_empty(), "tutoriel : OPTIONS > TUTORIAL ne lance pas le tutoriel")
+	main.show_menu()
+	await _nav(main)
+	# boite de premier lancement : OK lance le tutoriel
+	Profile.set_first_gameplay(true)
+	_tut_btn(main, "SINGLE PLAYER").pressed.emit()
+	await get_tree().process_frame
+	var box = main.find_child("ConfirmationBox", true, false)
+	if not _check(box != null, "tutoriel : boite absente (drapeau remis a vrai)"):
+		return
+	(box.find_child("Ok", true, false) as BaseButton).pressed.emit()
+	await _wait(0.3)
+	_check(not Profile.first_gameplay(), "tutoriel : OK doit consommer le drapeau")
+	board = main.board
+	gm = main.game_manager
+	if not _check(board != null, "tutoriel : pas de plateau apres OK"):
+		return
+	var ovs: Array = board.find_children("TutorialOverlay", "", true, false)
+	if not _check(ovs.size() == 1, "tutoriel : %d surcouches" % ovs.size()):
+		return
+	var ov = ovs[0]
+	ov.manual = true
+	board.skip_animations = true
+	board.set_process(false)
+	var texts := {}
+	var t0 := Time.get_ticks_msec()
+	var probed := {}
+	var last_sig := ""
+	var stuck := 0
+	var post := 0
+	for it in 5000:
+		if not _fails.is_empty() or not _log.errors.is_empty():
+			break
+		if not is_instance_valid(ov):
+			if post == 0:
+				probed["turn_end"] = int(gm.G.get("turn", 0))
+			post += 1
+			if post > 400 or gm.G.get("gameOver") != null: # le jeu continue normalement apres le tutoriel
+				break
+			board._process(0.21)
+			await get_tree().process_frame
+			_act_simple()
+			continue
+		await _tut_pump(ov, 0.1)
+		if not is_instance_valid(ov):
+			continue
+		var G: Dictionary = gm.G
+		var me: Dictionary = G["players"][0]
+		var sig := JSON.stringify([G.get("phase"), G.get("turn"), (G.get("log", []) as Array).size(), ov._done.size(), ov._scene != null, (me["hand"] as Array).size(), (G.get("stack", []) as Array).size(), G.get("pendingChoice", {})])
+		stuck = stuck + 1 if sig == last_sig else 0
+		last_sig = sig
+		if stuck > 250:
+			_fail("tutoriel : partie bloquee (%s) etapes=%s adv=%s" % [sig.left(160), str(ov._done.keys()), str((G.get("adventure", {}) as Dictionary).get("roomIndex"))])
+			break
+		if ov._scene != null:
+			var key: String = str(ov._done.keys().back()) if not ov._done.is_empty() else ""
+			if key == "discard" and not texts.has("discard"): # le voile capte les taps : une carte cliquee sous la scene n'est pas choisie
+				await _tut_click_card(0)
+				_check(board.discard_pick.is_empty(), "tutoriel : un tap sur une carte sous la scene a choisi la carte")
+			var seen: Array = await _tut_scene(ov, key == "intro1" and not texts.has("intro1"))
+			if not texts.has(key):
+				texts[key] = seen
+			continue
+		var phase := str(G.get("phase", ""))
+		if phase == "boss" and me.get("boss") == null:
+			if board._boss_ready and board._confirm_btn.visible:
+				_check(board._boss_pick_id == "BMA003", "tutoriel : le carrousel doit s'arreter sur King Croak (%s)" % board._boss_pick_id)
+				board._confirm_btn.pressed.emit()
+			continue
+		if ov._discard_pending():
+			if ov._done.has("discard") and not probed.has("discard"):
+				probed["discard"] = true
+				await _tut_discard(ov)
+			continue
+		var fid: String = ov._forced_id()
+		if fid != "":
+			await _tut_forced(ov, fid, probed)
+			continue
+		if ov._hit_state():
+			await _tut_hit(ov, probed)
+			continue
+		if ov._restricted() and (phase == "setup" or phase == "build") and int(me.get("buildsThisTurn", 0)) >= 1 and board.pass_shown() and board.btn_pass.is_visible_in_tree() and gm.active_player() == 0:
+			await _click_at(board.btn_pass.get_global_rect().get_center())
+			continue
+		if not ov._restricted() and not G.get("gameOver"): # reste de la partie : plus aucune consigne, le joueur simule joue
+			_act_simple()
+	var dt_real := (Time.get_ticks_msec() - t0) / 1000.0
+	print("UISMOKE tutoriel : %.1fs, etapes %s" % [dt_real, str(texts.keys())])
+	for key in texts:
+		var want: Array = _tut_step_texts(key)
+		_check(not want.is_empty() and texts[key] == want, "tutoriel : etape %s : textes %s au lieu de %s" % [key, str(texts[key]), str(want)])
+	var order := ["intro1", "intro2", "discard", "build1", "done1", "build2", "done2", "firstdraw", "bait", "build3", "done3", "adv22", "adv23", "adv26", "adv27", "adv28", "adv29", "adv25", "lvl"]
+	for k in order:
+		# adv25 (blessure de l'IA) est exigee comme les autres : graine fixe, le sort BMA041 joue a l'entree donne +3 PV au mage 068 (Match.gd / BossEngine.spend_hero_health_bonus),
+		# il survit au donjon de l'IA et devient sa blessure au tour 1 ; l'overlay la capte sur l'etat (blessure + tour), pas sur une fenetre de quelques ms.
+		_check(texts.has(k), "tutoriel : l'etape %s n'a jamais ete montree" % k)
+	var seen_order: Array = texts.keys().filter(func(k): return order.has(k))
+	_check(seen_order == order, "tutoriel : ordre des etapes %s au lieu de %s" % [str(seen_order), str(order)])
+	_check(not is_instance_valid(ov), "tutoriel : la surcouche reste apres le LEVEL UP")
+	_check(gm.G.get("gameOver") != null or int(gm.G.get("turn", 0)) > int(probed.get("turn_end", 99)), "tutoriel : la partie ne continue pas apres le LEVEL UP (tour %s)" % gm.G.get("turn"))
+	_check(not board.tutorial_gate.is_valid() and board._tg("run") == true, "tutoriel : la garde reste apres le LEVEL UP")
+
+## Clic de souris sur la partie gauche (jamais recouverte) de la carte de main `idx` : atteint la bonne carte meme dans l'eventail / la rangee de defausse.
+func _tut_click_card(idx: int) -> void:
+	var node := _tut_card_node(idx)
+	if _check(node != null, "tutoriel : carte %d absente de la main affichee" % idx):
+		var r: Rect2 = node.get_global_rect()
+		await _click_at(Vector2(r.position.x + 25.0, r.get_center().y))
+
+func _tut_hint_text(ov) -> String:
+	if ov._hint == null or not is_instance_valid(ov._hint):
+		return ""
+	var ls: Array = ov._hint.find_children("*", "Label", true, false)
+	return (ls[0] as Label).text if not ls.is_empty() else ""
+
+## Defausse d'ouverture : seules les 2 cartes designees se choisissent (jamais deselectionnees), les autres affichent une moquerie du boss.
+func _tut_discard(ov) -> void:
+	var hand: Array = gm.G["players"][0]["hand"]
+	var rights: Array = []
+	var wrongs: Array = []
+	for i in hand.size():
+		if TutorialScript.CARD_DISCARD.has(str((hand[i] as Dictionary).get("id", ""))):
+			rights.append(i)
+		else:
+			wrongs.append(i)
+	if not _check(rights.size() == 2 and hand.size() == 7, "tutoriel : defausse : %d cartes designees dans une main de %d" % [rights.size(), hand.size()]):
+		return
+	_check(ov._ptrs.size() == 2, "tutoriel : defausse : %d mains sur les cartes designees (2 attendues)" % ov._ptrs.size())
+	await _tut_click_card(int(wrongs[0]))
+	_check(board.discard_pick.is_empty() and TutorialScript.WRONG_PICK.has(_tut_hint_text(ov)), "tutoriel : defausse : une mauvaise carte doit etre refusee avec une moquerie (%s)" % _tut_hint_text(ov))
+	await _tut_click_card(int(rights[0]))
+	_check(board.discard_pick.size() == 1 and TutorialScript.RIGHT_PICK.has(_tut_hint_text(ov)), "tutoriel : defausse : la bonne carte doit etre choisie avec un encouragement (%s)" % _tut_hint_text(ov))
+	_check(not board._confirm_btn.visible, "tutoriel : defausse : CONTINUE visible avec une seule carte")
+	await _tut_click_card(int(rights[0]))
+	_check(board.discard_pick.size() == 1, "tutoriel : defausse : la carte choisie ne se deselectionne pas")
+	await _tut_pump(ov, 0.7)
+	_check(ov._ptrs.size() == 1, "tutoriel : defausse : la main de la carte choisie doit disparaitre (%d restantes)" % ov._ptrs.size())
+	await _tut_click_card(int(rights[1]))
+	_check(board.discard_pick.size() == 2 and _tut_hint_text(ov) == TutorialScript.CLICK_CONTINUE, "tutoriel : defausse : 2e carte -> HIT CONTINUE, MINION (%s)" % _tut_hint_text(ov))
+	await _tut_click_card(int(wrongs[1]))
+	_check(board.discard_pick.size() == 2, "tutoriel : defausse : une 3e carte ne se choisit pas")
+	_check(board._confirm_btn.visible, "tutoriel : defausse : CONTINUE absent avec 2 cartes")
+	await _click_at(board._confirm_btn.get_global_rect().get_center())
+	await _tut_pump(ov, 0.3)
+	var ids := _tut_hand_ids()
+	_check(ids.size() == 5 and not ids.has("BMA026") and not ids.has("BMA055"), "tutoriel : defausse : la main doit garder 5 cartes sans BMA026 / BMA055 (%s)" % str(ids))
+
+## Carte imposee : une mauvaise carte / DONE verrouille -> rappel de la consigne ; la bonne carte se glisse sur son emplacement (ou sur le heros pour le sort).
+func _tut_forced(ov, fid: String, probed: Dictionary) -> void:
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	var hand: Array = me["hand"]
+	var fi: int = ov._hand_idx(fid)
+	var spell: bool = fid == TutorialScript.SPELL
+	var dsize: int = (me["dungeon"] as Array).size()
+	var to: Vector2 = board._lane[0]["entrance"].get_global_rect().get_center() if spell else (board._dungeon_slots[maxi(0, DUNGEON_N - dsize - 1)] as Control).get_global_rect().get_center()
+	var key := "%s:%s" % [G.get("phase"), fid]
+	if spell and not ov._done.has("adv27"):
+		return # les scenes p26 puis p27 passent d'abord (la partie est figee)
+	if not probed.has(key):
+		probed[key] = true
+		var page: String = "page27" if spell else ("page13" if str(G.get("phase")) == "setup" else ("page19" if G.get("setupForced") != null and int(G.get("turn", 0)) == 0 else "page16"))
+		var want: String = TutorialScript.TEXT[page][0]
+		var n_hand := hand.size()
+		# une autre carte de la main : ni glissable ni cliquable (le clic ne fait rien, le glisser rappelle la consigne)
+		var other := -1
+		for i in hand.size():
+			if i != fi:
+				other = i
+				break
+		await _tut_click_card(other)
+		_check(ov._scene == null and board._popup_kind == "" and board._tgt.is_empty() and hand.size() == n_hand, "tutoriel : %s : un clic sur une autre carte ne doit rien faire" % key)
+		await _tut_drag(other, to)
+		await _tut_pump(ov, 0.3)
+		_check(board._drag.is_empty() and hand.size() == n_hand and (me["dungeon"] as Array).size() == dsize and (G.get("stack", []) as Array).is_empty(), "tutoriel : %s : une autre carte ne doit pas se glisser" % key)
+		if spell: # GamePlayTutScene.ShowReinforcementScene n'a pas de cas aventure : une mauvaise carte est seulement refusee
+			_check(ov._scene == null, "tutoriel : %s : pas de rappel en aventure (ShowReinforcementScene)" % key)
+		elif _check(ov._scene != null, "tutoriel : %s : pas de rappel de la consigne apres une mauvaise carte" % key):
+			var seen := await _tut_scene(ov)
+			_check(seen == [want], "tutoriel : %s : rappel %s au lieu de %s" % [key, str(seen), want])
+		if not spell and board.pass_shown() and board.btn_pass.is_visible_in_tree():
+			var ph0 := str(G.get("phase"))
+			await _click_at(board.btn_pass.get_global_rect().get_center())
+			await _tut_pump(ov, 0.3)
+			_check(str(G.get("phase")) == ph0 and hand.size() == n_hand, "tutoriel : %s : DONE doit rester bloque" % key)
+			if _check(ov._scene != null, "tutoriel : %s : DONE bloque sans rappel de la consigne" % key):
+				var seen2 := await _tut_scene(ov)
+				_check(seen2 == [want], "tutoriel : %s : rappel de DONE %s au lieu de %s" % [key, str(seen2), want])
+		if spell:
+			# relache loin du heros : rien ne se joue
+			await _tut_drag(fi, Vector2(300, 300))
+			await _tut_pump(ov, 0.2)
+			_check((G.get("stack", []) as Array).is_empty() and ov._hand_idx(fid) >= 0, "tutoriel : %s : un sort lache loin du heros ne doit pas se jouer" % key)
+			# la consigne se rejoue au bout de NAG secondes sans geste
+			await _tut_pump(ov, TutorialScript.NAG + 0.5)
+			if _check(ov._scene != null, "tutoriel : %s : la consigne n'est pas rejouee apres %d s" % [key, int(TutorialScript.NAG)]):
+				var seen3 := await _tut_scene(ov)
+				_check(seen3 == [want], "tutoriel : %s : rappel p27 %s" % [key, str(seen3)])
+		return
+	var n0 := hand.size()
+	await _tut_drag(fi, to)
+	await _tut_pump(ov, 0.2)
+	if spell:
+		_check(ov._hand_idx(fid) < 0, "tutoriel : %s : le sort glisse sur le heros n'est pas parti de la main" % key)
+	else:
+		_check(hand.size() == n0 - 1 and (me["dungeon"] as Array).size() == dsize + 1, "tutoriel : %s : la salle n'est pas construite (main %d -> %d, donjon %d -> %d)" % [key, n0, hand.size(), dsize, (me["dungeon"] as Array).size()])
+
+## Hero 064 dans BMA027 : la partie attend le joueur ; la consigne se rejoue au bout de 8 s ; un tap sur la salle ouvre sa description (p24), un tap sur la capacite frappe.
+func _tut_hit(ov, probed: Dictionary) -> void:
+	var G: Dictionary = gm.G
+	if not probed.has("hit"):
+		probed["hit"] = true
+		var adv0: Dictionary = (G["adventure"] as Dictionary).duplicate()
+		adv0.erase("hero")
+		await _tut_pump(ov, 3.0)
+		var adv1: Dictionary = (G["adventure"] as Dictionary).duplicate()
+		adv1.erase("hero")
+		_check(adv0 == adv1 and ov._hit_state(), "tutoriel : le heros avance alors que la consigne attend le joueur")
+		await _tut_pump(ov, 6.0)
+		if _check(ov._scene != null, "tutoriel : la consigne de la salle n'est pas rejouee apres 8 s d'attente"):
+			var seen := await _tut_scene(ov)
+			_check(seen == [TutorialScript.TEXT["page23"][0]], "tutoriel : rappel p23 %s" % str(seen))
+		return
+	if ov._scene != null:
+		return
+	var sl: Control = ov._slot_node(0)
+	if not _check(sl != null, "tutoriel : salle BMA027 absente"):
+		return
+	await _click_at(sl.get_global_rect().get_center())
+	await _tut_pump(ov, 0.3)
+	if board._zoom == null:
+		return
+	if not _check(ov._scene != null, "tutoriel : le tap sur la salle n'ouvre pas la scene p24"):
+		return
+	var seen2 := await _tut_scene(ov)
+	_check(seen2 == TutorialScript.TEXT["page24"], "tutoriel : p24 %s" % str(seen2))
+	var ab: Rect2 = board._zoom.get_meta("ability")["rect"]
+	await _click_at(board._zoom.get_global_transform() * ab.get_center())
+	await _tut_pump(ov, 0.3)
+	_check(not ov._hit_state(), "tutoriel : le tap sur la capacite n'a pas frappe le heros")

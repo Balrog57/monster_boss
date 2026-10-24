@@ -73,12 +73,18 @@ func _ready() -> void:
 		print("ONLINE SCREENS CAPTURED: ", n_shots)
 		get_tree().quit(0)
 		return
+	if only == "tutorial":
+		await _tutorial_shots()
+		print("TUTORIAL SCREENS CAPTURED: ", n_shots)
+		get_tree().quit(0)
+		return
 	await _menus()
 	await _online_menus()
 	await _board_shots()
 	await _states()
 	await _phases()
 	await _end_screens()
+	await _tutorial_shots()
 	print("ALL GODOT SCREENS CAPTURED: ", n_shots)
 	get_tree().quit(0)
 
@@ -102,6 +108,17 @@ func _menus() -> void:
 	main_scene.show_options()
 	await _wait(0.4)
 	await _shot("menu_options")
+	main_scene.find_child("Credits", true, false).pressed.emit() # OPTIONS > CREDITS (CreditsScreen.gd) : debut, puis defilement avance a la main (_process(dt)) : 14 s, 26 s, 50 s (pied arrete a y = 400)
+	await _wait(0.6)
+	await _shot("menu_credits_start")
+	var cs = main_scene.find_child("CreditsScreen", true, false)
+	cs.set_process(false)
+	var t_cs := 0.0
+	for stop in [14.0, 26.0, 50.0]:
+		while t_cs < stop:
+			cs._process(0.05)
+			t_cs += 0.05
+		await _shot("menu_credits_scrolled_%ds" % int(stop))
 	main_scene.show_rules() # RULES (remplace l'IN-APP STORE) : pas de frame APK, comparaison au menu 2x2 / aux autres ecrans a fleche
 	await _wait(0.4)
 	await _shot("menu_rules")
@@ -939,3 +956,171 @@ func _phases() -> void:
 		await _wait(2.0)
 		await _shot("levelup_choice_carousel_after_banner")
 	await _teardown()
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Tutoriel (TutorialOverlay) : bulles de chaque scene. Partie jouee par appels directs au plateau (les gestes reels sont dans ui_smoke --only=tutorial).
+# ---------------------------------------------------------------------------------------------------------------------
+
+## (etape, indice du texte) -> nom de la capture ; le cliche est pris quand la bulle est complete et attend un tap.
+const TUTORIAL_SHOTS := {
+	"intro1:0": "tutorial_intro_king_croak", "intro2:1": "tutorial_intro_ten_souls", "intro2:2": "tutorial_intro_five_wounds",
+	"discard:0": "tutorial_discard_two_cards", "build1:0": "tutorial_build_first_room", "done1:0": "tutorial_done_button",
+	"bait:0": "tutorial_bait_treasures", "adv22:0": "tutorial_adventure_hero_and_damage", "adv23:0": "tutorial_hit_this_room",
+	"adv23+:0": "tutorial_room_description", "adv27:0": "tutorial_drag_spell_to_hero", "adv28:0": "tutorial_spell_on_stack",
+	"adv29:0": "tutorial_spell_effect", "lvl:0": "tutorial_levelup_big_dungeon", "lvl:1": "tutorial_levelup_hit_me",
+}
+
+func _tut_pump(ov, secs: float) -> void:
+	var t := 0.0
+	while t < secs:
+		t += 0.1
+		if board != null and is_instance_valid(board):
+			board._process(0.1)
+		if is_instance_valid(ov):
+			ov.step(0.1)
+		await _frames(1)
+
+## Lit la scene courante : photographie chaque bulle complete de TUTORIAL_SHOTS puis tape pour passer a la suite.
+func _tut_scene(ov, key: String) -> void:
+	var idx := 0
+	var sc: int = ov._scene.get_instance_id()
+	var n := 0
+	while is_instance_valid(ov) and ov._scene != null and ov._scene.get_instance_id() == sc and n < 100:
+		n += 1
+		if not ov._tap_wait:
+			await _tut_pump(ov, 0.3)
+			if not ov._tap_wait:
+				ov.tap() # saute la frappe
+				await _tut_pump(ov, 0.1)
+				continue
+		var tag := "%s:%d" % [key, idx]
+		if TUTORIAL_SHOTS.has(tag):
+			await _tut_pump(ov, 0.4) # fondu d'ouverture termine, mains en place
+			await _shot(str(TUTORIAL_SHOTS[tag]))
+		idx += 1
+		ov.tap()
+		await _tut_pump(ov, 0.1)
+
+## Un geste du joueur simule une fois les consignes terminees : choix en attente, reponse a la pile, construction, passe.
+func _tut_free_play() -> void:
+	var G: Dictionary = gm.G
+	var me: Dictionary = (G["players"] as Dictionary)[0]
+	if not (G.get("pendingChoice", {}) as Dictionary).is_empty():
+		_act_simple()
+		return
+	if not (G.get("stack", []) as Array).is_empty():
+		if gm.legal_moves(0).any(func(m): return m["type"] == "pass"):
+			board._on_pass_pressed()
+		return
+	match str(G.get("phase", "")):
+		"setup", "build":
+			if int(me.get("buildsThisTurn", 0)) == 0:
+				var hand: Array = me["hand"]
+				for i in hand.size():
+					if (hand[i] as Dictionary).get("isRoom", false) and gm.can_build_room_at(0, i, (me["dungeon"] as Array).size()):
+						board._on_hand_card_clicked(i, hand[i])
+						if not board._tgt.is_empty():
+							(board._tgt["entries"][0]["cb"] as Callable).call()
+						return
+			if not gm.legal_moves(0).is_empty():
+				board._on_pass_pressed()
+				board._on_pass_pressed()
+		"adventure":
+			var types: Array = gm.legal_moves(0).map(func(m): return m["type"])
+			if types.has("adventureNext"):
+				board._on_advance_pressed()
+			elif types.has("passBuild") or types.has("pass"):
+				board._on_pass_pressed()
+
+func _tutorial_shots() -> void:
+	await _teardown()
+	var cfg_path: String = ProjectSettings.globalize_path(Profile.SAVE_PATH)
+	var had := FileAccess.file_exists(cfg_path)
+	var backup := FileAccess.get_file_as_bytes(cfg_path) if had else PackedByteArray()
+	main_scene = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main_scene)
+	await _wait(0.5)
+	main_scene.start_tutorial()
+	await _wait(0.3)
+	board = main_scene.board
+	gm = main_scene.game_manager
+	var ov = board.find_child("TutorialOverlay", true, false)
+	ov.manual = true
+	board.skip_animations = true
+	board.set_process(false)
+	var discarded := false
+	var seen_keys := {}
+	for it in 3000:
+		await _tut_pump(ov, 0.1)
+		if not is_instance_valid(ov):
+			break
+		var G: Dictionary = gm.G
+		var me: Dictionary = G["players"][0]
+		if ov._scene != null:
+			var key := str(ov._done.keys().back()) # p24 (description de la salle) n'a pas d'entree propre : meme cle que p23, suffixe « + »
+			if seen_keys.has(key):
+				key += "+"
+			seen_keys[key] = true
+			await _tut_scene(ov, key)
+			continue
+		if str(G.get("phase", "")) == "boss" and me.get("boss") == null:
+			if board._boss_ready and board._confirm_btn.visible:
+				board._confirm_btn.pressed.emit()
+			continue
+		if ov._discard_pending():
+			if ov._done.has("discard") and not discarded:
+				discarded = true
+				var hand: Array = me["hand"]
+				var keep: Array = []
+				for i in hand.size():
+					if ["BMA026", "BMA055"].has(str((hand[i] as Dictionary).get("id", ""))):
+						keep.append(i)
+				var wrong := 0
+				while keep.has(wrong):
+					wrong += 1
+				board._on_hand_card_clicked(wrong, hand[wrong]) # mauvaise carte : moquerie du boss
+				await _tut_pump(ov, 0.4)
+				await _shot("tutorial_discard_wrong_card")
+				board._on_hand_card_clicked(int(keep[0]), hand[int(keep[0])])
+				await _tut_pump(ov, 0.4)
+				await _shot("tutorial_discard_first_pick")
+				board._on_hand_card_clicked(int(keep[1]), hand[int(keep[1])])
+				board._on_discard_confirm()
+			continue
+		var fid: String = ov._forced_id()
+		if fid != "":
+			var hi: int = ov._hand_idx(fid)
+			if fid == "BMA041":
+				if not ov._done.has("adv27"):
+					continue # les scenes p26 puis p27 passent d'abord (la partie est figee)
+				for m in gm.legal_moves(0):
+					if str((m as Dictionary).get("type", "")) == "playSpell" and int((m["args"] as Array)[0]) == hi:
+						board._do(m)
+						break
+			else:
+				board._on_hand_card_clicked(hi, (me["hand"] as Array)[hi])
+				if not board._tgt.is_empty():
+					(board._tgt["entries"][0]["cb"] as Callable).call()
+			continue
+		if ov._hit_state():
+			if board._zoom == null:
+				board._on_slot_activate(0) # tap sur la salle : description (scene p24)
+			else:
+				var ab: Dictionary = board._zoom.get_meta("ability")
+				board._zoom_close()
+				board._resolve_slot_ability(int(ab["di"]), ab["cands"])
+			continue
+		if ov._restricted() and str(G.get("phase", "")) in ["setup", "build"] and int(me.get("buildsThisTurn", 0)) >= 1 and board.pass_shown():
+			board._on_pass_pressed()
+		elif not ov._restricted():
+			_tut_free_play() # apres les consignes, le joueur simule construit jusqu'au LEVEL UP
+	main_scene.queue_free()
+	await _frames(2)
+	board = null
+	gm = null
+	if had:
+		var f := FileAccess.open(cfg_path, FileAccess.WRITE)
+		f.store_buffer(backup)
+		f.close()
+	else:
+		DirAccess.remove_absolute(cfg_path)
