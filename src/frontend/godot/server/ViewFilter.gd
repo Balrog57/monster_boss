@@ -7,13 +7,15 @@ extends RefCounted
 ## Liste blanche : une cle de G inconnue n'est PAS emise ; le test online echoue pour la classer ici.
 
 ## Cles de G publiques, recopiees telles quelles.
-const PUBLIC_KEYS := ["activePlayer", "adventure", "adventurePausePassed", "afterHero", "autoAI", "buildIndex",
+const PUBLIC_KEYS := ["activePlayer", "adventure", "adventurePausePassed", "afterHero", "apkSkippedHero", "autoAI", "buildIndex",
 	"buildOrder", "buildWindow", "effects", "forcedBuild", "gameOver", "itemQueue", "townItems", "lastHeroFight", "luredThisTurn",
 	"mandoQueue", "numPlayers", "phase", "roboboQueue", "sets", "setupBuild", "setupForced", "setupReveal", "stack",
 	"stackActivePlayer", "stackPassed", "stackReturnPlayer", "tnlEndPending", "tnlGiftBuilt", "town", "turn", "xpOrder"]
 ## Cles traitees a part (filtrees) ou volontairement jamais emises (revealQueue, forcedBuilds, forcedRandom, aiTargets*).
+## apkSkippedHero est publique : numero de siege pose par Trepidation (sort face visible) ; Match.apk_active_hero() la lit cote client en ligne.
 const FILTERED_KEYS := ["decks", "players", "bossPicks", "pendingChoice", "choiceQueue", "log", "logs"]
-const DROPPED_KEYS := ["revealQueue", "forcedBuilds", "forcedRandom", "aiTargetsAllBosses", "aiTargetsAnyRoomType"]
+## aiMayCancel (harnais d'oracle), iodFlame / rmbReplay / lincolnReveal (drapeaux internes au moteur, poses puis effaces dans un meme coup) : aucun lecteur cote client.
+const DROPPED_KEYS := ["revealQueue", "forcedBuilds", "forcedRandom", "aiTargetsAllBosses", "aiTargetsAnyRoomType", "aiMayCancel", "iodFlame", "rmbReplay", "lincolnReveal"]
 const SECRET_PILES := ["rooms", "spells", "heroes", "epics", "items"]
 ## Cles de joueur publiques (coins, rmbBoss, tnlBoss... : tout ce qui est pose devant le joueur). Liste blanche aussi :
 ## une cle de joueur inconnue n'est pas emise aux adversaires (le siege lui-meme voit tout son joueur).

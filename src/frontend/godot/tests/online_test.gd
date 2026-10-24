@@ -59,6 +59,8 @@ const FILTER_MAX_GAMES := 8
 
 func _check_filter_unit() -> void:
 	_check_room_view()
+	_check_g_keys_classified()
+	_check_apk_skipped_hero_view()
 	for sets in [["base"], ["next-level", "crash-landing", "players-choice", "hidden-heroes", "minibosses", "tools-wiki", "iod", "players-choice-wiki"]]:
 		var checks := 0
 		var priv_before := _priv_lines
@@ -74,6 +76,43 @@ func _check_filter_unit() -> void:
 	for n in [5, 6]: # 5-6 joueurs (Crash Landing) : memes verifications de fuite sur 5 / 6 sieges
 		var big_checks: int = _filter_game(["crash-landing"], 7100 + n, n)
 		_expect(big_checks > 10, "filtre %d joueurs : trop peu de verifications (%d)" % [n, big_checks])
+
+## Toute cle de G doit etre classee par ViewFilter (liste blanche : une cle inconnue est jetee en ligne, cf. apkSkippedHero). Union de
+## (a) les cles du G initial de vraies parties (base, puis tous les paquets) et (b) les ecritures statiques `G["cle"] =` des scripts du moteur et du serveur
+## (affectation de premier niveau seulement : `G["a"]["b"] =` et `G["a"] ==` ne sont pas capturees).
+func _check_g_keys_classified() -> void:
+	var keys := {}
+	for sets in [["base"], ["next-level", "crash-landing", "players-choice", "hidden-heroes", "minibosses", "tools-wiki", "iod", "players-choice-wiki"]]:
+		var m = GameManager.new()
+		add_child(m)
+		m.start_new_game(3, 0, sets)
+		for k in m.G:
+			keys[str(k)] = "G initial " + str(sets)
+		m.queue_free()
+	var re := RegEx.create_from_string(r"\bG\[\"([A-Za-z_0-9]+)\"\]\s*(?:[-+*|]?=)(?!=)")
+	var n_files := 0
+	for dir in ["res://godot/scripts/", "res://godot/server/"]:
+		for f in DirAccess.get_files_at(dir):
+			if f.get_extension() != "gd":
+				continue
+			n_files += 1
+			var src := FileAccess.get_file_as_string(dir + f)
+			for r in re.search_all(src):
+				if not keys.has(r.get_string(1)):
+					keys[r.get_string(1)] = dir + f
+	_expect(n_files > 20 and keys.size() > 30, "cles de G : balayage trop maigre (%d fichiers, %d cles)" % [n_files, keys.size()])
+	var missing: Array = []
+	for k in keys:
+		if not ViewFilter.is_known_key(k):
+			missing.append("%s (%s)" % [k, keys[k]])
+	_expect(missing.is_empty(), "cles de G non classees dans ViewFilter (PUBLIC_KEYS / FILTERED_KEYS / DROPPED_KEYS) : %s" % ", ".join(missing))
+
+## Regression : apkSkippedHero (Trepidation) doit survivre a la vue d'un siege, sinon Match.apk_active_hero() grise tout cote client en ligne.
+func _check_apk_skipped_hero_view() -> void:
+	var g := {"players": {0: {"id": 0}, 1: {"id": 1}}, "apkSkippedHero": 1, "phase": "build"}
+	for seat in [0, 1]:
+		var v := ViewFilter.for_seat(g, seat)
+		_expect(v.has("apkSkippedHero") and int(v["apkSkippedHero"]) == 1, "apkSkippedHero perdu dans la vue du siege %d : %s" % [seat, str(v.get("apkSkippedHero"))])
 
 ## Une partie IA-vs-IA a 3 joueurs (graine `rng_seed`) ; renvoie le nombre de vues verifiees.
 func _filter_game(sets: Array, rng_seed: int, players: int = 3) -> int:
