@@ -473,12 +473,19 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 # --- engine.js: heroHealthWithModifiers (partie regles de base) ---
 
 static func hero_health_with_modifiers(G: Dictionary, hero: Dictionary) -> int:
-	var hp := int(hero.get("hp", 0))
+	var hp := hero_hp(hero)
 	for e in _effects(G).get("heroHealthBonus", []):
 		var ed: Dictionary = e
-		if str(ed.get("heroId", "")) == str(hero.get("id", "")):
+		if str(ed.get("heroId", "")) == str(hero.get("id", "")) and not bool(ed.get("spent", false)):
 			hp += int(ed.get("amount", 0))
 	return hp
+
+## Le heros quitte l'aventure (mort / blessure, Match._finish_hero) : ses bonus de PV du tour sont perdus, un retour dans le tour
+## (BMA039 Zombie Prison : RestoreHealth) repart des PV de base (oracle s3-p3@86 : heros 5 Assassin'e puis ressuscite = PV de base). La liste reste lisible (tutoriel).
+static func spend_hero_health_bonus(G: Dictionary, hero: Dictionary) -> void:
+	for e in _effects(G).get("heroHealthBonus", []):
+		if str((e as Dictionary).get("heroId", "")) == str(hero.get("id", "")):
+			(e as Dictionary)["spent"] = true
 
 # --- engine.js: destroyRoom / discardRoomToPile ---
 

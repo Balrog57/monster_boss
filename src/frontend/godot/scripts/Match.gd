@@ -736,7 +736,10 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 				if first < 0:
 					return false
 				var hero: Dictionary = entrance[first]
-				var hp := BossEngine.hero_hp(hero)
+				# BMA041 Assassin (DealHero [-3] sur HeroInDungeon = 1er heros de l'entree) : Target1.Deal(-1 * Number) pose +3 PV sur la carte, gardes a
+				# l'entree. effects.heroHealthBonus (remis a zero a _start_turn, comme l'Undo de fin de tour) les porte jusqu'ici ; un heros deja en
+				# aventure recoit le +3 dans adventure.hp (SpellEffects._assassin) et ne repasse pas par ici : pas de double compte.
+				var hp := BossEngine.hero_health_with_modifiers(G, hero)
 				if TnlAbilities.active(G) or Minibosses.active(G) or ThkAbilities.active(G):
 					hp += TnlAbilities.on_hero_start(G, pid, hero) # PV retenus jusqu'a l'entree (Werewolf Den, Lightning Bolt!, Shrooman Aviary), Party Up
 				if ThkAbilities.active(G):
@@ -1938,6 +1941,7 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 	elif not entrance.is_empty():
 		entrance.pop_front()
 
+	BossEngine.spend_hero_health_bonus(G, hero) # BMA041 : le +3 ne survit pas a la fin de l'aventure du heros (Zombie Prison le ressuscite a PV de base)
 	SpellEffects._effects(G)["teleportHero"] = null # Teleportation jouee sur un heros qui n'a pas avance depuis : sans objet
 	var death_index: int = int(G.get("adventure", {}).get("roomIndex", -1))
 	# KSA017 : le declencheur de mort (CheckTriggerInRoom -> CheckConditions) est evalue AVANT RemoveHeroFromGame, donc verrouille.

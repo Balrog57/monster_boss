@@ -25,6 +25,7 @@ func _ready() -> void:
 	_t_spell_giant_size_requires_monster()
 	_t_spell_freeze_deactivates()
 	_t_spell_cave_in_kills_hero_in_room()
+	_t_spell_assassin_hero_at_entrance()
 	_t_spell_motivation_extra_build()
 	_t_spell_jeopardy_all_players()
 	_t_spell_unknown_returns_false()
@@ -369,6 +370,35 @@ func _t_spell_cave_in_kills_hero_in_room() -> void:
 	G2["adventure"] = {"playerId": 0, "hero": {"id": "H", "name": "H"}, "roomIndex": 0, "hp": 5, "pause": null}
 	SpellEffects.cast_spell(G2, 0, {"id": "BMA042"}, {"roomIndex": 1})
 	_ok(int((G2["adventure"] as Dictionary)["hp"]) == 5, "Cave-In epargne un heros dans une autre salle")
+
+## BMA041 Assassin joue sur un heros ENCORE A L'ENTREE du donjon adverse (DealHero [-3] : Hero.Deal(+3) direct, cs HeroInDungeon = 1er de l'entree) :
+## le heros entre avec +3 PV. Sans le correctif (Match adventureNext lisait hero_hp nu), le bonus etait perdu.
+func _assassin_entry_hp(cast_assassin: bool) -> int:
+	var m = _match_with_spell()
+	var hero := {"id": "H9", "name": "H9", "hp": 6}
+	((m.G["players"][1] as Dictionary)["entrance"] as Array).append(hero)
+	m.G["phase"] = "adventure"
+	m.G["activePlayer"] = 1
+	m.G["xpOrder"] = [0, 1]
+	if cast_assassin:
+		SpellEffects.cast_spell(m.G, 0, {"id": "BMA041"}, {"heroId": "H9"})
+	m.apply_move(1, {"type": "adventureNext", "args": []})
+	var hp: int = int((m.G["adventure"] as Dictionary).get("hp", -99))
+	m.queue_free()
+	return hp
+
+func _t_spell_assassin_hero_at_entrance() -> void:
+	var base := _assassin_entry_hp(false)
+	_ok(_assassin_entry_hp(true) == base + 3, "Assassin sur un heros a l'entree : il entre avec +3 PV (base %d)" % base)
+	var G := _spell_state()
+	G["adventure"] = {"playerId": 1, "hero": {"id": "H9"}, "roomIndex": 0, "hp": 5, "pause": null}
+	SpellEffects.cast_spell(G, 0, {"id": "BMA041"}, {"heroId": "H9"})
+	_ok(int((G["adventure"] as Dictionary)["hp"]) == 8, "Assassin sur le heros deja en aventure : +3 une seule fois")
+	# Oracle s3-p3@86 : heros Assassine en aventure, tue, ressuscite (Zombie Prison, RestoreHealth) dans le meme tour = PV de base, pas +3.
+	var hero := {"id": "H9", "name": "H9", "hp": 6}
+	_ok(BossEngine.hero_health_with_modifiers(G, hero) == 9, "bonus actif tant que le heros n'a pas fini son aventure")
+	BossEngine.spend_hero_health_bonus(G, hero)
+	_ok(BossEngine.hero_health_with_modifiers(G, hero) == 6, "fin d'aventure : le +3 ne revient pas a une seconde entree du tour")
 
 ## BMA050 Motivation : bonus de construction si moins de salles qu'un adversaire.
 func _t_spell_motivation_extra_build() -> void:
