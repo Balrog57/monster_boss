@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Verifie le manifeste de faces APK, les donnees du set de base et quelques assets d'UI. Usage : python tools/verify_assets.py"""
+"""Verifie le manifeste de faces APK, les donnees du set de base et quelques assets d'UI. Usage : python tools/verify_assets.py [--list-placeholders] [--strict-art]
+  --list-placeholders liste les ids d'art wiki en placeholder / manquants ; --strict-art sort en 1 s'il en reste."""
 import json
 import os
 import sys
@@ -65,18 +66,30 @@ def main() -> int:
         return 1
 
     print(f"[verify_assets] OK - base set {len(base['bosses'])} bosses, {len(base['rooms'])} rooms, {len(base['spells'])} spells, {len(base['heroes'])} heroes; all APK faces present.")
-    exp_sets = {"next-level", "minibosses", "crash-landing"}
+    from generate_placeholder_art import PLACEHOLDER_SETS, is_placeholder  # import tardif : exige Pillow, inutile aux controles ci-dessus
     name_map = data.get("nameMap", {})
-    exp = miss_art = 0
-    for section in ("bosses", "rooms", "spells", "heroes"):
+    exp_sets = {"next-level", "minibosses", "crash-landing", *PLACEHOLDER_SETS}
+    exp, placeholders, missing_art = 0, [], []
+    for section in ("bosses", "rooms", "spells", "heroes", "items", "minibosses"):  # = sections de generate_placeholder_art.py
         for c in data.get(section, []):
             if c.get("set") not in exp_sets:
                 continue
             exp += 1
             d = "epic-heroes" if section == "heroes" and c.get("epic") else section
-            if not os.path.exists(os.path.join(ASSETS, "cards", d, f"{c['id']}_{name_map.get(c['id'], c['id'].lower())}.webp")):
-                miss_art += 1
-    print(f"[verify_assets] expansions: {exp} cards, {miss_art} missing wiki art (non-fatal).")
+            path = os.path.join(ASSETS, "cards", d, f"{c['id']}_{name_map.get(c['id'], c['id'].lower())}.webp")
+            if not os.path.exists(path):
+                missing_art.append(c["id"])
+            elif is_placeholder(path):
+                placeholders.append(c["id"])
+    real = exp - len(placeholders) - len(missing_art)
+    # Les placeholders n'ont aucune source (docs/HANDOFF.md §7.10) : non bloquants sauf --strict-art.
+    print(f"[verify_assets] expansions: {exp} cards, {real} real art, {len(placeholders)} placeholders, {len(missing_art)} missing (non-fatal).")
+    if "--list-placeholders" in sys.argv:
+        print("[verify_assets] placeholders:", ", ".join(placeholders))
+        print("[verify_assets] missing:", ", ".join(missing_art))
+    if "--strict-art" in sys.argv and (placeholders or missing_art):
+        print("[verify_assets] --strict-art: placeholders or missing art remain.", file=sys.stderr)
+        return 1
     return 0
 
 

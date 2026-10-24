@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Generate honest placeholder faces for expansion cards with no official art.
 
-Context: the 107 Rise of the Minibosses + 1 Boss Monster 2 cards have no art
-on the wiki, are absent from the APK, are blocked on BoardGameGeek (403) and
-are excluded from the DriveThru art pack licence. Instead of showing a card
+Context: the expansion cards of the sets in PLACEHOLDER_SETS (Rise of the
+Minibosses, Boss Monster 2 / Next Level, Implements of Destruction, The Player's
+Choice) that have no art on the wiki, are absent from the APK, are blocked on
+BoardGameGeek (403) and are excluded from the DriveThru art pack licence get a
+placeholder. Today that is 108 faces: the 107 RMB* cards plus IOD023_laser-drill
+(the only Implements of Destruction card without wiki art). Instead of showing a card
 back in-game, we generate a clearly-labelled stand-in face so the card is
 readable (name, stats, rules text). Each face carries a "MISSING ART" ribbon
 so nobody mistakes it for official art. Re-running the script replaces those
