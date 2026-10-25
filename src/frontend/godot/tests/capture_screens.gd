@@ -108,6 +108,11 @@ func _menus() -> void:
 	main_scene.show_options()
 	await _wait(0.4)
 	await _shot("menu_options")
+	main_scene.show_settings() # OPTIONS > SETTINGS (SettingsScene.cs) : 03_settings.png
+	await _wait(0.4)
+	await _shot("menu_settings_music_sound_game_speed")
+	main_scene.show_options()
+	await _wait(0.4)
 	main_scene.find_child("Credits", true, false).pressed.emit() # OPTIONS > CREDITS (CreditsScreen.gd) : debut, puis defilement avance a la main (_process(dt)) : 14 s, 26 s, 50 s (pied arrete a y = 400)
 	await _wait(0.6)
 	await _shot("menu_credits_start")
@@ -963,7 +968,7 @@ func _phases() -> void:
 
 ## (etape, indice du texte) -> nom de la capture ; le cliche est pris quand la bulle est complete et attend un tap.
 const TUTORIAL_SHOTS := {
-	"intro1:0": "tutorial_intro_king_croak", "intro2:1": "tutorial_intro_ten_souls", "intro2:2": "tutorial_intro_five_wounds",
+	"intro1:0": "tutorial_intro_king_croak", "intro1:1": "tutorial_intro_arcadia", "intro2:1": "tutorial_intro_ten_souls", "intro2:2": "tutorial_intro_five_wounds",
 	"discard:0": "tutorial_discard_two_cards", "build1:0": "tutorial_build_first_room", "done1:0": "tutorial_done_button",
 	"bait:0": "tutorial_bait_treasures", "adv22:0": "tutorial_adventure_hero_and_damage", "adv23:0": "tutorial_hit_this_room",
 	"adv23+:0": "tutorial_room_description", "adv27:0": "tutorial_drag_spell_to_hero", "adv28:0": "tutorial_spell_on_stack",
@@ -1065,6 +1070,7 @@ func _tutorial_shots() -> void:
 			continue
 		if str(G.get("phase", "")) == "boss" and me.get("boss") == null:
 			if board._boss_ready and board._confirm_btn.visible:
+				await _shot("tutorial_boss_reveal") # YOU ARE KING CROAK + PLAY BOSS MONSTER! (tut_12..16 de l'APK)
 				board._confirm_btn.pressed.emit()
 			continue
 		if ov._discard_pending():

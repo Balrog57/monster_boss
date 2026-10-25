@@ -898,8 +898,8 @@ func _act_discard(pid: int) -> void:
 	_check(board._confirm_btn.visible and board._confirm_btn.is_visible_in_tree(), "defausse : CONTINUE absent avec 2 cartes choisies")
 	_check(board._confirm_btn.size == Vector2(131, 173) and board._confirm_btn.position == Vector2(1540, 410), "defausse : CONTINUE n'est pas le losange de l'APK (%s a %s)" % [board._confirm_btn.size, board._confirm_btn.position])
 	_check(board._dim.visible and board._dim.size == Vector2(1523, 400) and not board.phase_banner.visible, "defausse : seul le bandeau des cartes s'assombrit, sans plaque de phase")
-	board._on_hand_card_clicked(int(order[2]), hand[int(order[2])]) # une 3e est ignoree
-	_check(board.discard_pick.size() == 2, "defausse : 3 cartes selectionnables")
+	board._on_hand_card_clicked(int(order[2]), hand[int(order[2])]) # une 3e remplace la plus ancienne (CardSelectorComponent.cs:128-134)
+	_check(board.discard_pick == [int(order[1]), int(order[2])], "defausse : la 3e carte doit remplacer la plus ancienne (%s)" % str(board.discard_pick))
 	_check(_emitting(board._fx_hand).size() == 2, "defausse : une carte choisie doit emettre (YellowGlow, CardBorderBehavior.cs:48-50), %d emetteur(s) actifs pour 2 cartes" % _emitting(board._fx_hand).size())
 	var n_before := hand.size()
 	board._confirm_btn.pressed.emit()
@@ -2379,6 +2379,19 @@ func _check_credits() -> void:
 	await get_tree().process_frame
 	var cb = main.find_child("Credits", true, false)
 	var gal = main.find_child("CardGallery", true, false)
+	# 4 boutons empiles au centre x 960, y 356,4 + 162 n (OptionsScene.cs:55-103) ; les reglages sont dans SETTINGS
+	var stack: Array = ["Tutorial", "Settings", "CardGallery", "Credits"].map(func(n): return main.find_child(n, true, false))
+	_check(stack.all(func(b): return b is Button and is_equal_approx(b.position.x + b.size.x / 2.0, 960.0)), "options : les 4 boutons ne sont pas centres sur x = 960")
+	_check(stack.all(func(b): return b is Button) and is_equal_approx(stack[0].position.y + stack[0].size.y / 2.0, 356.0) and is_equal_approx(stack[3].position.y - stack[0].position.y, 486.0), "options : empilement TUTORIAL / SETTINGS / CARD GALLERY / CREDITS hors APK")
+	_check(main.find_children("*", "Label", true, false).all(func(l): return (l as Label).text != "MUSIC"), "options : MUSIC doit etre dans SETTINGS")
+	if stack[1] is Button:
+		(stack[1] as Button).pressed.emit()
+		await _nav(main)
+		_check(main.find_children("*", "Label", true, false).filter(func(l): return (l as Label).text in ["MUSIC", "SOUND", "GAME SPEED"]).size() == 3, "settings : MUSIC / SOUND / GAME SPEED absents")
+		main.show_options()
+		await get_tree().process_frame
+		cb = main.find_child("Credits", true, false)
+		gal = main.find_child("CardGallery", true, false)
 	if not _check(cb is Button and (cb as Button).text == "CREDITS" and gal != null, "credits : bouton CREDITS absent d'OPTIONS"):
 		main.queue_free()
 		return
@@ -3014,6 +3027,112 @@ func _check_apk_particles() -> void:
 	_check(board._gameover != null and board._gameover.find_children("*", "ApkParticles", true, false).is_empty(), "particules : l'ecran perdu ne doit pas emettre")
 	_cov("apk_particles")
 
+## Animations de l'APK ajoutees apres coup : defausse de la main (DrawCardEmitter.cs:113-145), passage de main en pass and play (JumpBehavior), inclinaison au glisser
+## (CardRotationBehavior), lerp de survol (CardMoveBehavior), reordonnancement de la ville (VerticalScrollQueueComponent.CreateReorderTask), particules du panneau adverse actif.
+func _check_apk_anims() -> void:
+	_tag = "[anims]"
+	await _new_game()
+	board.set_process(false)
+	board.skip_animations = false
+	board.refresh()
+	var me: Dictionary = gm.G["players"][0]
+	var hand: Array = me["hand"]
+	# une carte jouee (aucun coup de defausse) ne s'envole pas vers la defausse
+	hand.pop_back()
+	board.refresh()
+	_check(get_tree().get_nodes_in_group("discarded_card").is_empty(), "defausse : une carte partie sans coup de defausse ne doit pas etre animee")
+	# une carte defaussee par un choix : vol, particules allumees des le depart, derriere la carte
+	hand.pop_back()
+	board._discard_move = true
+	board.refresh()
+	var flying: Array = get_tree().get_nodes_in_group("discarded_card")
+	if _check(flying.size() == 1, "defausse : la carte defaussee doit s'envoler (%d carte(s))" % flying.size()):
+		var fxd: Array = _emitting(board._ui_layer)
+		_check(fxd.size() == 1 and (fxd[0] as Node).get_index() + 1 == (flying[0] as Node).get_index(), "defausse : les particules doivent emettre des le depart, derriere la carte (%d emetteur(s))" % fxd.size())
+		board._draw_clear()
+		await get_tree().process_frame
+		_check(get_tree().get_nodes_in_group("discarded_card").is_empty(), "defausse : un changement de siege doit couper le vol")
+	_cov("discard_anim")
+	# JumpBehavior : 300 px, BackEase 0,4 (recule d'abord, depasse en revenant)
+	board._hand_jump(1.0)
+	_check(is_equal_approx(board.hand_layer.position.y, 300.0), "passage de main : la main cachee doit etre 300 px plus bas (%.1f)" % board.hand_layer.position.y)
+	board._hand_jump(0.4)
+	_check(board.hand_layer.position.y < -20.0, "passage de main : BackEase, la main recule d'abord (%.1f)" % board.hand_layer.position.y)
+	board._hand_jump(0.0)
+	_check(board.hand_layer.position.y == 0.0, "passage de main : la main revient exactement en place")
+	_cov("hand_jump")
+	# CardRotationBehavior : rotation Y = dx x 0,005 par image, bornee a 22,5 deg, retombe a 0 a l'arret
+	var pv := Control.new()
+	pv.size = Vector2(175, 244)
+	add_child(pv)
+	board._drag = {"preview": pv}
+	pv.position.x = 100.0
+	board._drag_tilt()
+	pv.position.x = 200.0
+	board._drag_tilt()
+	_check(is_equal_approx(pv.scale.x, cos(0.3927)), "inclinaison : 100 px par image = borne 22,5 deg (scale.x %.4f)" % pv.scale.x)
+	pv.position.x = 190.0
+	board._drag_tilt()
+	_check(is_equal_approx(pv.scale.x, cos(0.05)), "inclinaison : 10 px par image = 0,05 rad (scale.x %.4f)" % pv.scale.x)
+	board._drag_tilt()
+	_check(is_equal_approx(pv.scale.x, 1.0), "inclinaison : la carte arretee se redresse")
+	board._drag = {}
+	pv.queue_free()
+	_cov("drag_tilt")
+	# CardMoveBehavior : lerp 0,009 x ms par image (14,4 % a 16 ms), cible atteinte exactement
+	var mv := Control.new()
+	add_child(mv)
+	CardUI.lerp_vers(mv, "position:y", 100.0)
+	await _wait(0.1)
+	_check(mv.position.y > 40.0 and mv.position.y < 90.0, "survol : le lerp doit etre en cours apres 0,1 s (%.1f)" % mv.position.y)
+	await _wait(0.6)
+	_check(mv.position.y == 100.0, "survol : le lerp doit atteindre sa cible (%.1f)" % mv.position.y)
+	mv.queue_free()
+	_cov("hover_lerp")
+	# ville : un heros reste en ville quand le premier part (leurre) : il glisse a sa nouvelle place au lieu de sauter
+	var town: Array = []
+	for k in 3:
+		town.append((CardDB.heroes[k] as Dictionary).duplicate(true))
+	gm.G["town"] = town.duplicate()
+	board.refresh()
+	await _wait(0.2)
+	gm.G["town"] = [town[1], town[2]]
+	board.refresh()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var c0 := board.town_container.get_child(0) as Control
+	_check(c0.position.y > 1.0, "ville : le heros restant doit glisser vers sa place (y %.1f)" % c0.position.y)
+	await _wait(0.8)
+	_check(is_equal_approx(c0.position.y, 0.0), "ville : le heros doit finir a sa place (y %.1f)" % c0.position.y)
+	_cov("town_reorder")
+	# panneau adverse actif : particules (3 joueurs = barre d'adversaires)
+	await _teardown()
+	CardDB._rng.seed = 424242
+	gm = GameManager.new()
+	add_child(gm)
+	gm.rng.seed = 424242
+	gm.start_new_game(3, 1, ["base"])
+	board = load("res://godot/scenes/Board.tscn").instantiate()
+	board.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(board)
+	board.skip_animations = true
+	board.setup(gm, func(): quit_calls += 1)
+	board.set_process(false)
+	await _wait(0.2)
+	gm.G["activePlayer"] = 1
+	board.refresh()
+	await _wait(0.1)
+	var ffx: Array = _emitting(board.foe_bar)
+	_check(ffx.size() == 1 and (ffx[0] as Node).get_parent().get_meta("pid") == 1, "panneau adverse : seul l'adversaire actif doit emettre (%d emetteur(s))" % ffx.size())
+	if not ffx.is_empty():
+		var bt := (ffx[0] as Node).get_parent() as Control
+		_check(is_equal_approx(absf((ffx[0] as ApkParticles).emission_points[0].x) * 2.0, bt.size.x * ApkParticles.ECHELLE), "panneau adverse : emetteur = 0,9 x le panneau")
+	gm.G["activePlayer"] = 0
+	board.refresh()
+	_check(_emitting(board.foe_bar).is_empty(), "panneau adverse : plus d'emission quand le joueur actif est un autre")
+	_cov("foe_particles")
+
 ## Fenetres a l'horloge murale : Godot plafonne delta (~0,13 s) quand les images sont lentes (web, onglet en arriere-plan, ~1 image/s) ; une
 ## fenetre de 3 s durait alors 20-30 s. Ici delta est minuscule mais 0,3 s reelles passent entre deux images : la barre doit suivre l'horloge.
 ## Une ligne de journal / un siege qui passe ne rouvre pas la fenetre (l'APK ne remet la barre a zero qu'a un pas du heros ou un sort).
@@ -3202,6 +3321,7 @@ func _extra_checks() -> void:
 	await _check_public_lobby()
 	await _check_gameover_banner()
 	await _check_apk_particles()
+	await _check_apk_anims()
 	await _check_tutorial()
 	await _check_effects()
 	await _check_crossing_ui()

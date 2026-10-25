@@ -13,7 +13,6 @@ signal long_released(card: Control)       ## fin du maintien : le zoom se ferme
 
 @export var default_size := Vector2(140, 200)
 @export var hover_scale := 1.2 # CardPositionComponent.cs:35 (SelectedScale 1,2)
-@export var hover_duration := 0.15
 
 var card_data: CardData
 var card_dict: Dictionary = {}
@@ -34,7 +33,6 @@ var _pressed := false
 var _long := false
 var _press_pos := Vector2.ZERO
 var _press_id := 0
-var _tween: Tween
 var _rest_scale := Vector2.ONE             # echelle au repos (dos de carte pose en salle : voir set_face_down_scale)
 var _gold: TextureRect
 var _frozen: TextureRect
@@ -235,16 +233,25 @@ func add_lane_badge() -> void:
 	t.size = Vector2(39, 39) * k
 	add_child(t)
 
+## CardMoveBehavior.cs:13,129-133 : a chaque image valeur += (cible - valeur) x min(ms x 0,009 ; 1), donc 14,4 % par image de 16 ms (pas de duree : ~0,3 s pour 95 %).
+## `prop` = chemin de propriete de `n` ; un lerp encore en cours sur la meme propriete est remplace (le Refresh de CardPositionComponent change la cible).
+static func lerp_vers(n: Node, prop: String, cible) -> void:
+	var cle := "lerp_" + prop.replace(":", "_")
+	if n.has_meta(cle) and is_instance_valid(n.get_meta(cle)):
+		(n.get_meta(cle) as Tween).kill()
+	var dep = n.get_indexed(prop)
+	var tw := n.create_tween()
+	n.set_meta(cle, tw)
+	tw.tween_method(func(t: float): n.set_indexed(prop, lerp(dep, cible, 1.0 - pow(0.856, t / 0.016))), 0.0, 0.48, 0.48) # 0,856 = 1 - 0,009 x 16
+	tw.tween_callback(func(): n.set_indexed(prop, cible))
+
 func _on_mouse_entered() -> void:
 	z_index = 20
 	if glow_rect:
 		glow_rect.visible = true
 	if border:
 		border.border_color = Color(1.0, 0.85, 0.2, 1.0)
-	if _tween and _tween.is_valid():
-		_tween.kill()
-	_tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	_tween.tween_property(self, "scale", _rest_scale * hover_scale, hover_duration)
+	lerp_vers(self, "scale", _rest_scale * hover_scale)
 	card_hovered.emit(card_data, true)
 
 func _on_mouse_exited() -> void:
@@ -253,10 +260,7 @@ func _on_mouse_exited() -> void:
 		glow_rect.visible = false
 	if border:
 		border.border_color = Color(0.4, 0.4, 0.5, 0.5)
-	if _tween and _tween.is_valid():
-		_tween.kill()
-	_tween = create_tween().set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	_tween.tween_property(self, "scale", _rest_scale, hover_duration)
+	lerp_vers(self, "scale", _rest_scale)
 	card_hovered.emit(card_data, false)
 
 func _on_gui_input(event: InputEvent) -> void:

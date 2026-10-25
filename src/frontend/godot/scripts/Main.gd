@@ -588,32 +588,34 @@ func show_options() -> void:
 		show_menu()
 	_apk_screen(leave)
 	var decor := get_children() # fond, torches, logo, fleche (et les noeuds d'avant, deja condamnes) : tout ce qui s'ajoute ensuite = commandes d'OPTIONS (masquees par CREDITS)
-	_toggle_row(360, "MUSIC", ["ON", "OFF"], 0 if AudioManager.music_on else 1, func(i: int): AudioManager.set_music_on(i == 0))
-	_toggle_row(480, "SOUND", ["ON", "OFF"], 0 if AudioManager.sfx_on else 1, func(i: int): AudioManager.set_sfx_on(i == 0))
-	_toggle_row(600, "GAME SPEED", ["SLOW", "NORMAL", "FAST"], Profile.load_speed(), func(i: int): Profile.save_speed(i))
-	# CARD GALLERY : l'OPTIONS de l'APK l'ouvre aussi (OptionsScene), comme le menu en jeu.
-	var gal := UiKit.stone_button(self, "CARD GALLERY", Vector2(687, 730))
+	# 4 boutons empiles (OptionsScene.cs:55-103) : centre x 960, y 356,4 + 162 n (haut = centre - 72).
+	var save_host := func():
+		if not is_web:
+			server_host = host.text # chaque sortie d'OPTIONS reconstruit l'ecran : on garde le champ serveur
+		Profile.save_settings(server_host, use_extensions, apk_decks)
+	var tut := UiKit.stone_button(self, "TUTORIAL", Vector2(687, 284))
+	tut.name = "Tutorial"
+	tut.pressed.connect(func():
+		AudioManager.play_sfx("ui_button_select")
+		save_host.call()
+		start_tutorial()) # OptionsScene.cs:62-67 : To(GamePlayTutScene) sans transition
+	var sett := UiKit.stone_button(self, "SETTINGS", Vector2(687, 446))
+	sett.name = "Settings"
+	sett.pressed.connect(func():
+		AudioManager.play_sfx("ui_button_select")
+		save_host.call()
+		go(show_settings)) # OptionsScene.cs:68-79 : Push ColorFade noir NormalTransitionsTime
+	var gal := UiKit.stone_button(self, "CARD GALLERY", Vector2(687, 608))
 	gal.name = "CardGallery"
 	gal.pressed.connect(func():
 		AudioManager.play_sfx("ui_button_select")
 		go(func(): add_child(CardGallery.new()))) # OptionsScene.cs:85-90 (ColorFade 1,0 s)
-	# TUTORIAL : 1er rang de l'APK (OptionsScene.cs:58-67, y 356) ; ici ce rang est pris par les reglages (MUSIC / SOUND / GAME SPEED), le bouton se place a gauche de CARD GALLERY (hors APK).
-	var tut := UiKit.stone_button(self, "TUTORIAL", Vector2(121, 730))
-	tut.name = "Tutorial"
-	tut.pressed.connect(func():
-		AudioManager.play_sfx("ui_button_select")
-		if not is_web:
-			server_host = host.text
-		Profile.save_settings(server_host, use_extensions, apk_decks)
-		start_tutorial()) # OptionsScene.cs:62-67 : To(GamePlayTutScene) sans transition
-	# CREDITS : 4e bouton d'OPTIONS, 162 px sous le precedent (OptionsScene.cs:55-57,91-102).
-	var cred := UiKit.stone_button(self, "CREDITS", Vector2(687, 892))
+	var cred := UiKit.stone_button(self, "CREDITS", Vector2(687, 770))
 	cred.name = "Credits"
 	cred.pressed.connect(func():
 		AudioManager.play_sfx("ui_button_select")
-		if not is_web:
-			server_host = host.text # la sortie des credits reconstruit OPTIONS : on garde le champ serveur
-		_open_credits(decor))
+		save_host.call()
+		_open_credits(decor)) # OptionsScene.cs:91-102
 	# Controles secondaires discrets (multijoueur / extensions du wiki : hors APK).
 	var ext := CheckBox.new()
 	ext.text = "Wiki expansions (not in the APK)"
@@ -632,6 +634,13 @@ func show_options() -> void:
 		host.free() # web : le serveur est toujours celui qui sert la page (window.location.origin), pas de champ
 	else:
 		add_child(host)
+
+## SETTINGS (SettingsScene.cs:58-106) : MUSIC / SOUND / GAME SPEED aux y 360 / 480 / 600 ; la fleche pop en fondu noir 1,0 s vers OPTIONS (:136).
+func show_settings() -> void:
+	_apk_screen(func(): go(show_options))
+	_toggle_row(360, "MUSIC", ["ON", "OFF"], 0 if AudioManager.music_on else 1, func(i: int): AudioManager.set_music_on(i == 0))
+	_toggle_row(480, "SOUND", ["ON", "OFF"], 0 if AudioManager.sfx_on else 1, func(i: int): AudioManager.set_sfx_on(i == 0))
+	_toggle_row(600, "GAME SPEED", ["SLOW", "NORMAL", "FAST"], Profile.load_speed(), func(i: int): Profile.save_speed(i))
 
 ## Push SANS transition (OptionsScene.cs:100-102) : OPTIONS reste dessine derriere le voile, ses boutons et son logo sont masques (ShowButtons(false), :101) ;
 ## retour = fondu noir 1,0 s vers OPTIONS (CreditsScene.cs:132).

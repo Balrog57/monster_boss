@@ -181,6 +181,7 @@ var _stack_ui: Control
 var _notice: Control
 var _hand_seen: Array = []               # cartes de la main deja vues (animation de pioche)
 var _hand_seen_pid := -1
+var _discard_move := false               # mon dernier coup defausse de la main (resolveChoice, discardForCoin) : les cartes parties sont animees (_show_discard) ; une carte posee ou jouee ne l'est pas
 var _deal_pending := false               # le choix du boss vient de finir : toute la main est distribuee (DrawCardEmitter.cs:46-49 : lastHands vide)
 var _draw_hide := {}                     # id de carte -> nombre d'exemplaires encore en vol vers la main : leurs cartes restent cachees (voir _refresh_hand)
 var _undo_ids: Array = []                # salles de ma pose en attente au dernier affichage : si elles reviennent en main (undoBuild), ce n'est pas une pioche
@@ -724,7 +725,7 @@ func _follow_seat(G: Dictionary) -> bool:
 		e.queue_free() # la main du siege precedent part avec ses particules
 	var lanes: Array = [_lane[0]["root"], _lane[1]["root"]]
 	var tw := create_tween()
-	tw.tween_property(hand_layer, "position:y", 600.0, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_method(_hand_jump, 0.0, 1.0, 0.5) # JumpBehavior : 300 px, 0,5 s lineaire sous BackEase 0,4
 	for l in lanes:
 		tw.parallel().tween_property(l, "modulate:a", 0.0, 0.5)
 	tw.tween_callback(func():
@@ -732,13 +733,18 @@ func _follow_seat(G: Dictionary) -> bool:
 		view_pid = t
 		_sync_slot_pids()
 		refresh())
-	tw.tween_property(hand_layer, "position:y", 0.0, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_method(_hand_jump, 1.0, 0.0, 0.5)
 	for l in lanes:
 		tw.parallel().tween_property(l, "modulate:a", 1.0, 0.5)
 	tw.tween_callback(func():
 		_handing_over = false
 		refresh())
 	return true
+
+## JumpBehavior.cs:65-82 (HandVisibilityBehavior) : decalage vers le bas = 300 x (1 - Ease(a)), BackEase d'amplitude 0,4 en EaseOut (cs:58-61 ; BackEase.cs, EasingFunctionBase.cs:25-29),
+## soit 300 x (u^3 - 0,4 u sin(pi u)) avec u = 1 - a : u 0 = main en place, 1 = main cachee (la main recule un peu avant de partir et depasse en revenant).
+func _hand_jump(u: float) -> void:
+	hand_layer.position.y = 300.0 * (pow(u, 3.0) - 0.4 * u * sin(PI * u))
 
 ## Adversaires du siege affiche (ordre des sieges) ; foe_pid reste valide et suit l'aventure en cours (l'animation doit se jouer
 ## dans le couloir visible : sans cela, a 3-4 joueurs, seul le premier adversaire etait jamais montre).
@@ -782,6 +788,16 @@ func _refresh_foe_bar(others: Array) -> void:
 			foe_pid = p
 			refresh())
 		foe_bar.add_child(b)
+		if p == game_manager.active_player() and game_manager.G.get("gameOver") == null:
+			# CollapsedOpponentDetail.Refresh (cs:331-332) : Emit = boss.IsActivePlayer, emetteur 0,9 x le panneau (cs:204, ECHELLE) centre sur lui (LocalX = -largeur / 2, cs:203).
+			# Le panneau 212 x 141 n'existe pas ici : l'emetteur suit le bouton P<n> (sa taille n'est connue qu'apres la mise en page).
+			var fx := ApkParticles.creer(b, Vector2.ONE)
+			var fit := func(sz: Vector2):
+				fx.position = sz * 0.5
+				fx.set_size(sz * ApkParticles.ECHELLE)
+			fit.call(b.get_combined_minimum_size()) # taille de depart (la mise en page n'a pas encore eu lieu), puis la vraie
+			b.resized.connect(func(): fit.call(b.size))
+			fx.set_emit(true)
 
 func _sync_slot_pids() -> void:
 	for slot in _dungeon_slots:
@@ -813,6 +829,7 @@ func _process(delta: float) -> void:
 	if game_manager == null or game_manager.G.get("gameOver") != null:
 		return
 	_tick_warn(delta)
+	_drag_tilt()
 	# Godot plafonne delta (~0,13 s) quand les images sont lentes (web, onglet en arriere-plan) : les fenetres chronometrees (APK : horloge reelle)
 	# et l'IA suivent donc l'horloge murale si elle avance plus vite (au plus 1 s par image : un onglet endormi ne vide pas la barre d'un coup).
 	var now := Time.get_ticks_msec()
@@ -1112,17 +1129,20 @@ func _refresh_overlay(G: Dictionary, phase: String) -> void:
 	var over: bool = G.get("gameOver") != null
 	var boss_pick := _boss_pending(G)
 	var discard := _is_opening_discard_for_me() and not over
-	_dim.visible = boss_pick or discard
+	# tutoriel : le carrousel attend la fin des bulles d'intro (_tg), mais l'APK montre deja l'ecran noir du choix du boss (10_tut_a)
+	var intro_wait: bool = not boss_pick and G.get("gameOver") == null and str(G.get("phase", "")) == "boss" and ((G.get("players", {}) as Dictionary).get(view_pid, {}) as Dictionary).get("boss") == null
+	var full := boss_pick or intro_wait
+	_dim.visible = full or discard
 	# APK : choix du boss = tout l'ecran s'assombrit (panneaux et plaque de phase compris) ; defausse d'ouverture = seulement le bandeau
 	# des cartes (y 296..696, filets or), le reste du plateau reste visible et la plaque de phase est cachee.
-	_dim.color = Color(0, 0, 0, 0.92 if boss_pick else 0.88)
-	_dim.position = Vector2.ZERO if boss_pick else Vector2(184, 296)
-	_dim.size = Vector2(1920, 1080) if boss_pick else Vector2(1523, 400)
+	_dim.color = Color(0, 0, 0, 0.92 if full else 0.88)
+	_dim.position = Vector2.ZERO if full else Vector2(184, 296)
+	_dim.size = Vector2(1920, 1080) if full else Vector2(1523, 400)
 	for gl in _dim.get_children():
 		gl.visible = discard
 	phase_banner.visible = not over and not discard
-	phase_banner.modulate.a = 0.25 if boss_pick else 1.0
-	top_menu_btn.modulate.a = 0.25 if boss_pick else 1.0
+	phase_banner.modulate.a = 0.25 if full else 1.0
+	top_menu_btn.modulate.a = 0.25 if full else 1.0
 	_bubble.visible = discard
 	_carousel_text.visible = boss_pick or discard
 	_confirm_btn.visible = (boss_pick and _boss_ready and _boss_solo(G)) or (discard and discard_pick.size() == 2) # fin de partie : GameOverBanner (bouton OK)
@@ -1135,9 +1155,9 @@ func _refresh_overlay(G: Dictionary, phase: String) -> void:
 	_style_confirm(discard)
 	_style_boss_label(boss_pick)
 	if boss_pick:
-		_carousel_text.position = Vector2(PLAY_CX - 600, 108)
+		_carousel_text.position = Vector2(356, 125) # calé sur tut_16 : texte « YOU ARE » a x 665, y 134 (centre 960 : RandomBossSelectionScene.cs:76)
 		_carousel_text.size = Vector2(1200, 90)
-		_set_carousel_text("YOU ARE [color=#f0c040]%s[/color]" % (_boss_name if _boss_ready else "..."), 56)
+		_set_carousel_text("YOU ARE [color=#f0c040]%s[/color]" % (_boss_name if _boss_ready else "..."), 42) # RandomBossSelectionScene.cs:76 : bg_txt (960 ; 150) echelle 2 = arcadepix 21 x 2 (mesure tut_16)
 	elif discard:
 		_set_carousel_text("SELECT [color=#f0c040]2[/color] CARDS TO DISCARD", 21)
 		_carousel_text.position = Vector2(STACK_CX + 2 - 465, 204) # APK : texte centre en x 962, y 215
@@ -1286,6 +1306,12 @@ func _refresh_town(G: Dictionary) -> void:
 	var epic: bool = town.any(func(h): return bool((h as Dictionary).get("epic", false)))
 	_town_header.texture = _tex(UI_DIR + ("epic_heroes_in_town_top.webp" if epic else "heroes_in_town_top.webp"))
 	var keep_sv := _town_scroll.scroll_vertical
+	var old_y := {} # id -> hauteurs d'avant (CreateReorderTask : les heros restants glissent a leur nouvelle place)
+	for j in mini(_town_ids.size(), town_container.get_child_count()):
+		var yl: Array = old_y.get(_town_ids[j], [])
+		yl.append((town_container.get_child(j) as Control).position.y)
+		old_y[_town_ids[j]] = yl
+	var moved: Array = []
 	for c in town_container.get_children():
 		town_container.remove_child(c) # tout de suite : les zones de ciblage lisent les positions des nouvelles cartes
 		c.queue_free()
@@ -1306,21 +1332,34 @@ func _refresh_town(G: Dictionary) -> void:
 		var k := pool.find(ids[hi])
 		if k >= 0:
 			pool.remove_at(k)
+			var yl: Array = old_y.get(ids[hi], [])
+			if not yl.is_empty():
+				moved.append([hero_card, yl.pop_front()])
 		else:
 			fresh = hi
 	_town_ids = ids
 	if fresh >= 0 and not skip_animations:
 		_play_sfx("ui_shuffle_left") # VerticalScrollQueueComponent.cs:194 : un heros s'ajoute a la file
-	_town_restore(keep_sv, fresh)
+	_town_restore(keep_sv, fresh, moved)
 
 ## Apres la mise en page des cartes : le defilement d'avant est restitue, et un heros qui vient d'arriver est amene a l'ecran
 ## (VerticalScrollQueueComponent.CreateShowBottomTask).
-func _town_restore(sv: int, fresh: int) -> void:
+func _town_restore(sv: int, fresh: int, moved: Array = []) -> void:
 	for i in 2:
 		await get_tree().process_frame
 	if not is_instance_valid(_town_scroll):
 		return
 	_town_scroll.scroll_vertical = sv
+	# VerticalScrollQueueComponent.CreateReorderTask (cs:199-210) : Y local en 0,5 s x vitesse, CubicEase (= EaseOut), tous les heros en parallele
+	if not skip_animations:
+		for m in moved:
+			if not is_instance_valid(m[0]):
+				continue # la colonne a ete reconstruite entre-temps
+			var hc := m[0] as Control
+			if hc.is_inside_tree() and not is_equal_approx(hc.position.y, float(m[1])):
+				var to_y := hc.position.y
+				hc.position.y = float(m[1])
+				hc.create_tween().tween_property(hc, "position:y", to_y, 0.5 * _speed_factor()).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	if fresh >= 0 and fresh < town_container.get_child_count():
 		_town_scroll.ensure_control_visible(town_container.get_child(fresh))
 
@@ -1665,7 +1704,7 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 		elif grey_now:
 			card_ui.set_greyed(true)
 		if discard_pick.has(idx):
-			card_ui.modulate = Color(1.3, 1.3, 0.4, 1.0)
+			card_ui.modulate = Color(2.83, 2.83, 2.83, 1.0) # tut_26 : la carte choisie est 2,83 x plus claire que sous le voile, sans teinte
 			var glow := card_ui.get_node_or_null("GlowRect")
 			if glow != null:
 				glow.visible = true
@@ -1677,7 +1716,6 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 		_place_cards(cards, sz, 125.0, 1000.0, DISCARD_TOP, DISCARD_CX)
 		for i in cards.size():
 			if discard_pick.has(i):
-				(cards[i] as Control).position.y -= 30.0
 				_fx_selected(i, cards[i] as Control)
 	else:
 		_place_fan(cards, sz)
@@ -1906,14 +1944,12 @@ func _place_fan(cards: Array, sz: Vector2) -> void:
 		var base_y := c.position.y
 		var base_rot := c.rotation_degrees
 		var up_y := 1080.0 - sz.y - 4.0 # carte entierement visible
-		c.mouse_entered.connect(func():
-			var tw := c.create_tween().set_parallel(true)
-			tw.tween_property(c, "position:y", up_y, 0.12)
-			tw.tween_property(c, "rotation_degrees", 0.0, 0.12))
+		c.mouse_entered.connect(func(): # CardMoveBehavior : lerp 0,009 x ms par image (CardUI.lerp_vers), pas de duree
+			CardUI.lerp_vers(c, "position:y", up_y)
+			CardUI.lerp_vers(c, "rotation_degrees", 0.0))
 		c.mouse_exited.connect(func():
-			var tw := c.create_tween().set_parallel(true)
-			tw.tween_property(c, "position:y", base_y, 0.12)
-			tw.tween_property(c, "rotation_degrees", base_rot, 0.12))
+			CardUI.lerp_vers(c, "position:y", base_y)
+			CardUI.lerp_vers(c, "rotation_degrees", base_rot))
 
 func _refresh_phase_banner(phase: String) -> void:
 	if phase == _last_phase:
@@ -3099,6 +3135,7 @@ func _move_label(m: Dictionary, _G: Dictionary, hand: Array) -> String:
 func _do(move: Dictionary) -> void:
 	_popup_close() # une fenetre ouverte pour ce coup (cible, choix) se ferme avec lui
 	_target_end()
+	_discard_move = str(move.get("type", "")) in ["resolveChoice", "discardForCoin"]
 	game_manager.apply_move(_my_pid(), move)
 	refresh() # toujours : ce qui reste a decider (nouveau choix) doit reapparaitre
 
@@ -3110,8 +3147,10 @@ func _on_hand_card_clicked(idx: int, card: Dictionary) -> void:
 			discard_pick.erase(idx)
 			_play_sfx("ui_button_subselect") # CardSelectorComponent.cs:120-125 : une carte deselectionnee ne joue que subselect
 		else:
-			if discard_pick.size() < 2:
-				discard_pick.append(idx)
+			if discard_pick.size() >= 2:
+				discard_pick.remove_at(0) # la plus ancienne est remplacee (CardSelectorComponent.cs:128-134)
+				_play_sfx("ui_button_subselect")
+			discard_pick.append(idx)
 			_play_sfx("ui_button_select") # :135
 		refresh()
 		return
@@ -3324,20 +3363,25 @@ func _on_slot_activate(di: int) -> void:
 		_resolve_slot_ability(di, cands)
 		return
 	_zoom_hide()
-	_zoom = UiKit.zoom_card(top, UiKit.ZOOM_CARD)
+	var zs = _tg("zoom_scale", null, 1.0) # tutoriel : le zoom de la salle est 1,62 x plus grand que celui du jeu (tut_100 : boite de capacite 460 px de large, cadre bas a y 985)
+	zs = float(zs) if zs is float else 1.0
+	var zc: Vector2 = UiKit.ZOOM_CARD * zs
+	var pad: float = UiKit.ZOOM_PAD * zs
+	_zoom = UiKit.zoom_card(top, zc, false, pad)
 	_zoom.set_meta("levelup", true) # survit aux refresh jusqu'au clic suivant (_input)
 	var cx := 960.0
 	for sl in _dungeon_slots:
 		if (sl as DungeonSlot).slot_index == di and not (sl as DungeonSlot).current_stack.is_empty():
 			cx = (sl as Control).get_global_rect().get_center().x
-	_zoom.position = Vector2(clampf(cx - _zoom.size.x / 2.0, 190.0, 1707.0 - _zoom.size.x), 295.0)
+	_zoom.position = Vector2(clampf(cx - _zoom.size.x / 2.0, 190.0, 1707.0 - _zoom.size.x), 295.0 if zs == 1.0 else 985.0 - _zoom.size.y)
 	_ui_layer.add_child(_zoom)
 	_zoom_appear()
 	hand_layer.modulate = Color(0.6, 0.6, 0.6)
-	var k := UiKit.ZOOM_CARD / Vector2(350.0, 488.0) # meme repere que DungeonSlot._update_glow : zone de texte a 116/488 sous le centre
-	var ab := Rect2(Vector2(UiKit.ZOOM_PAD, UiKit.ZOOM_PAD) + UiKit.ZOOM_CARD / 2.0 + Vector2(0, 116.0 * k.y) - Vector2(306, 102) * k / 2.0, Vector2(306, 102) * k)
+	var k := zc / Vector2(350.0, 488.0) # meme repere que DungeonSlot._update_glow : zone de texte a 116/488 sous le centre
+	var ab := Rect2(Vector2(pad, pad) + zc / 2.0 + Vector2(0, 116.0 * k.y) - Vector2(306, 102) * k / 2.0, Vector2(306, 102) * k)
 	var glow := UiKit.image(_zoom, "res://assets/ui/ingame/card_border_ability_glow.webp", ab.position, ab.size)
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	DungeonSlot.add_rings(glow, ab.size) # PulseBehavior : 3 anneaux qui grossissent (CardAttributesComponent.cs:324-327), relances toutes les 3 s (SimpleTimerBehavior, cs:328-331)
 	_zoom.set_meta("ability", {"rect": ab, "di": di, "cands": cands})
 	room_detail_shown.emit(di)
 
@@ -3491,6 +3535,17 @@ func _drag_begin() -> void:
 	_drag = {"idx": idx, "preview": prev, "frames": []}
 	_drag_move(_press["pos"])
 	_drag_refresh()
+
+## Inclinaison de la carte glissee (CardRotationBehavior.UpdateCardDragEffect, cs:84-111) : rotation autour de Y = (position precedente - position) x 0,005 rad PAR IMAGE, bornee a +-22,5 deg (0,3927 rad) ;
+## l'axe X est calcule mais jamais applique (cs:99,106-108), retombe a 0 des que la carte s'arrete. Approximation 2D : largeur x cos(angle), sans la perspective du rendu 3D.
+func _drag_tilt() -> void:
+	if _drag.is_empty() or not is_instance_valid(_drag["preview"]):
+		return
+	var prev: Control = _drag["preview"]
+	var dx: float = float(_drag.get("lx", prev.position.x)) - prev.position.x
+	_drag["lx"] = prev.position.x
+	prev.pivot_offset = prev.size / 2.0
+	prev.scale.x = cos(clampf(dx * 0.005, -0.3927, 0.3927))
 
 func _drag_move(pos: Vector2) -> void:
 	var prev: Control = _drag["preview"]
@@ -3881,6 +3936,8 @@ func _notice_zoom(card: Dictionary, spot := {}) -> void:
 ## Pas pendant le choix du boss / la defausse d'ouverture (sauf la distribution elle-meme) ; pas sans animations.
 func _track_hand_draw(G: Dictionary, p: Dictionary, phase: String) -> void:
 	var hand: Array = p.get("hand", [])
+	var discarded := _discard_move
+	_discard_move = false
 	var seen_before := _hand_seen.duplicate()
 	var same_seat := _hand_seen_pid == view_pid
 	var deal := _deal_pending and not hand.is_empty() and phase != "boss"
@@ -3911,8 +3968,71 @@ func _track_hand_draw(G: Dictionary, p: Dictionary, phase: String) -> void:
 			taken_back.erase(str((c as Dictionary).get("id", "")))
 		else:
 			fresh.append(c)
+	var gone: Array = [] # cartes parties de la main (DrawCardEmitter.CreateDiscardRemovedCardsTask, cs:61-83) : ce qui reste de seen_before
+	if discarded:
+		for c in counts:
+			for _k in int(counts[c]):
+				gone.append(c)
+	if not gone.is_empty():
+		_show_discard(gone)
 	if not fresh.is_empty():
 		_show_draw(fresh)
+
+## Defausse depuis la main (DrawCardEmitter.CreateSingleCardDiscardTask, cs:113-145) : la carte (particules allumees des le depart) va au centre en 0,5 s (rotation 0, echelle ci-dessous, CubicEase),
+## attend 2 s + 0,1 s x rang, se retourne (0,5 s), part vers la defausse en bas a gauche (0,5 s, tournee de 90 deg, echelle 0,375), puis les particules s'eteignent et elle s'estompe (FadeBehavior 0,3 s, CardEntity.cs:69).
+func _show_discard(cards: Array) -> void:
+	var n := cards.size()
+	var sc := lerpf(0.37, 1.0, 1.0 / float(n)) # cs:107
+	var csz := UiKit.ZOOM_CARD * sc
+	for i in n:
+		var card: Dictionary = cards[i]
+		var from := Vector2(HAND_CX, HAND_CY) # la carte de la main (reconstruite juste apres) : centre, rotation et taille de depart
+		var rot := 0.0
+		var k0 := HAND_CARD.x / csz.x
+		for hn in hand_layer.get_children():
+			var cu := hn as CardUI
+			if cu != null and not cu.has_meta("discard_taken") and cu.card_dict == card:
+				cu.set_meta("discard_taken", true)
+				from = cu.get_global_transform() * (cu.size * 0.5)
+				rot = cu.rotation_degrees
+				break
+		var back := UiKit.zoom_back("back-spell" if bool(card.get("isSpell", false)) else "back-room", csz)
+		var face := UiKit.zoom_card(card, csz)
+		back.visible = false
+		var holder := Control.new()
+		holder.name = "DiscardedCard"
+		holder.add_to_group("discarded_card")
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(back)
+		holder.add_child(face)
+		holder.size = back.size
+		holder.pivot_offset = back.size / 2.0
+		holder.position = from - back.size / 2.0
+		holder.scale = Vector2.ONE * k0
+		holder.rotation_degrees = rot
+		_ui_layer.add_child(holder)
+		var fx := ApkParticles.creer(_ui_layer, back.size * ApkParticles.ECHELLE) # EmitParticles = true (cs:118)
+		fx.position = from
+		fx.suit = holder
+		fx.set_emit(true)
+		_ui_layer.move_child(fx, holder.get_index())
+		var cx := lerpf(400.0, 1490.0, float(i + 1) / float(n + 1)) # meme rangee que la pioche (cs:109)
+		var tw := holder.create_tween().set_parallel(true)
+		tw.tween_property(holder, "position", Vector2(cx, 540.0) - back.size / 2.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.tween_property(holder, "scale", Vector2.ONE, 0.5)
+		tw.tween_property(holder, "rotation_degrees", 0.0, 0.5)
+		tw.chain().tween_interval(2.0 + 0.1 * float(i))
+		tw.chain().tween_property(holder, "scale:x", 0.0, 0.25).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN) # CreateFaceDownTask : FlipCardBehavior 0,5 s
+		tw.chain().tween_callback(func():
+			face.visible = false
+			back.visible = true)
+		tw.chain().tween_property(holder, "scale:x", 1.0, 0.25).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		tw.chain().tween_property(holder, "position", Vector2(72.0, 972.0) - back.size / 2.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT) # cs:126 : x = bord gauche + 0,05 L, y = 0,9 H
+		tw.tween_property(holder, "scale", Vector2.ONE * (0.375 / sc), 0.5)
+		tw.tween_property(holder, "rotation_degrees", 90.0, 0.5)
+		tw.chain().tween_callback(fx.finir) # EmitParticles = false (cs:137) : les particules vivantes finissent leur vie
+		tw.chain().tween_property(holder, "modulate:a", 0.0, 0.3)
+		tw.chain().tween_callback(holder.queue_free)
 
 ## DrawCardEmitter.CreateSingleCardDrawTask (DrawCardEmitter.cs:147-165) : la carte part de x = -0,5 L (:23) et glisse en X jusqu'a sa place au centre (0,5 s, CubicEase = EaseOut), se retourne (0,5 s, :157),
 ## attend 2 s + 0,1 s x rang (:157,100) puis rejoint la main (Attach, :162). La main reelle est reconstruite a part : les cartes qu'elle recoit restent cachees (_draw_hide) jusqu'a l'arrivee.
@@ -3997,6 +4117,8 @@ func _draw_release(holder: Control, cid: String) -> void:
 func _draw_clear() -> void:
 	for h in get_tree().get_nodes_in_group("drawn_card"):
 		h.set_meta("released", true)
+		h.queue_free()
+	for h in get_tree().get_nodes_in_group("discarded_card"):
 		h.queue_free()
 	_draw_hide.clear()
 

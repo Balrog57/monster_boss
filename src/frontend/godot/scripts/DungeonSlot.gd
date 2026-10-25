@@ -167,23 +167,27 @@ Click to use its ability", "")
 		add_child(_glow)
 		var base := _glow_tex("card_border_ability_glow", sz)
 		_glow.add_child(base)
-		for r in 3:
-			var ring := _glow_tex("card_border_ability_pulse", sz)
-			ring.pivot_offset = sz / 2.0
-			ring.modulate.a = 0.0
-			_glow.add_child(ring)
-			var tw := ring.create_tween().set_loops()
-			tw.tween_interval(0.3 * r)
-			tw.set_parallel(true)
-			tw.chain().tween_property(ring, "scale", Vector2(1.4, 1.4), 2.0).from(Vector2.ONE).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-			tw.tween_property(ring, "modulate:a", 0.0, 2.0).from(1.0).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-			tw.chain().tween_interval(1.0 - 0.3 * r)
+		add_rings(_glow, sz)
 	_glow.visible = show_it
 	if show_it and not tooltip_text.contains("Click"):
 		tooltip_text += "
 Click to use its ability"
 
-func _glow_tex(name: String, sz: Vector2) -> TextureRect:
+## Les 3 anneaux du halo (PulseBehavior : 2 s, decales de 0,3 s, CubicEase) ; aussi sur le halo du zoom de capacite (BoardUI._on_slot_activate).
+static func add_rings(host: Control, sz: Vector2) -> void:
+	for r in 3:
+		var ring := _glow_tex("card_border_ability_pulse", sz)
+		ring.pivot_offset = sz / 2.0
+		ring.modulate.a = 0.0
+		host.add_child(ring)
+		var tw := ring.create_tween().set_loops()
+		tw.tween_interval(0.3 * r)
+		tw.set_parallel(true)
+		tw.chain().tween_property(ring, "scale", Vector2(1.4, 1.4), 2.0).from(Vector2.ONE).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.tween_property(ring, "modulate:a", 0.0, 2.0).from(1.0).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.chain().tween_interval(1.0 - 0.3 * r)
+
+static func _glow_tex(name: String, sz: Vector2) -> TextureRect:
 	var t := TextureRect.new()
 	t.texture = load("res://assets/ui/ingame/%s.webp" % name)
 	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE

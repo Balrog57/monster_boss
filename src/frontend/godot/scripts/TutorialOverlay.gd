@@ -502,6 +502,8 @@ func gate(kind: String, arg = null):
 			return _scene == null
 		"carousel":
 			return _done.has("intro1") and _scene == null
+		"zoom_scale":
+			return 1.62
 		"boss":
 			return "BMA003" # GamePlayTutScene.cs:115 (HUMAN_PLAYER)
 		"levelup":
@@ -594,6 +596,14 @@ func _intro1() -> void:
 
 func _intro2() -> void:
 	_begin()
+	# tut_17..20 : la zone de jeu est noire (le plateau n'est pas encore distribue), les panneaux restent sous le voile
+	var black := ColorRect.new()
+	black.color = Color(6.0 / 255.0, 1.0 / 255.0, 1.0 / 255.0)
+	black.position = Vector2(184, 62)
+	black.size = Vector2(1524, 890)
+	black.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_scene.add_child(black)
+	_scene.move_child(black, 0)
 	var lb := _balloon("globe", Vector2(1140, 350))
 	_add_king()
 	await _text_step(lb, {"text": TEXT["page04"][0], "hands": [{"pos": Vector2(1040, 485)}]})
