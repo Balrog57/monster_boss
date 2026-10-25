@@ -488,6 +488,8 @@ static func _trim_args(args: Variant) -> Array:
 
 
 func apply_move(pid: int, move: Dictionary) -> bool:
+	if ThkAbilities.active(G):
+		IodAbilities.sweep_covered(G) # IOD026 Malakill : l'Objet d'une salle couverte rentre avant que le coup ne la decouvre
 	var ok := _apply_move_core(pid, move)
 	if ok:
 		_lock_undo(pid, str(move.get("type", "")))
@@ -498,6 +500,7 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 		Minibosses.normalize(G) # RMB : le miniboss suit la salle du sommet de sa pile
 	if ThkAbilities.active(G):
 		ThkAbilities.sync_hero(G) # Claws of the Berserker : +1 PV par salle Monster du donjon
+		IodAbilities.sweep_covered(G)
 	return ok
 
 func _apply_move_core(pid: int, move: Dictionary) -> bool:
@@ -544,6 +547,8 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 			card["faceDown"] = true
 			card["builtThisTurn"] = true
 			card["undoBuild"] = int(p.get("buildsThisTurn", 0)) + 1 # reprise possible jusqu'au DONE (rang de la pose : la plus ancienne part d'abord)
+			if ThkAbilities.active(G):
+				IodAbilities.stamp_built(G, pid, card) # IOD018 Stolen Blueprints : une salle posee apres son usage est detruite en fin de tour
 			var dungeon: Array = p["dungeon"]
 			if slot >= 0 and slot < dungeon.size():
 				(dungeon[slot] as Array).append(card)
@@ -989,8 +994,8 @@ func _resolve_choice(pid: int, index: int) -> void:
 	if finish_dead and (G.get("pendingChoice", {}) as Dictionary).is_empty():
 		_finish_hero_if_dead()
 		state_changed.emit()
-	if ThkAbilities.active(G) and (G.get("pendingChoice", {}) as Dictionary).is_empty() and (G.get("adventure", {}) as Dictionary).has("enterPending"):
-		_thk_resume_enter() # Magnetic Ceiling resolu : la salle inflige ses degats
+	if (G.get("pendingChoice", {}) as Dictionary).is_empty() and (G.get("adventure", {}) as Dictionary).has("enterPending"):
+		_thk_resume_enter() # Magnetic Ceiling / Warlock / Tax Collector resolus : la salle inflige ses degats
 		state_changed.emit()
 	var cur_pc: Dictionary = G.get("pendingChoice", {}) as Dictionary if G.get("pendingChoice", null) is Dictionary else {}
 	if cur_pc.is_empty() and G.has("tnlGiftBuilt"): # TNL070 Surprise Gift : la salle posee chez l'adversaire a consomme le tour de construction
@@ -1274,6 +1279,8 @@ func _reveal_heroes_in_town() -> void:
 			drawn = CardDB.draw_cards(decks["epics"], 1)
 		if not drawn.is_empty():
 			(G["town"] as Array).append(drawn[0])
+			if ThkAbilities.active(G):
+				(drawn[0] as Dictionary)["townTurn"] = int(G.get("turn", 0)) # IOD018 Stolen Blueprints : « the turn this Hero enters town »
 			if str((drawn[0] as Dictionary).get("id", "")) == "KSA015":
 				G["lincolnReveal"] = true # Pixel Lincoln : choix de pioche des joueurs une fois les pioches de debut de tour faites (_start_turn)
 	if ThkAbilities.active(G):
@@ -1361,12 +1368,44 @@ func _close_build_phase() -> void:
 	if G.erase("setupForced"):
 		_start_turn()
 		return
+	if _king_vote():
+		return
 	G["phase"] = CardDB.PHASE["BAIT"]
 	_log("Tour %d — phase BAIT (Leurre)." % G["turn"])
 	_resolve_bait()
+	G.erase("kingVote")
 	G["phase"] = CardDB.PHASE["ADVENTURE"]
 	_log("Phase ADVENTURE : les héros avancent.")
 	_init_adventure_phase()
+
+## CRL028 The King : « each player MAY vote » (Bait phase). Un choix facultatif par joueur vivant (XP decroissante) avant le leurre ; les votes vont dans
+## G.kingVote (joueur -> cible, lus par BossEngine.lure_tied). Renvoie true tant qu'un vote est en attente (le leurre reprend via _close_build_phase).
+func _king_vote() -> bool:
+	if G.has("kingVote"):
+		return false
+	var has_king := false
+	for h in (G.get("town", []) as Array):
+		has_king = has_king or (CardDB.hero_lure(h as Dictionary) == "vote" and not (TnlAbilities.active(G) and TnlAbilities.no_lure(G, h)))
+	if not has_king:
+		return false
+	G["kingVote"] = {}
+	var ballots: Array = []
+	for voter in CardDB.order_by_xp(G["players"]):
+		if bool((G["players"][voter] as Dictionary).get("eliminated", false)):
+			continue
+		var opts: Array = []
+		for tp in CardDB.order_by_xp(G["players"]):
+			if not bool((G["players"][tp] as Dictionary).get("eliminated", false)):
+				opts.append({"targetPlayerId": int(tp), "label": "Lure the King to player %d" % (int(tp) + 1), "ai": AiWiki.king_vote_ai(G, int(voter), int(tp))})
+		var ballot = TnlAbilities.ask(G, int(voter), "hero_king", opts, {}, "The King: vote for the dungeon he is lured to (or abstain)", "The King", true)
+		if ballot is Dictionary:
+			ballot["resume"] = true # la resolution du dernier vote relance _close_build_phase
+		ballots.append(ballot)
+	var first = TnlAbilities.flush(G, ballots)
+	if first == null:
+		return false
+	G["pendingChoice"] = first
+	return true
 
 ## ExtraBuildPhase (GameBoard.NextStep) : PendingExtraBuiltTurns, alimente par ExtraBuildTurn (Construction Zone,
 ## cardId vide = n'importe quelle salle) et BuildRoomBy (Cleopatra, King Croak : limite a la carte cherchee,
@@ -1670,6 +1709,8 @@ func _resolve_pending_stack() -> void:
 			decks["spellDiscard"] = sd
 			sd.append(card) # la carte part en defausse a l'activation (OnAbilityApplyRequest), annulee ou non
 			if bool(effect.get("canceled", false)):
+				if TnlAbilities.active(G):
+					TnlAbilities.record_played(G, caster_id, card) # Save Point : un sort annule a bien ete « played » (la carte est en defausse)
 				_log("Le sort %s a ete annule." % str(card.get("name", "?")))
 				effect["resolved"] = true
 				continue
@@ -1688,7 +1729,9 @@ func _resolve_pending_stack() -> void:
 				else:
 					_log("Counterspell : cible deja partie.")
 			else:
+				TnlAbilities.destroy_actor = caster_id
 				SpellEffects.cast_spell(G, caster_id, card, target)
+				TnlAbilities.destroy_actor = -1
 			if Minibosses.active(G):
 				Minibosses.on_spell_cast(G, caster_id) # Baron Hex, Alchemist's Lab : un sort vient d'etre lance (resolu, non annule)
 			var caster: Dictionary = (G.get("players", {}) as Dictionary).get(caster_id, {}) as Dictionary
@@ -1834,6 +1877,13 @@ func _advance_adventure_room() -> void:
 
 	if TnlAbilities.active(G):
 		TnlAbilities.on_room_enter(G, pid, i, room as Dictionary) # Fairy Fountain (+1 PV), memoire d'entree (Inner Sanctum)
+	if not adv.has("weakened") and TnlAbilities.hero_weakens(hero): # RMB115 Warlock, RMB119 Tax Collector : choix du proprietaire avant la premiere salle
+		adv["weakened"] = true
+		var wk = TnlAbilities.weaken_choice(G, pid, hero, i)
+		if wk != null:
+			adv["enterPending"] = i
+			RoomAbilities.enqueue_pending(G, wk as Dictionary)
+			return
 	if ThkAbilities.active(G):
 		var thk_enter := ThkAbilities.on_room_enter(G, pid, i, room as Dictionary)
 		if thk_enter == "pending": # Magnetic Ceiling : le choix est ouvert, la salle est jouee a sa resolution (_thk_resume_enter)
@@ -1993,6 +2043,8 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 		if TnlAbilities.active(G) and not bool(p.get("eliminated", false)):
 			TnlAbilities.on_hero_survived(G, pid, hero) # TNL100 Necromancer
 
+	if not returned and TnlAbilities.hero_cmd(hero) == TnlAbilities.PRINCE and not bool(p.get("eliminated", false)) and not TnlAbilities.text_ignored(G, pid):
+		TnlAbilities.emit(G, TnlAbilities.prince_reward(G, pid)) # CRL017 The Prince : une fois devenu blessure ou ame, le proprietaire du donjon peut piocher
 	if not returned:
 		(G["decks"]["heroDiscard"] as Array).append(hero)
 	G["lastHeroFight"] = {
@@ -2093,7 +2145,8 @@ func _check_end_or_next_turn() -> void:
 		return
 
 	# Pas de fin de partie -> tour suivant (The Next Level : effets de fin de tour, dont des choix Shellda / Blockpile Puzzle qui retardent le tour suivant)
-	if TnlAbilities.active(G) and TnlAbilities.end_of_turn(G):
+	var iod_end := ThkAbilities.active(G) and IodAbilities.end_of_turn(G) # IOD018 : les salles posees grace a Stolen Blueprints sont detruites
+	if (TnlAbilities.active(G) and TnlAbilities.end_of_turn(G)) or iod_end:
 		G["tnlEndPending"] = true
 		state_changed.emit()
 		return

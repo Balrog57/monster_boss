@@ -46,6 +46,7 @@ func run(ok: Callable, h: Node) -> void:
 	_t_heroes_exhausted_end_not_in_apk_mode()
 	_t_start_turn_clears_temporary_treasure()
 	_t_ai_soak_crl_only()
+	_t_heroes_prince_king()
 
 # --- fabrique d'etats minimaux (meme style que goldens_decks.gd) ---------------------------------------------------
 
@@ -304,7 +305,7 @@ func _t_big_game_bait_split() -> void:
 	(ps4[1]["dungeon"] as Array).append([_room("B", "trap", [5])])
 	(ps4[2]["dungeon"] as Array).append([_room("C", "trap", [1])])
 	var G4 := _big_G(ps4)
-	G4["town"] = [_tagged("CRL018", 0), _tagged("CRL017", 1), _tagged("CRL024", 2), _tagged("CRL017", 3), _tagged("CRL019", 4), _tagged("CRL017", 5)]
+	G4["town"] = [_tagged("CRL018", 0), _tagged("BMA056", 1), _tagged("CRL024", 2), _tagged("BMA056", 3), _tagged("CRL019", 4), _tagged("BMA056", 5)]
 	var m4 := _match(G4)
 	m4._resolve_bait()
 	# Explorers 0, 2, 4 : P1 (300) puis P0 (100), 1 chacun, le plus recent (4) reste ; Clerics 1, 3, 5 : P2 (200) puis P0 (100), le 5 reste
@@ -847,6 +848,8 @@ func _t_spell_finish_him() -> void:
 	G2["adventure"] = {"playerId": 0, "hero": h3, "roomIndex": 0, "hp": 1, "pause": "post-damage"}
 	SpellEffects.cast_spell(G2, 1, _spell("CRL029"), {"targetPlayerId": 0, "entranceIndex": 0})
 	_ok.call(int(G2["adventure"]["hp"]) == 0, "CRL029 sur le heros actif : adventure.hp = 0")
+	_match(G2)._finish_hero_if_dead()
+	_ok.call((p2["souls"] as Array).size() == 1 and (G2["adventure"] as Dictionary).is_empty(), "arbitrage Finish Him! : « kill » = PV a 0 dans la salle, le heros meurt aussitot et l'ame va au proprietaire du donjon")
 	# Mode « survivant » : il faut avoir MOINS d'ames que chaque autre joueur.
 	var q0 := _player(0, "BMA001")
 	var q1 := _player(1, "BMA002")
@@ -1093,3 +1096,42 @@ func _play_soak(m: Node) -> bool:
 		if not acted:
 			break
 	return m.G.get("gameOver") != null
+
+# --- heros CRL017 The Prince / CRL028 The King (textes imprimes : arbitrages wiki) ---------------------------------------------------------
+
+func _t_heroes_prince_king() -> void:
+	# The Prince : « lured to the dungeon of the player with the fewest total Souls minus Wounds »
+	var p0 := _player(0, "BMA001")
+	var p1 := _player(1, "BMA002")
+	var G := _G([p0, p1])
+	(p0["souls"] as Array).append(CardDB.soul_entry(_hero("CRL018")))
+	(p1["wounds"] as Array).append({"wounds": 1})
+	var prince := _hero("CRL017")
+	_ok.call(BossEngine.lure_target(G["players"], CardDB.order_by_xp(G["players"]), 1, prince, G) == 1, "CRL017 The Prince : leurre vers le moins d'ames moins blessures (1 blessure = -1 contre 1 ame = +1)")
+	# apres la mort du Prince, le proprietaire du donjon peut piocher 1 salle et 1 sort
+	for i in 3:
+		(G["decks"]["rooms"] as Array).append(_room("r%d" % i, "trap", [1]))
+		(G["decks"]["spells"] as Array).append(_spell("BMA040"))
+	(p1["entrance"] as Array).append(prince)
+	var m := _match(G)
+	m._finish_hero(1, prince, 0, {})
+	var pc: Dictionary = G.get("pendingChoice", {}) as Dictionary
+	_ok.call(str(pc.get("step", "")) == "hero_prince" and bool(pc.get("optional", false)) and (pc["options"] as Array).size() == 3, "CRL017 : une fois ame, choix facultatif (2 salles, 2 sorts ou un de chaque) pour le proprietaire du donjon")
+	m._resolve_choice(1, 2)
+	_ok.call((p1["hand"] as Array).size() == 2, "CRL017 : une salle et un sort pioches")
+	m.queue_free()
+	# The King : vote facultatif de chaque joueur, egalite = reste en ville
+	var q0 := _player(0, "BMA001")
+	var q1 := _player(1, "BMA002")
+	var G2 := _G([q0, q1])
+	G2["town"] = [_hero("CRL028")]
+	var m2 := _match(G2)
+	_ok.call(m2._king_vote() and str((G2["pendingChoice"] as Dictionary).get("step", "")) == "hero_king", "CRL028 The King : un vote par joueur avant le leurre")
+	while not (G2["pendingChoice"] as Dictionary).is_empty():
+		m2._resolve_choice(int((G2["pendingChoice"] as Dictionary)["playerId"]), 1) # tous votent pour le joueur 1
+	_ok.call(BossEngine.lure_target(G2["players"], CardDB.order_by_xp(G2["players"]), 1, G2["town"][0], G2) == 1, "CRL028 : le joueur le plus vote recoit le Roi")
+	(G2["kingVote"] as Dictionary)[0] = 0
+	_ok.call(BossEngine.lure_target(G2["players"], CardDB.order_by_xp(G2["players"]), 1, G2["town"][0], G2) == -1, "CRL028 : egalite du vote = le Roi reste en ville")
+	G2["kingVote"] = {}
+	_ok.call(BossEngine.lure_target(G2["players"], CardDB.order_by_xp(G2["players"]), 1, G2["town"][0], G2) == -1, "CRL028 : aucun vote = le Roi reste en ville")
+	m2.queue_free()

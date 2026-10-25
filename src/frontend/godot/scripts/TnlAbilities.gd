@@ -10,6 +10,9 @@ const SET_ID := "next-level"
 const DARK_PAY := "DarkHeroPay"
 ## Heros noirs de Rise of the Minibosses (RMB084/090/096/102) : « each opponent may pay any number of Coins to give this hero +1 per Coin ».
 const DARK_COIN := "DarkHeroCoin"
+const PRINCE := "PrinceDraw" # CRL017 The Prince
+const WEAKEN_SPELLS := "DiscardSpellsWeaken" # RMB115 Warlock (paraphrase wiki)
+const WEAKEN_COINS := "PayCoinsWeaken" # RMB119 Tax Collector (paraphrase wiki)
 
 static var _rng := RandomNumberGenerator.new()
 static var _rng_ready := false
@@ -456,6 +459,9 @@ static func on_build(G: Dictionary, pid: int, room: Dictionary) -> Variant:
 	var list: Array = _build_or_uncover(G, pid, room, true)
 	return flush(G, list)
 
+## Joueur dont un sort detruit une salle en ce moment (-1 = aucun sort en cours : le proprietaire est l'auteur). Eclipse : « when YOU destroy ».
+static var destroy_actor := -1
+
 ## Declencheur « when you uncover this Room » (appele par BossEngine.destroy_room, pile deja mise a jour) + Eclipse (boss).
 static func on_uncover(G: Dictionary, pid: int, room_index: int) -> void:
 	var p := _player(G, pid)
@@ -470,7 +476,7 @@ static func on_uncover(G: Dictionary, pid: int, room_index: int) -> void:
 	if bool((rv as Dictionary).get("faceDown", false)):
 		return
 	var room: Dictionary = rv
-	if has_boss(p, "TNL012"):
+	if has_boss(p, "TNL012") and (destroy_actor < 0 or destroy_actor == pid): # Eclipse : seulement quand le proprietaire detruit la salle
 		SpellEffects._buff_room_instance(room, 3) # Eclipse : la salle decouverte gagne +3 jusqu'a la fin du tour
 		_log(G, "Eclipse: %s gains +3 until end of turn." % _label(room))
 	if not is_tnl(room) or no_text(room) or BossEngine.abilities_locked(G, pid) or BossEngine.is_room_deactivated(G, pid, room_index):
@@ -721,7 +727,7 @@ static func skip_rooms(G: Dictionary, pid: int, hero: Dictionary, i: int) -> int
 	var skips := int(a.get("skip", 0))
 	while skips > 0 and i < dungeon.size():
 		var rv = BossEngine.active_room(dungeon[i])
-		if rv != null and not BossEngine.is_room_deactivated(G, pid, i):
+		if rv != null: # une salle desactivee reste « a Room it would enter » : elle compte parmi les salles sautees (texte imprime)
 			skips -= 1
 			_log(G, "%s skips %s." % [str(hero.get("name", "?")), _label(rv as Dictionary)])
 		i += 1
@@ -813,6 +819,10 @@ static func sync_hero(G: Dictionary) -> void:
 	a["hp"] = int(a.get("hp", 0)) + x - int(a.get("druid", 0))
 	a["druid"] = x
 
+## Memoire de Save Point : un sort joue ce tour (resolu ou annule, la carte est en defausse dans les deux cas).
+static func record_played(G: Dictionary, caster: int, card: Dictionary) -> void:
+	_list(G, "played").append({"pid": caster, "card": card})
+
 ## Un sort va se resoudre (non annule) : Swordmage +2, Spellslime Pit +1, Hall of Mirrors (pioche), memoire de Save Point.
 static func on_spell_resolving(G: Dictionary, caster: int, card: Dictionary) -> void:
 	var a := adv(G)
@@ -820,7 +830,7 @@ static func on_spell_resolving(G: Dictionary, caster: int, card: Dictionary) -> 
 		var bonus := hero_arg(a.get("hero"), 2) # Swordmage : +2 PV a chaque sort (non annule) joue pendant qu'il est dans le donjon
 		a["hp"] = int(a.get("hp", 0)) + bonus
 		_log(G, "%s gains +%d Health." % [str((a["hero"] as Dictionary).get("name", "?")), bonus])
-	_list(G, "played").append({"pid": caster, "card": card})
+	record_played(G, caster, card)
 	for pid in _alive(G):
 		var p := _player(G, int(pid))
 		var dungeon: Array = p.get("dungeon", [])
@@ -937,6 +947,8 @@ static func build_slots(G: Dictionary, pid: int, card: Dictionary, allow_new: bo
 	var out: Array = []
 	if BossEngine.is_build_blocked(G) or not bool(card.get("isRoom", false)):
 		return out
+	if ThkAbilities.active(G) and IodAbilities.blueprints_block(G, card): # IOD018 Stolen Blueprints (Power-Up)
+		return out
 	var dungeon: Array = _player(G, pid).get("dungeon", [])
 	if allow_new and not bool(card.get("advanced", false)) and BossEngine.count_visible_rooms(dungeon) < CardDB.DUNGEON_SLOTS:
 		out.append({"roomIndex": -1, "card": card, "label": "in a new slot", "ai": 0.5})
@@ -977,6 +989,8 @@ static func build_now(G: Dictionary, pid: int, card: Dictionary, slot: int, labe
 		return null
 	card["faceDown"] = false
 	card.erase("builtThisTurn")
+	if ThkAbilities.active(G):
+		IodAbilities.stamp_built(G, pid, card) # IOD018 Stolen Blueprints : detruite en fin de tour
 	if slot < 0: # nouvel emplacement (build_slots allow_new)
 		if BossEngine.count_visible_rooms(dungeon) >= CardDB.DUNGEON_SLOTS:
 			(p["hand"] as Array).append(card)
@@ -1193,6 +1207,8 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 		return RmbAbilities.resolve_pick(G, pid, pc, idx)
 	if step.begins_with("thk_"): # Tools of Hero-Kind (ThkAbilities.resolve_pick)
 		return ThkAbilities.resolve_pick(G, pid, pc, idx)
+	if step.begins_with("hero_") and step != "hero_plus": # heros wiki (hero_plus = Werewolf Den, plus bas) : The King, The Prince, Warlock, Tax Collector
+		return _hero_pick(G, pid, step, o, idx)
 	if step == "torix": # TNL003 Torix : la salle attrapee rejoint sa main (option 0) ou, s'il passe, la defausse
 		var tcard: Dictionary = (opts[0] as Dictionary)["card"]
 		if idx >= 0:
@@ -1362,6 +1378,73 @@ static func _pays_dark(card: Dictionary, hero: Dictionary) -> bool:
 		if int(t) == int(hero.get("treasure", -1)):
 			return true
 	return false
+
+# --- heros wiki : The Prince (CRL017), The King (CRL028), Warlock (RMB115), Tax Collector (RMB119) ------------------------------------
+
+## CRL017 The Prince : « the player who's dungeon he went to may draw two rooms, two spells, or one of each » (facultatif).
+static func prince_reward(G: Dictionary, pid: int) -> Variant:
+	var opts := [
+		{"label": "Draw 2 Rooms", "rooms": 2, "spells": 0, "ai": 2.0},
+		{"label": "Draw 2 Spells", "rooms": 0, "spells": 2, "ai": 2.0},
+		{"label": "Draw 1 Room and 1 Spell", "rooms": 1, "spells": 1, "ai": 3.0}]
+	return ask(G, pid, "hero_prince", opts, {}, "The Prince: draw two Rooms, two Spells, or one of each?", "The Prince", true)
+
+static func hero_weakens(hero) -> bool:
+	return [WEAKEN_SPELLS, WEAKEN_COINS].has(hero_cmd(hero))
+
+## RMB115 Warlock / RMB119 Tax Collector (texte exact introuvable, paraphrase du wiki « discard X Spells / pay X Coins to give -X ») : avant sa premiere
+## salle, le proprietaire du donjon peut defausser X sorts (payer X Coins) pour que le heros perde X PV jusqu'a la fin du tour. Choix X de 1 a la reserve.
+## shortcut: les sorts defausses sont pris dans l'ordre de la main (pas de choix des cartes), a revoir si le texte exact en impose un.
+static func weaken_choice(G: Dictionary, pid: int, hero: Dictionary, room_idx: int) -> Variant:
+	if text_ignored(G, pid):
+		return null
+	var p := _player(G, pid)
+	var cmd := hero_cmd(hero)
+	var cap := spells_in_hand(p) if cmd == WEAKEN_SPELLS else Minibosses.coins(p)
+	if cap <= 0:
+		return null
+	var a := adv(G)
+	var ahead := 0 # degats des salles encore a traverser (la salle d'entree comprise) : la marge dit combien de PV il faut retirer pour le tuer
+	var d: Array = p.get("dungeon", [])
+	for j in range(maxi(room_idx, 0), d.size()):
+		var r = BossEngine.active_room(d[j])
+		if r != null and not bool((r as Dictionary).get("faceDown", false)):
+			ahead += BossEngine.room_damage_with_modifiers(G, p, j, hero)
+	var margin := int(a.get("hp", 0)) - ahead
+	var opts: Array = []
+	for n in range(1, mini(cap, 12) + 1):
+		var unit := "Spell(s)" if cmd == WEAKEN_SPELLS else "Coin(s)"
+		opts.append({"n": n, "spells": cmd == WEAKEN_SPELLS, "label": "%s %d %s: %s gets -%d Health" % ["Discard" if cmd == WEAKEN_SPELLS else "Pay", n, unit, _label(hero), n],
+			"ai": 20.0 if margin > 0 and n == margin else -1.0 - float(n)})
+	return ask(G, pid, "hero_weaken", opts, {"cmd": cmd}, "%s: weaken the Hero before it enters (or skip)?" % _label(hero), _label(hero), true)
+
+static func _hero_pick(G: Dictionary, pid: int, step: String, o: Dictionary, idx: int) -> Variant:
+	if idx < 0:
+		return null
+	match step:
+		"hero_prince":
+			draw_logged(G, pid, "rooms", int(o.get("rooms", 0)), "The Prince")
+			draw_logged(G, pid, "spells", int(o.get("spells", 0)), "The Prince")
+		"hero_king": # un vote : la cible est publique (G.kingVote, lu par BossEngine.lure_tied)
+			(G["kingVote"] as Dictionary)[pid] = int(o.get("targetPlayerId", -1))
+			_log(G, "The King: player %d votes for player %d's dungeon." % [pid + 1, int(o.get("targetPlayerId", -1)) + 1])
+		"hero_weaken":
+			var n := int(o.get("n", 0))
+			var hero: Dictionary = adv(G).get("hero", {})
+			var spells := bool(o.get("spells", false))
+			if hero.is_empty() or n <= 0:
+				return null
+			if spells:
+				var paid := 0
+				for c in (_player(G, pid).get("hand", []) as Array).duplicate():
+					if paid < n and bool((c as Dictionary).get("isSpell", false)) and discard_from_hand(G, pid, c as Dictionary):
+						paid += 1
+				n = paid
+			elif not Minibosses.pay_coin(G, pid, n):
+				return null
+			add_hero_hp(G, hero, -n)
+			_log(G, "%s: player %d %s %d, the Hero gets -%d Health until end of turn." % [_label(hero), pid + 1, "discards" if spells else "pays", n, n])
+	return null
 
 ## Heros noirs payables par un adversaire de leur donjon : le heros actif et ceux a l'entree, une seule fois par tour et par heros.
 static func dark_heroes(G: Dictionary, payer: int) -> Array:

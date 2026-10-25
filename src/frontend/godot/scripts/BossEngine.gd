@@ -127,6 +127,8 @@ static func can_build_room(player: Dictionary, G: Dictionary = {}, pid: int = -1
 			return false
 		if is_build_blocked(G):
 			return false
+		if not G.is_empty() and ThkAbilities.active(G) and IodAbilities.blueprints_block(G, card):
+			return false # IOD018 Stolen Blueprints (Power-Up) : aucune salle a l'icone du heros arrive en ville ce tour
 		if pid >= 0 and no_entry(pid, G):
 			return false
 		var allowed := 1 + (extra_builds_for(G, pid) if pid >= 0 else 0)
@@ -183,6 +185,18 @@ static func lure_tied(players: Dictionary, order: Array, treasure: int, hero: Di
 	var htr: Array = CardDB.hero_treasures(hero) if hero.has("treasures") else [treasure]
 	if hero.has("iodLure") and int(hero.get("iodLureTurn", -1)) == int(G.get("turn", -2)): # IOD020 Doppelganger Cloak : un seul type de tresor
 		htr = [int(hero["iodLure"])]
+	if lure == "vote": # CRL028 The King : le joueur le plus vote (G.kingVote : joueur -> cible) ; egalite ou aucun vote = reste en ville
+		var tally := {}
+		for v in (G.get("kingVote", {}) as Dictionary).values():
+			tally[int(v)] = int(tally.get(int(v), 0)) + 1
+		var top := 0
+		for k in tally:
+			top = maxi(top, int(tally[k]))
+		var voted: Array = []
+		for pid in order:
+			if top > 0 and int(tally.get(int(pid), 0)) == top and not bool((players[pid] as Dictionary).get("eliminated", false)):
+				voted.append(int(pid))
+		return voted
 	var best_n := -999999
 	var tied: Array = []
 	for pid in order:
@@ -199,6 +213,11 @@ static func lure_tied(players: Dictionary, order: Array, treasure: int, hero: Di
 				n = (p.get("hand", []) as Array).size()
 			"soulsMinusWounds": # TNL114 The Brothers (hors APK) : le plus haut total Ames - Blessures
 				n = CardDB.total_souls(p, G if G.has("players") else {"players": players}) - CardDB.total_wounds(p)
+			"fewestSoulsMinusWounds": # CRL017 The Prince : « fewest total Souls minus Wounds »
+				n = CardDB.total_wounds(p) - CardDB.total_souls(p, G if G.has("players") else {"players": players})
+			"mostIcons": # RMB121 The Progenitors (paraphrase wiki) : « most treasure icons » = toutes classes confondues
+				for t in range(1, 6):
+					n += treasure_count(p, t, G)
 			_: # LuredByTreasures : somme, sur les tresors du heros, des tresors du donjon (heros a deux classes : Monster Hunter...)
 				for t in htr:
 					n += treasure_count(p, int(t), G)
@@ -218,10 +237,12 @@ static func lure_split_targets(players: Dictionary, order: Array, town: Array, G
 	for i in town.size():
 		var hero: Dictionary = town[i]
 		var treasure := int(hero.get("treasure", 1))
+		var lure := CardDB.hero_lure(hero)
+		if lure == "vote": # le Roi : egalite du vote = reste en ville, jamais partage
+			continue
 		var tied := lure_tied(players, order, treasure, hero, G)
 		if tied.size() < 2:
 			continue
-		var lure := CardDB.hero_lure(hero)
 		if lure == "treasures": # « if no player has treasure of that Hero's type [...] the Hero stays in town »
 			var any := false
 			for t in (CardDB.hero_treasures(hero) if hero.has("treasures") else [treasure]):
@@ -428,6 +449,7 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 	dmg += int(r.get("dealDamage", 0))
 	if thk:
 		dmg += PcwAbilities.damage_bonus(G, pid, r, hero, own_off) # KSA009 Shark Tank
+		dmg += IodAbilities.under_bonus(r) # IOD026 Malakill : +3 tant que l'Objet est sous la salle
 	# Bonus de degats poses par les sorts/effets
 	for e in _effects(G).get("roomDamageBonus", []):
 		var ed: Dictionary = e
@@ -500,6 +522,11 @@ static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}
 	if stack.is_empty():
 		return null
 	var destroyed: Dictionary = stack.pop_back()
+	if not G.is_empty() and ThkAbilities.active(G): # IOD026 Malakill : l'Objet sous la salle detruite (ou sous celle qui se decouvre, donc couverte) retourne chez son proprietaire
+		if destroyed.has("iodUnder"):
+			IodAbilities.release_under(G, destroyed)
+		if not stack.is_empty() and (stack[stack.size() - 1] as Dictionary).has("iodUnder"):
+			IodAbilities.release_under(G, stack[stack.size() - 1] as Dictionary)
 	if not G.is_empty() and TnlAbilities.active(G): # salles detruites ce tour (Oh, Yeah!), Cursed Tomb
 		TnlAbilities.on_destroyed(G, int(player.get("id", 0)), destroyed)
 	if stack.is_empty():

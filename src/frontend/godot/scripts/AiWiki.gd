@@ -231,6 +231,20 @@ static func hero_weight(G: Dictionary, pid: int, o: Dictionary) -> float:
 	var owner := int(o.get("ownerPid", -1))
 	return 0.0 if owner < 0 else (-1.0 if owner == pid else 0.5)
 
+## CRL028 The King : poids du vote de `pid` pour mener le Roi dans le donjon de `tp`. Un donjon qui le tue donne une ame a son proprietaire, un qui le laisse passer
+## lui donne une blessure : on vote pour soi si le Roi meurt chez soi, sinon pour l'adversaire qui prendrait la blessure.
+static func king_vote_ai(G: Dictionary, pid: int, tp: int) -> float:
+	var king := {}
+	for h in (G.get("town", []) as Array):
+		if CardDB.hero_lure(h as Dictionary) == "vote":
+			king = h
+	if king.is_empty():
+		return 0.0
+	var dies := dungeon_damage(G, (G.get("players", {}) as Dictionary)[tp], king) >= BossEngine.hero_health_with_modifiers(G, king)
+	if tp == pid:
+		return 3.0 if dies else -3.0
+	return -1.0 if dies else 1.5
+
 ## Valeur d'un effet « quand vous construisez / decouvrez cette salle » que The Omega 42 rejoue (carte de la salle).
 static func refire_value(room: Dictionary) -> float:
 	match str(room.get("id", "")):

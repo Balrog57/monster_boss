@@ -70,6 +70,7 @@ func run(ok: Callable, h: Node) -> void:
 	_t_pity_undead()
 	_t_secret_stash_super_effective()
 	_t_shortcut()
+	_t_arbitrages_wiki()
 	_t_surprise_gift()
 	_t_wild_monster()
 	_t_audit_lot21()
@@ -1879,3 +1880,51 @@ func _t_ai_soak_each_boss() -> void:
 	print("SOAK-TNL bosses TNL montes de niveau : ", leveled, "/", tnl_bosses.size())
 	# Fumee, pas une statistique : 4 a 6 sur 13 selon la graine de depart (3000/3100/3200/3300), le flux d'alea bouge a chaque correctif de regles.
 	_ok.call(leveled >= 3, "soak TNL : au moins 3 level-ups de boss TNL atteints (%d)" % leveled)
+
+# --- arbitrages wiki (docs/rules/arbitrages-wiki.md) : texte imprime lu a la lettre -------------------------------------------------------
+
+func _t_arbitrages_wiki() -> void:
+	# TNL012 Eclipse : « when YOU destroy a Room » : une salle detruite par le sort d'un adversaire ne donne rien
+	var under := _plain("under", "monster", [2], 3)
+	var pe := _player(0, "TNL012", [], true)
+	pe["dungeon"] = [[under, _plain("top", "trap", [1], 1)]]
+	var Ge := _G([pe, _player(1, "BMA001")])
+	TnlAbilities.destroy_actor = 1
+	BossEngine.destroy_room(pe, 0, Ge)
+	TnlAbilities.destroy_actor = -1
+	_ok.call(int(under.get("dealDamage", 0)) == 0, "arbitrage Eclipse : salle detruite par un ADVERSAIRE -> pas de +3")
+	var under2 := _plain("under2", "monster", [2], 3)
+	var pe2 := _player(0, "TNL012", [], true)
+	pe2["dungeon"] = [[under2, _plain("top2", "trap", [1], 1)]]
+	var Ge2 := _G([pe2, _player(1, "BMA001")])
+	TnlAbilities.destroy_actor = 0
+	BossEngine.destroy_room(pe2, 0, Ge2)
+	TnlAbilities.destroy_actor = -1
+	_ok.call(int(under2.get("dealDamage", 0)) == 3, "arbitrage Eclipse : salle detruite par le proprietaire (son sort) -> +3")
+	# TNL055 Save Point : un sort annule a bien ete « played » (la carte part en defausse a l'activation)
+	var Gs := _G([_player(0, "BMA001", [_room("TNL055")]), _player(1, "BMA002")])
+	var cancelled := _spl("cancelled")
+	Gs["stack"] = [{"type": "spell", "card": cancelled, "playerId": 0, "target": {}, "canceled": true}]
+	_match(Gs)._resolve_pending_stack()
+	_ok.call(_act(Gs, 0, 0) == null and _ids(_hand(Gs, 0)) == ["cancelled"], "arbitrage Save Point : un sort joue puis annule peut etre repris")
+	# TNL068 Shortcut! : une salle desactivee reste « a Room it would enter » (elle est sautee) ; cinq salles dont une face cachee = cinq salles
+	var hero := _hero("TNL073")
+	var rooms: Array = [_plain("a"), _plain("b"), _plain("c")]
+	var p1 := _player(1, "BMA002", rooms)
+	var G := _G([_player(0, "BMA001"), p1])
+	p1["entrance"] = [hero]
+	G["adventure"] = {"playerId": 1, "hero": hero, "roomIndex": 0, "hp": 9, "pause": null, "nearest": 0}
+	(G["effects"]["deactivatedRooms"] as Array).append({"playerId": 1, "roomIndex": 1})
+	SpellEffects.cast_spell(G, 0, _spell("TNL068"), {"heroId": hero["id"], "targetPlayerId": 1})
+	_match(G)._advance_adventure_room()
+	_ok.call(int(G["adventure"]["roomIndex"]) == 2, "arbitrage Shortcut! : la salle desactivee est la salle sautee (le heros arrive en salle 2)")
+	var five: Array = []
+	for i in 5:
+		five.append(_plain("f%d" % i))
+	(five[2] as Dictionary)["faceDown"] = true
+	var p5 := _player(1, "BMA002", five)
+	var G5 := _G([_player(0, "BMA001"), p5])
+	p5["entrance"] = [hero]
+	G5["adventure"] = {"playerId": 1, "hero": hero, "roomIndex": 0, "hp": 9, "pause": null, "nearest": 0}
+	SpellEffects.cast_spell(G5, 0, _spell("TNL068"), {"heroId": hero["id"], "targetPlayerId": 1})
+	_ok.call(int(G5["adventure"]["skip"]) == 2, "arbitrage Shortcut! : cinq salles (dont une face cachee) -> deux salles sautees")

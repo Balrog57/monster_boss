@@ -182,10 +182,8 @@ static func cast(G: Dictionary, caster: int, card: Dictionary, t: Dictionary) ->
 				return _fizzle(G, name)
 			SpellEffects._buff_room_instance(host, Minibosses.level(m))
 			_log(G, "%s: %s gets +%d until end of turn." % [name, _label(host as Dictionary), Minibosses.level(m)])
-			if Minibosses.count_revealed(me) == 1 and tid == caster:
-				var dmg := BossEngine.room_damage_with_modifiers(G, me, int(t.get("roomIndex", -1)), null)
-				(SpellEffects._effects(G)["roomDamageBonus"] as Array).append({"playerId": caster, "roomIndex": int(t.get("roomIndex", -1)), "amount": dmg})
-				_log(G, "%s: the damage of %s is doubled (+%d)." % [name, _label(host as Dictionary), dmg])
+			if Minibosses.count_revealed(me) == 1: # « you may then double » : facultatif, sur la salle choisie meme chez un adversaire
+				TnlAbilities.emit(G, TnlAbilities.ask(G, caster, "rmb_sp_rage", [{"label": "Double the damage of %s" % _label(host as Dictionary), "ai": 3.0}], {"tid": tid, "roomIndex": int(t.get("roomIndex", -1))}, "Rage!: double the damage of that Room?", name, true))
 		"RMB070": # Ambush : deux salles Monster OU un miniboss defausses, tue un heros de votre donjon
 			if mine.is_empty() or str(mine.get("id", "")) != str(t.get("heroId", "")):
 				return _fizzle(G, name)
@@ -313,6 +311,13 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 				disc.remove_at(at)
 				Minibosses.attach(G, pid, host as Dictionary, card, true)
 				_log(G, "Internship: %s is built face-down over %s." % [_label(card), _label(host as Dictionary)], "Internship: a Miniboss is built face-down.", [pid])
+		"rmb_sp_rage": # Rage! : degats de la salle doubles (bonus = ses degats actuels)
+			var rtid := int(ctx.get("tid", pid))
+			var rrv = SpellEffects.find_room(G, rtid, int(ctx.get("roomIndex", -1)))
+			if rrv != null:
+				var dmg := BossEngine.room_damage_with_modifiers(G, _player(G, rtid), int(ctx.get("roomIndex", -1)), null)
+				(SpellEffects._effects(G)["roomDamageBonus"] as Array).append({"playerId": rtid, "roomIndex": int(ctx.get("roomIndex", -1)), "amount": dmg})
+				_log(G, "Rage!: the damage of %s is doubled (+%d)." % [_label(rrv as Dictionary), dmg])
 		"rmb_sp_ambush":
 			var a := TnlAbilities.adv(G)
 			for c in (o.get("cards", []) as Array):

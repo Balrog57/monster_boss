@@ -1,7 +1,7 @@
 extends RefCounted
 ## Goldens de l'extension wiki Implements of Destruction (IOD : 24 Objets + 5 Boss). Hors APK : tout ce qui suit n'existe que derriere la case wiki
 ## (pseudo-paquet `iod`). Une carte = au moins un golden pour le Power-Up (Objets) puis pour la capacite de Boss (Reward).
-## References : docs/rules/rules.md (section Items), texte des cartes (cards.json). Non jouee : IOD018 (sixieme salle), IOD011, IOD007, IOD023, IOD026.
+## References : docs/rules/rules.md (section Items), texte des cartes (cards.json). IOD018 : pas de sixieme salle (voir docs/rules/arbitrages-wiki.md).
 ## Appele par goldens.gd : `load("res://godot/tests/goldens_iod.gd").new().run(_ok, self)`.
 
 var _ok: Callable
@@ -20,6 +20,7 @@ func run(ok: Callable, h: Node) -> void:
 	_t_hero_items()
 	_t_bosses()
 	_t_flow()
+	_t_new_cards()
 
 # --- fabriques ------------------------------------------------------------------------------------------------------------------
 
@@ -187,18 +188,18 @@ func _t_gating() -> void:
 	var G1: Dictionary = m1.new_match(2, 1, ["iod"])
 	_ok.call(ThkAbilities.active(G1) and Match.wiki_active(G1) and not (G1["sets"] as Array).has("tools"), "IOD : le pseudo-paquet `iod` active le moteur des Objets et le mode wiki, sans poser « tools »")
 	var deck_ids := _ids(G1["decks"]["items"]) + _ids(G1.get("townItems", [])) + _attached(G1)
-	_ok.call(deck_ids.size() == 17 and not deck_ids.any(func(i): return str(i).begins_with("THK")), "IOD sans Crash Landing : 17 Objets (4 Explorer ecartes, 3 non implementes hors pioche), aucun Objet THK (%d)" % deck_ids.size())
+	_ok.call(deck_ids.size() == 20 and not deck_ids.any(func(i): return str(i).begins_with("THK")), "IOD sans Crash Landing : 20 Objets (4 Explorer ecartes), aucun Objet THK (%d)" % deck_ids.size())
 	var explorers := 0
 	for i in deck_ids:
 		explorers += 1 if int(_item(str(i)).get("treasure", 0)) == 5 else 0
 	_ok.call(explorers == 0, "IOD sans Crash Landing : aucun Objet Explorer")
 	var boss_ids := _ids(G1["bossPicks"])
-	_ok.call(not boss_ids.has("IOD025") and not boss_ids.has("IOD026") and boss_ids.has("IOD029"), "IOD sans Crash Landing : Banseer Bivan (IOD025) est ecarte, Malakill (non implemente) aussi")
+	_ok.call(not boss_ids.has("IOD025") and boss_ids.has("IOD026") and boss_ids.has("IOD029"), "IOD sans Crash Landing : Banseer Bivan (IOD025) est ecarte, Malakill (IOD026) reste")
 	var m2 = load("res://godot/scripts/Match.gd").new()
 	host.add_child(m2)
 	var G2: Dictionary = m2.new_match(2, 1, ["iod", "crash-landing"])
 	var ids2 := _ids(G2["decks"]["items"]) + _ids(G2.get("townItems", [])) + _attached(G2)
-	_ok.call(ids2.size() == 20 and _ids(G2["bossPicks"]).has("IOD025"), "IOD avec Crash Landing : 20 Objets jouables et Banseer Bivan")
+	_ok.call(ids2.size() == 24 and _ids(G2["bossPicks"]).has("IOD025"), "IOD avec Crash Landing : 24 Objets jouables et Banseer Bivan")
 	# sans la case wiki (paquet de l'APK seul) : aucun Objet IOD
 	var m3 = load("res://godot/scripts/Match.gd").new()
 	host.add_child(m3)
@@ -752,7 +753,7 @@ func _t_flow() -> void:
 	host.add_child(m)
 	var G: Dictionary = m.new_match(2, 1, ["iod", "crash-landing"])
 	var ids := _ids(G["decks"]["items"]) + _ids(G.get("townItems", [])) + _attached(G)
-	_ok.call(ids.size() == 20 and ids.all(func(i): return str(i).begins_with("IOD")) and not ids.any(func(i): return ["IOD007", "IOD011", "IOD018", "IOD023"].has(i)), "IOD : partie wiki iod+crash-landing, 20 Objets IOD (les 4 non implementes sont hors pioche)")
+	_ok.call(ids.size() == 24 and ids.all(func(i): return str(i).begins_with("IOD")), "IOD : partie wiki iod+crash-landing, les 24 Objets IOD")
 	# les 24 Objets s'attachent selon l'icone (Explorer -> heros Explorer)
 	var cl := _h("EXH", 5, 5)
 	var G2 := _G([_player(0), _player(1)])
@@ -760,3 +761,79 @@ func _t_flow() -> void:
 	G2["townItems"] = [_item("IOD021")]
 	ThkAbilities.attach_all(G2)
 	_ok.call(ThkAbilities.item_id(cl) == "IOD021", "IOD : un Objet Explorer s'attache a un heros Explorer")
+
+# --- IOD007 / IOD011 / IOD018 / IOD023 / IOD026 (arbitrages wiki) ---------------------------------------------------------------------------
+
+func _t_new_cards() -> void:
+	# IOD007 Crystal Ball (Power-Up) : on defausse ses sorts que tient aussi un adversaire
+	var G := _G([_player(0), _player(1)])
+	_hand(G, 0).append_array([_spl("X"), _spl("Y")])
+	_hand(G, 1).append(_spl("X"))
+	IodAbilities.on_hero_start(G, 0, _with(_h("CB", 5, 3), "IOD007"), 5)
+	_ok.call(_ids(_hand(G, 0)) == ["Y"], "IOD007 Crystal Ball (Power-Up) : le sort que l'adversaire tient aussi est defausse")
+	# Reward : l'adversaire revele son sort, il rejoint votre main
+	var G2 := _G([_player(0), _player(1)])
+	_hand(G2, 1).append(_spl("Z"))
+	_owned(G2, 0, "IOD007")
+	_ok.call(_use(G2, 0, "IOD007") == null and _ids(_hand(G2, 0)) == ["Z"] and _hand(G2, 1).is_empty(), "IOD007 Crystal Ball (Reward) : le sort revele passe dans votre main")
+	# IOD011 Heart Container (Power-Up, malus) : une ame de votre scorekeeping est retournee face visible = une blessure
+	var G3 := _G([_player(0), _player(1)])
+	var sh := _h("SH", 5, 1)
+	(_p(G3, 0)["souls"] as Array).append(CardDB.soul_entry(sh))
+	ThkAbilities.on_hero_survived(G3, 0, _with(_h("HC", 5, 1), "IOD011"))
+	_ok.call((_p(G3, 0)["souls"] as Array).is_empty() and CardDB.total_wounds(_p(G3, 0)) == 1, "IOD011 Heart Container (Power-Up) : une ame devient une blessure")
+	# Reward : l'ame d'un adversaire disparait, le heros revient a l'entree de son donjon avec +3
+	var G4 := _G([_player(0), _player(1)])
+	var bh := _h("BH", 5, 1)
+	(_p(G4, 1)["souls"] as Array).append(CardDB.soul_entry(bh))
+	_owned(G4, 0, "IOD011")
+	_use(G4, 0, "IOD011")
+	_ok.call((_p(G4, 1)["souls"] as Array).is_empty() and (_p(G4, 1)["entrance"] as Array).size() == 1 and TnlAbilities.on_hero_start(G4, 1, bh) == 3, "IOD011 Heart Container (Reward) : l'ame disparait, le heros revient a l'entree de l'adversaire avec +3")
+	# IOD018 Stolen Blueprints : l'icone du heros arrive en ville est interdite de construction ce tour
+	var G5 := _G([_player(0, [_plain("A")]), _player(1)])
+	var bp := _with(_h("BP", 5, 2), "IOD018")
+	bp["townTurn"] = 3
+	G5["town"] = [bp]
+	_ok.call(IodAbilities.blueprints_block(G5, _plain("F", "monster", [2])) and not IodAbilities.blueprints_block(G5, _plain("T", "trap", [1])), "IOD018 Stolen Blueprints (Power-Up) : salle a l'icone du heros interdite, les autres non")
+	bp["townTurn"] = 2
+	_ok.call(not IodAbilities.blueprints_block(G5, _plain("F", "monster", [2])), "IOD018 : seulement le tour ou le heros arrive en ville")
+	# Reward : construction immediate, detruite en fin de tour
+	_hand(G5, 0).append(_plain("N", "monster", [1], 1))
+	_owned(G5, 0, "IOD018")
+	_use(G5, 0, "IOD018")
+	_drain(_match(G5))
+	var built := 0
+	for st in (_p(G5, 0)["dungeon"] as Array):
+		for r in (st as Array):
+			built += 1 if str((r as Dictionary).get("id", "")) == "N" else 0
+	_ok.call(built == 1 and _hand(G5, 0).is_empty(), "IOD018 Stolen Blueprints (Reward) : la salle est construite tout de suite")
+	IodAbilities.end_of_turn(G5)
+	var left := 0
+	for st in (_p(G5, 0)["dungeon"] as Array):
+		for r in (st as Array):
+			left += 1 if str((r as Dictionary).get("id", "")) == "N" else 0
+	_ok.call(left == 0 and _ids(G5["decks"]["roomDiscard"]).has("N"), "IOD018 : en fin de tour, la salle construite apres l'usage est detruite")
+	# IOD023 Laser Drill (Power-Up) : la salle couverte la plus forte remonte
+	var G6 := _G([_player(0), _player(1)])
+	(_p(G6, 0)["dungeon"] as Array).append([_plain("LOW", "trap", [1], 1), _plain("HIGH", "trap", [1], 4), _plain("TOP", "trap", [1], 2)])
+	IodAbilities.on_hero_start(G6, 0, _with(_h("LD", 5, 5), "IOD023"), 5)
+	_ok.call(str(BossEngine.active_room((_p(G6, 0)["dungeon"] as Array)[0]).get("id", "")) == "HIGH", "IOD023 Laser Drill (Power-Up) : une salle couverte de la pile remonte au sommet")
+	# Reward : toutes vos salles sont « decouvertes » (Caged Gundarf double ses degats)
+	var G7 := _G([_player(0, [_plain("CRL014", "monster", [5], 2)]), _player(1)])
+	_owned(G7, 0, "IOD023")
+	_use(G7, 0, "IOD023")
+	_ok.call(BossEngine.room_damage_with_modifiers(G7, _p(G7, 0), 0, null) == 4, "IOD023 Laser Drill (Reward) : l'effet « uncover » de la salle se declenche (degats doubles)")
+	# IOD026 Malakill : un Objet sous une salle Monster, +3 ; rendu face cachee quand elle est detruite ou couverte
+	var G8 := _G([_player(0, [_plain("M", "monster", [1], 2)]), _player(1)])
+	var kept := _owned(G8, 0, "IOD012", true)
+	var mp := _p(G8, 0)
+	var ch = IodAbilities.level_up(G8, 0, mp, _boss("IOD026"))
+	_ok.call(ch == null and (mp["items"] as Array).is_empty() and BossEngine.active_room((mp["dungeon"] as Array)[0]).has("iodUnder") and BossEngine.room_damage_with_modifiers(G8, mp, 0, null) == 5, "IOD026 Malakill : l'Objet passe sous la salle Monster, +3 (2 -> 5)")
+	BossEngine.destroy_room(mp, 0, G8)
+	_ok.call((mp["items"] as Array).size() == 1 and bool((mp["items"][0] as Dictionary)["faceDown"]), "IOD026 : salle detruite -> l'Objet retourne face cachee chez son proprietaire")
+	var covered := _plain("M2", "monster", [1], 2)
+	covered["iodUnder"] = {"owner": 0, "item": kept}
+	mp["items"] = []
+	mp["dungeon"] = [[covered, _plain("OVER")]]
+	IodAbilities.sweep_covered(G8)
+	_ok.call(not covered.has("iodUnder") and (mp["items"] as Array).size() == 1, "IOD026 : salle couverte -> l'Objet est rendu")

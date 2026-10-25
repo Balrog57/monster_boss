@@ -5,7 +5,7 @@ extends RefCounted
 ## utilisable depuis le scorekeeping une fois l'Objet face visible. Le moteur des Objets est celui de ThkAbilities (attache, revelation, claim,
 ## useItem, choix « tnl-pick » a etape thk_iod_*) ; ce fichier n'ajoute que les cartes. Les 5 Boss montent de niveau par process_level_up.
 ## Sources, par priorite : docs/rules/rules.md (section Items), texte des cartes (cards.json, wiki). Pas de livret IOD officiel.
-## Non jouee : IOD018 Stolen Blueprints (sixieme salle : 5 emplacements fixes, CardDB.DUNGEON_SLOTS) ; voir docs/HANDOFF.md section 7.
+## IOD018 Stolen Blueprints : pas de sixieme salle (5 emplacements fixes, CardDB.DUNGEON_SLOTS) ; voir docs/rules/arbitrages-wiki.md.
 ## Sans Crash Landing, Match.new_match ecarte les Objets Explorer et Banseer Bivan (livret : « remove the Explorer items and the Boss »).
 
 const SET_ID := "iod"
@@ -145,6 +145,14 @@ static func effect_check(G: Dictionary, pid: int, id: String) -> String:
 			var pool := entrance_heroes(G, -2, pid)
 			return "" if not pool.is_empty() else "no Hero in an opponent's dungeon"
 		"IOD024": return "" if not _saucer_options(G).is_empty() else "no Advanced Room in the Room deck"
+		"IOD007":
+			for o in TnlAbilities._opponents(G, pid):
+				if TnlAbilities.spells_in_hand(_p(G, int(o))) > 0:
+					return ""
+			return "no opponent holds a Spell"
+		"IOD011": return "" if not _heart_options(G, pid).is_empty() else "no Soul in an opponent's scorekeeping area"
+		"IOD018": return "" if not TnlAbilities.hand_options(p, "room").is_empty() else "no Room in hand"
+		"IOD023": return "" if not (p.get("dungeon", []) as Array).is_empty() else "no Room"
 	return "unknown Item"
 
 static func _lich_sources(G: Dictionary) -> Array:
@@ -291,6 +299,32 @@ static func run_effect(G: Dictionary, pid: int, id: String) -> Variant:
 			return TnlAbilities.flush(G, chs)
 		"IOD024": # Flying Saucer : une salle Advanced de la pioche de salles
 			return TnlAbilities.ask(G, pid, "thk_iod_search", _saucer_options(G), {}, "%s: choose an Advanced Room from the Room deck" % name, name)
+		"IOD007": # Crystal Ball : chaque adversaire qui a un sort en revele un (public), vous en prenez un
+			var holders: Array = []
+			for o in TnlAbilities._opponents(G, pid):
+				if TnlAbilities.spells_in_hand(_p(G, int(o))) > 0:
+					holders.append(int(o))
+			ThkAbilities._bag(G)["iodCball"] = {"owner": pid, "left": holders.size(), "revealed": []}
+			var reveals: Array = []
+			for q in holders:
+				var ropts: Array = []
+				for c in ThkAbilities._hand_cards(_p(G, q), "spell"):
+					ropts.append({"card": c, "label": _label(c as Dictionary), "ai": -TnlAbilities._ai_value(c as Dictionary)})
+				reveals.append(TnlAbilities.ask(G, q, "thk_iod_cball", ropts, {}, "%s: reveal one of your Spells" % name, name))
+			return TnlAbilities.flush(G, reveals)
+		"IOD011": # Heart Container : un heros en blessure d'un adversaire revient a l'entree de son donjon avec +3
+			return TnlAbilities.ask(G, pid, "thk_iod_heart", _heart_options(G, pid), {}, "%s: choose a Soul in an opponent's scorekeeping area (the Hero returns to their entrance with +3 Health)" % name, name)
+		"IOD018": # Stolen Blueprints : construction immediate supplementaire, detruite en fin de tour
+			# shortcut: pas de sixieme salle (5 emplacements fixes, CardDB.DUNGEON_SLOTS) : la salle se pose dans les 5 emplacements, y compris par-dessus une salle ; a revoir si un 6e emplacement existe.
+			_list(G, "iodBp").append(pid)
+			return TnlAbilities.build_choice(G, pid, "any", name)
+		"IOD023": # Laser Drill : toutes vos salles sont traitees comme venant d'etre decouvertes
+			# shortcut: seules les salles presentes maintenant sont traitees (pas celles posees plus tard dans le tour).
+			var dr: Array = p.get("dungeon", [])
+			for i in range(dr.size() - 1, -1, -1):
+				if i < dr.size():
+					_uncover_triggers(G, pid, i)
+			_log(G, "%s: all of player %d's Rooms are treated as just uncovered." % [name, pid + 1])
 	return null
 
 ## Doppelganger Cloak : un heros de la ville leurre vers `pid` par le type `t` (l'IA l'envoie chez un adversaire, pas chez elle).
@@ -403,6 +437,58 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 				deck.remove_at(pi)
 				(p["hand"] as Array).append(c)
 				_log(G, "%s: %s is put into player %d's hand." % [_name("IOD024"), _label(c), pid + 1])
+		"thk_iod_cball": # Crystal Ball : un adversaire revele un sort (public) ; le dernier ouvre le choix du proprietaire
+			var cb: Dictionary = ThkAbilities._bag(G).get("iodCball", {}) as Dictionary
+			if cb.is_empty():
+				return null
+			var shown: Dictionary = o.get("card", {})
+			(cb["revealed"] as Array).append({"holder": pid, "card": shown})
+			_log(G, "%s: player %d reveals %s." % [_name("IOD007"), pid + 1, _label(shown)])
+			cb["left"] = int(cb["left"]) - 1
+			if int(cb["left"]) > 0:
+				return null
+			var topts: Array = []
+			for e in (cb["revealed"] as Array):
+				topts.append({"card": e["card"], "holder": int(e["holder"]), "label": "%s (P%d)" % [_label(e["card"] as Dictionary), int(e["holder"]) + 1], "ai": TnlAbilities._ai_value(e["card"] as Dictionary)})
+			return TnlAbilities.ask(G, int(cb["owner"]), "thk_iod_cball_take", topts, {}, "%s: choose a revealed Spell to put into your hand" % _name("IOD007"), _name("IOD007"))
+		"thk_iod_cball_take":
+			var took: Dictionary = o.get("card", {})
+			var from_pid := int(o.get("holder", -1))
+			ThkAbilities._bag(G).erase("iodCball")
+			if from_pid >= 0 and TnlAbilities.take_from_hand(G, from_pid, took):
+				(p["hand"] as Array).append(took)
+				_log(G, "%s: %s goes from player %d's hand into player %d's hand." % [_name("IOD007"), _label(took), from_pid + 1, pid + 1])
+		"thk_iod_heart": # Heart Container (Reward) : l'ame d'un adversaire disparait, le heros revient a l'entree de son donjon avec +3 PV
+			var back: Dictionary = o.get("card", {})
+			var bq := int(o.get("ownerPid", -1))
+			if bq < 0 or not TnlAbilities.remove_soul_hero(_p(G, bq), back):
+				return null
+			(_p(G, bq)["entrance"] as Array).append(back)
+			TnlAbilities.add_hero_hp(G, back, 3)
+			_log(G, "%s: %s returns to the entrance of player %d's dungeon with +3 Health." % [_name("IOD011"), _label(back), bq + 1])
+		"thk_iod_mal_item": # Malakill : l'Objet (face visible ou cachee), puis la salle Monster
+			var rooms := TnlAbilities.room_options(G, "monster")
+			if rooms.is_empty():
+				_log(G, "Malakill: no Monster Room.")
+				return null
+			for r in rooms:
+				(r as Dictionary)["ai"] = float(int(((r as Dictionary)["card"] as Dictionary).get("damage", 0))) * (1.0 if int((r as Dictionary)["targetPlayerId"]) == pid else -1.0)
+			return TnlAbilities.ask(G, pid, "thk_iod_mal_room", rooms, {"item": o.get("card", {})}, "Malakill: choose a Monster Room to put the Item under (+3)", "Malakill")
+		"thk_iod_mal_room":
+			var mitem: Dictionary = ctx.get("item", {})
+			var host = SpellEffects.find_room(G, int(o.get("targetPlayerId", -1)), int(o.get("roomIndex", -1)))
+			var mitems: Array = p.get("items", [])
+			var mat := -1
+			for k in mitems.size():
+				if is_same(mitems[k], mitem):
+					mat = k
+			if host == null or mat < 0:
+				return null
+			if (host as Dictionary).has("iodUnder"):
+				release_under(G, host as Dictionary)
+			mitems.remove_at(mat)
+			(host as Dictionary)["iodUnder"] = {"owner": pid, "item": mitem}
+			_log(G, "Malakill: an Item is placed under %s (+3 until it is destroyed or covered)." % _label(host as Dictionary), "Malakill: an Item is placed under %s (+3)." % _label(host as Dictionary))
 		"thk_iod_claim2": # Banseer Bivan : trois Objets pretendent a deux places face visible, l'un d'eux part face cachee
 			var item: Dictionary = ctx.get("item", {})
 			var down: Dictionary = o.get("card", {})
@@ -505,6 +591,13 @@ static func level_up(G: Dictionary, pid: int, p: Dictionary, boss: Dictionary) -
 			return TnlAbilities.ask(G, pid, "thk_iod_take", opts, {}, "%s: take a face-up Item from a Hero in town or another player" % name, name)
 		"IOD029": # Umbra : un Objet face visible de n'importe quel scorekeeping
 			return TnlAbilities.ask(G, pid, "thk_iod_take", _other_items(G, pid), {}, "%s: choose a face-up Item" % name, name)
+		"IOD026": # Malakill : un de vos Objets (visible ou cache) sous une salle Monster, +3 tant qu'elle n'est ni detruite ni couverte
+			var mopts: Array = []
+			for it in (p.get("items", []) as Array):
+				mopts.append({"card": it, "label": _label(it as Dictionary) if not bool((it as Dictionary).get("faceDown", false)) else "%s (face-down)" % _label(it as Dictionary), "ai": -ThkAbilities.item_value(it as Dictionary)})
+			if mopts.is_empty():
+				_log(G, "%s: level up, but no Item to place." % name)
+			return TnlAbilities.ask(G, pid, "thk_iod_mal_item", mopts, {}, "%s: choose one of your Items to place under a Monster Room" % name, name)
 		_:
 			_log(G, "%s: level up (%s)" % [name, str(boss.get("levelUpDesc", ""))])
 	return null
@@ -569,6 +662,33 @@ static func on_hero_start(G: Dictionary, pid: int, hero: Dictionary, hp: int) ->
 			idxs.reverse()
 			for i in idxs:
 				TnlAbilities.destroy_room_at(G, pid, i, name)
+		"IOD007": # Crystal Ball : tous les joueurs revelent leurs sorts ; vous defaussez les votres qu'un adversaire a aussi
+			var seen := {}
+			for q in TnlAbilities._alive(G):
+				var names: Array = []
+				for c in ThkAbilities._hand_cards(_p(G, int(q)), "spell"):
+					names.append(_label(c as Dictionary))
+					if int(q) != pid:
+						seen[str((c as Dictionary).get("id", ""))] = true
+				_log(G, "%s: player %d reveals %s." % [name, int(q) + 1, ", ".join(names) if not names.is_empty() else "no Spell"])
+			for c in ThkAbilities._hand_cards(p, "spell"):
+				if seen.has(str((c as Dictionary).get("id", ""))) and TnlAbilities.discard_from_hand(G, pid, c as Dictionary):
+					_log(G, "%s: %s matches a revealed Spell and is discarded." % [name, _label(c as Dictionary)])
+		"IOD023": # Laser Drill : de chaque pile, une salle couverte remonte au sommet
+			# shortcut: la salle couverte est choisie automatiquement (la plus forte en degats) ; ouvrir un choix avant la premiere salle si un humain doit decider.
+			var dd: Array = p.get("dungeon", [])
+			for i in range(dd.size() - 1, -1, -1):
+				if i >= dd.size() or (dd[i] as Array).size() < 2:
+					continue
+				var stack: Array = dd[i]
+				var pick := 0
+				for k in range(stack.size() - 1):
+					if int((stack[k] as Dictionary).get("damage", 0)) > int((stack[pick] as Dictionary).get("damage", 0)):
+						pick = k
+				RoomAbilities.uncover_move_to_top(G, pid, {"roomIndex": i, "depth": pick, "card": stack[pick]})
+				if TnlAbilities.active(G):
+					TnlAbilities.on_uncover(G, pid, i)
+			_log(G, "%s: a covered Room of each stack is brought to the top." % name)
 		"IOD019": # Pandora's Box : peut tuer un autre heros de l'entree
 			var kopts: Array = []
 			for h in (p.get("entrance", []) as Array):
@@ -718,6 +838,86 @@ static func blast_death_room(G: Dictionary, pid: int, death_index: int) -> void:
 	if death_index >= 0 and death_index < d.size() and BossEngine.active_room(d[death_index]) != null:
 		TnlAbilities.destroy_room_at(G, pid, death_index, "Blast Box")
 
+# --- IOD007 / IOD011 / IOD018 / IOD023 / IOD026 : crochets ------------------------------------------------------------------------------------
+
+## Heros dont l'ame (face cachee) est chez un adversaire de `pid` : cibles du Reward de Heart Container (le moteur garde l'identite de chaque ame).
+static func _heart_options(G: Dictionary, pid: int) -> Array:
+	var out: Array = []
+	for q in TnlAbilities._opponents(G, pid):
+		for h in TnlAbilities._face_down_heroes(_p(G, int(q))):
+			out.append({"card": h, "ownerPid": int(q), "label": "%s (P%d)" % [_label(h as Dictionary), int(q) + 1], "ai": 0.0})
+	return out
+
+## IOD011 Heart Container (Power-Up, un malus) : le heros survit a votre donjon, vous retournez face visible un de vos heros face cachee (livret : face cachee = ame,
+## face visible = blessure) : une ame devient une blessure. Appele avant le controle des 5 Blessures.
+## shortcut: le heros est choisi automatiquement (celui qui vaut le moins d'ames) ; ouvrir un choix si un humain doit decider.
+static func heart_container(G: Dictionary, pid: int) -> void:
+	var p := _p(G, pid)
+	var worst = null
+	for h in TnlAbilities._face_down_heroes(p):
+		if worst == null or BossEngine.hero_souls(h as Dictionary) < BossEngine.hero_souls(worst as Dictionary):
+			worst = h
+	if worst == null:
+		return
+	TnlAbilities.remove_soul_hero(p, worst)
+	for _k in BossEngine.hero_wounds(worst as Dictionary):
+		(p["wounds"] as Array).append({"name": (worst as Dictionary).get("name", "?"), "wounds": 1, "souls": 1, "class": (worst as Dictionary).get("class", ""), "faceDown": false, "turn": _turn(G), "hero": worst})
+	_log(G, "Heart Container: %s is flipped face-up in player %d's scorekeeping area (Soul -> Wound)." % [_label(worst as Dictionary), pid + 1])
+
+## IOD018 Stolen Blueprints (Power-Up) : le tour ou ce heros arrive en ville (`townTurn`, pose par Match._reveal_heroes_in_town), personne ne peut construire
+## une salle dont une icone de tresor correspond a l'une des siennes. Ne bloque que la construction normale et les constructions immediates TNL.
+static func blueprints_block(G: Dictionary, card: Dictionary) -> bool:
+	for h in (G.get("town", []) as Array):
+		if ThkAbilities.item_id(h) != "IOD018" or int((h as Dictionary).get("townTurn", -1)) != _turn(G):
+			continue
+		for t in CardDB.hero_treasures(h as Dictionary):
+			if BossEngine.room_treasures(card).has(int(t)):
+				return true
+	return false
+
+## IOD018 (Reward) : une salle posee par `pid` apres l'usage de l'Objet est marquee (tour en cours) ; detruite en fin de tour.
+static func stamp_built(G: Dictionary, pid: int, card: Dictionary) -> void:
+	if _list(G, "iodBp").has(pid):
+		card["iodBp"] = _turn(G)
+
+## Fin de tour : les salles marquees par Stolen Blueprints sont detruites. Renvoie vrai si un choix reste en attente.
+## shortcut: seuls les sommets de pile sont detruits (une salle marquee couverte ensuite reste) ; 5-6 joueurs : non appele (Match._check_end_big_game).
+static func end_of_turn(G: Dictionary) -> bool:
+	for pid in TnlAbilities._alive(G):
+		var d: Array = _p(G, int(pid)).get("dungeon", [])
+		for i in range(d.size() - 1, -1, -1):
+			while i < d.size() and int(((d[i] as Array).back() as Dictionary).get("iodBp", -1)) == _turn(G):
+				TnlAbilities.destroy_room_at(G, int(pid), i, "Stolen Blueprints")
+	return not (G.get("pendingChoice", {}) as Dictionary).is_empty()
+
+## Laser Drill (Reward) : « comme si elle venait d'etre decouverte » pour la salle au sommet de l'emplacement `i`.
+static func _uncover_triggers(G: Dictionary, pid: int, i: int) -> void:
+	RoomAbilities.on_uncover(G, pid, i)
+	if TnlAbilities.active(G):
+		TnlAbilities.on_uncover(G, pid, i)
+
+## Malakill : +3 a la salle tant que l'Objet est dessous.
+static func under_bonus(room: Dictionary) -> int:
+	return 3 if room.has("iodUnder") else 0
+
+## Malakill : la salle est detruite ou couverte, l'Objet retourne face cachee chez son proprietaire.
+## shortcut: l'Objet revient toujours face cachee (le livret ne dit pas ou il va) ; le garder face visible exigerait la limite de places face visible.
+static func release_under(G: Dictionary, room: Dictionary) -> void:
+	var u = room.get("iodUnder")
+	room.erase("iodUnder")
+	if u is Dictionary:
+		ThkAbilities.add_item(G, int((u as Dictionary).get("owner", 0)), (u as Dictionary)["item"], true)
+
+## Malakill : une salle qui porte un Objet et n'est plus au sommet (couverte par une salle revelee) le rend. Appele apres chaque coup.
+static func sweep_covered(G: Dictionary) -> void:
+	for pid in TnlAbilities._alive(G):
+		for stack in (_p(G, int(pid)).get("dungeon", []) as Array):
+			if (stack as Array).size() < 2 or bool(((stack as Array).back() as Dictionary).get("faceDown", false)):
+				continue
+			for k in range((stack as Array).size() - 1):
+				if ((stack as Array)[k] as Dictionary).has("iodUnder"):
+					release_under(G, (stack as Array)[k] as Dictionary)
+
 # --- IA ---------------------------------------------------------------------------------------------------------------------------------------
 
 ## Valeur de la capacite de Boss `id` pour `pid` maintenant (> 0 : a jouer).
@@ -755,6 +955,14 @@ static func score_effect(G: Dictionary, p: Dictionary, pid: int, id: String) -> 
 		"IOD021": return AiWiki.BUILD_FIRST if build and not advanced_rooms(G, pid, -1).is_empty() else -5.0
 		"IOD022": return 40.0 if theirs and AiWiki.saves(f, int(f["best"])) else -5.0
 		"IOD024": return anytime
+		"IOD007": return anytime if TnlAbilities.spells_in_hand(p) <= 3 else -5.0 # un sort adverse de plus en main
+		"IOD023": # les salles a effet « uncover » de mon donjon redeclenchent
+			for stack in (p.get("dungeon", []) as Array):
+				var top = BossEngine.active_room(stack)
+				if top != null and RoomAbilities.has_uncover_effect(top as Dictionary):
+					return anytime
+			return -5.0
+		"IOD011", "IOD018": return -5.0 # IOD011 : retirer une ame a un adversaire pour lui rendre un heros a combattre (le heros peut re-mourir chez lui) : gain incertain ; IOD018 : salle detruite en fin de tour
 	return -5.0
 
 static func _best_magnet(G: Dictionary, pid: int) -> float:

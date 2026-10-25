@@ -8,7 +8,7 @@ extends RefCounted
 
 ## Cles de G publiques, recopiees telles quelles.
 const PUBLIC_KEYS := ["activePlayer", "adventure", "adventurePausePassed", "afterHero", "apkSkippedHero", "autoAI", "buildIndex",
-	"buildOrder", "buildWindow", "effects", "forcedBuild", "gameOver", "itemQueue", "townItems", "lastHeroFight", "luredThisTurn",
+	"buildOrder", "buildWindow", "effects", "forcedBuild", "gameOver", "itemQueue", "kingVote", "townItems", "lastHeroFight", "luredThisTurn",
 	"mandoQueue", "numPlayers", "phase", "roboboQueue", "sets", "setupBuild", "setupForced", "setupReveal", "stack",
 	"stackActivePlayer", "stackPassed", "stackReturnPlayer", "tnlEndPending", "tnlGiftBuilt", "town", "turn", "xpOrder"]
 ## Cles traitees a part (filtrees) ou volontairement jamais emises (revealQueue, forcedBuilds, forcedRandom, aiTargets*).
@@ -89,15 +89,22 @@ static func _room_view(r):
 	var room: Dictionary = r
 	var mb = room.get("mb")
 	var mb_view = {"faceDown": true, "hidden": true} if mb is Dictionary and bool((mb as Dictionary).get("faceDown", false)) else mb
+	var under = room.get("iodUnder") # IOD026 Malakill : un Objet face cachee sous la salle reste cache aux adversaires
+	var under_view = under
+	if under is Dictionary and bool((((under as Dictionary).get("item", {})) as Dictionary).get("faceDown", false)):
+		under_view = {"owner": (under as Dictionary).get("owner", 0), "item": {"faceDown": true, "hidden": true}}
 	if bool(room.get("faceDown", false)):
 		var back := {"faceDown": true, "hidden": true}
 		if mb != null:
 			back["mb"] = mb_view
 		return back
-	if mb_view == mb:
+	if mb_view == mb and under_view == under:
 		return room
-	var q := room.duplicate() # superficiel : seul mb est remplace
-	q["mb"] = mb_view
+	var q := room.duplicate() # superficiel : seuls mb et iodUnder sont remplaces
+	if mb_view != mb:
+		q["mb"] = mb_view
+	if under_view != under:
+		q["iodUnder"] = under_view
 	return q
 
 ## Journal : une ligne privee ({"t", "pub", "owners"}, voir Match._log) montre `t` aux seuls proprietaires, `pub` aux autres ;

@@ -55,6 +55,8 @@ func run(ok: Callable, h: Node) -> void:
 	_t_ai_soak_each_boss()
 	_t_ai_soak_all_packs()
 	_t_audit_fixes()
+	_t_arbitrages_wiki()
+	_t_heroes_wiki_paraphrases()
 
 # --- fabriques d'etats minimaux ----------------------------------------------------------------------
 
@@ -442,7 +444,7 @@ func _t_destroyed_miniboss() -> void:
 	var p0 := _player(0, "BMA001", [[under, top]], 3)
 	var G := _G([p0, _player(1, "BMA002")])
 	var d = BossEngine.destroy_room(p0, 0, G)
-	_ok.call(d != null and not (d as Dictionary).has("mb") and under.has("mb") and int((under["mb"] as Dictionary)["level"]) == 2, "salle detruite : le miniboss saute sur la salle decouverte (meme niveau)")
+	_ok.call(d != null and not (d as Dictionary).has("mb") and not under.has("mb") and _ids(_decks(G, "roomDiscard")).has("RMB055"), "salle detruite : le miniboss est defausse (livret p.6), il ne saute pas sous la salle decouverte")
 	var G2 := _G([_player(0, "BMA001", [_with_mb(_plain("ONLY"), "RMB057", 3)]), _player(1, "BMA002")])
 	var p2: Dictionary = G2["players"][0]
 	var d2 = BossEngine.destroy_room(p2, 0, G2)
@@ -919,7 +921,7 @@ func _t_boss_active_powers() -> void:
 	m4._resolve_choice(0, 2)
 	_ok.call(BossEngine.treasure_count(p4, 3, G4) == 1, "Kirax : une icone Mage de plus dans le donjon (jusqu'a la fin du tour)")
 	m4.G["effects"] = SpellEffects.empty_effects()
-	_ok.call(BossEngine.treasure_count(p4, 3, G4) == 0, "Kirax : l'icone disparait au tour suivant")
+	_ok.call(BossEngine.treasure_count(p4, 3, G4) == 1, "Kirax : l'icone reste au tour suivant (aucune duree imprimee, arbitrage wiki)")
 
 # --- les 42 salles --------------------------------------------------------------------------------------------------------------------
 
@@ -930,8 +932,10 @@ func _t_rooms_build_effects() -> void:
 	var p0 := _player(0, "BMA001", [ac], 0)
 	p0["hand"] = [_minicard("RMB055"), _minicard("RMB056"), _plain("R")]
 	var G := _G([p0, _player(1, "BMA002")])
-	RoomAbilities.on_build_room(G, 0, ac)
-	_ok.call(_coins(G, 0) == 4 and _hand(G, 0).size() == 3, "RMB014 Monster Academy : 2 Coins par miniboss de la main (ils y restent)")
+	var c_ac = RoomAbilities.on_build_room(G, 0, ac)
+	_ok.call(c_ac != null and str(c_ac["step"]) == "rmb_acad" and (c_ac["options"] as Array).size() == 3, "RMB014 Monster Academy : on choisit combien de minibosses reveler (0 a 2)")
+	TnlAbilities.resolve_pick(G, 0, c_ac, 2)
+	_ok.call(_coins(G, 0) == 4 and _hand(G, 0).size() == 3, "RMB014 Monster Academy : 2 Coins par miniboss revele de la main (ils y restent)")
 	# RMB015 Ancient Guardtower : choisit un adversaire a la construction ; ce tour seulement, 1 Coin contre un sort au hasard
 	var gt := _room("RMB015")
 	var q0 := _player(0, "BMA001", [gt], 2)
@@ -1049,7 +1053,8 @@ func _t_rooms_uncover_effects() -> void:
 	p1["hand"] = [_minicard("RMB055")]
 	var G1 := _G([p1, _player(1, "BMA002")])
 	BossEngine.destroy_room(p1, 0, G1)
-	_ok.call(_coins(G1, 0) == 2, "RMB014 Monster Academy : decouverte -> 2 Coins par miniboss en main")
+	_match(G1)._resolve_choice(0, 1)
+	_ok.call(_coins(G1, 0) == 2, "RMB014 Monster Academy : decouverte -> 2 Coins par miniboss revele")
 	var tro := _room("RMB050")
 	var p2 := _player(0, "BMA001", [[tro, _plain("Z")]], 0)
 	var G2 := _G([p2, _player(1, "BMA002")])
@@ -1332,11 +1337,13 @@ func _t_rooms_triggers() -> void:
 	# RMB049 Personnel Office : une fois par tour, +1 Coin quand un adversaire pose ou promeut un miniboss
 	var po := _room("RMB049")
 	var p4 := _player(0, "BMA001", [po], 0)
-	var p4o := _player(1, "BMA002", [_with_mb(_plain("H"), "RMB055", 1, true)], 3)
+	var p4o := _player(1, "BMA002", [_with_mb(_plain("H"), "RMB055", 1, true), _plain("X"), _plain("Y")], 6)
+	p4o["hand"] = [_minicard("RMB056")]
 	var G4 := _G([p4, p4o])
-	_build_phase(G4)
+	_build_phase(G4, 1)
+	_ok.call(Minibosses.apply_build(G4, 1, 0, 2) and _coins(G4, 0) == 1, "RMB049 Personnel Office : un adversaire POSE un miniboss -> +1 Coin")
 	_match(G4)._reveal_and_level_up()
-	_ok.call(_coins(G4, 0) == 1, "RMB049 Personnel Office : un adversaire revele un miniboss -> +1 Coin")
+	_ok.call(_coins(G4, 0) == 1, "RMB049 : la revelation de fin de BUILD ne rapporte rien (« plays » = pose)")
 	(_top(G4, 1, 0)["mb"] as Dictionary)["since"] = 1
 	_ok.call(Minibosses.apply_promote(G4, 1, 0, -1) and _coins(G4, 0) == 1, "RMB049 : une seule fois par tour (la promotion du meme tour ne rapporte plus)")
 	po["usedThisTurn"] = false
@@ -1583,6 +1590,8 @@ func _t_spells_heroes() -> void:
 	var room := _with_mb(_plain("A", "monster", [1], 2), "RMB055", 2)
 	var G := _G([_player(0, "BMA001", [room], 0), _player(1, "BMA002")])
 	_ok.call(_cast(G, 0, "RMB069", {"targetPlayerId": 0, "roomIndex": 0}), "RMB069 Rage! : lance")
+	_ok.call(str(_pending(G).get("step", "")) == "rmb_sp_rage" and bool(_pending(G).get("optional", false)), "Rage! : le doublement est facultatif (« you may »)")
+	_drain(_match(G), 0)
 	# base 2 + Spike niveau 1 (+1) + Rage (+2) = 5, puis doublement : +5 = 10
 	_ok.call(BossEngine.room_damage_with_modifiers(G, G["players"][0], 0, null) == 10, "Rage! : +niveau (2) puis, avec un seul miniboss, degats doubles (5 -> 10)")
 	var r1 := _with_mb(_plain("A", "monster", [1], 2), "RMB055", 2)
@@ -2067,3 +2076,93 @@ func _t_fix_sabotage_cuts_miniboss_text() -> void:
 	_ok.call(BossEngine.room_damage_with_modifiers(G2, pt, 0, null) == 3, "controle : Scott, salle Trap 2 -> 3")
 	TnlAbilities._tag(BossEngine.active_room((pt["dungeon"] as Array)[0]))["noText"] = true
 	_ok.call(BossEngine.room_damage_with_modifiers(G2, pt, 0, null) == 3, "Scott : une salle sans texte garde le +1 du boss")
+
+# --- arbitrages wiki (docs/rules/arbitrages-wiki.md) : texte imprime et livret lus a la lettre --------------------------------------------
+
+func _t_arbitrages_wiki() -> void:
+	# RMB008 Oculus : « when a Hero dies in a room with a Miniboss » dans N'IMPORTE QUEL donjon ; le proprietaire d'Oculus pioche
+	var o1 := _with_mb(_plain("OA"), "RMB055", 1)
+	var po := _player(0, "RMB008", [_plain("B")], 0)
+	po["rmbBoss"] = {"RMB008": true}
+	var Go := _G([po, _player(1, "BMA002", [o1], 0)])
+	_fill(Go, "spells", 2, "spell")
+	var mo := _match(Go)
+	var ho := _hero("RMB084")
+	_adventure(Go, 1, ho, 0, 0)
+	mo._finish_hero(1, ho, 0, o1)
+	_ok.call(_hand(Go, 0).size() == 1 and _hand(Go, 1).is_empty(), "arbitrage Oculus : un heros meurt chez l'ADVERSAIRE dans une salle avec miniboss -> le proprietaire d'Oculus pioche un sort")
+	# M12 : « kill » = PV a 0 dans la salle -> la mort y declenche ses effets (Cerebella niveau 2) ; l'APK (KillHero) reste sans declencheur
+	var cer := _with_mb(_plain("K", "monster", [1], 2), "RMB059", 2)
+	var Gk := _G([_player(0, "BMA001", [cer], 0), _player(1, "BMA002")])
+	_fill(Gk, "spells", 2, "spell")
+	var hk := _hero("RMB084")
+	_adventure(Gk, 0, hk, 0, 0)
+	_match(Gk)._finish_hero_if_dead()
+	_ok.call(_hand(Gk, 0).size() == 1, "arbitrage M12 : un heros tue (PV a 0) dans sa salle declenche les « when a Hero dies » (Cerebella pioche)")
+	var cer2 := _with_mb(_plain("K2", "monster", [1], 2), "RMB059", 2)
+	var Gk2 := _G([_player(0, "BMA001", [cer2], 0), _player(1, "BMA002")])
+	_fill(Gk2, "spells", 2, "spell")
+	var hk2 := _hero("RMB086")
+	_adventure(Gk2, 0, hk2, 0, 0)
+	(Gk2["adventure"] as Dictionary)["noDeathTrigger"] = true
+	_match(Gk2)._finish_hero_if_dead()
+	_ok.call(_hand(Gk2, 0).is_empty(), "arbitrage M12 : kill de l'APK (noDeathTrigger, ex. Bottomless Pit) : aucun declencheur (parite)")
+	# RMB014 Monster Academy : « for every miniboss you reveal » -> on choisit combien (ici 1 sur 2), 2 Coins chacun
+	var ac := _room("RMB014")
+	var pa := _player(0, "BMA001", [ac], 0)
+	pa["hand"] = [_minicard("RMB055"), _minicard("RMB056")]
+	var Ga := _G([pa, _player(1, "BMA002")])
+	var ca = RoomAbilities.on_build_room(Ga, 0, ac)
+	TnlAbilities.resolve_pick(Ga, 0, ca, 1)
+	_ok.call(_coins(Ga, 0) == 2 and _hand(Ga, 0).size() == 2, "arbitrage Monster Academy : un seul miniboss revele -> 2 Coins, les deux restent en main")
+	# RMB069 Rage! : « you may then double » sur la salle CHOISIE, meme chez un adversaire, si vous n'avez qu'un miniboss
+	var Gr := _G([_player(0, "BMA001", [_with_mb(_plain("A", "monster", [1], 2), "RMB055", 1)], 0), _player(1, "BMA002", [_with_mb(_plain("B", "monster", [1], 2), "RMB056", 1)], 0)])
+	_ok.call(_cast(Gr, 0, "RMB069", {"targetPlayerId": 1, "roomIndex": 0}), "arbitrage Rage! : jouee sur le miniboss d'un adversaire")
+	var before := BossEngine.room_damage_with_modifiers(Gr, Gr["players"][1], 0, null)
+	_drain(_match(Gr), 0)
+	_ok.call(BossEngine.room_damage_with_modifiers(Gr, Gr["players"][1], 0, null) == 2 * before, "arbitrage Rage! : un seul miniboss -> les degats de la salle choisie (adverse) sont doubles")
+
+# --- heros wiki sans texte encode : RMB121 The Progenitors, RMB115 Warlock, RMB119 Tax Collector (paraphrases du wiki, voir arbitrages-wiki.md) ------
+
+func _t_heroes_wiki_paraphrases() -> void:
+	# RMB121 The Progenitors : « most treasure icons » (toutes classes confondues)
+	var pa := _player(0, "BMA001", [_plain("A", "monster", [1, 2], 1)], 0)
+	var pb := _player(1, "BMA002", [_plain("B", "trap", [3], 1)], 0)
+	pa["boss"]["treasures"] = []
+	pb["boss"]["treasures"] = []
+	var Gp := _G([pa, pb])
+	var prog := _hero("RMB121")
+	_ok.call(BossEngine.lure_target(Gp["players"], CardDB.order_by_xp(Gp["players"]), 1, prog, Gp) == 0, "RMB121 The Progenitors : leurre vers le donjon qui a le plus d'icones de tresor (2 contre 1)")
+	# hybrides : deuxieme tresor (hypothese documentee)
+	_ok.call(_int_list(CardDB.hero_treasures(_hero("RMB115"))) == [3, 1] and _int_list(CardDB.hero_treasures(_hero("RMB119"))) == [4, 2], "RMB115 Warlock / RMB119 Tax Collector : deux tresors (hybrides)")
+	# RMB115 Warlock : defausse X sorts, le heros perd X PV
+	var w := _hero("RMB115")
+	var pw := _player(0, "BMA001", [_plain("A", "monster", [1], 1)], 0)
+	pw["hand"] = [_spl("S1"), _spl("S2"), _plain("R")]
+	var Gw := _G([pw, _player(1, "BMA002")])
+	_adventure(Gw, 0, w, 0, 5)
+	var cw = TnlAbilities.weaken_choice(Gw, 0, w, 0)
+	_ok.call(cw != null and (cw["options"] as Array).size() == 2 and bool(cw["optional"]), "RMB115 Warlock : choix facultatif de 1 a 2 sorts a defausser")
+	TnlAbilities.resolve_pick(Gw, 0, cw, 1)
+	_ok.call(int(Gw["adventure"]["hp"]) == 3 and _count(_hand(Gw, 0), "S") == 0 and _hand(Gw, 0).size() == 1 and _decks(Gw, "spellDiscard").size() == 2, "RMB115 : 2 sorts defausses, le heros a -2 PV")
+	# RMB119 Tax Collector : paie X Coins, le heros perd X PV
+	var tx := _hero("RMB119")
+	var pt := _player(0, "BMA001", [_plain("A", "monster", [1], 1)], 3)
+	var Gt := _G([pt, _player(1, "BMA002")])
+	_adventure(Gt, 0, tx, 0, 5)
+	var ct = TnlAbilities.weaken_choice(Gt, 0, tx, 0)
+	TnlAbilities.resolve_pick(Gt, 0, ct, 0)
+	_ok.call(int(Gt["adventure"]["hp"]) == 4 and _coins(Gt, 0) == 2, "RMB119 Tax Collector : 1 Coin paye, le heros a -1 PV")
+	# flux reel : le choix s'ouvre avant la premiere salle et la salle ne frappe qu'apres
+	var pf := _player(0, "BMA001", [_plain("A", "monster", [1], 2)], 2)
+	var Gf := _G([pf, _player(1, "BMA002")])
+	var wf := _hero("RMB119")
+	(pf["entrance"] as Array).append(wf)
+	Gf["adventure"] = {"playerId": 0, "hero": wf, "roomIndex": -1, "hp": 9, "pause": null}
+	Gf["phase"] = "adventure"
+	Gf["activePlayer"] = 0
+	var mf := _match(Gf)
+	mf._advance_adventure_room()
+	_ok.call(str(_pending(Gf).get("step", "")) == "hero_weaken" and int(Gf["adventure"]["hp"]) == 9, "Tax Collector : le choix s'ouvre avant les degats de la premiere salle")
+	mf._resolve_choice(0, -1)
+	_ok.call(_pending(Gf).is_empty() and int(Gf["adventure"]["hp"]) == 7 and Gf["adventure"]["pause"] == "post-damage", "Tax Collector : choix passe -> la salle inflige ses degats, une seule fois")

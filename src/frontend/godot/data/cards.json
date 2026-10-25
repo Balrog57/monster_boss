@@ -173,7 +173,7 @@
       "levelUpDesc": "Take one of your Items (face-up or face-down) and place it under a Monster Room. That Room has +3 until it is destroyed or covered.",
       "set": "iod",
       "quantity": 1,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "IOD027",
@@ -4904,6 +4904,9 @@
       "class": "Cleric",
       "set": "crash-landing",
       "quantity": 1,
+      "description": "This hero is lured to the dungeon of the player with the fewest total Souls minus Wounds. After the Prince becomes a wound or soul, the player who's dungeon he went to may draw two rooms, two spells, or one of each.",
+      "lure": "fewestSoulsMinusWounds",
+      "heroAbility": {"cmd": "PrinceDraw"},
       "implemented": true
     },
     {
@@ -5047,6 +5050,8 @@
       "class": "Cleric",
       "set": "crash-landing",
       "quantity": 1,
+      "description": "During the Bait phase, each player may vote to determine where the King is lured. (If the vote is a tie, the King stays in town.)",
+      "lure": "vote",
       "implemented": true
     },
     {
@@ -5642,6 +5647,12 @@
       "set": "minibosses",
       "quantity": 1,
       "hybrid": true,
+      "description": "(wiki paraphrase) Discard X Spells to give this Hero -X Health.",
+      "treasures": [
+        3,
+        1
+      ],
+      "heroAbility": {"cmd": "DiscardSpellsWeaken"},
       "implemented": true
     },
     {
@@ -5695,6 +5706,12 @@
       "set": "minibosses",
       "quantity": 1,
       "hybrid": true,
+      "description": "(wiki paraphrase) Pay X Coins to give this Hero -X Health.",
+      "treasures": [
+        4,
+        2
+      ],
+      "heroAbility": {"cmd": "PayCoinsWeaken"},
       "implemented": true
     },
     {
@@ -5721,6 +5738,8 @@
       "class": "Cleric",
       "set": "minibosses",
       "quantity": 1,
+      "description": "(wiki paraphrase) This hero is lured to the dungeon with the most treasure icons.",
+      "lure": "mostIcons",
       "implemented": true
     },
     {
@@ -6407,7 +6426,7 @@
       "description": "Power-Up: When this Hero enters your dungeon, all players reveal their Spells. Discard any of your Spells that match those in other players' hands.\nReward: All players reveal one Spell (if they have one or more). Choose one revealed Spell and put it into your hand.",
       "set": "iod",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "IOD008",
@@ -6463,7 +6482,7 @@
       "description": "Power-Up: If this Hero survives your dungeon, choose a face-down Hero in your scorekeeping area and flip it face-up.\nReward: Choose a face-down Hero in an opponent's scorekeeping area. Return it to the entrance of that player's dungeon with +3.",
       "set": "iod",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "IOD012",
@@ -6561,7 +6580,7 @@
       "description": "Power-Up: The turn this Hero enters town, no one may build a Room with a treasure icon matching this Hero's.\nReward: You may immediately build an additional Room in your dungeon, even if it is a sixth Room. At end of turn, destroy all Rooms you built after using this Item.",
       "set": "iod",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "IOD019",
@@ -6631,7 +6650,7 @@
       "description": "Power-Up: When this Hero enters your dungeon, choose a covered Room from each Room stack and bring it to the top of that stack.\nReward: Until end of turn, treat all your Rooms as if they were just uncovered.",
       "set": "iod",
       "isItem": true,
-      "implemented": false
+      "implemented": true
     },
     {
       "id": "IOD024",

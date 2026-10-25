@@ -245,7 +245,7 @@ static func cast(G: Dictionary, caster: int, card: Dictionary, t: Dictionary) ->
 			var sh := TnlAbilities.hero_in_dungeon(G, tid)
 			if sh.is_empty() or str(sh.get("id", "")) != str(t.get("heroId", "")):
 				return _fizzle(G, name)
-			var skip := 2 if BossEngine.count_visible_rooms(_player(G, tid).get("dungeon", [])) >= 5 else 1
+			var skip := 2 if (_player(G, tid).get("dungeon", []) as Array).size() >= 5 else 1 # « has five Rooms » : cinq salles, face cachee ou non
 			a["skip"] = int(a.get("skip", 0)) + skip
 			_log(G, "%s: %s skips the next %d Room(s)." % [name, TnlAbilities._label(sh), skip])
 		"TNL069": # Super Effective! : +2, ou +4 si un seul heros a ete leurre chez vous ce tour

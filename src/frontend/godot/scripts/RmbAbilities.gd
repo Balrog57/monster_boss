@@ -264,10 +264,13 @@ static func _build_or_uncover(G: Dictionary, pid: int, room: Dictionary, built: 
 	var out: Array = []
 	var coins := Minibosses.coins(p)
 	match str(room.get("id", "")):
-		"RMB014": # Monster Academy : 2 Coins par miniboss de la main (reveles, ils y restent)
+		"RMB014": # Monster Academy : « for every miniboss you reveal from your hand » : on choisit combien reveler (0..n), 2 Coins chacun, ils restent en main
 			var n := Minibosses.miniboss_cards_in_hand(p).size()
 			if n > 0:
-				Minibosses.gain_coin(G, pid, 2 * n, "Monster Academy")
+				var aopts: Array = []
+				for k in range(0, n + 1):
+					aopts.append({"n": k, "label": "Reveal %d Miniboss(es)" % k, "ai": float(k)})
+				out.append(TnlAbilities.ask(G, pid, "rmb_acad", aopts, {}, "Monster Academy: how many Minibosses to reveal from your hand (2 Coins each)?", "Monster Academy"))
 		"RMB015": # Ancient Guardtower : choisit un adversaire (cible de la capacite, ce tour seulement)
 			if built:
 				var opts := opponent_options(G, pid)
@@ -628,6 +631,14 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 					p["coins"] = Minibosses.coins(tp)
 					tp["coins"] = mine
 					_log(G, "Robber's Vault: player %d exchanges Hoards with player %d (%d <-> %d)." % [pid + 1, tid + 1, mine, Minibosses.coins(p)])
+		"rmb_acad": # Monster Academy : revele n minibosses de la main (publiquement), +2 Coins chacun
+			var an := int(o.get("n", 0))
+			if an > 0:
+				var names: Array = []
+				for c in Minibosses.miniboss_cards_in_hand(p).slice(0, an):
+					names.append(str((c as Dictionary).get("name", "?")))
+				_log(G, "Monster Academy: player %d reveals %s from hand." % [pid + 1, ", ".join(names)])
+				Minibosses.gain_coin(G, pid, 2 * an, "Monster Academy")
 		"rmb_n": # nombre de Coins poses sur la salle (Minion Clinic, Crystal Ballroom)
 			var n := int(o.get("n", 0))
 			var rm: Dictionary = ctx.get("room", {})
@@ -669,8 +680,15 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 			var icons: Array = []
 			for t in [1, 2, 3, 4]:
 				icons.append({"treasure": t, "targetPlayerId": tid2, "label": str(CardDB.TREASURE_NAMES[t]), "ai": AiWiki.icon_gain(G, pid, tid2, t) + (0.1 if tid2 == pid else 0.0)})
-			return TnlAbilities.ask(G, pid, "rmb_icon", icons, {}, "Choose a treasure type to add to player %d's dungeon" % (tid2 + 1), "Treasure")
+			return TnlAbilities.ask(G, pid, "rmb_icon", icons, {"label": str(ctx.get("label", ""))}, "Choose a treasure type to add to player %d's dungeon" % (tid2 + 1), "Treasure")
 		"rmb_icon":
+			if str(ctx.get("label", "")) == "Kirax": # icone permanente (aucune duree imprimee) : meme stockage que Mirrax (bonusTreasures)
+				var kp := _player(G, int(o.get("targetPlayerId", pid)))
+				var ki: Array = kp.get("bonusTreasures", []) as Array
+				ki.append(int(o.get("treasure", 1)))
+				kp["bonusTreasures"] = ki
+				_log(G, "Kirax: a %s treasure is permanently added to player %d's dungeon." % [str(CardDB.TREASURE_NAMES[int(o.get("treasure", 1))]), int(o.get("targetPlayerId", pid)) + 1])
+				return null
 			Minibosses.list(G, "icons").append({"pid": int(o.get("targetPlayerId", pid)), "treasure": int(o.get("treasure", 1))})
 			_log(G, "A %s treasure is added to player %d's dungeon until end of turn." % [str(CardDB.TREASURE_NAMES[int(o.get("treasure", 1))]), int(o.get("targetPlayerId", pid)) + 1])
 		"rmb_mind": # Mind Thresher : le heros mort quitte la partie, pioche 2 sorts

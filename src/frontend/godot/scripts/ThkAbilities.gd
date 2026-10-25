@@ -890,6 +890,8 @@ static func on_hero_survived(G: Dictionary, pid: int, hero: Dictionary) -> void:
 		"THK012":
 			for o in _opps(G, pid):
 				TnlAbilities.draw_logged(G, int(o), "spells", 1, "Necronomicon")
+		"IOD011":
+			IodAbilities.heart_container(G, pid) # Heart Container : un heros en blessure devient une ame
 	add_item(G, pid, detach(hero), true)
 
 # --- IA (heuristiques maison : ni l'APK ni le wiki n'en donnent) -----------------------------------------------------------------------

@@ -188,19 +188,13 @@ static func drop_card(decks: Dictionary, m: Dictionary) -> void:
 		decks["roomDiscard"] = pile
 		pile.append(c)
 
-## BossEngine.destroy_room : la salle detruite perd son miniboss au profit de la salle decouverte, ou le defausse s'il n'y en a pas.
-static func on_destroy(G: Dictionary, player: Dictionary, destroyed: Dictionary, stack: Array) -> void:
+## BossEngine.destroy_room : la salle detruite perd son miniboss, qui est defausse. Livret p.6 : « If a Room with a Miniboss is destroyed,
+## discard the Miniboss » (le guide non officiel le faisait sauter sous la salle decouverte ; le texte imprime l'emporte).
+static func on_destroy(G: Dictionary, player: Dictionary, destroyed: Dictionary, _stack: Array) -> void:
 	if destroyed.has("mb"):
 		var m: Dictionary = destroyed["mb"]
 		destroyed.erase("mb")
-		if stack.is_empty():
-			drop_card(G.get("decks", {}), m)
-		else:
-			var under: Dictionary = stack[stack.size() - 1]
-			if under.has("mb"):
-				drop_card(G.get("decks", {}), m)
-			else:
-				under["mb"] = m
+		drop_card(G.get("decks", {}), m)
 	destroyed.erase("coins")
 	RmbAbilities.on_destroyed(G, int(player.get("id", -1)), destroyed)
 
@@ -332,6 +326,7 @@ static func apply_build(G: Dictionary, pid: int, hand_idx: int, slot: int) -> bo
 	attach(G, pid, room, card, true)
 	p["buildsThisTurn"] = int(p.get("buildsThisTurn", 0)) + 1
 	_log(G, "Player %d places %s face-down over %s." % [pid + 1, _label(card), _label(room)], "Player %d places a Miniboss face-down." % (pid + 1), [pid])
+	RmbAbilities.on_opponent_miniboss(G, pid) # Personnel Office : « plays » = pose le miniboss (pas sa revelation)
 	return true
 
 ## Revelation de fin de BUILD (BuildPhase_b) : chaque miniboss pose paie 1 Coin, sinon il est defausse.
@@ -349,7 +344,6 @@ static func reveal_all(G: Dictionary) -> void:
 				m["faceDown"] = false
 				m["since"] = int(G.get("turn", 0))
 				_log(G, "%s is revealed (level %d)." % [mb_name(m), level(m)])
-				RmbAbilities.on_opponent_miniboss(G, int(pid))
 			else:
 				(room as Dictionary).erase("mb")
 				drop_card(G.get("decks", {}), m)
@@ -656,8 +650,11 @@ static func on_hero_died(G: Dictionary, pid: int, room: Dictionary) -> void:
 						var slots := TnlAbilities.build_slots(G, pid, card, true) # « draw a Room card. You may immediately build that Room » : aussi dans un nouvel emplacement
 						if not slots.is_empty() and not bool(card.get("isMiniboss", false)):
 							TnlAbilities.emit(G, TnlAbilities.ask(G, pid, "rmb_build_slot", slots, {"card": card, "label": name}, "%s: choose where to build %s (or skip)" % [name, _label(card)], name, true))
-	if not m.is_empty() and RmbAbilities.has_boss(p, "RMB008"): # Oculus : un sort quand un heros meurt dans une salle avec un miniboss
-		TnlAbilities.draw_logged(G, pid, "spells", 1, "Oculus")
+	if not m.is_empty(): # Oculus : « when a Hero dies in a room with a Miniboss » (n'importe quel donjon) ; chaque proprietaire d'Oculus pioche
+		for q in CardDB.order_by_xp(G.get("players", {})):
+			var qp := _player(G, int(q))
+			if not bool(qp.get("eliminated", false)) and RmbAbilities.has_boss(qp, "RMB008"):
+				TnlAbilities.draw_logged(G, int(q), "spells", 1, "Oculus")
 
 static func _index_of(p: Dictionary, room: Dictionary) -> int:
 	return TnlAbilities._index_of_room(p, room)
