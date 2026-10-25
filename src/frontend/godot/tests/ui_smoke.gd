@@ -709,9 +709,9 @@ func _pick_in_cards(n_pick: int, has_skip: bool, skip_plays: bool, what: String)
 		return
 	var k := rng.randi_range(0, cards.size() - 1)
 	(cards[k] as CardUI).card_clicked.emit(null)
-	if _check(btn.visible and btn.text == "CONTINUE" and (cards[k] as CardUI).scale.x > 1.5, "%s : carte choisie sans CONTINUE ni agrandissement" % what):
+	if _check(btn.visible and btn.text == "CONTINUE" and (cards[k] as CardUI).glow_rect.visible, "%s : carte choisie sans CONTINUE ni halo dore" % what):
 		(cards[k] as CardUI).card_clicked.emit(null) # re-appui = deselection
-		_check(btn.visible == has_skip and (cards[k] as CardUI).scale.x == 1.0, "%s : la deselection ne remet pas l'etat initial" % what)
+		_check(btn.visible == has_skip and not (cards[k] as CardUI).glow_rect.visible, "%s : la deselection ne remet pas l'etat initial" % what)
 		(cards[k] as CardUI).card_clicked.emit(null)
 		var pc0: Dictionary = (gm.G.get("pendingChoice", {}) as Dictionary).duplicate(true)
 		btn.pressed.emit()
@@ -2119,7 +2119,7 @@ func _check_apk_gaps() -> void:
 		for c in cards:
 			_check(Rect2(0, 0, 1920, 1080).encloses((c as Control).get_global_rect()), "carrousel : carte hors ecran %s" % (c as Control).get_global_rect())
 		(cards[1] as CardUI).card_clicked.emit(null)
-		_check(btn.text == "CONTINUE" and (cards[1] as CardUI).scale.x > 1.6 and (cards[0] as CardUI).scale.x == 1.0, "carrousel : la carte choisie n'est pas agrandie / CONTINUE absent")
+		_check(btn.text == "CONTINUE" and (cards[1] as CardUI).glow_rect.visible and not (cards[0] as CardUI).glow_rect.visible, "carrousel : la carte choisie n'a pas de halo / CONTINUE absent")
 		_cov("cards_carousel")
 	G["pendingChoice"] = {"type": "ui-test", "playerId": 0, "message": "Pick a side", "options": [{"label": "Left"}, {"label": "Right"}]}
 	board.refresh()

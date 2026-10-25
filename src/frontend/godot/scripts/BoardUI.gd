@@ -116,6 +116,8 @@ var phase_banner: TextureRect
 var timer_label: Label
 var hero_crossing_layer: Control
 var _dim: ColorRect
+var _intro_field: Control               # tutoriel : decor de l'ecran noir des intros (bandes + filets or, tut_11..20), voir make_intro_field
+var _dim_all: ColorRect                 # tutoriel : voile du carrousel (tut_16), le seul ecran ou le plateau entier est assombri sans bulle
 var _bubble: TextureRect
 var _carousel_text: RichTextLabel
 var _confirm_btn: Button
@@ -548,6 +550,15 @@ func _build_overlay() -> void:
 		var gl := _rect(_dim, Color(0.667, 0.533, 0.2), Vector2(0, gy), Vector2(1523, 2))
 		gl.name = "GoldLine"
 		gl.visible = false
+	_intro_field = make_intro_field()
+	_intro_field.visible = false
+	add_child(_intro_field)
+	_dim_all = ColorRect.new()
+	_dim_all.color = Color(0, 0, 0, 0.70) # tut_16 vs tut_11 (Pillow) : colonne de droite 7,9 contre 26,3 hors voile = x 0,30
+	_dim_all.size = Vector2(1920, 1080)
+	_dim_all.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dim_all.visible = false
+	add_child(_dim_all)
 	_bubble = _img(self, UI_DIR + "top_globe.webp", Vector2(PLAY_CX - 440, 150)) # APK : bulle x 510..1430
 	_bubble.visible = false
 	_carousel_text = RichTextLabel.new()
@@ -567,6 +578,27 @@ func _build_overlay() -> void:
 	_confirm_btn.size = Vector2(220, 54)
 	_confirm_btn.visible = false
 	add_child(_confirm_btn)
+
+## Decor de l'ecran noir des intros du tutoriel (tut_11..20, mesure Pillow sous le voile de 165/255 -> couleurs d'origine = valeur / 0,353) :
+## cadre du terrain (x 182..1708, y 61..953), bandes (17,3,3) en haut et en bas, (3,0,0) au milieu entre les filets y 296 et 696.
+## Public : TutorialOverlay en pose une copie pour l'intro apres le choix du boss.
+static func make_intro_field() -> Control:
+	var root := Control.new()
+	root.name = "IntroField"
+	root.size = Vector2(1920, 1080)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var gold := Color8(204, 153, 51) # (72,54,18) / 0,353
+	var inner := Color8(153, 119, 34) # (54,42,12) / 0,353
+	for r in [[Rect2(184, 63, 1523, 890), Color8(17, 3, 3)], [Rect2(184, 298, 1523, 398), Color8(3, 0, 0)],
+			[Rect2(182, 61, 1527, 2), gold], [Rect2(182, 953, 1527, 1), gold], [Rect2(182, 61, 2, 893), gold], [Rect2(1707, 61, 2, 893), gold],
+			[Rect2(184, 296, 1523, 2), inner], [Rect2(184, 696, 1523, 2), inner]]:
+		var c := ColorRect.new()
+		c.position = (r[0] as Rect2).position
+		c.size = (r[0] as Rect2).size
+		c.color = r[1]
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(c)
+	return root
 
 func _build_top() -> void:
 	phase_banner = _img(self, "", Vector2(PLAY_CX - 210, PHASE_BANNER_Y), Vector2(403, 153)) # APK : plaque x 739..1135 (centre 937)
@@ -1158,9 +1190,15 @@ func _refresh_overlay(G: Dictionary, phase: String) -> void:
 	_dim.size = Vector2(1920, 1080) if full else Vector2(1523, 400)
 	for gl in _dim.get_children():
 		gl.visible = discard
-	phase_banner.visible = not over and not discard
-	phase_banner.modulate.a = 0.25 if full else 1.0
-	top_menu_btn.modulate.a = 0.25 if full else 1.0
+	# tutoriel (tut_11..20) : ni voile noir general ni plaque de phase ; decor de l'intro, voile du carrousel seulement quand le choix du boss est a l'ecran
+	var intro: bool = full and bool(_tg("intro_blank", null, false))
+	_intro_field.visible = intro
+	_dim_all.visible = intro and boss_pick
+	if intro:
+		_dim.visible = false
+	phase_banner.visible = not over and not discard and not intro
+	phase_banner.modulate.a = 0.25 if full and not intro else 1.0
+	top_menu_btn.modulate = Color(0.3, 0.3, 0.3, 1.0) if intro and boss_pick else Color(1, 1, 1, 0.25 if full and not intro else 1.0) # tut_16 : l'engrenage est a 0,30 de sa luminosite (77 / 255)
 	_bubble.visible = discard
 	_carousel_text.visible = boss_pick or discard
 	_confirm_btn.visible = (boss_pick and _boss_ready and _boss_solo(G)) or (discard and discard_pick.size() == 2) # fin de partie : GameOverBanner (bouton OK)
@@ -1182,25 +1220,27 @@ func _refresh_overlay(G: Dictionary, phase: String) -> void:
 		_carousel_text.size = Vector2(931, 50)
 
 ## CONTINUE de la defausse d'ouverture : le losange de l'APK (continue_button, libelle compris, x 1540 y 410) ; PLAY BOSS MONSTER! reste la pierre.
-func _style_confirm(diamond: bool) -> void:
-	_confirm_btn.clip_text = diamond # le libelle (invisible) ne doit pas elargir le losange
+func _style_confirm(diamond: bool, btn: Button = null) -> void:
+	if btn == null:
+		btn = _confirm_btn
+	btn.clip_text = diamond # le libelle (invisible) ne doit pas elargir le losange
 	if diamond:
 		for n in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
 			var sb := StyleBoxTexture.new()
 			sb.texture = _tex(UI_DIR + ("continue_button_pressed.webp" if n in ["pressed", "hover_pressed"] else "continue_button.webp"))
 			if n == "hover":
 				sb.modulate_color = Color(1.2, 1.15, 1.0)
-			_confirm_btn.add_theme_stylebox_override(n, sb)
+			btn.add_theme_stylebox_override(n, sb)
 		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
-			_confirm_btn.add_theme_color_override(c, Color(0, 0, 0, 0)) # le libelle est dans l'image
-		_confirm_btn.custom_minimum_size = Vector2(131, 173)
-		_confirm_btn.size = Vector2(131, 173)
-		_confirm_btn.position = Vector2(1540, 410)
+			btn.add_theme_color_override(c, Color(0, 0, 0, 0)) # le libelle est dans l'image
+		btn.custom_minimum_size = Vector2(131, 173)
+		btn.size = Vector2(131, 173)
+		btn.position = Vector2(1540, 410)
 	else:
 		for n in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
-			_confirm_btn.remove_theme_stylebox_override(n)
+			btn.remove_theme_stylebox_override(n)
 		for c in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color", "font_hover_pressed_color"]:
-			_confirm_btn.remove_theme_color_override(c)
+			btn.remove_theme_color_override(c)
 
 ## PLAY BOSS MONSTER! : « PLAY » blanc, « BOSS MONSTER! » or (APK) ; le texte du bouton (lu par les tests) est cache, deux libelles le remplacent.
 func _style_boss_label(on: bool) -> void:
@@ -1250,9 +1290,11 @@ func _track_levelup(G: Dictionary) -> void:
 			_show_levelup(int(pid), pl["boss"])
 		_lvl_seen[pid] = now
 
-## LevelUpBanner de l'APK (DungeonFrameEntity.CreateLevelUpAnimationTask) : le portrait du boss (xxx_hr) entre par la droite du couloir devant
-## une etoile qui tourne, avec la plaque « <BOSS> HAS ACTIVATED / LEVEL UP!! » ; 0,5 s d'entree, 1 s d'arret, 0,5 s de sortie. Decoupe au
-## couloir (couches DungeonTop / BottomScissor). Positions : portrait x droit 1886 -> 991, plaque x gauche 2586 -> 251, bas du portrait y 446 (haut) / 881 (bas).
+## LevelUpBanner de l'APK (DungeonFrameEntity.CreateLevelUpAnimationTask) : le portrait du boss (xxx_hr) entre par la droite du couloir
+## avec la plaque « <BOSS> HAS ACTIVATED / LEVEL UP!! » ; 0,5 s d'entree, 1 s d'arret, 0,5 s de sortie. Decoupe au couloir (couches
+## DungeonTop / BottomScissor). Pied du portrait = LANE_Y + 446 (haut) / 456 (bas) (DungeonFrameEntity.cs:386, frame levelup_10 : bas 952), bord
+## droit final 1708 (hors du decoupage a 1707), plaque x gauche final 985 ; ils arrivent de 895 px (X_DISPLACEMENT) a droite, plaque de 700 -> -740
+## relatifs au portrait (LevelUpBanner.cs:35-37,150-165). Les 4 quarts de bg_lu_shine_cuarto (LevelUpBanner.cs:60-72) ne se voient sur aucune frame (levelup_09/10) : pas d'etoile.
 func _show_levelup(pid: int, boss: Dictionary) -> void:
 	var idx := 1 if pid == view_pid else (0 if pid == foe_pid else -1)
 	if idx < 0:
@@ -1266,50 +1308,38 @@ func _show_levelup(pid: int, boss: Dictionary) -> void:
 	clip.position = Vector2(184, LANE_Y[idx])
 	clip.size = Vector2(1523, LANE_H[idx])
 	_ui_layer.add_child(clip)
-	var bottom := float(LANE_Y[idx]) + 384.0 - clip.position.y
-	var bx := 1886.0 - clip.position.x # bord droit du portrait, repere du decoupage
+	var bottom := float(LANE_Y[idx]) + (446.0 if idx == 0 else 456.0) - clip.position.y
+	var bx := 1708.0 + 895.0 - clip.position.x # bord droit du portrait au depart (X_DISPLACEMENT = 895), repere du decoupage
 	var tex := _tex("res://assets/ui/characters/%s_hr.webp" % str(boss.get("id", "")).to_lower())
-	var boss_node: Control = null
+	var boss_node: TextureRect = null
 	if tex != null:
-		boss_node = Control.new()
-		boss_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		boss_node.size = tex.get_size()
-		clip.add_child(boss_node)
-		var shine := Control.new() # 4 quarts de bg_lu_shine_cuarto tournes de 90 degres, l'etoile tourne (Spinner)
-		shine.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		shine.position = tex.get_size() / 2.0
-		boss_node.add_child(shine)
-		for q in 4:
-			var quarter := _img(shine, "res://assets/ui/gradients/bg_lu_shine_cuarto.webp", Vector2(-463, -465), Vector2(463, 465))
-			quarter.pivot_offset = Vector2(463, 465)
-			quarter.rotation = float(q) * PI / 2.0
-		shine.create_tween().set_loops().tween_property(shine, "rotation", TAU, 8.0).from(0.0)
-		# BlinkBehavior 0,8 s, MinOpacity 0,7 (LevelUpBanner.cs:79-81) : l'opacite de l'etoile monte puis redescend entre 0,7 et 1, lineairement (BlinkBehavior.cs:44-61)
-		var blink := shine.create_tween().set_loops()
-		blink.tween_property(shine, "modulate:a", 1.0, 0.8).from(0.7)
-		blink.tween_property(shine, "modulate:a", 0.7, 0.8)
-		var spr := _img(boss_node, "", Vector2.ZERO, tex.get_size())
-		spr.texture = tex
-		boss_node.position = Vector2(bx, bottom - tex.get_size().y)
+		boss_node = _img(clip, "", Vector2.ZERO, tex.get_size())
+		boss_node.texture = tex
+		boss_node.position = Vector2(bx - tex.get_size().x, bottom - tex.get_size().y) # bord droit a bx
 	var panel := Control.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.size = Vector2(531, 136)
 	clip.add_child(panel)
-	UiKit.ninepatch(panel, "ninepatch/bg_levelup_banner.webp", Vector2.ZERO, Vector2(531, 136), Vector4(0, 1, 0, 1))
+	UiKit.ninepatch(panel, "ninepatch/bg_levelup_banner.webp", Vector2.ZERO, Vector2(531, 136), Vector4(15, 17, 15, 15)) # reperes du WPK : etirement au pixel (17 ; 18), halo de 13 px autour du cadre (levelup_10 : plaque visible de 108 px)
 	var nm := str(boss.get("name", "")).strip_edges().to_upper()
-	var nl := _lbl(panel, nm, 30, APK_GOLD, Vector2(40, 22), 0.0, _fa)
-	_lbl(panel, "HAS ACTIVATED", 22, APK_GOLD, Vector2(40 + _fa.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x + 14.0, 30), 0.0, _fa)
+	# tailles / positions mesurees sur levelup_10 (nom 166 px de large, « HAS ACTIVATED » 190, « LEVEL UP!! » 327 ; texte a 27 px du bord de la plaque)
+	var nl := _lbl(panel, nm, 23, APK_GOLD, Vector2(24, 26), 0.0, _fa)
+	_lbl(panel, "HAS ACTIVATED", 19, APK_GOLD, Vector2(24 + _fa.get_string_size(nm, HORIZONTAL_ALIGNMENT_LEFT, -1, 23).x + 22.0, 32), 0.0, _fa)
 	nl.name = "BossName"
-	_lbl(panel, "LEVEL UP!!", 50, Color.WHITE, Vector2(70, 62), 0.0, _fa)
-	panel.position = Vector2(2586.0 - clip.position.x, bottom - 200.0)
+	_lbl(panel, "LEVEL UP!!", 46, Color.WHITE, Vector2(25, 45), 0.0, _fa)
+	if boss_node != null:
+		clip.move_child(boss_node, -1) # le portrait recouvre la plaque (frames levelup_09/10)
+	var p_in := 985.0 - clip.position.x
+	var p_out := p_in + 2335.0 # 895 + 700 + 740 : de -740 a 700 relatifs au portrait, qui recule de 895
+	panel.position = Vector2(p_out, bottom - 200.0)
 	var tw := clip.create_tween().set_parallel(true)
 	if boss_node != null:
-		tw.tween_property(boss_node, "position:x", 991.0 - clip.position.x - boss_node.size.x, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tw.tween_property(panel, "position:x", 251.0 - clip.position.x, 0.6).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.tween_property(boss_node, "position:x", bx - 895.0 - tex.get_size().x, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(panel, "position:x", p_in, 0.6).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tw.chain().tween_interval(1.0)
-	tw.chain().tween_property(panel, "position:x", 2586.0 - clip.position.x, 0.33).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tw.chain().tween_property(panel, "position:x", p_out, 0.33).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	if boss_node != null:
-		tw.tween_property(boss_node, "position:x", bx, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		tw.tween_property(boss_node, "position:x", bx - tex.get_size().x, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	tw.chain().tween_callback(func():
 		clip.queue_free()
 		_lvl_busy = false
@@ -1702,6 +1732,8 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 		if hide_idx.has(i):
 			card_ui.visible = false
 			card_ui.set_meta("draw_id", hide_idx[i])
+		if discarding and card_ui.border != null:
+			card_ui.border.visible = false # tut_26 : pas de filet gris autour des cartes du bandeau de defausse (cadre noir de la carte seul)
 		var idx := i
 		card_ui.card_clicked.connect(func(_data): _on_hand_card_clicked(idx, card_dict))
 		card_ui.press_started.connect(_on_hand_press)
@@ -1722,10 +1754,15 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 		elif grey_now:
 			card_ui.set_greyed(true)
 		if discard_pick.has(idx):
-			card_ui.modulate = Color(2.83, 2.83, 2.83, 1.0) # tut_26 : la carte choisie est 2,83 x plus claire que sous le voile, sans teinte
+			card_ui.modulate = Color.WHITE # tut_26 (mesure Pillow : art de Zombie Attack 152,138,155 des deux cotes) : la carte choisie garde sa luminosite native, le voile ne couvre que les autres
 			var glow := card_ui.get_node_or_null("GlowRect")
 			if glow != null:
 				glow.visible = true
+				var gm_ := 20.0 * sz.x / 350.0 # card_border_yellow_glow 390 x 528 pour une carte 350 x 488 : 20 px de halo de chaque cote (CardBorderBehavior.cs:48-50 ; tut_26 : cadre or + halo)
+				glow.offset_left = -gm_
+				glow.offset_top = -gm_
+				glow.offset_right = gm_
+				glow.offset_bottom = gm_
 		elif not grey_now and not discarding and (phase == "adventure" or not (G.get("stack", []) as Array).is_empty()) and bool(card_dict.get("isSpell", false)):
 			card_ui.set_gold(true) # APK : sort jouable pendant l'aventure ou une pile de sorts = cadre dore
 		cards.append(card_ui)
@@ -2103,9 +2140,10 @@ func _fit_label(l: Label, max_w: float, base: int) -> void:
 func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 	# Mon boss
 	var pb = p.get("boss")
-	sidebar_boss_label.text = str(pb.get("name", "")).to_upper() if pb != null else ""
+	var blank: bool = bool(_tg("intro_blank", null, false)) # tutoriel, intro (tut_11..20) : pas de noms de boss ni de pioches, le plateau n'est pas encore distribue
+	sidebar_boss_label.text = str(pb.get("name", "")).to_upper() if pb != null and not blank else ""
 	_fit_label(sidebar_boss_label, 150.0, 18)
-	sidebar_sub_label.text = str(pb.get("subtitle", "")) if pb != null else ""
+	sidebar_sub_label.text = str(pb.get("subtitle", "")) if pb != null and not blank else ""
 	var n_souls: int = CardDB.total_souls(p, game_manager.G)
 	var n_wounds: int = CardDB.total_wounds(p)
 	_icon_row(souls_container, 10, n_souls, TEX_SOUL, TEX_SOUL_EMPTY, Vector2(19, 26))
@@ -2120,9 +2158,9 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 
 	# Boss adverse
 	var fb = foe.get("boss")
-	foe_name_label.text = str(fb.get("name", "")).to_upper() if fb != null else ""
+	foe_name_label.text = str(fb.get("name", "")).to_upper() if fb != null and not blank else ""
 	_fit_label(foe_name_label, 150.0, 18)
-	foe_sub_label.text = str(fb.get("subtitle", "")) if fb != null else ""
+	foe_sub_label.text = str(fb.get("subtitle", "")) if fb != null and not blank else ""
 	foe_wounds_label.text = "x%d" % CardDB.total_wounds(foe)
 	foe_souls_label.text = "x%d" % CardDB.total_souls(foe, game_manager.G)
 	_fill_treasures(foe_treasures_box, BossEngine.treasure_counts(foe),
@@ -2130,8 +2168,8 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 
 	# Pioches
 	var decks: Dictionary = G.get("decks", {})
-	room_deck_label.text = "x%d" % decks.get("rooms", []).size()
-	spell_deck_label.text = "x%d" % decks.get("spells", []).size()
+	room_deck_label.text = "x0" if blank else "x%d" % decks.get("rooms", []).size()
+	spell_deck_label.text = "x0" if blank else "x%d" % decks.get("spells", []).size()
 	deck_info_label.text = ""
 	foe_coins_label.text = ""
 	if Minibosses.active(G): # Rise of the Minibosses : le Hoard de chaque joueur
@@ -2584,50 +2622,71 @@ func _popup_list(kind: String, title: String, entries: Array, cancel_cb: Callabl
 			cb.call())
 		grid.add_child(b)
 
-## Carrousel central de cartes (APK CarouselSelectorEntity + CardSelectorComponent, comme « SELECT 2 CARDS TO DISCARD ») : voile, bulle de
-## titre (top_globe), cartes a l'echelle 0,7 dont la touchee passe a 1,2 avec un halo dore (retoucher = deselectionner) ; CONTINUE joue
-## la carte choisie. `skip_cb` valide = le choix peut etre refuse (canBeCanceled) : le bouton est alors present meme sans carte (SKIP) ;
-## sinon il n'apparait qu'une fois une carte choisie (IsContinueButtonVisible). items : [{card: Dictionary, cb: Callable}].
+## Selecteur de cartes de l'APK (CarouselSelectorEntity + CardSelectorComponent, comme « SELECT 2 CARDS TO DISCARD » et le choix de
+## Draculord au niveau 2, frames levelup_14 / levelup_selected) : meme bandeau sombre (y 296..696, filets or), meme bulle top_globe, cartes
+## BIG_CARD en eventail chevauche (pas 1002 / (n + 1), mesure levelup_14 : 167 pour 5 cartes) sans filet gris ; la carte touchee prend le halo
+## dore (retoucher = deselectionner) et passe devant, CONTINUE = le losange continue_button (x 1540 y 410, CarouselSelectorEntity.cs:17-23) ;
+## `skip_cb` valide = le choix peut etre refuse (canBeCanceled) : le bouton est alors present meme sans carte (SKIP, pierre), sinon il
+## n'apparait qu'une fois une carte choisie (IsContinueButtonVisible). items : [{card: Dictionary, cb: Callable}].
 func _popup_cards(kind: String, title: String, items: Array, skip_cb: Callable = Callable()) -> void:
-	var pop := _popup_begin(kind, 0.6)
-	_img(pop, UI_DIR + "top_globe.webp", Vector2(PLAY_CX - 465, 150))
-	var tl := _lbl(pop, title.to_upper(), 26 if title.length() <= 44 else 21, Color.WHITE, Vector2(PLAY_CX - 430, 150 + 14), 860.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
+	var pop := _popup_begin(kind, 0.0)
+	var band := _rect(pop, Color(0, 0, 0, 0.88), Vector2(184, 296), Vector2(1523, 400))
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for gy in [296.0, 696.0]:
+		_rect(pop, Color(0.667, 0.533, 0.2), Vector2(184, gy), Vector2(1523, 2))
+	_img(pop, UI_DIR + "top_globe.webp", Vector2(PLAY_CX - 440, 150)) # levelup_14 : bulle x 510..1430
+	var fs := 26 if title.length() <= 44 else 21
+	var wrapped := ""
+	var line := ""
+	for w in title.to_upper().split(" "): # coupe a la main : l'autowrap d'un Label ne coupe pas avec cette police bitmap
+		var cand := w if line == "" else line + " " + w
+		if line != "" and _fa.get_string_size(cand, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > 930.0:
+			wrapped += line + "\n"
+			cand = w
+		line = cand
+	var tl := _lbl(pop, wrapped + line, fs, Color.WHITE, Vector2(STACK_CX + 2 - 445, 156), 890.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
 	tl.custom_minimum_size.y = 110.0
 	tl.size.y = 110.0
 	tl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var n := items.size()
-	var cw := 245.0 if n <= 5 else maxf(125.0, 1400.0 / float(n) - 10.0) # 350 x 0,7 ; plus petites (et chevauchees) au-dela de 5 cartes
-	var sz := Vector2(cw, cw * 488.0 / 350.0)
-	var step := 0.0 if n < 2 else minf(cw + 25.0, (1400.0 - cw) / float(n - 1))
-	var x0 := PLAY_CX - (step * float(n - 1) + cw) / 2.0
+	var sz := BIG_CARD
+	var step := 0.0 if n < 2 else minf(1002.0 / float(n + 1), 250.0)
+	var x0 := DISCARD_CX - (step * float(n - 1) + sz.x) / 2.0
 	var st := {"sel": -1}
 	var cards: Array = []
 	var btn := Button.new()
 	btn.name = "CardsContinue"
-	btn.custom_minimum_size = Vector2(220, 54)
-	btn.size = Vector2(220, 54)
-	btn.position = Vector2(PLAY_CX - 110, 905)
-	btn.add_theme_font_size_override("font_size", 24)
 	var update := func():
 		for k in cards.size():
 			var on: bool = k == int(st["sel"])
 			var cu: CardUI = cards[k]
-			cu.scale = Vector2.ONE * (1.2 / 0.7 if on else 1.0)
 			cu.z_index = 10 if on else 0
-			cu.modulate = Color(1.3, 1.3, 0.55) if on else Color.WHITE
 			if cu.glow_rect != null:
 				cu.glow_rect.visible = on
 		btn.visible = int(st["sel"]) >= 0 or skip_cb.is_valid()
 		btn.text = "CONTINUE" if int(st["sel"]) >= 0 else "SKIP"
+		_style_confirm(int(st["sel"]) >= 0, btn) # losange pour CONTINUE, pierre pour SKIP
+		if int(st["sel"]) < 0:
+			btn.custom_minimum_size = Vector2(220, 54)
+			btn.size = Vector2(220, 54)
+			btn.position = Vector2(PLAY_CX - 110, 730)
+			btn.add_theme_font_size_override("font_size", 24)
 	for i in n:
 		var cu: CardUI = _card_scene.instantiate()
 		cu.default_size = sz
 		pop.add_child(cu)
 		cu.size = sz
 		cu.setup(items[i]["card"])
-		cu.position = Vector2(x0 + step * float(i), 560.0 - sz.y / 2.0)
-		cu.mouse_entered.disconnect(cu._on_mouse_entered) # pas de grossissement au survol : l'echelle dit « choisie »
+		cu.position = Vector2(x0 + step * float(i), DISCARD_TOP)
+		if cu.border != null:
+			cu.border.visible = false # comme la defausse d'ouverture (tut_26) : pas de filet gris autour des cartes du bandeau
+		if cu.glow_rect != null:
+			var gm_ := 20.0 * sz.x / 350.0 # halo card_border_yellow_glow : 20 px de chaque cote d'une carte 350 x 488
+			cu.glow_rect.offset_left = -gm_
+			cu.glow_rect.offset_top = -gm_
+			cu.glow_rect.offset_right = gm_
+			cu.glow_rect.offset_bottom = gm_
+		cu.mouse_entered.disconnect(cu._on_mouse_entered) # pas de grossissement au survol : le halo dit « choisie »
 		cu.mouse_exited.disconnect(cu._on_mouse_exited)
 		var idx := i
 		cu.card_clicked.connect(func(_d):
@@ -3035,6 +3094,8 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 			board.append({"spot": {}})
 			all_cards = false
 	var title := str(pc.get("message", "")) if str(pc.get("message", "")) != "" else "CHOOSE"
+	if str(pc.get("type", "")) == "steal-card": # texte APK du niveau 2 de Draculord (capture levelup_14), pas la phrase du moteur
+		title = "LEVEL UP: TARGET OPPONENT REVEALS HIS OR HER HAND. TAKE ONE CARD AND PUT IT INTO YOUR HAND."
 	# APK (RearrangeSelector/CardSelector) : si chaque option est une zone du plateau, on la designe dessus, SKIP = CANCEL
 	var on_board := not board.is_empty()
 	for e in board:
@@ -4064,6 +4125,7 @@ func _show_draw(cards: Array) -> void:
 		_draw_hide[cid] = int(_draw_hide.get(cid, 0)) + 1
 		var holder := Control.new()
 		holder.name = "DrawnCard"
+		holder.set_meta("draw_id", cid) # le tutoriel y retrouve la carte piochee (TutorialOverlay._drawn_holder)
 		holder.add_to_group("drawn_card")
 		holder.tree_exiting.connect(_draw_release.bind(holder, cid)) # filet de securite : un vol interrompu rend quand meme sa carte a la main
 		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -4075,7 +4137,7 @@ func _show_draw(cards: Array) -> void:
 		holder.size = back.size
 		holder.pivot_offset = back.size / 2.0
 		var cx := lerpf(400.0, 1490.0, float(i + 1) / float(n + 1))
-		holder.position = Vector2(-480.0, 520.0) - back.size / 2.0
+		holder.position = Vector2(-480.0, 540.0) - back.size / 2.0 # DrawInitialPosition (DrawCardEmitter.cs:23) : y = VirtualHeight x 0,5 ; tut_63 et adv_drawn_spell_teleportation_zoom_center : cadre noir y 296..783
 		_ui_layer.add_child(holder)
 		# Particules de la pioche : EmitParticles = true des la creation de la carte (DrawCardEmitter.cs:153), jusqu'a Attach a la main (CardManagerComponent.cs:108, _draw_land).
 		# Emetteur 0,9 x la carte (CardEntity.cs:88-91), derriere elle ; frere du holder (qui se retourne en echelle X) : il suit seulement son centre.

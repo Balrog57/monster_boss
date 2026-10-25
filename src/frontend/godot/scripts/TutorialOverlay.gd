@@ -50,7 +50,7 @@ const BALLOONS := {
 const TEXT_SIZE := 25 # arcadepix 21 x 1,2 (BalloonFactory textScale 1,2)
 
 # King Croak (TutorialIntroScene.cs:144-161) : 7 images 63 x 62 de kingcroak_anim, 8 images/s, boucle
-const KING_POS := Vector2(340, 343) # APK (100,343) + 240
+const KING_POS := Vector2(349, 343) # APK (100,343) + 240 ; +9 en x : decalage mesure par correlation sur tut_11..20 (Godot 9 px trop a gauche)
 const KING_FRAME := Vector2(63, 62)
 const KING_SCALE := 8.7
 const KING_REGIONS := [Vector2(2, 2), Vector2(67, 2), Vector2(132, 2), Vector2(2, 66), Vector2(67, 66), Vector2(132, 66), Vector2(2, 130)] # kingcroak_anim.xml : 01,04,07,10,13,15,18
@@ -130,6 +130,8 @@ var _done := {}              # etape -> deja montree (ou sautee)
 var _scene: Control          # scene modale en cours (null = aucune)
 var _veil: Control
 var _holes: Array = []       # rectangles « attaches » : dessines au-dessus du voile
+var _sprites: Array = []     # sprites « attaches » (boss) : recopies au-dessus du voile, sans le decor autour (tut_108 / tut_126)
+var _blank := true           # intro : colonnes sans noms de boss ni pioches, decor noir (BoardUI, gate « intro_blank »), jusqu'a la fin de l'intro apres le choix du boss
 var _mask = null             # position (Vector2) de mascara_00, null = voile plein ecran (mascara_black)
 var _mask_tex: Texture2D
 var _fade := 0.0
@@ -150,6 +152,7 @@ var _disc_t := 0.0           # delai avant DiscardTwoCards (0,9 s)
 var _hold_t := 0.0
 var _stable := {}
 var _lvl_done := false
+var _frozen: Control         # carte piochee figee pendant la scene p19_a (rendue au vol a la fin ou a la sortie)
 var _finished := false
 
 func _ready() -> void:
@@ -392,10 +395,13 @@ func _poll() -> void:
 		if not _done.has("firstdraw") and builds == 0:
 			if _hand_idx("BMA022") < 0:
 				_done["firstdraw"] = true # carte absente (tirage different) : etape sautee
-			elif _card_node("BMA022") != null and board._draw_hide.is_empty():
-				_done["firstdraw"] = true
-				_firstdraw()
-				return
+			else:
+				# tut_58..63 : la scene s'ouvre quand la carte retournee est grande au centre, le vol vers la main attend la fin de la scene (sans animation : carte deja dans la main)
+				var dh := _drawn_holder("BMA022")
+				if dh != null or (_card_node("BMA022") != null and board._draw_hide.is_empty()):
+					_done["firstdraw"] = true
+					_firstdraw(dh)
+					return
 		if _done.has("firstdraw") and not _done.has("bait") and builds == 0 and not (G.get("town", []) as Array).is_empty() and board._draw_hide.is_empty():
 			_done["bait"] = true
 			_bait()
@@ -493,8 +499,10 @@ func _on_room_detail(di: int) -> void:
 ## pass (DONE), undo (reprise d'une pose).
 func gate(kind: String, arg = null):
 	if _finished or board == null or board.game_manager == null:
-		return "" if kind == "boss" else true
+		return "" if kind == "boss" else kind != "intro_blank"
 	match kind:
+		"intro_blank":
+			return _blank
 		"run":
 			_poll()
 			return _scene == null and not _holding()
@@ -597,11 +605,7 @@ func _intro1() -> void:
 func _intro2() -> void:
 	_begin()
 	# tut_17..20 : la zone de jeu est noire (le plateau n'est pas encore distribue), les panneaux restent sous le voile
-	var black := ColorRect.new()
-	black.color = Color(6.0 / 255.0, 1.0 / 255.0, 1.0 / 255.0)
-	black.position = Vector2(184, 62)
-	black.size = Vector2(1524, 890)
-	black.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var black: Control = board.make_intro_field() # decor mesure sur tut_17 (bandes, filets or) : le meme que le fond noir de l'intro 1 (BoardUI)
 	_scene.add_child(black)
 	_scene.move_child(black, 0)
 	var lb := _balloon("globe", Vector2(1140, 350))
@@ -612,6 +616,8 @@ func _intro2() -> void:
 	# p08 : mascara_00 a y 442, main a y 580 ; 5 blessures depuis (750,347) puis la pierre tombale ; le 2e texte prolonge le 1er (:81-83,136)
 	await _text_step(lb, {"text": TEXT["page08"][0], "second": TEXT["page08"][1], "mask": Vector2(1481, 442), "finish": _load_icons.bind("wound"), "hands": [{"pos": Vector2(1525, 580)}]})
 	_end()
+	_blank = false # tut_21 : les noms de boss et les pioches apparaissent avec la defausse d'ouverture
+	board.refresh()
 
 ## TutorialDiscardTwoCardsScene : bulle medium (VirtualWidth x 0,5, 200), main verticale a (VirtualWidth x 0,5, VirtualWidth x 0,4)
 func _discard() -> void:
@@ -651,11 +657,33 @@ func _done_scene(first: bool, reinf: bool) -> void:
 	_end()
 
 ## TutorialFirstDrawedCardScene : bulle medium (VirtualWidth x 0,5, VirtualHeight x 0,15), main retournee a (VirtualWidth x 0,65, VirtualHeight x 0,35) ; la main est « attachee ».
-func _firstdraw() -> void:
-	_begin([_hand_rect()])
+func _firstdraw(holder: Control = null) -> void:
+	var holes: Array = [_hand_rect()]
+	if holder != null:
+		_frozen = holder
+		holder.process_mode = Node.PROCESS_MODE_DISABLED # fige son vol (le tween suit le noeud) : la carte reste au centre, au-dessus du voile (tut_63)
+		holes.append(holder.get_global_rect())
+	_begin(holes)
 	var lb := _balloon("medium", Vector2(960, 162))
 	await _text_step(lb, {"text": TEXT["page19_a"][0], "delay": false, "hands": [{"pos": Vector2(1176, 378), "flip": true}]})
 	_end()
+	_thaw()
+
+func _thaw() -> void:
+	if _frozen != null and is_instance_valid(_frozen):
+		_frozen.process_mode = Node.PROCESS_MODE_INHERIT
+	_frozen = null
+
+func _exit_tree() -> void:
+	_thaw()
+
+## Carte piochee en vol (BoardUI._show_draw) deja retournee face visible au centre, ou null.
+func _drawn_holder(id: String) -> Control:
+	for h in get_tree().get_nodes_in_group("drawn_card"):
+		var c := h as Control
+		if c != null and str(c.get_meta("draw_id", "")) == id and c.get_child_count() > 1 and (c.get_child(1) as Control).visible and c.scale.x > 0.99:
+			return c
+	return null
 
 ## TutorialBaitScene : colonne HEROES IN TOWN attachee, bulle large (800,350), main retournee a (LimitedLeftEdge + 200, 320), icones a (bulle + (-240,60)).
 func _bait() -> void:
@@ -669,6 +697,7 @@ func _bait() -> void:
 ## TutorialAdventureScene (isReinforcement par defaut : le texte s'affiche d'un coup), positions du C# (+ 240 en x).
 func _adv(n: int) -> void:
 	var holes: Array = []
+	var sprites: Array = []
 	var kind := "long"
 	var c := Vector2(960, 540)
 	var hands: Array = []
@@ -694,12 +723,14 @@ func _adv(n: int) -> void:
 			c = Vector2(960, 190)
 			hands = [{"pos": Vector2(660, 740)}]
 		25: # cs:223 : boss adverse + panneau OneOpponentDetail (1709,60) ; bulle medium (panneau + (-550,100)), main (panneau + (-200,50))
-			holes = [(board._lane[0]["platform"] as Control).get_global_rect(), Rect2(1708, 62, 212, 435)]
+			holes = [Rect2(1708, 62, 212, 435)] # tut_126 (Pillow) : panneau y 60..497 ; le boss seul est eclairci, pas sa plateforme
+			sprites = [board._lane[0]["sprite"]]
 			kind = "medium"
 			c = Vector2(1159, 160)
 			hands = [{"pos": Vector2(1509, 110)}]
 		26: # cs:219 : mon boss + panneau ChallengerDetail (1709,483) ; bulle medium (panneau + (-550,200)), main (panneau + (-200,150))
-			holes = [(board._lane[1]["platform"] as Control).get_global_rect(), Rect2(1708, 497, 212, 456)]
+			holes = [Rect2(1708, 483, 212, 549)] # tut_108 (Pillow) : panneau + LevelUpBg (TopRightPanelEntity.cs:146-151) = y 483..1032, bouton LEVEL UP compris
+			sprites = [board._lane[1]["sprite"]]
 			kind = "medium"
 			c = Vector2(1159, 683)
 			hands = [{"pos": Vector2(1509, 633)}]
@@ -716,7 +747,7 @@ func _adv(n: int) -> void:
 		29: # cs:321 : bulle long (VirtualWidth x 0,6, 150), main verticale (200,350)
 			c = Vector2(1104, 150)
 			hands = [{"pos": Vector2(440, 350), "vertical": true}]
-	_begin(holes)
+	_begin(holes, sprites)
 	var lb := _balloon(kind, c)
 	var text: String = TEXT["page%d" % n][0]
 	await _text_step(lb, {"text": text, "start": text.length(), "hands": hands})
@@ -739,7 +770,7 @@ func _levelup() -> void:
 # Briques de scene
 # ---------------------------------------------------------------------------------------------------------------------
 
-func _begin(holes: Array = []) -> void:
+func _begin(holes: Array = [], sprites: Array = []) -> void:
 	if _scene != null:
 		_scene.queue_free()
 	_scene = Control.new()
@@ -756,6 +787,7 @@ func _begin(holes: Array = []) -> void:
 	_veil.draw.connect(_draw_veil)
 	_scene.add_child(_veil)
 	_holes = holes.filter(func(r): return r is Rect2 and (r as Rect2).has_area())
+	_sprites = sprites.filter(func(n): return n is TextureRect and is_instance_valid(n) and (n as TextureRect).visible and (n as TextureRect).texture != null)
 	_mask = null
 	_hands.clear()
 	_scene_ptr = null
@@ -805,6 +837,11 @@ func _draw_veil() -> void:
 			rects = _minus(rects, h as Rect2)
 	for r in rects:
 		_veil.draw_rect(r as Rect2, VEIL)
+	if _mask == null:
+		for sp in _sprites:
+			if is_instance_valid(sp): # recopie du sprite au-dessus du voile : l'entite attachee de l'APK n'eclaircit pas le decor derriere elle
+				var t := sp as TextureRect
+				_veil.draw_texture_rect(t.texture, Rect2(t.global_position - _veil.global_position, t.size), false)
 
 static func _minus(rects: Array, h: Rect2) -> Array:
 	var out: Array = []
@@ -1032,14 +1069,14 @@ func _show_hint(text: String) -> void:
 	var b := Control.new()
 	b.name = "BossHint"
 	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.position = Vector2(1230, 542)
+	b.position = Vector2(1285, 589) # tut_26 (Pillow) : cadre blanc x 1285..1516, y 593..719 ; la bulle de la partie normale (1230, 542) n'est pas celle du tutoriel
 	b.size = Vector2(238, 150)
 	UiKit.image(b, board.UI_DIR + "boss_globe.webp", Vector2.ZERO, Vector2(238, 150))
-	var t := UiKit.label(b, text, 21, Color.WHITE, Vector2(2, 6), 232.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
+	var t := UiKit.label(b, text, 21, Color.WHITE, Vector2(33, 6), 170.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # texte plus etroit que la bulle : tut_26 coupe « HIT / CONTINUE, / MINION »
 	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	t.add_theme_constant_override("line_spacing", -4)
-	t.custom_minimum_size = Vector2(232.0, 118.0)
-	t.size = Vector2(232.0, 118.0)
+	t.custom_minimum_size = Vector2(170.0, 118.0)
+	t.size = Vector2(170.0, 118.0)
 	t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	add_child(b)
 	_hint = b

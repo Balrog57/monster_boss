@@ -746,6 +746,9 @@ func _end_screens() -> void:
 	await _shot("gameover_lose_opponent_is_the_winner_gold_crystals_ok_button")
 	await _new_game()
 	gm.G["gameOver"] = {"winner": 1, "reason": "wounds"}
+	_me()["eliminated"] = true # vraie fin de partie (GameManager.gd:190) : le boss vaincu laisse sa petite pierre RIP dans son couloir (DungeonFrameEntity.cs:297-306,498-501, frame lose_rip)
+	for i in 5:
+		(_me()["wounds"] as Array).append({"name": "Fighter", "wounds": 1})
 	await _settle(8)
 	await _wait(0.6)
 	await _shot("gameover_lose_you_lose_tombstone")
@@ -954,12 +957,42 @@ func _phases() -> void:
 	if not mv.is_empty():
 		gm.apply_move(0, mv)
 		board.refresh()
-		var lv := await _until(func(): return bool(_me().get("leveledUp", false)), 20.0)
+		var lv := await _done_until(func(): return bool(_me().get("leveledUp", false)), 30.0)
 		await _wait(0.9)
 		await _shot("levelup_banner_boss_hr_has_activated")
 		print("PHASE-DBG leveledUp=", lv, " pc=", str(gm.G.get("pendingChoice", {})).substr(0, 160))
 		await _wait(2.0)
 		await _shot("levelup_choice_carousel_after_banner")
+	await _teardown()
+
+	# --- 8b. montee de niveau de Draculord (levelup_06..14 / levelup_selected de apk_orig2) : la main de l'adversaire est revelee, on en prend une carte
+	await _new_game()
+	board.skip_animations = false
+	board.win_time_scale = 1.0
+	board.set_process(false)
+	for b in CardDB.bosses:
+		if str((b as Dictionary).get("id", "")) == "BMA001":
+			_me()["boss"] = (b as Dictionary).duplicate(true)
+	_dungeon_fill(_me(), 4)
+	await _settle()
+	mv = _plain_build()
+	if not mv.is_empty():
+		gm.apply_move(0, mv)
+		board.refresh()
+		var lv2 := await _done_until(func(): return bool(_me().get("leveledUp", false)), 30.0)
+		await _wait(0.45)
+		await _shot("levelup_draculord_banner_sliding_in")
+		await _wait(0.5)
+		await _shot("levelup_draculord_banner_full")
+		print("PHASE-DBG draculord leveledUp=", lv2, " pc=", str(gm.G.get("pendingChoice", {})).substr(0, 160))
+		await _wait(3.0)
+		await _shot("levelup_draculord_choice_after_banner")
+		var ch: Array = board._popup.get_children().filter(func(c): return c is CardUI) if board._popup != null else [] # le selecteur est un popup (_popup_cards), pas la main
+		print("PHASE-DBG draculord choice cards=", ch.size())
+		if not ch.is_empty():
+			(ch[ch.size() - 1] as CardUI).card_clicked.emit(null) # derniere carte = Cave-In de levelup_selected
+			await _wait(0.5)
+			await _shot("levelup_draculord_card_selected_continue")
 	await _teardown()
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -973,6 +1006,9 @@ const TUTORIAL_SHOTS := {
 	"bait:0": "tutorial_bait_treasures", "adv22:0": "tutorial_adventure_hero_and_damage", "adv23:0": "tutorial_hit_this_room",
 	"adv23+:0": "tutorial_room_description", "adv27:0": "tutorial_drag_spell_to_hero", "adv28:0": "tutorial_spell_on_stack",
 	"adv29:0": "tutorial_spell_effect", "lvl:0": "tutorial_levelup_big_dungeon", "lvl:1": "tutorial_levelup_hit_me",
+	"build1:1": "tutorial_build_first_room_b", "build2:0": "tutorial_build_extra_room", "done2:0": "tutorial_done_extra", "firstdraw:0": "tutorial_room_draw",
+	"bait:1": "tutorial_bait_lure", "build3:0": "tutorial_build_third_room", "done3:0": "tutorial_done_third", "adv26:0": "tutorial_soul_closer",
+	"adv25:0": "tutorial_ai_wound",
 }
 
 func _tut_pump(ov, secs: float) -> void:
@@ -1091,6 +1127,8 @@ func _tutorial_shots() -> void:
 				await _tut_pump(ov, 0.4)
 				await _shot("tutorial_discard_first_pick")
 				board._on_hand_card_clicked(int(keep[1]), hand[int(keep[1])])
+				await _tut_pump(ov, 1.0)
+				await _shot("tutorial_discard_continue") # tut_26 de l'APK : CONTINUE + « HIT CONTINUE, MINION »
 				board._on_discard_confirm()
 			continue
 		var fid: String = ov._forced_id()
