@@ -788,7 +788,11 @@ func _t_new_cards() -> void:
 	(_p(G4, 1)["souls"] as Array).append(CardDB.soul_entry(bh))
 	_owned(G4, 0, "IOD011")
 	_use(G4, 0, "IOD011")
-	_ok.call((_p(G4, 1)["souls"] as Array).is_empty() and (_p(G4, 1)["entrance"] as Array).size() == 1 and TnlAbilities.on_hero_start(G4, 1, bh) == 3, "IOD011 Heart Container (Reward) : l'ame disparait, le heros revient a l'entree de l'adversaire avec +3")
+	_ok.call((_p(G4, 1)["souls"] as Array).is_empty() and (_p(G4, 1)["entrance"] as Array).size() == 1 and BossEngine.hero_health_with_modifiers(G4, bh) == 8, "IOD011 Heart Container (Reward) : l'ame disparait, le heros revient a l'entree de l'adversaire avec +3")
+	G4["effects"] = SpellEffects.empty_effects() # nouveau tour : les effets du tour sont remis a zero
+	_ok.call(BossEngine.hero_health_with_modifiers(G4, bh) == 8, "IOD011 Heart Container : le +3 survit au tour suivant (porte par la carte)")
+	BossEngine.spend_hero_health_bonus(G4, bh)
+	_ok.call(BossEngine.hero_health_with_modifiers(G4, bh) == 5, "IOD011 Heart Container : le +3 est depense quand le heros quitte l'aventure")
 	# IOD018 Stolen Blueprints : l'icone du heros arrive en ville est interdite de construction ce tour
 	var G5 := _G([_player(0, [_plain("A")]), _player(1)])
 	var bp := _with(_h("BP", 5, 2), "IOD018")

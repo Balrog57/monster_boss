@@ -464,7 +464,7 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 			if bq < 0 or not TnlAbilities.remove_soul_hero(_p(G, bq), back):
 				return null
 			(_p(G, bq)["entrance"] as Array).append(back)
-			TnlAbilities.add_hero_hp(G, back, 3)
+			back["heartHp"] = int(back.get("heartHp", 0)) + 3 # sur la carte : survit aux tours (les effets du tour sont remis a zero), lu par hero_health_with_modifiers
 			_log(G, "%s: %s returns to the entrance of player %d's dungeon with +3 Health." % [_name("IOD011"), _label(back), bq + 1])
 		"thk_iod_mal_item": # Malakill : l'Objet (face visible ou cachee), puis la salle Monster
 			var rooms := TnlAbilities.room_options(G, "monster")

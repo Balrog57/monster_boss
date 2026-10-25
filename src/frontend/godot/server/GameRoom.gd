@@ -117,12 +117,20 @@ func detach(conn: int) -> void:
 
 ## Salle d'attente : libere les sieges humains (hors hote) dont la connexion est absente depuis plus de `grace_ms`
 ## (onglet ferme sans `leave`). Le delai laisse passer un rechargement de page (resume). Renvoie le nombre de sieges liberes.
-## L'hote n'est jamais libere ici : fermer sa salle sur une simple absence tuerait les salons dont l'hote partage le code dans une autre appli.
+## L'hote n'est jamais libere ici (en salle publique le role passe a un autre humain connecte) : fermer sa salle sur une simple absence tuerait les salons dont l'hote partage le code dans une autre appli.
 func release_ghosts(grace_ms: int) -> int:
 	var n := 0
 	if status != "open":
 		return 0
 	var now := _now()
+	var hs: Dictionary = seats[host]
+	if public and not hs["bot"] and int(hs["conn"]) < 0 and now - int(hs["gone_ms"]) > grace_ms:
+		# Salle publique dont l'hote est parti sans `leave` : le role passe au premier humain connecte (sinon la salle reste listee et personne ne peut la lancer)
+		for i in num_players:
+			if i != host and seats[i]["taken"] and not seats[i]["bot"] and int(seats[i]["conn"]) >= 0:
+				host = i
+				_dirty = true
+				break
 	for i in num_players:
 		var s: Dictionary = seats[i]
 		if i != host and s["taken"] and not s["bot"] and int(s["conn"]) < 0 and now - int(s["gone_ms"]) > grace_ms:

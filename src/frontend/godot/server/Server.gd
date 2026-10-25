@@ -182,13 +182,15 @@ func _collect_rooms() -> void:
 		if gone:
 			_close_room(code)
 
-func _close_room(code: String) -> void:
+## `except` : connexion qui part d'elle-meme (l'hote qui quitte) : elle ne recoit pas `closed`.
+func _close_room(code: String, except: int = -1) -> void:
 	var r: GameRoom = _rooms.get(code)
 	if r == null:
 		return
 	for s in r.seats:
 		if int(s["conn"]) >= 0:
-			_send(int(s["conn"]), {"t": "closed", "code": code})
+			if int(s["conn"]) != except:
+				_send(int(s["conn"]), {"t": "closed", "code": code})
 			if _conns.has(int(s["conn"])):
 				_conns[int(s["conn"])]["room"] = ""
 	r.dispose()
@@ -237,11 +239,11 @@ func _error(id: int, text: String, kind: String = "") -> void:
 # --- messages -----------------------------------------------------------------
 
 static func _clean_name(v) -> String:
-	var n := str(v).strip_edges().left(25) # l'APK n'affiche que 25 caracteres (OnlinePanelEntity)
+	var n := _sane_title(str(v)) # meme nettoyage que les titres (le nom apparait dans la liste publique et dans le titre par defaut) ; 25 caracteres comme l'APK (OnlinePanelEntity)
 	return n if n != "" else "Joueur"
 
 ## Titre de salon public (affiche dans la liste de tout le monde) : texte seulement, 25 caracteres au plus. Les caracteres de controle,
-## les formats invisibles et les surcharges bidi (U+200B-200F, 202A-202E, 2066-2069, FEFF) sont retires : ils falsifieraient l'affichage.
+## les formats invisibles (Cc, Cf, Zl, Zp : U+00AD, 061C, 200B-200F, 2028-202E, 2060-206F, FEFF...) sont retires : ils falsifieraient l'affichage.
 ## Renvoie "" si rien ne reste.
 static func _sane_title(v) -> String:
 	if not (v is String):
@@ -249,8 +251,8 @@ static func _sane_title(v) -> String:
 	var t := ""
 	for ch in (v as String):
 		var cp := ch.unicode_at(0)
-		if cp < 32 or (cp >= 127 and cp < 160) or (cp >= 0x200B and cp <= 0x200F) or (cp >= 0x202A and cp <= 0x202E) or (cp >= 0x2066 and cp <= 0x2069) or cp == 0xFEFF:
-			continue
+		if cp < 32 or (cp >= 127 and cp < 160) or cp == 0xAD or cp == 0x61C or (cp >= 0x200B and cp <= 0x200F) or (cp >= 0x2028 and cp <= 0x202E) or (cp >= 0x2060 and cp <= 0x206F) or cp == 0xFEFF:
+			continue # shortcut: Cf rares (U+0600-0605, 06DD, 070F, 180E, E0001, E0020-E007F) non filtres, a ajouter si l'affichage les montre
 		t += ch
 	return t.strip_edges().left(TITLE_MAX).strip_edges()
 
@@ -401,7 +403,7 @@ func _on_message(id: int, d: Dictionary) -> void:
 				return
 			var seat := room.seat_of(id)
 			if room.status == "open" and seat == room.host:
-				_close_room(room.code) # l'hote quitte la salle d'attente : tout le monde est prevenu
+				_close_room(room.code, id) # l'hote quitte la salle d'attente : tout le monde est prevenu
 				return
 			c["room"] = ""
 			room.leave(seat)

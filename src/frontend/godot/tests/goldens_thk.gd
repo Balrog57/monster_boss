@@ -412,6 +412,29 @@ func _t_power_ups_flow() -> void:
 	_drain(m6)
 	_ok.call((_p(G6, 0)["dungeon"] as Array).size() == 1 and (G6["decks"]["roomDiscard"] as Array).any(func(c): return str((c as Dictionary).get("id", "")) == "B"), "THK016 The Bomb : la derniere salle est detruite")
 	_ok.call((_p(G6, 0)["wounds"] as Array).size() >= 1 or int(G6["adventure"].get("hp", 0)) == 3, "THK016 The Bomb : aucun degat de la salle detruite (le heros atteint le Boss avec 3 PV)")
+	# Revue : Tax Collector (choix d'affaiblissement ouvert avant la 1re salle) puis reprise : The Bomb doit encore se declencher sur la 1re salle
+	var lv6b := _live()
+	var m6b: Node = lv6b[0]
+	var G6b: Dictionary = lv6b[1]
+	var tcb := _with_item(_hero("RMB119"), "THK016")
+	_dungeon(G6b, 0, [_plain("B1", "trap", [1], 3)])
+	_entrance(G6b, 0, tcb)
+	G6b["adventure"] = {"playerId": 0, "hero": tcb, "roomIndex": -1, "hp": 9, "pause": null}
+	m6b._advance_adventure_room()
+	_ok.call(str(_pending(G6b).get("step", "")) == "hero_weaken", "Revue : Tax Collector ouvre son choix avant la 1re salle")
+	m6b._resolve_choice(0, -1)
+	_ok.call((_p(G6b, 0)["dungeon"] as Array).is_empty() and int(G6b["adventure"].get("hp", 0)) == 9, "Revue : apres l'affaiblissement, The Bomb detruit la 1re (et derniere) salle sans degats")
+	# affaibli a 0 PV : il meurt avant d'entrer (aucun degat de salle, aucune salle de mort)
+	var lv6c := _live()
+	var m6c: Node = lv6c[0]
+	var G6c: Dictionary = lv6c[1]
+	var tcc := _hero("RMB119")
+	_dungeon(G6c, 0, [_plain("C1", "trap", [1], 3)])
+	_entrance(G6c, 0, tcc)
+	G6c["adventure"] = {"playerId": 0, "hero": tcc, "roomIndex": -1, "hp": 1, "pause": null}
+	m6c._advance_adventure_room()
+	m6c._resolve_choice(0, 0)
+	_ok.call(int(G6c.get("adventure", {}).get("hp", 0)) <= 0 and not bool((G6c.get("adventure", {}) as Dictionary).get("weakenResume", false)) and (_p(G6c, 0)["dungeon"] as Array).size() == 1, "Revue : affaibli a 0 PV, le heros meurt sans subir la salle (hp 0, pas -3)")
 	# THK011 Magic Mirror : l'ordre du donjon est inverse avant la premiere salle
 	var lv7 := _live()
 	var m7: Node = lv7[0]

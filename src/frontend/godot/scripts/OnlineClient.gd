@@ -237,6 +237,8 @@ func _on_message(d: Dictionary) -> void:
 			request_error.emit(str(d.get("message", "?")))
 			_reply.emit("error", d)
 		"closed":
+			if match_id == "": # on a deja quitte la salle nous-memes : ne pas oublier la session (_want_open de watch_rooms)
+				return
 			request_error.emit("le salon a ete ferme")
 			_forget()
 			_reply.emit("closed_room", d)

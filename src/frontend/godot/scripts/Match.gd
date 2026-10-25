@@ -774,6 +774,11 @@ func _all_have_boss() -> bool:
 
 ## Resout le pendingChoice courant, puis reprend le flux (miroir de la resolution JS).
 func _resolve_choice(pid: int, index: int) -> void:
+	TnlAbilities.destroy_actor = pid # Eclipse : une destruction resolue par un choix est celle de celui qui choisit
+	_resolve_choice_body(pid, index)
+	TnlAbilities.destroy_actor = -1
+
+func _resolve_choice_body(pid: int, index: int) -> void:
 	var pc: Dictionary = G.get("pendingChoice", {})
 	if pc.is_empty():
 		return
@@ -1882,10 +1887,17 @@ func _advance_adventure_room() -> void:
 		var wk = TnlAbilities.weaken_choice(G, pid, hero, i)
 		if wk != null:
 			adv["enterPending"] = i
+			adv["weakenResume"] = true # la reprise doit encore jouer les declencheurs d'entree THK (Magnetic Ceiling, The Bomb)
+			adv["roomGone"] = true # un affaiblissement a 0 PV tue le heros avant la salle : pas de salle de mort
 			RoomAbilities.enqueue_pending(G, wk as Dictionary)
 			return
+	_enter_room_thk(pid, i, room as Dictionary)
+
+## Declencheurs d'entree THK (Magnetic Ceiling, The Bomb) puis degats de la salle `i`.
+func _enter_room_thk(pid: int, i: int, room: Dictionary) -> void:
+	var adv: Dictionary = G.get("adventure", {})
 	if ThkAbilities.active(G):
-		var thk_enter := ThkAbilities.on_room_enter(G, pid, i, room as Dictionary)
+		var thk_enter := ThkAbilities.on_room_enter(G, pid, i, room)
 		if thk_enter == "pending": # Magnetic Ceiling : le choix est ouvert, la salle est jouee a sa resolution (_thk_resume_enter)
 			return
 		if thk_enter == "bomb": # The Bomb : la derniere salle est detruite, aucun degat
@@ -1894,14 +1906,23 @@ func _advance_adventure_room() -> void:
 			return
 	_room_damage(pid, i)
 
-## Reprise de la salle `i` apres le choix de Magnetic Ceiling.
+## Reprise de la salle `i` apres le choix de Magnetic Ceiling ou de Warlock / Tax Collector.
 func _thk_resume_enter() -> void:
 	var adv: Dictionary = G.get("adventure", {})
 	if adv.is_empty() or not adv.has("enterPending"):
 		return
 	var i := int(adv["enterPending"])
+	var pid := int(adv["playerId"])
 	adv.erase("enterPending")
-	_room_damage(int(adv["playerId"]), i)
+	if adv.erase("weakenResume"):
+		if int(adv["hp"]) <= 0: # affaibli a 0 PV : il meurt avant d'entrer (roomGone reste pose, aucun degat de salle)
+			adv["pause"] = "post-damage"
+			G["adventurePausePassed"] = {}
+			return
+		adv.erase("roomGone")
+		_enter_room_thk(pid, i, BossEngine.active_room((G["players"][pid]["dungeon"] as Array)[i]))
+		return
+	_room_damage(pid, i)
 
 ## Degats de la salle `i` au heros actif de `pid`, puis pause « apres les degats ».
 func _room_damage(pid: int, i: int) -> void:

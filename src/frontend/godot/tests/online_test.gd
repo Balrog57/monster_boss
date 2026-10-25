@@ -343,6 +343,7 @@ func _run_network() -> void:
 		await _scenario_conn_cap()
 	if _fails.is_empty():
 		await _scenario_title()
+		await _scenario_host_public()
 	if _fails.is_empty():
 		await _scenario_public_client()
 	if _fails.is_empty():
@@ -976,4 +977,47 @@ func _scenario_title() -> void:
 	_expect(OnlineMenus.filter_rooms(rooms, "2").size() == 1 and OnlineMenus.filter_rooms(rooms, "4").size() == 1 and OnlineMenus.filter_rooms(rooms, "zzz").is_empty(), "filtre : nombre de places / aucun resultat")
 	server.rooms_push_interval_ms = 250
 	for n in [watcher, host, guest, lone, room3, c]:
+		n.queue_free()
+
+## Revue : noms nettoyes comme les titres (U+061C, 2028/2029, 2060-2064, 00AD), hote parti d'une salle publique (le role passe), hote qui quitte
+## (pas de `closed` pour lui, liaison et `_want_open` du client gardes).
+func _scenario_host_public() -> void:
+	_expect(Server._clean_name("Al" + char(0x61C) + char(0x2028) + char(0x2029) + char(0x2060) + char(0x2064) + char(0xAD) + "ice") == "Alice", "nom : points de code invisibles non retires")
+	_expect(Server._clean_name(char(0x202E) + char(7)) == "Joueur", "nom : vide apres nettoyage -> Joueur")
+	_expect(Server._sane_title("A" + char(0x61C) + char(0x2029) + char(0x2062) + char(0xAD) + "B") == "AB", "titre : U+061C / 2029 / 2062 / 00AD")
+	server.seat_grace_s = 1
+	server.gc_interval_ms = 100
+	var host := await _create_raw({"name": "Hote" + char(0x2028) + "X", "players": 3, "sets": [], "public": true, "title": ""})
+	var code: String = host.last("joined")["code"]
+	var room = server.get_room(code)
+	_expect(room.title == "HoteX's game" and room.seats[0]["name"] == "HoteX", "nom : titre par defaut et siege nettoyes : %s / %s" % [room.title, room.seats[0]["name"]])
+	var guest := await _raw()
+	guest.send({"t": "join", "code": code, "name": "Invite"})
+	await _wait(func(): return guest.count("joined") > 0, 3.0)
+	host.ws.close() # l'hote tombe sans `leave` : apres la grace, le role passe a l'invite connecte
+	_expect(await _wait(func(): return room.host == 1, 6.0), "hote : le role doit passer a l'humain connecte")
+	_expect(await _wait(func(): return guest.last("lobby").get("host", -1) == 1, 3.0), "hote : le lobby de l'invite doit annoncer le nouvel hote")
+	guest.send({"t": "start"})
+	_expect(await _wait(func(): return room.status == "running", 3.0), "hote : le nouvel hote doit pouvoir lancer")
+	# l'hote qui quitte lui-meme sa salle publique : pas de `closed` pour lui, les autres sont prevenus
+	var h2 := await _create_raw({"name": "Hote2", "players": 3, "sets": [], "public": true})
+	var code2: String = h2.last("joined")["code"]
+	var g2 := await _raw()
+	g2.send({"t": "join", "code": code2, "name": "Invite2"})
+	await _wait(func(): return g2.count("joined") > 0, 3.0)
+	h2.send({"t": "leave"})
+	_expect(await _wait(func(): return g2.count("closed") > 0, 3.0), "hote : les autres doivent recevoir `closed`")
+	await get_tree().create_timer(0.3).timeout
+	_expect(h2.count("closed") == 0, "hote : l'hote qui quitte ne doit pas recevoir `closed`")
+	# client : `closed` recu apres notre depart ne remet pas _want_open a zero
+	var c := _client("Carol")
+	if _expect(await c.create_lobby(2, [], 0, true, "Carol"), "hote : create_lobby public"):
+		var pub: bool = c.public_room
+		c.leave_match(pub)
+		c.watch_rooms()
+		c._on_message({"t": "closed", "code": "ZZZZ"})
+		_expect(c._want_open, "client : `closed` apres notre depart ne doit pas couper la reconnexion automatique")
+	server.seat_grace_s = 30
+	server.gc_interval_ms = 5000
+	for n in [host, guest, h2, g2, c]:
 		n.queue_free()

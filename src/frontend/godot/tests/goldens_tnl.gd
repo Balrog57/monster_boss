@@ -561,6 +561,16 @@ func _t_eclipse() -> void:
 	q0["dungeon"] = [[u2, _plain("t2")]]
 	BossEngine.destroy_room(q0, 0, _G([q0, _player(1, "BMA002")]))
 	_ok.call(int(u2.get("dealDamage", 0)) == 0, "TNL012 : sans le boss, aucun bonus")
+	# Revue : une destruction resolue par un choix (Megaworm Burrow, Blockpile Puzzle...) compte pour celui qui choisit : Eclipse seulement si c'est le proprietaire
+	for chooser in [0, 1]:
+		var e0 := _player(0, "TNL012", [], true)
+		var eu := _plain("eu", "monster", [2], 3)
+		e0["dungeon"] = [[eu, _plain("et", "trap", [1], 1)]]
+		var Ge := _G([e0, _player(1, "BMA001")])
+		Ge["pendingChoice"] = {"type": "tnl-pick", "step": "room_target", "playerId": chooser, "optional": true, "resume": false, "ctx": {"then": "destroy"},
+			"options": [{"targetPlayerId": 0, "roomIndex": 0}]}
+		_match(Ge)._resolve_choice(chooser, 0)
+		_ok.call((int(eu.get("dealDamage", 0)) == 3) == (chooser == 0), "TNL012 Eclipse : destruction par choix, +3 seulement si le proprietaire choisit (choisit : %d)" % chooser)
 
 # --- salles : construction / decouverte ----------------------------------------------------------------------------
 
