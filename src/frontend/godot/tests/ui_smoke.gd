@@ -1187,7 +1187,7 @@ func _check_final(full: bool) -> void:
 		_check_ui()
 		var gb = board._gameover
 		if _check(gb != null and is_instance_valid(gb), "fin de partie : bandeau du vainqueur absent"):
-			_check(_hand_cards().size() == (G["players"][0]["hand"] as Array).size(), "fin de partie : la main doit rester a l'ecran sous le voile (APK)")
+			_check(_hand_cards().size() == (G["players"][board._my_pid()]["hand"] as Array).size(), "fin de partie : la main doit rester a l'ecran sous le voile (APK)")
 			var w := int(G["gameOver"].get("winner", -1))
 			var wboss = G["players"][w].get("boss") if G["players"].has(w) else null
 			var lose: bool = board._apk_flow() and w != 0
@@ -1780,6 +1780,26 @@ func _adventure_window_setup() -> int:
 	board.refresh()
 	await get_tree().process_frame
 	return gi
+
+## Barre de 3 s aussi avant l'entree d'un heros dans le donjon d'un siege IA (APK : CreateWaitAndMoveHeroToNextSlotTask) : l'IA attend, puis le heros entre.
+func _check_ai_entry_window() -> void:
+	_tag = "[ai-entry-window]"
+	if not _check(await _adventure_window_setup() >= 0, "fenetre d'entree IA : Giant Size introuvable"):
+		return
+	var G: Dictionary = gm.G
+	var foe: Dictionary = G["players"][1]
+	(foe["entrance"] as Array).append(((G["players"][0] as Dictionary)["entrance"] as Array).pop_back())
+	G["adventure"] = {}
+	G["adventurePausePassed"] = {}
+	G["activePlayer"] = 1
+	board.refresh()
+	board._process(1.0)
+	board._process(1.0)
+	_check(board._win_bar.visible and G["adventure"].is_empty() and absf(board._win_bar.frac - (1.0 - 2.0 / 3.0)) < 0.08, "fenetre d'entree IA : barre absente ou IA deja avancee (frac %.2f)" % board._win_bar.frac)
+	board._process(1.0)
+	board._process(0.5)
+	_check((foe["entrance"] as Array).is_empty() and not board._win_bar.visible, "fenetre d'entree IA : le heros n'est pas entre a la fin de la barre")
+	_cov("window_ai_entry")
 
 func _check_windows() -> void:
 	_tag = "[windows]"
@@ -2768,6 +2788,20 @@ func _check_public_lobby() -> void:
 		_check(rt.has("Duel du soir") and rt.has("Hosty") and rt.has("2/3") and rt.has("PC") and row.find_child("Join", true, false) != null, "lobby public : ligne %s" % str(rt))
 		_check(main.find_child("Room_" + priv.match_id, true, false) == null, "lobby public : un salon prive est liste")
 		_check(not (main.find_child("Status", true, false) as Label).visible, "lobby public : message « liste vide » encore affiche")
+		# filtre : un texte absent masque la ligne (message dedie), le titre (sans casse) la garde
+		var flt := main.find_child("Filter", true, false) as LineEdit
+		flt.text = "zzz"
+		flt.text_changed.emit("zzz")
+		await _wait(0.1)
+		_check(main.find_child("Room_" + code, true, false) == null and (main.find_child("Status", true, false) as Label).visible and (main.find_child("Status", true, false) as Label).text == "NO MATCHING GAMES", "lobby public : le filtre ne masque pas la ligne")
+		flt.text = "DUEL"
+		flt.text_changed.emit("DUEL")
+		await _wait(0.1)
+		_check(main.find_child("Room_" + code, true, false) != null and not (main.find_child("Status", true, false) as Label).visible, "lobby public : le filtre sur le titre doit garder la ligne")
+		flt.text = ""
+		flt.text_changed.emit("")
+		row = main.find_child("Room_" + code, true, false)
+		_cov("menus_public_filter")
 		# JOIN : rejoint la salle publique d'un autre client -> salle d'attente existante
 		(row.find_child("Join", true, false) as TextureButton).pressed.emit()
 		var o = main.online
@@ -2775,7 +2809,7 @@ func _check_public_lobby() -> void:
 		await _nav(main)
 		_check(o.match_id == code and o.player_id == 1 and bool(srv.get_room(code).seats[1]["taken"]) and str(srv.get_room(code).seats[1]["name"]) == "Zed", "lobby public : JOIN n'a pas pris le siege 1 de la salle de l'autre client (%s)" % o.match_id)
 		var wt := _texts_of(main)
-		_check(wt.has("WAITING FRIENDS...") and wt.has(code), "lobby public : JOIN n'ouvre pas la salle d'attente %s" % str(wt))
+		_check(wt.has("Duel du soir") and wt.has(code), "lobby public : JOIN n'ouvre pas la salle d'attente %s" % str(wt))
 		_check(await _wait_until(func(): return main.menus._rows.size() == 4 and (main.menus._rows[0]["name"] as Label).text == "Hosty" and (main.menus._rows[1]["name"] as Label).text == "Zed", 5.0), "lobby public : salle d'attente sans l'hote et moi")
 		_cov("menus_public_join")
 		# fleche de la salle d'attente : retour a la liste (pas a WITH FRIENDS), siege libere
@@ -2803,7 +2837,13 @@ func _check_public_lobby() -> void:
 	await _nav(main)
 	_check(mine.match_id != "" and mine.player_id == 0 and bool(mine.is_host) and mine.public_room, "CREATE PUBLIC GAME : salon non cree (%s)" % mine.match_id)
 	var made = srv.get_room(mine.match_id)
-	_check(made != null and made.public and made.title == "Zed's game" and _texts_of(main).has("WAITING FRIENDS..."), "CREATE PUBLIC GAME : salon public a titre par defaut attendu")
+	_check(made != null and made.public and made.title == "Zed's game" and main.find_child("RoomTitle", true, false) != null and (main.find_child("RoomTitle", true, false) as LineEdit).text == "Zed's game", "CREATE PUBLIC GAME : salon public a titre par defaut attendu")
+	# l'hote renomme sa salle depuis la salle d'attente (perte du focus = validation) ; le serveur nettoie
+	var rt_edit := main.find_child("RoomTitle", true, false) as LineEdit
+	rt_edit.text = "  Nouveau titre  "
+	rt_edit.focus_exited.emit()
+	_check(await _wait_until(func(): return made.title == "Nouveau titre" and rt_edit.text == "Nouveau titre", 5.0), "salle d'attente : le titre modifie n'est pas pris (%s)" % made.title)
+	_cov("menus_public_title")
 	_cov("menus_public_create")
 	# l'autre client le voit dans la liste du serveur
 	var seen := OnlineClient.new()
@@ -2812,7 +2852,7 @@ func _check_public_lobby() -> void:
 	var lists: Array = []
 	seen.rooms_received.connect(func(rs): lists.append(rs))
 	seen.watch_rooms()
-	_check(await _wait_until(func(): return not lists.is_empty() and (lists.back() as Array).any(func(e): return e["code"] == mine.match_id and e["title"] == "Zed's game"), 5.0), "CREATE PUBLIC GAME : le salon n'est pas dans la liste d'un autre client")
+	_check(await _wait_until(func(): return not lists.is_empty() and (lists.back() as Array).any(func(e): return e["code"] == mine.match_id and e["title"] == "Nouveau titre"), 5.0), "CREATE PUBLIC GAME : le salon n'est pas dans la liste d'un autre client")
 	seen.unwatch_rooms()
 	for c in [seen, priv, other]:
 		c._forget()
@@ -3308,6 +3348,7 @@ func _extra_checks() -> void:
 	await _check_hand_room()
 	await _check_wiki_ui()
 	await _check_windows()
+	await _check_ai_entry_window()
 	await _check_window_clock()
 	await _check_single_click()
 	await _check_choice_target()

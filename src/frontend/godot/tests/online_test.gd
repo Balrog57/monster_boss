@@ -14,6 +14,7 @@ extends Node
 ## 10. taille maximale de message (1009) et debit par connexion (1008) ;
 ## 11. lot 3.2 : API client du lobby public (watch_rooms / rooms_received / create_lobby public / join_lobby / reconnexion qui redemande la liste) ;
 ## 12. lot 3.3 (audit 3.0 §4.3, test INVERSE) : deux connexions sur le meme jeton -> la plus ancienne est evincee et NE se reconnecte PAS (plus de boucle).
+## 13. lot 3.5 : titre de salon modifiable par l'hote (`setTitle`, nettoyage serveur), filtre de la liste publique, plafond de connexions du serveur.
 ## Usage : godot --headless --path src/frontend res://godot/tests/OnlineTest.tscn   -> "ONLINE OK"
 
 const Server = preload("res://godot/server/Server.gd")
@@ -24,6 +25,7 @@ const OnlineClient = preload("res://godot/scripts/OnlineClient.gd")
 const OnlineGameManager = preload("res://godot/scripts/OnlineGameManager.gd")
 const GameManager = preload("res://godot/scripts/GameManager.gd")
 const AI = preload("res://godot/scripts/AI.gd")
+const OnlineMenus = preload("res://godot/scripts/OnlineMenus.gd")
 
 const GAME_TIMEOUT_S := 150.0
 
@@ -337,6 +339,10 @@ func _run_network() -> void:
 		await _scenario_ghosts()
 	if _fails.is_empty():
 		await _scenario_limits()
+	if _fails.is_empty():
+		await _scenario_conn_cap()
+	if _fails.is_empty():
+		await _scenario_title()
 	if _fails.is_empty():
 		await _scenario_public_client()
 	if _fails.is_empty():
@@ -896,3 +902,78 @@ func _scenario_sleep() -> void:
 	_expect(await _wait(func(): return not c.connected, 5.0), "sommeil : liaison muette non detectee")
 	_expect(await _wait(func(): return c.connected and int(c.current_ctx.get("serverTime", 0)) != serial, 10.0), "sommeil : pas de reconnexion avec jeton")
 	c.queue_free()
+
+## Plafond de connexions du serveur (max_conns) : au-dela, la liaison est refusee des l'acceptation TCP. Le serveur Godot ne voit que l'adresse de
+## nginx, donc AUCUN plafond par IP ici : le 429 par IP (limit_req / limit_conn) vit dans deploy/nginx.conf, que l'on verifie en texte.
+func _scenario_conn_cap() -> void:
+	server.max_conns = 0
+	var refused := Raw.new()
+	add_child(refused)
+	refused.open(url)
+	_expect(await _wait(func(): return refused.closed, 5.0) and not refused.msgs.size() > 0, "plafond : une connexion au-dela de max_conns doit etre refusee")
+	server.max_conns = 512
+	var ok := await _raw()
+	ok.send({"t": "ping"})
+	_expect(await _wait(func(): return ok.count("pong") > 0, 3.0), "plafond : la connexion doit repasser une fois le plafond releve")
+	refused.queue_free()
+	ok.queue_free()
+	var path := ProjectSettings.globalize_path("res://").path_join("../../deploy/nginx.conf")
+	if FileAccess.file_exists(path):
+		var conf := FileAccess.get_file_as_string(path)
+		for needle in ["limit_req_status 429;", "limit_conn_status 429;", "limit_req_zone  $binary_remote_addr zone=bm_ws:10m   rate=5r/s;", "limit_conn bm_conn 20;"]:
+			_expect(conf.contains(needle), "nginx : limite par IP absente de deploy/nginx.conf : %s" % needle)
+
+## Titre de salon (lot 3.5) : `setTitle` reserve a l'hote d'une salle d'attente, texte nettoye cote serveur (frontiere de confiance), repousse dans la liste.
+func _scenario_title() -> void:
+	server.rooms_push_interval_ms = 50
+	var watcher := await _raw()
+	watcher.send({"t": "listRooms"})
+	var host := await _create_raw({"name": "Alice", "players": 2, "sets": [], "public": true, "title": "Avant"})
+	var code: String = host.last("joined")["code"]
+	_expect(await _wait(func(): return _listed(watcher, code).get("title", "") == "Avant", 3.0), "titre : salon initial non liste")
+	host.send({"t": "setTitle", "title": "  Apres  "})
+	_expect(await _wait(func(): return host.count("titled") > 0, 3.0) and host.last("titled").get("title", "") == "Apres", "titre : `titled` attendu avec le titre nettoye : %s" % str(host.last("titled")))
+	_expect(await _wait(func(): return _listed(watcher, code).get("title", "") == "Apres", 3.0), "titre : la liste publique doit pousser le nouveau titre")
+	_expect(host.last("lobby").get("title", "") == "Apres", "titre : le `lobby` porte le titre : %s" % str(host.last("lobby")))
+	# nettoyage : caracteres de controle et surcharges bidi retires, 25 caracteres au plus
+	host.send({"t": "setTitle", "title": "A" + char(7) + "B" + char(0x202E) + "C" + char(0x200B) + "D
+" + "x".repeat(40)})
+	_expect(await _wait(func(): return host.count("titled") > 1, 3.0) and host.last("titled").get("title", "") == ("ABCDx" + "x".repeat(20)), "titre : controle / bidi / longueur : %s" % str(host.last("titled")))
+	# refus : pas une chaine, vide apres nettoyage -> bad_message, titre inchange
+	var n_err := host.count("error")
+	host.send({"t": "setTitle", "title": 12345})
+	host.send({"t": "setTitle", "title": char(7) + char(0x202E) + "  "})
+	host.send({"t": "setTitle"})
+	_expect(await _wait(func(): return host.count("error") >= n_err + 3, 3.0), "titre : trois refus attendus")
+	_expect(host.msgs.filter(func(m): return m.get("t", "") == "error").slice(n_err).all(func(m): return m.get("code", "") == "bad_message"), "titre : bad_message attendu")
+	_expect(server.get_room(code).title == "ABCDx" + "x".repeat(20), "titre : un titre refuse ne doit rien changer")
+	# un invite ne renomme pas ; hors salle non plus
+	var guest := await _raw()
+	var lone := await _raw()
+	lone.send({"t": "setTitle", "title": "Pirate"})
+	_expect(await _wait(func(): return lone.count("error") > 0, 3.0) and lone.last("error").get("code", "") == "forbidden", "titre : hors salle -> forbidden")
+	var room3 := await _create_raw({"name": "Trio", "players": 3, "sets": [], "public": true, "title": "Trio"})
+	var code3: String = room3.last("joined")["code"]
+	guest.send({"t": "join", "code": code3, "name": "Bob"})
+	await _wait(func(): return guest.count("joined") > 0, 3.0)
+	guest.send({"t": "setTitle", "title": "Pirate"})
+	_expect(await _wait(func(): return guest.count("error") > 0, 3.0) and guest.last("error").get("code", "") == "forbidden" and server.get_room(code3).title == "Trio", "titre : un invite ne renomme pas")
+	# partie lancee : bad_state
+	room3.send({"t": "start"})
+	await _wait(func(): return server.get_room(code3).status == "running", 3.0)
+	room3.send({"t": "setTitle", "title": "Tard"})
+	_expect(await _wait(func(): return room3.last("error").get("code", "") == "bad_state", 3.0) and server.get_room(code3).title == "Trio", "titre : salle lancee -> bad_state")
+	# API client
+	var c := _client("Carol")
+	if _expect(await c.create_lobby(2, [], 0, true, "Carol's game"), "titre : create_lobby public"):
+		_expect(await c.set_title("Renomme"), "titre : set_title de l'hote")
+		_expect(await _wait(func(): return c.current_title == "Renomme", 3.0), "titre : current_title du client")
+		_expect(not await c.set_title("  "), "titre : set_title vide refuse")
+	# filtre de la liste (cote client)
+	var rooms := [{"title": "Salon du mardi", "host": "Alice", "numPlayers": 3}, {"title": "Duel", "host": "Bob", "numPlayers": 2}, {"title": "Foo", "host": "ALICIA", "numPlayers": 4}]
+	_expect(OnlineMenus.filter_rooms(rooms, "").size() == 3 and OnlineMenus.filter_rooms(rooms, "  ").size() == 3, "filtre : vide = tout")
+	_expect(OnlineMenus.filter_rooms(rooms, "MARDI").size() == 1 and OnlineMenus.filter_rooms(rooms, "ali").size() == 2, "filtre : titre / hote sans casse")
+	_expect(OnlineMenus.filter_rooms(rooms, "2").size() == 1 and OnlineMenus.filter_rooms(rooms, "4").size() == 1 and OnlineMenus.filter_rooms(rooms, "zzz").is_empty(), "filtre : nombre de places / aucun resultat")
+	server.rooms_push_interval_ms = 250
+	for n in [watcher, host, guest, lone, room3, c]:
+		n.queue_free()

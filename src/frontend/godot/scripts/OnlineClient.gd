@@ -48,6 +48,7 @@ var current_seats: Array = []
 var current_status: String = ""
 var current_num_players: int = 0
 var current_host := -1 # siege de l'hote (donne par le lobby)
+var current_title := "" # titre de la salle (donne par le lobby ; celui de la liste publique)
 var current_awaited: Array = [] # sieges humains attendus par le serveur (compte a rebours) ; vide si le serveur ne le dit pas
 var clock_offset_ms := 0 # horloge serveur - horloge locale (ms), pour afficher le delai restant
 var count_results := true # faux dans les tests : ne touche pas aux compteurs du profil
@@ -226,6 +227,8 @@ func _on_message(d: Dictionary) -> void:
 		"state":
 			_store_lobby(d)
 			_store_view(d)
+		"titled":
+			_reply.emit("titled", d)
 		"error":
 			last_error_code = str(d.get("code", ""))
 			var bad_token: bool = str(d.get("code", "")) in ["bad_token", "not_found"]
@@ -242,10 +245,11 @@ func _store_lobby(d: Dictionary) -> void:
 	current_seats = d.get("seats", [])
 	current_status = str(d.get("status", ""))
 	current_num_players = int(d.get("numPlayers", 0))
+	current_title = str(d.get("title", current_title))
 	if d.has("host"): # le lobby donne le siege de l'hote (le "joined" donne un bool)
 		current_host = int(d["host"])
 		is_host = current_host == player_id
-	lobby_changed.emit({"status": current_status, "seats": current_seats, "numPlayers": current_num_players, "host": current_host})
+	lobby_changed.emit({"status": current_status, "seats": current_seats, "numPlayers": current_num_players, "host": current_host, "title": current_title})
 
 func _store_view(d: Dictionary) -> void:
 	current_G = normalize_view(d.get("view", {}))
@@ -307,6 +311,10 @@ func create_lobby(num_players: int, expansions: Array, bots: int = 0, is_public:
 		msg["public"] = true
 		msg["title"] = title
 	return await _enter(msg)
+
+## Hote seulement, salle d'attente : renomme la salle (le serveur nettoie : 25 caracteres, sans caracteres de controle). Vrai si accepte.
+func set_title(title: String) -> bool:
+	return not (await _call({"t": "setTitle", "title": title}, "titled")).is_empty()
 
 func join_lobby(code: String, pname: String) -> bool:
 	player_name = pname

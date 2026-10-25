@@ -32,7 +32,9 @@ var _rows: Array = []     # salle d'attente : {avatar, name, wins, defeats}
 var _wait_ok: TextureButton = null
 var _wait_bots: TextureButton = null
 var _wait_err_shown := false
+var _wait_title: Control = null # salon public : titre de la salle (champ modifiable pour l'hote, simple texte pour les autres)
 var _bgn: Control = null  # fond de l'ecran courant (un clic dessus deselectionne le champ de saisie)
+var _pub_filter := ""      # texte du filtre de la liste publique
 var _pub: Dictionary = {} # liste publique : {scroll, box, status, thumb, sig, loaded, down, since}
 
 func _init(main) -> void:
@@ -278,8 +280,13 @@ func show_public() -> void:
 	var status := _t("LOADING...", 1.3, Color.WHITE, Vector2(390, 590), 1140.0, HORIZONTAL_ALIGNMENT_CENTER)
 	status.name = "Status"
 	m.add_child(status)
-	_pub = {"scroll": scroll, "box": box, "status": status, "thumb": thumb, "sig": "", "loaded": false, "down": 0.0, "since": 0.0}
+	_pub = {"scroll": scroll, "box": box, "status": status, "thumb": thumb, "sig": "", "loaded": false, "down": 0.0, "since": 0.0, "rooms": []}
 	scroll.get_v_scroll_bar().value_changed.connect(func(_v): _update_thumb())
+	var flt := _filter_edit(Vector2(390, 975), Vector2(340, 60), "FILTER", _pub_filter) # le texte survit a un aller-retour par une salle
+	flt.name = "Filter"
+	flt.text_changed.connect(func(t: String):
+		_pub_filter = t
+		_render_rooms())
 	var btn := _label_btn("CREATE PUBLIC GAME", 960, 1005, func():
 		_leave_public()
 		m.go(func(): m.show_solo_count("public")), GOLD, 0.7, 1.8) # NEW GAME : meme parcours (joueurs 2-4, 5-6 avec Crash Landing, packs), puis create_room(n, true)
@@ -293,6 +300,38 @@ func show_public() -> void:
 	m.add_child(tick)
 	tick.start()
 	o.watch_rooms()
+
+## Filtre de la liste publique (cote client) : le texte doit figurer, sans casse, dans le titre ou le nom de l'hote ; un entier N garde aussi les salons de N places.
+static func filter_rooms(rooms: Array, q: String) -> Array:
+	var f := q.strip_edges().to_lower()
+	if f == "":
+		return rooms
+	return rooms.filter(func(e): return e is Dictionary and (str(e.get("title", "")).to_lower().contains(f) or str(e.get("host", "")).to_lower().contains(f) or (f.is_valid_int() and int(e.get("numPlayers", 0)) == int(f))))
+
+## Champ de saisie compact (filtre de la liste, titre de la salle) : pas de grand cadre comme `_entry`, meme police.
+func _filter_edit(pos: Vector2, size: Vector2, placeholder: String, text := "") -> LineEdit:
+	var le := LineEdit.new()
+	le.position = pos
+	le.size = size
+	le.text = text
+	le.placeholder_text = placeholder
+	le.max_length = 25
+	le.context_menu_enabled = false
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0.35)
+	sb.border_color = GOLD
+	sb.set_border_width_all(2)
+	sb.content_margin_left = 14
+	for n in ["normal", "focus", "read_only"]:
+		le.add_theme_stylebox_override(n, sb)
+	le.add_theme_font_override("font", UiKit.font(A))
+	le.add_theme_font_size_override("font_size", 24)
+	for c in ["font_color", "caret_color"]:
+		le.add_theme_color_override(c, Color.WHITE)
+	le.add_theme_color_override("font_placeholder_color", Color(1, 1, 1, 0.5))
+	le.text_submitted.connect(func(_s): le.release_focus())
+	m.add_child(le)
+	return le
 
 func _leave_public() -> void:
 	var o = m.online
@@ -317,6 +356,7 @@ func _public_tick() -> void:
 	if float(_pub["down"]) >= PUBLIC_UNREACHABLE_S:
 		_show_rows([])
 		_pub["sig"] = ""
+		_pub["rooms"] = []
 		_pub["loaded"] = false
 		(_pub["status"] as Label).text = "UNABLE TO REACH THE SERVER"
 		(_pub["status"] as Label).visible = true
@@ -330,10 +370,19 @@ func _on_rooms(rooms: Array) -> void:
 	if sig == _pub["sig"]:
 		return
 	_pub["sig"] = sig
-	_show_rows(rooms)
+	_pub["rooms"] = rooms
+	_render_rooms()
+
+## Affiche la liste recue au travers du filtre (un changement de texte rappelle ceci sans nouvelle liste).
+func _render_rooms() -> void:
+	if not is_instance_valid(_pub.get("box")) or not bool(_pub.get("loaded", false)):
+		return
+	var rooms: Array = _pub["rooms"]
+	var shown := filter_rooms(rooms, _pub_filter)
+	_show_rows(shown)
 	var status: Label = _pub["status"]
-	status.text = "NO PUBLIC GAMES YET\nCREATE ONE BELOW"
-	status.visible = rooms.is_empty()
+	status.text = "NO PUBLIC GAMES YET\nCREATE ONE BELOW" if rooms.is_empty() else "NO MATCHING GAMES"
+	status.visible = shown.is_empty()
 
 func _show_rows(rooms: Array) -> void:
 	var box: VBoxContainer = _pub["box"]
@@ -663,7 +712,19 @@ func show_waiting() -> void:
 			sep.size = Vector2(1138, 2)
 			sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			m.add_child(sep)
-	m.add_child(_t("WAITING FRIENDS...", 1.3, Color.WHITE, Vector2(420, 330)))
+	_wait_title = null
+	if o.public_room: # salon public : le titre remplace l'en-tete ; l'hote le modifie (Entree ou perte du focus valide, le serveur nettoie : 25 caracteres, texte seul)
+		if bool(o.is_host):
+			var le := _filter_edit(Vector2(410, 318), Vector2(740, 52), "ROOM TITLE", str(o.current_title))
+			le.name = "RoomTitle"
+			le.focus_exited.connect(func(): _rename_room(le, le.text)) # Entree relache le focus (_filter_edit) : une seule voie
+			_wait_title = le
+		else:
+			_wait_title = _t(str(o.current_title), 1.3, Color.WHITE, Vector2(420, 330), 740.0)
+			(_wait_title as Label).clip_text = true
+			m.add_child(_wait_title)
+	else:
+		m.add_child(_t("WAITING FRIENDS...", 1.3, Color.WHITE, Vector2(420, 330)))
 	m.add_child(_t("WINS", 1.0, Color.WHITE, Vector2(1190, 340)))
 	m.add_child(_t("DEFEATS", 1.0, Color.WHITE, Vector2(1370, 340)))
 	_rows = []
@@ -705,7 +766,7 @@ func show_waiting() -> void:
 	if o.request_error.is_connected(_on_waiting_error):
 		o.request_error.disconnect(_on_waiting_error)
 	o.request_error.connect(_on_waiting_error)
-	_update_waiting({"status": o.current_status, "seats": o.current_seats, "host": o.current_host})
+	_update_waiting({"status": o.current_status, "seats": o.current_seats, "host": o.current_host, "title": o.current_title})
 	o.start_lobby_poll()
 	o.fetch_lobby()
 
@@ -714,6 +775,15 @@ func show_waiting() -> void:
 func _panel_plain() -> void:
 	for part in [[0, 92, 300.0, 92.0], [93, 125, 392.0, 509.0], [601, 3, 901.0, 3.0]]:
 		UiKit.ninepatch(m, "ninepatch/searching_bg.webp", Vector2(390, part[2]), Vector2(1140, part[3]), Vector4(10, 0, 10, 0)).region_rect = Rect2(0, part[0], 21, part[1]) # (np_tex rogne deja 2 px a gauche et 1 en haut : x 0-21, traits a y 90, 218, 346, 474, 602)
+
+## Envoie le nouveau titre ; sur refus (vide, partie lancee) le champ reprend le titre du serveur.
+func _rename_room(le: LineEdit, t: String) -> void:
+	le.release_focus()
+	var o = m.online
+	if not le.is_inside_tree() or t.strip_edges() == str(o.current_title) or not o.connected:
+		return
+	if not await o.set_title(t) and is_instance_valid(le):
+		le.text = str(o.current_title)
 
 func leave_waiting() -> void:
 	var o = m.online
@@ -764,6 +834,13 @@ func _on_first_state() -> void:
 
 ## OnlinePanelEntity.UpdatePanel : 4 lignes (6 avec 5-6 joueurs) (avatar, pseudo <= 25 car., victoires, defaites) ; ligne de l'hote en or ; siege libre = « WAITING... ».
 func _update_waiting(info: Dictionary) -> void:
+	var title := str(info.get("title", ""))
+	if is_instance_valid(_wait_title) and title != "":
+		if _wait_title is LineEdit:
+			if not (_wait_title as LineEdit).has_focus():
+				(_wait_title as LineEdit).text = title
+		else:
+			(_wait_title as Label).text = title
 	var seats: Array = info.get("seats", [])
 	var host := int(info.get("host", -1))
 	var humans := 0

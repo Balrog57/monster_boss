@@ -209,6 +209,7 @@ static func _fear(G: Dictionary, caster_id: int, _card: Dictionary, target: Dict
 				# PlaceAtTown -> RemoveHeroFromGame : un heros actif quitte l'aventure (NextGamePhase = AdventurePhase_b), sans ame ni blessure.
 				var adv: Dictionary = G.get("adventure", {}) as Dictionary
 				if not adv.is_empty() and str((adv.get("hero", {}) as Dictionary).get("id", "")) == str(hero_id):
+					BossEngine.spend_hero_health_bonus(G, h) # GameBoard.RemoveHeroFromGame:740 RestoreHealth (actif seulement ; a l'entree le +3 reste, restaure a l'appat)
 					G["adventure"] = {}
 					G["adventurePausePassed"] = {}
 				_log(G, "Fear: %s returned to town." % str(h.get("name", "?")))

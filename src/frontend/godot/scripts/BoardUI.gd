@@ -957,6 +957,24 @@ func _auto_pass(delta: float) -> bool:
 			pids.push_front(act_pid)
 	var adv: Dictionary = G.get("adventure", {})
 	var pause = adv.get("pause")
+	# Meme barre de 3 s avant l'entree d'un heros dans le donjon d'un siege IA (CreateWaitAndMoveHeroToNextSlotTask, InsideDungeonSlot == null) : l'humain peut jouer
+	# un sort (ses coups de sort existent deja hors de son tour, Match.legal_moves) ; l'IA attend la fin de la barre. UI seule : le moteur et ses coups legaux ne changent pas.
+	var act: int = game_manager.active_player()
+	if apk and not stack_open and phase == "adventure" and adv.is_empty() and not pids.is_empty() and bool(((G["players"] as Dictionary).get(act, {}) as Dictionary).get("isAI", false)) \
+			and not bool(((G["players"] as Dictionary)[pids[0]] as Dictionary).get("eliminated", false)) \
+			and game_manager.legal_moves(act).any(func(m): return str((m as Dictionary).get("type", "")) in GO_TYPES):
+		var ekey := JSON.stringify(["ai-entry", G.get("turn"), act, (((G["players"] as Dictionary)[act] as Dictionary).get("entrance", []) as Array).size()])
+		if ekey != _win_sig:
+			_win_sig = ekey
+			_win_t = 0.0
+		if not _win_paused():
+			_win_t += delta
+		var ewant: float = WINDOW_ADVENTURE * win_time_scale
+		if _win_t < ewant:
+			_win_show(ewant, false)
+			return true # l'IA n'avance pas pendant la fenetre
+		_win_hide()
+		return false
 	for pid in pids:
 		var moves: Array = _my_moves(int(pid))
 		if moves.is_empty():

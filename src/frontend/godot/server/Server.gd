@@ -240,9 +240,23 @@ static func _clean_name(v) -> String:
 	var n := str(v).strip_edges().left(25) # l'APK n'affiche que 25 caracteres (OnlinePanelEntity)
 	return n if n != "" else "Joueur"
 
-## Titre de salon public : comme un nom (25 caracteres), defaut « <hote>'s game ».
+## Titre de salon public (affiche dans la liste de tout le monde) : texte seulement, 25 caracteres au plus. Les caracteres de controle,
+## les formats invisibles et les surcharges bidi (U+200B-200F, 202A-202E, 2066-2069, FEFF) sont retires : ils falsifieraient l'affichage.
+## Renvoie "" si rien ne reste.
+static func _sane_title(v) -> String:
+	if not (v is String):
+		return ""
+	var t := ""
+	for ch in (v as String):
+		var cp := ch.unicode_at(0)
+		if cp < 32 or (cp >= 127 and cp < 160) or (cp >= 0x200B and cp <= 0x200F) or (cp >= 0x202A and cp <= 0x202E) or (cp >= 0x2066 and cp <= 0x2069) or cp == 0xFEFF:
+			continue
+		t += ch
+	return t.strip_edges().left(TITLE_MAX).strip_edges()
+
+## Titre de creation : defaut « <hote>'s game » si vide.
 static func _clean_title(v, host_name: String) -> String:
-	var t := (v as String).strip_edges().left(TITLE_MAX) if v is String else ""
+	var t := _sane_title(v)
 	return t if t != "" else ("%s's game" % host_name).left(TITLE_MAX)
 
 ## Avatar (nom de fichier sans chemin), victoires et defaites declares par le client : purement cosmetiques (salle d'attente).
@@ -319,6 +333,17 @@ func _on_message(id: int, d: Dictionary) -> void:
 			if room == null:
 				c["watch"] = true # recevra `rooms` a chaque changement tant qu'il n'est dans aucune salle
 			_send(id, {"t": "rooms", "rooms": public_rooms()})
+		"setTitle":
+			if room == null or room.seat_of(id) != room.host:
+				return _error(id, "reserve a l'hote", "forbidden")
+			if room.status != "open":
+				return _error(id, "la partie est lancee", "bad_state")
+			var nt := _sane_title(d.get("title"))
+			if nt == "":
+				return _error(id, "titre invalide", "bad_message")
+			room.title = nt
+			_send(id, {"t": "titled", "title": nt})
+			room.broadcast() # le `lobby` porte le titre ; la liste publique est repoussee au prochain intervalle (sa signature change)
 		"join":
 			if room != null:
 				return _error(id, "deja dans une salle", "busy")

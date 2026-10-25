@@ -335,7 +335,7 @@ func lobby_msg() -> Dictionary:
 	for s in seats:
 		out.append({"name": (str(s["name"]) if s["taken"] else null), "bot": s["bot"], "connected": int(s["conn"]) >= 0 or bool(s["bot"]),
 			"avatar": s["avatar"], "wins": s["wins"], "defeats": s["defeats"]})
-	return {"t": "lobby", "code": code, "status": status, "numPlayers": num_players, "seats": out, "sets": sets, "host": host}
+	return {"t": "lobby", "code": code, "status": status, "numPlayers": num_players, "seats": out, "sets": sets, "host": host, "title": title}
 
 func state_msg(seat: int) -> Dictionary:
 	var msg := lobby_msg()

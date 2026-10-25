@@ -399,6 +399,19 @@ func _t_spell_assassin_hero_at_entrance() -> void:
 	_ok(BossEngine.hero_health_with_modifiers(G, hero) == 9, "bonus actif tant que le heros n'a pas fini son aventure")
 	BossEngine.spend_hero_health_bonus(G, hero)
 	_ok(BossEngine.hero_health_with_modifiers(G, hero) == 6, "fin d'aventure : le +3 ne revient pas a une seconde entree du tour")
+	# Fear (PlaceAtTown -> RemoveHeroFromGame:740) : RestoreHealth du seul heros actif ; a l'entree le +3 reste (Teleportation / Trepidation ne restaurent rien).
+	var G2 := _spell_state()
+	var h2 := {"id": "H9", "name": "H9", "hp": 6}
+	((G2["players"][1] as Dictionary)["entrance"] as Array).append(h2)
+	SpellEffects.cast_spell(G2, 0, {"id": "BMA041"}, {"heroId": "H9"})
+	SpellEffects.cast_spell(G2, 0, {"id": "BMA045"}, {"heroId": "H9"})
+	_ok(BossEngine.hero_health_with_modifiers(G2, h2) == 9, "Fear sur un heros a l'entree : le +3 reste")
+	var G3 := _spell_state()
+	((G3["players"][1] as Dictionary)["entrance"] as Array).append(h2)
+	G3["adventure"] = {"playerId": 1, "hero": h2, "roomIndex": 0, "hp": 6, "pause": null}
+	SpellEffects.cast_spell(G3, 0, {"id": "BMA041"}, {"heroId": "H9"})
+	SpellEffects.cast_spell(G3, 0, {"id": "BMA045"}, {"heroId": "H9"})
+	_ok(BossEngine.hero_health_with_modifiers(G3, h2) == 6, "Fear sur le heros actif : RestoreHealth, le +3 est perdu")
 
 ## BMA050 Motivation : bonus de construction si moins de salles qu'un adversaire.
 func _t_spell_motivation_extra_build() -> void:
