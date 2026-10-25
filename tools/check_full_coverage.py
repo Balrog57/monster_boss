@@ -119,8 +119,11 @@ def main():
                 valid, info = wpk_ok(full)
                 wpk_n += 1
                 if (sub, fn) == ('assets/Content/Common', 'particle_01.wpk'):
-                    justified.append(f'`{rel}` — WPK {info} : blob binaire de système de particules '
-                                     '(fmt=0, atlas 0x0, pas de texture ; sprite dans un autre atlas)')
+                    dst = 'src/frontend/assets/ui/particle_01.webp'  # texture RGBA 19x19 extraite par extract_apk_226.py, lue par ApkParticles.gd
+                    good = valid and os.path.exists(dst)
+                    (ok if good else missing).append(
+                        f'`{rel}` — WPK {info} → `{dst}` {"OK" if os.path.exists(dst) else "MANQUANT"}')
+                    wpk_bad += not good
                     continue
                 cont = CONTAINERS.get((sub, fn))
                 if cont is not None:

@@ -16,6 +16,7 @@ Color notes (calibrated against APK 2.2.6 screenshots):
   Fullscreen Texture2D backgrounds (fmt 8) are R5G6B5 (r_high=True).
 """
 import gzip
+import io
 import json
 import os
 import shutil
@@ -267,6 +268,15 @@ def mark_unpremultiplied(path):
 
 def save_webp(img, dest, *, lossy=False, quality=90, fresh=True):
     """`fresh` : `img` sort tel quel du decodage APK (premultiplie). Faux pour une image relue d'un asset deja extrait : jamais reconvertie."""
+    if dest.lower().endswith(".png"):  # splash de boot Godot : PNG sans perte, opaque
+        os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
+        rgb = img.convert("RGB")
+        if lossy:  # meme degradation que les autres fonds (webp q90), puis PNG
+            buf = io.BytesIO()
+            rgb.save(buf, "WEBP", quality=quality, method=4)
+            rgb = Image.open(buf).convert("RGB")
+        rgb.save(dest, "PNG")
+        return dest
     dest = os.path.splitext(dest)[0] + ".webp"
     os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
     if lossy:
@@ -488,7 +498,12 @@ def main():
             print(f"  bg {name} fmt={fmt} {w}x{h}")
     p = os.path.join(loading, "loading_bg.wpk")
     if os.path.exists(p):
-        extract_texture2d(p, os.path.join(bg_dir, "loading_bg.webp"), r_high=True, lossy=True)
+        extract_texture2d(p, os.path.join(bg_dir, "loading_bg.png"), r_high=True, lossy=True)  # PNG : boot splash (project.godot)
+    p = os.path.join(common, "particle_01.wpk")  # ApkParticles.gd
+    if os.path.exists(p):
+        d = wpk_payload(p)  # RGBA 19x19 (fmt 1) tel quel, webp q80 avec alpha (pas de depremultiplication)
+        w, h = struct.unpack_from("<II", d, 4)
+        decode_rgba(d[16:], w, h).save(os.path.join(OUT_UI, "particle_01.webp"), "WEBP", quality=80, method=4)
 
     # Dungeon backgrounds: ETC1 (fmt 6), flattened RGB
     decks = os.path.join(CONTENT, "CardDecks")
@@ -533,7 +548,7 @@ def main():
         src = os.path.join(tut, fn)
         if fn.endswith(".xml"):
             shutil.copy2(src, os.path.join(OUT_TUT, fn))
-        elif fn.endswith(".wpk"):
+        elif fn.endswith(".wpk") and fn != "mascara_01.wpk":  # jamais utilise (enum seul, Sprites.cs:33)
             extract_texture2d(src, os.path.join(OUT_TUT, fn.replace(".wpk", ".webp")), r_high=True)
 
     # Card atlases (do not overwrite wiki webp). Pixel-art faces are RGBA4444.

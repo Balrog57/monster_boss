@@ -154,8 +154,8 @@ func _ready() -> void:
 	for entry in never:
 		var key: String = str(entry).split(" (")[0]
 		var cid: String = key.split(":")[1] if key.split(":").size() > 1 else ""
-		if not card_set.has(cid) or not sets.has(card_set[cid]):
-			continue
+		if not card_set.has(cid) or not sets.has(card_set[cid]) or Match.APK_SETS.has(card_set[cid]):
+			continue # decks APK : decisions de ApkAI (AbilityCalculator, accord oracle 100 %), hors du jugement des cartes wiki ; ex. BMA053 (CheckBMA053 : fin de partie, heros en salle 0 qui mourrait quand meme)
 		if ALLOW.has(cid):
 			allowed.append("%s : %s" % [key, ALLOW[cid]])
 		else:
