@@ -60,7 +60,6 @@ FONTS = {
     "arcadepix": ("arcadepix.wpk", "ArcadePix"),
     "arcadepix2": ("arcadepix2.wpk", "ArcadePix2"),
     "bookman_old_style": ("bookman_old_style.wpk", "Bookman Old Style"),
-    "f04b03": ("f04b03.wpk", "04b03"),
 }
 
 SCALE = 64          # font units per atlas pixel

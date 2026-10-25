@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Verifie le manifeste de faces APK, les donnees du set de base et quelques assets d'UI. Usage : python tools/verify_assets.py [--list-placeholders] [--strict-art]
-  --list-placeholders liste les ids d'art wiki en placeholder / manquants ; --strict-art sort en 1 s'il en reste."""
+  --list-placeholders liste les ids d'art wiki en placeholder / manquants ; --strict-art sort en 1 s'il en reste ; --strict-missing sort en 1 seulement si de l'art manque (placeholders acceptes)."""
 import json
 import os
 import sys
@@ -87,6 +87,9 @@ def main() -> int:
     if "--list-placeholders" in sys.argv:
         print("[verify_assets] placeholders:", ", ".join(placeholders))
         print("[verify_assets] missing:", ", ".join(missing_art))
+    if "--strict-missing" in sys.argv and missing_art:  # CI : les placeholders sont acceptes, pas l'art manquant
+        print("[verify_assets] --strict-missing: missing art:", ", ".join(missing_art), file=sys.stderr)
+        return 1
     if "--strict-art" in sys.argv and (placeholders or missing_art):
         print("[verify_assets] --strict-art: placeholders or missing art remain.", file=sys.stderr)
         return 1

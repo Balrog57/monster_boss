@@ -162,14 +162,9 @@ for i in $(seq 40); do curl -s -o /dev/null -w '%{http_code}\n' $H --max-time 1 
 
 Une liaison `101` reste ouverte jusqu'à `--max-time` (curl signale alors un délai dépassé, c'est normal) ; la rafale dure donc quelques dizaines de secondes.
 
-## 9. Ancienne pile (Node + Postgres) - historique
+## 9. Ancienne pile (Node + Postgres)
 
-L'ancienne pile (conteneurs `boss-monster` et `boss-monster-db`, volume `boss_db`)
-a été arrêtée puis **supprimée avec l'accord du propriétaire** (conteneurs et
-volume retirés du homelab). Si un homelab en possède encore une copie, ne
-supprimer les conteneurs et surtout le volume `boss_db` (`docker rm`,
-`docker volume rm boss_db`) qu'avec l'accord explicite du propriétaire ; arrêter
-l'ancienne pile avec `docker compose ... stop` (pas `down --remove-orphans`) avant le premier `up` de la nouvelle.
+Supprimée du homelab ; son historique est dans git (ne jamais supprimer un volume `boss_db` résiduel sans l'accord du propriétaire).
 
 ## 10. Dépannage
 

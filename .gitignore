@@ -6,13 +6,10 @@ boss-monster-2-2-6-android.apk
 boss-monster-2-2-6/
 
 # Build artifacts & logs
-dist/
 src/frontend/godot/build_web/
 .godot/
 *.log
 
-# Playwright MCP session snapshots
-.playwright-mcp/
 
 # Python
 __pycache__/

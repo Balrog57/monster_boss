@@ -50,7 +50,7 @@ src/frontend/            projet Godot 4 (res:// = src/frontend/)
   assets/                cartes WebP, UI, audio, fonts, pages des livrets de règles (versionnés)
 deploy/                  Dockerfile (export + nginx), Dockerfile.server, docker-compose.yml, DEPLOYMENT.md
 security/                SECURITY.md + .env.example (jamais de secret commité)
-docs/                    HANDOFF, règles, rapports ; docs/reference/ (captures APK) est local et ignoré par git
+docs/                    HANDOFF, règles ; docs/reference/ (captures APK) est local et ignoré par git
 tools/                   scripts Python (stdlib, Pillow pour l'art) : runners de tests/parité, extraction APK / wiki ; apk-oracle/ = oracle .NET
 apk-original/            APK + décompilation (référence locale, ni versionné ni embarqué)
 ```

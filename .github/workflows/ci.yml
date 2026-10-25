@@ -22,7 +22,21 @@ jobs:
           godot --version
       # Sans import, les class_name globaux (BossEngine, Match, CardUI...) sont inconnus : "Parse Error: Identifier not declared".
       - name: Import the Godot project
-        run: godot --headless --path src/frontend --import || true
+        # --import peut sortir en erreur alors que l'import a reussi (cf. deploy/Dockerfile) : on tolere le code de sortie
+        # mais on exige le cache des class_name (sinon l'import a vraiment echoue).
+        run: |
+          godot --headless --path src/frontend --import || echo "godot --import a rendu $? (tolere)"
+          test -s src/frontend/.godot/global_script_class_cache.cfg
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Pillow (verify_assets)
+        run: pip install pillow
+      # Echoue sur un asset MANQUANT ; les placeholders wiki (108, acceptes) ne bloquent pas.
+      - name: Verify assets
+        run: python tools/verify_assets.py --strict-missing
+      - name: Check cards.json implemented flags
+        run: python tools/sync_implemented.py --check
       # Parite APK (tools/parity/apk.py) : locale uniquement, elle exige l'oracle .NET (DBMGame.dll de apk-original/, non versionne).
       - name: Godot suites
         run: python3 tools/run_godot_tests.py
