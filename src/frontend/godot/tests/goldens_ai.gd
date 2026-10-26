@@ -987,6 +987,15 @@ func _t_apk_triggers() -> void:
 	var mv3 = AI.pick_move(m3, 0)
 	_ok.call(mv3 != null and str(mv3["type"]) == "resolveChoice" and int((mv3["args"] as Array)[0]) == 1, "Mimic Vault : AI.pick_move repond par resolveChoice sur l'option de l'APK")
 	m3.queue_free()
+	# IA-H74 : la cible est figee a la mise en file (salle encore en attente = degats nuls), puis rejouee telle quelle a l'execution
+	var held: Dictionary = (G3["players"][0]["dungeon"] as Array).back()[0]
+	held["faceDown"] = true
+	var pre := ApkAI.reveal_target(G3, 0, {"id": "BMA036"})
+	held["faceDown"] = false
+	pc3 = RoomAbilities._mimic_vault(G3, G3["players"][0], 0)
+	_ok.call(int(_choose(G3, 0, pc3)["idx"]) == 1, "Mimic Vault : sans cible figee, le donjon revele tue le heros a 3 PV")
+	pc3["apkPre"] = pre
+	_ok.call(pre.get("val", 0) == null and int(_choose(G3, 0, pc3)["idx"]) == -1, "Mimic Vault : cible figee a la revelation (donjon encore en attente) = ne rien designer")
 	# CheckBMA008 Gorgona : PV restants apres NOTRE donjon, le plus haut ; a egalite le plus d'ames
 	var G4 := _g3()
 	(G4["players"][0]["dungeon"] as Array).append([_plain("d", "monster", [], 2)])

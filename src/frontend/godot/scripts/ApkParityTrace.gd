@@ -246,6 +246,7 @@ func replay(trace: Dictionary) -> Dictionary:
 		"town": [], "turn": 0, "phase": CardDB.PHASE["SETUP"], "gameOver": null, "log": [], "autoAI": false,
 		"stack": [], "stackPassed": {}, "pendingChoice": {}, "choiceQueue": [], "roboboQueue": [], "itemQueue": [],
 	}
+	run.G["apkSeats"] = (initial["bosses"] as Array).map(func(b): return int((b as Dictionary)["playerId"]) - 1) # Players = ordre des sieges de l'oracle
 	run.G["aiTargetsAllBosses"] = true # T.P.K. : l'IA de l'oracle designe tous les joueurs (SpellTargeting "tpk-player")
 	run.G["aiMayCancel"] = true # Seducia : l'IA de l'oracle peut ne rien designer (Match.legal_moves, choix `aiCancel`)
 	run.G["aiTargetsAnyRoomType"] = true # Giant Size : l'IA de l'oracle peut viser une salle Trap (AbilityCalculator.CheckBMA040And047, sans revalidation)

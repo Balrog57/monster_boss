@@ -1468,6 +1468,8 @@ func _reveal_and_level_up() -> bool:
 			"levelup":
 				choice = RoomAbilities.process_level_up(G, pid)
 		if choice != null:
+			if not (it.get("pre", {}) as Dictionary).is_empty():
+				choice["apkPre"] = it["pre"]
 			G["pendingChoice"] = choice
 			return true
 	G.erase("revealQueue")
@@ -1478,9 +1480,12 @@ func _reveal_and_level_up() -> bool:
 ## une transaction AVANT la premiere deja en file du meme PlayerId : elles s'executent donc dans l'ordre inverse de la file.
 func _build_reveal_queue() -> Array:
 	var out: Array = []
-	for pid in CardDB.order_by_xp(G["players"]):
-		var p: Dictionary = G["players"][pid]
-		if p.get("eliminated", false):
+	var by_pid := {}
+	var order: Array = CardDB.order_by_xp(G["players"])
+	# C# : les cibles se figent en parcourant Players (sieges, `G.apkSeats` du harnais), la file reste triee par PlayerId.
+	for pid in G.get("apkSeats", order):
+		var p: Dictionary = (G["players"] as Dictionary).get(pid, {})
+		if p.is_empty() or p.get("eliminated", false):
 			continue
 		var mine: Array = []
 		var dun: Array = p.get("dungeon", [])
@@ -1489,7 +1494,7 @@ func _build_reveal_queue() -> Array:
 			if room == null or not (room as Dictionary).get("faceDown", false):
 				continue
 			var r: Dictionary = room
-			mine.append({"pid": int(pid), "kind": "room", "room": r})
+			mine.append({"pid": int(pid), "kind": "room", "room": r, "pre": ApkAI.reveal_target(G, int(pid), r)}) # cible figee a la mise en file (C#)
 			for o in RoomAbilities.another_room_triggers(G, int(pid)): # avant faceDown=false : la salle compte comme « en attente » (C#)
 				mine.append({"pid": int(pid), "kind": "another", "room": o})
 			r["faceDown"] = false
@@ -1501,7 +1506,9 @@ func _build_reveal_queue() -> Array:
 				_log("Joueur %s EST MONTÉ EN NIVEAU !" % str(pid))
 				mine.append({"pid": int(pid), "kind": "levelup"})
 		mine.reverse()
-		out.append_array(mine)
+		by_pid[pid] = mine
+	for pid in order:
+		out.append_array(by_pid.get(pid, []))
 	if Minibosses.active(G): # toutes les salles sont revelees : les minibosses sautent sur les nouveaux sommets, puis paient 1 Coin (sinon defausses)
 		Minibosses.normalize(G)
 		Minibosses.reveal_all(G)

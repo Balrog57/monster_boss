@@ -1409,6 +1409,15 @@ static func choose(G: Dictionary, pid: int, pc: Dictionary, rng: RandomNumberGen
 		return null
 	var x := _ctx(G, pid, [], rng)
 	var name := str(pc.get("bossName", ""))
+	var pre: Dictionary = pc.get("apkPre", {})
+	if not pre.is_empty(): # cible figee a la revelation (reveal_target) : on la rejoue si elle est encore une option
+		var k := str(pre["key"])
+		for i in opts.size():
+			var ov = (opts[i] as Dictionary).get(k)
+			if (_same(ov, pre["val"]) if ov is Dictionary else ov == pre["val"]):
+				return _out(i)
+		if pre["val"] == null:
+			return _out(-1)
 	if TR_ACTIVATED.has(name):
 		return _tr_activated(x, pc, opts, sel, name)
 	match name:
@@ -1429,6 +1438,31 @@ static func choose(G: Dictionary, pid: int, pc: Dictionary, rng: RandomNumberGen
 		"The Brothers Wise": return _tr_ksa003(x, opts)
 		"Kaw'nee": return _tr_ksa004(opts)
 	return null
+
+## GameBoard.RevealAllRoomCards -> EnqueueAbilityTransaction -> ResolveTargets : l'APK designe la cible de chaque declencheur A LA MISE EN FILE, avant tout effet,
+## et les salles encore en attente (la sienne comprise) ne comptent pas. Match._build_reveal_queue appelle ceci a cet instant (salle encore face cachee) ;
+## `choose` rejoue ce resultat. Rend {} (rien de fige) ou {"key": cle de l'option, "val": valeur} (val null = ne rien designer). Mimic Vault / Specter's Sanctum.
+static func reveal_target(G: Dictionary, pid: int, room: Dictionary) -> Dictionary:
+	var x := _ctx(G, pid, [], RandomNumberGenerator.new())
+	var opts: Array = []
+	var res: Variant = null
+	var key := "card"
+	match str(room.get("id", "")):
+		"BMA036":
+			var town: Array = G.get("town", [])
+			for i in town.size():
+				if not bool((town[i] as Dictionary).get("epic", false)):
+					opts.append({"card": town[i], "townIndex": i})
+			res = _tr_036(x, opts) if opts.size() > 1 else null
+		"BMA011":
+			key = "targetPlayerId"
+			for q in opponents(G, pid):
+				opts.append({"targetPlayerId": int(q)})
+			res = _tr_011_012(x, opts, false) if opts.size() > 1 else null
+	if res == null:
+		return {}
+	var idx := int((res as Dictionary)["idx"])
+	return {"key": key, "val": null if idx < 0 else (opts[idx] as Dictionary)[key]}
 
 # --- outils ----------------------------------------------------------------------------------------------------------------
 

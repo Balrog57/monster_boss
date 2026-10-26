@@ -15,7 +15,7 @@ const PUBLIC_KEYS := ["activePlayer", "adventure", "adventurePausePassed", "afte
 ## apkSkippedHero est publique : numero de siege pose par Trepidation (sort face visible) ; Match.apk_active_hero() la lit cote client en ligne.
 const FILTERED_KEYS := ["decks", "players", "bossPicks", "pendingChoice", "choiceQueue", "log", "logs"]
 ## aiMayCancel (harnais d'oracle), iodFlame / rmbReplay / lincolnReveal (drapeaux internes au moteur, poses puis effaces dans un meme coup) : aucun lecteur cote client.
-const DROPPED_KEYS := ["revealQueue", "forcedBuilds", "forcedRandom", "aiTargetsAllBosses", "aiTargetsAnyRoomType", "aiMayCancel", "iodFlame", "rmbReplay", "lincolnReveal"]
+const DROPPED_KEYS := ["revealQueue", "forcedBuilds", "forcedRandom", "aiTargetsAllBosses", "apkSeats", "aiTargetsAnyRoomType", "aiMayCancel", "iodFlame", "rmbReplay", "lincolnReveal"]
 const SECRET_PILES := ["rooms", "spells", "heroes", "epics", "items"]
 ## Cles de joueur publiques (coins, rmbBoss, tnlBoss... : tout ce qui est pose devant le joueur). Liste blanche aussi :
 ## une cle de joueur inconnue n'est pas emise aux adversaires (le siege lui-meme voit tout son joueur).

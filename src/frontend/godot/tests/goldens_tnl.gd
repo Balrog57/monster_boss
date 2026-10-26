@@ -1266,7 +1266,7 @@ func _t_meddling_kids_base_passives() -> void:
 	_ok.call(not RoomAbilities.can_choose_draw(G5["players"][0]), "TNL062 : Haunted Library sans texte, plus de choix de pioche")
 	_fill(G5, "rooms", 4)
 	cast.call(G5, 1)
-	BossEngine._on_other_room_destroyed(G5, G5["players"][0])
+	BossEngine._on_other_room_destroyed(G5, G5["players"][0], _room("BMA018"))
 	_ok.call(_hand(G5, 0).is_empty(), "TNL062 : Recycling Center sans texte ne pioche plus")
 	var G6 := _G([_player(0, "BMA001"), _player(1, "BMA002")])
 	_fill(G6, "rooms", 4)

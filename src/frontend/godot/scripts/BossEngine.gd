@@ -597,7 +597,7 @@ static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}
 					# (ProccessActiveHero, GameBoard.cs:1108-1116) : aucun pas « vide » (s11-p3@404, s12-p2@814).
 					adv["roomIndex"] = -(5 - dungeon.size()) - (0 if dungeon.size() == 4 and h == 0 else 1)
 	if triggers and not G.is_empty():
-		_on_other_room_destroyed(G, player)
+		_on_other_room_destroyed(G, player, destroyed)
 	# Regle « uncover » (Crash Landing) : la salle du dessous redevient le sommet de sa pile (l'emplacement n'a pas disparu).
 	if not G.is_empty() and not stack.is_empty():
 		RoomAbilities.on_uncover(G, int(player.get("id", 0)), room_index)
@@ -609,7 +609,7 @@ static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}
 
 ## GameBoard.DestroyRoom -> CheckTriggerInDungeon<WhenAnotherRoomIsDestroyed> : chaque BMA031 Recycling Center
 ## actif du donjon (la salle detruite n'y est plus) fait piocher 2 salles a son proprietaire (DrawCards 2 Room).
-static func _on_other_room_destroyed(G: Dictionary, player: Dictionary) -> void:
+static func _on_other_room_destroyed(G: Dictionary, player: Dictionary, destroyed: Dictionary) -> void:
 	var dungeon: Array = player.get("dungeon", [])
 	for i in dungeon.size():
 		var top = active_room(dungeon[i])
@@ -617,11 +617,18 @@ static func _on_other_room_destroyed(G: Dictionary, player: Dictionary) -> void:
 			continue
 		if is_room_deactivated(G, int(player.get("id", -1)), i) or TnlAbilities.no_text(top as Dictionary):
 			continue
+		# DestroyRoom defausse la salle AVANT le declencheur : elle fait partie des defausses remelangees si la pioche est vide.
+		# Les appelants la defaussent apres coup : le drapeau rend leur discard_room_to_pile sans effet.
+		if not destroyed.has("pileEarly"):
+			discard_room_to_pile(G.get("decks", {}) as Dictionary, destroyed)
+			destroyed["pileEarly"] = true
 		# DrawRooms : pioche vide => defausses remelangees (GameBoard.cs:529-545, 1335-1349), puis la suite de la pioche.
 		(player.get("hand", []) as Array).append_array(CardDB.draw_pile(G.get("decks", {}) as Dictionary, "rooms", 2))
 
 static func discard_room_to_pile(decks: Dictionary, card) -> void:
 	if card == null:
+		return
+	if (card as Dictionary).erase("pileEarly"): # deja defaussee par _on_other_room_destroyed
 		return
 	(card as Dictionary).erase("usedThisTurn") # une salle recuperee puis reconstruite repart avec une capacite neuve
 	(card as Dictionary).erase("extraTreasures") # tresors « jusqu'a la fin du tour » (Decoy Garden, Meteorite) perdus avec la salle
