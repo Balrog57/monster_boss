@@ -1009,6 +1009,8 @@ func _opp_detail_fill(pid: int) -> void:
 	_lbl(opp_detail, "SPELL DECK", 16, Color.WHITE, Vector2(23, 327), 0.0, _fa)
 	_img(opp_detail, UI_DIR + "spells_icon.webp", Vector2(22, 356), Vector2(50, 48))
 	_lbl(opp_detail, "x%d" % hand.filter(func(c): return not bool((c as Dictionary).get("isRoom", false))).size(), 20, APK_GOLD, Vector2(89, 376), 0.0, _fa)
+	if Minibosses.active(G): # Rise of the Minibosses (hors APK) : le Hoard adverse, qui est dans foe_group (masque a 3-4 joueurs)
+		_lbl(opp_detail, "COINS: %d" % Minibosses.coins(pl), 13, GOLD, Vector2(23, 412))
 
 ## Bouton P<n> dore (cible hors ecran) ; vignette : cadre jaune (CollapsedOpponentDetail.HighLightCards, cs:355-364).
 func _foe_mark(b: Control, on: bool) -> void:
@@ -4628,7 +4630,7 @@ func _zoom_stack(cards: Array, center: Vector2, sz: Vector2, k: float) -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.position = center
 	root.set_meta("levelup", true) # survit aux refresh jusqu'au clic suivant (_input)
-	root.set_meta("stack", {"idx": 0.0, "k": k, "rect": Rect2(center - Vector2(260, 390) * k, Vector2(520, 780) * k)}) # collider 400 x 600 de SlotDetailEntity x 1,3 (AppearBehavior)
+	root.set_meta("stack", {"idx": 0.0, "k": k, "rect": Rect2(center - Vector2(200, 300) * k, Vector2(400, 600) * k)}) # collider 400 x 600 de SlotDetailEntity ; k = echelle de l'entite x 1,3 (AppearBehavior)
 	for c in cards:
 		var z := UiKit.zoom_card(c, sz)
 		z.pivot_offset = z.size / 2.0
@@ -4701,9 +4703,9 @@ func _slot_zoom(pid: int, di: int, cands := []) -> void:
 	var at := Vector2(960.0, 500.0)
 	if j < slots.size():
 		at = (slots[j] as Control).get_global_rect().get_center()
-	var sz := UiKit.ZOOM_CARD
+	var sz := UiKit.ZOOM_CARD * 1.3 # AppearBehavior : le conteneur passe a 1,3 (entite a l'echelle 1, cartes a 1) ; frame APK tap_own_dungeon_room : carte du dessus 550 px de large
 	var half := sz.x * 0.6 + UiKit.ZOOM_PAD
-	_zoom_stack(cards, Vector2(clampf(at.x, 190.0 + half, 1707.0 - half), clampf(at.y, 400.0, 600.0)), sz, 1.0)
+	_zoom_stack(cards, Vector2(clampf(at.x, 190.0 + half, 1707.0 - half), clampf(at.y, 400.0, 600.0)), sz, 1.3)
 	if not cands.is_empty():
 		_zoom_ability(_zoom.get_child(0), sz, UiKit.ZOOM_PAD, di, cands)
 
@@ -4720,8 +4722,8 @@ func _boss_zoom(lane: int) -> void:
 		cards.append((e as Dictionary).get("card", {}))
 	var bottom: float = BOSS_ZOOM_BOTTOM[lane]
 	if cards.size() > 1:
-		var sz := UiKit.ZOOM_CARD * 0.8
-		_zoom_stack(cards, Vector2(1730.0 - sz.x * 0.6 - UiKit.ZOOM_PAD, bottom - 316.0 - (100.0 if lane == 1 else 0.0)), sz, 0.8)
+		var sz := UiKit.ZOOM_CARD * 0.832 # 1,3 (Appear) x 0,8 (entite) x 0,8 (cartes creees a maxScale, CardZoomComponent.cs:40)
+		_zoom_stack(cards, Vector2(1730.0 - sz.x * 0.6 - UiKit.ZOOM_PAD, bottom - 316.0 - (100.0 if lane == 1 else 0.0)), sz, 1.04)
 		return
 	_zoom_hide()
 	_zoom = UiKit.zoom_card(boss, UiKit.ZOOM_CARD * 1.3)

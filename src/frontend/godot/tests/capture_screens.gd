@@ -57,6 +57,11 @@ func _ready() -> void:
 		print("OPP SCREENS CAPTURED: ", n_shots)
 		get_tree().quit(0)
 		return
+	if only == "zoom": # zooms de pile / boss / file d'entree, defausse en carrousel, coeurs sur les cartes
+		await _zoom_shots()
+		print("ZOOM SCREENS CAPTURED: ", n_shots)
+		get_tree().quit(0)
+		return
 	if only == "menus": # menus + ecrans de fin (iteration rapide sur l'interface)
 		await _menus()
 		await _end_screens()
@@ -157,6 +162,89 @@ func _opp_shots() -> void:
 			await _wait(0.4)
 			await _shot("opp_3p_second_opponent_selected_expanded_follows")
 		await _teardown()
+	await _new_game(424242, "", 3, 1, ["base", "minibosses"]) # compteur COINS adverse : dans le panneau etendu (foe_group masque a 3-4 joueurs)
+	await _settle()
+	board.opp_box.get_child(0).pressed.emit()
+	await _wait(0.8)
+	await _shot("opp_3p_minibosses_coins_in_expanded_panel")
+	await _teardown()
+
+## Lot 2a : zoom de pile de salles, du boss (seul puis avec sorts gardes), de la file d'entree (1 puis 3 heros), defausse en carrousel, coeurs de valeur.
+func _zoom_shots() -> void:
+	await _new_game()
+	_heroes_town(3)
+	_dungeon_fill(_me(), 3)
+	_dungeon_fill(_foe(), 3)
+	_hand_n(5, 1)
+	for k in 2: # piles de 3 salles
+		((_me()["dungeon"] as Array)[0] as Array).push_back(_room_proto("trap", false, 1 + k))
+		((_foe()["dungeon"] as Array)[1] as Array).push_back(_room_proto("monster", false, 1 + k))
+	await _settle()
+	board._slot_zoom(0, 0)
+	await _wait(0.8)
+	await _shot("zoom_room_stack_mine_3_cards")
+	board._zoom_hide()
+	board._slot_zoom(1, 1)
+	await _wait(0.8)
+	await _shot("zoom_room_stack_opponent_3_cards")
+	board._zoom_hide()
+	board._boss_zoom(1)
+	await _wait(0.8)
+	await _shot("zoom_boss_mine_alone")
+	board._zoom_hide()
+	board._boss_zoom(0)
+	await _wait(0.8)
+	await _shot("zoom_boss_opponent_alone")
+	board._zoom_hide()
+	var sp := _take("spells")
+	_me()["untilEndSpells"] = [{"card": sp}, {"card": _take("spells")}]
+	board._boss_zoom(1)
+	await _wait(0.8)
+	await _shot("zoom_boss_mine_with_kept_spells_stack")
+	board._zoom_hide()
+	var q: Array = _me()["entrance"]
+	q.clear()
+	q.append(CardDB.heroes[0].duplicate(true))
+	await _settle()
+	board._queue_clicked(1, q)
+	await _wait(0.8)
+	await _shot("zoom_queue_single_hero_mine")
+	board._zoom_hide()
+	for i in 2:
+		q.append(CardDB.heroes[i + 1].duplicate(true))
+	(q[1] as Dictionary)["hp"] = int((q[1] as Dictionary).get("hp", 4)) + 2
+	await _settle()
+	board._queue_clicked(1, q)
+	await _wait(2.0)
+	await _shot("slideshow_queue_3_heroes_mine_hero_hp_heart")
+	board._slide_hide()
+	await _wait(0.8)
+	var rd: Array = (gm.G["decks"]["roomDiscard"] as Array)
+	for i in 5:
+		rd.append(_take("rooms"))
+	(gm.G["decks"]["spellDiscard"] as Array).append(_take("spells"))
+	board._on_discard_pile_pressed()
+	await _wait(2.0)
+	await _shot("carousel_discard_pile_rooms_then_spells")
+	board._slide_hide()
+	await _wait(0.8)
+	# coeurs : Monster's Ballroom (degats = nombre de salles Monster) entoure de monstres
+	var bal: Dictionary = {}
+	for r in CardDB.rooms:
+		if str((r as Dictionary).get("id", "")) == "BMA020":
+			bal = (r as Dictionary).duplicate(true)
+			bal["isRoom"] = true
+			bal["faceDown"] = false
+	_dungeon_fill(_me(), 3)
+	((_me()["dungeon"] as Array)[0] as Array).clear()
+	((_me()["dungeon"] as Array)[0] as Array).push_back(bal)
+	((_me()["dungeon"] as Array)[1] as Array).clear()
+	((_me()["dungeon"] as Array)[1] as Array).push_back(_room_proto("monster"))
+	((_me()["dungeon"] as Array)[2] as Array).clear()
+	((_me()["dungeon"] as Array)[2] as Array).push_back(_room_proto("monster", false, 1))
+	await _settle()
+	await _shot("hearts_room_damage_ballroom_gold_heart_hero_hp_heart")
+	await _teardown()
 
 ## 5-6 joueurs (lot 2.4b) : pas de frame APK, captures de controle de lisibilite.
 func _big_games() -> void:
