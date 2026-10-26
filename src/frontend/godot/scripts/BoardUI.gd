@@ -128,6 +128,11 @@ var foe_wounds_label: Label
 var foe_souls_label: Label
 var foe_coins_label: Label
 var foe_treasures_box: Control
+var foe_group: Control                   # panneau adverse a 2 joueurs (OneOpponentDetail)
+var opp_box: Control                     # 3-4 joueurs : CollapsedOpponentDetail x (N-1), colonne droite (TopRightPanelEntity)
+var opp_detail: Control                  # ExpandedOpponentDetail : tire a gauche de la colonne par un second clic sur la vignette choisie
+var _opp_open := false
+var _opp_gen := 0
 var sidebar_boss_label: Label
 var sidebar_sub_label: Label
 var souls_container: HBoxContainer
@@ -386,7 +391,10 @@ func _make_lane(idx: int) -> Dictionary:
 	var sprite := TextureRect.new()
 	sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	sprite.stretch_mode = TextureRect.STRETCH_SCALE
-	sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sprite.mouse_filter = Control.MOUSE_FILTER_STOP # DungeonFrameEntity.cs:265-270 : un appui sur le boss montre sa carte
+	sprite.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			_boss_zoom(idx))
 	plat.add_child(sprite)
 	L["sprite"] = sprite
 	var cont := CenterContainer.new()
@@ -433,29 +441,35 @@ func _build_left() -> void:
 
 func _build_right() -> void:
 	# --- Boss adverse (positions mesurees sur les frames de l'APK ; polices : arcadepix A pour tout le texte de la colonne)
-	_img(self, UI_DIR + "boss_icon.webp", Vector2(1712.5, 74.5), Vector2(43, 43), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
-	foe_name_label = _lbl(self, "", 18, APK_GOLD, Vector2(1762, 75), 150.0, _fa)
-	foe_sub_label = _lbl(self, "", 11, Color.WHITE, Vector2(1762, 100), 110.0, _fa)
+	foe_group = Control.new() # OneOpponentDetail (2 joueurs) ; a 3-4 joueurs, les vignettes opp_box + opp_detail le remplacent
+	foe_group.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(foe_group)
+	opp_box = Control.new()
+	opp_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(opp_box)
+	_img(foe_group, UI_DIR + "boss_icon.webp", Vector2(1712.5, 74.5), Vector2(43, 43), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
+	foe_name_label = _lbl(foe_group, "", 18, APK_GOLD, Vector2(1762, 75), 150.0, _fa)
+	foe_sub_label = _lbl(foe_group, "", 11, Color.WHITE, Vector2(1762, 100), 110.0, _fa)
 	foe_sub_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	foe_sub_label.add_theme_constant_override("line_spacing", -4)
-	_img(self, TEX_WOUND, Vector2(1715.5, 138), Vector2(27, 35), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
-	foe_wounds_label = _lbl(self, "x0", 18, Color.WHITE, Vector2(1746, 142), 0.0, _fa)
-	_img(self, TEX_SOUL, Vector2(1775.5, 137.5), Vector2(29, 34), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
-	foe_souls_label = _lbl(self, "x0", 18, Color.WHITE, Vector2(1806, 142), 0.0, _fa)
+	_img(foe_group, TEX_WOUND, Vector2(1715.5, 138), Vector2(27, 35), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
+	foe_wounds_label = _lbl(foe_group, "x0", 18, Color.WHITE, Vector2(1746, 142), 0.0, _fa)
+	_img(foe_group, TEX_SOUL, Vector2(1775.5, 137.5), Vector2(29, 34), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
+	foe_souls_label = _lbl(foe_group, "x0", 18, Color.WHITE, Vector2(1806, 142), 0.0, _fa)
 	foe_treasures_box = Control.new()
 	foe_treasures_box.position = Vector2(1715, 197)
 	foe_treasures_box.size = Vector2(202, 68)
 	foe_treasures_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(foe_treasures_box)
+	foe_group.add_child(foe_treasures_box)
 	_img(foe_treasures_box, UI_DIR + "bg_treasures_boss_profile.webp", Vector2.ZERO, Vector2(202, 68)).modulate = Color(1, 1, 1, 0.6)
-	foe_coins_label = _lbl(self, "", 12, GOLD, Vector2(1718, 268))
+	foe_coins_label = _lbl(foe_group, "", 12, GOLD, Vector2(1718, 268))
 	# --- Pioches
-	_lbl(self, "ROOM DECK", 16, Color.WHITE, Vector2(1718, 286), 0.0, _fa)
-	_img(self, UI_DIR + "rooms_icon.webp", Vector2(1717, 315), Vector2(50, 48))
-	room_deck_label = _lbl(self, "x0", 20, APK_GOLD, Vector2(1784, 335), 0.0, _fa)
-	_lbl(self, "SPELL DECK", 16, Color.WHITE, Vector2(1718, 382), 0.0, _fa)
-	_img(self, UI_DIR + "spells_icon.webp", Vector2(1717, 410), Vector2(50, 48))
-	spell_deck_label = _lbl(self, "x0", 20, APK_GOLD, Vector2(1784, 431), 0.0, _fa)
+	_lbl(foe_group, "ROOM DECK", 16, Color.WHITE, Vector2(1718, 286), 0.0, _fa)
+	_img(foe_group, UI_DIR + "rooms_icon.webp", Vector2(1717, 315), Vector2(50, 48))
+	room_deck_label = _lbl(foe_group, "x0", 20, APK_GOLD, Vector2(1784, 335), 0.0, _fa)
+	_lbl(foe_group, "SPELL DECK", 16, Color.WHITE, Vector2(1718, 382), 0.0, _fa)
+	_img(foe_group, UI_DIR + "spells_icon.webp", Vector2(1717, 410), Vector2(50, 48))
+	spell_deck_label = _lbl(foe_group, "x0", 20, APK_GOLD, Vector2(1784, 431), 0.0, _fa)
 	deck_info_label = _lbl(self, "", 13, GOLD, Vector2(1718, 472))
 	# --- Mon boss
 	_img(self, UI_DIR + "boss_icon.webp", Vector2(1712.5, 507.5), Vector2(43, 43), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
@@ -479,6 +493,14 @@ func _build_right() -> void:
 	treasures_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(treasures_container)
 	levelup_btn = _tex_button(self, UI_DIR + "levelup_bt.webp", UI_DIR + "levelup_bt_pressed.webp", Vector2(1722, 978), Vector2(183, 59))
+	opp_detail = Control.new() # ExpandedOpponentDetail : bg_boss_detail 295 x 451, tire de 498 px depuis le bord droit (ExpandedOpponentComponent.cs:9,43)
+	opp_detail.position = Vector2(1422, 55)
+	opp_detail.size = Vector2(295, 451)
+	opp_detail.visible = false
+	opp_detail.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			_opp_toggle()) # ExpandedOpponentDetail.cs:61-64 : un appui sur le panneau le replie
+	add_child(opp_detail)
 
 func _build_actions() -> void:
 	# PASS TURN / GO centres sur la separation des deux couloirs.
@@ -800,30 +822,50 @@ func _update_foe(G: Dictionary) -> Array:
 	return others
 
 func _refresh_foe_bar(others: Array) -> void:
-	for c in foe_bar.get_children():
-		foe_bar.remove_child(c)
+	for c in foe_bar.get_children() + opp_box.get_children():
+		c.get_parent().remove_child(c)
 		c.queue_free()
-	foe_bar.visible = others.size() > 1
+	# 3-4 joueurs : vignettes de la colonne droite (TopRightPanelEntity.cs:80-96) ; 5-6 joueurs (hors APK) : boutons P<n> dans la barre du haut
+	var panels := others.size() in [2, 3]
+	foe_group.visible = not panels
+	foe_bar.visible = others.size() > 3
+	if not panels:
+		_opp_open = false
+	_opp_detail_sync()
 	if others.size() <= 1:
 		return
 	foe_bar.theme = _make_bar_theme(others.size() > 3) # 5-6 joueurs : boutons plus serres
-	for pid in others:
+	for i in others.size():
+		var pid = others[i]
 		var b := Button.new()
-		b.text = "P%d" % (int(pid) + 1)
-		b.disabled = int(pid) == foe_pid
-		var boss = ((game_manager.G["players"] as Dictionary)[pid] as Dictionary).get("boss")
-		b.tooltip_text = "Player %d%s" % [int(pid) + 1, " - %s" % str((boss as Dictionary).get("name", "")) if boss != null else ""]
 		var p: int = int(pid)
 		b.set_meta("pid", p)
+		if panels:
+			b.flat = true
+			b.focus_mode = Control.FOCUS_NONE
+			b.position = Vector2(1708, 60 + 141 * i)
+			b.custom_minimum_size = Vector2(212, 141)
+			b.size = Vector2(212, 141)
+			b.set_meta("selected", p == foe_pid)
+			opp_box.add_child(b)
+			_opp_bg(b, p)
+		else:
+			b.text = "P%d" % (p + 1)
+			b.disabled = p == foe_pid
+			var boss = ((game_manager.G["players"] as Dictionary)[pid] as Dictionary).get("boss")
+			b.tooltip_text = "Player %d%s" % [p + 1, " - %s" % str((boss as Dictionary).get("name", "")) if boss != null else ""]
+			foe_bar.add_child(b)
 		b.pressed.connect(func():
 			if _animating_hero or (_hero_pawn != null and is_instance_valid(_hero_pawn)):
 				return # un heros traverse le donjon affiche
+			if panels and p == foe_pid:
+				_opp_toggle() # CollapsedOpponentDetail_TouchTap : second appui sur la vignette choisie = panneau etendu
+				return
 			foe_pid = p
 			refresh())
-		foe_bar.add_child(b)
 		if p == game_manager.active_player() and game_manager.G.get("gameOver") == null:
 			# CollapsedOpponentDetail.Refresh (cs:331-332) : Emit = boss.IsActivePlayer, emetteur 0,9 x le panneau (cs:204, ECHELLE) centre sur lui (LocalX = -largeur / 2, cs:203).
-			# Le panneau 212 x 141 n'existe pas ici : l'emetteur suit le bouton P<n> (sa taille n'est connue qu'apres la mise en page).
+			# Les boutons P<n> (5-6 joueurs) n'ont leur taille qu'apres la mise en page : l'emetteur suit le bouton.
 			var fx := ApkParticles.creer(b, Vector2.ONE)
 			var fit := func(sz: Vector2):
 				fx.position = sz * 0.5
@@ -831,6 +873,152 @@ func _refresh_foe_bar(others: Array) -> void:
 			fit.call(b.get_combined_minimum_size()) # taille de depart (la mise en page n'a pas encore eu lieu), puis la vraie
 			b.resized.connect(func(): fit.call(b.size))
 			fx.set_emit(true)
+		if panels:
+			_opp_front(b, p)
+
+const TREASURE_NAMES := {1: "cleric", 2: "fighter", 3: "mage", 4: "thief"}
+
+## Boss d'un adversaire tel que l'APK l'affiche : cache tant que le notre n'est pas choisi.
+func _opp_boss(pid: int):
+	var G: Dictionary = game_manager.G
+	if str(G.get("phase", "")) == "boss" and ((G["players"] as Dictionary)[view_pid] as Dictionary).get("boss") == null:
+		return null
+	return ((G["players"] as Dictionary)[pid] as Dictionary).get("boss")
+
+## CollapsedOpponentDetail (212 x 141) : fond du boss (bg_<premier tresor>_profile, GetBossProfileBackgroundAsset), 1,05 x 1,01 s'il joue (cs:329-330).
+func _opp_bg(b: Button, pid: int) -> void:
+	var boss = _opp_boss(pid)
+	if boss == null:
+		return
+	var tr: Array = (boss as Dictionary).get("treasures", [])
+	var bg := _img(b, "res://assets/ui/characters/bg_%s_profile.webp" % TREASURE_NAMES.get(int(tr[0]) if not tr.is_empty() else 1, "cleric"), Vector2(1, 0), Vector2(211, 141))
+	if pid == game_manager.active_player() and game_manager.G.get("gameOver") == null:
+		bg.pivot_offset = Vector2(211, 70.5) # Origin (1, 0,5)
+		bg.scale = Vector2(1.05, 1.01)
+
+## Icone + « xN » (IconCounterControlEntity sans maximum, cs:174-181 : texte a largeur de l'icone + 3, centre verticalement, echelle 0,8).
+func _opp_count(b: Control, path: String, n: int, pos: Vector2) -> void:
+	var t := _img(b, path, pos)
+	_lbl(b, "x%d" % n, 16, Color.WHITE, Vector2(pos.x + t.size.x + 3.0, pos.y + (t.size.y - 20.0) / 2.0 - 3.0), 0.0, _fa)
+
+func _opp_front(b: Button, pid: int) -> void:
+	var G: Dictionary = game_manager.G
+	var pl: Dictionary = (G["players"] as Dictionary)[pid]
+	var boss = _opp_boss(pid)
+	var sel := pid == foe_pid
+	var active := pid == game_manager.active_player() and G.get("gameOver") == null
+	if boss != null:
+		var bid := str((boss as Dictionary).get("id", "")).to_lower()
+		var ip := "res://assets/ui/characters/icon_%s_profile.webp" % bid
+		if bool(pl.get("eliminated", false)):
+			ip = UI_DIR + "icon_death_profile.webp"
+		elif not ResourceLoader.exists(ip):
+			ip = UI_DIR + "boss_icon.webp"
+		var ic := _img(b, ip, Vector2(3, 5))
+		ic.pivot_offset = Vector2(66, ic.size.y / 2.0) # Origin (1, 0,5), LocalX -143, LocalY -38
+		ic.scale = Vector2.ONE if active else Vector2(0.83, 0.83)
+		var nm := str((boss as Dictionary).get("name", "")).to_upper()
+		_lbl(b, nm if nm.length() <= 10 else nm.substr(0, 10) + "...", 16, APK_GOLD if sel else Color.WHITE, Vector2(73, 7.5), 0.0, _fa)
+	_opp_count(b, TEX_WOUND, CardDB.total_wounds(pl), Vector2(72, 31.5))
+	_opp_count(b, TEX_SOUL, CardDB.total_souls(pl, G), Vector2(141, 31.5))
+	var counts: Dictionary = BossEngine.treasure_counts(pl, G)
+	for it in [[4, Vector2(14, 73.5), 2.0], [3, Vector2(114, 73.5), 2.0], [2, Vector2(14, 107.5), 6.0], [1, Vector2(114, 103.5), 2.0]]:
+		var n := int(counts.get(int(it[0]), 0))
+		var base: String = UI_DIR + "icon_treasure_%s" % TREASURE_NAMES[int(it[0])]
+		var pos: Vector2 = it[1]
+		if n == 0:
+			_img(b, base + "_empty.webp", pos)
+		elif n <= 4:
+			var x := 0.0
+			for k in n:
+				x += _img(b, base + ".webp", pos + Vector2(x, 0)).size.x + float(it[2])
+		else:
+			_opp_count(b, base + ".webp", n, pos)
+	if not sel: # topMask (cs:296-300) : assombrit les vignettes non choisies
+		_rect(b, Color(0, 0, 0, 0.5), Vector2.ZERO, Vector2(212, 141))
+	var border := _img(b, UI_DIR + "bg_boss_profile_selected_yellow.webp", Vector2(-8, -8)) # LocalX 2, origine (1, 0,5), 222 x 157
+	border.name = "Border"
+	border.visible = active
+
+## Un second appui sur la vignette choisie ouvre / ferme ExpandedOpponentDetail.
+func _opp_toggle() -> void:
+	_opp_open = not _opp_open
+	_opp_gen += 1
+	_opp_detail_sync(true)
+	if _opp_open:
+		var gen := _opp_gen
+		get_tree().create_timer(60.0).timeout.connect(func(): # ShowHideTaskComponent.cs:56 : repli automatique apres 1 min
+			if gen == _opp_gen and _opp_open:
+				_opp_toggle())
+
+var _opp_tw: Tween
+func _opp_detail_sync(animate := false) -> void:
+	var on := _opp_open and foe_pid >= 0
+	if on:
+		_opp_detail_fill(foe_pid)
+	var running := _opp_tw != null and _opp_tw.is_valid() and _opp_tw.is_running()
+	if animate and not skip_animations:
+		if running:
+			_opp_tw.kill()
+		_opp_tw = create_tween().set_parallel(true) # ExpandedOpponentComponent.cs:32,42 : 0,5 s, CubicEase (EaseOut), x -> bord droit - 498
+		if on:
+			opp_detail.visible = true
+			opp_detail.position.x = 1920.0
+			opp_detail.modulate.a = 0.0
+		_opp_tw.tween_property(opp_detail, "position:x", 1422.0 if on else 1920.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		_opp_tw.tween_property(opp_detail, "modulate:a", 1.0 if on else 0.0, 0.5)
+		if not on:
+			_opp_tw.chain().tween_callback(func(): opp_detail.visible = false)
+	elif not running:
+		opp_detail.visible = on
+		opp_detail.position.x = 1422.0
+		opp_detail.modulate.a = 1.0
+
+## ExpandedOpponentDetail.Refresh : en-tete du boss, XP, blessures, ames, pioches (cartes en main) de l'adversaire choisi.
+func _opp_detail_fill(pid: int) -> void:
+	for c in opp_detail.get_children():
+		opp_detail.remove_child(c)
+		c.queue_free()
+	var G: Dictionary = game_manager.G
+	var pl: Dictionary = (G["players"] as Dictionary)[pid]
+	var boss = _opp_boss(pid)
+	_img(opp_detail, UI_DIR + "bg_boss_detail.webp", Vector2.ZERO)
+	_img(opp_detail, UI_DIR + "boss_icon.webp", Vector2(8, 5), Vector2(43, 43), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
+	if boss != null:
+		var nm := str((boss as Dictionary).get("name", "")).to_upper()
+		_lbl(opp_detail, nm if nm.length() <= 10 else nm.substr(0, 10) + "...", 18, APK_GOLD, Vector2(62, 17), 0.0, _fa)
+		_lbl(opp_detail, str((boss as Dictionary).get("subtitle", "")), 11, Color.WHITE, Vector2(62, 41), 200.0, _fa)
+		_lbl(opp_detail, str(int((boss as Dictionary).get("xp", 0))), 16, APK_GOLD, Vector2(67, 59), 0.0, _fa)
+		_lbl(opp_detail, "XP", 16, Color.WHITE, Vector2(133, 59), 0.0, _fa)
+	_lbl(opp_detail, "WOUNDS", 16, Color.WHITE, Vector2(23, 95), 0.0, _fa)
+	var wc := HBoxContainer.new()
+	wc.position = Vector2(23, 123)
+	wc.add_theme_constant_override("separation", 3)
+	opp_detail.add_child(wc)
+	_icon_row(wc, 5, CardDB.total_wounds(pl), TEX_WOUND, TEX_WOUND_EMPTY, Vector2(21, 27))
+	_lbl(opp_detail, "SOULS", 16, Color.WHITE, Vector2(23, 157), 0.0, _fa)
+	var sc := HBoxContainer.new()
+	sc.position = Vector2(23, 183)
+	sc.add_theme_constant_override("separation", 0)
+	opp_detail.add_child(sc)
+	_icon_row(sc, 10, CardDB.total_souls(pl, G), TEX_SOUL, TEX_SOUL_EMPTY, Vector2(19, 26))
+	var hand: Array = pl.get("hand", [])
+	_lbl(opp_detail, "ROOM DECK", 16, Color.WHITE, Vector2(23, 227), 0.0, _fa)
+	_img(opp_detail, UI_DIR + "rooms_icon.webp", Vector2(22, 256), Vector2(50, 48))
+	_lbl(opp_detail, "x%d" % hand.filter(func(c): return bool((c as Dictionary).get("isRoom", false))).size(), 20, APK_GOLD, Vector2(89, 276), 0.0, _fa)
+	_lbl(opp_detail, "SPELL DECK", 16, Color.WHITE, Vector2(23, 327), 0.0, _fa)
+	_img(opp_detail, UI_DIR + "spells_icon.webp", Vector2(22, 356), Vector2(50, 48))
+	_lbl(opp_detail, "x%d" % hand.filter(func(c): return not bool((c as Dictionary).get("isRoom", false))).size(), 20, APK_GOLD, Vector2(89, 376), 0.0, _fa)
+
+## Bouton P<n> dore (cible hors ecran) ; vignette : cadre jaune (CollapsedOpponentDetail.HighLightCards, cs:355-364).
+func _foe_mark(b: Control, on: bool) -> void:
+	var border := b.get_node_or_null("Border") as Control
+	if border != null:
+		border.visible = on or int(b.get_meta("pid", -1)) == game_manager.active_player()
+	if on:
+		b.add_theme_color_override("font_color", GOLD)
+	else:
+		b.remove_theme_color_override("font_color")
 
 func _sync_slot_pids() -> void:
 	for slot in _dungeon_slots:
@@ -853,6 +1041,7 @@ func _init_dungeon_slots() -> void:
 		slot.activate_requested.connect(_on_slot_activate)
 		slot.zoom_on.connect(_zoom_show)
 		slot.zoom_off.connect(_zoom_close)
+		slot.zoom_stack.connect(func(di: int): _slot_zoom(view_pid, di))
 		slot.room_dropped.connect(func(_h: int, _s: int):
 			_play_sfx("ui_card_slide_down") # BuildRoomHandSceneBehavior.cs:182 -> FlipCardBehavior.cs:126 : la salle posee se retourne face cachee
 			refresh())
@@ -1467,6 +1656,8 @@ func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 		for k in range(ents.size() - 1, -1, -1): # la derniere d'abord : la premiere reste au premier plan
 			var tok := _create_entrance_card(ents[k])
 			tok.position = Vector2(-pitch * float(k), 0.0)
+			var lane_i := int(r[0])
+			tok.card_clicked.connect(func(_d): _queue_clicked(lane_i, ents))
 			box.add_child(tok)
 			toks[k] = tok
 			if flying and _bait_landed.get(_bait_key(pid_key, ents[k], k), 0) != _bait_t0: # carte arrivee par le leurre : cachee jusqu'a l'arrivee de son double, qui vole depuis la ville (voir _fly_hero_card)
@@ -1534,6 +1725,8 @@ func _create_entrance_card(hero: Dictionary) -> Control:
 	c.size = HERO_CARD
 	c.is_in_hand = false
 	c.setup(hero)
+	if BossEngine.hero_hp(hero) > BossEngine.hero_base_hp(hero):
+		c.add_heart(BossEngine.hero_hp(hero), true) # HeroCardEntity.cs:109 : PV gagnes (cardHeart, health_hero_buff_icon, chiffre or)
 	_item_tag(c, hero)
 	c.long_pressed.connect(_zoom_show)
 	c.long_released.connect(func(_c): _zoom_close())
@@ -1667,12 +1860,18 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 				room_ui.mouse_filter = Control.MOUSE_FILTER_PASS
 				room_ui.long_pressed.connect(_zoom_show)
 				room_ui.long_released.connect(func(_c): _zoom_close())
+				var fpid := foe_pid
+				room_ui.card_clicked.connect(func(_d): _slot_zoom(fpid, di)) # clic sans appui long : zoom de la pile
 				var fz: bool = BossEngine.is_room_deactivated(game_manager.G, foe_pid, di)
 				var fk := "%d:%d" % [foe_pid, di] # par salle (indice du moteur), pas par noeud : les salles glissent d'un noeud a l'autre quand le donjon grandit
 				room_ui.set_frozen(fz, fz != bool(prev_frozen.get(fk, false)) and not skip_animations)
 				_foe_frozen[fk] = fz
 				room_ui.set_face_down_scale()
 				var fd: bool = room_ui.card_data != null and room_ui.card_data.face_down
+				if not fd and not fz and str(r.get("type", "")) in ["monster", "trap"]:
+					var fdmg := BossEngine.room_damage_with_modifiers(game_manager.G, foe, di, null)
+					if fdmg != int(r.get("damage", 0)):
+						room_ui.add_heart(fdmg) # CardStackSlotComponent.cs:148 : degats courants de la salle du dessus, en or, quand ils different de l'imprime
 				if bool(prev_down.get(fk, false)) and not fd and not skip_animations:
 					# revelation : la salle adverse se retourne. Si elle declenche « when you build... », la bulle ROOM ABILITY de l'adversaire s'affiche
 					# (GamePlayBaseScene.cs:668 : Gameboard_AbilityApplyRequest pour toute capacite) et, sur les captures APK (notice_opponent_has_played_a_room_ability_*,
@@ -1973,9 +2172,18 @@ func _input(event: InputEvent) -> void:
 	if not _press.is_empty() and _drag.is_empty() and event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		_press = {}
 		_press_recheck.call_deferred() # apres _gui_input : si ce nouvel appui est sur une carte de la main, _on_hand_press a rearme _press
+	if _slide != null and is_instance_valid(_slide) and event is InputEventMouseButton and (event as InputEventMouseButton).pressed \
+			and not SLIDE_RECT.has_point((event as InputEventMouseButton).position) and not _slide_keep.has_point((event as InputEventMouseButton).position):
+		_slide_hide() # TouchOutBehavior : un appui hors du bandeau (et hors du bouton qui l'a ouvert, qui le referme lui-meme) le ferme
+	var ab = (_zoom.get_meta("ability") if _zoom != null and _zoom.has_meta("ability") else null) # zoom d'une salle activable : un appui sur la bordure de capacite resout
+	var hit := false
+	if ab != null and event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+		var host: Control = ab["host"]
+		hit = host.visible and (host == _zoom or host.modulate.a > 0.9) and (ab["rect"] as Rect2).has_point(host.get_global_transform().affine_inverse() * (event as InputEventMouseButton).position)
+	if not hit and _zoom != null and _zoom.has_meta("stack") and _zoom_stack_input(event):
+		get_viewport().set_input_as_handled()
+		return
 	if _zoom != null and event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
-		var ab = (_zoom.get_meta("ability") if _zoom.has_meta("ability") else null) # zoom d'une salle activable : un appui sur la bordure de capacite resout
-		var hit: bool = ab != null and (ab["rect"] as Rect2).has_point(_zoom.get_global_transform().affine_inverse() * (event as InputEventMouseButton).position)
 		_zoom_close() # le zoom de LEVEL UP part au clic suivant (le zoom d'appui long se ferme deja au relachement)
 		if hit:
 			get_viewport().set_input_as_handled() # le clic ne doit pas retomber sur l'emplacement dessous
@@ -2644,10 +2852,7 @@ func _popup_list(kind: String, title: String, entries: Array, cancel_cb: Callabl
 ## n'apparait qu'une fois une carte choisie (IsContinueButtonVisible). items : [{card: Dictionary, cb: Callable}].
 func _popup_cards(kind: String, title: String, items: Array, skip_cb: Callable = Callable()) -> void:
 	var pop := _popup_begin(kind, 0.0)
-	var band := _rect(pop, Color(0, 0, 0, 0.88), Vector2(184, 296), Vector2(1523, 400))
-	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for gy in [296.0, 696.0]:
-		_rect(pop, Color(0.667, 0.533, 0.2), Vector2(184, gy), Vector2(1523, 2))
+	_carousel_band(pop)
 	_img(pop, UI_DIR + "top_globe.webp", Vector2(PLAY_CX - 440, 150)) # levelup_14 : bulle x 510..1430
 	var fs := 26 if title.length() <= 44 else 21
 	var wrapped := ""
@@ -2851,8 +3056,8 @@ func _target_end() -> void:
 	if _sparkle_on:
 		_sparkle_on = false
 		AudioManager.stop_loop("sfx_sparklecard") # CardStackSlotComponent.cs:334
-	for b in foe_bar.get_children():
-		(b as Control).remove_theme_color_override("font_color")
+	for b in foe_bar.get_children() + opp_box.get_children():
+		_foe_mark(b as Control, false)
 
 ## Apres chaque refresh : les coups proposes doivent rester legaux (l'IA ou un autre siege a pu jouer), sinon le mode se ferme.
 func _target_sync(my_moves: Array) -> void:
@@ -2999,11 +3204,9 @@ func _target_apply_now(settle := true) -> void:
 			AudioManager.play_loop("sfx_sparklecard")
 		else:
 			AudioManager.stop_loop("sfx_sparklecard")
-	for b in foe_bar.get_children(): # adversaire hors ecran qui a des cibles : son bouton P<n> est dore
-		if b is Button and off_screen.has(int((b as Button).get_meta("pid", -1))):
-			(b as Button).add_theme_color_override("font_color", GOLD)
-		elif b is Button:
-			(b as Button).remove_theme_color_override("font_color")
+	for b in foe_bar.get_children() + opp_box.get_children(): # adversaire hors ecran qui a des cibles : son bouton P<n> / sa vignette est dore
+		if b is Button:
+			_foe_mark(b, off_screen.has(int((b as Button).get_meta("pid", -1))))
 
 ## Salle ciblable = bordure GreenGlow : CardStackSlotComponent.HighLightCards met EmitParticles (cs:309-311), CleanHighLightCards l'eteint (cs:331-334) ; seulement les salles
 ## (le heros, la ville, le joueur n'en ont pas). Emetteur 0,9 x la salle (CardEntity.cs:88-91), enfant de l'emplacement, derriere elle.
@@ -3455,6 +3658,10 @@ func _on_slot_activate(di: int) -> void:
 	if top == null:
 		_resolve_slot_ability(di, cands)
 		return
+	if (pl.get("dungeon", []) as Array)[di].size() > 1: # pile : toutes les salles (CarrouselVerticalComponent), capacite sur celle du dessus
+		_slot_zoom(_my_pid(), di, cands)
+		room_detail_shown.emit(di)
+		return
 	_zoom_hide()
 	var zs = _tg("zoom_scale", null, 1.0) # tutoriel : le zoom de la salle est 1,62 x plus grand que celui du jeu (tut_100 : boite de capacite 460 px de large, cadre bas a y 985)
 	zs = float(zs) if zs is float else 1.0
@@ -3470,12 +3677,7 @@ func _on_slot_activate(di: int) -> void:
 	_ui_layer.add_child(_zoom)
 	_zoom_appear()
 	hand_layer.modulate = Color(0.6, 0.6, 0.6)
-	var k := zc / Vector2(350.0, 488.0) # meme repere que DungeonSlot._update_glow : zone de texte a 116/488 sous le centre
-	var ab := Rect2(Vector2(pad, pad) + zc / 2.0 + Vector2(0, 116.0 * k.y) - Vector2(306, 102) * k / 2.0, Vector2(306, 102) * k)
-	var glow := UiKit.image(_zoom, "res://assets/ui/ingame/card_border_ability_glow.webp", ab.position, ab.size)
-	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	DungeonSlot.add_rings(glow, ab.size) # PulseBehavior : 3 anneaux qui grossissent (CardAttributesComponent.cs:324-327), relances toutes les 3 s (SimpleTimerBehavior, cs:328-331)
-	_zoom.set_meta("ability", {"rect": ab, "di": di, "cands": cands})
+	_zoom_ability(_zoom, zc, pad, di, cands)
 	room_detail_shown.emit(di)
 
 ## Resolution de la capacite d'une salle (apres le tap sur la bordure du zoom) : coup direct, ou choix de la salle cible (Centipede Tunnel...).
@@ -4373,51 +4575,330 @@ func _confirm_quit() -> void:
 	if on_exit_callback.is_valid():
 		on_exit_callback.call()
 
-func _on_discard_pile_pressed() -> void:
-	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
-	var decks: Dictionary = game_manager.G.get("decks", {})
-	var r_disc: Array = decks.get("roomDiscard", [])
-	var s_disc: Array = decks.get("spellDiscard", [])
-	var h_disc: Array = decks.get("heroDiscard", [])
+# ---------------------------------------------------------------------------------------------------------------------
+# Zooms de pile et carrousel central (CardZoomComponent + SlotDetailEntity + CarrouselVerticalComponent ; MiddleCarrouselEntity)
+# ---------------------------------------------------------------------------------------------------------------------
 
-	var dialog := AcceptDialog.new()
-	dialog.title = "DISCARD PILES"
-	dialog.size = Vector2i(700, 480)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 10)
+const STACK_Y := [-700.0, 0.0, 140.0, 175.0, 210.0, 245.0]   # CarrouselVerticalComponent.cs:44-51 : la carte choisie en 1, la precedente s'enfuit vers le haut en 0
+const STACK_K := [1.4, 1.2, 1.0, 1.0, 1.0, 1.0]
+const STACK_A := [0.0, 1.0, 0.8, 0.6, 0.4, 0.0]
+const SLIDE_RECT := Rect2(184, 296, 1523, 400)               # bandeau du carrousel central (mesure APK)
+const SLIDE_CX := 940.0                                      # MiddleCarrouselEntity (960, 498) + CarouselShowEntity.LocalX -20
+const SLIDE_CY := 498.0
+const BOSS_ZOOM_BOTTOM := [661.0, 1076.0]                    # bas du zoom du boss [adverse, mien] : bord droit 1730 ; le mien = LEVEL UP (frame APK), l'adverse 415 px plus haut (sprites 355 / 770)
 
-	var lbl := Label.new()
-	lbl.text = "Discarded Rooms (%d):\n%s\n\nDiscarded Spells (%d):\n%s\n\nDead Heroes (%d):\n%s" % [
-		r_disc.size(),
-		", ".join(r_disc.map(func(c): return str((c as Dictionary).get("name", "?")))),
-		s_disc.size(),
-		", ".join(s_disc.map(func(c): return str((c as Dictionary).get("name", "?")))),
-		h_disc.size(),
-		", ".join(h_disc.map(func(c): return str((c as Dictionary).get("name", "?"))))
-	]
-	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(660, 400)
-	scroll.add_child(lbl)
-	vbox.add_child(scroll)
-	dialog.add_child(vbox)
-	add_child(dialog)
-	dialog.visibility_changed.connect(func():
-		if not dialog.visible:
-			dialog.queue_free()) # OK / croix : la fenetre est liberee (sinon une de plus a chaque ouverture)
-	dialog.popup_centered()
+## Bandeau sombre a deux filets or du carrousel central (MiddleCarouselAnimationBehavior.CreateBackPanel) ; rendu dans un conteneur qui s'ouvre / se ferme en hauteur.
+func _carousel_band(parent: Control) -> Control:
+	var box := Control.new()
+	box.name = "Band"
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.position = SLIDE_RECT.position
+	box.size = SLIDE_RECT.size
+	box.pivot_offset = SLIDE_RECT.size / 2.0
+	parent.add_child(box)
+	_rect(box, Color(0, 0, 0, 0.88), Vector2.ZERO, SLIDE_RECT.size)
+	for gy in [0.0, SLIDE_RECT.size.y]:
+		_rect(box, Color(0.667, 0.533, 0.2), Vector2(0, gy), Vector2(SLIDE_RECT.size.x, 2))
+	return box
 
-## APK (GamePlayBaseScene.ShowZoomCard) : LEVEL UP montre mon boss en grand (x1,3), cadre noir 450 x 632 en bas a droite (x 1280..1730, y 444..1076).
-func _on_level_up_pressed() -> void: # pas de son propre (TopRightPanelEntity.cs:155) : le zoom joue ui_card_slide_up (_zoom_appear)
-	var boss = (((game_manager.G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary)).get("boss")
-	if boss == null:
+## Place la pile verticale (index flottant = carte choisie) : CarrouselComponent interpole positions, echelles et opacites entre les rangs voisins.
+func _zoom_stack_layout() -> void:
+	var st: Dictionary = _zoom.get_meta("stack")
+	var k: float = st["k"]
+	var idx: float = st["idx"]
+	for i in _zoom.get_child_count():
+		var z := _zoom.get_child(i) as Control
+		var rel := float(i) - idx + 1.0
+		z.visible = rel >= 0.0 and rel <= 5.0
+		if not z.visible:
+			continue
+		var a := mini(int(floorf(rel)), 4)
+		var f := rel - float(a)
+		z.position = Vector2(-z.size.x / 2.0, lerpf(STACK_Y[a], STACK_Y[a + 1], f) * k - z.size.y / 2.0)
+		z.scale = Vector2.ONE * lerpf(STACK_K[a], STACK_K[a + 1], f)
+		z.modulate.a = lerpf(STACK_A[a], STACK_A[a + 1], f)
+		z.z_index = 10 - roundi(rel)
+
+## Zoom d'une pile : cartes empilees verticalement autour de `center` (la premiere devant, a l'echelle 1,2), le reste depasse en dessous ; glisser / molette = defiler.
+## Reste ouvert jusqu'a un appui hors de la zone (TouchOutBehavior).
+func _zoom_stack(cards: Array, center: Vector2, sz: Vector2, k: float) -> void:
+	_zoom_hide()
+	var root := Control.new()
+	root.name = "StackZoom"
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.position = center
+	root.set_meta("levelup", true) # survit aux refresh jusqu'au clic suivant (_input)
+	root.set_meta("stack", {"idx": 0.0, "k": k, "rect": Rect2(center - Vector2(260, 390) * k, Vector2(520, 780) * k)}) # collider 400 x 600 de SlotDetailEntity x 1,3 (AppearBehavior)
+	for c in cards:
+		var z := UiKit.zoom_card(c, sz)
+		z.pivot_offset = z.size / 2.0
+		root.add_child(z)
+	_zoom = root
+	_ui_layer.add_child(root)
+	_zoom_stack_layout()
+	_zoom_appear()
+	hand_layer.modulate = Color(0.6, 0.6, 0.6)
+
+## Glisser vertical (CarrouselDragBehavior) et molette dans la zone du zoom de pile ; vrai = evenement consomme. Relachement : la carte la plus proche se cale.
+func _zoom_stack_input(event: InputEvent) -> bool:
+	var st: Dictionary = _zoom.get_meta("stack")
+	var rect: Rect2 = st["rect"]
+	var n := _zoom.get_child_count()
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT:
+			if mb.pressed and rect.has_point(mb.position):
+				st["drag"] = {"y": mb.position.y, "i0": float(st["idx"])}
+				return true
+			if not mb.pressed and st.has("drag"):
+				st.erase("drag")
+				_zoom_stack_snap(roundf(float(st["idx"])))
+				return true
+		elif mb.pressed and (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN) and rect.has_point(mb.position):
+			_zoom_stack_snap(clampf(roundf(float(st["idx"])) + (1.0 if mb.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1.0), 0.0, float(n - 1)))
+			return true
+	elif event is InputEventMouseMotion and st.has("drag"):
+		var d: Dictionary = st["drag"]
+		st["idx"] = clampf(float(d["i0"]) - ((event as InputEventMouseMotion).position.y - float(d["y"])) / (STACK_Y[2] * float(st["k"])), 0.0, float(n - 1))
+		_zoom_stack_layout()
+		return true
+	return false
+
+func _zoom_stack_snap(target: float) -> void:
+	var st: Dictionary = _zoom.get_meta("stack")
+	var zoom := _zoom
+	if skip_animations:
+		st["idx"] = target
+		_zoom_stack_layout()
+		return
+	zoom.create_tween().tween_method(func(v: float):
+		st["idx"] = v
+		_zoom_stack_layout(), float(st["idx"]), target, 0.15)
+
+## Bordure de capacite sur une carte zoomee (CardAttributesComponent.UpdateRoomAbilityBorder) : un appui dessus resout la capacite (_input). `host` = la carte, `zc` sa taille hors cadre.
+func _zoom_ability(host: Control, zc: Vector2, pad: float, di: int, cands: Array) -> void:
+	var k := zc / Vector2(350.0, 488.0) # meme repere que DungeonSlot._update_glow : zone de texte a 116/488 sous le centre
+	var ab := Rect2(Vector2(pad, pad) + zc / 2.0 + Vector2(0, 116.0 * k.y) - Vector2(306, 102) * k / 2.0, Vector2(306, 102) * k)
+	var glow := UiKit.image(host, "res://assets/ui/ingame/card_border_ability_glow.webp", ab.position, ab.size)
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	DungeonSlot.add_rings(glow, ab.size) # PulseBehavior : 3 anneaux qui grossissent (CardAttributesComponent.cs:324-327), relances toutes les 3 s (SimpleTimerBehavior, cs:328-331)
+	_zoom.set_meta("ability", {"rect": ab, "di": di, "cands": cands, "host": host})
+
+## Clic sur une pile de salles (GamePlayBaseScene.DungeonFrame_ShowRoomSlotDetail, cs:681-718) : toutes les salles de la pile, la plus haute d'abord, a la hauteur de l'emplacement
+## (y borne a 400..600). `cands` : coups de capacite de la salle du dessus (zoom d'une salle activable).
+func _slot_zoom(pid: int, di: int, cands := []) -> void:
+	if _modal_open() or (_popup != null and is_instance_valid(_popup)) or not _tgt.is_empty():
+		return
+	var dungeon: Array = ((game_manager.G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary).get("dungeon", [])
+	if di < 0 or di >= dungeon.size():
+		return
+	var cards: Array = (dungeon[di] as Array).duplicate()
+	cards.reverse()
+	if cards.is_empty() or bool((cards[0] as Dictionary).get("faceDown", false)):
+		return # pose en attente ou salle adverse face cachee : rien a montrer
+	var slots: Array = _dungeon_slots if pid == view_pid else _foe_slots
+	var j := di + maxi(0, CardDB.DUNGEON_SLOTS - dungeon.size())
+	var at := Vector2(960.0, 500.0)
+	if j < slots.size():
+		at = (slots[j] as Control).get_global_rect().get_center()
+	var sz := UiKit.ZOOM_CARD
+	var half := sz.x * 0.6 + UiKit.ZOOM_PAD
+	_zoom_stack(cards, Vector2(clampf(at.x, 190.0 + half, 1707.0 - half), clampf(at.y, 400.0, 600.0)), sz, 1.0)
+	if not cands.is_empty():
+		_zoom_ability(_zoom.get_child(0), sz, UiKit.ZOOM_PAD, di, cands)
+
+## Clic sur le boss d'un couloir (DungeonFrameEntity.cs:269 -> GamePlayBaseScene.ShowZoomCard, cs:1221-1244) : sa carte x1,3, bord droit a 1730 ; avec des sorts gardes
+## jusqu'a la fin de la partie (Boss.UntilEndOfTurnSpells) : pile boss + sorts a 0,8.
+func _boss_zoom(lane: int) -> void:
+	var pid := view_pid if lane == 1 else foe_pid
+	var pl: Dictionary = (game_manager.G.get("players", {}) as Dictionary).get(pid, {})
+	var boss = pl.get("boss") if lane == 1 else _opp_boss(pid)
+	if boss == null or _modal_open() or not _tgt.is_empty():
+		return
+	var cards: Array = [boss]
+	for e in (pl.get("untilEndSpells", []) as Array):
+		cards.append((e as Dictionary).get("card", {}))
+	var bottom: float = BOSS_ZOOM_BOTTOM[lane]
+	if cards.size() > 1:
+		var sz := UiKit.ZOOM_CARD * 0.8
+		_zoom_stack(cards, Vector2(1730.0 - sz.x * 0.6 - UiKit.ZOOM_PAD, bottom - 316.0 - (100.0 if lane == 1 else 0.0)), sz, 0.8)
 		return
 	_zoom_hide()
 	_zoom = UiKit.zoom_card(boss, UiKit.ZOOM_CARD * 1.3)
 	_zoom.set_meta("levelup", true)
-	_zoom.position = Vector2(1730.0 - _zoom.size.x, 1076.0 - _zoom.size.y) # APK : bord droit x 1730, bas y 1076 (couvre le bouton)
+	_zoom.position = Vector2(1730.0 - _zoom.size.x, bottom - _zoom.size.y)
 	_ui_layer.add_child(_zoom)
 	_zoom_appear()
+
+## Clic sur la file d'entree (DungeonFrameEntity.cs:382 -> DungeonFrame_ShowDungeonQueue, cs:720-745) : deux heros ou plus = diaporama, un seul = zoom x1,3 au centre.
+func _queue_clicked(lane: int, ents: Array) -> void:
+	if ents.is_empty() or _modal_open() or (_popup != null and is_instance_valid(_popup)) or not _tgt.is_empty():
+		return
+	var box: Control = (_lane[lane] as Dictionary)["entrance"]
+	var keep := Rect2(box.get_global_rect().get_center() - Vector2(150, 100), Vector2(300, 200)) # collider 300 x 200 de la file
+	var heroes := ents.duplicate()
+	heroes.reverse()
+	if heroes.size() > 1:
+		_slide_toggle(heroes, keep)
+	elif _slide != null and is_instance_valid(_slide):
+		_slide_hide()
+	else:
+		_zoom_hide()
+		_zoom = UiKit.zoom_card(heroes[0], UiKit.ZOOM_CARD * 1.3)
+		_zoom.set_meta("levelup", true)
+		_zoom.position = Vector2(STACK_CX, 498.0) - _zoom.size / 2.0
+		_ui_layer.add_child(_zoom)
+		_zoom_appear()
+		hand_layer.modulate = Color(0.6, 0.6, 0.6)
+
+## Diaporama du carrousel central (MiddleCarouselShowComponent.ShowSlideShow / CarouselShowComponent) : bandeau qui s'ouvre en 0,5 s, cartes 0,7 x qui arrivent d'en bas
+## l'une apres l'autre (1 s, CubicEase) et se rangent en eventail plat ; la carte survolee (apres 0,3 s) passe a 1,2 x, 80 px plus haut. Un appui hors du bandeau le ferme.
+## `keep` : zone du bouton / de la file qui l'a ouvert (son propre appui le referme).
+func _slide_toggle(cards: Array, keep: Rect2) -> void:
+	if _slide != null and is_instance_valid(_slide):
+		_slide_hide()
+		return
+	if cards.is_empty():
+		return
+	_zoom_hide()
+	_slide_keep = keep
+	_slide_gen += 1
+	_slide_sel = -1
+	_slide_hot = false
+	_slide_cards = []
+	_slide = Control.new()
+	_slide.name = "Slideshow"
+	_slide.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_slide.size = Vector2(1920, 1080)
+	_slide.z_index = 30
+	add_child(_slide)
+	var band := _carousel_band(_slide)
+	if not skip_animations:
+		band.scale.y = 0.0
+		band.create_tween().tween_property(band, "scale:y", 1.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	var n := cards.size()
+	var gen := _slide_gen
+	for i in n:
+		var cu: CardUI = _card_scene.instantiate()
+		cu.default_size = BIG_CARD
+		_slide.add_child(cu)
+		cu.size = BIG_CARD
+		cu.pivot_offset = BIG_CARD / 2.0
+		cu.setup(cards[i])
+		if cu.border != null:
+			cu.border.visible = false
+		cu.mouse_entered.disconnect(cu._on_mouse_entered) # le survol est celui du carrousel (_slide_set)
+		cu.mouse_exited.disconnect(cu._on_mouse_exited)
+		var idx := i
+		cu.mouse_entered.connect(func(): _slide_hover(idx, gen))
+		cu.mouse_exited.connect(func(): _slide_unhover(gen))
+		cu.position = Vector2(SLIDE_CX, SLIDE_CY + 1080.0) - BIG_CARD / 2.0 # (0, hauteur de l'ecran) dans le repere du carrousel
+		cu.visible = false
+		_slide_cards.append(cu)
+		# AddCarouselCardsBehavior.cs:76-104 : la carte k est ajoutee quand CubicEase(t / 1 s) depasse k / n
+		var t := 0.0 if skip_animations else 1.0 - pow(1.0 - float(i) / float(n), 1.0 / 3.0)
+		if t <= 0.0:
+			_slide_attach(cu)
+		else:
+			var cid := cu.get_instance_id() # un Object libere capture dans un lambda fait echouer l'appel : on garde l'id
+			get_tree().create_timer(t).timeout.connect(func():
+				var c = instance_from_id(cid)
+				if gen == _slide_gen and c != null:
+					_slide_attach(c))
+
+var _slide: Control
+var _slide_cards: Array = []
+var _slide_sel := -1
+var _slide_hot := false
+var _slide_gen := 0
+var _slide_keep := Rect2()
+
+func _slide_attach(cu: CardUI) -> void:
+	cu.visible = true
+	_play_sfx("ui_card_slide_general") # AddCarouselCardsBehavior.cs:93
+	_slide_layout()
+
+## CardPositionComponent.PositionX/Y/Scale/DrawOrder (cs:105-145) pour les cartes deja arrivees : MaxDistanceBtwCards 900 plafonne a la largeur utile 1200 ; la carte choisie
+## laisse la place d'une carte de plus aux suivantes.
+func _slide_layout() -> void:
+	var live: Array = _slide_cards.filter(func(c): return (c as Control).visible)
+	var n := live.size()
+	var half := minf(float(n - n % 2) * 900.0, 1200.0) * 0.5
+	for i in n:
+		var cu: CardUI = live[i]
+		var on := i == _slide_sel
+		var num := float(n) if (_slide_sel < 0 or on) else float(n + 1)
+		var at := i + (1 if (_slide_sel >= 0 and not on and i > _slide_sel) else 0)
+		var c := Vector2(SLIDE_CX + lerpf(-half, half, float(at + 1) / (num + 1.0)), SLIDE_CY - (80.0 if on else 0.0))
+		var sc := Vector2.ONE * (1.2 / 0.7 if on else 1.0)
+		cu.z_index = 100 if on else (n - i if (_slide_sel >= 0 and i > _slide_sel) else i)
+		if skip_animations:
+			cu.position = c - BIG_CARD / 2.0
+			cu.scale = sc
+		else:
+			CardUI.lerp_vers(cu, "position", c - BIG_CARD / 2.0) # CardMoveBehavior
+			CardUI.lerp_vers(cu, "scale", sc)
+
+func _slide_hover(i: int, gen: int) -> void:
+	if gen != _slide_gen:
+		return
+	if _slide_hot:
+		_slide_sel = i
+		_slide_layout()
+		return
+	await get_tree().create_timer(0.3).timeout # CardHoverWithDelayBehavior.TimeBeforeHover
+	if gen == _slide_gen and i < _slide_cards.size() and (_slide_cards[i] as Control).is_hovered():
+		_slide_hot = true
+		_slide_sel = i
+		_slide_layout()
+
+func _slide_unhover(gen: int) -> void:
+	if gen != _slide_gen:
+		return
+	_slide_sel = -1
+	_slide_layout()
+	await get_tree().process_frame
+	if gen == _slide_gen and not _slide_cards.any(func(c): return (c as Control).is_hovered()):
+		_slide_hot = false
+
+func _slide_hide() -> void:
+	var s := _slide
+	_slide = null
+	_slide_gen += 1
+	_slide_sel = -1
+	if s == null or not is_instance_valid(s):
+		return
+	if skip_animations:
+		s.queue_free()
+		return
+	var tw := s.create_tween().set_parallel(true) # CarouselShowComponent.CreateDisappearAnimationTask : fondu 0,1 s ; le bandeau se referme en 0,5 s
+	for c in s.get_children():
+		if c is CardUI:
+			(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+			tw.tween_property(c, "modulate:a", 0.0, 0.1)
+		else:
+			tw.tween_property(c, "scale:y", 0.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tw.chain().tween_callback(s.queue_free)
+
+## Defausse (GamePlayBaseScene.TopLeftPanel_ShowDiscardPile, cs:748-766) : salles puis sorts defaussees, en diaporama ; un second appui referme.
+func _on_discard_pile_pressed() -> void:
+	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
+	if _modal_open() or (_popup != null and is_instance_valid(_popup)):
+		return
+	var decks: Dictionary = game_manager.G.get("decks", {})
+	var cards: Array = []
+	for c in (decks.get("roomDiscard", []) as Array) + (decks.get("spellDiscard", []) as Array):
+		var d: Dictionary = (c as Dictionary).duplicate()
+		d["faceDown"] = false
+		cards.append(d)
+	if _slide != null and is_instance_valid(_slide):
+		_slide_hide()
+	elif not cards.is_empty():
+		_slide_toggle(cards, discard_btn.get_global_rect())
+
+## APK (GamePlayBaseScene.ShowZoomCard) : LEVEL UP montre mon boss en grand (x1,3), cadre noir 450 x 632 en bas a droite (x 1280..1730, y 444..1076).
+func _on_level_up_pressed() -> void: # pas de son propre (TopRightPanelEntity.cs:155) : le zoom joue ui_card_slide_up (_zoom_appear)
+	_boss_zoom(1)
 
 ## Badge DAMAGE = AIHelper.GetDungeonDamage (AIHelper.cs:95-117) : salles actives, non en attente, degats modifies (GetTopRoomTotalDamage) ;
 ## defaut conserve : la salle qui suit un BMA017 Minotaur's Maze (dans l'ordre APK = index Godot decroissant) est comptee deux fois.

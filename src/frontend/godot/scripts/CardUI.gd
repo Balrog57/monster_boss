@@ -215,6 +215,40 @@ func _update_view() -> void:
 		else:
 			stat_label.text = ""
 
+## Coeur de valeur modifiee (SlotRoomCardEntity.cs:24-30, HeroCardEntity.cs:79-86) : HeartEntity en (-115, 195) de la carte 350 x 488, echelle 1,3, chiffre or ;
+## degats courants d'une salle, PV d'un heros dope (`buff`). L'appelant ne l'ajoute que si la valeur differe de l'imprimee.
+func add_heart(value: int, buff := false) -> void:
+	var old := get_node_or_null("ValueHeart")
+	if old != null:
+		remove_child(old)
+		old.queue_free()
+	var k := default_size / Vector2(350.0, 488.0)
+	var s := 1.3 * k.x
+	var h := Control.new()
+	h.name = "ValueHeart"
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.position = default_size / 2.0 + Vector2(-115.0, 195.0) * k
+	add_child(h)
+	for it in [["res://assets/ui/gradients/health_room_icon_glow.webp", Vector2(90, 82)], ["res://assets/ui/ingame/%s.webp" % ("health_hero_buff_icon" if buff else "health_room_icon"), Vector2(70, 62)]]:
+		var t := TextureRect.new()
+		t.texture = load(it[0])
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_SCALE
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		t.size = (it[1] as Vector2) * s
+		t.position = -t.size / 2.0
+		h.add_child(t)
+	var lb := Label.new()
+	lb.text = str(value)
+	lb.add_theme_font_override("font", load("res://assets/fonts/arcadepix.fnt"))
+	lb.add_theme_font_size_override("font_size", maxi(8, roundi(22.0 * s)))
+	lb.add_theme_color_override("font_color", Color(0.804, 0.694, 0.373))
+	lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lb.position = Vector2(-22.0, -15.0) * s
+	lb.size = Vector2(40.0 * s, 24.0 * s)
+	h.add_child(lb)
+
 ## Pastille ronde de type de salle posee sur le coin haut-gauche des salles des couloirs (APK : monstre / pieges, doree = avancee).
 func add_lane_badge() -> void:
 	if card_data == null or card_data.face_down or not (card_data.card_type in ["monster", "trap"]):

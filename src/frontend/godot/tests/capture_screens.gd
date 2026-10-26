@@ -52,6 +52,11 @@ func _ready() -> void:
 		print("BOARD SCREENS CAPTURED: ", n_shots)
 		get_tree().quit(0)
 		return
+	if only == "opp": # panneaux adverses 3-4 joueurs (pas de frame APK : verrou payant), zooms boss / pile / defausse
+		await _opp_shots()
+		print("OPP SCREENS CAPTURED: ", n_shots)
+		get_tree().quit(0)
+		return
 	if only == "menus": # menus + ecrans de fin (iteration rapide sur l'interface)
 		await _menus()
 		await _end_screens()
@@ -130,6 +135,28 @@ func _menus() -> void:
 	main_scene.queue_free()
 	main_scene = null
 	await _frames()
+
+## 3-4 joueurs : colonne droite de TopRightPanelEntity (vignettes CollapsedOpponentDetail, panneau ExpandedOpponentDetail). Pas de frame APK : seul le C# fait foi.
+func _opp_shots() -> void:
+	for n in [3, 4]:
+		await _new_game(424242, "", n, 1)
+		for pid in range(1, n):
+			var q: Dictionary = gm.G["players"][pid]
+			for k in pid:
+				(q["wounds"] as Array).append({"wounds": 1})
+			for k in 2 * pid + 1:
+				(q["souls"] as Array).append({"souls": 1})
+		_hand_n(5, 1)
+		await _settle()
+		await _shot("opp_%dp_collapsed_vignettes_right_column" % n)
+		if n == 3:
+			board.opp_box.get_child(0).pressed.emit() # vignette deja choisie : second appui = panneau etendu
+			await _wait(0.8)
+			await _shot("opp_3p_expanded_panel_open")
+			board.opp_box.get_child(1).pressed.emit() # autre adversaire : le panneau suit
+			await _wait(0.4)
+			await _shot("opp_3p_second_opponent_selected_expanded_follows")
+		await _teardown()
 
 ## 5-6 joueurs (lot 2.4b) : pas de frame APK, captures de controle de lisibilite.
 func _big_games() -> void:

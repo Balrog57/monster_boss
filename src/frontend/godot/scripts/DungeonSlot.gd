@@ -10,6 +10,7 @@ signal room_dropped(hand_index: int, slot_index: int) ## emis APRES une construc
 signal activate_requested(slot_index: int)
 signal zoom_on(card: Control)  ## appui long sur la salle : zoom (BoardUI)
 signal zoom_off
+signal zoom_stack(slot_index: int)  ## clic sur une salle non activable : zoom de la pile (BoardUI._slot_zoom)
 
 @export var slot_index: int = 0
 var game_manager: GameManager
@@ -79,6 +80,9 @@ func _update_view() -> void:
 		card_ui.mouse_filter = Control.MOUSE_FILTER_PASS # le clic atteint l'emplacement (capacite de la salle)
 		card_ui.long_pressed.connect(func(c): zoom_on.emit(c))
 		card_ui.long_released.connect(func(_c): zoom_off.emit())
+		card_ui.card_clicked.connect(func(_d): # clic sans appui long ni glisser ; une salle activable ouvre son zoom par _gui_input
+			if not (activatable or undoable):
+				zoom_stack.emit(slot_index))
 		var frozen: bool = game_manager != null and BossEngine.is_room_deactivated(game_manager.G, player_id, slot_index)
 		var fkey := "%d:%d" % [player_id, slot_index]
 		card_ui.set_frozen(frozen, frozen != frozen_seen.has(fkey) and DisplayServer.get_name() != "headless")
@@ -88,6 +92,10 @@ func _update_view() -> void:
 			frozen_seen.erase(fkey)
 		card_ui.set_face_down_scale()
 		var down: bool = card_ui.card_data != null and card_ui.card_data.face_down
+		if game_manager != null and not down and not frozen:
+			var dmg := BossEngine.room_damage_with_modifiers(game_manager.G, (game_manager.G["players"] as Dictionary)[player_id], slot_index, null)
+			if card_ui.card_data.card_type in ["monster", "trap"] and dmg != int(active_room.get("damage", 0)):
+				card_ui.add_heart(dmg) # CardStackSlotComponent.cs:148 : degats courants de la salle du dessus quand ils different de l'imprime
 		if _was_down and not down and DisplayServer.get_name() != "headless":
 			card_ui.flip_in()
 		_was_down = down

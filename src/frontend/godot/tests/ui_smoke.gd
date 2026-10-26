@@ -286,6 +286,10 @@ func _play_game(g: Dictionary) -> void:
 func _hand_cards() -> Array:
 	return board.hand_layer.get_children().filter(func(c): return not c.is_queued_for_deletion())
 
+## Selecteur d'adversaire : vignettes de la colonne droite (3-4 joueurs) ou boutons P<n> de la barre du haut (5-6) ; `selected` = deja affiche.
+func _foe_buttons() -> Array:
+	return (_buttons(board.foe_bar) + _buttons(board.opp_box)).filter(func(b): return not (b as Button).disabled and not bool((b as Button).get_meta("selected", false)))
+
 func _buttons(n: Node, out: Array = []) -> Array:
 	for c in n.get_children():
 		if c.is_queued_for_deletion():
@@ -736,7 +740,7 @@ func _pick_on_board(n_cands: int, what: String, mandatory := false) -> void: # m
 	_cov("target_board")
 	var spots: Array = board._tgt_spots
 	if spots.is_empty(): # cibles chez un adversaire non affiche (3-4 joueurs) : son bouton P<n> est dore, on le choisit
-		var gold := _buttons(board.foe_bar).filter(func(b): return (b as Button).has_theme_color_override("font_color") and not (b as Button).disabled)
+		var gold := _foe_buttons().filter(func(b): return (b as Button).has_theme_color_override("font_color"))
 		if _check(not gold.is_empty(), "%s : aucune cible a l'ecran et aucun adversaire dore" % what):
 			(gold[0] as Button).pressed.emit()
 			for i in 3:
@@ -802,7 +806,7 @@ func _do_slot(pid: int, di: int, cands: Array) -> void:
 	var click := InputEventMouseButton.new()
 	click.button_index = MOUSE_BUTTON_LEFT
 	click.pressed = true
-	click.position = board._zoom.get_global_transform() * ab.get_center()
+	click.position = (board._zoom.get_meta("ability")["host"] as Control).get_global_transform() * ab.get_center() # la carte du dessus (pile : enfant du zoom)
 	board._input(click)
 	_check(board._zoom == null, "capacite salle %d : le zoom reste apres le tap sur la bordure" % di)
 	await _pick_target(cands.size(), "capacite salle %d" % di)
@@ -950,17 +954,21 @@ func _noise(pid: int) -> void:
 			board._input(click)
 			_check(board._zoom == null, "bouton LEVEL UP : le zoom reste apres un clic")
 			_cov("levelup_click")
-		3: # pile de defausse : la fenetre se ferme et se libere
+		3: # pile de defausse : diaporama central (rien de modal), le second appui le referme
+			var decks: Dictionary = board.game_manager.G["decks"]
+			(decks["roomDiscard"] as Array).append(CardDB.rooms[0].duplicate(true))
+			(decks["spellDiscard"] as Array).append(CardDB.spells[0].duplicate(true))
+			var n0: int = (decks["roomDiscard"] as Array).size() + (decks["spellDiscard"] as Array).size() - 2
+			var s1 := _sig()
 			board._on_discard_pile_pressed()
 			await get_tree().process_frame
-			var dlgs: Array = board.get_children().filter(func(c): return c is AcceptDialog and not c.is_queued_for_deletion())
-			if _check(dlgs.size() == 1, "pile de defausse : %d fenetres ouvertes" % dlgs.size()):
-				(dlgs[0] as AcceptDialog).get_ok_button().pressed.emit()
+			if _check(board._slide != null and is_instance_valid(board._slide), "pile de defausse : diaporama absent"):
+				_check(board._slide_cards.size() == n0 + 2, "pile de defausse : %d cartes au lieu de %d" % [board._slide_cards.size(), n0 + 2])
+				board._on_discard_pile_pressed()
 				await get_tree().process_frame
-				await get_tree().process_frame
-				var left: Array = board.get_children().filter(func(c): return c is AcceptDialog and not c.is_queued_for_deletion())
-				_check(left.is_empty(), "pile de defausse : la fenetre fermee n'est pas liberee (%d restent)" % left.size())
-			_check(_sig() == s0, "pile de defausse : l'etat a change")
+				_check(board._slide == null, "pile de defausse : le second appui ne referme pas")
+			_check(board.get_children().filter(func(c): return c is AcceptDialog).is_empty(), "pile de defausse : fenetre residuelle")
+			_check(_sig() == s1, "pile de defausse : l'etat a change")
 			_cov("discard_pile")
 		4: # menu engrenage : ouvre, la partie est en pause, referme
 			board._on_menu_pressed()
@@ -988,8 +996,7 @@ func _noise(pid: int) -> void:
 			board.refresh()
 			_cov("rules_toggle")
 		6: # selecteur d'adversaire (3-4 joueurs)
-			var fb: Container = board.foe_bar
-			var bs := _buttons(fb).filter(func(b): return not (b as Button).disabled)
+			var bs := _foe_buttons()
 			if not bs.is_empty():
 				(bs[rng.randi_range(0, bs.size() - 1)] as Button).pressed.emit()
 				await get_tree().process_frame
@@ -3168,14 +3175,14 @@ func _check_apk_anims() -> void:
 	gm.G["activePlayer"] = 1
 	board.refresh()
 	await _wait(0.1)
-	var ffx: Array = _emitting(board.foe_bar)
+	var ffx: Array = _emitting(board.opp_box)
 	_check(ffx.size() == 1 and (ffx[0] as Node).get_parent().get_meta("pid") == 1, "panneau adverse : seul l'adversaire actif doit emettre (%d emetteur(s))" % ffx.size())
 	if not ffx.is_empty():
 		var bt := (ffx[0] as Node).get_parent() as Control
 		_check(is_equal_approx(absf((ffx[0] as ApkParticles).emission_points[0].x) * 2.0, bt.size.x * ApkParticles.ECHELLE), "panneau adverse : emetteur = 0,9 x le panneau")
 	gm.G["activePlayer"] = 0
 	board.refresh()
-	_check(_emitting(board.foe_bar).is_empty(), "panneau adverse : plus d'emission quand le joueur actif est un autre")
+	_check(_emitting(board.opp_box).is_empty(), "panneau adverse : plus d'emission quand le joueur actif est un autre")
 	_cov("foe_particles")
 
 ## Fenetres a l'horloge murale : Godot plafonne delta (~0,13 s) quand les images sont lentes (web, onglet en arriere-plan, ~1 image/s) ; une
