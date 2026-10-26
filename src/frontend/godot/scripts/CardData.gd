@@ -61,7 +61,7 @@ static func from_dict(d: Dictionary, kind_hint: String = "") -> Resource:
 		if c.face_down:
 			c.texture_path = db.card_image("", "back-room")
 		else:
-			c.texture_path = db.card_image(c.id, c.card_type)
+			c.texture_path = db.card_image(c.id, c.card_type, int(d.get("art", 1)))
 		if c.texture_path != "" and ResourceLoader.exists(c.texture_path):
 			c.texture = load(c.texture_path)
 	return c

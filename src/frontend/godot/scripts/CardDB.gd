@@ -74,12 +74,21 @@ func get_card_data(card_id: String) -> Resource:
 			return res
 	return null
 
+## AlternativeArts de l'APK (CardDecks/BaseDeck/data.json) : ces cartes ont un 2e dessin (<id>b.webp).
+const ALT_ARTS := {"BMA017": 1, "BMA021": 1, "BMA023": 1, "BMA029": 1, "BMA040": 1, "BMA042": 1, "BMA053": 1}
+
 static func expanded_deck(cards: Array) -> Array:
 	var out: Array = []
 	for c in cards:
 		var qty := int((c as Dictionary).get("quantity", 1))
+		var alt := int(ALT_ARTS.get(str((c as Dictionary).get("id", "")), 0))
+		var art := 0
 		for i in qty:
-			out.append((c as Dictionary).duplicate())
+			var d: Dictionary = (c as Dictionary).duplicate()
+			if alt > 0:
+				art = art % (alt + 1) + 1 # GameBoardExtensions.cs:GetLogicCards : le dessin tourne d'un exemplaire a l'autre (1 = a, 2 = b...)
+				d["art"] = art
+			out.append(d)
 	return out
 
 func shuffled(arr: Array) -> Array:
@@ -138,7 +147,7 @@ static func draw_pile(decks: Dictionary, pile: String, n: int, rng: RandomNumber
 
 ## Chemin d'image carte, miroir de getWikiCardImage/getApkCardImage (web: /cards/...).
 ## Priorité : textures authentiques de l'APK (res://assets/apk_cards/), puis wiki (res://assets/cards/).
-func card_image(id: String, kind: String) -> String:
+func card_image(id: String, kind: String, art := 1) -> String:
 	# 1. Dos de carte
 	match kind:
 		"back-room":
@@ -168,6 +177,8 @@ func card_image(id: String, kind: String) -> String:
 	# 2. Recherche prioritaire dans les textures authentiques de l'APK (res://assets/apk_cards/)
 	var stem := id.to_lower()
 	for folder in ["base", "hidden", "playerchoice", "tools"]:
+		if art > 1 and ResourceLoader.exists("res://assets/apk_cards/%s/%s%s.webp" % [folder, stem, char(96 + art)]):
+			return "res://assets/apk_cards/%s/%s%s.webp" % [folder, stem, char(96 + art)] # CardAssetService.GetFrontCardAsset : suffixe a, b...
 		var p1 := "res://assets/apk_cards/%s/%s.webp" % [folder, stem]
 		if ResourceLoader.exists(p1):
 			return p1

@@ -476,12 +476,12 @@ func _check_stacks() -> void:
 	board.foe_pid = 1
 	board.refresh()
 	await get_tree().process_frame
-	# Mon couloir : 3 emplacements remplis, piles de 1, 2 et 3 salles -> 0, 1 et 2 salles recouvertes
+	# Mon couloir : 3 emplacements remplis, piles de 1, 2 et 3 salles -> 0, 1 et 1 salle recouverte (l'APK n'en montre qu'une, Take(2))
 	var seen := {}
 	for sl in board._dungeon_slots:
 		var d := sl as DungeonSlot
 		var unders := d.get_children().filter(func(c): return c.is_in_group("under_card"))
-		var want: int = maxi(d.current_stack.size() - 1, 0)
+		var want: int = mini(maxi(d.current_stack.size() - 1, 0), DungeonSlot.MAX_PEEK)
 		_check(unders.size() == want, "pile de %d salles : %d cartes recouvertes dessinees (%d attendues)" % [d.current_stack.size(), unders.size(), want])
 		for k in unders.size(): # la plus profonde d'abord, chacune 28 px plus haut que la suivante
 			var depth := unders.size() - k
@@ -490,19 +490,19 @@ func _check_stacks() -> void:
 		if not unders.is_empty():
 			_check(unders[unders.size() - 1].get_index() < d.card_container.get_index(), "la salle recouverte doit etre derriere la salle du dessus")
 		seen[unders.size()] = true
-	_check(seen.has(0) and seen.has(1) and seen.has(2), "piles : tailles vues %s" % str(seen.keys()))
+	_check(seen.has(0) and seen.has(1), "piles : tailles vues %s" % str(seen.keys()))
 	# Couloir adverse (Controls simples) : memes cartes recouvertes
 	var foe_unders := 0
 	for sc in board._foe_slots:
 		foe_unders += (sc as Control).get_children().filter(func(c): return c.is_in_group("under_card")).size()
-	_check(foe_unders == 3, "couloir adverse : %d cartes recouvertes (3 attendues)" % foe_unders)
+	_check(foe_unders == 2, "couloir adverse : %d cartes recouvertes (2 attendues)" % foe_unders)
 	# Un rafraichissement ne duplique pas les cartes recouvertes
 	board.refresh()
 	await get_tree().process_frame
 	var again := 0
 	for sl in board._dungeon_slots:
 		again += (sl as Control).get_children().filter(func(c): return c.is_in_group("under_card") and not c.is_queued_for_deletion()).size()
-	_check(again == 3, "piles : %d cartes recouvertes apres un 2e rafraichissement (3 attendues)" % again)
+	_check(again == 2, "piles : %d cartes recouvertes apres un 2e rafraichissement (2 attendues)" % again)
 	_cov("stacked_rooms")
 
 func _weighted(items: Array) -> Dictionary:
@@ -1550,14 +1550,14 @@ func _check_target_spots() -> void:
 		var spot: Dictionary = board._spot_of_target(sp[1], 0)
 		_check(not spot.is_empty(), "zone de ciblage « %s » : aucune zone pour %s" % [lbl, str(sp[1])])
 		entries.append({"label": lbl, "spot": spot, "cb": func(): hits.append(lbl)})
-	board._target_list("test", "Select a target", entries, Callable())
+	board._target_list("test", "Select a target", entries, Callable(), {"k": "room", "pid": 0, "idx": 0}) # la salle 0 est aussi la source de la capacite
 	for i in 3:
 		await get_tree().process_frame
 	_check(board._tgt_spots.size() == specs.size() - 1, "zones allumees : %d (%d attendues, 2 coups sur la salle)" % [board._tgt_spots.size(), specs.size() - 1])
-	_check(AudioManager.loop_count("sfx_sparklecard") == 1, "ciblage : la boucle sfx_sparklecard doit tourner (surbrillance verte d'une salle), compteur %d" % AudioManager.loop_count("sfx_sparklecard")) # CardStackSlotComponent.cs:312
+	_check(AudioManager.loop_count("sfx_sparklecard") == 1, "ciblage : la boucle sfx_sparklecard doit tourner (salle source en GreenGlow), compteur %d" % AudioManager.loop_count("sfx_sparklecard")) # CardStackSlotComponent.cs:312
 	var lifted: Array = board._tgt_lifted.duplicate()
 	var fx_nodes: Array = lifted.filter(func(n): return is_instance_valid(n) and not _emitting(n).is_empty())
-	_check(fx_nodes.size() == 1 and fx_nodes[0] is DungeonSlot, "ciblage : seule la salle ciblable emet (GreenGlow, CardStackSlotComponent.cs:309-311), %d noeud(s) emetteur(s)" % fx_nodes.size())
+	_check(fx_nodes.size() == 1 and fx_nodes[0] is DungeonSlot, "ciblage : seule la salle SOURCE emet (GreenGlow, TargetResolverBaseSceneBehavior.cs:228), %d noeud(s) emetteur(s)" % fx_nodes.size())
 	for sp in board._tgt_spots.duplicate():
 		var ids: Array = sp["ids"]
 		await _click_at((sp["ctrl"] as Control).get_global_rect().get_center())
@@ -1917,8 +1917,8 @@ func _check_drag_and_zoom() -> void:
 	# salle : annulation (relache sur la main)
 	await _mouse(start, true, false)
 	await _mouse(start + Vector2(0, -40), false, true, MOUSE_BUTTON_MASK_LEFT)
-	await _mouse(start + Vector2(0, -160), false, true, MOUSE_BUTTON_MASK_LEFT)
-	_check(not board._drag.is_empty(), "glisser : pas de glisser en cours apres 160 px")
+	await _mouse(Vector2(start.x, 700), false, true, MOUSE_BUTTON_MASK_LEFT) # CardExtractBehavior : la carte sort de la main au-dessus de y 797
+	_check(not board._drag.is_empty(), "glisser : pas de glisser en cours au-dessus de la limite de la main")
 	var frames: Array = board._drag.get("frames", [])
 	var n_frames := _n_build_targets(0, idx) # le prochain emplacement libre + les salles recouvrables (Boss.CanBuildRoom)
 	_check(frames.size() == n_frames and n_frames == 1 + dsize, "glisser : %d emplacements dores pour une salle (%d attendus)" % [frames.size(), 1 + dsize])
@@ -2071,12 +2071,13 @@ func _check_apk_gaps() -> void:
 	board.refresh()
 	for i in 4:
 		await get_tree().process_frame
-	var last: Control = board.town_container.get_child(board.town_container.get_child_count() - 1)
-	_check(sc.scroll_vertical > 0 and sc.get_global_rect().grow(2.0).encloses(last.get_global_rect()), "ville : le heros arrive n'est pas amene a l'ecran (defilement %d)" % sc.scroll_vertical)
+	var last: Control = board.town_container.get_child(0) # le dernier arrive est en haut de la colonne (VerticalScrollQueueComponent.CreateReorderTask)
+	_check(sc.scroll_vertical == 0 and sc.get_global_rect().grow(2.0).encloses(last.get_global_rect()), "ville : le heros arrive n'est pas amene a l'ecran (defilement %d)" % sc.scroll_vertical)
 	_cov("town_scroll")
 	# --- bulle « HAS PLAYED A ... » de l'adversaire : un appui montre la carte (au centre), le clic suivant la ferme
 	var spell: Dictionary = ((G["decks"]["spells"] as Array)[0] as Dictionary).duplicate(true)
 	(foe["hand"] as Array).append(spell)
+	board._notice_reset()
 	board._notice_ai(1, {"type": "playSpell", "args": [(foe["hand"] as Array).size() - 1, {}]})
 	if _check(board._notice != null and is_instance_valid(board._notice) and board._notice.mouse_filter == Control.MOUSE_FILTER_STOP, "bulle de sort adverse : pas cliquable"):
 		var tap := InputEventMouseButton.new()
@@ -2091,6 +2092,7 @@ func _check_apk_gaps() -> void:
 	var room: Dictionary = (CardDB.rooms[0] as Dictionary).duplicate(true)
 	room["faceDown"] = false
 	(foe["dungeon"] as Array).push_front([room])
+	board._notice_reset()
 	board._notice_ai(1, {"type": "activateRoom", "args": [0]})
 	_check(board._notice != null and is_instance_valid(board._notice) and board._notice.mouse_filter == Control.MOUSE_FILTER_STOP, "bulle de capacite de salle adverse : pas cliquable")
 	_cov("notice_tap")
@@ -2101,6 +2103,7 @@ func _check_apk_gaps() -> void:
 			pit = (rc as Dictionary).duplicate(true)
 	pit["faceDown"] = false
 	(foe["dungeon"] as Array).push_front([pit])
+	board._notice_reset()
 	board._notice_ai(1, {"type": "activateRoom", "args": [0]})
 	var tap2 := InputEventMouseButton.new()
 	tap2.button_index = MOUSE_BUTTON_LEFT
@@ -3007,10 +3010,12 @@ func _check_effects() -> void:
 	_check(in_flight.size() == 1, "pioche : la carte piochee doit rester cachee dans la main pendant son vol (%d cachee(s))" % in_flight.size())
 	await _wait(3.6) # glisse 0,5 s + retournement 0,5 s + attente 2 s + arrivee 0,3 s (DrawCardEmitter.cs:147-165)
 	_check(board._ui_layer.find_child("DrawnCard", true, false) == null and _hand_cards().all(func(c): return c.visible), "pioche : la carte piochee n'a pas rejoint la main")
+	board._notice_reset()
 	board._notice_ai(1, {"type": "playSpell", "args": []})
 	var notice = board._ui_layer.find_child("Notice", true, false)
 	var texts: Array = notice.find_children("*", "Label", true, false).map(func(l): return (l as Label).text) if notice != null else []
 	_check(texts == ["HAS PLAYED A", "SPELL"], "notice adverse : %s" % str(texts))
+	board._notice_reset()
 	board._notice_ai(0, {"type": "playSpell", "args": []}) # mon propre coup : pas de notice
 	await _wait(0.1)
 	board.skip_animations = true
@@ -3148,7 +3153,7 @@ func _check_apk_anims() -> void:
 	gm.G["town"] = town.duplicate()
 	board.refresh()
 	await _wait(0.2)
-	gm.G["town"] = [town[1], town[2]]
+	gm.G["town"] = [town[0], town[1]] # le plus recent (en haut) part : les deux autres remontent
 	board.refresh()
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -3622,6 +3627,7 @@ func _check_audio() -> void:
 	_check(ev == ["sfx:ui_card_slide_down"], "fermeture du zoom : %s (ui_card_slide_down attendu, GamePlayBaseScene.cs:1267)" % str(ev))
 	# bulle « HAS PLAYED A » de l'adversaire (BubblesPlayerEmitter.cs:115)
 	m = am.rec.size()
+	board._notice_reset()
 	board._show_notice("SPELL")
 	_check(_audio_since(m) == ["sfx:sfx_activatecard"], "bulle adverse : %s (sfx_activatecard attendu)" % str(_audio_since(m)))
 	# main : survol d'une carte puis de la suivante, puis sortie (CardPositionComponent.cs:73-100)

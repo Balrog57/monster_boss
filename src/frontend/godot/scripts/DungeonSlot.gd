@@ -24,7 +24,7 @@ var _was_down := false                  # la salle du dessus etait face cachee a
 static var frozen_seen := {}
 var _glow: Control
 const PEEK := 28.0                       # APK : la salle recouverte depasse de ~28 px au-dessus de la salle du dessus (1920x1080)
-const MAX_PEEK := 2                      # nombre de salles recouvertes dessinees
+const MAX_PEEK := 1                      # nombre de salles recouvertes dessinees (CardStackSlotComponent.cs:UpdateValues, RoomStack.Take(2) : le dessus + une dessous)
 ## Salle posee dans un couloir : carte 350 x 488 a l'echelle 0,37 (CardStackSlotComponent.cs:112,116), centree sur l'emplacement de 127 x 175 (APK : 130 x 180 mesure).
 const CARD_SIZE := Vector2(129.5, 180.56)
 

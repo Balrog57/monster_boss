@@ -62,6 +62,11 @@ func _ready() -> void:
 		print("ZOOM SCREENS CAPTURED: ", n_shots)
 		get_tree().quit(0)
 		return
+	if only == "lot2b": # lot 2b : main (survol / glissement), pulsation de DONE, bulles, halo vert de la salle source, lueur de niveau, ville, pile, 2e art
+		await _lot2b_shots()
+		print("LOT2B SCREENS CAPTURED: ", n_shots)
+		get_tree().quit(0)
+		return
 	if only == "menus": # menus + ecrans de fin (iteration rapide sur l'interface)
 		await _menus()
 		await _end_screens()
@@ -247,6 +252,64 @@ func _zoom_shots() -> void:
 	await _teardown()
 
 ## 5-6 joueurs (lot 2.4b) : pas de frame APK, captures de controle de lisibilite.
+func _lot2b_shots() -> void:
+	await _new_game()
+	_heroes_town(3)
+	_dungeon_fill(_me(), 3)
+	_dungeon_fill(_foe(), 3)
+	_hand_n(6, 2)
+	_me()["leveledUp"] = true
+	board._lvl_seen[0] = true
+	await _settle()
+	await _shot("lot2b_board_town_order_levelup_glow_hand_rest")
+	board._hand_hover(2, true) # CardPositionComponent.Refresh : toute la main se replace autour de la carte survolee
+	await _wait(0.8)
+	await _shot("lot2b_hand_hover_card3_neighbors_open")
+	board._hand_hover(2, false)
+	await _wait(0.8)
+	board.skip_animations = false
+	board._pulse_t = 4.9
+	board._tick_pulse(0.2) # DoneButtonEntity : PulseBehavior(halt_button_pulse, 3) toutes les 5 s
+	await _wait(0.8)
+	await _shot("lot2b_done_button_pulse_rings")
+	board._warn_show()
+	await _wait(0.6)
+	await _shot("lot2b_pass_warning_bubble_entered")
+	board._warn_hide()
+	board._notice_reset()
+	board._show_notice("SPELL", null, {}, 1, [0]) # CreatePlayAgainstBubble
+	await _wait(1.2)
+	await _shot("lot2b_has_played_a_spell_against_bubble_pulse")
+	board._notice_reset()
+	board.skip_animations = true
+	var ents: Array = []
+	for i in [0, 2]:
+		var ix: int = i
+		ents.append({"label": "Room %d" % ix, "spot": {"k": "room", "pid": 0, "idx": ix}, "cb": func(): pass})
+	board._target_list("Test - choose a Room", "Choose a Room", ents, func(): board._target_end(), {"k": "room", "pid": 0, "idx": 1})
+	await _wait(0.8)
+	await _shot("lot2b_target_source_green_glow_targets_yellow_scaled")
+	board._target_end()
+	var sp := _take("spells")
+	gm.G["stack"] = [{"id": "spell-x", "type": "spell", "playerId": 1, "card": sp, "target": {"targetPlayerId": 0, "roomIndex": 1}, "resolved": false}]
+	await _settle()
+	get_viewport().warp_mouse(Vector2(board.STACK_CX, 498))
+	await _wait(0.3)
+	board._tick_stack_hover()
+	await _wait(0.2)
+	await _shot("lot2b_stack_card_hover_red_border_and_target")
+	gm.G["stack"] = []
+	await _settle()
+	var proto: Dictionary = CardDB.spells.filter(func(x): return str((x as Dictionary).get("id", "")) == "BMA040")[0]
+	var cp: Array = CardDB.expanded_deck([proto])
+	var hand: Array = _me()["hand"]
+	hand.clear()
+	for c in cp:
+		hand.append(c)
+	await _settle()
+	await _shot("lot2b_hand_two_copies_bma040_alt_art")
+	print("ALT ARTS: ", cp.map(func(c): return (c as Dictionary).get("art", 0)))
+
 func _big_games() -> void:
 	main_scene = load("res://godot/scenes/Main.tscn").instantiate()
 	add_child(main_scene)
@@ -743,6 +806,7 @@ func _states() -> void:
 	board.refresh()
 	board._process(0.1)
 	print("PHASE-DBG stack my moves: ", str(gm.legal_moves(0)).substr(0, 300))
+	board._notice_reset()
 	board._notice_ai(1, {"type": "playSpell", "args": []})
 	await _frames(3)
 	await _shot("spellbattle_has_played_a_spell_notice_top_right_exhaustion_stack")
@@ -753,6 +817,7 @@ func _states() -> void:
 	_dungeon_fill(_foe(), 3)
 	_hand_n(5, 1)
 	await _settle()
+	board._notice_reset()
 	board._notice_ai(1, {"type": "activateRoom", "args": [0]})
 	await _frames(3)
 	await _shot("notice_opponent_has_played_a_room_ability_mimic_vault_glow")
@@ -764,9 +829,7 @@ func _states() -> void:
 		(_foe()["entrance"] as Array).append((CardDB.heroes[4 + k] as Dictionary).duplicate(true))
 	gm.G["phase"] = "adventure"
 	await _settle()
-	if board._notice != null and is_instance_valid(board._notice):
-		board._notice.free()
-	board._notice = null
+	board._notice_reset()
 	await _frames(2)
 	await _shot("bait_phase_heroes_assigned_to_dungeons")
 	gm.G["phase"] = "build"
@@ -775,9 +838,7 @@ func _states() -> void:
 	await _settle()
 
 	# --- sort Freeze resolu : glace sur une salle adverse (la notice est partie)
-	if board._notice != null and is_instance_valid(board._notice):
-		board._notice.free()
-	board._notice = null
+	board._notice_reset()
 	for sl in board._foe_slots:
 		var cu: Array = (sl as Control).find_children("*", "CardUI", true, false)
 		if not cu.is_empty():
@@ -1043,6 +1104,7 @@ func _phases() -> void:
 		# appui sur la notice adverse : la carte au centre, cible entouree en rouge
 		var fspell := _take("spells")
 		(_foe()["hand"] as Array).append(fspell)
+		board._notice_reset()
 		board._notice_ai(1, {"type": "playSpell", "args": [(_foe()["hand"] as Array).size() - 1, {"targetPlayerId": 0, "roomIndex": 0}]})
 		await _frames(3)
 		board._notice_zoom(fspell, {"k": "room", "pid": 0, "idx": 0})
