@@ -413,8 +413,10 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 	# BMA020 Monster's Ballroom : degats = nombre de salles Monster actives
 	if str(r.get("id", "")) == "BMA020" and not own_off:
 		var n := 0
-		for x in all_active_rooms(dungeon):
-			if x != null and str((x as Dictionary).get("type", "")) == "monster":
+		var act := all_active_rooms(dungeon)
+		for k in act.size():
+			var x = act[k]
+			if x != null and str((x as Dictionary).get("type", "")) == "monster" and not is_room_deactivated(G, pid, k): # RoomDamageEqualToCount : slot.IsActive
 				n += 1
 		dmg = n
 

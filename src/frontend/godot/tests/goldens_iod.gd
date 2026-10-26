@@ -560,9 +560,9 @@ func _t_hand_items() -> void:
 	_entrance(G2, 1, armored)
 	_entrance(G2, 1, bare)
 	G2["town"] = [_with(_h("AT", 5, 1), "IOD010"), _h("BT", 5, 1)]
-	var t1 := SpellTargeting.spell_targets_for(G2, _p(G2, 0), 0, "BMA041") # Assassin : un heros du donjon adverse
+	var t1 := SpellTargeting.spell_targets_for(G2, _p(G2, 0), 0, "BMA041") # Assassin : seul le premier heros de l'entree (Take(1)) est offert ; blinde ici, donc aucune cible
 	var t2 := SpellTargeting.spell_targets_for(G2, _p(G2, 0), 0, "BMA051") # Princess in Peril : un heros de la ville
-	_ok.call(t1.size() == 1 and str(t1[0]["heroId"]) == "BR" and t2.size() == 1 and int(t2[0]["townIndex"]) == 1, "IOD010 Shining Armor (Power-Up) : ni les heros du donjon ni ceux de la ville ne sont ciblables (sort BMA041 / BMA051)")
+	_ok.call(t1.is_empty() and t2.size() == 1 and int(t2[0]["townIndex"]) == 1, "IOD010 Shining Armor (Power-Up) : ni les heros du donjon ni ceux de la ville ne sont ciblables (sort BMA041 / BMA051)")
 	var G2b := _G([_player(0), _player(1)], ["base", "tools"])
 	_entrance(G2b, 1, _with(_h("AR", 5, 1), "IOD010"))
 	_ok.call(SpellTargeting.spell_targets_for(G2b, _p(G2b, 0), 0, "BMA041").size() == 1, "IOD010 : sans la case wiki, l'Objet n'a aucun effet")

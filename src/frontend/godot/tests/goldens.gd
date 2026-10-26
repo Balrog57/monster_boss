@@ -21,6 +21,7 @@ func _ready() -> void:
 	_t_spell_targeting_any_room_trap()
 	_t_spell_targeting_no_target_spell()
 	_t_spell_targeting_trepidation()
+	_t_apk_targets_front_hero_passive_souls_ballroom()
 	_t_spell_annihilator_requires_trap()
 	_t_spell_giant_size_requires_monster()
 	_t_spell_freeze_deactivates()
@@ -95,6 +96,7 @@ func _ready() -> void:
 	_t_room_zombie_prison()
 	_t_room_beast_menagerie()
 	_t_room_torture_chamber_discards_room()
+	_t_room_torture_chamber_activated_slot()
 	_t_build_motivation_extra_room()
 	_t_setup_avoid_mulligan()
 	_t_setup_parallel_first_room()
@@ -332,6 +334,26 @@ func _t_spell_targeting_trepidation() -> void:
 	_ok(SpellTargeting.enumerate_targets("trepidation-player", G, me, 0).size() == 1, "trepidation: 4 >= 2+2 -> cible")
 	(G["players"][1] as Dictionary)["souls"] = [{"souls": 3}]
 	_ok(SpellTargeting.enumerate_targets("trepidation-player", G, me, 0).is_empty(), "trepidation: 3 < 2+2 -> aucune cible")
+
+## R-E11 : HeroInDungeon = EntranceQueue.Take(1) ; R-F23 : Trepidation compte Boss.Souls (ames passives, bonusSouls) ; R-F36 : Ballroom ignore les salles gelees.
+func _t_apk_targets_front_hero_passive_souls_ballroom() -> void:
+	var me := {"dungeon": [], "hand": [], "entrance": [{"id": "h1"}, {"id": "h2"}], "souls": [], "wounds": [], "items": []}
+	var G := _spell_G(me)
+	(G["players"][1] as Dictionary)["entrance"] = [{"id": "o1"}, {"id": "o2"}]
+	var own := SpellTargeting.enumerate_targets("hero-own-dungeon", G, me, 0)
+	var opp := SpellTargeting.enumerate_targets("hero-opponent-dungeon", G, me, 0)
+	var any := SpellTargeting.enumerate_targets("hero-any-dungeon", G, me, 0)
+	_ok(own.size() == 1 and opp.size() == 1 and any.size() == 2 and (opp[0] as Dictionary)["heroId"] == "o1", "R-E11 : seul le premier heros de chaque entree est ciblable")
+	(G["players"][1] as Dictionary)["souls"] = [{"souls": 3}]
+	_ok(SpellTargeting.enumerate_targets("trepidation-player", G, me, 0).size() == 1, "R-F23 : 3 >= 0+2 -> cible")
+	me["bonusSouls"] = 2
+	_ok(SpellTargeting.enumerate_targets("trepidation-player", G, me, 0).is_empty(), "R-F23 : les ames passives du lanceur comptent (3 < 2+2)")
+	var G2 := _ability_G("X")
+	var p: Dictionary = G2["players"][0]
+	p["dungeon"] = [[_room("BMA020", "monster", false, [1])], [_room("M1", "monster", false, [1])], [_room("M2", "monster", false, [1])]]
+	_ok(BossEngine.room_damage_with_modifiers(G2, p, 0, null) == 3, "R-F36 : Ballroom compte 3 Monster actives")
+	(G2["effects"] as Dictionary)["deactivatedRooms"] = [{"playerId": 0, "roomIndex": 1}]
+	_ok(BossEngine.room_damage_with_modifiers(G2, p, 0, null) == 2, "R-F36 : une Monster gelee n'est pas comptee")
 
 # --- spellEffects.gd (base set) ---
 
@@ -1345,6 +1367,16 @@ func _t_room_torture_chamber_discards_room() -> void:
 	_ok(h.size() == 1 and bool((h[0] as Dictionary).get("isSpell", false)), "l'adversaire defausse sa SALLE (le sort reste)")
 	_ok((G["decks"]["roomDiscard"] as Array).size() == 2 and (G["players"][0]["dungeon"] as Array).is_empty(),
 		"salle detruite + salle defaussee en defausse de salles")
+
+## R-F53 : avec deux Torture Chambers, l'activation detruit la salle ACTIVEE (l'autre reste), pas la premiere trouvee.
+func _t_room_torture_chamber_activated_slot() -> void:
+	var G := _ability_G("BMA038")
+	(G["players"][0]["dungeon"] as Array).append([_room("BMA038", "trap", false, [1])])
+	((G["players"][0]["dungeon"] as Array)[1][0] as Dictionary)["tag"] = "second"
+	G["players"][1]["hand"] = [_room("R1", "trap", false, [1])]
+	_ok(RoomAbilities.activate_room_ability(G, 0, 1) == null, "Torture Chamber (2e) s'active")
+	var d: Array = G["players"][0]["dungeon"]
+	_ok(d.size() == 1 and not (d[0][0] as Dictionary).has("tag"), "R-F53 : la salle activee (indice 1) est detruite, la premiere reste")
 
 ## BMA050 Motivation (BuildExtraRoom : MaxBuildRoomLimit++) : le joueur garde la main pour une 2e construction.
 func _t_build_motivation_extra_room() -> void:

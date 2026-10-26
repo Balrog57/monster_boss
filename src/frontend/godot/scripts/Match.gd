@@ -293,15 +293,15 @@ func legal_moves(pid: int) -> Array:
 						if BossEngine.can_build_room(p, G, pid, i, ti):
 							out.append({"type": "buildRoom", "args": [i, ti]})
 			# Sorts jouables en phase BUILD (miroir reducer.js:playSpell).
-			if not SpellEffects._effects(G).get("buildBlocked", false):
-				for i in (p.get("hand", []) as Array).size():
-					var c: Dictionary = (p["hand"] as Array)[i]
-					if not c.get("isSpell", false):
-						continue
-					if not CardDB.can_play_spell(c, CardDB.PHASE["EXTRA_BUILD"] if G.has("forcedBuild") else CardDB.PHASE["BUILD"], stack.size()):
-						continue
-					for t in SpellTargeting.spell_targets_for(G, p, pid, str(c.get("id", ""))):
-						out.append({"type": "playSpell", "args": [i, t]})
+			# Kobold Strike (SkipBuildPhase : MaxBuildRoomLimit = 0) ne bloque que les constructions, pas les sorts de la phase.
+			for i in (p.get("hand", []) as Array).size():
+				var c: Dictionary = (p["hand"] as Array)[i]
+				if not c.get("isSpell", false):
+					continue
+				if not CardDB.can_play_spell(c, CardDB.PHASE["EXTRA_BUILD"] if G.has("forcedBuild") else CardDB.PHASE["BUILD"], stack.size()):
+					continue
+				for t in SpellTargeting.spell_targets_for(G, p, pid, str(c.get("id", ""))):
+					out.append({"type": "playSpell", "args": [i, t]})
 			out.append_array(_hand_room_moves(pid)) # CRL007 Frostman Lander (se defausse de la main)
 				# Abilites de salle activables (miroir reducer.js:activateRoom).
 			for i in (p.get("dungeon", []) as Array).size():
@@ -1483,8 +1483,9 @@ func _build_reveal_queue() -> Array:
 		if p.get("eliminated", false):
 			continue
 		var mine: Array = []
-		for stack in (p.get("dungeon", []) as Array):
-			var room = BossEngine.active_room(stack)
+		var dun: Array = p.get("dungeon", [])
+		for si in range(dun.size() - 1, -1, -1): # slots en attente par indice C# croissant (Godot : le slot C# k est a l'indice size-1-k)
+			var room = BossEngine.active_room(dun[si])
 			if room == null or not (room as Dictionary).get("faceDown", false):
 				continue
 			var r: Dictionary = room
@@ -1494,7 +1495,8 @@ func _build_reveal_queue() -> Array:
 			r["faceDown"] = false
 			r.erase("undoBuild")
 			_log("Salle révélée : %s pour le joueur %s" % [str(r.get("name", "?")), str(pid)])
-			if BossEngine.count_visible_rooms(p["dungeon"]) >= 5 and not p.get("leveledUp", false):
+			# Boss.DungeonSize == 5 : le dernier slot C# (indice Godot 0) est revele ; un slot en attente plus profond differe le level-up
+			if dun.size() >= 5 and not bool((BossEngine.active_room(dun[0]) as Dictionary).get("faceDown", false)) and not p.get("leveledUp", false):
 				p["leveledUp"] = true
 				_log("Joueur %s EST MONTÉ EN NIVEAU !" % str(pid))
 				mine.append({"pid": int(pid), "kind": "levelup"})
@@ -1662,7 +1664,7 @@ func _stack_insert_index(entry: Dictionary, counter_target_idx: int) -> int:
 	if counter_target_idx >= 0:
 		return counter_target_idx
 	var stack: Array = G.get("stack", [])
-	var active := int(G.get("stackActivePlayer", -1))
+	var active := -1 if G.has("buildWindow") else int(G.get("stackActivePlayer", -1)) # fenetre apres la derniere construction : ActivePlayer == null (tri PlayerId pur)
 	var caster := int(entry.get("playerId", -1))
 	if caster == active:
 		return 0
@@ -1761,9 +1763,11 @@ func _resolve_pending_stack() -> void:
 			if Minibosses.active(G):
 				Minibosses.on_spell_cast(G, caster_id) # Baron Hex, Alchemist's Lab : un sort vient d'etre lance (resolu, non annule)
 			var caster: Dictionary = (G.get("players", {}) as Dictionary).get(caster_id, {}) as Dictionary
-			for st in (caster.get("dungeon", []) as Array):
-				var r = BossEngine.active_room(st)
-				if r != null and str(r.get("id", "")) == "BMA026" and not bool(r.get("faceDown", false)) and not bool(r.get("usedThisTurn", false)) and not TnlAbilities.no_text(r):
+			var cdun: Array = caster.get("dungeon", [])
+			for k in cdun.size():
+				var r = BossEngine.active_room(cdun[k])
+				# Ability.CheckConditions : slot actif (non gele) et capacites non verrouillees (Trap Master)
+				if r != null and str(r.get("id", "")) == "BMA026" and not bool(r.get("faceDown", false)) and not bool(r.get("usedThisTurn", false)) and not TnlAbilities.no_text(r) 						and not BossEngine.is_room_deactivated(G, caster_id, k) and not BossEngine.abilities_locked(G, caster_id):
 					var drawn = CardDB.draw_pile(decks, "spells", 1, rng)
 					if not drawn.is_empty():
 						(caster.get("hand", []) as Array).append(drawn[0])

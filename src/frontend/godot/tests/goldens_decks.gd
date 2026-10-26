@@ -199,13 +199,14 @@ func _t_levelup_kawnee() -> void:
 	(p1["souls"] as Array).append(CardDB.soul_entry(_hero("BMA056")))
 	for _i in 2:
 		(p1["souls"] as Array).append(CardDB.soul_entry(_hero("BMA081"))) # epique : 2 ames, jamais volable
-	var c = RoomAbilities.process_level_up(G, 0)
-	_ok.call(c != null and str(c["type"]) == "steal-hero" and (c["options"] as Array).size() == 1, "KSA004 : seul le heros ordinaire est propose")
-	var m := _match(G)
-	G["pendingChoice"] = c
-	m._resolve_choice(0, 0)
+	# Un seul heros ordinaire (un adversaire) : ComposedTargetProvider.TryToAutoresolve le prend d'office, sans choix.
+	_ok.call(RoomAbilities.process_level_up(G, 0) == null, "KSA004 : candidat unique auto-resolu")
 	_ok.call((p1["souls"] as Array).size() == 2 and (p0["souls"] as Array).size() == 1 and CardDB.total_souls(p0, G) == 1, "KSA004 : le heros change de scorekeeping")
-	m.queue_free()
+	# Deux candidats : choix facultatif, les epiques restent non volables.
+	(p1["souls"] as Array).append(CardDB.soul_entry(_hero("BMA056")))
+	(p1["souls"] as Array).append(CardDB.soul_entry(_hero("BMA056")))
+	var c = RoomAbilities.process_level_up(G, 0)
+	_ok.call(c != null and str(c["type"]) == "steal-hero" and (c["options"] as Array).size() == 2, "KSA004 : seuls les heros ordinaires sont proposes")
 
 ## KSA002 Hellcow : RearrangeDungeon, tout le donjon d'un joueur, ordre = slots C# (Dungeon[0] = fond = index Godot le plus grand).
 func _t_levelup_hellcow() -> void:

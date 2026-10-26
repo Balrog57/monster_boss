@@ -56,6 +56,10 @@ static func stack_spell_entries(G: Dictionary, player_id: int) -> Array:
 			out.append(ed)
 	return out
 
+## HeroInDungeon.InternalGetAvailableTargets : `EntranceQueue.Take(1)`, seul le premier heros de chaque entree est ciblable.
+static func _front_hero(p: Dictionary) -> Array:
+	return (p.get("entrance", []) as Array).slice(0, 1)
+
 static func _player(G: Dictionary, pid: int) -> Dictionary:
 	var players: Dictionary = G.get("players", {})
 	if players.has(pid):
@@ -118,10 +122,10 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 				var op: Dictionary = G["players"][opid]
 				if int(opid) == pid or op.get("eliminated", false):
 					continue
-				for h in (op.get("entrance", []) as Array):
+				for h in _front_hero(op):
 					out.append({"heroId": (h as Dictionary).get("id")})
 		"hero-own-dungeon":
-			for h in (me.get("entrance", []) as Array):
+			for h in _front_hero(me):
 				out.append({"heroId": (h as Dictionary).get("id")})
 		"hero-own-active":
 			var ah = active_entrance_hero(G, me, pid)
@@ -132,7 +136,7 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 				var op: Dictionary = G["players"][opid]
 				if op.get("eliminated", false):
 					continue
-				for h in (op.get("entrance", []) as Array):
+				for h in _front_hero(op):
 					out.append({"heroId": (h as Dictionary).get("id")})
 		"hero-town":
 			for i in (G.get("town", []) as Array).size():
@@ -157,13 +161,13 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 				if op.get("eliminated", false):
 					continue
 				out.append({"targetPlayerId": int(opid)})
-		"trepidation-player":
-			var mine := _souls_total(me)
+		"trepidation-player": # BossOpponentWithAtLeastScore(Dead, 2) : Boss.Souls, ames passives comprises
+			var mine := CardDB.total_souls(me, G)
 			for opid in (G.get("players", {}) as Dictionary):
 				var op: Dictionary = G["players"][opid]
 				if int(opid) == pid or op.get("eliminated", false):
 					continue
-				if _souls_total(op) >= mine + 2:
+				if CardDB.total_souls(op, G) >= mine + 2:
 					out.append({"targetPlayerId": int(opid)})
 		"own-soul":
 			for i in (me.get("souls", []) as Array).size():
@@ -248,12 +252,6 @@ static func _fewest_souls(G: Dictionary, me: Dictionary, pid: int) -> bool:
 			return false
 	return others > 0
 
-static func _souls_total(p: Dictionary) -> int:
-	var n := 0
-	for s in (p.get("souls", []) as Array):
-		n += int((s as Dictionary).get("souls", 1))
-	return n
-
 ## Cibles affichees par l'UI : { key, card, kind, value, label }
 static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary, player_id: int) -> Array:
 	var out: Array = []
@@ -297,7 +295,7 @@ static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary
 					"kind": "epic-hero" if h.get("epic", false) else "hero",
 					"value": {"townIndex": i}, "label": str(h.get("name", ""))})
 		"hero-own-dungeon":
-			for h in (me.get("entrance", []) as Array):
+			for h in _front_hero(me):
 				var hd: Dictionary = h
 				out.append({"key": "hero-%s" % str(hd.get("id", "")), "card": hd,
 					"kind": "epic-hero" if hd.get("epic", false) else "hero",
@@ -316,13 +314,13 @@ static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary
 					continue
 				if type == "hero-opponent-dungeon" and int(opid) == pid:
 					continue
-				for h in (op.get("entrance", []) as Array):
+				for h in _front_hero(op):
 					var hd: Dictionary = h
 					out.append({"key": "hero-%s-%s" % [str(opid), str(hd.get("id", ""))], "card": hd,
 						"kind": "epic-hero" if hd.get("epic", false) else "hero",
 						"value": {"heroId": hd.get("id")}, "label": str(hd.get("name", ""))})
 		"opponent", "any-player", "trepidation-player":
-			var mine := _souls_total(me)
+			var mine := CardDB.total_souls(me, G)
 			for opid in (G.get("players", {}) as Dictionary):
 				var op: Dictionary = G["players"][opid]
 				if op.get("eliminated", false):
@@ -330,7 +328,7 @@ static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary
 				if type == "opponent" and int(opid) == pid:
 					continue
 				if type == "trepidation-player":
-					if int(opid) == pid or _souls_total(op) < mine + 2:
+					if int(opid) == pid or CardDB.total_souls(op, G) < mine + 2:
 						continue
 				var boss: Dictionary = op.get("boss", {}) as Dictionary
 				var label := str(boss.get("name", "")) if not boss.is_empty() else "Player %d" % int(opid)

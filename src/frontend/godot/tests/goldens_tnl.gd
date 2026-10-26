@@ -1053,7 +1053,7 @@ func _t_imp_temple_dragon_graveyard() -> void:
 	var G2 := _G([_player(0, "BMA001", [_room("TNL014"), _room("BMA038")]), _player(1, "BMA002")])
 	_hand(G2, 1).append(_plain("loot"))
 	G2["phase"] = "build"
-	RoomAbilities._torture_chamber(G2, 0)
+	RoomAbilities._torture_chamber(G2, 0, 1)
 	_ok.call(_ids(_hand(G2, 0)) == ["loot"] and _decks(G2, "roomDiscard").size() == 1, "TNL014 : Torture Chamber force la defausse, Imp Temple prend la salle (la chambre est detruite)")
 	var dragon := _room("TNL020")
 	var G3 := _G([_player(0, "BMA001", [dragon]), _player(1, "BMA002")])

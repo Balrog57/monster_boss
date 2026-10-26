@@ -172,7 +172,7 @@ static func activate_room_ability(G: Dictionary, player_id: int, room_index: int
 		"BMA028": return _boulder_ramp(G, p, player_id, room_index, other_room_index, r)
 		"BMA030": return _jackpot_stash(G, p, player_id, room_index)
 		"BMA032": return _crushinator(G, p, player_id, room_index, other_room_index)
-		"BMA038": return _torture_chamber(G, player_id)
+		"BMA038": return _torture_chamber(G, player_id, room_index)
 		"BMA013": return _dracolich_lair(G, p, player_id, r)
 		"BMA024": return _witchs_kitchen(G, p, player_id)
 		"BMA039": return _zombie_prison(G, p, room_index, player_id, r)
@@ -374,16 +374,8 @@ static func _crushinator(G: Dictionary, p: Dictionary, player_id: int, room_inde
 
 ## BMA038 Torture Chamber : detruit cette salle, puis DiscardRandomCardFromHand(1, Room) sur un adversaire
 ## (BossOpponent : tout adversaire, meme sans salle en main ; un seul adversaire = cible automatique).
-static func _torture_chamber(G: Dictionary, player_id: int):
+static func _torture_chamber(G: Dictionary, player_id: int, room_index: int):
 	var p := _player(G, player_id)
-	var room_index := -1
-	var dungeon: Array = p.get("dungeon", [])
-	for i in dungeon.size():
-		if str(((BossEngine.active_room(dungeon[i]) as Dictionary) if BossEngine.active_room(dungeon[i]) != null else {}).get("id", "")) == "BMA038":
-			room_index = i
-			break
-	if room_index < 0:
-		return "no room at index"
 	var d = BossEngine.destroy_room(p, room_index, G)
 	BossEngine.discard_room_to_pile(G.get("decks", {}), d)
 	var opps := opponents_with(G, player_id)
@@ -853,7 +845,7 @@ static func robobo_choice(G: Dictionary, target_pid: int) -> Variant:
 	var dungeon: Array = tp.get("dungeon", [])
 	var options: Array = []
 	for i in dungeon.size():
-		if BossEngine.active_room(dungeon[i]) != null:
+		if BossEngine.active_room(dungeon[i]) != null and not BossEngine.is_room_deactivated(G, target_pid, i): # RoomInDungeon : slot.IsActive
 			options.append({"targetPlayerId": target_pid, "roomIndex": i, "card": BossEngine.active_room(dungeon[i])})
 	if options.is_empty():
 		return {}
@@ -924,6 +916,10 @@ static func _apk_level_up(G: Dictionary, player_id: int, p: Dictionary, lu: Dict
 				opts.append({"card": spells[i], "pile": "deck", "pileIndex": i})
 			if opts.is_empty():
 				return null
+			if opts.size() == 1: # SingleTargetProvider.TryToAutoresolve : une seule cible = prise d'office, sans choix ni « passer »
+				(p["hand"] as Array).append(spells.pop_at(0))
+				_log(G, "The Brothers Wise: the only Spell in the deck goes to the hand.")
+				return null
 			return {"type": "search-spell", "playerId": player_id, "optional": bool(lu.get("canAvoid", false)),
 				"bossName": "The Brothers Wise", "message": "The Brothers Wise: choose a Spell from the deck", "options": opts}
 		"PlaceAtScorekeep": # KSA004 Kaw'nee : un heros ORDINAIRE mort (SoulsHeroes) d'un adversaire passe face cachee chez soi
@@ -938,6 +934,13 @@ static func _apk_level_up(G: Dictionary, player_id: int, p: Dictionary, lu: Dict
 						opts.append({"card": e.get("hero", e), "fromPid": int(opid), "soulIndex": i,
 							"label": "%s (player %d)" % [str(e.get("name", "?")), int(opid) + 1]})
 			if opts.is_empty():
+				return null
+			if opts.size() == 1: # ComposedTargetProvider.TryToAutoresolve : un seul adversaire, un seul heros = pris d'office
+				var o1: Dictionary = opts[0]
+				var entry: Dictionary = ((G["players"][int(o1["fromPid"])] as Dictionary)["souls"] as Array).pop_at(int(o1["soulIndex"]))
+				entry["faceDown"] = true
+				(p["souls"] as Array).append(entry)
+				_log(G, "Kaw'nee: %s joins player %d's scorekeeping area." % [str(entry.get("name", "?")), player_id])
 				return null
 			return {"type": "steal-hero", "playerId": player_id, "optional": bool(lu.get("canAvoid", false)),
 				"bossName": "Kaw'nee", "message": "Kaw'nee: choose an ordinary Hero in an opponent's scorekeeping area", "options": opts}
