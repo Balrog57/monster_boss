@@ -728,7 +728,7 @@ Accord = l'IA Godot, interrogée sur l'état exact de l'oracle juste avant chaqu
 | IA-O03 | Passer (rien à jouer) | décision | Oui | `AI.gd:49-117` | Oui | **1611/1611**. | — |
 | IA-O04 | Capacités éligibles (`AbilityCalculator.CheckXXX` non nul) et capacité tirée dans l'ensemble | décision | Oui | `ApkAI.gd:1297-1338`, `AI.gd:95-108` | Oui à 99,8 % | Éligibles : sorts 716/718, salles 859/859, « rien d'éligible » 51636/51648. Tirée dans l'ensemble : 1575/1577. Les écarts sont Giant Size (IA-H14), Motivation (IA-H17) et Princess in Peril (IA-H18). | Basse |
 | IA-O05 | Cibles déterministes des sorts et capacités activées (`SetSelectedTargets`) | décision | Oui | `ApkAI.gd` (`_chk_*`) | Oui | Sorts **590/590**, salles **734/734**. | — |
-| IA-O06 | Cibles déterministes des déclencheurs (`TriggerCalculator`) | décision | Oui | `ApkAI.gd:1405-1744` | Oui à 98 % | **993/1009**. Les 16 écarts sont Mimic Vault ×10 (IA-H68), Specter's Sanctum ×5 (IA-H69) et Zombie Prison ×1 (IA-H70). Tous dans les graines 10-40. | Moyenne |
+| IA-O06 | Cibles déterministes des déclencheurs (`TriggerCalculator`) | décision | Oui | `ApkAI.gd:1405-1744` | Oui à 98 % | **993/1009**. Les 16 écarts sont Mimic Vault ×10 (IA-H68), Specter's Sanctum ×5 (IA-H69) et Zombie Prison ×1 (IA-H70). Tous dans les graines 10-40. | Corrigé (Moyenne) |
 | IA-O07 | Cibles tirées au hasard (`Shuffle()`, `NextBool`) | décision | Oui | `ApkAI.gd` (`shuf`) | Non comparable | Accord attendu ≈ 1/n : sorts 79/126, salles 67/125, déclencheurs 124/301. Le tirage est fidèle (`Random.Next(1,100)` = `randi_range(1,99)`), seule la graine diffère. | — |
 | IA-O08 | Coups jouables selon les règles (`CanPlayerPlayAbility`, mesure de la légalité du moteur et non de l'IA) | moteur | Oui | `Match.gd` (`legal_moves`) | Oui à 99,8 % | 53134/53225. Deux motifs : (a) BuildPhase_a à 3-4 joueurs, à la bascule entre deux joueurs (`NextStep` non exécuté) : l'APK a déjà ouvert la fenêtre du joueur suivant, Godot pas encore (Freeze, Jeopardy, Princess, Motivation, Soul Harvest) ; (b) AdventurePhase_c : Boulder Ramp jouable côté APK seulement, et BMA053 Teleportation jouable côté Godot seulement. Non tranché : décalage de fenêtre du harnais ou vraie règle. Renvoi au module 5. | Moyenne |
 
@@ -863,13 +863,13 @@ Tables de valeurs comparées par script, chiffre par chiffre : les 9 tableaux et
 | IA-H65 | `HumanPlayerInteraction.AutoPlayMode` + `RandomAI` | classe | N/A | — | — | Debug seulement (`CreateTestButtons` jamais appelé) : pas d'autoplay à l'expiration du minuteur dans l'APK, rien à porter. | — |
 | IA-H66 | `DoNextStepAndRefresh` : IA dans l'ordre `InGamePlayersPriorized` | méthode | Oui | `BoardUI.gd:884-902` | Partiel | Godot joue un coup par tick, dans l'ordre d'insertion des joueurs (le même en pratique). | Basse |
 | IA-H67 | Exécution différée des capacités (`EnqueueAbilityTransaction` puis `NextStep`) | méthode | Oui | `Match.gd` | Partiel | Même cause que IA-G47 et R-D67 ; seul le harnais reproduit la course (`_held`). | Basse |
-| IA-H68 | Écart Mimic Vault, 10 cas (`TriggerCalculator.cs:290-303`) | cause | Oui | `Match.gd:1492`, `ApkAI.gd:1664` | Partiel | Cause démontrée : le C# fige la cible dans `EnqueueAbilityTransaction` (`GameBoard.cs:1329-1330`) avant de lever `PendingToBeBuilt` (`GameBoard.cs:950-952`). La salle qui vient d'être révélée ne compte donc pas encore dans les dégâts du donjon. Godot a déjà tout retourné (`Match.gd:1492`). s13-p4 seq 1352 : dégâts APK 7, Godot 8, donc Godot accepte un héros à 8 PV que l'APK écarte. | Moyenne |
-| IA-H69 | Écart Specter's Sanctum, 5 cas à 4 joueurs | cause | Oui | `Match.gd:1477-1500`, `ApkAI.gd:1648` | Partiel | Cause démontrée : l'APK décide toutes les cibles à la révélation, avant tout effet ; Godot applique chaque déclencheur avant de calculer le suivant, et ordonne la file par XP au lieu de l'ordre des sièges (`GameBoard.cs:930`). s10-p4 seq 13 : Dark Laboratory de P1 a déjà changé le nombre de sorts en main quand Godot choisit. | Moyenne |
+| IA-H68 | Écart Mimic Vault, 10 cas (`TriggerCalculator.cs:290-303`) | cause | Oui | `Match.gd:1492`, `ApkAI.gd:1664` | Partiel | Cause démontrée : le C# fige la cible dans `EnqueueAbilityTransaction` (`GameBoard.cs:1329-1330`) avant de lever `PendingToBeBuilt` (`GameBoard.cs:950-952`). La salle qui vient d'être révélée ne compte donc pas encore dans les dégâts du donjon. Godot a déjà tout retourné (`Match.gd:1492`). s13-p4 seq 1352 : dégâts APK 7, Godot 8, donc Godot accepte un héros à 8 PV que l'APK écarte. | Corrigé (Moyenne) |
+| IA-H69 | Écart Specter's Sanctum, 5 cas à 4 joueurs | cause | Oui | `Match.gd:1477-1500`, `ApkAI.gd:1648` | Partiel | Cause démontrée : l'APK décide toutes les cibles à la révélation, avant tout effet ; Godot applique chaque déclencheur avant de calculer le suivant, et ordonne la file par XP au lieu de l'ordre des sièges (`GameBoard.cs:930`). s10-p4 seq 13 : Dark Laboratory de P1 a déjà changé le nombre de sorts en main quand Godot choisit. | Corrigé (Moyenne) |
 | IA-H70 | Écart Zombie Prison, 1 cas (s21-p4) | cause | Oui | `RoomAbilities.gd:439-446`, `ApkAI.gd:1171,1759-1795` | Non vérifié | Godot retombe sur l'option 0, alors que `_chk_039` donnerait une autre cible. Hypothèse : artefact de mesure (cible préréglée non retrouvée). | Moyenne |
 | IA-H71 | Écart d'éligibilité Giant Size | cause | Oui | `ApkAI.gd:670-676` | Partiel | = IA-H14. | Basse |
 | IA-H72 | Écart Motivation (s30-p4) | cause | Oui | `ApkAI.gd:859-869` | Partiel | = IA-H17. | voir IA-H17 |
 | IA-H73 | Écart Princess in Peril (s26-p4) | cause | Non vérifié | `ApkAI.gd:871-895` | Non vérifié | = IA-H18 ; cause non établie sans exécution. | voir IA-H18 |
-| IA-H74 | `RevealAllRoomCards` : ordre et moment de résolution des cibles (`GameBoard.cs:928-968,1317-1332`) | méthode | Oui | `Match.gd:1477-1500` | Différent | Cause commune de IA-H68, IA-H69 et sans doute IA-H73 : sièges contre XP pour l'ordre, et cibles figées à la révélation contre cibles calculées après les effets. Rejoint R-D19 et R-D35 du module 5. | Moyenne |
+| IA-H74 | `RevealAllRoomCards` : ordre et moment de résolution des cibles (`GameBoard.cs:928-968,1317-1332`) | méthode | Oui | `Match.gd:1477-1500` | Différent | Cause commune de IA-H68, IA-H69 et sans doute IA-H73 : sièges contre XP pour l'ordre, et cibles figées à la révélation contre cibles calculées après les effets. Rejoint R-D19 et R-D35 du module 5. | Corrigé (Moyenne) |
 
 ### Non vérifié (module 6)
 
@@ -1899,3 +1899,19 @@ Validé par `python tools/run_godot_tests.py` (14/14) et l'oracle (6/6, 12/12, 6
 | R-E29 | Ouvert | Différence visible seulement si une transaction est annulée avant de s'exécuter ; jamais observé. |
 
 Non vérifié : R-D34, R-D35, R-E14, R-E18 et R-E19 portent sur des chemins que l'oracle ne joue presque pas ; seule l'absence de régression est prouvée.
+
+## Lot 1b : IA (2026-10-26)
+
+Validé par `python tools/run_godot_tests.py` (14/14) et l'oracle (6/6, 12/12, 6/6) ; stress graines 10 à 40, 2 à 4 joueurs : 90/93.
+
+| ID | État | Changement |
+|---|---|---|
+| IA-H74 | Corrigé | Comme `RevealAllRoomCards` → `EnqueueAbilityTransaction`, la cible de chaque déclencheur de révélation est figée à la mise en file (`ApkAI.reveal_target`), avant tout effet et salles en attente exclues ; `ApkAI.choose` la rejoue (`apkPre`). Les cibles se figent dans l'ordre des sièges (`G.apkSeats`, posé par le harnais seulement), la file reste triée par PlayerId. Golden ajouté. |
+| IA-H68, IA-H69, IA-O06 | Corrigé | Par IA-H74 : accord des cibles 832/853 → 849/853 (Mimic Vault 41/41, Specter's Sanctum 89/89). |
+| — | Corrigé | `GameBoard.DestroyRoom` : la salle détruite est défaussée avant le déclencheur de Recycling Center, donc remélangée avec les défausses si la pioche est vide. Sans golden dédié. |
+| Stress s16-p4 | Ouvert | Remélange des défausses non reproductible (l'ordre tiré n'est pas dans la trace). Sans lien avec IA-H74. |
+| Stress s20-p2, s28-p3 | Ouvert | L'IA oracle active Dracolich Lair après la sortie du dernier héros, Godot a déjà fermé le tour. Sans lien avec IA-H74. |
+| IA-G47 | Ouvert | L'oracle enregistre la décision d'avant la capacité : rien ne la mesure. |
+| IA-H17 | Ouvert | Une seule trace (s30-p4 seq 306) ; lecture de `MaxBuildRoomLimit` à poursuivre. |
+| IA-H23 | Ouvert | T.P.K. : dépend des cibles proposées par le moteur (décision de produit). |
+| IA-H70 | Ouvert | Le seul écart restant (s21-p4@519) est une égalité du harnais, probablement un artefact de mesure. |
