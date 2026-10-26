@@ -13,6 +13,8 @@ signal state_received
 signal request_error(message: String)
 signal rooms_received(rooms: Array) # salons publics (liste `rooms` du serveur : code, title, host, numPlayers, free, sets, status)
 signal evicted # le siege a ete repris par une autre connexion (autre onglet) : pas de reconnexion
+signal session_lost # session definitivement perdue (jeton refuse, salle inconnue ou fermee) : en partie, modale « Connection problem » (GamePlayMOScene.cs:92-95)
+signal link_changed(up: bool) # liaison ouverte / coupee (reconnexion automatique en cours quand elle tombe)
 signal _reply(kind: String, data: Dictionary)
 
 const NetCodec = preload("res://godot/scripts/NetCodec.gd")
@@ -53,6 +55,7 @@ var current_awaited: Array = [] # sieges humains attendus par le serveur (compte
 var clock_offset_ms := 0 # horloge serveur - horloge locale (ms), pour afficher le delai restant
 var count_results := true # faux dans les tests : ne touche pas aux compteurs du profil
 var _result_for := "" # code de la salle dont le resultat est deja compte dans Profile
+var _started_for := "" # code de la salle dont le debut de partie est deja compte (defaite posee d'avance, GamePlayMOScene.cs:46-48)
 var connected := false
 var is_host := false
 var public_room := false # la salle vient de la liste publique (la fleche de la salle d'attente ramene a cette liste)
@@ -111,6 +114,7 @@ func _process(delta: float) -> void:
 					_send({"t": "resume", "code": match_id, "seat": player_id, "token": credentials})
 				elif _watching and match_id == "":
 					_send({"t": "listRooms"})
+				link_changed.emit(true)
 				_reply.emit("open", {})
 			var waited := _pong_wait
 			while _ws.get_available_packet_count() > 0:
@@ -146,6 +150,7 @@ func _process(delta: float) -> void:
 			elif _want_open:
 				if was_open:
 					request_error.emit("connexion perdue, reconnexion...")
+					link_changed.emit(false)
 				_schedule_retry()
 
 func _schedule_retry() -> void:
@@ -234,6 +239,7 @@ func _on_message(d: Dictionary) -> void:
 			var bad_token: bool = str(d.get("code", "")) in ["bad_token", "not_found"]
 			if bad_token and match_id != "":
 				_forget() # la salle n'existe plus ou le jeton n'est plus valide : inutile de reessayer
+				session_lost.emit()
 			request_error.emit(str(d.get("message", "?")))
 			_reply.emit("error", d)
 		"closed":
@@ -241,6 +247,7 @@ func _on_message(d: Dictionary) -> void:
 				return
 			request_error.emit("le salon a ete ferme")
 			_forget()
+			session_lost.emit()
 			_reply.emit("closed_room", d)
 
 func _store_lobby(d: Dictionary) -> void:
@@ -269,10 +276,19 @@ func _store_view(d: Dictionary) -> void:
 		clock_offset_ms = int(d["serverTime"]) - int(Time.get_unix_time_from_system() * 1000.0)
 	current_awaited = d.get("awaited", [])
 	current_moves = d.get("moves", [])
+	if str(d.get("status", "")) == "running":
+		_count_start()
 	if str(d.get("status", "")) == "finished":
 		_count_result()
 		_clear_session() # partie finie : plus rien a reprendre
 	state_received.emit()
+
+## APK : la defaite en ligne est comptee des le debut de la partie (OnlineDefeats++ + SaveToDisk, GamePlayMOScene.cs:46-48) : quitter = perdre.
+func _count_start() -> void:
+	if not count_results or match_id == "" or match_id == _started_for:
+		return
+	_started_for = match_id
+	Profile.record_start(match_id)
 
 ## Victoire / defaite du joueur local, une seule fois par salle (compteurs de Profile, montres dans la salle d'attente).
 func _count_result() -> void:

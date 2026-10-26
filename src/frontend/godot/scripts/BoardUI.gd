@@ -146,6 +146,7 @@ var _ai_timer: float = 0.0
 var _animating_hero: bool = false
 var skip_animations: bool = DisplayServer.get_name() == "headless" # le smoke test le passe a false
 var _over_sting_played: bool = false
+var _order_cache: Dictionary = {} # pid -> Boss.PlayerId
 var _hand_last := -1                     # indice de la carte de la main survolee (CardPositionComponent.lastIndex, int.MinValue = aucune)
 var _hand_cur := -1                      # carte de la main sous le curseur a cet instant
 var _sparkle_on := false                 # boucle sfx_sparklecard en cours (surbrillance verte d'une salle ciblable)
@@ -883,6 +884,8 @@ func _process(delta: float) -> void:
 	for pid in players:
 		if not (players[pid] as Dictionary).get("isAI", false):
 			continue
+		if phase == "build" and pc.is_empty() and int(pid) != game_manager.active_player() and not game_manager.G.has("buildWindow"):
+			continue # IA hors tour : son UseAbility du pas est joue par Match._drive_ai (AIPlayerInteraction.cs:86-101), pas par cette boucle
 		var moves: Array = game_manager.legal_moves(int(pid))
 		var has_ai_choice: bool = not pc.is_empty() and int(pc.get("playerId", -1)) == int(pid)
 		# Aventure : l'IA active doit avancer / passer, sinon la partie attend indefiniment (pause : tous les sieges IA passent).
@@ -1088,7 +1091,7 @@ func refresh() -> void:
 		_play_hero_crossing_animation(lhf)
 	_track_adventure(G)
 
-	if G.get("gameOver") != null:
+	if G.get("gameOver") != null or _all_humans_dead(G):
 		_show_gameover(G)
 	var deadline := int(G.get("turnDeadline", 0))
 	if deadline > 0 and G.get("gameOver") == null:
@@ -1266,6 +1269,17 @@ func _set_carousel_text(bb: String, font_size: int) -> void:
 	_carousel_text.add_theme_font_size_override("normal_font_size", font_size)
 	_carousel_text.text = "[center]%s[/center]" % bb
 
+## Boss.PlayerId (GameBoardExtensions.cs:86-89) : rang XP decroissant fixe a la mise en place, 1..N, ne change plus ensuite.
+func _player_order(pid: int) -> int:
+	if _order_cache.is_empty():
+		var G: Dictionary = game_manager.G
+		var xo: Array = G.get("xpOrder", [])
+		if xo.size() != (G.get("players", {}) as Dictionary).size() or str(G.get("phase", "")) == "boss":
+			return pid + 1
+		for k in xo.size():
+			_order_cache[int(xo[k])] = k + 1
+	return int(_order_cache.get(pid, pid + 1))
+
 func _refresh_lane_badges(idx: int, pl: Dictionary) -> void:
 	var L: Dictionary = _lane[idx]
 	var boss = pl.get("boss")
@@ -1275,7 +1289,7 @@ func _refresh_lane_badges(idx: int, pl: Dictionary) -> void:
 	var xp_digits := str(xp_n)
 	(L["xp_unit"] as Label).position.x = (L["xp"] as Label).position.x + _fb.get_string_size(xp_digits, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
 	(L["xp_unit"] as Label).text = "XP"
-	(L["lvl"] as Label).text = "2" if bool(pl.get("leveledUp", false)) else "1"
+	(L["lvl"] as Label).text = str(_player_order(int(pl.get("id", 0)))) # BossXPAndOrderControl.cs:109 : Boss.PlayerId
 	var tr: Array = (boss as Dictionary).get("treasures", []) if boss != null else []
 	(L["icon"] as TextureRect).texture = _tex(str(TREASURE_TEX.get(int(tr[0]) if not tr.is_empty() else 0, "")))
 
@@ -2153,7 +2167,7 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 		_flash_icons(wounds_container, _wounds_seen, mini(n_wounds, 5), TEX_WOUND_EMPTY)
 	_souls_seen = n_souls
 	_wounds_seen = n_wounds
-	_fill_treasures(treasures_container, BossEngine.treasure_counts(p),
+	_fill_treasures(treasures_container, BossEngine.treasure_counts(p, game_manager.G),
 		[[3, Vector2(0, 0)], [4, Vector2(0, 54)], [2, Vector2(0, 101)], [1, Vector2(0, 153)], [5, Vector2(0, 200)]], 30.0)
 
 	# Boss adverse
@@ -2163,13 +2177,13 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 	foe_sub_label.text = str(fb.get("subtitle", "")) if fb != null and not blank else ""
 	foe_wounds_label.text = "x%d" % CardDB.total_wounds(foe)
 	foe_souls_label.text = "x%d" % CardDB.total_souls(foe, game_manager.G)
-	_fill_treasures(foe_treasures_box, BossEngine.treasure_counts(foe),
+	_fill_treasures(foe_treasures_box, BossEngine.treasure_counts(foe, game_manager.G),
 		[[4, Vector2(8, 6)], [3, Vector2(106, 6)], [2, Vector2(6, 38)], [1, Vector2(106, 38)], [5, Vector2(40, 8)]], 22.0)
 
 	# Pioches
 	var decks: Dictionary = G.get("decks", {})
-	room_deck_label.text = "x0" if blank else "x%d" % decks.get("rooms", []).size()
-	spell_deck_label.text = "x0" if blank else "x%d" % decks.get("spells", []).size()
+	room_deck_label.text = "x0" if blank else "x%d" % (foe.get("hand", []) as Array).filter(func(c): return bool((c as Dictionary).get("isRoom", false))).size() # OneOpponentDetail.cs:212 : RoomsInHand / SpellsInHand de l'adversaire
+	spell_deck_label.text = "x0" if blank else "x%d" % (foe.get("hand", []) as Array).filter(func(c): return not bool((c as Dictionary).get("isRoom", false))).size()
 	deck_info_label.text = ""
 	foe_coins_label.text = ""
 	if Minibosses.active(G): # Rise of the Minibosses : le Hoard de chaque joueur
@@ -4269,6 +4283,19 @@ func _style_pass_button(done: bool) -> void:
 	b.texture_normal = _tex(TEX_DONE if done else TEX_PASS)
 	b.texture_pressed = _tex(UI_DIR + ("done_button_unlimited_pressed.webp" if done else "pass_button_pressed.webp"))
 
+## GamePlayBaseScene.cs:1071-1078 : tous les humains morts en fin de tour -> OnUserPlayerDefeat, meme si les IA continuent (hors ligne seulement).
+func _all_humans_dead(G: Dictionary) -> bool:
+	if _is_online() or str(G.get("phase", "")) in ["boss", "adventure", "bait"]:
+		return false
+	var n := 0
+	for pid in G.get("players", {}):
+		var q: Dictionary = G["players"][pid]
+		if not bool(q.get("isAI", false)):
+			if not bool(q.get("eliminated", false)):
+				return false
+			n += 1
+	return n > 0
+
 ## Fin de partie (WinnerScene / LoseScene) : bandeau noir, boss gagnant, cristaux, OK -> retour a l'ecran titre.
 func _show_gameover(G: Dictionary) -> void:
 	if _animating_hero or (_gameover != null and is_instance_valid(_gameover)):
@@ -4278,7 +4305,7 @@ func _show_gameover(G: Dictionary) -> void:
 	_drag_clear()
 	_zoom_hide()
 	phase_banner.visible = false # APK : plus de bandeau de phase sur l'ecran de fin
-	var w := int((G["gameOver"] as Dictionary).get("winner", -1))
+	var w := int((G["gameOver"] as Dictionary).get("winner", -1)) if G.get("gameOver") != null else -1 # -1 : defaite des humains, partie en cours
 	var players: Dictionary = G.get("players", {})
 	var boss = (players[w] as Dictionary).get("boss") if players.has(w) else null
 	if not _over_sting_played:
@@ -4289,7 +4316,7 @@ func _show_gameover(G: Dictionary) -> void:
 			get_tree().create_timer(0.5).timeout.connect(func(): AudioManager.play_sfx(vid))
 		else:
 			AudioManager.play_sting("sting_player_lose") # LoseScene.cs:21 (PlayWithMusicFade)
-	var lose: bool = (_apk_flow() or _is_online()) and w != _my_pid()
+	var lose: bool = w < 0 or ((_apk_flow() or _is_online()) and w != _my_pid())
 	_gameover = GameOverBanner.new()
 	_gameover.z_index = 90
 	add_child(_gameover)
@@ -4392,10 +4419,18 @@ func _on_level_up_pressed() -> void: # pas de son propre (TopRightPanelEntity.cs
 	_ui_layer.add_child(_zoom)
 	_zoom_appear()
 
+## Badge DAMAGE = AIHelper.GetDungeonDamage (AIHelper.cs:95-117) : salles actives, non en attente, degats modifies (GetTopRoomTotalDamage) ;
+## defaut conserve : la salle qui suit un BMA017 Minotaur's Maze (dans l'ordre APK = index Godot decroissant) est comptee deux fois.
 func _get_total_dungeon_damage(player_dict: Dictionary) -> int:
 	var total := 0
-	for stack in player_dict.get("dungeon", []):
-		var r = BossEngine.active_room(stack)
-		if r != null and not bool((r as Dictionary).get("faceDown", false)):
-			total += int((r as Dictionary).get("damage", 0))
+	var dungeon: Array = player_dict.get("dungeon", [])
+	var prev_maze := false
+	for i in range(dungeon.size() - 1, -1, -1):
+		var r = BossEngine.active_room(dungeon[i])
+		if r == null or bool((r as Dictionary).get("faceDown", false)) or BossEngine.is_room_deactivated(game_manager.G, int(player_dict.get("id", 0)), i):
+			prev_maze = false
+			continue
+		var d := BossEngine.room_damage_with_modifiers(game_manager.G, player_dict, i, null)
+		total += d * (2 if prev_maze else 1)
+		prev_maze = str((r as Dictionary).get("id", "")) == "BMA017"
 	return total

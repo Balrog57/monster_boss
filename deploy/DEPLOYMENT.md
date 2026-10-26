@@ -118,7 +118,7 @@ le navigateur revalide à chaque chargement (ETag, réponses 304 peu coûteuses)
   `Upgrade`/`Connection`, timeouts 3600 s). Le client web se connecte à
   `ws(s)://<hôte de la page>/ws`. nginx démarre même si le serveur est arrêté
   (resolver Docker + variable) ; `/ws` répond alors `502` jusqu'à son retour.
-- Délai de tour : option `--turn-timeout=60` (secondes) dans le `CMD` de
+- Délai de tour : option `--turn-timeout=70` (secondes) dans le `CMD` de
   `deploy/Dockerfile.server`. Autres options : `--port`, `--adventure-timeout`,
   `--bot-delay`, `--ttl`, `--max-rooms` (voir `src/frontend/godot/server/PROTOCOL.md`).
   Après modification : `docker compose -f deploy/docker-compose.yml up -d --build server`.

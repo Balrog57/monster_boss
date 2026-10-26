@@ -68,6 +68,8 @@ func _ready() -> void:
 	add_child(online)
 	menus = OnlineMenus.new(self)
 	online.evicted.connect(_on_seat_taken)
+	online.session_lost.connect(_on_session_lost)
+	online.link_changed.connect(_on_link_changed)
 	if OS.has_feature("web"):
 		var origin = JavaScriptBridge.eval("window.location.origin")
 		if origin != null and str(origin) != "" and str(origin) != "null":
@@ -543,7 +545,7 @@ func _open_board(gm: GameManager, tutorial := false) -> void:
 	add_child(board)
 	if tutorial:
 		board.mount_tutorial(TutorialOverlay.new())
-	board.setup(gm, func(): show_title()) # APK LeaveGameplayScene : retour a l'ecran titre (fin de partie : OK ; menu : QUIT GAME)
+	board.setup(gm, func(): _leave_board(gm)) # APK LeaveGameplayScene : retour a l'ecran titre (fin de partie : OK ; menu : QUIT GAME)
 
 # --- multi : voir OnlineMenus.gd (MultiplayerScene, MenuOnlineScene, WithFriends, ChangeNameAvatar, salle d'attente) -----
 
@@ -562,6 +564,40 @@ func show_waiting() -> void:
 ## Un autre onglet a repris notre siege (OnlineClient.evicted) : session oubliee, pas de reconnexion ; on previent puis retour au menu.
 func _on_seat_taken() -> void:
 	menus.msg_box("SEAT TAKEN ELSEWHERE", "This seat is now used in another tab", func(): go(show_menu))
+
+## Sortie du plateau. En ligne, on quitte aussi la salle et on ferme la liaison (APK Dispose -> onlineService.Disconnect(), GamePlayMOScene.cs:58-68) ;
+## sans cela le serveur garde le siege et repond `busy` au prochain create / join. Partie en cours : le siege passe a l'IA (Server.gd `leave`).
+func _leave_board(gm: GameManager) -> void:
+	if gm is OnlineGameManager:
+		online.leave_match()
+	show_title()
+
+## Le plateau affiche une partie en ligne encore ouverte (pas terminee).
+func _online_game_open() -> bool:
+	if board == null or not is_instance_valid(board):
+		return false
+	var gm = board.get("game_manager")
+	return gm is OnlineGameManager and gm.G.get("gameOver") == null
+
+## Session perdue pendant la partie (serveur redemarre, salle expiree ou fermee) : modale de l'APK puis sortie (GamePlayMOScene.cs:92-95, 121-138).
+func _on_session_lost() -> void:
+	if not _online_game_open():
+		return
+	var gm: GameManager = board.get("game_manager")
+	menus.msg_box("Connection problem", "The connection with the server was lost.", func(): _leave_board(gm))
+
+## Coupure transitoire : Godot reconnecte seul (resume), l'APK sortait. On le dit au joueur.
+func _on_link_changed(up: bool) -> void:
+	if not _online_game_open():
+		return
+	var lbl := board.get_node_or_null("Reconnecting")
+	if up:
+		if lbl != null:
+			lbl.queue_free()
+	elif lbl == null:
+		lbl = UiKit.label(board, "Reconnecting...", 42, Color("cdb15f"), Vector2(560, 12), 800.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
+		lbl.name = "Reconnecting"
+		lbl.z_index = 100
 
 func start_online_match() -> void:
 	_clear()

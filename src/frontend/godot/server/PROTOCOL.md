@@ -1,7 +1,7 @@
 # Protocole multijoueur Boss Monster (serveur Godot headless)
 
 Lancement : `godot --headless --path src/frontend res://godot/server/Server.tscn -- --port=8091`
-Options : `--turn-timeout=60` (s, 0 = sans minuteur) `--adventure-timeout=10` `--bot-delay=350` (ms entre deux coups d'IA)
+Options : `--turn-timeout=70` (s, 0 = sans minuteur) `--adventure-timeout=10` `--bot-delay=350` (ms entre deux coups d'IA)
 `--ttl=3600` (s, salle sans humain connecte) `--max-rooms=200` `--seat-grace=30` (s, voir Nettoyage) `--public-idle=120` (s, voir Nettoyage).
 
 Transport : WebSocket, **trames texte JSON**, un objet par trame avec un champ `t` (type). Une connexion = une salle = un siege.
@@ -38,8 +38,10 @@ Les cles entieres des dictionnaires (`players`, `stackPassed`...) voyagent en te
 
 - Autorite : seul Match.gd (serveur) applique les coups ; le client n'envoie que des coups proposes dans `moves`.
 - Minuteur : une decision attendue d'un humain (choix en attente, choix de boss, pose initiale, fenetre de sorts, pause d'aventure, tour de construction)
-  a `turnTimeout` secondes (10 s pour une pause d'aventure). A l'echeance l'IA (AI.gd) joue pour lui et continue jusqu'a ce qu'il rejoue
-  ou se reconnecte (`resume`). Aucun etat n'est persiste : salle supprimee `ttl` s apres le dernier humain, 10 min apres la fin de partie.
+  a `turnTimeout` secondes (10 s pour une pause d'aventure). A l'echeance l'IA (AI.gd) ne joue QUE la decision expiree (DONE automatique pour le tour de construction, comme l'APK, `GamePlayBaseScene.cs:272,1030-1042`),
+  puis l'humain reprend la main avec un nouveau delai. Seul un siege sans liaison a l'echeance (ou ayant fait `leave`) reste a l'IA, jusqu'a son `resume` pour le premier.
+  Le delai appartient a la fenetre de decision : en construction, `buildRoom` / `undoBuild` ne le repoussent pas, et un `resume` ne le relance pas.
+  `--turn-timeout` vaut 70 s par defaut (la barre du bouton DONE de l'APK). Aucun etat n'est persiste : salle supprimee `ttl` s apres le dernier humain, 10 min apres la fin de partie.
 - Coup `undoBuild` (`args: [emplacement]`, sieges humains seulement, jamais l'IA) : legal tant que la salle posee CE tour par ce siege est encore face cachee et non verrouillee, donc avant son DONE (`pass`/`passBuild`) et tant qu'aucun sort ni capacite n'a ete joue depuis (par n'importe qui ; `buildRoom`, `undoBuild`, `pickBoss`, `openingDiscard` ne verrouillent pas). Effet : la carte retourne en fin de main, la salle recouverte redevient visible, `buildsThisTurn` redescend de 1. Listee dans `moves` seulement quand elle est legale (`Match._undo_build_moves`).
 - Filtrage (`ViewFilter.gd`) : mains adverses, pioches (rooms/spells/heroes/epics/items), salles face cachee adverses, options des choix d'autrui
   deviennent `{"hidden": true}` (tailles conservees) ; `bossPicks` vide hors phase boss ; files internes et crochets de test retires ;

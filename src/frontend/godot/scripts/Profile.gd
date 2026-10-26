@@ -58,18 +58,38 @@ static func load_stats() -> Dictionary:
 
 const COUNTED_KEEP := 20 # derniers codes de salle deja comptes (survit au rechargement + RESUME d'une salle terminee)
 
-## `code` : salle de la partie ; si elle a deja ete comptee (meme apres rechargement), ne fait rien.
+## Debut d'une partie en ligne : defaite comptee d'avance (APK GamePlayMOScene.cs:46-48), une seule fois par salle.
+static func record_start(code: String) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(SAVE_PATH)
+	var started: Array = Array(cfg.get_value("stats", "started", []))
+	if code in started or code in Array(cfg.get_value("stats", "counted", [])):
+		return
+	started.append(code)
+	cfg.set_value("stats", "started", started.slice(-COUNTED_KEEP))
+	cfg.set_value("stats", "defeats", maxi(0, int(cfg.get_value("stats", "defeats", 0))) + 1)
+	cfg.save(SAVE_PATH)
+
+## Fin de partie. `code` : salle de la partie ; si elle a deja ete comptee (meme apres rechargement), ne fait rien.
+## Victoire : la defaite posee au debut est annulee (GamePlayMOScene.cs:260-267) ; defaite : deja comptee au debut (sauf partie jamais vue demarrer).
 static func record_result(won: bool, code: String = "") -> void:
 	var st := load_stats()
 	var cfg := ConfigFile.new()
 	cfg.load(SAVE_PATH)
+	var started := false
 	if code != "":
 		var counted: Array = Array(cfg.get_value("stats", "counted", []))
 		if code in counted:
 			return
 		counted.append(code)
 		cfg.set_value("stats", "counted", counted.slice(-COUNTED_KEEP))
-	cfg.set_value("stats", "wins" if won else "defeats", int(st["wins" if won else "defeats"]) + 1)
+		started = code in Array(cfg.get_value("stats", "started", []))
+	if won:
+		cfg.set_value("stats", "wins", int(st["wins"]) + 1)
+		if started:
+			cfg.set_value("stats", "defeats", maxi(0, int(st["defeats"]) - 1))
+	elif not started:
+		cfg.set_value("stats", "defeats", int(st["defeats"]) + 1)
 	cfg.save(SAVE_PATH)
 
 ## Reglages (serveur multi, extensions du wiki, paquets APK choisis), meme fichier.

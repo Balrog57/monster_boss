@@ -8,6 +8,7 @@ const PHASE := {
 	"SETUP": "setup",
 	"BEGINNING": "beginning",
 	"BUILD": "build",
+	"EXTRA_BUILD": "extrabuild", # ExtraBuildPhase (tour de construction force) : DuringPhase.Build = BuildPhase_a seule, donc aucun sort « Build »
 	"BAIT": "bait",
 	"ADVENTURE": "adventure",
 	"END": "end",
@@ -316,10 +317,10 @@ static func can_play_spell(card: Dictionary, phase: String, stack_len: int = 0) 
 		return bool(card.get("thkLive", false)) # ToolsHeroKind : Ability nulle dans data.json (CheckConditions exige >= 1 effet) -> jamais jouable dans l'APK ; seule la case wiki la rend jouable (n'importe quand)
 	if SPELL_PHASE.has(cid):
 		var w: String = SPELL_PHASE[cid]
-		return w == phase or (w == "any" and (phase == PHASE["BUILD"] or phase == PHASE["ADVENTURE"]))
+		return w == phase or (w == "any" and (phase == PHASE["BUILD"] or phase == PHASE["ADVENTURE"] or phase == PHASE["EXTRA_BUILD"]))
 	var cat := int(card.get("category", 0))
 	if cat == 4 or cat == 5:
-		return phase == PHASE["BUILD"] or phase == PHASE["ADVENTURE"]
+		return phase == PHASE["BUILD"] or phase == PHASE["ADVENTURE"] or phase == PHASE["EXTRA_BUILD"]
 	if cat == 1 or cat == 2:
 		return phase == PHASE["BUILD"]
 	if cat == 3:

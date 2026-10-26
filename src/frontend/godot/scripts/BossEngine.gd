@@ -69,9 +69,12 @@ static func dungeon_treasures(player: Dictionary, G: Dictionary = {}) -> Array:
 	# Boss.GetDungeonTreasures : TreasuresMultiplier (Jackpot Stash, MultiplyTreasuresDungeon) ne s'applique
 	# qu'aux tresors des salles, pas a ceux du boss.
 	var mult := 2 if (_effects(G).get("treasureDoubled", []) as Array).has(int(player.get("id", -1))) else 1
-	for stack in player.get("dungeon", []):
-		var room = active_room(stack)
-		if room == null:
+	var pid_t := int(player.get("id", -1))
+	var dun_t: Array = player.get("dungeon", [])
+	for i in dun_t.size():
+		var room = active_room(dun_t[i])
+		# Boss.GetDungeonTreasures (Boss.cs:254) : slot actif et non en attente (face cachee) seulement ; une salle gelee ne donne aucun tresor.
+		if room == null or bool((room as Dictionary).get("faceDown", false)) or (not G.is_empty() and is_room_deactivated(G, pid_t, i)):
 			continue
 		for t in room_treasures(room as Dictionary):
 			for _i in mult:
@@ -105,13 +108,13 @@ static func treasure_count(player: Dictionary, treasure: int, G: Dictionary = {}
 			n += 1
 	return n
 
-static func treasure_counts(player: Dictionary) -> Dictionary:
+static func treasure_counts(player: Dictionary, G: Dictionary = {}) -> Dictionary:
 	return {
-		1: treasure_count(player, 1),
-		2: treasure_count(player, 2),
-		3: treasure_count(player, 3),
-		4: treasure_count(player, 4),
-		5: treasure_count(player, 5),
+		1: treasure_count(player, 1, G),
+		2: treasure_count(player, 2, G),
+		3: treasure_count(player, 3, G),
+		4: treasure_count(player, 4, G),
+		5: treasure_count(player, 5, G),
 	}
 
 ## engine.js:canBuildRoom. G et player_id optionnels pour rester compatible avec
@@ -360,12 +363,16 @@ static func no_entry(player_id: int, G: Dictionary) -> bool:
 			return true
 	return false
 
+## Boss.MaxBuildRoomLimit : propre au joueur, 1 par defaut. Kobold Strike (SkipBuildPhase) le met a 0 pour tous, Motivation (BuildExtraRoom) l'incremente ;
+## seule GameBoard.DeactivateLastActivePlayer (:1215, Match._advance_build) le remet a 1, donc il survit au tour courant des joueurs deja passes.
+static func build_limit(G: Dictionary, player_id: int) -> int:
+	var players: Dictionary = G.get("players", {}) as Dictionary
+	var p = players.get(player_id, players.get(str(player_id), {}))
+	return int((p as Dictionary).get("buildLimit", 1))
+
+## Constructions permises EN PLUS de la premiere (-1 : limite 0, aucune construction) ; les appelants testent `buildsThisTurn < 1 + extra_builds_for`.
 static func extra_builds_for(G: Dictionary, player_id: int) -> int:
-	var n := 0
-	for id in _effects(G).get("extraBuild", []):
-		if int(id) == int(player_id):
-			n += 1
-	return n
+	return build_limit(G, player_id) - 1
 
 ## G.effects peut etre absent sur un etat solo minimal.
 static func _effects(G: Dictionary) -> Dictionary:
@@ -512,6 +519,18 @@ static func spend_hero_health_bonus(G: Dictionary, hero: Dictionary) -> void:
 
 # --- engine.js: destroyRoom / discardRoomToPile ---
 
+## DungeonSlot.AbilityDamage des emplacements VIDES du joueur, dans l'ordre de pose (le premier recoit la prochaine salle ; indices C# croissants).
+## Godot ne stocke pas les emplacements vides : DealDamageToDungeon (Crushinator) y pose son +2, insert_slot le rend a la salle construite.
+## Les entrees absentes valent 0 (les 5 - taille emplacements vides, au plus).
+static func empty_slot_bonuses(G: Dictionary, pid: int) -> Array:
+	var eff := _effects(G)
+	if not eff.has("emptySlotBonus"):
+		eff["emptySlotBonus"] = {}
+	var m: Dictionary = eff["emptySlotBonus"]
+	if not m.has(str(pid)):
+		m[str(pid)] = []
+	return m[str(pid)]
+
 ## Detruit la salle active de room_index. Renvoie la carte detruite, ou null.
 ## G (optionnel) : decale les effets indexes par slot (Freeze, bonus de degats) quand l'emplacement disparait.
 ## triggers=false : ChooseAndDestroyRoom (Robobo) = DestroyRoom(checkTriggers:false), pas de WhenAnotherRoomIsDestroyed.
@@ -534,6 +553,7 @@ static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}
 		dungeon.remove_at(room_index)
 		# GameBoard.DestroyRoom : Dungeon.Remove + Add, les slots suivants se tassent ; les effets indexes suivent leur slot.
 		var pid := int(player.get("id", 0))
+		var lost_bonus := 0
 		for key in ["deactivatedRooms", "roomDamageBonus"]:
 			var arr: Array = _effects(G).get(key, [])
 			for k in range(arr.size() - 1, -1, -1):
@@ -541,9 +561,15 @@ static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}
 				if int(e.get("playerId", -1)) != pid:
 					continue
 				if int(e.get("roomIndex", -1)) == room_index:
+					lost_bonus += int(e.get("amount", 0))
 					arr.remove_at(k)
 				elif int(e.get("roomIndex", -1)) > room_index:
 					e["roomIndex"] = int(e["roomIndex"]) - 1
+		if lost_bonus > 0: # le DungeonSlot detruit garde son AbilityDamage et passe en fin de liste (vide) : il le rendra a la prochaine pose
+			var eb := empty_slot_bonuses(G, pid)
+			while eb.size() < 5 - dungeon.size() - 1:
+				eb.append(0)
+			eb.append(lost_bonus)
 		# Heros present dans ce donjon : il garde lastActiveHeroSlotIndex (GameBoard.ProccessActiveHero). Slot detruit
 		# DEVANT lui (plus pres du boss = index Godot plus grand) : son index C# baisse de 1, last != num, donc pas de
 		# num-- : il RESUBIT sa salle courante (adv.replay). Slot DERRIERE lui : l'index Godot de sa salle baisse de 1.

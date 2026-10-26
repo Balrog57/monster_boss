@@ -260,10 +260,10 @@ func legal_moves(pid: int) -> Array:
 			# Fenetre de sorts apres la derniere construction (ActivePlayer == null dans l'APK) : personne ne construit.
 			var window: bool = G.has("buildWindow")
 			var my_turn := pid == active_player() and not window
-			# Politique IA, pas une regle : un siege IA n'ouvre pas de Spell Battle hors de son tour
-			# (il ne repond qu'a travers la pile, voir plus haut) ; sinon _drive_ai/BoardUI le feraient jouer en boucle.
-			# Exception : la fenetre de sorts apres la derniere construction, ou l'IA de l'APK joue aussi (AIPlayerInteraction.DoPlayerActions).
-			if not my_turn and bool(p.get("isAI", false)) and bool(G.get("autoAI", true)) and not (window and not bool((G["buildWindow"] as Dictionary).get(pid, false))):
+			# Un siege IA n'a plus de coup apres avoir passe la fenetre de sorts. Hors tour (BuildPhase_a) il a ses sorts / capacites :
+			# AIPlayerInteraction.cs:86-101 appelle UseAbility pour TOUTE IA a chaque NextStep (GamePlayBaseScene.cs:864-871), BuildRoom pour l'active seule.
+			# AI.pick_move n'y joue que la capacite tiree (une fois par pas) ; _drive_ai l'y pilote.
+			if not my_turn and bool(p.get("isAI", false)) and bool(G.get("autoAI", true)) and window and bool((G["buildWindow"] as Dictionary).get(pid, false)):
 				return out
 			# Boss.CanBuildRoom = Dungeon.Any(slot.CanBuildRoom), sans test de taille : une salle (ordinaire ou avancee) se construit
 			# par-dessus une salle face visible meme si le donjon n'est pas plein (DungeonSlot.CheckRoomCanBeBuilt) ; seule la pose
@@ -298,7 +298,7 @@ func legal_moves(pid: int) -> Array:
 					var c: Dictionary = (p["hand"] as Array)[i]
 					if not c.get("isSpell", false):
 						continue
-					if not CardDB.can_play_spell(c, CardDB.PHASE["BUILD"], stack.size()):
+					if not CardDB.can_play_spell(c, CardDB.PHASE["EXTRA_BUILD"] if G.has("forcedBuild") else CardDB.PHASE["BUILD"], stack.size()):
 						continue
 					for t in SpellTargeting.spell_targets_for(G, p, pid, str(c.get("id", ""))):
 						out.append({"type": "playSpell", "args": [i, t]})
@@ -312,6 +312,8 @@ func legal_moves(pid: int) -> Array:
 				var rid := str(rd.get("id", ""))
 				if not ACTIVATABLE_ROOMS.has(rid) or bool(rd.get("usedThisTurn", false)):
 					continue
+				if rid == "BMA030" and G.has("forcedBuild"):
+					continue # Jackpot Stash : DuringPhase(Build) = BuildPhase_a seule, pas ExtraBuildPhase
 				if ThkAbilities.ACTIVATED.has(rid): # Tools of Hero-Kind : verification pure ; jamais hors de la case wiki
 					if ThkAbilities.active(G) and ThkAbilities.check(G, p, pid, i, rd) == "":
 						out.append({"type": "activateRoom", "args": [i]})
@@ -554,10 +556,7 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 				(dungeon[slot] as Array).append(card)
 				_log("Joueur %d améliore l'emplacement %d avec %s." % [pid, slot + 1, str(card.get("name", "?"))], "Joueur %d améliore l'emplacement %d (face cachée)." % [pid, slot + 1], [pid])
 			else:
-				if wiki_active(G):
-					TnlAbilities.insert_slot(G, pid, card) # les effets indexes par emplacement (Sabotage!, Rage!...) glissent avec leur salle
-				else:
-					dungeon.push_front([card])
+				TnlAbilities.insert_slot(G, pid, card) # DungeonSlot fixes cote APK : les effets indexes par emplacement (Freeze, Sabotage!, Crushinator...) glissent avec leur salle
 				_log("Joueur %d place %s face cachée." % [pid, str(card.get("name", "?"))], "Joueur %d place une salle face cachée." % pid, [pid])
 			p["buildsThisTurn"] = int(p.get("buildsThisTurn", 0)) + 1
 			if bool(G.get("setupBuild", false)):
@@ -571,7 +570,7 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 				_advance_build()
 		"undoBuild":
 			var undo_slot := int(move["args"][0])
-			var slot_freed: bool = wiki_active(G) and undo_slot >= 0 and undo_slot < (p["dungeon"] as Array).size() and ((p["dungeon"] as Array)[undo_slot] as Array).size() == 1
+			var slot_freed: bool = undo_slot >= 0 and undo_slot < (p["dungeon"] as Array).size() and ((p["dungeon"] as Array)[undo_slot] as Array).size() == 1
 			var back := undo_build_on(p, undo_slot)
 			if slot_freed:
 				TnlAbilities.remove_slot_effects(G, pid, undo_slot)
@@ -1306,6 +1305,9 @@ func _can_build_again(pid: int) -> bool:
 
 func _advance_build() -> void:
 	var order: Array = G.get("buildOrder", [])
+	var done_idx := int(G.get("buildIndex", 0))
+	if done_idx < order.size(): # DeactivateLastActivePlayer (GameBoard.cs:1215) : la limite de construction du joueur qui cesse d'etre actif redevient 1
+		((G["players"] as Dictionary).get(int(order[done_idx]), {}) as Dictionary).erase("buildLimit")
 	G["buildIndex"] = int(G.get("buildIndex", 0)) + 1
 	if int(G["buildIndex"]) < order.size():
 		# On memorise le joueur actif dans l'etat comme le JS (G.activePlayer),
@@ -1519,6 +1521,8 @@ func _drive_ai() -> void:
 			break
 		if str(G.get("phase", "")) != CardDB.PHASE["BUILD"]:
 			break
+		if _ai_offturn():
+			continue
 		var pid := active_player()
 		if G.has("buildWindow") and (G.get("stack", []) as Array).is_empty():
 			pid = _window_ai_seat() # fenetre de sorts : c'est le siege IA qui n'a pas passe, pas le dernier constructeur
@@ -1533,6 +1537,21 @@ func _drive_ai() -> void:
 		if not apply_move(pid, {"type": "passBuild", "args": []}):
 			break
 	_ai_driving = false
+
+## Les IA hors tour jouent leur UseAbility du pas (AIPlayerInteraction.cs:86-101, GamePlayBaseScene.cs:864-871). Vrai si l'une a joue.
+func _ai_offturn() -> bool:
+	if G.has("buildWindow") or G.has("forcedBuild") or not (G.get("stack", []) as Array).is_empty():
+		return false
+	var ap := active_player()
+	var ids: Array = (G["players"] as Dictionary).keys()
+	ids.sort()
+	for pid in ids:
+		if int(pid) == ap or not bool((G["players"][pid] as Dictionary).get("isAI", false)):
+			continue
+		var mv = AI.pick_move(self, int(pid))
+		if mv != null and apply_move(int(pid), mv):
+			return true
+	return false
 
 func _resolve_bait() -> void:
 	var remaining_town: Array = []
@@ -1583,6 +1602,8 @@ func _hand_room_moves(pid: int) -> Array:
 func _stack_response_moves(p: Dictionary, pid: int, stack_len: int) -> Array:
 	var out: Array = []
 	var phase := str(G.get("phase", ""))
+	if G.has("forcedBuild") and phase == CardDB.PHASE["BUILD"]:
+		phase = CardDB.PHASE["EXTRA_BUILD"]
 	var hand: Array = p.get("hand", []) as Array
 	for i in hand.size():
 		var c: Dictionary = hand[i]
@@ -1760,7 +1781,10 @@ func _finish_hero_if_dead() -> void:
 		TnlAbilities.sync_hero(G)
 	var adv: Dictionary = G.get("adventure", {})
 	if adv.is_empty() or int(adv.get("hp", 1)) > 0:
+		adv.erase("dealZero")
 		return
+	if bool(adv.get("dealZero", false)):
+		return # DealHero a mis le heros a 0 PV : il meurt au pas suivant, dans la salle d'apres (voir RoomAbilities.deal_hero)
 	var hero: Dictionary = adv.get("hero", {})
 	var pid: int = int(adv.get("playerId", 0))
 	var death_room: Dictionary = G.get("_deathRoom", {})
@@ -1776,6 +1800,10 @@ func _finish_hero_if_dead() -> void:
 	_finish_hero(pid, hero, int(adv.get("hp", 0)), death_room)
 
 func _init_adventure_phase() -> void:
+	# AdventurePhase_a : ChooseNextActivePlayer appelle DeactivateLastActivePlayer (GameBoard.cs:1215) pour CHAQUE joueur vivant, ce qui remet
+	# MaxBuildRoomLimit a 1 : la limite de Kobold Strike / Motivation survit au tour de construction du joueur, mais pas au tour de jeu.
+	for bp in G["players"]:
+		(G["players"][bp] as Dictionary).erase("buildLimit")
 	G.erase("afterHero")
 	G.erase("apkSkippedHero")
 	G["adventure"] = {}
@@ -1931,6 +1959,7 @@ func _room_damage(pid: int, i: int) -> void:
 	var hero: Dictionary = adv["hero"]
 	var room = BossEngine.active_room((p.get("dungeon", []) as Array)[i])
 	var dmg := BossEngine.room_damage_with_modifiers(G, p, i, hero)
+	adv.erase("dealZero") # la salle suivante recoit le heros a 0 PV : il y meurt (HeroDiesInThisRoom)
 	adv["hp"] = int(adv["hp"]) - dmg
 	adv["thkDamage"] = int(adv.get("thkDamage", 0)) + dmg # Vorpal Blade : degats deja subis par le heros
 	adv["pause"] = "post-damage"
@@ -1959,7 +1988,7 @@ func _check_adventure_pause_passed() -> void:
 				return
 	var pause_kind: String = str(adv["pause"])
 	if pause_kind == "post-damage":
-		if int(adv["hp"]) <= 0:
+		if int(adv["hp"]) <= 0 and not bool(adv.get("dealZero", false)):
 			var pid: int = int(adv["playerId"])
 			var p: Dictionary = G["players"][pid]
 			var idx: int = int(adv["roomIndex"])

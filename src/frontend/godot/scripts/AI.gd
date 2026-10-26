@@ -42,8 +42,10 @@ static func _window_key(G: Dictionary) -> String:
 	var adv: Dictionary = G.get("adventure", {}) as Dictionary
 	var st: Array = G.get("stack", [])
 	var hero_id := str((adv.get("hero", {}) as Dictionary).get("id", "")) if not adv.is_empty() else ""
-	return "%d|%s|%s|%s|%s|%s" % [int(G.get("turn", 0)), str(G.get("phase", "")), str(adv.get("roomIndex", "-")), hero_id,
-		str((st[st.size() - 1] as Dictionary).get("id", "")) if not st.is_empty() else "", str(G.has("buildWindow"))]
+	# BuildPhase_a : un appel d'UseAbility par NextStep et par IA (GamePlayBaseScene.cs:864-871) -> le joueur actif fait partie de la fenetre.
+	var act := str(G.get("activePlayer", "-")) if str(G.get("phase", "")) == "build" else ""
+	return "%d|%s|%s|%s|%s|%s|%s" % [int(G.get("turn", 0)), str(G.get("phase", "")), str(adv.get("roomIndex", "-")), hero_id,
+		str((st[st.size() - 1] as Dictionary).get("id", "")) if not st.is_empty() else "", str(G.has("buildWindow")), act]
 
 ## Choisit le meilleur coup légal parmi les options offertes. `commit` = false : question de mesure, sans memoriser la fenetre de decision.
 static func pick_move(match_obj, pid: int, commit := true):
@@ -75,6 +77,11 @@ static func pick_move(match_obj, pid: int, commit := true):
 					if trace.is_valid():
 						trace.call(match_obj, pid, moves, m)
 					return m
+	# IA hors de son tour de construction (BuildPhase_a) : AIPlayerInteraction.cs:86-101 ne lui laisse que UseAbility (pas de BuildRoom), et pas du tout
+	# en ExtraBuildPhase. Seule la capacite tiree par StatisticAI.SelectAbilityToUse est jouee ; les sorts hors APK (wiki) restent au joueur actif.
+	var off_turn: bool = pc.is_empty() and str(match_obj.G.get("phase", "")) == "build" and not match_obj.G.has("buildWindow") and pid != match_obj.active_player()
+	if off_turn and match_obj.G.has("forcedBuild"):
+		return null
 	var builds: Array = []
 	var others: Array = []
 	var apk_abilities := false
@@ -87,7 +94,7 @@ static func pick_move(match_obj, pid: int, commit := true):
 			others.append(m)
 	var best = null
 	var best_score := 0.0
-	for m in others:
+	for m in (others if not off_turn else []):
 		var s := score_move(match_obj, pid, m)
 		if best == null or s > best_score:
 			best_score = s
@@ -100,9 +107,9 @@ static func pick_move(match_obj, pid: int, commit := true):
 			var elig: Array = ApkAI.abilities(match_obj.G, pid, moves, match_obj.rng)
 			if commit:
 				remember(match_obj, pid, null)
+			if commit and (off_turn or not elig.is_empty()):
+				_used[wkey] = win # un seul UseAbility par pas ; hors tour, meme sans tirage (sinon la boucle d'IA le redemande a chaque coup)
 			if not elig.is_empty():
-				if commit:
-					_used[wkey] = win
 				var drawn: Dictionary = elig[match_obj.rng.randi_range(0, elig.size() - 1)]
 				if commit:
 					remember(match_obj, pid, drawn)

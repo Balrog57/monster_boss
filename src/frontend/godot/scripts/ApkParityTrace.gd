@@ -908,8 +908,29 @@ func _build(i: int, s: Dictionary, d: Dictionary, pid: int) -> void:
 ## L'IA de l'oracle termine seule son tour de construction ; cote Godot un siege non-IA le termine par DONE (passBuild) apres sa pose.
 func _build_and_done(pid: int, args: Array, s: Dictionary, label: String, i: int) -> void:
 	_ai_build(pid, args, s)
-	if _apply_move(pid, {"type": "buildRoom", "args": args}, s, label) and not run._can_build_again(pid) and not _builds_again(i, pid):
+	if _apply_move(pid, {"type": "buildRoom", "args": args}, s, label) and not run._can_build_again(pid) and not _builds_again(i, pid) and not _kobold_follows(i):
 		_apply_type(pid, "passBuild", s)
+
+
+## Kobold Strike (BMA049, SkipBuildPhase : MaxBuildRoomLimit = 0 pour tous) est dans la fenetre de sorts (jusqu'au prochain NextStep execute) : le joueur qui vient de construire est
+## encore actif cote oracle (DeactivateLastActivePlayer le remet a 1 au NextStep). Godot ne doit donc pas clore son tour (Match._advance_build) avant le sort ;
+## _sync_build le fera passer au NextStep.
+func _kobold_follows(i: int) -> bool:
+	for k in range(i - 1, -1, -1): # sort lance avant la pose mais encore sur la pile oracle (resolu apres, au NextStep)
+		var b: Dictionary = _steps[k]
+		var bd: Dictionary = b["detail"] if b.get("detail") is Dictionary else {}
+		if str(b["kind"]) == "phase" and bd.get("executed", true) != false:
+			break
+		if str(b["kind"]) == "action" and str(bd.get("action", "")) == "playSpell" and str((bd.get("spell", {}) as Dictionary).get("card", "")) == "BMA049":
+			return true
+	for k in range(i + 1, _steps.size()):
+		var n: Dictionary = _steps[k]
+		var nd: Dictionary = n["detail"] if n.get("detail") is Dictionary else {}
+		if str(n["kind"]) == "phase" and nd.get("executed", true) != false:
+			return false
+		if str(n["kind"]) == "action" and str(nd.get("action", "")) == "playSpell" and str((nd.get("spell", {}) as Dictionary).get("card", "")) == "BMA049":
+			return true
+	return false
 
 
 ## Le meme joueur construit-il encore avant le prochain vrai NextStep (phase executee) ? L'IA de l'oracle joue Motivation (BMA050) APRES sa 1re

@@ -193,16 +193,9 @@ static func _baiting_player(G: Dictionary, hero: Dictionary, active: int, room: 
 
 ## AIHelper.GetTotalTreasuresForHero : tresors du donjon (Boss.GetDungeonTreasures : hors salles en attente) de chaque classe du heros.
 static func _treasures_for_hero(G: Dictionary, q: Dictionary, hero: Dictionary) -> int:
-	var shown: Array = []
-	for stack in q.get("dungeon", []):
-		var top = BossEngine.active_room(stack)
-		if top != null and not bool((top as Dictionary).get("faceDown", false)):
-			shown.append(stack)
-	var qq := q.duplicate()
-	qq["dungeon"] = shown
-	var n := 0
+	var n := 0 # dungeon_treasures exclut deja les salles en attente et gelees (Boss.cs:254)
 	for t in CardDB.hero_treasures(hero):
-		n += BossEngine.treasure_count(qq, int(t), G)
+		n += BossEngine.treasure_count(q, int(t), G)
 	return n
 
 ## AIHelper.GetDungeonDamage (l.95-117) : slots actifs, non vides, non en attente, du fond a l'entree ; la salle qui suit un Minotaur's Maze (BMA017) compte double.
@@ -1089,14 +1082,7 @@ static func _chk_028(x: Dictionary, g: int) -> Variant:
 
 ## Donjon dont ne restent que les salles visibles (Boss.GetDungeonTreasures exclut les slots en attente).
 static func _shown_only(p: Dictionary) -> Dictionary:
-	var shown: Array = []
-	for stack in p.get("dungeon", []):
-		var top = BossEngine.active_room(stack)
-		if top != null and not bool((top as Dictionary).get("faceDown", false)):
-			shown.append(stack)
-	var q := p.duplicate()
-	q["dungeon"] = shown
-	return q
+	return p # dungeon_treasures exclut deja les slots en attente (indices du donjon conserves pour le test du gel)
 
 ## BMA030Logic (l.882-918) : plus de heros de la ville que NOUS ne leurrons pas deviendraient attires par nous (tresors des salles doubles) et tues, que de
 ## heros que nous attirons deja et tuons.

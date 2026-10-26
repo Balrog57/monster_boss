@@ -26,6 +26,7 @@ const OnlineGameManager = preload("res://godot/scripts/OnlineGameManager.gd")
 const GameManager = preload("res://godot/scripts/GameManager.gd")
 const AI = preload("res://godot/scripts/AI.gd")
 const OnlineMenus = preload("res://godot/scripts/OnlineMenus.gd")
+const Profile = preload("res://godot/scripts/Profile.gd")
 
 const GAME_TIMEOUT_S := 150.0
 
@@ -329,6 +330,12 @@ func _run_network() -> void:
 		await _scenario_reload()
 	if _fails.is_empty():
 		await _scenario_timeout()
+	if _fails.is_empty():
+		await _scenario_deadline_window()
+	if _fails.is_empty():
+		await _scenario_leave_and_lost()
+	if _fails.is_empty():
+		_scenario_profile_counts()
 	if _fails.is_empty():
 		await _scenario_sleep()
 	if _fails.is_empty():
@@ -877,16 +884,123 @@ func _scenario_timeout() -> void:
 		return
 	room._reset_deadline()
 	_expect(int(c.current_G.get("turnDeadline", 0)) > 0 or room.deadline_ms > 0, "un delai doit courir pour l'humain")
-	# l'humain ne fait rien : l'IA prend le relais (choix du boss)
-	_expect(await _wait(func(): return bool(room.seats[0]["auto"]), 6.0), "l'IA n'a pas pris le relais apres le delai")
+	# l'humain ne fait rien : l'IA ne joue QUE la decision expiree (choix du boss), puis il reprend la main (N-B15)
 	_expect(await _wait(func(): return c.current_G.get("players", {}).get(0, {}).get("boss") != null, 6.0), "le boss n'a pas ete choisi par l'IA")
+	_expect(not bool(room.seats[0]["auto"]), "timeout : le siege ne doit pas passer en auto apres un seul depassement")
 	_expect(str(c.current_G.get("log", [])).contains("prend le relais"), "journal : prise de relais non annoncee : %s" % str(c.current_G.get("log", [])).right(300))
+	# l'humain est de nouveau attendu : un second depassement (nouvelle decision) est constate separement
+	var windows := {}
+	_expect(await _wait(func():
+		if room.awaited_seats.has(0):
+			windows[room.deadline_ms] = true
+		return windows.size() >= 3, 12.0), "timeout : l'humain n'a pas ete attendu a nouveau (%d fenetres)" % windows.size())
+	_expect(not bool(room.seats[0]["auto"]), "timeout : auto reste faux tant que la liaison est ouverte")
 	# reconnexion : le joueur reprend son siege
 	c._ws.close()
 	await _wait(func(): return not c.connected, 5.0)
 	var serial: int = int(c.current_ctx.get("serverTime", 0))
 	_expect(await _wait(func(): return c.connected and int(c.current_ctx.get("serverTime", 0)) != serial and not bool(room.seats[0]["auto"]), 10.0), "le siege n'a pas ete rendu a la reconnexion")
 	c.queue_free()
+
+## Salle isolee (sans reseau) menee jusqu'au tour de construction du siege 0 humain, avec une pose possible.
+func _room_at_human_build() -> GameRoom:
+	var room := GameRoom.new("TST1", 2, [])
+	room.seats[0].merge({"name": "H", "taken": true, "token": "t", "conn": 99}, true)
+	room.add_bots(1)
+	room.bot_delay_ms = 0
+	room.start()
+	for _i in 600:
+		room.tick()
+		var G: Dictionary = room.m.G
+		if G.get("gameOver") != null:
+			return null
+		if str(G.get("phase", "")) == "build" and room.m.active_player() == 0 and not G.has("buildWindow") and (G.get("stack", []) as Array).is_empty() \
+				and (room.m.legal_moves(0) as Array).any(func(mv): return str(mv["type"]) == "buildRoom"):
+			return room
+		if room._awaited().has(0):
+			var mv = AI.pick_move(room.m, 0)
+			if mv == null or room.submit_move(0, mv) != "":
+				return null
+	return null
+
+## N-B16 / N-B15 : le delai appartient a la fenetre de decision ; un depassement ne joue qu'une decision.
+func _scenario_deadline_window() -> void:
+	var room := _room_at_human_build()
+	if not _expect(room != null, "delai : tour de construction humain introuvable"):
+		return
+	_expect(room.turn_timeout_ms == 70000, "delai : defaut attendu 70 s (barre DONE de l'APK)")
+	var d0: int = room.deadline_ms
+	_expect(d0 > 0 and room.awaited_seats.has(0), "delai : aucun delai pour le constructeur")
+	await get_tree().create_timer(0.05).timeout
+	var build: Dictionary = (room.m.legal_moves(0) as Array).filter(func(mv): return str(mv["type"]) == "buildRoom")[0]
+	_expect(room.submit_move(0, build) == "", "delai : buildRoom refuse")
+	_expect(room.deadline_ms == d0, "delai : buildRoom ne doit pas repousser l'echeance")
+	var undo: Array = (room.m.legal_moves(0) as Array).filter(func(mv): return str(mv["type"]) == "undoBuild")
+	if _expect(not undo.is_empty(), "delai : undoBuild non propose apres la pose"):
+		_expect(room.submit_move(0, undo[0]) == "", "delai : undoBuild refuse")
+		_expect(room.deadline_ms == d0, "delai : undoBuild ne doit pas repousser l'echeance")
+	# resume d'un autre siege : pas de delai neuf
+	room.seats[1].merge({"bot": false, "taken": true, "token": "u", "conn": 98}, true)
+	room.resume(1, "u", 98)
+	_expect(room.deadline_ms == d0, "delai : un resume ne doit pas repousser l'echeance")
+	room.seats[1]["bot"] = true
+	# echeance : seule la decision expiree est jouee (DONE), le siege reste humain
+	var turn_before := int(room.m.G.get("turn", 0))
+	room.deadline_ms = GameRoom._now() - 1
+	room.tick()
+	_expect(not bool(room.seats[0]["auto"]), "timeout : le siege connecte ne doit pas passer en auto")
+	_expect(str(room.m.G.get("log", [])).contains("pas répondu à temps"), "timeout : journal")
+	_expect(room.m.active_player() != 0 or int(room.m.G.get("turn", 0)) != turn_before or room.m.G.has("buildWindow") or str(room.m.G.get("phase", "")) != "build", "timeout : le DONE automatique n'a pas ete joue")
+	for _i in 200: # l'IA ne joue plus pour lui
+		room.tick()
+	_expect(not bool(room.seats[0]["auto"]), "timeout : auto apparu apres les ticks")
+	room.dispose()
+
+## N-B11 / N-B08 : apres `leave` on peut creer une autre salle ; salle fermee / perdue en partie -> session_lost.
+func _scenario_leave_and_lost() -> void:
+	var c := _client("Sortant")
+	if not _expect(await c.create_lobby(2, [], 1), "leave : create"):
+		return
+	var first := c.match_id
+	_expect(await _wait(func(): return not c.current_G.is_empty(), 5.0), "leave : pas d'etat")
+	c.leave_match() # sortie du plateau (Main._leave_board)
+	_expect(c.match_id == "" and not c.has_saved_session(), "leave : session non oubliee")
+	_expect(await _wait(func(): return not c.connected, 5.0), "leave : liaison non fermee")
+	_expect(await c.create_lobby(2, [], 1), "leave : la creation suivante doit reussir (pas de busy)")
+	_expect(c.match_id != "" and c.match_id != first, "leave : nouvelle salle attendue")
+	# salle fermee cote serveur pendant la partie : session_lost
+	var lost := [0]
+	c.session_lost.connect(func(): lost[0] += 1)
+	server._close_room(c.match_id)
+	_expect(await _wait(func(): return lost[0] == 1, 3.0) and c.match_id == "", "session_lost : salle fermee non signalee")
+	# salle inconnue au resume (serveur redemarre) : session_lost
+	c._on_message({"t": "joined", "code": "ZZZZ", "seat": 0, "token": "x"})
+	c._on_message({"t": "error", "code": "not_found", "message": "salon introuvable"})
+	_expect(lost[0] == 2, "session_lost : not_found non signale")
+	c.queue_free()
+
+## S-11 : defaite comptee au debut, annulee a la victoire (une seule fois par salle). Sauvegarde et restaure le profil reel.
+func _scenario_profile_counts() -> void:
+	var existed := FileAccess.file_exists(Profile.SAVE_PATH)
+	var backup: PackedByteArray = FileAccess.get_file_as_bytes(Profile.SAVE_PATH) if existed else PackedByteArray()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(Profile.SAVE_PATH))
+	Profile.record_start("AAAA")
+	Profile.record_start("AAAA")
+	_expect(Profile.load_stats() == {"wins": 0, "defeats": 1}, "stats : debut = 1 defaite (une fois) : %s" % str(Profile.load_stats()))
+	Profile.record_result(true, "AAAA")
+	Profile.record_result(true, "AAAA")
+	_expect(Profile.load_stats() == {"wins": 1, "defeats": 0}, "stats : victoire annule la defaite : %s" % str(Profile.load_stats()))
+	Profile.record_start("BBBB")
+	Profile.record_result(false, "BBBB")
+	_expect(Profile.load_stats() == {"wins": 1, "defeats": 1}, "stats : defaite non doublee : %s" % str(Profile.load_stats()))
+	Profile.record_result(false, "CCCC") # partie jamais vue demarrer (reprise tardive)
+	_expect(Profile.load_stats()["defeats"] == 2, "stats : defaite sans debut compte une fois")
+	if existed:
+		var f := FileAccess.open(Profile.SAVE_PATH, FileAccess.WRITE)
+		f.store_buffer(backup)
+		f.close()
+	else:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(Profile.SAVE_PATH))
 
 func _scenario_sleep() -> void:
 	var c := _client("Dormeur")

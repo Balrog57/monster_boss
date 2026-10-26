@@ -309,10 +309,20 @@ static func _bottomless_pit(G: Dictionary, p: Dictionary, player_id: int, room_i
 	var adv: Dictionary = G.get("adventure", {}) as Dictionary
 	_log(G, "Bottomless Pit: killed %s." % str((adv.get("hero", {}) as Dictionary).get("name", "?")))
 	adv["hp"] = 0
+	adv.erase("dealZero") # un KillHero l'emporte sur un DealHero a 0 PV en attente
 	adv["noDeathTrigger"] = true # KillHero = RemoveHeroFromGame + SoulsHeroes.Add : ni HeroDiesInThisRoom ni HeroDiesAnotherRoom (seul ProccessActiveHero les leve)
 	var destroyed = BossEngine.destroy_room(p, room_index, G)
 	BossEngine.discard_room_to_pile(G.get("decks", {}), destroyed)
 	return null
+
+## DealHero / DealRoomsCountToHero (Hero.Deal) : PV bornes a 0, SANS test de mort (DealHero.cs:42-45). Le heros reste en vie a 0 PV : au pas suivant
+## (GameBoard.ProccessActiveHero) il passe a la salle d'apres, en subit les degats et meurt DANS cette salle (HeroDiesInThisRoom de celle-ci) ;
+## sans salle suivante il meurt sans declencheur. `dealZero` neutralise les tests de mort immediats (Match._finish_hero_if_dead, pause post-damage).
+static func deal_hero(adv: Dictionary, amount: int) -> void:
+	var was_alive := int(adv.get("hp", 0)) > 0 # deja a 0 PV apres les degats de la salle : il est mort dans CETTE salle (pas de report)
+	adv["hp"] = maxi(0, int(adv.get("hp", 0)) - amount)
+	if was_alive and int(adv["hp"]) <= 0:
+		adv["dealZero"] = true
 
 ## BMA028 Boulder Ramp : detruit une autre salle, 5 degats au hero de celle-ci.
 static func _boulder_ramp(G: Dictionary, p: Dictionary, player_id: int, room_index: int, other: int, room: Dictionary):
@@ -322,7 +332,7 @@ static func _boulder_ramp(G: Dictionary, p: Dictionary, player_id: int, room_ind
 	if not hero_is_in_room(G, player_id, room_index):
 		return "no hero in this room"
 	var adv: Dictionary = G.get("adventure", {}) as Dictionary
-	adv["hp"] = int(adv.get("hp", 0)) - 5
+	deal_hero(adv, 5)
 	_log(G, "Boulder Ramp: dealt 5 damage to %s (HP %d)." % [str((adv.get("hero", {}) as Dictionary).get("name", "?")), int(adv.get("hp", 0))])
 	var destroyed = BossEngine.destroy_room(p, other, G)
 	if destroyed != null:
@@ -351,8 +361,14 @@ static func _crushinator(G: Dictionary, p: Dictionary, player_id: int, room_inde
 	var eff := _effects(G)
 	var arr: Array = eff.get("roomDamageBonus", [])
 	eff["roomDamageBonus"] = arr
+	# DealDamageToDungeon.Execute : slot.Deal(2) sur les 5 emplacements, vides compris (une salle posee plus tard ce tour recoit aussi +2).
 	for i in (p.get("dungeon", []) as Array).size():
 		arr.append({"playerId": player_id, "roomIndex": i, "amount": 2})
+	var eb := BossEngine.empty_slot_bonuses(G, player_id)
+	while eb.size() < 5 - (p.get("dungeon", []) as Array).size():
+		eb.append(0)
+	for k in eb.size():
+		eb[k] = int(eb[k]) + 2
 	_log(G, "The Crushinator: your Rooms deal +2 damage this turn.")
 	return null
 

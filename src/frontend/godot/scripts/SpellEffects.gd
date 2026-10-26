@@ -7,7 +7,7 @@ extends RefCounted
 static func empty_effects() -> Dictionary:
 	return {
 		"roomDamageBonus": [], "heroHealthBonus": [], "heroDamage": [],
-		"deactivatedRooms": [], "buildBlocked": false, "extraBuild": [],
+		"deactivatedRooms": [], "emptySlotBonus": {}, "buildBlocked": false, "extraBuild": [],
 		"noEntry": [], "teleportHero": null, "counteredSpells": [],
 		"treasureDoubled": [], "roomExtraTreasures": [], "roomTreasureSuppressed": [],
 		"staffHealingPids": [], "ordinaryMonsterBonus": [], "ignoreAbilityPids": [],
@@ -141,7 +141,8 @@ static func _motivation(G: Dictionary, caster_id: int, _card: Dictionary, _targe
 	if not BossEngine.opponent_dungeon_larger(G, caster_id, 1): # meme condition que la legalite (SpellTargeting.conditions_ok)
 		_log(G, "Motivation: you do not have fewer rooms than an opponent.")
 		return false
-	(_effects(G)["extraBuild"] as Array).append(caster_id)
+	var me := _player(G, caster_id)
+	me["buildLimit"] = int(me.get("buildLimit", 1)) + 1 # BuildExtraRoom : MaxBuildRoomLimit++ (remis a 1 quand le joueur cesse d'etre actif)
 	_log(G, "Motivation: you may build an extra room this turn.")
 	return true
 
@@ -158,6 +159,7 @@ static func _cave_in(G: Dictionary, caster_id: int, _card: Dictionary, target: D
 	var adv: Dictionary = G.get("adventure", {}) as Dictionary
 	if not adv.is_empty() and int(adv.get("playerId", -1)) == caster_id and int(adv.get("roomIndex", -1)) == idx:
 		adv["hp"] = 0
+		adv.erase("dealZero") # un KillHero l'emporte sur un DealHero a 0 PV en attente
 		adv["noDeathTrigger"] = true # KillHeroInRoom = RemoveHeroFromGame + SoulsHeroes.Add : aucun declencheur de mort (KillHeroInRoom.cs:37-45), ni sur la salle detruite ni sur celle qui remonte
 		_log(G, "Cave-In: %s is destroyed." % str((adv.get("hero", {}) as Dictionary).get("name", "?")))
 	var destroyed = BossEngine.destroy_room(p, idx, G)
@@ -182,7 +184,7 @@ static func _exhaustion(G: Dictionary, caster_id: int, _card: Dictionary, target
 	var adv: Dictionary = G.get("adventure", {}) as Dictionary
 	if not adv.is_empty() and adv.get("hero") is Dictionary \
 			and str((adv["hero"] as Dictionary).get("id", "")) == str(hero_id):
-		adv["hp"] = int(adv.get("hp", 0)) - x
+		RoomAbilities.deal_hero(adv, x) # DealRoomsCountToHero : Hero.Deal, pas de test de mort (la mort vient au pas suivant)
 		_log(G, "Exhaustion: deals %d damage to %s (HP %d)." % [x, (adv["hero"] as Dictionary).get("name", "?"), int(adv.get("hp", 0))])
 		return true
 	(_effects(G)["heroDamage"] as Array).append({"heroId": hero_id, "amount": x})
@@ -254,7 +256,15 @@ static func _soul_harvest(G: Dictionary, caster_id: int, _card: Dictionary, targ
 	if bool(s.get("tpk", false)) or s.get("faceDown", true) == false:
 		_log(G, "Soul Harvest: no soul to remove.")
 		return false
+	# RemoveHeroFromGame (GameBoard.cs:694-731) retire UN objet heros de SoulsHeroes : un Epique (2 entrees d'ame) disparait avec ses 2 ames,
+	# un ordinaire avec 1 seule ; deux copies du meme heros (Dictionary == compare par valeur) ne partent pas ensemble.
+	var hero = s.get("hero")
 	souls.remove_at(idx)
+	if hero is Dictionary and bool((hero as Dictionary).get("epic", false)):
+		for k in range(souls.size() - 1, -1, -1):
+			if (souls[k] as Dictionary).get("hero") == hero:
+				souls.remove_at(k)
+				break
 	var decks: Dictionary = G.get("decks", {})
 	var spells := _draw(decks, "spells", 2)
 	var hand: Array = me.get("hand", [])
@@ -305,6 +315,8 @@ static func _decks_pile(decks: Dictionary, pile: String) -> Array:
 
 static func _kobold_strike(G: Dictionary, _caster_id: int, _card: Dictionary, _target: Dictionary) -> bool:
 	_effects(G)["buildBlocked"] = true
+	for opid in (G.get("players", {}) as Dictionary):
+		(G["players"][opid] as Dictionary)["buildLimit"] = 0 # SkipBuildPhase.Execute : MaxBuildRoomLimit = 0 pour TOUS les joueurs (BuildPhase_a seulement)
 	for opid in (G.get("players", {}) as Dictionary):
 		var p: Dictionary = G["players"][opid]
 		if p.get("eliminated", false):

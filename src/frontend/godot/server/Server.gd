@@ -1,7 +1,7 @@
 extends Node
 ## Server — serveur multijoueur Boss Monster (Godot headless). TCPServer + WebSocketPeer, messages JSON texte.
 ## Lancement : godot --headless --path src/frontend res://godot/server/Server.tscn -- --port=8091
-## Options : --port --turn-timeout=60 --adventure-timeout=10 --bot-delay=350 --ttl=3600 --max-rooms=200 --seat-grace=30 --public-idle=120
+## Options : --port --turn-timeout=70 --adventure-timeout=10 --bot-delay=350 --ttl=3600 --max-rooms=200 --seat-grace=30 --public-idle=120
 ## Protocole : voir PROTOCOL.md. Ce noeud route seulement ; la logique de partie est dans GameRoom.gd.
 
 const GameRoom = preload("res://godot/server/GameRoom.gd")
@@ -33,7 +33,7 @@ const IDLE_TIMEOUT_MS := 120000
 
 var port := 8091
 var auto_start := true # faux : un test pilote start() lui-meme
-var turn_timeout_s := 60
+var turn_timeout_s := 70
 var adventure_timeout_s := 10
 var bot_delay_ms := 350
 var room_ttl_s := 3600 # salle sans humain connecte, inactive depuis

@@ -24,6 +24,12 @@ func _ready() -> void:
 	_t_spell_annihilator_requires_trap()
 	_t_spell_giant_size_requires_monster()
 	_t_spell_freeze_deactivates()
+	_t_apk_freeze_treasures_and_slot_shift()
+	_t_apk_crushinator_empty_slots()
+	_t_apk_soul_harvest_epic()
+	_t_apk_forced_build_turn()
+	_t_apk_build_limit_kobold_motivation()
+	_t_apk_deal_hero_defers_death()
 	_t_spell_cave_in_kills_hero_in_room()
 	_t_spell_assassin_hero_at_entrance()
 	_t_spell_motivation_extra_build()
@@ -417,7 +423,7 @@ func _t_spell_assassin_hero_at_entrance() -> void:
 func _t_spell_motivation_extra_build() -> void:
 	var G := _spell_state([], 1)   # adversaire a 1 salle, moi 0
 	_ok(SpellEffects.cast_spell(G, 0, {"id": "BMA050"}, {}), "Motivation accepte quand on a moins de salles")
-	_ok((G["effects"]["extraBuild"] as Array).has(0), "Motivation accorde une construction")
+	_ok(BossEngine.build_limit(G, 0) == 2, "Motivation accorde une construction (MaxBuildRoomLimit 2)")
 	var G2 := _spell_state([[_room("T", "trap", false, [1])]], 1)  # egalite
 	_ok(not SpellEffects.cast_spell(G2, 0, {"id": "BMA050"}, {}), "Motivation refuse a egalite")
 
@@ -488,7 +494,7 @@ func _t_play_spell_consumes_card() -> void:
 	# Spell Battle (GameBoard.OnAbilityApplyRequest) : le sort reste sur la pile tant que l'adversaire n'a pas passe.
 	_ok(m.apply_move(1, {"type": "pass", "args": []}), "l'adversaire passe")
 	_ok(m.active_player() == 0, "la main revient au joueur de phase")
-	_ok((SpellEffects._effects(m.G)["extraBuild"] as Array).has(0), "Motivation accorde la construction")
+	_ok(BossEngine.build_limit(m.G, 0) == 2, "Motivation accorde la construction")
 	m.queue_free()
 
 # --- roomAbilities.gd (base set) ---
@@ -1346,7 +1352,7 @@ func _t_build_motivation_extra_room() -> void:
 	m.G["autoAI"] = false
 	var p0: Dictionary = m.G["players"][0]
 	p0["hand"] = [_room("N1", "trap", false, [1]), _room("N2", "trap", false, [1])]
-	(m.G["effects"]["extraBuild"] as Array).append(0)
+	p0["buildLimit"] = 2
 	m.G["buildOrder"] = [0, 1]
 	m.G["buildIndex"] = 0
 	m.G["activePlayer"] = 0
@@ -1477,7 +1483,7 @@ func _t_human_build_waits_for_done() -> void:
 	m2.queue_free()
 
 ## Hors tour, un joueur vivant peut jouer un sort en BUILD (ouverture d'une Spell Battle) mais ni construire ni « passer » ;
-## la main revient au joueur du tour (stack_return_control). Un siege IA n'ouvre pas de Spell Battle hors tour (politique).
+## la main revient au joueur du tour (stack_return_control). Un siege IA hors tour a ses sorts mais ni construction ni « passer » (IA-H59 : UseAbility de toute IA a chaque pas).
 func _t_build_offturn_spell_window() -> void:
 	var m = _match_with_spell()
 	m.G["buildOrder"] = [0, 1]
@@ -1501,7 +1507,19 @@ func _t_build_offturn_spell_window() -> void:
 	_ok((m.G["stack"] as Array).is_empty() and int(m.active_player()) == 0, "pile resolue : la main revient au joueur du tour")
 	p1["isAI"] = true
 	p1["hand"] = [{"id": "BMA050", "name": "Motivation", "isSpell": true}]
-	_ok(m.legal_moves(1).is_empty(), "un siege IA n'agit pas hors tour")
+	_ok(_has_move(m, 1, "playSpell") and not _has_move(m, 1, "passBuild") and not _has_move(m, 1, "pass") and not _has_move(m, 1, "buildRoom"), "IA-H59 : un siege IA hors tour a ses sorts, ni construction ni passer")
+	# IA-H59 : _drive_ai donne son UseAbility a l'IA hors tour (le joueur actif est humain).
+	var m3 = _match_with_spell()
+	m3.G["buildOrder"] = [0, 1]
+	m3.G["buildIndex"] = 0
+	m3.G["activePlayer"] = 0
+	(m3.G["players"][0] as Dictionary)["hand"] = []
+	((m3.G["players"][0] as Dictionary)["dungeon"] as Array).append_array([[_room("T2", "trap", false, [1])], [_room("T3", "trap", false, [1])]])
+	(m3.G["players"][1] as Dictionary)["hand"] = [{"id": "BMA050", "name": "Motivation", "isSpell": true, "category": 1}, _room("R1", "trap", false, [1]), _room("R2", "trap", false, [1])]
+	m3._drive_ai()
+	var mv3 = AI.pick_move(m3, 1) # Motivation : CheckBMA050 exige des buildRoom legaux (IsPlayerBuildTurn) -> inelegible hors tour ; jamais de construction ni de passe
+	_ok(mv3 == null or str((mv3 as Dictionary)["type"]) in ["playSpell", "activateRoom"], "IA-H59 : l'IA hors tour ne construit ni ne passe, _drive_ai rend la main")
+	m3.queue_free()
 	m.queue_free()
 
 ## GameBoard.AssignHeroesToDungeons / Boss.GetDungeonTreasures : TreasuresMultiplier (Jackpot Stash) double les
@@ -2385,4 +2403,122 @@ func _t_apk_seducia_human_cannot_pass() -> void:
 	m.G["aiMayCancel"] = false
 	m.G["pendingChoice"]["optional"] = true # CanAvoid vrai : facultatif pour tous
 	_ok(passes.call(), "choix CanAvoid : facultatif pour un humain")
+	m.queue_free()
+
+## R-F15 : Boss.GetDungeonTreasures exclut les slots geles / en attente (Boss.cs:254) ; la construction (slots APK fixes) ne decale pas le gel sur la salle voisine.
+func _t_apk_freeze_treasures_and_slot_shift() -> void:
+	var G := _spell_state([[_room("A", "trap", false, [1])], [_room("B", "trap", false, [2])]])
+	var me: Dictionary = G["players"][0]
+	me["id"] = 0
+	me["boss"] = {"treasures": []}
+	_ok(BossEngine.treasure_count(me, 1, G) == 1 and BossEngine.treasure_count(me, 2, G) == 1, "R-F15 : deux salles actives, un tresor chacune")
+	SpellEffects.cast_spell(G, 0, {"id": "BMA046"}, {"roomIndex": 0})
+	_ok(BossEngine.treasure_count(me, 1, G) == 0 and BossEngine.treasure_count(me, 2, G) == 1, "R-F15 : la salle gelee ne donne aucun tresor")
+	var pending := _room("C", "trap", false, [3])
+	pending["faceDown"] = true
+	(me["dungeon"] as Array).push_front([pending])
+	_ok(BossEngine.treasure_count(me, 3, G) == 0, "R-F15 : une salle en attente de revelation ne donne aucun tresor (PendingToBeBuilt)")
+	# push_front de Match (hors wiki) : le gel suit sa salle.
+	var m = _match_with_spell()
+	var p0: Dictionary = m.G["players"][0]
+	p0["hand"] = [_room("N", "trap", false, [1])]
+	(m.G["effects"]["deactivatedRooms"] as Array).append({"playerId": 0, "roomIndex": 0})
+	(m.G["effects"]["roomDamageBonus"] as Array).append({"playerId": 0, "roomIndex": 0, "amount": 3})
+	m.G["buildOrder"] = [0, 1]
+	m.G["buildIndex"] = 0
+	m.G["activePlayer"] = 0
+	_ok(m.apply_move(0, {"type": "buildRoom", "args": [0]}), "R-F15 : construction dans un nouvel emplacement")
+	_ok(BossEngine.is_room_deactivated(m.G, 0, 1) and not BossEngine.is_room_deactivated(m.G, 0, 0)
+		and int((m.G["effects"]["roomDamageBonus"][0] as Dictionary)["roomIndex"]) == 1, "R-F15 : Freeze et bonus de degats suivent leur salle apres la construction")
+	m.queue_free()
+
+## R-F48 : DealDamageToDungeon(2) porte aussi sur les emplacements vides ; la salle posee ensuite dans le premier emplacement vide recoit le +2.
+func _t_apk_crushinator_empty_slots() -> void:
+	var G := _ability_G("BMA032")
+	var p: Dictionary = G["players"][0]
+	p["dungeon"] = [[_room("BMA032", "trap", true, [1])], [_room("X", "trap", false, [1])]]
+	_ok(RoomAbilities.activate_room_ability(G, 0, 0, 1) == null, "R-F48 : Crushinator active (detruit X)")
+	_ok(BossEngine.room_damage_with_modifiers(G, p, 0, {}) == 3, "R-F48 : la Crushinator elle-meme +2")
+	TnlAbilities.insert_slot(G, 0, _room("N", "trap", false, [1]))
+	_ok(BossEngine.room_damage_with_modifiers(G, p, 0, {}) == 3, "R-F48 : la salle posee apres l'activation recoit +2")
+	_ok(BossEngine.room_damage_with_modifiers(G, p, 1, {}) == 3, "R-F48 : la Crushinator garde son +2 apres le decalage")
+	# Reprise de la pose : l'emplacement redevient vide avec son +2.
+	TnlAbilities.remove_slot_effects(G, 0, 0)
+	(p["dungeon"] as Array).remove_at(0)
+	TnlAbilities.insert_slot(G, 0, _room("M", "trap", false, [1]))
+	_ok(BossEngine.room_damage_with_modifiers(G, p, 0, {}) == 3, "R-F48 : annuler puis reposer garde le +2 de l'emplacement")
+
+## R-F21 : RemoveHeroFromGame retire le heros entier (un Epique = 2 entrees d'ame).
+func _t_apk_soul_harvest_epic() -> void:
+	var epic := {"id": "E", "name": "E", "souls": 2, "epic": true}
+	var other := {"id": "O", "name": "O", "souls": 1}
+	var G := _spell_state([])
+	var me: Dictionary = G["players"][0]
+	me["souls"] = [CardDB.soul_entry(other), CardDB.soul_entry(epic), CardDB.soul_entry(epic)]
+	(G["decks"]["spells"] as Array).append_array([{"id": "S1"}, {"id": "S2"}])
+	_ok(SpellEffects.cast_spell(G, 0, {"id": "BMA052"}, {"soulIndex": 1}), "R-F21 : Soul Harvest sur un Epique")
+	_ok((me["souls"] as Array).size() == 1 and CardDB.total_souls(me) == 1, "R-F21 : les 2 ames de l'Epique disparaissent")
+	me["souls"] = [CardDB.soul_entry(other), CardDB.soul_entry(other), CardDB.soul_entry(epic), CardDB.soul_entry(epic), CardDB.soul_entry(epic), CardDB.soul_entry(epic)]
+	(G["decks"]["spells"] as Array).append_array([{"id": "S3"}, {"id": "S4"}])
+	_ok(SpellEffects.cast_spell(G, 0, {"id": "BMA052"}, {"soulIndex": 0}) and (me["souls"] as Array).size() == 5, "R-F21 : deux ordinaires identiques, un seul part")
+	_ok(SpellEffects.cast_spell(G, 0, {"id": "BMA052"}, {"soulIndex": 3}) and (me["souls"] as Array).size() == 3, "R-F21 : deux Epiques identiques, un seul part (2 ames)")
+
+## R-D31 : ExtraBuildPhase - aucun sort de phase Build (DuringPhase.Build = BuildPhase_a), ni Jackpot Stash ; les sorts sans condition de phase restent jouables.
+func _t_apk_forced_build_turn() -> void:
+	var m = _match_with_spell()
+	var p0: Dictionary = m.G["players"][0]
+	p0["hand"] = [{"id": "BMA049", "name": "Kobold Strike", "isSpell": true, "category": 1}, {"id": "BMA046", "name": "Freeze", "isSpell": true, "category": 2}]
+	p0["dungeon"] = [[_room("BMA030", "trap", false, [1])]]
+	m.G["activePlayer"] = 0
+	var normal := _forced_kinds(m, p0)
+	_ok(normal.has("BMA049") and normal.has("BMA046") and normal.has("act"), "R-D31 : tour normal, sorts Build et Jackpot Stash proposes")
+	m.G["forcedBuild"] = ""
+	var forced := _forced_kinds(m, p0)
+	_ok(not forced.has("BMA049") and not forced.has("act") and forced.has("BMA046"), "R-D31 : tour force, ni Kobold Strike ni Jackpot Stash, Freeze reste jouable")
+	m.queue_free()
+
+func _forced_kinds(m, p0: Dictionary) -> Array:
+	var out: Array = []
+	for mv in m.legal_moves(0):
+		if str((mv as Dictionary).get("type", "")) == "playSpell":
+			out.append(str(p0["hand"][int(mv["args"][0])]["id"]))
+		elif str((mv as Dictionary).get("type", "")) == "activateRoom":
+			out.append("act")
+	return out
+
+## R-D26 / R-D27 : MaxBuildRoomLimit par joueur ; seule la fin du tour de construction ACTIF du joueur le remet a 1.
+func _t_apk_build_limit_kobold_motivation() -> void:
+	var G := _spell_state([], 0)
+	SpellEffects.cast_spell(G, 0, {"id": "BMA049"}, {})
+	_ok(BossEngine.build_limit(G, 0) == 0 and BossEngine.build_limit(G, 1) == 0, "R-D26 : Kobold Strike met la limite a 0 pour tous")
+	var m = _match_with_spell()
+	m.G["autoAI"] = false
+	m.G["buildOrder"] = [0, 1]
+	m.G["buildIndex"] = 0
+	m.G["activePlayer"] = 0
+	(m.G["players"][0] as Dictionary)["buildLimit"] = 0
+	(m.G["players"][1] as Dictionary)["buildLimit"] = 0
+	m.G["effects"] = SpellEffects.empty_effects() # le drapeau du tour expire, la limite non
+	m._advance_build()
+	_ok(BossEngine.build_limit(m.G, 0) == 1 and BossEngine.build_limit(m.G, 1) == 0, "R-D26 : seul le joueur dont le tour de construction se termine repasse a 1")
+	m.queue_free()
+
+## R-D46 : DealHero ne teste pas la mort ; le heros a 0 PV passe a la salle suivante et y meurt (HeroDiesInThisRoom de celle-ci).
+func _t_apk_deal_hero_defers_death() -> void:
+	var m = load("res://godot/scripts/Match.gd").new()
+	add_child(m)
+	m.G = _ability_G("BMA028")
+	var p: Dictionary = m.G["players"][0]
+	p["dungeon"] = [[_room("BMA028", "trap", false, [1])], [_room("NEXT", "trap", false, [1])], [_room("BMA010", "trap", false, [1])]]
+	var hero := {"id": "H", "name": "H", "souls": 1, "hp": 5}
+	p["entrance"] = [hero]
+	m.G["phase"] = "adventure"
+	m.G["log"] = []
+	m.G["activePlayer"] = 0
+	m.G["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": 0, "hp": 3, "pause": "post-damage"}
+	_ok(m.apply_move(0, {"type": "activateRoom", "args": [0, 2]}), "R-D46 : Boulder Ramp active")
+	var adv: Dictionary = m.G["adventure"]
+	_ok(not adv.is_empty() and int(adv["hp"]) == 0 and (p["souls"] as Array).is_empty(), "R-D46 : le heros reste en vie a 0 PV (pas de mort immediate)")
+	m._room_damage(0, 1)
+	_ok(int(m.G["adventure"]["hp"]) <= 0 and not bool(m.G["adventure"].get("dealZero", false)), "R-D46 : a la salle suivante le drapeau est consomme")
 	m.queue_free()

@@ -30,4 +30,4 @@ COPY --chown=godot:godot src/frontend /app/src/frontend
 # Génère le cache des class_name globaux (tolérant : --import peut sortir en erreur alors que le cache est écrit).
 RUN godot --headless --path /app/src/frontend --import || true
 EXPOSE 8091
-CMD ["godot", "--headless", "--path", "/app/src/frontend", "res://godot/server/Server.tscn", "--", "--port=8091", "--turn-timeout=60"]
+CMD ["godot", "--headless", "--path", "/app/src/frontend", "res://godot/server/Server.tscn", "--", "--port=8091", "--turn-timeout=70"]

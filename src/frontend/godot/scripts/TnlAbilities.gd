@@ -1010,6 +1010,11 @@ static func insert_slot(G: Dictionary, pid: int, card: Dictionary) -> void:
 		for e in (SpellEffects._effects(G).get(key, []) as Array):
 			if int((e as Dictionary).get("playerId", -1)) == pid:
 				e["roomIndex"] = int((e as Dictionary).get("roomIndex", -1)) + 1
+	var eb := BossEngine.empty_slot_bonuses(G, pid)
+	if not eb.is_empty(): # la salle prend le premier emplacement vide, avec son AbilityDamage (Crushinator : +2 aux emplacements vides)
+		var amount := int(eb.pop_front())
+		if amount > 0:
+			(SpellEffects._effects(G)["roomDamageBonus"] as Array).append({"playerId": pid, "roomIndex": 0, "amount": amount})
 	var a := adv(G)
 	if not a.is_empty() and int(a.get("playerId", -1)) == pid:
 		for k in ["roomIndex", "nearest"]:
@@ -1018,6 +1023,7 @@ static func insert_slot(G: Dictionary, pid: int, card: Dictionary) -> void:
 
 ## L'emplacement `idx` du donjon de `pid` vient de disparaitre (pose reprise) : ses effets indexes tombent, les suivants reculent d'un cran.
 static func remove_slot_effects(G: Dictionary, pid: int, idx: int) -> void:
+	var back := 0
 	for key in ["deactivatedRooms", "roomDamageBonus"]:
 		var arr: Array = SpellEffects._effects(G).get(key, [])
 		for k in range(arr.size() - 1, -1, -1):
@@ -1025,9 +1031,13 @@ static func remove_slot_effects(G: Dictionary, pid: int, idx: int) -> void:
 			if int(e.get("playerId", -1)) != pid:
 				continue
 			if int(e.get("roomIndex", -1)) == idx:
+				back += int(e.get("amount", 0))
 				arr.remove_at(k)
 			elif int(e.get("roomIndex", -1)) > idx:
 				e["roomIndex"] = int(e["roomIndex"]) - 1
+	var eb := BossEngine.empty_slot_bonuses(G, pid)
+	if back > 0 or not eb.is_empty(): # UndoBuildRoom : le slot redevient vide, premier de la file, avec son AbilityDamage
+		eb.push_front(back)
 
 # --- activation des salles du donjon --------------------------------------------------------------------------------------------
 

@@ -1079,8 +1079,13 @@ func _check_ui() -> void:
 				_check((b as Button).get_global_rect().end.x <= left_edge, "barres du haut : %s chevauche le selecteur d'adversaire" % (b as Button).text)
 	# pioches, ville
 	var decks: Dictionary = G["decks"]
-	_check(board.room_deck_label.text == "x%d" % (decks["rooms"] as Array).size(), "pioche de salles : %s != x%d" % [board.room_deck_label.text, (decks["rooms"] as Array).size()])
-	_check(board.spell_deck_label.text == "x%d" % (decks["spells"] as Array).size(), "pioche de sorts : %s != x%d" % [board.spell_deck_label.text, (decks["spells"] as Array).size()])
+	var foe_hand: Array = ((G["players"] as Dictionary).get(board.foe_pid, {}) as Dictionary).get("hand", []) # OneOpponentDetail.cs:212 : cartes en main de l'adversaire
+	var foe_rooms: int = foe_hand.filter(func(c): return bool((c as Dictionary).get("isRoom", false))).size()
+	_check(board.room_deck_label.text == "x%d" % foe_rooms, "salles en main adverses : %s != x%d" % [board.room_deck_label.text, foe_rooms])
+	_check(board.spell_deck_label.text == "x%d" % (foe_hand.size() - foe_rooms), "sorts en main adverses : %s != x%d" % [board.spell_deck_label.text, foe_hand.size() - foe_rooms])
+	var dead := {"phase": "build", "players": {0: {"eliminated": true, "isAI": false}, 1: {"eliminated": false, "isAI": true}}} # GamePlayBaseScene.cs:1071-1078
+	_check(board._all_humans_dead(dead) and not board._all_humans_dead({"phase": "adventure", "players": dead["players"]}), "defaite des humains en fin de tour : _all_humans_dead")
+	_check(not board._all_humans_dead({"phase": "build", "players": {0: {"eliminated": false, "isAI": false}}}), "un humain vivant : pas de defaite")
 	var town_n: int = board.town_container.get_children().filter(func(c): return not c.is_queued_for_deletion()).size()
 	_check(town_n == (G["town"] as Array).size(), "heros en ville : %d affiches pour %d" % [town_n, (G["town"] as Array).size()])
 	# ames / blessures
@@ -1172,7 +1177,7 @@ func _check_lane(idx: int, pl: Dictionary, what: String) -> void:
 	var boss = pl.get("boss")
 	var dmg: int = board._get_total_dungeon_damage(pl)
 	_check((L["dmg"] as Label).text == str(dmg), "%s : DAMAGE %s != %d" % [what, (L["dmg"] as Label).text, dmg])
-	_check((L["lvl"] as Label).text == ("2" if bool(pl.get("leveledUp", false)) else "1"), "%s : niveau %s pour leveledUp=%s" % [what, (L["lvl"] as Label).text, pl.get("leveledUp")])
+	_check((L["lvl"] as Label).text == str(board._player_order(int(pl.get("id", 0)))), "%s : ordre de jeu %s (BossXPAndOrderControl.cs:109)" % [what, (L["lvl"] as Label).text])
 	if boss != null:
 		_check((L["xp"] as Label).text == "%dXP" % int((boss as Dictionary).get("xp", 0)), "%s : XP %s != %s" % [what, (L["xp"] as Label).text, (boss as Dictionary).get("xp")])
 

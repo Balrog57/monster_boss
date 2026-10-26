@@ -19,7 +19,7 @@ const DROPPED_KEYS := ["revealQueue", "forcedBuilds", "forcedRandom", "aiTargets
 const SECRET_PILES := ["rooms", "spells", "heroes", "epics", "items"]
 ## Cles de joueur publiques (coins, rmbBoss, tnlBoss... : tout ce qui est pose devant le joueur). Liste blanche aussi :
 ## une cle de joueur inconnue n'est pas emise aux adversaires (le siege lui-meme voit tout son joueur).
-const PLAYER_PUBLIC_KEYS := ["id", "boss", "souls", "wounds", "eliminated", "leveledUp", "buildsThisTurn", "isAI", "entrance", "passed",
+const PLAYER_PUBLIC_KEYS := ["id", "boss", "souls", "wounds", "eliminated", "leveledUp", "buildsThisTurn", "buildLimit", "isAI", "entrance", "passed",
 	"hasActed", "coins", "tnlSoulsStart", "rmbBoss", "tnlBoss", "bonusTreasures", "copiedLevelUps", "untilEndSpells"]
 ## Cles de joueur masquees pour les adversaires : main (taille seule), donjon (salles / minibosses face cachee), objets face caches.
 const PLAYER_HIDDEN_KEYS := ["hand", "dungeon", "items"]
@@ -57,7 +57,7 @@ static func for_seat(G: Dictionary, seat: int) -> Dictionary:
 		for k in PLAYER_PUBLIC_KEYS:
 			if p.has(k):
 				q[k] = p[k]
-		q["hand"] = _backs((p.get("hand", []) as Array).size())
+		q["hand"] = (p.get("hand", []) as Array).map(func(c): return {"hidden": true, "isRoom": bool((c as Dictionary).get("isRoom", false))}) # OneOpponentDetail.cs:212 : l'adversaire voit RoomsInHand / SpellsInHand
 		q["dungeon"] = (p.get("dungeon", []) as Array).map(func(stack): return (stack as Array).map(_room_view))
 		if p.has("items"):
 			q["items"] = (p["items"] as Array).map(func(it): return {"faceDown": true, "hidden": true} if bool((it as Dictionary).get("faceDown", false)) else it)
