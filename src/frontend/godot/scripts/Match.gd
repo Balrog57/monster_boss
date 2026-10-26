@@ -1767,7 +1767,7 @@ func _resolve_pending_stack() -> void:
 			for k in cdun.size():
 				var r = BossEngine.active_room(cdun[k])
 				# Ability.CheckConditions : slot actif (non gele) et capacites non verrouillees (Trap Master)
-				if r != null and str(r.get("id", "")) == "BMA026" and not bool(r.get("faceDown", false)) and not bool(r.get("usedThisTurn", false)) and not TnlAbilities.no_text(r) 						and not BossEngine.is_room_deactivated(G, caster_id, k) and not BossEngine.abilities_locked(G, caster_id):
+				if r != null and str(r.get("id", "")) == "BMA026" and not bool(r.get("faceDown", false)) and not bool(r.get("usedThisTurn", false)) and not TnlAbilities.no_text(r) and not BossEngine.is_room_deactivated(G, caster_id, k) and not BossEngine.abilities_locked(G, caster_id):
 					var drawn = CardDB.draw_pile(decks, "spells", 1, rng)
 					if not drawn.is_empty():
 						(caster.get("hand", []) as Array).append(drawn[0])
