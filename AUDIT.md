@@ -1618,8 +1618,8 @@ Comptes refaits par un script sur les lignes des tableaux (une ligne = un élém
 | 10 | Dépendances Android | 51 | 0 | 0 | 0 | 9 | 42 |
 | 11 | Assets / rendu | 36 | 0 | 0 | 1 | 6 | 29 |
 | 12 | Export web / perf | 20 | 0 | 1 | 5 | 10 | 4 |
-| 13 | Couverture résiduelle | 117 | 0 | 0 | 12 | 16 | 89 |
-| | **Total** | **1183** | **0** | **16** | **113** | **296** | **758** |
+| 13 | Couverture résiduelle | 128 | 0 | 0 | 12 | 16 | 100 |
+| | **Total** | **1194** | **0** | **16** | **113** | **296** | **769** |
 
 ### Les 16 écarts Haute (à corriger en premier)
 
@@ -1812,6 +1812,24 @@ Contrôle par script : sur les 560 classes C# de `apk-original/decompiled/DBMGam
 | X-P56 | `ResouceFileAttribute.cs`, `ResouceFilesAttribute.cs`, `ResourceManager.cs:71`, `WPKAssetAttribute.cs` : résolution enum → chemin d'un asset du WPK | infrastructure de ressources (4 classes) | N/A | — | — | Godot charge par chemin `res://assets/…` (`UiKit.tex`, `_tex`). Vérification des chemins : voir X-P48. | — |
 | X-P57 | `ImageAtlas.cs:9-157`, `ImageAtlasControl.cs`, `ImageAtlasControlRenderer.cs` : contrôle UI affichant un morceau d'atlas | contrôle UI (3 classes) | Oui | `UiKit.gd` (`image`), `CardUI.gd`, `BoardUI.gd:2412` | Oui | `TextureRect` sur WebP déjà découpés (atlas défait à l'extraction). | — |
 
+### 13C — Classes citées seulement dans un nom plus long (contrôle du 2026-10-26)
+
+Un second contrôle, qui cherche le nom de classe comme mot entier, a trouvé 11 classes et 4 fichiers non C# (plus 2 assemblées d'exécution jamais nommées) que le premier comptait à tort : leur nom n'apparaissait qu'à l'intérieur d'un autre (`Effect` dans `EffectInfo`, `Item` dans `ItemInfo`…). `ScissorAlphaLayer3` et `ScissorAlphaLayer4` sont couverts par X-P27, le shader de fragment par G-26.
+
+| ID | Élément source (décompilé) | Type (classe/méthode/asset/scène) | Présent dans Godot ? | Fichier Godot | Équivalent fonctionnel ? | Écart / Commentaire | Priorité |
+|---|---|---|---|---|---|---|---|
+| X-R01 | `DBMGameModel.Extensions/Actions.cs` : `EncapsulateCallback` (chaîne deux `Action`, avant ou après ; 5 appels) | extension | Non (par conception) | — | N/A | Plomberie C# de rappels ; Godot chaîne par `Callable` et signaux. Aucun effet de jeu. | — |
+| X-R02 | `CardInfo` (`CardNumber`, `Name`, `Subtitle`, `Description`, `Treasures` / `TreasureTypes`, `MinimumPlayers`, `Quantity`, `ReplacesCardNumber`, `AlternativeArts`) | classe de données | Oui | `CardDB.gd:42` (`load_cards` ← `data/cards.json`), `CardDB.gd:77-80` (quantité), `Match.gd:73-79` (`ReplacesCardNumber`, `MinimumPlayers`) | Oui | Champs repris tels quels dans `cards.json` (extraction de `data.json`). `AlternativeArts` : voir X-M58. | — |
+| X-R03 | `CardDeckInfo` (Boss / Spell / Room / Hero / ItemCards d'un paquet) | classe de données | Oui | `cards.json` (champ de paquet), `Match.gd:73-79` (paquets actifs) | Oui | Un paquet = un `data.json` de `CardDecks/` ; même découpage par type. | — |
+| X-R04 | `RoomInfo` (`IsAdvanced`, `RoomType` Monster/Trap, `Damage`, `RoomCategory`, `Ability`), `SpellInfo`, `ItemInfo` | classes de données | Oui | `cards.json` ; `CardDB.gd:312-321` (`category` des sorts) | Oui | Lus par chaque module de règles (modules 5 et 6). | — |
+| X-R05 | `DBMGameModel.Logic/Item.cs` (`Item : LogicCardBase`) | classe | Oui (autre forme) | `ThkAbilities.gd:121-149` (pioche et `add_item`) | Oui | Objet = `Dictionary` comme les autres cartes (voir X-M57). Paquet ToolsHeroKind couvert par la parité oracle (`--decks`). | — |
+| X-R06 | `Effect.cs` (`Execute` / `Undo` des commandes, groupes multi-cibles, `SetEffectTarget`) | classe | Oui (autre forme) | `RoomAbilities.gd`, `SpellEffects.gd` (code par carte) ; annulation : `BossEngine.gd:344-350` | Oui | `Undo` n'est appelé que via `Ability.UndoEffect` ← `GameBoard.RemoveHeroFromGame` (GB:697), déjà couvert par X-M17. | — |
+| X-R07 | Cible `SpellInHand` (`Number`, `AllRequired`, `PlayerType`) : seule carte APK = BMA024 Witch's Kitchen | fournisseur de cibles | Oui | `RoomAbilities.gd:206`, `292`, `485-533` | Oui | Voir R-F40, X-M20 et IA-H26 (oracle 20×). | — |
+| X-R08 | `DBMGameProject.AI/GamePhase.cs` (enum Setup, Early, Mid, Late) | enum | Oui | `ApkAI.gd:62-66` | Oui | Valeurs de `AIHelper.GetGamePhase` (IA-G15). | — |
+| X-R09 | `WaveEngine.Extensions/BaseScene.cs` (tâches `RegisterTask`, minuteurs `CreateTimer`, comportements de scène, abonnement tactile, `Pause` / `Resume`) | classe de base de scène | Oui (autre forme) | arbre de scènes Godot, `Timer` / `create_tween` | Oui | Infrastructure moteur. Pause de l'application : sur le web, Godot n'est pas suspendu mais l'onglet masqué est ralenti par le navigateur ; le délai de tour en ligne est tenu par le serveur (`GameRoom.gd`). Non vérifié en jeu. | — |
+| X-R10 | `DBMGame.CardEffectvsTexture.vert`, `*.fxo` (shaders compilés DirectX), `DBMGame.csproj` | shader / projet | N/A | — | N/A | Le shader de vertex est trivial ; le fragment est porté (G-26). Les `.fxo` sont les mêmes shaders compilés pour Windows. Le `.csproj` n'est qu'un fichier de projet. | — |
+| X-R11 | Assemblées d'exécution `OpenTK`, `OpenTK-1.0`, `Mono.Android`, `mscorlib`, `System.*` (`apk-original/decompiled/`) | bibliothèques de plateforme | N/A | — | N/A | Liaisons OpenGL et runtime Xamarin/.NET d'Android, remplacés par le moteur Godot et l'export web. Les autres assemblées tierces (Photon, Newtonsoft, Xamarin.Insights, facturation, Bepu, Farseer, Zlib) sont traitées au module 10. | — |
+
 ### Non vérifié
 
 - X-M30 : Hellcow face à un adversaire dont des salles sont encore en attente au moment du level-up (lu des deux côtés, non reproduit).
@@ -1821,7 +1839,7 @@ Contrôle par script : sur les 560 classes C# de `apk-original/decompiled/DBMGam
 
 ### Synthèse du module 13
 
-- **Classes couvertes** : 177 sur 177, en 117 lignes (13A : 60, 13B : 57). Avec les modules 1 à 12, **les 560 classes du décompilé sont désormais auditées**.
+- **Classes couvertes** : 177 sur 177, en 128 lignes (13A : 60, 13B : 57, 13C : 11). Avec les modules 1 à 12, **les 560 classes du décompilé et les 5 fichiers non C# de `DBMGame/` sont audités** ; contrôle par mot entier refait le 2026-10-26 (0 classe manquante).
 - **Écarts** : 28 — Critique 0, Haute 0, Moyenne 12, Basse 16.
   - Moyenne 13A : X-M04 (Kaw'nee et Rotten Ruins proposent « passer » quand l'APK résout seul), X-M06 (décalage propre à chaque boss absent), X-M22 (défausses non triées par numéro de carte : ordre des choix et égalités de l'IA), X-M30 (Hellcow et salles en attente, à confirmer), X-M58 (deuxième art des cartes en double jamais affiché en partie).
   - Moyenne 13B : X-P02 (bordure étirée sur petites cartes), X-P03 (halo vert de la salle source absent, contredit P-A44), X-P06 (ombre de carte glissée absente, sprite `card_shadow` manquant), X-P09 (colonne de pile défilante absente), X-P17 (cœur de buff du héros absent, sprite `health_hero_buff_icon` manquant), X-P22 (panneau adverse à 3-4 joueurs), X-P48 (deux sprites manquants, quatre jamais lus).
