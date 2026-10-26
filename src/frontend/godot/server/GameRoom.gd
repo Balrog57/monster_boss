@@ -222,10 +222,12 @@ func _after_move() -> void:
 	if m.G.get("gameOver") != null:
 		status = "finished"
 		deadline_ms = 0
-	elif deadline_ms <= 0 or str(m.G.get("phase", "")) != "build" or _window_signature() != _window_sig:
-		# Hors construction (choix, aventure pas a pas...) chaque coup relance le delai ; en construction, poser / reprendre une salle
-		# ne repousse pas l'echeance : seule une nouvelle fenetre la relance (APK : la barre ne repart que si une capacite se resout, GamePlayBaseScene.cs:621-624).
-		_reset_deadline()
+	else:
+		var aw := _awaited() # calcule une seule fois par coup (legal_moves de chaque siege)
+		if deadline_ms <= 0 or str(m.G.get("phase", "")) != "build" or _window_signature(aw) != _window_sig:
+			# Hors construction (choix, aventure pas a pas...) chaque coup relance le delai ; en construction, poser / reprendre une salle
+			# ne repousse pas l'echeance : seule une nouvelle fenetre la relance (APK : la barre ne repart que si une capacite se resout, GamePlayBaseScene.cs:621-624).
+			_reset_deadline(aw)
 
 # --- IA / minuteur ----------------------------------------------------------
 
@@ -328,14 +330,15 @@ func _awaited() -> Array:
 
 ## Fenetre de decision : memes sieges attendus, meme phase / tour / joueur actif, meme etat de pile et de choix. buildRoom / undoBuild
 ## n'y changent rien (le siege reste attendu), un sort ou un choix qui s'ouvre ou se resout la renouvelle (l'APK relance sa barre quand une capacite se resout).
-func _window_signature() -> String:
+func _window_signature(aw: Array) -> String:
 	var G: Dictionary = m.G
-	return str([_awaited(), G.get("phase", ""), G.get("turn", 0), m.active_player(), (G.get("pendingChoice", {}) as Dictionary).hash(),
+	return str([aw, G.get("phase", ""), G.get("turn", 0), m.active_player(), (G.get("pendingChoice", {}) as Dictionary).hash(),
 		(G.get("stack", []) as Array).size(), str(G.get("buildWindow", {})), _in_adventure_pause()])
 
-func _reset_deadline() -> void:
-	awaited_seats = _awaited() if status == "running" and m != null else []
-	_window_sig = _window_signature() if status == "running" and m != null else ""
+func _reset_deadline(aw = null) -> void:
+	var live: bool = status == "running" and m != null
+	awaited_seats = (aw if aw != null else _awaited()) if live else []
+	_window_sig = _window_signature(awaited_seats) if live else ""
 	if turn_timeout_ms <= 0 or awaited_seats.is_empty():
 		deadline_ms = 0
 	else:
@@ -353,7 +356,12 @@ func tick() -> bool:
 			if steps > 0:
 				_next_ai_ms = now + bot_delay_ms
 		if status == "running" and deadline_ms > 0 and now >= deadline_ms:
+			var plan := {} # liste figee : un coup expire peut fermer la fenetre, le siege suivant ne doit pas jouer dans la suivante
 			for pid in _awaited():
+				plan[pid] = _expired_is_pass(pid)
+			for pid in plan:
+				if not _awaited().has(pid) or _expired_is_pass(pid) != plan[pid]:
+					continue
 				# APK : seule la decision expiree est jouee (DONE automatique du tour de construction), puis l'humain reprend la main.
 				# Siege sans liaison : l'IA le garde (choix assume, comme apres `leave`) jusqu'a ce qu'il reprenne son siege (resume).
 				if int(seats[pid]["conn"]) < 0:

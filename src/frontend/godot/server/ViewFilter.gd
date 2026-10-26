@@ -58,6 +58,7 @@ static func for_seat(G: Dictionary, seat: int) -> Dictionary:
 			if p.has(k):
 				q[k] = p[k]
 		q["hand"] = (p.get("hand", []) as Array).map(func(c): return {"hidden": true, "isRoom": bool((c as Dictionary).get("isRoom", false))}) # OneOpponentDetail.cs:212 : l'adversaire voit RoomsInHand / SpellsInHand
+		(q["hand"] as Array).sort_custom(func(a, b): return bool(a["isRoom"]) and not bool(b["isRoom"])) # salles d'abord : l'ordre de la main ne fuit pas
 		q["dungeon"] = (p.get("dungeon", []) as Array).map(func(stack): return (stack as Array).map(_room_view))
 		if p.has("items"):
 			q["items"] = (p["items"] as Array).map(func(it): return {"faceDown": true, "hidden": true} if bool((it as Dictionary).get("faceDown", false)) else it)
