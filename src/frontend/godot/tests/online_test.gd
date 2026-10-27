@@ -371,7 +371,7 @@ func _scenario_full_game() -> void:
 	if not _expect(await c0.create_lobby(2, ["players-choice"]), "create_lobby a echoue"):
 		return
 	var code := c0.match_id
-	_expect(code.length() == 4 and code == code.to_upper() and code.to_upper().strip_edges().length() == 4 and not code.contains("I") and not code.contains("O") and code.unicode_at(0) >= 65 and code.unicode_at(0) <= 90, "code salon de 4 lettres majuscules : %s" % code)
+	_expect(code.length() == 4 and code == code.to_lower() and code.strip_edges().length() == 4 and not code.contains("0"), "code salon de 4 caracteres minuscules a-z 1-9 : %s" % code)
 	_expect(c0.player_id == 0, "l'hote prend le siege 0")
 	# mauvais code puis bon code
 	var errs: Array = []
@@ -381,6 +381,7 @@ func _scenario_full_game() -> void:
 	_expect(c1.last_error_code == "not_found", "code d'erreur not_found (boite « Invalid Code ») : %s" % c1.last_error_code)
 	_expect(await c1.join_lobby(code, "Bob"), "join_lobby a echoue")
 	_expect(c1.player_id == 1, "le 2e joueur prend le siege 1")
+	c0.start_match() # salle pleine : l'hote lance (WaitingPrivateRoomScene), plus de demarrage automatique
 	if not _fails.is_empty():
 		return
 	if not _expect(await _wait(func(): return not c0.current_G.is_empty() and not c1.current_G.is_empty(), 10.0), "pas d'etat initial recu"):
@@ -471,6 +472,7 @@ func _scenario_big_game(n: int) -> void:
 		return
 	var room = server.get_room(c0.match_id)
 	_expect(room.num_players == n and room.seats.size() == n, "%d joueurs : %d sieges attendus, obtenu %d" % [n, n, room.seats.size()])
+	c0.start_match() # l'hote lance : plus de demarrage automatique a la salle pleine
 	if not _expect(await _wait(func(): return not c0.current_G.is_empty() and room.m != null, 10.0), "%d joueurs : la partie n'a pas demarre" % n):
 		return
 	_expect(int(room.m.G["numPlayers"]) == n and (room.m.G["players"] as Dictionary).size() == n, "%d joueurs : Match a %d joueurs" % [n, (room.m.G["players"] as Dictionary).size()])
@@ -505,6 +507,7 @@ func _scenario_reload() -> void:
 		return
 	var code := a.match_id
 	_expect(await b.join_lobby(code, "Bob"), "reload : join")
+	a.start_match()
 	await _wait(func(): return not b.current_G.is_empty(), 5.0)
 	var token := b.credentials
 	b.free() # rechargement de page : l'ancien client disparait sans "leave"
@@ -684,7 +687,9 @@ func _scenario_lobby() -> void:
 	var g2 := await _raw()
 	g2.send({"t": "join", "code": code, "name": "Carl"})
 	_expect(await _wait(func(): return g2.count("joined") > 0, 5.0), "lobby : 2e jonction")
-	_expect(server.get_room(code).status == "running", "lobby : la salle pleine doit demarrer")
+	_expect(server.get_room(code).status == "open", "lobby : la salle pleine attend l'hote (plus de demarrage automatique)")
+	host.send({"t": "start"})
+	_expect(await _wait(func(): return server.get_room(code).status == "running", 5.0), "lobby : l'hote lance la salle pleine")
 	_expect(await _wait(func(): return _listed(watcher, code).is_empty(), 5.0), "lobby : une salle pleine / demarree doit disparaitre de la liste")
 	late.send({"t": "listRooms"})
 	var before := late.count("rooms")
@@ -1192,6 +1197,7 @@ func _scenario_player_left() -> void:
 		return
 	var b := _client("Bob")
 	_expect(await b.join_lobby(a.match_id, "Bob"), "left : join")
+	a.start_match()
 	_expect(await _wait(func(): return not a.current_G.is_empty() and not b.current_G.is_empty(), 5.0), "left : la partie ne demarre pas")
 	var left: Array = []
 	a.player_left.connect(func(seat, pname): left.append([seat, pname]))

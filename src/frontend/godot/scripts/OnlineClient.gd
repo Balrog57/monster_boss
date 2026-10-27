@@ -356,7 +356,7 @@ func set_title(title: String) -> bool:
 
 func join_lobby(code: String, pname: String) -> bool:
 	player_name = pname
-	return await _enter({"t": "join", "name": pname, "code": code.strip_edges().to_upper()}.merged(_profile_fields()))
+	return await _enter({"t": "join", "name": pname, "code": code.strip_edges()}.merged(_profile_fields()))
 
 func _profile_fields() -> Dictionary:
 	return {"avatar": player_avatar, "wins": player_wins, "defeats": player_defeats}

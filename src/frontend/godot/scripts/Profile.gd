@@ -23,16 +23,16 @@ static func load_profile() -> Dictionary:
 	var d := {"name": "Player", "avatar": AVATARS[0]}
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
-		var nm := str(cfg.get_value("profile", "name", "Player")).strip_edges()
+		var nm := str(cfg.get_value("profile", "name", "Player")) # sans rognage : l'APK accepte un pseudo fait d'espaces (ChangeNameAvatarScene.cs:104)
 		d["name"] = nm if nm != "" else "Player"
 		var av := str(cfg.get_value("profile", "avatar", AVATARS[0]))
 		d["avatar"] = av if av in AVATARS else AVATARS[0]
 	return d
 
-## Un pseudo a-t-il deja ete enregistre ? (l'APK ouvre ChangeNameAvatarScene avant le menu en ligne sinon.)
+## Un pseudo non vide a-t-il deja ete enregistre ? (l'APK ouvre ChangeNameAvatarScene avant le menu en ligne sinon : UserName != null && != string.Empty, MainMenuScene.cs:96.)
 static func has_profile() -> bool:
 	var cfg := ConfigFile.new()
-	return cfg.load(SAVE_PATH) == OK and cfg.has_section_key("profile", "name")
+	return cfg.load(SAVE_PATH) == OK and str(cfg.get_value("profile", "name", "")) != ""
 
 ## Valeurs initiales de l'APK : « player_ » + 4 caracteres au hasard (StringFactory.RndWord) et un avatar au hasard.
 static func random_profile() -> Dictionary:
@@ -45,7 +45,7 @@ static func random_profile() -> Dictionary:
 static func save_profile(pname: String, avatar: String) -> void:
 	var cfg := ConfigFile.new()
 	cfg.load(SAVE_PATH) # garde reglages et compteurs
-	var nm := pname.strip_edges().left(NAME_MAX)
+	var nm := pname.left(NAME_MAX)
 	cfg.set_value("profile", "name", nm if nm != "" else "Player")
 	cfg.set_value("profile", "avatar", avatar if avatar in AVATARS else AVATARS[0])
 	cfg.save(SAVE_PATH)

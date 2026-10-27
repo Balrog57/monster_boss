@@ -83,7 +83,7 @@ func _label_btn(text: String, cx: float, cy: float, cb: Callable, pressed_color:
 	b.add_child(l)
 	b.button_down.connect(func(): l.add_theme_color_override("font_color", pressed_color))
 	b.button_up.connect(func(): l.add_theme_color_override("font_color", Color.WHITE))
-	b.pressed.connect(func(): AudioManager.play_sfx("ui_button_select"))
+	b.button_down.connect(func(): AudioManager.play_sfx("ui_button_select")) # a l'appui (ButtonBaseEntity.cs:185)
 	b.pressed.connect(cb)
 	(parent if parent != null else m).add_child(b)
 	return b
@@ -122,7 +122,10 @@ func msg_box(title: String, text: String, ok: Callable = Callable()) -> Control:
 	ol.size.y = 103.0
 	ol.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	b.add_child(ol)
-	b.pressed.connect(func(): AudioManager.play_sfx("ui_button_select"))
+	b.button_down.connect(func():
+		AudioManager.play_sfx("ui_button_select")
+		ol.position.y += 3.0) # shiftTextWhenPressed (MessageBoxScene.cs:88)
+	b.button_up.connect(func(): ol.position.y -= 3.0)
 	b.pressed.connect(close)
 	dim.add_child(b)
 	return dim
@@ -174,7 +177,7 @@ const DECKS := {
 }
 
 func show_multi() -> void:
-	m._apk_screen(func(): m.show_menu(), true)
+	m._apk_screen(func(): m.show_menu())
 	_deck_btn(1260.0, 4, "PLAY ONLINE", "Play online two to six player games", func():
 		if Profile.has_profile():
 			m.go(show_online) # MultiplayerScene.cs:56 (ColorFade 1,0 s)
@@ -241,7 +244,7 @@ func _deck_btn(cx: float, count: int, title: String, sub: String, cb: Callable) 
 	b.button_up.connect(func():
 		tl.add_theme_color_override("font_color", Color.WHITE)
 		move.call(true, 1.0, 0.0))
-	b.pressed.connect(func(): AudioManager.play_sfx("ui_button_select"))
+	b.button_down.connect(func(): AudioManager.play_sfx("ui_button_select"))
 	b.pressed.connect(cb)
 
 # --- MenuOnlineScene -------------------------------------------------------------
@@ -461,10 +464,10 @@ func join_public(code: String) -> void:
 		m.online.public_room = true
 		m.go(show_waiting) # ColorFade 1,0 s comme WithFriendsOnlineScene.cs:56
 		return
-	var text := "Unable to join public game"
+	var text := "Unable to join public room" # DBMBaseScene.cs:79-80 ; « Room is full » (:75)
 	match str(m.online.last_error_code):
-		"not_found": text = "This game is no longer open"
-		"full": text = "Game is full"
+		"not_found": text = "This game is no longer open" # pas d'equivalent : l'APK n'a pas de liste publique
+		"full": text = "Room is full"
 	msg_box("NETWORK ERROR", text, func(): m.online.watch_rooms()) # la liste se met a jour tout de suite
 
 # --- ChangeNameAvatarScene -------------------------------------------------------
@@ -588,8 +591,8 @@ func show_profile(can_back: bool = true, defaults: bool = false) -> void:
 	scroll.gui_input.connect(func(_ev): edit.release_focus())
 	m.add_child(scroll)
 	m._ok_btn(func():
-		if edit.text.strip_edges() != "": # APK : un nom vide n'enregistre rien
-			m.profile["name"] = edit.text.strip_edges().left(Profile.NAME_MAX)
+		if edit.text != "": # APK : un nom vide n'enregistre rien ; un nom d'espaces est accepte (ChangeNameAvatarScene.cs:104-109)
+			m.profile["name"] = edit.text.left(Profile.NAME_MAX)
 			m.profile["avatar"] = scroll.selected
 			Profile.save_profile(str(m.profile["name"]), scroll.selected)
 		show_online())
@@ -601,17 +604,12 @@ func show_friends() -> void:
 	_screen(func(): show_online())
 	var edit := _entry(Vector2(450, 720), "", Color.WHITE, "INSERT ROOM CODE") # fondu apres un appui sur ROOM CODE
 	var box: NinePatchRect = edit.get_meta("box")
-	edit.max_length = CODE_LEN
+	edit.max_length = 0 # TextEntryEntity : aucune limite (WithFriendsOnlineScene.cs:131-136)
 	edit.editable = false
 	edit.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	edit.modulate.a = 0.0
 	box.modulate.a = 0.0
-	edit.text_changed.connect(func(t: String):
-		if t.to_upper() != t:
-			var c := edit.caret_column
-			edit.text = t.to_upper()
-			edit.caret_column = c)
-	_blur_on_background(edit)
+	_blur_on_background(edit) # le code est sensible a la casse : rien n'est mis en majuscules
 	var ok: TextureButton = m._img_btn("buttons/ok_bt.webp", "buttons/ok_bt_pressed.webp", Vector2(1697, 960), func(): join_room(edit.text))
 	m.add_child(ok)
 	ok.modulate.a = 0.0
@@ -653,7 +651,7 @@ func _prepare_client() -> void:
 func create_room(count: int, is_public: bool = false) -> void:
 	if _busy:
 		return
-	var back := func(): show_public() if is_public else show_friends()
+	var back := func(): m.show_setup(count, "public" if is_public else "online") # APK : l'erreur laisse sur SELECT EXPANSIONS (ExpansionScene.GoToNexScene)
 	var setup_err := Match.setup_error(count, m._active_sets()) # 5-6 joueurs : Crash Landing obligatoire (le serveur refuse aussi : bad_setup)
 	if setup_err != "":
 		msg_box("INVALID SETUP", BIG_GAME_MSG, back)
@@ -859,7 +857,8 @@ func _on_first_state() -> void:
 	_unwatch_waiting_errors()
 	m.start_online_match()
 
-## OnlinePanelEntity.UpdatePanel : 4 lignes (6 avec 5-6 joueurs) (avatar, pseudo <= 25 car., victoires, defaites) ; ligne de l'hote en or ; siege libre = « WAITING... ».
+## OnlinePanelEntity.UpdatePanel : 4 lignes (6 avec 5-6 joueurs) (avatar, pseudo <= 25 car., victoires, defaites) ; siege libre = « WAITING... ».
+## Ligne en or : l'APK dore le joueur MECENE (IsBacker, OnlinePanelEntity.cs:91) ; les mecenes n'existent plus ici, la ligne de l'hote est doree a la place (ajout hors APK).
 func _update_waiting(info: Dictionary) -> void:
 	var title := str(info.get("title", ""))
 	if is_instance_valid(_wait_title) and title != "":

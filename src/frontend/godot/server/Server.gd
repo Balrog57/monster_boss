@@ -11,7 +11,7 @@ const MatchScript = preload("res://godot/scripts/Match.gd")
 ## Paquets acceptes dans create.sets (le jeu de base est toujours present, voir Match.new_match).
 const KNOWN_SETS := ["players-choice", "hidden-heroes", "tools", "tools-wiki", "next-level", "minibosses", "crash-landing", "iod", "players-choice-wiki"]
 ## Code de salon : 4 lettres comme l'APK (OnlineService.GetNewRoomName, RndWord(4)) ; sans I ni O (confusion avec 1 et 0).
-const CODE_ALPHABET := "ABCDEFGHJKLMNPQRSTUVWXYZ"
+const CODE_ALPHABET := "abcdefghijklmnopqrstuvwxyz123456789" # StringFactory.RndWord (StringFactory.cs:20-29) : 4 caracteres a-z 1-9, en minuscules, sensibles a la casse
 const CODE_LENGTH := 4
 const MAX_MSGS_PER_SEC := 60
 ## Taille maximale d'une trame texte (un message client legitime fait quelques centaines d'octets). Au-dela : fermeture 1009.
@@ -351,7 +351,7 @@ func _on_message(id: int, d: Dictionary) -> void:
 				return _error(id, "deja dans une salle", "busy")
 			if _join_throttled():
 				return _join_failed(id, "trop d'essais, reessayez plus tard", "busy", false)
-			var r: GameRoom = _rooms.get(str(d.get("code", "")).strip_edges().to_upper(), null)
+			var r: GameRoom = _rooms.get(str(d.get("code", "")).strip_edges(), null)
 			if r == null:
 				return _join_failed(id, "salon introuvable", "not_found")
 			if r.status != "open" or r.free_seat() < 0:
@@ -360,7 +360,7 @@ func _on_message(id: int, d: Dictionary) -> void:
 		"resume":
 			if _join_throttled():
 				return _join_failed(id, "trop d'essais, reessayez plus tard", "busy", false)
-			var r: GameRoom = _rooms.get(str(d.get("code", "")).strip_edges().to_upper(), null)
+			var r: GameRoom = _rooms.get(str(d.get("code", "")).strip_edges(), null)
 			var seat := int(d.get("seat", -1))
 			if room != null and room == r and room.seat_of(id) == seat:
 				return _send(id, room.message_for(seat)) # reprise redondante (reconnexion automatique du client)
@@ -424,6 +424,6 @@ func _join(id: int, r: GameRoom, pname: String, prof: Dictionary) -> void:
 	_conns[id]["room"] = r.code
 	_conns[id]["watch"] = false # dans une salle : plus de push `rooms`
 	_send(id, {"t": "joined", "code": r.code, "seat": j["seat"], "token": j["token"], "host": int(j["seat"]) == r.host})
-	if r.free_seat() < 0 and r.status == "open":
-		r.start()
+	if r.free_seat() < 0 and r.status == "open" and int(j["seat"]) == r.host:
+		r.start() # hote seul (sieges restants : IA) : rien a attendre ; sinon l'hote lance avec OK (WaitingPrivateRoomScene.cs:39-60), plus de demarrage a la salle pleine
 	r.broadcast()
