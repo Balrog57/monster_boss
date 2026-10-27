@@ -94,7 +94,8 @@ static func texture_button(parent: Node, normal: String, pressed: String, pos: V
 	return b
 
 ## Bouton pierre de l'APK (options_bt) avec libelle : un vrai `Button` (texte lisible par les tests), style = la texture.
-static func stone_button(parent: Node, text: String, pos: Vector2, sz: Vector2 = Vector2(546, 144), font_size: int = 27) -> Button: # 27 = arcadepix 21 x 1,3 (PauseScene.cs:52, LabelAndBackground.cs:70)
+## `sfx` : joue a l'APPUI (ButtonBaseEntity.SetPressedState), pas au relachement. StayPressed (ButtonBaseEntity.cs:201) : apres un clic le bouton reste enfonce.
+static func stone_button(parent: Node, text: String, pos: Vector2, sz: Vector2 = Vector2(546, 144), font_size: int = 27, sfx: String = "ui_button_select", stay: bool = true) -> Button: # 27 = arcadepix 21 x 1,3 (PauseScene.cs:52, LabelAndBackground.cs:70)
 	var b := Button.new()
 	b.text = text
 	b.position = pos
@@ -114,6 +115,21 @@ static func stone_button(parent: Node, text: String, pos: Vector2, sz: Vector2 =
 		b.add_theme_color_override(c, Color.WHITE) # repos blanc : ButtonWithLabelEntity.cs:21
 	for c in ["font_pressed_color", "font_hover_pressed_color"]:
 		b.add_theme_color_override(c, GOLD) # appuye or #cdb15f : ButtonWithLabelEntity.cs:32
+	if sfx != "":
+		b.button_down.connect(func(): AudioManager.play_sfx(sfx))
+	if stay:
+		var rest := {"normal": b.get_theme_stylebox("normal"), "hover": b.get_theme_stylebox("hover")}
+		b.pressed.connect(func():
+			for n in ["normal", "hover"]: # StayPressed : le fond et l'or restent
+				b.add_theme_stylebox_override(n, b.get_theme_stylebox("pressed"))
+			for c in ["font_color", "font_hover_color"]:
+				b.add_theme_color_override(c, GOLD))
+		# `IsPressed = false` quand l'ecran redevient actif (OptionsScene.cs:107-114, PauseScene.cs:104-111)
+		b.set_meta("unpress", func():
+			for n in ["normal", "hover"]:
+				b.add_theme_stylebox_override(n, rest[n])
+			for c in ["font_color", "font_hover_color"]:
+				b.add_theme_color_override(c, Color.WHITE))
 	parent.add_child(b)
 	return b
 
@@ -170,8 +186,9 @@ static func zoom_texture(texture: Texture2D, sz: Vector2 = ZOOM_CARD) -> Control
 static func zoom_back(kind: String, sz: Vector2 = ZOOM_CARD) -> Control:
 	return zoom_texture(tex(CardDB.card_image("", kind)), sz)
 
-## Rangee de segments facon APK (ecran SETTINGS) : le segment choisi est une pierre verte dorée, les autres sur une barre mauve.
-## Absolu en 1920x1080 : libelle a droite de x=710, segments de 202 px a partir de x=760, centre vertical y.
+## Rangee de segments facon APK (ecran SETTINGS, SettingButtonDecorator) : barre = ninepatch settings_text_bg de 204 px par segment (hauteur 97), le segment choisi
+## porte la bulle verte settings_bt (204 x 110, 5 px plus haut) et son texte or decale de -5 px par-dessus le texte blanc ; polices x 1,4 (29 px).
+## Absolu en 1920x1080 : libelle a droite de x=710, segments a partir de x=760, centre vertical y.
 static func toggle_row(parent: Control, y: int, text: String, opts: Array, sel: int, cb: Callable) -> void:
 	var l := label(parent, text, 36, Color.WHITE, Vector2(264, y - 44), 450.0, FONT_B, HORIZONTAL_ALIGNMENT_RIGHT) # APK : libelle 6 px plus bas que la bascule, bord droit a x=710
 	l.custom_minimum_size.y = 100.0
@@ -180,36 +197,38 @@ static func toggle_row(parent: Control, y: int, text: String, opts: Array, sel: 
 	var row := Control.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(row)
-	_draw_toggle(row, y, opts, sel, cb)
+	draw_toggle(row, y, opts, sel, cb)
 
-static func _draw_toggle(row: Control, y: int, opts: Array, sel: int, cb: Callable) -> void:
+const SEG := 204.0 # SettingButtonDecorator.WIDTH_PER_BUTTON
+
+static func draw_toggle(row: Control, y: int, opts: Array, sel: int, cb: Callable) -> void:
 	for c in row.get_children():
 		row.remove_child(c)
 		c.queue_free()
-	var bar := ColorRect.new()
-	bar.color = Color(109 / 255.0, 99 / 255.0, 131 / 255.0, 0.2) # APK : barre violette quasi transparente
-	bar.position = Vector2(760, y - 48)
-	bar.size = Vector2(202 * opts.size(), 96)
-	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(bar)
+	ninepatch(row, "ninepatch/settings_text_bg.webp", Vector2(760, y - 48.5), Vector2(SEG * opts.size(), 97), Vector4(5, 5, 5, 5))
 	for i in opts.size():
-		var x := 760 + 202 * i
+		var x := 760.0 + SEG * i
 		if i == sel:
-			image(row, UI + "buttons/settings_bt.webp", Vector2(x, y - 58), Vector2(202, 106))
-		var l := label(row, str(opts[i]), 34, GOLD if i == sel else Color.WHITE, Vector2(x, y - 48), 202.0, FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
-		l.custom_minimum_size.y = 96.0
-		l.size.y = 96.0
-		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			image(row, UI + "buttons/settings_bt.webp", Vector2(x, y - 60), Vector2(SEG, 110))
+		var chosen := i == sel
+		for gold in ([false, true] if chosen else [false]):
+			var l := label(row, str(opts[i]), 29, GOLD if gold else Color.WHITE, Vector2(x - 50, y - 48 - (5 if gold else 0)), 300.0, FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
+			l.add_theme_constant_override("outline_size", 0)
+			l.custom_minimum_size.y = 96.0
+			l.size.y = 96.0
+			l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		var hit := Button.new()
 		for n in ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]:
 			hit.add_theme_stylebox_override(n, StyleBoxEmpty.new())
 		hit.focus_mode = Control.FOCUS_NONE
 		hit.position = Vector2(x, y - 48)
-		hit.size = Vector2(202, 96)
+		hit.size = Vector2(SEG, 96)
 		hit.name = "Seg%d" % i
 		var idx := i
-		hit.pressed.connect(func():
+		# A l'APPUI (TouchPressed) : l'option change tout de suite ; le son seulement si elle change (SettingButtonDecorator.cs:132)
+		hit.button_down.connect(func():
+			if idx != sel:
+				AudioManager.play_sfx("ui_button_select")
 			cb.call(idx)
-			AudioManager.play_sfx("ui_button_select")
-			_draw_toggle(row, y, opts, idx, cb))
+			draw_toggle(row, y, opts, idx, cb))
 		row.add_child(hit)

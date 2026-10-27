@@ -82,6 +82,11 @@ func _ready() -> void:
 		print("LOT2B SCREENS CAPTURED: ", n_shots)
 		get_tree().quit(0)
 		return
+	if only == "lot6c": # lot 6c : menus (logo, reglages, joueurs, expansions, galerie)
+		await _lot6c_shots()
+		print("LOT6C SCREENS CAPTURED: ", n_shots)
+		get_tree().quit(0)
+		return
 	if only == "lot3": # lot 3 : carrousel joueurs (eventails), SELECT EXPANSIONS (details sous les tuiles), QUIT GAME?, galerie (detail 1,8x)
 		await _lot3_shots()
 		print("LOT3 SCREENS CAPTURED: ", n_shots)
@@ -164,6 +169,42 @@ func _menus() -> void:
 	await _shot("menu_rules")
 	main_scene.queue_free()
 	main_scene = null
+	await _frames()
+
+func _lot6c_shots() -> void:
+	main_scene = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main_scene)
+	await _wait(0.8)
+	main_scene.show_menu()
+	await _wait(0.6)
+	await _shot("lot6c_menu")
+	main_scene.show_solo_count()
+	await _wait(0.6)
+	await _shot("lot6c_players")
+	main_scene.show_settings()
+	await _wait(0.5)
+	await _shot("lot6c_settings")
+	main_scene.apk_decks = ["players-choice", "hidden-heroes"]
+	main_scene.show_setup(2)
+	await _wait(0.6)
+	await _shot("lot6c_expansions")
+	main_scene.use_extensions = true
+	main_scene.show_setup(2)
+	await _wait(0.6)
+	await _shot("lot6c_expansions_wiki")
+	main_scene.use_extensions = false
+	main_scene.queue_free()
+	main_scene = null
+	await _frames()
+	var g = load("res://godot/scripts/CardGallery.gd").new()
+	add_child(g)
+	await _wait(0.8)
+	await _shot("lot6c_gallery")
+	var tile = g.scroll.get_node("Grid").get_child(0)
+	g.show_detail(tile.get_meta("card"), tile.texture, tile.get_global_rect())
+	await _wait(0.5)
+	await _shot("lot6c_gallery_detail")
+	g.free()
 	await _frames()
 
 func _lot3_shots() -> void:

@@ -1044,9 +1044,9 @@ func _check_pause_menu() -> void:
 	_check(segs.size() == 7, "reglages : %d segments de bascule (7 attendus)" % segs.size())
 	var speed0: int = Profile.load_speed()
 	if segs.size() == 7:
-		(segs[4] as Button).pressed.emit() # SLOW
+		(segs[4] as Button).button_down.emit() # SLOW
 		_check(Profile.load_speed() == 0 and is_equal_approx(board._speed, 1.5), "reglages : GAME SPEED SLOW non pris en compte (%s)" % board._speed)
-		(segs[6] as Button).pressed.emit() # FAST
+		(segs[6] as Button).button_down.emit() # FAST
 		_check(Profile.load_speed() == 2 and is_equal_approx(board._speed, 0.5), "reglages : GAME SPEED FAST non pris en compte")
 		Profile.save_speed(speed0)
 		board._speed = board._speed_factor()
@@ -2291,7 +2291,7 @@ func _check_review_fixes() -> void:
 	await _teardown()
 	var main = load("res://godot/scenes/Main.tscn").instantiate()
 	add_child(main)
-	await _wait(0.3)
+	await _wait(0.7)
 	main.show_rules()
 	await get_tree().process_frame
 	var rv = main.get_children().filter(func(c): return c is RulesViewer)
@@ -2380,7 +2380,7 @@ func _check_gallery() -> void:
 	g.select_tab(0)
 	var order: Array = g.cards_for(0).map(func(c): return str(c["id"]))
 	_check(order.size() > 1 and order[0] == "KSA007" and order[1] == "KSA006", "galerie : ordre APK (CardNumber decroissant), Elicon puis Jarin en tete : %s" % [order.slice(0, 3)])
-	_check(g.tab_buttons[0].get_node_or_null("Sel") == null, "galerie : l'onglet BOSS n'a pas de cadre jaune a l'ouverture (capture APK)")
+	_check(g.tab_buttons[0].get_node_or_null("Sel") != null, "galerie : l'onglet BOSS est selectionne a l'ouverture, cadre jaune (GalleryScene.Start : SetSelected(0))")
 	g.select_tab(2, true) # onglet touche : cadre jaune (ScrollItemComponent) ; select_tab(0) ci-dessus ne le portait pas
 	_check(g.tab_buttons[2].get_node_or_null("Sel") != null, "galerie : l'onglet touche prend le cadre jaune")
 	g.select_tab(0)
@@ -2460,8 +2460,8 @@ func _check_credits() -> void:
 	cs.roll.node.position.y = 1180.0 # une image s'est ecoulee avant set_process(false) : retour a l'etat de depart
 	cs.footer.node.position.y = 4620.0
 	cs.logo.delay = 880.0
-	_check(not cb.visible and not gal.visible, "credits : les boutons d'OPTIONS restent visibles")
 	await _wait(0.45)
+	_check(cb.modulate.a < 0.05 and gal.modulate.a < 0.05, "credits : les boutons d'OPTIONS restent visibles (fondu 0,3 s)")
 	_check(is_equal_approx(cs.veil.color.a, 0.7) and cs.veil.color.r == 0.0, "credits : voile noir alpha 0,7 apres 0,3 s : %s" % cs.veil.color)
 	_check(cs.veil.get_global_rect() == Rect2(0, 0, 1920, 1080) and cs.get_global_rect() == Rect2(0, 0, 1920, 1080), "credits : le voile ne couvre pas l'ecran (%s)" % cs.veil.get_global_rect())
 	# textes : un libelle par H1 / H2 / nom non vide de credits.json (cles a casse variable)
@@ -2655,7 +2655,7 @@ func _check_online_menus() -> void:
 		_check(entry.modulate.a > 0.99 and entry.editable and entry.placeholder_text == "INSERT ROOM CODE", "amis : ROOM CODE ne fait pas apparaitre la saisie")
 		entry.text = "ab"
 		entry.text_changed.emit("ab")
-		_check(entry.text == "AB", "amis : code en majuscules")
+		_check(entry.text == "ab", "amis : le code reste tel que saisi (sensible a la casse)")
 		_tb_by_texture(main, "ok_bt.webp").pressed.emit() # 2 lettres : « Invalid Code » sans reseau
 		await get_tree().process_frame
 		var mb2 = main.find_child("MessageBox", true, false)
@@ -2942,6 +2942,7 @@ func _check_online_game() -> void:
 	await _wait_until(func(): return not main.online.connected, 5.0) # leave_match ferme la liaison apres le depart de `leave`
 	_check(await main.online.create_lobby(3, []), "partie en ligne : creation")
 	_check(await guests[0].join_lobby(main.online.match_id, "Bobby") and await guests[1].join_lobby(main.online.match_id, "Cara"), "partie en ligne : jonctions")
+	main.online.start_match() # l'hote lance avec OK (plus de demarrage automatique)
 	_check(await _wait_until(func(): return not main.online.current_G.is_empty(), 5.0), "partie en ligne : pas d'etat")
 	main.start_online_match()
 	await _wait(0.3)
@@ -3020,7 +3021,7 @@ func _check_gameover_banner() -> void:
 		_check(gb.get_node_or_null("WinnerText") != null and gb.get_node_or_null("BossSprite") != null, "fin : « IS THE WINNER! » ou boss absent")
 		_check(gb._crystals.size() == 10, "fin : %d cristaux (10 attendus)" % gb._crystals.size())
 		var p0: Vector2 = (gb._crystals[0] as Control).position
-		gb._process(1.0)
+		gb._process(0.4)
 		_check(not (gb._crystals[0] as Control).position.is_equal_approx(p0), "fin : les cristaux ne tournent pas")
 		_check(gb.find_children("*", "Label", true, false).size() == 1, "fin : texte parasite (score ?) sur le bandeau")
 		var q0 := quit_calls

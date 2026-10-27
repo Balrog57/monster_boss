@@ -187,13 +187,13 @@ Source relue : `Game.cs`, `LoadingScene`, `IntroScene`, `MainMenuScene`, `Player
 
 | ID | Élément source (décompilé) | Type | Présent dans Godot ? | Fichier Godot | Équivalent fonctionnel ? | Écart / Commentaire | Priorité |
 |----|----|----|----|----|----|----|----|
-| U-A01 | Viewport 1440×1080 Uniform, MaxTouchPoints 1 (`Game.cs:39,49`) | Démarrage | Oui | `project.godot:23-27` | Différent | Godot 1920×1080 `keep_aspect` ; coordonnées APK + 240 px, fonds étirés. Choix du port. | Basse |
-| U-A02 | `InitializePurchase` / `AppPurchaseService` / `LocalMarket` (`Game.cs:60-78`) | Démarrage | Non (vérifié absent) | — | — | Boutique retirée volontairement (module 10). | Basse |
+| U-A01 | Viewport 1440×1080 Uniform, MaxTouchPoints 1 (`Game.cs:39,49`) | Démarrage | Oui | `project.godot:23-27` | Différent | Godot 1920×1080 `keep_aspect` ; coordonnées APK + 240 px, fonds étirés. Choix du port. | Accepté (Basse) |
+| U-A02 | `InitializePurchase` / `AppPurchaseService` / `LocalMarket` (`Game.cs:60-78`) | Démarrage | Non (vérifié absent) | — | — | Boutique retirée volontairement (module 10). | Accepté (Basse) |
 | U-A03 | `LoadStorageGameData`, `CheckForcePlayTutorial` (`Game.cs:86-121`) | Démarrage | Oui | `MG:75-80`, `Profile.gd` | — | Voir S-04..S-06, S-10, S-14, S-15. | — |
-| U-A04 | Écran de chargement : fond `loading_bg`, couleur #270000 (`LoadingScene.cs:24,31`) | Écran | Partiel | `project.godot:12-14` (splash du moteur) | Partiel | Couleur exacte, mais c'est l'écran de démarrage du moteur et non une scène du jeu. | Basse |
-| U-A05 | Sprite « loading » + 3 rupies animées (`LoadingScene.cs:36,44`, `RupisLoadingBehavior.cs:56-80`) | Animation | Non (vérifié absent) | — | — | `loading.webp` présent mais jamais référencé. | Basse |
-| U-A06 | Fin du chargement → Intro en fondu noir 1,0 s (`LoadingScene.cs:55-60`) | Transition | Partiel | `MG:84` | Différent | Pas de fondu entre le chargement et le titre. | Basse |
-| U-A07 | Retour pendant le chargement = quitter (`LoadingScene.cs:65-67`) | Navigation | Non (vérifié absent) | — | — | Voir I-11. | Basse |
+| U-A04 | Écran de chargement : fond `loading_bg`, couleur #270000 (`LoadingScene.cs:24,31`) | Écran | Partiel | `project.godot:12-14` (splash du moteur) | Partiel | Couleur exacte, mais c'est l'écran de démarrage du moteur et non une scène du jeu. | Accepté (Basse) |
+| U-A05 | Sprite « loading » + 3 rupies animées (`LoadingScene.cs:36,44`, `RupisLoadingBehavior.cs:56-80`) | Animation | Non (vérifié absent) | — | — | `loading.webp` présent mais jamais référencé. | Accepté (Basse) |
+| U-A06 | Fin du chargement → Intro en fondu noir 1,0 s (`LoadingScene.cs:55-60`) | Transition | Partiel | `MG:84` | Différent | Pas de fondu entre le chargement et le titre. | Corrigé (Basse) |
+| U-A07 | Retour pendant le chargement = quitter (`LoadingScene.cs:65-67`) | Navigation | Non (vérifié absent) | — | — | Voir I-11. | Accepté (Basse) |
 | U-A08 | Fond `intro_bg` (`IntroScene.cs:41`) | Écran | Oui | `MG:239` | Oui | — | — |
 | U-A09 | Grand logo `bm_logo`, haut-centre, y 80 (`IntroScene.cs:43`, `ControlsFactory.cs:292-315`) | Élément | Oui | `MG:247` | Oui | Écart ≤ 3 px. | — |
 | U-A10 | Bougies (380 ; 680) et (1050 ; 680), statiques (`IntroScene.cs:45,47`) | Élément | Oui | `MG:240-243` | Oui | — | — |
@@ -201,64 +201,64 @@ Source relue : `Game.cs`, `LoadingScene`, `IntroScene`, `MainMenuScene`, `Player
 | U-A12 | « TAP TO START » arcadepix ×2, #bfca7a, clignement 0,3 s (`IntroScene.cs:57-59`) | Texte | Oui | `MG:248-251` | Oui | — | — |
 | U-A13 | Tap n'importe où → menu principal, fondu noir 1,0 s, sans son (`IntroScene.cs:107-112`) | Navigation | Oui | `MG:112-126,252` | Oui | 0,5 + 0,5 s, entrées bloquées pendant le fondu. | — |
 | U-A14 | `music_main` à l'intro (`IntroScene.cs:84`) | Son | Oui | `MG:238,276` | Oui | Voir A-16. | — |
-| U-A15 | Retour à l'intro → `QuitGameScene` → quitter (`IntroScene.cs:117-120`) | Navigation | Non (vérifié absent) | — | — | Sans objet dans un navigateur ; voir I-11. | Basse |
+| U-A15 | Retour à l'intro → `QuitGameScene` → quitter (`IntroScene.cs:117-120`) | Navigation | Non (vérifié absent) | — | — | Sans objet dans un navigateur ; voir I-11. | Accepté (Basse) |
 | U-A16 | Boîte « QUIT GAME? » / « ARE YOU SURE YOU WANT TO QUIT? », boutons CANCEL / QUIT (`QuitGameScene.cs:16-27`) | Texte | Partiel | `BoardUI.gd:4338-4342` | Différent | Godot : « Quit to menu? The current game will be lost », YES, QUIT / NO, KEEP PLAYING, dans une liste et non dans la boîte à 2 boutons. | Corrigé (Moyenne) |
-| U-A17 | `NextSceneType` (SinglePlayer, PassAndPlay, OnlinePublic, OnlinePrivate) | Enum | Partiel | `MG:341-342` | Partiel | Le mode « public » de Godot est un salon listé (voir U-C08). | Basse |
+| U-A17 | `NextSceneType` (SinglePlayer, PassAndPlay, OnlinePublic, OnlinePrivate) | Enum | Partiel | `MG:341-342` | Partiel | Le mode « public » de Godot est un salon listé (voir U-C08). | Accepté (Basse) |
 | U-A18 | Transitions : modale 0,2 s, normale 1,0 s (`DBMBaseScene.cs:17,19`) | Timing | Oui | `MG:112-126`, `UiKit.gd:25-27` | Oui | — | — |
-| U-A19 | Son du bouton joué **à l'appui** (`ButtonBaseEntity.cs:185,202`) | Son | Oui | `MG:183,196`, `UiKit.gd:97-118` | Partiel | Godot le joue au relâchement (signal `pressed`). | Basse |
-| U-A20 | `StayPressed` : le bouton du menu reste enfoncé pendant le fondu (`ButtonBaseEntity.cs:201`) | Visuel | Non (vérifié absent) | `MG:187-198` | Différent | — | Basse |
-| U-A21 | Bouton à décor : +3 px à l'appui, −3 px au relâchement (`ButtonWithDecoratorEntity.cs:47-57`) | Visuel | Oui | `MG:265-270` | Partiel | L'APK finit 3 px plus haut ; Godot revient à l'origine. | Basse |
+| U-A19 | Son du bouton joué **à l'appui** (`ButtonBaseEntity.cs:185,202`) | Son | Oui | `MG:183,196`, `UiKit.gd:97-118` | Partiel | Godot le joue au relâchement (signal `pressed`). | Corrigé (Basse) |
+| U-A20 | `StayPressed` : le bouton du menu reste enfoncé pendant le fondu (`ButtonBaseEntity.cs:201`) | Visuel | Non (vérifié absent) | `MG:187-198` | Différent | — | Corrigé (Basse) |
+| U-A21 | Bouton à décor : +3 px à l'appui, −3 px au relâchement (`ButtonWithDecoratorEntity.cs:47-57`) | Visuel | Oui | `MG:265-270` | Partiel | L'APK finit 3 px plus haut ; Godot revient à l'origine. | Corrigé (Basse) |
 | U-A22 | Texte de bouton blanc, or #cdb15f à l'appui (`ButtonWithLabelEntity.cs:21,32`) | Visuel | Oui | `UiKit.gd:111-116` | Oui | — | — |
 | U-A23 | `HandMouseOverBehavior` (main au survol) | Comportement | N/A | — | N/A | Code mort : désactivé à la création, jamais réactivé. | — |
 | U-A24 | Flèche retour `back_bt` (80 ; 70), son `ui_button_goback` (`ControlsFactory.cs:232-254`) | Élément | Oui | `MG:224-225` | Oui | — | — |
 | U-A25 | Bouton OK, marges 120 / 70 (`ControlsFactory.cs:261-277`) | Élément | Oui | `MG:231-232` | Oui | — | — |
-| U-A26 | Torches statiques, fond `menu_bg` (`ControlsFactory.cs:281,330-344`) | Élément | Oui | `MG:206-219` | Partiel | Positions justes ; Godot ajoute un scintillement alpha 0,78 ↔ 1. | Basse |
-| U-A27 | Petit logo `logo_small` 688×318, y 10 (`ControlsFactory.cs:292-315`) | Élément | Partiel | `MG:220-223` | Différent | Godot réduit `bm_logo` (540×218), sans le halo de `logo_small`. | Basse |
-| U-A28 | Logos « legend » si mécène (`ControlsFactory.cs:296-300`) | Élément | Non (vérifié absent) | — | — | Voir S-16. | Basse |
+| U-A26 | Torches statiques, fond `menu_bg` (`ControlsFactory.cs:281,330-344`) | Élément | Oui | `MG:206-219` | Partiel | Positions justes ; Godot ajoute un scintillement alpha 0,78 ↔ 1. | Corrigé (Basse) |
+| U-A27 | Petit logo `logo_small` 688×318, y 10 (`ControlsFactory.cs:292-315`) | Élément | Partiel | `MG:220-223` | Différent | Godot réduit `bm_logo` (540×218), sans le halo de `logo_small`. | Corrigé (Basse) |
+| U-A28 | Logos « legend » si mécène (`ControlsFactory.cs:296-300`) | Élément | Non (vérifié absent) | — | — | Voir S-16. | Accepté (Basse) |
 | U-A29 | Flèche du menu principal → intro, fondu 1,0 s (`MainMenuScene.cs:50-55,201`) | Navigation | Oui | `MG:277` | Oui | — | — |
 | U-A30 | 4 boutons du menu principal : positions, icônes, texte ×1,5 (`MainMenuScene.cs:60-120`) | Élément | Oui | `MG:258-281` | Oui | — | — |
 | U-A31 | SINGLE PLAYER : boîte TUTORIAL au premier lancement (`MainMenuScene.cs:62-84`) | Navigation | Oui | `MG:287-293,335-339` | Oui | Voir S-14. | — |
 | U-A32 | `ConfirmationBoxScene` : voile 0,7, `winner_bg`, boutons à 0,35 / 0,65 L et 0,56 H (`:72-125`) | Écran | Oui | `MG:297-332` | Oui | — | — |
-| U-A33 | Texte du bouton décalé de 3 px à l'appui (`ButtonWithLabelEntity.cs:25-28`) | Visuel | Non (vérifié absent) | `MG:323-326` | Partiel | — | Basse |
+| U-A33 | Texte du bouton décalé de 3 px à l'appui (`ButtonWithLabelEntity.cs:25-28`) | Visuel | Non (vérifié absent) | `MG:323-326` | Partiel | — | Corrigé (Basse) |
 | U-A34 | MULTIPLAYER → `MenuOnlineScene` **directement** (`MainMenuScene.cs:93-104`) | Navigation | Oui | `MG:279` → `OM:172-180` | Différent | Godot intercale l'écran `MultiplayerScene` (PLAY ONLINE / PASS AND PLAY), code mort dans l'APK. Même constat que U-C01. | Corrigé (Moyenne) |
 | U-A35 | OPTIONS, fondu 1,0 s (`MainMenuScene.cs:107-113`) | Navigation | Oui | `MG:280` | Oui | — | — |
-| U-A36 | IN-APP STORE → `InAppPurchaseScene` (`MainMenuScene.cs:114-120`) | Élément | Non (remplacé par RULES) | `MG:281` | Différent | Boutique retirée (voir U-B50). | Basse |
-| U-A37 | Bande secrète, appui long à deux doigts de 2 s → `UnlockCodeScene` (`MainMenuScene.cs:121-139`) | Élément | Non (vérifié absent) | — | — | Voir I-09, U-B53. | Basse |
+| U-A36 | IN-APP STORE → `InAppPurchaseScene` (`MainMenuScene.cs:114-120`) | Élément | Non (remplacé par RULES) | `MG:281` | Différent | Boutique retirée (voir U-B50). | Accepté (Basse) |
+| U-A37 | Bande secrète, appui long à deux doigts de 2 s → `UnlockCodeScene` (`MainMenuScene.cs:121-139`) | Élément | Non (vérifié absent) | — | — | Voir I-09, U-B53. | Accepté (Basse) |
 | U-A38 | `ShowButtons` (glissé BackEase 0,2 s) (`MainMenuScene.cs:176-197`) | Animation | N/A | — | N/A | Atteint seulement par le geste de déblocage : mort sans lui. | — |
 | U-A39 | Bandeau « HOW MANY PLAYERS? » (`PlayerNumberScene.cs:29`) | Texte | Oui | `MG:227-229,345` | Oui | — | — |
 | U-A40 | Flèche (coupure nette) et OK → extensions (fondu 1,0 s) (`PlayerNumberScene.cs:40,48-53`) | Navigation | Oui | `MG:344,352,380-385` | Oui | — | — |
 | U-A41 | Carrousel infini : positions, échelles 0,7 / 0,77, ordre 2-3-4 (`CarrouselInfiniteComponent.cs:34-44`) | Layout | Oui | `MG:388-411` | Oui | Interaction : voir I-08. | — |
 | U-A42 | Éventails de boss par nombre de joueurs : 2 (BMA006, 002), 3 (007, 004, 005), 4 (007, 002, 001, 006) (`ControlsFactory.cs:379-427`) | Visuel | Partiel | `MG:47,413-433` | Différent | Le nombre de cartes ne suit pas 2 / 3 / 4 joueurs (2 cartes si sélectionné, 3 sinon). | Corrigé (Moyenne) |
-| U-A43 | Animations du carrousel : lerp 0,2 par image, échelle 0,7 → 1 en 0,3 s, fondus du chiffre (`PlayerNumberDeckEntity.cs:73-98`) | Animation | Non (vérifié absent) | `MG:392-411` | — | Changement de sélection instantané. | Basse |
+| U-A43 | Animations du carrousel : lerp 0,2 par image, échelle 0,7 → 1 en 0,3 s, fondus du chiffre (`PlayerNumberDeckEntity.cs:73-98`) | Animation | Non (vérifié absent) | `MG:392-411` | — | Changement de sélection instantané. | Corrigé (Basse) |
 | U-A44 | Sons du carrousel : `ui_shuffle_left` / `ui_shuffle_right` à chaque cran (`CarrouselComponent.cs:123-131`) | Son | Oui | `MG:175-185,409` | Différent | **Contrôlé** : `_hit` joue `ui_button_select` par défaut. Mauvais son. Complète A-22. | Corrigé (Moyenne) |
-| U-A45 | Chiffre central arcadepix ×3 (63 px), chiffres latéraux ×2 (`PlayerNumberSelectionEntity.cs:57-60`) | Texte | Oui | `MG:405-408` | Partiel | Police `FONT_B` 56 px au centre ; calé sur une capture. | Basse |
-| U-A46 | Sélection initiale = 2 joueurs à chaque entrée (`PlayerNumberScene.cs:32`) | État | Oui | `MG:56,346` | Différent | Godot mémorise le dernier choix. | Basse |
-| U-A47 | Version gratuite : paquets 3 / 4 grisés, « FULL GAME NEEDED! » (`PlayerNumberSelectionEntity.cs:104-120`) | Condition | Non | — | — | Tout est débloqué (décision connue). | Basse |
-| U-A48 | — (absent de l'APK) 5 et 6 joueurs avec Crash Landing | Ajout Godot | Oui | `MG:346-348,388-389` | — | — | Basse |
+| U-A45 | Chiffre central arcadepix ×3 (63 px), chiffres latéraux ×2 (`PlayerNumberSelectionEntity.cs:57-60`) | Texte | Oui | `MG:405-408` | Partiel | Police `FONT_B` 56 px au centre ; calé sur une capture. | Corrigé (Basse) |
+| U-A46 | Sélection initiale = 2 joueurs à chaque entrée (`PlayerNumberScene.cs:32`) | État | Oui | `MG:56,346` | Différent | Godot mémorise le dernier choix. | Corrigé (Basse) |
+| U-A47 | Version gratuite : paquets 3 / 4 grisés, « FULL GAME NEEDED! » (`PlayerNumberSelectionEntity.cs:104-120`) | Condition | Non | — | — | Tout est débloqué (décision connue). | Accepté (Basse) |
+| U-A48 | — (absent de l'APK) 5 et 6 joueurs avec Crash Landing | Ajout Godot | Oui | `MG:346-348,388-389` | — | — | Conforme (Basse) |
 | U-A49 | OPTIONS : 4 boutons TUTORIAL / SETTINGS / CARD GALLERY / CREDITS (`OptionsScene.cs:55-93`) | Écran | Oui | `MG:596-613` | Oui | — | — |
 | U-A50 | TUTORIAL → tutoriel sans transition (`OptionsScene.cs:64-66`) | Navigation | Oui | `MG:598-601` | Oui | — | — |
 | U-A51 | SETTINGS, fondu 1,0 s (`OptionsScene.cs:74-79`) | Navigation | Oui | `MG:604-607` | Oui | — | — |
 | U-A52 | CARD GALLERY, fondu 1,0 s ; retour en coupure nette (`OptionsScene.cs:87-89`) | Navigation | Oui | `MG:610-612`, `CG:289-291` | Oui | — | — |
-| U-A53 | CREDITS sans transition ; boutons et logo glissent et s'estompent puis reviennent (`OptionsScene.cs:99-103,132-153`) | Animation | Partiel | `MG:615-618,647-654` | Partiel | Masquage instantané ; au retour, fondu noir 1,0 s sans glissé. | Basse |
+| U-A53 | CREDITS sans transition ; boutons et logo glissent et s'estompent puis reviennent (`OptionsScene.cs:99-103,132-153`) | Animation | Partiel | `MG:615-618,647-654` | Partiel | Masquage instantané ; au retour, fondu noir 1,0 s sans glissé. | Corrigé (Basse) |
 | U-A54 | Flèche d'OPTIONS : coupure nette (`OptionsScene.cs:48`) | Navigation | Oui | `MG:584-589` | Oui | — | — |
 | U-A55 | SETTINGS : lignes MUSIC / SOUND / GAME SPEED à y 360 / 480 / 600 (`SettingsScene.cs:68-97`) | Écran | Oui | `MG:639-643,657-680` | Oui | Valeurs : S-04..S-06. | — |
-| U-A56 | Segments de 204 px, ninepatch `settings_text_bg`, bulle 204×110, polices ×1,4 (`SettingButtonDecorator.cs:21,71,102-112`) | Visuel | Partiel | `MG:663-680` | Différent | 202 px, aplat de couleur au lieu du ninepatch, tailles de police différentes. | Basse |
-| U-A57 | Valeur sélectionnée : texte doré décalé de −5 px sur un texte blanc (`SettingButtonInfo.cs:57`) | Visuel | Non (vérifié absent) | `MG:676` | Partiel | — | Basse |
-| U-A58 | Son seulement si l'option change, à l'appui (`SettingButtonDecorator.cs:132`) | Son | Oui | `MG:678-680` | Partiel | Joué à chaque clic, même sur l'option déjà choisie. | Basse |
+| U-A56 | Segments de 204 px, ninepatch `settings_text_bg`, bulle 204×110, polices ×1,4 (`SettingButtonDecorator.cs:21,71,102-112`) | Visuel | Partiel | `MG:663-680` | Différent | 202 px, aplat de couleur au lieu du ninepatch, tailles de police différentes. | Corrigé (Basse) |
+| U-A57 | Valeur sélectionnée : texte doré décalé de −5 px sur un texte blanc (`SettingButtonInfo.cs:57`) | Visuel | Non (vérifié absent) | `MG:676` | Partiel | — | Corrigé (Basse) |
+| U-A58 | Son seulement si l'option change, à l'appui (`SettingButtonDecorator.cs:132`) | Son | Oui | `MG:678-680` | Partiel | Joué à chaque clic, même sur l'option déjà choisie. | Corrigé (Basse) |
 | U-A59 | Flèche de SETTINGS : `SaveChanges` puis `Pop()` **sans transition** (`SettingsScene.cs:133-145`) | Navigation | Oui | `MG:638-640` | Différent | **Contrôlé** : Godot fait un fondu noir de 1,0 s ; le commentaire `MG:637` cite à tort `:136`. | Corrigé (Moyenne) |
-| U-A60 | Ligne LEGENDARY MODE si mécène (`SettingsScene.cs:98-108`) | Élément | Non (vérifié absent) | — | — | Voir S-08. | Basse |
+| U-A60 | Ligne LEGENDARY MODE si mécène (`SettingsScene.cs:98-108`) | Élément | Non (vérifié absent) | — | — | Voir S-08. | Accepté (Basse) |
 | U-A61 | Crédits : `credits.json` (logo, 14 éléments, pied), mise en forme (`CreditsScene.cs:50,119-228`) | Écran | Oui | `CreditsScreen.gd:136-139,168-248` | Oui | Fichier identique à celui de l'APK. | — |
 | U-A62 | Défilement des crédits : 0,1 px/ms, délais et bornes (`CreditRollBehavior.cs:38-77`) | Timing | Oui | `CreditsScreen.gd:15-22,38-61,104-108` | Oui | — | — |
 | U-A63 | Voile 0,7, glisser actif après 8,8 s, bornes (`CreditsScene.cs:46-49,115-166`) | Comportement | Oui | `CreditsScreen.gd:77-83,110-125` | Oui | — | — |
 | U-A64 | Flèche des crédits, fondu 1,0 s, `ui_button_goback` (`CreditsScene.cs:129-133`) | Navigation | Oui | `CreditsScreen.gd:94-102` | Oui | — | — |
 | U-A65 | `MessageBoxScene` : titre, message, OK, fondu enchaîné 0,2 s (`:70-152`) | Écran | Oui | `OM:89-125` | Oui | — | — |
 | U-A66 | Pseudo par défaut « player_ » + `RndWord(4)` sur a-z1-9, avatar `Random.Next(9)` (`StringFactory.cs:20-28`) | Donnée | Oui | `Profile.gd:38-43` | Oui | Alphabet identique : **S-13 clos**. | — |
-| U-A67 | Cercle de 10 rupies, rayon 160, 1 s par cran, interpolation en corde (`CircleOfRotatingRupisBehavior.cs:26-64`) | Animation | Oui | `GameOverBanner.gd:12-14,70-76` | Partiel | Godot tourne en arc continu ; rayon ≈ −5 % à mi-cran dans l'APK. | Basse |
-| U-A68 | — (absent de l'APK) Écran RULES à la place de la boutique | Ajout Godot | Oui | `MG:281,683-689` | — | — | Basse |
-| U-A69 | — Visionneuse des règles (4 livrets, onglets, flèches, molette) | Ajout Godot | Oui | `RulesViewer.gd:12-157` | — | — | Basse |
+| U-A67 | Cercle de 10 rupies, rayon 160, 1 s par cran, interpolation en corde (`CircleOfRotatingRupisBehavior.cs:26-64`) | Animation | Oui | `GameOverBanner.gd:12-14,70-76` | Partiel | Godot tourne en arc continu ; rayon ≈ −5 % à mi-cran dans l'APK. | Corrigé (Basse) |
+| U-A68 | — (absent de l'APK) Écran RULES à la place de la boutique | Ajout Godot | Oui | `MG:281,683-689` | — | — | Conforme (Basse) |
+| U-A69 | — Visionneuse des règles (4 livrets, onglets, flèches, molette) | Ajout Godot | Oui | `RulesViewer.gd:12-157` | — | — | Conforme (Basse) |
 | U-A70 | — Case « Wiki expansions (not in the APK) » | Ajout Godot | Oui | `MG:620-628`, `Profile.gd:77,83` | — | **Contrôlé** : cochée par défaut (`Profile.gd:77,83` = `true`, alors que `MG:78` prévoit `false`). Au premier lancement, des contenus hors APK s'affichent (tuiles wiki, cartes wiki dans la galerie, mention 5-6 joueurs). | Corrigé (Moyenne) |
-| U-A71 | — Champ « Multiplayer server » (bureau seulement) | Ajout Godot | Oui | `MG:76,629-636` | — | Masqué sur le web. | Basse |
-| U-A72 | — Survol des boutons pierre (teinte) | Ajout Godot | Oui | `UiKit.gd:108-109` | — | Le survol de l'APK est du code mort (U-A23). | Basse |
+| U-A71 | — Champ « Multiplayer server » (bureau seulement) | Ajout Godot | Oui | `MG:76,629-636` | — | Masqué sur le web. | Conforme (Basse) |
+| U-A72 | — Survol des boutons pierre (teinte) | Ajout Godot | Oui | `UiKit.gd:108-109` | — | Le survol de l'APK est du code mort (U-A23). | Conforme (Basse) |
 | U-A73 | — Déverrouillage audio au premier clic | Ajout Godot | Oui | `AudioManager.gd:48,63-70` | — | Voir AW-01. | — |
 
 ### 4B — Galerie, détail de carte, extensions, écrans de boutique
@@ -269,57 +269,57 @@ Source relue : `GalleryScene`, `CardDetailScene`, `ExpansionScene`, `InAppPurcha
 |----|----|----|----|----|----|----|----|
 | U-B01 | Entrée depuis OPTIONS, fondu 1,0 s (`OptionsScene.cs:83-90`) | Navigation | Oui | `MG:104-125,608-612` | Oui | — | — |
 | U-B02 | Entrée depuis PAUSE, fondu enchaîné 0,2 s (`PauseScene.cs:61-70`) | Navigation | Oui | `InGameMenu.gd:106-115` | Oui | — | — |
-| U-B03 | CARD GALLERY masqué dans le menu PAUSE en partie en ligne (`PauseScene.cs:30,41,61`) | Condition | Non (vérifié absent) | `InGameMenu.gd:43` | Différent | Godot l'affiche aussi en ligne. | Basse |
+| U-B03 | CARD GALLERY masqué dans le menu PAUSE en partie en ligne (`PauseScene.cs:30,41,61`) | Condition | Non (vérifié absent) | `InGameMenu.gd:43` | Différent | Godot l'affiche aussi en ligne. | Corrigé (Basse) |
 | U-B04 | Flèche retour : coupure nette, ou fermeture si on vient du jeu, `ui_button_goback` (`GalleryScene.cs:93-98,335-345`) | Navigation / son | Oui | `CG:62-64,285-291` | Oui | — | — |
 | U-B05 | Décor et titres BOSS / ROOM / SPELL / HERO / EPIC HERO CARDS (`GalleryScene.cs:99-149,363-392`) | UI / textes | Oui | `CG:19-20,45-61` | Oui | — | — |
 | U-B06 | 5 onglets (dos de la 1re carte de chaque type), ordre Boss, Room, Spell, Hero, Epic (`GalleryScene.cs:177-210`) | UI | Oui | `CG:19-20,75-86` | Oui | — | — |
-| U-B07 | Défilement vertical des onglets : course 596 px + 100 px de dépassement, ressort (`GalleryScene.cs:184-198`, `ScrollListBehavior.cs:207-252`) | Défilement | Partiel | `CG:66-74` | Différent | Course de 220 px, sans dépassement élastique. | Basse |
+| U-B07 | Défilement vertical des onglets : course 596 px + 100 px de dépassement, ressort (`GalleryScene.cs:184-198`, `ScrollListBehavior.cs:207-252`) | Défilement | Partiel | `CG:66-74` | Différent | Course de 220 px, sans dépassement élastique. | Corrigé (Basse) |
 | U-B08 | `ui_button_select` à chaque changement d'onglet (`GalleryScene.cs:352`) | Son | Non (vérifié absent) | `CG:124-185` | — | **Contrôlé** : le changement d'onglet est muet dans Godot. | Corrigé (Moyenne) |
 | U-B09 | Transition entre onglets : fondu de sortie 0,5 s puis d'entrée 0,5 s, toucher bloqué pendant le fondu (`GalleryScene.cs:395-436`) | Transition | Non (vérifié absent) | `CG:124-185` | — | Godot reconstruit la grille instantanément. | Corrigé (Moyenne) |
-| U-B10 | Onglet touché : échelle 0,37 → 0,42 en 0,2 s, cadre jaune en fondu 0,5 s (`GalleryScene.cs:190-191`, `ScrollItemComponent.cs:42-66`) | Animation | Partiel | `CG:124-137,189-208` | Partiel | Fondu du cadre présent ; changement de taille instantané ; l'ancien cadre disparaît d'un coup. | Basse |
-| U-B11 | Onglet BOSS sélectionné à l'ouverture (`GalleryScene.cs:471-475`) | Comportement | Non (vérifié absent) | `CG:99,122-123` | Non vérifié | Aucun cadre à l'ouverture côté Godot ; la capture APK de référence encadre HERO : source et capture se contredisent. | Basse |
+| U-B10 | Onglet touché : échelle 0,37 → 0,42 en 0,2 s, cadre jaune en fondu 0,5 s (`GalleryScene.cs:190-191`, `ScrollItemComponent.cs:42-66`) | Animation | Partiel | `CG:124-137,189-208` | Partiel | Fondu du cadre présent ; changement de taille instantané ; l'ancien cadre disparaît d'un coup. | Corrigé (Basse) |
+| U-B11 | Onglet BOSS sélectionné à l'ouverture (`GalleryScene.cs:471-475`) | Comportement | Non (vérifié absent) | `CG:99,122-123` | Non vérifié | Aucun cadre à l'ouverture côté Godot ; la capture APK de référence encadre HERO : source et capture se contredisent. | Corrigé (Basse) |
 | U-B12 | Paquets affichés : base, Player Choice, puis Hidden Heroes ; BMA023 et BMA033 masquées (`GalleryScene.cs:153-156`, `CardInfoService.cs:19,58-65,184`) | Filtre | Oui | `CG:15-16,102-120` | Oui | Comptes recoupés dans `cards.json`. | — |
-| U-B13 | — (absent de l'APK) Cartes des extensions wiki dans la galerie | Ajout Godot | Oui | `CG:104-105` | — | Affichées par défaut (voir U-A70). | Basse |
+| U-B13 | — (absent de l'APK) Cartes des extensions wiki dans la galerie | Ajout Godot | Oui | `CG:104-105` | — | Affichées par défaut (voir U-A70). | Conforme (Basse) |
 | U-B14 | Tri par numéro de carte décroissant, héros ordinaires / épiques séparés (`GalleryScene.cs:157-176`) | Ordre | Oui | `CG:112-119` | Oui | — | — |
 | U-B15 | Une tuile par art alternatif pour salles et sorts (`ScrollCardBehavior.cs:40-82`) | Contenu | Oui | `CG:6-7,146-155` | Oui | Fichiers `b.webp` cohérents avec `AlternativeArts` de `data.json`. | — |
 | U-B16 | Tuile héros : carte + personnage à y −10 (`ScrollCardBehavior.cs:114-127`) | Rendu | Oui | `CG:163` | Oui | Image déjà composée. | — |
 | U-B17 | Grille : 2 lignes, case 310×410, échelle 0,8 (`GalleryScene.cs:177,438-455`) | Layout | Oui | `CG:21-22,156-171` | Oui | — | — |
 | U-B18 | Défilement horizontal : inertie × 0,9 par image, dépassement de 100 px, ressort 0,4, bornes `-TotalWidth + 960` (`ScrollListBehavior.cs:193-252`, `GalleryScene.cs:452-453`) | Défilement | Partiel | `CG:87-91` | Différent | `ScrollContainer` natif : course plus courte d'environ 390 px, ni dépassement ni ressort. Complète I-17. | Corrigé (Moyenne) |
-| U-B19 | — (absent de l'APK) Molette de la souris | Ajout Godot | Oui | `CG:92-97` | — | 220 px par cran ; risque de double défilement non testé. | Basse |
-| U-B20 | Tap sur une carte : sélection (0,8 → 0,85, 0,2 s), cadre jaune 0,5 s, puis détail ; la sélection est gardée par onglet (`ScrollListBehavior.cs:160-183`) | Interaction | Partiel | `CG:173-181,210-227` | Partiel | Courbes linéaires au lieu de cubiques ; sélection perdue au changement d'onglet. | Basse |
+| U-B19 | — (absent de l'APK) Molette de la souris | Ajout Godot | Oui | `CG:92-97` | — | 220 px par cran ; risque de double défilement non testé. | Conforme (Basse) |
+| U-B20 | Tap sur une carte : sélection (0,8 → 0,85, 0,2 s), cadre jaune 0,5 s, puis détail ; la sélection est gardée par onglet (`ScrollListBehavior.cs:160-183`) | Interaction | Partiel | `CG:173-181,210-227` | Partiel | Courbes linéaires au lieu de cubiques ; sélection perdue au changement d'onglet. | Corrigé (Basse) |
 | U-B21 | Détail : la carte 350×488 va au centre et passe à l'**échelle 1,8** en 0,2 s, soit 630×878 (`CardDetailScene.cs:84-91`, `CardEntity.cs:56`) | Animation | Partiel | `CG:230-278` (`CARD * 1.8`) | Différent | **Contrôlé** : Godot multiplie la tuile (280×400) par 1,8, soit **504×720, 0,8× la taille APK** ; courbe quadratique au lieu de linéaire. | Corrigé (Moyenne) |
-| U-B22 | Voile noir 0,7 dès l'ouverture, cadre `card_border_yellow` en fondu 0,3 s (`CardDetailScene.cs:45,87`) | Rendu | Partiel | `CG:240-261,274` | Partiel | Voile en fondu 0,2 s ; cadre doré dessiné au lieu du sprite. | Basse |
+| U-B22 | Voile noir 0,7 dès l'ouverture, cadre `card_border_yellow` en fondu 0,3 s (`CardDetailScene.cs:45,87`) | Rendu | Partiel | `CG:240-261,274` | Partiel | Voile en fondu 0,2 s ; cadre doré dessiné au lieu du sprite. | Corrigé (Basse) |
 | U-B23 | `ui_button_select` à l'ouverture du détail (`CardDetailScene.cs:88`) | Son | Oui | `CG:233` | Oui | — | — |
 | U-B24 | `ui_button_goback` à la fermeture du détail (`CardDetailScene.cs:74`) | Son | Non (vérifié absent) | `CG:263-267,280-283` | — | Fermeture muette. | Corrigé (Moyenne) |
-| U-B25 | Fermeture : tap sur le fond ou sur la flèche posée par-dessus le voile ; retour animé 0,2 s (`CardDetailScene.cs:53-56,69-82`) | Interaction | Oui | `CG:263-267,271-283` | Partiel | Tout clic ferme ; la flèche de la galerie reste assombrie sous le voile. | Basse |
+| U-B25 | Fermeture : tap sur le fond ou sur la flèche posée par-dessus le voile ; retour animé 0,2 s (`CardDetailScene.cs:53-56,69-82`) | Interaction | Oui | `CG:263-267,271-283` | Partiel | Tout clic ferme ; la flèche de la galerie reste assombrie sous le voile. | Corrigé (Basse) |
 | U-B26 | Pas de retournement dans le détail | Comportement | Oui | `CG:230-269` | Oui | — | — |
-| U-B27 | — (absent de l'APK) Infobulle avec le nom de la carte | Ajout Godot | Oui | `CG:168` | — | — | Basse |
+| U-B27 | — (absent de l'APK) Infobulle avec le nom de la carte | Ajout Godot | Oui | `CG:168` | — | — | Conforme (Basse) |
 | U-B28 | `CardDetailEntity` (zoom du carrousel de boss, `CardCarrouselEntity.cs:214`) | Entité | Non vérifié | — | — | Hors galerie : module 7. | — |
 | U-B29 | `ScrollCardComponent.DisableScale` | Propriété | N/A | — | N/A | Jamais lue. | — |
-| U-B30 | Citations APK dans les commentaires de `CG` | Traçabilité | — | `CG:123,131,178,188` | Différent | 4 citations fausses (lignes décalées). | Basse |
+| U-B30 | Citations APK dans les commentaires de `CG` | Traçabilité | — | `CG:123,131,178,188` | Différent | 4 citations fausses (lignes décalées). | Corrigé (Basse) |
 | U-B31 | Solo : HOW MANY PLAYERS → SELECT EXPANSIONS, fondu 1,0 s (`PlayerNumberScene.cs:52`) | Navigation | Oui | `MG:352` | Oui | — | — |
-| U-B32 | Pass and Play : extensions directement, 2 joueurs fixes (`MultiplayerScene.cs:77`) | Navigation | Oui | `OM:180`, `MG:352` | Différent | Chemin mort dans l'APK (U-C01) ; Godot ajoute le choix 2 à 6. | Basse |
+| U-B32 | Pass and Play : extensions directement, 2 joueurs fixes (`MultiplayerScene.cs:77`) | Navigation | Oui | `OM:180`, `MG:352` | Différent | Chemin mort dans l'APK (U-C01) ; Godot ajoute le choix 2 à 6. | Accepté (Basse) |
 | U-B33 | En ligne : `ExpansionScene(0, OnlinePublic/OnlinePrivate)` (`ExpansionScene.cs:129-160`) | Navigation | Partiel | `OM:292,629` | — | Voir U-C08, U-C11. | — |
-| U-B34 | Décor `multiplayer_bg` sans torches en ligne (`ExpansionScene.cs:76-103`) | UI | Partiel | `MG:213-218,448-449` | Différent | Godot garde `menu_bg` et les torches. | Basse |
+| U-B34 | Décor `multiplayer_bg` sans torches en ligne (`ExpansionScene.cs:76-103`) | UI | Partiel | `MG:213-218,448-449` | Différent | Godot garde `menu_bg` et les torches. | Corrigé (Basse) |
 | U-B35 | « SELECT EXPANSIONS », flèche (coupure nette), OK lance la partie (`ExpansionScene.cs:49-52,93-128`) | UI / navigation | Oui | `MG:227-232,449-464` | Oui | — | — |
-| U-B36 | Liste : Power-Up Pack, Tools of Hero Kind, The Player Choice, Hidden Heroes (`LocalMarket.cs:23,108-147`) | Contenu | Partiel | `MG:15-28,463-477` | Différent | Godot ajoute une tuile BOSS MONSTER en tête, retire Power-Up Pack, ajoute les paquets wiki. | Basse |
-| U-B37 | Power-Up Pack : bande COMING SOON, non sélectionnable (`LocalMarket.cs:109-117`) | État | Non (vérifié absent) | — | — | Assets présents, inutilisés. | Basse |
-| U-B38 | Tools of Hero Kind : COMING SOON, grisé (`LocalMarket.cs:119-127`) | État | Partiel | `MG:12,480-489` | Différent | Jouable dans Godot (avec l'option wiki), sans bande. Choix délibéré. | Basse |
-| U-B39 | The Player Choice : achat requis ; texte « An 11-card digital mini-expansion… » (`LocalMarket.cs:129-139`) | État / texte | Partiel | `MG:17` | Différent | Toujours sélectionnable ; texte réécrit. | Basse |
-| U-B40 | Hidden Heroes : verrouillé jusqu'à 40 victoires (`LocalMarket.cs:138-147`) | État | Partiel | `MG:18` | Différent | Voir S-12. L'APK affiche « 40 NEW HEROES » pour 41 cartes. | Basse |
-| U-B41 | Sélection d'une tuile : `bg_expansion_selected`, échelle 1,0 → 1,1 en 0,3 s, **aucun son** (`PurchaseItemButton.cs:45-58`) | Animation / son | Partiel | `MG:175-184,480-506` | Partiel | Pas d'agrandissement ; Godot joue `ui_button_select`, absent de l'APK. | Basse |
-| U-B42 | Tuiles alignées à gauche, défilement horizontal dès 4 tuiles (`ExpansionScrollComponent.cs:84-240`) | Layout | Non (vérifié absent) | `MG:466-477` | Différent | Godot centre les tuiles et les réduit à 0,72 au-delà de 4, sans défilement. | Basse |
+| U-B36 | Liste : Power-Up Pack, Tools of Hero Kind, The Player Choice, Hidden Heroes (`LocalMarket.cs:23,108-147`) | Contenu | Partiel | `MG:15-28,463-477` | Différent | Godot ajoute une tuile BOSS MONSTER en tête, retire Power-Up Pack, ajoute les paquets wiki. | Corrigé (Basse) |
+| U-B37 | Power-Up Pack : bande COMING SOON, non sélectionnable (`LocalMarket.cs:109-117`) | État | Non (vérifié absent) | — | — | Assets présents, inutilisés. | Corrigé (Basse) |
+| U-B38 | Tools of Hero Kind : COMING SOON, grisé (`LocalMarket.cs:119-127`) | État | Partiel | `MG:12,480-489` | Différent | Jouable dans Godot (avec l'option wiki), sans bande. Choix délibéré. | Corrigé (Basse) |
+| U-B39 | The Player Choice : achat requis ; texte « An 11-card digital mini-expansion… » (`LocalMarket.cs:129-139`) | État / texte | Partiel | `MG:17` | Différent | Toujours sélectionnable ; texte réécrit. | Accepté (Basse) |
+| U-B40 | Hidden Heroes : verrouillé jusqu'à 40 victoires (`LocalMarket.cs:138-147`) | État | Partiel | `MG:18` | Différent | Voir S-12. L'APK affiche « 40 NEW HEROES » pour 41 cartes. | Accepté (Basse) |
+| U-B41 | Sélection d'une tuile : `bg_expansion_selected`, échelle 1,0 → 1,1 en 0,3 s, **aucun son** (`PurchaseItemButton.cs:45-58`) | Animation / son | Partiel | `MG:175-184,480-506` | Partiel | Pas d'agrandissement ; Godot joue `ui_button_select`, absent de l'APK. | Corrigé (Basse) |
+| U-B42 | Tuiles alignées à gauche, défilement horizontal dès 4 tuiles (`ExpansionScrollComponent.cs:84-240`) | Layout | Non (vérifié absent) | `MG:466-477` | Différent | Godot centre les tuiles et les réduit à 0,72 au-delà de 4, sans défilement. | Corrigé (Basse) |
 | U-B43 | Lignes sous la tuile : « + 7 NEW BOSSES », « + 3 NEW HEROS »… (`+` et nombre en or) (`PurchaseItemButton.cs:94-103`) | Texte | Non (vérifié absent) | `MG:495-496` | Différent | Godot affiche une phrase blanche (« 7 bosses, 3 epic heroes, 1 spell »). | Corrigé (Moyenne) |
 | U-B44 | Descriptions longues (`Info`, `DetailsExpanded`) montrées par `PurchaseScene` | Texte | Partiel | `MG:509-533` (popup « ? ») | Différent | Popup absent de l'APK, avec des textes réécrits au lieu de ceux de `LocalMarket`. | Corrigé (Moyenne) |
 | U-B45 | Couvertures `full_game_front`, `tools_of_hero_front`, `the_players_choice_front`, `hidden_heroes_front` | Assets | Oui | `MG:487,527` | Oui | — | — |
-| U-B46 | — (absent de l'APK) Tuile BOSS MONSTER du jeu de base | Ajout Godot | Oui | `MG:468,480-483` | — | — | Basse |
-| U-B47 | — (absent de l'APK) Tuiles des extensions wiki | Ajout Godot | Oui | `MG:20-27,445-447` | — | Affichées par défaut (U-A70). | Basse |
-| U-B48 | — Choix des paquets mémorisé entre sessions (l'APK repart de zéro) | Ajout Godot | Oui | `MG:79,504`, `Profile.gd:88-95` | — | — | Basse |
-| U-B49 | — Message d'erreur 5-6 joueurs | Ajout Godot | Oui | `MG:475-477` | — | — | Basse |
-| U-B50 | `InAppPurchaseScene` : catalogue de 4 produits avec prix (`LocalMarket.StoreItems`) | Écran | Non (vérifié absent) | — | — | Boutique retirée. | Basse |
-| U-B51 | `PurchaseScene` : fiche d'extension, « N WINS TO UNLOCK! », bouton PURCHASE (`PurchaseScene.cs:111-180`) | Écran | Non (vérifié absent) | — | — | Boutique retirée ; voir S-12. | Basse |
-| U-B52 | `UnlockScene` : « CONGRATULATIONS! YOU'VE UNLOCKED… » (son `ui_purchase`), « FULL GAME NEEDED! » + BUY NOW! (`UnlockScene.cs:137,167`) | Écran | Non (vérifié absent) | — | — | Boutique retirée ; voir S-12, A-15. | Basse |
-| U-B53 | `UnlockCodeScene` : saisie « INSERT REDEEM CODE », validation serveur, 4 messages d'erreur (`UnlockCodeScene.cs:60,98-139`) | Écran | Non (vérifié absent) | — | — | Voir I-09. | Basse |
+| U-B46 | — (absent de l'APK) Tuile BOSS MONSTER du jeu de base | Ajout Godot | Oui | `MG:468,480-483` | — | — | Corrigé (Basse) |
+| U-B47 | — (absent de l'APK) Tuiles des extensions wiki | Ajout Godot | Oui | `MG:20-27,445-447` | — | Affichées par défaut (U-A70). | Conforme (Basse) |
+| U-B48 | — Choix des paquets mémorisé entre sessions (l'APK repart de zéro) | Ajout Godot | Oui | `MG:79,504`, `Profile.gd:88-95` | — | — | Conforme (Basse) |
+| U-B49 | — Message d'erreur 5-6 joueurs | Ajout Godot | Oui | `MG:475-477` | — | — | Conforme (Basse) |
+| U-B50 | `InAppPurchaseScene` : catalogue de 4 produits avec prix (`LocalMarket.StoreItems`) | Écran | Non (vérifié absent) | — | — | Boutique retirée. | Accepté (Basse) |
+| U-B51 | `PurchaseScene` : fiche d'extension, « N WINS TO UNLOCK! », bouton PURCHASE (`PurchaseScene.cs:111-180`) | Écran | Non (vérifié absent) | — | — | Boutique retirée ; voir S-12. | Accepté (Basse) |
+| U-B52 | `UnlockScene` : « CONGRATULATIONS! YOU'VE UNLOCKED… » (son `ui_purchase`), « FULL GAME NEEDED! » + BUY NOW! (`UnlockScene.cs:137,167`) | Écran | Non (vérifié absent) | — | — | Boutique retirée ; voir S-12, A-15. | Accepté (Basse) |
+| U-B53 | `UnlockCodeScene` : saisie « INSERT REDEEM CODE », validation serveur, 4 messages d'erreur (`UnlockCodeScene.cs:60,98-139`) | Écran | Non (vérifié absent) | — | — | Voir I-09. | Accepté (Basse) |
 | U-B54 | `MyScene` (debug) | Debug | N/A | — | N/A | Seul accès par un bouton `DEBUG_ELEM`. | — |
 
 ### 4C — Menus multijoueur (interface et parcours ; protocole au module 9)
@@ -329,45 +329,45 @@ Source relue : `MultiplayerScene`, `MainMenu.Online/*`, `MainMenu.Online.Entitie
 | ID | Élément source (décompilé) | Type | Présent dans Godot ? | Fichier Godot | Équivalent fonctionnel ? | Écart / Commentaire | Priorité |
 |----|----|----|----|----|----|----|----|
 | U-C01 | `MultiplayerScene` (PLAY ONLINE / PASS AND PLAY) : **aucun appelant** (`MultiplayerScene.cs:37-93`) | Écran | Oui (ajout de fait) | `MG:279`, `OM:173-180` | Différent | **Contrôlé** : grep `MultiplayerScene` ne trouve que son propre fichier. Godot intercale un écran que l'APK n'affiche jamais. | Corrigé (Moyenne) |
-| U-C02 | Pseudo vide → `ChangeNameAvatarScene(canGoBack:false)` avant le menu en ligne (`MainMenuScene.cs:93-104`) | Flux | Oui | `OM:176-179`, `Profile.gd:33-35` | Partiel | Test fait sur PLAY ONLINE ; `has_profile()` teste la présence de la clé et non une valeur non vide. | Basse |
+| U-C02 | Pseudo vide → `ChangeNameAvatarScene(canGoBack:false)` avant le menu en ligne (`MainMenuScene.cs:93-104`) | Flux | Oui | `OM:176-179`, `Profile.gd:33-35` | Partiel | Test fait sur PLAY ONLINE ; `has_profile()` teste la présence de la clé et non une valeur non vide. | Corrigé (Basse) |
 | U-C03 | Éventails de boss et ouverture animée (`MultiplayerScene.cs:41-47`, `OpponentsExpandBehavior.cs`) | Composant | Oui | `OM:165-238` | N/A | Écran mort côté APK. | — |
-| U-C04 | PASS AND PLAY, 2 joueurs (`MultiplayerScene.cs:70-90`) | Fonction | Oui (ajout de fait) | `OM:180`, `MG:343-352,449-458` | Différent | Inatteignable dans l'APK ; Godot propose 2 à 6 joueurs. | Basse |
+| U-C04 | PASS AND PLAY, 2 joueurs (`MultiplayerScene.cs:70-90`) | Fonction | Oui (ajout de fait) | `OM:180`, `MG:343-352,449-458` | Différent | Inatteignable dans l'APK ; Godot propose 2 à 6 joueurs. | Accepté (Basse) |
 | U-C05 | Verrou `isFullGameAvailable` (`MultiplayerScene.cs:50-114`) | Logique | Non (vérifié absent) | — | N/A | Code mort. | — |
 | U-C06 | `MenuOnlineScene` : WORLDWIDE / WITH FRIENDS / CHANGE USER/AVATAR, positions, fondu 1 s (`MenuOnlineScene.cs:35-75`) | Écran | Oui | `MG:112-130`, `OM:242-246` | Oui | — | — |
-| U-C07 | Flèche du menu en ligne : déconnexion puis `Pop` sans transition (`MenuOnlineScene.cs:85-91`) | Flux | Oui | `OM:243` | Partiel | Revient à l'écran U-C01 et non au menu principal. | Basse |
-| U-C08 | WORLDWIDE : appariement automatique (rejoint une salle publique compatible ou en crée une de 4) → salle d'attente (`MenuOnlineScene.cs:43-49`, `OnlineService.cs:631-644`) | Flux | Différent | `OM:244,252-302,445-461` | Différent | Godot affiche une liste de salons publics (JOIN) et CREATE PUBLIC GAME : pas d'appariement automatique. **Décision 2026-10-26 : multijoueur en salons uniquement.** | Basse |
+| U-C07 | Flèche du menu en ligne : déconnexion puis `Pop` sans transition (`MenuOnlineScene.cs:85-91`) | Flux | Oui | `OM:243` | Partiel | Revient à l'écran U-C01 et non au menu principal. | Accepté (Basse) |
+| U-C08 | WORLDWIDE : appariement automatique (rejoint une salle publique compatible ou en crée une de 4) → salle d'attente (`MenuOnlineScene.cs:43-49`, `OnlineService.cs:631-644`) | Flux | Différent | `OM:244,252-302,445-461` | Différent | Godot affiche une liste de salons publics (JOIN) et CREATE PUBLIC GAME : pas d'appariement automatique. **Décision 2026-10-26 : multijoueur en salons uniquement.** | Accepté (Basse) |
 | U-C09 | Erreur « Unable to join public rooms » sans paquets (`MenuOnlineScene.cs:50-53`) | Message | Non | — | N/A | Branche inatteignable ; le commentaire `OM:9` qui la décrit est faux. | — |
 | U-C10 | WITH FRIENDS : NEW GAME / ROOM CODE, champ et OK en fondu (`WithFriendsOnlineScene.cs:44-126`) | Écran | Oui | `OM:592-630` | Oui | — | — |
-| U-C11 | NEW GAME → extensions → salle privée de 4, sans choix du nombre de joueurs (`WithFriendsOnlineScene.cs:68-82`) | Flux | Oui | `OM:626-663`, `MG:343-352,455-459` | Partiel | Godot ajoute HOW MANY PLAYERS (2 à 6) ; après une erreur, retour à WITH FRIENDS au lieu de rester sur les extensions. | Basse |
+| U-C11 | NEW GAME → extensions → salle privée de 4, sans choix du nombre de joueurs (`WithFriendsOnlineScene.cs:68-82`) | Flux | Oui | `OM:626-663`, `MG:343-352,455-459` | Partiel | Godot ajoute HOW MANY PLAYERS (2 à 6) ; après une erreur, retour à WITH FRIENDS au lieu de rester sur les extensions. | Corrigé (Basse) |
 | U-C12 | Erreur « Unable to create a private room » (`WithFriendsOnlineScene.cs:77-80`) | Message | Non | — | N/A | Branche inatteignable. | — |
-| U-C13 | Champ ROOM CODE : « INSERT ROOM CODE », sans limite, sensible à la casse (`WithFriendsOnlineScene.cs:131-136`) | Saisie | Oui | `OM:595-606` | Partiel | Godot limite à 4 caractères et passe en majuscules. | Basse |
-| U-C14 | Code de salle : 4 caractères a-z1-9 en minuscules (`OnlineService.cs:900-912`, `StringFactory.cs:20-29`) | Donnée | Oui | `server/Server.gd:14-15,292-297` | Différent | Godot : 4 lettres majuscules sans I ni O, pas de chiffres. | Basse |
+| U-C13 | Champ ROOM CODE : « INSERT ROOM CODE », sans limite, sensible à la casse (`WithFriendsOnlineScene.cs:131-136`) | Saisie | Oui | `OM:595-606` | Partiel | Godot limite à 4 caractères et passe en majuscules. | Corrigé (Basse) |
+| U-C14 | Code de salle : 4 caractères a-z1-9 en minuscules (`OnlineService.cs:900-912`, `StringFactory.cs:20-29`) | Donnée | Oui | `server/Server.gd:14-15,292-297` | Différent | Godot : 4 lettres majuscules sans I ni O, pas de chiffres. | Corrigé (Basse) |
 | U-C15 | Erreurs de jonction : « Invalid Code », « Room is full », « Unable to join private room » (`DBMBaseScene.cs:69-83`) | Message | Oui | `OM:665-682` | Oui | — | — |
-| U-C16 | Erreur « Expansions not match » (`OnlineService.cs:661-666,936-937`) | Message | Non (vérifié absent) | — | — | Pas de contrôle des extensions possédées (sans achats, sans objet). | Basse |
+| U-C16 | Erreur « Expansions not match » (`OnlineService.cs:661-666,936-937`) | Message | Non (vérifié absent) | — | — | Pas de contrôle des extensions possédées (sans achats, sans objet). | Accepté (Basse) |
 | U-C17 | `TextEntryEntity` : cadre actif / inactif, texte d'aide effacé au focus, clic hors champ (`TextEntryEntity.cs:77-147`) | Composant | Oui | `OM:128-161` | Oui | Clavier virtuel : I-10. | — |
 | U-C18 | `ChangeNameAvatarScene` : « INSERT USERNAME », « SELECT AVATAR », flèche seulement si retour possible (`ChangeNameAvatarScene.cs:53-113`) | Écran | Oui | `OM:568-588` | Oui | — | — |
-| U-C19 | Pseudo : vide → rien n'est enregistré ; tronqué à 45 (`ChangeNameAvatarScene.cs:41-45,104-109`) | Logique | Oui | `Profile.gd:37-51`, `OM:136,584-587` | Partiel | Godot retire les espaces de bord : un pseudo fait d'espaces est refusé (l'APK l'accepte). | Basse |
-| U-C20 | Sélecteur : **8 avatars** hors mécène, 15 pour un mécène (`AvatarScrollComponent.cs:70-74`) | Donnée | Oui | `Profile.gd:12-15`, `OM:579` | Différent | **Contrôlé** : Godot en propose 9, dont `avatar_xyzax`, réservé aux mécènes dans l'APK. | Basse |
-| U-C21 | Défilement des avatars : pas de 240, échelles 0,7 / 0,9 en 0,3 s, inertie, bornes (`AvatarScrollComponent.cs:56-191`) | Composant | Oui | `OM:466-565` | Oui | Constantes reprises ; bornes calculées sur 9 avatars au lieu de 8. | Basse |
+| U-C19 | Pseudo : vide → rien n'est enregistré ; tronqué à 45 (`ChangeNameAvatarScene.cs:41-45,104-109`) | Logique | Oui | `Profile.gd:37-51`, `OM:136,584-587` | Partiel | Godot retire les espaces de bord : un pseudo fait d'espaces est refusé (l'APK l'accepte). | Corrigé (Basse) |
+| U-C20 | Sélecteur : **8 avatars** hors mécène, 15 pour un mécène (`AvatarScrollComponent.cs:70-74`) | Donnée | Oui | `Profile.gd:12-15`, `OM:579` | Différent | **Contrôlé** : Godot en propose 9, dont `avatar_xyzax`, réservé aux mécènes dans l'APK. | Accepté (Basse) |
+| U-C21 | Défilement des avatars : pas de 240, échelles 0,7 / 0,9 en 0,3 s, inertie, bornes (`AvatarScrollComponent.cs:56-191`) | Composant | Oui | `OM:466-565` | Oui | Constantes reprises ; bornes calculées sur 9 avatars au lieu de 8. | Accepté (Basse) |
 | U-C22 | `OnlineAvatarComponent` : fonds `avatar_bg` / `avatar_bg_selected`, animation (`OnlineAvatarComponent.cs:27-99`) | Composant | Oui | `OM:497-525` | Oui | — | — |
-| U-C23 | Salle d'attente : flèche = quitter la salle + `Pop` (`WaitingRoomBaseScene.cs:79-92,149-154`) | Flux | Oui | `OM:698-700,788-800` | Partiel | Godot retourne à WITH FRIENDS ou à la liste publique au lieu de l'écran précédent. | Basse |
+| U-C23 | Salle d'attente : flèche = quitter la salle + `Pop` (`WaitingRoomBaseScene.cs:79-92,149-154`) | Flux | Oui | `OM:698-700,788-800` | Partiel | Godot retourne à WITH FRIENDS ou à la liste publique au lieu de l'écran précédent. | Accepté (Basse) |
 | U-C24 | Panneau des joueurs : en-têtes WINS / DEFEATS, 4 lignes, « WAITING... » (`OnlinePanelEntity.cs:38-99`) | Écran | Oui | `OM:702-747,836-871` | Oui | Comptage : S-11. | — |
-| U-C25 | Ligne en or = joueur **mécène** (`OnlinePanelEntity.cs:91`) | Affichage | Oui | `OM:853-871` | Différent | Godot met l'hôte en or ; commentaire `OM:835` faux. | Basse |
+| U-C25 | Ligne en or = joueur **mécène** (`OnlinePanelEntity.cs:91`) | Affichage | Oui | `OM:853-871` | Différent | Godot met l'hôte en or ; commentaire `OM:835` faux. | Corrigé (Basse) |
 | U-C26 | Salle privée : « WAITING FRIENDS... » et « ROOM CODE: » (`WaitingPrivateRoomScene.cs:27-29`, `RoomCodeEntity.cs:15-30`) | Écran | Oui | `OM:727,748-753` | Oui | — | — |
 | U-C27 | Bouton OK de la salle privée : hôte seulement, visible à partir de 2 joueurs (`WaitingPrivateRoomScene.cs:30-62`) | Fonction | Oui | `OM:754-758,872-879` | Oui | — | — |
-| U-C28 | Salle privée pleine : l'APK attend l'appui sur OK | Flux | Différent | `server/Server.gd:424-425` | Différent | **Contrôlé** : le serveur lance la partie dès que tous les sièges sont pris. | Basse |
+| U-C28 | Salle privée pleine : l'APK attend l'appui sur OK | Flux | Différent | `server/Server.gd:424-425` | Différent | **Contrôlé** : le serveur lance la partie dès que tous les sièges sont pris. | Corrigé (Basse) |
 | U-C29 | Départ de l'hôte : Photon désigne un nouvel hôte (`WaitingPrivateRoomScene.cs:41-47`) | Flux | Différent | `server/Server.gd:404-407`, `OM:802-810` | Différent | Godot ferme la salle pour tous (« Room closed »). | Corrigé (Moyenne) |
-| U-C30 | Salle publique : titre « SEARCHING PLAYERS... », pas de bouton OK, pas de code affiché (`WaitingPublicRoomScene.cs:47-52`) | Écran | Différent | `OM:716-727` | Différent | Godot réutilise la salle privée (titre = nom du salon, code et OK affichés). **Décision 2026-10-26 : multijoueur en salons uniquement.** | Basse |
-| U-C31 | Minuteries de la salle publique : 45 s dès 2 joueurs, compte à rebours visible sous 10 s, ramené à 10 s à 4 joueurs, lancement automatique ; minuterie globale de 60 à 120 s qui change de salle (`WaitingPublicRoomScene.cs:27-143`) | Fonction | Non (vérifié absent) | — | — | **Contrôlé** (constantes relues). Aucun démarrage automatique : il faut l'hôte, START WITH BOTS ou une salle pleine ; un hôte inactif bloque la salle. **Décision 2026-10-26 : multijoueur en salons uniquement.** Sans appariement automatique, le démarrage automatique n'est plus requis. | Basse |
-| U-C32 | `CountDownEntity` (sablier, chiffres or ×3) : **seulement en salle publique** (`CountDownEntity.cs:41-98`) | Composant | Différent | `CountDown.gd:1-50`, `MG:573-576` | Partiel | Godot en fait un décompte de tour en partie. | Basse |
+| U-C30 | Salle publique : titre « SEARCHING PLAYERS... », pas de bouton OK, pas de code affiché (`WaitingPublicRoomScene.cs:47-52`) | Écran | Différent | `OM:716-727` | Différent | Godot réutilise la salle privée (titre = nom du salon, code et OK affichés). **Décision 2026-10-26 : multijoueur en salons uniquement.** | Accepté (Basse) |
+| U-C31 | Minuteries de la salle publique : 45 s dès 2 joueurs, compte à rebours visible sous 10 s, ramené à 10 s à 4 joueurs, lancement automatique ; minuterie globale de 60 à 120 s qui change de salle (`WaitingPublicRoomScene.cs:27-143`) | Fonction | Non (vérifié absent) | — | — | **Contrôlé** (constantes relues). Aucun démarrage automatique : il faut l'hôte, START WITH BOTS ou une salle pleine ; un hôte inactif bloque la salle. **Décision 2026-10-26 : multijoueur en salons uniquement.** Sans appariement automatique, le démarrage automatique n'est plus requis. | Accepté (Basse) |
+| U-C32 | `CountDownEntity` (sablier, chiffres or ×3) : **seulement en salle publique** (`CountDownEntity.cs:41-98`) | Composant | Différent | `CountDown.gd:1-50`, `MG:573-576` | Partiel | Godot en fait un décompte de tour en partie. | Accepté (Basse) |
 | U-C33 | `ui_timer` en salle publique (`WaitingPublicRoomScene.cs:102-105`) | Son | Différent | `CountDown.gd:48-49` | Différent | **A-28 confirmé.** | Corrigé (Moyenne) |
 | U-C34 | Déconnexion en salle d'attente : « Unable to join public room » et retour (`WaitingRoomBaseScene.cs:54-61`) | Message | Oui | `OM:802-810` | Partiel | Godot tolère les coupures brèves ; sinon autres messages, et reste parfois dans la salle. | Corrigé (Moyenne) |
-| U-C35 | Texte « Unable to join public room » (`DBMBaseScene.cs:77-78`) | Message | Oui | `OM:457-461` | Différent | Textes Godot : « Unable to join public game », « Game is full », « This game is no longer open ». | Basse |
-| U-C36 | — (absent de l'APK) RESUME après rechargement de la page | Ajout Godot | Oui | `OM:631-632,684-694` | — | Voir S-20. | Basse |
-| U-C37 | — START WITH BOTS (sièges vides remplis par l'IA) | Ajout Godot | Oui | `OM:759-762,872-874` | — | — | Basse |
-| U-C38 | — Liste publique : filtre, titre de salon modifiable, statuts | Ajout Godot | Oui | `OM:285-334,716-725,780-786` | — | — | Basse |
-| U-C39 | — Salles de 5 et 6 joueurs | Ajout Godot | Oui | `OM:25-27,650-653,702-714` | — | L'APK plafonne à 4. | Basse |
-| U-C40 | — « SEAT TAKEN ELSEWHERE » (siège repris dans un autre onglet) | Ajout Godot | Oui | `MG:564` | — | — | Basse |
+| U-C35 | Texte « Unable to join public room » (`DBMBaseScene.cs:77-78`) | Message | Oui | `OM:457-461` | Différent | Textes Godot : « Unable to join public game », « Game is full », « This game is no longer open ». | Corrigé (Basse) |
+| U-C36 | — (absent de l'APK) RESUME après rechargement de la page | Ajout Godot | Oui | `OM:631-632,684-694` | — | Voir S-20. | Conforme (Basse) |
+| U-C37 | — START WITH BOTS (sièges vides remplis par l'IA) | Ajout Godot | Oui | `OM:759-762,872-874` | — | — | Conforme (Basse) |
+| U-C38 | — Liste publique : filtre, titre de salon modifiable, statuts | Ajout Godot | Oui | `OM:285-334,716-725,780-786` | — | — | Conforme (Basse) |
+| U-C39 | — Salles de 5 et 6 joueurs | Ajout Godot | Oui | `OM:25-27,650-653,702-714` | — | L'APK plafonne à 4. | Conforme (Basse) |
+| U-C40 | — « SEAT TAKEN ELSEWHERE » (siège repris dans un autre onglet) | Ajout Godot | Oui | `MG:564` | — | — | Conforme (Basse) |
 
 ### Commentaires Godot à corriger (citations APK fausses relevées par les trois lots)
 
@@ -2206,3 +2206,93 @@ Validé par `python tools/run_godot_tests.py` (14/14) ; captures `capture_screen
 | T-A07 | Accepté | Le tirage de l'APK est reproductible (`DBMRandom`, générateur de Knuth portable), la ligne le disait à tort. Mais l'identité des pioches suppose les mêmes mélanges dans le même ordre d'appel que `GameBoard.InternalInititalizeGameBoard`, et l'IA scriptée `FixedAI` : cela passe par le moteur de règles (`Match.gd`, `ApkAI.gd`), hors périmètre de ce lot. Seules les pioches imposées sont identiques ; le hasard du tutoriel est fixe (`TUT_SEED`). |
 | T-A31 | Accepté | Choix défensif conservé (sauter une étape dont la condition n'arrive pas plutôt que bloquer). Le déroulé est déterministe (pioches imposées + graine fixe) : la capture `--only=tutorial` et `ui_smoke` montrent les 19 étapes, p25, p26, p28 et p29 comprises. Faire coller l'IA à `FixedAI` relève du moteur. |
 | T-B18 | Corrigé | Bulle `BossHint` du sélecteur : entrée en 0,5 s (opacité 0,5 → 1, échelle 0,7 → 1, CubicEase InOut), plus de minuterie de 6 s, fermée seulement par un appui hors de la bulle une fois entrée, avec fondu de sortie de 0,5 s (`HideWhenTouchBehavior.cs`). Logique de choix déjà identique. |
+
+## Lot 6c : menus, écarts Basse (2026-10-27)
+
+Validé par `python tools/run_godot_tests.py` (14/14) ; captures `capture_screens.gd --only=lot6c` comparées à `13_setup_2p.png` (joueurs) et aux captures APK de menu, réglages, extensions et galerie. 83 lignes : 38 Corrigé, 16 Conforme, 29 Accepté.
+
+| ID | État | Changement |
+|---|---|---|
+| U-A01 | Accepté | Choix du port web : 1920x1080 `keep_aspect`, décalage de 240 px. |
+| U-A02 | Accepté | Boutique, déblocages et mécènes retirés (décision produit). |
+| U-A04 | Accepté | Écran de chargement : sur le web, c'est le démarrage du moteur. |
+| U-A05 | Accepté | Écran de chargement : sur le web, c'est le démarrage du moteur. |
+| U-A06 | Corrigé | Fondu noir de 0,5 s (1 vers 0) à l'arrivée sur le titre, voile ignorant la souris (`Main._ready`). |
+| U-A07 | Accepté | Sans objet dans un navigateur (pas de sortie de l'application). |
+| U-A15 | Accepté | Sans objet dans un navigateur (pas de sortie de l'application). |
+| U-A17 | Accepté | Multijoueur par salles seulement : PASS AND PLAY remplacé par PLAY WITH FRIENDS (décision produit). |
+| U-A19 | Corrigé | Le son des boutons part à l'appui (`button_down`) dans `Main._img_btn`/`_hit`/`_confirm_box`, `UiKit.stone_button`, `OnlineMenus`. |
+| U-A20 | Corrigé | `stone_button` : le bouton reste enfoncé après le clic si la souris est dedans (StayPressed) ; les boutons retour et OK ne restent pas enfoncés. `unpress` rend l'état repos au retour de la galerie. |
+| U-A21 | Corrigé | Glissé hors du bouton : texte et icône à base − 3 px, comme l'APK (`_stone_btn`). |
+| U-A26 | Corrigé | Scintillement des torches supprimé : torches statiques. |
+| U-A27 | Corrigé | `_apk_screen` dessine `gradients/logo_small.webp` (688x318) en (616, 10) sur tous les écrans de menu (pixel identique à la capture APK). |
+| U-A28 | Accepté | Boutique, déblocages et mécènes retirés (décision produit). |
+| U-A33 | Corrigé | Texte décalé de 3 px à l'appui, seulement sur les boutons `bt_apply_effects` (OK des boîtes de message et de confirmation), pas sur les boutons pierre d'OPTIONS (`shiftTextWhenPressed`). |
+| U-A36 | Accepté | Boutique, déblocages et mécènes retirés (décision produit). |
+| U-A37 | Accepté | Boutique, déblocages et mécènes retirés (décision produit). |
+| U-A43 | Corrigé | `_draw_fans(animate)` : glissement 0,35 s, échelle 0,7 vers 1 en 0,3 s, chiffres latéraux en fondu 0,1 s, éventails sortants réduits vers le centre. |
+| U-A45 | Corrigé | Chiffre central en arcadepix 63 px (`FONT_A`), comparé à `13_setup_2p.png`. |
+| U-A46 | Corrigé | `show_solo_count` remet 2 joueurs à chaque entrée ; le retour depuis les extensions garde le choix (`keep`). |
+| U-A47 | Accepté | Boutique, déblocages et mécènes retirés (décision produit). |
+| U-A48 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
+| U-A53 | Corrigé | CREDITS : logo en fondu 0,5 s, boutons en fondu 0,3 s puis glissés de 50 px (BackEase In 0,2 s) ; au retour, cascade 0 / 0,1 / 0,2 / 0,3 s (fondu 0,3 s, glissement 0,2 s, BackEase Out). |
+| U-A56 | Corrigé | Ninepatch `settings_text_bg` (extrait de l'APK), segments de 204 px, bulle `settings_bt` 204x110, police x1,4 (`UiKit.draw_toggle`, partagé par OPTIONS et le menu en jeu). |
+| U-A57 | Corrigé | Valeur choisie : texte doré décalé de −5 px sur le texte blanc. |
+| U-A58 | Corrigé | Son à l'appui, et seulement si l'option change. |
+| U-A60 | Accepté | Boutique, déblocages et mécènes retirés (décision produit). |
+| U-A67 | Corrigé | `GameOverBanner._place` : interpolation en corde entre les sommets du décagone, 1 s par cran. |
+| U-A68 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
+| U-A69 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
+| U-A71 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
+| U-A72 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
+| U-B03 | Corrigé | `InGameMenu.show_gallery` faux en ligne : pas de CARD GALLERY, les boutons montent d'un cran comme dans `PauseScene`. |
+| U-B07 | Corrigé | Défilement vertical des onglets sur mesure : course de 596 px, dépassement de 100 px, ressort 0,4 et inertie 0,1 (`CardGallery._input`/`_process`), molette conservée. |
+| U-B10 | Corrigé | Onglet : taille 153x213 contre 135x188 en 0,2 s (CubicEase In), cadre jaune en fondu 0,5 s, ancien cadre effacé en 0,5 s. |
+| U-B11 | Corrigé | BOSS sélectionné à l'ouverture avec cadre en fondu (`GalleryScene.Start : SetSelected(0)`). |
+| U-B13 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
+| U-B19 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
+| U-B20 | Corrigé | Carte : 0,8 vers 0,85 en 0,2 s, cadre en fondu, sélection gardée par onglet (`_sel_idx`). |
+| U-B22 | Corrigé | Détail : voile 0,7 immédiat, cadre = sprite `card_border_yellow` en fondu 0,3 s. |
+| U-B25 | Corrigé | Détail : flèche de retour au-dessus du voile, tap sur le fond ferme, retour animé 0,2 s. |
+| U-B27 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
+| U-B30 | Corrigé | Citations de `CardGallery.gd` remises sur les bonnes lignes de l'APK. |
+| U-B32 | Accepté | Multijoueur par salles seulement : PASS AND PLAY remplacé par PLAY WITH FRIENDS (décision produit). |
+| U-B34 | Corrigé | Écrans en ligne sur `multiplayer_bg.webp`, sans torches (`_apk_screen(back, online)`). |
+| U-B36 | Corrigé | Tuile POWER-UP PACK ajoutée en tête (COMING SOON) ; la tuile du jeu de base est retirée (B46). |
+| U-B37 | Corrigé | Power-Up Pack : bande `coming_soon_band`, illustration grisée, ni sélection ni « ? ». |
+| U-B38 | Corrigé | Tools of Hero Kind : COMING SOON et grisé tant que la case wiki est décochée ; jouable avec la case. |
+| U-B39 | Accepté | Achat retiré : la tuile reste sélectionnable ; le texte de détail reste celui de l'APK. |
+| U-B40 | Accepté | Boutique, déblocages et mécènes retirés (décision produit). |
+| U-B41 | Corrigé | Tuile choisie : échelle 1,0 vers 1,1 en 0,3 s (CubicEase InOut), aucun son. |
+| U-B42 | Corrigé | Tuiles alignées à gauche (centre 455, pas 331, taille réelle), glissement horizontal avec inertie dès 4 tuiles. |
+| U-B46 | Corrigé | Tuile BOSS MONSTER retirée (le jeu de base est toujours présent). |
+| U-B47 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
+| U-B48 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
+| U-B49 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
+| U-B50 | Accepté | Boutique, déblocages et mécènes retirés (décision produit). |
+| U-B51 | Accepté | Boutique, déblocages et mécènes retirés (décision produit). |
+| U-B52 | Accepté | Boutique, déblocages et mécènes retirés (décision produit). |
+| U-B53 | Accepté | Boutique, déblocages et mécènes retirés (décision produit). |
+| U-C02 | Corrigé | `Profile.has_profile` exige un pseudo non vide, comme `MainMenuScene` (`UserName != null && != string.Empty`). |
+| U-C04 | Accepté | Multijoueur par salles seulement : PASS AND PLAY remplacé par PLAY WITH FRIENDS (décision produit). |
+| U-C07 | Accepté | L'écran parent est PLAY ONLINE / PLAY WITH FRIENDS (décision produit). |
+| U-C08 | Accepté | Pas d'appariement public automatique : salles listées avec code ; le décompte de tour réutilise `CountDown`. |
+| U-C11 | Corrigé | Après une erreur de création ou de jonction, retour sur SELECT EXPANSIONS (`show_setup`) comme `ExpansionScene.GoToNexScene`. |
+| U-C13 | Corrigé | Saisie du code sans limite de longueur ni mise en majuscules. |
+| U-C14 | Corrigé | Codes de salle de 4 caractères a-z 1-9 en minuscules, sensibles à la casse (`Server.gd`, `OnlineClient.gd`, PROTOCOL.md, test `online`). |
+| U-C16 | Accepté | Boutique, déblocages et mécènes retirés (décision produit). |
+| U-C19 | Corrigé | Le pseudo n'est plus rogné : seul un pseudo vide n'enregistre rien ; tronqué à 45. |
+| U-C20 | Accepté | Boutique, déblocages et mécènes retirés (décision produit). |
+| U-C21 | Accepté | Boutique, déblocages et mécènes retirés (décision produit). |
+| U-C23 | Accepté | L'écran parent est PLAY ONLINE / PLAY WITH FRIENDS (décision produit). |
+| U-C25 | Corrigé | Commentaire `OnlineMenus` corrigé : l'APK dore le mécène, Godot dore l'hôte (ajout assumé, plus de mécènes). |
+| U-C28 | Corrigé | Le serveur ne lance plus la partie à la salle pleine : l'hôte appuie sur OK (`start`). Hôte seul avec des IA : démarrage immédiat. PROTOCOL.md et tests `online` / `ui_smoke` mis à jour. |
+| U-C30 | Accepté | Pas d'appariement public automatique : salles listées avec code ; le décompte de tour réutilise `CountDown`. |
+| U-C31 | Accepté | Pas d'appariement public automatique : salles listées avec code ; le décompte de tour réutilise `CountDown`. |
+| U-C32 | Accepté | Pas d'appariement public automatique : salles listées avec code ; le décompte de tour réutilise `CountDown`. |
+| U-C35 | Corrigé | Textes « Unable to join public room » et « Room is full ». |
+| U-C36 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
+| U-C37 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
+| U-C38 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
+| U-C39 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
+| U-C40 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |

@@ -13,6 +13,7 @@ const WIKI_GATED := ["tools"]
 ## Paquets de l'APK (ExpansionScene) : le jeu de base est toujours present, les autres se combinent librement.
 ## Boutique supprimee : tout est debloque (ToolsHeroKind, « COMING SOON » dans l'APK, est jouable ici : Match gere deja les Items).
 const APK_DECKS := [
+	{"id": "power-up", "name": "POWER-UP PACK", "info": "", "playable": false, "coming_soon": true, "art": "power_up_pack_front"}, # LocalMarket.cs:108-117 : bande COMING SOON, jamais selectionnable (le paquet n'existe pas dans l'APK)
 	{"id": "tools", "name": "TOOLS OF HERO KIND", "info": "20 item cards", "playable": true, "art": "tools_of_hero_front", "desc": "Adds 20 Item cards. One Item is revealed each turn: Heroes carry Power-Ups, and killing them earns the Reward. The APK leaves the Items inert: they are only played with the wiki expansions option checked."},
 	{"id": "players-choice", "name": "THE PLAYER'S CHOICE", "info": "7 bosses, 3 epic heroes, 1 spell", "playable": true, "art": "the_players_choice_front",
 		"details": ["7; NEW BOSSES", "3; NEW HEROS", "1; NEW SPELL"], # LocalMarket.cs:130-137 (Details, Info, DetailsExpanded)
@@ -61,6 +62,14 @@ var server_host := "http://127.0.0.1:8000"
 var players := 2 # choix courant de « HOW MANY PLAYERS? »
 var _setup_players := 2 # nombre de joueurs de l'ecran SELECT EXPANSIONS (pour le message d'erreur 5-6)
 var dyn_root: Control # contenu redessine a chaque clic (eventails, tuiles)
+var _tiles_live := false # l'ecran SELECT EXPANSIONS est affiche : glissement horizontal des tuiles (ExpansionScrollComponent)
+var _tiles_box: Control
+var _tx := 0.0 # x du defilement des tuiles (0 = debut)
+var _tvel := 0.0
+var _tdrag := false
+var _tmoved := 0.0
+var _tile_min := 0.0 # MaxLeft = -n x 331 + 1440 x 0,95 (ExpansionScrollComponent.cs:63) ; au-dela de 4 tuiles seulement
+var _tile_scale := {} # id -> echelle courante de la tuile (1 ou 1,1 : selection, PurchaseItemButton.cs:20-33)
 var _gray: ShaderMaterial
 var _fade_layer: CanvasLayer # voile noir des transitions : survit a _clear()
 var _fading := false
@@ -90,12 +99,22 @@ func _ready() -> void:
 	_fade_layer.layer = 128
 	add_child(_fade_layer)
 	show_title()
+	# LoadingScene.cs:55-60 : To(IntroScene, ColorFade noir 1,0 s) ; l'ecran de chargement est celui du moteur, reste la moitie « noir -> titre » (0,5 s)
+	var veil := ColorRect.new()
+	veil.color = Color.BLACK
+	veil.size = Vector2(1920, 1080)
+	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fade_layer.add_child(veil)
+	var tw := create_tween()
+	tw.tween_property(veil, "color:a", 0.0, 0.5)
+	tw.tween_callback(veil.queue_free)
 
 func _clear() -> void:
 	for c in get_children():
 		if c != game_manager and c != online and c != _fade_layer:
 			c.queue_free()
 	board = null
+	_tiles_live = false
 
 func _deck_playable(id: String) -> bool:
 	for d in APK_DECKS:
@@ -219,7 +238,7 @@ func _hit(pos: Vector2, sz: Vector2, cb: Callable, sfx: String = "ui_button_sele
 	b.position = pos
 	b.size = sz
 	if sfx != "":
-		b.pressed.connect(func(): AudioManager.play_sfx(sfx))
+		b.button_down.connect(func(): AudioManager.play_sfx(sfx)) # le son part a l'appui, pas au relachement (ButtonBaseEntity.SetPressedState :185)
 	b.pressed.connect(cb)
 	return b
 
@@ -232,7 +251,7 @@ func _img_btn(normal: String, pressed: String, pos: Vector2, cb: Callable, sz: V
 		b.stretch_mode = TextureButton.STRETCH_SCALE
 		b.size = sz
 	b.position = pos
-	b.pressed.connect(func(): AudioManager.play_sfx(sfx))
+	b.button_down.connect(func(): AudioManager.play_sfx(sfx)) # ButtonBaseEntity.SetPressedState (:185)
 	b.pressed.connect(cb)
 	return b
 
@@ -242,24 +261,15 @@ func _blink(n: CanvasItem, d: float) -> void:
 	tw.tween_property(n, "modulate:a", 1.0, d)
 	tw.tween_property(n, "modulate:a", 0.0, d)
 
-func _flicker(n: Node) -> void:
-	var tw := n.create_tween().set_loops()
-	tw.tween_property(n, "modulate:a", 0.78, 0.35).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(n, "modulate:a", 1.0, 0.25).set_trans(Tween.TRANS_SINE)
-
 ## Decor commun (menu_bg + torches + logo) ; back = fleche verte en haut a gauche (Callable invalide = pas de fleche).
-## small_logo : MultiplayerScene (CreateLogo(false) : logo_small a taille native, haut-centre a y = 10).
-func _apk_screen(back: Callable, small_logo: bool = false) -> void:
+## Logo : CreateLogo(false) = logo_small a taille native, haut-centre a y = 10 (ControlsFactory.cs:292-315 ; MainMenuScene, OptionsScene, PlayerNumberScene... tous l'utilisent).
+## online : ExpansionScene en ligne = multiplayer_bg, sans torches (ExpansionScene.cs:76-103).
+func _apk_screen(back: Callable, online: bool = false) -> void:
 	_clear()
-	add_child(_bg(UI + "backgrounds/menu_bg.webp"))
-	for x in [713, 992]: # torch.webp : socle a (820|1100, 900) dans la maquette
-		var t := _tex("gradients/torch.webp", Vector2(x, 690))
-		add_child(t)
-		_flicker(t)
-	if small_logo:
-		add_child(_tex("gradients/logo_small.webp", Vector2(616, 10)))
-	else:
-		add_child(_tex("navigation/bm_logo.webp", Vector2(705, 42), Vector2(540, 218)))
+	add_child(_bg(UI + ("backgrounds/multiplayer_bg.webp" if online else "backgrounds/menu_bg.webp")))
+	for x in ([] if online else [713, 992]): # torch.webp : socle a (820|1100, 900) dans la maquette
+		add_child(_tex("gradients/torch.webp", Vector2(x, 690))) # torches statiques (ControlsFactory.cs:330-344), aucun scintillement
+	add_child(_tex("gradients/logo_small.webp", Vector2(616, 10)))
 	if back.is_valid():
 		var bk := _img_btn("buttons/back_bt.webp", "buttons/back_bt_pressed.webp", Vector2(20, 22), back, Vector2.ZERO, "ui_button_goback")
 		bk.name = "Back"
@@ -303,12 +313,17 @@ func _stone_btn(text: String, icon: String, ipos: Vector2, tcx: float, pos: Vect
 	var lb := _lbl(text, 32, Color.WHITE, Vector2(tcx - 250, 6), Vector2(500, 180), FONT_A) # 32 = arcadepix 21 x 1,5 (ButtonWithDecoratorEntity.cs:39)
 	b.add_child(lb)
 	# appui : texte et icone descendent de 3 px, pas de changement de couleur (ButtonWithDecoratorEntity.cs:49-51)
+	var ic_y := ic.position.y
+	var lb_y := lb.position.y
 	b.button_down.connect(func():
-		ic.position.y += 3.0
-		lb.position.y += 3.0)
+		ic.position.y = ic_y + 3.0
+		lb.position.y = lb_y + 3.0)
 	b.button_up.connect(func():
-		ic.position.y -= 3.0
-		lb.position.y -= 3.0)
+		if b.get_global_rect().has_point(b.get_global_mouse_position()):
+			b.texture_normal = b.texture_pressed # StayPressed (ButtonBaseEntity.cs:201) : le bouton reste enfonce pendant le fondu
+		else: # relache hors du bouton : SetReleasedState pose le texte 3 px AU-DESSUS de l'origine (ButtonWithDecoratorEntity.cs:54-57)
+			ic.position.y = ic_y - 3.0
+			lb.position.y = lb_y - 3.0)
 	add_child(b)
 
 func show_menu() -> void:
@@ -365,7 +380,10 @@ func _confirm_box(title: String, text: String, ok: Callable, cancel: Callable) -
 		l.size.y = 103.0
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		b.add_child(l)
-		b.pressed.connect(func(): AudioManager.play_sfx("ui_button_select"))
+		b.button_down.connect(func():
+			AudioManager.play_sfx("ui_button_select")
+			l.position.y += 3.0) # shiftTextWhenPressed (ButtonWithLabelEntity.cs:25-28 ; ConfirmationBoxScene.cs:91)
+		b.button_up.connect(func(): l.position.y -= 3.0)
 		b.pressed.connect(func():
 			dim.queue_free()
 			cb.call())
@@ -381,7 +399,9 @@ func start_tutorial() -> void:
 
 ## mode : "solo" (vous + IA), "online" (NEW GAME : salon prive, nombre de sieges),
 ## "public" (CREATE PUBLIC GAME de WORLDWIDE : meme parcours, salon visible dans la liste).
-func show_solo_count(mode: String = "solo") -> void:
+func show_solo_count(mode: String = "solo", keep: bool = false) -> void:
+	if not keep:
+		players = 2 # PlayerNumberScene.cs:32 : la selection repart de 2 a chaque entree ; la fleche de SELECT EXPANSIONS (Pop) garde le choix
 	_apk_screen(func(): _count_back(mode))
 	_band("HOW MANY PLAYERS?")
 	players = mini(players, Match.max_players(_active_sets())) # 5-6 : seulement si Crash Landing est coche
@@ -429,28 +449,67 @@ func _count_ring() -> Array:
 	return [2, 3, 4, 5, 6] if Match.max_players(_active_sets()) >= 5 else [2, 3, 4]
 
 ## Carrousel (4 | 2 | 3, ou 6 | 2 | 3 ... avec 5-6) : l'eventail du centre est le choix courant (colore), les autres sont ternes.
-func _draw_fans() -> void:
+## `animate` : changement de selection (CarrouselComponent : les eventails glissent vers leur nouvelle place, CarrouselDragBehavior lerp 0,2 par image ;
+## l'eventail choisi grossit de 0,7 a 1 en 0,3 s, ScaleEffectBehavior ; chiffres lateraux en fondu de 0,1 s, PlayerNumberDeckEntity.cs:62-63).
+func _draw_fans(animate: bool = false) -> void:
+	var old := {} # n -> racine de l'eventail avant le changement
 	for c in dyn_root.get_children():
+		if c.has_meta("fan"):
+			old[int(c.get_meta("fan"))] = c
 		dyn_root.remove_child(c)
-		c.queue_free()
+		if not (animate and c.has_meta("fan")):
+			c.queue_free()
 	var ring := _count_ring()
 	var i := ring.find(players)
 	var k := ring.size()
+	var shown := {}
 	for slot in [[ring[(i + k - 1) % k], 577.0, 200.0], [players, 958.0, 310.0], [ring[(i + 1) % k], 1335.0, 200.0]]:
 		var n: int = slot[0]
 		var cx: float = slot[1]
 		var sel: bool = n == players
-		dyn_root.add_child(_fan(Vector2(cx, 625 if sel else 600), slot[2], FANS[n], sel))
+		var fan := _fan(Vector2(cx, 625 if sel else 600), slot[2], FANS[n], sel)
+		fan.set_meta("fan", n)
+		dyn_root.add_child(fan)
+		shown[n] = true
+		if animate:
+			var final_pos := fan.position
+			if old.has(n):
+				var o: Control = old[n]
+				var ratio: float = float(o.get_meta("h")) / float(slot[2])
+				fan.position = o.position
+				fan.scale = Vector2.ONE * ratio
+			else: # arrive du 4e emplacement : echelle 0, plus bas (CarrouselInfiniteComponent.positions[0] = (0, 120))
+				fan.position = Vector2(958.0, 720.0)
+				fan.scale = Vector2.ZERO
+			if sel:
+				fan.scale *= 0.7 # ScaleEffectBehavior(MinScale 0,7 -> 1)
+			var tw := fan.create_tween().set_parallel(true)
+			tw.tween_property(fan, "position", final_pos, 0.35).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+			tw.tween_property(fan, "scale", Vector2.ONE, 0.3)
+		fan.set_meta("h", slot[2])
 		if sel:
 			dyn_root.add_child(_tex("navigation/bg_number.webp", Vector2(922, 371)))
-			dyn_root.add_child(_lbl(str(n), 56, GOLD, Vector2(922, 371), Vector2(77, 77)))
+			dyn_root.add_child(_lbl(str(n), 63, GOLD, Vector2(922, 371), Vector2(77, 77), FONT_A))
 		else:
-			dyn_root.add_child(_lbl(str(n), 32, Color.WHITE, Vector2(cx - 32, 415), Vector2(80, 44), FONT_A)) # arcadepix blanc (PlayerNumberDeckEntity.cs:66) ; 32 px donne l'encre 21 x 21 mesuree sur la capture APK (a 42 px : 28 x 28)
+			var num := _lbl(str(n), 32, Color.WHITE, Vector2(cx - 32, 415), Vector2(80, 44), FONT_A) # arcadepix blanc (PlayerNumberDeckEntity.cs:66) ; 32 px donne l'encre 21 x 21 mesuree sur la capture APK (a 42 px : 28 x 28)
+			dyn_root.add_child(num)
+			if animate:
+				num.modulate.a = 0.0
+				num.create_tween().tween_property(num, "modulate:a", 1.0, 0.1)
 			var pick := func():
 				players = n
-				_draw_fans()
+				_draw_fans(true)
 			# CarrouselComponent.cs:123-131 : l'indice grandit (voisin de droite) = ui_shuffle_left, il baisse = ui_shuffle_right
 			dyn_root.add_child(_hit(Vector2(cx - 110, 480), Vector2(220, 240), pick, "ui_shuffle_right" if cx < 960.0 else "ui_shuffle_left"))
+	for n in old: # eventail sorti du carrousel : il rentre vers le 4e emplacement puis disparait
+		if shown.has(n):
+			continue
+		var gone: Control = old[n]
+		dyn_root.add_child(gone)
+		var tw2 := gone.create_tween().set_parallel(true)
+		tw2.tween_property(gone, "position", Vector2(958.0, 720.0), 0.35).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+		tw2.tween_property(gone, "scale", Vector2.ZERO, 0.35)
+		tw2.chain().tween_callback(gone.queue_free)
 
 func _fan(c: Vector2, h: float, ids: Array, sel: bool) -> Control:
 	var root := Control.new()
@@ -479,12 +538,16 @@ func _fan(c: Vector2, h: float, ids: Array, sel: bool) -> Control:
 		root.add_child(t)
 	return root
 
-func _gray_mat() -> ShaderMaterial:
+func _gray_mat(alpha: float = 1.0) -> ShaderMaterial:
 	if _gray == null:
 		var sh := Shader.new()
-		sh.code = "shader_type canvas_item;\nvoid fragment() { vec4 c = texture(TEXTURE, UV); float g = dot(c.rgb, vec3(0.3, 0.59, 0.11)) * 0.65; COLOR = vec4(vec3(g), c.a); }"
+		sh.code = "shader_type canvas_item;\nuniform float alpha = 1.0;\nvoid fragment() { vec4 c = texture(TEXTURE, UV); float g = dot(c.rgb, vec3(0.3, 0.59, 0.11)) * 0.65; COLOR = vec4(vec3(g), c.a * alpha); }"
 		_gray = ShaderMaterial.new()
 		_gray.shader = sh
+	if alpha < 1.0: # copie : le parametre est propre a la tuile
+		var mat := _gray.duplicate() as ShaderMaterial
+		mat.set_shader_parameter("alpha", alpha)
+		return mat
 	return _gray
 
 # --- SELECT EXPANSIONS ------------------------------------------------------------
@@ -493,11 +556,16 @@ func _is_wiki(d: Dictionary) -> bool:
 	return EXT_PACKS.has(d["id"])
 
 func show_setup(num_players: int, mode: String = "solo") -> void:
-	_apk_screen(func(): show_solo_count(mode))
+	_apk_screen(func(): show_solo_count(mode, true), mode == "online" or mode == "public")
 	_band("SELECT EXPANSIONS")
 	_setup_players = num_players
+	_tx = 0.0
+	_tvel = 0.0
+	_tmoved = 0.0
+	_tile_scale.clear()
 	dyn_root = Control.new()
 	add_child(dyn_root)
+	_tiles_live = true
 	_draw_tiles()
 	_ok_btn(func():
 		if Match.setup_error(num_players, _active_sets()) != "":
@@ -507,62 +575,121 @@ func show_setup(num_players: int, mode: String = "solo") -> void:
 		else:
 			start_match(num_players))
 
+## Tuiles de LocalMarket.Expansions (ExpansionScene.cs:39-44) : alignees a gauche (centre de la premiere en x 455, pas de 331, ExpansionScrollComponent.cs:57-59), le jeu de base
+## est toujours present et n'a pas de tuile ; les paquets du wiki suivent seulement avec l'option. Glissement horizontal avec inertie des 4 tuiles (:73-75).
 func _draw_tiles() -> void:
-	for c in dyn_root.get_children():
-		dyn_root.remove_child(c)
-		c.queue_free()
-	# Jeu de base d'abord (toujours present), puis les paquets APK ; les paquets du wiki seulement avec l'option.
-	var tiles: Array = [{"id": "base", "name": "BOSS MONSTER", "info": "", "art": "full_game_front"}]
-	tiles.append_array(APK_DECKS.filter(func(d): return use_extensions or not _is_wiki(d)))
-	var s := 1.0 if tiles.size() <= 4 else 0.72
-	var pitch := 330.7 * s
-	var x0 := (1920.0 - ((tiles.size() - 1) * pitch + 285.0 * s)) / 2.0
+	if dyn_root.has_node("Tiles"):
+		var old := dyn_root.get_node("Tiles")
+		dyn_root.remove_child(old)
+		old.queue_free()
+	var err_note := dyn_root.get_node_or_null("SetupError")
+	if err_note != null:
+		dyn_root.remove_child(err_note)
+		err_note.queue_free()
+	_tiles_box = Control.new()
+	_tiles_box.name = "Tiles"
+	_tiles_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tiles_box.position.x = _tx
+	dyn_root.add_child(_tiles_box)
+	var tiles: Array = APK_DECKS.filter(func(d): return use_extensions or not _is_wiki(d))
+	_tile_min = minf(0.0, -float(tiles.size()) * 331.0 + 1368.0) if tiles.size() >= 4 else 0.0
 	for i in tiles.size():
-		_draw_tile(tiles[i], Vector2(x0 + i * pitch, 405.0 if s == 1.0 else 430.0), s)
+		_draw_tile(tiles[i], Vector2(312.5 + 331.0 * i, 405.0))
 	var err := Match.setup_error(_setup_players, _active_sets())
 	if err != "":
 		dyn_root.add_child(_note_box("SetupError", err, Color("e0584c"), Color("ff9a8f"), Vector2(300, 872), Vector2(1320, 76)))
 
-func _draw_tile(d: Dictionary, pos: Vector2, s: float) -> void:
+func _draw_tile(d: Dictionary, pos: Vector2) -> void:
 	var id := str(d["id"])
-	var gated := WIKI_GATED.has(id) and not use_extensions # THK : grise et non selectionnable sans la case wiki
-	var on := id == "base" or (apk_decks.has(id) and not gated)
-	var w := 285.0 * s
-	var h := 453.0 * s
-	dyn_root.add_child(_tex("expansions/bg_expansion_selected.webp" if on else "expansions/bg_expansion.webp", pos, Vector2(w, h)))
+	var gated := WIKI_GATED.has(id) and not use_extensions # THK : jouable seulement avec la case wiki ; sinon « COMING SOON » comme dans l'APK (LocalMarket.cs:119-127)
+	var soon := bool(d.get("coming_soon", false)) or gated
+	var on := apk_decks.has(id) and not soon
+	var w := 285.0
+	var h := 453.0
+	var holder := Control.new() # la tuile entiere (fond, illustration, bande, details) grossit autour de son centre : PurchaseItemButton.cs:20-33
+	holder.position = pos
+	holder.size = Vector2(w, h)
+	holder.pivot_offset = Vector2(w, h) / 2.0
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tiles_box.add_child(holder)
+	var target := 1.1 if on else 1.0
+	var cur: float = _tile_scale.get(id, target)
+	holder.scale = Vector2.ONE * cur
+	if not is_equal_approx(cur, target): # l'APK change d'abord le fond puis lance l'echelle (SelectExpansion), cubique EaseInOut 0,3 s
+		holder.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT).tween_property(holder, "scale", Vector2.ONE * target, 0.3)
+	_tile_scale[id] = target
+	holder.add_child(_tex("expansions/bg_expansion_selected.webp" if on else "expansions/bg_expansion.webp", Vector2.ZERO, Vector2(w, h)))
 	if d.has("art"):
-		var art := _tex("expansions/%s.webp" % d["art"], pos + Vector2(15, 13) * s, Vector2(249, 304) * s)
-		if gated:
-			art.material = _gray_mat()
-		dyn_root.add_child(art)
+		var art := _tex("expansions/%s.webp" % d["art"], Vector2(15, 13), Vector2(249, 304))
+		if soon:
+			art.material = _gray_mat(0.75) # CardMaterial Amount 0 (PurchaseItemButton.cs:63) ; opacite 0,75
+		holder.add_child(art)
 	else: # extension du wiki : pas d'illustration, le nom tient lieu de couverture
-		dyn_root.add_child(_lbl(str(d["name"]), int(26 * s), GOLD, pos + Vector2(14, 20) * s, Vector2(257, 280) * s, FONT_A))
-	if id == "base":
-		return
-	if d.has("details"): # PurchaseItemButton.cs:94-103 + PurchaseDetailEntity.cs : « + » or, nombre or x 1,2, libelle blanc, a (-60, 60 + 14 n) du centre
+		holder.add_child(_lbl(str(d["name"]), 26, GOLD, Vector2(14, 20), Vector2(257, 280), FONT_A))
+	if soon:
+		holder.add_child(_tex("expansions/coming_soon_band.webp", Vector2(w, h) / 2.0 + Vector2(-136.5, -83.0 + 38.5), Vector2(273, 167))) # bande a +40 sous le centre (PurchaseItemButton.cs:73), x 0,963 comme le fond
+	elif d.has("details"): # PurchaseItemButton.cs:94-103 + PurchaseDetailEntity.cs : « + » or, nombre or x 1,2, libelle blanc, a (-60, 60 + 14 n) du centre
 		var n := 0
 		for line in d["details"]:
 			var parts: PackedStringArray = str(line).split(";")
-			var y := (350.0 + 14.0 * n) * s
-			var x := pos.x + 25.0 * s
+			var y := 350.0 + 14.0 * n
+			var x := 25.0
 			var adv := 18.0 + 18.0 * parts[0].length() # num += num * Text.Length (:23)
-			dyn_root.add_child(_lbl("+", int(21 * s), GOLD, Vector2(x, pos.y + y), Vector2(40, 24) * s, FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
-			dyn_root.add_child(_lbl(parts[0], int(25 * s), GOLD, Vector2(x + 18.0 * s, pos.y + y - 3.0 * s), Vector2(100, 28) * s, FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
-			dyn_root.add_child(_lbl(parts[1], int(21 * s), Color.WHITE, Vector2(x + adv * s, pos.y + y), Vector2(260, 24) * s, FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
+			holder.add_child(_lbl("+", 21, GOLD, Vector2(x, y), Vector2(40, 24), FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
+			holder.add_child(_lbl(parts[0], 25, GOLD, Vector2(x + 18.0, y - 3.0), Vector2(100, 28), FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
+			holder.add_child(_lbl(parts[1], 21, Color.WHITE, Vector2(x + adv, y), Vector2(260, 24), FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
 			n += 1
 	elif not _is_wiki(d): # les infos des paquets du wiki sont trop longues : elles sont dans la fenetre « ? »
-		dyn_root.add_child(_lbl(str(d.get("info", "")).to_upper(), int(17 * s), Color.WHITE, pos + Vector2(14, 322) * s, Vector2(257, 62) * s, FONT_A))
-	dyn_root.add_child(_hit(pos, Vector2(w, h - 70 * s), func():
-		if gated:
+		holder.add_child(_lbl(str(d.get("info", "")).to_upper(), 17, Color.WHITE, Vector2(14, 322), Vector2(257, 62), FONT_A))
+	if soon:
+		return # COMING SOON : ni selection ni « ? »
+	# Zones cliquables hors de la tuile agrandie ; aucun son (ExpansionScrollComponent ne joue rien) ; un glissement n'est pas un clic (TouchTap)
+	var toggle := func():
+		if _tmoved >= 12.0:
 			return
 		if apk_decks.has(id):
 			apk_decks.erase(id)
 		else:
 			apk_decks.append(id)
 		Profile.save_settings(server_host, use_extensions, apk_decks)
-		_draw_tiles()))
-	dyn_root.add_child(_lbl("?", int(40 * s), GOLD, pos + Vector2(w / 2 - 25, h - 70 * s), Vector2(50, 60) * s))
-	dyn_root.add_child(_hit(pos + Vector2(w / 2 - 35, h - 75 * s), Vector2(70, 70) * s, func(): _deck_popup(d)))
+		_draw_tiles()
+	_tiles_box.add_child(_hit(pos, Vector2(w, h - 70), toggle, ""))
+	holder.add_child(_lbl("?", 40, GOLD, Vector2(w / 2 - 25, h - 70), Vector2(50, 60)))
+	_tiles_box.add_child(_hit(pos + Vector2(w / 2 - 35, h - 75), Vector2(70, 70), func(): _deck_popup(d)))
+
+## Glissement des tuiles (ExpansionScrollComponent.TouchMoved :190-206, Update :208-240) : ressort 0,4 hors bornes, inertie x 0,9 ; la course depasse de 200 px.
+func _input(ev: InputEvent) -> void:
+	if not _tiles_live or _tile_min >= 0.0:
+		return
+	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
+		var p := get_local_mouse_position()
+		if ev.pressed and p.y > 400.0 and p.y < 880.0:
+			_tdrag = true
+			_tmoved = 0.0
+			_tvel = 0.0
+		elif not ev.pressed:
+			_tdrag = false
+	elif ev is InputEventMouseMotion and _tdrag and (ev.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+		_tmoved += absf(ev.relative.x)
+		_tvel = ev.relative.x
+		_set_tx(_tx + ev.relative.x)
+
+func _set_tx(v: float) -> void:
+	_tx = clampf(v, _tile_min - 200.0, 200.0)
+	if _tiles_box != null and is_instance_valid(_tiles_box):
+		_tiles_box.position.x = _tx
+
+func _process(delta: float) -> void:
+	if not _tiles_live or _tdrag:
+		return
+	var f := minf(delta, 0.1) * 60.0
+	if _tx > 0.0:
+		_set_tx(lerpf(_tx, 0.0, 1.0 - pow(0.6, f)))
+	elif _tx < _tile_min:
+		_set_tx(lerpf(_tx, _tile_min, 1.0 - pow(0.6, f)))
+	elif absf(_tvel) > 0.01:
+		_set_tx(_tx + _tvel * f)
+		_tvel *= pow(0.9, f)
 
 func _deck_popup(d: Dictionary) -> void:
 	var dim := ColorRect.new()
@@ -696,7 +823,7 @@ func start_online_match() -> void:
 
 # --- options / regles ------------------------------------------------------------
 
-func show_options() -> void:
+func show_options(from_credits: bool = false) -> void:
 	var host := LineEdit.new()
 	host.text = server_host
 	var is_web := OS.has_feature("web")
@@ -715,26 +842,25 @@ func show_options() -> void:
 	var tut := UiKit.stone_button(self, "TUTORIAL", Vector2(687, 284))
 	tut.name = "Tutorial"
 	tut.pressed.connect(func():
-		AudioManager.play_sfx("ui_button_select")
 		save_host.call()
 		start_tutorial()) # OptionsScene.cs:62-67 : To(GamePlayTutScene) sans transition
 	var sett := UiKit.stone_button(self, "SETTINGS", Vector2(687, 446))
 	sett.name = "Settings"
 	sett.pressed.connect(func():
-		AudioManager.play_sfx("ui_button_select")
 		save_host.call()
 		go(show_settings)) # OptionsScene.cs:68-79 : Push ColorFade noir NormalTransitionsTime
 	var gal := UiKit.stone_button(self, "CARD GALLERY", Vector2(687, 608))
 	gal.name = "CardGallery"
 	gal.pressed.connect(func():
-		AudioManager.play_sfx("ui_button_select")
-		go(func(): add_child(CardGallery.new()))) # OptionsScene.cs:85-90 (ColorFade 1,0 s)
+		go(func():
+			var g := CardGallery.new()
+			g.closed.connect(func(): (gal.get_meta("unpress") as Callable).call()) # OnDesactivatingScene : IsPressed = false
+			add_child(g))) # OptionsScene.cs:85-90 (ColorFade 1,0 s)
 	var cred := UiKit.stone_button(self, "CREDITS", Vector2(687, 770))
 	cred.name = "Credits"
 	cred.pressed.connect(func():
-		AudioManager.play_sfx("ui_button_select")
 		save_host.call()
-		_open_credits(decor)) # OptionsScene.cs:91-102
+		_open_credits(decor, [tut, sett, gal, cred])) # OptionsScene.cs:91-102
 	# Controles secondaires discrets (multijoueur / extensions du wiki : hors APK).
 	var ext := CheckBox.new()
 	ext.text = "Wiki expansions (not in the APK)"
@@ -745,6 +871,8 @@ func show_options() -> void:
 		use_extensions = on
 		Profile.save_settings(server_host, use_extensions, apk_decks))
 	add_child(ext)
+	if from_credits: # OptionsScene.ShowButtons(true) (:150-153) : logo en fondu 0,5 s, boutons en cascade (0 / 0,1 / 0,2 / 0,3 s), fondu 0,3 s + glisse de 0,2 s (BackEase Out)
+		_options_buttons_in([tut, sett, gal, cred], _logo_node())
 	host.add_theme_font_size_override("font_size", 16)
 	host.position = Vector2(1440, 1034)
 	host.size = Vector2(440, 36)
@@ -763,40 +891,47 @@ func show_settings() -> void:
 
 ## Push SANS transition (OptionsScene.cs:100-102) : OPTIONS reste dessine derriere le voile, ses boutons et son logo sont masques (ShowButtons(false), :101) ;
 ## retour = fondu noir 1,0 s vers OPTIONS (CreditsScene.cs:132).
-func _open_credits(decor: Array) -> void:
+func _open_credits(decor: Array, buttons: Array) -> void:
+	var logo := _logo_node()
 	for c in get_children():
-		var is_logo: bool = c is TextureRect and (c as TextureRect).texture != null and (c as TextureRect).texture.resource_path.ends_with("bm_logo.webp")
-		if c is CanvasItem and (is_logo or not decor.has(c)):
-			(c as CanvasItem).visible = false
+		if c is CanvasItem and not decor.has(c) and not buttons.has(c):
+			(c as CanvasItem).visible = false # champ serveur, case wiki : hors APK
+	# ShowButtons(false) (OptionsScene.cs:143-147) : logo en fondu de 0,5 s ; chaque bouton s'estompe (0,3 s) puis glisse de 50 px vers la gauche en 0,2 s (BackEase In, amplitude 0,5)
+	if logo != null:
+		logo.create_tween().tween_property(logo, "modulate:a", 0.0, 0.5)
+	for b in buttons:
+		var tw := (b as Control).create_tween()
+		tw.tween_property(b, "modulate:a", 0.0, 0.3)
+		tw.tween_property(b, "position:x", (b as Control).position.x - 50.0, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	var cs := CreditsScreen.new()
-	cs.closed.connect(func(): go(show_options))
+	cs.closed.connect(func(): go(func(): show_options(true)))
 	add_child(cs)
 
-## Rangee de segments facon APK : le segment choisi est une pierre verte (settings_bt) dorée, les autres sur une barre mauve.
+func _logo_node() -> TextureRect:
+	for c in get_children():
+		if c is TextureRect and (c as TextureRect).texture != null and (c as TextureRect).texture.resource_path.ends_with("logo_small.webp"):
+			return c
+	return null
+
+func _options_buttons_in(buttons: Array, logo: TextureRect) -> void:
+	if logo != null:
+		logo.modulate.a = 0.0
+		logo.create_tween().tween_property(logo, "modulate:a", 1.0, 0.5)
+	for i in buttons.size():
+		var b: Control = buttons[i]
+		var x := b.position.x
+		b.modulate.a = 0.0
+		b.position.x = x - 50.0
+		var tw := b.create_tween().set_parallel(true)
+		tw.tween_property(b, "modulate:a", 1.0, 0.3).set_delay(0.1 * i)
+		tw.tween_property(b, "position:x", x, 0.2).set_delay(0.1 * i).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+## Rangee de segments facon APK : voir UiKit.draw_toggle.
 func _toggle_row(y: int, text: String, opts: Array, sel: int, cb: Callable) -> void:
 	add_child(_lbl(text, 36, Color.WHITE, Vector2(260, y - 50), Vector2(450, 100), FONT_B, HORIZONTAL_ALIGNMENT_RIGHT))
 	var row := Control.new()
 	add_child(row)
-	_draw_toggle(row, y, opts, sel, cb)
-
-func _draw_toggle(row: Control, y: int, opts: Array, sel: int, cb: Callable) -> void:
-	for c in row.get_children():
-		row.remove_child(c)
-		c.queue_free()
-	var bar := ColorRect.new()
-	bar.color = Color(109 / 255.0, 99 / 255.0, 131 / 255.0)
-	bar.position = Vector2(760, y - 48)
-	bar.size = Vector2(202 * opts.size(), 96)
-	row.add_child(bar)
-	for i in opts.size():
-		var x := 760 + 202 * i
-		if i == sel:
-			row.add_child(_tex("buttons/settings_bt.webp", Vector2(x, y - 58), Vector2(202, 106)))
-		row.add_child(_lbl(str(opts[i]), 34, GOLD if i == sel else Color(0.9, 0.88, 0.96), Vector2(x, y - 48), Vector2(202, 96), FONT_A))
-		var idx := i
-		row.add_child(_hit(Vector2(x, y - 48), Vector2(202, 96), func():
-			cb.call(idx)
-			_draw_toggle(row, y, opts, idx, cb)))
+	UiKit.draw_toggle(row, y, opts, sel, cb)
 
 ## Visionneuse des regles : voir RulesViewer.gd (partagee avec le plateau).
 func show_rules(tab: int = 0) -> void:
