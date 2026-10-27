@@ -644,10 +644,12 @@ func _build_top() -> void:
 	top_menu_btn.tooltip_text = "Options"
 	for n in ["normal", "hover", "pressed", "focus"]:
 		top_menu_btn.add_theme_stylebox_override(n, StyleBoxEmpty.new())
-	top_menu_btn.draw.connect(_draw_gear.bind(top_menu_btn))
 	top_menu_btn.pressed.connect(_on_menu_pressed)
-	top_menu_btn.mouse_entered.connect(top_menu_btn.queue_redraw)
-	top_menu_btn.mouse_exited.connect(top_menu_btn.queue_redraw)
+	# bt_options / bt_options_pressed (ControlsFactory.CreateInGameOptionsButton, cs:209-219) : sprite 211 x 86 colle au bord droit de la colonne (x 1709), engrenage dessine dedans ;
+	# le bouton garde sa zone de clic de 56 x 56 sur l'engrenage, le sprite est son enfant.
+	var gear := _img(top_menu_btn, UI_DIR + "bt_options.webp", Vector2(1710.0, -2.0) - top_menu_btn.position, Vector2(211, 86))
+	top_menu_btn.button_down.connect(func(): gear.texture = _tex(UI_DIR + "bt_options_pressed.webp"))
+	top_menu_btn.button_up.connect(func(): gear.texture = _tex(UI_DIR + "bt_options.webp"))
 	add_child(top_menu_btn)
 	# Selecteur de donjon (3-4 joueurs)
 	seat_bar = HBoxContainer.new()
@@ -665,15 +667,6 @@ func _build_top() -> void:
 	foe_bar.theme = _make_bar_theme()
 	foe_bar.visible = false
 	add_child(foe_bar)
-
-func _draw_gear(c: Control) -> void:
-	var ctr := c.size / 2.0
-	var col := GOLD if not c.is_hovered() else Color(1, 0.9, 0.5)
-	for i in 8:
-		var d := Vector2.from_angle(TAU * i / 8.0)
-		c.draw_line(ctr + d * 14.0, ctr + d * 22.0, col, 8.0)
-	c.draw_circle(ctr, 17.0, col)
-	c.draw_circle(ctr, 7.0, Color(0.16, 0.09, 0.03))
 
 func setup(p_gm: GameManager, p_exit_cb: Callable) -> void:
 	game_manager = p_gm
@@ -745,6 +738,8 @@ func _update_foe(G: Dictionary) -> Array:
 		follow = int(lhf.get("pid", -1))
 	elif not adv.is_empty() and adv.get("hero") != null:
 		follow = int(adv.get("playerId", -1))
+	elif G.get("gameOver") == null and not _is_online():
+		follow = game_manager.active_player() # GamePlaySPScene.CreateBeforePlayerInteractionTask : le donjon du joueur actif s'affiche avant son tour
 	if follow != _foe_follow_seen:
 		_foe_follow_seen = follow
 		if others.has(follow):
@@ -752,6 +747,8 @@ func _update_foe(G: Dictionary) -> Array:
 	if not others.has(foe_pid):
 		foe_pid = int(others[0]) if not others.is_empty() else -1
 	return others
+
+var _foe_fading := false
 
 func _refresh_foe_bar(others: Array) -> void:
 	for c in foe_bar.get_children() + opp_box.get_children():
@@ -793,8 +790,19 @@ func _refresh_foe_bar(others: Array) -> void:
 			if panels and p == foe_pid:
 				_opp_toggle() # CollapsedOpponentDetail_TouchTap : second appui sur la vignette choisie = panneau etendu
 				return
-			foe_pid = p
-			refresh())
+			if skip_animations or _foe_fading or not is_inside_tree():
+				foe_pid = p
+				refresh()
+				return
+			_foe_fading = true # CreateChangeVisibleOpponentDungeon (GamePlayBaseScene.cs:1008-1029) : le donjon affiche s'estompe (0,5 s), l'autre apparait (0,5 s)
+			var froot: Control = (_lane[0] as Dictionary)["root"]
+			var ftw := create_tween()
+			ftw.tween_property(froot, "modulate:a", 0.0, 0.5).from(froot.modulate.a)
+			ftw.tween_callback(func():
+				foe_pid = p
+				refresh())
+			ftw.tween_property(froot, "modulate:a", 1.0, 0.5)
+			ftw.tween_callback(func(): _foe_fading = false))
 		if p == game_manager.active_player() and game_manager.G.get("gameOver") == null:
 			# CollapsedOpponentDetail.Refresh (cs:331-332) : Emit = boss.IsActivePlayer, emetteur 0,9 x le panneau (cs:204, ECHELLE) centre sur lui (LocalX = -largeur / 2, cs:203).
 			# Les boutons P<n> (5-6 joueurs) n'ont leur taille qu'apres la mise en page : l'emetteur suit le bouton.
@@ -1067,13 +1075,36 @@ func _speed_factor() -> float:
 func _win_paused() -> bool:
 	return not _drag.is_empty() or _zoom != null or not _tgt.is_empty() or (_popup != null and is_instance_valid(_popup))
 
+var _win_bar_on := false
+var _win_bar_tw: Tween
+
+## ProgressBarEntity porte un FadeBehavior de 0,2 s (cs:25) : la barre entre et sort en fondu.
+func _win_bar_fade(on: bool) -> void:
+	if on == _win_bar_on:
+		return
+	_win_bar_on = on
+	if _win_bar_tw != null and _win_bar_tw.is_valid():
+		_win_bar_tw.kill()
+	if skip_animations or not is_inside_tree():
+		_win_bar.modulate.a = 1.0
+		_win_bar.visible = on
+		return
+	if on and not _win_bar.visible:
+		_win_bar.modulate.a = 0.0
+	_win_bar.visible = true
+	_win_bar_tw = _win_bar.create_tween()
+	_win_bar_tw.tween_property(_win_bar, "modulate:a", 1.0 if on else 0.0, 0.2)
+	if not on:
+		_win_bar_tw.tween_callback(func(): _win_bar.visible = false)
+
 func _win_hide() -> void:
 	if _win_bar != null:
-		_win_bar.visible = false
+		_win_bar_fade(false)
 
 ## Barre verte : au-dessus du heros qui traverse (ou de son jeton a l'entree), au-dessus de la pile de sorts quand elle est ouverte.
 func _win_show(want: float, stack_open: bool) -> void:
-	_win_bar.visible = true
+	_win_bar_fade(true)
+	_win_bar.slowed = _win_paused()
 	_win_bar.frac = 1.0 - _win_t / maxf(want, 0.001)
 	var anchor := Vector2(STACK_CX + 2.0, 198.0)
 	if stack_open:
@@ -1410,7 +1441,7 @@ func _player_order(pid: int) -> int:
 func _refresh_lane_badges(idx: int, pl: Dictionary) -> void:
 	var L: Dictionary = _lane[idx]
 	var boss = pl.get("boss")
-	(L["dmg"] as Label).text = str(_get_total_dungeon_damage(pl))
+	_fade_text(L["dmg"] as Label, str(_get_total_dungeon_damage(pl))) # BossXPAndOrderControl.cs:TotalDamage : CreateUpdateTask avec fondu
 	var xp_n := int((boss as Dictionary).get("xp", 0)) if boss != null else 0
 	(L["xp"] as Label).text = "%dXP" % xp_n
 	var xp_digits := str(xp_n)
@@ -1418,7 +1449,12 @@ func _refresh_lane_badges(idx: int, pl: Dictionary) -> void:
 	(L["xp_unit"] as Label).text = "XP"
 	(L["lvl"] as Label).text = str(_player_order(int(pl.get("id", 0)))) # BossXPAndOrderControl.cs:109 : Boss.PlayerId
 	var tr: Array = (boss as Dictionary).get("treasures", []) if boss != null else []
-	(L["icon"] as TextureRect).texture = _tex(str(TREASURE_TEX.get(int(tr[0]) if not tr.is_empty() else 0, "")))
+	var ic := L["icon"] as TextureRect # mp_icon_treasure_<premier tresor> a l'echelle 0,9, centre en (155 ; 21) du badge (BossXPAndOrderControl.cs:66-73,106-107)
+	var tn: String = str(TREASURE_NAMES.get(int(tr[0]) if not tr.is_empty() else 0, ""))
+	ic.texture = _tex(UI_DIR + "mp_icon_treasure_%s.webp" % tn) if tn != "" else null
+	if ic.texture != null:
+		ic.size = ic.texture.get_size() * 0.9
+		ic.position = Vector2(1503.0 + 155.0, 12.0 + 21.0) - ic.size / 2.0
 
 ## Un boss vient de monter de niveau (leveledUp passe a vrai) : banniere LEVEL UP dans son couloir. Le premier refresh ne fait que memoriser.
 func _track_levelup(G: Dictionary) -> void:
@@ -1517,6 +1553,7 @@ func _refresh_town(G: Dictionary) -> void:
 		_item_tag(hero_card, hero)
 		hero_card.long_pressed.connect(_zoom_show)
 		hero_card.long_released.connect(func(_c): _zoom_close())
+		hero_card.card_clicked.connect(func(_d): _town_tap(hero_card))
 		ids.append(hero.get("id", hero))
 		var ci := ids.size() - 1
 		var k := pool.find(ids[ci])
@@ -1555,6 +1592,20 @@ func _town_restore(sv: int, fresh: int, moved: Array = []) -> void:
 
 ## Glisser (ou molette) dans la colonne HEROES IN TOWN : la colonne suit le doigt (VerticalScrollQueueComponent, TouchMoved) ; sous 12 px
 ## c'est un clic (la carte garde son appui long). Pas de rebond elastique (l'APK ramene la colonne dans [810 - hauteur, 0]).
+## TopLeftPanel_ShowHeroInTown (GamePlayBaseScene.cs:787-797) : un clic sur un heros de la ville le zoome a gauche du plateau, bord gauche a x 450,
+## centre vertical = celui de la carte borne a [300 ; 700] ; il se ferme au clic suivant.
+var _zoom_press_ms := -10000
+
+func _town_tap(card: Control) -> void:
+	if Time.get_ticks_msec() - _zoom_press_ms < 700: # ce clic vient de fermer un zoom : il ne le rouvre pas
+		return
+	if not _tgt.is_empty() or _popup != null or _modal_open() or not is_instance_valid(card):
+		return
+	var cy := card.get_global_rect().get_center().y
+	_zoom_show(card)
+	if _zoom != null:
+		_zoom.position = Vector2(450.0, clampf(cy, 300.0, 700.0) - _zoom.size.y / 2.0)
+
 func _town_input(event: InputEvent) -> void:
 	if _town_scroll == null or _popup != null or _modal_open():
 		_town_drag = {}
@@ -1583,7 +1634,10 @@ func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 	var seq := 0 # rang de vol : les heros partent l'un apres l'autre (VerticalScrollQueueComponent.cs:229-263)
 	for r in rows:
 		var box: Control = (_lane[int(r[0])] as Dictionary)["entrance"]
+		var prev := {} # position / echelle courantes des cartes d'avant : la file glisse (HeroesQueueComponent.cs:301-307)
 		for c in box.get_children():
+			if c.has_meta("qid") and not c.is_queued_for_deletion():
+				prev[c.get_meta("qid")] = [(c as Control).position, (c as Control).scale]
 			box.remove_child(c)
 			c.queue_free()
 		var ents: Array = (r[1] as Dictionary).get("entrance", [])
@@ -1595,6 +1649,26 @@ func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 		for k in range(ents.size() - 1, -1, -1): # la derniere d'abord : la premiere reste au premier plan
 			var tok := _create_entrance_card(ents[k])
 			tok.position = Vector2(-pitch * float(k), 0.0)
+			tok.pivot_offset = HERO_CARD / 2.0
+			if k > 0: # HeroesQueueComponent.GetRelativePositionAndScale : echelle 0,4 pour la premiere, 0,36 pour les suivantes (x 0,9) ; le bord gauche reste ou les captures le placent
+				tok.scale = Vector2(0.9, 0.9)
+				tok.position.x -= HERO_CARD.x * 0.05
+			var qn := 0 # doublons de carte (meme id) : rang parmi les semblables, de la fin de la file
+			for q2 in range(k + 1, ents.size()):
+				if str((ents[q2] as Dictionary).get("id", "")) == str((ents[k] as Dictionary).get("id", "")):
+					qn += 1
+			var qid := "%s:%d" % [str((ents[k] as Dictionary).get("id", "")), qn]
+			tok.set_meta("qid", qid)
+			if prev.has(qid) and not skip_animations:
+				var pp: Array = prev[qid]
+				if (pp[0] as Vector2).distance_to(tok.position) > 0.5 or (pp[1] as Vector2).distance_to(tok.scale) > 0.001:
+					var to_pos := tok.position
+					var to_scale := tok.scale
+					tok.position = pp[0]
+					tok.scale = pp[1]
+					var qt := tok.create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+					qt.tween_property(tok, "position", to_pos, 0.5)
+					qt.tween_property(tok, "scale", to_scale, 0.5)
 			var lane_i := int(r[0])
 			tok.card_clicked.connect(func(_d): _queue_clicked(lane_i, ents))
 			box.add_child(tok)
@@ -2161,6 +2235,7 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if _zoom != null and event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+		_zoom_press_ms = Time.get_ticks_msec()
 		_zoom_close() # le zoom de LEVEL UP part au clic suivant (le zoom d'appui long se ferme deja au relachement)
 		if hit:
 			get_viewport().set_input_as_handled() # le clic ne doit pas retomber sur l'emplacement dessous
@@ -2363,6 +2438,35 @@ func _fit_label(l: Label, max_w: float, base: int) -> void:
 		sz -= 1
 	l.add_theme_font_size_override("font_size", sz)
 
+## UpdatableTextBlock.CreateUpdateTask (cs:19-46) : l'ancien texte s'estompe (0,25 s), puis le nouveau apparait (0,25 s) ; rien si le texte est identique.
+## `.text` change tout de suite (l'etat reste lisible) : l'ancien texte s'efface sur une copie, le nouveau entre apres 0,25 s.
+## Pas de fondu au premier remplissage (texte vide) ni sans animations.
+func _fade_text(l: Label, t: String, after := Callable()) -> void:
+	if l.text == t:
+		return
+	var old = l.get_meta("fade_tw") if l.has_meta("fade_tw") else null
+	if old != null and (old as Tween).is_valid():
+		(old as Tween).kill()
+	var was := l.text
+	l.text = t
+	if after.is_valid():
+		after.call()
+	if skip_animations or was == "" or not l.is_inside_tree():
+		l.modulate.a = 1.0
+		return
+	var ghost := l.duplicate() as Label
+	ghost.text = was
+	ghost.modulate.a = l.modulate.a
+	l.get_parent().add_child(ghost)
+	var gt := ghost.create_tween()
+	gt.tween_property(ghost, "modulate:a", 0.0, 0.25)
+	gt.tween_callback(ghost.queue_free)
+	l.modulate.a = 0.0
+	var tw := l.create_tween()
+	l.set_meta("fade_tw", tw)
+	tw.tween_interval(0.25)
+	tw.tween_property(l, "modulate:a", 1.0, 0.25)
+
 func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 	# Mon boss
 	var pb = p.get("boss")
@@ -2384,18 +2488,17 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 
 	# Boss adverse
 	var fb = foe.get("boss")
-	foe_name_label.text = _truncate(str(fb.get("name", "")), 10).to_upper() if fb != null and not blank else ""
-	_fit_label(foe_name_label, 150.0, 18)
-	foe_sub_label.text = _truncate(str(fb.get("subtitle", "")), 25) if fb != null and not blank else ""
-	foe_wounds_label.text = "x%d" % CardDB.total_wounds(foe)
-	foe_souls_label.text = "x%d" % CardDB.total_souls(foe, game_manager.G)
+	_fade_text(foe_name_label, _truncate(str(fb.get("name", "")), 10).to_upper() if fb != null and not blank else "", func(): _fit_label(foe_name_label, 150.0, 18)) # BossDetailHeaderControl.cs:CreateRefreshTask : fondu du nom et du sous-titre
+	_fade_text(foe_sub_label, _truncate(str(fb.get("subtitle", "")), 25) if fb != null and not blank else "")
+	_fade_text(foe_wounds_label, "x%d" % CardDB.total_wounds(foe))
+	_fade_text(foe_souls_label, "x%d" % CardDB.total_souls(foe, game_manager.G))
 	_fill_treasures(foe_treasures_box, BossEngine.treasure_counts(foe, game_manager.G),
 		[[4, Vector2(8, 6)], [3, Vector2(106, 6)], [2, Vector2(6, 38)], [1, Vector2(106, 38)], [5, Vector2(40, 8)]], 22.0)
 
 	# Pioches
 	var decks: Dictionary = G.get("decks", {})
-	room_deck_label.text = "x0" if blank else "x%d" % (foe.get("hand", []) as Array).filter(func(c): return bool((c as Dictionary).get("isRoom", false))).size() # OneOpponentDetail.cs:212 : RoomsInHand / SpellsInHand de l'adversaire
-	spell_deck_label.text = "x0" if blank else "x%d" % (foe.get("hand", []) as Array).filter(func(c): return not bool((c as Dictionary).get("isRoom", false))).size()
+	_fade_text(room_deck_label, "x0" if blank else "x%d" % (foe.get("hand", []) as Array).filter(func(c): return bool((c as Dictionary).get("isRoom", false))).size()) # OneOpponentDetail.cs:212 : RoomsInHand / SpellsInHand de l'adversaire
+	_fade_text(spell_deck_label, "x0" if blank else "x%d" % (foe.get("hand", []) as Array).filter(func(c): return not bool((c as Dictionary).get("isRoom", false))).size())
 	deck_info_label.text = ""
 	foe_coins_label.text = ""
 	if Minibosses.active(G): # Rise of the Minibosses : le Hoard de chaque joueur
@@ -2588,11 +2691,8 @@ func _animate_step(hero: Dictionary, pid: int, from_room: int, to_room: int, hp_
 			_hero_arrive(pid, to_room) # a chaque arrivee, degats ou non (HeroCrossingBehavior.cs:72-76)
 		if to_room >= 0 and dmg != 0:
 			_play_sfx("char_hero_hurt" if dmg > 0 else "sfx_spell_buff") # HeartDecrementEmitter.cs:64-70 : PV perdus / rendus a un heros dans le donjon
-		if dmg > 0 and room_ctrl != null:
+		if dmg != 0 and room_ctrl != null:
 			_show_floating_dmg(pawn, dmg)
-			var badge: Label = (_lane[lane_idx] as Dictionary)["dmg"]
-			badge.modulate.a = 0.0 # UpdatableTextBlock : le nouveau compteur apparait en fondu lineaire de 0,25 s (UpdatableTextBlock.cs:24,43)
-			badge.create_tween().tween_property(badge, "modulate:a", 1.0, 0.25)
 		if is_instance_valid(hp_lbl):
 			hp_lbl.text = str(maxi(hp_after, 0)))
 	tw.tween_callback(func():
@@ -2677,7 +2777,7 @@ func _show_floating_dmg(parent: Control, dmg: int, color := Color(1.0, 1.0, 1.0)
 	heart.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	heart.size = Vector2(70, 62)
 	UiKit.image(heart, UI_DIR + "health_hero_trans_icon.webp", Vector2.ZERO, Vector2(70, 62)).modulate = color
-	UiKit.label(heart, "-%d" % dmg, 24, color, Vector2(0, 17), 70.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
+	UiKit.label(heart, ("-%d" % dmg) if dmg >= 0 else str(-dmg), 24, color, Vector2(0, 17), 70.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
 	_ui_layer.add_child(heart)
 	if parent.has_meta("heart_anchor"): # le coeur de PV du heros : le « -N » en part
 		var anchor := parent.get_meta("heart_anchor") as Control
@@ -3288,6 +3388,10 @@ func _target_make_spot(g: Dictionary) -> void:
 			sp.accept_event()
 			_target_pick(ids))
 	_tgt_layer.add_child(sp)
+	var tspot: Dictionary = (entries[int(ids[0])] as Dictionary)["spot"]
+	var tcg := _challenger_glow(tspot, false, sp) # cible possible : cadre jaune du panneau adverse
+	if tcg != null:
+		tcg.position -= sp.position
 	_tgt_spots.append({"ctrl": sp, "ids": ids})
 
 ## Clic sur une zone : un coup = joue ; plusieurs (meme cible, options differentes) = petite liste de ces coups seulement.
@@ -3951,6 +4055,9 @@ func _drag_refresh() -> void:
 		if node != null and not seen.has(node.get_instance_id()):
 			seen[node.get_instance_id()] = true
 			(_drag["frames"] as Array).append(_gold_frame(_spot_rect(spot, node)))
+			var cg := _challenger_glow(spot, false, _ui_layer)
+			if cg != null:
+				(_drag["frames"] as Array).append(cg)
 
 ## APK : pendant le glisser d'une salle, chaque emplacement ou elle peut se poser porte card_border_yellow_scaled (152 x 203 a sa taille native, centre sur l'emplacement ;
 ## DungeonFrameEntity.HighLightBuildableSlots, DungeonFrameEntity.cs:320-330 "SlotGlow" IsForceScaled) ; celui que la carte survole passe a card_border_yellow_glow_scaled
@@ -4001,6 +4108,19 @@ func _border_fit(t: TextureRect, border: String, host: Vector2, card_w: float) -
 	return true
 
 ## Cadre dore de cible (APK : bordure doree sur la salle / le heros que le sort peut viser) ; ne bloque pas la souris.
+## ChallengerBorderBehavior (cs:7-23) : quand le boss de l'adversaire (panneau OneOpponentDetail, 2 joueurs) est une cible, le panneau porte challenger_panel_selected_yellow (cible possible)
+## ou _red (touche par la carte jouee). Glow : (-16, -12) du panneau (1709, 60), 229 x 475 x 0,98, fondu 0,3 s (OneOpponentDetail.cs:83-92). `parent` le porte ; null si le spot n'est pas ce boss.
+func _challenger_glow(spot: Dictionary, red: bool, parent: Node) -> Control:
+	if str(spot.get("k", "")) != "player" or not foe_group.visible or int(spot.get("pid", -1)) != foe_pid:
+		return null
+	var g := _img(parent, UI_DIR + ("challenger_panel_selected_red.webp" if red else "challenger_panel_selected_yellow.webp"), Vector2(1693, 48), Vector2(229, 465.5))
+	g.name = "ChallengerGlow"
+	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not skip_animations:
+		g.modulate.a = 0.0
+		g.create_tween().tween_property(g, "modulate:a", 1.0, 0.3)
+	return g
+
 func _gold_frame(r: Rect2, red := false) -> Control:
 	var f := Control.new()
 	f.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -4068,7 +4188,7 @@ func _spell_drop(idx: int, pos: Vector2) -> void:
 	var cands := _hand_moves(idx)
 	if cands.is_empty() or not _tg("spell_drop", pos): # tutoriel : le sort doit tomber sur le heros designe
 		return
-	var inside := Rect2(184, 62, 1523, 890).has_point(pos)
+	var inside := pos.y < HAND_UPPER # PlaySpellsInHandSceneBehavior.MyHand_CardDropped : tout relachement hors de la main joue le sort (colonnes laterales comprises)
 	var hits: Array = []
 	var unspotted := 0
 	for c in cands:
@@ -4151,9 +4271,19 @@ func _refresh_stack_cards(G: Dictionary) -> void:
 		_stack_keys.append("%s:%s" % [str((e as Dictionary).get("id", "")), str((e as Dictionary).get("playerId", ""))])
 	_stack_sig = sig
 	_stack_hover_clear()
+	var prev_pos := {} # position courante des cartes deja sur la pile : elles glissent vers leur nouvelle place (CardMoveBehavior, ~0,3 s)
 	if _stack_ui != null and is_instance_valid(_stack_ui):
-		_ui_layer.remove_child(_stack_ui)
-		_stack_ui.queue_free()
+		for c in _stack_ui.get_children():
+			prev_pos[str(c.get_meta("stack_key", ""))] = (c as Control).position
+		if stack.is_empty() and not skip_animations: # SpellBattleShowComponent : la pile se retire en fondu de 0,1 s
+			var gone := _stack_ui
+			gone.name = "StackGone"
+			var gt := gone.create_tween()
+			gt.tween_property(gone, "modulate:a", 0.0, 0.1)
+			gt.tween_callback(gone.queue_free)
+		else:
+			_ui_layer.remove_child(_stack_ui)
+			_stack_ui.queue_free()
 	_stack_ui = null
 	if stack.is_empty():
 		return
@@ -4162,6 +4292,9 @@ func _refresh_stack_cards(G: Dictionary) -> void:
 	_stack_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stack_ui.size = Vector2(1920, 1080)
 	_ui_layer.add_child(_stack_ui)
+	if not skip_animations and old_keys.is_empty(): # ... et entre en fondu de 0,1 s (cs:SpellBattleShowComponent)
+		_stack_ui.modulate.a = 0.0
+		_stack_ui.create_tween().tween_property(_stack_ui, "modulate:a", 1.0, 0.1)
 	var n := stack.size()
 	var lay := _stack_layout(stack)
 	for i in n:
@@ -4177,6 +4310,11 @@ func _refresh_stack_cards(G: Dictionary) -> void:
 			z.modulate = Color(0.5, 0.5, 0.5)
 		_stack_ui.add_child(z)
 		z.set_meta("stack_id", str((stack[i] as Dictionary).get("id", "")))
+		z.set_meta("stack_key", _stack_keys[i])
+		if not skip_animations and prev_pos.has(_stack_keys[i]) and (prev_pos[_stack_keys[i]] as Vector2).distance_to(z.position) > 0.5:
+			var to_p := z.position
+			z.position = prev_pos[_stack_keys[i]]
+			z.create_tween().tween_property(z, "position", to_p, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		var owner_pid := int((stack[i] as Dictionary).get("playerId", -1))
 		if not skip_animations and not old_keys.has(_stack_keys[i]) and str((stack[i] as Dictionary).get("type", "")) == "spell" and owner_pid == _my_pid():
 			# mon sort qui vient d'etre joue : ScaleEffectBehavior 0 -> 1 en 0,3 s lineaire (PlaySpellsInHandSceneBehavior.cs:37 ; CardEntity.cs:71 ; ScaleEffectBehavior.cs:57-60)
@@ -4220,6 +4358,9 @@ func _tick_stack_hover() -> void:
 			var node := _spot_node(spot) if not spot.is_empty() else null
 			if node != null and node != z:
 				_stack_hov_fx.append(_gold_frame(_spot_rect(spot, node), true))
+				var cg := _challenger_glow(spot, true, _ui_layer)
+				if cg != null:
+					_stack_hov_fx.append(cg)
 
 ## Disposition de la pile de sorts (SimplePositionComponent.Refresh, SimplePositionComponent.cs:49-77) : une seule carte garde l'echelle avec laquelle elle est arrivee (mon sort : echelle de la
 ## main 0,5, PlaySpellsInHandSceneBehavior.cs:33-39 ; sort adverse ou capacite : 1, GamePlayBaseScene.cs:644) ; plusieurs : echelle 0,6 (Scale par defaut), centres de -x/2 a +x/2 avec
@@ -4442,7 +4583,11 @@ func _notice_zoom(card: Dictionary, spot := {}) -> void:
 	elif not spot.is_empty():
 		var node := _spot_node(spot)
 		if node != null:
-			_zoom.set_meta("frames", [_gold_frame(_spot_rect(spot, node), true)])
+			var fr: Array = [_gold_frame(_spot_rect(spot, node), true)]
+			var cg := _challenger_glow(spot, true, _ui_layer)
+			if cg != null:
+				fr.append(cg)
+			_zoom.set_meta("frames", fr)
 
 ## Nouvelles cartes en main (pioche, distribution d'ouverture) : le dos de la carte glisse jusqu'au centre, se retourne puis rejoint la main (DrawCardEmitter).
 ## Pas pendant le choix du boss / la defausse d'ouverture (sauf la distribution elle-meme) ; pas sans animations.
@@ -4813,8 +4958,17 @@ func _set_pass_visible(want: bool) -> void:
 ## PASS TURN (tour de construction pas encore fait) / DONE! (pose faite ou fenetre de sorts apres la derniere construction) : DoneButtonBehavior.cs:25-40.
 func _style_pass_button(done: bool) -> void:
 	var b := btn_pass as TextureButton
-	b.texture_normal = _tex(TEX_DONE if done else TEX_PASS)
-	b.texture_pressed = _tex(UI_DIR + ("done_button_unlimited_pressed.webp" if done else "pass_button_pressed.webp"))
+	var timed := int(game_manager.G.get("turnDeadline", 0)) > 0 # ProgressBarBehavior.Duration > 0 : variantes *_timer avec l'emplacement de la barre (DoneButtonBehavior.cs:36-52)
+	var base := ("done_button_timer" if timed else "done_button_unlimited") if done else ("pass_button_timer" if timed else "pass_button")
+	var tex := _tex(UI_DIR + base + ".webp")
+	if b.texture_normal == tex:
+		return
+	var swap := b.texture_normal != null and b.visible and _pass_tw == null and not skip_animations and is_inside_tree()
+	b.texture_normal = tex
+	b.texture_pressed = _tex(UI_DIR + base + "_pressed.webp")
+	if swap: # changement de variante bouton visible : opacite 0 puis 0,3 s, CubicEase EaseInOut (DoneButtonBehavior.cs:22-23,57-62,72-77)
+		b.modulate.a = 0.0
+		b.create_tween().tween_property(b, "modulate:a", 1.0, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 
 ## GamePlayBaseScene.cs:1071-1078 : tous les humains morts en fin de tour -> OnUserPlayerDefeat, meme si les IA continuent (hors ligne seulement).
 func _all_humans_dead(G: Dictionary) -> bool:

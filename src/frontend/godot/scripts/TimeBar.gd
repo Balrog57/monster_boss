@@ -6,11 +6,30 @@ extends Control
 const BG := "res://assets/ui/ingame/timebar_bg.webp"
 const FILL := "res://assets/ui/ninepatch/progress_green.webp"
 const LENGTH := 141.0
+const CLOCK := "res://assets/ui/ingame/timebar_clock.webp"
 
 var frac := 1.0:
 	set(v):
 		frac = clampf(v, 0.0, 1.0)
+		_place_clock()
 		queue_redraw()
+## Barre ralentie (zoom, glisser, fenetre ouverte) : l'horloge `timebar_clock` apparait au bout de la barre en 0,2 s (ProgressBarBehavior.SlowDown / Resume, cs:164-181 ; FadeBehavior 0,2 s).
+var slowed := false:
+	set(v):
+		if v == slowed:
+			return
+		slowed = v
+		if _clock == null:
+			return
+		if _clock_tw != null and _clock_tw.is_valid():
+			_clock_tw.kill()
+		if is_inside_tree():
+			_clock_tw = create_tween()
+			_clock_tw.tween_property(_clock, "modulate:a", 1.0 if v else 0.0, 0.2)
+		else:
+			_clock.modulate.a = 1.0 if v else 0.0
+var _clock: TextureRect
+var _clock_tw: Tween
 var _bg: Texture2D
 var _sb: StyleBoxTexture
 
@@ -27,6 +46,17 @@ func _init() -> void:
 	_sb.texture_margin_right = 4
 	_sb.texture_margin_top = 3
 	_sb.texture_margin_bottom = 3
+	if ResourceLoader.exists(CLOCK):
+		_clock = TextureRect.new()
+		_clock.texture = load(CLOCK)
+		_clock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_clock.modulate.a = 0.0
+		add_child(_clock)
+		_place_clock()
+
+func _place_clock() -> void:
+	if _clock != null:
+		_clock.position = Vector2(10.0 + maxf(4.0, LENGTH * frac), 16.0) - _clock.texture.get_size() / 2.0 # origine au centre, X = largeur de la barre (ProgressBarBehavior.DrawProgress, cs:158)
 
 func _draw() -> void:
 	if _bg != null:
