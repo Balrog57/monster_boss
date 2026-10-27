@@ -1981,3 +1981,10 @@ Validé par `python tools/run_godot_tests.py` (14/14, dont `online` et `ui smoke
 | N-B15 (test) | Corrigé | `online_test._scenario_adventure_expiry` : deux humains en pause d'aventure, délai expiré : aucun siège en `auto`, un nouveau délai court, l'IA ne rejoue pas. |
 
 Non porté : `OnErrorOccurred` (« Unexpected problem »), aucune erreur serveur n'étant fatale en partie. Non vérifié dans un vrai navigateur à plusieurs onglets : départs, bulles, coupures de plus de 10 s et 20 s, passage d'hôte.
+
+Essai réel du 2026-10-27 sur le homelab (navigateur intégré, Chrome 152, deux onglets) : PLAY WITH FRIENDS → NEW GAME crée un salon privé à code, le second onglet le rejoint par ROOM CODE, la partie démarre pour les deux ; bulle « IS PLAYING! » ; Échap ouvre la pause (I-11) puis QUIT GAME? ; le départ du second joueur affiche chez l'hôte « No players to play with. The game will now end. », OK ramène au titre. Défaut trouvé et corrigé (`8f77b15`) : un départ reçu avant l'ouverture du plateau (onglet en arrière-plan) était ignoré. Non essayés : départ à 3 joueurs (« X has left the game. »), victoire par désertion, coupures de plus de 10 s et 20 s, passage d'hôte, bulles « HAS PLAYED A… », avance automatique de l'aventure.
+
+| ID | État | Constat |
+|---|---|---|
+| W-19 | Ouvert (Moyenne) | Nouveau, vu 3 fois sur le homelab : juste après TAP TO START, le premier clic sur MULTIPLAYER (et parfois sur l'écran suivant) est ignoré ; le second fonctionne. Cause non cherchée (transition d'écran qui avale le clic, ou focus du canvas). |
+
