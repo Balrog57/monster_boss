@@ -2003,3 +2003,16 @@ Validé par `python tools/run_godot_tests.py` (14/14). Moteur de règles non tou
 | W-14 | Non vérifiable ici | `audio/driver/output_latency` par défaut ; la latence réelle du mode Sample dépend du Web Audio du navigateur. Écoute humaine nécessaire. |
 
 Essai réel du 2026-10-27 sur le homelab en HTTP (navigateur intégré, panneau masqué, attentes de 6 s) : un seul clic sur TAP TO START puis un seul sur MULTIPLAYER ouvrent les écrans (W-19) ; plus aucune erreur `PositionWorklet` ni `AudioWorkletNode` dans la console en naviguant (W-05). Le son n'a pas été écouté.
+
+## Restes des lots 1 et 2, règles et IA (2026-10-27)
+
+Validé par `python tools/run_godot_tests.py` (14/14) ; oracle 6/6, 12/12, 6/6 ; stress (graines 10 à 40) 90/93, mêmes échecs connus ; `--ai-agreement` sur les 6 traces par défaut : usableSet 2050/2050, 0 mutation de l'état par les requêtes de l'IA.
+
+| ID | État | Changement |
+|---|---|---|
+| X-M22 | Corrigé | Chaque salle et sort reçoit un `_uid` dans l'ordre du paquet avant mélange (`GetLogicCards`) ; tout ajout à `roomDiscard` / `spellDiscard` passe par `CardDB.discard_add`, qui trie la pile (`DiscardPile*.Sort()`). Non vérifié : l'ordre de la liste de cartes Godot égale-t-il celui de `CardInfo` hors harnais ; cartes wiki sans numéro APK. |
+| IA-H17 | Corrigé | `_chk_050` compte les salles de la main que `Boss.CanBuildRoom` accepte, sans limite par tour (`MaxBuildRoomLimit` n'est jamais décrémenté à la pose). |
+| IA-G47 | Corrigé (non mesurable) | La salle est choisie sur l'état d'avant la capacité, puis rejouée après elle si elle est toujours en main dans la même fenêtre. L'oracle ne mesure pas ce cas. |
+| IA-H23 | Corrigé | T.P.K. : tout siège IA peut viser n'importe quel boss (l'APK retient le premier de `InGamePlayersPriorized`) ; un humain n'a toujours que lui-même. |
+| R-E29 | Ouvert (accepté) | Visible seulement si une transaction est annulée avant de s'exécuter ; jamais observé. |
+| IA-H70 | Ouvert (accepté) | Égalité du harnais isolée (s21-p4@519), probablement un artefact de mesure. |
