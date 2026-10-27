@@ -1,7 +1,7 @@
 extends Control
 ## Ecran de fin de l'APK (WinnerScene / LoseScene) : voile sombre, bandeau winner_bg translucide a filets dores avec le nom du vainqueur puis
 ## « IS THE WINNER! » (winner_txt), le boss gagnant agrandi (x2) entoure de 10 cristaux dores qui tournent (CircleOfRotatingRupisBehavior :
-## rayon 160 x 2, un cran de cercle par seconde), bouton OK en bas a droite. Pas de tableau des scores. Perdu : « ...YOU LOSE! » + pierre tombale.
+## rayon 160 x 2, un cran du decagone par seconde, interpolation en corde), bouton OK en bas a droite. Pas de tableau des scores. Perdu : « ...YOU LOSE! » + pierre tombale.
 ## OK emet `ok_pressed` (le plateau ramene au TITRE).
 
 signal ok_pressed
@@ -11,7 +11,6 @@ const UI := "res://assets/ui/"
 const BOSS_CENTER := Vector2(1000, 672)
 const CRYSTALS := 10
 const RADIUS := 320.0
-const SPEED := TAU / CRYSTALS               # rad/s : un cran de cercle par seconde
 
 var ok_btn: TextureButton
 var title_label: Label
@@ -67,10 +66,16 @@ func _boss(boss_id: String) -> void:
 		_crystals.append(c)
 	_place()
 
+## CircleOfRotatingRupisBehavior.Update : chaque cristal glisse en LIGNE DROITE (Vector2.Lerp, pas un arc) d'un sommet du decagone au suivant en 1 s, puis recommence ;
+## les sommets sont (sin, +cos) x rayon (ecran, y vers le bas), donc le sens est l'inverse de l'horloge et le rayon passe a cos(pi/10) = 95 % a mi-cran.
 func _place() -> void:
+	var amount := fposmod(_t, 1.0)
 	for i in _crystals.size():
-		var a: float = SPEED * _t + TAU / float(CRYSTALS) * float(i)
-		(_crystals[i] as Control).position = BOSS_CENTER + Vector2(sin(a), -cos(a)) * RADIUS
+		var a0 := TAU / float(CRYSTALS) * float(i)
+		var a1 := TAU / float(CRYSTALS) * float(i + 1)
+		var p0 := Vector2(sin(a0), cos(a0)) * RADIUS
+		var p1 := Vector2(sin(a1), cos(a1)) * RADIUS
+		(_crystals[i] as Control).position = BOSS_CENTER + p0.lerp(p1, amount)
 
 func _process(delta: float) -> void:
 	_t += delta
