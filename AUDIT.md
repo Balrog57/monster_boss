@@ -424,7 +424,7 @@ Méthode : lecture croisée du C# et du GDScript (3 lots en parallèle), puis co
 | R-O01 | Parties IA contre IA BaseDeck, graines 1-3, 2-3 joueurs (`apk.py --ai-agreement`) | trace oracle | Oui | `ApkParity.tscn`, `ApkParityTrace.gd` | Oui | **6/6** traces, 0 refus. Accord d'IA : ensemble des coups jouables 100 %, aucun coup « godotOnly » ni « oracleOnly » ; seuls écarts de choix = tirages aléatoires. | — |
 | R-O02 | Graines 4-7, 2-4 joueurs | trace oracle | Oui | idem | Oui | **12/12**. 443 décisions ignorées par le harnais, toutes classées (noChoice, abandonnées). | — |
 | R-O03 | 4 paquets APK (`--decks BaseDeck,PlayerChoice,HiddenHeros,ToolsHeroKind`) | trace oracle | Oui | idem | Oui | **6/6**. 163 décisions ignorées, classées. | — |
-| R-O04 | Graines 10-40, 2-4 joueurs (93 traces, run de stress hors rapport par défaut) | trace oracle | Oui | idem | Oui à 90/93 | **90/93**. Échecs s20-p2 et s28-p3 : l'IA oracle active Dracolich Lair après la sortie du dernier héros, fenêtre qu'un humain n'a pas (`GameBoard.IsAdventureInteractionTurn`, `GameBoard.cs:285-291`). s16-p4 : remélange sur pioche vide, ordre aléatoire absent de la trace. Les trois causes sont documentées dans `tools/parity/README.md:481-485` et reproduites à l'identique ; voir R-D90 pour le petit écart moteur révélé par s16-p4. | Basse |
+| R-O04 | Graines 10-40, 2-4 joueurs (93 traces, run de stress hors rapport par défaut) | trace oracle | Oui | idem | Oui à 90/93 | **90/93**. Échecs s20-p2 et s28-p3 : l'IA oracle active Dracolich Lair après la sortie du dernier héros, fenêtre qu'un humain n'a pas (`GameBoard.IsAdventureInteractionTurn`, `GameBoard.cs:285-291`). s16-p4 : remélange sur pioche vide, ordre aléatoire absent de la trace. Les trois causes sont documentées dans `tools/parity/README.md:481-485` et reproduites à l'identique ; voir R-D90 pour le petit écart moteur révélé par s16-p4. | Accepté (Basse) |
 | R-O05 | Couverture des cartes par les 24 traces par défaut (script sur `oracle-*.json` : `buildRoom`, `playRoomAbility`, `playSpell`, décisions `resolveTarget.owner`) | mesure | — | — | — | Salles construites 31/35, sorts joués 16/18, boss dont la capacité s'est déclenchée 13/15. **Jamais exercés** : BMA023 et BMA033 (jamais distribués par l'APK), BMA053 Teleportation, THK025 (injouable dans l'APK), THK021 et THK023 (salles sans capacité), KSA001 Kirax et KSA005 Scythe (boss jamais tirés). BMA025 All-Seeing Eye est construit mais jamais activé. | Moyenne |
 
 **Limite de l'oracle.** L'oracle ne compare que ce que l'IA APK joue, et le harnais rejoue les coups APK dans Godot : une règle **plus permissive** côté Godot (un coup légal en trop) est invisible, et les chemins que l'IA ne prend pas (Freeze puis construction, Crushinator puis construction, sorts pendant un tour forcé, Soul Harvest sur un épique) ne sont pas mesurés. Les écarts Haute ci-dessous viennent tous de la lecture du code, contre-vérifiée à la main, **non reproduits** par une partie.
@@ -437,7 +437,7 @@ Sources : `DBMGameModel.Logic/GameBoard.cs` (GB), `Boss.cs`, `DungeonSlot.cs`, `
 |---|---|---|---|---|---|---|---|
 | R-D01 | `GB.NextStep` : machine à 13 phases (GB:15-30, 302-460) | phases | Oui | M:1181-1253, CD:6-14 | Oui | 13 phases APK regroupées en 7 phases Godot ; transitions équivalentes. Exercé par l'oracle. | — |
 | R-D02 | Setup_a : 5 salles + 2 sorts, `AvoidMulliganCondition` (GB:333-347, 883-915) | phase | Oui | M:1046-1097 | Oui | Mêmes seuils (≥ 4 avancées ou ≥ 4 du même trésor). Exercé. | — |
-| R-D03 | Mulligan sans borne (GB:883-915) | règle | Oui | M:1062 | Oui | Godot borne à 100 itérations ; indiscernable. | Basse |
+| R-D03 | Mulligan sans borne (GB:883-915) | règle | Oui | M:1062 | Oui | Godot borne à 100 itérations ; indiscernable. | Accepté (Basse) |
 | R-D04 | Défausse de 2 cartes, main à 5 (GB:917) | phase | Oui | M:1097 | Oui | Exercé. | — |
 | R-D05 | Setup_b : construction initiale parallèle | phase | Oui | M:1131, 1142, 1168 | Oui | Exercé. | — |
 | R-D06 | Setup_c : révélation puis ExtraBuildPhase | phase | Oui | M:1453 | Oui | Exercé. | — |
@@ -448,12 +448,12 @@ Sources : `DBMGameModel.Logic/GameBoard.cs` (GB), `Boss.cs`, `DungeonSlot.cs`, `
 | R-D11 | Paquet de héros épuisé : ni fin ni remélange | règle | Oui | M:2140-2166 | Oui | Identique en mode APK seul. | — |
 | R-D12 | Constantes : 5 emplacements, 10 âmes, 5 blessures, main de 5, 2-4 joueurs | constantes | Oui | M:10, M:58, CD:18 | Oui | | — |
 | R-D13 | `ReShuffleDiscardsPilesBackToDeck` : les deux défausses retournent dans leur pioche (GB:1335-1349) | règle | Oui | CD:114-136 (`draw_pile`) | Oui | | — |
-| R-D14 | Tri des défausses par `UniqueID` avant mélange (GB:1335-1349) | règle | Non vérifié (pas de grep de tri) | — | — | Sans effet : le mélange est aléatoire des deux côtés. | Basse |
-| R-D15 | `RandomProvider.Shuffle` (graine) | technique | Oui | CD (`_rng`) | Différent | Mélange non reproductible par conception ; l'oracle rejoue les coups, pas les mélanges. | Basse |
+| R-D14 | Tri des défausses par `UniqueID` avant mélange (GB:1335-1349) | règle | Non vérifié (pas de grep de tri) | — | — | Sans effet : le mélange est aléatoire des deux côtés. | Conforme (Basse) |
+| R-D15 | `RandomProvider.Shuffle` (graine) | technique | Oui | CD (`_rng`) | Différent | Mélange non reproductible par conception ; l'oracle rejoue les coups, pas les mélanges. | Accepté (Basse) |
 | R-D16 | `ChooseCardTypeToDraw` (Boss:270) | méthode | Oui | RA:95 | Oui | Chemin mort des deux côtés (BMA023 dans `notInGameCards`, `CardInfoService.cs:19,184` ; M:71). | — |
 | R-D17 | `PlayersPriorized` par PlayerId = XP décroissant (GameBoardExtensions:105-135) | règle | Oui | M:1224-1232, CD:286-297 | Oui | XP des boss APK uniques. | — |
-| R-D18 | Pioche de début de tour par `InGamePlayersPriorized` (GB:360-393) | règle | Oui | M:1199-1220 | Différent | Godot pioche dans l'ordre des sièges. Masqué par l'oracle (sièges insérés par PlayerId) ; effet seulement si la pioche s'épuise entre deux joueurs du même tour. | Basse |
-| R-D19 | `RevealAllRoomCards` itère `Players` en ordre de sièges (GB:928-970) | règle | Oui | M:1477-1504 (ordre XP) | Différent | Même masquage que R-D18. | Basse |
+| R-D18 | Pioche de début de tour par `InGamePlayersPriorized` (GB:360-393) | règle | Oui | M:1199-1220 | Différent | Godot pioche dans l'ordre des sièges. Masqué par l'oracle (sièges insérés par PlayerId) ; effet seulement si la pioche s'épuise entre deux joueurs du même tour. | Accepté (Basse) |
+| R-D19 | `RevealAllRoomCards` itère `Players` en ordre de sièges (GB:928-970) | règle | Oui | M:1477-1504 (ordre XP) | Différent | Même masquage que R-D18. | Accepté (Basse) |
 | R-D20 | Salle ordinaire par-dessus une salle (`DungeonSlot.CheckRoomCanBeBuilt`:81) | règle | Oui | BE:119-171, M:256-340 | Oui | Exercé. | — |
 | R-D21 | Salle avancée : emplacement construit + trésor imprimé, pas sur une salle en attente | règle | Oui | BE:119-171 | Oui | | — |
 | R-D22 | `CheckBuildRestriction` (Neanderthal Cave) | règle | Oui | BE:119-171, BE:156-158 | Oui | | — |
@@ -483,12 +483,12 @@ Sources : `DBMGameModel.Logic/GameBoard.cs` (GB), `Boss.cs`, `DungeonSlot.cs`, `
 | R-D46 | `DealHero` (Boulder Ramp BMA028, Exhaustion BMA044) ne teste pas la mort (`DealHero.cs:42-45`) | commande | Oui | RA:318-331 (`_boulder_ramp`), M:1758-1776 (`_finish_hero_if_dead`) | **Différent** | Vérifié : côté APK, le héros reste à 0 PV jusqu'au `ProccessActiveHero` suivant, qui l'avance d'un emplacement (`num--`), lui inflige cette salle, puis déclenche `HeroDiesInThisRoom` de **cette nouvelle salle** (`GameBoard.cs:1112-1146`). Godot le tue tout de suite et déclenche la salle **courante** (`_deathRoom` n'est jamais écrit, seulement lu à M:1766). Exemple : un héros tué par Boulder Ramp devant Golem Factory pioche une salle côté APK, rien côté Godot. Le harnais classe ces points `adv` comme non comparables. | **Haute** |
 | R-D47 | Fenêtre après dégâts : l'APK a déjà tué un héros à hp ≤ 0 | règle | Oui | M:1948-1973 | Non vérifié | Godot garde le héros jusqu'à la fin de la pause ; je n'ai pas confirmé si un sort peut alors viser un héros à 0 PV (SE:100-111 ajoute +3 PV sans test). | Moyenne |
 | R-D48 | `Hero.Deal` borne à 0 | règle | Oui | M:1928-1946 | Oui | | — |
-| R-D49 | Emplacement désactivé sauté | règle | Oui | M:1878-1881 | Partiel | Godot saute sans ouvrir la fenêtre de sorts. | Basse |
+| R-D49 | Emplacement désactivé sauté | règle | Oui | M:1878-1881 | Partiel | Godot saute sans ouvrir la fenêtre de sorts. | Accepté (Basse) |
 | R-D50 | `ChooseNextActiveHero`, `ForceSkipAdventure` (Trepidation) | règle | Oui | M:1975-2006 | Oui | | — |
 | R-D51 | `ChooseNextActivePlayer`, `DeactivateLastActivePlayer` (GB:1185-1218) | méthode | Oui | M:1987 | Oui | | — |
 | R-D52 | `IsAdventureInteractionTurn` bloque l'UI sans héros actif (GB:285) | méthode | Oui (côté UI) | `BoardUI._my_moves`, `Match.apk_active_hero()` (README parité:485) | Oui | Règle portée par l'interface, comme l'APK ; `legal_moves` reste permissif pour le rejeu. Golden `_t_apk_active_hero_ui_gate`. | — |
-| R-D53 | `Boss.IsAlive = Wounds < 5 && !IsManuallyKilled` (Boss:82) | propriété | Oui | M:2060-2063 (`eliminated`) | Partiel | Drapeau collant côté Godot, recalcul en direct côté APK. Écart seulement si les blessures baissent après élimination. | Basse |
-| R-D54 | `KillManually` au départ d'un joueur en ligne (GB:855) | méthode | Oui | `server/GameRoom.gd:156` | Différent | Godot donne le siège à l'IA. Choix de conception, renvoyé au module 9. | Basse |
+| R-D53 | `Boss.IsAlive = Wounds < 5 && !IsManuallyKilled` (Boss:82) | propriété | Oui | M:2060-2063 (`eliminated`) | Partiel | Drapeau collant côté Godot, recalcul en direct côté APK. Écart seulement si les blessures baissent après élimination. | Accepté (Basse) |
+| R-D54 | `KillManually` au départ d'un joueur en ligne (GB:855) | méthode | Oui | `server/GameRoom.gd:156` | Différent | Godot donne le siège à l'IA. Choix de conception, renvoyé au module 9. | Accepté (Basse) |
 | R-D55 | `CheckEndOfGame` en EndOfTurnPhase seulement (GB:972-1049) | phase | Oui | M:2090-2175 | Oui | | — |
 | R-D56 | 10 âmes et < 5 blessures : un gagnant | règle | Oui | M:2104-2116 | Oui | Golden. | — |
 | R-D57 | Plusieurs à 10 âmes : meilleur Âmes-Blessures, puis PlayerId le plus bas | règle | Oui | M:2104-2116, 2204-2216 | Oui | Goldens. | — |
@@ -502,10 +502,10 @@ Sources : `DBMGameModel.Logic/GameBoard.cs` (GB), `Boss.cs`, `DungeonSlot.cs`, `
 | R-D65 | Spell Battle : `PendingSpellBattlePlayers` à chaque activation | règle | Oui | M:580-617, 1583, 1701-1754 | Partiel | Voir R-D66, R-D67. | — |
 | R-D66 | `RemovePendingTransactionsByTarget` (GB:1351-1361) | méthode | Non (vérifié absent) | M:1701-1740 | — | Doublon de R-E27. | voir R-E27 |
 | R-D67 | Activation de salle par l'utilisateur ouvre une Spell Battle (GB:812) | méthode | Oui | RA:128-181 | Partiel | Godot applique l'activation tout de suite, sans fenêtre de réponse. Le harnais retient `playRoomAbility` (`_held`), donc masqué. | Moyenne |
-| R-D68 | Le sort quitte la main vers la défausse au lancement (GB:751-783) | règle | Oui | M:1714 | Partiel | Godot défausse à la résolution ; ne change qu'un remélange pendant la bataille. | Basse |
+| R-D68 | Le sort quitte la main vers la défausse au lancement (GB:751-783) | règle | Oui | M:1714 | Partiel | Godot défausse à la résolution ; ne change qu'un remélange pendant la bataille. | Accepté (Basse) |
 | R-D69 | `RemoveHeroFromGame`, `RemoveRoomOrSpellFromGame`, `DestroyRoom` (GB:624, 694-749, 835) | méthode | Oui | BE:518-580 | Oui | `destroy_room` décale bien les effets indexés. Voir R-D90 pour l'ordre défausse / déclencheur. | — |
 | R-D70 | `DiscardFromHand`, `DrawRooms`, `DrawSpells` | méthode | Oui | CD:93 | Oui | | — |
-| R-D71 | `ReactivateAllRooms`, `RestoreDungeon` (GB:1051, Boss:235) | méthode | Oui | SE:8 (`empty_effects`), M:1210-1214 | Oui | Godot remet à zéro au début du tour suivant ; état équivalent pour la fin de partie (évaluée avant). | Basse |
+| R-D71 | `ReactivateAllRooms`, `RestoreDungeon` (GB:1051, Boss:235) | méthode | Oui | SE:8 (`empty_effects`), M:1210-1214 | Oui | Godot remet à zéro au début du tour suivant ; état équivalent pour la fin de partie (évaluée avant). | Conforme (Basse) |
 | R-D72 | `GetOpponents`, `GetOwnerPlayer`, `OpponnentDungeonSizeMoreThan` | méthode | Oui | BE:26-35 | Oui | | — |
 | R-D73 | `PlaySpell`, `SetSpellBattleReady`, `OnAbilityApplyDone` | méthode | Oui | M:580-617, 684-731 | Oui | | — |
 | R-D74 | `HeroResistDamageRoomType` (KSA016) | commande | Oui | BE:484-488 | Oui | | — |
@@ -515,8 +515,8 @@ Sources : `DBMGameModel.Logic/GameBoard.cs` (GB), `Boss.cs`, `DungeonSlot.cs`, `
 | R-D78 | Triche `Cheat*` (GB:472-527), `DEBUG_ELEM` | debug APK | N/A | — | — | Derrière une UI de debug. | — |
 | R-D79 | `SerialHelper`, `ActivationResponses`, `CryptoProvider`, `GetHashBytes` (GB:1363) | licence / synchro | N/A | — | — | Godot est autoritaire côté serveur ; renvoyé aux modules 9 et 10. | — |
 | R-D80 | `DBMGameModel.Info/*` (`AIRoomInfo`, `AISpellInfo`) | données IA | Oui | `ApkAI.gd` | Oui | Renvoyé au module 6. | — |
-| R-D81 | Tutoriel : pioches imposées (GameBoardExtensions:19-52) | règle | Oui | GM:22-55 | Partiel | Le reste est tiré avec une graine fixe différente de l'APK. Renvoyé au module 8. | Basse |
-| R-D82 | — (code Godot hérité) `GameManager.calculate_lure`, `advance_hero_in_dungeon`, `Match._turn_order` | code mort Godot | Oui | GM:150-201, M:1564 | — | Aucun appelant ; `advance_hero_in_dungeon` est de plus faux (blessures prises pour des PV). À supprimer. | Basse |
+| R-D81 | Tutoriel : pioches imposées (GameBoardExtensions:19-52) | règle | Oui | GM:22-55 | Partiel | Le reste est tiré avec une graine fixe différente de l'APK. Renvoyé au module 8. | Accepté (Basse) |
+| R-D82 | — (code Godot hérité) `GameManager.calculate_lure`, `advance_hero_in_dungeon`, `Match._turn_order` | code mort Godot | Oui | GM:150-201, M:1564 | — | Aucun appelant ; `advance_hero_in_dungeon` est de plus faux (blessures prises pour des PV). À supprimer. | Corrigé (Basse) |
 | R-D83 | — (ajout Godot) 5-6 joueurs (CRL « big game ») | ajout | Oui | M:17-35, CD:24 | — | Derrière la case wiki. | — |
 | R-D84 | — (ajout Godot) fin `no_more_heroes` | ajout | Oui | M:2140-2166 (`not apk_only`) | — | | — |
 | R-D85 | — (ajout Godot) partage de leurre CRL | ajout | Oui | BE:235 | — | | — |
@@ -524,7 +524,7 @@ Sources : `DBMGameModel.Logic/GameBoard.cs` (GB), `Boss.cs`, `DungeonSlot.cs`, `
 | R-D87 | — (ajout Godot) TNL, RMB, THK wiki, IOD | ajout | Oui | `TnlAbilities.gd`, `Minibosses.gd`, `RmbAbilities.gd`, `ThkAbilities.gd`, `IodAbilities.gd` | — | Hors périmètre APK. | — |
 | R-D88 | — (ajout Godot) vote des rois | ajout | Oui | M:1388 | — | | — |
 | R-D89 | — (ajout Godot) annulation de pose, sauts automatiques de fenêtre | ajout | Oui | M:416-451, 1299 | — | | — |
-| R-D90 | `DestroyRoom` défausse la salle **avant** le déclencheur `WhenAnotherRoomIsDestroyed` (GB:840-851) | règle | Oui | BE:518-593 (`destroy_room`, `_on_other_room_destroyed`) | Partiel | Godot déclenche Recycling Center avant que l'appelant défausse la salle détruite. Invisible sauf pioche de salles vide (1 carte d'écart au remélange). Mis en évidence par s16-p4 (R-O04), documenté `tools/parity/README.md:482`. | Basse |
+| R-D90 | `DestroyRoom` défausse la salle **avant** le déclencheur `WhenAnotherRoomIsDestroyed` (GB:840-851) | règle | Oui | BE:518-593 (`destroy_room`, `_on_other_room_destroyed`) | Partiel | Godot déclenche Recycling Center avant que l'appelant défausse la salle détruite. Invisible sauf pioche de salles vide (1 carte d'écart au remélange). Mis en évidence par s16-p4 (R-O04), documenté `tools/parity/README.md:482`. | Accepté (Basse) |
 
 ### 5B — Système de capacités (lot E)
 
@@ -533,33 +533,33 @@ Sources : `DBMGameModel.Logic.Abilities.*` (Commands, Targets, Conditions, Lured
 | ID | Élément source (décompilé) | Type | Présent dans Godot ? | Fichier Godot | Équivalent fonctionnel ? | Écart / Commentaire | Priorité |
 |---|---|---|---|---|---|---|---|
 | R-E01 | Dégâts salle / héros (`DealDamageToRoom`, `IPassiveDamage`) | commandes | Oui | BE:377-493, BE:518-580 | Oui | Montants concordants dans toutes les traces. | — |
-| R-E02 | `DeactivateDungeonAbility` (Trap Master KSA017), `Ability.IsLocked` | commande | Oui | BE:341-350, RA:141-142 | Oui | Verrou levé à la sortie du héros, comme `RemoveHeroFromGame` (voir R-F69). | Basse |
-| R-E03 | `ReactivateAllRooms` / `Boss.RestoreDungeon` | commande | Oui | M:1210-1214 | Oui | Remise à zéro au début du tour suivant au lieu de la fin du tour ; aucun écart observé. | Basse |
-| R-E04 | `ChooseCardFromHand`, `FlipItem`, `PlaceAtOwnerDungeonEntrance`, `SkipBeginingOfTurn` | commandes | N/A | M:1261-1262 | — | Aucune carte APK ne les utilise ; `FlipItem.Execute` lève `NotImplementedException`. | Basse |
-| R-E05 | `chooseDraw`, `SwapSlotInDungeon` | commandes | Oui | RA:95, RA:738, M:1215-1243 | Oui | BMA023 et BMA033 jamais distribuées (R-D16). Golden seulement. | Basse |
+| R-E02 | `DeactivateDungeonAbility` (Trap Master KSA017), `Ability.IsLocked` | commande | Oui | BE:341-350, RA:141-142 | Oui | Verrou levé à la sortie du héros, comme `RemoveHeroFromGame` (voir R-F69). | Conforme (Basse) |
+| R-E03 | `ReactivateAllRooms` / `Boss.RestoreDungeon` | commande | Oui | M:1210-1214 | Oui | Remise à zéro au début du tour suivant au lieu de la fin du tour ; aucun écart observé. | Conforme (Basse) |
+| R-E04 | `ChooseCardFromHand`, `FlipItem`, `PlaceAtOwnerDungeonEntrance`, `SkipBeginingOfTurn` | commandes | N/A | M:1261-1262 | — | Aucune carte APK ne les utilise ; `FlipItem.Execute` lève `NotImplementedException`. | Accepté (Basse) |
+| R-E05 | `chooseDraw`, `SwapSlotInDungeon` | commandes | Oui | RA:95, RA:738, M:1215-1243 | Oui | BMA023 et BMA033 jamais distribuées (R-D16). Golden seulement. | Conforme (Basse) |
 | R-E06 | Pioche et remélange (`DrawCards`, `ReShuffleDiscardsPilesBackToDeck`) | commandes | Oui | M:1256-1259, CD (`draw_pile`) | Oui | | — |
 | R-E07 | Destruction et défausse de salle | commandes | Oui | BE:518-595 | Oui | Voir R-D90. | — |
 | R-E08 | Trésors et âmes (`IPassiveTreasure`, `IPassiveScorekeep`, `RemoveHeroFromTheGame`) | commandes | Oui | CD:215-251, BE:61-86 | Partiel | Voir R-F21 (Soul Harvest) et R-F23 (passifs dans Trepidation). | voir R-F21 |
 | R-E09 | 16 sorts BaseDeck | commandes | Oui | SE (`cast_spell`) | Partiel | Détail carte par carte en 5C. | — |
-| R-E10 | Autres Commands (≈ 40 sur 49) | commandes | Non vérifié (ligne à ligne) | — | — | Couvertes indirectement par 5C : chaque carte APK y est tracée avec ses commandes. | Basse |
+| R-E10 | Autres Commands (≈ 40 sur 49) | commandes | Non vérifié (ligne à ligne) | — | — | Couvertes indirectement par 5C : chaque carte APK y est tracée avec ses commandes. | Accepté (Basse) |
 | R-E11 | `HeroInDungeon` : `EntranceQueue.Take(1)` par donjon (`HeroInDungeon.cs`, `InternalGetAvailableTargets`) | cible | Oui | ST:116-136, ST:299-322 | **Différent** | Vérifié : Godot propose **tous** les héros de l'entrée, l'APK seulement le premier de chaque donjon. Touche BMA041 Assassin, BMA044 Exhaustion, BMA045 Fear. L'IA ne choisit que le premier, donc invisible pour l'oracle ; un humain peut viser un héros que l'APK n'offre pas. | Corrigé (Moyenne) |
 | R-E12 | Cibles de salle (`RoomInDungeon`, `AdjacentsRoom`, `NextRoom`, `AnotherRoom`) | cibles | Oui | BE:45-47, ST:39-47 | Oui | | — |
 | R-E13 | Comptage de Monster's Ballroom | cible | Oui | BE:406-411 | Différent | Doublon de R-F36. | voir R-F36 |
 | R-E14 | Cible de Robobo (`BossOpponents` → `ChooseAndDestroyRoom`) | cible | Oui | RA:833, RA:1089-1103 | Non vérifié | Le lot E signale que Godot ne retire pas les salles gelées des choix ; je n'ai pas confronté au C# de `ChooseAndDestroyRoom`. Le lot F (R-F04) ne relève pas d'écart. | Corrigé (Moyenne) |
-| R-E15 | `BossOpponentWithAtLeastHand`, `CrossingHeroAtachedItem`, `HeroInDeck`, `ItemInScorekeep`, `ItemInTown` | cibles | N/A | — | — | Inutilisées dans les `data.json` APK. | Basse |
-| R-E16 | Autres Targets (≈ 25 sur 33) | cibles | Non vérifié (ligne à ligne) | — | — | Couvertes indirectement par 5C. | Basse |
+| R-E15 | `BossOpponentWithAtLeastHand`, `CrossingHeroAtachedItem`, `HeroInDeck`, `ItemInScorekeep`, `ItemInTown` | cibles | N/A | — | — | Inutilisées dans les `data.json` APK. | Accepté (Basse) |
+| R-E16 | Autres Targets (≈ 25 sur 33) | cibles | Non vérifié (ligne à ligne) | — | — | Couvertes indirectement par 5C. | Accepté (Basse) |
 | R-E17 | Re-vérification de condition à l'exécution (Motivation `OpponnentDungeonSizeMoreThan`) | condition | Oui | M:1299-1305, BE:30-36 | Partiel | Ne re-vérifie pas exactement au même moment. Aucun écart observé (6 jeux de Motivation). | Moyenne |
 | R-E18 | Kobold Strike : bloque les constructions | condition | Oui | SE:307, M:296 | Différent | `buildBlocked` retire aussi les sorts de phase Build (M:296), l'APK seulement les constructions. | Corrigé (Moyenne) |
 | R-E19 | Liger's Den : `YouPlaySpellCard` + `OncePerTurn` | condition | Oui | M:1745-1750 | Partiel | Godot ne teste pas l'état gelé ni le verrou Trap Master avant de piocher. | Corrigé (Moyenne) |
-| R-E20 | `HeroHasAtachedItem`, `OpponnentHasMoreThanInHand`, `OwnerHasFewerThanOpponent` | conditions | N/A | — | — | Inutilisées. | Basse |
+| R-E20 | `HeroHasAtachedItem`, `OpponnentHasMoreThanInHand`, `OwnerHasFewerThanOpponent` | conditions | N/A | — | — | Inutilisées. | Accepté (Basse) |
 | R-E21 | Conditions de leurre utilisées | leurre | Oui | BE:176-229, M:1537-1562 | Oui | | — |
-| R-E22 | `LuredBySouls`, `LuredByCardsInHand` | leurre | N/A | — | — | Inutilisées (= R-D41). | Basse |
+| R-E22 | `LuredBySouls`, `LuredByCardsInHand` | leurre | N/A | — | — | Inutilisées (= R-D41). | Accepté (Basse) |
 | R-E23 | `WhenYouBuildThisRoom`, `WhenYouBuildAnotherRoom` | déclencheurs | Oui | M:1477-1504, RA:528, RA:577 | Oui | Ordre inverse de `EnqueueAbilityTransaction` reproduit (M:1499). | — |
 | R-E24 | `HeroDiesInThisRoom` | déclencheur | Oui | RA:607-630 | Partiel | Voir R-D46 (salle déclenchée après `DealHero`) et R-F26 (`OncePerTurn` consommé trop tôt). | voir R-D46 |
-| R-E25 | `AnySpellCardIsPlayed`, `HeroDiesAnotherRoom`, `WhenOpponentPlaysSpellCard`, `WhenThisRoomIsDestroyed` | déclencheurs | N/A | BE:584 | — | Inutilisés dans les `data.json` APK. | Basse |
+| R-E25 | `AnySpellCardIsPlayed`, `HeroDiesAnotherRoom`, `WhenOpponentPlaysSpellCard`, `WhenThisRoomIsDestroyed` | déclencheurs | N/A | BE:584 | — | Inutilisés dans les `data.json` APK. | Accepté (Basse) |
 | R-E26 | `EnqueueAbilityTransaction` : capacités de salle mises en file | pile | Oui (autre forme) | RA:128-181, M:1573-1760 | Partiel | Les sorts passent par la pile ; les capacités de salle se résolvent immédiatement (= R-D67). | Moyenne |
 | R-E27 | `RemovePendingTransactionsByTarget` : annule les transactions dont la cible a quitté le jeu (`GameBoard.cs:1351-1361`, appelée GB:606, 618, 743, 843) | pile | Non (vérifié absent) | M:1701-1740 | **Différent** | Vérifié : seul Counterspell marque `canceled`. Les sorts visant un héros (`heroId`) ratent sans dégât si le héros est parti. Les sorts visant par **indice** (`roomIndex`, `townIndex`, `soulIndex`) ne sont jamais annulés et frappent ce qui occupe l'indice. Rare : il faut deux sorts empilés sur la même zone. | Moyenne |
-| R-E28 | Contre-sort (`CancelSpellAbility`, All-Seeing Eye) | pile | Oui | M:1728-1734, RA:237-251 | Oui | Le lot E citait les échecs s16-p4, s20-p2, s28-p3 ; contre-vérifié : ce sont une course de l'IA oracle et un remélange (R-O04), pas le contre-sort. 7 Counterspell joués, 0 écart. | Basse |
+| R-E28 | Contre-sort (`CancelSpellAbility`, All-Seeing Eye) | pile | Oui | M:1728-1734, RA:237-251 | Oui | Le lot E citait les échecs s16-p4, s20-p2, s28-p3 ; contre-vérifié : ce sont une course de l'IA oracle et un remélange (R-O04), pas le contre-sort. 7 Counterspell joués, 0 écart. | Conforme (Basse) |
 | R-E29 | `OncePerTurn` : `IsEffectApplied` posé à `Run` (`Ability.cs:135`, `OncePerTurn.cs:12`) | pile | Oui | RA:139, RA:167, RA:180 | Partiel | Godot pose `usedThisTurn` à l'activation et le remet à faux si l'activation échoue (RA:180). Comme l'effet est appliqué tout de suite, la différence ne se voit que si une transaction est annulée avant de s'exécuter. Non observé. | Moyenne |
 | R-E30 | Autorésolution d'une cible unique (`TryToAutoresolve`) | pile | Partiel | ST:51 | Non vérifié | Lié à R-E11. | Partiel (Moyenne) |
 | R-E31 | `OnAbilityApplyDone` (déclencheurs après sort) | pile | Oui | SE (`cast_spell`), M:1743-1752 | Non vérifié | | Moyenne |
@@ -598,7 +598,7 @@ Stats comparées par script entre les 4 `src/frontend/assets/data/*/data.json` (
 | R-F19 | BMA050 Motivation : `OpponnentDungeonSizeMoreThan(1)` → `BuildExtraRoom` | sort | Oui | SE:140-146, BE:24-36 | Partiel | Report au tour suivant (R-D27). Oracle 6× (6). | Moyenne |
 | R-F20 | BMA051 Princess in Peril : `HeroInTown` → `PlaceAtDungeonEntrance` | sort | Oui | SE:222-236, ST:137-139 | Oui | Oracle 12× (9). | — |
 | R-F21 | BMA052 Soul Harvest : `HeroInScorekeep(Owner, Dead)` → `RemoveHeroFromTheGame` + `DrawCards(2, Spell)` | sort | Oui | SE:245-264, ST:168-172, ST:341-347, RA:1167 | **Différent** | Vérifié : un épique mort laisse 2 entrées d'âme (`RoomAbilities.gd:1167`, `CardDB.soul_entry` = 1 âme chacune) ; `_soul_harvest` n'en retire qu'une (`souls.remove_at(idx)`, SE:257). L'APK retire le héros entier de `SoulsHeroes` (`GameBoard.cs:694-731`). Un humain qui vise un épique ne perd qu'1 âme au lieu de 2. L'IA APK ne vise que des ordinaires (`ApkAI._chk_052`), donc invisible. Oracle 1× (1). | **Haute** |
-| R-F22 | BMA053 Teleportation : `ActiveHeroInDungeon(Owner)` → `MoveHeroToRelativeSlot(5)` | sort | Oui | SE:268-275, ST:126-129, ST:380-390 | Oui (lecture) | **Jamais joué** dans les 24 traces ; golden `_t_apk_teleportation_*` seulement. | Basse |
+| R-F22 | BMA053 Teleportation : `ActiveHeroInDungeon(Owner)` → `MoveHeroToRelativeSlot(5)` | sort | Oui | SE:268-275, ST:126-129, ST:380-390 | Oui (lecture) | **Jamais joué** dans les 24 traces ; golden `_t_apk_teleportation_*` seulement. | Conforme (Basse) |
 | R-F23 | BMA054 Trepidation : `BossOpponentWithAtLeastScore(Dead, 2)` → `SkipAdventurePhase` | sort | Oui | SE:333-346, ST:160-167, ST:251-255 | Partiel | `Boss.Souls` inclut `CalculatePassiveSouls` (`Boss.cs:103-110`) ; `ST._souls_total` ne somme que les entrées `souls`, sans KSA006 Jarin ni T.P.K. (`CardDB.total_souls` les inclut). Cibles légales fausses avec PlayerChoice. Oracle 4× (4). | Corrigé (Moyenne) |
 | R-F24 | BMA055 Zombie Attack : `HeroInScorekeep(Opponent, Dead)` → `SendBackToDungeonEntrance` + `DealHero(-2)` | sort | Oui | SE:350-403, ST:173-182 | Oui | PV de base + 2. Oracle 7× (6). | — |
 
@@ -607,11 +607,11 @@ Stats comparées par script entre les 4 `src/frontend/assets/data/*/data.json` (
 | ID | Élément source (décompilé) | Type | Présent dans Godot ? | Fichier Godot | Équivalent fonctionnel ? | Écart / Commentaire | Priorité |
 |---|---|---|---|---|---|---|---|
 | R-F25 | BMA009 Dark Altar (activée) : `DestroyRoom` ; `CardInDeck(1, DiscardPile)` → `PutCardInHand` | salle | Oui | RA:169, RA:188-203 | Oui | Oracle 24× (15). | — |
-| R-F26 | BMA010 Open Grave : `HeroDiesInThisRoom`, `OncePerTurn`, `RoomInDeck(DiscardPile)` | salle | Oui | RA:607-630, RA:754-764 | Partiel | `usedThisTurn` posé avant de savoir s'il y a une cible (RA:621-623) ; l'APK ne consomme `IsEffectApplied` que si la condition passe. Un 2e héros mort le même tour après un ajout à la défausse : déclenche en APK, pas en Godot. Oracle 12× (8). | Basse |
+| R-F26 | BMA010 Open Grave : `HeroDiesInThisRoom`, `OncePerTurn`, `RoomInDeck(DiscardPile)` | salle | Oui | RA:607-630, RA:754-764 | Partiel | `usedThisTurn` posé avant de savoir s'il y a une cible (RA:621-623) ; l'APK ne consomme `IsEffectApplied` que si la condition passe. Un 2e héros mort le même tour après un ajout à la défausse : déclenche en APK, pas en Godot. Oracle 12× (8). | Corrigé (Basse) |
 | R-F27 | BMA011 Specter's Sanctum : `WhenYouBuildThisRoom` → `DiscardRandomCardFromHand(1, Spell)` | salle | Oui | RA:544, RA:639-650, RA:801 | Oui | Oracle 30× (20). | — |
 | R-F28 | BMA012 Succubus Spa : `HeroDiesInThisRoom`, `PickRandomCardFromHand` | salle | Oui | RA:626, RA:654-691 | Oui | Oracle 3× (3). | — |
 | R-F29 | BMA013 Dracolich Lair (activée) | salle | Oui | RA:176, RA:388-431 | Oui | Oracle 50× (17). | — |
-| R-F30 | BMA014 Vampire Bordello : `HeroDiesInThisRoom`, `FlipHero` | salle | Oui | RA:629, RA:782-793, BE:306-330 | Partiel | Même `OncePerTurn` prématuré que R-F26. Oracle 4× (4). | Basse |
+| R-F30 | BMA014 Vampire Bordello : `HeroDiesInThisRoom`, `FlipHero` | salle | Oui | RA:629, RA:782-793, BE:306-330 | Partiel | Même `OncePerTurn` prématuré que R-F26. Oracle 4× (4). | Corrigé (Basse) |
 | R-F31 | BMA015 Goblin Armory : passif `AdjacentsRoom(Monster)` +1 | salle | Oui | BE:414-432 | Oui | 1553 décisions passives (14). | — |
 | R-F32 | BMA016 Golem Factory : `HeroDiesInThisRoom` → `DrawCards(1, Room)` | salle | Oui | RA:627, RA:767-771 | Oui | Oracle 17× (10). Voir R-D46. | — |
 | R-F33 | BMA017 Minotaur's Maze : `FirstTimeHeroEnterThisRoom` → `MoveHeroToRelativeSlot(1)` | salle | Oui | M:1936-1943 | Oui | Oracle 10× (4). | — |
@@ -622,7 +622,7 @@ Stats comparées par script entre les 4 `src/frontend/assets/data/*/data.json` (
 | R-F38 | BMA022 Dark Laboratory : `WhenYouBuildThisRoom` → pioche 2 sorts, défausse 1 | salle | Oui | RA:544, RA:633-635 | Oui | Oracle 27× (17). | — |
 | R-F39 | BMA023 Haunted Library : `ChooseCardToDraw` | salle | Oui (écartée des pioches) | RA:94-100, M:70-71 | Oui | `notInGameCards` (`CardInfoService.cs:19,184`). | — |
 | R-F40 | BMA024 Witch's Kitchen (activée) | salle | Oui | RA:177, RA:485-514 | Oui | Oracle 20× (7). | — |
-| R-F41 | BMA025 All-Seeing Eye (activée) : `LastSpellPlayed` → `CancelSpellAbility` | salle | Oui | RA:170, RA:208-251 | Oui (lecture) | **Jamais activée** dans les 24 traces. | Basse |
+| R-F41 | BMA025 All-Seeing Eye (activée) : `LastSpellPlayed` → `CancelSpellAbility` | salle | Oui | RA:170, RA:208-251 | Oui (lecture) | **Jamais activée** dans les 24 traces. | Conforme (Basse) |
 | R-F42 | BMA026 Liger's Den : `YouPlaySpellCard` → `DrawCards(1, Spell)` | salle | Oui | M:1743-1752 | Partiel | Voir R-E19. Oracle 15× (6). | — |
 | R-F43 | BMA027 Bottomless Pit (activée) : `DestroyRoom` + `KillHero` | salle | Oui | RA:171, RA:306-315 | Oui | Oracle 16× (12). | — |
 | R-F44 | BMA028 Boulder Ramp (activée) : `DestroyRoom(AnotherRoom)` + `DealHero(5)` | salle | Oui | RA:172, RA:318-331 | Partiel | Mort différée et salle déclenchée (R-D46). Oracle 3× (3). | voir R-D46 |
@@ -650,16 +650,16 @@ Stats comparées par script entre les 4 `src/frontend/assets/data/*/data.json` (
 
 | ID | Élément source (décompilé) | Type | Présent dans Godot ? | Fichier Godot | Équivalent fonctionnel ? | Écart / Commentaire | Priorité |
 |---|---|---|---|---|---|---|---|
-| R-F59 | KSA001 Kirax : `AddTreasuresToDungeon` (passif) | boss | Oui | BE:81-86 | Oui (lecture) | **Jamais tiré** dans les traces. | Basse |
+| R-F59 | KSA001 Kirax : `AddTreasuresToDungeon` (passif) | boss | Oui | BE:81-86 | Oui (lecture) | **Jamais tiré** dans les traces. | Conforme (Basse) |
 | R-F60 | KSA002 Hellcow : `RearrangeDungeon` | boss | Oui | RA:928-982 | Oui | Oracle 1× (1). | — |
 | R-F61 | KSA003 The Brothers Wise : `SpellInDeck` → `PutCardInHand`, facultatif | boss | Oui | RA:904-912, M:926 | Oui | Oracle 1× (1). | — |
 | R-F62 | KSA004 Kaw'nee : `HeroInScorekeep(Opponent, Dead, Ordinary)` → `PlaceAtScorekeep` | boss | Oui | RA:913-927, M:933-942 | Oui | Oracle 2× (2). | — |
-| R-F63 | KSA005 Scythe : `LastRoomDealDamage(3)` (passif) | boss | Oui | BE:471-476 | Oui (lecture) | **Jamais tiré**. | Basse |
+| R-F63 | KSA005 Scythe : `LastRoomDealDamage(3)` (passif) | boss | Oui | BE:471-476 | Oui (lecture) | **Jamais tiré**. | Conforme (Basse) |
 | R-F64 | KSA006 Jarin : `AddSoulsToBoss(1)` (passif) | boss | Oui | CD:224-231 | Oui | Oracle 3× (3). Voir R-F23. | — |
 | R-F65 | KSA007 Elicon : `MultiplyTreasuresDungeon(2)` | boss | Oui | RA:901-903 | Oui | Oracle 1× (1). | — |
 | R-F66 | KSA013 T.P.K. : `AddSoulsToBossIfTreasures(2, …)` | sort | Oui | SE:408-418, CD:233-251, ST:146-153 | Oui | Oracle 2× (2). | — |
 | R-F67 | KSA014 Demigod : `LuredByWounds` | héros | Oui | BE:199-201 | Oui | Présent dans 6 traces. | — |
-| R-F68 | KSA016 Monster Hunter : `HeroResistDamageRoomType(1, Monster)` | héros | Oui | BE:484-488 | Oui (lecture) | Passif non isolé dans les traces. | Basse |
+| R-F68 | KSA016 Monster Hunter : `HeroResistDamageRoomType(1, Monster)` | héros | Oui | BE:484-488 | Oui (lecture) | Passif non isolé dans les traces. | Conforme (Basse) |
 | R-F69 | KSA017 Trap Master : `ThisHeroEntersDungeon` → `DeactivateDungeonAbility` | héros | Oui | BE:341-350, BE:397-401, RA:141-142, M:2018 | Oui | Oracle 4× (4). | — |
 
 #### ToolsHeroKind et HiddenHeros
@@ -671,8 +671,8 @@ Stats comparées par script entre les 4 `src/frontend/assets/data/*/data.json` (
 | R-F72 | THK001-020 : 20 objets sans capacité | objet | Oui | M:100-130 | Oui | Révélés sans effet, comme `RevealItems`. | — |
 | R-F73 | BMH056-079 : 24 ordinaires, `ReplacesCardNumber` = BMA056-079 | héros | Oui | M:73-78, CD:264-272 | Oui | Stats identiques. | — |
 | R-F74 | BMH080 The Fool | héros | Oui | CD:272 | Oui | | — |
-| R-F75 | BMH081-096 : 16 épiques | héros | Oui | idem | Oui | 29 des 41 BMH présents dans les traces (les héros 4 joueurs manquent : aucune trace 4 joueurs avec ce paquet). | Basse |
-| R-F76 | BMH056-096 : `Description = ""` dans `HiddenHeros/data.json` ; nom et texte imprimés dans l'image | texte | Texte faux | `cards.json heroes[BMH056..096].description` | Non (texte seul) | Ce n'est pas un décalage entre cartes : Godot recopie le texte des BMA de même numéro (« Nick the Masher » pour BMH056), alors que l'image montre un autre personnage (« Everel the Healer » pour BMH056, « Brother Ben » pour BMH057, « Patrik Cogstopper » pour BMH096). Aucune règle touchée. Texte jamais affiché : `description_text` (`CardData.gd:52`) n'a aucun lecteur (vérifié au module 11, G-07). Les vrais noms ne sont que dans les images ou les `.wpk` non décodés. Renvoyé au module 11. | Basse |
+| R-F75 | BMH081-096 : 16 épiques | héros | Oui | idem | Oui | 29 des 41 BMH présents dans les traces (les héros 4 joueurs manquent : aucune trace 4 joueurs avec ce paquet). | Conforme (Basse) |
+| R-F76 | BMH056-096 : `Description = ""` dans `HiddenHeros/data.json` ; nom et texte imprimés dans l'image | texte | Texte faux | `cards.json heroes[BMH056..096].description` | Non (texte seul) | Ce n'est pas un décalage entre cartes : Godot recopie le texte des BMA de même numéro (« Nick the Masher » pour BMH056), alors que l'image montre un autre personnage (« Everel the Healer » pour BMH056, « Brother Ben » pour BMH057, « Patrik Cogstopper » pour BMH096). Aucune règle touchée. Texte jamais affiché : `description_text` (`CardData.gd:52`) n'a aucun lecteur (vérifié au module 11, G-07). Les vrais noms ne sont que dans les images ou les `.wpk` non décodés. Renvoyé au module 11. | Accepté (Basse) |
 
 ### Non vérifié (module 5)
 
@@ -726,7 +726,7 @@ Accord = l'IA Godot, interrogée sur l'état exact de l'oracle juste avant chaqu
 | IA-O01 | Construction : carte + emplacement (`FixedAI.SelectRoomToBuild`, `SelectPositionToBuild`) | décision | Oui | `ApkAI.gd:298-367` | Oui | **2854/2854** (137 base, 307 wide, 121 decks, 2289 graines 10-40). | — |
 | IA-O02 | Défausse d'ouverture (`FixedAI.DiscardCards`) | décision | Oui | `ApkAI.gd:382-414` | Oui | **336/336**. | — |
 | IA-O03 | Passer (rien à jouer) | décision | Oui | `AI.gd:49-117` | Oui | **1611/1611**. | — |
-| IA-O04 | Capacités éligibles (`AbilityCalculator.CheckXXX` non nul) et capacité tirée dans l'ensemble | décision | Oui | `ApkAI.gd:1297-1338`, `AI.gd:95-108` | Oui à 99,8 % | Éligibles : sorts 716/718, salles 859/859, « rien d'éligible » 51636/51648. Tirée dans l'ensemble : 1575/1577. Les écarts sont Giant Size (IA-H14), Motivation (IA-H17) et Princess in Peril (IA-H18). | Basse |
+| IA-O04 | Capacités éligibles (`AbilityCalculator.CheckXXX` non nul) et capacité tirée dans l'ensemble | décision | Oui | `ApkAI.gd:1297-1338`, `AI.gd:95-108` | Oui à 99,8 % | Éligibles : sorts 716/718, salles 859/859, « rien d'éligible » 51636/51648. Tirée dans l'ensemble : 1575/1577. Les écarts sont Giant Size (IA-H14), Motivation (IA-H17) et Princess in Peril (IA-H18). | Accepté (Basse) |
 | IA-O05 | Cibles déterministes des sorts et capacités activées (`SetSelectedTargets`) | décision | Oui | `ApkAI.gd` (`_chk_*`) | Oui | Sorts **590/590**, salles **734/734**. | — |
 | IA-O06 | Cibles déterministes des déclencheurs (`TriggerCalculator`) | décision | Oui | `ApkAI.gd:1405-1744` | Oui à 98 % | **993/1009**. Les 16 écarts sont Mimic Vault ×10 (IA-H68), Specter's Sanctum ×5 (IA-H69) et Zombie Prison ×1 (IA-H70). Tous dans les graines 10-40. | Corrigé (Moyenne) |
 | IA-O07 | Cibles tirées au hasard (`Shuffle()`, `NextBool`) | décision | Oui | `ApkAI.gd` (`shuf`) | Non comparable | Accord attendu ≈ 1/n : sorts 79/126, salles 67/125, déclencheurs 124/301. Le tirage est fidèle (`Random.Next(1,100)` = `randi_range(1,99)`), seule la graine diffère. | — |
@@ -745,18 +745,18 @@ Tables de valeurs comparées par script, chiffre par chiffre : les 9 tableaux et
 | IA-G05 | `FixedAI.SelectRoomToBuild` : valeur décroissante, puis dégâts décroissants (`FixedAI.cs:26-39`) | méthode | Oui | `ApkAI.gd:298-341` | Oui | Puis ordre de la main ; `null` si maximum à 0. | — |
 | IA-G06 | `FixedAI.SelectPositionToBuild` : valeur décroissante, puis dégâts du dessus croissants (`FixedAI.cs:42-55`) | méthode | Oui | `ApkAI.gd:343-366` | Oui | Puis indice C# croissant. | — |
 | IA-G07 | `FixedAI.SelectAbilityToUse`, `SelectTriggerTargets`, `SelectCommandTargets` | méthodes | — | — | — | Lot H. | — |
-| IA-G08 | `StatisticAI.SelectWhereToDrawFrom` : `NextDouble() <= p` (`StatisticAI.cs:16-23`) | méthode | Oui | `AI.gd:60-72` | Oui | Seul le flux aléatoire diffère. Jamais exercé : BMA023 Haunted Library n'est jamais distribuée. | Basse |
+| IA-G08 | `StatisticAI.SelectWhereToDrawFrom` : `NextDouble() <= p` (`StatisticAI.cs:16-23`) | méthode | Oui | `AI.gd:60-72` | Oui | Seul le flux aléatoire diffère. Jamais exercé : BMA023 Haunted Library n'est jamais distribuée. | Conforme (Basse) |
 | IA-G09 | `StatisticAI.DiscardCards`, `SelectRoomToBuild`, `SelectPositionToBuild` (`StatisticAI.cs:25-56`) | méthodes | N/A | — | — | Inatteignables : redéfinies par `FixedAI`. | — |
 | IA-G10 | `StatisticAI.RandomSelection` (`StatisticAI.cs:101-141`) | méthode | N/A | — | — | Ne sert qu'à IA-G09 et aux capacités (IA-H01). | — |
 | IA-G11 | `StatisticAI.backup = new RandomAI()` (`StatisticAI.cs:14`) | champ | N/A | — | — | Jamais lu : il n'y a pas de repli vers `RandomAI`. | — |
-| IA-G12 | `RandomAI` (`RandomAI.cs:12-83`) | classe | Non (vérifié absent) | — | — | Atteinte seulement par l'autoplay de debug (`HumanPlayerInteraction.cs:26-41`, `DEBUG_ELEM`) et par `GameFlowTestService`. | Basse |
+| IA-G12 | `RandomAI` (`RandomAI.cs:12-83`) | classe | Non (vérifié absent) | — | — | Atteinte seulement par l'autoplay de debug (`HumanPlayerInteraction.cs:26-41`, `DEBUG_ELEM`) et par `GameFlowTestService`. | Accepté (Basse) |
 | IA-G13 | `NullAI` | classe | N/A | — | — | Jamais instanciée. | — |
 | IA-G14 | `DeckType` (`AIPlayerInteraction.cs:125-139`) | enum | Oui | `AI.gd:60-72`, `Match.gd:1240` | Oui | | — |
 | IA-G15 | `AIHelper.GetGamePhase` : Setup, Early, Mid, Late (`AIHelper.cs:68-83`) | méthode | Oui | `ApkAI.gd:62-66` | Oui | Mêmes bornes de tour. | — |
 | IA-G16 | `AIHelper.GetBuildableRooms` / `GetBuildablePositions`, `Boss.CanBuildRoom` | méthodes | Oui | `Match.gd:256-296`, `BossEngine.gd:119-171` | Oui | | — |
 | IA-G17 | `AIHelper.GetDungeonDamage`, double après BMA017 (`AIHelper.cs:95-117`) | méthode | Oui | `ApkAI.gd:210-229` | Oui | | — |
 | IA-G18 | `AIHelper.GetTotalTreasuresForHero` / `OfType`, `Boss.GetDungeonTreasures` | méthodes | Oui | `ApkAI.gd:195-208`, `BossEngine.gd:61-95` | Oui | Voir R-F15 pour le cas d'une salle gelée. | — |
-| IA-G19 | `StatisticsCalculator.CalculateHandDiscardStatistics` (`StatisticsCalculator.cs:30-42`) | méthode | Oui | `ApkAI.gd:382-414` | Partiel | `list.Max()` planterait sur une main sans salle ; Godot prend 0. Inatteignable. | Basse |
+| IA-G19 | `StatisticsCalculator.CalculateHandDiscardStatistics` (`StatisticsCalculator.cs:30-42`) | méthode | Oui | `ApkAI.gd:382-414` | Partiel | `list.Max()` planterait sur une main sans salle ; Godot prend 0. Inatteignable. | Accepté (Basse) |
 | IA-G20 | `CalculateRoomsStatistics` (`StatisticsCalculator.cs:44-53,118-129`) | méthode | Oui | `ApkAI.gd:298-341` | Oui | | — |
 | IA-G21 | `CalculateSlotStatistics` (`StatisticsCalculator.cs:55-68`) | méthode | Oui | `ApkAI.gd:343-366` | Oui | | — |
 | IA-G22 | `NormalizeValues` (`StatisticsCalculator.cs:131-163`) | méthode | Oui | `ApkAI.gd:271-290` | Oui | | — |
@@ -764,7 +764,7 @@ Tables de valeurs comparées par script, chiffre par chiffre : les 9 tableaux et
 | IA-G24 | `RoomCalculator` : 9 tableaux de valeurs (`RoomCalculator.cs:55-64`) | données | Oui | `ApkAI.gd:16-24` | Oui | Identiques (script). | — |
 | IA-G25 | `RoomCalculator` : 9 scalaires (`RoomCalculator.cs:65-73`) | données | Oui | `ApkAI.gd:25-32` | Oui | Identiques (script). | — |
 | IA-G26 | `RoomCalculator.CalculateValue` (`RoomCalculator.cs:77-123`) | méthode | Oui | `ApkAI.gd:91-97` | Oui | | — |
-| IA-G27 | `CalculateRoomValue` (`RoomCalculator.cs:138-149`) | méthode | Oui | `ApkAI.gd:83-89` | Oui | Godot borne les indices à 0-9 ; l'APK planterait au-delà. Inatteignable. | Basse |
+| IA-G27 | `CalculateRoomValue` (`RoomCalculator.cs:138-149`) | méthode | Oui | `ApkAI.gd:83-89` | Oui | Godot borne les indices à 0-9 ; l'APK planterait au-delà. Inatteignable. | Accepté (Basse) |
 | IA-G28 | `CalculateBuildOverPenalty` (`RoomCalculator.cs:125-136,243-261`) | méthode | Oui | `ApkAI.gd:141-157` | Oui | | — |
 | IA-G29 | Combo Construction Zone (`RoomCalculator.cs:151-166,210-231`) | méthodes | Oui | `ApkAI.gd:102-107,116-122` | Oui | `SetupConstrucionZoneComboAdvancedRoom` renvoie 0 (bogue APK), correctement absente. | — |
 | IA-G30 | `SetupDoNotPlaceDizzygasFirst` (`RoomCalculator.cs:233-241`) | méthode | Oui | `ApkAI.gd:107-108` | Oui | | — |
@@ -781,7 +781,7 @@ Tables de valeurs comparées par script, chiffre par chiffre : les 9 tableaux et
 | IA-G41 | `AIRoomFactorTypes` | enum | Oui | `ApkAI.gd:15` | Oui | Même ordre. | — |
 | IA-G42 | `AIRoomInfo` + `BaseDeck/ai_info.json` (31 salles) | classe + asset | Oui | `ApkAI.gd:47-56`, `src/frontend/assets/data/BaseDeck/ai_info.json` | Oui | Facteurs identiques (script). | — |
 | IA-G43 | `AICardDeckInfo` + `ai_info.json` PlayerChoice / HiddenHeros | classe + assets | Oui | `src/frontend/assets/data/{PlayerChoice,HiddenHeros}/ai_info.json` | Oui | Ces paquets n'ont aucune salle. | — |
-| IA-G44 | `CardInfoService.GetAIRoomInfo` : exception pour une salle sans fiche IA (`CardInfoService.cs:129-158`) | méthode | Oui | `ApkAI.gd:83-89` | Différent | Godot met des facteurs vides (salles THK et wiki). Hors APK. | Basse |
+| IA-G44 | `CardInfoService.GetAIRoomInfo` : exception pour une salle sans fiche IA (`CardInfoService.cs:129-158`) | méthode | Oui | `ApkAI.gd:83-89` | Différent | Godot met des facteurs vides (salles THK et wiki). Hors APK. | Accepté (Basse) |
 | IA-G45 | Salles et héros de `BaseDeck/data.json` vus par l'IA | asset | Oui | `src/frontend/godot/data/cards.json` | Oui | 31/31 salles et 41/41 héros identiques (script). | — |
 | IA-G46 | `AIPlayerInteraction.BuildRoom` : boucle jusqu'à `MaxBuildRoomLimit` (`AIPlayerInteraction.cs:165-186`) | méthode | Oui | `AI.gd:111-116`, `Match.gd:556-570` | Oui | | — |
 | IA-G47 | `InternalDoPlayerActions` BuildPhase_a : capacité **et** construction choisies sur le même état, exécutées ensuite (`AIPlayerInteraction.cs:86-101`) | méthode | Oui | `AI.gd:95-116` | Partiel | Vérifié : Godot joue la capacité, puis choisit la salle à construire à un appel suivant, sur l'état d'après la capacité. Si le sort change la main, le donjon ou la ville, la salle choisie peut différer. L'oracle enregistre la décision d'avant la capacité, donc ce cas ne se mesure pas. | Moyenne |
@@ -809,7 +809,7 @@ Tables de valeurs comparées par script, chiffre par chiffre : les 9 tableaux et
 | IA-H11 | `CheckBMA044` Exhaustion | méthode | Oui | `ApkAI.gd:778-788` | Oui | | — |
 | IA-H12 | `CheckBMA045` Fear | méthode | Oui | `ApkAI.gd:790-806` | Oui | | — |
 | IA-H13 | `CheckBMA046` Freeze + `CalculateMostDamagingSlot` | méthode | Oui | `ApkAI.gd:808-837` | Oui | | — |
-| IA-H14 | `CheckBMA047` Giant Size : la branche « héros actif » réutilise la liste des salles Piège (`AbilityCalculator.cs:844-847`) | méthode | Oui | `ApkAI.gd:657-676` | Partiel | Bogue APK non reproduit par défaut (le sort viserait un type de salle interdit) ; option de mesure `--ai-copy-trap-bug`. Explique les écarts d'éligibilité de Giant Size (IA-O04). | Basse |
+| IA-H14 | `CheckBMA047` Giant Size : la branche « héros actif » réutilise la liste des salles Piège (`AbilityCalculator.cs:844-847`) | méthode | Oui | `ApkAI.gd:657-676` | Partiel | Bogue APK non reproduit par défaut (le sort viserait un type de salle interdit) ; option de mesure `--ai-copy-trap-bug`. Explique les écarts d'éligibilité de Giant Size (IA-O04). | Accepté (Basse) |
 | IA-H15 | `CheckBMA048` Jeopardy | méthode | Oui | `ApkAI.gd:839-846` | Oui | | — |
 | IA-H16 | `CheckBMA049` Kobold Strike | méthode | Oui | `ApkAI.gd:848-857` | Oui | | — |
 | IA-H17 | `CheckBMA050` Motivation : `GetBuildableRooms().Count() < 2` via `Boss.CanBuildRoom`, sans limite par tour | méthode | Oui | `ApkAI.gd:859-869`, `Match.gd:273` | Partiel | Godot compte les coups `buildRoom` légaux, qui disparaissent après la première construction du tour. L'APK peut jouer Motivation après sa construction (s30-p4 seq 306). | Moyenne |
@@ -826,13 +826,13 @@ Tables de valeurs comparées par script, chiffre par chiffre : les 9 tableaux et
 | IA-H28 | `CheckBMA027` Bottomless Pit | méthode | Oui | `ApkAI.gd:1045-1052` | Oui | | — |
 | IA-H29 | `CheckBMA028` Boulder Ramp + `HasHeroPassedSlot` | méthode | Oui | `ApkAI.gd:1054-1089` | Oui | | — |
 | IA-H30 | `CheckBMA030` Jackpot Stash | méthode | Oui | `ApkAI.gd:1103-1150` | Oui | | — |
-| IA-H31 | `CheckBMA032` Crushinator | méthode | Oui | `ApkAI.gd:1233-1278` | Oui | La condition supplémentaire `not big_game` ne joue qu'à 5-6 joueurs (wiki). | Basse |
+| IA-H31 | `CheckBMA032` Crushinator | méthode | Oui | `ApkAI.gd:1233-1278` | Oui | La condition supplémentaire `not big_game` ne joue qu'à 5-6 joueurs (wiki). | Conforme (Basse) |
 | IA-H32 | `CheckBMA038` Torture Chamber | méthode | Oui | `ApkAI.gd:1152-1169` | Oui | | — |
 | IA-H33 | `CheckBMA039` Zombie Prison | méthode | Oui | `ApkAI.gd:1171-1191` | Oui | Choix de cible : IA-H70. | — |
 | IA-H34 | `AIHelper` : dégâts du donjon, héros attiré, qui attire | méthodes | Oui | `ApkAI.gd:195-625` | Oui | | — |
 | IA-H35 | `CalculateSpellValue`, `CalculateHeroValuetoSteal` | méthodes | Oui | `ApkAI.gd:1680-1698` | Oui | | — |
 | IA-H36 | `AbilitySelectedInformation` (cibles préréglées) | classe | Oui | `AI.gd:28,53-60`, `ApkAI.gd:1746-1750` | Oui | | — |
-| IA-H37 | `TriggerCalculator` : cache de cibles périmées (`TriggerCalculator.cs:22-27,143-149`) | classe | Oui | `ApkAI.gd:~1405` | Différent | Bogue APK non reproduit en jeu : avec des cibles périmées, l'APK abandonne la capacité (Mimic Vault, 2e Open Grave). L'IA Godot joue donc un peu mieux. Seul le harnais l'émule. | Basse |
+| IA-H37 | `TriggerCalculator` : cache de cibles périmées (`TriggerCalculator.cs:22-27,143-149`) | classe | Oui | `ApkAI.gd:~1405` | Différent | Bogue APK non reproduit en jeu : avec des cibles périmées, l'APK abandonne la capacité (Mimic Vault, 2e Open Grave). L'IA Godot joue donc un peu mieux. Seul le harnais l'émule. | Accepté (Basse) |
 | IA-H38 | `CheckBMA001` Draculord | méthode | Oui | `ApkAI.gd:1546-1569` | Oui | | — |
 | IA-H39 | `CheckBMA002` Xyzax | méthode | Oui | `ApkAI.gd:1571-1591` | Oui | | — |
 | IA-H40 | `CheckBMA003` / `CheckBMA007` | méthodes | Oui | `ApkAI.gd:1593-1597` | Oui | | — |
@@ -842,7 +842,7 @@ Tables de valeurs comparées par script, chiffre par chiffre : les 9 tableaux et
 | IA-H44 | `CheckBMA008` Gorgona | méthode | Oui | `ApkAI.gd:1634-1638` | Oui | | — |
 | IA-H45 | `CheckBMA010` Open Grave | méthode | Oui | `ApkAI.gd:1640-1646` | Oui | | — |
 | IA-H46 | `CheckBMA011` Specter's Sanctum | méthode | Oui | `ApkAI.gd:1648-1656` | Partiel | Logique conforme ; l'état évalué diffère (IA-H69). | voir IA-H69 |
-| IA-H47 | `CheckBMA012` Succubus Spa : renvoie le joueur lui-même pour `BossOpponent` | méthode | Oui | `ApkAI.gd:1648-1656` | Partiel | Bogue APK non reproduit : Godot prend l'adversaire désigné. | Basse |
+| IA-H47 | `CheckBMA012` Succubus Spa : renvoie le joueur lui-même pour `BossOpponent` | méthode | Oui | `ApkAI.gd:1648-1656` | Partiel | Bogue APK non reproduit : Godot prend l'adversaire désigné. | Accepté (Basse) |
 | IA-H48 | `CheckBMA014` Vampire Bordello | méthode | Oui | `ApkAI.gd:1658-1662` | Oui | | — |
 | IA-H49 | `CheckBMA036` Mimic Vault | méthode | Oui | `ApkAI.gd:1664-1672` | Partiel | Logique conforme ; l'état évalué diffère (IA-H68). | voir IA-H68 |
 | IA-H50 | `CheckBMA037` Monstrous Monument | méthode | Oui | `ApkAI.gd:1674-1678` | Oui | | — |
@@ -851,22 +851,22 @@ Tables de valeurs comparées par script, chiffre par chiffre : les 9 tableaux et
 | IA-H53 | `CheclKSA004` Kaw'nee | méthode | Oui | `ApkAI.gd:1695-1698` | Oui | | — |
 | IA-H54 | `CheckBMA033` Centipede Tunnel | méthode | N/A | — | — | Carte jamais distribuée. | — |
 | IA-H55 | Déclencheurs à cible unique (BMA017, 019, 021, 031, 034, KSA001, 005, 006, 007) | méthodes | Oui | `ApkAI.gd:1420-1440` | Oui | Résolus automatiquement. | — |
-| IA-H56 | `TriggerCalculator.CalculateCommandTargets` / `CheckSpellInHandCommand` | méthode | Non vérifié | — | — | Aucun équivalent identifié. | Basse |
+| IA-H56 | `TriggerCalculator.CalculateCommandTargets` / `CheckSpellInHandCommand` | méthode | Non vérifié | — | — | Aucun équivalent identifié. | Accepté (Basse) |
 | IA-H57 | `CalculateTriggerTargets` : un fournisseur avec assez peu de cibles est pris tel quel | méthode | Oui | `ApkAI.gd:~1405` | Oui | | — |
 | IA-H58 | `InternalDoPlayerActions` Setup_b → `BuildRoom` | méthode | Oui | `Match.gd:1141-1160` | Oui | | — |
 | IA-H59 | `InternalDoPlayerActions` BuildPhase_a : `UseAbility()` pour **chaque** IA à chaque `NextStep`, construction seulement pour le joueur actif (`AIPlayerInteraction.cs:86-101`, appelé pour toutes les IA par `GamePlayBaseScene.cs:864-871`) | méthode | Oui | `Match.gd:263-267`, `AI.gd:95-108`, `BoardUI.gd:884-902` | **Différent** | Vérifié : Godot a une « politique IA » qui ne donne aucun coup à une IA hors de son tour de construction, sauf dans la fenêtre d'après la dernière construction. Mesuré sur les 24 traces de référence : 1551 des 2177 appels `UseAbility` de l'APK en BuildPhase_a viennent d'une IA hors de son tour, et 69 capacités sont jouées ainsi (Dracolich Lair 25, Jackpot Stash 13, Princess in Peril 10, Jeopardy 6…). Dans Godot, les adversaires jouent donc moins de sorts et de capacités pendant le tour des autres, et plus tard. L'oracle ne le voit pas : il rejoue les coups APK. | **Haute** |
 | IA-H60 | `InternalDoPlayerActions` AdventurePhase_b / _c : `UseAbility()` pour toutes les IA | méthode | Oui | `BoardUI.gd:889`, `Match.gd:343-420` | Partiel | Une IA non active n'agit que pendant les pauses après dégâts et avant la sortie. Elle n'a pas la fenêtre d'avant l'entrée du héros (par exemple pour Trepidation). | Moyenne |
-| IA-H61 | `InternalDoPlayerActions` ExtraBuildPhase → `BuildRoom` | méthode | Oui | `Match.gd:1421-1449` | Non vérifié | Lu en surface. | Basse |
+| IA-H61 | `InternalDoPlayerActions` ExtraBuildPhase → `BuildRoom` | méthode | Oui | `Match.gd:1421-1449` | Non vérifié | Lu en surface. | Accepté (Basse) |
 | IA-H62 | Réponse de l'IA en Spell Battle (`UseAbility` puis `SetSpellBattleReady`) | méthode | Oui | `AI.gd:41-47`, `Match.gd:1678-1700` | Oui | | — |
-| IA-H63 | `InternalResolveTarget` : exception ou `null` → abandon | méthode | Oui | `AI.gd:63-71` | Partiel | Godot n'abandonne que si `choose` rend −1 ; pas de chemin d'exception (IA-H37). | Basse |
-| IA-H64 | `InvokeCallback` / `SimulateHumanDelays` (1-4 s, test en ligne seulement) | méthode | Oui | `BoardUI.gd:891-893` | Différent | L'IA APK hors ligne est immédiate, rythmée par les animations ; Godot attend 0,5 s (construction) ou 0,2 s (aventure). Cosmétique, renvoi au module 7. | Basse |
+| IA-H63 | `InternalResolveTarget` : exception ou `null` → abandon | méthode | Oui | `AI.gd:63-71` | Partiel | Godot n'abandonne que si `choose` rend −1 ; pas de chemin d'exception (IA-H37). | Accepté (Basse) |
+| IA-H64 | `InvokeCallback` / `SimulateHumanDelays` (1-4 s, test en ligne seulement) | méthode | Oui | `BoardUI.gd:891-893` | Différent | L'IA APK hors ligne est immédiate, rythmée par les animations ; Godot attend 0,5 s (construction) ou 0,2 s (aventure). Cosmétique, renvoi au module 7. | Accepté (Basse) |
 | IA-H65 | `HumanPlayerInteraction.AutoPlayMode` + `RandomAI` | classe | N/A | — | — | Debug seulement (`CreateTestButtons` jamais appelé) : pas d'autoplay à l'expiration du minuteur dans l'APK, rien à porter. | — |
-| IA-H66 | `DoNextStepAndRefresh` : IA dans l'ordre `InGamePlayersPriorized` | méthode | Oui | `BoardUI.gd:884-902` | Partiel | Godot joue un coup par tick, dans l'ordre d'insertion des joueurs (le même en pratique). | Basse |
-| IA-H67 | Exécution différée des capacités (`EnqueueAbilityTransaction` puis `NextStep`) | méthode | Oui | `Match.gd` | Partiel | Même cause que IA-G47 et R-D67 ; seul le harnais reproduit la course (`_held`). | Basse |
+| IA-H66 | `DoNextStepAndRefresh` : IA dans l'ordre `InGamePlayersPriorized` | méthode | Oui | `BoardUI.gd:884-902` | Partiel | Godot joue un coup par tick, dans l'ordre d'insertion des joueurs (le même en pratique). | Accepté (Basse) |
+| IA-H67 | Exécution différée des capacités (`EnqueueAbilityTransaction` puis `NextStep`) | méthode | Oui | `Match.gd` | Partiel | Même cause que IA-G47 et R-D67 ; seul le harnais reproduit la course (`_held`). | Accepté (Basse) |
 | IA-H68 | Écart Mimic Vault, 10 cas (`TriggerCalculator.cs:290-303`) | cause | Oui | `Match.gd:1492`, `ApkAI.gd:1664` | Partiel | Cause démontrée : le C# fige la cible dans `EnqueueAbilityTransaction` (`GameBoard.cs:1329-1330`) avant de lever `PendingToBeBuilt` (`GameBoard.cs:950-952`). La salle qui vient d'être révélée ne compte donc pas encore dans les dégâts du donjon. Godot a déjà tout retourné (`Match.gd:1492`). s13-p4 seq 1352 : dégâts APK 7, Godot 8, donc Godot accepte un héros à 8 PV que l'APK écarte. | Corrigé (Moyenne) |
 | IA-H69 | Écart Specter's Sanctum, 5 cas à 4 joueurs | cause | Oui | `Match.gd:1477-1500`, `ApkAI.gd:1648` | Partiel | Cause démontrée : l'APK décide toutes les cibles à la révélation, avant tout effet ; Godot applique chaque déclencheur avant de calculer le suivant, et ordonne la file par XP au lieu de l'ordre des sièges (`GameBoard.cs:930`). s10-p4 seq 13 : Dark Laboratory de P1 a déjà changé le nombre de sorts en main quand Godot choisit. | Corrigé (Moyenne) |
 | IA-H70 | Écart Zombie Prison, 1 cas (s21-p4) | cause | Oui | `RoomAbilities.gd:439-446`, `ApkAI.gd:1171,1759-1795` | Non vérifié | Godot retombe sur l'option 0, alors que `_chk_039` donnerait une autre cible. Hypothèse : artefact de mesure (cible préréglée non retrouvée). | Moyenne |
-| IA-H71 | Écart d'éligibilité Giant Size | cause | Oui | `ApkAI.gd:670-676` | Partiel | = IA-H14. | Basse |
+| IA-H71 | Écart d'éligibilité Giant Size | cause | Oui | `ApkAI.gd:670-676` | Partiel | = IA-H14. | Accepté (Basse) |
 | IA-H72 | Écart Motivation (s30-p4) | cause | Oui | `ApkAI.gd:859-869` | Partiel | = IA-H17. | voir IA-H17 |
 | IA-H73 | Écart Princess in Peril (s26-p4) | cause | Non vérifié | `ApkAI.gd:871-895` | Non vérifié | = IA-H18 ; cause non établie sans exécution. | voir IA-H18 |
 | IA-H74 | `RevealAllRoomCards` : ordre et moment de résolution des cibles (`GameBoard.cs:928-968,1317-1332`) | méthode | Oui | `Match.gd:1477-1500` | Différent | Cause commune de IA-H68, IA-H69 et sans doute IA-H73 : sièges contre XP pour l'ordre, et cibles figées à la révélation contre cibles calculées après les effets. Rejoint R-D19 et R-D35 du module 5. | Corrigé (Moyenne) |
@@ -2029,3 +2029,61 @@ Validé par `python tools/run_godot_tests.py` (14/14 ; un échec isolé de `soak
 | P-C14 | Partiel | La salle en attente a la taille de l'APK (175x244) et son ombre. Non porté : le vol vers l'emplacement, qui ne se voit qu'avec deux salles en attente. |
 | P-C07 | Corrigé | Parmi les cartes de la main sous le pointeur, celle dont le centre est le plus proche gagne. Essayé par événements simulés, pas à la souris. |
 | P-A45, P-B12 | Corrigé | « AGAINST » aussi quand le sort vise une salle, un héros ou un sort de la pile d'un adversaire. Sans ligne AGAINST : les effets sans cible nommée. |
+
+## Lot 6a : règles et IA, écarts Basse (2026-10-27)
+
+Validé par `python tools/run_godot_tests.py` (14/14), oracle APK 6/6, 12/12 et 6/6, `--ai-agreement` usableSet 2050/2050 avec 0 mutation de l'état Godot, stress graines 10-40 à 90/93 (échecs connus s16-p4, s20-p2, s28-p3).
+
+| ID | État | Changement |
+|---|---|---|
+| R-O04 | Accepté | Trois échecs connus, causes documentées, non engine. |
+| R-D03 | Accepté | Borne à 100 itérations, indiscernable. |
+| R-D14 | Conforme | Déjà conforme : `CardDB.discard_add` trie à l'ajout (X-M22). |
+| R-D15 | Accepté | Mélange non reproductible par conception. |
+| R-D18 | Accepté | Masqué par l'oracle, effet seulement si la pioche s'épuise entre deux joueurs. |
+| R-D19 | Accepté | Même cause que R-D18. |
+| R-D49 | Accepté | Fenêtre de sorts non ouverte sur emplacement désactivé : cosmétique. |
+| R-D53 | Accepté | Drapeau collant, écart seulement si les blessures baissent après élimination. |
+| R-D54 | Accepté | Choix de conception (siège donné à l'IA). |
+| R-D68 | Accepté | Ne change qu'un remélange pendant la bataille ; risque pour s16-p4, coût supérieur au gain. |
+| R-D71 | Conforme | Conforme, remise à zéro équivalente. |
+| R-D81 | Accepté | Tutoriel, renvoyé au module 8. |
+| R-D82 | Corrigé | Code mort supprimé : `calculate_lure`, `advance_hero_in_dungeon`, signal `hero_adventured` (GameManager) et `_turn_order` (Match). |
+| R-D90 | Accepté | Invisible sauf pioche de salles vide ; cause de s16-p4, laissé tel quel pour garder 90/93. |
+| R-E02 | Conforme | Conforme. |
+| R-E03 | Conforme | Conforme. |
+| R-E04 | Accepté | Inutilisé dans les cartes APK. |
+| R-E05 | Conforme | Conforme. |
+| R-E10 | Accepté | Couvert indirectement par la trace 5C. |
+| R-E15 | Accepté | Inutilisé dans les `data.json` APK. |
+| R-E16 | Accepté | Couvert indirectement par la trace 5C. |
+| R-E20 | Accepté | Inutilisé. |
+| R-E22 | Accepté | Inutilisé. |
+| R-E25 | Accepté | Inutilisé dans les `data.json` APK. |
+| R-E28 | Conforme | Conforme, 0 écart. |
+| R-F22 | Conforme | Conforme (lecture + golden). |
+| R-F26 | Corrigé | Open Grave ne consomme `usedThisTurn` que s'il y a une salle en défausse (`Ability.CheckConditions` : cible minimale). Golden `_t_died_once_per_turn_needs_target`. |
+| R-F30 | Corrigé | Vampire Bordello ne consomme `usedThisTurn` que s'il y a une blessure à soigner (même règle que R-F26). |
+| R-F41 | Conforme | Conforme (lecture). |
+| R-F59 | Conforme | Conforme (lecture). |
+| R-F63 | Conforme | Conforme (lecture). |
+| R-F68 | Conforme | Conforme (lecture). |
+| R-F75 | Conforme | Conforme. |
+| R-F76 | Accepté | Texte seul, jamais affiché ; renvoyé au module 11. |
+| IA-O04 | Accepté | 99,8 %, écarts expliqués (IA-H14, IA-H17 corrigé, IA-H18). |
+| IA-G08 | Conforme | Conforme, seul le flux aléatoire diffère. |
+| IA-G12 | Accepté | Atteinte seulement par l'autoplay de debug. |
+| IA-G19 | Accepté | Inatteignable. |
+| IA-G27 | Accepté | Inatteignable. |
+| IA-G44 | Accepté | Salles hors APK, facteurs vides. |
+| IA-H14 | Accepté | Bogue APK volontairement non reproduit. |
+| IA-H31 | Conforme | Conforme. |
+| IA-H37 | Accepté | Bogue APK volontairement non reproduit en jeu. |
+| IA-H47 | Accepté | Bogue APK volontairement non reproduit. |
+| IA-H56 | Accepté | Aucun équivalent, rien d'observable. |
+| IA-H61 | Accepté | Lu en surface, aucun écart observé à l'oracle. |
+| IA-H63 | Accepté | Pas de chemin d'exception, voir IA-H37. |
+| IA-H64 | Accepté | Cosmétique, module 7. |
+| IA-H66 | Accepté | Même ordre en pratique. |
+| IA-H67 | Accepté | Seul le harnais reproduit la course. |
+| IA-H71 | Accepté | = IA-H14. |
