@@ -631,20 +631,11 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 			var act_room = BossEngine.active_room((p["dungeon"] as Array)[ri]) if ri >= 0 and ri < (p["dungeon"] as Array).size() else null
 			var act_rid := str((act_room as Dictionary).get("id", "")) if act_room != null else ""
 			if act_rid != "BMA025":
-				# GameBoard.PlayRoomAbility -> EnqueueAbilityTransaction : IsActivatedByUser ouvre une Spell Battle (OnAbilityApplyRequest). La capacite se resout avec la pile
-				# (_resolve_pending_stack), apres la reponse de chaque autre joueur ; OncePerTurn (IsEffectApplied) n'est pose qu'a l'execution.
-				# All-Seeing Eye (CancelSpellAbility) se place DEVANT le sort qu'elle annule (OnAbilityApplyRequest) : elle reste immediate, voir plus bas.
-				var entry := RoomAbilities.make_entry(G, pid, ri, int(move["args"][1]) if move["args"].size() > 1 else -1)
-				var astack: Array = G.get("stack", [])
-				G["stack"] = astack
-				if astack.is_empty():
-					G["stackActivePlayer"] = active_player()
-				G["stackReturnPlayer"] = pid
+				# GameBoard.PlayRoomAbility -> EnqueueAbilityTransaction : IsActivatedByUser ouvre une Spell Battle (OnAbilityApplyRequest). Les cibles se resolvent d'abord
+				# (AbilityTransaction.ResolveTargets, l'activateur choisit), puis la capacite attend la reponse de chaque autre joueur et se resout avec la pile ;
+				# OncePerTurn (IsEffectApplied) n'est pose qu'a l'execution. All-Seeing Eye (CancelSpellAbility) se place DEVANT le sort qu'elle annule : immediate, plus bas.
 				_log("Joueur %d active la capacité de %s." % [pid, str((act_room as Dictionary).get("name", "?"))])
-				astack.insert(_stack_insert_index(entry, -1), entry)
-				if G.has("buildWindow"):
-					G["buildWindow"] = _window_auto_passed() # une capacite relance la Spell Battle : tout le monde doit re-passer
-				_reopen_stack_window(pid)
+				_advance_targeting(RoomAbilities.make_entry(G, pid, ri, int(move["args"][1]) if move["args"].size() > 1 else -1))
 				return true
 			var err = RoomAbilities.activate_room_ability(G, pid, ri, int(move["args"][1]) if move["args"].size() > 1 else -1)
 			if err != null:
@@ -800,6 +791,9 @@ func _all_have_boss() -> bool:
 
 ## Resout le pendingChoice courant, puis reprend le flux (miroir de la resolution JS).
 func _resolve_choice(pid: int, index: int) -> void:
+	if bool((G.get("pendingChoice", {}) as Dictionary).get("targeting", false)) and not _replay:
+		_targeting_pick(index)
+		return
 	TnlAbilities.destroy_actor = pid # Eclipse : une destruction resolue par un choix est celle de celui qui choisit
 	_resolve_choice_body(pid, index)
 	TnlAbilities.destroy_actor = -1
@@ -1017,6 +1011,8 @@ func _resolve_choice_body(pid: int, index: int) -> void:
 	if not queue.is_empty():
 		G["pendingChoice"] = queue.pop_front()
 	G["choiceQueue"] = queue
+	if _replay:
+		return # rejeu d'un choix deja fait (cibles d'une capacite en file) : ni reprise de phase ni IA
 	state_changed.emit()
 	var rstack: Array = G.get("stack", [])
 	if (G.get("pendingChoice", {}) as Dictionary).is_empty() and not rstack.is_empty() and bool((rstack[0] as Dictionary).get("resolving", false)):
@@ -1802,7 +1798,7 @@ func _resolve_pending_stack() -> void:
 			else:
 				_log("La capacité de %s se résout." % str(acard.get("name", "?")))
 				TnlAbilities.destroy_actor = int(effect.get("playerId", 0))
-				var aerr = RoomAbilities.run_queued(G, effect)
+				var aerr = _run_ability_entry(effect)
 				TnlAbilities.destroy_actor = -1
 				if aerr != null:
 					_log("La capacité de %s est annulée (%s)." % [str(acard.get("name", "?")), str(aerr)])
@@ -1864,6 +1860,131 @@ func _resolve_pending_stack() -> void:
 	G["stack"] = []
 	RoomAbilities.stack_return_control(G)
 	_finish_hero_if_dead()
+
+# --- capacites de salle en file (R-D67) : cibles choisies a la mise en file, execution avec la pile ---
+
+## Rejeu de choix deja faits (cibles memorisees) : _resolve_choice_body ne reprend alors ni la phase ni l'IA.
+var _replay := false
+
+## Signature d'une option de choix, stable quand les indices glissent (cartes par _uid ou par id / nom).
+static func _opt_sig(v) -> String:
+	if v is Dictionary:
+		var d: Dictionary = v
+		if d.has("_uid"):
+			return "U%s" % str(d["_uid"])
+		if d.has("_oid"):
+			return "O%s" % str(d["_oid"]) # instance de l'oracle (harnais de parite)
+		if d.has("id") and d.has("name"):
+			return "C%s/%s" % [str(d["id"]), str(d["name"])]
+		var keys: Array = d.keys()
+		keys.sort()
+		var out := "{"
+		for k in keys:
+			if str(k) in ["handIndex", "handIndices", "pileIndex", "index", "key"]:
+				continue
+			out += "%s:%s," % [str(k), _opt_sig(d[k])]
+		return out + "}"
+	if v is Array:
+		var out2 := "["
+		for x in (v as Array):
+			out2 += _opt_sig(x) + ","
+		return out2 + "]"
+	return str(v)
+
+static func _find_opt(opts: Array, sig: String) -> int:
+	for i in opts.size():
+		if _opt_sig(opts[i]) == sig:
+			return i
+	return -1
+
+## Choix de consequence (une salle decouverte apres une destruction, CRL, hors APK) : il reste a l'execution, l'APK n'a pas de regle equivalente.
+const DEFERRED_CHOICES := ["uncover-room", "uncover-own-room"]
+
+## Applique les cibles memorisees de `e` a `mt` : le moteur `mt` execute la capacite puis rejoue chaque choix. Renvoie null ou la raison de l'echec.
+func _exec_entry(mt: Match, e: Dictionary, queued: bool) -> Variant:
+	var err = RoomAbilities.run_queued(mt.G, e) if queued else RoomAbilities.start_queued(mt.G, e)
+	if err != null:
+		return err
+	mt._replay = true
+	var gone := false
+	for pick in (e.get("picks", []) as Array):
+		var pc: Dictionary = mt.G.get("pendingChoice", {})
+		if pc.is_empty() or DEFERRED_CHOICES.has(str(pc.get("type", ""))):
+			break
+		var at := _find_opt(pc.get("options", []) as Array, str(pick))
+		if at < 0:
+			gone = true # la cible a quitte le jeu : RemovePendingTransactionsByTarget annule la transaction
+			break
+		mt._resolve_choice(int(pc.get("playerId", e.get("playerId", 0))), at)
+	mt._replay = false
+	return "target gone" if gone else null
+
+## Mise en file (ResolveTargets) : rejoue la capacite sur une COPIE de l'etat avec les cibles deja choisies ; le prochain choix ouvert devient le choix de
+## l'activateur, et sans autre choix la transaction entre dans la pile. Rien du vrai etat n'est touche tant que la capacite n'est pas executee.
+func _advance_targeting(e: Dictionary) -> void:
+	var sm := Match.new()
+	sm.G = G.duplicate(true)
+	var pc: Dictionary = {}
+	var err = _exec_entry(sm, e, false)
+	if err == null:
+		pc = (sm.G.get("pendingChoice", {}) as Dictionary).duplicate(true)
+	sm.free()
+	if err != null:
+		_log("La capacité de %s est abandonnée (%s)." % [str((e.get("card", {}) as Dictionary).get("name", "?")), str(err)])
+		state_changed.emit()
+		return
+	if not pc.is_empty() and not DEFERRED_CHOICES.has(str(pc.get("type", ""))):
+		pc["targeting"] = true
+		pc["resume"] = false
+		pc["entry"] = e
+		G["pendingChoice"] = pc
+		state_changed.emit()
+		return
+	_enqueue_ability(e)
+
+func _targeting_pick(index: int) -> void:
+	var pc: Dictionary = G.get("pendingChoice", {})
+	var e: Dictionary = pc["entry"]
+	var opts: Array = pc.get("options", [])
+	G["pendingChoice"] = {}
+	if index < 0 or index >= opts.size():
+		_log("La capacité de %s est abandonnée (aucune cible)." % str((e.get("card", {}) as Dictionary).get("name", "?"))) # AbilityTransaction : Cancel, sans selection
+		state_changed.emit()
+		_drive_ai()
+		return
+	var o: Dictionary = opts[index]
+	(e["picks"] as Array).append(_opt_sig(o))
+	if o.has("roomIndex") and not (e.get("target", {}) as Dictionary).has("roomIndex"):
+		var t := {"roomIndex": int(o["roomIndex"])} # cible publique visible sur la pile (les cartes de la main restent privees)
+		if o.has("targetPlayerId"):
+			t["targetPlayerId"] = int(o["targetPlayerId"])
+		e["target"] = t
+	_advance_targeting(e)
+	if (G.get("pendingChoice", {}) as Dictionary).is_empty():
+		_drive_ai()
+
+## OnAbilityApplyRequest : la transaction entre dans la pile (rang : _stack_insert_index) et chaque autre joueur peut repondre.
+func _enqueue_ability(e: Dictionary) -> void:
+	var pid := int(e.get("playerId", 0))
+	var astack: Array = G.get("stack", [])
+	G["stack"] = astack
+	if astack.is_empty():
+		G["stackActivePlayer"] = active_player()
+	G["stackReturnPlayer"] = pid
+	astack.insert(_stack_insert_index(e, -1), e)
+	if G.has("buildWindow"):
+		G["buildWindow"] = _window_auto_passed() # une capacite relance la Spell Battle : tout le monde doit re-passer
+	_reopen_stack_window(pid)
+
+## AbilityTransaction.Run : d'abord sur une copie (une cible disparue annule la transaction sans effet), puis sur l'etat reel.
+func _run_ability_entry(e: Dictionary) -> Variant:
+	var sm := Match.new()
+	sm.G = G.duplicate(true)
+	var chk = _exec_entry(sm, e, true)
+	sm.free()
+	if chk != null:
+		return chk
+	return _exec_entry(self, e, true)
 
 ## Résolution d'aventure pas-à-pas (AdventurePhase_a, b, c et fenêtres de pause)
 ## Heros tue par une capacite / un sort (hp <= 0) : mort immediate (KillHeroInRoom), sans attendre la fin de la pause.

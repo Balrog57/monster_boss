@@ -35,6 +35,7 @@ func _ready() -> void:
 	_t_apk_stack_target_leaves_game()
 	_t_apk_room_ability_stack_resolves()
 	_t_apk_room_ability_cancelled_by_response()
+	_t_apk_room_ability_target_seen_by_opponent()
 	_t_apk_room_ability_owner_destroyed()
 	_t_spell_cave_in_kills_hero_in_room()
 	_t_spell_assassin_hero_at_entrance()
@@ -1323,17 +1324,18 @@ func _t_choice_dracolich_lair() -> void:
 	(m.G["decks"]["roomDiscard"] as Array).append(_room("D2", "trap", false, [1]))
 	_ok(_has_move(m, 0, "activateRoom"), "Dracolich Lair activable (2 salles en main, defausse non vide)")
 	_ok(m.apply_move(0, {"type": "activateRoom", "args": [0]}), "activateRoom Dracolich Lair applique")
-	_pass_all(m)
+	# R-D67 : les cibles se choisissent a la mise en file (AbilityTransaction.ResolveTargets), rien n'est encore defausse
 	var pc: Dictionary = m.G.get("pendingChoice", {})
-	_ok(str(pc.get("type", "")) == "dracolich-discard" and (pc.get("options", []) as Array).size() == 3,
-		"3 paires de salles proposees")
+	_ok(str(pc.get("type", "")) == "dracolich-discard" and bool(pc.get("targeting", false)) and (pc.get("options", []) as Array).size() == 3,
+		"3 paires de salles proposees (ciblage a la mise en file)")
 	_ok(m.apply_move(0, {"type": "resolveChoice", "args": [2]}), "paire R2+R3 choisie")
-	_ok(_hand_ids(0, m) == ["R1"], "seules R2 et R3 sont defaussees")
+	_ok(_hand_ids(0, m) == ["R1", "R2", "R3"], "ciblage : aucune defausse avant la resolution de la pile")
 	pc = m.G.get("pendingChoice", {})
-	_ok(str(pc.get("type", "")) == "recover-card" and (pc.get("options", []) as Array).size() == 2,
+	_ok(str(pc.get("type", "")) == "recover-card" and bool(pc.get("targeting", false)) and (pc.get("options", []) as Array).size() == 2,
 		"choix dans la defausse d'avant (D1, D2), sans R2/R3")
 	_ok(m.apply_move(0, {"type": "resolveChoice", "args": [1]}), "D2 recuperee")
-	_ok(_hand_ids(0, m) == ["R1", "D2"], "D2 en main")
+	_pass_all(m)
+	_ok(_hand_ids(0, m) == ["R1", "D2"] and (m.G.get("pendingChoice", {}) as Dictionary).is_empty(), "seules R2 et R3 sont defaussees, D2 en main")
 	_ok((m.G["decks"]["roomDiscard"] as Array).size() == 3, "D1, R2, R3 en defausse")
 	m.queue_free()
 
@@ -2659,6 +2661,53 @@ func _t_apk_room_ability_cancelled_by_response() -> void:
 	(m.G["decks"]["spells"] as Array).append({"id": "NS", "name": "NS", "isSpell": true})
 	_ok(RoomAbilities.activate_room_ability(m.G, 1, 0) == null and bool(kitchen.get("usedThisTurn", false)), "R-E29 : une activation reussie consomme OncePerTurn")
 	m.queue_free()
+
+## R-D67 : la cible est choisie a la mise en file (AbilityTransaction.ResolveTargets) ; l'adversaire voit l'entree AVEC sa cible et repond en connaissance de cause.
+## Sans reponse, c'est la cible choisie qui est defaussee ; si la reponse la fait quitter la main, la transaction est annulee (RemovePendingTransactionsByTarget,
+## GameBoard.DiscardCard) et OncePerTurn n'est pas consomme.
+func _t_apk_room_ability_target_seen_by_opponent() -> void:
+	for answered in [false, true]:
+		var m = _match_with_spell()
+		m.G["activePlayer"] = 0
+		(m.G["players"][1] as Dictionary)["isAI"] = false
+		var p0: Dictionary = m.G["players"][0]
+		var p1: Dictionary = m.G["players"][1]
+		var kitchen := _room("BMA024", "trap", false, [1])
+		p1["dungeon"] = [[kitchen]]
+		p1["hand"] = [_room("MA", "monster", false, [1]), _room("MB", "monster", false, [1])]
+		p0["hand"] = [{"id": "BMA048", "name": "Jeopardy", "isSpell": true}]
+		for _i in 4:
+			(m.G["decks"]["rooms"] as Array).append(_room("TR%d" % _i, "trap", false, [1]))
+		(m.G["decks"]["spells"] as Array).append_array([{"id": "S1", "name": "S1", "isSpell": true}, {"id": "S2", "name": "S2", "isSpell": true}, {"id": "S3", "name": "S3", "isSpell": true}])
+		_ok(m.apply_move(1, {"type": "activateRoom", "args": [0]}), "R-D67 cible : Witch's Kitchen activee")
+		var pc: Dictionary = m.G.get("pendingChoice", {})
+		_ok(bool(pc.get("targeting", false)) and (m.G.get("stack", []) as Array).is_empty() and (pc.get("options", []) as Array).size() == 2, "R-D67 cible : l'activateur choisit d'abord, la pile est vide")
+		var pick := 0
+		for i in (pc.get("options", []) as Array).size():
+			if str((((pc["options"] as Array)[i] as Dictionary).get("card", {}) as Dictionary).get("id", "")) == "MB":
+				pick = i
+		_ok(m.apply_move(1, {"type": "resolveChoice", "args": [pick]}), "R-D67 cible : MB choisie")
+		var st: Array = m.G["stack"]
+		_ok(st.size() == 1 and str((st[0] as Dictionary)["type"]) == "ability" and ((st[0] as Dictionary).get("picks", []) as Array).size() == 1, "R-D67 cible : l'entree porte sa cible")
+		var seen := ViewFilter.for_seat(m.G, 0)
+		_ok(((seen["stack"] as Array)[0] as Dictionary).get("picks", []).is_empty() if ((seen["stack"] as Array)[0] as Dictionary).has("picks") else true, "R-D67 cible : l'adversaire ne voit pas le detail prive")
+		_ok(m.active_player() == 0 and _hand_ids(1, m) == ["MA", "MB"], "R-D67 cible : l'adversaire repond, rien n'est defausse")
+		if answered:
+			var cast := false
+			for mv in m.legal_moves(0):
+				if str((mv as Dictionary)["type"]) == "playSpell":
+					cast = m.apply_move(0, mv)
+					break
+			_ok(cast, "R-D67 cible : Jeopardy joue en reponse")
+		for _k in 6:
+			if not (m.G["stack"] as Array).is_empty():
+				m.apply_move(m.active_player(), {"type": "pass", "args": []})
+		if answered:
+			_ok(not _hand_ids(1, m).has("MB") and not bool(kitchen.get("usedThisTurn", false)), "R-D67 cible : la cible a quitte la main, transaction annulee, OncePerTurn intact")
+			_ok(not (m.G["decks"]["spells"] as Array).is_empty() and (m.G.get("pendingChoice", {}) as Dictionary).is_empty(), "R-D67 cible : aucun effet de la salle apres l'annulation")
+		else:
+			_ok(_hand_ids(1, m).has("MA") and not _hand_ids(1, m).has("MB") and bool(kitchen.get("usedThisTurn", false)), "R-D67 cible : sans reponse, c'est MB (choisie) qui est defaussee, pas MA")
+		m.queue_free()
 
 ## R-E27 voisin : la salle detruite en reponse annule sa propre capacite (cible « cette salle »), sans execution.
 func _t_apk_room_ability_owner_destroyed() -> void:

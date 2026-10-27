@@ -143,7 +143,7 @@ static func make_entry(G: Dictionary, player_id: int, room_index: int, other_roo
 	var r: Dictionary = BossEngine.active_room(dungeon[room_index])
 	var uid := room_uid(r)
 	var e := {"id": "ability-%s-%d" % [str(r.get("id", "")), uid], "type": "ability", "playerId": player_id,
-		"card": r.duplicate(), "target": {}, "resolved": false, "roomUid": uid}
+		"card": r.duplicate(), "target": {}, "picks": [], "resolved": false, "roomUid": uid}
 	if other_room_index >= 0 and other_room_index < dungeon.size():
 		e["otherUid"] = room_uid(BossEngine.active_room(dungeon[other_room_index]))
 	return e
@@ -156,6 +156,21 @@ static func _find_room_by_uid(p: Dictionary, uid: int) -> Array:
 			if int((st[k] as Dictionary).get("_tuid", -1)) == uid:
 				return [i, k == st.size() - 1, st[k]]
 	return []
+
+## Mise en file (AbilityTransaction.ResolveTargets) : lance la capacite avec ses controles de jeu (Ability.CheckConditions) sur la salle de l'entree.
+static func start_queued(G: Dictionary, e: Dictionary) -> Variant:
+	var pid := int(e.get("playerId", -1))
+	var p := _player(G, pid)
+	var found := _find_room_by_uid(p, int(e.get("roomUid", -1)))
+	if found.is_empty():
+		return "room not found"
+	var other := -1
+	if e.has("otherUid"):
+		var o := _find_room_by_uid(p, int(e["otherUid"]))
+		if o.is_empty():
+			return "target room not found"
+		other = int(o[0])
+	return activate_room_ability(G, pid, int(found[0]), other)
 
 ## Execute la transaction (AbilityTransaction.Run -> Ability.DoEffect) : null si elle s'est executee, sinon la raison (annulee).
 ## GameBoard.DestroyRoom -> RemovePendingTransactionsByTarget : une salle detruite annule sa propre capacite (cible « cette salle »), et une salle

@@ -789,8 +789,8 @@ func _on_action(i: int, s: Dictionary) -> void:
 			_build(i, s, d, pid)
 		"playRoomAbility":
 			# L'oracle met la capacite en file (transaction, GameBoard.PlayRoomAbility) : elle ne s'execute qu'au NextStep suivant, apres la Spell Battle (les « pret »).
-			# Godot fait de meme (R-D67) : l'activation est une entree de pile, resolue par la derniere « passe ». Les decisions de cibles de l'oracle (journalisees
-			# a la mise en file) sont retenues jusqu'a ce que Godot ouvre ses choix, a l'execution (_drain_held).
+			# Godot fait de meme (R-D67) : les cibles se choisissent a la mise en file (les decisions de l'oracle, journalisees a ce moment, ouvrent et resolvent les
+			# choix Godot tout de suite), puis l'activation est une entree de pile resolue par la derniere « passe ». `_held` ne garde que ces decisions (cibles perimees).
 			_release_held()
 			_ability(i, s, d, pid)
 			if str((d["room"] as Dictionary)["card"]) != "BMA025": # All-Seeing Eye : sa transaction passe devant le sort, ses choix s'ouvrent tout de suite
@@ -815,8 +815,6 @@ func _on_action(i: int, s: Dictionary) -> void:
 					if not _ready_is_own(i):
 						_ai_pass(responder, "respond", s, int((s["detail"] as Dictionary)["player"]) - 1)
 					_apply_type(responder, "pass", s)
-					if (run.G["stack"] as Array).is_empty() or not (run.G.get("pendingChoice", {}) as Dictionary).is_empty():
-						_drain_held() # la derniere « passe » a resolu la pile : les choix de la capacite sont ouverts
 			else:
 				stats["readySkipped"] += 1
 		_:
@@ -991,14 +989,9 @@ func _build_follows(i: int) -> bool:
 	return false
 
 
-## Rejoue les decisions de l'oracle retenues pour l'activation en file : la pile Godot l'a executee, ses choix sont ouverts.
+## L'activation retenue est executee (ou annulee) : on n'a plus besoin de ses decisions.
 func _drain_held() -> void:
-	if _held.is_empty():
-		return
-	var h := _held
 	_held = {}
-	for e in (h["decs"] as Array):
-		_on_decision(int((e as Array)[0]), (e as Array)[1])
 
 
 ## Fin de la fenetre de l'oracle (step de phase) : la derniere « passe » retenue resout la pile, puis les decisions retenues sont rejouees.
@@ -1136,8 +1129,7 @@ func _on_decision(i: int, s: Dictionary) -> void:
 
 func _on_decision_inner(i: int, s: Dictionary) -> void:
 	if not _held.is_empty() and int(((s["detail"] as Dictionary).get("owner", {}) as Dictionary).get("id", -1)) == int(((_held["d"] as Dictionary)["room"] as Dictionary)["id"]):
-		(_held["decs"] as Array).append([i, s])
-		return
+		(_held["decs"] as Array).append([i, s]) # memorisee pour _stale_hand_targets, puis appliquee comme les autres
 	_on_decision_now(i, s)
 	for _k in 12:
 		var pc: Dictionary = run.G.get("pendingChoice", {})

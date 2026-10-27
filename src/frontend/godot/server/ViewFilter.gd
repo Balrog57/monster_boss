@@ -46,6 +46,16 @@ static func for_seat(G: Dictionary, seat: int) -> Dictionary:
 	for k in PUBLIC_KEYS:
 		if G.has(k):
 			v[k] = G[k]
+	# Capacite de salle en file : les cibles memorisees (`picks`, cartes de la main comprises) restent au siege de l'activateur ; `target` (salle visee) est publique.
+	var vstack: Array = []
+	for e in (G.get("stack", []) as Array):
+		var ed: Dictionary = e
+		if ed.has("picks") and int(ed.get("playerId", -1)) != seat:
+			ed = ed.duplicate()
+			ed.erase("picks")
+		vstack.append(ed)
+	if G.has("stack"):
+		v["stack"] = vstack
 	var players_in: Dictionary = G.get("players", {})
 	var players := {}
 	for pid in players_in:
