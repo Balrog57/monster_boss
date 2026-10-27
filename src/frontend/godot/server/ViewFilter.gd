@@ -9,8 +9,8 @@ extends RefCounted
 ## Cles de G publiques, recopiees telles quelles.
 const PUBLIC_KEYS := ["activePlayer", "adventure", "adventurePausePassed", "afterHero", "apkSkippedHero", "autoAI", "buildIndex",
 	"buildOrder", "buildWindow", "effects", "forcedBuild", "gameOver", "itemQueue", "kingVote", "townItems", "lastHeroFight", "luredThisTurn",
-	"mandoQueue", "numPlayers", "phase", "roboboQueue", "sets", "setupBuild", "setupForced", "setupReveal", "stack",
-	"stackActivePlayer", "stackPassed", "stackReturnPlayer", "tnlEndPending", "tnlGiftBuilt", "town", "turn", "xpOrder"]
+	"mandoQueue", "mulliganPending", "numPlayers", "phase", "roboboQueue", "sets", "setupBuild", "setupForced", "setupReveal", "stack",
+	"stackActivePlayer", "stackPassed", "stackReturnPlayer", "tnlEndPending", "tnlGiftBuilt", "town", "turn", "variants", "xpOrder"]
 ## Cles traitees a part (filtrees) ou volontairement jamais emises (revealQueue, forcedBuilds, forcedRandom, aiTargets*).
 ## apkSkippedHero est publique : numero de siege pose par Trepidation (sort face visible) ; Match.apk_active_hero() la lit cote client en ligne.
 const FILTERED_KEYS := ["decks", "players", "bossPicks", "pendingChoice", "choiceQueue", "log", "logs"]

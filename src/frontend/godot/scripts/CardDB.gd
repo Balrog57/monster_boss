@@ -25,6 +25,10 @@ const HERO_COUNTS := {2: {"ordinary": 13, "epic": 8}, 3: {"ordinary": 17, "epic"
 static func big_game(G: Dictionary) -> bool:
 	return int(G.get("numPlayers", 0)) >= 5
 
+## Pas d'elimination par 5 blessures : partie a 5-6 joueurs, ou variante Unlimited Lives (Variants.gd, hors APK : G.variants est vide dans une partie APK).
+static func no_elimination(G: Dictionary) -> bool:
+	return big_game(G) or (G.get("variants", []) as Array).has("unlimited")
+
 var bosses: Array = []
 var rooms: Array = []
 var spells: Array = []

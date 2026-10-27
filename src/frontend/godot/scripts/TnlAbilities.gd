@@ -7,6 +7,7 @@ extends RefCounted
 ## Effets « jusqu'a la fin du tour » : sac `G.effects.tnl` (remis a zero a chaque tour avec G.effects) et sous-dict `tnl` des cartes.
 
 const SET_ID := "next-level"
+const Variants = preload("res://godot/scripts/Variants.gd")
 const DARK_PAY := "DarkHeroPay"
 ## Heros noirs de Rise of the Minibosses (RMB084/090/096/102) : « each opponent may pay any number of Coins to give this hero +1 per Coin ».
 const DARK_COIN := "DarkHeroCoin"
@@ -242,7 +243,11 @@ static func ask(G: Dictionary, pid: int, step: String, options: Array, ctx: Dict
 	var pc := {"type": "tnl-pick", "step": step, "ctx": ctx, "playerId": pid, "bossName": label, "message": message,
 		"options": options, "optional": optional, "resume": G.has("revealQueue")}
 	if options.size() == 1 and not optional:
-		return resolve_pick(G, pid, pc, 0)
+		var prev_actor := destroy_actor
+		destroy_actor = pid # Eclipse : une destruction resolue d'office est celle de `pid`, comme s'il avait choisi (_resolve_choice)
+		var next = resolve_pick(G, pid, pc, 0)
+		destroy_actor = prev_actor
+		return next
 	return pc
 
 ## Livre un choix issu d'une capacite activee / d'un declencheur (file si un choix est deja ouvert).
@@ -401,7 +406,7 @@ static func _porkus(G: Dictionary, pid: int, p: Dictionary) -> Variant:
 		opts.append({"card": h, "label": _label(h as Dictionary), "ai": -float(BossEngine.hero_souls(h as Dictionary))})
 	if opts.is_empty():
 		_log(G, "Porkus: no face-down Hero to remove.")
-		return null
+		return _porkus_search(G, pid) # la 2e phrase du texte ne depend pas du retrait
 	return ask(G, pid, "porkus_remove", opts, {}, "Porkus: choose a face-down Hero to remove from the game", "Porkus")
 
 static func _porkus_search(G: Dictionary, pid: int) -> Variant:
@@ -652,6 +657,12 @@ static func on_hero_died(G: Dictionary, pid: int, room: Dictionary) -> Variant:
 	var id := str(room.get("id", ""))
 	if ["TNL015", "TNL021", "TNL025", "TNL026", "TNL039"].has(id): # « once per turn, if a Hero dies in this Room »
 		if bool(room.get("usedThisTurn", false)):
+			return null
+		# Sans cible l'effet n'est pas applique, donc le jeton « 1/tour » reste (comme RoomAbilities.on_hero_died_in_room pour le jeu de base)
+		var no_target := (id == "TNL015" and RoomAbilities.discard_card_options(G, "spell").is_empty())
+		no_target = no_target or (id == "TNL021" and not _opponents(G, pid).any(func(o): return not hand_options(_player(G, int(o)), "spell").is_empty()))
+		no_target = no_target or (id == "TNL026" and not _can_build_any(G, pid))
+		if no_target:
 			return null
 		room["usedThisTurn"] = true
 	match id:
@@ -968,6 +979,13 @@ static func build_slots(G: Dictionary, pid: int, card: Dictionary, allow_new: bo
 		out.append({"roomIndex": i, "card": host, "label": "over %s" % _label(host), "ai": -float(int(host.get("damage", 0)))})
 	return out
 
+## Une salle de la main peut-elle etre posee tout de suite (Fangroot Garden) ?
+static func _can_build_any(G: Dictionary, pid: int) -> bool:
+	for o in hand_options(_player(G, pid), "room"):
+		if not build_slots(G, pid, (o as Dictionary)["card"] as Dictionary, true).is_empty():
+			return true
+	return false
+
 ## Choix « construire immediatement une salle » : `kind` = any | monster ; d'abord la carte, puis l'emplacement. Null s'il n'y a rien a poser.
 static func build_choice(G: Dictionary, pid: int, kind: String, label: String) -> Variant:
 	var opts: Array = []
@@ -1211,6 +1229,8 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 	var step := str(pc.get("step", ""))
 	var p := _player(G, pid)
 	var o: Dictionary = (opts[idx] as Dictionary) if idx >= 0 and idx < opts.size() else {}
+	if step.begins_with("var_"): # variantes de jeu (Variants.gd : I Choose You, Machinations)
+		return Variants.resolve_pick(G, pid, pc, idx)
 	if step.begins_with("sp_"):
 		return TnlSpells.resolve_pick(G, pid, pc, idx)
 	if step.begins_with("rmb_"): # Rise of the Minibosses (RmbAbilities.resolve_pick, RmbSpells pour « rmb_sp_ »)
@@ -1346,6 +1366,8 @@ static func _room_target(G: Dictionary, pid: int, ctx: Dictionary, o: Dictionary
 	match str(ctx.get("then", "")):
 		"buff":
 			var amount := int(ctx.get("amount", 0))
+			if amount < 0: # FAQ « jamais sous zero » : le plancher joue a chaque reduction, un bonus pose ensuite part de 0 (0, -1 puis +3 = 3)
+				amount = maxi(amount, -BossEngine.room_damage_with_modifiers(G, _player(G, tp), ri, {}))
 			SpellEffects._buff_room_instance(room, amount)
 			_log(G, "%s: %s %s%d until end of turn." % [label, _label(room), "+" if amount >= 0 else "", amount])
 		"destroy":
@@ -1480,7 +1502,7 @@ static func extra_moves(G: Dictionary, p: Dictionary, pid: int) -> Array:
 		return out
 	var phase := str(G.get("phase", ""))
 	var hand: Array = p.get("hand", []) as Array
-	if phase == "build" and has_boss(p, "TNL001") and not used(G, pid, "scarecrow"):
+	if phase == "build" and has_boss(p, "TNL001"): # le texte imprime n'a pas de limite par tour (un heros deja ecarte n'est plus propose)
 		var town: Array = G.get("town", [])
 		for hi in hand.size():
 			for ti in town.size():
@@ -1551,7 +1573,6 @@ static func apply_move(G: Dictionary, pid: int, move: Dictionary) -> Variant:
 				return "no such Hero in town"
 			discard_from_hand(G, pid, card)
 			_list(G, "noLure").append(str((town[ti] as Dictionary).get("id", "")))
-			mark_used(G, pid, "scarecrow")
 			_log(G, "Doc Scarecrow: %s cannot be lured this turn." % _label(town[ti] as Dictionary))
 		"payDarkHero":
 			var owner := _player(G, int(args[1]))

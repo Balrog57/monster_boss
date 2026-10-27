@@ -10,8 +10,10 @@ func run(ok: Callable, h: Node) -> void:
 	_ok = ok
 	host = h
 	_t_data()
+	_t_hero_stats()
 	_t_new_match_decks()
 	_t_setup_hands()
+	_t_variants()
 	# bosses
 	_t_mirrax()
 	_t_scarecrow()
@@ -237,14 +239,24 @@ func _t_setup_hands() -> void:
 	for pid in [0, 1]:
 		var pick: Dictionary = (G["bossPicks"] as Array)[0]
 		m.apply_move(pid, {"type": "pickBoss", "args": [pick["id"]]})
+	_keep_hands(m, G)
 	var h0: Array = _hand(G, 0)
 	var h1: Array = _hand(G, 1)
-	_ok.call(h0.size() == 7 and h1.size() == 7 and str(_pending(G).get("type", "")) == "opening-discard", "TNL : 5 salles + 2 sorts, puis defausse de 2 cartes au choix (comme le jeu de base)")
+	# Livret TNL (rules.md:1186) : chaque joueur pioche 5 salles + 2 sorts et GARDE les 7 ; la defausse de 2 est le Classic Mode (rules.md:3477)
+	_ok.call(h0.size() == 7 and h1.size() == 7 and str(_pending(G).get("type", "")) != "opening-discard" and bool(G.get("setupBuild", false)), "TNL (TNL-R05) : 5 salles + 2 sorts gardes (7 cartes), pas de defausse d'ouverture")
 	_ok.call(_decks(G, "roomDiscard").size() == 4 and _decks(G, "spellDiscard").size() == 2, "TNL : defausse amorcee par 4 salles + 2 sorts")
-	m.apply_move(0, {"type": "openingDiscard", "args": [0, 1]})
-	m.apply_move(1, {"type": "openingDiscard", "args": [0, 1]})
-	_ok.call(_hand(G, 0).size() == 5 and _hand(G, 1).size() == 5 and _pending(G).is_empty(), "TNL : 5 cartes gardees apres la defausse d'ouverture")
 	m.queue_free()
+	var mc = load("res://godot/scripts/Match.gd").new()
+	host.add_child(mc)
+	var Gc: Dictionary = mc.new_match(2, 2, ["next-level", "classic-wiki"])
+	for pid in [0, 1]:
+		mc.apply_move(pid, {"type": "pickBoss", "args": [(Gc["bossPicks"] as Array)[0]["id"]]})
+	_keep_hands(mc, Gc)
+	_ok.call(_hand(Gc, 0).size() == 7 and str(_pending(Gc).get("type", "")) == "opening-discard", "TNL + Classic Mode : defausse de 2 cartes au choix")
+	mc.apply_move(0, {"type": "openingDiscard", "args": [0, 1]})
+	mc.apply_move(1, {"type": "openingDiscard", "args": [0, 1]})
+	_ok.call(_hand(Gc, 0).size() == 5 and _hand(Gc, 1).size() == 5 and _pending(Gc).is_empty(), "TNL + Classic Mode : 5 cartes gardees apres la defausse d'ouverture")
+	mc.queue_free()
 	var m2 = load("res://godot/scripts/Match.gd").new()
 	host.add_child(m2)
 	var G2: Dictionary = m2.new_match(2, 2, ["base"])
@@ -254,6 +266,148 @@ func _t_setup_hands() -> void:
 	_ok.call(_hand(G2, 0).size() == 7 and str(_pending(G2).get("type", "")) == "opening-discard", "base : main de 7 puis defausse de 2 (inchange)")
 	_ok.call(_decks(G2, "roomDiscard").is_empty(), "base : defausse non amorcee (inchange)")
 	m2.queue_free()
+
+## Mains tirees au hasard : une main « mauvaise » ouvre le choix de Mulligan (TNL) ; on la garde pour atteindre la suite de la mise en place.
+func _keep_hands(m: Node, G: Dictionary) -> void:
+	var guard := 0
+	while str(_pending(G).get("step", "")) == "var_mulligan" and guard < 8:
+		guard += 1
+		m._resolve_choice(int(_pending(G)["playerId"]), 0)
+
+## Statistiques des heros sans capacite : cards.json doit rendre exactement ce que dit le JSON du wiki (PV, tresor, ames, blessures, epique, classe).
+func _t_hero_stats() -> void:
+	var wiki: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/data/expansions/next-level.json"))
+	var plain := 0
+	var bad: Array = []
+	for w in (wiki["heroes"] as Array):
+		var wd: Dictionary = w
+		var h := _card(CardDB.heroes, str(wd["id"]))
+		if bool(h.get("dark", false)) or bool(h.get("hybrid", false)) or h.has("lure") or h.has("heroAbility"):
+			continue # capacites : testees carte par carte (dark_heroes, lure_kinds, hero_abilities)
+		plain += 1
+		for k in ["hp", "treasure", "souls", "wounds", "epic", "class", "name"]:
+			if h.get(k) != wd.get(k):
+				bad.append("%s.%s : %s au lieu de %s" % [str(wd["id"]), k, str(h.get(k)), str(wd.get(k))])
+		var epic: bool = bool(wd["epic"])
+		if int(wd["souls"]) != (2 if epic else 1) or int(wd["wounds"]) != int(wd["souls"]) or int(wd["hp"]) < (11 if epic else 4):
+			bad.append("%s : ames / blessures / PV incoherents avec son rang" % str(wd["id"]))
+	_ok.call(plain == 32, "TNL heros sans capacite : 32 (20 ordinaires, 12 epiques) (obtenu %d)" % plain)
+	_ok.call(bad.is_empty(), "TNL heros sans capacite : PV / tresor / ames / blessures identiques au wiki %s" % str(bad))
+
+# --- variantes de jeu (livret TNL p.17, Variants.gd) -----------------------------------------------------------------------
+
+func _t_variants() -> void:
+	var Variants = load("res://godot/scripts/Variants.gd")
+	_ok.call(Variants.ids_in(["next-level", "hard-wiki", "machinations-wiki", "bogus-wiki"]) == ["hard", "machinations"], "variantes : jetons -wiki reconnus, inconnus ignores")
+	_ok.call(Match.setup_error(5, ["crash-landing", "hard-wiki"]) == "" and Match.setup_error(2, ["hard-wiki"]) == "", "variantes : un jeton de variante n'est pas un paquet (setup_error)")
+	# Hard Mode : plus aucun heros ordinaire de 4 PV
+	var mn = load("res://godot/scripts/Match.gd").new()
+	host.add_child(mn)
+	var Gn: Dictionary = mn.new_match(2, 1, ["base"])
+	_ok.call((Gn["variants"] as Array).is_empty() and (Gn["decks"]["heroes"] as Array).any(func(h): return int(h["hp"]) == 4), "variantes : par defaut aucune, les heros de 4 PV sont en jeu")
+	var mh = load("res://godot/scripts/Match.gd").new()
+	host.add_child(mh)
+	var Gh: Dictionary = mh.new_match(2, 1, ["base", "hard-wiki"])
+	_ok.call(Gh["variants"] == ["hard"] and not (Gh["sets"] as Array).has("hard-wiki") and (Gh["decks"]["heroes"] as Array).all(func(h): return int(h["hp"]) != 4) and not (Gh["decks"]["heroes"] as Array).is_empty(), "Hard Mode : aucun heros ordinaire de 4 PV, jeton hors de G.sets")
+	_ok.call((Gh["decks"]["epics"] as Array).size() == (Gn["decks"]["epics"] as Array).size(), "Hard Mode : les epiques ne changent pas")
+	mn.queue_free()
+	mh.queue_free()
+	# I Choose You : deux boss, on en garde un (l'IA garde le plus haut en XP)
+	var mc = load("res://godot/scripts/Match.gd").new()
+	host.add_child(mc)
+	var Gc: Dictionary = mc.new_match(2, 2, ["choose-wiki"])
+	for pid in [0, 1]:
+		mc.apply_move(pid, {"type": "pickBoss", "args": [(Gc["bossPicks"] as Array)[0]["id"]]})
+	var first_boss: String = str(Gc["players"][0]["boss"]["id"])
+	var pc: Dictionary = _pending(Gc)
+	_ok.call(str(Gc["phase"]) == "boss" and str(pc.get("step", "")) == "var_boss" and int(pc["playerId"]) == 0 and (pc["options"] as Array).size() == 2 and _hand(Gc, 0).is_empty(), "I Choose You : le 1er joueur choisit entre ses deux boss avant la distribution")
+	mc._resolve_choice(0, 1)
+	_ok.call(str(Gc["players"][0]["boss"]["id"]) != first_boss and str(_pending(Gc).get("step", "")) == "var_boss" and int(_pending(Gc)["playerId"]) == 1, "I Choose You : le 2e boss est garde, le choix du joueur suivant s'ouvre")
+	mc._resolve_choice(1, 0)
+	_ok.call(str(Gc["phase"]) != "boss" and _hand(Gc, 0).size() == 7 and _hand(Gc, 1).size() == 7, "I Choose You : mains distribuees une fois tous les boss gardes")
+	mc.queue_free()
+	var ma = load("res://godot/scripts/Match.gd").new()
+	host.add_child(ma)
+	var Ga: Dictionary = ma.new_match(2, 1, ["choose-wiki"])
+	for pid in [0, 1]:
+		ma.apply_move(pid, {"type": "pickBoss", "args": [(Ga["bossPicks"] as Array)[0]["id"]]})
+	_ok.call(str(_pending(Ga).get("step", "")) == "var_boss" and int(_pending(Ga)["playerId"]) == 0 and _pending(Ga)["options"].size() == 2, "I Choose You : seul l'humain a un choix, l'IA tranche seule (XP la plus haute)")
+	ma.queue_free()
+	# Mulligan (livret TNL) : quatre salles du meme tresor -> « you may » redistribuer toute la main ; l'IA le fait d'office
+	for humans in [2, 1]:
+		var mm = load("res://godot/scripts/Match.gd").new()
+		host.add_child(mm)
+		var Gmu: Dictionary = mm.new_match(2, humans, ["next-level"])
+		for i in 10:
+			(Gmu["decks"]["rooms"] as Array).append(_plain("bad%d" % i, "monster", [1], 1))
+		for pid in [0, 1]:
+			mm.apply_move(pid, {"type": "pickBoss", "args": [(Gmu["bossPicks"] as Array)[0]["id"]]})
+		var bad_ids: Array = _ids(_hand(Gmu, 0).slice(0, 5))
+		_ok.call(bad_ids.all(func(i): return str(i).begins_with("bad")) and str(_pending(Gmu).get("step", "")) == "var_mulligan" and int(_pending(Gmu)["playerId"]) == 0 and bool(Gmu.get("mulliganPending", false)) and not bool(Gmu.get("setupBuild", false)), "Mulligan TNL (%d humains) : main a 5 salles du meme tresor -> choix pour l'humain, mise en place suspendue" % humans)
+		if humans == 1:
+			_ok.call(_hand(Gmu, 1).size() == 7 and _ids(_hand(Gmu, 1)).filter(func(i): return str(i).begins_with("bad")).size() < 5, "Mulligan TNL : l'IA rejoue d'office une main mauvaise %s" % str(_ids(_hand(Gmu, 1))))
+		mm._resolve_choice(0, 0)
+		_ok.call(_ids(_hand(Gmu, 0).slice(0, 5)) == bad_ids, "Mulligan TNL : « Keep my hand » garde la main")
+		if humans == 2:
+			var before1: Array = _ids(_hand(Gmu, 1))
+			_ok.call(str(_pending(Gmu).get("step", "")) == "var_mulligan" and int(_pending(Gmu)["playerId"]) == 1, "Mulligan TNL : choix du joueur suivant")
+			mm._resolve_choice(1, 1)
+			_ok.call(_hand(Gmu, 1).size() == 7 and _ids(_hand(Gmu, 1)) != before1 and _ids(_hand(Gmu, 1)).filter(func(i): return str(i).begins_with("bad")).size() < 5, "Mulligan TNL : la main entiere est redistribuee (5 salles + 2 sorts)")
+		_ok.call(not bool(Gmu.get("mulliganPending", false)) and bool(Gmu.get("setupBuild", false)) and _pending(Gmu).is_empty(), "Mulligan TNL : la mise en place reprend une fois les choix faits")
+		mm.queue_free()
+	# Machinations : pas d'Ame ce tour -> peut piocher une salle ou un sort
+	var p0 := _player(0, "BMA001")
+	var p1 := _player(1, "BMA002")
+	var p2 := _player(2, "BMA003")
+	p1["isAI"] = true
+	p2["souls"] = [{"souls": 1}]
+	var Gm := _G([p0, p1, p2])
+	Gm["variants"] = ["machinations"]
+	_fill(Gm, "rooms", 4)
+	_fill(Gm, "spells", 4, "spell")
+	_ok.call(Variants.end_of_turn(Gm), "Machinations : un humain sans Ame a un choix")
+	var mpc := _pending(Gm)
+	_ok.call(str(mpc.get("step", "")) == "var_machinations" and int(mpc["playerId"]) == 0 and bool(mpc["optional"]) and (mpc["options"] as Array).size() == 2, "Machinations : choix facultatif salle / sort")
+	_ok.call(_hand(Gm, 1).size() == 1 and bool(_hand(Gm, 1)[0].get("isSpell", false)) and _hand(Gm, 2).is_empty(), "Machinations : l'IA sans sort pioche un sort, le joueur qui a gagne une Ame ne pioche pas")
+	_match(Gm)._resolve_choice(0, 0)
+	_ok.call(_hand(Gm, 0).size() == 1 and not bool(_hand(Gm, 0)[0].get("isSpell", false)), "Machinations : l'humain pioche une salle")
+	var Gm2 := _G([_player(0, "BMA001"), _player(1, "BMA002")])
+	_fill(Gm2, "rooms", 2)
+	_ok.call(not Variants.end_of_turn(Gm2) and _hand(Gm2, 0).is_empty(), "Machinations : sans la variante, rien")
+	# Unlimited Lives : pas d'elimination a 5 blessures, fin a la fin des pioches de heros, ames - blessures, XP la plus basse
+	var u0 := _player(0, "BMA001")
+	var u1 := _player(1, "BMA002")
+	u0["souls"] = [{"souls": 3}]
+	u0["wounds"] = [{"wounds": 6}]
+	u1["souls"] = [{"souls": 1}]
+	var Gu := _G([u0, u1])
+	Gu["variants"] = ["unlimited"]
+	Gu["numPlayers"] = 2
+	Gu["decks"]["heroes"] = [_hero("TNL073"), _hero("TNL074"), _hero("TNL075"), _hero("TNL076")]
+	var mu := _match(Gu)
+	_ok.call(CardDB.no_elimination(Gu) and not CardDB.no_elimination(_G([u0, u1])), "Unlimited Lives : CardDB.no_elimination")
+	mu._check_end_or_next_turn()
+	_ok.call(not bool(u0["eliminated"]) and Gu.get("gameOver") == null, "Unlimited Lives : 6 blessures n'eliminent pas, la partie continue tant qu'il reste des heros")
+	for i in 10:
+		(u1["souls"] as Array).append({"souls": 1})
+	mu._check_end_or_next_turn()
+	_ok.call(Gu.get("gameOver") == null, "Unlimited Lives : 10 ames ne terminent pas la partie")
+	Gu["decks"]["heroes"] = []
+	Gu["decks"]["epics"] = []
+	Gu["town"] = []
+	mu._check_end_or_next_turn()
+	_ok.call(Gu.get("gameOver") != null and int(Gu["gameOver"]["winner"]) == 1, "Unlimited Lives : pioches de heros vides -> fin, meilleur ames - blessures")
+	var t0 := _player(0, "BMA001")
+	var t1 := _player(1, "BMA002")
+	t0["souls"] = [{"souls": 2}]
+	t1["souls"] = [{"souls": 2}]
+	t0["boss"]["xp"] = 500
+	t1["boss"]["xp"] = 400
+	var Gt := _G([t0, t1])
+	Gt["variants"] = ["unlimited"]
+	Gt["numPlayers"] = 2
+	_match(Gt)._check_end_or_next_turn()
+	_ok.call(Gt.get("gameOver") != null and int(Gt["gameOver"]["winner"]) == 1, "Unlimited Lives : egalite -> l'XP la plus basse gagne")
 
 # --- bosses --------------------------------------------------------------------------------------------------------
 
@@ -274,7 +428,7 @@ func _t_mirrax() -> void:
 	kirax["eliminated"] = true # l'icone reste meme si le boss copie meurt
 	_ok.call(BossEngine.treasure_count(m0, 1, G2) == 1 and BossEngine.treasure_count(m0, 2, G2) == 1, "TNL000 : l'icone copiee reste apres la mort du boss copie")
 
-## TNL001 Doc Scarecrow : en construction, defausse une carte -> un heros de la ville ne peut pas etre leurre ce tour (une fois par tour).
+## TNL001 Doc Scarecrow : en construction, defausse une carte -> un heros de la ville ne peut pas etre leurre ce tour (sans limite par tour : le texte imprime n'en a pas).
 func _t_scarecrow() -> void:
 	var p0 := _player(0, "TNL001", [], true)
 	var p1 := _player(1, "BMA001", [_plain("D2", "monster", [2], 1)])
@@ -295,11 +449,29 @@ func _t_scarecrow() -> void:
 	_ok.call(m.legal_moves(1).filter(func(mv): return str((mv as Dictionary)["type"]) == "docScarecrow").is_empty(), "TNL001 : seul le possesseur du boss monte de niveau")
 	_ok.call(m.apply_move(0, {"type": "docScarecrow", "args": [0, 0]}), "TNL001 : Epouvantail applique")
 	_ok.call(_hand(G, 0).is_empty() and _decks(G, "roomDiscard").size() == 1, "TNL001 : la carte est defaussee")
-	_ok.call(m.legal_moves(0).filter(func(mv): return str((mv as Dictionary)["type"]) == "docScarecrow").is_empty(), "TNL001 : une seule fois par tour")
+	(p0["hand"] as Array).append(_plain("R2"))
+	var again: Array = m.legal_moves(0).filter(func(mv): return str((mv as Dictionary)["type"]) == "docScarecrow")
+	_ok.call(again.size() == 1 and again[0]["args"] == [0, 1], "TNL001 : sans limite par tour, le heros deja ecarte n'est plus propose (obtenu %d)" % again.size())
+	(p0["hand"] as Array).pop_back()
 	m._resolve_bait()
 	var town_ids: Array = _ids(G["town"])
 	_ok.call(town_ids.has(str(h1["id"])) and not town_ids.has(str(h2["id"])), "TNL001 : le heros marque reste en ville, l'autre est leurre")
 	_ok.call((p1["entrance"] as Array).size() == 1 and (p0["entrance"] as Array).is_empty(), "TNL001 : le heros Fighter va chez le seul donjon a tresor Fighter")
+	# 2e utilisation dans le meme tour : les deux heros restent en ville
+	var q0 := _player(0, "TNL001", [], true)
+	var q1 := _player(1, "BMA001", [_plain("D2", "monster", [2], 1)])
+	q0["dungeon"] = [[_plain("D1", "monster", [1], 5)]]
+	var G3 := _G([q0, q1])
+	G3["phase"] = "build"
+	G3["activePlayer"] = 0
+	G3["buildOrder"] = [0, 1]
+	G3["buildIndex"] = 0
+	G3["town"] = [_hero("TNL073"), _hero("TNL079")]
+	(q0["hand"] as Array).append_array([_plain("R1"), _plain("R2")])
+	var m3 := _match(G3)
+	_ok.call(m3.apply_move(0, {"type": "docScarecrow", "args": [0, 0]}) and m3.apply_move(0, {"type": "docScarecrow", "args": [0, 1]}), "TNL001 : deux Epouvantails dans le meme tour")
+	m3._resolve_bait()
+	_ok.call((G3["town"] as Array).size() == 2 and (q0["entrance"] as Array).is_empty() and (q1["entrance"] as Array).is_empty(), "TNL001 : les deux heros ecartes restent en ville")
 	# sans le boss monte de niveau : rien
 	var p2 := _player(0, "TNL001", [], false)
 	var G2 := _G([p2, _player(1, "BMA001")])
@@ -519,7 +691,11 @@ func _t_nicolius() -> void:
 func _t_porkus() -> void:
 	var p0 := _player(0, "TNL010")
 	var G := _G([p0, _player(1, "BMA001")])
-	_ok.call(TnlAbilities.level_up(G, 0, p0, p0["boss"]) == null, "TNL010 Porkus : sans heros face cachee, capacite perdue")
+	_ok.call(TnlAbilities.level_up(G, 0, p0, p0["boss"]) == null, "TNL010 Porkus : sans heros face cachee ni pioche de heros, rien")
+	G["decks"]["heroes"] = [_hero("TNL074")]
+	TnlAbilities.level_up(G, 0, p0, p0["boss"]) # une seule option : resolue d'office
+	_ok.call((p0["souls"] as Array).size() == 1 and (G["decks"] as Dictionary).get("removedHeroes", []).is_empty() and _decks(G, "heroes").is_empty(), "TNL010 : sans heros face cachee, la recherche a lieu quand meme (sans retrait)")
+	(p0["souls"] as Array).clear()
 	var a := _hero("TNL073")
 	var b := _hero("TNL098")
 	(p0["souls"] as Array).append(CardDB.soul_entry(a))
@@ -571,6 +747,19 @@ func _t_eclipse() -> void:
 			"options": [{"targetPlayerId": 0, "roomIndex": 0}]}
 		_match(Ge)._resolve_choice(chooser, 0)
 		_ok.call((int(eu.get("dealDamage", 0)) == 3) == (chooser == 0), "TNL012 Eclipse : destruction par choix, +3 seulement si le proprietaire choisit (choisit : %d)" % chooser)
+
+	# TNL012 (audit) : une destruction a cible unique resolue d'office (Megaworm Burrow adverse) n'est pas l'acte du proprietaire d'Eclipse
+	for owner_builds in [false, true]:
+		var worm2 := _room("TNL029")
+		var ex := _plain("ex", "monster", [2], 3)
+		var ecl := _player(0 if owner_builds else 1, "TNL012", [], true)
+		ecl["dungeon"] = [[ex, _plain("ey", "trap", [3], 4, true)]]
+		var oth := _player(1 if owner_builds else 0, "BMA001", [] if owner_builds else [worm2])
+		if owner_builds:
+			ecl["dungeon"].append([worm2])
+		var Gw := _G([ecl, oth] if owner_builds else [oth, ecl])
+		RoomAbilities.on_build_room(Gw, int(ecl["id"]) if owner_builds else int(oth["id"]), worm2)
+		_ok.call((int(ex.get("dealDamage", 0)) == 3) == owner_builds, "TNL012 Eclipse : Megaworm a cible unique auto-resolue, +3 seulement si le proprietaire d'Eclipse le construit (proprietaire : %s)" % str(owner_builds))
 
 # --- salles : construction / decouverte ----------------------------------------------------------------------------
 
@@ -828,6 +1017,14 @@ func _t_rust_bullet() -> void:
 	_hand(G0, 0).append(_plain("mon", "monster"))
 	_act(G0, 0, 1)
 	_ok.call(BossEngine.room_damage_with_modifiers(G0, G0["players"][0], 0, {}) == 0, "TNL022 (FAQ) : jamais sous zero")
+	SpellEffects._buff_room_instance(G0["players"][0]["dungeon"][0][0], 3)
+	_ok.call(BossEngine.room_damage_with_modifiers(G0, G0["players"][0], 0, {}) == 3, "TNL022 (audit) : salle a 0, -1 puis +3 = 3 (plancher a chaque etape)")
+	var G1 := _G([_player(0, "BMA001", [_room("TNL040"), _plain("m0", "monster", [2], 0)]), _player(1, "BMA002")])
+	G1["phase"] = "build"
+	_hand(G1, 0).append(_plain("tr", "trap"))
+	_act(G1, 0, 0)
+	SpellEffects._buff_room_instance(G1["players"][0]["dungeon"][1][0], 3)
+	_ok.call(BossEngine.room_damage_with_modifiers(G1, G1["players"][0], 1, {}) == 3, "TNL040 (audit) : salle a 0, -1 puis +3 = 3")
 	var G2 := _G([_player(0, "BMA001", [_room("TNL022")]), _player(1, "BMA002")])
 	G2["phase"] = "build"
 	_hand(G2, 0).append(_plain("trapcard", "trap"))
@@ -968,6 +1165,21 @@ func _t_once_per_turn_death_triggers() -> void:
 	TnlAbilities._tag(meddled)["noText"] = true
 	RoomAbilities.on_hero_died_in_room(G, 0, meddled)
 	_ok.call(_hand(G, 0).size() == 2, "TNL062 : une salle sans texte ne declenche rien")
+	# TNL015 / TNL021 / TNL026 (audit) : sans cible le jeton « 1/tour » n'est pas consomme, l'effet reste possible plus tard dans le tour
+	var G2 := _G([_player(0, "BMA001", [_plain("base", "trap", [1])]), _player(1, "BMA002")])
+	var manor := _room("TNL015")
+	var throne := _room("TNL021")
+	var garden := _room("TNL026")
+	for r in [manor, throne, garden]:
+		RoomAbilities.on_hero_died_in_room(G2, 0, r)
+		_ok.call(not bool((r as Dictionary).get("usedThisTurn", false)), "%s : sans cible, le jeton 1/tour n'est pas consomme" % str(r["name"]))
+	G2["decks"]["spellDiscard"] = [_spl("played")]
+	_hand(G2, 1).append(_spl("x"))
+	_hand(G2, 0).append(_plain("n1", "monster"))
+	for r in [manor, throne, garden]:
+		RoomAbilities.on_hero_died_in_room(G2, 0, r)
+		_ok.call(bool((r as Dictionary).get("usedThisTurn", false)), "%s : une cible apparue plus tard, l'effet a lieu et le jeton est consomme" % str(r["name"]))
+	_ok.call(_hand(G2, 1).is_empty() and _ids(_hand(G2, 0)).has("played"), "TNL015 / TNL021 : effets appliques apres l'apparition d'une cible")
 
 func _t_bom_boy_and_bridge() -> void:
 	var bom := _room("TNL050")
@@ -1123,6 +1335,12 @@ func _t_all_your_base() -> void:
 	_ok.call(SpellEffects.cast_spell(G, 0, _spell("TNL056"), {"targetPlayerId": 1}), "TNL056 All Your Base : lance")
 	var pc := _pending(G)
 	_ok.call(bool(pc["optional"]) and (pc["options"] as Array).size() == 2, "TNL056 : « you may take one Room card » : seules les salles sont proposees, facultatif")
+	_ok.call(str(pc["message"]).contains("theirs"), "TNL056 (audit) : la main entiere (sorts compris) est montree dans le choix du lanceur")
+	var hand_line: Dictionary = {}
+	for e in (G["logs"] as Array):
+		if e is Dictionary and str(e["t"]).contains("theirs"):
+			hand_line = e
+	_ok.call(not hand_line.is_empty() and (hand_line["owners"] as Array) == [0] and not str(hand_line["pub"]).contains("theirs"), "TNL056 : ligne de journal privee au lanceur (les autres ne voient pas la main)")
 	_match(G)._resolve_choice(0, 0)
 	_ok.call(_ids(_hand(G, 0)) == ["steal"] and _ids(_hand(G, 1)) == ["theirs", "other"], "TNL056 : la salle choisie passe dans la main (port du JS)")
 
@@ -1207,6 +1425,20 @@ func _t_meddling_kids() -> void:
 	SpellEffects.cast_spell(G, 0, _spell("TNL062"), {"targetPlayerId": 1, "roomIndex": 0})
 	_decks(G, "roomDiscard").append(_plain("x"))
 	_ok.call(_act(G, 1, 0) == "no ability text (Meddling Kids!)", "TNL062 : vaut aussi pour une salle du jeu de base (Dark Altar)")
+	# FAQ (rules.md:620) : une capacite DEJA declaree (entree de pile) est annulee, et ne consomme pas le 1/tour
+	var pen := _room("TNL022")
+	var Gk := _G([_player(0, "BMA001", [pen, _plain("trap", "trap", [1], 3)]), _player(1, "BMA002")])
+	Gk["phase"] = "build"
+	_hand(Gk, 0).append(_plain("mon", "monster"))
+	var entry := RoomAbilities.make_entry(Gk, 0, 0, -1)
+	(Gk["stack"] as Array).append(entry)
+	var other_entry := {"id": "ability-x", "type": "ability", "playerId": 1, "card": {"name": "autre"}, "resolved": false, "roomUid": 999999}
+	(Gk["stack"] as Array).append(other_entry)
+	SpellEffects.cast_spell(Gk, 0, _spell("TNL062"), {"targetPlayerId": 0, "roomIndex": 0})
+	_ok.call(bool(entry.get("canceled", false)) and not bool(other_entry.get("canceled", false)), "TNL062 (FAQ) : l'entree de pile de la salle ciblee est annulee, pas les autres")
+	(Gk["stack"] as Array).erase(other_entry)
+	_match(Gk)._resolve_pending_stack()
+	_ok.call(_ids(_hand(Gk, 0)) == ["mon"] and not bool(pen.get("usedThisTurn", false)) and BossEngine.room_damage_with_modifiers(Gk, Gk["players"][0], 1, {}) == 3, "TNL062 : la capacite annulee ne se resout pas (cout non paye, salle intacte, 1/tour libre)")
 	var G2 := _G([_player(0, "BMA001"), _player(1, "BMA002")])
 	_ok.call(SpellTargeting.spell_targets_for(G2, G2["players"][0], 0, "TNL062").is_empty(), "TNL062 : « 3 heros ou plus sont entres » : mode joueur seulement s'il est vrai")
 	TnlAbilities._bump(G2, "entered", 1, 3)

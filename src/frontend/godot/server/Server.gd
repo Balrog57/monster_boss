@@ -9,7 +9,8 @@ const NetCodec = preload("res://godot/scripts/NetCodec.gd")
 const MatchScript = preload("res://godot/scripts/Match.gd")
 
 ## Paquets acceptes dans create.sets (le jeu de base est toujours present, voir Match.new_match).
-const KNOWN_SETS := ["players-choice", "hidden-heroes", "tools", "tools-wiki", "next-level", "minibosses", "crash-landing", "iod", "players-choice-wiki"]
+const KNOWN_SETS := ["players-choice", "hidden-heroes", "tools", "tools-wiki", "next-level", "minibosses", "crash-landing", "iod", "players-choice-wiki",
+	"classic-wiki", "hard-wiki", "choose-wiki", "machinations-wiki", "unlimited-wiki"] # derniers : variantes de jeu (Variants.gd), cases wiki
 ## Code de salon : 4 lettres comme l'APK (OnlineService.GetNewRoomName, RndWord(4)) ; sans I ni O (confusion avec 1 et 0).
 const CODE_ALPHABET := "abcdefghijklmnopqrstuvwxyz123456789" # StringFactory.RndWord (StringFactory.cs:20-29) : 4 caracteres a-z 1-9, en minuscules, sensibles a la casse
 const CODE_LENGTH := 4

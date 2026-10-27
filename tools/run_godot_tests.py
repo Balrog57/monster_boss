@@ -27,6 +27,8 @@ SUITES = [
     ("soak Player's Choice (wiki)", T + "Soak.tscn", "SOAK OK", ["--", "--sets=players-choice,players-choice-wiki", "--runs=4"]),
     ("soak Crash Landing 5-6 players", T + "Soak.tscn", "SOAK OK", ["--", "--sets=crash-landing", "--players=5,6", "--runs=3"]),
     ("soak Crash Landing 5-6 players (Hidden Heroes, Tools)", T + "Soak.tscn", "SOAK OK", ["--", "--sets=crash-landing,hidden-heroes,tools", "--players=5,6", "--runs=2"]),
+    ("soak TNL + variants", T + "Soak.tscn", "SOAK OK", ["--", "--sets=next-level,hard-wiki,choose-wiki,machinations-wiki", "--runs=3"]),
+    ("soak Unlimited Lives", T + "Soak.tscn", "SOAK OK", ["--", "--sets=unlimited-wiki,machinations-wiki,hard-wiki", "--runs=3"]),
     ("soak all packs", T + "Soak.tscn", "SOAK OK", ["--", f"--sets={SOAK_ALL}", "--runs=3"]),
     ("online", T + "OnlineTest.tscn", "ONLINE OK", []),
     ("ui smoke", T + "UiSmoke.tscn", "UISMOKE OK", []),

@@ -65,7 +65,7 @@ func _check_filter_unit() -> void:
 	_check_stack_and_boss_picks()
 	_check_g_keys_classified()
 	_check_apk_skipped_hero_view()
-	for sets in [["base"], ["next-level", "crash-landing", "players-choice", "hidden-heroes", "minibosses", "tools-wiki", "iod", "players-choice-wiki"]]:
+	for sets in [["base"], ["next-level", "crash-landing", "players-choice", "hidden-heroes", "minibosses", "tools-wiki", "iod", "players-choice-wiki", "classic-wiki", "choose-wiki", "machinations-wiki", "unlimited-wiki"]]:
 		var checks := 0
 		var priv_before := _priv_lines
 		for g in FILTER_MAX_GAMES:
@@ -86,7 +86,7 @@ func _check_filter_unit() -> void:
 ## (affectation de premier niveau seulement : `G["a"]["b"] =` et `G["a"] ==` ne sont pas capturees).
 func _check_g_keys_classified() -> void:
 	var keys := {}
-	for sets in [["base"], ["next-level", "crash-landing", "players-choice", "hidden-heroes", "minibosses", "tools-wiki", "iod", "players-choice-wiki"]]:
+	for sets in [["base"], ["next-level", "crash-landing", "players-choice", "hidden-heroes", "minibosses", "tools-wiki", "iod", "players-choice-wiki", "classic-wiki", "choose-wiki", "machinations-wiki", "unlimited-wiki"]]:
 		var m = GameManager.new()
 		add_child(m)
 		m.start_new_game(3, 0, sets)
@@ -695,6 +695,12 @@ func _scenario_lobby() -> void:
 	# titre par defaut, titre trop long, setup invalide refuse meme en public
 	var zed := await _create_raw({"name": "Zed", "players": 2, "sets": [], "public": true})
 	var longt := await _create_raw({"name": "Long", "players": 2, "sets": [], "public": true, "title": "x".repeat(40)})
+	# variantes de jeu (TNL) : jetons « -wiki » conserves dans la salle, inconnus ecartes, aussi a 5-6 joueurs (ce ne sont pas des paquets)
+	var vroom := await _create_raw({"name": "Var", "players": 2, "sets": ["hard-wiki", "unlimited-wiki", "bogus-wiki"], "public": true})
+	var vcode: String = vroom.last("joined")["code"]
+	_expect(server.get_room(vcode) != null and server.get_room(vcode).sets == ["hard-wiki", "unlimited-wiki"] and (server.get_room(vcode).lobby_msg()["sets"] as Array).has("hard-wiki"), "lobby : variantes de jeu dans la salle : %s" % str(server.get_room(vcode).sets if server.get_room(vcode) != null else "?"))
+	var vbig := await _create_raw({"name": "VarBig", "players": 5, "sets": ["crash-landing", "choose-wiki"]})
+	_expect(vbig.count("joined") > 0, "lobby : 5 joueurs + Crash Landing + variante : %s" % str(vbig.last("error")))
 	var bad := await _create_raw({"name": "Bad", "players": 5, "sets": [], "public": true})
 	_expect(bad.last("error").get("code", "") == "bad_setup" and bad.count("joined") == 0, "lobby : create public invalide : %s" % str(bad.last("error")))
 	var zcode: String = zed.last("joined")["code"]

@@ -144,10 +144,16 @@ static func cast(G: Dictionary, caster: int, card: Dictionary, t: Dictionary) ->
 	match id:
 		"TNL056": # All Your Base : regarde la main d'un adversaire, peut prendre une de ses salles
 			var opts := TnlAbilities.hand_options(_player(G, tid), "room")
+			# « View an opponent's hand » : la main entiere n'est montree qu'au lanceur (ligne privee + message du choix, que ViewFilter ne donne qu'a lui)
+			var seen: Array = []
+			for c in (_player(G, tid).get("hand", []) as Array):
+				seen.append(TnlAbilities._label(c as Dictionary))
+			var hand_txt := ", ".join(seen) if not seen.is_empty() else "(empty)"
+			_log(G, "%s: player %d's hand: %s." % [name, tid + 1, hand_txt], "%s: a player looks at player %d's hand." % [name, tid + 1], [caster])
 			if opts.is_empty():
 				_log(G, "%s: player %d has no Room card." % [name, tid + 1])
 				return true
-			TnlAbilities.emit(G, TnlAbilities.ask(G, caster, "sp_aybase", opts, {"victim": tid}, "All Your Base: take a Room from player %d (or skip)" % (tid + 1), name, true))
+			TnlAbilities.emit(G, TnlAbilities.ask(G, caster, "sp_aybase", opts, {"victim": tid}, "All Your Base: player %d's hand is %s. Take a Room (or skip)" % [tid + 1, hand_txt], name, true))
 		"TNL057": # Another Castle : le heros de VOTRE donjon part a l'entree d'un adversaire
 			if mine.is_empty() or not TnlAbilities._opponents(G, caster).has(tid):
 				return _fizzle(G, name)
@@ -202,6 +208,14 @@ static func cast(G: Dictionary, caster: int, card: Dictionary, t: Dictionary) ->
 					return _fizzle(G, name)
 				TnlAbilities._tag(rv2 as Dictionary)["noText"] = true
 				_log(G, "%s: %s has no ability text until end of turn." % [name, TnlAbilities._label(rv2 as Dictionary)])
+				# FAQ : « If a player declares a Room ability ... you may use Meddling Kids! to negate that effect » : l'entree de pile de cette salle est annulee
+				# (comme Counterspell : elle reste en liste mais ne s'execute pas ; OncePerTurn n'est pose qu'a l'execution, donc la salle reste utilisable... sans texte)
+				if (rv2 as Dictionary).has("_tuid"):
+					for se in (G.get("stack", []) as Array):
+						var sd: Dictionary = se
+						if str(sd.get("type", "")) == "ability" and not bool(sd.get("resolved", false)) and not bool(sd.get("canceled", false)) and int(sd.get("roomUid", -1)) == int((rv2 as Dictionary)["_tuid"]):
+							sd["canceled"] = true
+							_log(G, "%s: the declared ability of %s is negated." % [name, TnlAbilities._label(rv2 as Dictionary)])
 		"TNL063": # Oh, Yeah! : echange deux salles de votre donjon, OU (2 salles detruites ce tour) detruit une salle de n'importe quel donjon
 			if str(t.get("mode", "")) == "destroy":
 				if TnlAbilities.count_of(G, "destroyed", caster) < 2 or SpellEffects.find_room(G, tid, int(t.get("roomIndex", -1))) == null:

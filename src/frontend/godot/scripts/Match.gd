@@ -6,6 +6,7 @@ extends Node
 signal state_changed
 
 const BossEngine = preload("res://godot/scripts/BossEngine.gd")
+const Variants = preload("res://godot/scripts/Variants.gd")
 
 const WIN_SOULS := 10
 
@@ -30,7 +31,7 @@ static func setup_error(num_players: int, p_sets: Array) -> String:
 	if not p_sets.has("crash-landing"):
 		return "5 ou 6 joueurs : l'extension Crash Landing est obligatoire"
 	for s in p_sets:
-		if not str(s) in BIG_GAME_SETS:
+		if not str(s) in BIG_GAME_SETS and not Variants.is_token(s): # les variantes (jetons « -wiki ») ne sont pas des paquets
 			return "5 ou 6 joueurs : le paquet « %s » n'est pas pris en charge (seulement Crash Landing, Hidden Heroes et Tools)" % str(s)
 	return ""
 
@@ -57,7 +58,10 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	human_count = p_human_count
 	var n := clampi(num_players, 2, max_players(p_sets)) # 5-6 joueurs sans Crash Landing : repli a 4 (le serveur et le lobby refusent avant, voir setup_error)
 	var sets := {}
+	var variants: Array = Variants.ids_in(p_sets) # variantes du livret TNL (cochees avec la case wiki) : G.variants, jamais dans `sets`
 	for s in p_sets:
+		if Variants.is_token(s):
+			continue
 		if n < 5 or String(s) in BIG_GAME_SETS: # a 5-6 joueurs un paquet non pris en charge est ecarte (garantit les 32 + 21 heros)
 			sets[String(s)] = true
 	if sets.has(ThkAbilities.SET_ID):
@@ -88,6 +92,8 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 		var d: Dictionary = c
 		if not in_sets.call(d) or replaced.has(str(d.get("id", ""))) or bool(d.get("epic", false)) != epic:
 			return false
+		if "hard" in variants and not epic and int(d.get("hp", 0)) == 4:
+			return false # Hard Mode : « Remove all ordinary Heroes with a Health value of four »
 		if (tnl or rmb) and str(d.get("set", "base")) in ["base", "hidden-heroes"]:
 			return false
 		if tnl and str(d.get("set", "base")) == Minibosses.SET_ID:
@@ -163,7 +169,7 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 		if rmb:
 			players[i]["coins"] = Minibosses.START_COINS # livret RMB : chaque joueur commence avec 3 Coins dans son Hoard
 	G = {
-		"players": players, "bossPicks": picks, "numPlayers": n, "sets": sets.keys(),
+		"players": players, "bossPicks": picks, "numPlayers": n, "sets": sets.keys(), "variants": variants,
 		"xpOrder": [], "decks": {"rooms": room_deck, "spells": spell_deck, "heroes": hero_deck, "epics": epic_deck, "items": item_deck, "roomDiscard": [], "spellDiscard": [], "heroDiscard": []},
 		"itemQueue": [],
 		"town": [], "turn": 0, "phase": CardDB.PHASE["BOSS"], "gameOver": null, "log": [], "autoAI": true,
@@ -553,7 +559,10 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 					break
 			_log("Joueur %d choisit %s." % [pid, p["boss"]["name"]])
 			if _all_have_boss():
-				_deal_opening_hands()
+				if Variants.has(G, "choose") and Variants.offer_bosses(G):
+					state_changed.emit() # I Choose You : les humains gardent un des deux boss avant la distribution (reprise : _resolve_choice_body)
+				else:
+					_deal_opening_hands()
 		"buildRoom":
 			var idx := int(move["args"][0])
 			# Cible optionnelle : index d'emplacement pour recouvrir une salle
@@ -1059,6 +1068,11 @@ func _resolve_choice_body(pid: int, index: int) -> void:
 				_close_build_phase()
 		else:
 			_drive_ai() # le choix etait ouvert en cours de tour : l'IA active reprend la main
+	elif cur_pc.is_empty() and bool(G.get("mulliganPending", false)):
+		G.erase("mulliganPending")
+		_queue_next_opening_discard() # Mulligan resolu : la mise en place reprend
+	elif cur_pc.is_empty() and str(G.get("phase", "")) == CardDB.PHASE["BOSS"] and _all_have_boss():
+		_deal_opening_hands() # I Choose You : dernier choix de boss resolu
 	elif cur_pc.is_empty() and bool(G.get("setupReveal", false)):
 		_finish_setup() # revelation de Setup_c suspendue par un choix
 	elif cur_pc.is_empty() and bool(G.get("tnlEndPending", false)):
@@ -1119,19 +1133,35 @@ func _draw_opening_rooms(deck: Array) -> Array:
 func _deal_opening_hands() -> void:
 	# GameBoard Setup_a : par joueur 5 salles + 2 sorts + AvoidMulligan, puis defausse de 2 cartes pour 5 en main.
 	G["phase"] = CardDB.PHASE["SETUP"]
+	var mulligans: Array = [] # livret TNL : « you may shuffle your entire hand back and draw a new hand » (choix) ; l'APK le fait d'office (AvoidMulliganCondition)
 	for pid in G["players"]:
 		var p: Dictionary = G["players"][pid]
-		var drawn: Array = _draw_opening_rooms(G["decks"]["rooms"]) + CardDB.draw_cards(G["decks"]["spells"], 2)
+		var tnl_mull := TnlAbilities.active(G)
+		var rooms5: Array = CardDB.draw_cards(G["decks"]["rooms"], 5) if tnl_mull else _draw_opening_rooms(G["decks"]["rooms"])
+		var drawn: Array = rooms5 + CardDB.draw_cards(G["decks"]["spells"], 2)
 		p["hand"] = drawn
-		if p.get("isAI", false): # tous les modes : 5 salles + 2 sorts, puis defausse de 2 cartes (l'IA ici, l'humain via le choix opening-discard)
+		if tnl_mull and _bad_opening_rooms(rooms5):
+			mulligans.append(int(pid))
+		if p.get("isAI", false) and not Variants.keeps_opening_hand(G): # APK et Classic Mode : 5 salles + 2 sorts, puis defausse de 2 cartes (l'IA ici, l'humain via le choix opening-discard) ; livret TNL : on garde les 7
 			var pair = AI.select_opening_discards(drawn, p, G)
 			_apply_opening_discard(pid, pair[0], pair[1])
 	if _big_hand():
 		TnlAbilities.seed_discards(G) # regles TNL / RMB : defausse amorcee par 4 salles et 2 sorts au hasard, face visible
 	G["xpOrder"] = CardDB.order_by_xp(G["players"])
+	for mpid in mulligans:
+		if bool((G["players"][mpid] as Dictionary).get("isAI", false)):
+			Variants.mulligan(G, mpid) # IA : une main « mauvaise » (4 salles avancees ou 4 du meme tresor) est toujours rejouee
+		else:
+			TnlAbilities.emit(G, TnlAbilities.ask(G, mpid, "var_mulligan", [{"label": "Keep my hand", "ai": 0.0}, {"label": "Shuffle it back and draw a new hand", "ai": 1.0}], {},
+				"Mulligan: your hand has four Advanced Rooms or four of one treasure type. Draw a new hand?", "Mulligan"))
+	if not (G.get("pendingChoice", {}) as Dictionary).is_empty():
+		G["mulliganPending"] = true # les mains attendent ces choix (reprise : _resolve_choice_body)
+		state_changed.emit()
+		return
 	_queue_next_opening_discard()
 
-## Mise en place des livrets TNL et RMB : la defausse est amorcee par 4 salles + 2 sorts au hasard (la defausse de 2 cartes a l'ouverture vaut pour tous les modes).
+## Mise en place des livrets TNL et RMB : la defausse est amorcee par 4 salles + 2 sorts au hasard. La defausse de 2 cartes a l'ouverture vaut pour l'APK, RMB et le Classic Mode de TNL ;
+## une partie TNL (set « next-level » choisi) garde ses 7 cartes (Variants.keeps_opening_hand).
 func _big_hand() -> bool:
 	return TnlAbilities.active(G) or Minibosses.active(G)
 
@@ -1154,7 +1184,7 @@ func _apply_opening_discard(pid: int, a: int, b: int) -> void:
 func _queue_next_opening_discard() -> void:
 	for pid in G["players"]:
 		var p: Dictionary = G["players"][pid]
-		if not p.get("eliminated", false) and not p.get("isAI", false) and (p.get("hand", []) as Array).size() > 5:
+		if not p.get("eliminated", false) and not p.get("isAI", false) and not Variants.keeps_opening_hand(G) and (p.get("hand", []) as Array).size() > 5:
 			G["pendingChoice"] = {
 				"type": "opening-discard",
 				"playerId": int(pid),
@@ -1163,7 +1193,7 @@ func _queue_next_opening_discard() -> void:
 			state_changed.emit()
 			return
 	G["pendingChoice"] = {}
-	_log("Mains initiales prêtes (5).")
+	_log("Mains initiales prêtes (%d)." % (7 if Variants.keeps_opening_hand(G) else 5))
 	_begin_setup_build()
 
 ## GameBoard Setup_b : IsPlayerBuildTurn est vrai pour TOUS les joueurs, qui posent chacun une salle
@@ -1229,8 +1259,8 @@ func _start_turn() -> void:
 	# Phase 1 : BEGINNING (Début de tour)
 	G["phase"] = CardDB.PHASE["BEGINNING"]
 	_log("Tour %d — phase BEGINNING." % G["turn"])
-	if TnlAbilities.active(G):
-		TnlAbilities.on_turn_start(G) # photographie des ames du debut de tour (Nicolius)
+	if TnlAbilities.active(G) or Variants.has(G, "machinations"):
+		TnlAbilities.on_turn_start(G) # photographie des ames du debut de tour (Nicolius ; variante Machinations)
 
 	# Arrivée des héros en ville : 1 héros par joueur actif (la ville se cumule d'un tour à l'autre)
 	_reveal_items()
@@ -2312,7 +2342,7 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 		if ThkAbilities.active(G):
 			ThkAbilities.on_hero_survived(G, pid, hero) # THK : Vorpal Blade, Holy Hand Grenade, Antimagic Lizard, Necronomicon ; l'Objet va face cachee
 		_log("Le héros survit et blesse le boss ! (%d blessures)" % CardDB.total_wounds(p))
-		if CardDB.total_wounds(p) >= 5 and not ThkAbilities.wound_immune(G, pid) and not CardDB.big_game(G): # 5-6 joueurs : plus d'elimination (livret CRL)
+		if CardDB.total_wounds(p) >= 5 and not ThkAbilities.wound_immune(G, pid) and not CardDB.no_elimination(G): # 5-6 joueurs : plus d'elimination (livret CRL) ; Unlimited Lives de meme
 			p["eliminated"] = true
 			entrance.clear() # GameBoard.ChooseNextActiveHero : !IsAlive => EntranceQueue.Clear()
 			_log("Joueur %d éliminé !" % pid)
@@ -2346,7 +2376,7 @@ func _check_end_or_next_turn() -> void:
 	# Phase 5 : END (Fin de tour et conditions de victoire)
 	G["phase"] = CardDB.PHASE["END"]
 
-	if CardDB.big_game(G):
+	if CardDB.big_game(G) or Variants.has(G, "unlimited"):
 		_check_end_big_game()
 		return
 
@@ -2422,7 +2452,9 @@ func _check_end_or_next_turn() -> void:
 
 	# Pas de fin de partie -> tour suivant (The Next Level : effets de fin de tour, dont des choix Shellda / Blockpile Puzzle qui retardent le tour suivant)
 	var iod_end := ThkAbilities.active(G) and IodAbilities.end_of_turn(G) # IOD018 : les salles posees grace a Stolen Blueprints sont detruites
-	if (TnlAbilities.active(G) and TnlAbilities.end_of_turn(G)) or iod_end:
+	var tnl_end := TnlAbilities.active(G) and TnlAbilities.end_of_turn(G)
+	var var_end := Variants.end_of_turn(G) # Machinations (appele dans tous les cas : le choix de pioche suit ceux de TNL)
+	if tnl_end or iod_end or var_end:
 		G["tnlEndPending"] = true
 		state_changed.emit()
 		return
@@ -2440,6 +2472,7 @@ func _check_end_big_game() -> void:
 	var souls_reached := false
 	for pid in all_pids:
 		souls_reached = souls_reached or CardDB.total_souls(G["players"][pid], G) >= WIN_SOULS
+	souls_reached = souls_reached and not Variants.has(G, "unlimited") # Unlimited Lives : seule la fin des pioches de heros arrete la partie
 	var decks: Dictionary = G["decks"]
 	var exhausted: bool = (decks.get("heroes", []) as Array).is_empty() and (decks.get("epics", []) as Array).is_empty()
 	if souls_reached or exhausted:
@@ -2447,6 +2480,10 @@ func _check_end_big_game() -> void:
 		var reason := "10 âmes" if souls_reached else "héros épuisés"
 		G["gameOver"] = {"winner": win_pid, "reason": reason}
 		_log("Partie terminée (%s) : joueur %d gagne !" % [reason, win_pid])
+		state_changed.emit()
+		return
+	if Variants.end_of_turn(G): # Machinations : choix de pioche de fin de tour (comme TNL, le tour suivant attend)
+		G["tnlEndPending"] = true
 		state_changed.emit()
 		return
 	_start_turn()

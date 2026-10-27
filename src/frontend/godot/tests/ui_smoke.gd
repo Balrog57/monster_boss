@@ -2683,6 +2683,24 @@ func _check_online_menus() -> void:
 	_check((main._active_sets() as Array).has("players-choice-wiki"), "case wiki cochee : Player's Choice ajoute players-choice-wiki (6 cartes manquantes)")
 	main.apk_decks = ["iod"]
 	_check((main._active_sets() as Array).has("iod"), "tuile Implements of Destruction : ajoute le paquet iod")
+	# variantes de jeu (livret TNL) : une case par variante dans SELECT EXPANSIONS, seulement avec la case wiki ; jetons « -wiki » dans les paquets
+	main.variants = ["hard", "choose"]
+	main.use_extensions = false
+	_check(not (main._active_sets() as Array).has("hard-wiki"), "case wiki decochee : les variantes ne sont pas envoyees")
+	main.use_extensions = true
+	_check((main._active_sets() as Array).has("hard-wiki") and (main._active_sets() as Array).has("choose-wiki") and not (main._active_sets() as Array).has("classic-wiki"), "case wiki cochee : variantes cochees = jetons dans les paquets")
+	main.variants = []
+	main.show_setup(2, "solo")
+	await _wait(0.2)
+	_check(main.find_child("Variants", true, false) != null and main.find_child("Variant_unlimited", true, false) != null and not (main.find_child("Variant_hard", true, false) as CheckBox).button_pressed, "SELECT EXPANSIONS : cinq variantes, decochees par defaut")
+	(main.find_child("Variant_machinations", true, false) as CheckBox).button_pressed = true
+	_check(main.variants == ["machinations"] and (main._active_sets() as Array).has("machinations-wiki"), "SELECT EXPANSIONS : cocher une variante l'ajoute")
+	main.variants = []
+	main.use_extensions = false
+	main.show_setup(2, "solo")
+	await _wait(0.2)
+	_check(main.find_child("Variants", true, false) == null, "SELECT EXPANSIONS : sans la case wiki, aucune variante offerte")
+	main.use_extensions = true
 	main.apk_decks = saved_decks
 	main.use_extensions = saved_ext
 	# PLAY WITH FRIENDS (remplace PASS AND PLAY) : profil existant -> WITH FRIENDS (NEW GAME / ROOM CODE) ; plus de partie a sieges tous humains sur un ecran

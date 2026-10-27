@@ -40,6 +40,7 @@ const UiKit = preload("res://godot/scripts/UiKit.gd")
 const CardGallery = preload("res://godot/scripts/CardGallery.gd")
 const OnlineMenus = preload("res://godot/scripts/OnlineMenus.gd")
 const CountDown = preload("res://godot/scripts/CountDown.gd")
+const Variants = preload("res://godot/scripts/Variants.gd")
 const CreditsScreen = preload("res://godot/scripts/CreditsScreen.gd")
 const TutorialOverlay = preload("res://godot/scripts/TutorialOverlay.gd")
 
@@ -58,6 +59,7 @@ var board: Control
 var menus: OnlineMenus
 var use_extensions := false
 var apk_decks: Array = [] # ids des paquets APK coches (voir APK_DECKS)
+var variants: Array = [] # variantes de jeu du livret TNL cochees dans SELECT EXPANSIONS (Variants.IDS), seulement avec la case wiki ; non enregistrees : decochees a chaque lancement
 var server_host := "http://127.0.0.1:8000"
 var players := 2 # choix courant de « HOW MANY PLAYERS? »
 var _setup_players := 2 # nombre de joueurs de l'ecran SELECT EXPANSIONS (pour le message d'erreur 5-6)
@@ -138,6 +140,10 @@ func _active_sets() -> Array:
 		sets.append(ThkAbilities.SET_ID) # case wiki cochee : les Objets et les salles THK se jouent (ThkAbilities)
 	if sets.has("players-choice") and use_extensions:
 		sets.append(PcwAbilities.SET_ID) # case wiki cochee : les 6 cartes KSA que l'APK ne joue pas (PcwAbilities)
+	if use_extensions:
+		for v in Variants.IDS:
+			if variants.has(v):
+				sets.append(Variants.token(v)) # variantes de jeu : jetons « <id>-wiki » dans `sets` (Match.new_match les range dans G.variants ; salons : create.sets)
 	return sets
 
 # --- transitions ----------------------------------------------------------------
@@ -607,6 +613,7 @@ func show_setup(num_players: int, mode: String = "solo") -> void:
 	add_child(dyn_root)
 	_tiles_live = true
 	_draw_tiles()
+	_draw_variants()
 	_ok_btn(func():
 		if Match.setup_error(num_players, _active_sets()) != "":
 			return # 5-6 joueurs avec un paquet non pris en charge : le message est affiche, on ne lance rien
@@ -614,6 +621,31 @@ func show_setup(num_players: int, mode: String = "solo") -> void:
 			await menus.create_room(num_players, mode == "public")
 		else:
 			start_match(num_players))
+
+## Variantes de jeu (livret TNL, section « Play variants ») : une case par variante sous les tuiles, decochees par defaut, offertes seulement avec la case « Wiki expansions ».
+func _draw_variants() -> void:
+	if not use_extensions:
+		return
+	var row := Control.new()
+	row.name = "Variants"
+	add_child(row)
+	var title := _lbl("PLAY VARIANTS", 20, GOLD, Vector2(30, 972), Vector2(300, 30), FONT_A, HORIZONTAL_ALIGNMENT_LEFT)
+	row.add_child(title)
+	for i in Variants.IDS.size():
+		var vid: String = Variants.IDS[i]
+		var cb := CheckBox.new()
+		cb.name = "Variant_" + vid
+		cb.text = str(Variants.NAMES[vid])
+		cb.tooltip_text = str(Variants.HELP[vid])
+		cb.button_pressed = variants.has(vid)
+		cb.add_theme_font_size_override("font_size", 18)
+		cb.position = Vector2(30 + 310 * i, 1004)
+		cb.toggled.connect(func(on: bool):
+			if on and not variants.has(vid):
+				variants.append(vid)
+			elif not on:
+				variants.erase(vid))
+		row.add_child(cb)
 
 ## Tuiles de LocalMarket.Expansions (ExpansionScene.cs:39-44) : alignees a gauche (centre de la premiere en x 455, pas de 331, ExpansionScrollComponent.cs:57-59), le jeu de base
 ## est toujours present et n'a pas de tuile ; les paquets du wiki suivent seulement avec l'option. Glissement horizontal avec inertie des 4 tuiles (:73-75).
