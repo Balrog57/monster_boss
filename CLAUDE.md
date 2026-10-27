@@ -4,16 +4,17 @@
 
 ## Avant d'écrire du code
 
-### Ne pas réinventer : chercher d'abord ce qui existe
+### Référence et open source
 
-Pour toute fonctionnalité que tu ne connais pas bien (shader, effet visuel, réseau, audio web, outil d'extraction, parseur...), n'écris pas from scratch :
+La référence, c'est le C# décompilé de l'APK (`apk-original/`) et le livre de règles officiel ; le wiki ne sert que pour les extensions. Pour les règles, l'IA, l'interface, les durées et la géométrie, on porte ce que fait l'APK, bizarreries comprises.
 
-1. Cherche d'abord dans ce dépôt : un helper, un script ou un motif déjà présent l'emporte toujours.
-2. Sinon, cherche sur GitHub des projets open source qui résolvent le même problème (de préférence en Godot 4 / GDScript). Retiens-en 2 ou 3.
-3. Compare les approches : taille, licence (compatible et citée), maintenance, adéquation au code existant.
-4. Dis en une ligne quelle approche tu retiens et pourquoi, puis commence.
+Pour la manière de l'implémenter, quand la technique est mal connue (shader, effet visuel, réseau, audio web, outil d'extraction, parseur...), n'écris pas from scratch :
 
-Cette règle ne s'applique pas au comportement du jeu : pour les règles, l'IA, l'interface, les durées et la géométrie, la référence reste le C# décompilé de l'APK (`apk-original/`), les règles officielles et le wiki (extensions). On porte ce que fait l'APK, on n'importe pas la logique d'un autre jeu.
+1. Cherche sur GitHub des projets open source qui résolvent le même problème (de préférence en Godot 4 / GDScript). Retiens-en 2 ou 3.
+2. Compare les approches : taille, licence (compatible et citée), maintenance, adéquation au code existant.
+3. Dis en une ligne quelle approche tu retiens et pourquoi, puis commence.
+
+Un projet open source ne remplace jamais la référence : il montre comment faire, l'APK et les règles disent quoi faire.
 
 ### Documentation à jour : Context7, pas la mémoire
 
