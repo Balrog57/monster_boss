@@ -4,6 +4,10 @@ extends RefCounted
 ## JSON.parse_string rend des float partout et des cles texte : on restaure les entiers
 ## exacts et les dictionnaires indexes par entier (players, stackPassed...).
 
+## Version du protocole client <-> serveur (equivalent de l'AppVersion Photon, OnlineKeys.APPVERSION). A incrementer a chaque changement
+## incompatible des messages ; `create`, `join`, `resume` et `listRooms` la portent dans `v`, le serveur refuse tout autre valeur (`error` `version`).
+const PROTOCOL_VERSION := 1
+
 static func decode(v):
 	if v is float:
 		return int(v) if v == floor(v) and absf(v) < 1.0e15 else v

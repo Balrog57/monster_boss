@@ -62,6 +62,7 @@ const FILTER_MAX_GAMES := 8
 
 func _check_filter_unit() -> void:
 	_check_room_view()
+	_check_stack_and_boss_picks()
 	_check_g_keys_classified()
 	_check_apk_skipped_hero_view()
 	for sets in [["base"], ["next-level", "crash-landing", "players-choice", "hidden-heroes", "minibosses", "tools-wiki", "iod", "players-choice-wiki"]]:
@@ -159,6 +160,24 @@ func _filter_game(sets: Array, rng_seed: int, players: int = 3) -> int:
 	m.queue_free()
 	return checks
 
+## N-A69 : `stack` et `bossPicks` ne laissent fuir aucune carte cachee. Les sorts et capacites en pile sont publics (un sort est montre des qu'il est pose, APK
+## comme Godot) ; seuls les `picks` d'une capacite en file (cartes de la main comprises) restent a l'activateur. Le pool de bosses est le meme pour tous les sieges
+## pendant la phase `boss` (l'APK montre tous les bosses dans le carrousel) puis il est vide : les bosses non pris ne se devinent pas.
+func _check_stack_and_boss_picks() -> void:
+	var spell := {"id": "BMA001", "name": "Public spell", "isSpell": true}
+	var g := {"phase": "boss", "numPlayers": 2, "bossPicks": [{"id": "BOSS1", "name": "Un"}, {"id": "BOSS2", "name": "Deux"}],
+		"players": {0: {"id": 0, "hand": [{"id": "H0", "_secret": "SECRET0;"}], "dungeon": []}, 1: {"id": 1, "hand": [{"id": "H1", "_secret": "SECRET1;"}], "dungeon": []}},
+		"stack": [{"id": "spell-1", "type": "spell", "playerId": 0, "card": spell, "target": {"roomIndex": 0}, "resolved": false},
+			{"id": "ability-R-1", "type": "ability", "playerId": 0, "card": {"id": "R"}, "target": {"roomIndex": 1}, "picks": ["hand:SECRET0;"], "resolved": false}]}
+	var v0 := ViewFilter.for_seat(g, 0)
+	var v1 := ViewFilter.for_seat(g, 1)
+	_expect(JSON.stringify(v0["stack"]) == JSON.stringify(g["stack"]), "stack : l'activateur doit voir sa pile telle quelle")
+	_expect(not JSON.stringify(v1).contains("SECRET0;") and not JSON.stringify(v1["stack"]).contains("picks"), "stack : les cibles memorisees de l'activateur ne doivent pas fuir")
+	_expect(v1["stack"][0] == g["stack"][0] and v1["stack"][1]["card"] == g["stack"][1]["card"] and v1["stack"][1]["target"] == g["stack"][1]["target"], "stack : sort, carte de la capacite et salle visee restent publics")
+	_expect(JSON.stringify(v0["bossPicks"]) == JSON.stringify(g["bossPicks"]) and JSON.stringify(v1["bossPicks"]) == JSON.stringify(g["bossPicks"]), "bossPicks : meme pool pour tous les sieges en phase boss")
+	g["phase"] = "build"
+	_expect((ViewFilter.for_seat(g, 0)["bossPicks"] as Array).is_empty() and (ViewFilter.for_seat(g, 1)["bossPicks"] as Array).is_empty(), "bossPicks : vide des que la phase boss est finie")
+
 ## Vue d'une salle adverse : dos seul si face cachee, miniboss face cache reduit a un marqueur, miniboss revele public.
 func _check_room_view() -> void:
 	var mb := {"card": {"id": "RMB055", "name": "Spike"}, "level": 1, "faceDown": true}
@@ -255,6 +274,11 @@ func _check_view(G: Dictionary, label: String) -> void:
 				i += 1
 			_expect(false, "[%s] aller-retour JSON/NetCodec different : ...%s | ...%s" % [label, want.substr(maxi(0, i - 60), 120), got.substr(maxi(0, i - 60), 120)])
 		_expect((back["players"] as Dictionary).has(int(viewer)), "[%s] players n'a pas de cles entieres" % label)
+		# N-A69 : pile et pool de bosses (voir _check_stack_and_boss_picks)
+		for e in view.get("stack", []):
+			var had_picks: bool = (g["stack"] as Array).any(func(s): return (s as Dictionary).get("id") == (e as Dictionary).get("id") and (s as Dictionary).has("picks"))
+			_expect((e as Dictionary).has("picks") == (had_picks and int((e as Dictionary).get("playerId", -1)) == int(viewer)), "[%s] stack : `picks` visibles par un autre siege (%d) : %s" % [label, viewer, JSON.stringify(e)])
+		_expect(JSON.stringify(view.get("bossPicks", [])) == JSON.stringify(g.get("bossPicks", []) if str(g.get("phase", "")) == "boss" else []), "[%s] bossPicks : vue differente du pool (phase boss) ou non vide ensuite" % label)
 
 # --- 2..4. reseau -----------------------------------------------------------------
 
@@ -359,6 +383,12 @@ func _run_network() -> void:
 		await _scenario_adventure_expiry()
 		_scenario_plays()
 		await _scenario_player_left()
+	if _fails.is_empty():
+		await _scenario_version()
+	if _fails.is_empty():
+		await _scenario_away()
+	if _fails.is_empty():
+		await _scenario_abandon()
 	if FileAccess.file_exists(OnlineClient.SESSION_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(OnlineClient.SESSION_PATH))
 	server.stop()
@@ -602,6 +632,8 @@ class Raw extends Node:
 	func is_open() -> bool:
 		return ws.get_ready_state() == WebSocketPeer.STATE_OPEN
 	func send(d: Dictionary) -> void:
+		if str(d.get("t", "")) in ["create", "join", "resume", "listRooms"] and not d.has("v"):
+			d["v"] = NetCodec.PROTOCOL_VERSION # le serveur refuse ces messages sans version (N-A46) ; un test de version passe sa propre cle `v`
 		ws.send_text(JSON.stringify(d))
 	func count(t: String) -> int:
 		return msgs.filter(func(m): return m.get("t", "") == t).size()
@@ -1212,6 +1244,110 @@ func _scenario_player_left() -> void:
 	_expect(bool((a.current_seats[1] as Dictionary).get("left", false)), "left : `left` absent du lobby")
 	a.queue_free()
 	b.queue_free()
+
+## N-A46 : create / join / resume / listRooms doivent porter la version du protocole ; sinon `error` `version`, rien n'est cree ni liste. ping n'est pas concerne.
+func _scenario_version() -> void:
+	var r := await _raw()
+	var rooms_before: int = server.room_count()
+	for bad in [null, 0, NetCodec.PROTOCOL_VERSION + 1, "1", [1]]:
+		for t in ["create", "join", "resume", "listRooms"]:
+			var n := r.count("error")
+			r.send({"t": t, "name": "V", "players": 2, "sets": [], "code": "abcd", "seat": 0, "token": "x", "v": bad})
+			_expect(await _wait(func(): return r.count("error") > n, 3.0) and r.last("error").get("code", "") == "version", "version : %s avec v=%s doit etre refuse (version)" % [t, str(bad)])
+	var n0 := r.count("error")
+	r.ws.send_text(JSON.stringify({"t": "listRooms"})) # sans le champ v (ancien client)
+	r.ws.send_text(JSON.stringify({"t": "create", "name": "V", "players": 2, "sets": []}))
+	_expect(await _wait(func(): return r.count("error") >= n0 + 2, 3.0), "version : un message sans `v` doit etre refuse")
+	_expect(r.count("rooms") == 0 and r.count("joined") == 0 and server.room_count() == rooms_before, "version : refus sans effet (ni salle ni liste)")
+	r.send({"t": "ping"})
+	_expect(await _wait(func(): return r.count("pong") > 0, 3.0), "version : ping n'exige pas la version")
+	r.send({"t": "create", "name": "V", "players": 2, "sets": []})
+	_expect(await _wait(func(): return r.count("joined") > 0, 3.0), "version : create avec la bonne version")
+	r.send({"t": "leave"})
+	# client perime : create_lobby echoue et le code d'erreur est `version` (les menus affichent « Game updated. »)
+	var c := _client("Perime")
+	c.protocol_version = NetCodec.PROTOCOL_VERSION + 1
+	_expect(not await c.create_lobby(2, []) and c.last_error_code == "version" and c.match_id == "", "version : un client perime doit etre refuse (%s)" % c.last_error_code)
+	c.queue_free()
+	# onglet perime qui reprend sa session apres une mise a jour du serveur : `resume` refuse -> session perdue (pas de plateau fige sur une liaison vivante)
+	var s := _client("Stale")
+	if _expect(await s.create_lobby(2, []), "version : create du client perime"):
+		var lost := [0]
+		s.session_lost.connect(func(): lost[0] += 1)
+		s.protocol_version = NetCodec.PROTOCOL_VERSION + 1
+		s._ws.close() # la reconnexion automatique envoie `resume` avec la mauvaise version
+		_expect(await _wait(func(): return lost[0] == 1 and s.match_id == "" and s.last_error_code == "version", 8.0), "version : un `resume` refuse pour version doit perdre la session (%d, %s)" % [lost[0], s.last_error_code])
+	s.queue_free()
+	r.queue_free()
+
+## N-A71 : `away` (pagehide de l'onglet en salle d'attente) libere le siege apres --away-grace au lieu de --seat-grace ; un `resume` dans le delai le garde.
+## N-A43 : le lobby porte `public` (survit a une reprise apres rechargement).
+func _scenario_away() -> void:
+	server.away_grace_s = 3
+	server.seat_grace_s = 30
+	server.gc_interval_ms = 100
+	var a := _client("Hote")
+	if not _expect(await a.create_lobby(4, [], 0, true, "Pub"), "away : create"):
+		return
+	var room = server.get_room(a.match_id)
+	a.public_room = false # reprise apres rechargement : le client a perdu l'info
+	a.fetch_lobby()
+	_expect(await _wait(func(): return a.public_room, 3.0), "lobby : `public` doit rendre le drapeau au client")
+	var peers: Array = []
+	for nm in ["B", "C", "D"]:
+		var p := _client(nm)
+		_expect(await p.join_lobby(a.match_id, nm), "away : join %s" % nm)
+		peers.append(p)
+	var b: OnlineClient = peers[0]
+	var cc: OnlineClient = peers[1]
+	var d: OnlineClient = peers[2]
+	_expect(not bool(room.seats[1]["away"]), "away : drapeau absent au depart")
+	for p in [b, d]:
+		p._on_pagehide([])
+	_expect(await _wait(func(): return bool(room.seats[1]["away"]) and bool(room.seats[3]["away"]), 3.0), "away : le serveur n'a pas note le pagehide")
+	_expect(not bool(room.seats[2]["away"]), "away : seul l'onglet qui l'annonce est marque")
+	for p in [b, cc]: # B et C ferment l'onglet (pas de reconnexion) ; D : liaison coupee puis rouverte seule (resume), modele du rechargement
+		p._want_open = false
+		p._ws.close()
+	d._ws.close()
+	_expect(await _wait(func(): return not bool(room.seats[1]["taken"]), 8.0), "away : le siege de B doit etre libere apres le delai court")
+	_expect(bool(room.seats[2]["taken"]), "away : C (fermeture sans pagehide) garde son siege jusqu'a --seat-grace")
+	_expect(await _wait(func(): return d.connected, 5.0), "away : D doit se reconnecter (resume)")
+	await get_tree().create_timer(3.5).timeout
+	_expect(bool(room.seats[3]["taken"]) and int(room.seats[3]["conn"]) >= 0 and not bool(room.seats[3]["away"]), "away : D (resume dans le delai) garde son siege et perd la marque")
+	server.away_grace_s = 10
+	server.gc_interval_ms = 5000
+	for n in [a, b, cc, d]:
+		n.queue_free()
+
+## N-B49 / N-B05 : un humain sans liaison depuis --abandon-grace en partie est declare parti (`left`) ; avant, `resume` le rend.
+func _scenario_abandon() -> void:
+	server.abandon_grace_s = 3
+	var a := _client("Alice")
+	if not _expect(await a.create_lobby(3, []), "abandon : create"):
+		return
+	var b := _client("Bob")
+	var c := _client("Cara")
+	_expect(await b.join_lobby(a.match_id, "Bob") and await c.join_lobby(a.match_id, "Cara"), "abandon : joins")
+	a.start_match()
+	_expect(await _wait(func(): return not a.current_G.is_empty() and not b.current_G.is_empty() and not c.current_G.is_empty(), 5.0), "abandon : la partie ne demarre pas")
+	var room = server.get_room(a.match_id)
+	var token := b.credentials
+	var left: Array = []
+	a.player_left.connect(func(seat, pname): left.append([seat, pname]))
+	b._want_open = false # B ferme l'onglet sans `leave`
+	b._ws.close()
+	c._ws.close() # C perd sa liaison : reconnexion automatique en ~1 s, bien avant le delai
+	_expect(await _wait(func(): return c.connected, 5.0), "abandon : C doit se reconnecter")
+	_expect(await _wait(func(): return left.size() == 1, 8.0), "abandon : B absent plus que le delai doit etre signale parti")
+	_expect(left == [[1, "Bob"]], "abandon : mauvais siege / nom %s" % str(left))
+	_expect(bool(room.seats[1]["left"]) and bool(room.seats[1]["auto"]) and not bool(room.seats[2]["left"]), "abandon : seul B est parti (l'IA garde son siege)")
+	var r := await _raw()
+	r.send({"t": "resume", "code": a.match_id, "seat": 1, "token": token})
+	_expect(await _wait(func(): return r.count("error") > 0, 3.0) and r.last("error").get("code", "") == "bad_token", "abandon : l'ancien jeton de B doit etre mort")
+	server.abandon_grace_s = 120
+	for n in [a, b, c, r]:
+		n.queue_free()
 
 ## Revue : noms nettoyes comme les titres (U+061C, 2028/2029, 2060-2064, 00AD), hote parti d'une salle publique (le role passe), hote qui quitte
 ## (pas de `closed` pour lui, liaison et `_want_open` du client gardes).

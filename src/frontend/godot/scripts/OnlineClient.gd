@@ -74,6 +74,22 @@ var _want_open := false # une session est en cours : on reconnecte si la liaison
 var _watching := false # lobby public ouvert : redemander la liste a chaque ouverture de la liaison
 var _plays_seen := -1 # numero du dernier `plays` traite (-1 : rien recu, le premier etat ne rejoue pas l'historique)
 var _last_fight := 0 # signature du dernier lastHeroFight recu (le serveur le garde dans G : on ne rejoue pas l'animation)
+var protocol_version := NetCodec.PROTOCOL_VERSION # variable pour que les tests simulent un client perime
+var _pagehide_cb = null # JavaScriptObject (web) : la reference doit vivre autant que l'ecouteur `pagehide`
+
+## Messages qui portent la version du protocole (voir NetCodec.PROTOCOL_VERSION, Server._version_ok).
+const VERSIONED := ["create", "join", "resume", "listRooms"]
+
+func _ready() -> void:
+	if OS.has_feature("web"): # onglet qui se ferme / se recharge : prevenir le serveur (JavaScriptBridge.create_callback, doc Godot « JavaScriptBridge »)
+		_pagehide_cb = JavaScriptBridge.create_callback(_on_pagehide)
+		JavaScriptBridge.get_interface("window").addEventListener("pagehide", _pagehide_cb)
+
+## Salle d'attente seulement : `away` libere le siege vite (--away-grace) sans casser la reprise apres rechargement (`resume` avant le delai). En partie
+## rien n'est envoye : la liaison coupee suit le chemin habituel (reprise possible, abandon apres --abandon-grace).
+func _on_pagehide(_args: Array) -> void:
+	if match_id != "" and current_status in ["", "open"]: # "" : le premier lobby n'est pas encore arrive (le serveur ignore `away` hors salle d'attente)
+		_send({"t": "away"})
 
 ## URL du serveur : `host` explicite, sinon reglage de projet bossmonster/online/server_url, sinon
 ## (web) meme hote que la page sur /ws, sinon ws://localhost:8091.
@@ -172,6 +188,8 @@ func _open() -> void:
 func _send(msg: Dictionary) -> bool:
 	if _ws == null or _ws.get_ready_state() != WebSocketPeer.STATE_OPEN:
 		return false
+	if str(msg.get("t", "")) in VERSIONED:
+		msg["v"] = protocol_version
 	return _ws.send_text(JSON.stringify(msg)) == OK
 
 ## Attend l'ouverture de la liaison (avec delai). Faux si impossible.
@@ -239,9 +257,9 @@ func _on_message(d: Dictionary) -> void:
 			_reply.emit("titled", d)
 		"error":
 			last_error_code = str(d.get("code", ""))
-			var bad_token: bool = str(d.get("code", "")) in ["bad_token", "not_found"]
+			var bad_token: bool = str(d.get("code", "")) in ["bad_token", "not_found", "version"]
 			if bad_token and match_id != "":
-				_forget() # la salle n'existe plus ou le jeton n'est plus valide : inutile de reessayer
+				_forget() # la salle n'existe plus, le jeton n'est plus valide ou le serveur a change de version (onglet perime) : inutile de reessayer
 				session_lost.emit()
 			request_error.emit(str(d.get("message", "?")))
 			_reply.emit("error", d)
@@ -263,6 +281,8 @@ func _store_lobby(d: Dictionary) -> void:
 	current_status = str(d.get("status", ""))
 	current_num_players = int(d.get("numPlayers", 0))
 	current_title = str(d.get("title", current_title))
+	if d.has("public"): # OnlineRoomInfo.IsPublic : survit a une reprise apres rechargement (le client ne l'a plus en memoire)
+		public_room = bool(d["public"])
 	if d.has("host"): # le lobby donne le siege de l'hote (le "joined" donne un bool)
 		current_host = int(d["host"])
 		is_host = current_host == player_id

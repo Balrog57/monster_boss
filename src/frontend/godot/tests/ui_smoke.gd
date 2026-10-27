@@ -2940,6 +2940,27 @@ func _check_online_game() -> void:
 	_check(_texts_of(main).has("NEW GAME") and main.find_child("MessageBox", true, false) == null, "salle fermee : OK doit ramener a WITH FRIENDS %s" % str(_texts_of(main)))
 	_cov("online_room_closed")
 	await _wait_until(func(): return not main.online.connected, 5.0) # leave_match ferme la liaison apres le depart de `leave`
+	# N-B32 : liaison perdue pour de bon en salle d'attente (WaitingRoomBaseScene.OnDisconnect) -> NETWORK ERROR ; l'APK dit toujours « public room », salle privee comprise
+	_check(await main.online.create_lobby(3, []), "liaison perdue : creation")
+	main.show_waiting()
+	await _wait(0.2)
+	main.online._want_open = false
+	main.online._ws.close()
+	_check(await _wait_until(func(): return not main.online.connected, 5.0), "liaison perdue : la liaison reste ouverte")
+	main.menus._on_waiting_error("connexion perdue") # ce que la minuterie WAIT_LINK_GRACE_S appelle quand la liaison n'est pas revenue
+	_check(_texts_of(main).has("NETWORK ERROR") and _texts_of(main).has("Unable to join public room"), "liaison perdue : « NETWORK ERROR / Unable to join public room » attendu %s" % str(_texts_of(main)))
+	(main.find_child("Ok", true, false) as TextureButton).pressed.emit()
+	await _nav(main)
+	_check(_texts_of(main).has("NEW GAME") and main.find_child("MessageBox", true, false) == null, "liaison perdue : OK doit ramener a WITH FRIENDS %s" % str(_texts_of(main)))
+	_cov("online_link_lost_waiting")
+	# N-A46 : client et serveur de versions differentes -> « Game updated. » (aucune salle n'est creee ni rejointe)
+	main.online.protocol_version += 1
+	main.menus.join_room("abcd")
+	_check(await _wait_until(func(): return _texts_of(main).any(func(t): return str(t).begins_with("Game updated.")), 5.0), "version : « Game updated. » attendu %s" % str(_texts_of(main)))
+	(main.find_child("Ok", true, false) as TextureButton).pressed.emit()
+	await _wait(0.3)
+	main.online.protocol_version -= 1
+	_cov("online_version_mismatch")
 	_check(await main.online.create_lobby(3, []), "partie en ligne : creation")
 	_check(await guests[0].join_lobby(main.online.match_id, "Bobby") and await guests[1].join_lobby(main.online.match_id, "Cara"), "partie en ligne : jonctions")
 	main.online.start_match() # l'hote lance avec OK (plus de demarrage automatique)
@@ -2954,6 +2975,14 @@ func _check_online_game() -> void:
 	_check(await _wait_until(func(): return b._playing.size() == 2, 5.0), "IS PLAYING : une bulle par adversaire attendu (%d)" % b._playing.size())
 	_check(_texts_of(b).filter(func(t): return str(t).ends_with("PLAYING!")).size() == 2, "IS PLAYING : texte absent %s" % str(_texts_of(b)))
 	_cov("online_is_playing")
+	# N-B20 : PauseScene(showTutorialAndGallery = !activateTimeOuts) : pas de CARD GALLERY dans le menu en jeu en ligne (RULES, ajout, reste)
+	b._open_game_menu()
+	await _wait(0.4)
+	var pause_btns: Array = _buttons(b._popup).map(func(x): return (x as Button).text)
+	_check(pause_btns == ["RESUME", "RULES", "SETTINGS", "QUIT GAME"], "menu en jeu en ligne : boutons %s (sans CARD GALLERY)" % str(pause_btns))
+	b._close_menu()
+	await _wait(0.2)
+	_cov("online_pause_no_gallery")
 	# un coup distant : la bulle de coup remplace « IS PLAYING! » de cet adversaire
 	var spell: Dictionary = (CardDB.spells[0] as Dictionary).duplicate(true)
 	main.online.remote_play.emit({"n": 99, "seat": 1, "move": {"type": "playSpell", "args": [0]}, "card": spell})

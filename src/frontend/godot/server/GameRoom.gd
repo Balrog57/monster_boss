@@ -13,7 +13,7 @@ const MAX_AI_STEPS_PER_TICK := 400 # bot_delay = 0 (tests) : plafond de coups IA
 var code := ""
 var num_players := 2
 var sets: Array = []
-var seats: Array = [] # {name, bot, taken, token, conn, auto, left, avatar, wins, defeats, gone_ms (horloge unix du dernier detach)}
+var seats: Array = [] # {name, bot, taken, token, conn, auto, left, avatar, wins, defeats, gone_ms (horloge unix du dernier detach), away (pagehide recu en salle d'attente)}
 var host := 0
 var public := false # liste dans listRooms (salon prive : jamais liste, le code est son seul secret)
 var title := "" # nom affiche dans la liste publique (25 caracteres max, nettoye par le serveur)
@@ -22,6 +22,7 @@ var status := "open" # open | running | finished
 var m = null # Match
 var turn_timeout_ms := 70000 # 0 = pas de minuteur ; 70 s = la barre du bouton DONE (GamePlayBaseScene.cs:272)
 var adventure_timeout_ms := 10000
+var abandon_grace_ms := 120000 # en partie : humain sans liaison depuis ce delai = parti pour de bon (0 = jamais) ; Photon retirait le joueur apres son delai de silence
 var bot_delay_ms := 350
 var send: Callable # (conn_id: int, msg: Dictionary)
 var last_activity_ms := 0
@@ -39,7 +40,7 @@ func _init(p_code: String, p_players: int, p_sets: Array) -> void:
 	num_players = clampi(p_players, 2, MatchScript.max_players(p_sets)) # meme plafond que Match.new_match (6 avec Crash Landing, 4 sinon)
 	sets = p_sets
 	for i in num_players:
-		seats.append({"name": "", "bot": false, "taken": false, "token": "", "conn": -1, "auto": false, "left": false, "avatar": "", "wins": 0, "defeats": 0, "gone_ms": 0})
+		seats.append({"name": "", "bot": false, "taken": false, "token": "", "conn": -1, "auto": false, "left": false, "avatar": "", "wins": 0, "defeats": 0, "gone_ms": 0, "away": false})
 	last_activity_ms = _now()
 
 static func _now() -> int:
@@ -93,7 +94,7 @@ func join(pname: String, conn: int, prof: Dictionary = {}) -> Dictionary:
 		return {}
 	var token := _token()
 	seats[i].merge({"name": pname, "taken": true, "token": token, "conn": conn, "auto": false, "left": false,
-		"avatar": str(prof.get("avatar", "")), "wins": int(prof.get("wins", 0)), "defeats": int(prof.get("defeats", 0))}, true)
+		"avatar": str(prof.get("avatar", "")), "wins": int(prof.get("wins", 0)), "defeats": int(prof.get("defeats", 0)), "away": false}, true)
 	if not seats[host]["taken"]:
 		host = i
 	empty_since_ms = 0
@@ -110,6 +111,7 @@ func resume(seat: int, token: String, conn: int) -> bool:
 		return false
 	s["conn"] = conn
 	s["auto"] = false
+	s["away"] = false
 	empty_since_ms = 0
 	touch()
 	_dirty = true # le delai n'est pas relance : un retour ne doit pas repousser l'echeance d'un siege absent (ni celle des autres)
@@ -127,13 +129,14 @@ func detach(conn: int) -> void:
 ## Salle d'attente : libere les sieges humains (hors hote) dont la connexion est absente depuis plus de `grace_ms`
 ## (onglet ferme sans `leave`). Le delai laisse passer un rechargement de page (resume). Renvoie le nombre de sieges liberes.
 ## L'hote n'est jamais libere ici (en salle publique le role passe a un autre humain connecte) : fermer sa salle sur une simple absence tuerait les salons dont l'hote partage le code dans une autre appli.
-func release_ghosts(grace_ms: int) -> int:
+## `away_grace_ms` : delai plus court des sieges dont l'onglet a annonce sa fermeture (`away`).
+func release_ghosts(grace_ms: int, away_grace_ms: int = -1) -> int:
 	var n := 0
 	if status != "open":
 		return 0
 	var now := _now()
 	var hs: Dictionary = seats[host]
-	if public and not hs["bot"] and int(hs["conn"]) < 0 and now - int(hs["gone_ms"]) > grace_ms:
+	if public and not hs["bot"] and int(hs["conn"]) < 0 and now - int(hs["gone_ms"]) > _grace_of(hs, grace_ms, away_grace_ms):
 		# Salle publique dont l'hote est parti sans `leave` : le role passe au premier humain connecte (sinon la salle reste listee et personne ne peut la lancer)
 		for i in num_players:
 			if i != host and seats[i]["taken"] and not seats[i]["bot"] and int(seats[i]["conn"]) >= 0:
@@ -142,10 +145,31 @@ func release_ghosts(grace_ms: int) -> int:
 				break
 	for i in num_players:
 		var s: Dictionary = seats[i]
-		if i != host and s["taken"] and not s["bot"] and int(s["conn"]) < 0 and now - int(s["gone_ms"]) > grace_ms:
+		if i != host and s["taken"] and not s["bot"] and int(s["conn"]) < 0 and now - int(s["gone_ms"]) > _grace_of(s, grace_ms, away_grace_ms):
 			leave(i)
 			n += 1
 	return n
+
+static func _grace_of(s: Dictionary, grace_ms: int, away_grace_ms: int) -> int:
+	return mini(grace_ms, away_grace_ms) if away_grace_ms >= 0 and bool(s.get("away", false)) else grace_ms
+
+## Le client annonce la fermeture de son onglet (pagehide) : le siege sera libere apres le delai court si aucun `resume` ne le reprend.
+func mark_away(seat: int) -> void:
+	if seat >= 0 and seat < num_players:
+		seats[seat]["away"] = true
+
+## Partie en cours : humain sans liaison depuis plus de `abandon_grace_ms` = parti (comme un `leave` : l'IA garde le siege, `left` dans le lobby,
+## donc « X has left the game. » chez les autres, OnlineFlowManager.OnPlayerLeaveGame). Avant ce delai `resume` rend le siege.
+## Seulement tant qu'un autre humain est connecte pour l'apprendre : seul face aux IA, ou si tout le monde est tombe ensemble (panne, veille), la salle garde
+## son delai habituel (`--ttl`) et `resume` reste possible.
+func abandon_ghosts() -> void:
+	if status != "running" or abandon_grace_ms <= 0 or humans_connected() == 0:
+		return
+	var now := _now()
+	for i in num_players:
+		var s: Dictionary = seats[i]
+		if s["taken"] and not s["bot"] and not s["left"] and int(s["conn"]) < 0 and int(s["gone_ms"]) > 0 and now - int(s["gone_ms"]) > abandon_grace_ms:
+			leave(i)
 
 ## Entree de la liste publique (sans jeton, sans detail de siege).
 func list_entry() -> Dictionary:
@@ -377,6 +401,7 @@ func _reset_deadline(aw = null) -> void:
 ## Appelee a chaque image par le serveur. Renvoie vrai si l'etat a change (a diffuser).
 func tick() -> bool:
 	if status == "running":
+		abandon_ghosts()
 		var now := _now()
 		if now >= _next_ai_ms:
 			var steps := 0
@@ -411,7 +436,7 @@ func lobby_msg() -> Dictionary:
 	for s in seats:
 		out.append({"name": (str(s["name"]) if s["taken"] else null), "bot": s["bot"], "connected": int(s["conn"]) >= 0 or bool(s["bot"]), "left": bool(s["left"]),
 			"avatar": s["avatar"], "wins": s["wins"], "defeats": s["defeats"]})
-	return {"t": "lobby", "code": code, "status": status, "numPlayers": num_players, "seats": out, "sets": sets, "host": host, "title": title}
+	return {"t": "lobby", "code": code, "status": status, "numPlayers": num_players, "seats": out, "sets": sets, "host": host, "title": title, "public": public}
 
 func state_msg(seat: int) -> Dictionary:
 	var msg := lobby_msg()

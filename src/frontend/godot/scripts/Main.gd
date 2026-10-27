@@ -768,7 +768,8 @@ func _on_session_lost() -> void:
 	if not _online_game_open() or get_node_or_null("MessageBox") != null:
 		return
 	var gm: GameManager = board.get("game_manager")
-	menus.msg_box("Connection problem", "The connection with the server was lost.", func(): _leave_board(gm))
+	var text: String = menus.VERSION_MSG if str(online.last_error_code) == "version" else "The connection with the server was lost." # onglet perime face a un serveur mis a jour (N-A46)
+	menus.msg_box("Connection problem", text, func(): _leave_board(gm))
 
 ## Coupure transitoire : Godot reconnecte seul (resume), l'APK sortait. On le dit au joueur.
 func _on_link_changed(up: bool) -> void:

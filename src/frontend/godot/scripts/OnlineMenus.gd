@@ -21,6 +21,7 @@ const AV_ORIGIN_X := 400.0 # AvatarScrollComponent a (160, 620) APK
 const ROW_Y := [394.0, 525.0, 652.0, 779.0]            # OnlinePanelEntity : 300 + 94 + i * 127 (+ 4 pour i > 0)
 const ROW_STEP_BIG := 83.0 # 6 lignes (5-6 joueurs) dans le cadre 300-904 : pas de 83 px, avatar a 0,29
 const CODE_LEN := 4
+const VERSION_MSG := "Game updated.\nPlease reload the page." # OnlineClient.last_error_code == "version" : client et serveur n'ont pas la meme NetCodec.PROTOCOL_VERSION (pas d'equivalent APK : Photon isolait les AppVersion)
 const WAIT_LINK_GRACE_S := 10.0     # salle d'attente : liaison coupee depuis ce delai = « NETWORK ERROR » et retour (WaitingRoomBaseScene.OnDisconnect) ; une coupure breve est toleree
 const PUBLIC_REFRESH_S := 5.0       # liste publique : le serveur pousse chaque changement, on redemande quand meme toutes les 5 s
 const PUBLIC_UNREACHABLE_S := 3.0   # liaison absente depuis ce delai : « UNABLE TO REACH THE SERVER »
@@ -354,6 +355,11 @@ func _public_tick() -> void:
 	if _busy or not is_instance_valid(_pub.get("box")):
 		return
 	var o = m.online
+	if str(o.last_error_code) == "version":
+		_show_rows([])
+		(_pub["status"] as Label).text = "GAME UPDATED\nRELOAD THE PAGE"
+		(_pub["status"] as Label).visible = true
+		return
 	if o.connected:
 		_pub["down"] = 0.0
 		_pub["since"] = float(_pub["since"]) + 0.5
@@ -468,6 +474,7 @@ func join_public(code: String) -> void:
 	match str(m.online.last_error_code):
 		"not_found": text = "This game is no longer open" # pas d'equivalent : l'APK n'a pas de liste publique
 		"full": text = "Room is full"
+		"version": text = VERSION_MSG
 	msg_box("NETWORK ERROR", text, func(): m.online.watch_rooms()) # la liste se met a jour tout de suite
 
 # --- ChangeNameAvatarScene -------------------------------------------------------
@@ -664,6 +671,8 @@ func create_room(count: int, is_public: bool = false) -> void:
 		m.go(show_waiting) # ExpansionScene.cs:153 (ColorFade 1,0 s)
 	elif str(m.online.last_error_code) == "bad_setup":
 		msg_box("INVALID SETUP", BIG_GAME_MSG, back)
+	elif str(m.online.last_error_code) == "version":
+		msg_box("NETWORK ERROR", VERSION_MSG, back)
 	else:
 		msg_box("NETWORK ERROR", "Unable to create public room" if is_public else "Unable to create private room", back)
 
@@ -684,6 +693,7 @@ func join_room(code: String) -> void:
 	match str(m.online.last_error_code):
 		"not_found": text = "Invalid Code"
 		"full": text = "Room is full"
+		"version": text = VERSION_MSG
 	msg_box("NETWORK ERROR", text)
 
 func resume_room() -> void:
@@ -696,7 +706,7 @@ func resume_room() -> void:
 	if ok:
 		m.go(show_waiting)
 	else:
-		msg_box("NETWORK ERROR", "Unable to resume the game", func(): show_friends())
+		msg_box("NETWORK ERROR", VERSION_MSG if str(m.online.last_error_code) == "version" else "Unable to resume the game", func(): show_friends())
 
 # --- WaitingPrivateRoomScene -----------------------------------------------------
 
@@ -821,7 +831,7 @@ func _on_waiting_error(msg: String) -> void:
 	var o = m.online
 	var room_gone: bool = str(o.match_id) == ""
 	var dead: bool = room_gone or not o.connected
-	var text := "Room closed" if room_gone else ("Unable to join public room" if o.public_room else "Unable to join private room")
+	var text := VERSION_MSG if str(o.last_error_code) == "version" else ("Room closed" if room_gone else "Unable to join public room") # APK : WaitingRoomBaseScene.OnDisconnect dit toujours FailToJoinPublic, salle privee comprise
 	msg_box("NETWORK ERROR", text, func():
 		_wait_err_shown = false
 		if dead:

@@ -1,7 +1,7 @@
 extends Node
 ## Server — serveur multijoueur Boss Monster (Godot headless). TCPServer + WebSocketPeer, messages JSON texte.
 ## Lancement : godot --headless --path src/frontend res://godot/server/Server.tscn -- --port=8091
-## Options : --port --turn-timeout=70 --adventure-timeout=10 --bot-delay=350 --ttl=3600 --max-rooms=200 --seat-grace=30 --public-idle=120
+## Options : --port --turn-timeout=70 --adventure-timeout=10 --bot-delay=350 --ttl=3600 --max-rooms=200 --seat-grace=30 --away-grace=10 --abandon-grace=120 --public-idle=120
 ## Protocole : voir PROTOCOL.md. Ce noeud route seulement ; la logique de partie est dans GameRoom.gd.
 
 const GameRoom = preload("res://godot/server/GameRoom.gd")
@@ -42,6 +42,8 @@ var max_rooms := 200
 var max_conns := 512
 var max_failed_joins_global_per_sec := GLOBAL_FAILED_JOINS_PER_SEC
 var seat_grace_s := 30 # salle d'attente : siege non-hote sans connexion libere apres ce delai (un rechargement de page reprend avant)
+var away_grace_s := 10 # salle d'attente : siege dont l'onglet s'est ferme (`away`, pagehide) libere apres ce delai sans `resume` (un rechargement reprend avant)
+var abandon_grace_s := 120 # en partie : humain sans liaison depuis ce delai = parti (`left`, comme `leave`) ; en deca, `resume` le rend a sa place
 var public_idle_s := 120 # salle publique ouverte sans aucun humain connecte depuis ce delai : fermee
 var gc_interval_ms := 5000
 var rooms_push_interval_ms := 250 # au plus un controle / push de la liste publique par intervalle
@@ -70,6 +72,8 @@ func _ready() -> void:
 				"ttl": room_ttl_s = int(kv[1])
 				"max-rooms": max_rooms = int(kv[1])
 				"seat-grace": seat_grace_s = int(kv[1])
+				"away-grace": away_grace_s = int(kv[1])
+				"abandon-grace": abandon_grace_s = int(kv[1])
 				"public-idle": public_idle_s = int(kv[1])
 	Engine.max_fps = 60 # boucle headless : sinon l'image tourne a 100 % CPU
 	if start(port) != OK:
@@ -178,7 +182,7 @@ func _collect_rooms() -> void:
 		if r.public and r.status == "open" and r.empty_since_ms > 0 and r.humans_connected() == 0 and now - r.empty_since_ms > public_idle_s * 1000:
 			gone = true
 		if not gone:
-			r.release_ghosts(seat_grace_s * 1000) # _dirty : le tick suivant diffuse le lobby aux sieges restants
+			r.release_ghosts(seat_grace_s * 1000, away_grace_s * 1000) # _dirty : le tick suivant diffuse le lobby aux sieges restants
 		if gone:
 			_close_room(code)
 
@@ -296,14 +300,27 @@ func _new_code() -> String:
 		code += CODE_ALPHABET[b % CODE_ALPHABET.length()]
 	return code if not _rooms.has(code) else _new_code()
 
+## Les messages qui ouvrent une session portent la version du protocole (NetCodec.PROTOCOL_VERSION) : un onglet reste ouvert sur un ancien client
+## (ou un client neuf face a un ancien serveur) est refuse net au lieu de tomber sur des champs inconnus.
+func _version_ok(id: int, d: Dictionary) -> bool:
+	var v = d.get("v")
+	if typeof(v) in [TYPE_INT, TYPE_FLOAT] and int(v) == NetCodec.PROTOCOL_VERSION:
+		return true
+	_error(id, "version du jeu differente, rechargez la page", "version")
+	return false
+
 func _on_message(id: int, d: Dictionary) -> void:
 	if d.is_empty():
 		_error(id, "message invalide", "bad_message")
+		return
+	if str(d.get("t", "")) in ["create", "join", "resume", "listRooms"] and not _version_ok(id, d):
 		return
 	var c: Dictionary = _conns[id]
 	var room: GameRoom = _rooms.get(str(c["room"]), null)
 	match str(d.get("t", "")):
 		"ping":
+			if room != null and room.seat_of(id) >= 0:
+				room.seats[room.seat_of(id)]["away"] = false # onglet revenu (page restauree du cache) : plus de depart annonce
 			_send(id, {"t": "pong"})
 		"create":
 			if room != null:
@@ -326,6 +343,7 @@ func _on_message(id: int, d: Dictionary) -> void:
 			r.send = _send
 			r.add_bots(clampi(int(d.get("bots", 0)), 0, n - 1))
 			r.bot_delay_ms = bot_delay_ms
+			r.abandon_grace_ms = abandon_grace_s * 1000
 			var tt := int(d.get("turnTimeout", turn_timeout_s))
 			r.turn_timeout_ms = clampi(tt, 0, 600) * 1000
 			r.adventure_timeout_ms = adventure_timeout_s * 1000
@@ -398,6 +416,9 @@ func _on_message(id: int, d: Dictionary) -> void:
 		"sync":
 			if room != null and room.seat_of(id) >= 0:
 				_send(id, room.message_for(room.seat_of(id)))
+		"away": # pagehide en salle d'attente : l'onglet se ferme (ou se recharge : `resume` avant --away-grace garde le siege)
+			if room != null and room.status == "open":
+				room.mark_away(room.seat_of(id))
 		"leave":
 			if room == null or room.seat_of(id) < 0:
 				return
