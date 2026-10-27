@@ -2169,6 +2169,10 @@ func _input(event: InputEvent) -> void:
 		_drag_input(event)
 	_town_input(event)
 
+## StringExtensions.Truncate : coupe a `n` caracteres puis ajoute "..." (BossDetailHeaderControl.cs:71-72 : nom 10, sous-titre 25).
+static func _truncate(t: String, n: int) -> String:
+	return t if t.length() <= n else t.substr(0, n) + "..."
+
 ## Aligne les cartes (chevauchement si necessaire) autour de cx, sur une ligne (ecran de defausse d'ouverture).
 func _place_cards(cards: Array, sz: Vector2, step_max: float, span_max: float, top_y: float, cx: float = PLAY_CX) -> void:
 	var n := cards.size()
@@ -2380,9 +2384,9 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 
 	# Boss adverse
 	var fb = foe.get("boss")
-	foe_name_label.text = str(fb.get("name", "")).to_upper() if fb != null and not blank else ""
+	foe_name_label.text = _truncate(str(fb.get("name", "")), 10).to_upper() if fb != null and not blank else ""
 	_fit_label(foe_name_label, 150.0, 18)
-	foe_sub_label.text = str(fb.get("subtitle", "")) if fb != null and not blank else ""
+	foe_sub_label.text = _truncate(str(fb.get("subtitle", "")), 25) if fb != null and not blank else ""
 	foe_wounds_label.text = "x%d" % CardDB.total_wounds(foe)
 	foe_souls_label.text = "x%d" % CardDB.total_souls(foe, game_manager.G)
 	_fill_treasures(foe_treasures_box, BossEngine.treasure_counts(foe, game_manager.G),
