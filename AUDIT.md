@@ -1986,5 +1986,18 @@ Essai réel du 2026-10-27 sur le homelab (navigateur intégré, Chrome 152, deux
 
 | ID | État | Constat |
 |---|---|---|
-| W-19 | Ouvert (Moyenne) | Nouveau, vu 3 fois sur le homelab : juste après TAP TO START, le premier clic sur MULTIPLAYER (et parfois sur l'écran suivant) est ignoré ; le second fonctionne. Cause non cherchée (transition d'écran qui avale le clic, ou focus du canvas). |
+| W-19 | Corrigé (lot 5) | Nouveau, vu 3 fois sur le homelab : juste après TAP TO START, le premier clic sur MULTIPLAYER (et parfois sur l'écran suivant) est ignoré ; le second fonctionne. Cause non cherchée (transition d'écran qui avale le clic, ou focus du canvas). |
 
+
+## Lot 5 : web (2026-10-27)
+
+Validé par `python tools/run_godot_tests.py` (14/14). Moteur de règles non touché (pas d'oracle).
+
+| ID | État | Changement |
+|---|---|---|
+| W-19 | Corrigé | Cause : le voile noir de `Main.go()` restait en `MOUSE_FILTER_STOP` pendant tout le fondu (1,0 s), y compris l'éclaircie où le nouvel écran est déjà visible. Après le changement d'écran, le voile laisse passer les clics. Écart assumé avec l'APK, qui refuse tout ordre pendant toute la transition. `ui_smoke` : un seul clic sur MULTIPLAYER pendant l'éclaircie ouvre l'écran. |
+| W-05 | Corrigé (à confirmer en HTTP) | `head_include` ne remplace plus la classe `AudioContext` : il ajoute un `audioWorklet` factice et un `AudioWorkletNode` factice (un `GainNode`) seulement quand ils manquent (HTTP non sécurisé). Avant, `new AudioWorkletNode` échouait et le son n'était jamais lancé. La position de lecture reste figée avec le faux nœud. |
+| W-02 | Corrigé | Les 42 SFX étaient déjà préchargés dans `AudioManager._ready()` ; la musique de partie l'est aussi. Pas d'écran de chargement, textures des cartes non préchargées. |
+| W-16 | Conforme (mesuré) | `AI.pick_move`, 6 parties à 4 joueurs, toutes extensions, 4 546 décisions : médiane 0,2 ms, p99 5,2 ms, max 9,9 ms en natif. En wasm (2 à 4 fois plus lent), environ 40 ms au pire : sous le seuil de 50 ms. Aucun changement. |
+| W-08 | Mesuré | `index.wasm` 39,5 Mo → 10,1 Mo en gzip ; `index.pck` ne se compresse presque pas (39,4 → 38,5 Mo). Le homelab sert bien les `.gz` (`gzip_static`, bon `Content-Type`). Le `.pck` déployé fait 59,2 Mo, à réduire plus tard (textures). |
+| W-14 | Non vérifiable ici | `audio/driver/output_latency` par défaut ; la latence réelle du mode Sample dépend du Web Audio du navigateur. Écoute humaine nécessaire. |
