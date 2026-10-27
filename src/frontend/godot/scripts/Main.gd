@@ -684,6 +684,10 @@ func start_online_match() -> void:
 	ogm.setup_online(online, online.player_id)
 	online.start_state_poll()
 	_open_board(ogm)
+	for i in online.current_seats.size(): # un depart recu avant l'ouverture du plateau (onglet en arriere-plan) a ete ignore par _on_player_left
+		var s = online.current_seats[i]
+		if i != online.player_id and s is Dictionary and bool(s.get("left", false)):
+			_on_player_left(i, str(s.get("name", "")))
 	# Compte a rebours de l'APK (CountDownEntity) a la place du chiffre simple de BoardUI.
 	if board.get("timer_label") != null:
 		board.timer_label.visible = false
