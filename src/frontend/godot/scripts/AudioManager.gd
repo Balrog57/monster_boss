@@ -76,6 +76,26 @@ func _ready() -> void:
 		# "music" n'est plus lu : sans curseur de musique, un 0,5 ecrit par une ancienne version resterait a jamais (APK : 1.0)
 		sfx_volume = clampf(float(cfg.get_value("audio", "sfx", sfx_volume)), 0.0, 1.0)
 	_apply()
+	_setup_background_pause()
+
+var _js_visibility = null # reference gardee : le callback JavaScriptBridge est libere s'il n'a plus de proprietaire
+
+## Musique en pause hors premier plan : AndroidActivity.OnPause -> Game.OnDeactivated (AndroidActivity.cs:95-112) -> MusicPlayer.Pause (A-10).
+## Web : onglet masque (visibilitychange) ; sinon la perte de focus de l'application (notification Godot).
+func _setup_background_pause() -> void:
+	if OS.has_feature("web"):
+		_js_visibility = JavaScriptBridge.create_callback(func(_a): set_background(bool(JavaScriptBridge.eval("document.hidden", true))))
+		JavaScriptBridge.get_interface("document").addEventListener("visibilitychange", _js_visibility)
+
+func set_background(paused: bool) -> void:
+	_rec("background:" + str(paused))
+	_music.stream_paused = paused
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		set_background(true)
+	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		set_background(false)
 
 func _input(e: InputEvent) -> void:
 	if _unlocked:

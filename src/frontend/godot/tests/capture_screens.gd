@@ -67,6 +67,11 @@ func _ready() -> void:
 		print("LOT2B SCREENS CAPTURED: ", n_shots)
 		get_tree().quit(0)
 		return
+	if only == "lot3": # lot 3 : carrousel joueurs (eventails), SELECT EXPANSIONS (details sous les tuiles), QUIT GAME?, galerie (detail 1,8x)
+		await _lot3_shots()
+		print("LOT3 SCREENS CAPTURED: ", n_shots)
+		get_tree().quit(0)
+		return
 	if only == "menus": # menus + ecrans de fin (iteration rapide sur l'interface)
 		await _menus()
 		await _end_screens()
@@ -145,6 +150,47 @@ func _menus() -> void:
 	main_scene.queue_free()
 	main_scene = null
 	await _frames()
+
+func _lot3_shots() -> void:
+	main_scene = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main_scene)
+	await _wait(0.5)
+	main_scene.show_solo_count()
+	await _wait(0.4)
+	await _shot("menu_player_count_carousel_4_left_2_center_3_right")
+	main_scene.players = 3
+	main_scene._draw_fans()
+	await _wait(0.2)
+	await _shot("lot3_player_count_3_center")
+	main_scene.players = 4
+	main_scene._draw_fans()
+	await _wait(0.2)
+	await _shot("lot3_player_count_4_center")
+	main_scene.apk_decks = ["players-choice", "hidden-heroes"]
+	main_scene.show_setup(2, 1)
+	await _wait(0.4)
+	await _shot("mp_newgame")
+	main_scene.queue_free()
+	main_scene = null
+	await _frames()
+	await _new_game()
+	_hand_n(5, 1)
+	await _settle()
+	board._on_menu_pressed()
+	await _wait(0.4)
+	board._open_quit_confirm()
+	await _wait(0.5)
+	await _shot("quit2")
+	board._popup_close()
+	var menu_g = load("res://godot/scripts/CardGallery.gd").new()
+	board.add_child(menu_g)
+	await _frames(6)
+	var tile = menu_g.scroll.get_node("Grid").get_child(0)
+	menu_g.show_detail(tile.get_meta("card"), tile.texture, tile.get_global_rect())
+	await _wait(0.5)
+	await _shot("lot3_gallery_detail_1_8x")
+	menu_g.free()
+	await _teardown()
 
 ## 3-4 joueurs : colonne droite de TopRightPanelEntity (vignettes CollapsedOpponentDetail, panneau ExpandedOpponentDetail). Pas de frame APK : seul le C# fait foi.
 func _opp_shots() -> void:

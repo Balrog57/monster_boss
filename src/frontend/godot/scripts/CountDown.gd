@@ -1,6 +1,6 @@
 extends Control
 ## Compte a rebours de tour en ligne, comme CountDownEntity de l'APK : chiffres or x 3 (ombre noire +3 px), sablier (30, -8),
-## fondu 0,3 s, son ui_timer chaque seconde sous 5 s. Affiche le delai restant de MON siege quand le serveur l'attend
+## fondu 0,3 s (aucun son : l'APK ne joue ui_timer qu'au lancement de la salle d'attente publique, WaitingPublicRoomScene.cs:88-105). Affiche le delai restant de MON siege quand le serveur l'attend
 ## (`awaited` + `deadline`, voir godot/server/PROTOCOL.md), masque sinon.
 
 const UiKit = preload("res://godot/scripts/UiKit.gd")
@@ -45,6 +45,4 @@ func _process(_delta: float) -> void:
 	if want and s != _last:
 		_digits.text = str(s)
 		_shadow.text = str(s)
-		if s <= 5 and s > 0:
-			AudioManager.play_sfx("ui_timer")
 	_last = s if want else -1

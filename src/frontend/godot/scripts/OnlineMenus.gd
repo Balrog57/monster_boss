@@ -63,7 +63,9 @@ func _screen(back: Callable) -> void:
 	m.add_child(_bgn)
 	m.add_child(m._tex("gradients/logo_small.webp", Vector2(960.0 - 344.0, 10.0)))
 	if back.is_valid():
-		m.add_child(m._img_btn("buttons/back_bt.webp", "buttons/back_bt_pressed.webp", Vector2(20, 22), back, Vector2.ZERO, "ui_button_goback"))
+		var bk: TextureButton = m._img_btn("buttons/back_bt.webp", "buttons/back_bt_pressed.webp", Vector2(20, 22), back, Vector2.ZERO, "ui_button_goback")
+		bk.name = "Back"
+		m.add_child(bk)
 
 ## ButtonWithLabelEntity : bg_bt_multi (619x177, taille native) centre en (cx, cy), libelle arcadepix x 1.3 centre ; `pressed_color` = couleur pendant l'appui.
 func _label_btn(text: String, cx: float, cy: float, cb: Callable, pressed_color: Color = Color.WHITE, s: float = 1.0, text_scale: float = 1.3, parent: Node = null) -> TextureButton:

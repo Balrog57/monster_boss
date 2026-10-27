@@ -1231,9 +1231,10 @@ func _check_final(full: bool) -> void:
 		if _check(quit_btn != null, "fin de partie : menu sans QUIT GAME"):
 			quit_btn.pressed.emit()
 			await get_tree().process_frame
-			var yes := _buttons(board._popup)
+			var yes: Array = board._popup.find_children("*", "TextureButton", true, false).slice(0, 2) # QUIT GAME? : [CANCEL, QUIT]
+			yes.reverse()
 			if _check(board._popup_kind == "quit" and yes.size() == 2, "fin de partie : confirmation de sortie absente"):
-				(yes[0] as Button).pressed.emit()
+				(yes[0] as BaseButton).pressed.emit()
 				_check(quit_calls == q0 + 1, "fin de partie : retour au menu non declenche")
 				_cov("quit_to_menu")
 	if G.get("gameOver") != null:
@@ -1512,9 +1513,9 @@ func _check_main_flow() -> void:
 		_check(main.board.get_children().filter(func(c): return c is AcceptDialog).is_empty(), "Main : fenetre residuelle")
 		board._open_quit_confirm()
 		await get_tree().process_frame
-		var yes := _buttons(board._popup)
+		var yes: Array = board._popup.find_children("*", "TextureButton", true, false) # QUIT GAME? : [CANCEL, QUIT]
 		if _check(yes.size() == 2, "Main : confirmation de sortie"):
-			(yes[0] as Button).pressed.emit()
+			(yes[1] as BaseButton).pressed.emit()
 		await _wait(0.3)
 		_check(main.board == null, "retour au menu : le plateau n'est pas libere")
 		_cov("main_flow")
@@ -2324,7 +2325,7 @@ func _check_gallery() -> void:
 	_tag = "[gallery]"
 	await _new_game()
 	board.set_process(false)
-	var ext: bool = bool(Profile.load_settings().get("extensions", true))
+	var ext: bool = bool(Profile.load_settings().get("extensions", false))
 	var allowed: Array = ["base", "players-choice", "hidden-heroes"] # APK : les Tools ne sont pas dans la galerie (ils s'y ajoutent avec la case wiki : jouables derriere elle)
 	if ext:
 		allowed.append_array(["next-level", "crash-landing", "minibosses", "tools", "iod", "players-choice-wiki"])
@@ -3527,14 +3528,14 @@ func _extra_checks() -> void:
 		quit_btn.pressed.emit()
 		await get_tree().process_frame
 		_check(board._popup_kind == "quit" and quit_calls == q0, "confirmation de sortie absente")
-		var cb := _buttons(board._popup)
-		(cb[1] as Button).pressed.emit() # NO
+		var cb: Array = board._popup.find_children("*", "TextureButton", true, false)
+		(cb[0] as BaseButton).pressed.emit() # CANCEL
 		await get_tree().process_frame
 		_check(board._popup_kind == "menu" and quit_calls == q0, "NO : retour au menu attendu")
 		board._open_quit_confirm()
 		await get_tree().process_frame
-		cb = _buttons(board._popup)
-		(cb[0] as Button).pressed.emit() # YES
+		cb = board._popup.find_children("*", "TextureButton", true, false)
+		(cb[1] as BaseButton).pressed.emit() # QUIT
 		await get_tree().process_frame
 		_check(quit_calls == q0 + 1, "YES : callback de sortie non appele")
 

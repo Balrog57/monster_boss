@@ -23,12 +23,19 @@ const PITCH := Vector2(310, 410)       # ItemSize de l'APK : 310 x 410 (cartes a
 
 var tab := 0
 var title_label: Label
-var scroll: ScrollContainer
+var scroll: Control
 var tab_buttons: Array = []
 var _detail: Control
 var _tab_box: Control
 var cards_shown := 0
-var _scroll_pos := [0, 0, 0, 0, 0] # position horizontale de chaque onglet
+var _scroll_pos := [0.0, 0.0, 0.0, 0.0, 0.0] # position (x de la grille) de chaque onglet
+var _pos := 0.0                     # x de la grille : 0 = debut, negatif = defile
+var _min := 0.0
+var _max := 0.0
+var _vel := 0.0                     # inertie (px par image a 60 i/s)
+var _dragging := false
+var _fade_id := 0                   # fondu entre onglets en cours (toucher bloque pendant le fondu, GalleryScene.cs:395-436)
+var _fading := false
 var _detail_closing := false
 var _sel_tile: TextureRect          # tuile touchee (agrandie, cadre jaune)
 
@@ -84,24 +91,27 @@ func _build() -> void:
 		b.pressed.connect(func(): select_tab(idx, true))
 		_tab_box.add_child(b)
 		tab_buttons.append(b)
-	scroll = ScrollContainer.new()
+	scroll = Control.new() # defilement maison : ScrollListBehavior.cs:193-252 (inertie, depassement, ressort) ; la grille s'y deplace
 	scroll.position = Vector2(200, 215)
 	scroll.size = Vector2(1720, 865)
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	scroll.gui_input.connect(func(ev: InputEvent): # molette : defilement horizontal
-		if ev is InputEventMouseButton and ev.pressed:
+	scroll.clip_contents = true
+	scroll.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseMotion and (ev.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0 and not _fading:
+			_dragging = true # TouchMoved : position += glissement, inertie = dernier glissement (:171-179)
+			_vel = ev.relative.x
+			_set_pos(_pos + ev.relative.x)
+		elif ev is InputEventMouseButton and ev.pressed: # molette (hors APK)
 			if ev.button_index == MOUSE_BUTTON_WHEEL_DOWN or ev.button_index == MOUSE_BUTTON_WHEEL_RIGHT:
-				scroll.scroll_horizontal += 220
+				_set_pos(_pos - 220.0)
 			elif ev.button_index == MOUSE_BUTTON_WHEEL_UP or ev.button_index == MOUSE_BUTTON_WHEEL_LEFT:
-				scroll.scroll_horizontal = maxi(0, scroll.scroll_horizontal - 220))
+				_set_pos(_pos + 220.0))
 	add_child(scroll)
 	select_tab(0)
 
 ## Cartes de l'onglet : [dictionnaire, genre] ; jeu de base + paquets APK (+ wiki si l'option est cochee).
 func cards_for(t: int) -> Array:
 	var allowed: Array = APK_SETS.duplicate()
-	if bool(Profile.load_settings().get("extensions", true)):
+	if bool(Profile.load_settings().get("extensions", false)):
 		allowed.append_array(["next-level", "crash-landing", "minibosses", "tools", "iod", "players-choice-wiki"])
 	var src: Array = [CardDB.bosses, CardDB.rooms, CardDB.spells, CardDB.heroes, CardDB.heroes][t]
 	var out: Array = []
@@ -122,8 +132,16 @@ func cards_for(t: int) -> Array:
 ## user : onglet choisi par un appui. A l'ouverture l'APK n'affiche ni cadre ni agrandissement sur BOSS (capture menu_card_gallery_boss_cards_grid_left_tabs) ;
 ## un onglet touche prend l'echelle 0,42 au lieu de 0,37 (GalleryScene.cs:177-178) et le cadre jaune (ScrollItemComponent.cs:42-52).
 func select_tab(t: int, user := false) -> void:
-	_scroll_pos[tab] = scroll.scroll_horizontal
+	if _fading and user:
+		return
+	_scroll_pos[tab] = _pos
+	var prev := tab
+	_fade_id += 1
+	_fading = false
+	scroll.modulate.a = 1.0
 	tab = clampi(t, 0, TABS.size() - 1)
+	if user:
+		AudioManager.play_sfx("ui_button_select") # GalleryScene.cs:352
 	title_label.text = str(TABS[tab][0])
 	for i in tab_buttons.size():
 		var b: TextureButton = tab_buttons[i]
@@ -136,6 +154,25 @@ func select_tab(t: int, user := false) -> void:
 			old.queue_free()
 		if sel: # cadre jaune de l'onglet choisi (les autres n'ont pas de cadre)
 			b.add_child(_border("Sel", 0.5))
+	if user and tab != prev and scroll.get_node_or_null("Grid") != null: # fondu de sortie 0,5 s, puis d'entree 0,5 s (GalleryScene.cs:395-436)
+		var id := _fade_id
+		_fading = true
+		var tw := create_tween()
+		tw.tween_property(scroll, "modulate:a", 0.0, 0.5)
+		await tw.finished
+		if id != _fade_id or not is_instance_valid(self):
+			return
+		_fill_grid()
+		var tw2 := create_tween()
+		tw2.tween_property(scroll, "modulate:a", 1.0, 0.5)
+		await tw2.finished
+		if id == _fade_id:
+			_fading = false
+		return
+	_fill_grid()
+
+func _fill_grid() -> void:
+	var t := tab
 	var content := scroll.get_node_or_null("Grid")
 	if content != null:
 		scroll.remove_child(content)
@@ -155,7 +192,7 @@ func select_tab(t: int, user := false) -> void:
 			tiles.append([d, id if num == 1 else id + char(96 + num)])
 	var grid := Control.new()
 	grid.name = "Grid"
-	grid.custom_minimum_size = Vector2(60.0 + PITCH.x * ceilf(tiles.size() / 2.0), 830)
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	scroll.add_child(grid)
 	for k in tiles.size():
 		var d: Dictionary = tiles[k][0]
@@ -179,10 +216,36 @@ func select_tab(t: int, user := false) -> void:
 					_select_tile(t_rect)
 					show_detail(d, t_rect.texture, from))
 		grid.add_child(t_rect)
-	scroll.scroll_horizontal = 0
-	await get_tree().process_frame # la plage de defilement n'existe qu'apres la mise en page
-	if tab == t and is_instance_valid(grid):
-		scroll.scroll_horizontal = _scroll_pos[tab]
+	_max = 0.0 # ScrollCardBehavior : MinPosition = -TotalWidth + largeur / 2, TotalWidth = ((n - 1) / Lignes) x 310 (GalleryScene.cs:452-453, ScrollListBehavior.cs:54)
+	_min = -float((tiles.size() - 1) / 2) * PITCH.x + 960.0
+	_vel = 0.0
+	_pos = _scroll_pos[t]
+	grid.position.x = _pos
+
+func _clamp_pos(v: float) -> float:
+	return maxf(minf(v, _max + 100.0), _min - 100.0) # amplitude 100 (GalleryScene.cs:430)
+
+func _set_pos(v: float) -> void:
+	var grid := scroll.get_node_or_null("Grid")
+	_pos = _clamp_pos(v)
+	if grid != null:
+		grid.position.x = _pos
+
+func _process(delta: float) -> void:
+	if _dragging and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		_dragging = false
+	if _dragging:
+		return
+	var f := minf(delta, 0.1) * 60.0 # les constantes de l'APK sont par image a 60 i/s
+	if _pos > _max:
+		_set_pos(lerpf(_pos, _max, 1.0 - pow(0.6, f))) # ressort 0,4 par image
+	elif _pos < _min:
+		_set_pos(lerpf(_pos, _min, 1.0 - pow(0.6, f)))
+	elif absf(_vel) > 0.01:
+		_set_pos(_pos + _vel * f)
+		_vel *= pow(0.9, f) # inertie x 0,9 par image
+	else:
+		_vel = 0.0
 
 ## Cadre jaune card_border_yellow (354 x 492 pour une carte de 350 x 488), pose a l'echelle 0,89 de la carte (ScrollItemComponent.cs:63) ;
 ## fade > 0 : apparition lineaire (FadeBehavior 0,5 s, ScrollItemComponent.cs:56).
@@ -263,14 +326,15 @@ func show_detail(card: Dictionary, texture: Texture2D, from: Rect2 = Rect2()) ->
 	_detail.gui_input.connect(func(ev: InputEvent):
 		if ev is InputEventMouseButton and ev.pressed and not _detail_closing:
 			_detail_closing = true
+			AudioManager.play_sfx("ui_button_goback") # CardDetailScene.cs:74
 			_animate_detail(0.0, from.position - global_position, from.size, close_detail))
 	add_child(_detail)
-	var big := CARD * 1.8
+	var big := Vector2(350, 488) * 1.8 # CardDetailScene.cs:84-91 : carte 350 x 488 a l'echelle 1,8, soit 630 x 878
 	_animate_detail(0.7, Vector2(960, 540) - big / 2.0, big)
 
 func _animate_detail(dim_alpha: float, pos: Vector2, sz: Vector2, then: Callable = Callable()) -> void:
 	var z: Control = _detail.get_child(1)
-	var tw := _detail.create_tween().set_parallel(true).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	var tw := _detail.create_tween().set_parallel(true) # mouvement lineaire (MovementBehavior)
 	tw.tween_property(_detail.get_child(0), "color:a", dim_alpha, 0.2)
 	tw.tween_property(z, "position", pos, 0.2)
 	tw.tween_property(z, "size", sz, 0.2)
@@ -284,6 +348,7 @@ func close_detail() -> void:
 
 func close_gallery() -> void:
 	if _detail != null and is_instance_valid(_detail):
+		AudioManager.play_sfx("ui_button_goback") # CardDetailScene.cs:74
 		close_detail()
 		return
 	AudioManager.play_sfx("ui_button_goback")

@@ -4784,6 +4784,16 @@ func _on_menu_pressed() -> void:
 		return
 	_open_game_menu()
 
+## Echap = touche Retour Android : GamePlayBaseScene.NavigatedBack ouvre la pause (:1172-1179), PauseScene.NavigatedBack ouvre QUIT GAME? (:132-137),
+## QuitGameScene.NavigatedBack = CANCEL (:36-46). Les ecrans qui ont une fleche (regles, galerie, reglages) sont traites avant, par Main._unhandled_key_input.
+func back_pressed() -> void:
+	if _gameover != null and is_instance_valid(_gameover):
+		return
+	if _popup_kind == "menu":
+		_open_quit_confirm()
+	else:
+		_open_game_menu() # aussi depuis QUIT GAME? (CANCEL) et depuis une partie sans fenetre
+
 func _close_menu() -> void:
 	_play_sfx("res://assets/audio/sfx/ui_button_goback.wav")
 	_popup_close()
@@ -4810,11 +4820,33 @@ func _open_rules() -> void:
 	_rules.closed.connect(func(): _rules = null)
 	add_child(_rules)
 
+## QuitGameScene (MessageBoxScene, :16-27) : bande winner_bg, titre « QUIT GAME? », « ARE YOU SURE YOU WANT TO QUIT? » (QUIT? en or), boutons CANCEL (0,35) / QUIT (0,65) a 0,56 de la hauteur.
 func _open_quit_confirm() -> void:
-	_popup_list("quit", "Quit to menu? The current game will be lost", [
-		{"label": "YES, QUIT", "cb": _confirm_quit},
-		{"label": "NO, KEEP PLAYING", "cb": _open_game_menu},
-	])
+	var pop := _popup_begin("quit", 0.7)
+	UiKit.cross_fade_in(pop)
+	_img(pop, "res://assets/ui/gradients/winner_bg.webp", Vector2(960.0 - 956.5, 486.0 - 94.0), Vector2(1913.0, 188.0))
+	_img(pop, "res://assets/ui/gradients/bg_txt.webp", Vector2(394, 75.6 - 32.0))
+	var lines: Array = [["QUIT GAME?", 42, Color("cdb15f"), 960.0, 75.6 - 32.0, 64.0]]
+	var m1 := "ARE YOU SURE YOU WANT TO "
+	var w1 := _fa.get_string_size(m1, HORIZONTAL_ALIGNMENT_LEFT, -1, 32).x
+	var w2 := _fa.get_string_size("QUIT?", HORIZONTAL_ALIGNMENT_LEFT, -1, 32).x
+	lines.append([m1, 32, Color.WHITE, 960.0 - (w1 + w2) / 2.0 + w1 / 2.0, 480.6 - 40.0, 80.0])
+	lines.append(["QUIT?", 32, Color("cdb15f"), 960.0 + (w1 + w2) / 2.0 - w2 / 2.0, 480.6 - 40.0, 80.0])
+	for ln in lines:
+		var l := _lbl(pop, ln[0], ln[1], ln[2], Vector2(float(ln[3]) - 800.0, ln[4]), 1600.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
+		l.add_theme_constant_override("outline_size", 0)
+		l.size = Vector2(1600.0, ln[5])
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	for spec in [["CANCEL", 744.0, _open_game_menu], ["QUIT", 1176.0, _confirm_quit]]:
+		var b := _tex_button(pop, UI_DIR + "bt_apply_effects.webp", UI_DIR + "bt_apply_effects_pressed.webp", Vector2(float(spec[1]) - 200.0, 604.8 - 51.5), Vector2(400, 103))
+		var l := _lbl(b, spec[0], 32, Color.WHITE, Vector2.ZERO, 400.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
+		l.add_theme_constant_override("outline_size", 0)
+		l.size = Vector2(400, 103)
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		var cb: Callable = spec[2]
+		b.pressed.connect(func():
+			_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
+			cb.call())
 
 func _confirm_quit() -> void:
 	_popup_close()

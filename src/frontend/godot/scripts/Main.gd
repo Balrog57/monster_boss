@@ -14,8 +14,12 @@ const WIKI_GATED := ["tools"]
 ## Boutique supprimee : tout est debloque (ToolsHeroKind, « COMING SOON » dans l'APK, est jouable ici : Match gere deja les Items).
 const APK_DECKS := [
 	{"id": "tools", "name": "TOOLS OF HERO KIND", "info": "20 item cards", "playable": true, "art": "tools_of_hero_front", "desc": "Adds 20 Item cards. One Item is revealed each turn: Heroes carry Power-Ups, and killing them earns the Reward. The APK leaves the Items inert: they are only played with the wiki expansions option checked."},
-	{"id": "players-choice", "name": "THE PLAYER'S CHOICE", "info": "7 bosses, 3 epic heroes, 1 spell", "playable": true, "art": "the_players_choice_front", "desc": "Cards chosen by the community: 7 new Bosses, 3 Epic Heroes and 1 Spell."},
-	{"id": "hidden-heroes", "name": "HIDDEN HEROES", "info": "+41 new heroes", "playable": true, "art": "hidden_heroes_front", "desc": "An alternate set of 41 Heroes, hidden in the shadows of Arcadia's dungeons, that replace their base set counterparts."},
+	{"id": "players-choice", "name": "THE PLAYER'S CHOICE", "info": "7 bosses, 3 epic heroes, 1 spell", "playable": true, "art": "the_players_choice_front",
+		"details": ["7; NEW BOSSES", "3; NEW HEROS", "1; NEW SPELL"], # LocalMarket.cs:130-137 (Details, Info, DetailsExpanded)
+		"desc": "An 11-card digital mini-expansion that includes seven new Bosses, three challenging Epic Heroes, and a game-changing Spell. These hard-to-find cards were only printed once, so we're bringing them back in digital form for your enjoyment!"},
+	{"id": "hidden-heroes", "name": "HIDDEN HEROES", "info": "+40 new heroes", "playable": true, "art": "hidden_heroes_front",
+		"details": ["40; NEW HEROES"], # LocalMarket.cs:139-148
+		"desc": "For years a quiet group of mysterious heroes has labored in the shadows of Arcadia's dungeons. They've taken the quests others wouldn't take, slain the most terrifying monsters, braved the most gruesome traps. These Hidden Heroes have done Arcadia's dirty work, and now their time has finally come. An unlockable set of alternate Heroes defined by 40 backers of Digital Boss Monster Kickstarter campaign."},
 	# Extension du wiki hors APK (livret docs/rules « The Next Level » + FAQ) : paquets de heros TNL (noirs, hybrides), defausse amorcee, main de depart de 7.
 	{"id": "next-level", "name": "THE NEXT LEVEL", "info": "13 bosses, 43 rooms, 17 spells, 42 heroes - wiki", "playable": true},
 	# Extension du wiki hors APK, selectionnable seule (en plus de la bascule « Extensions du wiki » qui active tous les paquets wiki).
@@ -42,9 +46,9 @@ const UI := "res://assets/ui/"
 const FONT_A := "res://assets/fonts/arcadepix.fnt"   # texte plein (bandeaux, ON/OFF)
 const FONT_B := "res://assets/fonts/arcadepix2.fnt"  # texte strie (boutons, libelles)
 const GOLD := Color("cdb15f")
-## Carrousel « HOW MANY PLAYERS? » : carte du dessus (ou "" = dos) de chaque eventail.
+## Carrousel « HOW MANY PLAYERS? » : cartes de chaque éventail dans l'ordre de ControlsFactory.BossCardsDeck (:379-427).
 ## 5 et 6 (Crash Landing) : pas de frame APK, les trois boss CRL.
-const FANS := {2: ["BMA006", "BMA002", ""], 3: ["BMA005", "", ""], 4: ["BMA001", "", ""], 5: ["CRL002", "CRL001", ""], 6: ["CRL001", "CRL002", "CRL003"]}
+const FANS := {2: ["BMA006", "BMA002"], 3: ["BMA007", "BMA004", "BMA005"], 4: ["BMA007", "BMA002", "BMA001", "BMA006"], 5: ["CRL002", "CRL001"], 6: ["CRL001", "CRL002", "CRL003"]}
 
 var game_manager: GameManager
 var online: OnlineClient
@@ -129,6 +133,36 @@ func go(swap: Callable) -> void:
 
 func is_fading() -> bool:
 	return _fading
+
+## Echap = touche Retour Android (AndroidActivity.cs:52-71 : NavigatedBack de la scene ouverte). Boite modale d'abord (OK / CANCEL : MessageBoxScene.cs:138-152),
+## puis la fleche « Back » visible la plus haute de l'arbre (menus, credits, regles, galerie, reglages en jeu), sinon le plateau (BoardUI.back_pressed).
+## Un champ de saisie qui a le focus garde la touche.
+func _unhandled_key_input(e: InputEvent) -> void:
+	var k := e as InputEventKey
+	if k == null or not k.pressed or k.echo or k.keycode != KEY_ESCAPE or _fading:
+		return
+	if get_viewport().gui_get_focus_owner() is LineEdit:
+		return
+	var target: Node = null
+	for n in ["DeckPopup", "ConfirmationBox", "MessageBox"]:
+		var box := find_child(n, true, false)
+		if box != null and not box.is_queued_for_deletion():
+			target = box if n == "DeckPopup" else box.find_child("Cancel" if n == "ConfirmationBox" else "Ok", true, false)
+			break
+	if target == null:
+		var backs := find_children("Back", "TextureButton", true, false).filter(func(b): return b.is_visible_in_tree() and not b.disabled and not b.is_queued_for_deletion())
+		if not backs.is_empty():
+			target = backs.back()
+		elif board != null and is_instance_valid(board) and board.has_method("back_pressed"):
+			get_viewport().set_input_as_handled()
+			board.back_pressed()
+			return
+	if target is BaseButton:
+		get_viewport().set_input_as_handled()
+		(target as BaseButton).pressed.emit()
+	elif target != null: # fenetre « ? » des paquets : un clic hors de la boite la ferme
+		get_viewport().set_input_as_handled()
+		target.queue_free()
 
 # --- widgets ---------------------------------------------------------------
 
@@ -224,7 +258,9 @@ func _apk_screen(back: Callable, small_logo: bool = false) -> void:
 	else:
 		add_child(_tex("navigation/bm_logo.webp", Vector2(705, 42), Vector2(540, 218)))
 	if back.is_valid():
-		add_child(_img_btn("buttons/back_bt.webp", "buttons/back_bt_pressed.webp", Vector2(20, 22), back, Vector2.ZERO, "ui_button_goback"))
+		var bk := _img_btn("buttons/back_bt.webp", "buttons/back_bt_pressed.webp", Vector2(20, 22), back, Vector2.ZERO, "ui_button_goback")
+		bk.name = "Back"
+		add_child(bk)
 
 func _band(text: String) -> void:
 	add_child(_tex("gradients/bg_txt.webp", Vector2(394, 298)))
@@ -408,26 +444,33 @@ func _draw_fans() -> void:
 			dyn_root.add_child(_lbl(str(n), 56, GOLD, Vector2(922, 371), Vector2(77, 77)))
 		else:
 			dyn_root.add_child(_lbl(str(n), 32, Color.WHITE, Vector2(cx - 32, 415), Vector2(80, 44), FONT_A)) # arcadepix blanc (PlayerNumberDeckEntity.cs:66) ; 32 px donne l'encre 21 x 21 mesuree sur la capture APK (a 42 px : 28 x 28)
-			dyn_root.add_child(_hit(Vector2(cx - 110, 480), Vector2(220, 240), func():
+			var pick := func():
 				players = n
-				_draw_fans()))
+				_draw_fans()
+			# CarrouselComponent.cs:123-131 : l'indice grandit (voisin de droite) = ui_shuffle_left, il baisse = ui_shuffle_right
+			dyn_root.add_child(_hit(Vector2(cx - 110, 480), Vector2(220, 240), pick, "ui_shuffle_right" if cx < 960.0 else "ui_shuffle_left"))
 
-func _fan(c: Vector2, h: float, all_ids: Array, sel: bool) -> Control:
-	var ids := all_ids.slice(0, 2) if sel else all_ids
+func _fan(c: Vector2, h: float, ids: Array, sel: bool) -> Control:
 	var root := Control.new()
 	root.position = c
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var rots := [-6.0, 9.0] if sel else [-10.0, 3.0, 8.0]
-	for k in range(ids.size() - 1, -1, -1): # le fond d'abord, la carte du dessus en dernier
-		var path: String = CardDB.card_image(str(ids[k]), "boss" if ids[k] != "" else "back-boss")
+	# OpponentsExpandBehavior.cs : les listes a 4 cartes servent quel que soit le nombre (InitializeValues tourne avant la liste), la selection est « ouverte ».
+	var sep := 50.0 * (0.84 if sel else 0.6) # separation 50, a l'echelle des captures APK
+	var offs := [Vector2(0, 0), Vector2(sep if sel else sep / 3, 0), Vector2(-sep if sel else -sep / 3, sep / 4), Vector2(sep * 2 if sel else sep / 3, sep / 4)]
+	var rots := [-0.15, 0.2, -0.35, 0.35] if sel else [-0.1, 0.05, -0.2, 0.15]
+	var order := [0.31, 0.32, 0.3, 0.33] # LocalDrawOrder : le plus petit est devant
+	var idx := range(mini(ids.size(), 4))
+	idx.sort_custom(func(x, y): return order[x] > order[y]) # le fond d'abord
+	for k in idx:
+		var path: String = CardDB.card_image(str(ids[k]), "boss")
 		var t := TextureRect.new()
 		t.texture = load(path)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_SCALE
 		t.size = Vector2(h * 0.717, h)
 		t.pivot_offset = t.size / 2
-		t.position = -t.size / 2 + Vector2(k * (42 if sel else 10), -k * (12 if sel else 2))
-		t.rotation_degrees = rots[k]
+		t.position = -t.size / 2 + offs[k]
+		t.rotation = rots[k]
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if not sel:
 			t.material = _gray_mat()
@@ -494,7 +537,18 @@ func _draw_tile(d: Dictionary, pos: Vector2, s: float) -> void:
 		dyn_root.add_child(_lbl(str(d["name"]), int(26 * s), GOLD, pos + Vector2(14, 20) * s, Vector2(257, 280) * s, FONT_A))
 	if id == "base":
 		return
-	if not _is_wiki(d): # les infos des paquets du wiki sont trop longues : elles sont dans la fenetre « ? »
+	if d.has("details"): # PurchaseItemButton.cs:94-103 + PurchaseDetailEntity.cs : « + » or, nombre or x 1,2, libelle blanc, a (-60, 60 + 14 n) du centre
+		var n := 0
+		for line in d["details"]:
+			var parts: PackedStringArray = str(line).split(";")
+			var y := (350.0 + 14.0 * n) * s
+			var x := pos.x + 25.0 * s
+			var adv := 18.0 + 18.0 * parts[0].length() # num += num * Text.Length (:23)
+			dyn_root.add_child(_lbl("+", int(21 * s), GOLD, Vector2(x, pos.y + y), Vector2(40, 24) * s, FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
+			dyn_root.add_child(_lbl(parts[0], int(25 * s), GOLD, Vector2(x + 18.0 * s, pos.y + y - 3.0 * s), Vector2(100, 28) * s, FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
+			dyn_root.add_child(_lbl(parts[1], int(21 * s), Color.WHITE, Vector2(x + adv * s, pos.y + y), Vector2(260, 24) * s, FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
+			n += 1
+	elif not _is_wiki(d): # les infos des paquets du wiki sont trop longues : elles sont dans la fenetre « ? »
 		dyn_root.add_child(_lbl(str(d.get("info", "")).to_upper(), int(17 * s), Color.WHITE, pos + Vector2(14, 322) * s, Vector2(257, 62) * s, FONT_A))
 	dyn_root.add_child(_hit(pos, Vector2(w, h - 70 * s), func():
 		if gated:
@@ -510,6 +564,7 @@ func _draw_tile(d: Dictionary, pos: Vector2, s: float) -> void:
 
 func _deck_popup(d: Dictionary) -> void:
 	var dim := ColorRect.new()
+	dim.name = "DeckPopup"
 	dim.color = Color(0, 0, 0, 0.6)
 	dim.size = Vector2(1920, 1080)
 	add_child(dim)
@@ -671,9 +726,9 @@ func show_options() -> void:
 	else:
 		add_child(host)
 
-## SETTINGS (SettingsScene.cs:58-106) : MUSIC / SOUND / GAME SPEED aux y 360 / 480 / 600 ; la fleche pop en fondu noir 1,0 s vers OPTIONS (:136).
+## SETTINGS (SettingsScene.cs:58-106) : MUSIC / SOUND / GAME SPEED aux y 360 / 480 / 600 ; la fleche pop SANS transition vers OPTIONS (NavigatedBack :133-145).
 func show_settings() -> void:
-	_apk_screen(func(): go(show_options))
+	_apk_screen(show_options)
 	_toggle_row(360, "MUSIC", ["ON", "OFF"], 0 if AudioManager.music_on else 1, func(i: int): AudioManager.set_music_on(i == 0))
 	_toggle_row(480, "SOUND", ["ON", "OFF"], 0 if AudioManager.sfx_on else 1, func(i: int): AudioManager.set_sfx_on(i == 0))
 	_toggle_row(600, "GAME SPEED", ["SLOW", "NORMAL", "FAST"], Profile.load_speed(), func(i: int): Profile.save_speed(i))

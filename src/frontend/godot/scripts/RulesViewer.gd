@@ -36,6 +36,7 @@ func _build() -> void:
 	var back := TextureButton.new() # fleche verte de tous les ecrans du menu : back_bt a (20, 22), son ui_button_goback (MainMenuScene.cs:49-54)
 	back.texture_normal = load(UI + "buttons/back_bt.webp")
 	back.texture_pressed = load(UI + "buttons/back_bt_pressed.webp")
+	back.name = "Back"
 	back.position = Vector2(20, 22)
 	back.pressed.connect(func():
 		AudioManager.play_sfx("ui_button_goback")
