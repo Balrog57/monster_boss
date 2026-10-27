@@ -501,7 +501,7 @@ Sources : `DBMGameModel.Logic/GameBoard.cs` (GB), `Boss.cs`, `DungeonSlot.cs`, `
 | R-D64 | Révélation des objets (`RevealItems`) | règle | Oui | M:1263-1273 | Oui | Objets inertes dans l'APK (R-F72). | — |
 | R-D65 | Spell Battle : `PendingSpellBattlePlayers` à chaque activation | règle | Oui | M:580-617, 1583, 1701-1754 | Partiel | Voir R-D66, R-D67. | — |
 | R-D66 | `RemovePendingTransactionsByTarget` (GB:1351-1361) | méthode | Non (vérifié absent) | M:1701-1740 | — | Doublon de R-E27. | voir R-E27 |
-| R-D67 | Activation de salle par l'utilisateur ouvre une Spell Battle (GB:812) | méthode | Oui | RA:128-181 | Partiel | Godot applique l'activation tout de suite, sans fenêtre de réponse. Le harnais retient `playRoomAbility` (`_held`), donc masqué. | Accepté (Moyenne) |
+| R-D67 | Activation de salle par l'utilisateur ouvre une Spell Battle (GB:812) | méthode | Oui | RA:128-181 | Oui | Une activation est une entrée de pile (`Match` : `activateRoom`, `RoomAbilities.make_entry`) ; chaque autre joueur a sa fenêtre de réponse, elle se résout au dernier `pass` (`RoomAbilities.run_queued`). Harnais : la pile réelle remplace `_held`. | Corrigé (Moyenne) |
 | R-D68 | Le sort quitte la main vers la défausse au lancement (GB:751-783) | règle | Oui | M:1714 | Partiel | Godot défausse à la résolution ; ne change qu'un remélange pendant la bataille. | Accepté (Basse) |
 | R-D69 | `RemoveHeroFromGame`, `RemoveRoomOrSpellFromGame`, `DestroyRoom` (GB:624, 694-749, 835) | méthode | Oui | BE:518-580 | Oui | `destroy_room` décale bien les effets indexés. Voir R-D90 pour l'ordre défausse / déclencheur. | — |
 | R-D70 | `DiscardFromHand`, `DrawRooms`, `DrawSpells` | méthode | Oui | CD:93 | Oui | | — |
@@ -557,10 +557,10 @@ Sources : `DBMGameModel.Logic.Abilities.*` (Commands, Targets, Conditions, Lured
 | R-E23 | `WhenYouBuildThisRoom`, `WhenYouBuildAnotherRoom` | déclencheurs | Oui | M:1477-1504, RA:528, RA:577 | Oui | Ordre inverse de `EnqueueAbilityTransaction` reproduit (M:1499). | — |
 | R-E24 | `HeroDiesInThisRoom` | déclencheur | Oui | RA:607-630 | Partiel | Voir R-D46 (salle déclenchée après `DealHero`) et R-F26 (`OncePerTurn` consommé trop tôt). | voir R-D46 |
 | R-E25 | `AnySpellCardIsPlayed`, `HeroDiesAnotherRoom`, `WhenOpponentPlaysSpellCard`, `WhenThisRoomIsDestroyed` | déclencheurs | N/A | BE:584 | — | Inutilisés dans les `data.json` APK. | Accepté (Basse) |
-| R-E26 | `EnqueueAbilityTransaction` : capacités de salle mises en file | pile | Oui (autre forme) | RA:128-181, M:1573-1760 | Partiel | Les sorts passent par la pile ; les capacités de salle se résolvent immédiatement (= R-D67). | Accepté (Moyenne) |
+| R-E26 | `EnqueueAbilityTransaction` : capacités de salle mises en file | pile | Oui (autre forme) | RA:128-181, M:1573-1760 | Oui | Sorts et capacités de salle passent par la même pile (`_stack_insert_index`) ; seule All-Seeing Eye reste immédiate : sa transaction se résout avant le sort qu'elle annule. | Corrigé (Moyenne) |
 | R-E27 | `RemovePendingTransactionsByTarget` : annule les transactions dont la cible a quitté le jeu (`GameBoard.cs:1351-1361`, appelée GB:606, 618, 743, 843) | pile | Non (vérifié absent) | M:1701-1740 | **Différent** | Vérifié : seul Counterspell marque `canceled`. Les sorts visant un héros (`heroId`) ratent sans dégât si le héros est parti. Les sorts visant par **indice** (`roomIndex`, `townIndex`, `soulIndex`) ne sont jamais annulés et frappent ce qui occupe l'indice. Rare : il faut deux sorts empilés sur la même zone. | Corrigé (Moyenne) |
 | R-E28 | Contre-sort (`CancelSpellAbility`, All-Seeing Eye) | pile | Oui | M:1728-1734, RA:237-251 | Oui | Le lot E citait les échecs s16-p4, s20-p2, s28-p3 ; contre-vérifié : ce sont une course de l'IA oracle et un remélange (R-O04), pas le contre-sort. 7 Counterspell joués, 0 écart. | Conforme (Basse) |
-| R-E29 | `OncePerTurn` : `IsEffectApplied` posé à `Run` (`Ability.cs:135`, `OncePerTurn.cs:12`) | pile | Oui | RA:139, RA:167, RA:180 | Partiel | Godot pose `usedThisTurn` à l'activation et le remet à faux si l'activation échoue (RA:180). Comme l'effet est appliqué tout de suite, la différence ne se voit que si une transaction est annulée avant de s'exécuter. Non observé. | Accepté (Moyenne) |
+| R-E29 | `OncePerTurn` : `IsEffectApplied` posé à `Run` (`Ability.cs:135`, `OncePerTurn.cs:12`) | pile | Oui | RA:139, RA:167, RA:180 | Oui | `usedThisTurn` est posé à l'exécution de la transaction, pas à la mise en file ; une transaction annulée ou qui échoue ne le consomme pas, et `Room.CanPlayerPlayAbility` (`RoomAbilities.is_queued`) interdit une 2e mise en file. | Corrigé (Moyenne) |
 | R-E30 | Autorésolution d'une cible unique (`TryToAutoresolve`) | pile | Partiel | ST:51 | Non vérifié | Lié à R-E11. | Partiel (Moyenne) |
 | R-E31 | `OnAbilityApplyDone` (déclencheurs après sort) | pile | Oui | SE (`cast_spell`), M:1743-1752 | Non vérifié | | Conforme (Moyenne) |
 
@@ -1896,7 +1896,7 @@ Validé par `python tools/run_godot_tests.py` (14/14) et l'oracle (6/6, 12/12, 6
 | R-D34 | Corrigé | Fenêtre après la dernière construction : pas de joueur actif, tri de la pile par PlayerId pur. |
 | R-D35 | Corrigé | Révélation des salles en attente par indice C# croissant ; level-up quand le dernier emplacement C# est révélé. |
 | X-M22 | Ouvert | Trier les défausses par `UniqueID` demande de numéroter les cartes comme `GameBoardExtensions` ; chantier à valider contre l'oracle. |
-| R-E29 | Ouvert | Différence visible seulement si une transaction est annulée avant de s'exécuter ; jamais observé. |
+| R-E29 | Corrigé | `usedThisTurn` posé à l'exécution (R-D67). |
 
 Non vérifié : R-D34, R-D35, R-E14, R-E18 et R-E19 portent sur des chemins que l'oracle ne joue presque pas ; seule l'absence de régression est prouvée.
 
@@ -2014,7 +2014,7 @@ Validé par `python tools/run_godot_tests.py` (14/14) ; oracle 6/6, 12/12, 6/6 ;
 | IA-H17 | Corrigé | `_chk_050` compte les salles de la main que `Boss.CanBuildRoom` accepte, sans limite par tour (`MaxBuildRoomLimit` n'est jamais décrémenté à la pose). |
 | IA-G47 | Corrigé (non mesurable) | La salle est choisie sur l'état d'avant la capacité, puis rejouée après elle si elle est toujours en main dans la même fenêtre. L'oracle ne mesure pas ce cas. |
 | IA-H23 | Corrigé | T.P.K. : tout siège IA peut viser n'importe quel boss (l'APK retient le premier de `InGamePlayersPriorized`) ; un humain n'a toujours que lui-même. |
-| R-E29 | Ouvert (accepté) | Visible seulement si une transaction est annulée avant de s'exécuter ; jamais observé. |
+| R-E29 | Corrigé | `usedThisTurn` posé à l'exécution de la transaction (R-D67). |
 | IA-H70 | Ouvert (accepté) | Égalité du harnais isolée (s21-p4@519), probablement un artefact de mesure. |
 
 ## Restes du lot 2, plateau (2026-10-27)
@@ -2176,8 +2176,8 @@ Validé par `python tools/run_godot_tests.py` (14/14) ; oracle 6/6, 12/12, 6/6 ;
 | R-O05 | Accepté | Mesure de couverture, pas une règle. Les cartes jamais exercées par les 24 traces ne sont pas atteignables par l'IA de l'APK (Teleportation : `CheckBMA053` ne la joue jamais ; BMA023, BMA033, THK025 jamais distribuées ou injouables) ou n'ont pas été tirées ; leur comportement est couvert par les goldens (BMA053 7 références, BMA025 9, KSA001 4, KSA005 6, THK021 12, THK025 16). |
 | R-D25 | Conforme | Déjà porté avec R-D26 et R-D27 : `buildLimit` n'est effacé que quand le joueur cesse d'être actif (`_advance_build`, équivalent de `DeactivateLastActivePlayer`) et pour tous au début de l'aventure (`ChooseNextActivePlayer`, `_init_adventure_phase`). Une limite posée hors tour est donc gardée jusqu'à la fin du tour de construction du joueur, comme dans l'APK. |
 | R-D47 | Corrigé | `ProccessActiveHero` retire le héros à hp <= 0 avant la fenêtre de sorts. `SpellTargeting.hero_dead_in_window` : en pause « post-damage », hors `dealZero` (DealHero ne teste pas la mort, R-D46), un héros à 0 PV n'est plus ciblable ni « héros actif » (Assassin ne peut plus le ressusciter) ; le héros suivant de l'entrée l'est. Golden `_t_apk_dead_hero_untargetable_in_window`. |
-| R-D67 | Accepté | Évalué, non porté. Sur les 42 traces de l'oracle : 325 activations de salle, 0 sort joué en réponse avant l'exécution, donc l'écart n'est pas observable par l'oracle. Le porter oblige à passer toutes les capacités activées (11 du jeu de base, THK, RMB, TNL, CRL) en transactions différées avec leurs choix de cibles, une garde « déjà en file » (`Room.CanPlayerPlayAbility`), la vue de pile, l'IA de réponse et le filtre en ligne, et remplace l'émulation `_held` du harnais, sur laquelle repose la parité des traces. Conséquence connue : un adversaire humain ne peut pas répondre à une capacité de salle par un sort. |
-| R-E26 | Accepté | Même cause que R-D67. Les sorts passent par la pile (ordre `_stack_insert_index`) ; les capacités de salle restent immédiates, sauf All-Seeing Eye qui se place devant le sort qu'elle annule. |
+| R-D67 | Corrigé | Voir la section « R-D67 : capacités de salle en bataille de sorts » ci-dessous. Toute capacité activée (11 du jeu de base, THK, RMB, TNL, CRL) est une entrée de pile ; les capacités à déclencheur restent immédiates (l'APK ne les met pas en bataille : `IsActivatedByUser` = `Trigger == null`). |
+| R-E26 | Corrigé | Même correction que R-D67 : les capacités de salle suivent l'ordre `_stack_insert_index` ; All-Seeing Eye reste immédiate (sa transaction passe devant le sort visé). |
 | R-E17 | Corrigé | `Ability.DoEffect` ne reverifie pas les conditions : elles sont testées à la mise en jeu (`Spell.CanPlayerPlayAbility`, `SpellTargeting.conditions_ok`), puis la transaction s'exécute. `_motivation` ne reverifie plus `OpponnentDungeonSizeMoreThan` : la construction supplémentaire est accordée même si l'écart a disparu entre-temps. Golden dans `_t_spell_motivation_extra_build`. |
 | R-E27 | Corrigé | `RemovePendingTransactionsByTarget` : une transaction retient la carte visée (salle du sommet de l'emplacement, héros de la ville) par un `_tuid` (compteur statique de `Match`, qui ne consomme pas le tirage global). À la résolution, `_retarget_stack_effect` retrouve la carte (les indices glissent après `DestroyRoom`) ou annule le sort si elle a quitté le jeu. Non couvert : les cibles par indice d'âme ou de blessure (`soulIndex`, `woundIndex`). Golden `_t_apk_stack_target_leaves_game`. |
 | R-E31 | Conforme | `OnAbilityApplyDone` ne déclenche que `YouPlaySpellCard` (Liger's Den, appliqué après le sort non annulé dans `_resolve_pending_stack`) ; `WhenOpponentPlaysSpellCard` et `AnySpellCardIsPlayed` n'existent sur aucune carte des `data.json`. `IUntilEndOfGameCommand` ne concerne que KSA013 T.P.K., porté à part. |
@@ -2296,3 +2296,18 @@ Validé par `python tools/run_godot_tests.py` (14/14) ; captures `capture_screen
 | U-C38 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
 | U-C39 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
 | U-C40 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
+
+## R-D67 : capacités de salle en bataille de sorts (2026-10-27)
+
+Validé par `python tools/run_godot_tests.py` (14/14, goldens 2148) ; oracle 6/6, 12/12, 6/6 ; stress (graines 10 à 40) 90/93, mêmes échecs connus (s16-p4, s20-p2, s28-p3) ; `--ai-agreement` : usableSet 2121/2121, 0 mutation de l'état par les requêtes de l'IA.
+
+APK : `GameBoard.PlayRoomAbility` met la capacité en file (`EnqueueAbilityTransaction`) ; `IsActivatedByUser` (`Trigger == null`) ouvre une Spell Battle (`OnAbilityApplyRequest` : tous les joueurs vivants peuvent répondre). Le joueur du tour passe en tête de file, les autres par rang de joueur ; la transaction s'exécute au `NextStep` (`DoEffect`, sans revérifier les conditions) ; `OncePerTurn` (`IsEffectApplied`) n'est posé qu'à l'exécution. `Room.CanPlayerPlayAbility` refuse une salle déjà en file. `RemovePendingTransactionsByTarget` annule la transaction dont une cible quitte le jeu. L'IA qui répond ne considère que Counterspell et All-Seeing Eye, et ne vise que des sorts : elle laisse donc passer toute capacité de salle.
+
+Changements :
+- `Match.gd` : le coup `activateRoom` (sauf BMA025) crée une entrée de pile `type: "ability"` (`RoomAbilities.make_entry`, salle retrouvée par `_tuid`), relance la fenêtre de réponse comme un sort et se résout dans `_resolve_pending_stack`. Si la capacité ouvre un choix, la pile attend (entrée `resolving`) puis reprend dans `_resolve_choice_body`. Une salle en file n'est plus activable (`RoomAbilities.is_queued`).
+- `RoomAbilities.gd` : `run_queued` (salle détruite ou recouverte : annulée, sauf Dracolich Lair et Witch's Kitchen qui ne ciblent pas leur salle) ; `activate_room_ability(..., queued)` ne revérifie plus les conditions à l'exécution ; une exécution qui échoue ne consomme pas `OncePerTurn`.
+- `BoardUI.gd` : la capacité s'affiche comme l'APK (carte de la salle à l'échelle 1, portrait du boss, même pour la mienne). `PROTOCOL.md` : entrée de pile `ability`. `ViewFilter` : aucune clé ajoutée.
+- `ApkParityTrace.gd` : l'émulation `_held` d'activation est remplacée par la pile réelle ; il ne retient plus que les décisions de cibles de l'oracle (rejouées quand Godot ouvre ses choix) et la dernière passe jusqu'au step de phase. Les cibles de main périmées (Dracolich Lair, Witch's Kitchen) annulent l'entrée.
+- Goldens : capacité sans réponse, annulée par le sort du joueur du tour (`OncePerTurn` non consommé), salle détruite en réponse.
+
+Écarts connus : les cibles se choisissent à l'exécution (l'APK les résout à la mise en file) ; All-Seeing Eye reste immédiate ; les coups wiki sans équivalent APK (`useItem`, `useHandRoom`, RMB `activateMiniboss`, TNL `docScarecrow`) restent immédiats. Non vérifié : parties en ligne réelles et interface humaine (suites `online` et `ui smoke` seulement).
