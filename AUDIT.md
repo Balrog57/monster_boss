@@ -2016,3 +2016,16 @@ Validé par `python tools/run_godot_tests.py` (14/14) ; oracle 6/6, 12/12, 6/6 ;
 | IA-H23 | Corrigé | T.P.K. : tout siège IA peut viser n'importe quel boss (l'APK retient le premier de `InGamePlayersPriorized`) ; un humain n'a toujours que lui-même. |
 | R-E29 | Ouvert (accepté) | Visible seulement si une transaction est annulée avant de s'exécuter ; jamais observé. |
 | IA-H70 | Ouvert (accepté) | Égalité du harnais isolée (s21-p4@519), probablement un artefact de mesure. |
+
+## Restes du lot 2, plateau (2026-10-27)
+
+Validé par `python tools/run_godot_tests.py` (14/14 ; un échec isolé de `soak APK decks` chez l'agent, non reproduit, à surveiller). Moteur de règles non touché.
+
+| ID | État | Changement |
+|---|---|---|
+| G-20 | Corrigé | `progress_yellow` extrait de `Content/NinePatch/progress_yellow.wpk` ; barre de 177 px sous DONE, seulement avec le minuteur de tour (en ligne). Non portés : décalage de 2 px à l'appui, icône d'horloge. Barre non vue se vider en vraie partie. |
+| X-P06 | Corrigé | `card_shadow` est un sprite de l'atlas INGAME (350x488, noir) : extrait ; ombre décalée de (40,70) à l'échelle 0,5, opacité 0,75, sous la carte glissée et sous la salle en attente. |
+| X-M06 | Corrigé | Table `BOSS_OFFSET` des 15 boss de l'APK (`data.json`) ; sprites à leur taille native (KSA005 n'est plus réduit). Draculord et King Croak comparés à `apk_orig/adv_t8_full_state_…` : à quelques pixels. |
+| P-C14 | Partiel | La salle en attente a la taille de l'APK (175x244) et son ombre. Non porté : le vol vers l'emplacement, qui ne se voit qu'avec deux salles en attente. |
+| P-C07 | Corrigé | Parmi les cartes de la main sous le pointeur, celle dont le centre est le plus proche gagne. Essayé par événements simulés, pas à la souris. |
+| P-A45, P-B12 | Corrigé | « AGAINST » aussi quand le sort vise une salle, un héros ou un sort de la pile d'un adversaire. Sans ligne AGAINST : les effets sans cible nommée. |
