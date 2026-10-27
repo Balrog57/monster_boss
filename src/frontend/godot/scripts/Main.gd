@@ -127,11 +127,12 @@ func go(swap: Callable) -> void:
 	_fade_layer.add_child(veil) # mouse_filter STOP par defaut : aucun clic pendant la transition
 	var tw := create_tween()
 	tw.tween_property(veil, "color:a", 1.0, 0.5)
-	tw.tween_callback(swap)
-	tw.tween_property(veil, "color:a", 0.0, 0.5)
 	tw.tween_callback(func():
-		veil.queue_free()
+		swap.call()
+		veil.mouse_filter = Control.MOUSE_FILTER_IGNORE # W-19 : le nouvel ecran est deja visible, un clic pendant l'eclaircie ne doit pas etre avale par le voile
 		_fading = false)
+	tw.tween_property(veil, "color:a", 0.0, 0.5)
+	tw.tween_callback(veil.queue_free)
 
 func is_fading() -> bool:
 	return _fading

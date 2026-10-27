@@ -109,7 +109,7 @@ func _wait(s: float) -> void:
 func _nav(main) -> void:
 	await get_tree().process_frame
 	var t0 := Time.get_ticks_msec()
-	while main.is_fading() and Time.get_ticks_msec() - t0 < 4000: # horloge reelle : la transition dure 1,0 s quel que soit le nombre d'images
+	while (main.is_fading() or main._fade_layer.get_child_count() > 0) and Time.get_ticks_msec() - t0 < 4000: # horloge reelle : la transition dure 1,0 s quel que soit le nombre d'images
 		await get_tree().process_frame
 	await get_tree().process_frame
 	_check(not main.is_fading(), "transition : le voile reste bloque apres 4 s")
@@ -2302,6 +2302,20 @@ func _check_review_fixes() -> void:
 		_check(calls[0] == 0, "transition : l'ordre recu pendant le fondu a ete execute")
 		_check(not is_instance_valid(rv[0]) or rv[0].is_queued_for_deletion(), "RULES : la visionneuse n'est pas liberee apres le fondu")
 		_cov("rules_fade")
+	# W-19 : apres TAP TO START, un seul clic sur MULTIPLAYER pendant l'eclaircie du fondu doit ouvrir l'ecran multijoueur
+	main.show_title()
+	await _wait(0.1)
+	await _click_at(Vector2(960, 540))
+	await _wait(0.75) # 2e moitie du fondu (0,5 -> 1,0 s) : le menu est visible, le voile ne doit plus bloquer
+	var mp: Control = null
+	for c in main.get_children():
+		if c is TextureButton and (c as TextureButton).get_children().any(func(k): return k is Label and (k as Label).text == "MULTIPLAYER"):
+			mp = c
+	if _check(mp != null and main._fade_layer.get_child_count() == 1, "W-19 : menu absent apres TAP TO START"):
+		_check((main._fade_layer.get_child(0) as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE, "W-19 : le voile bloque encore les clics dans l'eclaircie")
+		await _click_at(mp.get_global_rect().get_center())
+		await _nav(main)
+		_check(main.find_child("PLAY ONLINE", true, false) != null, "W-19 : un seul clic sur MULTIPLAYER n'ouvre pas l'ecran multijoueur")
 	main.queue_free()
 	await get_tree().process_frame
 

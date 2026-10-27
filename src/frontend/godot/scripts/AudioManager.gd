@@ -67,6 +67,7 @@ func _ready() -> void:
 		_voices.append(p)
 	for n in SFX_NAMES:
 		_stream(SFX_DIR + n + ".wav") # pas de latence au premier son (web)
+	_stream(MUSIC_DIR + "music_dungeon_v3.mp3") # W-02 : la musique de partie est lue au 1er plateau, pas de chargement a ce moment (music_main l'est a l'ecran titre)
 	var cfg := ConfigFile.new()
 	if cfg.load(SAVE_PATH) == OK:
 		muted = bool(cfg.get_value("audio", "muted", false))
