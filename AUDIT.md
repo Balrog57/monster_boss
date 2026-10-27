@@ -2429,3 +2429,157 @@ Validé par `python tools/run_godot_tests.py` (14/14), l'oracle APK et `ui_smoke
 | X-M32 | Corrigé | _dracolich_lair (RoomAbilities.gd:488-510) se résout seule pour un joueur humain quand une seule paire est possible : PlayerInteractionBase.ResolveTarget:39 n'appelle TryToAutoresolve (Count() <= TargetsAmount, ComposedTargetProvider.cs:35-52) que si tryToAutoresolveTargets, vrai pour HumanPlayerInteraction.cs:48 et RemotePlayerInteraction.cs:69 seulement ; l'IA (FixedAI) et le harnais de l'oracle (autoAI faux) gardent le choix. Une première version sans cette distinction faisait diverger s4-p2 et s5-p2. Test goldens `_t_choice_dracolich_lair` (humain : pile directe ; harnais : choix ouvert). |
 | X-M34 | Corrigé | _unuse_on_error (RoomAbilities.gd:292) remet usedThisTurn à faux sur toute erreur de _all_seeing_eye (:256) et _witchs_kitchen (:263), comme Dracolich. |
 | X-M60 | Corrigé | DbmRandom (scripts/DbmRandom.gd, System.Random soustractif de Knuth) + RandomProvider.Shuffle ; le tutoriel fixe la graine 2832 (GameManager.gd:25,33, Match.gd:101-139, CardDB.shuffled). Les trois pioches (salles, sorts, héros) sont identiques à la trace de l'oracle (test tut_decks, tests/tut_decks_data.gd). |
+
+## TNL : audit carte par carte (2026-10-27)
+
+Lecture seule, aucun code de jeu modifié. Référence, dans l'ordre : texte de la carte (`assets/data/expansions/next-level.json`, tiré du wiki), FAQ et glossaire de `docs/rules/rules.md` (livret TNL à partir de la ligne 956, clarifications de cartes lignes 260-940), arbitrages de `docs/rules/arbitrages-wiki.md` ; pour les mécaniques de base, l'APK déjà porté. Chaque ligne vient de la lecture du chemin de code, pas du nom ni des commentaires. Non lancé : la suite Godot (aucun comportement douteux n'a eu besoin d'être rejoué).
+
+Abréviations (dossier `src/frontend/godot/scripts/`) : TA = TnlAbilities.gd, TS = TnlSpells.gd, M = Match.gd, BE = BossEngine.gd, RA = RoomAbilities.gd, AW = AiWiki.gd. Goldens : noms des fonctions `_t_*` de `tests/goldens_tnl.gd` (sans le préfixe). IA : « auto » = effet sans décision, « poids » = les options d'un choix portent un `ai` (AI.gd:260), « score » = `score_activate` / `score_spell` / `score_move`.
+
+Les textes imprimés des héros à capacité (`heroAbility`) ne sont dans aucune source du dépôt (le JSON n'a que les statistiques) : leur conformité se mesure à `cards.json`, à la FAQ et au glossaire, pas à la carte. Le wiki a répondu HTTP 402 aux audits précédents (`docs/reference/part2/2.1_tnl_A.md`, `2.1_tnl_B.md`, dont plusieurs écarts ont depuis été corrigés) ; il n'a pas été réessayé.
+
+### Cartes (115)
+
+| Id | Carte | Texte (résumé) | Code | Golden | IA | Statut | Priorité |
+|---|---|---|---|---|---|---|---|
+| TNL000 | Mirrax | Level up : copie les icônes de trésor d'un autre boss, pour la partie | TA:317, 346-360 (boss vivants, Kirax compris via `_boss_icons` 330-343), 1266-1271 (`bonusTreasures`) ; BE:61-66 | mirrax | poids (nb d'icônes) | Conforme | — |
+| TNL001 | Doc Scarecrow | Build : défausser une carte pour qu'un héros de la ville ne puisse pas être leurré | TA:1477-1488 (coup `docScarecrow`), 1547-1555, 855-856 ; M:1616 (leurre sauté). Le code limite à une fois par tour (`used "scarecrow"`, TA:1483, 1554), le texte n'a pas de limite | scarecrow | score (AW `scarecrow_value`) | Écart | Moyenne |
+| TNL002 | Belladonna | Level up : guérir une blessure | TA:318, 362-370, 1272-1274 (`heal_one_wound`, épique permis) | belladonna | poids (âmes) | Conforme | — |
+| TNL003 | Torix Uz'Kali | Toute salle Monster défaussée ou détruite : peut la mettre en main | TA:319-320, 420-447 (file `torixQueue`), 1222-1234 ; BE:`discard_room_to_pile` (torix_catch) ; M:517-518 (file vidée après chaque coup) | torix, torix_jeopardy, torix_via_apply_move | poids fixe (prend toujours) | Conforme | — |
+| TNL004 | Killa | 3 blessures ou plus : dernière salle +3 | TA:768-781 (dernière salle non gelée, FAQ) | killa | auto | Conforme | — |
+| TNL005 | Shellda | Fin de tour : peut échanger deux salles d'un donjon | TA:892-893, 913-939, 1293-1305 (piles échangées, effets indexés suivent) | shellda, end_of_turn_resume | poids (`swap_ai`) | Conforme | — |
+| TNL006 | Smoake | Quand vous construisez une salle Monster : peut piocher une salle | TA:455-456 (pioche toujours prise, jamais gênante) | smoake | auto | Conforme | — |
+| TNL007 | Kazanna | Level up : défausse la main, pioche 3 sorts | TA:322-326 | kazanna | auto | Conforme | — |
+| TNL008 | Dr. Timebender | 1/tour : défausser un sort pour annuler un sort adverse | TA:1509-1512, 1574-1577 (annulation immédiate : prioritaire, hors Counterspell, FAQ) | timebender | score 100 (annule toujours) | Conforme | — |
+| TNL009 | Nicolius | Fin de tour : peut piocher un sort si un joueur a gagné 2 âmes de plus que vous | TA:863-867, 881-889 (photo des âmes au début du tour) | nicolius | auto | Conforme | — |
+| TNL010 | Porkus | Level up : retire un héros face cachée, en cherche un autre dans les pioches de héros | TA:327, 397-415, 1278-1292 ; sans âme à retirer, aucune recherche (TA:402-404) alors que la 2e phrase pourrait s'appliquer | porkus | poids | Écart | Basse |
+| TNL011 | Angstigoth | 1/tour, quand vous tuez un héros : piocher une salle | TA:673-677 ; M:2292-2293 | angstigoth | auto | Conforme | — |
+| TNL012 | Eclipse | Quand vous détruisez une salle de votre donjon : la salle découverte +3 | TA:463-485 (`destroy_actor`), M:811-813, 1814-1816, 1857-1859 (arbitrage : seulement si le propriétaire détruit). Une destruction résolue sans choix (cible unique auto-résolue par `ask`, TA:244-245, par exemple Megaworm Burrow adverse) garde `destroy_actor = -1` et compte comme l'acte du propriétaire | eclipse, arbitrages_wiki | auto | Écart | Basse |
+| TNL013 | Dark Portal | 1/tour : défausser un sort pour reprendre une salle de la défausse | TA:1055-1061, 1320-1321, 519-527 | dark_portal | score 12 | Conforme | — |
+| TNL014 | Imp Temple | 1/tour : la carte qu'un adversaire doit défausser va dans votre main | TA:537-565 (`live`, 1/tour par exemplaire) ; branché sur Incubus Gym, Wraith's Throne, Cursed Tomb, RA:926 (Torture Chamber), M:901 (Specter, Succubus), RmbAbilities:473 | imp_temple_dragon_graveyard, incubus_gym | auto | Conforme | — |
+| TNL015 | Madman's Manor | 1/tour, héros mort ici : un sort de la défausse en main | TA:653-658 ; le jeton « 1/tour » est consommé (656) avant de savoir qu'il y a un sort à reprendre (522), contrairement au jeu de base (RA:719-730) | hero_dies_triggers | auto | Écart | Basse |
+| TNL016 | Arcane Crypt | Build ou découverte : peut reprendre un sort de la défausse | TA:492-493 (facultatif), 466-485 (découverte) | build_effects, uncover_effects | poids | Conforme | — |
+| TNL017 | Haunted Hall | Détruire : un héros de cette salle retourne en ville | TA:1136-1142, 1180-1194 | haunted_hall_warp_tube | score 70 (si le héros survivrait) | Conforme | — |
+| TNL018 | Inner Sanctum | Fin de tour : si aucun héros n'est entré, peut piocher une salle | TA:714-716 (drapeau `entered`), 878-880 ; pioche toujours prise | inner_sanctum_blockpile, audit_lot21 | auto | Conforme | — |
+| TNL019 | Incubus Gym | Build : chaque adversaire défausse une salle | TA:503-505, 568-585 | incubus_gym | auto | Conforme | — |
+| TNL020 | Dragon Graveyard | 1/tour : prendre une carte de la défausse fait piocher une salle | TA:594-604 ; RA:73-74 (tous les chemins passent par `take_discard_card`) | imp_temple_dragon_graveyard, audit_lot21 | auto | Conforme | — |
+| TNL021 | Wraith's Throne | 1/tour, héros mort ici : chaque adversaire défausse un sort | TA:653-659 ; jeton consommé même si aucun adversaire n'a de sort | hero_dies_triggers, once_per_turn_death_triggers | auto | Écart | Basse |
+| TNL022 | Rust Monster Pen | 1/tour : défausser une salle Monster pour -1 à une salle Trap | TA:1078-1082, 1326-1327, 1347-1350 ; plancher à 0 appliqué une seule fois en fin de calcul (BE:504) : une salle à 0 dégât, -1 puis +3, donne 2 au lieu de 3 (FAQ « jamais sous zéro ») | rust_bullet | score 30 (si sauve) | Écart | Basse |
+| TNL023 | Goblin Nursery | La salle à sa gauche, si Monster : +2 | TA:762-764 (index - 1 = côté entrée) | passive_damage | auto | Conforme | — |
+| TNL024 | Barbarian Hall | Build : défausse un sort si vous en avez | TA:506-508, 529-532 | build_effects | auto | Conforme | — |
+| TNL025 | Spawn Point | 1/tour, héros mort ici : piocher 2 salles | TA:653-660 | once_per_turn_death_triggers, hero_dies_triggers | auto | Conforme | — |
+| TNL026 | Fangroot Garden | 1/tour, héros mort ici : peut construire une autre salle | TA:661, 946-1003 (emplacement neuf ou par-dessus ; avancée : trésor commun) ; jeton consommé même sans salle posable (656) | hero_dies_triggers | poids | Écart | Basse |
+| TNL027 | Shrooman Cave | Build ou découverte : une AUTRE salle Monster +3 | TA:494-497 (s'exclut, FAQ) | build_effects, uncover_effects | poids | Conforme | — |
+| TNL028 | Goblin Mess Hall | Chaque autre salle Monster de votre donjon +1 | TA:765-767 | passive_damage | auto | Conforme | — |
+| TNL029 | Megaworm Burrow | Build : détruire une salle avancée de n'importe quel donjon | TA:509-512 ; s'exclut elle-même (lecture : « one Advanced Room » pourrait la contenir) | megaworm | poids (`room_options`) | Conforme | — |
+| TNL030 | The Arena | 1/tour : révéler une salle Monster de la main pour +X | TA:1088-1092, 1254-1259 (la salle reste en main, FAQ) | arena | score 15 | Conforme | — |
+| TNL031 | Antimagic Zone | Défausser de la main : annuler un sort adverse | TA:1507-1508, 1569-1573 (immédiat, hors Counterspell, FAQ) | antimagic_zone | score 120 | Conforme | — |
+| TNL032 | Lost Library | Détruire : piocher 2 sorts puis en défausser 1 | TA:1117-1120 | lost_library | score 3 (rarement jouée) | Conforme | — |
+| TNL033 | Frostbat Cave | Détruire : désactiver une salle de n'importe quel donjon | TA:1121-1125, 1355-1357 | decapitator_frostbat | score 65 (si elle sauve un héros) | Conforme | — |
+| TNL034 | Spellslime Pit | Chaque sort que vous jouez : +1 | TA:843-845 (sort annulé exclu, FAQ) | spellslime_hall_of_mirrors, audit_lot21 | auto | Conforme | — |
+| TNL035 | Observatory | 1/tour : défausser un sort pour piocher un sort | TA:1062-1066, 1322-1323 | observatory_treadmill | score 12 | Conforme | — |
+| TNL036 | Sorcerobe School | Build ou découverte : piocher un sort | TA:498-499 | build_effects, uncover_effects | auto | Conforme | — |
+| TNL037 | Hall of Mirrors | 1/tour, un adversaire joue un sort : piocher un sort | TA:846-849 (sort annulé exclu, FAQ) | spellslime_hall_of_mirrors, audit_lot21 | auto | Conforme | — |
+| TNL038 | Elemental Generator | +X, X = sorts en main | TA:753-754 (compté à l'entrée du héros : le sort lancé ensuite est inclus, FAQ) | passive_damage | auto | Conforme | — |
+| TNL039 | Brainsucker Queen | 1/tour, héros mort ici : piocher 2 sorts puis en défausser 1 | TA:662-664 | hero_dies_triggers | auto | Conforme | — |
+| TNL040 | Bullet Builder | 1/tour : défausser une salle Trap pour -1 à une salle Monster | TA:1083-1087, 1328-1329 ; même plancher final que Rust Monster Pen (BE:504) | rust_bullet | score 30 | Écart | Basse |
+| TNL041 | Wreck Room | 1/tour : détruire une autre salle de votre donjon pour piocher une salle | TA:1093-1102, 1361-1366 | wreck_chomper_smashinator | score BUILD_FIRST (donjon plein) | Conforme | — |
+| TNL042 | Deadly Treadmill | 1/tour : défausser une salle pour piocher une salle | TA:1067-1071, 1324-1325 | observatory_treadmill, audit_lot21 | score 12 | Conforme | — |
+| TNL043 | Collapsing Bridge | 1/tour, un héros y survit : +3 (texte révisé, FAQ) | TA:704-708 (sortie de salle en vie, `usedThisTurn`) | bom_boy_and_bridge | auto | Conforme | — |
+| TNL044 | Spiked Pit | Build ou découverte : +3 sur elle-même | TA:500-502 | build_effects, uncover_effects | auto | Conforme | — |
+| TNL045 | Decapitator | Phase de construction, détruire : une salle perd son trésor jusqu'à la fin du tour | TA:1126-1135, 1358-1360 ; BE:50-57 (`noTreasure` retire l'imprimé, garde les ajouts ; le tag reste sur l'instance couverte, FAQ) | decapitator_frostbat | score BUILD_FIRST (gain de leurre) | Conforme | — |
+| TNL046 | Chump Chomper | 1/tour : détruire une autre salle pour +4 | TA:1093-1102, 1361-1369 | wreck_chomper_smashinator | score 70 (si elle tue) | Conforme | — |
+| TNL047 | Blockpile Puzzle | Fin de tour : détruisez une salle de votre donjon | TA:894-910, 1351-1354 (un choix par exemplaire, peut se détruire elle-même, FAQ) | inner_sanctum_blockpile, audit_lot21 | poids (la moins dangereuse) | Conforme | — |
+| TNL048 | The Smashinator | 1/tour : détruire toutes les autres salles visibles pour +6 | TA:1103-1116 (sommets visibles non gelés, FAQ) ; refusée s'il n'y a aucune autre salle (le texte ne l'interdit pas, le coût serait vide) | wreck_chomper_smashinator | score 45 (si elle sauve) | Conforme | — |
+| TNL049 | Warp Tube | Détruire : un héros de cette salle repart de la 1re salle | TA:1136-1144, 1197-1203 (dégâts gardés) | haunted_hall_warp_tube | score 75 (si le héros survit) | Conforme | — |
+| TNL050 | Bom-Boy Factory | Un héros y meurt ou y survit : elle se détruit | TA:665-669, 709-710 | bom_boy_and_bridge | auto | Conforme | — |
+| TNL051 | Hatchling's Hoard | Quatre icônes ; se construit sur tout trésor C/F/M/T | TA:946-969 ; BE:50-57 ; données [1,2,3,4] | hatchlings_hoard | auto | Conforme | — |
+| TNL052 | Genie Lounge | Build : piocher un sort si vous n'en avez aucun en main | TA:513-515 (build seulement) | build_effects | auto | Conforme | — |
+| TNL053 | Werewolf Den | 1/tour : défausser une carte pour +1 à un héros | TA:1072-1077, 1168-1177, 1251-1253, 786-806 (ville, entrées, héros actif) | werewolf_den | score 30 (si sauve) | Conforme | — |
+| TNL054 | Cursed Tomb | Détruite par l'effet d'une autre carte : chaque adversaire défausse 2 salles | TA:588-591, 643-645 ; BE:554-555 | cursed_tomb | auto | Conforme | — |
+| TNL055 | Save Point | Détruire : reprendre un sort que vous avez joué ce tour | TA:822-825, 1145-1150, 1156-1166 ; M:1837-1838 (sort annulé compris, arbitrage) | save_point, arbitrages_wiki | score 5 | Conforme | — |
+| TNL056 | All Your Base | Voir la main d'un adversaire ; peut prendre une salle | TS:145-150, 293-299 : seules ses salles sont proposées, ses sorts ne sont montrés à personne | all_your_base | score 40 | Écart | Basse |
+| TNL057 | Another Castle | Héros de votre donjon envoyé à l'entrée d'un adversaire | TS:35-39, 151-165 (héros du donjon, pas de l'entrée, FAQ) | another_castle | score 8 | Conforme | — |
+| TNL058 | Fairy Fountain | Une salle : zéro dégât, chaque héros qui y entre +1 | TS:166-171 ; TA:474-475 (fin si découverte), 714-719 ; BE:401 | fairy_fountain, audit_lot21 | score (AW `tag_gain`) | Conforme | — |
+| TNL059 | It's On! | Tue un héros de votre donjon à 3 PV ou moins, ou si vous avez 3 blessures | TS:43-45, 172-178 (PV restants, FAQ) | its_on | score 90 | Conforme | — |
+| TNL060 | Hiring Spree | Piochez 3 salles, donnez-en une à un autre joueur | TS:179-181, 300-306 | hiring_spree | score BUILD_FIRST | Conforme | — |
+| TNL061 | Lightning Bolt! | 3 dégâts à un héros de votre donjon ; en défaussant un autre sort, 3 dégâts à chaque héros de l'entrée | TS:182-192, 307-313 ; TA:786-806 (dégâts aux héros de l'entrée gardés comme PV en moins) | lightning_bolt | score 90 | Conforme | — |
+| TNL062 | Meddling Kids! | Une salle sans texte ; OU un joueur à 3 héros entrés ne peut pas gagner | TS:193-204 ; RA:238 (`not queued and no_text`) : une capacité déjà déclarée (entrée de pile, exécutée par `run_queued`) s'exécute quand même, alors que la FAQ (rules.md:620-624) dit que Meddling Kids! annule une capacité déclarée (Rust Monster Pen). Mode « nowin » : M:2363, conforme | meddling_kids, meddling_kids_base_passives | score 90 (mode joueur) | Écart | Moyenne |
+| TNL063 | Oh, Yeah! | Échange deux salles de votre donjon ; OU (2 de vos salles détruites ce tour) détruit une salle | TS:54-62, 205-213 ; TA:588-589 (compteur) ; l'échange exige deux sommets non gelés | oh_yeah | score (`swap_gain`) | Conforme | — |
+| TNL064 | Party Up | Chaque héros qui entre dans un donjon choisi +1 | TS:214-216 ; TA:802-804 | party_up_pause | score 15 | Conforme | — |
+| TNL065 | Pause | Le héros du donjon revient à l'entrée en pleine santé ; aucun héros n'entre avant le tour suivant | TS:217-223 | party_up_pause | score 8 | Conforme | — |
+| TNL066 | Pity | Retire du jeu un héros du donjon d'un adversaire | TS:63-66, 224-235 | pity_undead | score 85 | Conforme | — |
+| TNL067 | Secret Stash | Une salle de votre donjon gagne un trésor C/F/M/T jusqu'à la fin du tour | TS:236-243 ; BE:50-57 | secret_stash_super_effective | score BUILD_FIRST (gain de leurre) | Conforme | — |
+| TNL068 | Shortcut! | Un héros saute la prochaine salle ; 5 salles : les deux prochaines | TS:244-250 ; TA:722-738 (arbitrage : salle gelée sautée, cinq piles) | shortcut, arbitrages_wiki | score 40 | Conforme | — |
+| TNL069 | Super Effective! | Une salle de votre donjon +2 ; +4 si un seul héros a été leurré chez vous | TS:251-257 ; M:1626-1627 (leurre compté au Bait seulement, FAQ) | secret_stash_super_effective | score 50 | Conforme | — |
+| TNL070 | Surprise Gift | Pose une salle face cachée chez un adversaire à la place de la vôtre | TS:92-109, 258-261, 314-337 ; M:1047 (tour de pose consommé, effets de construction au propriétaire du donjon) | surprise_gift | score BUILD_FIRST (si rentable) | Conforme | — |
+| TNL071 | Undead Minion | Retire une âme face cachée ; dégâts = ses PV à un héros de votre donjon | TS:78-86, 262-272 (épique permis, FAQ) | pity_undead | score 70 | Conforme | — |
+| TNL072 | Wild Monster | Peut construire tout de suite une salle Monster par-dessus une salle | TS:87-89, 273-277 ; TA:972-982 (facultatif), 985-1003 (effets de construction immédiats, FAQ) | wild_monster | score 25 | Conforme | — |
+| TNL073-076, 078 | Elfstar, Kyle, Danae, Solemn Caine, Adynn (Clerc) | Statistiques seules (PV 4, 4, 6, 6, 8) | données identiques wiki / `cards.json` ; aucun code propre | new_match_decks (composition) ; TNL078 : aucun | auto | Conforme | — |
+| TNL079-082, 084 | Hookshot Joe, Tarka, Lady Samantha, Ampersand, Damok (Guerrier) | Statistiques seules (PV 4, 4, 6, 6, 8) | idem | new_match_decks ; TNL080-082 : aucun nominatif | auto | Conforme | — |
+| TNL085-088, 090 | Megan, Otus, A Kid and His Spellslime, Wink, Iskandar (Mage) | Statistiques seules (PV 4, 4, 6, 6, 8) | idem | new_match_decks ; aucun nominatif | auto | Conforme | — |
+| TNL091-094, 096 | Black Leaf, Murphy, Colgar, Francisco, Raymond (Voleur) | Statistiques seules (PV 4, 4, 6, 6, 8) | idem | new_match_decks ; aucun nominatif | auto | Conforme | — |
+| TNL098, 099, 101, 102, 103, 105, 106, 107, 109, 110, 111, 113 | Tyrone, Branadin, Heavenboy, Lone Fox and Kit, Ser Mortin, O'Brien, Dumbledalf, Wrathfuss, Markus, Rom, Gaimina, Roberta (épiques) | Statistiques seules (PV 11 à 13, 2 âmes, 2 blessures) | idem ; l'épique vaut 2 âmes / 2 blessures par le moteur de base | new_match_decks ; 098 et 099 cités dans belladonna / porkus / pity_undead | auto | Conforme | — |
+| TNL077 | Vampire (noir) | Héros noir : un adversaire peut défausser une salle du trésor du héros pour +3 PV, 1 fois par tour | TA:1384-1390, 1460-1498 (`dark_heroes`, `extra_moves`), 1556-1568 ; FAQ : 1/tour, un seul adversaire | dark_heroes | score 60 si le héros allait mourir | Conforme | — |
+| TNL083 | Barbarian (noir) | Idem | idem | dark_heroes | idem | Conforme | — |
+| TNL089 | Witch (noir) | Idem | idem | dark_heroes | idem | Conforme | — |
+| TNL095 | Hitman (noir) | Idem | idem | dark_heroes | idem | Conforme | — |
+| TNL097 | The Fool | Attiré par le joueur avec le moins d'âmes ; égalité : reste en ville | BE:211-212 (`fewerSouls`), 179-181 (égalité = ville, FAQ) | lure_kinds | auto | Conforme | — |
+| TNL100 | Necromancer (hybride Clerc / Voleur) | S'il survit : retourne un héros face cachée face visible | TA:680-689 ; M:2319-2320 ; trésors [1,4] (carte, pas le wiki) | necromancer, lure_kinds | poids | Conforme | — |
+| TNL104 | Swordmage (hybride Mage / Guerrier) | +2 PV à chaque sort joué pendant qu'il est dans le donjon | TA:826-832 (avant les effets du sort, sort annulé exclu, FAQ) | hero_abilities, lure_kinds | auto | Conforme | — |
+| TNL108 | Druid (hybride Clerc / Mage) | +X PV, X = sorts en main du propriétaire du donjon, mis à jour en continu | TA:808-820 (`sync_hero`, sorts en attente sur la pile comptés) ; M:517-519, 2006-2008, 2207-2208 | hero_abilities, lure_kinds | auto | Conforme | — |
+| TNL112 | Archer (hybride Guerrier / Voleur) | Saute la dernière salle (sans dégâts ni capacité, trésor compté) | TA:735-737 (FAQ) | hero_abilities, lure_kinds | auto | Conforme | — |
+| TNL114 | The Brothers (épique) | Attiré par le plus haut total Âmes moins Blessures ; égalité : reste en ville | BE:217-218 ; l'égalité est confirmée par la FAQ (rules.md:838-840), le sens du maximum ne l'est par aucune source | lure_kinds | auto | Conforme | — |
+
+### Règles propres à TNL
+
+| Id | Règle (source) | Code | Golden | Statut | Priorité |
+|---|---|---|---|---|---|
+| TNL-R01 | Composition : 75 salles, 31 sorts, 42 héros (livret p.2) ; 12 boss imprimés au livret, 13 dans les données (Mirrax en plus, XP identique au wiki) | CardDB, `cards.json` | data | Conforme | — |
+| TNL-R02 | Nombre de héros 13 + 9 / 17 + 13 / 25 + 17 pour 2 / 3 / 4 joueurs ; les héros à étoile toujours inclus (livret p.8) | TA:622-640 (`limit_heroes` lit l'étoile comme « héros à capacité », hypothèse invérifiable sans les scans) ; M:143-144 | new_match_decks | Conforme | — |
+| TNL-R03 | Un seul paquet de héros : celui de TNL remplace celui du jeu de base ; salles et sorts mélangés (livret p.2) | M:84-93 | new_match_decks | Conforme | — |
+| TNL-R04 | Défausse amorcée par 4 salles et 2 sorts au hasard, face visible (livret p.8) | TA:606-620 ; M:1129-1130 | setup_hands | Conforme | — |
+| TNL-R05 | Main de départ : 5 salles + 2 sorts, SANS défausse (livret p.8) ; la défausse de 2 cartes est le mode « Classic » (livret p.17) | M:1119-1136 : TNL garde la défausse de 2 de l'APK (main de 5). Le golden `setup_hands` l'impose alors que son commentaire cite le livret (main de 7) | setup_hands (assertion contraire au livret) | Écart | Moyenne |
+| TNL-R06 | Mulligan : quatre salles avancées ou quatre du même trésor | M:1087-1117 (automatique, comme l'APK) | — | Conforme | — |
+| TNL-R07 | 2 à 4 joueurs | M:25-34 (`setup_error`) | new_match_decks | Conforme | — |
+| TNL-R08 | Héros noirs : capacité écrite sur la carte ; comptés comme ordinaires (glossaire) | `dark` + `heroAbility` (cards.json), TA:1460-1498 ; texte imprimé indisponible | dark_heroes | Conforme | — |
+| TNL-R09 | Héros hybrides : deux trésors, comptés comme épiques (glossaire) | BE:lure_tied (trésors cumulés, comme Monster Hunter) ; `epic` vrai | lure_kinds | Conforme | — |
+| TNL-R10 | Glossaire « Hero », « Heal », « Kill », « Deactivate », « Uncover », « Destroy », « Entrance » | moteur de base (APK) ; TA:362-370, 466-485, 1372-1379 | belladonna, uncover_effects | Conforme | — |
+| TNL-R11 | Effets « cancel » prioritaires, non annulables par Counterspell (FAQ Antimagic Zone, Dr. Timebender) | TA:1500-1513, 1569-1577 (immédiats, hors pile) | antimagic_zone, timebender | Conforme | — |
+| TNL-R12 | Deux exemplaires de The Brothers : n'en jouer qu'un (glossaire « Limited Edition ») | `cards.json` quantity 1 (le JSON wiki dit 11) | data | Conforme | — |
+| TNL-R13 | Variantes du livret p.17 : Classic Mode, Hard Mode (sans héros de 4 PV), I Choose You (2 boss, on en garde 1), Machinations (pioche si aucune âme), Unlimited Lives | aucun code (grep) | — | Non implémenté | Basse |
+
+### Synthèse du lot TNL
+
+115 cartes : 105 Conforme, 10 Écart (2 Moyenne, 8 Basse), 0 Non implémenté, 0 Haute. Par type : 13 boss (10 Conforme, 3 Écart), 43 salles (38 Conforme, 5 Écart), 17 sorts (15 Conforme, 2 Écart), 42 héros (42 Conforme). Règles : 13 lignes, 11 Conforme, 1 Écart (Moyenne), 1 Non implémenté (Basse). Goldens : 91 des 115 cartes apparaissent dans au moins une fonction de `goldens_tnl.gd` (grep) ; 24 héros sans capacité n'y figurent pas, et aucune statistique de héros n'est assertée.
+
+Écarts Moyenne :
+
+- TNL-R05 : main de départ de 7 cartes gardées au livret, 5 dans le code (M:1119-1136).
+- TNL062 Meddling Kids! : n'annule pas une capacité déjà déclarée (RA:238).
+- TNL001 Doc Scarecrow : limite « une fois par tour » (TA:1483, 1554) absente du texte imprimé.
+
+Écarts Basse :
+
+- TNL010 Porkus : pas de recherche s'il n'y a aucun héros face cachée.
+- TNL012 Eclipse : destruction à cible unique auto-résolue, comptée pour le propriétaire.
+- TNL015, TNL021, TNL026 : jeton 1/tour consommé sans effet.
+- TNL022, TNL040 : plancher à 0 appliqué en fin de calcul.
+- TNL056 All Your Base : la main n'est pas montrée.
+- TNL-R13 : variantes absentes.
+
+Ordre de correction proposé, par thème :
+
+1. Mise en place : trancher TNL-R05 (garder 7 cartes en TNL, « Classic Mode » en option, corriger l'assertion du golden), puis TNL-R13 si le propriétaire veut les variantes.
+2. Priorité et annulations : TNL062 (une capacité en pile dont la salle a perdu son texte avant la résolution doit être annulée ; `run_queued` ne revérifie rien par parité APK pour le gel, donc limiter la vérification à `noText`).
+3. Capacités de boss : TNL001 (limite 1/tour), TNL012 (porter `destroy_actor` jusque dans un `ask` auto-résolu), TNL010 (recherche sans retrait).
+4. Déclencheurs « une fois par tour » : TNL015, TNL021, TNL026 (ne poser `usedThisTurn` qu'après avoir trouvé une cible, comme RA:719-730 pour le jeu de base).
+5. Dégâts : TNL022, TNL040 (plancher par effet, ou documenter l'ordre).
+6. Information : TNL056 (montrer la main visée à celui qui lance le sort).
+
+Points non tranchés (aucun code changé) :
+
+- Textes de héros à capacité non vérifiables (Vampire, Barbarian, Witch, Hitman, Necromancer, Swordmage, Druid, Archer) ; le sens du maximum de The Brothers n'est confirmé par rien (seule l'égalité l'est).
+- Belladonna : le texte wiki met entre parenthèses « Turn one face-down Hero face-up », l'inverse du glossaire de « Heal » et de la FAQ ; le code suit le glossaire, aucune décision nécessaire.
+- Meddling Kids! et Oh, Yeah! : catégorie 1 (Build) dans la liste wiki, 4 (marteau + hache) dans `cards.json` ; le code suit les icônes de la carte et la FAQ (jouables en Adventure), ce qui paraît juste.
+- Bom-Boy Factory : Trap dans TNL050, Monster dans la variante promo ORG001 du wiki.
