@@ -912,8 +912,8 @@ Méthode : trois lots en lecture seule (scènes, entités, composants), puis con
 | P-A04 | Carrousel du boss : bouton « PLAY BOSS MONSTER! » ou fermeture à 2 s (RBSS:31-37, 50-64, 104-107) | scène | Oui | B:1826-1830, 1939-1948, M:528-531 | Oui | | — |
 | P-A05 | `SP.InitializeGameboard` : boss limités sans le jeu complet (SP:22-30) | méthode | N/A | — | — | Boutique supprimée : tous les boss sont jouables. | Accepté (Basse) |
 | P-A06 | `SP.OnUserPlayerVictory` : `GameStats.SPWins++` (SP:58-64) | méthode | Non (vérifié absent, `grep SPWins`) | `Profile.gd:54-72` | Différent | Ne servait qu'au déverrouillage, supprimé. | Accepté (Basse) |
-| P-A07 | `SP.CreateBeforePlayerInteractionTask` : affiche le donjon du joueur actif (SP:69-77) | méthode | Oui | B:783-799 | Partiel | Godot ne suit que l'aventure, pas le joueur actif en construction à 3-4 joueurs. | Accepté (Basse) |
-| P-A08 | `TopRightPanel_ChangeVisibleOpponent` : fondu entre donjons (Base:767-773, 1008-1029) | méthode | Oui | B:801-832 | Partiel | Pas de fondu. | Accepté (Basse) |
+| P-A07 | `SP.CreateBeforePlayerInteractionTask` : affiche le donjon du joueur actif (SP:69-77) | méthode | Oui | B:783-799 | Partiel | Godot ne suit que l'aventure, pas le joueur actif en construction à 3-4 joueurs. | Corrigé (Basse) |
+| P-A08 | `TopRightPanel_ChangeVisibleOpponent` : fondu entre donjons (Base:767-773, 1008-1029) | méthode | Oui | B:801-832 | Partiel | Pas de fondu. | Corrigé (Basse) |
 | P-A09 | `DoNextStepAndRefresh` : chaîne de tâches (Base:838-879) | méthode | Oui | B:860-905, 1062-1165 | Différent | Architecture événementielle ; effet équivalent, ordre fin non garanti. | Accepté (Basse) |
 | P-A10 | `CreateCheckEndOfGameTask` : si tous les humains sont morts en fin de tour → `OnUserPlayerDefeat` (Base:1071-1078) | méthode | Non (vérifié absent) | B:4273-4302, M:2090-2135 | **Différent** | Vérifié : Godot n'ouvre l'écran de fin que sur `G.gameOver`. À 3-4 joueurs, un humain éliminé regarde les IA finir la partie au lieu de voir « YOU LOSE » à la fin du tour. | **Haute** |
 | P-A11 | `WinnerScene` : voile, bandeau, nom ×2,5, particules, cristaux, OK (WS:10-87) | scène | Oui | `GameOverBanner.gd:338-392` | Oui | Calé sur les captures. | — |
@@ -930,7 +930,7 @@ Méthode : trois lots en lecture seule (scènes, entités, composants), puis con
 | P-A22 | `PhaseTitleControl` : plaque BUILD / BAIT / ADVENTURE, saut 0,5 s, masquée hors phases (PTC:44-99) | entité | Oui | B:2009-2068 | Oui | En `setup` / `boss`, Godot montre la plaque BUILD estompée (B:1190). | Conforme (Basse) |
 | P-A23 | BAIT : vols ville → donjons | comportement | Oui | B:232, 2018-2033 | Oui | 1,0 s par héros. | — |
 | P-A24 | `CreateWaitAndMoveHeroToNextSlotTask` : barre de 3 s, `char_hero_intro` (Base:924-952) | méthode | Oui | B:233, 945-1000, 2211, 2353 | Oui | | — |
-| P-A25 | `OnTimerSlowDown` : barre figée pendant zoom, glisser, carrousel (Base:169-190) | méthode | Oui | B:937-938 | Partiel | Le carrousel de défausse n'existe pas (P-A39). | Accepté (Basse) |
+| P-A25 | `OnTimerSlowDown` : barre figée pendant zoom, glisser, carrousel (Base:169-190) | méthode | Oui | B:937-938 | Partiel | Le carrousel de défausse n'existe pas (P-A39). | Conforme (Basse) |
 | P-A26 | Spell battle : barre de 6 s au-dessus de la dernière carte (Base:210-214, 631-664) | méthode | Oui | B:234, 945-966, 3845-3910 | Oui | | — |
 | P-A27 | `DoneButtonBehavior` : PASS TURN puis DONE! (DBB:25-55) | comportement | Oui | B:3518-3524, 4267-4271 | Oui | | — |
 | P-A28 | Premier appui sur PASS : « HEY! YOU CAN BUILD A ROOM! STILL WANT TO PASS? » (Base:259-269) | comportement | Oui | B:3526-3550, 4206-4235 | Oui | Texte et place conformes ; voir P-C24 pour l'animation. | — |
@@ -939,14 +939,14 @@ Méthode : trois lots en lecture seule (scènes, entités, composants), puis con
 | P-A31 | `BuildRoomHandSceneBehavior` : glisser une salle, emplacements jaunes, dépôt face cachée (BRH:79-157) | comportement | Oui | B:3598-3770 | Oui | | — |
 | P-A32 | `CheckMaxBuildRooms` / `UndoBuild` (BRH:158-192) | méthode | Oui | `GameManager.gd:89-147`, B:3240-3305 | Oui | Reprise par clic au lieu de glisser hors du donjon. | Accepté (Basse) |
 | P-A33 | Lâcher sur la main = annuler (BRH:117-131) | méthode | Oui | B:3753 | Oui | | — |
-| P-A34 | `PlaySpellsInHandSceneBehavior` : lâcher hors de la main joue le sort (PSH:25-91) | comportement | Oui | B:3771-3800 | Partiel | Godot limite la zone de lâcher au plateau : lâché sur la colonne de droite, le sort est annulé. Un clic joue aussi le sort (ajout). | Accepté (Basse) |
-| P-A35 | `PlayRoomAbilitiesSceneBehavior` : toucher une salle zoome la pile, toucher la bordure résout (PRA:31-58) | comportement | Oui | B:3422-3482 | Partiel | Bouton CANCEL en plus. | Accepté (Basse) |
+| P-A34 | `PlaySpellsInHandSceneBehavior` : lâcher hors de la main joue le sort (PSH:25-91) | comportement | Oui | B:3771-3800 | Partiel | Godot limite la zone de lâcher au plateau : lâché sur la colonne de droite, le sort est annulé. Un clic joue aussi le sort (ajout). | Corrigé (Basse) |
+| P-A35 | `PlayRoomAbilitiesSceneBehavior` : toucher une salle zoome la pile, toucher la bordure résout (PRA:31-58) | comportement | Oui | B:3422-3482 | Partiel | Bouton CANCEL en plus. | Conforme (Basse) |
 | P-A36 | `ShowRoomSlotDetail` : tout toucher sur un emplacement montre la pile complète (Base:681-718) | méthode | Oui | D:80, B:3802-3815 | Partiel | = P-B46 / P-C15. | voir P-C15 |
 | P-A37 | `TargetResolverBaseSceneBehavior` : cibles en jaune, source en vert, titre = description de la carte (TRB:59-188) | classe | Oui | B:2751-3115 | Partiel | Titre tiré du message du moteur ; contour vert de la source non retrouvé. | Accepté (Basse) |
 | P-A38 | `TriggerAbilitiesResolverSceneBehavior` (TAR:31-47) | comportement | Oui | B:3050-3115 | Oui | | — |
 | P-A39 | `ShowDiscardPile` : diaporama des salles et sorts défaussés (Base:745-765) | méthode | Oui | B:4349-4382 | Différent | = P-C17. | voir P-C17 |
 | P-A40 | `ShowDungeonQueue` : diaporama des héros à l'entrée (Base:720-743) | méthode | Non (vérifié absent) | B:1524-1527 | Partiel | = P-B47. | voir P-B47 |
-| P-A41 | `ShowHeroInTown` : zoom à gauche (Base:787-797) | méthode | Oui | B:1385-1388 | Partiel | Appui long, zoom centré. | Accepté (Basse) |
+| P-A41 | `ShowHeroInTown` : zoom à gauche (Base:787-797) | méthode | Oui | B:1385-1388 | Partiel | Appui long, zoom centré. | Corrigé (Basse) |
 | P-A42 | `ShowChallengerBossDetail` : boss + sorts « jusqu'à la fin du tour » (Base:775-780, 1221-1247) | méthode | Oui | B:4384-4393 | Partiel | = P-B61. | voir P-B61 |
 | P-A43 | `ShowZoom` : sons, ralentissement de la barre (Base:1263-1280) | méthode | Oui | B:3816-3834 | Oui | | — |
 | P-A44 | `HighLightCards` Red / Yellow / GreenGlow (Base:1288-1329) | méthode | Oui | B:3711-3730, 2996 | Oui | | — |
@@ -970,16 +970,16 @@ Méthode : trois lots en lecture seule (scènes, entités, composants), puis con
 
 | ID | Élément source (décompilé) | Type | Présent dans Godot ? | Fichier Godot | Équivalent fonctionnel ? | Écart / Commentaire | Priorité |
 |---|---|---|---|---|---|---|---|
-| P-B01 | `BalloonEntity` : bulle du boss « HEY… » | classe | Oui | B:4210-4226 | Partiel | Disparaît après 6 s au lieu de se refermer au clic ; pas d'écriture progressive. Voir P-C24. | Accepté (Basse) |
+| P-B01 | `BalloonEntity` : bulle du boss « HEY… » | classe | Oui | B:4210-4226 | Partiel | Disparaît après 6 s au lieu de se refermer au clic ; pas d'écriture progressive. Voir P-C24. | Conforme (Basse) |
 | P-B02 | `BalloonEntity` : bulles du tutoriel | méthodes | Non vérifié | `TutorialOverlay.gd:1067` | — | Renvoi module 8. | — |
 | P-B03 | `BossCharacterWithXP` | classe | N/A | — | — | Jamais instanciée. | — |
 | P-B04 | `BossDetailHeaderControl` : icône, nom tronqué à 10, sous-titre à 25 | classe | Oui | B:434-466, 2133 | Partiel | Police réduite au lieu de tronquer ; pas de fondu au changement de boss. | Corrigé (Basse) |
 | P-B05 | `boss_icon_legend` (backer) | asset | N/A | — | — | Boutique supprimée. | — |
 | P-B06 | `BossXPAndOrderControl` : « 800XP » | classe | Oui | B:399-402, 1274-1278 | Oui | | — |
 | P-B07 | `BossXPAndOrderControl` : cercle doré = `boss.PlayerId`, l'ordre de jeu (`BossXPAndOrderControl.cs:109`) | classe | Oui | B:402, 1279 | **Différent** | Vérifié : Godot affiche « 2 » si le boss est monté de niveau, sinon « 1 » (`B:1279`). L'APK affiche l'ordre de jeu (1..N, par XP décroissante), qui ne change pas au level-up. `G.xpOrder` existe (M:1090) mais n'est pas lu. L'adversaire affiche « 1 » au lieu de « 2 ». | **Haute** |
-| P-B08 | Icône du premier trésor du boss (`mp_icon_treasure_*`) | asset | Oui | B:403, 1281-1282 | Partiel | Petite variante d'icône. | Accepté (Basse) |
+| P-B08 | Icône du premier trésor du boss (`mp_icon_treasure_*`) | asset | Oui | B:403, 1281-1282 | Partiel | Petite variante d'icône. | Corrigé (Basse) |
 | P-B09 | Badge DAMAGE = `AIHelper.GetDungeonDamage` : dégâts modifiés des salles actives, ×2 après Minotaur's Maze (`DungeonFrameEntity.cs:413`) | classe | Oui | B:1272, 4395-4401 | **Différent** | Vérifié : `_get_total_dungeon_damage` additionne le `damage` imprimé. Goblin Armory, Dizzygas, Monster's Ballroom, Freeze et Minotaur's Maze sont ignorés, alors que `BossEngine.room_damage_with_modifiers` existe. Valeur fausse dès qu'une de ces cartes de base est en jeu. | **Haute** |
-| P-B10 | Mise à jour du DAMAGE avec fondu, décalage à 2 chiffres | propriété | Oui | B:2362-2364 | Partiel | Fondu seulement pendant un pas de héros. | Accepté (Basse) |
+| P-B10 | Mise à jour du DAMAGE avec fondu, décalage à 2 chiffres | propriété | Oui | B:2362-2364 | Partiel | Fondu seulement pendant un pas de héros. | Corrigé (Basse) |
 | P-B11 | `BubbleEntity` « HAS PLAYED A SPELL / ROOM ABILITY », clic = zoom | classe | Oui | B:3968-4000 | Oui | | — |
 | P-B12 | `CreatePlayAgainstBubble` : « AGAINST » + icônes des boss visés | méthode | Non (vérifié absent, `grep AGAINST`) | — | — | La bulle ne dit pas contre qui le sort est joué (3-4 joueurs). | Partiel (Moyenne) |
 | P-B13 | Bulle « IS PLAYING! » | type de bulle | Non (vérifié absent) | — | — | Renvoi module 9. | — |
@@ -990,25 +990,25 @@ Méthode : trois lots en lecture seule (scènes, entités, composants), puis con
 | P-B18 | WOUNDS : 5 icônes | compteur | Oui | B:2121-2160 | Oui | | — |
 | P-B19 | SOULS : 10 icônes | compteur | Oui | B:2154-2160 | Oui | | — |
 | P-B20 | Trésors du donjon = `GetDungeonTreasures` : exclut les salles en attente et gelées (`ChallengerDetail.cs:160`, `Boss.cs:252-256`) | compteur | Oui | B:2161-2162, `BossEngine.gd:61-112` | **Différent** | Vérifié : `dungeon_treasures` ne filtre pas `faceDown`. Le compteur monte dès qu'une salle est posée face cachée, au lieu de la révélation, ce qui dévoile le trésor de la salle cachée de l'adversaire. Il compte aussi les salles gelées (R-F15). | **Haute** |
-| P-B21 | Panneau `challenger_panel_selected_red` quand un sort vise le boss | asset | Non (vérifié absent) | B:2927-2931 | Différent | La cible est signalée sur le sprite du boss : information équivalente. | Accepté (Basse) |
+| P-B21 | Panneau `challenger_panel_selected_red` quand un sort vise le boss | asset | Non (vérifié absent) | B:2927-2931 | Différent | La cible est signalée sur le sprite du boss : information équivalente. | Corrigé (Basse) |
 | P-B22 | Bouton LEVEL UP : zoom du boss ×1,3 | bouton | Oui | B:479-480, 4384-4394 | Oui | | — |
 | P-B23 | `CollapsedOpponentDetail` ×(N-1) : vignettes de chaque adversaire (nom, âmes, blessures, trésors) | classe | Oui | B:801-832 | Différent | Godot montre des boutons P2, P3… et un seul panneau : on ne voit pas l'état de tous les adversaires ensemble. | Corrigé (Moyenne) |
-| P-B24 | Particules sur le joueur actif | particules | Oui | B:819-831 | Partiel | | Accepté (Basse) |
-| P-B25 | `icon_death_profile` quand un boss meurt | asset | Non (vérifié absent) | B:1568-1597 | Différent | La pierre tombale du couloir suffit. | Accepté (Basse) |
-| P-B26 | État sélectionné d'une vignette | comportement | Oui | B:816 | Partiel | | Accepté (Basse) |
+| P-B24 | Particules sur le joueur actif | particules | Oui | B:819-831 | Partiel | | Conforme (Basse) |
+| P-B25 | `icon_death_profile` quand un boss meurt | asset | Non (vérifié absent) | B:1568-1597 | Différent | La pierre tombale du couloir suffit. | Conforme (Basse) |
+| P-B26 | État sélectionné d'une vignette | comportement | Oui | B:816 | Partiel | | Conforme (Basse) |
 | P-B27 | `ExpandedOpponentDetail` : XP, blessures, âmes, cartes en main de l'adversaire (3+ joueurs) | classe | Non (vérifié absent, `grep bg_boss_detail`) | — | — | À 3-4 joueurs, les mains adverses ne sont visibles nulle part. | Corrigé (Moyenne) |
 | P-B28 | `OneOpponentDetail` (2 joueurs) : WOUNDS / SOULS « xN » | classe | Oui | B:434-446, 2163-2166 | Oui | | — |
-| P-B29 | `OneOpponentDetail` : trésors sur fond teinté à la couleur du boss | classe | Oui | B:444-446, 2167-2169 | Partiel | Fond blanc au lieu de la teinte ; même comptage faux que P-B20. | Accepté (Basse) |
+| P-B29 | `OneOpponentDetail` : trésors sur fond teinté à la couleur du boss | classe | Oui | B:444-446, 2167-2169 | Partiel | Fond blanc au lieu de la teinte ; même comptage faux que P-B20. | Conforme (Basse) |
 | P-B30 | « ROOM DECK x{RoomsInHand} » / « SPELL DECK x{SpellsInHand} » = cartes **en main** de l'adversaire (`OneOpponentDetail.cs:212`) | classe | Oui | B:2169-2172 | **Différent** | Vérifié : Godot affiche la taille des pioches communes (`G.decks.rooms/spells`). Le nombre de cartes de l'adversaire n'est jamais montré ; valeur fausse en permanence. | **Haute** |
 | P-B31 | `DoneButtonEntity` : PASS TURN / DONE!, fondu 0,15 s | classe | Oui | B:482-494, 4246-4271 | Oui | | — |
 | P-B32 | Premier appui = bulle, second = passe | logique | Oui | B:3526-3546 | Oui | | — |
-| P-B33 | Barre jaune de 70 s dans le bouton (`activateTimeOuts`) | entité | Oui (sous une autre forme) | B:1093-1096 | Différent | Chiffre en haut d'écran. Renvoi module 9. | Accepté (Basse) |
+| P-B33 | Barre jaune de 70 s dans le bouton (`activateTimeOuts`) | entité | Oui (sous une autre forme) | B:1093-1096 | Différent | Chiffre en haut d'écran. Renvoi module 9. | Conforme (Basse) |
 | P-B34 | `halt_button_pulse` | asset | Non | — | — | = P-C51. | voir P-C51 |
 | P-B35 | `DrawCardEmitter` : pioche animée (DrawCardEmitter:147) | classe | Oui | B:4118-4175, 4016 | Oui | | — |
 | P-B36 | `DrawCardEmitter` : défausse animée | classe | Oui | B:4062-4114 | Oui | | — |
 | P-B37 | `DungeonFrameEntity` : cadre, fond du boss, fondu | classe | Oui | B:357-404, 2070-2077 | Oui | | — |
 | P-B38 | 5 emplacements (pas de 140), file d'entrée | emplacements | Oui | B:67-82, 841-858, 1439-1680 | Oui | | — |
-| P-B39 | Sprite du boss avec `CharacterOffset` | méthode | Oui | B:1551-1612 | Partiel | Décalage par boss non comparé. | Accepté (Basse) |
+| P-B39 | Sprite du boss avec `CharacterOffset` | méthode | Oui | B:1551-1612 | Partiel | Décalage par boss non comparé. | Conforme (Basse) |
 | P-B40 | Clic sur le boss = zoom de sa carte ×1,3 (`DungeonFrameEntity.cs:269`) | événement | Non (vérifié absent : sprite en `MOUSE_FILTER_IGNORE`, B:377-378) | — | — | On ne peut pas lire la carte du boss adverse. | Corrigé (Moyenne) |
 | P-B41 | Coup sur le boss : calque additif, secousse, voix (`DungeonFrameEntity.cs:489`) | méthode | Oui | B:2467-2497 | Oui | | — |
 | P-B42 | Mort du boss : pierre tombale + voix | méthode | Oui | B:1571-1597, 2275-2283 | Oui | | — |
@@ -1021,10 +1021,10 @@ Méthode : trois lots en lecture seule (scènes, entités, composants), puis con
 | P-B49 | `HandEntity` : éventail | classe | Oui | B:1986-2007 | Oui | | — |
 | P-B50 | Saut de la main (pass and play) | comportement | Oui | B:742-780 | Oui | | — |
 | P-B51 | `HeartDecrementEmitter` : « −N » qui monte de 140 px en 1,3 s | classe | Oui | B:2448-2465 | Oui | | — |
-| P-B52 | Soin d'un héros (dégâts négatifs) | cas | Oui | B:2361-2364 | Partiel | Son joué, mais pas de cœur flottant. | Accepté (Basse) |
+| P-B52 | Soin d'un héros (dégâts négatifs) | cas | Oui | B:2361-2364 | Partiel | Son joué, mais pas de cœur flottant. | Corrigé (Basse) |
 | P-B53 | `HeartEntity` : PV du héros | classe | Oui | B:2392-2418 | Oui | | — |
 | P-B54 | Cœur sur la carte : dégâts ou PV courants en or quand ils diffèrent de l'imprimé (`SlotRoomCardEntity.cs:30`) | asset | Non (vérifié absent, `grep health_room`) | — | — | On ne voit ni les dégâts modifiés d'une salle ni les PV restants d'un héros blessé. Même cause que P-B09. | Corrigé (Moyenne) |
-| P-B55 | `IconCounterControlEntity` : fondu par icône | classe | Oui | B:2079-2131 | Partiel | Fondu seulement sur mon panneau. | Accepté (Basse) |
+| P-B55 | `IconCounterControlEntity` : fondu par icône | classe | Oui | B:2079-2131 | Partiel | Fondu seulement sur mon panneau. | Corrigé (Basse) |
 | P-B56 | `LevelUpBanner` | classe | Oui | B:1283-1346 | Oui | | — |
 | P-B57 | Reflets `bg_lu_shine_cuarto` | asset | Non | — | — | Invisibles sur les captures. | Accepté (Basse) |
 | P-B58 | `PhaseTitleControl` | classe | Oui | B:2009-2068 | Oui | | — |
@@ -1034,10 +1034,10 @@ Méthode : trois lots en lecture seule (scènes, entités, composants), puis con
 | P-B62 | `SpellBattleEntity` : pile au centre | classe | Oui | B:3845-3910 | Oui | | — |
 | P-B63 | `TopLeftPanelEntity` : colonne de la ville, tas de défausse | classe | Oui | B:406-431, 1348-1360 | Oui | | — |
 | P-B64 | File de la ville qui défile | composant | Oui | B:1348-1437 | Partiel | Ordre inversé : P-C47. | voir P-C47 |
-| P-B65 | Clic sur un héros de la ville = zoom à gauche | événement | Oui | B:3802-3814 | Partiel | Appui long ou clic droit. | Accepté (Basse) |
+| P-B65 | Clic sur un héros de la ville = zoom à gauche | événement | Oui | B:3802-3814 | Partiel | Appui long ou clic droit. | Corrigé (Basse) |
 | P-B66 | Clic sur le tas = diaporama de la défausse | événement | Oui | B:4349-4382 | Différent | = P-C17. | voir P-C17 |
 | P-B67 | `discard_pile_legend` (backer) | asset | N/A | — | — | Boutique supprimée. | — |
-| P-B68 | Bouton d'options `bt_options` | bouton | Oui | B:603-648 | Partiel | Engrenage dessiné par code au lieu de la texture APK. | Accepté (Basse) |
+| P-B68 | Bouton d'options `bt_options` | bouton | Oui | B:603-648 | Partiel | Engrenage dessiné par code au lieu de la texture APK. | Corrigé (Basse) |
 
 ### 7C — Composants du plateau
 
@@ -1045,7 +1045,7 @@ Méthode : trois lots en lecture seule (scènes, entités, composants), puis con
 |---|---|---|---|---|---|---|---|
 | P-C01 | `AddCarouselCardsBehavior` : cartes du carrousel qui montent une à une en 1,0 s, `ui_card_slide_general` (:50, :98) | comportement | Non (vérifié absent) | B:1771, 1974 | Différent | Les 7 cartes de la défausse d'ouverture apparaissent d'un coup, sans son. | Moyenne |
 | P-C02 | `AppearBehavior` : zoom 0,2 s, 0,8 → 1,3 | comportement | Oui | B:3816-3843 | Oui | | — |
-| P-C03 | `BaseZoomComponent` : position, verrou pendant une résolution | composant | Oui | B:3802-3814 | Partiel | Position différente ; pas de verrou. | Accepté (Basse) |
+| P-C03 | `BaseZoomComponent` : position, verrou pendant une résolution | composant | Oui | B:3802-3814 | Partiel | Position différente ; pas de verrou. | Corrigé (Basse) |
 | P-C04 | `BossCardManagerComponent` : une main par siège | composant | Oui | B:742-776, 1681 | Oui | | — |
 | P-C05 | `CardDroppedEventArgs` | DTO | N/A | — | — | | — |
 | P-C06 | `CardExtractBehavior` : la carte sort de la main au-dessus de y 797, y retourne en redescendant ; carte non jouable non extraite (:166, :180) | comportement | Oui | B:3578-3618, 3750 | Partiel | Godot démarre le glisser après 12 px dans toute direction, annule au relâchement sous y 940, et laisse glisser une carte grisée (`_drag_begin` ne teste pas `playable`). | Corrigé (Moyenne) |
@@ -1061,17 +1061,17 @@ Méthode : trois lots en lecture seule (scènes, entités, composants), puis con
 | P-C16 | `CarouselSelectorShowComponent` : fond en 0,1 s, cartes après 0,5 s (:49) | composant | Oui | B:1178-1221 | Partiel | Tout apparaît d'un coup. | Moyenne |
 | P-C17 | `CarouselShowComponent` : diaporama de la défausse et de la file d'entrée (:63, `GamePlayBaseScene.cs:710-765`) | composant | Non (vérifié absent) | B:4349-4381 | Différent | Vérifié : le clic sur la défausse ouvre un `AcceptDialog` avec des noms en texte, héros morts compris ; aucune image de carte. Le clic sur la file d'entrée ne fait rien. Regroupe P-A39, P-A40, P-B16, P-B66. | Corrigé (Moyenne) |
 | P-C18 | `CountDownBehavior` (salle publique en ligne) | composant | Oui | `CountDown.gd:49-84` | Différent | Réutilisé comme minuteur de tour en ligne. Renvoi module 9. | Accepté (Basse) |
-| P-C19 | `DoneButtonBehavior` : variantes avec minuterie, fondu 0,3 s | comportement | Oui | B:4246-4275 | Partiel | | Accepté (Basse) |
+| P-C19 | `DoneButtonBehavior` : variantes avec minuterie, fondu 0,3 s | comportement | Oui | B:4246-4275 | Partiel | | Corrigé (Basse) |
 | P-C20 | `ExpandedOpponentComponent` : panneau adverse qui se déroule | composant | Non (vérifié absent) | B:801-832 | Différent | = P-B27. | voir P-B27 |
 | P-C21 | `ExpansionScrollComponent` | composant | N/A | — | — | Boutique supprimée. | — |
 | P-C22 | `HeartControlComponent` : cœur de dégâts au-dessus d'une salle modifiée, cœur du héros en fondu | composant | Oui (héros) | B:2406-2464 | Partiel | = P-B54 pour le cœur de salle. | voir P-B54 |
-| P-C23 | `HeroesQueueComponent` : file d'entrée (−40 px par rang, échelle 0,4 puis 0,36, glissement 0,5 s) | composant | Oui | B:1439-1466 | Partiel | Cartes toutes à la même taille ; pas de glissement. | Accepté (Basse) |
+| P-C23 | `HeroesQueueComponent` : file d'entrée (−40 px par rang, échelle 0,4 puis 0,36, glissement 0,5 s) | composant | Oui | B:1439-1466 | Partiel | Cartes toutes à la même taille ; pas de glissement. | Corrigé (Basse) |
 | P-C24 | `HideWhenTouchBehavior` : bulle qui entre en 0,5 s et se ferme au clic extérieur | comportement | Oui | B:4210-4239 | Partiel | Bulle instantanée, fermée après 6 s. | Corrigé (Moyenne) |
 | P-C25 | `IsHoverBehavior` | comportement | N/A | — | — | Code mort. | — |
 | P-C26 | `JumpBehavior` : 300 px, 0,5 s, BackEase 0,4 | comportement | Oui | B:778-780, 2065-2068 | Oui | | — |
 | P-C27 | `MiddleCarouselAnimationBehavior` : bande noire qui s'ouvre en 0,5 s, opacité 0,8 | comportement | Oui | B:1185-1198, 2635-2638 | Différent | Bande affichée d'un coup, opacité 0,88 (mesurée sur capture). | Moyenne |
-| P-C28 | `MiddleCarouselShowComponent` | composant | Oui (sélecteur) | B:1178-1221, 2631-2705 | Partiel | Partie diaporama : P-C17. | Accepté (Basse) |
-| P-C29 | `ProgressBarBehavior` : 141 px, horloge `timebar_clock`, fondu 0,2 s (:23, :176) | comportement | Oui | `TimeBar.gd`, B:945-963 | Partiel | Pas d'horloge ni de fondu. | Accepté (Basse) |
+| P-C28 | `MiddleCarouselShowComponent` | composant | Oui (sélecteur) | B:1178-1221, 2631-2705 | Partiel | Partie diaporama : P-C17. | Conforme (Basse) |
+| P-C29 | `ProgressBarBehavior` : 141 px, horloge `timebar_clock`, fondu 0,2 s (:23, :176) | comportement | Oui | `TimeBar.gd`, B:945-963 | Partiel | Pas d'horloge ni de fondu. | Corrigé (Basse) |
 | P-C30 | `PulseBehavior` : anneaux de capacité, 2 s | comportement | Oui | D:177-188 | Oui | | — |
 | P-C31 | `RearrangeSelectorComponent` (Hellcow : échanger deux cartes) | composant | Non (vérifié absent) | M:975, `RoomAbilities.gd:928` | Différent | Choix successifs dans une liste. | Accepté (Basse) |
 | P-C32 | `RupisLoadingBehavior` (écran de chargement) | comportement | Non | — | — | Hors plateau. | Accepté (Basse) |
@@ -1080,13 +1080,13 @@ Méthode : trois lots en lecture seule (scènes, entités, composants), puis con
 | P-C35 | `ShowHideTaskComponent` | composant | N/A | — | — | Infrastructure. | — |
 | P-C36 | `ShowHintComponent` | composant | Oui | B:3526-3550, 4205-4226 | Oui | | — |
 | P-C37 | `SimpleHoverBehavior` sur la pile de sorts : survol = bordure rouge et cibles en évidence | comportement | Non (vérifié absent : cartes de pile en `MOUSE_FILTER_IGNORE`, B:3865) | B:3845-3881 | Différent | On ne voit pas ce que vise un sort adverse posé sur la pile. | Corrigé (Moyenne) |
-| P-C38 | `SimplePositionComponent` : pile de sorts | composant | Oui | B:3894-3908 | Partiel | Pas de glissement. | Accepté (Basse) |
+| P-C38 | `SimplePositionComponent` : pile de sorts | composant | Oui | B:3894-3908 | Partiel | Pas de glissement. | Corrigé (Basse) |
 | P-C39 | `SimpleSelectorBehavior` | comportement | N/A | — | — | Code mort. | — |
 | P-C40 | `SoulLoadingComponent` (tutoriel) | composant | Oui | `TutorialOverlay.gd:988-1038` | Oui | Renvoi module 8. | — |
-| P-C41 | `SpellBattleComponent` | composant | Oui | B:945-1052 | Partiel | Pas de fondu de barre. | Accepté (Basse) |
+| P-C41 | `SpellBattleComponent` | composant | Oui | B:945-1052 | Partiel | Pas de fondu de barre. | Corrigé (Basse) |
 | P-C42 | `SpellBattleHighLightsComponent` : cible sur la pile encadrée | composant | Oui | B:2729-2741 | Partiel | Une cible sur la pile passe par une liste. | Corrigé (Moyenne) |
-| P-C43 | `SpellBattleShowComponent` : fondu 0,1 s | composant | Oui | B:3857-3881 | Partiel | | Accepté (Basse) |
-| P-C44 | `TextAndBackgorundComponent` : bulle, décalage selon la longueur | composant | Oui | B:1214-1219 | Partiel | | Accepté (Basse) |
+| P-C43 | `SpellBattleShowComponent` : fondu 0,1 s | composant | Oui | B:3857-3881 | Partiel | | Corrigé (Basse) |
+| P-C44 | `TextAndBackgorundComponent` : bulle, décalage selon la longueur | composant | Oui | B:1214-1219 | Partiel | | Conforme (Basse) |
 | P-C45 | `TouchOutBehavior` : fermeture au relâchement hors zone | comportement | Oui | B:1963-1969 | Partiel | Fermeture à l'appui. | Accepté (Basse) |
 | P-C46 | `TutorialSelectorComponent` | composant | N/A | — | — | Renvoi module 8. | — |
 | P-C47 | `VerticalScrollQueueComponent` : colonne de la ville, **dernier arrivé en haut** (entrée par le haut à y −110, `CreateReorderTask` donne y 120 au dernier de la liste : `VerticalScrollQueueComponent.cs:183-211`) | composant | Oui | B:1348-1437 (boucle sur `town` à partir de l'index 0, B:1368) | Différent | Vérifié dans le C# : l'APK met le héros arrivé en dernier en haut et le plus ancien (le prochain à être attiré) en bas, puis fait défiler vers le bas. Godot construit `town[0]`, le plus ancien, en haut : la colonne est inversée. À confirmer sur une capture. Pas de rebond ni d'inertie. | Corrigé (Moyenne) |
@@ -1757,8 +1757,8 @@ Contrôle par script : sur les 560 classes C# de `apk-original/decompiled/DBMGam
 | X-P01 | `BaseBorderBehavior.cs:9-70` et `BorderStyles.cs:3-10` : états None, Yellow, YellowGlow, Red, GreenGlow, fondu entrant ou sortant à chaque changement (`:59-68`) | classe abstraite + enum | Partiel | `CardUI.gd:82-86`, `BoardUI.gd:3711-3730` | Partiel | Pas d'enum ni de comportement commun : chaque cadre est posé à la main (`set_gold`, `_gold_frame`). Le fondu au changement de style n'est pas vérifié. | Accepté (Basse) |
 | X-P02 | `CardBorderBehavior.cs:39-78` : Yellow, YellowGlow (+ particules), Red ; variante `_scaled` ×2,7 si l'échelle du parent ≤ 0,5 (`:31`, `:64-71`) | classe | Oui (partiel) | `CardUI.gd:86`, `BoardUI.gd:1761`, `3679-3704`, `3717`, `4007-4008` | Partiel | Les `_scaled` ne servent qu'aux emplacements (`BoardUI.gd:3679`, `3704`). Les cibles de sort sur petites cartes étirent `card_border_yellow_glow` (390×528) sur la carte (`BoardUI.gd:3715-3717`), et le trait s'amincit au lieu d'utiliser le `_scaled` (152×203, ×2,7). Les 8 assets `card_border_*` existent. | Corrigé (Moyenne) |
 | X-P03 | `CardBorderBehavior.cs:55-57` : GreenGlow posé sur la salle propriétaire de la capacité en cours de résolution (`TargetResolverBaseSceneBehavior.cs:228`) ; grossissement + boucle `sfx_sparklecard` + particules (`CardStackSlotComponent.cs:309-316`) | état de bordure | Non (vérifié absent) | `BoardUI.gd:2977-2987`, `2996-3007` | Différent | `grep -rn card_border_green src/frontend/godot/scripts` donne 0 résultat, donc l'asset `card_border_green_glow` n'est jamais chargé. Godot applique les particules et le son de boucle aux salles ciblables, pas à la salle source. Contredit en partie P-A44 (marqué Oui). | Corrigé (Moyenne) |
-| X-P04 | `ChallengerBorderBehavior.cs:7-23` : `challenger_panel_selected_red` ou `_yellow` autour du panneau adverse (`OneOpponentDetail.cs:232`) | classe | Non (vérifié absent) | — | Non | `grep -n "challenger_panel\|selected_red\|selected_yellow" scripts/*.gd` donne 0 résultat. Les assets (229×475) sont dans `assets/ui/ingame/` mais jamais lus. Godot cible le sprite du boss (`BoardUI.gd:2938-2941`), pas le cadre du panneau. | Accepté (Basse) |
-| X-P05 | `CollapsedOpponentBorderBehavior.cs:7-23` : `bg_boss_profile_selected_yellow` ou `_red` sur les vignettes (3 à 4 joueurs) ; opacité 1 si joueur actif (`CollapsedOpponentDetail.cs:331-333`) | classe | Non (vérifié absent) | `BoardUI.gd:801-832` | Différent | Même grep, 0 résultat. Les vignettes sont remplacées par des boutons P2, P3… (voir P-B23). Seules les particules du joueur actif sont portées (`BoardUI.gd:824-832`). | Accepté (Basse) |
+| X-P04 | `ChallengerBorderBehavior.cs:7-23` : `challenger_panel_selected_red` ou `_yellow` autour du panneau adverse (`OneOpponentDetail.cs:232`) | classe | Non (vérifié absent) | — | Non | `grep -n "challenger_panel\|selected_red\|selected_yellow" scripts/*.gd` donne 0 résultat. Les assets (229×475) sont dans `assets/ui/ingame/` mais jamais lus. Godot cible le sprite du boss (`BoardUI.gd:2938-2941`), pas le cadre du panneau. | Corrigé (Basse) |
+| X-P05 | `CollapsedOpponentBorderBehavior.cs:7-23` : `bg_boss_profile_selected_yellow` ou `_red` sur les vignettes (3 à 4 joueurs) ; opacité 1 si joueur actif (`CollapsedOpponentDetail.cs:331-333`) | classe | Non (vérifié absent) | `BoardUI.gd:801-832` | Différent | Même grep, 0 résultat. Les vignettes sont remplacées par des boutons P2, P3… (voir P-B23). Seules les particules du joueur actif sont portées (`BoardUI.gd:824-832`). | Conforme (Basse) |
 | X-P06 | `CardShadowBehavior.cs:14-120` : ombre `card_shadow` décalée jusqu'à (40, 70) selon l'échelle (0,37 → 0,5), opacité 0,75, visible pendant le glisser (`CardExtractBehavior.cs:227`) et sur la salle en attente (`CardStackSlotComponent.cs:130`) | comportement + asset | Non (vérifié absent) | — | Non | `grep -rni "card_shadow\|CardShadow" scripts` donne 0 résultat. `find src/frontend/assets -name "card_shadow*"` ne trouve rien (seule une copie importée périmée dans `.godot/imported`). La carte glissée n'a pas d'ombre portée. | Moyenne |
 | X-P07 | `CardRotationBehavior.cs:84-131` : inclinaison Y = delta x × 0,005 rad par image, bornée à ±22,5° ; X jamais appliqué ; inversion des ordres d'affichage enfants (`:113-131`) ; carte attirée vers le doigt (18 × dt, `:87-95`) | comportement | Oui (approximé) | `BoardUI.gd:3616-3623`, `3625-3630` | Partiel | Même formule, rendue en largeur × cos(angle) sans perspective 3D. `UseTopTexture` et l'inversion des enfants n'ont pas d'objet en 2D. La carte suit directement la souris. | Accepté (Basse) |
 | X-P08 | `CarrouselHorizontalComponent.cs:23-45` : positions ±266 / ±342 / ±380, échelles 0,64 / 0,61 / 0,58 autour de 1,14 ; ordres d'affichage 0,1 à 0,5 ; utilisé par `CardCarrouselEntity` (tirage du boss) | composant | Oui | `BoardUI.gd:91-94`, `1795-1798`, `1866-1877` | Oui | Rapports d'échelle (0,56 / 0,535 / 0,51 contre 0,58 / 0,55 / 0,52) et positions (272 / 342 / 378) mesurés sur les captures, écart ≤ 6 px. Le glisser et les flèches du nombre de joueurs restent absents (voir I-08). | — |
@@ -1767,22 +1767,22 @@ Contrôle par script : sur les 560 classes C# de `apk-original/decompiled/DBMGam
 | X-P11 | `FollowBehavior.cs:8-58` : une entité suit une autre (décalage, copie d'opacité) ; barres de temps (`GamePlayBaseScene.cs:216`, `SpellBattleEntity.cs:33`) et cœur du héros (`HeroCardEntity.cs:75-79`, décalage (0, −150)) | comportement | Oui | `BoardUI.gd:76`, `944-960`, `2412-2417` | Oui | Barre verte placée au-dessus du héros qui traverse, ou de la pile ; cœur du héros à −150 × 0,78 de son sprite. | — |
 | X-P12 | `HeartRoomControlRotationBehavior.cs:24-28` : cœur de la salle visible seulement si la rotation Y du parent est dans [−90°, 0°] (moitié de retournement) | comportement | Oui (par construction 2D) | `CardUI.gd:107`, `BoardUI.gd:1866-1877` | Oui | Pas de rotation 3D : le retournement est une échelle X de 1 → 0 → 1 qui échange les textures. Aucun rendu intermédiaire visible à reproduire. | — |
 | X-P13 | `RitchTextComponent.cs:33-61` : interligne 6, retour à la ligne manuel via `StringFactory.GetLines` (17 px par majuscule), balises `<rtf>` et mots `#` en or ; seul appelant `BalloonEntity.cs:79` | composant | Oui | `BoardUI.gd:4219` (bulle), `TutorialOverlay.gd:879-889` | Oui | Le seul texte réel de bulle, `DoneHint`, n'a aucun `#` (`TutorialStringFactory.cs:28`), donc pas d'or. Le `#BUILD #A #ROOM` n'est que dans un bouton DEBUG (`GamePlayBaseScene.cs:543`). Godot coupe les lignes à la main (T-A35). Les titres BBCode en or sont portés (`BoardUI.gd:565`, `1216`). | — |
-| X-P14 | `SimpleTimerBehavior.cs:6-65` : minuterie répétée ; 5 s pour pulser le bouton DONE (`DoneButtonEntity.cs:106-117`), 3 s pour relancer le halo de capacité (`CardAttributesComponent.cs:328`) | comportement | Partiel | `BoardUI.gd:3463` (3 s), `DungeonSlot.gd:176-179` | Partiel | Halo de capacité 3 s : Oui. Pulsation du bouton DONE toutes les 5 s : absente, voir P-C51 (`grep pulse` ne donne rien sur `btn_pass`). | Accepté (Basse) |
+| X-P14 | `SimpleTimerBehavior.cs:6-65` : minuterie répétée ; 5 s pour pulser le bouton DONE (`DoneButtonEntity.cs:106-117`), 3 s pour relancer le halo de capacité (`CardAttributesComponent.cs:328`) | comportement | Partiel | `BoardUI.gd:3463` (3 s), `DungeonSlot.gd:176-179` | Partiel | Halo de capacité 3 s : Oui. Pulsation du bouton DONE toutes les 5 s : absente, voir P-C51 (`grep pulse` ne donne rien sur `btn_pass`). | Conforme (Basse) |
 | X-P15 | `TransformEffectBehavior.cs:10-111` : interpolation de position, d'opacité, d'échelle et de rotation | comportement | N/A | — | — | Code mort : `grep -rn TransformEffectBehavior` ne trouve aucun appelant en dehors du fichier. Les Tweens Godot couvrent le besoin. | — |
 | X-P16 | `ButtonWithDeckEntity.cs:12-53` : gros bouton à éventail (`big_button`, titre arcadepix ×1,3 centré, texte Bookman, éventail replié à l'appui) ; seul appelant `MultiplayerScene.cs:47,70` (écran mort, U-C01) | entité | Oui (équivalent d'écran) | `OnlineMenus.gd:165-238` | Oui | `big_button` et `big_button_selected` existent dans `assets/ui/buttons/` et `assets/ui/navigation/`. Aucune action requise. | — |
 | X-P17 | `HeroCardEntity.cs:42-114` : sprite du héros (y −40), cœur de PV `health_hero_icon` ×2 suivant le héros, cœur de carte `health_hero_buff_icon` (−115, 195) ×1,3 en or, masqué tant que la valeur vaut la PV initiale ; `RefreshHeroHeart` (`:90-114`) | classe | Partiel | `BoardUI.gd:76`, `2395-2417`, `2447-2453` | Partiel | Cœur de PV et cœur « −N » (`health_hero_trans_icon`) : Oui. Cœur de buff sur la carte du héros : absent (`grep health_hero_buff` dans `scripts` ne donne rien). L'asset `health_hero_buff_icon` est aussi absent de `assets/ui/` (`find` vide), alors qu'il est dans `Atlas.cs:65`. `health_room_icon_glow` existe. | Moyenne |
 | X-P18 | `LabelAndBackground.cs:16-150` : libellé sur fond centré, largeur estimée par caractère (17 ou 15 px × échelle), `<rtf>` retiré pour le calcul, fondu 0,3 s | entité | Oui (mécanisme Godot) | `UiKit.gd:32-44`, `116` | Oui | `Label` Godot centré par alignement, contour noir 3 px ; la largeur est fournie par le moteur de texte, plus besoin de l'estimation à 15/17 px. Aucune action requise. | — |
 | X-P19 | `PurchaseDetailEntity.cs:13-44` : ligne « + N … » de la boutique (or, blanc) | entité | N/A | — | — | Boutique retirée (périmètre). Le contenu reste affiché ailleurs par les fiches d'extensions. | — |
 | X-P20 | `UIButtonEntity.cs:32-80` : bouton à deux textures (normal, pressé), `TouchPressed` / `Released` | entité | Oui | `BoardUI.gd:301-312`, `4267-4271` | Oui | `TextureButton` avec `texture_pressed`. `DoneButtonEntity` (pass/done) est couvert par P-B31. | — |
-| X-P21 | `UpdatableTextBlock.cs:19-46` : le texte s'estompe (0,25 s) puis réapparaît au changement | entité | Non vérifié | `BoardUI.gd:2412-2417` (étiquette de PV créée avec `_lbl`, aucun fondu) | Non vérifié | Les compteurs de cœur, d'XP et de blessures sont changés par affectation directe. Le fondu ne m'a pas été confirmé sur chaque compteur ; effet visuel mineur. | Accepté (Basse) |
+| X-P21 | `UpdatableTextBlock.cs:19-46` : le texte s'estompe (0,25 s) puis réapparaît au changement | entité | Non vérifié | `BoardUI.gd:2412-2417` (étiquette de PV créée avec `_lbl`, aucun fondu) | Non vérifié | Les compteurs de cœur, d'XP et de blessures sont changés par affectation directe. Le fondu ne m'a pas été confirmé sur chaque compteur ; effet visuel mineur. | Corrigé (Basse) |
 | X-P22 | `TopRightPanelEntity.cs:20-219` : colonne droite 211 px, 2 joueurs = `OneOpponentDetail`, 3 à 4 = `ExpandedOpponentDetail` + `CollapsedOpponentDetail`, `ChallengerDetail`, bouton level up (105, 55), bouton options | entité | Partiel | `BoardUI.gd:433-478`, `480`, `627-635`, `801-832` | Partiel | 2 joueurs : conforme (P-B17). 3 à 4 : vignettes remplacées par `foe_bar` (P-B23), pas de panneau étendu (P-B27). Bouton level up présent. | Corrigé (Moyenne) |
 | X-P23 | `GamePlayPaPScene.cs:18-203` : hotseat 2 joueurs, boss aléatoires, changement de joueur avec main qui sort puis revient, donjons échangés | scène | Oui | `Main.gd:341-382`, `BoardUI.gd:704-781`, `1175`, `1939-1948` | Partiel | Voir P-A49 à P-A51. Écart connu : en pass and play Godot montre GO / PASS TURN et la main en aventure. Chemin atteignable seulement par `MultiplayerScene` (mort côté APK) ; Godot le propose. | Accepté (Basse) |
 | X-P24 | `CardsFactory.cs:16-103` : dos de pioche (BMA009 / BMA041), cartes de test, `CreateInGameCard`, `CreateSlotRoomInGameCard` (échelles Min/Max 0,5) | fabrique | Oui | `CardUI.gd:36`, `100-101`, `BoardUI.gd:1660` | Oui | Dos de carte : `assets/apk_cards/base/back_room.webp`, `back_spell.webp`, `back_boss.webp` existent. Les échelles de carte posée sont reprises (`BoardUI.gd:1665`). | — |
 | X-P25 | `CarouselLayer`, `SidePanelLayer`, `SpellBattleLayer`, `TimeBarLayer`, `TopCardsLayer` (`*.cs:5-8`) : couches d'affichage, aucune logique propre, découpées au rectangle virtuel | couches (5 classes) | N/A | — | — | Équivalent Godot : l'ordre d'empilement se règle par `z_index` et l'ordre des nœuds, le rectangle virtuel par le viewport 1920×1080 (`project.godot:23-26`). | — |
-| X-P26 | `DungeonTopScissorLayer.cs:9-19` et `DungeonBottomScissorLayer.cs:9-19` : découpe du donjon en haut (y 63, h 437) et en bas (y 500, h 453) | couches (2 classes) | Non (vérifié absent) | `BoardUI.gd:362`, `1307` | Différent | `grep clip_contents` ne trouve que le nœud racine et une bannière. Aucune découpe par donjon : le saut du héros (y −200 puis +400, `BoardUI.gd:2247-2253`) peut déborder du cadre au lieu d'être coupé. | Accepté (Basse) |
+| X-P26 | `DungeonTopScissorLayer.cs:9-19` et `DungeonBottomScissorLayer.cs:9-19` : découpe du donjon en haut (y 63, h 437) et en bas (y 500, h 453) | couches (2 classes) | Non (vérifié absent) | `BoardUI.gd:362`, `1307` | Différent | `grep clip_contents` ne trouve que le nœud racine et une bannière. Aucune découpe par donjon : le saut du héros (y −200 puis +400, `BoardUI.gd:2247-2253`) peut déborder du cadre au lieu d'être coupé. | Conforme (Basse) |
 | X-P27 | `ScissorAlphaLayer.cs:8-43`, `ScissorAlphaLayer2/3/4` : couche alpha avec test de ciseau | infrastructure WaveEngine (4 classes) | N/A | — | — | Moteur de rendu Wave ; Godot : `clip_contents` ou `Window` (voir X-P26 pour le seul besoin de fond). | — |
 | X-P28 | `DBMMenuBaseScene.cs:7-27` : retour = pop de l'écran ; `ShowFullGameUnlockScene` (achat du jeu complet) | scène de base | N/A | — | — | Boutique et déverrouillage retirés (périmètre). Le retour des menus passe par `go()` / flèche dans `Main.gd` et `OnlineMenus.gd`. | — |
-| X-P29 | `IHighLight.cs:8-12` : `HighLightCards(cards, style)` et `CleanHighLightCards(style)` ; implémentée par `GamePlayBaseScene`, les piles, les panneaux | interface | Oui | `BoardUI.gd:2944-3010`, `3711-3730` | Partiel | Mécanisme équivalent (cadre doré, rouge, halo). Les styles GreenGlow et des panneaux adverses manquent (X-P03, X-P04, X-P05). | Accepté (Basse) |
+| X-P29 | `IHighLight.cs:8-12` : `HighLightCards(cards, style)` et `CleanHighLightCards(style)` ; implémentée par `GamePlayBaseScene`, les piles, les panneaux | interface | Oui | `BoardUI.gd:2944-3010`, `3711-3730` | Partiel | Mécanisme équivalent (cadre doré, rouge, halo). Les styles GreenGlow et des panneaux adverses manquent (X-P03, X-P04, X-P05). | Conforme (Basse) |
 | X-P30 | `EntitiesExtensions.cs:12-80` : `IsContainedByEntity` (test de dépôt avec précision ×1,2, `BuildRoomHandSceneBehavior.cs:239`), `ChangeLayer`, `DetachFromOwner`, `FindChildByTag` | helpers | Oui (test de dépôt) | `BoardUI.gd:3694-3695` | Oui | Même zone ×1,2 centrée sur l'emplacement. Les autres helpers (couches, détachement) n'ont pas d'objet dans Godot (`reparent`, `z_index`). | — |
 | X-P31 | `ScenesExtensions.cs:10-15` : taille d'une texture d'atlas | helper | N/A | — | — | Godot lit `Texture2D.get_size()` directement. | — |
 | X-P32 | `StringExtensions.cs:10-89` : `Truncate` (boss 10 car., sous-titre 25, alias 15, nom 45), `Heigth`, `WordWrap`, `BreakLine` | helpers | Partiel | `OnlineMenus.gd:136`, `318`, `432-433`, `860`, `Profile.gd:16` | Partiel | Troncatures du nom de joueur (45, 25) portées. Pas de troncature du nom de boss (10) ni du sous-titre (25) dans `BoardUI.gd:2144-2163`. Aucun boss du jeu de base ne dépasse ces tailles ; seuls `The Brothers Wise` (17), `Elicon` (sous-titre 31) du deck PlayerChoice. `Heigth` ne sert qu'à la boutique (retirée). | Corrigé (Basse) |
@@ -1791,7 +1791,7 @@ Contrôle par script : sur les 560 classes C# de `apk-original/decompiled/DBMGam
 | X-P35 | `CustomColors.cs:10-74` : GoldColor #cdb15f, PistachioColor #bfca7a, SidePanelsBackColor #180a18, LoadingBg #270000, TutorialBg #e2bc54, couleurs de trésor des boss (cleric #34495c, fighter #5e2a2f, mage #52506a, thief #74635d), `GetRTFColorString`, `CountTextNotFormat` | constantes + helpers | Partiel | `UiKit.gd:8`, `Main.gd:44`, `CreditsScreen.gd:34`, `BoardUI.gd:99` | Partiel | Or et pistache : Oui (même valeur). `grep` des 6 autres hex et de `Color(0.0` correspondants dans `BoardUI.gd`, `Main.gd`, `UiKit.gd` : aucun trouvé, donc non reconnus. `GetBossTreasureColor` (`OneOpponentDetail.cs`) : non vérifié. Les `<rtf>` sont remplacés par BBCode (`BoardUI.gd:565`). | Accepté (Basse) |
 | X-P36 | `Directories.cs:3-19` : chemins `Content/…` | constantes | N/A | — | — | Chemins du pack WPK ; Godot utilise `res://assets/…`. | — |
 | X-P37 | `SpeedEnum.cs:3-8` : Slow, Normal, Fast (`SettingsScene`, `GameSettings`) | enum | Oui | `Profile.gd:109-118`, `BoardUI.gd` (`_speed_factor`) | Oui | 0 / 1 / 2 enregistrés ; facteur ×1,5 / ×1 / ×0,5. | — |
-| X-P38 | `IExternalInteractionResolver.cs:7-12` (`ChooseCardToDraw`, `ChooseCardsToDiscard`) et `IExternalTargetResolver.cs:6-11` (`ResolveTarget`) ; seul appelant `HumanPlayerInteraction.cs`, `TargetResolverBaseSceneBehavior.cs` | interfaces (2) | Oui (par un autre mécanisme) | `BoardUI.gd:2751-2800`, `3494-3503`, `SpellTargeting.gd` | Oui (ciblage), non vérifié (pioche) | Le ciblage et la défausse passent par la liste de coups légaux (`_target_list`, `_show_discard`). Le choix de pioche (Haunted Library, R-F39) : côté règles Oui, interface de choix non vérifiée. | Accepté (Basse) |
+| X-P38 | `IExternalInteractionResolver.cs:7-12` (`ChooseCardToDraw`, `ChooseCardsToDiscard`) et `IExternalTargetResolver.cs:6-11` (`ResolveTarget`) ; seul appelant `HumanPlayerInteraction.cs`, `TargetResolverBaseSceneBehavior.cs` | interfaces (2) | Oui (par un autre mécanisme) | `BoardUI.gd:2751-2800`, `3494-3503`, `SpellTargeting.gd` | Oui (ciblage), non vérifié (pioche) | Le ciblage et la défausse passent par la liste de coups légaux (`_target_list`, `_show_discard`). Le choix de pioche (Haunted Library, R-F39) : côté règles Oui, interface de choix non vérifiée. | Conforme (Basse) |
 | X-P39 | `IDBMPurchaser.cs`, `DBMPurchaser.cs:44`, `ILocalStorage.cs`, `DefaultLocalStorage.cs:39` : achats intégrés et stockage local de reçus | service (4 classes) | N/A | — | — | Boutique retirée (module 10). | — |
 | X-P40 | `Scenes.Test/` : `BacklightTestScene`, `BossSelectionTestScene`, `BubbleTestScene`, `BubblesTestScene`, `DoneTestScene`, `DrawOrderScene`, `FlipCardScene`, `HandBossSwitchTestScene`, `HeartTestScene`, `LabelTestScene`, `LogTestScene`, `NewHandTest`, `NinePatchScene`, `SpellBattleTest` | scènes de débogage (14) | N/A | — | — | Scènes d'essai du développeur, jamais ouvertes depuis le menu (aucun parcours public). Rien à porter. | — |
 | X-P41 | `Properties/AssemblyInfo.cs:1-21` | métadonnées d'assemblage | N/A | — | — | Aucune logique. | — |
@@ -2090,79 +2090,79 @@ Validé par `python tools/run_godot_tests.py` (14/14), oracle APK 6/6, 12/12 et 
 
 ## Lot 6b : plateau, écarts Basse (2026-10-27)
 
-Validé par `python tools/run_godot_tests.py` (14/14). Aucune capture comparée : le seul changement visible (troncature du nom du boss adverse) n'affecte aucun boss du jeu de base.
+Validé par `python tools/run_godot_tests.py` (14/14) ; captures `docs/reference/apk_orig/` comparées avec `capture_screens.gd --only=lot6b` (engrenage, file d'entrée, horloge de la barre, cadres du panneau adverse, zoom de la ville). Non vérifiés à l'écran : cœur de soin, fondus, glissements, troncature des noms.
 
 | ID | État | Changement |
 |---|---|---|
-| P-A05 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-A06 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-A07 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-A08 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-A09 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-A12 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-A13 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-A15 | Conforme | Conforme ; RULES en plus (ajout). |
-| P-A16 | Conforme | Conforme ; MASTER VOLUME en plus (ajout). |
-| P-A18 | Conforme | Déjà conforme : `BoardUI._open_quit_confirm` reprend QUIT GAME? / CANCEL / QUIT ; la ligne était périmée. |
-| P-A19 | Conforme | Déjà conforme : Échap ouvre la pause puis QUIT GAME? (`BoardUI.back_pressed`) ; la ligne était périmée. |
-| P-A22 | Conforme | Conforme ; plaque BUILD estompée en setup (choix voulu). |
-| P-A25 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-A32 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-A34 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-A35 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-A37 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-A41 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-A50 | Conforme | Conforme ; barre PLAYER n en plus (ajout). |
-| P-A57 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-B01 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-B04 | Corrigé | Nom du boss tronqué à 10 caractères et sous-titre à 25, suivi de « ... » (`BossDetailHeaderControl.cs:71-72`, `BoardUI._truncate`). |
-| P-B08 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-B10 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-B21 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-B24 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-B25 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-B26 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-B29 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-B33 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-B39 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-B52 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-B55 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-B57 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-B65 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-B68 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-C03 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-C09 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-C12 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-C13 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-C18 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-C19 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-C23 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-C28 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-C29 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-C31 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-C32 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-C38 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-C41 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-C43 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-C44 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| P-C45 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
+| P-A05 | Accepté | Boutique supprimée : tous les boss sont jouables (code de verrouillage retiré par choix). |
+| P-A06 | Accepté | `SPWins` ne sert qu'au déverrouillage, supprimé avec la boutique. |
+| P-A07 | Corrigé | `_update_foe` suit le joueur actif hors aventure (hors ligne) : à 3-4 joueurs, son donjon passe en haut avant son tour (`GamePlaySPScene.CreateBeforePlayerInteractionTask`). |
+| P-A08 | Corrigé | Changement d'adversaire : le donjon du haut s'estompe 0,5 s, change, puis réapparaît 0,5 s (`CreateChangeVisibleOpponentDungeon`). |
+| P-A09 | Accepté | Architecture par état et non par tâches chaînées ; aucun écart observable, un portage littéral réécrirait la boucle de flux (moteur). |
+| P-A12 | Accepté | Seul le chemin pass and play est touché : `GamePlayPaPScene` est mort côté APK (X-P23). |
+| P-A13 | Accepté | Déverrouillage supprimé avec la boutique ; retour titre conservé. |
+| P-A15 | Conforme | Conforme ; RULES en plus (ajout assumé). |
+| P-A16 | Conforme | Conforme ; MASTER VOLUME en plus (ajout assumé). |
+| P-A18 | Conforme | Déjà conforme : `_open_quit_confirm` reprend QUIT GAME? / CANCEL / QUIT ; la ligne était périmée. |
+| P-A19 | Conforme | Déjà conforme : Échap ouvre la pause puis QUIT GAME? (`back_pressed`) ; la ligne était périmée. |
+| P-A22 | Conforme | Conforme ; plaque BUILD estompée en `setup` / `boss` (choix voulu). |
+| P-A25 | Conforme | Le carrousel de défausse existe (P-C17) ; `_win_paused` couvre zoom, glisser, ciblage et fenêtres ; l'horloge s'affiche (P-C29). |
+| P-A32 | Accepté | Reprise par clic au lieu du glisser hors du donjon : même effet (`undoBuild`), geste non porté. |
+| P-A34 | Corrigé | `_spell_drop` : tout relâchement au-dessus de la main joue le sort, colonnes latérales comprises (`PlaySpellsInHandSceneBehavior.MyHand_CardDropped`). |
+| P-A35 | Conforme | Conforme ; bouton CANCEL en plus (ajout assumé). |
+| P-A37 | Accepté | Le titre vient du message du moteur (une quinzaine d'appelants) ; la description de la carte n'est pas portée par les coups : nécessite le moteur. Contour vert de la source déjà présent (`SourceGlow`). |
+| P-A41 | Corrigé | Un clic sur un héros de la ville le zoome à gauche (bord x 450, centre y borné 300-700, `_town_tap`) ; se ferme au clic suivant. |
+| P-A50 | Conforme | Conforme ; barre PLAYER n en plus (ajout assumé). |
+| P-A57 | Accepté | Code de debug mort dans l'APK. |
+| P-B01 | Conforme | Déjà conforme depuis P-C24 : la bulle entre en 0,5 s et ne se ferme qu'au clic extérieur ; l'écriture progressive n'est utilisée que par le tutoriel APK. |
+| P-B04 | Corrigé | Nom du boss tronqué à 10 caractères et sous-titre à 25, suivis de « ... » (`BossDetailHeaderControl.cs:71-72`, `_truncate`). |
+| P-B08 | Corrigé | Icône du badge XP = `mp_icon_treasure_<premier trésor>` à l'échelle 0,9, centrée en (155 ; 21) du badge. |
+| P-B10 | Corrigé | Compteur DAMAGE : ancien chiffre estompé 0,25 s puis nouveau en fondu 0,25 s à chaque changement (`_fade_text`), pas seulement pendant un pas de héros. |
+| P-B21 | Corrigé | Un sort qui vise le boss adverse (2 joueurs) pose `challenger_panel_selected_red` autour du panneau (`_challenger_glow`, fondu 0,3 s). |
+| P-B24 | Conforme | Déjà conforme : émetteur de particules sur la vignette du joueur actif (`_refresh_foe_bar`). |
+| P-B25 | Conforme | Déjà conforme : `icon_death_profile` sur la vignette d'un boss éliminé (`_opp_front`). |
+| P-B26 | Conforme | Déjà conforme : voile `topMask` sur les vignettes non choisies, nom en or, cadre jaune du joueur actif (`_opp_front`). |
+| P-B29 | Conforme | Le sprite `bg_treasures_boss_profile` est noir (alpha 119) : la teinte de l'APK ne change rien de visible ; le fond sombre de Godot est équivalent. |
+| P-B33 | Conforme | Barre jaune du bouton posée par G-20 (`_tick_done_bar`) ; le chiffre en haut est un ajout. |
+| P-B39 | Conforme | Déjà conforme : `BOSS_OFFSET` (15 boss, X-M06) place le sprite selon `CharacterOffset`. |
+| P-B52 | Corrigé | Soin d'un héros : cœur flottant avec le nombre sans signe (`HeartControlComponent.cs:43`), son `sfx_spell_buff` conservé. |
+| P-B55 | Corrigé | Compteurs du panneau adverse (blessures, âmes, pioches) en fondu comme le panneau du joueur (`_fade_text`). |
+| P-B57 | Accepté | Étoile du bandeau LEVEL UP invisible sur les frames APK (découpée par la couche scissor). |
+| P-B65 | Corrigé | Même changement que P-A41 : le clic sur un héros de la ville zoome à gauche. |
+| P-B68 | Corrigé | Engrenage = sprite APK `bt_options` / `bt_options_pressed` (extrait de l'atlas INGAME), zone de clic inchangée. |
+| P-C03 | Corrigé | Position du zoom de la ville portée (P-A41) ; le verrou pendant une résolution n'est pas reproduit (le ciblage masque déjà le clic). |
+| P-C09 | Accepté | Le survol retardé n'agit que dans le sélecteur ; il y est volontairement sans effet (seul le halo de sélection, capture tut_26). |
+| P-C12 | Accepté | Pas de grossissement au survol : la capture APK contredit le C# (choix documenté, `docs/HANDOFF.md:116`). |
+| P-C13 | Accepté | Le choix de N cartes demande des coups à sélection multiple : nécessite le moteur. |
+| P-C18 | Accepté | Salle publique en ligne (lobby), hors plateau ; `CountDown.gd` sert de minuteur de tour. |
+| P-C19 | Corrigé | Variantes `*_timer` du bouton quand une échéance existe, fondu 0,3 s (CubicEase) à chaque changement de variante visible (`_style_pass_button`). |
+| P-C23 | Corrigé | File d'entrée : cartes suivantes à 0,9 (échelle 0,36 / 0,4), glissement de 0,5 s (CubicEase) quand les rangs changent. |
+| P-C28 | Conforme | Diaporama = P-C17, corrigé (défausse en carrousel). |
+| P-C29 | Corrigé | Horloge `timebar_clock` au bout de la barre pendant le ralentissement (0,2 s) ; la barre entre / sort en fondu de 0,2 s. |
+| P-C31 | Accepté | Échange de deux cartes (Hellcow) : le moteur ne propose que des choix successifs (`RoomAbilities.gd:928`) : nécessite le moteur. |
+| P-C32 | Accepté | Écran de chargement : Godot affiche le `boot_splash` (même image) pendant le vrai chargement ; un écran artificiel allongerait le démarrage. |
+| P-C38 | Corrigé | Cartes déjà sur la pile : glissement de 0,3 s vers leur nouvelle place (`CardMoveBehavior`). |
+| P-C41 | Corrigé | Barre de temps en fondu de 0,2 s (`ProgressBarEntity.FadeBehavior`). |
+| P-C43 | Corrigé | La pile de sorts entre et sort en fondu de 0,1 s. |
+| P-C44 | Conforme | Le titre du sélecteur est centré verticalement selon son nombre de lignes : équivalent des trois décalages de l'APK. |
+| P-C45 | Accepté | Au clic de souris l'appui et le relâchement sont simultanés : l'écart n'existe qu'au tactile. |
 | P-C52 | Conforme | Déjà conforme : `_pulse_rings` (4 anneaux) sur la bulle HAS PLAYED ; la ligne était périmée. |
-| G-07 | Accepté | Touche à l'engin ou aux données de cartes (hors périmètre). |
-| G-17 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| G-18 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| G-21 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| G-26 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| G-31 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| X-P01 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| X-P04 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| X-P05 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| X-P07 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| X-P14 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| X-P21 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| X-P23 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| X-P26 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| X-P29 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
+| G-07 | Accepté | nécessite le moteur (données de cartes et règles, repris avec les règles). |
+| G-17 | Accepté | Écran de chargement : le chargement web est celui du moteur ; un écran artificiel allongerait le démarrage. |
+| G-18 | Accepté | Fond de chargement = `boot_splash` ; l'écran applicatif n'a rien à masquer (chargement à la demande). |
+| G-21 | Accepté | Le ninepatch `settings_text_bg` (13 x 13) code ses marges dans des pixels de bord ; l'aplat mesuré (109, 99, 131) vient de la capture. |
+| G-26 | Accepté | Poids 0,59 / 0,11 et facteur 0,62 calibrés sur les captures APK ; le `.frag` brut (0,3 / 0,55 / 0,15) n'inclut pas la teinte de scène. |
+| G-31 | Accepté | Invisible à 1080p (échelle 1:1) ; un filtre global casserait les cartes (LinearClamp). |
+| X-P01 | Accepté | La main est reconstruite à chaque `refresh` : un fondu repartirait de zéro à chaque rafraîchissement. |
+| X-P04 | Corrigé | `challenger_panel_selected_yellow` (cible possible) et `_red` (touché) autour du panneau adverse, position (1693 ; 48), fondu 0,3 s. |
+| X-P05 | Conforme | Déjà conforme : cadre `bg_boss_profile_selected_yellow` sur la vignette du joueur actif ou ciblée (`_opp_front`, `_foe_mark`). |
+| X-P07 | Accepté | Inclinaison en perspective 3D : le rendu 2D de Godot n'a pas de perspective (largeur × cos de l'angle). |
+| X-P14 | Conforme | Déjà conforme : `_tick_pulse` relance `halt_button_pulse` toutes les 5 s sur PASS TURN / DONE. |
+| X-P21 | Corrigé | Textes des compteurs en fondu (`_fade_text`) : DAMAGE, blessures, âmes et pioches adverses, nom et sous-titre du boss adverse. |
+| X-P23 | Accepté | Chemin atteignable seulement par `MultiplayerScene`, mort côté APK. |
+| X-P26 | Conforme | Déjà conforme : chaque couloir est un `clip_contents` (`LANE_Y` 62 / 497, hauteurs 435 / 455) ; la ligne était périmée. |
+| X-P29 | Conforme | Mécanisme équivalent ; GreenGlow (`SourceGlow`) et cadres des panneaux adverses présents. |
 | X-P32 | Corrigé | Même correctif que P-B04 (`Truncate`). |
-| X-P33 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| X-P35 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
-| X-P38 | Accepté | Écart cosmétique, tactile, invisible, hors cible souris ou supprimé (boutique, déverrouillage) ; coût supérieur au gain. |
+| X-P33 | Accepté | Plateau en 1920 x 1080 fixe : étendre la zone utile demande de refaire les ancrages de toute l'interface. |
+| X-P35 | Accepté | Teintes de trésor sans effet visible (sprite noir) ; or et pistache identiques à l'APK. |
+| X-P38 | Conforme | Le choix de pioche (Haunted Library, `draw-type`) passe par la fenêtre générique `pendingChoice` ; non exercé en capture. |
