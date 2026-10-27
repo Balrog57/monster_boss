@@ -1841,6 +1841,7 @@ func _t_torix_via_apply_move() -> void:
 	G["activePlayer"] = 0
 	var m := _match(G)
 	_ok.call(m.apply_move(0, {"type": "activateRoom", "args": [0]}), "Torix : Frostbat Cave activee par apply_move")
+	m.apply_move(m.active_player(), {"type": "pass", "args": []}) # R-D67 : capacite en file, l'adversaire passe
 	_ok.call(str(_pending(G).get("step", "")) == "torix" and _hand(G, 0).is_empty() and _decks(G, "roomDiscard").is_empty(), "Torix : Frostbat Cave (Monster) detruite par son propre cout est proposee a Torix a la fin du coup")
 	_ok.call(m.apply_move(0, {"type": "resolveChoice", "args": [0]}) and _ids(_hand(G, 0)) == ["TNL033"] and _pending(G).is_empty(), "Torix : acceptee via resolveChoice, elle rejoint la main")
 

@@ -315,7 +315,7 @@ func legal_moves(pid: int) -> Array:
 					continue
 				var rd: Dictionary = room
 				var rid := str(rd.get("id", ""))
-				if not ACTIVATABLE_ROOMS.has(rid) or bool(rd.get("usedThisTurn", false)):
+				if not ACTIVATABLE_ROOMS.has(rid) or bool(rd.get("usedThisTurn", false)) or RoomAbilities.is_queued(G, rd):
 					continue
 				if rid == "BMA030" and G.has("forcedBuild"):
 					continue # Jackpot Stash : DuringPhase(Build) = BuildPhase_a seule, pas ExtraBuildPhase
@@ -368,7 +368,7 @@ func legal_moves(pid: int) -> Array:
 					continue
 				var rd: Dictionary = room
 				var rid := str(rd.get("id", ""))
-				if not ACTIVATABLE_ROOMS.has(rid) or bool(rd.get("usedThisTurn", false)):
+				if not ACTIVATABLE_ROOMS.has(rid) or bool(rd.get("usedThisTurn", false)) or RoomAbilities.is_queued(G, rd):
 					continue
 				if ThkAbilities.ACTIVATED.has(rid): # Tools of Hero-Kind : verification pure ; jamais hors de la case wiki
 					if ThkAbilities.active(G) and ThkAbilities.check(G, p, pid, i, rd) == "":
@@ -630,6 +630,22 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 			var in_battle := not (G.get("stack", []) as Array).is_empty()
 			var act_room = BossEngine.active_room((p["dungeon"] as Array)[ri]) if ri >= 0 and ri < (p["dungeon"] as Array).size() else null
 			var act_rid := str((act_room as Dictionary).get("id", "")) if act_room != null else ""
+			if act_rid != "BMA025":
+				# GameBoard.PlayRoomAbility -> EnqueueAbilityTransaction : IsActivatedByUser ouvre une Spell Battle (OnAbilityApplyRequest). La capacite se resout avec la pile
+				# (_resolve_pending_stack), apres la reponse de chaque autre joueur ; OncePerTurn (IsEffectApplied) n'est pose qu'a l'execution.
+				# All-Seeing Eye (CancelSpellAbility) se place DEVANT le sort qu'elle annule (OnAbilityApplyRequest) : elle reste immediate, voir plus bas.
+				var entry := RoomAbilities.make_entry(G, pid, ri, int(move["args"][1]) if move["args"].size() > 1 else -1)
+				var astack: Array = G.get("stack", [])
+				G["stack"] = astack
+				if astack.is_empty():
+					G["stackActivePlayer"] = active_player()
+				G["stackReturnPlayer"] = pid
+				_log("Joueur %d active la capacité de %s." % [pid, str((act_room as Dictionary).get("name", "?"))])
+				astack.insert(_stack_insert_index(entry, -1), entry)
+				if G.has("buildWindow"):
+					G["buildWindow"] = _window_auto_passed() # une capacite relance la Spell Battle : tout le monde doit re-passer
+				_reopen_stack_window(pid)
+				return true
 			var err = RoomAbilities.activate_room_ability(G, pid, ri, int(move["args"][1]) if move["args"].size() > 1 else -1)
 			if err != null:
 				_log(str(err))
@@ -1002,6 +1018,11 @@ func _resolve_choice_body(pid: int, index: int) -> void:
 		G["pendingChoice"] = queue.pop_front()
 	G["choiceQueue"] = queue
 	state_changed.emit()
+	var rstack: Array = G.get("stack", [])
+	if (G.get("pendingChoice", {}) as Dictionary).is_empty() and not rstack.is_empty() and bool((rstack[0] as Dictionary).get("resolving", false)):
+		rstack.pop_front() # la capacite dont le choix vient d'etre fait est resolue : la pile reprend
+		_resolve_pending_stack()
+		state_changed.emit()
 	# Le choix venait de suspendre la phase BUILD : il faut la reprendre, sinon
 	# personne ne construit plus et la partie se fige. On NE passe pas au joueur
 	# suivant ici : le joueur actif a deja consomme son tour, c'est la phase qui
@@ -1630,7 +1651,7 @@ func _stack_response_moves(p: Dictionary, pid: int, stack_len: int) -> Array:
 			continue
 		var rd: Dictionary = room
 		var rid := str(rd.get("id", ""))
-		if bool(rd.get("usedThisTurn", false)) or bool(rd.get("faceDown", false)):
+		if bool(rd.get("usedThisTurn", false)) or bool(rd.get("faceDown", false)) or RoomAbilities.is_queued(G, rd):
 			continue
 		if rid == "BMA025":
 			if RoomAbilities.can_cancel_spell(G, pid) and not TnlAbilities.no_text(rd):
@@ -1773,6 +1794,25 @@ func _resolve_pending_stack() -> void:
 		if bool(effect.get("resolved", false)):
 			continue
 		var etype := str(effect.get("type", ""))
+		if etype == "ability":
+			# AbilityTransaction.Run : DoEffect (sans reverifier les conditions) ; une transaction annulee (RemovePendingTransactionsByTarget) ne s'execute pas.
+			var acard: Dictionary = effect.get("card", {})
+			if bool(effect.get("canceled", false)):
+				_log("La capacité de %s a été annulée." % str(acard.get("name", "?")))
+			else:
+				_log("La capacité de %s se résout." % str(acard.get("name", "?")))
+				TnlAbilities.destroy_actor = int(effect.get("playerId", 0))
+				var aerr = RoomAbilities.run_queued(G, effect)
+				TnlAbilities.destroy_actor = -1
+				if aerr != null:
+					_log("La capacité de %s est annulée (%s)." % [str(acard.get("name", "?")), str(aerr)])
+				if not (G.get("pendingChoice", {}) as Dictionary).is_empty():
+					# Les cibles se choisissent a l'execution (l'APK les resout a la mise en file) : la pile attend le choix, puis reprend (_resolve_choice_body).
+					effect["resolving"] = true
+					stack.push_front(effect)
+					return
+			effect["resolved"] = true
+			continue
 		if etype == "spell":
 			var card: Dictionary = effect.get("card", {})
 			var caster_id := int(effect.get("playerId", 0))

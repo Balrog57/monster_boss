@@ -4398,7 +4398,7 @@ func _refresh_stack_cards(G: Dictionary) -> void:
 			z.pivot_offset = z.size / 2.0
 			z.scale = Vector2.ZERO
 			z.create_tween().tween_property(z, "scale", Vector2.ONE, 0.3)
-		if owner_pid != _my_pid(): # APK : sort / capacite de l'adversaire = son portrait rond (BossOwnerIcon) a cheval sur le haut de la carte
+		if owner_pid != _my_pid() or str((stack[i] as Dictionary).get("type", "")) == "ability": # APK : sort adverse ou capacite de salle (la mienne aussi, GamePlayBaseScene.cs:640-648) = le portrait rond du boss (BossOwnerIcon) a cheval sur le haut de la carte
 			z.add_child(_owner_badge(owner_pid, z.size.x / 2.0))
 
 ## SimpleHoverBehavior sur la pile (SpellBattleEntity.cs:49 ; SpellBattleHighLightsComponent.cs:49-77) : survol d'une carte = bordure rouge sur elle et sur ce qu'elle vise.

@@ -788,17 +788,13 @@ func _on_action(i: int, s: Dictionary) -> void:
 		"buildRoom":
 			_build(i, s, d, pid)
 		"playRoomAbility":
-			# L'oracle met la capacite en file (transaction) : elle ne s'execute qu'au NextStep suivant, apres d'eventuelles actions
-			# de l'IA (ex. construire sur la salle qui va etre detruite). Godot l'applique tout de suite : on retient donc
-			# l'activation, ses decisions, jusqu'au prochain step de phase.
+			# L'oracle met la capacite en file (transaction, GameBoard.PlayRoomAbility) : elle ne s'execute qu'au NextStep suivant, apres la Spell Battle (les « pret »).
+			# Godot fait de meme (R-D67) : l'activation est une entree de pile, resolue par la derniere « passe ». Les decisions de cibles de l'oracle (journalisees
+			# a la mise en file) sont retenues jusqu'a ce que Godot ouvre ses choix, a l'execution (_drain_held).
 			_release_held()
-			# All-Seeing Eye (BMA025) repond a un sort : sa transaction passe DEVANT celle du sort (GameBoard.EnqueueAbilityTransaction : joueur du tour -> tete ;
-			# OnAbilityApplyRequest : un Counterspell se replace avant sa cible). La pile Godot rend cet ordre : on l'applique donc sur le champ, pendant que le sort
-			# attend encore (les « pret » suivants ne la resolvent qu'ensuite), sans retenue.
-			if str((d["room"] as Dictionary)["card"]) == "BMA025" and not (run.G["stack"] as Array).is_empty():
-				_ability(i, s, d, pid)
-				return
-			_held = {"i": i, "s": s, "d": d, "pid": pid, "decs": []}
+			_ability(i, s, d, pid)
+			if str((d["room"] as Dictionary)["card"]) != "BMA025": # All-Seeing Eye : sa transaction passe devant le sort, ses choix s'ouvrent tout de suite
+				_held = {"i": i, "s": s, "d": d, "pid": pid, "decs": []}
 		"playSpell":
 			_spell(i, s, d, pid)
 		"spellBattleReady":
@@ -812,12 +808,15 @@ func _on_action(i: int, s: Dictionary) -> void:
 			elif not (run.G["stack"] as Array).is_empty() and _has_legal(responder, "pass"):
 				# Sort joue puis salle posee dans la MEME action IA (liste precalculee, AIPlayerInteraction) : l'oracle execute le sort au
 				# NextStep suivant, APRES la construction (sur l'ancienne main). On retient la derniere « passe » qui le resoudrait.
-				if _is_last_responder(responder) and _build_follows(i):
+				# Une capacite en file s'execute au NextStep suivant (les tirages « au hasard » de l'oracle sont rattaches a ce step, G.forcedRandom) : la derniere passe attend aussi.
+				if _is_last_responder(responder) and (_build_follows(i) or (run.G["stack"] as Array).any(func(e): return str((e as Dictionary).get("type", "")) == "ability")):
 					_held_pass = {"pid": responder, "s": s}
 				else:
 					if not _ready_is_own(i):
 						_ai_pass(responder, "respond", s, int((s["detail"] as Dictionary)["player"]) - 1)
 					_apply_type(responder, "pass", s)
+					if (run.G["stack"] as Array).is_empty() or not (run.G.get("pendingChoice", {}) as Dictionary).is_empty():
+						_drain_held() # la derniere « passe » a resolu la pile : les choix de la capacite sont ouverts
 			else:
 				stats["readySkipped"] += 1
 		_:
@@ -893,7 +892,6 @@ func _build(i: int, s: Dictionary, d: Dictionary, pid: int) -> void:
 		if gi >= 0:
 			args.append(gi)
 	_auto_resolve(s)
-	_release_covered(pid, oid, under)
 	if _held_pass.is_empty():
 		_build_and_done(pid, args, s, label, i)
 		return
@@ -973,9 +971,13 @@ func _is_last_responder(responder: int) -> bool:
 func _build_follows(i: int) -> bool:
 	var order: Array = run.G.get("buildOrder", [])
 	var stack: Array = run.G.get("stack", [])
-	if str(run.G.get("phase", "")) != "build" or int(run.G.get("buildIndex", 0)) + 1 >= order.size() or stack.is_empty():
+	if str(run.G.get("phase", "")) != "build" or stack.is_empty():
 		return false
 	var last: Dictionary = stack.back()
+	# Un sort ne retient la passe que s'il reste d'autres constructeurs apres lui ; une capacite en file (Witch's Kitchen...) la retient aussi pour le dernier :
+	# l'oracle l'execute apres la construction (cibles de main perimees, voir _cancel_stale_held).
+	if int(run.G.get("buildIndex", 0)) + 1 >= order.size() and str(last.get("type", "")) != "ability":
+		return false
 	# Motivation (BuildExtraRoom) : la 2e construction suit la resolution (autre appel IA), l'ordre naturel de Godot convient.
 	if str((last.get("card", {}) as Dictionary).get("id", "")) == "BMA050":
 		return false
@@ -989,36 +991,33 @@ func _build_follows(i: int) -> bool:
 	return false
 
 
-## Applique l'activation retenue (puis ses decisions) : execution de la transaction cote oracle.
-func _release_held(with_pass := true) -> void:
-	if with_pass:
-		_release_held_pass()
+## Rejoue les decisions de l'oracle retenues pour l'activation en file : la pile Godot l'a executee, ses choix sont ouverts.
+func _drain_held() -> void:
 	if _held.is_empty():
 		return
 	var h := _held
 	_held = {}
-	if not _stale_hand_targets(h):
-		_ability(int(h["i"]), h["s"], h["d"], int(h["pid"]))
 	for e in (h["decs"] as Array):
 		_on_decision(int((e as Array)[0]), (e as Array)[1])
 
 
-## Capacite NON destructive (Dracolich Lair, Witch's Kitchen) activee puis recouverte par la construction suivante de la meme action IA : l'oracle
-## l'execute quand meme (Ability.DoEffect ne regarde pas la position de la salle ; seules les capacites « Destroy this room » levent a l'execution,
-## GameBoard.DestroyRoom : Dungeon.First(slot.TopRoom == room), donc FIZZLE dans _ability). Godot n'applique une capacite que sur la salle du dessus : on la
-## joue donc juste AVANT la construction qui la recouvre (s36-p4@357-364), sauf si la carte construite est une de ses cibles en main (cas _stale_hand_targets).
-func _release_covered(pid: int, built_oid: int, under: Array) -> void:
-	if _held.is_empty() or int(_held["pid"]) != pid:
+## Fin de la fenetre de l'oracle (step de phase) : la derniere « passe » retenue resout la pile, puis les decisions retenues sont rejouees.
+func _release_held(with_pass := true) -> void:
+	if with_pass:
+		_cancel_stale_held()
+		_release_held_pass()
+	_drain_held()
+
+
+## Dracolich Lair / Witch's Kitchen en file dont une cible a ete construite entre-temps (liste IA precalculee) : la transaction oracle echoue a l'execution,
+## la pile Godot l'annule (apres les defausses partielles de _stale_hand_targets). Seulement quand la « passe » finale est retenue : la pile attend encore.
+func _cancel_stale_held() -> void:
+	if _held.is_empty() or _held_pass.is_empty() or not _stale_hand_targets(_held):
 		return
-	var room: Dictionary = (_held["d"] as Dictionary)["room"]
-	if not str(room["card"]) in ["BMA013", "BMA024"]:
-		return
-	if not under.any(func(r): return int((r as Dictionary)["id"]) == int(room["id"])):
-		return
-	for e in (_held["decs"] as Array):
-		if _oids(((e as Array)[1] as Dictionary)["detail"].get("chosen")).has(built_oid):
-			return
-	_release_held(false)
+	for e in (run.G["stack"] as Array):
+		var ed: Dictionary = e
+		if str(ed.get("type", "")) == "ability" and int(ed.get("playerId", -1)) == int(_held["pid"]) and str((ed.get("card", {}) as Dictionary).get("id", "")) == str(((_held["d"] as Dictionary)["room"] as Dictionary)["card"]):
+			(e as Dictionary)["canceled"] = true
 
 
 ## Dracolich Lair / Witch's Kitchen : les cibles de la transaction sont designees a la mise en file, mais le build de l'IA
@@ -1085,11 +1084,6 @@ func _ability(i: int, s: Dictionary, d: Dictionary, pid: int) -> void:
 		args.append(other)
 	_auto_resolve(s)
 	if run.apply_move(pid, {"type": "activateRoom", "args": args}):
-		return
-	# Activation retenue (voir _on_action) : l'IA oracle a construit entre-temps et Godot a deja passe la main (activation
-	# reservee au joueur actif). La transaction oracle s'execute quand meme : on appelle la capacite directement.
-	if str(run.G.get("phase", "")) == "build" and RoomAbilities.activate_room_ability(run.G, pid, si, int(args[1]) if args.size() > 1 else -1) == null:
-		_note(s, "LATE-ACTIVATE", "%s appliquee hors du tour de construction Godot (transaction oracle en file)" % label)
 		return
 	_refus(s, label, pid, "coup refuse (absent de legal_moves) args=%s" % str(args))
 

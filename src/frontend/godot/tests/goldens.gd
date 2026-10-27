@@ -33,6 +33,9 @@ func _ready() -> void:
 	_t_apk_deal_hero_defers_death()
 	_t_apk_dead_hero_untargetable_in_window()
 	_t_apk_stack_target_leaves_game()
+	_t_apk_room_ability_stack_resolves()
+	_t_apk_room_ability_cancelled_by_response()
+	_t_apk_room_ability_owner_destroyed()
 	_t_spell_cave_in_kills_hero_in_room()
 	_t_spell_assassin_hero_at_entrance()
 	_t_spell_motivation_extra_build()
@@ -160,6 +163,13 @@ func _ready() -> void:
 		for f in _failed:
 			print("ECHEC: ", f)
 		get_tree().quit(1)
+
+## R-D67 : une capacite de salle est une transaction de la pile ; chaque repondant passe, puis elle se resout (GameBoard.NextStep).
+func _pass_all(m) -> void:
+	for _k in 8:
+		if (m.G.get("stack", []) as Array).is_empty() or not (m.G.get("pendingChoice", {}) as Dictionary).is_empty():
+			return
+		m.apply_move(m.active_player(), {"type": "pass", "args": []})
 
 func _ok(cond: bool, label: String) -> void:
 	if cond:
@@ -913,6 +923,7 @@ func _t_choice_dark_altar() -> void:
 	(m.G["decks"]["spellDiscard"] as Array).append({"id": "SD", "name": "Spell D", "isSpell": true})
 	_ok(_has_move(m, 0, "activateRoom"), "Dark Altar activable avec une defausse non vide")
 	_ok(m.apply_move(0, {"type": "activateRoom", "args": [0]}), "activateRoom Dark Altar applique")
+	_pass_all(m)
 	var pc: Dictionary = m.G.get("pendingChoice", {})
 	_ok(str(pc.get("type", "")) == "recover-card" and int(pc.get("playerId", -1)) == 0, "choix recover-card pour le proprietaire")
 	var opts: Array = pc.get("options", [])
@@ -1312,6 +1323,7 @@ func _t_choice_dracolich_lair() -> void:
 	(m.G["decks"]["roomDiscard"] as Array).append(_room("D2", "trap", false, [1]))
 	_ok(_has_move(m, 0, "activateRoom"), "Dracolich Lair activable (2 salles en main, defausse non vide)")
 	_ok(m.apply_move(0, {"type": "activateRoom", "args": [0]}), "activateRoom Dracolich Lair applique")
+	_pass_all(m)
 	var pc: Dictionary = m.G.get("pendingChoice", {})
 	_ok(str(pc.get("type", "")) == "dracolich-discard" and (pc.get("options", []) as Array).size() == 3,
 		"3 paires de salles proposees")
@@ -1337,6 +1349,7 @@ func _t_room_zombie_prison() -> void:
 	(m.G["decks"]["heroDiscard"] as Array).append(hero)
 	_ok(_has_move(m, 0, "activateRoom"), "Zombie Prison activable avec un heros mort chez l'adversaire")
 	_ok(m.apply_move(0, {"type": "activateRoom", "args": [0]}), "activateRoom Zombie Prison applique")
+	_pass_all(m)
 	_ok((p0["dungeon"] as Array).is_empty() and (m.G["decks"]["roomDiscard"] as Array).size() == 1, "la salle est detruite puis defaussee")
 	_ok((p1["souls"] as Array).is_empty(), "l'ame du heros est retiree de l'adversaire")
 	_ok((p1["entrance"] as Array).size() == 1 and (m.G["decks"]["heroDiscard"] as Array).is_empty(),
@@ -1765,6 +1778,7 @@ func _t_ability_kill_finishes_hero() -> void:
 	m.G["activePlayer"] = 0
 	m.G["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": 0, "hp": 5, "pause": "post-damage"}
 	_ok(m.apply_move(0, {"type": "activateRoom", "args": [0]}), "Bottomless Pit activable")
+	_pass_all(m)
 	_ok((m.G["adventure"] as Dictionary).is_empty() and (p["souls"] as Array).size() == 1, "heros tue par la capacite : ame immediate")
 	m.queue_free()
 
@@ -2566,6 +2580,7 @@ func _t_apk_deal_hero_defers_death() -> void:
 	m.G["activePlayer"] = 0
 	m.G["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": 0, "hp": 3, "pause": "post-damage"}
 	_ok(m.apply_move(0, {"type": "activateRoom", "args": [0, 2]}), "R-D46 : Boulder Ramp active")
+	_pass_all(m)
 	var adv: Dictionary = m.G["adventure"]
 	_ok(not adv.is_empty() and int(adv["hp"]) == 0 and (p["souls"] as Array).is_empty(), "R-D46 : le heros reste en vie a 0 PV (pas de mort immediate)")
 	m._room_damage(0, 1)
@@ -2592,6 +2607,67 @@ func _t_apk_dead_hero_untargetable_in_window() -> void:
 	(G["players"][0] as Dictionary)["entrance"] = [hero]
 	(G["adventure"] as Dictionary).erase("dealZero")
 	_ok(SpellTargeting.enumerate_targets("hero-opponent-dungeon", G, me, 1).is_empty(), "R-D47 : plus aucun heros ciblable")
+
+## R-D67 / R-E26 : une capacite de salle activee ouvre une Spell Battle (GameBoard.PlayRoomAbility -> EnqueueAbilityTransaction). Personne ne repond : elle se resout.
+func _t_apk_room_ability_stack_resolves() -> void:
+	var m = _match_with_spell()
+	m.G["activePlayer"] = 0
+	(m.G["players"][1] as Dictionary)["isAI"] = false
+	var p0: Dictionary = m.G["players"][0]
+	p0["dungeon"] = [[_room("BMA009", "trap", false, [1])]]
+	(m.G["decks"]["roomDiscard"] as Array).append(_room("RD", "trap", false, [1]))
+	_ok(m.apply_move(0, {"type": "activateRoom", "args": [0]}), "R-D67 : Dark Altar active")
+	var st: Array = m.G["stack"]
+	_ok(st.size() == 1 and str((st[0] as Dictionary)["type"]) == "ability" and (p0["dungeon"] as Array).size() == 1, "R-D67 : l'activation est une entree de pile, rien ne s'est execute")
+	_ok(m.active_player() == 1 and _has_move(m, 1, "pass") and not _has_move(m, 0, "pass"), "R-D67 : l'adversaire a sa fenetre de reponse")
+	_ok(not _has_move(m, 1, "activateRoom") and not RoomAbilities.is_queued(m.G, {}) and RoomAbilities.is_queued(m.G, BossEngine.active_room((p0["dungeon"] as Array)[0])), "R-D67 : une salle en file ne s'active pas deux fois (Room.CanPlayerPlayAbility)")
+	m.apply_move(1, {"type": "pass", "args": []})
+	_ok((m.G["stack"] as Array).is_empty() and (p0["dungeon"] as Array).is_empty(), "R-D67 : personne n'a repondu, la capacite s'execute (Dark Altar detruite)")
+	_ok(m.active_player() == 0, "R-D67 : la main revient au joueur de phase")
+	m.queue_free()
+
+## R-D67 : l'adversaire (joueur du tour) repond par un sort qui passe devant (EnqueueAbilityTransaction : joueur du tour -> tete) et annule la capacite ;
+## OncePerTurn (IsEffectApplied, pose a l'execution) n'est donc pas consomme (R-E29).
+func _t_apk_room_ability_cancelled_by_response() -> void:
+	var m = _match_with_spell()
+	m.G["activePlayer"] = 0
+	(m.G["players"][1] as Dictionary)["isAI"] = false
+	var p0: Dictionary = m.G["players"][0]
+	var p1: Dictionary = m.G["players"][1]
+	p0["hand"] = [{"id": "BMA048", "name": "Jeopardy", "isSpell": true}]
+	var kitchen := _room("BMA024", "trap", false, [1])
+	p1["dungeon"] = [[kitchen]]
+	p1["hand"] = [_room("MON", "monster", false, [1])]
+	for _i in 4: # pioches de Jeopardy (1 sort + 2 salles par joueur) sans recyclage de la defausse
+		(m.G["decks"]["rooms"] as Array).append(_room("TR%d" % _i, "trap", false, [1]))
+	(m.G["decks"]["spells"] as Array).append_array([{"id": "S1", "name": "S1", "isSpell": true}, {"id": "S2", "name": "S2", "isSpell": true}])
+	_ok(m.apply_move(1, {"type": "activateRoom", "args": [0]}), "R-D67 : Witch's Kitchen active hors tour")
+	_ok(m.active_player() == 0 and not (m.G["stack"] as Array).is_empty(), "R-D67 : le joueur du tour peut repondre")
+	var cast := false
+	for mv in m.legal_moves(0):
+		if str((mv as Dictionary)["type"]) == "playSpell":
+			cast = m.apply_move(0, mv)
+			break
+	_ok(cast and (m.G["stack"] as Array).size() == 2 and str(((m.G["stack"] as Array)[0] as Dictionary)["type"]) == "spell", "R-D67 : le sort du joueur du tour passe devant la capacite")
+	for _k in 4:
+		if not (m.G["stack"] as Array).is_empty():
+			m.apply_move(m.active_player(), {"type": "pass", "args": []})
+	_ok((m.G["stack"] as Array).is_empty() and (p1["hand"] as Array).size() == 3, "R-D67 : Jeopardy a remplace la main de l'adversaire (plus de salle Monster)")
+	_ok(not bool(kitchen.get("usedThisTurn", false)) and (m.G.get("pendingChoice", {}) as Dictionary).is_empty(), "R-E29 : capacite annulee (plus de salle Monster), OncePerTurn non consomme")
+	_ok(BossEngine.active_room((p1["dungeon"] as Array)[0]) == kitchen and not RoomAbilities.is_queued(m.G, kitchen), "R-D67 : la salle reste, plus rien en file")
+	p1["hand"] = [_room("MON", "monster", false, [1])]
+	(m.G["decks"]["spells"] as Array).append({"id": "NS", "name": "NS", "isSpell": true})
+	_ok(RoomAbilities.activate_room_ability(m.G, 1, 0) == null and bool(kitchen.get("usedThisTurn", false)), "R-E29 : une activation reussie consomme OncePerTurn")
+	m.queue_free()
+
+## R-E27 voisin : la salle detruite en reponse annule sa propre capacite (cible « cette salle »), sans execution.
+func _t_apk_room_ability_owner_destroyed() -> void:
+	var G := _ability_G("BMA009")
+	(G["decks"]["roomDiscard"] as Array).append(_room("RD", "trap", false, [1]))
+	var p: Dictionary = G["players"][0]
+	var e := RoomAbilities.make_entry(G, 0, 0, -1)
+	BossEngine.destroy_room(p, 0, G)
+	_ok(RoomAbilities.run_queued(G, e) != null and (p["hand"] as Array).is_empty(), "R-D67 : salle detruite en reponse, capacite annulee")
 
 ## R-E27 : RemovePendingTransactionsByTarget. La transaction retient la salle visee (pas son indice) : elle suit sa salle quand les emplacements
 ## se tassent (DestroyRoom), et elle est annulee si la salle a quitte le jeu.

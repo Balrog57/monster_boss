@@ -373,6 +373,7 @@ func _t_oracle_empty_adventure_window() -> void:
 	m._init_adventure_phase()
 	_ok.call(str(G["phase"]) == "adventure" and G.get("gameOver") == null and m.legal_moves(0).any(func(mv): return str((mv as Dictionary)["type"]) == "activateRoom"), "sans heros : la phase reste ouverte (activateRoom disponible)")
 	m.apply_move(0, {"type": "activateRoom", "args": [0]})
+	m.apply_move(m.active_player(), {"type": "pass", "args": []}) # R-D67 : l'adversaire laisse passer la capacite (pile)
 	m.apply_move(0, {"type": "pass", "args": []})
 	m.apply_move(1, {"type": "pass", "args": []})
 	_ok.call(int(G["turn"]) == 2 and str(G["phase"]) == "build", "les joueurs passent : le tour se termine normalement (tour 2)")

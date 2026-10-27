@@ -119,13 +119,81 @@ static func opponents_with(G: Dictionary, player_id: int, need_spell: bool = fal
 		out.append({"playerId": int(pid), "player": p})
 	return out
 
+# --- capacites activees = transactions de la pile (R-D67, R-E26) ---
+
+## Identifiant stable d'une salle (le compteur de Match, qui ne consomme pas le tirage global) : les indices glissent apres une destruction.
+static func room_uid(room: Dictionary) -> int:
+	if not room.has("_tuid"):
+		Match._tuid_seq += 1
+		room["_tuid"] = Match._tuid_seq
+	return int(room["_tuid"])
+
+## Room.CanPlayerPlayAbility : une transaction en attente pour cette salle interdit une 2e activation.
+static func is_queued(G: Dictionary, room: Dictionary) -> bool:
+	if not room.has("_tuid"):
+		return false
+	for e in (G.get("stack", []) as Array):
+		if str((e as Dictionary).get("type", "")) == "ability" and int((e as Dictionary).get("roomUid", -1)) == int(room["_tuid"]):
+			return true
+	return false
+
+## GameBoard.PlayRoomAbility -> EnqueueAbilityTransaction : l'entree de pile d'une capacite activee. `other` = indice de l'autre salle (Boulder Ramp, Crushinator).
+static func make_entry(G: Dictionary, player_id: int, room_index: int, other_room_index: int) -> Dictionary:
+	var dungeon: Array = _player(G, player_id).get("dungeon", [])
+	var r: Dictionary = BossEngine.active_room(dungeon[room_index])
+	var uid := room_uid(r)
+	var e := {"id": "ability-%s-%d" % [str(r.get("id", "")), uid], "type": "ability", "playerId": player_id,
+		"card": r.duplicate(), "target": {}, "resolved": false, "roomUid": uid}
+	if other_room_index >= 0 and other_room_index < dungeon.size():
+		e["otherUid"] = room_uid(BossEngine.active_room(dungeon[other_room_index]))
+	return e
+
+static func _find_room_by_uid(p: Dictionary, uid: int) -> Array:
+	var dungeon: Array = p.get("dungeon", [])
+	for i in dungeon.size():
+		var st: Array = dungeon[i]
+		for k in st.size():
+			if int((st[k] as Dictionary).get("_tuid", -1)) == uid:
+				return [i, k == st.size() - 1, st[k]]
+	return []
+
+## Execute la transaction (AbilityTransaction.Run -> Ability.DoEffect) : null si elle s'est executee, sinon la raison (annulee).
+## GameBoard.DestroyRoom -> RemovePendingTransactionsByTarget : une salle detruite annule sa propre capacite (cible « cette salle »), et une salle
+## recouverte leve (exception C#, rien ne s'execute) ; Dracolich Lair et Witch's Kitchen ne ciblent pas leur salle, elles s'executent quand meme.
+static func run_queued(G: Dictionary, e: Dictionary) -> Variant:
+	var pid := int(e.get("playerId", -1))
+	var p := _player(G, pid)
+	var id := str((e.get("card", {}) as Dictionary).get("id", ""))
+	var found := _find_room_by_uid(p, int(e.get("roomUid", -1)))
+	if found.is_empty() or not bool(found[1]):
+		if id != "BMA013" and id != "BMA024":
+			return "room left the game or is covered"
+		var r: Dictionary = found[2] if not found.is_empty() else (e["card"] as Dictionary)
+		r["usedThisTurn"] = true
+		var cerr = _dracolich_lair(G, p, pid, r) if id == "BMA013" else _witchs_kitchen(G, p, pid)
+		if cerr != null:
+			r["usedThisTurn"] = false
+		return cerr
+	var other := -1
+	if e.has("otherUid"):
+		var o := _find_room_by_uid(p, int(e["otherUid"]))
+		if o.is_empty():
+			return "target room left the game"
+		other = int(o[0])
+	var err = activate_room_ability(G, pid, int(found[0]), other, true)
+	if err != null:
+		(found[2] as Dictionary)["usedThisTurn"] = false # IsEffectApplied n'est pose qu'apres DoEffect : une transaction qui echoue ne consomme pas OncePerTurn (R-E29)
+	return err
+
 # --- activation d'abilite de salle (base set) ---
 
 ## Salles a condition OncePerTurn (Ability.IsEffectApplied) parmi les capacites activables.
 const ONCE_PER_TURN := ["BMA013", "BMA024", "BMA025", "CRL012"]
 
 ## Active l'abilite de la salle a room_index. Renvoie null si OK, sinon un message d'erreur.
-static func activate_room_ability(G: Dictionary, player_id: int, room_index: int, other_room_index: int = -1):
+## `queued` = execution d'une transaction deja en file (run_queued) : Ability.DoEffect ne reverifie pas les conditions (Ability.CheckConditions n'est
+## testee qu'a la mise en file, Room.CanPlayerPlayAbility) ; une salle gelee ou une capacite verrouillee entre-temps s'execute donc quand meme.
+static func activate_room_ability(G: Dictionary, player_id: int, room_index: int, other_room_index: int = -1, queued := false):
 	var p := _player(G, player_id)
 	if p.is_empty():
 		return "invalid player"
@@ -136,20 +204,23 @@ static func activate_room_ability(G: Dictionary, player_id: int, room_index: int
 	if room == null:
 		return "no active room"
 	var r: Dictionary = room
-	if bool(r.get("usedThisTurn", false)):
-		return "already used this turn"
-	if BossEngine.abilities_locked(G, player_id):
-		return "abilities locked (Trap Master)" # KSA017 : Ability.IsLocked -> CheckConditions faux
+	if not queued:
+		if bool(r.get("usedThisTurn", false)):
+			return "already used this turn"
+		if is_queued(G, r):
+			return "already queued" # Room.CanPlayerPlayAbility : aucune transaction en attente pour cette salle
+		if BossEngine.abilities_locked(G, player_id):
+			return "abilities locked (Trap Master)" # KSA017 : Ability.IsLocked -> CheckConditions faux
 	# Cartes wiki (TNL / RMB / CRL) : glossaire « Face-Down » / « Deactivate » -> une salle face cachee (posee ce tour) ou gelee n'a aucune capacite.
 	# Les salles de l'APK gardent leur propre controle plus bas (parite), les coups legaux passent par cette fonction.
-	if ApkAI.is_wiki_card(str(r.get("id", ""))) and (bool(r.get("faceDown", false)) or BossEngine.is_room_deactivated(G, player_id, room_index)):
+	if not queued and ApkAI.is_wiki_card(str(r.get("id", ""))) and (bool(r.get("faceDown", false)) or BossEngine.is_room_deactivated(G, player_id, room_index)):
 		return "room is face down or frozen"
 	if ThkAbilities.ACTIVATED.has(str(r.get("id", ""))): # Tools of Hero-Kind : Orcish Smithy, Burial Mound, Artificer's Workbench (seulement avec la case wiki)
 		return ThkAbilities.activate(G, p, player_id, room_index, r)
 	if Minibosses.active(G) and RmbAbilities.ACTIVATED.has(str(r.get("id", ""))): # Rise of the Minibosses : capacites activees des salles RMB
 		return RmbAbilities.activate(G, p, player_id, room_index, r)
 	if TnlAbilities.active(G):
-		if TnlAbilities.no_text(r): # TNL062 Meddling Kids! : « no ability text » jusqu'a la fin du tour
+		if not queued and TnlAbilities.no_text(r): # TNL062 Meddling Kids! : « no ability text » jusqu'a la fin du tour
 			return "no ability text (Meddling Kids!)"
 		if TnlAbilities.ACTIVATED.has(str(r.get("id", ""))): # The Next Level : capacites activees des salles TNL
 			return TnlAbilities.activate(G, p, player_id, room_index, r)
@@ -158,10 +229,10 @@ static func activate_room_ability(G: Dictionary, player_id: int, room_index: int
 	if not ApkAI.is_wiki_card(id):
 		# GameBoard.PlayRoomAbility (GameBoard.cs:817, « must be in the player dungeon ») : seules les salles de Boss.DungeonActiveRooms (Boss.cs:116 :
 		# slot actif, hors PendingToBeBuilt) activent leur capacite ; ThisRoom (ThisRoom.cs) exige aussi le slot actif. Ni salle posee ce tour, ni salle gelee.
-		if bool(r.get("faceDown", false)) or BossEngine.is_room_deactivated(G, player_id, room_index):
+		if not queued and (bool(r.get("faceDown", false)) or BossEngine.is_room_deactivated(G, player_id, room_index)):
 			return "room is face down or frozen"
 		# BMA030 Jackpot Stash : DuringPhase(Build) = BuildPhase_a seule (Conditions/DuringPhase.cs:19) ; aucune autre salle du base set n'a de condition de phase.
-		if id == "BMA030" and str(G.get("phase", "")) != CardDB.PHASE["BUILD"]:
+		if not queued and id == "BMA030" and str(G.get("phase", "")) != CardDB.PHASE["BUILD"]:
 			return "Jackpot Stash: build phase only"
 	if ONCE_PER_TURN.has(str(r.get("id", ""))):
 		r["usedThisTurn"] = true # data.json : seules BMA013/024/025 portent OncePerTurn (Crushinator et Boulder Ramp sont rejouables)

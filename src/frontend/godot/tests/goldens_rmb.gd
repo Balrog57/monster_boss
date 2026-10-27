@@ -1208,6 +1208,7 @@ func _t_rooms_hero_dependent() -> void:
 	var m1 := _match(G1)
 	_adventure(G1, 0, _hero("RMB087"), 0, 9)
 	_ok.call(m1.apply_move(0, {"type": "activateRoom", "args": [0]}), "RMB047 Living Trap : activee (coup activateRoom)")
+	m1.apply_move(m1.active_player(), {"type": "pass", "args": []}) # R-D67 : capacite en file, l'adversaire passe
 	_ok.call((p1["dungeon"] as Array).size() == 1 and (G1["adventure"] as Dictionary).is_empty() and (p1["souls"] as Array).size() == 1, "RMB047 : la salle Monster est detruite, le heros est tue (une ame)")
 	# RMB051 Lightning Rod : une fois par tour, +3 Coins quand un heros y meurt
 	var rod := _room("RMB051")
