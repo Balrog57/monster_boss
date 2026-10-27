@@ -62,6 +62,11 @@ func _ready() -> void:
 		print("ZOOM SCREENS CAPTURED: ", n_shots)
 		get_tree().quit(0)
 		return
+	if only == "leftovers": # restes du plateau : decalage des boss (X-M06), ombres (X-P06), barre de DONE (G-20), survol de la main (P-C07)
+		await _leftovers_shots()
+		print("LEFTOVERS SCREENS CAPTURED: ", n_shots)
+		get_tree().quit(0)
+		return
 	if only == "lot2b": # lot 2b : main (survol / glissement), pulsation de DONE, bulles, halo vert de la salle source, lueur de niveau, ville, pile, 2e art
 		await _lot2b_shots()
 		print("LOT2B SCREENS CAPTURED: ", n_shots)
@@ -355,6 +360,96 @@ func _lot2b_shots() -> void:
 	await _settle()
 	await _shot("lot2b_hand_two_copies_bma040_alt_art")
 	print("ALT ARTS: ", cp.map(func(c): return (c as Dictionary).get("art", 0)))
+
+func _boss_dict(id: String) -> Dictionary:
+	for b in CardDB.bosses:
+		if str((b as Dictionary).get("id", "")) == id:
+			return (b as Dictionary).duplicate(true)
+	return {}
+
+func _leftovers_shots() -> void:
+	await _new_game()
+	_heroes_town(3)
+	_dungeon_fill(_me(), 3)
+	_dungeon_fill(_foe(), 5)
+	_hand_n(8, 2)
+	_me()["boss"] = _boss_dict("BMA001")
+	_foe()["boss"] = _boss_dict("BMA003")
+	await _settle()
+	await _shot("leftovers_boss_draculord_mine_king_croak_foe") # APK : adv_t8_full_state_5_rooms_each_side (Draculord en bas, King Croak en haut)
+	_foe()["boss"] = _boss_dict("KSA005")
+	_me()["boss"] = _boss_dict("BMA007")
+	await _settle()
+	await _shot("leftovers_boss_cleopatra_mine_scythe_foe_wide")
+	_me()["boss"] = _boss_dict("BMA001")
+	_foe()["boss"] = _boss_dict("BMA003")
+	# barre jaune de DONE (G-20) : echeance simulee a 40 s sur 70
+	gm.G["turnDeadline"] = int(Time.get_unix_time_from_system() * 1000.0) + 70000
+	await _settle()
+	board._tick_done_bar()
+	gm.G["turnDeadline"] = int(Time.get_unix_time_from_system() * 1000.0) + 40000
+	board._tick_done_bar()
+	await _wait(0.2)
+	await _shot("leftovers_done_button_yellow_progress_bar")
+	gm.G.erase("turnDeadline")
+	# survol : plusieurs cartes qui se chevauchent, la plus proche du pointeur gagne
+	var cards := _hand_cards()
+	print("HAND ", _hand_span())
+	for k in [0.15, 0.5, 0.85]:
+		var c: Control = cards[3]
+		var r := c.get_global_transform() * Rect2(Vector2.ZERO, c.size)
+		var p := Vector2(r.position.x + r.size.x * k, r.position.y + r.size.y * 0.3)
+		get_viewport().warp_mouse(p) # le pointeur reel : _tick_hand_hover lit get_global_mouse_position
+		await _mouse(p, false, true, 0) # et l'evenement de survol (gui_get_hovered_control)
+		await _wait(0.2)
+		await _frames(3)
+		board._tick_hand_hover() # la scene tourne avec set_process(false) (voir _new_game)
+		print("HOVER at x=", int(p.x), " -> card ", board._hover_card.hand_index if board._hover_card != null else -1)
+	for f in [0.35, 0.65]: # recouvrement des cartes 3 et 4 : la plus proche (en x) du pointeur gagne
+		get_viewport().warp_mouse(Vector2(900, 300))
+		await _mouse(Vector2(900, 300), false, true, 0)
+		board._tick_hand_hover()
+		await _wait(0.8)
+		var ca: Control = cards[3]
+		var cb: Control = cards[4]
+		var ga := ca.get_global_transform() * (ca.size / 2.0)
+		var gb := cb.get_global_transform() * (cb.size / 2.0)
+		var q := ga.lerp(gb, f) + Vector2(0, 40)
+		get_viewport().warp_mouse(q)
+		await _mouse(q, false, true, 0)
+		await _frames(2)
+		board._tick_hand_hover()
+		print("OVERLAP f=", f, " x=", int(q.x), " (c3 ", int(ga.x), ", c4 ", int(gb.x), ") -> card ", board._hover_card.hand_index if board._hover_card != null else -1)
+	await _wait(0.6)
+	board._tick_hand_hover()
+	await _wait(0.5)
+	await _shot("leftovers_hand_hover_nearest_card")
+	await _mouse(Vector2(900, 300), false, true, 0)
+	# glisser : ombre portee
+	var hand: Array = _me()["hand"]
+	var idx := -1
+	for i in hand.size():
+		if gm.can_build_room_at(0, i, (_me()["dungeon"] as Array).size()) and not bool((hand[i] as Dictionary).get("advanced", false)):
+			idx = i
+			break
+	var card: CardUI = _hand_cards()[idx]
+	var c0 := card.get_global_rect().get_center()
+	await _mouse(c0, true, false)
+	for k in range(1, 9):
+		await _mouse(c0.lerp(Vector2(1000, 600), float(k) / 8.0), false, true, MOUSE_BUTTON_MASK_LEFT)
+	await _wait(0.2)
+	await _shot("leftovers_drag_card_shadow")
+	await _mouse(c0, false, false)
+	await _settle()
+	# salle posee en attente : face cachee, agrandie, avec son ombre
+	if gm.build_room_at(0, idx, (_me()["dungeon"] as Array).size()):
+		board.refresh()
+	await _settle()
+	for sl in board._dungeon_slots:
+		var cu = (sl as DungeonSlot).card_container.get_child(0).get_child(0) if (sl as DungeonSlot).card_container.get_child_count() > 0 else null
+		if cu != null and cu.card_data != null and cu.card_data.face_down:
+			print("PENDING scale=", cu.scale, " rest=", cu._rest_scale, " size=", cu.size, " default=", cu.default_size, " shadow=", (sl as DungeonSlot).get_children().filter(func(c): return c is TextureRect and c.is_in_group("under_card")).size())
+	await _shot("leftovers_pending_room_shadow")
 
 func _big_games() -> void:
 	main_scene = load("res://godot/scenes/Main.tscn").instantiate()

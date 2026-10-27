@@ -87,6 +87,9 @@ const DISCARD_CX := 870.0                # centre de la rangee de defausse : car
 const DISCARD_TOP := 328.0               # haut des cartes de defausse : centre y ~ 499 (MiddleCarrouselEntity.cs:24, y = 498)
 const WIKI_BG_IDS := ["bma001", "bma002", "bma003", "bma004", "bma005", "bma006", "bma007", "bma008", "ksa001", "ksa002", "ksa003", "ksa004", "ksa005", "ksa006", "ksa007"] # fonds APK (assets/ui/dungeon) repris par les boss du wiki
 const BOSS_SPRITE_SCALE := 1.0          # APK : sprite du boss a sa taille native (King Croak ~175 px, Cleopatra ~200 px sur l'estrade)
+## BossInfo.CharacterOffset des 15 bosses de l'APK (data.json des CardDecks). Centre du sprite = (1609 - X, cadre + Y) sur la frame 1920 x 1080 : DungeonFrameEntity.cs:540-549,
+## marge droite 720 + X + 211 depuis le bord droit 1680 moins 100 (ProportionalMarginOffset 300 x (1920/1440 - 1)), cadre a x 720 ; Y relatif au cadre (y 52 en haut, 498 en bas), origine au centre.
+const BOSS_OFFSET := {"bma001": Vector2(110, 260), "bma002": Vector2(53, 320), "bma003": Vector2(55, 306), "bma004": Vector2(75, 306), "bma005": Vector2(55, 306), "bma006": Vector2(100, 285), "bma007": Vector2(60, 289), "bma008": Vector2(50, 306), "ksa001": Vector2(0, 306), "ksa002": Vector2(50, 291), "ksa003": Vector2(55, 291), "ksa004": Vector2(30, 291), "ksa005": Vector2(-40, 291), "ksa006": Vector2(55, 296), "ksa007": Vector2(50, 316)}
 const BOSS_SPRITE_MAX_W := 300.0         # largeur de l'estrade : un sprite plus large (KSA005, 333 px) est reduit pour ne pas deborder
 const BOSS_CARD := Vector2(362, 506)     # carrousel du choix du boss (apk_boss00) : carte centrale ; les voisines sont reduites et se chevauchent
 const BOSS_SIDE_SCALE := [1.0, 0.58, 0.55, 0.52, 0.5, 0.48]
@@ -153,6 +156,7 @@ var skip_animations: bool = DisplayServer.get_name() == "headless" # le smoke te
 var _over_sting_played: bool = false
 var _order_cache: Dictionary = {} # pid -> Boss.PlayerId
 var _hand_last := -1                     # indice de la carte de la main survolee (CardPositionComponent.lastIndex, int.MinValue = aucune)
+var _hover_card: CardUI                  # carte de la main designee par _tick_hand_hover
 var _hand_cur := -1                      # carte de la main sous le curseur a cet instant
 var _fan_cards: Array = []               # cartes de la main en eventail (_place_fan) et leur taille
 var _fan_sz := Vector2.ZERO
@@ -179,6 +183,9 @@ var _speed := 1.0                        # GameSettings.GetSpeed : SLOW 1,5 / NO
 var _pass_raised_key := ""                # siege/tour/phase ou le 1er appui sur PASS TURN a deja eu lieu (le 2e passe)
 var _warn: Control                       # bulle de mise en garde « YOU CAN BUILD A ROOM »
 var _warn_t := 0.0
+var _done_bar: Panel                     # barre jaune sous DONE (G-20), creee a la demande
+var _done_dl := 0                        # echeance (ms) de la barre ; _done_total = duree totale vue a sa creation
+var _done_total := 1.0
 var _pulse_t := 0.0                      # temps depuis l'apparition du bouton PASS TURN / DONE! (pulsation toutes les 5 s)
 var _gameover: Control
 var _press := {}                         # appui sur une carte de la main : {card, idx, pos} (arme le glisser)
@@ -979,6 +986,8 @@ func _process(delta: float) -> void:
 		return
 	_tick_warn(delta)
 	_tick_pulse(delta)
+	_tick_done_bar()
+	_tick_hand_hover()
 	_tick_stack_hover()
 	_drag_tilt()
 	# Godot plafonne delta (~0,13 s) quand les images sont lentes (web, onglet en arriere-plan) : les fenetres chronometrees (APK : horloge reelle)
@@ -1690,8 +1699,8 @@ func _set_boss(L: Dictionary, boss, dead := false, lit := false) -> void:
 	var plat: Control = L["platform"]
 	var cont: CenterContainer = L["container"]
 	var tex: Texture2D = null
+	var bid := str(boss.get("id", "")).to_lower() if boss != null else ""
 	if boss != null:
-		var bid := str(boss.get("id", "")).to_lower()
 		var bg := _tex("res://assets/ui/dungeon/%s_bg.webp" % bid)
 		if bg == null: # boss du wiki sans fond APK : un des fonds APK, choisi d'apres l'id (toujours le meme pour un boss)
 			bg = _tex("res://assets/ui/dungeon/%s_bg.webp" % WIKI_BG_IDS[absi(bid.hash()) % WIKI_BG_IDS.size()])
@@ -1730,6 +1739,11 @@ func _set_boss(L: Dictionary, boss, dead := false, lit := false) -> void:
 		sprite.texture = tex
 		sprite.size = tex.get_size() * minf(BOSS_SPRITE_SCALE, BOSS_SPRITE_MAX_W / tex.get_size().x)
 		sprite.position = Vector2((plat.size.x - sprite.size.x) / 2.0, plat.size.y - sprite.size.y)
+		if BOSS_OFFSET.has(bid) and not dead and boss != null: # X-M06 : sprite a sa taille native (l'APK ne reduit pas KSA005), place selon CharacterOffset
+			var off: Vector2 = BOSS_OFFSET[bid]
+			sprite.size = tex.get_size()
+			var top: bool = L["root"] == (_lane[0] as Dictionary)["root"]
+			sprite.position = Vector2(1609.0 - off.x, (52.0 if top else 498.0) + off.y) - sprite.size / 2.0 - ((L["root"] as Control).position + plat.position)
 		if dead:
 			sprite.position.x = plat.size.x - sprite.size.x + 2.0 # APK : la pierre tombale est collee au bord droit du couloir (x ~1707)
 	# Boss monte de niveau : <id>_character_glow derriere le sprite, meme centre (DungeonFrameEntity.cs:273-279,484 : FadeBehavior 0,5 s, ouvert par CreateLevelUpAnimationTask)
@@ -2174,6 +2188,7 @@ func _place_fan(cards: Array, sz: Vector2, old: Array = []) -> void:
 	var used := {}
 	for i in cards.size():
 		var c: Control = cards[i]
+		(c as CardUI).hover_managed = true
 		(c as CardUI).hover_scale = 1.0 # l'APK ne grossit pas la carte touchee : elle monte seulement
 		var t := _fan_target(i, cards.size(), -1)
 		c.position = t[0]
@@ -3857,8 +3872,11 @@ func _drag_begin() -> void:
 	# la grande apercu 350 x 490 est le zoom d'appui long, pas le glisser.
 	var prev := UiKit.zoom_card(hand[idx], HAND_CARD, greyed, 4.0)
 	prev.modulate = Color(1, 1, 1, 0.96)
+	# X-P06, CardShadowBehavior.cs : card_shadow sous la carte, decalee de (40, 70) a l'echelle 0,5 (Lerp sur 0,37..0,5), opacite 0,75, meme echelle que la carte
+	var shadow := _img(_ui_layer, "res://assets/ui/ingame/card_shadow.webp", Vector2.ZERO, HAND_CARD)
+	shadow.modulate.a = 0.75
 	_ui_layer.add_child(prev)
-	_drag = {"idx": idx, "preview": prev, "frames": []}
+	_drag = {"idx": idx, "preview": prev, "frames": [], "shadow": shadow}
 	_drag_move(_press["pos"])
 	_drag_refresh()
 
@@ -3872,11 +3890,23 @@ func _drag_tilt() -> void:
 	_drag["lx"] = prev.position.x
 	prev.pivot_offset = prev.size / 2.0
 	prev.scale.x = cos(clampf(dx * 0.005, -0.3927, 0.3927))
+	_drag_shadow()
 
 func _drag_move(pos: Vector2) -> void:
 	var prev: Control = _drag["preview"]
 	prev.position = Vector2(clampf(pos.x - prev.size.x / 2.0, 0.0, 1920.0 - prev.size.x), clampf(pos.y - prev.size.y * 0.62, 0.0, 1080.0 - prev.size.y))
+	_drag_shadow()
 	_drag_hover()
+
+## Ombre portee de la carte glissee : sous la carte (cadre noir de 4 px autour), decalee de (40, 70).
+func _drag_shadow() -> void:
+	var sh = _drag.get("shadow")
+	if sh == null or not is_instance_valid(sh):
+		return
+	var prev: Control = _drag["preview"]
+	sh.pivot_offset = HAND_CARD / 2.0
+	sh.position = prev.position + prev.size / 2.0 - HAND_CARD / 2.0 + Vector2(40, 70)
+	sh.scale.x = prev.scale.x
 
 ## (Re)allume les cibles du glisser : emplacements de salle acceptes (le prochain emplacement libre + les salles recouvrables) ou
 ## zones du plateau des cibles d'un sort. Appele au debut du glisser et apres chaque rafraichissement (les noeuds changent).
@@ -3997,6 +4027,8 @@ func _drag_clear() -> void:
 			(f as Node).queue_free()
 	if is_instance_valid(_drag["preview"]):
 		(_drag["preview"] as Node).queue_free()
+	if is_instance_valid(_drag.get("shadow")):
+		(_drag["shadow"] as Node).queue_free()
 	_drag = {}
 
 ## Relachement : salle -> l'emplacement sous le curseur (DungeonSlot._drop_data) ; sort -> la cible sous le curseur (_spell_drop).
@@ -4260,8 +4292,18 @@ func _notice_ai(pid: int, mv: Dictionary, shown = null) -> void:
 		if card is Dictionary and str((card as Dictionary).get("description", "")).to_lower().begins_with("destroy this room"):
 			spot = {"self": true}
 	var against: Array = []
-	if t in ["playSpell", "useHandRoom"] and args.size() > 1 and args[1] is Dictionary and (args[1] as Dictionary).has("targetPlayerId") and int((args[1] as Dictionary)["targetPlayerId"]) != pid:
-		against = [int((args[1] as Dictionary)["targetPlayerId"])] # Ability.GetAgainstPlayers sans le joueur lui-meme (GamePlaySPScene.cs:109-113) ; cible explicite seulement
+	if t in ["playSpell", "useHandRoom"] and args.size() > 1 and args[1] is Dictionary:
+		# Ability.GetAgainstPlayers sans le joueur lui-meme (GamePlaySPScene.cs:109-113) : proprietaire de la cible (joueur, salle, heros d'un donjon, sort de la pile) ;
+		# P-B12 : plus seulement `targetPlayerId` explicite. Les effets sans cible nommee (« chaque adversaire ») restent sans ligne AGAINST : le coup ne les designe pas.
+		var tp := -1
+		if spot.has("pid"):
+			tp = int(spot["pid"])
+		elif str(spot.get("k", "")) == "stack":
+			for se in (game_manager.G.get("stack", []) as Array):
+				if str((se as Dictionary).get("id", "")) == str(spot["id"]):
+					tp = int((se as Dictionary).get("playerId", -1))
+		if tp >= 0 and tp != pid:
+			against = [tp]
 	if t == "playSpell":
 		_show_notice("SPELL", card, spot, pid, against)
 	elif t in ["activateRoom", "useHandRoom"]:
@@ -4648,7 +4690,7 @@ func _warn_outside(event: InputEvent) -> void:
 			_warn_hide())
 
 ## DoneButtonEntity.cs:99-107 : minuteur de 5 s en boucle depuis l'apparition du bouton, qui lance PulseBehavior(halt_button_pulse, 3) (PulseBehavior.cs : 3 copies decalees de 0,3 s,
-## 2 s chacune, echelle 0,9 -> 1,3 et opacite 1 -> 0 en CubicEase = EaseOut). La barre jaune sous le bouton n'existe qu'avec les delais de tour (70 s, desactives ici) : G-20.
+## 2 s chacune, echelle 0,9 -> 1,3 et opacite 1 -> 0 en CubicEase = EaseOut). La barre jaune sous le bouton : _tick_done_bar.
 func _tick_pulse(delta: float) -> void:
 	if not pass_shown() or btn_pass.button_pressed or skip_animations:
 		_pulse_t = 0.0
@@ -4658,6 +4700,71 @@ func _tick_pulse(delta: float) -> void:
 		return
 	_pulse_t -= 5.0
 	_pulse_rings(btn_pass, UI_DIR + "halt_button_pulse.webp", Vector2(170, 73), btn_pass.size / 2.0, 3)
+
+## G-20, ProgressBarEntity de DoneButtonEntity.cs:98 : barre jaune (ninepatch progress_yellow, 177 px, centre du bouton + (0, 13), x de -88,5 + 1) qui se vide
+## avec le delai du tour. L'APK ne la montre qu'avec les delais (GamePlayBaseScene.cs:272 : duree 0 hors ligne, donc invisible) : ici, quand le serveur
+## donne une echeance (`turnDeadline`) et que le bouton est affiche. Largeur minimale 4 px (ProgressBarBehavior.DrawProgress).
+func _tick_done_bar() -> void:
+	var dl := int(game_manager.G.get("turnDeadline", 0))
+	var want := dl > 0 and pass_shown()
+	if _done_bar == null:
+		if not want:
+			return
+		_done_bar = Panel.new()
+		_done_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sb := StyleBoxTexture.new()
+		sb.texture = _tex("res://assets/ui/ninepatch/progress_yellow.webp")
+		sb.texture_margin_left = 4
+		sb.texture_margin_right = 4
+		sb.texture_margin_top = 3
+		sb.texture_margin_bottom = 3
+		_done_bar.add_theme_stylebox_override("panel", sb)
+		btn_pass.add_child(_done_bar)
+	_done_bar.visible = want
+	if not want:
+		return
+	var now_ms := Time.get_unix_time_from_system() * 1000.0
+	if dl != _done_dl: # nouvelle echeance : la barre repart pleine (ProgressBarBehavior.Reset)
+		_done_dl = dl
+		_done_total = maxf(1000.0, float(dl) - now_ms)
+	var frac := clampf((float(dl) - now_ms) / _done_total, 0.0, 1.0)
+	_done_bar.size = Vector2(maxf(4.0, 177.0 * frac), 11.0)
+	_done_bar.position = Vector2(btn_pass.size.x / 2.0 - 88.5 + 1.0, btn_pass.size.y / 2.0 + 13.0 - 5.5)
+
+## P-C07, CardHoverBehavior.GetSelectedCard / ResolveCollision (cs:67-120) : parmi les cartes de la main qui contiennent le pointeur, celle dont le centre (en x) en est le plus proche.
+## Le controle sous le curseur n'est que la carte du dessus ; s'il n'est pas une carte de la main (fenetre, popup), plus aucune carte n'est survolee.
+func _tick_hand_hover() -> void:
+	if not _drag.is_empty():
+		return
+	var best: CardUI = null
+	var hv := get_viewport().gui_get_hovered_control()
+	if hv != null and not _fan_cards.is_empty():
+		var on_hand := false
+		for c in _fan_cards:
+			if is_instance_valid(c) and (hv == c or (c as Node).is_ancestor_of(hv)):
+				on_hand = true
+				break
+		if on_hand:
+			var m := get_global_mouse_position()
+			var dmin := INF
+			for c in _fan_cards:
+				if not is_instance_valid(c) or not (c as Control).visible:
+					continue
+				var cc := c as Control
+				var gt := cc.get_global_transform()
+				if not Rect2(Vector2.ZERO, cc.size).has_point(gt.affine_inverse() * m):
+					continue
+				var d := absf(m.x - (gt * (cc.size / 2.0)).x)
+				if d < dmin:
+					dmin = d
+					best = cc as CardUI
+	if best == _hover_card:
+		return
+	if _hover_card != null and is_instance_valid(_hover_card):
+		_hover_card.set_hovered(false)
+	_hover_card = best
+	if best != null:
+		best.set_hovered(true)
 
 ## PulseBehavior.cs : n copies de la texture centrees en `centre`, la k-ieme part 0,3 s x (k + 1) apres l'appel, 2 s chacune : echelle 0,9 -> 1,3 et opacite 1 -> 0 en CubicEase (EaseOut).
 func _pulse_rings(host: Control, path: String, sz: Vector2, centre: Vector2, n: int) -> void:

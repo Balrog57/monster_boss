@@ -73,7 +73,12 @@ func _update_view() -> void:
 			slot_frame.visible = false
 		var card_ui = _card_ui_scene.instantiate()
 		card_ui.default_size = CARD_SIZE
-		card_container.add_child(card_ui)
+		var holder := Control.new() # le CenterContainer remet l'echelle de ses enfants a 1 (fit_child_in_rect) : la salle en attente (0,5) vit dans ce support
+		holder.custom_minimum_size = CARD_SIZE
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card_container.add_child(holder)
+		holder.add_child(card_ui)
+		card_ui.size = CARD_SIZE
 		card_ui.is_in_hand = false
 		card_ui.setup(active_room)
 		card_ui.add_lane_badge()
@@ -99,6 +104,18 @@ func _update_view() -> void:
 		if _was_down and not down and DisplayServer.get_name() != "headless":
 			card_ui.flip_in()
 		_was_down = down
+		if down: # X-P06 : salle en attente = IsShadowVisible (CardStackSlotComponent.cs:130), ombre card_shadow decalee de (40, 70) a l'echelle 0,5, opacite 0,75
+			var sh := TextureRect.new()
+			sh.texture = load("res://assets/ui/ingame/card_shadow.webp")
+			sh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			sh.stretch_mode = TextureRect.STRETCH_SCALE
+			sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			sh.size = Vector2(175, 244)
+			sh.position = (custom_minimum_size - sh.size) / 2.0 + Vector2(40, 70)
+			sh.modulate.a = 0.75
+			sh.add_to_group("under_card")
+			add_child(sh)
+			move_child(sh, card_container.get_index())
 		add_under_cards(self, current_stack, _card_ui_scene, CARD_SIZE, card_container.get_index())
 		if border:
 			border.border_color = Color(0.4, 0.8, 0.4, 0.0) # pas de liseré : seul le halo d'une salle activable est visible

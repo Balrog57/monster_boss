@@ -279,7 +279,25 @@ static func lerp_vers(n: Node, prop: String, cible) -> void:
 	tw.tween_method(func(t: float): n.set_indexed(prop, lerp(dep, cible, 1.0 - pow(0.856, t / 0.016))), 0.0, 0.48, 0.48) # 0,856 = 1 - 0,009 x 16
 	tw.tween_callback(func(): n.set_indexed(prop, cible))
 
+## Carte de la main : BoardUI choisit la carte survolee (CardHoverBehavior.ResolveCollision : centre le plus proche du pointeur parmi celles qui se chevauchent)
+## et appelle set_hovered ; l'entree / sortie native du controle (la carte du dessus) est alors ignoree.
+var hover_managed := false
+
 func _on_mouse_entered() -> void:
+	if not hover_managed:
+		set_hovered(true)
+
+func _on_mouse_exited() -> void:
+	if not hover_managed:
+		set_hovered(false)
+
+func set_hovered(on: bool) -> void:
+	if on:
+		_hover_in()
+	else:
+		_hover_out()
+
+func _hover_in() -> void:
 	z_index = 20
 	if glow_rect:
 		glow_rect.visible = true
@@ -288,7 +306,7 @@ func _on_mouse_entered() -> void:
 	lerp_vers(self, "scale", _rest_scale * hover_scale)
 	card_hovered.emit(card_data, true)
 
-func _on_mouse_exited() -> void:
+func _hover_out() -> void:
 	z_index = 0
 	if glow_rect:
 		glow_rect.visible = false
