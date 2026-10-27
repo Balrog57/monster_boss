@@ -614,6 +614,12 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 				"target": target,
 				"resolved": false
 			}
+			var tracked = _tracked_target(pid, target) if sid != "BMA043" else null
+			if tracked != null: # R-E27 : la transaction retient la CARTE visee (ILogicCard), pas son indice
+				if not (tracked as Dictionary).has("_tuid"):
+					_tuid_seq += 1 # compteur et non randi() : ne pas consommer le tirage global (les defausses au hasard en dependent)
+					(tracked as Dictionary)["_tuid"] = _tuid_seq
+				entry["tgtUid"] = (tracked as Dictionary)["_tuid"]
 			stack.insert(_stack_insert_index(entry, counter_idx), entry)
 			if G.has("buildWindow"):
 				G["buildWindow"] = _window_auto_passed() # un sort relance la Spell Battle : tout le monde doit re-passer
@@ -1725,6 +1731,41 @@ func _stack_all_responders_passed() -> bool:
 			return false
 	return true
 
+static var _tuid_seq := 0
+
+## Carte (salle du sommet d'un emplacement, heros de la ville) designee par la cible d'un sort, ou null.
+func _tracked_target(caster_id: int, t: Dictionary) -> Variant:
+	if t.has("roomIndex"):
+		return SpellEffects.find_room(G, SpellEffects._target_id(t, caster_id), int(t["roomIndex"]))
+	var town: Array = G.get("town", [])
+	if t.has("townIndex") and int(t["townIndex"]) >= 0 and int(t["townIndex"]) < town.size():
+		return town[int(t["townIndex"])]
+	return null
+
+## R-E27 (GameBoard.RemovePendingTransactionsByTarget, appelee par DestroyRoom / DiscardCard / RemoveHeroFromGame) : retrouve la carte visee
+## au moment de la resolution (les indices ont pu glisser) ; faux si elle a quitte le jeu, la transaction est alors annulee.
+func _retarget_stack_effect(effect: Dictionary) -> bool:
+	var uid = effect["tgtUid"]
+	var t: Dictionary = effect.get("target", {})
+	if t.has("roomIndex"):
+		for pid in G.get("players", {}):
+			var dungeon: Array = (G["players"][pid] as Dictionary).get("dungeon", [])
+			for j in dungeon.size():
+				for r in (dungeon[j] as Array):
+					if (r as Dictionary).get("_tuid", -1) == uid:
+						if BossEngine.active_room(dungeon[j]) == r: # une salle couverte garde son indice d'origine
+							t["roomIndex"] = j
+							if t.has("targetPlayerId"):
+								t["targetPlayerId"] = int(pid)
+						return true
+		return false
+	var town: Array = G.get("town", [])
+	for i in town.size():
+		if (town[i] as Dictionary).get("_tuid", -1) == uid:
+			t["townIndex"] = i
+			return true
+	return false
+
 func _resolve_pending_stack() -> void:
 	var stack: Array = G.get("stack", [])
 	while not stack.is_empty():
@@ -1740,6 +1781,8 @@ func _resolve_pending_stack() -> void:
 			var sd: Array = decks.get("spellDiscard", [])
 			decks["spellDiscard"] = sd
 			CardDB.discard_add(sd, card) # la carte part en defausse a l'activation (OnAbilityApplyRequest), annulee ou non
+			if effect.has("tgtUid") and not _retarget_stack_effect(effect):
+				effect["canceled"] = true # RemovePendingTransactionsByTarget : la salle / le heros vise a quitte le jeu
 			if bool(effect.get("canceled", false)):
 				if TnlAbilities.active(G):
 					TnlAbilities.record_played(G, caster_id, card) # Save Point : un sort annule a bien ete « played » (la carte est en defausse)

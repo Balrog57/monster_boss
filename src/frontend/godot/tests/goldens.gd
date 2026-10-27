@@ -31,6 +31,8 @@ func _ready() -> void:
 	_t_apk_forced_build_turn()
 	_t_apk_build_limit_kobold_motivation()
 	_t_apk_deal_hero_defers_death()
+	_t_apk_dead_hero_untargetable_in_window()
+	_t_apk_stack_target_leaves_game()
 	_t_spell_cave_in_kills_hero_in_room()
 	_t_spell_assassin_hero_at_entrance()
 	_t_spell_motivation_extra_build()
@@ -448,7 +450,10 @@ func _t_spell_motivation_extra_build() -> void:
 	_ok(SpellEffects.cast_spell(G, 0, {"id": "BMA050"}, {}), "Motivation accepte quand on a moins de salles")
 	_ok(BossEngine.build_limit(G, 0) == 2, "Motivation accorde une construction (MaxBuildRoomLimit 2)")
 	var G2 := _spell_state([[_room("T", "trap", false, [1])]], 1)  # egalite
-	_ok(not SpellEffects.cast_spell(G2, 0, {"id": "BMA050"}, {}), "Motivation refuse a egalite")
+	_ok(not SpellTargeting.conditions_ok(G2, 0, "BMA050"), "Motivation injouable a egalite (condition testee a la mise en jeu)")
+	_ok(SpellTargeting.conditions_ok(G, 0, "BMA050"), "Motivation jouable quand on a moins de salles")
+	# R-E17 : a la resolution la condition n'est pas reverifiee (Ability.DoEffect) : l'ecart a disparu, la construction est quand meme accordee
+	_ok(SpellEffects.cast_spell(G2, 0, {"id": "BMA050"}, {}) and BossEngine.build_limit(G2, 0) == 2, "R-E17 : Motivation resolue sans re-verification de la condition")
 
 ## BMA048 Jeopardy : tout le monde defausse et pioche 1 sort + 2 salles.
 func _t_spell_jeopardy_all_players() -> void:
@@ -2565,4 +2570,53 @@ func _t_apk_deal_hero_defers_death() -> void:
 	_ok(not adv.is_empty() and int(adv["hp"]) == 0 and (p["souls"] as Array).is_empty(), "R-D46 : le heros reste en vie a 0 PV (pas de mort immediate)")
 	m._room_damage(0, 1)
 	_ok(int(m.G["adventure"]["hp"]) <= 0 and not bool(m.G["adventure"].get("dealZero", false)), "R-D46 : a la salle suivante le drapeau est consomme")
+	m.queue_free()
+
+## R-D47 : le heros qui meurt sous les degats d'une salle est retire du jeu (ProccessActiveHero) avant la fenetre de sorts : plus ciblable.
+## Sauf s'il est a 0 PV par DealHero (dealZero) : celui-la reste en vie jusqu'a la salle suivante (R-D46).
+func _t_apk_dead_hero_untargetable_in_window() -> void:
+	var G := _ability_G("X")
+	var hero := {"id": "HD", "name": "HD", "hp": 5}
+	(G["players"][0] as Dictionary)["entrance"] = [hero, {"id": "HN", "name": "HN", "hp": 5}]
+	G["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": 0, "hp": 0, "pause": "post-damage"}
+	var me: Dictionary = G["players"][1]
+	var t := SpellTargeting.enumerate_targets("hero-opponent-dungeon", G, me, 1)
+	_ok(t.size() == 1 and (t[0] as Dictionary)["heroId"] == "HN", "R-D47 : heros mort sous les degats de la salle non ciblable (le suivant l'est)")
+	(G["adventure"] as Dictionary)["hp"] = 2
+	t = SpellTargeting.enumerate_targets("hero-opponent-dungeon", G, me, 1)
+	_ok(t.size() == 1 and (t[0] as Dictionary)["heroId"] == "HD", "R-D47 : heros vivant ciblable")
+	(G["adventure"] as Dictionary)["hp"] = 0
+	(G["adventure"] as Dictionary)["dealZero"] = true
+	t = SpellTargeting.enumerate_targets("hero-opponent-dungeon", G, me, 1)
+	_ok(t.size() == 1 and (t[0] as Dictionary)["heroId"] == "HD", "R-D47 : heros a 0 PV par DealHero (R-D46) toujours ciblable")
+	(G["players"][0] as Dictionary)["entrance"] = [hero]
+	(G["adventure"] as Dictionary).erase("dealZero")
+	_ok(SpellTargeting.enumerate_targets("hero-opponent-dungeon", G, me, 1).is_empty(), "R-D47 : plus aucun heros ciblable")
+
+## R-E27 : RemovePendingTransactionsByTarget. La transaction retient la salle visee (pas son indice) : elle suit sa salle quand les emplacements
+## se tassent (DestroyRoom), et elle est annulee si la salle a quitte le jeu.
+func _t_apk_stack_target_leaves_game() -> void:
+	var m = load("res://godot/scripts/Match.gd").new()
+	add_child(m)
+	m.G = _ability_G("X")
+	var p: Dictionary = m.G["players"][0]
+	var a := _room("A", "trap", false, [1])
+	var b := _room("B", "trap", false, [1])
+	var c := _room("C", "trap", false, [1])
+	p["dungeon"] = [[a], [b], [c]]
+	m.G["log"] = []
+	m.G["turn"] = 1
+	var spell := {"id": "BMA040", "name": "Annihilator", "isSpell": true}
+	var tc = m._tracked_target(0, {"roomIndex": 2})
+	_ok(tc == c, "R-E27 : la cible retenue est la salle du sommet de l'emplacement")
+	c["_tuid"] = 11
+	a["_tuid"] = 10
+	m.G["stack"] = [
+		{"id": "s1", "type": "spell", "playerId": 0, "card": {"id": "BMA042", "name": "Cave-In", "isSpell": true}, "target": {"roomIndex": 0}, "tgtUid": 10, "resolved": false},
+		{"id": "s2", "type": "spell", "playerId": 0, "card": spell, "target": {"roomIndex": 2}, "tgtUid": 11, "resolved": false},
+		{"id": "s3", "type": "spell", "playerId": 0, "card": spell, "target": {"roomIndex": 0}, "tgtUid": 10, "resolved": false}]
+	m._resolve_pending_stack()
+	_ok((p["dungeon"] as Array).size() == 2, "R-E27 : Cave-In detruit A")
+	_ok(int(c.get("dealDamage", 0)) == 3, "R-E27 : la transaction suit sa salle apres le tassement des emplacements (C est passee de 2 a 1)")
+	_ok(int(b.get("dealDamage", 0)) == 0, "R-E27 : la transaction dont la salle a ete detruite est annulee (B, qui a pris l'indice 0, ne recoit rien)")
 	m.queue_free()

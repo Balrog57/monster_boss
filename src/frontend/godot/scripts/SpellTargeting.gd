@@ -56,9 +56,19 @@ static func stack_spell_entries(G: Dictionary, player_id: int) -> Array:
 			out.append(ed)
 	return out
 
+## R-D47 : GameBoard.ProccessActiveHero tue le heros a hp <= 0 (RemoveHeroFromGame) AVANT la fenetre de sorts ; Godot le garde dans G.adventure jusqu'a la fin de la pause.
+## Un heros mort sous les degats d'une salle (pause « post-damage », hors dealZero = DealHero, qui ne teste pas la mort) n'est donc plus ciblable.
+static func hero_dead_in_window(G: Dictionary, hero) -> bool:
+	var adv: Dictionary = G.get("adventure", {})
+	if adv.is_empty() or adv.get("pause") != "post-damage" or int(adv.get("hp", 1)) > 0 or bool(adv.get("dealZero", false)):
+		return false
+	return hero is Dictionary and adv.get("hero") is Dictionary and str((adv["hero"] as Dictionary).get("id", "")) == str((hero as Dictionary).get("id", ""))
+
 ## HeroInDungeon.InternalGetAvailableTargets : `EntranceQueue.Take(1)`, seul le premier heros de chaque entree est ciblable.
-static func _front_hero(p: Dictionary) -> Array:
-	return (p.get("entrance", []) as Array).slice(0, 1)
+static func _front_hero(p: Dictionary, G: Dictionary = {}) -> Array:
+	var ent: Array = p.get("entrance", [])
+	var start := 1 if not ent.is_empty() and hero_dead_in_window(G, ent[0]) else 0
+	return ent.slice(start, start + 1)
 
 static func _player(G: Dictionary, pid: int) -> Dictionary:
 	var players: Dictionary = G.get("players", {})
@@ -122,10 +132,10 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 				var op: Dictionary = G["players"][opid]
 				if int(opid) == pid or op.get("eliminated", false):
 					continue
-				for h in _front_hero(op):
+				for h in _front_hero(op, G):
 					out.append({"heroId": (h as Dictionary).get("id")})
 		"hero-own-dungeon":
-			for h in _front_hero(me):
+			for h in _front_hero(me, G):
 				out.append({"heroId": (h as Dictionary).get("id")})
 		"hero-own-active":
 			var ah = active_entrance_hero(G, me, pid)
@@ -136,7 +146,7 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 				var op: Dictionary = G["players"][opid]
 				if op.get("eliminated", false):
 					continue
-				for h in _front_hero(op):
+				for h in _front_hero(op, G):
 					out.append({"heroId": (h as Dictionary).get("id")})
 		"hero-town":
 			for i in (G.get("town", []) as Array).size():
@@ -296,7 +306,7 @@ static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary
 					"kind": "epic-hero" if h.get("epic", false) else "hero",
 					"value": {"townIndex": i}, "label": str(h.get("name", ""))})
 		"hero-own-dungeon":
-			for h in _front_hero(me):
+			for h in _front_hero(me, G):
 				var hd: Dictionary = h
 				out.append({"key": "hero-%s" % str(hd.get("id", "")), "card": hd,
 					"kind": "epic-hero" if hd.get("epic", false) else "hero",
@@ -315,7 +325,7 @@ static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary
 					continue
 				if type == "hero-opponent-dungeon" and int(opid) == pid:
 					continue
-				for h in _front_hero(op):
+				for h in _front_hero(op, G):
 					var hd: Dictionary = h
 					out.append({"key": "hero-%s-%s" % [str(opid), str(hd.get("id", ""))], "card": hd,
 						"kind": "epic-hero" if hd.get("epic", false) else "hero",
@@ -379,8 +389,11 @@ static func get_spell_target_options(type: String, G: Dictionary, me: Dictionary
 static func active_entrance_hero(G: Dictionary, me: Dictionary, pid: int) -> Variant:
 	var adv: Dictionary = G.get("adventure", {})
 	if not adv.is_empty():
-		return adv.get("hero") if int(adv.get("playerId", -1)) == pid else null
-	if (G.get("stack", []) as Array).is_empty() and int(G.get("activePlayer", -1)) != pid: # pendant une Spell Battle, activePlayer est le repondant courant
+		return adv.get("hero") if int(adv.get("playerId", -1)) == pid and not hero_dead_in_window(G, adv.get("hero")) else null
+	# Pendant une Spell Battle activePlayer est le repondant courant : le heros actif reste celui du joueur de phase (stackActivePlayer).
+	var st: Array = G.get("stack", [])
+	var real_active := int(G.get("stackActivePlayer", G.get("activePlayer", -1))) if not st.is_empty() else int(G.get("activePlayer", -1))
+	if real_active != pid:
 		return null
 	if ((G.get("effects", {}) as Dictionary).get("skipAdventure", []) as Array).has(pid):
 		return null

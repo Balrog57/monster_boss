@@ -138,9 +138,8 @@ static func _freeze(G: Dictionary, caster_id: int, _card: Dictionary, target: Di
 # --- BMA050 Motivation : construction supplementaire si moins de salles qu'un adversaire ---
 
 static func _motivation(G: Dictionary, caster_id: int, _card: Dictionary, _target: Dictionary) -> bool:
-	if not BossEngine.opponent_dungeon_larger(G, caster_id, 1): # meme condition que la legalite (SpellTargeting.conditions_ok)
-		_log(G, "Motivation: you do not have fewer rooms than an opponent.")
-		return false
+	# R-E17 : la condition (OpponnentDungeonSizeMoreThan) n'est testee qu'a la mise en jeu (Spell.CanPlay, SpellTargeting.conditions_ok) ;
+	# Ability.DoEffect ne la reverifie pas a l'execution : la construction supplementaire est accordee meme si l'ecart a disparu entre-temps.
 	var me := _player(G, caster_id)
 	me["buildLimit"] = int(me.get("buildLimit", 1)) + 1 # BuildExtraRoom : MaxBuildRoomLimit++ (remis a 1 quand le joueur cesse d'etre actif)
 	_log(G, "Motivation: you may build an extra room this turn.")
@@ -332,6 +331,7 @@ static func _kobold_strike(G: Dictionary, _caster_id: int, _card: Dictionary, _t
 				var back: Dictionary = stack.pop_back()
 				back.erase("faceDown")
 				back.erase("builtThisTurn")
+				back.erase("undoBuild")
 				(p["hand"] as Array).append(back)
 			# Boss.UndoBuildRoom garde l'emplacement vide, mais Godot ne stocke que les piles non vides : meme etat observable (la salle posee ce tour
 			# est la plus recente, donc DungeonSize = dernier emplacement non vide + 1 et le premier emplacement libre sont identiques).
