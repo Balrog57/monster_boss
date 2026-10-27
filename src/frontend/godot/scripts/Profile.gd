@@ -92,6 +92,22 @@ static func record_result(won: bool, code: String = "") -> void:
 		cfg.set_value("stats", "defeats", int(st["defeats"]) + 1)
 	cfg.save(SAVE_PATH)
 
+## Les autres joueurs sont partis (GamePlayMOScene.OnPlayerLeaveGame, cs:96-119) : la defaite posee au debut est retiree, plus une victoire si la partie avait dure plus de 2 tours.
+static func record_desertion(won: bool, code: String) -> void:
+	if won:
+		record_result(true, code)
+		return
+	var cfg := ConfigFile.new()
+	cfg.load(SAVE_PATH)
+	var counted: Array = Array(cfg.get_value("stats", "counted", []))
+	if code in counted:
+		return
+	counted.append(code)
+	cfg.set_value("stats", "counted", counted.slice(-COUNTED_KEEP))
+	if code in Array(cfg.get_value("stats", "started", [])):
+		cfg.set_value("stats", "defeats", maxi(0, int(cfg.get_value("stats", "defeats", 0)) - 1))
+	cfg.save(SAVE_PATH)
+
 ## Reglages (serveur multi, extensions du wiki, paquets APK choisis), meme fichier.
 static func load_settings() -> Dictionary:
 	var d := {"host": "http://127.0.0.1:8000", "extensions": false, "decks": []}

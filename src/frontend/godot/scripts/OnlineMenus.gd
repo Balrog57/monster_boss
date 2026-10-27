@@ -1,6 +1,6 @@
 extends RefCounted
 ## Ecrans multijoueur de l'APK 2.2.6 (maquette 1920x1080, coordonnees de decompiled/DBMGame/) :
-##   MultiplayerScene (PLAY ONLINE / PASS AND PLAY) -> MenuOnlineScene (WORLDWIDE / WITH FRIENDS / CHANGE USER/AVATAR)
+##   MultiplayerScene (PLAY ONLINE / PLAY WITH FRIENDS) -> MenuOnlineScene (WORLDWIDE / WITH FRIENDS / CHANGE USER/AVATAR)
 ##   -> WORLDWIDE : liste des salons publics (hors APK, voir show_public) ; CREATE PUBLIC GAME reprend NEW GAME avec `public`
 ##   -> WithFriendsOnlineScene (NEW GAME / ROOM CODE) -> WaitingPrivateRoomScene ; ChangeNameAvatarScene ; MessageBoxScene.
 ## Repere : l'APK dessine dans 1440x1080 (Game.VIEWPORT_WIDTH) et un ecran 16:9 montre 240 px de plus de chaque cote : x ecran = x APK + 240 pour les
@@ -21,6 +21,7 @@ const AV_ORIGIN_X := 400.0 # AvatarScrollComponent a (160, 620) APK
 const ROW_Y := [394.0, 525.0, 652.0, 779.0]            # OnlinePanelEntity : 300 + 94 + i * 127 (+ 4 pour i > 0)
 const ROW_STEP_BIG := 83.0 # 6 lignes (5-6 joueurs) dans le cadre 300-904 : pas de 83 px, avatar a 0,29
 const CODE_LEN := 4
+const WAIT_LINK_GRACE_S := 10.0     # salle d'attente : liaison coupee depuis ce delai = « NETWORK ERROR » et retour (WaitingRoomBaseScene.OnDisconnect) ; une coupure breve est toleree
 const PUBLIC_REFRESH_S := 5.0       # liste publique : le serveur pousse chaque changement, on redemande quand meme toutes les 5 s
 const PUBLIC_UNREACHABLE_S := 3.0   # liaison absente depuis ce delai : « UNABLE TO REACH THE SERVER »
 const PACK_ABBR := {"tools": "THK", "players-choice": "PC", "hidden-heroes": "HH", "next-level": "TNL", "crash-landing": "CRL", "minibosses": "RMB", "iod": "IOD"}
@@ -162,7 +163,7 @@ func _blur_on_background(le: LineEdit) -> void:
 		if ev is InputEventMouseButton and ev.pressed and is_instance_valid(le):
 			le.release_focus())
 
-# --- MultiplayerScene : PLAY ONLINE / PASS AND PLAY ------------------------------
+# --- MultiplayerScene : PLAY ONLINE / PLAY WITH FRIENDS ------------------------------
 
 const DECKS := {
 	2: {"ids": ["BMA006", "BMA002"], "close": [Vector2(0, 0), Vector2(50.0 / 3.0, 0)], "open": [Vector2(0, 0), Vector2(50, 0)],
@@ -179,7 +180,11 @@ func show_multi() -> void:
 			m.go(show_online) # MultiplayerScene.cs:56 (ColorFade 1,0 s)
 		else: # pas encore de pseudo : ChangeNameAvatarScene(canGoBack: false, setDefaultValues: true) d'abord
 			m.go(func(): show_profile(false, true))) # MultiplayerScene.cs:60-62
-	_deck_btn(660.0, 2, "PASS AND PLAY", "Play versus another player\n using the same device", func(): m.go(func(): m.show_solo_count("pass"))) # MultiplayerScene.cs:78 (ColorFade 1,0 s)
+	_deck_btn(660.0, 2, "PLAY WITH FRIENDS", "Play in a private room, by code", func(): # hors APK : remplace PASS AND PLAY (un seul ecran) ; chacun joue depuis son navigateur
+		if Profile.has_profile():
+			m.go(show_friends)
+		else:
+			m.go(func(): show_profile(false, true)))
 
 ## ButtonWithDeckEntity : big_button 504x400 centre en (cx, 540), titre (-305,-170) x 1,3, sous-titre Bookman (-250,-125) ; eventail de bosses a (0, +80) x 0,7.
 func _deck_btn(cx: float, count: int, title: String, sub: String, cb: Callable) -> void:
@@ -768,6 +773,8 @@ func show_waiting() -> void:
 	if o.request_error.is_connected(_on_waiting_error):
 		o.request_error.disconnect(_on_waiting_error)
 	o.request_error.connect(_on_waiting_error)
+	if not o.link_changed.is_connected(_on_waiting_link):
+		o.link_changed.connect(_on_waiting_link)
 	_update_waiting({"status": o.current_status, "seats": o.current_seats, "host": o.current_host, "title": o.current_title})
 	o.start_lobby_poll()
 	o.fetch_lobby()
@@ -795,21 +802,40 @@ func leave_waiting() -> void:
 	o.leave_match(was_public) # retour a la liste publique : la liaison est reutilisee
 	if o.lobby_changed.is_connected(_on_lobby_changed):
 		o.lobby_changed.disconnect(_on_lobby_changed)
-	if o.request_error.is_connected(_on_waiting_error):
-		o.request_error.disconnect(_on_waiting_error)
+	_unwatch_waiting_errors()
 	if o.state_received.is_connected(_on_first_state):
 		o.state_received.disconnect(_on_first_state)
 	show_public() if was_public else show_friends()
 
+func _unwatch_waiting_errors() -> void:
+	var o = m.online
+	if o.request_error.is_connected(_on_waiting_error):
+		o.request_error.disconnect(_on_waiting_error)
+	if o.link_changed.is_connected(_on_waiting_link):
+		o.link_changed.disconnect(_on_waiting_link)
+
+## Salle morte (fermee, jeton refuse) ou liaison perdue pour de bon : « NETWORK ERROR », OK ramene a l'ecran precedent (APK : Pop).
+## Toute autre erreur du serveur (demarrage refuse...) garde la salle : le OK ne fait rien.
 func _on_waiting_error(msg: String) -> void:
 	if msg.contains("reconnexion") or _wait_err_shown: # coupure passagere : le client rouvre tout seul
 		return
 	_wait_err_shown = true
-	var room_gone: bool = str(m.online.match_id) == ""
-	msg_box("NETWORK ERROR", "Room closed" if room_gone else "Unable to join private room", func():
+	var o = m.online
+	var room_gone: bool = str(o.match_id) == ""
+	var dead: bool = room_gone or not o.connected
+	var text := "Room closed" if room_gone else ("Unable to join public room" if o.public_room else "Unable to join private room")
+	msg_box("NETWORK ERROR", text, func():
 		_wait_err_shown = false
-		if room_gone:
+		if dead:
 			leave_waiting())
+
+## Liaison coupee en salle d'attente (U-C34) : on laisse WAIT_LINK_GRACE_S au client pour se reconnecter tout seul.
+func _on_waiting_link(up: bool) -> void:
+	if up:
+		return
+	m.get_tree().create_timer(WAIT_LINK_GRACE_S).timeout.connect(func():
+		if is_instance_valid(_wait_ok) and not m.online.connected and m.online.match_id != "":
+			_on_waiting_error("connexion perdue"))
 
 func _on_lobby_changed(info: Dictionary) -> void:
 	_update_waiting(info)
@@ -830,8 +856,7 @@ func _on_first_state() -> void:
 		return
 	if o.state_received.is_connected(_on_first_state):
 		o.state_received.disconnect(_on_first_state)
-	if o.request_error.is_connected(_on_waiting_error):
-		o.request_error.disconnect(_on_waiting_error)
+	_unwatch_waiting_errors()
 	m.start_online_match()
 
 ## OnlinePanelEntity.UpdatePanel : 4 lignes (6 avec 5-6 joueurs) (avatar, pseudo <= 25 car., victoires, defaites) ; ligne de l'hote en or ; siege libre = « WAITING... ».

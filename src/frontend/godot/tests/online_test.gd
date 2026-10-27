@@ -355,6 +355,10 @@ func _run_network() -> void:
 		await _scenario_public_client()
 	if _fails.is_empty():
 		await _scenario_eviction()
+	if _fails.is_empty():
+		await _scenario_adventure_expiry()
+		_scenario_plays()
+		await _scenario_player_left()
 	if FileAccess.file_exists(OnlineClient.SESSION_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(OnlineClient.SESSION_PATH))
 	server.stop()
@@ -971,7 +975,10 @@ func _scenario_leave_and_lost() -> void:
 	# salle fermee cote serveur pendant la partie : session_lost
 	var lost := [0]
 	c.session_lost.connect(func(): lost[0] += 1)
+	var id_at_error := ["?"]
+	c.request_error.connect(func(_m): id_at_error[0] = c.match_id)
 	server._close_room(c.match_id)
+	_expect(await _wait(func(): return id_at_error[0] != "?", 3.0) and id_at_error[0] == "", "N-B33 : request_error d'une salle fermee doit voir match_id vide (l'ecran d'attente en deduit « Room closed »)")
 	_expect(await _wait(func(): return lost[0] == 1, 3.0) and c.match_id == "", "session_lost : salle fermee non signalee")
 	# salle inconnue au resume (serveur redemarre) : session_lost
 	c._on_message({"t": "joined", "code": "ZZZZ", "seat": 0, "token": "x"})
@@ -1093,6 +1100,113 @@ func _scenario_title() -> void:
 	for n in [watcher, host, guest, lone, room3, c]:
 		n.queue_free()
 
+## Salle isolee a 2 humains (connexions factices 98 / 99), menee jusqu'a une pause d'aventure ou les deux sont attendus ; null si la graine n'en donne pas.
+func _room_at_adventure_pause() -> GameRoom:
+	var room := GameRoom.new("TST2", 2, [])
+	for i in 2:
+		room.seats[i].merge({"name": "H%d" % i, "taken": true, "token": "t%d" % i, "conn": 98 + i}, true)
+	room.start()
+	for _i in 4000:
+		var G: Dictionary = room.m.G
+		if G.get("gameOver") != null:
+			break
+		if room._in_adventure_pause() and room.awaited_seats.size() == 2 and room.deadline_ms > 0:
+			return room
+		var aw: Array = room._awaited()
+		if aw.is_empty():
+			break
+		var pid: int = aw[0]
+		var mv = AI.pick_move(room.m, pid)
+		if mv == null or room.submit_move(pid, mv) != "":
+			mv = (room.m.legal_moves(pid) as Array)[0]
+			if room.submit_move(pid, mv) != "":
+				break
+	room.dispose()
+	return null
+
+## N-B15 : deux humains dans une pause d'aventure, le delai expire. Seule la decision expiree est jouee (les passes de la pause), aucun siege ne passe en `auto`,
+## un nouveau delai court, et l'IA ne joue pas ensuite a la place des humains (avant 10184ad : `auto` permanent des le premier depassement).
+func _scenario_adventure_expiry() -> void:
+	var room: GameRoom = null
+	for _try in 6:
+		room = _room_at_adventure_pause()
+		if room != null:
+			break
+	if not _expect(room != null, "pause d'aventure : introuvable a 2 humains"):
+		return
+	_expect(room.adventure_timeout_ms == 10000, "pause d'aventure : delai de 10 s attendu")
+	var log_before := (room.m.G.get("log", []) as Array).size()
+	room.deadline_ms = GameRoom._now() - 1
+	room.tick()
+	_expect(str(room.m.G.get("log", [])).contains("pas répondu à temps"), "pause d'aventure : prise de relais non journalisee")
+	_expect((room.m.G.get("log", []) as Array).size() > log_before, "pause d'aventure : aucune decision jouee a l'echeance")
+	for i in 2:
+		_expect(not bool(room.seats[i]["auto"]), "pause d'aventure : le siege %d connecte ne doit pas passer en auto" % i)
+	_expect(room.deadline_ms == 0 or room.deadline_ms > GameRoom._now(), "pause d'aventure : un nouveau delai doit courir (ou personne n'est attendu)")
+	# les humains sont de nouveau seuls maitres : sans autre echeance, 300 ticks ne changent rien a la partie
+	var snap := JSON.stringify(NetCodec.encode(room.m.G.get("log", [])))
+	for _i in 300:
+		room.tick()
+	_expect(JSON.stringify(NetCodec.encode(room.m.G.get("log", []))) == snap, "pause d'aventure : l'IA a continue de jouer pour un humain connecte")
+	for i in 2:
+		_expect(not bool(room.seats[i]["auto"]), "pause d'aventure : siege %d en auto apres les ticks" % i)
+	room.dispose()
+
+## N-B24 : les sorts / capacites joues sont notes (carte comprise, la main est cachee aux autres) et diffuses ; le client ne les emet qu'une fois et jamais pour son propre siege.
+func _scenario_plays() -> void:
+	var room := GameRoom.new("TST3", 2, [])
+	room.seats[0].merge({"name": "H", "taken": true, "token": "t", "conn": 99}, true)
+	room.add_bots(1)
+	room.bot_delay_ms = 0
+	room.start()
+	for _i in 6000:
+		if not room._plays.is_empty() or room.m.G.get("gameOver") != null:
+			break
+		room.tick()
+		var aw: Array = room._awaited()
+		if not aw.is_empty():
+			var mv = AI.pick_move(room.m, aw[0])
+			if mv == null or room.submit_move(aw[0], mv) != "":
+				break
+	if _expect(not room._plays.is_empty(), "plays : aucun sort / capacite note en 6000 coups"):
+		var p: Dictionary = room._plays[0]
+		_expect(str(p["move"]["type"]) in ["playSpell", "useHandRoom", "activateRoom"] and (p["card"] as Dictionary).has("id") and int(p["n"]) == 1, "plays : entree mal formee : %s" % str(p).left(200))
+		var msg := room.state_msg(1 - int(p["seat"]))
+		_expect((msg["plays"] as Array).size() >= 1 and int(msg["plays"][0]["n"]) == 1, "plays : absent de l'etat envoye")
+	room.dispose()
+	var c := OnlineClient.new()
+	c.player_id = 0
+	add_child(c)
+	var got: Array = []
+	c.remote_play.connect(func(p): got.append(int(p["n"])))
+	c._emit_plays([{"n": 4, "seat": 1}]) # premier etat : repere seulement
+	c._emit_plays([{"n": 4, "seat": 1}, {"n": 5, "seat": 1}, {"n": 6, "seat": 0}])
+	c._emit_plays([{"n": 5, "seat": 1}, {"n": 6, "seat": 0}, {"n": 7, "seat": 1}])
+	_expect(got == [5, 7], "plays : le client doit emettre une fois les coups des autres sieges (%s)" % str(got))
+	c.queue_free()
+
+## N-A40 : un humain quitte en pleine partie -> `left` dans le lobby de l'autre, signal player_left une seule fois (jamais pour une simple coupure).
+func _scenario_player_left() -> void:
+	var a := _client("Alice")
+	if not _expect(await a.create_lobby(2, []), "left : create"):
+		return
+	var b := _client("Bob")
+	_expect(await b.join_lobby(a.match_id, "Bob"), "left : join")
+	_expect(await _wait(func(): return not a.current_G.is_empty() and not b.current_G.is_empty(), 5.0), "left : la partie ne demarre pas")
+	var left: Array = []
+	a.player_left.connect(func(seat, pname): left.append([seat, pname]))
+	b._ws.close() # simple coupure : le siege n'est pas abandonne
+	await _wait(func(): return not b.connected, 3.0)
+	await get_tree().create_timer(0.3).timeout
+	_expect(left.is_empty(), "left : une coupure ne doit pas signaler un depart")
+	await _wait(func(): return b.connected, 6.0)
+	b.leave_match()
+	_expect(await _wait(func(): return left.size() == 1, 3.0), "left : player_left non emis")
+	_expect(left == [[1, "Bob"]], "left : mauvais siege / nom %s" % str(left))
+	_expect(bool((a.current_seats[1] as Dictionary).get("left", false)), "left : `left` absent du lobby")
+	a.queue_free()
+	b.queue_free()
+
 ## Revue : noms nettoyes comme les titres (U+061C, 2028/2029, 2060-2064, 00AD), hote parti d'une salle publique (le role passe), hote qui quitte
 ## (pas de `closed` pour lui, liaison et `_want_open` du client gardes).
 func _scenario_host_public() -> void:
@@ -1120,9 +1234,18 @@ func _scenario_host_public() -> void:
 	g2.send({"t": "join", "code": code2, "name": "Invite2"})
 	await _wait(func(): return g2.count("joined") > 0, 3.0)
 	h2.send({"t": "leave"})
-	_expect(await _wait(func(): return g2.count("closed") > 0, 3.0), "hote : les autres doivent recevoir `closed`")
+	# U-C29 : le role passe a l'humain connecte (APK : Photon designe un nouveau maitre), la salle reste ouverte
+	_expect(await _wait(func(): return int(g2.last("lobby").get("host", -1)) == 1, 3.0), "hote : le role doit passer a l'invite quand l'hote quitte")
 	await get_tree().create_timer(0.3).timeout
-	_expect(h2.count("closed") == 0, "hote : l'hote qui quitte ne doit pas recevoir `closed`")
+	_expect(g2.count("closed") == 0 and h2.count("closed") == 0 and server.get_room(code2) != null, "hote : la salle doit rester ouverte, sans `closed`")
+	var g3 := await _raw() # un arrivant prend le siege 0 libre sans voler le role d'hote
+	g3.send({"t": "join", "code": code2, "name": "Invite3"})
+	await _wait(func(): return g3.count("joined") > 0, 3.0)
+	_expect(g3.last("joined").get("seat", -1) == 0 and server.get_room(code2).host == 1 and g3.last("joined").get("host", true) == false, "hote : un arrivant au siege 0 ne doit pas devenir hote")
+	g3.send({"t": "leave"})
+	await _wait(func(): return server.get_room(code2).seats[0]["taken"] == false, 3.0)
+	g2.send({"t": "leave"}) # l'hote reste seul : plus personne a qui passer le role, la salle se ferme
+	_expect(await _wait(func(): return server.get_room(code2) == null, 3.0), "hote : la salle d'un hote seul qui quitte doit se fermer")
 	# client : `closed` recu apres notre depart ne remet pas _want_open a zero
 	var c := _client("Carol")
 	if _expect(await c.create_lobby(2, [], 0, true, "Carol"), "hote : create_lobby public"):
@@ -1133,5 +1256,5 @@ func _scenario_host_public() -> void:
 		_expect(c._want_open, "client : `closed` apres notre depart ne doit pas couper la reconnexion automatique")
 	server.seat_grace_s = 30
 	server.gc_interval_ms = 5000
-	for n in [host, guest, h2, g2, c]:
+	for n in [host, guest, h2, g2, g3, c]:
 		n.queue_free()

@@ -11,6 +11,11 @@ var my_pid: int = 0
 var server_moves: Array = []
 var _queued_build := {} ## {idx, id, ti} : pose a jouer des que le serveur a confirme la reprise (undoBuild) de la salle en attente
 
+## Sieges adverses dont la decision retient la partie (bulle « IS PLAYING! » : RemotePlayerInteraction.IsPlaying) ; un siege elimine n'en fait pas partie.
+func awaited_others() -> Array:
+	var players: Dictionary = G.get("players", {})
+	return client.current_awaited.filter(func(p): return int(p) != my_pid and not bool((players.get(int(p), {}) as Dictionary).get("eliminated", false)))
+
 func setup_online(p_client: OnlineClient, p_pid: int) -> void:
 	client = p_client
 	my_pid = p_pid

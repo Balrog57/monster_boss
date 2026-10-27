@@ -167,7 +167,7 @@ func _lot3_shots() -> void:
 	await _wait(0.2)
 	await _shot("lot3_player_count_4_center")
 	main_scene.apk_decks = ["players-choice", "hidden-heroes"]
-	main_scene.show_setup(2, 1)
+	main_scene.show_setup(2)
 	await _wait(0.4)
 	await _shot("mp_newgame")
 	main_scene.queue_free()
@@ -375,11 +375,11 @@ func _big_games() -> void:
 	await _wait(0.4)
 	await _shot("big_player_count_carousel_without_crash_landing_hint")
 	main_scene.apk_decks = ["crash-landing", "players-choice"]
-	main_scene.show_setup(6, 1)
+	main_scene.show_setup(6)
 	await _wait(0.4)
 	await _shot("big_setup_6_players_refused_players_choice")
 	main_scene.apk_decks = ["crash-landing", "hidden-heroes"]
-	main_scene.show_setup(6, 1)
+	main_scene.show_setup(6)
 	await _wait(0.4)
 	await _shot("big_setup_6_players_accepted")
 	main_scene.queue_free()
@@ -398,7 +398,7 @@ func _big_games() -> void:
 		await _teardown()
 	await _new_game(424242, "boss", 6, 6, ["crash-landing"])
 	await _wait(0.3)
-	await _shot("big_board_6_players_pass_and_play_seat_selector")
+	await _shot("big_board_6_players_seat_selector")
 	await _teardown()
 
 ## Ecrans multijoueur (OnlineMenus.gd) : pas de frame APK de reference, comparaison a la specification C# (MultiplayerScene, MenuOnlineScene, ...).
@@ -427,7 +427,7 @@ func _online_menus() -> void:
 	await _wait(0.3)
 	await _shot("online_multiplayer_scene_decks_closed")
 	await _wait(1.8)
-	await _shot("online_multiplayer_scene_play_online_pass_and_play")
+	await _shot("online_multiplayer_scene_play_online_play_with_friends")
 	main_scene.menus.show_online()
 	await _wait(0.4)
 	await _shot("online_menu_worldwide_with_friends_change_user")
@@ -508,6 +508,10 @@ func _online_menus() -> void:
 	fake.current_G["turnDeadline"] = int(Time.get_unix_time_from_system() * 1000.0) + 3500
 	await _wait(0.6)
 	await _shot("online_countdown_under_5s")
+	var pb: Control = board._playing_bubble(1, 0) # « IS PLAYING! » (BubblesFactory.CreateIsPlayingBubble) sous le compte a rebours
+	board._playing[1] = pb
+	await _wait(1.2)
+	await _shot("online_is_playing_bubble")
 	await _teardown()
 
 # ---------------------------------------------------------------------------------------------------------------------

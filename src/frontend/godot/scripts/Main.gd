@@ -2,7 +2,7 @@ extends Control
 ## Main — menus clones de l'APK 2.2.6 (maquette 1920x1080 : coordonnees absolues relevees sur docs/reference/*.png).
 ## Ecran titre (TAP TO START) -> menu 2x2 -> HOW MANY PLAYERS? -> SELECT EXPANSIONS ; OPTIONS ; RULES.
 ## SINGLE PLAYER : 2/3/4 joueurs = vous + 1 a 3 IA ; 5/6 joueurs seulement avec Crash Landing coche (Match.setup_error).
-## MULTIPLAYER : PLAY ONLINE (entre amis, salon prive a code de 4 lettres) / PASS AND PLAY ; ecrans dans OnlineMenus.gd (clones de l'APK).
+## MULTIPLAYER : PLAY ONLINE / PLAY WITH FRIENDS (salon prive a code de 4 lettres) ; ecrans dans OnlineMenus.gd (clones de l'APK).
 ## IN-APP STORE supprime -> RULES ; tout est gratuit et debloque.
 ## WORLDWIDE (hors APK) : liste des salons publics du serveur, sans comptes ; CREATE PUBLIC GAME = NEW GAME avec le mode « public ».
 
@@ -46,6 +46,7 @@ const UI := "res://assets/ui/"
 const FONT_A := "res://assets/fonts/arcadepix.fnt"   # texte plein (bandeaux, ON/OFF)
 const FONT_B := "res://assets/fonts/arcadepix2.fnt"  # texte strie (boutons, libelles)
 const GOLD := Color("cdb15f")
+const LINK_DEAD_S := 20.0 # liaison de partie coupee depuis ce delai : modale « Connection problem » (sinon Godot reconnecte seul)
 ## Carrousel « HOW MANY PLAYERS? » : cartes de chaque éventail dans l'ordre de ControlsFactory.BossCardsDeck (:379-427).
 ## 5 et 6 (Crash Landing) : pas de frame APK, les trois boss CRL.
 const FANS := {2: ["BMA006", "BMA002"], 3: ["BMA007", "BMA004", "BMA005"], 4: ["BMA007", "BMA002", "BMA001", "BMA006"], 5: ["CRL002", "CRL001"], 6: ["CRL001", "CRL002", "CRL003"]}
@@ -74,6 +75,7 @@ func _ready() -> void:
 	online.evicted.connect(_on_seat_taken)
 	online.session_lost.connect(_on_session_lost)
 	online.link_changed.connect(_on_link_changed)
+	online.player_left.connect(_on_player_left)
 	if OS.has_feature("web"):
 		var origin = JavaScriptBridge.eval("window.location.origin")
 		if origin != null and str(origin) != "" and str(origin) != "null":
@@ -376,7 +378,7 @@ func start_tutorial() -> void:
 	game_manager.start_tutorial()
 	_open_board(game_manager, true)
 
-## mode : "solo" (vous + IA), "pass" (PASS AND PLAY : tous les sieges humains sur le meme ecran), "online" (NEW GAME : salon prive, nombre de sieges),
+## mode : "solo" (vous + IA), "online" (NEW GAME : salon prive, nombre de sieges),
 ## "public" (CREATE PUBLIC GAME de WORLDWIDE : meme parcours, salon visible dans la liste).
 func show_solo_count(mode: String = "solo") -> void:
 	_apk_screen(func(): _count_back(mode))
@@ -387,7 +389,7 @@ func show_solo_count(mode: String = "solo") -> void:
 	dyn_root = Control.new()
 	add_child(dyn_root)
 	_draw_fans()
-	_ok_btn(func(): go(func(): show_setup(players, players if mode == "pass" else 1, mode))) # PlayerNumberScene.cs:48-54 (ColorFade 1,0 s)
+	_ok_btn(func(): go(func(): show_setup(players, mode))) # PlayerNumberScene.cs:48-54 (ColorFade 1,0 s)
 
 ## Cartouche sombre a bord colore (le decor du menu est clair) ; police par defaut (accents et guillemets absents de arcadepix).
 func _note_box(node_name: String, text: String, border: Color, font_color: Color, pos: Vector2, sz: Vector2) -> Panel:
@@ -417,7 +419,6 @@ func _note_box(node_name: String, text: String, border: Color, font_color: Color
 
 func _count_back(mode: String) -> void:
 	match mode:
-		"pass": show_multi()
 		"online": show_friends()
 		"public": menus.show_public()
 		_: show_menu()
@@ -490,7 +491,7 @@ func _gray_mat() -> ShaderMaterial:
 func _is_wiki(d: Dictionary) -> bool:
 	return EXT_PACKS.has(d["id"])
 
-func show_setup(num_players: int, human_count: int, mode: String = "solo") -> void:
+func show_setup(num_players: int, mode: String = "solo") -> void:
 	_apk_screen(func(): show_solo_count(mode))
 	_band("SELECT EXPANSIONS")
 	_setup_players = num_players
@@ -503,7 +504,7 @@ func show_setup(num_players: int, human_count: int, mode: String = "solo") -> vo
 		if mode == "online" or mode == "public":
 			await menus.create_room(num_players, mode == "public")
 		else:
-			start_match(num_players, human_count))
+			start_match(num_players))
 
 func _draw_tiles() -> void:
 	for c in dyn_root.get_children():
@@ -588,9 +589,9 @@ func _deck_popup(d: Dictionary) -> void:
 	dim.add_child(desc)
 	dim.add_child(_img_btn("expansions/close_panel.webp", "expansions/close_panel_pressed.webp", Vector2(1418, 220), close))
 
-func start_match(num_players: int, human_count: int) -> void:
+func start_match(num_players: int) -> void:
 	_clear()
-	game_manager.start_new_game(num_players, human_count, _active_sets())
+	game_manager.start_new_game(num_players, 1, _active_sets())
 	_open_board(game_manager)
 
 func _open_board(gm: GameManager, tutorial := false) -> void:
@@ -636,7 +637,7 @@ func _online_game_open() -> bool:
 
 ## Session perdue pendant la partie (serveur redemarre, salle expiree ou fermee) : modale de l'APK puis sortie (GamePlayMOScene.cs:92-95, 121-138).
 func _on_session_lost() -> void:
-	if not _online_game_open():
+	if not _online_game_open() or get_node_or_null("MessageBox") != null:
 		return
 	var gm: GameManager = board.get("game_manager")
 	menus.msg_box("Connection problem", "The connection with the server was lost.", func(): _leave_board(gm))
@@ -653,6 +654,28 @@ func _on_link_changed(up: bool) -> void:
 		lbl = UiKit.label(board, "Reconnecting...", 42, Color("cdb15f"), Vector2(560, 12), 800.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
 		lbl.name = "Reconnecting"
 		lbl.z_index = 100
+	if not up: # coupure qui dure : meme modale que l'APK (OnDisconnect, GamePlayMOScene.cs:92-95)
+		get_tree().create_timer(LINK_DEAD_S).timeout.connect(func(): if not online.connected: _on_session_lost())
+
+## Un autre humain quitte la partie (OnlineFlowManager.OnPlayerLeaveGame, GamePlayMOScene.cs:96-119). S'il en reste un autre : simple message ;
+## sinon la partie s'arrete : victoire par abandon apres plus de 2 tours, sinon rien n'est gagne (la defaite posee au debut est retiree dans les deux cas).
+func _on_player_left(seat: int, pname: String) -> void:
+	if not _online_game_open():
+		return
+	var gm: GameManager = board.get("game_manager")
+	if bool(((gm.G.get("players", {}) as Dictionary).get(seat, {}) as Dictionary).get("eliminated", false)):
+		return # APK : `!player.IsAlive`, pas de message
+	var humans := 0
+	for s in online.current_seats:
+		if s is Dictionary and s.get("name") != null and not bool(s.get("bot", false)) and not bool(s.get("left", false)):
+			humans += 1
+	if humans > 1:
+		menus.msg_box("", pname.left(15) + " has left the game.")
+		return
+	var won := int(gm.G.get("turn", 0)) > 2
+	if online.count_results:
+		Profile.record_desertion(won, online.match_id)
+	menus.msg_box("", "You win by desertion.\n The game will now end." if won else "No players to play with.\n The game will now end.", func(): _leave_board(gm))
 
 func start_online_match() -> void:
 	_clear()

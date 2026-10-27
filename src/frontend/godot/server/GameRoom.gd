@@ -30,6 +30,9 @@ var awaited_seats: Array = [] # sieges humains dont une decision bloque la parti
 var _next_ai_ms := 0
 var _window_sig := "" # signature de la fenetre de decision qui porte le delai (voir _window_signature)
 var _dirty := false
+var _plays: Array = [] # derniers sorts / capacites joues {n, seat, move, card} (bulle « HAS PLAYED A... » des clients) ; n croit sans fin
+var _plays_n := 0
+const PLAYS_KEPT := 8
 
 func _init(p_code: String, p_players: int, p_sets: Array) -> void:
 	code = p_code
@@ -69,6 +72,13 @@ func has_active_human() -> bool: # un humain qui n'a pas abandonne (connecte ou 
 			return true
 	return false
 
+## Prochain hote quand `seat` (l'hote) quitte la salle d'attente : le premier autre humain connecte (APK : Photon designe un nouveau maitre), -1 s'il n'y en a pas.
+func next_host(seat: int) -> int:
+	for i in num_players:
+		if i != seat and seats[i]["taken"] and not seats[i]["bot"] and int(seats[i]["conn"]) >= 0:
+			return i
+	return -1
+
 func humans_connected() -> int:
 	var c := 0
 	for s in seats:
@@ -84,7 +94,7 @@ func join(pname: String, conn: int, prof: Dictionary = {}) -> Dictionary:
 	var token := _token()
 	seats[i].merge({"name": pname, "taken": true, "token": token, "conn": conn, "auto": false, "left": false,
 		"avatar": str(prof.get("avatar", "")), "wins": int(prof.get("wins", 0)), "defeats": int(prof.get("defeats", 0))}, true)
-	if i == 0 or not seats[host]["taken"]:
+	if not seats[host]["taken"]:
 		host = i
 	empty_since_ms = 0
 	touch()
@@ -209,12 +219,32 @@ func submit_move(seat: int, move: Dictionary) -> String:
 	for lm in m.legal_moves(seat):
 		# NetCodec.decode : les cartes du moteur portent des flottants entiers (2.0) que le client a recus en entiers.
 		if str((lm as Dictionary).get("type", "")) == type and _trim(NetCodec.decode((lm as Dictionary).get("args", []))) == args:
-			if not m.apply_move(seat, lm):
+			if not _apply(seat, lm):
 				return "coup refuse"
 			seats[seat]["auto"] = false # le joueur a repris la main
 			_after_move()
 			return ""
 	return "coup illegal"
+
+## Applique un coup et note les sorts / capacites joues (la main d'un siege est cachee aux autres : la carte voyage dans `plays`).
+func _apply(pid: int, mv: Dictionary) -> bool:
+	var t := str(mv.get("type", ""))
+	var args: Array = mv.get("args", [])
+	var card = null
+	if t in ["playSpell", "useHandRoom", "activateRoom"] and not args.is_empty() and (args[0] is int or args[0] is float):
+		var pl: Dictionary = (m.G["players"] as Dictionary).get(pid, {})
+		var src: Array = pl.get("hand" if t != "activateRoom" else "dungeon", [])
+		var i := int(args[0])
+		if i >= 0 and i < src.size():
+			card = src[i] if t != "activateRoom" else BossEngine.active_room(src[i])
+	if not m.apply_move(pid, mv):
+		return false
+	if card is Dictionary:
+		_plays_n += 1
+		_plays.append({"n": _plays_n, "seat": pid, "move": {"type": t, "args": args.duplicate(true)}, "card": (card as Dictionary).duplicate(true)})
+		if _plays.size() > PLAYS_KEPT:
+			_plays.pop_front()
+	return true
 
 func _after_move() -> void:
 	touch()
@@ -253,7 +283,7 @@ func _ai_play(pid: int, pass_only: bool) -> bool:
 		cands.append(AI.pick_move(m, pid))
 	cands.append(moves[0])
 	for mv in cands:
-		if mv != null and m.apply_move(pid, mv):
+		if mv != null and _apply(pid, mv):
 			_after_move()
 			return true
 	return false
@@ -288,7 +318,7 @@ func _ai_step() -> bool:
 			for pid in num_players: # IA hors tour : son UseAbility du pas (AIPlayerInteraction.cs:86-101) ; pas de repli sur moves[0]
 				if pid != ap and _is_ai(pid):
 					var mv = AI.pick_move(m, pid)
-					if mv != null and m.apply_move(pid, mv):
+					if mv != null and _apply(pid, mv):
 						_after_move()
 						return true
 		return _is_ai(ap) and _ai_play(ap, false)
@@ -379,7 +409,7 @@ func tick() -> bool:
 func lobby_msg() -> Dictionary:
 	var out: Array = []
 	for s in seats:
-		out.append({"name": (str(s["name"]) if s["taken"] else null), "bot": s["bot"], "connected": int(s["conn"]) >= 0 or bool(s["bot"]),
+		out.append({"name": (str(s["name"]) if s["taken"] else null), "bot": s["bot"], "connected": int(s["conn"]) >= 0 or bool(s["bot"]), "left": bool(s["left"]),
 			"avatar": s["avatar"], "wins": s["wins"], "defeats": s["defeats"]})
 	return {"t": "lobby", "code": code, "status": status, "numPlayers": num_players, "seats": out, "sets": sets, "host": host, "title": title}
 
@@ -391,6 +421,7 @@ func state_msg(seat: int) -> Dictionary:
 	msg["moves"] = m.legal_moves(seat)
 	msg["deadline"] = deadline_ms
 	msg["awaited"] = awaited_seats
+	msg["plays"] = NetCodec.encode(_plays)
 	msg["serverTime"] = _now()
 	return msg
 

@@ -234,8 +234,6 @@ const BOSS_FLIP_TIME := 0.5              # FlipCardBehavior de l'APK : 0,5 s
 const BOSS_WAIT_TIME := 0.5              # attente avant la rotation et apres elle
 const BOSS_SPIN_TIME := 5.0              # rotation : easing cubique in-out sur 2N + rand(N) cartes
 const BOSS_AUTO_TIME := 2.0              # partie a plusieurs (useTimeout) : l'ecran se ferme seul 2 s apres l'arret
-var _handing_over := false               # passage de main (hot-seat) en cours : GamePlayPaPScene
-var _follow_last := -1                   # dernier siege cible par le suivi hot-seat (un changement manuel de siege tient jusqu'au prochain changement)
 # Fenetres de sorts de l'APK (GamePlayBaseScene) : barre verte de 3 s au-dessus du heros (aventure), de 6 s au-dessus de la pile de sorts.
 const PHASE_BANNER_Y := -62.0
 const DRAW_LAND := 0.3                   # une carte piochee rejoint sa place dans la main : lerp de CardMoveBehavior (0,009 x ms par image, ~0,3 s pour 95 %, CardMoveBehavior.cs:13,129-133)
@@ -675,6 +673,8 @@ func setup(p_gm: GameManager, p_exit_cb: Callable) -> void:
 	_speed = _speed_factor() # _ready() tourne avant setup() : en ligne le facteur ne se connait qu'ici
 	on_exit_callback = p_exit_cb
 	game_manager.state_changed.connect(refresh)
+	if _is_online():
+		(game_manager as OnlineGameManager).client.remote_play.connect(_on_remote_play)
 	btn_advance.pressed.connect(_on_advance_pressed)
 	btn_pass.pressed.connect(_on_pass_pressed)
 	discard_btn.pressed.connect(_on_discard_pile_pressed)
@@ -725,85 +725,6 @@ func _refresh_seat_bar() -> void:
 		var p: int = int(pid)
 		b.pressed.connect(func(): _draw_clear(); view_pid = p; _sync_slot_pids(); refresh())
 		seat_bar.add_child(b)
-
-## Siege humain que la vue doit montrer (hot-seat, hors aventure) : celui qui doit encore recevoir son boss, poser sa salle initiale,
-## repondre a un choix ou jouer son tour de construction ; -1 = aucun changement.
-func _follow_target(G: Dictionary) -> int:
-	var phase := str(G.get("phase", ""))
-	var players: Dictionary = G.get("players", {})
-	var humans: Array = []
-	for pid in players:
-		var q: Dictionary = players[pid]
-		if not bool(q.get("isAI", false)) and not bool(q.get("eliminated", false)):
-			humans.append(int(pid))
-	humans.sort()
-	if humans.size() < 2 or G.get("gameOver") != null or not (phase in ["boss", "setup", "build"]):
-		return -1
-	var t := -1
-	var pc: Dictionary = G.get("pendingChoice", {})
-	if not pc.is_empty():
-		t = int(pc.get("playerId", -1))
-	elif phase == "boss":
-		for h in humans:
-			if (players[h] as Dictionary).get("boss") == null:
-				t = h
-				break
-	elif phase == "setup" and bool(G.get("setupBuild", false)):
-		for h in humans:
-			if not bool((players[h] as Dictionary).get("passed", false)):
-				t = h
-				break
-	elif phase == "build":
-		t = game_manager.active_player()
-		if G.has("buildWindow"): # fenetre de sorts avant la revelation : le premier humain qui n'a pas encore passe
-			t = -1
-			for h in humans:
-				if not bool((G["buildWindow"] as Dictionary).get(h, false)):
-					t = h
-					break
-	return t if humans.has(t) else -1
-
-## Passage de main du pass and play (GamePlayPaPScene) quand le joueur actif change : la main sort par le bas (0,5 s), les deux donjons
-## s'estompent, la vue passe au nouveau siege, les donjons reviennent et sa main remonte. Le choix manuel d'un siege (barre PLAYER n) tient
-## jusqu'au prochain changement de joueur actif. Vrai si l'animation commence (le rafraichissement reprend a mi-course).
-func _follow_seat(G: Dictionary) -> bool:
-	if _handing_over:
-		return false
-	var t := _follow_target(G)
-	var changed := t != _follow_last
-	_follow_last = t
-	if not changed or t < 0 or t == view_pid:
-		return false
-	if skip_animations:
-		_draw_clear()
-		view_pid = t
-		_sync_slot_pids()
-		return false
-	_handing_over = true
-	for e in _fx_hand.get_children():
-		e.queue_free() # la main du siege precedent part avec ses particules
-	var lanes: Array = [_lane[0]["root"], _lane[1]["root"]]
-	var tw := create_tween()
-	tw.tween_method(_hand_jump, 0.0, 1.0, 0.5) # JumpBehavior : 300 px, 0,5 s lineaire sous BackEase 0,4
-	for l in lanes:
-		tw.parallel().tween_property(l, "modulate:a", 0.0, 0.5)
-	tw.tween_callback(func():
-		_draw_clear() # la pioche du siege precedent ne doit pas suivre la main au siege suivant
-		view_pid = t
-		_sync_slot_pids()
-		refresh())
-	tw.tween_method(_hand_jump, 1.0, 0.0, 0.5)
-	for l in lanes:
-		tw.parallel().tween_property(l, "modulate:a", 1.0, 0.5)
-	tw.tween_callback(func():
-		_handing_over = false
-		refresh())
-	return true
-
-## JumpBehavior.cs:65-82 (HandVisibilityBehavior) : decalage vers le bas = 300 x (1 - Ease(a)), BackEase d'amplitude 0,4 en EaseOut (cs:58-61 ; BackEase.cs, EasingFunctionBase.cs:25-29),
-## soit 300 x (u^3 - 0,4 u sin(pi u)) avec u = 1 - a : u 0 = main en place, 1 = main cachee (la main recule un peu avant de partir et depasse en revenant).
-func _hand_jump(u: float) -> void:
-	hand_layer.position.y = 300.0 * (pow(u, 3.0) - 0.4 * u * sin(PI * u))
 
 ## Adversaires du siege affiche (ordre des sieges) ; foe_pid reste valide et suit l'aventure en cours (l'animation doit se jouer
 ## dans le couloir visible : sans cela, a 3-4 joueurs, seul le premier adversaire etait jamais montre).
@@ -1120,7 +1041,7 @@ func _has_decision(moves: Array) -> bool:
 ## laisse jouer un sort). Plusieurs humains (siege a siege) ou en ligne : boutons GO / PASS TURN comme avant.
 func _apk_flow() -> bool:
 	if _is_online():
-		return false
+		return true # le heros avance de lui-meme apres la barre de 3 s (OnlineFlowManager.cs:227-231, 397-408) ; le serveur attend les sieges (pause d'aventure)
 	var n := 0
 	for pid in (game_manager.G.get("players", {}) as Dictionary):
 		if not bool(((game_manager.G["players"] as Dictionary)[pid] as Dictionary).get("isAI", false)):
@@ -1269,12 +1190,12 @@ func refresh() -> void:
 	if _is_online():
 		view_pid = _my_pid()
 		_sync_slot_pids()
-	elif _follow_seat(G):
-		return # passage de main en cours : la vue est rafraichie a mi-course
 	if not (G.get("players", {}) as Dictionary).has(view_pid):
 		view_pid = 0
 		_sync_slot_pids()
 	_refresh_seat_bar()
+	if _is_online():
+		_sync_playing()
 	var others := _update_foe(G)
 	_refresh_foe_bar(others)
 
@@ -1371,7 +1292,7 @@ func _carousel_active(G: Dictionary, phase: String) -> bool:
 func _boss_pending(G: Dictionary) -> bool:
 	return G.get("gameOver") == null and str(G.get("phase", "")) == "boss" and ((G.get("players", {}) as Dictionary).get(view_pid, {}) as Dictionary).get("boss") == null and _tg("carousel") # tutoriel : le carrousel attend la fin de l'intro
 
-## Un seul humain (solo) : PLAY BOSS MONSTER! ; plusieurs (pass and play / en ligne) : l'ecran se ferme seul.
+## Un seul humain (solo) : PLAY BOSS MONSTER! ; plusieurs (en ligne) : l'ecran se ferme seul.
 func _boss_solo(G: Dictionary) -> bool:
 	return (G.get("players", {}) as Dictionary).values().filter(func(q): return not bool((q as Dictionary).get("isAI", false))).size() == 1
 
@@ -2199,7 +2120,7 @@ func _boss_layout(animate: bool) -> void:
 			c.size = r.size
 			c.modulate = Color(shade, shade, shade)
 
-## Le boss tire est le notre : le coup part (PLAY BOSS MONSTER! en solo, minuterie en pass and play). Pas avant la fin de la rotation.
+## Le boss tire est le notre : le coup part (PLAY BOSS MONSTER! en solo, minuterie en ligne). Pas avant la fin de la rotation.
 func _boss_confirm() -> void:
 	if not _boss_ready:
 		return
@@ -3816,7 +3737,7 @@ func _on_discard_confirm() -> void:
 	var pair := discard_pick.duplicate()
 	pair.sort()
 	_play_sfx("ui_button_select") # bouton CONTINUE du selecteur (CarouselSelectorEntity.cs:21, ButtonBaseEntity.cs:202) ; l'APK n'appelle jamais ui_card_flip
-	discard_pick.clear() # avant _do : son refresh reconstruit la main (du siege suivant en pass and play), sans la selection de celui-ci
+	discard_pick.clear() # avant _do : son refresh reconstruit la main (d'un autre siege), sans la selection de celui-ci
 	_do({"type": "openingDiscard", "args": pair})
 
 func _is_opening_discard_for_me() -> bool:
@@ -3851,7 +3772,7 @@ func _on_pass_pressed() -> void:
 	# DoneButtonEntity.cs:118-143 : en mode PASS TURN le 1er relachement ne passe jamais, il leve le drapeau (ShowHintComponent.Hint, IsRaised) ; la bulle « HEY! YOU CAN
 	# BUILD A ROOM! STILL WANT TO PASS? » (GamePlayBaseScene.cs:259-269) n'apparait que si une salle de la main est constructible. Le 2e relachement passe. Le drapeau
 	# retombe au tour suivant (CreateShowAndActivateTimer, DoneButtonEntity.cs:177), pas quand la bulle disparait ; en mode DONE! un seul appui passe.
-	var raise_key := "%d/%s/%s" % [_my_pid(), game_manager.G.get("turn", 0), game_manager.G.get("phase", "")] # par siege : en pass and play, le 1er appui du 2e siege ne passe pas d'emblee
+	var raise_key := "%d/%s/%s" % [_my_pid(), game_manager.G.get("turn", 0), game_manager.G.get("phase", "")] # par siege : a plusieurs sieges, le 1er appui du 2e siege ne passe pas d'emblee
 	if _pass_turn_mode() and _pass_raised_key != raise_key:
 		_pass_raised_key = raise_key
 		if _can_still_build(game_manager.legal_moves(_my_pid())):
@@ -4315,23 +4236,25 @@ func _owner_badge(pid: int, cx: float) -> Control:
 	return ring
 
 ## « <adversaire> HAS PLAYED A SPELL / ROOM ABILITY » : notice sombre en haut a droite (BubblesFactory.CreatePlayBubble), 2,5 s.
-func _notice_ai(pid: int, mv: Dictionary) -> void:
+func _notice_ai(pid: int, mv: Dictionary, shown = null) -> void:
 	if pid == _my_pid():
 		return
 	var t := str(mv.get("type", ""))
 	var pl: Dictionary = (game_manager.G.get("players", {}) as Dictionary).get(pid, {})
 	var args: Array = mv.get("args", [])
 	var ai := -1 if args.is_empty() or not (args[0] is int) else int(args[0])
-	var card = null # la carte de la capacite (appelee avant le coup) : un appui sur la bulle la montre (ShowBubleDetail)
+	var card = shown # la carte de la capacite (appelee avant le coup) : un appui sur la bulle la montre (ShowBubleDetail) ; en ligne `shown` vient du serveur (main adverse cachee)
 	var spot := {} # ce que la carte jouee touche : cadre rouge sur le plateau pendant le zoom (ShowBubleDetail : HighLightCards Red)
 	if t in ["playSpell", "useHandRoom"] and args.size() > 1 and args[1] is Dictionary:
 		spot = _spot_of_target(args[1], pid)
 	if t in ["playSpell", "useHandRoom"]:
 		var hand: Array = pl.get("hand", [])
-		card = hand[ai] if ai >= 0 and ai < hand.size() else null
+		if card == null:
+			card = hand[ai] if ai >= 0 and ai < hand.size() else null
 	elif t == "activateRoom":
 		var dng: Array = pl.get("dungeon", [])
-		card = BossEngine.active_room(dng[ai]) if ai >= 0 and ai < dng.size() else null
+		if card == null:
+			card = BossEngine.active_room(dng[ai]) if ai >= 0 and ai < dng.size() else null
 		# « Destroy this Room: ... » : la salle est l'une de ses propres cibles de commande (GetCommandTargets) ; le zoom de la bulle la montre cerclee de rouge
 		# (ShowBubleDetail, GamePlayBaseScene.cs:1249-1260 ; capture ability_bottomless_pit_activated_red_glow_*)
 		if card is Dictionary and str((card as Dictionary).get("description", "")).to_lower().begins_with("destroy this room"):
@@ -4343,6 +4266,50 @@ func _notice_ai(pid: int, mv: Dictionary) -> void:
 		_show_notice("SPELL", card, spot, pid, against)
 	elif t in ["activateRoom", "useHandRoom"]:
 		_show_notice("ROOM ABILITY", card, spot, pid, against)
+
+## Coup d'un autre siege en ligne (humain distant ou IA du serveur) : meme bulle que la boucle IA locale.
+func _on_remote_play(play: Dictionary) -> void:
+	_notice_ai(int(play.get("seat", -1)), play.get("move", {}) as Dictionary, play.get("card"))
+
+## « IS PLAYING! » (IsPlayingOnlineBubbleSceneBehavior) : une bulle par adversaire dont la decision retient la partie. Elle s'efface quand une bulle de coup entre
+## (BubblesPlayerEmitter.UpdateBubbleTask) et revient apres elle. Meme boite et meme place que la bulle de coup.
+var _playing: Dictionary = {}
+
+func _playing_hide(pid: int) -> void:
+	var old: Control = _playing.get(pid)
+	_playing.erase(pid)
+	if is_instance_valid(old):
+		old.create_tween().tween_property(old, "modulate:a", 0.0, 0.5)
+		old.get_tree().create_timer(0.5).timeout.connect(old.queue_free)
+
+func _sync_playing() -> void:
+	var want: Array = (game_manager as OnlineGameManager).awaited_others() if _is_online() and game_manager.G.get("gameOver") == null else []
+	for pid in _playing.keys():
+		if not want.has(pid):
+			_playing_hide(pid)
+	var ids: Array = (game_manager.G.get("players", {}) as Dictionary).keys()
+	ids.sort()
+	ids.erase(view_pid)
+	for pid in want:
+		if _playing.has(pid) or _notice_cur.has(pid) or not ids.has(pid):
+			continue
+		_playing[pid] = _playing_bubble(pid, ids.find(pid))
+
+func _playing_bubble(pid: int, idx: int) -> Control:
+	var n := Control.new()
+	n.name = "IsPlaying%d" % pid
+	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	n.position = Vector2(1458, 63 + 138 * idx)
+	n.size = Vector2(234, 136)
+	UiKit.image(n, UI_DIR + "action_bubble.webp", Vector2.ZERO, Vector2(234, 136))
+	UiKit.label(n, "   IS\nPLAYING!", 21, Color.WHITE, Vector2(-12, 56), 190.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # BubblesFactory.cs:20-23 (x -215, y -45, largeur 190)
+	_ui_layer.add_child(n)
+	if not skip_animations:
+		n.modulate.a = 0.0
+		var tw := n.create_tween()
+		tw.tween_property(n, "modulate:a", 1.0, 0.5)
+		tw.tween_callback(_pulse_rings.bind(n, UI_DIR + "action_bubble_effect.webp", Vector2(236, 132), Vector2(117, 68), 4))
+	return n
 
 ## Une file par adversaire (BubblesPlayerEmitter.pendingPlayBubbles) : la bulle suivante n'entre qu'apres la sortie de la precedente. `pid` : l'adversaire qui joue (-1 = l'adversaire affiche) ;
 ## `against` : les pids vises (CreatePlayAgainstBubble : « AGAINST » + leurs icones de boss).
@@ -4356,6 +4323,10 @@ func _notice_reset() -> void:
 	_notice_cur = {}
 	_notice_q = {}
 	_notice = null
+	for pid in _playing:
+		if is_instance_valid(_playing[pid]):
+			(_playing[pid] as Node).queue_free()
+	_playing = {}
 
 func _show_notice(what: String, card = null, spot := {}, pid := -1, against := []) -> void:
 	if pid < 0:
@@ -4363,6 +4334,7 @@ func _show_notice(what: String, card = null, spot := {}, pid := -1, against := [
 	if _notice_cur.has(pid) and is_instance_valid(_notice_cur[pid]):
 		(_notice_q.get_or_add(pid, []) as Array).append([what, card, spot, against])
 		return
+	_playing_hide(pid) # la bulle « IS PLAYING! » s'efface avant l'entree de la bulle de coup
 	var ids: Array = (game_manager.G.get("players", {}) as Dictionary).keys()
 	ids.sort()
 	ids.erase(view_pid)
@@ -4407,7 +4379,9 @@ func _show_notice(what: String, card = null, spot := {}, pid := -1, against := [
 		var q: Array = _notice_q.get(pid, [])
 		if not q.is_empty():
 			var nx: Array = q.pop_front()
-			_show_notice(nx[0], nx[1], nx[2], pid, nx[3]))
+			_show_notice(nx[0], nx[1], nx[2], pid, nx[3])
+		elif _is_online():
+			_sync_playing())
 
 ## Appui sur la bulle de l'adversaire : la carte jouee en grand au centre de l'ecran (GamePlayBaseScene.ShowBubleDetail), jusqu'au clic suivant.
 func _notice_zoom(card: Dictionary, spot := {}) -> void:
@@ -4606,7 +4580,7 @@ func _draw_release(holder: Control, cid: String) -> void:
 	if int(_draw_hide[cid]) == 0:
 		_draw_hide.erase(cid)
 
-## Coupe toute pioche en vol (changement de siege en pass and play) : holders liberes, plus aucune carte de la main cachee.
+## Coupe toute pioche en vol (changement de siege) : holders liberes, plus aucune carte de la main cachee.
 func _draw_clear() -> void:
 	for h in get_tree().get_nodes_in_group("drawn_card"):
 		h.set_meta("released", true)

@@ -1500,7 +1500,7 @@ func _check_main_flow() -> void:
 	add_child(main)
 	await _wait(0.3)
 	for n in [2, 3]:
-		main.start_match(n, 1)
+		main.start_match(n)
 		await _wait(0.3)
 		if not _check(main.board != null and is_instance_valid(main.board), "Main.start_match(%d) : pas de plateau" % n):
 			break
@@ -1713,7 +1713,7 @@ func _check_boss_flip() -> void:
 	await get_tree().process_frame
 	var boss = gm.G["players"][0].get("boss")
 	_check(boss != null and str((boss as Dictionary).get("id", "")) == want, "sequence : le boss tire n'a pas ete valide (boss=%s)" % str(boss))
-	# plusieurs humains : pas de bouton, la pose part seule apres 2 s, la vue passe au 2e siege (passage de main) qui a son propre carrousel
+	# plusieurs humains : pas de bouton, la pose part seule apres 2 s
 	await _teardown()
 	CardDB._rng.seed = 321
 	gm = GameManager.new()
@@ -1740,12 +1740,6 @@ func _check_boss_flip() -> void:
 	await _wait(1.0)
 	var b0 = gm.G["players"][0].get("boss")
 	_check(b0 != null and str((b0 as Dictionary).get("id", "")) == want1, "hot-seat : le boss tire n'a pas ete pose apres 2 s")
-	t = 0.0
-	while (board.view_pid != 1 or board._handing_over or board._boss_seat != 1) and t < 6.0:
-		await _wait(0.1)
-		t += 0.1
-	_check(board.view_pid == 1 and board._boss_seat == 1 and board._boss_cards.size() >= 8, "hot-seat : la vue doit passer au 2e siege avec son carrousel (vue %d)" % board.view_pid)
-	_check(board.hand_layer.position.y == 0.0 and (board._lane[1]["root"] as Control).modulate.a == 1.0, "hot-seat : main et donjons doivent etre revenus apres le passage de main")
 	_cov("boss_flip")
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -2577,8 +2571,8 @@ func _check_online_menus() -> void:
 	main.show_multi()
 	await _wait(0.2)
 	var po = main.find_child("PLAY ONLINE", true, false)
-	var pp = main.find_child("PASS AND PLAY", true, false)
-	if _check(po != null and pp != null, "multi : boutons PLAY ONLINE / PASS AND PLAY"):
+	var pp = main.find_child("PLAY WITH FRIENDS", true, false)
+	if _check(po != null and pp != null, "multi : boutons PLAY ONLINE / PLAY WITH FRIENDS"):
 		_check(po.get_children().filter(func(c): return c is TextureRect).size() == 4 and pp.get_children().filter(func(c): return c is TextureRect).size() == 2, "multi : eventails de 4 et 2 bosses")
 		_check(is_equal_approx(po.position.x + 252.0, 1260.0) and is_equal_approx(pp.position.x + 252.0, 660.0) and is_equal_approx(po.position.y + 200.0, 540.0), "multi : boutons centres en (1260,540) et (660,540)")
 		po.button_down.emit()
@@ -2672,22 +2666,14 @@ func _check_online_menus() -> void:
 	_check((main._active_sets() as Array).has("iod"), "tuile Implements of Destruction : ajoute le paquet iod")
 	main.apk_decks = saved_decks
 	main.use_extensions = saved_ext
-	# PASS AND PLAY : choix du nombre de joueurs, extensions, partie a sieges tous humains
+	# PLAY WITH FRIENDS (remplace PASS AND PLAY) : profil existant -> WITH FRIENDS (NEW GAME / ROOM CODE) ; plus de partie a sieges tous humains sur un ecran
 	main.show_multi()
 	await _wait(0.2)
-	main.find_child("PASS AND PLAY", true, false).pressed.emit()
+	_check(main.find_child("PASS AND PLAY", true, false) == null, "multi : PASS AND PLAY doit avoir disparu")
+	main.find_child("PLAY WITH FRIENDS", true, false).pressed.emit()
 	await _nav(main)
-	_check(_texts_of(main).has("HOW MANY PLAYERS?"), "pass and play : choix du nombre de joueurs")
-	main.players = 3
-	main.show_setup(3, 3, "pass")
-	await _wait(0.2)
-	_check(_texts_of(main).has("SELECT EXPANSIONS"), "pass and play : choix des extensions")
-	_tb_by_texture(main, "ok_bt.webp").pressed.emit()
-	await _wait(0.4)
-	if _check(main.board != null and is_instance_valid(main.board), "pass and play : pas de plateau"):
-		var pls: Dictionary = main.game_manager.G["players"]
-		_check(pls.size() == 3 and pls.values().all(func(p): return not bool(p.get("isAI", false))), "pass and play : les 3 sieges doivent etre humains")
-		_cov("menus_pass_and_play")
+	_check(_texts_of(main).has("NEW GAME") and _texts_of(main).has("ROOM CODE"), "multi : PLAY WITH FRIENDS ouvre NEW GAME / ROOM CODE")
+	_cov("menus_play_with_friends")
 	main._clear()
 	await get_tree().process_frame
 	# salle d'attente : 4 lignes, hote en or, « WAITING... », OK pour l'hote seulement avec plus d'un humain
@@ -2845,7 +2831,7 @@ func _check_public_lobby() -> void:
 	main.find_child("CreatePublic", true, false).pressed.emit()
 	await _nav(main)
 	main.players = 3
-	main.show_setup(3, 1, "public")
+	main.show_setup(3, "public")
 	await _wait(0.2)
 	_tb_by_texture(main, "ok_bt.webp").pressed.emit()
 	var mine = main.online
@@ -2874,6 +2860,103 @@ func _check_public_lobby() -> void:
 		c._forget()
 		c.queue_free()
 	mine._forget()
+	main.queue_free()
+	await get_tree().process_frame
+	srv.stop()
+	srv.queue_free()
+	if sess_backup.size() > 0:
+		var fa := FileAccess.open(sess_path, FileAccess.WRITE)
+		fa.store_buffer(sess_backup)
+		fa.close()
+	elif FileAccess.file_exists(sess_path):
+		DirAccess.remove_absolute(sess_path)
+
+## Partie en ligne a 3 humains contre un VRAI serveur : bulle « IS PLAYING! » des adversaires attendus, bulle « HAS PLAYED A... » d'un coup distant,
+## message « X has left the game. » quand un adversaire part (il en reste un autre), puis fin de partie quand le dernier adversaire part.
+func _check_online_game() -> void:
+	_tag = "[online-game]"
+	await _teardown()
+	var sess_path: String = ProjectSettings.globalize_path(OnlineClient.SESSION_PATH)
+	var sess_backup := PackedByteArray()
+	if FileAccess.file_exists(sess_path):
+		sess_backup = FileAccess.get_file_as_bytes(sess_path)
+	var srv = Server.new()
+	srv.auto_start = false
+	srv.bot_delay_ms = 0
+	add_child(srv)
+	var prng := RandomNumberGenerator.new()
+	prng.randomize()
+	var url := ""
+	for _i in 20:
+		var port := prng.randi_range(20000, 40000)
+		if srv.start(port) == OK:
+			url = "ws://127.0.0.1:%d" % port
+			break
+	if not _check(url != "", "partie en ligne : aucun port libre"):
+		srv.queue_free()
+		return
+	var guests: Array = []
+	for nm in ["Bobby", "Cara"]:
+		var c := OnlineClient.new()
+		c.host = url
+		c.player_name = nm
+		c.count_results = false
+		add_child(c)
+		guests.append(c)
+	var main = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main)
+	await _wait(0.3)
+	main.server_host = url
+	main.profile = {"name": "Zed", "avatar": "avatar_gorgona"}
+	main.online.count_results = false
+	main.online.host = url
+	# N-B33 : salle d'attente dont la salle est fermee -> « Room closed » (match_id deja vide) ; OK ramene a WITH FRIENDS
+	_check(await main.online.create_lobby(3, []), "salle fermee : creation")
+	main.show_waiting()
+	await _wait(0.2)
+	srv._close_room(main.online.match_id)
+	_check(await _wait_until(func(): return _texts_of(main).has("Room closed"), 5.0), "salle fermee : « Room closed » attendu %s" % str(_texts_of(main)))
+	(main.find_child("Ok", true, false) as TextureButton).pressed.emit()
+	await _nav(main)
+	_check(_texts_of(main).has("NEW GAME") and main.find_child("MessageBox", true, false) == null, "salle fermee : OK doit ramener a WITH FRIENDS %s" % str(_texts_of(main)))
+	_cov("online_room_closed")
+	await _wait_until(func(): return not main.online.connected, 5.0) # leave_match ferme la liaison apres le depart de `leave`
+	_check(await main.online.create_lobby(3, []), "partie en ligne : creation")
+	_check(await guests[0].join_lobby(main.online.match_id, "Bobby") and await guests[1].join_lobby(main.online.match_id, "Cara"), "partie en ligne : jonctions")
+	_check(await _wait_until(func(): return not main.online.current_G.is_empty(), 5.0), "partie en ligne : pas d'etat")
+	main.start_online_match()
+	await _wait(0.3)
+	var b = main.board
+	if not _check(b != null and is_instance_valid(b), "partie en ligne : pas de plateau"):
+		return
+	_check(b._apk_flow() and not b.btn_advance.visible, "N-B18 : en ligne, flux APK (pas de bouton GO, le heros avance apres la barre de 3 s)")
+	# phase de boss : les deux adversaires sont attendus -> deux bulles « IS PLAYING! »
+	_check(await _wait_until(func(): return b._playing.size() == 2, 5.0), "IS PLAYING : une bulle par adversaire attendu (%d)" % b._playing.size())
+	_check(_texts_of(b).filter(func(t): return str(t).ends_with("PLAYING!")).size() == 2, "IS PLAYING : texte absent %s" % str(_texts_of(b)))
+	_cov("online_is_playing")
+	# un coup distant : la bulle de coup remplace « IS PLAYING! » de cet adversaire
+	var spell: Dictionary = (CardDB.spells[0] as Dictionary).duplicate(true)
+	main.online.remote_play.emit({"n": 99, "seat": 1, "move": {"type": "playSpell", "args": [0]}, "card": spell})
+	await _wait(0.2)
+	_check(b._notice_cur.has(1) and is_instance_valid(b._notice_cur[1]) and not b._playing.has(1), "bulle distante : « HAS PLAYED A SPELL » attendue pour le siege 1 (playing=%s)" % str(b._playing.keys()))
+	_cov("online_remote_notice")
+	# un adversaire quitte : il reste un autre humain -> simple message, la partie continue
+	guests[0].leave_match()
+	_check(await _wait_until(func(): return main.find_child("MessageBox", true, false) != null, 5.0), "depart : message absent")
+	_check(_texts_of(main).has("Bobby has left the game.") and main.board != null, "depart : « Bobby has left the game. » attendu %s" % str(_texts_of(main)))
+	(main.find_child("Ok", true, false) as TextureButton).pressed.emit()
+	await _wait(0.2)
+	_check(main.board != null and is_instance_valid(main.board) and main.find_child("MessageBox", true, false) == null, "depart : OK doit garder la partie")
+	# le dernier adversaire part : fin de partie, OK ramene au titre
+	guests[1].leave_match()
+	_check(await _wait_until(func(): return _texts_of(main).any(func(t): return str(t).begins_with("No players to play with.")), 5.0), "depart : « No players to play with. » attendu %s" % str(_texts_of(main)))
+	(main.find_child("Ok", true, false) as TextureButton).pressed.emit()
+	await _wait(0.4)
+	_check(main.board == null or not is_instance_valid(main.board), "depart : OK doit quitter la partie")
+	_cov("online_player_left")
+	for c in guests:
+		c._forget()
+		c.queue_free()
 	main.queue_free()
 	await get_tree().process_frame
 	srv.stop()
@@ -3085,7 +3168,7 @@ func _check_apk_particles() -> void:
 	_check(board._gameover != null and board._gameover.find_children("*", "ApkParticles", true, false).is_empty(), "particules : l'ecran perdu ne doit pas emettre")
 	_cov("apk_particles")
 
-## Animations de l'APK ajoutees apres coup : defausse de la main (DrawCardEmitter.cs:113-145), passage de main en pass and play (JumpBehavior), inclinaison au glisser
+## Animations de l'APK ajoutees apres coup : defausse de la main (DrawCardEmitter.cs:113-145), inclinaison au glisser
 ## (CardRotationBehavior), lerp de survol (CardMoveBehavior), reordonnancement de la ville (VerticalScrollQueueComponent.CreateReorderTask), particules du panneau adverse actif.
 func _check_apk_anims() -> void:
 	_tag = "[anims]"
@@ -3111,14 +3194,6 @@ func _check_apk_anims() -> void:
 		await get_tree().process_frame
 		_check(get_tree().get_nodes_in_group("discarded_card").is_empty(), "defausse : un changement de siege doit couper le vol")
 	_cov("discard_anim")
-	# JumpBehavior : 300 px, BackEase 0,4 (recule d'abord, depasse en revenant)
-	board._hand_jump(1.0)
-	_check(is_equal_approx(board.hand_layer.position.y, 300.0), "passage de main : la main cachee doit etre 300 px plus bas (%.1f)" % board.hand_layer.position.y)
-	board._hand_jump(0.4)
-	_check(board.hand_layer.position.y < -20.0, "passage de main : BackEase, la main recule d'abord (%.1f)" % board.hand_layer.position.y)
-	board._hand_jump(0.0)
-	_check(board.hand_layer.position.y == 0.0, "passage de main : la main revient exactement en place")
-	_cov("hand_jump")
 	# CardRotationBehavior : rotation Y = dx x 0,005 par image, bornee a 22,5 deg, retombe a 0 a l'arret
 	var pv := Control.new()
 	pv.size = Vector2(175, 244)
@@ -3378,6 +3453,7 @@ func _extra_checks() -> void:
 	await _check_credits()
 	await _check_online_menus()
 	await _check_public_lobby()
+	await _check_online_game()
 	await _check_gameover_banner()
 	await _check_apk_particles()
 	await _check_apk_anims()
@@ -3863,7 +3939,7 @@ func _tut_launch_flag(main) -> void:
 	_check(main.find_child("ConfirmationBox", true, false) == null, "tutoriel : la boite ne revient pas apres CANCEL")
 	await _nav(main)
 	# partie normale : garde vide, aucun tutoriel
-	main.start_match(2, 1)
+	main.start_match(2)
 	await _wait(0.3)
 	var b = main.board
 	if _check(b != null, "tutoriel : partie normale absente"):

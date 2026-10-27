@@ -403,8 +403,11 @@ func _on_message(id: int, d: Dictionary) -> void:
 				return
 			var seat := room.seat_of(id)
 			if room.status == "open" and seat == room.host:
-				_close_room(room.code, id) # l'hote quitte la salle d'attente : tout le monde est prevenu
-				return
+				var nh := room.next_host(seat) # APK : le maitre de salle part, Photon en designe un autre (WaitingPrivateRoomScene.cs:41-47)
+				if nh < 0:
+					_close_room(room.code, id) # plus aucun autre humain connecte : la salle se ferme
+					return
+				room.host = nh
 			c["room"] = ""
 			room.leave(seat)
 			room.broadcast()

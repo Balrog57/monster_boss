@@ -15,6 +15,8 @@ signal rooms_received(rooms: Array) # salons publics (liste `rooms` du serveur :
 signal evicted # le siege a ete repris par une autre connexion (autre onglet) : pas de reconnexion
 signal session_lost # session definitivement perdue (jeton refuse, salle inconnue ou fermee) : en partie, modale « Connection problem » (GamePlayMOScene.cs:92-95)
 signal link_changed(up: bool) # liaison ouverte / coupee (reconnexion automatique en cours quand elle tombe)
+signal player_left(seat: int, pname: String) # en partie, un autre humain a quitte (OnlineFlowManager.OnPlayerLeaveGame)
+signal remote_play(play: Dictionary) # sort / capacite jouee par un autre siege : {n, seat, move, card} (bulle « HAS PLAYED A... »)
 signal _reply(kind: String, data: Dictionary)
 
 const NetCodec = preload("res://godot/scripts/NetCodec.gd")
@@ -70,6 +72,7 @@ var _retry_n := 0
 var _resume_on_open := false # reconnexion apres une coupure : renvoyer resume des l'ouverture
 var _want_open := false # une session est en cours : on reconnecte si la liaison tombe
 var _watching := false # lobby public ouvert : redemander la liste a chaque ouverture de la liaison
+var _plays_seen := -1 # numero du dernier `plays` traite (-1 : rien recu, le premier etat ne rejoue pas l'historique)
 var _last_fight := 0 # signature du dernier lastHeroFight recu (le serveur le garde dans G : on ne rejoue pas l'animation)
 
 ## URL du serveur : `host` explicite, sinon reglage de projet bossmonster/online/server_url, sinon
@@ -245,13 +248,18 @@ func _on_message(d: Dictionary) -> void:
 		"closed":
 			if match_id == "": # on a deja quitte la salle nous-memes : ne pas oublier la session (_want_open de watch_rooms)
 				return
+			_forget() # avant request_error : l'ecouteur lit match_id == "" pour savoir que la salle est morte
 			request_error.emit("le salon a ete ferme")
-			_forget()
 			session_lost.emit()
 			_reply.emit("closed_room", d)
 
 func _store_lobby(d: Dictionary) -> void:
+	var prev := current_seats
 	current_seats = d.get("seats", [])
+	if str(d.get("status", "")) == "running" and prev.size() == current_seats.size():
+		for i in current_seats.size():
+			if i != player_id and bool((current_seats[i] as Dictionary).get("left", false)) and not bool((prev[i] as Dictionary).get("left", false)):
+				player_left.emit(i, str((current_seats[i] as Dictionary).get("name", "")))
 	current_status = str(d.get("status", ""))
 	current_num_players = int(d.get("numPlayers", 0))
 	current_title = str(d.get("title", current_title))
@@ -275,6 +283,7 @@ func _store_view(d: Dictionary) -> void:
 	if int(d.get("serverTime", 0)) > 0:
 		clock_offset_ms = int(d["serverTime"]) - int(Time.get_unix_time_from_system() * 1000.0)
 	current_awaited = d.get("awaited", [])
+	_emit_plays(d.get("plays", []))
 	current_moves = d.get("moves", [])
 	if str(d.get("status", "")) == "running":
 		_count_start()
@@ -282,6 +291,17 @@ func _store_view(d: Dictionary) -> void:
 		_count_result()
 		_clear_session() # partie finie : plus rien a reprendre
 	state_received.emit()
+
+## Sorts / capacites des autres sieges, une seule fois chacun ; le premier etat recu ne fait que poser le repere.
+func _emit_plays(plays: Array) -> void:
+	var last := _plays_seen
+	for p in plays:
+		var n := int((p as Dictionary).get("n", 0))
+		if n > last:
+			last = n
+			if _plays_seen >= 0 and int(p.get("seat", -1)) != player_id:
+				remote_play.emit(p)
+	_plays_seen = maxi(last, 0)
 
 ## APK : la defaite en ligne est comptee des le debut de la partie (OnlineDefeats++ + SaveToDisk, GamePlayMOScene.cs:46-48) : quitter = perdre.
 func _count_start() -> void:
@@ -344,6 +364,8 @@ func _profile_fields() -> Dictionary:
 func _enter(msg: Dictionary) -> bool:
 	current_G = {}
 	current_moves = []
+	current_seats = []
+	_plays_seen = -1
 	last_error_code = ""
 	var r := await _call(msg, "joined")
 	if r.is_empty():
@@ -410,6 +432,7 @@ func _forget() -> void:
 	public_room = false
 	credentials = ""
 	player_id = -1
+	_plays_seen = -1
 	_want_open = false
 	_clear_session()
 
