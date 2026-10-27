@@ -298,7 +298,7 @@ static func _jeopardy(G: Dictionary, _caster_id: int, _card: Dictionary, _target
 		hand.clear()
 		for c in held:
 			if bool((c as Dictionary).get("isSpell", false)):
-				(_decks_pile(decks, "spellDiscard") as Array).append(c)
+				CardDB.discard_add(_decks_pile(decks, "spellDiscard") as Array, c)
 			else:
 				BossEngine.discard_room_to_pile(decks, c)
 		hand.append_array(_draw(decks, "spells", 1))

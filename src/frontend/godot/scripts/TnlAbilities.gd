@@ -176,7 +176,7 @@ static func _to_discard(G: Dictionary, card: Dictionary) -> void:
 	if bool(card.get("isSpell", false)):
 		var pile: Array = decks.get("spellDiscard", [])
 		decks["spellDiscard"] = pile
-		pile.append(card)
+		CardDB.discard_add(pile, card)
 	else:
 		BossEngine.discard_room_to_pile(decks, card)
 
@@ -440,7 +440,7 @@ static func flush_torix(G: Dictionary) -> void:
 		if owner.is_empty() or bool(owner.get("eliminated", false)):
 			var pile: Array = decks.get("roomDiscard", [])
 			decks["roomDiscard"] = pile
-			pile.append(card)
+			CardDB.discard_add(pile, card)
 			continue
 		RoomAbilities.enqueue_pending(G, {"type": "tnl-pick", "step": "torix", "ctx": {}, "playerId": int(owner.get("id", -1)), "bossName": "Torix Uz'Kali",
 			"message": "Torix Uz'Kali: put %s into your hand? (or skip)" % _label(card), "options": [{"card": card, "label": _label(card), "ai": 1.0}],
@@ -1230,7 +1230,7 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 			var tdecks: Dictionary = G.get("decks", {})
 			var tpile: Array = tdecks.get("roomDiscard", [])
 			tdecks["roomDiscard"] = tpile
-			tpile.append(tcard)
+			CardDB.discard_add(tpile, tcard)
 		return null
 	if idx < 0 and step != "swap_dungeon" and step != "swap_pair":
 		return null

@@ -202,7 +202,7 @@ static func cast(G: Dictionary, caster: int, card: Dictionary, t: Dictionary) ->
 				if bool(cd.get("isSpell", false)):
 					spells += 1
 					var sd: Array = decks_pile(G, "spellDiscard")
-					sd.append(cd)
+					CardDB.discard_add(sd, cd)
 				else:
 					rooms += 1
 					BossEngine.discard_room_to_pile(G.get("decks", {}), cd)

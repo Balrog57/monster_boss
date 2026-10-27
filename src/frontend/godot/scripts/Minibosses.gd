@@ -186,7 +186,7 @@ static func drop_card(decks: Dictionary, m: Dictionary) -> void:
 	if c is Dictionary:
 		var pile: Array = decks.get("roomDiscard", [])
 		decks["roomDiscard"] = pile
-		pile.append(c)
+		CardDB.discard_add(pile, c)
 
 ## BossEngine.destroy_room : la salle detruite perd son miniboss, qui est defausse. Livret p.6 : « If a Room with a Miniboss is destroyed,
 ## discard the Miniboss » (le guide non officiel le faisait sauter sous la salle decouverte ; le texte imprime l'emporte).

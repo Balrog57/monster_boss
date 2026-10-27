@@ -30,7 +30,6 @@ static func hero_is_in_room(G: Dictionary, player_id: int, room_index: int) -> b
 ## Cartes disponibles dans les défausses ('room' | 'spell' | 'monster' | 'any').
 static func discard_card_options(G: Dictionary, kind: String) -> Array:
 	var decks: Dictionary = G.get("decks", {})
-	CardDB.sort_discards(decks)
 	var opts: Array = []
 	var rooms: Array = decks.get("roomDiscard", [])
 	var spells: Array = decks.get("spellDiscard", [])
@@ -246,7 +245,7 @@ static func cancel_last_opponent_spell(G: Dictionary, player_id: int, label: Str
 	var decks: Dictionary = G.get("decks", {})
 	var pile: Array = decks.get("spellDiscard", [])
 	decks["spellDiscard"] = pile
-	pile.append(card)
+	CardDB.discard_add(pile, card)
 	_log(G, "%s: %s annule." % [label, str(card.get("name", "?"))])
 	# Meme reprise que le Counterspell.
 	stack_return_control(G)
@@ -286,7 +285,7 @@ static func _discard_hand_card(G: Dictionary, p: Dictionary, card: Dictionary) -
 	var pile_name := "spellDiscard" if bool(card.get("isSpell", false)) else "roomDiscard"
 	var pile: Array = decks.get(pile_name, []) as Array
 	decks[pile_name] = pile
-	pile.append(card)
+	CardDB.discard_add(pile, card)
 	Minibosses.on_hand_discard(G, int(p.get("id", -1)), card) # RMB017 Imp Hoard
 
 ## Choix "defausse un sort de ta main" (DiscardSomeCardFromHand(1, Spell)) : le C# propose TOUS les
@@ -832,7 +831,7 @@ static func _discard_random_from(G: Dictionary, pid: int, spell: bool, label: St
 	if spell:
 		var pile: Array = decks.get("spellDiscard", []) as Array
 		decks["spellDiscard"] = pile
-		pile.append(card)
+		CardDB.discard_add(pile, card)
 	else:
 		BossEngine.discard_room_to_pile(decks, card)
 	Minibosses.on_hand_discard(G, pid, card) # RMB017 Imp Hoard

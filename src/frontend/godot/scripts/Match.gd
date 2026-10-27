@@ -826,7 +826,7 @@ func _resolve_choice_body(pid: int, index: int) -> void:
 				var decks: Dictionary = G.get("decks", {})
 				var pile: Array = decks.get("spellDiscard", [])
 				decks["spellDiscard"] = pile
-				pile.append(card)
+				CardDB.discard_add(pile, card)
 				Minibosses.on_hand_discard(G, pid, card) # RMB017 Imp Hoard
 				# All-Seeing Eye : le sort defausse paie l'annulation du dernier sort adverse.
 				if bool(pc.get("thenCancel", false)):
@@ -1109,9 +1109,9 @@ func _apply_opening_discard(pid: int, a: int, b: int) -> void:
 	var card_a: Dictionary = hand.pop_at(idxs[0])
 	for card in [card_a, card_b]:
 		if card.get("isSpell", false):
-			(G["decks"]["spellDiscard"] as Array).append(card)
+			CardDB.discard_add(G["decks"]["spellDiscard"], card)
 		else:
-			(G["decks"]["roomDiscard"] as Array).append(card)
+			CardDB.discard_add(G["decks"]["roomDiscard"], card)
 	_log("Joueur %d a défaussé 2 cartes." % pid)
 
 func _queue_next_opening_discard() -> void:
@@ -1747,7 +1747,7 @@ func _resolve_pending_stack() -> void:
 			var decks: Dictionary = G.get("decks", {})
 			var sd: Array = decks.get("spellDiscard", [])
 			decks["spellDiscard"] = sd
-			sd.append(card) # la carte part en defausse a l'activation (OnAbilityApplyRequest), annulee ou non
+			CardDB.discard_add(sd, card) # la carte part en defausse a l'activation (OnAbilityApplyRequest), annulee ou non
 			if bool(effect.get("canceled", false)):
 				if TnlAbilities.active(G):
 					TnlAbilities.record_played(G, caster_id, card) # Save Point : un sort annule a bien ete « played » (la carte est en defausse)

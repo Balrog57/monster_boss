@@ -639,4 +639,4 @@ static func discard_room_to_pile(decks: Dictionary, card) -> void:
 		return
 	var pile: Array = decks.get("roomDiscard", [])
 	decks["roomDiscard"] = pile
-	pile.append(card)
+	CardDB.discard_add(pile, card)

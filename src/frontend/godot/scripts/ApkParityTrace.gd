@@ -1804,7 +1804,11 @@ func _ai_measure_choice(rec: Dictionary) -> void:
 	var moves: Array = run._stack_response_moves(G["players"][pid], pid, stack.size()) if not stack.is_empty() else run.legal_moves(pid)
 	if rec.get("activePlayer") != null and int(rec["activePlayer"]) != int(rec["player"]): # IsPlayerBuildTurn : seul le joueur actif de l'oracle construit (Godot a deja passe au suivant apres un DONE)
 		moves = moves.filter(func(m): return str((m as Dictionary).get("type", "")) != "buildRoom")
+	var off_turn: bool = rec.get("activePlayer") != null and int(rec["activePlayer"]) != int(rec["player"])
+	if off_turn:
+		ApkAI.not_build_turn = pid # Motivation (CheckBMA050) : IsPlayerBuildTurn faux cote oracle alors que Godot est deja passe au joueur suivant
 	var opts: Array = ApkAI.abilities(G, pid, moves, scratch)
+	ApkAI.not_build_turn = -1
 	run.rng.state = rng_state
 	AI.remember(run, pid, null) # abilitySelected : remplace a chaque UseAbility (null si l'oracle ne tire rien)
 	# Diagnostic de legalite : cartes jouables (CanPlayerPlayAbility) cote oracle / coups legaux Godot, avant les CheckXXX.

@@ -511,7 +511,6 @@ static func active_hero(G: Dictionary) -> Dictionary:
 
 static func _ctx(G: Dictionary, pid: int, moves: Array, rng: RandomNumberGenerator) -> Dictionary:
 	var p: Dictionary = G["players"][pid]
-	CardDB.sort_discards(G.get("decks", {}))
 	var view := _view(p)
 	return {"G": G, "p": p, "pid": pid, "ph": phase(G), "rng": rng, "view": view, "ds": _dungeon_size(view), "ah": active_hero(G),
 		"battle": not (G.get("stack", []) as Array).is_empty(), "moves": moves}
@@ -847,6 +846,9 @@ static func _chk_049(x: Dictionary) -> Variant:
 		return _res([[0, 0, _bosses(x["G"], prio_players(x["G"]))]])
 	return null
 
+## Harnais seulement : siege dont le tour de construction est deja fini cote oracle alors que Godot est passe au joueur suivant (-1 = aucun).
+static var not_build_turn := -1
+
 ## CheckBMA050 Motivation (l.294-306) : au moins 2 salles de la main verifient Boss.CanBuildRoom(gs, r) (GetBuildableRooms), sans compter les constructions
 ## deja faites : MaxBuildRoomLimit ne baisse jamais a la pose (seul BuildExtraRoom le touche), l'APK peut donc jouer Motivation apres sa construction.
 ## La condition de la carte (OpponnentDungeonSizeMoreThan(1)) est dans la legalite du moteur (SpellTargeting.conditions_ok).
@@ -860,7 +862,7 @@ static func _chk_050(x: Dictionary) -> Variant:
 	if active == null and not order.is_empty():
 		active = order[clampi(int(G.get("buildIndex", 0)), 0, order.size() - 1)]
 	# IsPlayerBuildTurn (joueur actif, pas la fenetre de sorts apres la derniere construction) et pas de bataille de sorts en cours.
-	if str(G.get("phase", "")) != CardDB.PHASE["BUILD"] or active == null or int(active) != pid or G.has("buildWindow") or bool(x["battle"]):
+	if str(G.get("phase", "")) != CardDB.PHASE["BUILD"] or active == null or int(active) != pid or G.has("buildWindow") or bool(x["battle"]) or not_build_turn == pid:
 		return null
 	var n := 0
 	var hand: Array = (x["p"] as Dictionary).get("hand", [])

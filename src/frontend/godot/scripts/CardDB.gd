@@ -81,15 +81,14 @@ const ALT_ARTS := {"BMA017": 1, "BMA021": 1, "BMA023": 1, "BMA029": 1, "BMA040":
 static func discard_rank(card: Dictionary) -> int:
 	return int(card.get("_oid", card.get("_uid", 1 << 40)))
 
-## GameBoard.DiscardFromHand / DestroyRoom : `DiscardPile*.Sort()` apres chaque ajout. Toute defausse est ajoutee par un de ces deux chemins : on trie a la lecture.
-static func sort_discards(decks: Dictionary) -> void:
-	for k in ["roomDiscard", "spellDiscard"]:
-		var pile: Array = decks.get(k, [])
-		var keyed: Array = []
-		for i in pile.size():
-			keyed.append([discard_rank(pile[i]), i, pile[i]])
-		keyed.sort_custom(func(a, b): return a[0] < b[0] or (a[0] == b[0] and a[1] < b[1]))
-		pile.assign(keyed.map(func(e): return e[2]))
+## GameBoard.DiscardFromHand / DestroyRoom : `DiscardPile*.Sort()` apres chaque ajout. Tout ajout a une defausse passe par ici (les lectures, IA comprise, ne modifient jamais G).
+static func discard_add(pile: Array, card: Dictionary) -> void:
+	pile.append(card)
+	var keyed: Array = []
+	for i in pile.size():
+		keyed.append([discard_rank(pile[i]), i, pile[i]])
+	keyed.sort_custom(func(a, b): return a[0] < b[0] or (a[0] == b[0] and a[1] < b[1]))
+	pile.assign(keyed.map(func(e): return e[2]))
 
 static func expanded_deck(cards: Array) -> Array:
 	var out: Array = []
