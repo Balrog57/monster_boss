@@ -92,6 +92,8 @@ func set_background(paused: bool) -> void:
 	_music.stream_paused = paused
 
 func _notification(what: int) -> void:
+	if OS.has_feature("web"): # le focus du canvas se perd au moindre clic hors du jeu : seul visibilitychange vaut OnPause
+		return
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		set_background(true)
 	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
