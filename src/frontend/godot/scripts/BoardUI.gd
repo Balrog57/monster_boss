@@ -5119,6 +5119,7 @@ func _open_game_menu() -> void:
 	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
 	var pop := _popup_begin("menu", 0.72)
 	var menu := InGameMenu.new()
+	menu.show_gallery = not _is_online()
 	pop.add_child(menu)
 	UiKit.cross_fade_in(pop) # PauseScene = modale : CrossFade 0,2 s (GamePlayBaseScene.cs:1093-1099 ; ModalSceneService.cs:89,112-115)
 	menu.resume_requested.connect(_close_menu)

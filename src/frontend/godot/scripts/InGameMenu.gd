@@ -15,6 +15,7 @@ const UI := "res://assets/ui/"
 const BTN := Vector2(546, 144)
 
 var page := "main"                   # "main" | "settings"
+var show_gallery := true             # PauseScene(showTutorialAndGallery = !activateTimeOuts) : pas de CARD GALLERY en partie en ligne (PauseScene.cs:30,41,61)
 var gallery: Control                 # galerie ouverte par-dessus (null si fermee)
 var volume_slider: HSlider
 
@@ -46,15 +47,16 @@ func _build_main() -> void:
 			_build()
 			# SettingsScene = modale : CrossFade 0,2 s (PauseScene.cs:77-84 ; ModalSceneService.cs:63-71,89)
 			UiKit.cross_fade_in(self)], ["QUIT GAME", func(): quit_requested.emit()]]
+	if not show_gallery:
+		entries.remove_at(1)
 	for i in entries.size():
 		# APK : boutons au pas de 194 px (bordures a y 124, 318, 512, 707, PauseScene.cs:44-94) ; RULES (ajout) est insere avant SETTINGS, QUIT GAME reste le dernier (5e bouton : bas a 1043 px)
 		var row := i
-		var b := UiKit.stone_button(self, str(entries[i][0]), Vector2(960.0 - BTN.x / 2.0, 122.5 + 194.2 * row), BTN)
-		var cb: Callable = entries[i][1]
 		var sfx := "ui_button_goback" if i == 0 else "ui_button_select"
-		b.pressed.connect(func():
-			AudioManager.play_sfx(sfx)
-			cb.call())
+		if not show_gallery:
+			row += 1 # num4 demarre a 1 sans galerie : RESUME descend d'un cran (PauseScene.cs:37)
+		var b := UiKit.stone_button(self, str(entries[i][0]), Vector2(960.0 - BTN.x / 2.0, 122.5 + 194.2 * row), BTN, 27, sfx, str(entries[i][0]) != "RULES") # RULES : ajout hors APK, rien ne le remet a plat
+		b.pressed.connect(entries[i][1])
 
 func _build_settings() -> void:
 	var back := UiKit.texture_button(self, UI + "buttons/back_bt.webp", UI + "buttons/back_bt_pressed.webp", Vector2(200, 41))
@@ -110,6 +112,7 @@ func _open_gallery() -> void:
 	gallery.z_index = 5
 	gallery.closed.connect(func():
 		gallery = null
+		_build() # PauseScene.OnDesactivatingScene : les boutons repassent a l'etat repos
 		UiKit.cross_fade_in(self)) # retour au menu PAUSED : re-empile avec CrossFade (ModalSceneService.cs:69-72)
 	add_child(gallery)
 	UiKit.cross_fade_in(gallery) # PauseScene.cs:67-70 : GalleryScene(fromGameplay) = modale, CrossFade 0,2 s
