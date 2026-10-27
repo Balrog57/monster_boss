@@ -2264,7 +2264,7 @@ Validé par `python tools/run_godot_tests.py` (14/14) ; captures `capture_screen
 | U-B39 | Accepté | Achat retiré : la tuile reste sélectionnable ; le texte de détail reste celui de l'APK. |
 | U-B40 | Accepté | Boutique, déblocages et mécènes retirés (décision produit). |
 | U-B41 | Corrigé | Tuile choisie : échelle 1,0 vers 1,1 en 0,3 s (CubicEase InOut), aucun son. |
-| U-B42 | Corrigé | Tuiles alignées à gauche (centre 455, pas 331, taille réelle), glissement horizontal avec inertie dès 4 tuiles. |
+| U-B42 | Corrigé | Tuiles alignées à gauche (centre 455, pas 331, taille réelle), glissement horizontal avec inertie dès 4 tuiles. Détails des tuiles : police arcadepix x1 (19 px) comme l'APK (`PurchaseDetailEntity`, capitales de 14 px, `+40 NEW HEROES` mesuré à y 760 à 773 sur `apk_orig2/mp_newgame.png`) ; pas de lignes porté de 14 à 17 px car les 3 lignes de The Player's Choice, jointives à 14, se chevauchaient (aucune capture APK ne les montre) ; la « ? » (ajout hors APK) est descendue sous les lignes. |
 | U-B46 | Corrigé | Tuile BOSS MONSTER retirée (le jeu de base est toujours présent). |
 | U-B47 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |
 | U-B48 | Conforme | Ajout Godot assumé, aucun écart avec l'APK. |

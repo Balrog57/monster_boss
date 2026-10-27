@@ -628,16 +628,16 @@ func _draw_tile(d: Dictionary, pos: Vector2) -> void:
 		holder.add_child(_lbl(str(d["name"]), 26, GOLD, Vector2(14, 20), Vector2(257, 280), FONT_A))
 	if soon:
 		holder.add_child(_tex("expansions/coming_soon_band.webp", Vector2(w, h) / 2.0 + Vector2(-136.5, -83.0 + 38.5), Vector2(273, 167))) # bande a +40 sous le centre (PurchaseItemButton.cs:73), x 0,963 comme le fond
-	elif d.has("details"): # PurchaseItemButton.cs:94-103 + PurchaseDetailEntity.cs : « + » or, nombre or x 1,2, libelle blanc, a (-60, 60 + 14 n) du centre
+	elif d.has("details"): # PurchaseItemButton.cs:94-103 + PurchaseDetailEntity.cs : police arcadepix x1 (capitales de 14 px = pas de 14), « + » or, nombre or x 1,2, libelle blanc, a (-60, 60 + 14 n) du centre
 		var n := 0
 		for line in d["details"]:
 			var parts: PackedStringArray = str(line).split(";")
-			var y := 350.0 + 14.0 * n
+			var y := 350.0 + 17.0 * n # APK : pas de 14 = hauteur des capitales (lignes jointives) ; 17 evite que les 3 lignes de The Player's Choice se chevauchent (aucune capture APK ne les montre)
 			var x := 25.0
 			var adv := 18.0 + 18.0 * parts[0].length() # num += num * Text.Length (:23)
-			holder.add_child(_lbl("+", 21, GOLD, Vector2(x, y), Vector2(40, 24), FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
-			holder.add_child(_lbl(parts[0], 25, GOLD, Vector2(x + 18.0, y - 3.0), Vector2(100, 28), FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
-			holder.add_child(_lbl(parts[1], 21, Color.WHITE, Vector2(x + adv, y), Vector2(260, 24), FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
+			holder.add_child(_lbl("+", 19, GOLD, Vector2(x, y), Vector2(40, 24), FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
+			holder.add_child(_lbl(parts[0], 23, GOLD, Vector2(x + 18.0, y - 3.0), Vector2(100, 28), FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
+			holder.add_child(_lbl(parts[1], 19, Color.WHITE, Vector2(x + adv, y), Vector2(260, 24), FONT_A, HORIZONTAL_ALIGNMENT_LEFT))
 			n += 1
 	elif not _is_wiki(d): # les infos des paquets du wiki sont trop longues : elles sont dans la fenetre « ? »
 		holder.add_child(_lbl(str(d.get("info", "")).to_upper(), 17, Color.WHITE, Vector2(14, 322), Vector2(257, 62), FONT_A))
@@ -654,8 +654,8 @@ func _draw_tile(d: Dictionary, pos: Vector2) -> void:
 		Profile.save_settings(server_host, use_extensions, apk_decks)
 		_draw_tiles()
 	_tiles_box.add_child(_hit(pos, Vector2(w, h - 70), toggle, ""))
-	holder.add_child(_lbl("?", 40, GOLD, Vector2(w / 2 - 25, h - 70), Vector2(50, 60)))
-	_tiles_box.add_child(_hit(pos + Vector2(w / 2 - 35, h - 75), Vector2(70, 70), func(): _deck_popup(d)))
+	holder.add_child(_lbl("?", 30, GOLD, Vector2(w / 2 - 25, h - 58), Vector2(50, 50))) # sous les 3 lignes de details (la « ? » est un ajout hors APK)
+	_tiles_box.add_child(_hit(pos + Vector2(w / 2 - 35, h - 63), Vector2(70, 56), func(): _deck_popup(d)))
 
 ## Glissement des tuiles (ExpansionScrollComponent.TouchMoved :190-206, Update :208-240) : ressort 0,4 hors bornes, inertie x 0,9 ; la course depasse de 200 px.
 func _input(ev: InputEvent) -> void:
