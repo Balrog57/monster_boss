@@ -30,6 +30,7 @@ static func hero_is_in_room(G: Dictionary, player_id: int, room_index: int) -> b
 ## Cartes disponibles dans les défausses ('room' | 'spell' | 'monster' | 'any').
 static func discard_card_options(G: Dictionary, kind: String) -> Array:
 	var decks: Dictionary = G.get("decks", {})
+	CardDB.sort_discards(decks)
 	var opts: Array = []
 	var rooms: Array = decks.get("roomDiscard", [])
 	var spells: Array = decks.get("spellDiscard", [])

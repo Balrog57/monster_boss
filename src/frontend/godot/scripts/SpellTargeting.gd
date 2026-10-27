@@ -149,10 +149,11 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 				out.append({"targetPlayerId": int(opid)})
 		"tpk-player":
 			# BossOwner : un humain n'a que lui-meme (cible auto-resolue). L'IA de l'APK (AbilityCalculator.CheckKSA013) designe TOUS les joueurs
-			# par PlayerId et le moteur retient le premier : le harnais d'oracle ouvre ce choix (G.aiTargetsAllBosses).
+			# par PlayerId et le moteur retient le premier (le boss de plus haute XP, souvent un adversaire) : on ouvre ce choix a tout siege IA et au harnais.
+			var all_bosses: bool = bool(G.get("aiTargetsAllBosses", false)) or bool(me.get("isAI", false))
 			for opid in (G.get("players", {}) as Dictionary):
 				var op: Dictionary = G["players"][opid]
-				if op.get("eliminated", false) or (int(opid) != pid and not bool(G.get("aiTargetsAllBosses", false))):
+				if op.get("eliminated", false) or (int(opid) != pid and not all_bosses):
 					continue
 				out.append({"targetPlayerId": int(opid)})
 		"any-player":

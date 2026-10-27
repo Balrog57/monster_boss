@@ -5138,6 +5138,7 @@ func _on_discard_pile_pressed() -> void:
 	if _modal_open() or (_popup != null and is_instance_valid(_popup)):
 		return
 	var decks: Dictionary = game_manager.G.get("decks", {})
+	CardDB.sort_discards(decks)
 	var cards: Array = []
 	for c in (decks.get("roomDiscard", []) as Array) + (decks.get("spellDiscard", []) as Array):
 		var d: Dictionary = (c as Dictionary).duplicate()

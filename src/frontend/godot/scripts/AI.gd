@@ -26,6 +26,9 @@ static var _used: Dictionary = {}
 ## `AIPlayerInteraction.abilitySelected` : la capacite que l'IA a tiree en dernier (entree de ApkAI.abilities, cibles preregles), par partie et par joueur. Les choix
 ## ouverts ensuite par cette capacite (Dracolich Lair, Dark Altar...) lisent ces cibles (StatisticAI : GetSelectedTargets avant TriggerCalculator).
 static var _sel: Dictionary = {}
+## Construction choisie AVANT la capacite (AIPlayerInteraction.cs:86-101 : UseAbility() et BuildRoom() evaluees sur le meme etat), rejouee apres elle :
+## "<partie>:<joueur>" -> {"win": fenetre, "card": salle, "slot": args du coup}.
+static var _pre_build: Dictionary = {}
 ## Liste calculee au premier choix d'une carte a plusieurs choix (Xyzax), par partie et par joueur.
 static var _memo: Dictionary = {}
 ## Mesure seulement : la derniere reponse a un choix venait-elle d'un tirage (`Shuffle()`) ?
@@ -115,11 +118,25 @@ static func pick_move(match_obj, pid: int, commit := true):
 					remember(match_obj, pid, drawn)
 				if drawn["move"] != null:
 					best = drawn["move"]
+					if commit and not off_turn and not builds.is_empty(): # la salle est choisie maintenant, sur l'etat d'avant la capacite
+						var pre := int(ApkAI.plan(match_obj.G, pid, builds)["pick"])
+						if pre >= 0:
+							var pargs: Array = (builds[pre] as Dictionary)["args"]
+							_pre_build[wkey] = {"win": win, "card": (p["hand"] as Array)[int(pargs[0])], "args": pargs.slice(1)}
 	# AIPlayerInteraction.InternalDoPlayerActions : une capacite d'abord (UseAbility), PUIS la construction (BuildRoom) ; les deux ne se comparent jamais.
 	if not builds.is_empty() and (best == null or str((best as Dictionary).get("type", "")) in ["passBuild", "pass", "adventureNext", "resolveNextHero"]):
 		var plan := ApkAI.plan(match_obj.G, pid, builds)
 		if int(plan["pick"]) >= 0:
 			best = builds[int(plan["pick"])]
+		var pre: Dictionary = _pre_build.get(_key(match_obj, pid), {}) as Dictionary
+		if commit and not pre.is_empty():
+			_pre_build.erase(_key(match_obj, pid))
+			if str(pre["win"]) == _window_key(match_obj.G): # meme fenetre : la capacite jouee ne change pas le choix deja fait, tant que la salle est encore la
+				for m in builds:
+					var margs: Array = (m as Dictionary)["args"]
+					if ApkAI._same((p["hand"] as Array)[int(margs[0])], pre["card"]) and margs.slice(1) == pre["args"]:
+						best = m
+						break
 	if trace.is_valid():
 		trace.call(match_obj, pid, moves, best)
 	return best

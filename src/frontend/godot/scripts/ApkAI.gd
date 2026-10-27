@@ -511,6 +511,7 @@ static func active_hero(G: Dictionary) -> Dictionary:
 
 static func _ctx(G: Dictionary, pid: int, moves: Array, rng: RandomNumberGenerator) -> Dictionary:
 	var p: Dictionary = G["players"][pid]
+	CardDB.sort_discards(G.get("decks", {}))
 	var view := _view(p)
 	return {"G": G, "p": p, "pid": pid, "ph": phase(G), "rng": rng, "view": view, "ds": _dungeon_size(view), "ah": active_hero(G),
 		"battle": not (G.get("stack", []) as Array).is_empty(), "moves": moves}
@@ -627,7 +628,7 @@ static func _who_would_bait(G: Dictionary, hero: Dictionary) -> Array:
 ## Rang d'une carte de la defausse a valeur egale : GameBoard.DestroyRoom trie DiscardPileRooms par UniqueID (LogicCardBase.CompareTo). Godot n'a pas d'identifiant
 ## d'instance hors du harnais de parite (`_oid`) : sans lui, l'ordre de la defausse (egalite stable).
 static func _discard_rank(card: Dictionary) -> int:
-	return int(card.get("_oid", 0))
+	return CardDB.discard_rank(card)
 
 ## Boss.CanBuildRoom(gs, r, ignoreGamePhase: true) pour une carte qui n'est pas (forcement) en main : on l'ajoute a une copie de la main.
 static func _can_build_card(G: Dictionary, p: Dictionary, pid: int, card: Dictionary) -> bool:
@@ -846,19 +847,32 @@ static func _chk_049(x: Dictionary) -> Variant:
 		return _res([[0, 0, _bosses(x["G"], prio_players(x["G"]))]])
 	return null
 
-## CheckBMA050 Motivation (l.294-306) : au moins 2 salles de la main constructibles (Boss.CanBuildRoom, phase comprise) = coups buildRoom legaux de Godot.
-## La condition de la carte (OpponnentDungeonSizeMoreThan(1)) est dans la legalite du moteur (SpellTargeting.conditions_ok) : `abilities` n'appelle ce
-## CheckXXX que pour un playSpell legal.
+## CheckBMA050 Motivation (l.294-306) : au moins 2 salles de la main verifient Boss.CanBuildRoom(gs, r) (GetBuildableRooms), sans compter les constructions
+## deja faites : MaxBuildRoomLimit ne baisse jamais a la pose (seul BuildExtraRoom le touche), l'APK peut donc jouer Motivation apres sa construction.
+## La condition de la carte (OpponnentDungeonSizeMoreThan(1)) est dans la legalite du moteur (SpellTargeting.conditions_ok).
 static func _chk_050(x: Dictionary) -> Variant:
 	if _early(x):
 		return null
-	var cards := {}
-	for m in (x["moves"] as Array):
-		if str((m as Dictionary).get("type", "")) == "buildRoom":
-			cards[int(((m as Dictionary)["args"] as Array)[0])] = true
-	if cards.size() < 2:
+	var G: Dictionary = x["G"]
+	var pid := int(x["pid"])
+	var order: Array = G.get("buildOrder", [])
+	var active = G.get("activePlayer")
+	if active == null and not order.is_empty():
+		active = order[clampi(int(G.get("buildIndex", 0)), 0, order.size() - 1)]
+	# IsPlayerBuildTurn (joueur actif, pas la fenetre de sorts apres la derniere construction) et pas de bataille de sorts en cours.
+	if str(G.get("phase", "")) != CardDB.PHASE["BUILD"] or active == null or int(active) != pid or G.has("buildWindow") or bool(x["battle"]):
 		return null
-	return _res([[0, 0, [_boss_of(x["G"], int(x["pid"]))]]])
+	var n := 0
+	var hand: Array = (x["p"] as Dictionary).get("hand", [])
+	for i in hand.size():
+		var c: Dictionary = hand[i]
+		if not bool(c.get("isRoom", false)) or (str(G.get("forcedBuild", "")) != "" and str(c.get("id", "")) != str(G["forcedBuild"])):
+			continue
+		if can_build_anywhere(G, x["p"], pid, i):
+			n += 1
+	if n < 2:
+		return null
+	return _res([[0, 0, [_boss_of(G, pid)]]])
 
 ## CheckBMA051 Princess in Peril (l.308-343) : un heros de la ville que NOUS ne voulons pas laisser a un autre, et que notre donjon tue.
 static func _chk_051(x: Dictionary) -> Variant:

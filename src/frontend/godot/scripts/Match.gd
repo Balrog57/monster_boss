@@ -98,9 +98,14 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	var room_src: Array = CardDB.expanded_deck(rooms)
 	if rmb: # les 10 minibosses sont dans la pioche de salles (livret : « Room Deck with 82 cards »)
 		room_src.append_array(CardDB.expanded_deck(CardDB.minibosses.filter(in_sets)))
+	for i in room_src.size():
+		(room_src[i] as Dictionary)["_uid"] = i + 1 # UniqueID de l'APK : numerotation dans l'ordre du paquet avant melange (GetLogicCards)
 	var room_deck: Array = CardDB.shuffled(room_src.map(_room_card))
 	var thk_live: bool = sets.has(ThkAbilities.SET_ID) # Excavation (THK025) n'est jouable que derriere la case wiki (l'APK : Ability nulle)
-	var spell_deck: Array = CardDB.shuffled(CardDB.expanded_deck(spells).map(func(s): var d = (s as Dictionary).duplicate(); d["isSpell"] = true; return d))
+	var spell_src: Array = CardDB.expanded_deck(spells)
+	for i in spell_src.size():
+		(spell_src[i] as Dictionary)["_uid"] = i + 1 # voir room_src
+	var spell_deck: Array = CardDB.shuffled(spell_src.map(func(s): var d = (s as Dictionary).duplicate(); d["isSpell"] = true; return d))
 	if thk_live:
 		for sc in spell_deck:
 			if str((sc as Dictionary).get("id", "")) == "THK025":
