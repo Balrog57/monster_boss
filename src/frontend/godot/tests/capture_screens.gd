@@ -67,6 +67,11 @@ func _ready() -> void:
 		print("LEFTOVERS SCREENS CAPTURED: ", n_shots)
 		get_tree().quit(0)
 		return
+	if only == "lot6b": # lot 6b : engrenage APK, file d'entree (echelle des suivants), bouton DONE timer, horloge de la barre, coeur de soin, cadre du panneau adverse, zoom de la ville
+		await _lot6b_shots()
+		print("LOT6B SCREENS CAPTURED: ", n_shots)
+		get_tree().quit(0)
+		return
 	if only == "lot2b": # lot 2b : main (survol / glissement), pulsation de DONE, bulles, halo vert de la salle source, lueur de niveau, ville, pile, 2e art
 		await _lot2b_shots()
 		print("LOT2B SCREENS CAPTURED: ", n_shots)
@@ -1490,3 +1495,53 @@ func _tutorial_shots() -> void:
 		f.close()
 	else:
 		DirAccess.remove_absolute(cfg_path)
+
+func _lot6b_shots() -> void:
+	await _new_game()
+	_heroes_town(4)
+	_dungeon_fill(_me(), 3)
+	_dungeon_fill(_foe(), 3)
+	_hand_n(6, 2)
+	_me()["boss"] = _boss_dict("BMA001")
+	_foe()["boss"] = _boss_dict("BMA003")
+	var heroes: Array = CardDB.heroes.filter(func(h): return not bool((h as Dictionary).get("epic", false)))
+	_me()["entrance"] = [(heroes[0] as Dictionary).duplicate(true), (heroes[1] as Dictionary).duplicate(true), (heroes[2] as Dictionary).duplicate(true)]
+	_foe()["entrance"] = [(heroes[3] as Dictionary).duplicate(true), (heroes[4] as Dictionary).duplicate(true)]
+	await _settle()
+	await _shot("lot6b_board_gear_entrance_queue") # APK : adv_t8_full_state_5_rooms_each_side, bait_phase_heroes_assigned_to_dungeons
+	gm.G["turnDeadline"] = int(Time.get_unix_time_from_system() * 1000.0) + 40000
+	await _settle()
+	board._tick_done_bar()
+	await _wait(0.5)
+	await _shot("lot6b_done_button_timer_variant") # APK : build_done_button_green_after_playing_room_t4
+	gm.G.erase("turnDeadline")
+	# barre de temps ralentie : horloge au bout de la barre
+	board._win_bar.visible = true
+	board._win_bar.modulate.a = 1.0
+	board._win_bar.position = Vector2(700, 600)
+	board._win_bar.frac = 0.6
+	board._win_bar.slowed = false
+	board._win_bar_on = true
+	await _wait(0.3)
+	await _shot("lot6b_timebar_normal")
+	board._win_bar.slowed = true
+	await _wait(0.4)
+	await _shot("lot6b_timebar_clock_slowed") # APK : adv_longpress_trepidation_zoom_clock_timer_icon_bar_opponent_side
+	board._win_bar.visible = false
+	# coeur de soin et cadre jaune du panneau adverse
+	board._show_floating_dmg(board.hero_crossing_layer, -2)
+	var g: Control = board._challenger_glow({"k": "player", "pid": board.foe_pid}, false, board._ui_layer)
+	await _wait(0.5)
+	await _shot("lot6b_heal_heart_and_challenger_yellow")
+	g.queue_free()
+	board.skip_animations = false
+	g = board._challenger_glow({"k": "player", "pid": board.foe_pid}, true, board._ui_layer)
+	await _wait(0.5)
+	await _shot("lot6b_challenger_red")
+	g.queue_free()
+	# clic sur un heros de la ville : zoom a gauche
+	board.skip_animations = true
+	var town_cards: Array = board.town_container.get_children().filter(func(c): return not c.is_queued_for_deletion())
+	board._town_tap(town_cards[1])
+	await _wait(0.4)
+	await _shot("lot6b_town_hero_tap_zoom_left")
