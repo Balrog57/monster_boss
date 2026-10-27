@@ -433,6 +433,8 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 		var o: Dictionary = other
 		if is_room_deactivated(G, pid, i):  # AdjacentsRoom/NextRoom ignorent les slots inactifs
 			continue
+		if bool(o.get("faceDown", false)):  # Boss.GetPassiveDamage ne parcourt que DungeonActiveRooms : une salle posee ce tour (PendingToBeBuilt) ne donne rien (IA-H18)
+			continue
 		if thk and absi(i - room_index) == 1:
 			dmg += IodAbilities.mage_adjacent(G, pid, o) # IOD008 Flame of Achoom (Reward) : les salles Mage donnent +1 aux voisines
 		if locked or TnlAbilities.no_text(o) or flame:  # IOD008 (Power-Up) : le heros ignore le texte des salles qui modifient les autres salles

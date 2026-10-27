@@ -46,7 +46,8 @@ static func _window_key(G: Dictionary) -> String:
 	var st: Array = G.get("stack", [])
 	var hero_id := str((adv.get("hero", {}) as Dictionary).get("id", "")) if not adv.is_empty() else ""
 	# BuildPhase_a : un appel d'UseAbility par NextStep et par IA (GamePlayBaseScene.cs:864-871) -> le joueur actif fait partie de la fenetre.
-	var act := str(G.get("activePlayer", "-")) if str(G.get("phase", "")) == "build" else ""
+	# AdventurePhase_b avant l'entree du heros : chaque IA a sa fenetre, par joueur actif et par heros a l'entree (IA-H60).
+	var act := str(G.get("activePlayer", "-")) if str(G.get("phase", "")) == "build" or (str(G.get("phase", "")) == "adventure" and adv.is_empty() and st.is_empty()) else ""
 	return "%d|%s|%s|%s|%s|%s|%s" % [int(G.get("turn", 0)), str(G.get("phase", "")), str(adv.get("roomIndex", "-")), hero_id,
 		str((st[st.size() - 1] as Dictionary).get("id", "")) if not st.is_empty() else "", str(G.has("buildWindow")), act]
 

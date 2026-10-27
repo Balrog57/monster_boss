@@ -1025,12 +1025,20 @@ func _process(delta: float) -> void:
 		var has_ai_choice: bool = not pc.is_empty() and int(pc.get("playerId", -1)) == int(pid)
 		# Aventure : l'IA active doit avancer / passer, sinon la partie attend indefiniment (pause : tous les sieges IA passent).
 		var adv_turn: bool = phase == "adventure" and pc.is_empty() and (int(pid) == game_manager.active_player() or ((game_manager.G.get("adventure", {}) as Dictionary).get("pause") != null))
+		# IA-H60 : AdventurePhase_b / _c appellent UseAbility pour TOUTE IA (AIPlayerInteraction.cs:86-101), pas seulement l'active : avant l'entree du heros
+		# (aucun heros en cours, pile vide) une IA hors tour joue aussi sa capacite (Trepidation...), une fois par fenetre (AI._window_key).
+		var pre_entry: bool = phase == "adventure" and pc.is_empty() and not adv_turn and (game_manager.G.get("adventure", {}) as Dictionary).is_empty() and (game_manager.G.get("stack", []) as Array).is_empty()
+		adv_turn = adv_turn or pre_entry
 		if not moves.is_empty() and (has_ai_choice or phase == "boss" or phase == "build" or adv_turn):
 			_ai_timer += dt
 			if _ai_timer > (0.2 if adv_turn else 0.5):
 				var mv = AI.pick_move(game_manager, int(pid))
 				# Un coup juge nocif par l'IA (score < 0) n'est joue qu'en dernier recours : on prefere passer (comme soak_runner).
+				if pre_entry and mv != null and not ApkAI.is_apk_ability_move(players[pid], mv):
+					mv = null # hors tour, l'APK ne laisse que UseAbility (capacites des cartes de l'APK) : ni construction ni sorts hors APK
 				if adv_turn and mv != null and AI.score_move(game_manager, int(pid), mv) < 0.0:
+					if pre_entry:
+						mv = null # hors tour il n'y a pas de « passe » : on ne joue pas un coup nocif
 					for m in moves:
 						if str((m as Dictionary).get("type", "")) in ["pass", "passBuild"]:
 							mv = m
