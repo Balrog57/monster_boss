@@ -135,6 +135,8 @@ static func zoom_card(card: Dictionary, sz: Vector2 = ZOOM_CARD, greyed: bool = 
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	c.set_process_input(false)
 	c.setup(card)
+	if BossEngine.hero_hp(card) > BossEngine.hero_base_hp(card):
+		c.add_heart(BossEngine.hero_hp(card), true) # HeroCardEntity.cs:79-86 : le zoom d'un heros aux PV gagnes garde son coeur de buff
 	if greyed:
 		c.set_greyed(true)
 	root.set_meta("card", c)

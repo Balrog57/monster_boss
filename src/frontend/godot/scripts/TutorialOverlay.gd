@@ -27,6 +27,7 @@ const VEIL := Color(0, 0, 0, 165.0 / 255.0) # mascara_black : l'extraction webp 
 const TYPE_CPS := 15.0                      # AnimatedWritingBehavior.cs:11 : 15 lettres par seconde
 const AFTER_TYPE := 0.2                     # TutorialIntroScene.cs:100 : Delay(0,2 s) apres la frappe
 const FADE_IN := 0.2                        # ModalTransitionsTime : CrossFade de 0,2 s a l'ouverture d'une scene (GamePlayTutScene.cs:136-142)
+const HINT_TIME := 0.5                      # HideWhenTouchBehavior.cs:36-37 : entree et sortie de la bulle du boss
 const SHAKE_AMP := 20.0                     # ShakeBehavior (TutorialFactory.cs:30-35) : amplitude 20, pas de decroissance
 const SHAKE_W := 7.2                        # VelocityFactor 0,12 x 60 images/s
 const NAG := 8.0                            # delai sans action avant de rejouer la consigne (p23 / p27) : l'APK la rejoue a chaque tour de la barre de temps
@@ -146,7 +147,6 @@ var _ptr_layer: Control      # pointeurs de la defausse d'ouverture (au-dessous 
 var _ptrs := {}              # id de carte -> Hand
 var _ptr_gone := {}          # id de carte -> pointeur retire (carte choisie)
 var _hint: Control           # bulle du boss (bonne / mauvaise carte)
-var _hint_t := 0.0
 var _hint_age := 0.0
 var _disc_t := 0.0           # delai avant DiscardTwoCards (0,9 s)
 var _hold_t := 0.0
@@ -317,10 +317,7 @@ func _clocks(dt: float) -> void:
 	else:
 		_hold_t = 0.0
 	if _hint != null:
-		_hint_t -= dt
-		_hint_age += dt
-		if _hint_t <= 0.0:
-			_hint_clear()
+		_hint_age += dt # l'APK n'a aucun minuteur : la bulle ne se ferme qu'au toucher hors d'elle (HideWhenTouchBehavior)
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Declenchement des etapes (ordre de l'APK, chacune une seule fois)
@@ -1063,7 +1060,8 @@ func _slot_node(di: int) -> Control:
 			return s as Control
 	return null
 
-## Bulle du boss (BossHint, boss_globe) : meme geometrie que « HEY! YOU CAN BUILD A ROOM! » (BoardUI._warn_show) ; disparait au toucher ou apres 6 s.
+## Bulle du boss (BossHint, boss_globe) : meme geometrie que « HEY! YOU CAN BUILD A ROOM! » (BoardUI._warn_show) ; entre en 0,5 s (opacite 0,5 -> 1, echelle 0,7 -> 1,
+## CubicEase InOut) et ne se ferme qu'a un appui hors d'elle (fondu de sortie 0,5 s), jamais d'elle-meme (HideWhenTouchBehavior.cs).
 func _show_hint(text: String) -> void:
 	_hint_clear()
 	var b := Control.new()
@@ -1080,8 +1078,14 @@ func _show_hint(text: String) -> void:
 	t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	add_child(b)
 	_hint = b
-	_hint_t = 6.0
 	_hint_age = 0.0
+	if not board.skip_animations:
+		b.pivot_offset = b.size / 2.0
+		b.modulate.a = 0.5
+		b.scale = Vector2(0.7, 0.7)
+		var tw := b.create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+		tw.tween_property(b, "modulate:a", 1.0, HINT_TIME)
+		tw.tween_property(b, "scale", Vector2.ONE, HINT_TIME)
 
 func _hint_clear() -> void:
 	if _hint != null and is_instance_valid(_hint):
@@ -1089,8 +1093,20 @@ func _hint_clear() -> void:
 	_hint = null
 
 func _input(ev: InputEvent) -> void:
-	if _hint != null and _hint_age > 0.25 and ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed:
-		_hint_clear() # HideWhenTouchBehavior : un toucher ferme la bulle
+	if _hint == null or not is_instance_valid(_hint) or _hint_age < HINT_TIME or _hint.has_meta("closing"):
+		return
+	if not (ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed) or _hint.get_global_rect().has_point((ev as InputEventMouseButton).position):
+		return
+	if board.skip_animations: # ZoomOutWhenTouchOutside : un toucher hors de la bulle la ferme en fondu
+		_hint_clear()
+		return
+	var h := _hint
+	h.set_meta("closing", true)
+	var tw := h.create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(h, "modulate:a", 0.0, HINT_TIME)
+	tw.tween_callback(func():
+		if _hint == h:
+			_hint_clear())
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Animations (King Croak, mains, pointeurs de defausse)

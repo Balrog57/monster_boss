@@ -430,7 +430,12 @@ func _check_boss_layout() -> void:
 
 ## Eventail de la main = CardPositionComponent : x = 960 + lerp(-h, h, (i+1)/(n+1)) avec h = min((n - n%2) * 200, 1200) / 2, rotation
 ## 9 deg x min(n/11,2, 1) / n x (i - n/2), arc de 30 px (centres des cartes).
-func _check_fan(cards: Array) -> void:
+func _check_fan(nodes: Array) -> void:
+	var cards: Array = [] # CardManagerComponent.cs:116 : la main s'affiche triee salles puis sorts (tri stable), les noeuds restent dans l'ordre du moteur
+	for sp in 2:
+		for c in nodes:
+			if bool(((c as CardUI).card_dict as Dictionary).get("isSpell", false)) == (sp == 1):
+				cards.append(c)
 	var n := cards.size()
 	var half := minf(float(n - n % 2) * 200.0, 1200.0) * 0.5
 	var rot_inc := 9.0 * clampf(float(n) / 11.2, 0.0, 1.0) / float(n)
@@ -441,7 +446,7 @@ func _check_fan(cards: Array) -> void:
 		var ctr := c.position + c.size / 2.0
 		_check(absf(ctr.x - want_x) < 0.5 and absf(ctr.y - want_y) < 0.5, "main : carte %d/%d centree en %s au lieu de (%.1f, %.1f)" % [i, n, ctr, want_x, want_y])
 		_check(absf(c.rotation_degrees - rot_inc * (float(i) - float(n) * 0.5)) < 0.01, "main : carte %d/%d tournee de %.2f deg" % [i, n, c.rotation_degrees])
-		if i > 0:
+		if i > 0 and bool(((cards[i - 1] as CardUI).card_dict as Dictionary).get("isSpell", false)) == bool(((c as CardUI).card_dict as Dictionary).get("isSpell", false)):
 			_check((cards[i - 1] as Control).get_index() < c.get_index(), "main : ordre d'empilement des cartes")
 	_cov("hand_fan")
 

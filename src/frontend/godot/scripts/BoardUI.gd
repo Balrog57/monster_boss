@@ -1370,6 +1370,7 @@ func _refresh_overlay(G: Dictionary, phase: String) -> void:
 	top_menu_btn.modulate = Color(0.3, 0.3, 0.3, 1.0) if intro and boss_pick else Color(1, 1, 1, 0.25 if full and not intro else 1.0) # tut_16 : l'engrenage est a 0,30 de sa luminosite (77 / 255)
 	_bubble.visible = discard
 	_carousel_text.visible = boss_pick or discard
+	_disc_open(discard)
 	_confirm_btn.visible = (boss_pick and _boss_ready and _boss_solo(G)) or (discard and discard_pick.size() == 2) # fin de partie : GameOverBanner (bouton OK)
 	_confirm_btn.text = "PLAY BOSS MONSTER!" if boss_pick else "CONTINUE"
 	# APK : PLAY BOSS MONSTER! est une grande pierre au centre du bas de l'ecran (apk game_01_boss), CONTINUE reste plus petit.
@@ -1387,6 +1388,26 @@ func _refresh_overlay(G: Dictionary, phase: String) -> void:
 		_set_carousel_text("SELECT [color=#f0c040]2[/color] CARDS TO DISCARD", 21)
 		_carousel_text.position = Vector2(STACK_CX + 2 - 465, 204) # APK : texte centre en x 962, y 215
 		_carousel_text.size = Vector2(931, 50)
+
+## Ouverture du bandeau de la defausse : MiddleCarouselAnimationBehavior (0,5 s, CubicEase InOut, hauteur 0 -> 1) ; texte et bulle en fondu 0,1 s (CarouselSelectorShowComponent.cs:48).
+func _disc_open(on: bool) -> void:
+	if on == _disc_band:
+		return
+	_disc_band = on
+	var subs: Array = [_bubble, _carousel_text]
+	if not on or skip_animations:
+		_dim.scale.y = 1.0
+		for c in subs:
+			(c as CanvasItem).modulate.a = 1.0
+		return
+	_dim.pivot_offset = _dim.size / 2.0
+	_dim.scale.y = 0.0
+	create_tween().tween_property(_dim, "scale:y", 1.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	for c in subs:
+		(c as CanvasItem).modulate.a = 0.0
+		create_tween().tween_property(c, "modulate:a", 1.0, 0.1)
+
+var _disc_band := false
 
 ## CONTINUE de la defausse d'ouverture : le losange de l'APK (continue_button, libelle compris, x 1540 y 410) ; PLAY BOSS MONSTER! reste la pierre.
 func _style_confirm(diamond: bool, btn: Button = null) -> void:
@@ -1987,6 +2008,13 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 				playable[hi] = true
 	var discarding := _is_opening_discard_for_me()
 	var sz := BIG_CARD if discarding else HAND_CARD
+	if not discarding:
+		_disc_reset()
+	var order: Array = [] # CardManagerComponent.cs:116 : la main est triee salles puis sorts (tri stable) ; seul l'affichage change, les coups gardent l'indice du moteur
+	for sp in 2:
+		for hi in hand.size():
+			if bool((hand[hi] as Dictionary).get("isSpell", false)) == (sp == 1):
+				order.append(hi)
 	var cards: Array = []
 	var grey_next: Dictionary = {}
 	var hide_idx := {} # cartes piochees encore en vol vers la main (_show_draw) : les derniers exemplaires de chaque id restent cachees
@@ -2008,7 +2036,8 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 		var idx := i
 		card_ui.card_clicked.connect(func(_data): _on_hand_card_clicked(idx, card_dict))
 		card_ui.press_started.connect(_on_hand_press)
-		card_ui.card_hovered.connect(func(_d, on: bool): _hand_hover(idx, on))
+		var rank: int = order.find(i) # _hand_hover manipule le rang dans l'eventail trie
+		card_ui.card_hovered.connect(func(_d, on: bool): _hand_hover(rank, on))
 		card_ui.long_pressed.connect(_zoom_show)
 		card_ui.long_released.connect(func(_c): _zoom_close())
 		# APK : carte injouable = grisee (toute la main pendant l'aventure sans sort jouable) ; fondu 0,5 s a chaque changement d'etat (CardAttributesComponent.cs:73-90)
@@ -2038,13 +2067,53 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 			card_ui.set_gold(true) # APK : sort jouable pendant l'aventure ou une pile de sorts = cadre dore
 		cards.append(card_ui)
 	_grey_prev = grey_next
+	var disp: Array = order.map(func(hi): return cards[hi])
 	if discarding:
-		_place_cards(cards, sz, 125.0, 1000.0, DISCARD_TOP, DISCARD_CX)
+		_place_cards(disp, sz, 125.0, 1000.0, DISCARD_TOP, DISCARD_CX)
+		_disc_intro(disp)
 		for i in cards.size():
 			if discard_pick.has(i):
 				_fx_selected(i, cards[i] as Control)
 	else:
-		_place_fan(cards, sz, old_fan)
+		_place_fan(disp, sz, old_fan)
+
+var _disc_t0 := -1                 # debut de l'apparition de la defausse d'ouverture (ms) ; -1 = hors defausse
+var _disc_shown: Dictionary = {}   # rang -> true : cartes deja arrivees
+var _disc_timers: Dictionary = {}  # rang -> true : minuterie d'arrivee deja posee
+
+func _disc_reset() -> void:
+	_disc_t0 = -1
+	_disc_shown.clear()
+	_disc_timers.clear()
+
+## CarouselSelectorShowComponent.cs:49 : fond en 0,1 s, puis 0,5 s plus tard AddCarouselCardsBehavior (cs:76-104) ajoute la carte k quand CubicEase(t / 1 s) depasse k / n,
+## depuis le bas de l'ecran (Vector2(0, hauteur)), avec ui_card_slide_general. La main est reconstruite a chaque rafraichissement : l'etat survit dans _disc_*.
+func _disc_intro(disp: Array) -> void:
+	if skip_animations:
+		return
+	var now := Time.get_ticks_msec()
+	if _disc_t0 < 0:
+		_disc_t0 = now
+	var n := disp.size()
+	for r in n:
+		var cu := disp[r] as Control
+		if _disc_shown.has(r):
+			continue
+		var at := _disc_t0 + roundi((0.5 + 1.0 - pow(1.0 - float(r) / float(n), 1.0 / 3.0)) * 1000.0)
+		if now >= at:
+			_disc_shown[r] = true
+			var target := cu.position
+			cu.position = Vector2(DISCARD_CX - BIG_CARD.x / 2.0, 1080.0 + DISCARD_TOP)
+			CardUI.lerp_vers(cu, "position", target)
+			_play_sfx("ui_card_slide_general")
+		else:
+			cu.visible = false
+			if not _disc_timers.has(r):
+				_disc_timers[r] = true
+				var t0 := _disc_t0
+				get_tree().create_timer(float(at - now) / 1000.0).timeout.connect(func():
+					if _disc_t0 == t0 and _is_opening_discard_for_me():
+						refresh())
 
 ## Carte choisie dans le selecteur (defausse d'ouverture) : bordure YellowGlow (CardSelectorComponent.cs:137) = particules (CardBorderBehavior.cs:48-50 Emit = true).
 ## Emetteur 0,9 x la carte (CardEntity.cs:88-91, ParticlesParentSizeBehavior), derriere elle ; il survit a la reconstruction de la main.

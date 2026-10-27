@@ -67,6 +67,11 @@ func _ready() -> void:
 		print("LEFTOVERS SCREENS CAPTURED: ", n_shots)
 		get_tree().quit(0)
 		return
+	if only == "plateau_tuto": # defausse d'ouverture animee (P-C01 / P-C16 / P-C27), main triee (P-C10), bulle du tutoriel
+		await _plateau_tuto_shots()
+		print("PLATEAU TUTO SCREENS CAPTURED: ", n_shots)
+		get_tree().quit(0)
+		return
 	if only == "lot6b": # lot 6b : engrenage APK, file d'entree (echelle des suivants), bouton DONE timer, horloge de la barre, coeur de soin, cadre du panneau adverse, zoom de la ville
 		await _lot6b_shots()
 		print("LOT6B SCREENS CAPTURED: ", n_shots)
@@ -1545,3 +1550,17 @@ func _lot6b_shots() -> void:
 	board._town_tap(town_cards[1])
 	await _wait(0.4)
 	await _shot("lot6b_town_hero_tap_zoom_left")
+
+## Defausse d'ouverture avec animations : bandeau 0,5 s (P-C27), cartes une a une apres 0,5 s sur 1 s (P-C01, P-C16).
+func _plateau_tuto_shots() -> void:
+	await _new_game(424242, "discard")
+	board.skip_animations = false
+	board.refresh()
+	await _wait(0.2)
+	await _shot("opening_t020_band_opening")
+	await _wait(0.75)
+	await _shot("opening_t100_first_cards")
+	await _wait(0.6)
+	await _shot("opening_t170_cards_arriving")
+	await _wait(1.2)
+	await _shot("opening_t300_all_cards")
