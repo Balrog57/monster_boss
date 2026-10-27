@@ -104,7 +104,12 @@ static func expanded_deck(cards: Array) -> Array:
 			out.append(d)
 	return out
 
+## Generateur de l'APK pour les melanges de paquets (tutoriel : graine 2832) ; null = hasard du moteur (_rng).
+var dbm: DbmRandom = null
+
 func shuffled(arr: Array) -> Array:
+	if dbm != null:
+		return dbm.shuffle(arr)
 	var a := arr.duplicate()
 	for i in range(a.size() - 1, 0, -1):
 		var j := _rng.randi_range(0, i)

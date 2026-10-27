@@ -20,15 +20,8 @@ const SFX_NAMES := ["boss_female_death", "boss_female_hurt", "boss_female_intro"
 	"ui_card_slide_up", "ui_purchase", "ui_shuffle_left", "ui_shuffle_right", "ui_timer"]
 ## RoomInfo.RoomCategory -> son de salle (CardAssetService.GetRoomSound, :328-360) ; categorie 0 / inconnue / salle nulle = sfx_room_physical (:330).
 const ROOM_SFX := {1: "sfx_room_fall", 2: "sfx_room_monster_med", 3: "sfx_room_undead", 4: "sfx_room_physical", 5: "sfx_room_monster_lrg", 6: "sfx_room_magic"}
-## RoomCategory de chaque salle des paquets APK (champ RoomCategory de BaseDeck/data.json ; les salles ToolsHeroKind n'en ont pas = 0).
-const ROOM_CATEGORY := {
-	1: ["BMA010", "BMA027"],
-	2: ["BMA012", "BMA015", "BMA018", "BMA019", "BMA020", "BMA026", "BMA033", "BMA036"],
-	3: ["BMA009", "BMA011", "BMA014", "BMA021", "BMA022", "BMA039"],
-	4: ["BMA028", "BMA030", "BMA031", "BMA032", "BMA034", "BMA038"],
-	5: ["BMA013", "BMA016", "BMA017", "BMA035", "BMA037"],
-	6: ["BMA023", "BMA024", "BMA025", "BMA029"],
-}
+## Paquets APK dont les salles portent un RoomCategory (champ RoomCategory de CardDecks/<paquet>/data.json ; les salles ToolsHeroKind n'en ont pas = 0).
+const ROOM_DECKS := ["BaseDeck", "HiddenHeros", "PlayerChoice", "ToolsHeroKind"]
 ## Bosses dont BossInfo.IsMale est faux dans les donnees APK (BaseDeck : BMA006-008 ; PlayerChoice : KSA001-007, tous a false). Un boss du wiki (sans donnee APK) reste masculin.
 const BOSS_FEMALE := ["BMA006", "BMA007", "BMA008", "KSA001", "KSA002", "KSA003", "KSA004", "KSA005", "KSA006", "KSA007"]
 
@@ -42,7 +35,6 @@ var _music: AudioStreamPlayer
 var _voices: Array[AudioStreamPlayer] = []
 var _cache := {}
 var _wanted_music := ""
-var _next_voice := 0
 var _duck_left := 0.0 # secondes restantes de la baisse de musique sous un sting
 var _loops := {} # nom -> {"p": AudioStreamPlayer, "n": nombre de demandes} (AudioService.playLoopedSoundRequests)
 var _unlocked := not OS.has_feature("web")
@@ -69,7 +61,7 @@ func _ready() -> void:
 		_stream(SFX_DIR + n + ".wav") # pas de latence au premier son (web)
 	_stream(MUSIC_DIR + "music_dungeon_v3.mp3") # W-02 : la musique de partie est lue au 1er plateau, pas de chargement a ce moment (music_main l'est a l'ecran titre)
 	var cfg := ConfigFile.new()
-	if cfg.load(SAVE_PATH) == OK:
+	if Profile.read(cfg, SAVE_PATH) == OK:
 		muted = bool(cfg.get_value("audio", "muted", false))
 		music_on = bool(cfg.get_value("audio", "music_on", true))
 		sfx_on = bool(cfg.get_value("audio", "sfx_on", true))
@@ -141,13 +133,13 @@ func set_sfx_on(on: bool) -> void:
 func _save() -> void:
 	_apply()
 	var cfg := ConfigFile.new()
-	cfg.load(SAVE_PATH)
+	Profile.read(cfg, SAVE_PATH)
 	cfg.set_value("audio", "muted", muted)
 	cfg.set_value("audio", "music_on", music_on)
 	cfg.set_value("audio", "sfx_on", sfx_on)
 	cfg.set_value("audio", "master", master_volume)
 	cfg.set_value("audio", "sfx", sfx_volume)
-	cfg.save(SAVE_PATH)
+	Profile.write(cfg, SAVE_PATH)
 
 func _stream(path: String) -> AudioStream:
 	if not _cache.has(path):
@@ -181,14 +173,19 @@ func _play(name: String) -> void:
 	var s := _stream(SFX_DIR + name + ".wav")
 	if s == null:
 		return
+	# SoundBank.CreateSoundInstance (SoundBank.cs:128-145) : au-dela de 10 sons simultanes (boucles comprises) le NOUVEAU son est abandonne.
+	var busy := _loops.size()
+	for p in _voices:
+		if p.playing:
+			busy += 1
+	if busy >= VOICES:
+		_rec("dropped:" + name)
+		return
 	for p in _voices:
 		if not p.playing:
 			p.stream = s
 			p.play()
 			return
-	_voices[_next_voice].stream = s # toutes occupees : on vole une voix, tour a tour
-	_voices[_next_voice].play()
-	_next_voice = (_next_voice + 1) % VOICES
 
 ## AudioService.PlayWithMusicFade (:153-164) : sting + musique x0,5 qui remonte lineairement en 2 s (sauf musique / sons coupes ou a 0).
 func play_sting(name: String) -> void:
@@ -249,12 +246,21 @@ func stop_all_loops() -> void:
 func boss_voice(boss_id: String, kind: String) -> String:
 	return "boss_%s_%s" % ["female" if boss_id in BOSS_FEMALE else "male", kind]
 
+## RoomCategory lu dans les donnees APK (CardNumber -> RoomCategory), charge a la premiere demande.
+var _room_cat := {}
+
+func room_category(room_id: String) -> int:
+	if _room_cat.is_empty():
+		for dk in ROOM_DECKS:
+			var f := FileAccess.open("res://assets/data/%s/data.json" % dk, FileAccess.READ)
+			var d = JSON.parse_string(f.get_as_text()) if f != null else null
+			for r in (d.get("RoomCards", []) if d is Dictionary else []):
+				_room_cat[str(r.get("CardNumber", ""))] = int(r.get("RoomCategory", 0))
+	return int(_room_cat.get(room_id, 0))
+
 ## Son de salle (CardAssetService.GetRoomSound, :328-360) d'apres l'id de la carte.
 func room_sfx(room_id: String) -> String:
-	for cat in ROOM_CATEGORY:
-		if room_id in ROOM_CATEGORY[cat]:
-			return ROOM_SFX[cat]
-	return "sfx_room_physical"
+	return ROOM_SFX.get(room_category(room_id), "sfx_room_physical")
 
 func _rec(ev: String) -> void:
 	if rec_enabled:

@@ -95,12 +95,22 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 		return not (apk_only or crl) or int(d.get("playerCount", 2)) <= n # CRL : icones de joueurs respectees (les heros CRL, sans icone, sont toujours inclus)
 	var heroes: Array = CardDB.heroes.filter(func(c): return hero_ok.call(c, false))
 	var epics: Array = CardDB.heroes.filter(func(c): return hero_ok.call(c, true))
+	# Tutoriel (DBMRandom graine 2832) : RandomProvider.Shuffle d'un seul paquet de heros (ordinaires et epiques melanges, GameBoardExtensions.cs:143-146),
+	# PUIS les salles, les sorts, les objets ; le tri par HeroType (stable) range les ordinaires avant les epiques.
+	var apk_heroes := []
+	if CardDB.dbm != null:
+		apk_heroes = CardDB.shuffled(CardDB.expanded_deck(CardDB.heroes.filter(func(c): return hero_ok.call(c, false) or hero_ok.call(c, true))).map(func(h):
+			var d = (h as Dictionary).duplicate()
+			d["souls"] = 2 if bool(d.get("epic", false)) else 1
+			d["wounds"] = d["souls"]
+			return d))
 	var room_src: Array = CardDB.expanded_deck(rooms)
 	if rmb: # les 10 minibosses sont dans la pioche de salles (livret : « Room Deck with 82 cards »)
 		room_src.append_array(CardDB.expanded_deck(CardDB.minibosses.filter(in_sets)))
 	for i in room_src.size():
 		(room_src[i] as Dictionary)["_uid"] = i + 1 # UniqueID de l'APK : numerotation dans l'ordre du paquet avant melange (GetLogicCards)
 	var room_deck: Array = CardDB.shuffled(room_src.map(_room_card))
+	# Shuffle de l'APK est un iterateur qui rend shuffled[n-1] en premier : la tete de la Queue = le dernier element du tableau = notre sommet (pas d'inversion).
 	var thk_live: bool = sets.has(ThkAbilities.SET_ID) # Excavation (THK025) n'est jouable que derriere la case wiki (l'APK : Ability nulle)
 	var spell_src: Array = CardDB.expanded_deck(spells)
 	for i in spell_src.size():
@@ -123,6 +133,10 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	var item_deck: Array = CardDB.shuffled(CardDB.expanded_deck(items).map(func(i): var d = (i as Dictionary).duplicate(); d["isItem"] = true; return d))
 	var hero_deck: Array = CardDB.shuffled(CardDB.expanded_deck(heroes).map(func(h): var d = (h as Dictionary).duplicate(); d["souls"] = 1; d["wounds"] = 1; return d))
 	var epic_deck: Array = CardDB.shuffled(CardDB.expanded_deck(epics).map(func(h): var d = (h as Dictionary).duplicate(); d["souls"] = 2; d["wounds"] = 2; return d))
+	if CardDB.dbm != null:
+		hero_deck = apk_heroes.filter(func(h): return not bool((h as Dictionary).get("epic", false)))
+		epic_deck = apk_heroes.filter(func(h): return bool((h as Dictionary).get("epic", false)))
+		CardDB.dbm = null # les tirages suivants (boss, parties) ne passent plus par le generateur de l'APK
 	# Tailles officielles (base set) selon le nombre de joueurs.
 	var counts: Dictionary = CardDB.HERO_COUNTS[n]
 	if tnl or rmb: # livrets TNL / RMB : 13+9 / 17+13 / 25+17 heros, les heros a capacite (etoile) toujours inclus

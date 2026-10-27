@@ -8,8 +8,8 @@ extends Control
 ## le hasard s'ecarte (seuls les tirages forces sont garantis, GameManager.start_tutorial), une etape dont la condition ne se produit pas est simplement ignoree
 ## et ne bloque jamais le joueur (voir _poll et _holding). Cas ou une etape saute :
 ##  - BMA022 / une carte imposee absente de la main : sa scene et sa restriction sautent (_forced_id ne renvoie rien) ;
-##  - p25 (blessure de l'IA) : seulement si le heros 068 survit au donjon adverse, donc seulement si le sort BMA041 a ete joue (declenchee sans delai des que la
-##    blessure existe et que les animations sont finies, meme si le moteur a deja change de tour : l'APK la montre au NextStep suivant, cs:223) ;
+##  - p25 (blessure de l'IA) : seulement si le heros 068 survit au donjon adverse, donc seulement si le sort BMA041 a ete joue (declenchee des que la
+##    blessure existe, en phase d'aventure avec l'IA active et les animations finies : CheckFirstWoundHero, cs:221-223) ;
 ##  - p26 (ame) : seulement si le heros 064 meurt, donc si la capacite de BMA027 a ete jouee ;
 ##  - p29 : seulement si l'effet du sort BMA041 s'est resolu ; p28 : seulement si le sort est arrive sur la pile ;
 ##  - p27 / p23 : consignes qui retiennent la partie (run = faux) tant que le coup demande est legal ; des qu'il ne l'est plus, la partie reprend.
@@ -30,7 +30,7 @@ const FADE_IN := 0.2                        # ModalTransitionsTime : CrossFade d
 const HINT_TIME := 0.5                      # HideWhenTouchBehavior.cs:36-37 : entree et sortie de la bulle du boss
 const SHAKE_AMP := 20.0                     # ShakeBehavior (TutorialFactory.cs:30-35) : amplitude 20, pas de decroissance
 const SHAKE_W := 7.2                        # VelocityFactor 0,12 x 60 images/s
-const NAG := 8.0                            # delai sans action avant de rejouer la consigne (p23 / p27) : l'APK la rejoue a chaque tour de la barre de temps
+const NAG := 3.0                            # delai avant de rejouer la consigne (p23 / p27) : la barre de temps de l'aventure dure 3 s (GamePlayBaseScene.cs:215) et boucle (IsLoopActive) tant que le coup n'est pas joue ; elle ne tourne pas sous une scene
 
 # Idees d'etapes (APK) et cartes imposees (GamePlayTutScene.cs:13-37)
 const CARD_DISCARD := ["BMA026", "BMA055"]
@@ -439,12 +439,12 @@ func _poll() -> void:
 			_done["adv28"] = true
 			_adv(28)
 			return
-		if not _done.has("adv29") and _done.has("adv28") and st.is_empty() and _health_bonus():
+		if not _done.has("adv29") and st.is_empty() and _health_bonus(): # AbilityApplyDone (cs:317-323) : p28 n'est pas un prerequis
 			_done["adv29"] = true
 			_adv(29)
 			return
-	# p25 (cs:223) : hors du bloc « restreint », au NextStep qui suit la blessure et sans delai ; _ai_wound_068 lit un etat permanent (le moteur enchaine le tour suivant en quelques ms)
-	if not _done.has("adv25") and _ai_wound_068() and idle and pc.is_empty():
+	# p25 (cs:221-223) : hors du bloc « restreint » ; CheckFirstWoundHero n'est evalue qu'en AdventurePhase_b avec l'IA active (BeforePlayerInteraction), _ai_wound_068 lit un etat permanent
+	if not _done.has("adv25") and phase == "adventure" and board.game_manager.active_player() == 1 and _ai_wound_068() and idle and pc.is_empty(): # AdventurePhase_b, IA active (cs:221)
 		_done["adv25"] = true
 		_adv(25)
 		return
@@ -556,7 +556,10 @@ func _gate_tap(d: Dictionary) -> bool:
 		return _discard_tap(id, int(d.get("idx", -1)))
 	if not _restricted():
 		return true
-	return _forced_id() != "" and id == _forced_id()
+	if _forced_id() != "" and id == _forced_id():
+		return true
+	_reinforce() # ExtractCard (CardExtractBehavior.cs:211-237) : l'appui sur une carte non imposee declenche InvalidCardPlayed, glisse ou non
+	return false
 
 ## TutorialSelectorComponent.UpdateSelectedCards : seules les 2 cartes designees se choisissent (jamais deselectionnees), les autres affichent une moquerie.
 func _discard_tap(id: String, idx: int) -> bool:
@@ -753,7 +756,7 @@ func _adv(n: int) -> void:
 ## TutorialLevelUpScene : le boss et le bouton LEVEL UP attaches ; p30 bulle long (VirtualWidth x 0,5, 400) main (LimitedLeftEdge + 150, 640) ;
 ## p31 bulle long (LeftEdge + 500, 580) mains (LimitedRightEdge - 395, 950) et (LimitedRightEdge - 550, 780).
 func _levelup() -> void:
-	_begin([(board._lane[1]["platform"] as Control).get_global_rect(), board.levelup_btn.get_global_rect()])
+	_begin([board.levelup_btn.get_global_rect()], [board._lane[1]["sprite"]]) # le boss (BossCharacter) et le bouton LEVEL UP seuls sont attaches, comme p26
 	var lb := _balloon("long", Vector2(960, 400))
 	await _text_step(lb, {"text": TEXT["page30"][0], "hands": [{"pos": Vector2(150, 640)}]})
 	lb.get_parent().queue_free() # p31 : une nouvelle bulle remplace la premiere (cs: EntityManager.Remove(balloon))
@@ -796,6 +799,7 @@ func _begin(holes: Array = [], sprites: Array = []) -> void:
 	_veil.queue_redraw()
 
 func _end() -> void:
+	_hold_t = 0.0 # la barre de l'APK est en pause sous la scene (TutorialAdventureScene.cs:73) : le tour suivant repart de zero a sa fermeture
 	if _scene != null:
 		_scene.queue_free()
 	_scene = null

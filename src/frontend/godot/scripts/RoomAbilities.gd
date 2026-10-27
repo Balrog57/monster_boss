@@ -253,14 +253,14 @@ static func activate_room_ability(G: Dictionary, player_id: int, room_index: int
 		r["usedThisTurn"] = true # data.json : seules BMA013/024/025 portent OncePerTurn (Crushinator et Boulder Ramp sont rejouables)
 	match id:
 		"BMA009": return _dark_altar(G, p, room_index, player_id, r)
-		"BMA025": return _all_seeing_eye(G, p, player_id)
+		"BMA025": return _unuse_on_error(r, _all_seeing_eye(G, p, player_id))
 		"BMA027": return _bottomless_pit(G, p, player_id, room_index, r)
 		"BMA028": return _boulder_ramp(G, p, player_id, room_index, other_room_index, r)
 		"BMA030": return _jackpot_stash(G, p, player_id, room_index)
 		"BMA032": return _crushinator(G, p, player_id, room_index, other_room_index)
 		"BMA038": return _torture_chamber(G, player_id, room_index)
 		"BMA013": return _dracolich_lair(G, p, player_id, r)
-		"BMA024": return _witchs_kitchen(G, p, player_id)
+		"BMA024": return _unuse_on_error(r, _witchs_kitchen(G, p, player_id))
 		"BMA039": return _zombie_prison(G, p, room_index, player_id, r)
 		"CRL012": return _omega_42(G, p, player_id, r)
 	r["usedThisTurn"] = false
@@ -287,6 +287,12 @@ static func _dark_altar(G: Dictionary, p: Dictionary, room_index: int, player_id
 		"bossName": "Dark Altar", "message": "Dark Altar: choose a card from the discard pile",
 		"options": opts})
 	return null
+
+## OncePerTurn n'est consomme qu'une fois l'effet applique (Ability.cs:135 : IsEffectApplied apres DoEffect) : une erreur le rend.
+static func _unuse_on_error(room: Dictionary, err):
+	if err != null:
+		room["usedThisTurn"] = false
+	return err
 
 ## BMA025 All-Seeing Eye : defausse un sort de la main pour annuler le dernier sort adverse
 ## de la pile (C# : SpellInHand(Owner) + LastSpellPlayed = dernier sort dont le proprietaire

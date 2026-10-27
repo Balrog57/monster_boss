@@ -3507,6 +3507,7 @@ func _extra_checks() -> void:
 	await _check_apk_particles()
 	await _check_apk_anims()
 	await _check_tutorial()
+	await _check_tut_decks()
 	await _check_effects()
 	await _check_crossing_ui()
 	await _check_audio()
@@ -3681,6 +3682,49 @@ func _wait_anim() -> void:
 func _audio_since(m: int) -> Array:
 	return AudioManager.rec.slice(m)
 
+## X-M60 : le tutoriel melange ses paquets avec DbmRandom(2832) comme l'APK. Reference : tools/apk-oracle --seed 2832 --players 2 (DBMRandom d'origine), tete de file en premier,
+## puis GameBoardExtensions.PrioritizeQueueCards (cartes imposees devant, le reste dans l'ordre).
+func _check_tut_decks() -> void:
+	_tag = "[tut_decks]"
+	await _teardown()
+	var D = load("res://godot/tests/tut_decks_data.gd")
+	var m := GameManager.new()
+	add_child(m)
+	m.start_tutorial()
+	var want_rooms := _prioritized(D.ROOMS, m.TUT_ROOMS)
+	var want_spells := _prioritized(D.SPELLS, m.TUT_SPELLS)
+	var want_heroes := _prioritized(D.HEROES, m.TUT_HEROES)
+	var d: Dictionary = m.G["decks"]
+	var got_rooms: Array = (d["rooms"] as Array).map(func(c): return str((c as Dictionary)["id"]))
+	var got_spells: Array = (d["spells"] as Array).map(func(c): return str((c as Dictionary)["id"]))
+	var got_heroes: Array = (d["heroes"] as Array).map(func(c): return str((c as Dictionary)["id"]))
+	got_heroes.reverse()
+	var got_epics: Array = (d["epics"] as Array).map(func(c): return str((c as Dictionary)["id"]))
+	got_epics.reverse()
+	got_heroes.append_array(got_epics) # file de l'APK : ordinaires puis epiques (orderby HeroType)
+	got_rooms.reverse()
+	got_spells.reverse()
+	for k in [["salles", got_rooms, want_rooms], ["sorts", got_spells, want_spells], ["heros", got_heroes, want_heroes]]:
+		var g: Array = k[1]
+		var w: Array = k[2]
+		var at := 0
+		while at < mini(g.size(), w.size()) and g[at] == w[at]:
+			at += 1
+		_check(g == w, "tutoriel : pioche de %s differente de l'APK des le rang %d (%d / %d cartes) : %s au lieu de %s" % [k[0], at, g.size(), w.size(), str(g.slice(at, at + 3)), str(w.slice(at, at + 3))])
+	m.queue_free()
+	await get_tree().process_frame
+	_cov("tut_decks")
+
+## PrioritizeQueueCards (GameBoardExtensions.cs:207-218) : chaque numero impose, dans l'ordre, retire le premier exemplaire de la file et le met devant.
+func _prioritized(order: Array, first: Array) -> Array:
+	var rest := order.duplicate()
+	var out: Array = []
+	for id in first:
+		out.append(id)
+		rest.remove_at(rest.find(id))
+	out.append_array(rest)
+	return out
+
 func _check_audio() -> void:
 	_tag = "[audio]"
 	var am = AudioManager
@@ -3709,9 +3753,18 @@ func _check_audio() -> void:
 	for k in room_want:
 		_check(am.room_sfx(k) == room_want[k], "audio : salle « %s » -> %s (attendu %s)" % [k, am.room_sfx(k), room_want[k]])
 	var cat_total := 0
-	for c in am.ROOM_CATEGORY:
-		cat_total += (am.ROOM_CATEGORY[c] as Array).size()
-	_check(cat_total == 31, "audio : %d salles categorisees (31 dans BaseDeck)" % cat_total)
+	am.room_category("")
+	for id in am._room_cat:
+		cat_total += 1 if int(am._room_cat[id]) > 0 else 0
+	_check(cat_total == 31, "audio : %d salles categorisees (31 dans BaseDeck, lues dans data.json)" % cat_total)
+	# A-02 : 10 sons simultanes au plus (boucles comprises), le NOUVEAU son est abandonne (SoundBank.cs:128-145)
+	var m_cap: int = am.rec.size()
+	for _i in 14:
+		am.play_sfx("ui_card_slide_general")
+	var playing := 0
+	for v in am._voices:
+		playing += 1 if (v as AudioStreamPlayer).playing else 0
+	_check(playing <= 10 and am.rec.slice(m_cap).has("dropped:ui_card_slide_general"), "audio : au plus 10 voix, le nouveau son est abandonne (%d en lecture)" % playing)
 	# 4. voix des boss (CardAssetService.cs:246-300, BossInfo.IsMale) : BMA001-005 masculins, BMA006-008 et KSA001-007 feminins dans les donnees APK
 	for id in ["BMA001", "BMA005", "TNL001"]:
 		_check(am.boss_voice(id, "victory") == "boss_male_victory", "audio : voix de %s" % id)
@@ -3757,6 +3810,8 @@ func _check_audio() -> void:
 	board._show_notice("SPELL")
 	_check(_audio_since(m) == ["sfx:sfx_activatecard"], "bulle adverse : %s (sfx_activatecard attendu)" % str(_audio_since(m)))
 	# main : survol d'une carte puis de la suivante, puis sortie (CardPositionComponent.cs:73-100)
+	for p in am._voices: # les sons precedents occupent encore les 10 voix : le nouveau serait abandonne (A-02)
+		p.stop()
 	m = am.rec.size()
 	board._hand_last = -1
 	board._hand_hover(2, true)
@@ -4176,7 +4231,10 @@ func _tut_forced(ov, fid: String, probed: Dictionary) -> void:
 				other = i
 				break
 		await _tut_click_card(other)
-		_check(ov._scene == null and board._popup_kind == "" and board._tgt.is_empty() and hand.size() == n_hand, "tutoriel : %s : un clic sur une autre carte ne doit rien faire" % key)
+		# CardExtractBehavior.ExtractCard : l'appui sur une carte non imposee declenche InvalidCardPlayed (rappel en setup / build, rien en aventure)
+		_check(board._popup_kind == "" and board._tgt.is_empty() and hand.size() == n_hand and (ov._scene != null) == (not spell), "tutoriel : %s : un clic sur une autre carte ne joue rien (rappel hors aventure)" % key)
+		if ov._scene != null:
+			await _tut_scene(ov)
 		await _tut_drag(other, to)
 		await _tut_pump(ov, 0.3)
 		_check(board._drag.is_empty() and hand.size() == n_hand and (me["dungeon"] as Array).size() == dsize and (G.get("stack", []) as Array).is_empty(), "tutoriel : %s : une autre carte ne doit pas se glisser" % key)
@@ -4212,19 +4270,19 @@ func _tut_forced(ov, fid: String, probed: Dictionary) -> void:
 	else:
 		_check(hand.size() == n0 - 1 and (me["dungeon"] as Array).size() == dsize + 1, "tutoriel : %s : la salle n'est pas construite (main %d -> %d, donjon %d -> %d)" % [key, n0, hand.size(), dsize, (me["dungeon"] as Array).size()])
 
-## Hero 064 dans BMA027 : la partie attend le joueur ; la consigne se rejoue au bout de 8 s ; un tap sur la salle ouvre sa description (p24), un tap sur la capacite frappe.
+## Hero 064 dans BMA027 : la partie attend le joueur ; la consigne se rejoue a chaque tour de la barre (3 s) ; un tap sur la salle ouvre sa description (p24), un tap sur la capacite frappe.
 func _tut_hit(ov, probed: Dictionary) -> void:
 	var G: Dictionary = gm.G
 	if not probed.has("hit"):
 		probed["hit"] = true
 		var adv0: Dictionary = (G["adventure"] as Dictionary).duplicate()
 		adv0.erase("hero")
-		await _tut_pump(ov, 3.0)
+		await _tut_pump(ov, TutorialScript.NAG - 1.0)
 		var adv1: Dictionary = (G["adventure"] as Dictionary).duplicate()
 		adv1.erase("hero")
 		_check(adv0 == adv1 and ov._hit_state(), "tutoriel : le heros avance alors que la consigne attend le joueur")
-		await _tut_pump(ov, 6.0)
-		if _check(ov._scene != null, "tutoriel : la consigne de la salle n'est pas rejouee apres 8 s d'attente"):
+		await _tut_pump(ov, 1.5)
+		if _check(ov._scene != null, "tutoriel : la consigne de la salle n'est pas rejouee apres un tour de barre (3 s)"):
 			var seen := await _tut_scene(ov)
 			_check(seen == [TutorialScript.TEXT["page23"][0]], "tutoriel : rappel p23 %s" % str(seen))
 		return

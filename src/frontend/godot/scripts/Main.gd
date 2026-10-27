@@ -89,12 +89,14 @@ func _ready() -> void:
 		var origin = JavaScriptBridge.eval("window.location.origin")
 		if origin != null and str(origin) != "" and str(origin) != "null":
 			server_host = str(origin)
+		_keep_screen_on()
 	var settings := Profile.load_settings()
 	if not OS.has_feature("web") and settings.has("host") and str(settings["host"]) != "": # web : toujours l'origine de la page (un hote enregistre par une ancienne session ne compte pas)
 		server_host = str(settings["host"])
 	use_extensions = bool(settings.get("extensions", false))
 	apk_decks = (settings.get("decks", []) as Array).filter(func(d): return _deck_playable(str(d)))
 	profile = Profile.load_profile()
+	Profile.check_force_play_tutorial() # Game.cs:119
 	_fade_layer = CanvasLayer.new()
 	_fade_layer.layer = 128
 	add_child(_fade_layer)
@@ -109,12 +111,19 @@ func _ready() -> void:
 	tw.tween_property(veil, "color:a", 0.0, 0.5)
 	tw.tween_callback(veil.queue_free)
 
+## Window.AddFlags(KeepScreenOn) (AndroidActivity.cs:52) : API Screen Wake Lock du navigateur, seulement si elle existe (contexte securise, navigateur recent).
+## Le verrou est rendu par le navigateur quand l'onglet est masque : on le redemande au retour (visibilitychange) et au premier appui si la 1re demande a ete refusee.
+func _keep_screen_on() -> void:
+	JavaScriptBridge.eval("(function(){var n=navigator;if(!('wakeLock' in n))return false;var s=null;var r=function(){if(s&&!s.released)return;n.wakeLock.request('screen').then(function(l){s=l;}).catch(function(){});};document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')r();});document.addEventListener('pointerdown',r);r();return true;})()")
+	JavaScriptBridge.eval("document.addEventListener('contextmenu',function(e){e.preventDefault();})") # le clic droit sert au zoom des cartes (CardUI) : pas de menu du navigateur
+
 func _clear() -> void:
 	for c in get_children():
 		if c != game_manager and c != online and c != _fade_layer:
 			c.queue_free()
 	board = null
 	_tiles_live = false
+	_count_live = false
 
 func _deck_playable(id: String) -> bool:
 	for d in APK_DECKS:
@@ -161,6 +170,10 @@ func is_fading() -> bool:
 ## Un champ de saisie qui a le focus garde la touche.
 func _unhandled_key_input(e: InputEvent) -> void:
 	var k := e as InputEventKey
+	if k != null and k.pressed and _count_live and not _fading and (k.keycode == KEY_LEFT or k.keycode == KEY_RIGHT):
+		get_viewport().set_input_as_handled()
+		_count_step(1 if k.keycode == KEY_RIGHT else -1) # CarrouselDragBehavior.cs:74-85 : flechees maintenues = un pas apres l'autre
+		return
 	if k == null or not k.pressed or k.echo or k.keycode != KEY_ESCAPE or _fading:
 		return
 	if get_viewport().gui_get_focus_owner() is LineEdit:
@@ -411,6 +424,7 @@ func show_solo_count(mode: String = "solo", keep: bool = false) -> void:
 	add_child(dyn_root)
 	_draw_fans()
 	_ok_btn(func(): go(func(): show_setup(players, mode))) # PlayerNumberScene.cs:48-54 (ColorFade 1,0 s)
+	_count_live = true
 
 ## Cartouche sombre a bord colore (le decor du menu est clair) ; police par defaut (accents et guillemets absents de arcadepix).
 func _note_box(node_name: String, text: String, border: Color, font_color: Color, pos: Vector2, sz: Vector2) -> Panel:
@@ -443,6 +457,32 @@ func _count_back(mode: String) -> void:
 		"online": show_friends()
 		"public": menus.show_public()
 		_: show_menu()
+
+var _count_live := false # ecran « HOW MANY PLAYERS? » affiche : le carrousel reagit aux fleches et au glisser
+var _cdrag := false # glisser en cours sur le carrousel
+var _cdrag_x := 0.0
+var _cdrag_steps := 0 # pas deja faits depuis l'appui
+
+## Un pas du carrousel (CarrouselComponent.cs:118-133 : l'indice grandit = ui_shuffle_left, il baisse = ui_shuffle_right ; anneau circulaire).
+func _count_step(d: int) -> void:
+	var ring := _count_ring()
+	players = int(ring[(ring.find(players) + d + ring.size()) % ring.size()])
+	AudioManager.play_sfx("ui_shuffle_left" if d > 0 else "ui_shuffle_right")
+	_draw_fans(true)
+
+## CarrouselDragBehavior.cs:59-118 : glisser = 0,004 indice par pixel (virtuel 1440 -> 0,003 ici), l'indice arrondi change a chaque demi-pas ; la zone est le RectangleCollider 1200 x 400 du carrousel.
+func _count_drag(ev: InputEvent) -> void:
+	var rect := Rect2(360, 425, 1200, 400)
+	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
+		_cdrag = ev.pressed and rect.has_point(get_local_mouse_position()) and not _fading
+		_cdrag_x = get_local_mouse_position().x
+		_cdrag_steps = 0
+	elif ev is InputEventMouseMotion and _cdrag:
+		var want := int(roundf((_cdrag_x - get_local_mouse_position().x) * 0.003))
+		while _cdrag_steps != want:
+			var d := 1 if want > _cdrag_steps else -1
+			_cdrag_steps += d
+			_count_step(d)
 
 ## Nombres proposes : 2-4, plus 5-6 quand Crash Landing est coche.
 func _count_ring() -> Array:
@@ -659,6 +699,8 @@ func _draw_tile(d: Dictionary, pos: Vector2) -> void:
 
 ## Glissement des tuiles (ExpansionScrollComponent.TouchMoved :190-206, Update :208-240) : ressort 0,4 hors bornes, inertie x 0,9 ; la course depasse de 200 px.
 func _input(ev: InputEvent) -> void:
+	if _count_live:
+		_count_drag(ev)
 	if not _tiles_live or _tile_min >= 0.0:
 		return
 	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:

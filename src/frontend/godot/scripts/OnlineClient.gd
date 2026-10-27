@@ -468,7 +468,7 @@ func _save_session() -> void:
 	var cfg := ConfigFile.new()
 	for k in d:
 		cfg.set_value("session", k, d[k])
-	cfg.save(SESSION_PATH)
+	Profile.write(cfg, SESSION_PATH)
 
 func _clear_session() -> void:
 	if OS.has_feature("web"):

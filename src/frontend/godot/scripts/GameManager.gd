@@ -19,10 +19,10 @@ func start_new_game(num_players: int = 2, p_human_count: int = 1, p_sets: Array 
 	return state
 
 ## --- Tutoriel de l'APK (GamePlayTutScene.InitializeGameboard -> GameBoardExtensions.InitializeGameBoardTutorial, GameBoardExtensions.cs:19-52) ---
-## Pioches imposees, SOMMET EN PREMIER (ordre de l'APK) ; le reste de chaque pioche est tire avec la graine fixe TUT_SEED (start_tutorial).
+## Pioches imposees, SOMMET EN PREMIER (ordre de l'APK) ; le reste de chaque pioche suit l'ordre de DBMRandom(TUT_SEED), identique a l'APK (start_tutorial).
 const TUT_BOSS_HUMAN := "BMA003" # GamePlayTutScene.cs:51 HUMAN_PLAYER (King Croak)
 const TUT_BOSS_AI := "BMA006"    # GamePlayTutScene.cs:53 IA_PLAYER (Seducia)
-const TUT_SEED := 2832           # RandomProvider.Seed du tutoriel (GamePlayTutScene) ; le generateur de l'APK n'est pas reproductible ici : le hasard est fixe, pas identique a l'APK, seules les pioches imposees le sont
+const TUT_SEED := 2832           # RandomProvider.Seed du tutoriel (GameBoardExtensions.cs:25) ; DbmRandom reproduit le generateur de l'APK, donc aussi le reste des pioches
 const TUT_ROOMS := ["BMA032", "BMA026", "BMA034", "BMA027", "BMA016", "BMA010", "BMA020", "BMA019", "BMA009", "BMA021", "BMA022", "BMA021"]
 const TUT_SPELLS := ["BMA041", "BMA055", "BMA054", "BMA044"]
 const TUT_HEROES := ["BMA064", "BMA068"]
@@ -30,9 +30,8 @@ const TUT_HEROES := ["BMA064", "BMA068"]
 ## Partie forcee du tutoriel : 2 joueurs, jeu de base, humain King Croak (le carrousel est force par BoardUI.tutorial_gate), IA Seducia.
 ## Les pioches sont posees AVANT le dernier pickBoss (celui de l'humain), qui distribue les mains d'ouverture (Match._deal_opening_hands).
 func start_tutorial() -> Dictionary:
-	CardDB._rng.seed = TUT_SEED # paquets melanges pareil a chaque tutoriel (le tutoriel est le meme pour tous, comme dans l'APK)
-	var state := new_match(2, 1, ["base"])
-	CardDB._rng.randomize() # les parties suivantes redeviennent aleatoires
+	CardDB.dbm = DbmRandom.new(TUT_SEED) # paquets melanges comme l'APK (RandomProvider.Seed = 2832, DBMRandom) : le tutoriel est le meme pour tous
+	var state := new_match(2, 1, ["base"]) # remet CardDB.dbm a null une fois les paquets melanges
 	rng.seed = TUT_SEED
 	var decks: Dictionary = G["decks"]
 	_tut_force(decks["rooms"], TUT_ROOMS)
@@ -46,7 +45,7 @@ func start_tutorial() -> Dictionary:
 func _tut_force(deck: Array, ids: Array) -> void:
 	var picked: Array = []
 	for id in ids:
-		for i in deck.size():
+		for i in range(deck.size() - 1, -1, -1): # PrioritizeQueueCards : list.First(...) = l'exemplaire le plus proche de la tete (le sommet ici = la fin)
 			if str((deck[i] as Dictionary).get("id", "")) == str(id):
 				picked.append(deck.pop_at(i))
 				break

@@ -885,6 +885,7 @@ func _opp_toggle() -> void:
 	_opp_open = not _opp_open
 	_opp_gen += 1
 	_opp_detail_sync(true)
+	_play_sfx("ui_card_slide_down" if _opp_open else "ui_card_slide_up") # ExpandedOpponentComponent.cs:51,60 : ouverture / fermeture du panneau
 	if _opp_open:
 		var gen := _opp_gen
 		get_tree().create_timer(60.0).timeout.connect(func(): # ShowHideTaskComponent.cs:56 : repli automatique apres 1 min
@@ -2185,9 +2186,9 @@ func _build_boss_carousel(G: Dictionary, my_moves: Array) -> void:
 	_boss_tw = create_tween()
 	_boss_tw.tween_interval(BOSS_WAIT_TIME)
 	_boss_tw.tween_callback(func():
-		_play_sfx("ui_card_slide_down") # CarrouselComponent.FlipAllCards(false) -> FlipCardBehavior.cs:126 (une fois : l'APK le joue pour chaque carte, a l'identique)
 		for c in _boss_cards:
 			if is_instance_valid(c):
+				_play_sfx("ui_card_slide_down") # CarrouselComponent.FlipAllCards(false) -> FlipCardBehavior.CreateFaceDownTask (cs:126) : un son PAR carte, superposes
 				_boss_flip_card(c, true, true))
 	_boss_tw.tween_interval(BOSS_FLIP_TIME)
 	_boss_tw.tween_method(_boss_spin.bind(start, n), 0.0, float(steps), BOSS_SPIN_TIME).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
@@ -5201,6 +5202,10 @@ func _zoom_stack_layout() -> void:
 	var st: Dictionary = _zoom.get_meta("stack")
 	var k: float = st["k"]
 	var idx: float = st["idx"]
+	var r := roundi(idx)
+	if r != int(st.get("r", 0)): # CarrouselComponent.UpdateValues (cs:118-133) : l'indice arrondi change -> ui_shuffle_left s'il grandit, _right sinon
+		_play_sfx("ui_shuffle_left" if r > int(st.get("r", 0)) else "ui_shuffle_right")
+		st["r"] = r
 	for i in _zoom.get_child_count():
 		var z := _zoom.get_child(i) as Control
 		var rel := float(i) - idx + 1.0
@@ -5239,11 +5244,19 @@ func _zoom_stack_input(event: InputEvent) -> bool:
 	var st: Dictionary = _zoom.get_meta("stack")
 	var rect: Rect2 = st["rect"]
 	var n := _zoom.get_child_count()
+	if event is InputEventKey and (event as InputEventKey).pressed and st.has("armed") and not st.has("drag") 			and ((event as InputEventKey).keycode == KEY_LEFT or (event as InputEventKey).keycode == KEY_RIGHT):
+		# CarrouselDragBehavior.cs:74-85 : fleche droite = MoveRight (plafond de l'indice + 0,01), gauche = MoveLeft (plancher de l'indice - 0,01) ;
+		# le comportement n'est actif qu'apres un premier appui sur la pile (SlotDetailEntity.cs:99-103)
+		var cur := float(st["idx"])
+		var right := (event as InputEventKey).keycode == KEY_RIGHT
+		_zoom_stack_snap(clampf(ceilf(cur + 0.01) if right else floorf(cur - 0.01), 0.0, float(n - 1)))
+		return true
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			if mb.pressed and rect.has_point(mb.position):
 				st["drag"] = {"y": mb.position.y, "i0": float(st["idx"])}
+				st["armed"] = true
 				return true
 			if not mb.pressed and st.has("drag"):
 				st.erase("drag")
