@@ -132,6 +132,7 @@ func _ready() -> void:
 	_t_apk_jackpot_stash_build_phase_only()
 	_t_apk_teleportation_targets_active_hero()
 	_t_apk_motivation_needs_larger_opponent_dungeon()
+	_t_died_once_per_turn_needs_target()
 	_t_apk_zombie_attack_targets_dead_heroes_only()
 	_t_apk_another_room_target()
 	_t_apk_advanced_room_not_over_pending_slot()
@@ -1931,6 +1932,17 @@ func _t_died_brainsucker_once_per_turn() -> void:
 	RoomAbilities.on_hero_died_in_room(G, 0, room)
 	RoomAbilities.on_hero_died_in_room(G, 0, room)
 	_ok(((G["players"][0] as Dictionary)["hand"] as Array).size() == 1, "Brainsucker Hive : une seule pioche par tour")
+
+## Ability.CheckConditions : sans cible (MinTargetsAmount) l'effet n'est pas applique, donc OncePerTurn n'est pas consomme (R-F26, R-F30).
+func _t_died_once_per_turn_needs_target() -> void:
+	var G := _ability_G("BMA010")
+	var room: Dictionary = BossEngine.active_room(((G["players"][0] as Dictionary)["dungeon"] as Array)[0])
+	G["decks"]["roomDiscard"] = []
+	RoomAbilities.on_hero_died_in_room(G, 0, room)
+	_ok(not bool(room.get("usedThisTurn", false)), "Open Grave sans salle en defausse : OncePerTurn intact")
+	(G["decks"]["roomDiscard"] as Array).append(_room("D", "trap", false, [1]))
+	RoomAbilities.on_hero_died_in_room(G, 0, room)
+	_ok(bool(room.get("usedThisTurn", false)) and (G["decks"]["roomDiscard"] as Array).is_empty(), "2e heros mort : la salle est recuperee")
 
 # --- Parite APK (graines larges 4-7) : regles corrigees ---
 

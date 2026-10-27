@@ -1594,14 +1594,6 @@ func _resolve_bait() -> void:
 			_log("%s reste en ville (égalité de trésors)." % (hero as Dictionary).get("name", "?"))
 	G["town"] = remaining_town
 
-func _turn_order() -> Array:
-	var o: Array = CardDB.order_by_xp(G["players"])
-	var t := int(G.get("turn", 1))
-	for i in t % max(1, o.size()):
-		o.append(o.pop_front())
-	return o
-
-
 ## Capacites « defausser cette salle de la main » (CRL007 Frostman Lander) : une par cible, jouables en BUILD et en ADVENTURE.
 func _hand_room_moves(pid: int) -> Array:
 	var out: Array = []

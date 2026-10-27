@@ -628,6 +628,9 @@ static func on_hero_died_in_room(G: Dictionary, player_id: int, room: Dictionary
 	if ["BMA010", "BMA012", "BMA014", "BMA016", "BMA021"].has(id):
 		if bool(room.get("usedThisTurn", false)):
 			return null
+		# Ability.CheckConditions : sans cible (MinTargetsAmount) l'effet n'est pas applique, donc IsEffectApplied reste faux (R-F26, R-F30)
+		if (id == "BMA010" and discard_card_options(G, "room").is_empty()) or (id == "BMA014" and (p.get("wounds", []) as Array).is_empty()):
+			return null
 		room["usedThisTurn"] = true
 	match id:
 		"BMA010": return _open_grave(G, p, player_id)

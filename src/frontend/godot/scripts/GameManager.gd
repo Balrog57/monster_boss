@@ -7,7 +7,6 @@ extends "res://godot/scripts/Match.gd"
 
 signal phase_changed(new_phase: String)
 signal hero_lured(hero: Dictionary, target_player: int)
-signal hero_adventured(hero: Dictionary, player_id: int, killed: bool, hp_remaining: int)
 signal game_finished(winner_id: int, reason: String)
 
 func _ready() -> void:
@@ -145,57 +144,3 @@ func _build_after_undo(pid: int, hand_idx: int, ti: int) -> bool:
 		if (a.size() > 1 and a[1] != null and int(a[1]) == ti) or ((a.size() < 2 or a[1] == null) and ti < 0):
 			return apply_move(pid, m)
 	return false
-
-## Phase de leurre : détermine pour chaque héros en ville quel donjon l'attire
-func calculate_lure() -> Array:
-	var results: Array = []
-	var town: Array = G.get("town", [])
-	var order := _turn_order()
-	for hero in town:
-		var treasure := int((hero as Dictionary).get("treasure", 1))
-		var target := BossEngine.lure_target(G["players"], order, treasure, hero, G)
-		results.append({"hero": hero, "target": target})
-	return results
-
-## Résolution d'un héros dans le donjon avec détail des étapes
-func advance_hero_in_dungeon(pid: int, hero: Dictionary) -> Dictionary:
-	var p: Dictionary = G["players"][pid]
-	var hp := BossEngine.hero_wounds(hero)
-	var initial_hp := hp
-	var rooms_hit: Array = []
-
-	for i in (p.get("dungeon", []) as Array).size():
-		if hp <= 0:
-			break
-		var stack: Array = p["dungeon"][i]
-		var room = BossEngine.active_room(stack)
-		if room == null:
-			continue
-		var dmg := int((room as Dictionary).get("damage", 0))
-		hp -= dmg
-		rooms_hit.append({"room": room.get("name", "?"), "damage": dmg, "hp_after": max(0, hp)})
-
-	var killed := hp <= 0
-	if killed:
-		(p["souls"] as Array).append({"name": hero.get("name", "?"), "souls": BossEngine.hero_souls(hero)})
-		_log("%s vaincu dans le donjon du joueur %d ! (+%d âme)" % [
-			hero.get("name", "?"), pid, BossEngine.hero_souls(hero)
-		])
-	else:
-		(p["wounds"] as Array).append({"name": hero.get("name", "?"), "wounds": 1})
-		_log("%s atteint le boss du joueur %d et inflige 1 blessure ! (%d/5)" % [
-			hero.get("name", "?"), pid, CardDB.total_wounds(p)
-		])
-		if CardDB.total_wounds(p) >= 5:
-			p["eliminated"] = true
-			_log("Joueur %d a succombé à ses blessures !" % pid)
-
-	hero_adventured.emit(hero, pid, killed, hp)
-	return {
-		"hero": hero,
-		"player_id": pid,
-		"killed": killed,
-		"initial_hp": initial_hp,
-		"remaining_hp": hp,
-		"rooms_traversed": rooms_hit
-	}
