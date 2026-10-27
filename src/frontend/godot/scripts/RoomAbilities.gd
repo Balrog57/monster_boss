@@ -503,6 +503,9 @@ static func _dracolich_lair(G: Dictionary, p: Dictionary, player_id: int, room: 
 			# card/handIndex designent les 2 cartes (cf. ApkParityTrace._refs) ; handIndices sert a la resolution.
 			opts.append({"card": ca, "handIndex": idxs[b], "handIndices": [idxs[a], idxs[b]],
 				"label": "%s + %s" % [str(ca.get("name", "?")), str(cb.get("name", "?"))]})
+	if opts.size() == 1 and not bool(p.get("isAI", false)) and bool(G.get("autoAI", true)): # exactement 2 salles en main : PlayerInteractionBase.ResolveTarget:39 -> ComposedTargetProvider.TryToAutoresolve (Count() <= TargetsAmount), seulement Human/RemotePlayerInteraction (tryToAutoresolveTargets) ; l'IA (FixedAI) et le harnais de l'oracle (autoAI faux, cibles de l'oracle) designent leur cible eux-memes
+		dracolich_discard(G, player_id, opts[0], pile_opts)
+		return null
 	G["pendingChoice"] = {"type": "dracolich-discard", "resume": false, "playerId": player_id,
 		"bossName": "Dracolich Lair", "message": "Dracolich Lair: choose two Rooms to discard",
 		"pileOptions": pile_opts, "options": opts}

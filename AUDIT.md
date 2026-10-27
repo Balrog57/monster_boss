@@ -2367,7 +2367,7 @@ Validé par `python tools/run_godot_tests.py` (14/14) ; `online_test.gd` (`_scen
 
 Validé par `python tools/run_godot_tests.py` (14/14), l'oracle APK et `ui_smoke` (`_check_audio`, `tut_decks`, `tutorial`). Non vérifié : les sons à l'oreille, le Screen Wake Lock, `contextmenu`, `visibilitychange` et le glisser du carrousel dans un vrai navigateur (seul le chemin GDScript est testé en processus).
 
-58 lignes : 23 Corrigé, 19 Conforme, 16 Accepté.
+58 lignes : 24 Corrigé, 19 Conforme, 15 Accepté.
 
 | ID | État | Preuve |
 |---|---|---|
@@ -2426,6 +2426,6 @@ Validé par `python tools/run_godot_tests.py` (14/14), l'oracle APK et `ui_smoke
 | W-17 | Conforme | Le message d'erreur WebGL 2 / WebAssembly est celui de l'enveloppe standard de Godot (build_web/index.html:165-198). |
 | W-19 | Corrigé | Menu contextuel du navigateur supprimé (contextmenu -> preventDefault, Main.gd:118) : le clic droit sert au zoom des cartes (CardUI.gd:335). Plein écran : barres système Android, F11 dans le navigateur (voir D-08). |
 | W-20 | Accepté | Tactile : cible web à la souris sur bureau, tactile hors périmètre (émulation souris -> toucher conservée, project.godot:36). |
-| X-M32 | Accepté | Avec exactement 2 salles en main, l'APK autorésout (Count() <= TargetsAmount) ; Godot demande la paire unique (RoomAbilities.gd:488-509). Essai d'autorésolution : le résultat de jeu est identique mais l'oracle diverge (s4-p2 et s5-p2, main ≠ à partir de la 2e activation, car le harnais IA désigne la paire à la mise en file) ; revenu en arrière. Reste un clic de confirmation sans effet sur les règles. |
+| X-M32 | Corrigé | _dracolich_lair (RoomAbilities.gd:488-510) se résout seule pour un joueur humain quand une seule paire est possible : PlayerInteractionBase.ResolveTarget:39 n'appelle TryToAutoresolve (Count() <= TargetsAmount, ComposedTargetProvider.cs:35-52) que si tryToAutoresolveTargets, vrai pour HumanPlayerInteraction.cs:48 et RemotePlayerInteraction.cs:69 seulement ; l'IA (FixedAI) et le harnais de l'oracle (autoAI faux) gardent le choix. Une première version sans cette distinction faisait diverger s4-p2 et s5-p2. Test goldens `_t_choice_dracolich_lair` (humain : pile directe ; harnais : choix ouvert). |
 | X-M34 | Corrigé | _unuse_on_error (RoomAbilities.gd:292) remet usedThisTurn à faux sur toute erreur de _all_seeing_eye (:256) et _witchs_kitchen (:263), comme Dracolich. |
 | X-M60 | Corrigé | DbmRandom (scripts/DbmRandom.gd, System.Random soustractif de Knuth) + RandomProvider.Shuffle ; le tutoriel fixe la graine 2832 (GameManager.gd:25,33, Match.gd:101-139, CardDB.shuffled). Les trois pioches (salles, sorts, héros) sont identiques à la trace de l'oracle (test tut_decks, tests/tut_decks_data.gd). |

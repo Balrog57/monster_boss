@@ -1338,6 +1338,23 @@ func _t_choice_dracolich_lair() -> void:
 	_ok(_hand_ids(0, m) == ["R1", "D2"] and (m.G.get("pendingChoice", {}) as Dictionary).is_empty(), "seules R2 et R3 sont defaussees, D2 en main")
 	_ok((m.G["decks"]["roomDiscard"] as Array).size() == 3, "D1, R2, R3 en defausse")
 	m.queue_free()
+	# exactement 2 salles en main : l'humain n'a rien a choisir (PlayerInteractionBase.ResolveTarget:39, TryToAutoresolve, Count() <= TargetsAmount) ;
+	# l'IA et le harnais de l'oracle (autoAI faux) gardent le choix (tryToAutoresolveTargets faux)
+	for human in [true, false]:
+		var m2 = _match_with_spell()
+		m2.G["autoAI"] = human
+		(m2.G["players"][0] as Dictionary)["dungeon"] = [[_room("BMA013", "monster", true, [1])]]
+		(m2.G["players"][0] as Dictionary)["hand"] = [_room("R1", "trap", false, [1]), _room("R2", "trap", false, [1])]
+		(m2.G["decks"]["roomDiscard"] as Array).append(_room("D1", "trap", false, [1]))
+		_ok(m2.apply_move(0, {"type": "activateRoom", "args": [0]}), "Dracolich Lair (2 salles) applique")
+		var pc2: Dictionary = m2.G.get("pendingChoice", {})
+		if human:
+			_ok(pc2.is_empty() and (m2.G["stack"] as Array).size() == 1, "2 salles en main : paire autoresolue, la transaction entre dans la pile")
+			_pass_all(m2)
+			_ok(_hand_ids(0, m2) == ["D1"], "la paire est defaussee a la resolution, D1 recuperee")
+		else:
+			_ok(str(pc2.get("type", "")) == "dracolich-discard" and (pc2.get("options", []) as Array).size() == 1, "harnais / IA : le choix de la paire reste ouvert")
+		m2.queue_free()
 
 ## BMA039 Zombie Prison : detruit la salle, renvoie un heros mort d'un adversaire a l'entree de SON donjon.
 func _t_room_zombie_prison() -> void:
