@@ -92,6 +92,7 @@ func _ready() -> void:
 		if origin != null and str(origin) != "" and str(origin) != "null":
 			server_host = str(origin)
 		_keep_screen_on()
+		_touch_fullscreen_landscape()
 	var settings := Profile.load_settings()
 	if not OS.has_feature("web") and settings.has("host") and str(settings["host"]) != "": # web : toujours l'origine de la page (un hote enregistre par une ancienne session ne compte pas)
 		server_host = str(settings["host"])
@@ -112,12 +113,23 @@ func _ready() -> void:
 	var tw := create_tween()
 	tw.tween_property(veil, "color:a", 0.0, 0.5)
 	tw.tween_callback(veil.queue_free)
+	if OS.has_feature("web") and not OS.is_userfs_persistent(): # S-02 : navigation privee ou stockage bloque, user:// (IndexedDB) ne survit pas a l'onglet
+		var warn := UiKit.label(_fade_layer, "Browser storage is blocked: settings and profile will not be saved.", 30, Color("ffb347"), Vector2(0, 1020), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
+		var wt := warn.create_tween()
+		wt.tween_interval(8.0)
+		wt.tween_property(warn, "modulate:a", 0.0, 1.0)
+		wt.tween_callback(warn.queue_free)
 
 ## Window.AddFlags(KeepScreenOn) (AndroidActivity.cs:52) : API Screen Wake Lock du navigateur, seulement si elle existe (contexte securise, navigateur recent).
 ## Le verrou est rendu par le navigateur quand l'onglet est masque : on le redemande au retour (visibilitychange) et au premier appui si la 1re demande a ete refusee.
 func _keep_screen_on() -> void:
 	JavaScriptBridge.eval("(function(){var n=navigator;if(!('wakeLock' in n))return false;var s=null;var r=function(){if(s&&!s.released)return;n.wakeLock.request('screen').then(function(l){s=l;}).catch(function(){});};document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')r();});document.addEventListener('pointerdown',r);r();return true;})()")
 	JavaScriptBridge.eval("document.addEventListener('contextmenu',function(e){e.preventDefault();})") # le clic droit sert au zoom des cartes (CardUI) : pas de menu du navigateur
+
+## I-22, AndroidActivity.cs:12-15 (ScreenOrientation.Landscape) + HideSoftKeys (immersif) : sur appareil tactile seulement (rien sur bureau), au premier appui
+## (le plein ecran exige un geste de l'utilisateur) : plein ecran puis verrou paysage ; l'API est absente ou refuse (iOS, Firefox) -> echec silencieux.
+func _touch_fullscreen_landscape() -> void:
+	JavaScriptBridge.eval("(function(){if(!('ontouchstart' in window)||!window.matchMedia('(pointer: coarse)').matches)return;var go=function(){window.removeEventListener('pointerup',go,true);window.removeEventListener('touchend',go,true);try{var e=document.documentElement;var r=(e.requestFullscreen||e.webkitRequestFullscreen||function(){return Promise.reject();}).call(e);Promise.resolve(r).then(function(){return screen.orientation.lock('landscape');}).catch(function(){});}catch(x){}};window.addEventListener('pointerup',go,true);window.addEventListener('touchend',go,true);})()")
 
 func _clear() -> void:
 	for c in get_children():

@@ -103,6 +103,7 @@ func _update_view() -> void:
 				card_ui.add_heart(dmg) # CardStackSlotComponent.cs:148 : degats courants de la salle du dessus quand ils different de l'imprime
 		if _was_down and not down and DisplayServer.get_name() != "headless":
 			card_ui.flip_in()
+		var fly := down and not _was_down and DisplayServer.get_name() != "headless" # P-C14 : la salle vient d'etre posee en attente
 		_was_down = down
 		if down: # X-P06 : salle en attente = IsShadowVisible (CardStackSlotComponent.cs:130), ombre card_shadow decalee de (40, 70) a l'echelle 0,5, opacite 0,75
 			var sh := TextureRect.new()
@@ -116,6 +117,8 @@ func _update_view() -> void:
 			sh.add_to_group("under_card")
 			add_child(sh)
 			move_child(sh, card_container.get_index())
+			if fly:
+				_fly_pending(card_ui, sh)
 		add_under_cards(self, current_stack, _card_ui_scene, CARD_SIZE, card_container.get_index())
 		if border:
 			border.border_color = Color(0.4, 0.8, 0.4, 0.0) # pas de liseré : seul le halo d'une salle activable est visible
@@ -134,6 +137,22 @@ func _update_view() -> void:
 			border.border_color = Color(0.5, 0.45, 0.35, 0.4)
 		tooltip_text = ""
 	_update_glow()
+
+## P-C14, CardStackSlotComponent.MovePendingRoomToRightPlace (:210-233) + DungeonFrameEntity.Refresh (:398-409) : la salle posee en attente part de la pile d'attente (le premier emplacement libre,
+## Slots[min(4, DungeonSize)]) et glisse jusqu'a son emplacement : decalage de depart (i - k) x 140 px (i = index C# de l'emplacement, k = min(4, DungeonSize)), duree = |decalage| / 1920 s
+## (VirtualWidth), CubicEase (EaseOut). Rien quand la salle est posee sur le premier emplacement libre (decalage nul).
+func _fly_pending(card_ui: Control, shadow: Control) -> void:
+	if game_manager == null:
+		return
+	var dungeon: Array = ((game_manager.G["players"] as Dictionary)[player_id] as Dictionary).get("dungeon", [])
+	var off := float(dungeon.size() - 1 - slot_index - mini(4, BossEngine.apk_dungeon_size(dungeon))) * 140.0 # donjon Godot a l'envers : index C# = taille - 1 - index Godot
+	if off == 0.0:
+		return
+	var tw := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	for n in [card_ui, shadow]:
+		var x: float = (n as Control).position.x
+		(n as Control).position.x = x + off
+		tw.tween_property(n, "position:x", x, absf(off) / 1920.0)
 
 ## Un Card.tscn pose dans un hote qui n'est pas encore dans l'arbre garde la taille de la scene (140 x 200) malgre `size` : on la fixe une fois l'hote dans l'arbre.
 static func fit_cards(host: Control) -> void:
