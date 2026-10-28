@@ -13,7 +13,10 @@ func run(ok: Callable, h: Node) -> void:
 	_t_new_match_deck()
 	_t_explorer_lure()
 	_t_crl_heroes_2_to_4()
+	_t_crl_heroes_with_tnl_rmb()
+	_t_card_stats()
 	_t_big_game_setup()
+	_t_big_game_tnl_rmb()
 	_t_big_game_bait_split()
 	_t_big_game_no_elimination()
 	_t_big_game_end_and_winner()
@@ -37,6 +40,11 @@ func run(ok: Callable, h: Node) -> void:
 	_t_uncover_caged_gundarf_modifiers()
 	_t_uncover_celestial_map()
 	_t_uncover_darkling_lair()
+	_t_uncover_by_move_fires_tnl()
+	_t_uncover_by_move_clears_slot_state()
+	_t_omega_42_tnl_rooms()
+	_t_room_alien_ooze_face_down()
+	_t_ai_crl_weights()
 	_t_spell_finish_him()
 	_t_spell_essence_transfer()
 	_t_spell_healing_tank()
@@ -194,6 +202,107 @@ func _t_crl_heroes_2_to_4() -> void:
 		_ok.call(_count_set(heroes, "crash-landing") == 7 and _count_set(epics, "crash-landing") == 5, "CRL %d joueurs : les 12 heros CRL sont tous la" % n)
 	m.queue_free()
 
+## CRL-R06 : avec TNL ou Rise of the Minibosses (2-4 joueurs), le paquet de heros du livret (13 + 9 / 17 + 13 / 25 + 17) reste tel quel et les 12 heros CRL s'y AJOUTENT.
+func _t_crl_heroes_with_tnl_rmb() -> void:
+	var m = load("res://godot/scripts/Match.gd").new()
+	host.add_child(m)
+	for pack in ["next-level", "minibosses"]:
+		for n in [2, 3, 4]:
+			var G: Dictionary = m.new_match(n, 1, [pack, "crash-landing"])
+			var heroes: Array = G["decks"]["heroes"]
+			var epics: Array = G["decks"]["epics"]
+			var want_o: int = int(TnlAbilities.HERO_COUNTS[n]["ordinary"])
+			var want_e: int = int(TnlAbilities.HERO_COUNTS[n]["epic"])
+			_ok.call(heroes.size() == want_o + 7 and epics.size() == want_e + 5, "%s + CRL, %d joueurs : %d + %d heros (obtenu %d + %d)" % [pack, n, want_o + 7, want_e + 5, heroes.size(), epics.size()])
+			_ok.call(_count_set(heroes, "crash-landing") == 7 and _count_set(epics, "crash-landing") == 5, "%s + CRL, %d joueurs : les 12 heros CRL sont tous la" % [pack, n])
+			_ok.call(_count_set(heroes + epics, "base") == 0 and _count_set(heroes + epics, "hidden-heroes") == 0, "%s + CRL, %d joueurs : un seul paquet de heros (celui de %s)" % [pack, n, pack])
+	m.queue_free()
+
+## CRL-R04 : 5-6 joueurs avec TNL ou Minibosses (jeu de base complet : 25 + 17) + CRL = 32 + 22 heros ; THK wiki et IOD (mini-extensions) admis ; Player's Choice refuse.
+func _t_big_game_tnl_rmb() -> void:
+	var m = load("res://godot/scripts/Match.gd").new()
+	host.add_child(m)
+	for sets in [["crash-landing", "next-level"], ["crash-landing", "minibosses"], ["crash-landing", "tools-wiki"], ["crash-landing", "iod"], ["crash-landing", "next-level", "iod", "tools-wiki"]]:
+		_ok.call(m.setup_error(5, sets) == "" and m.setup_error(6, sets) == "" and m.max_players(sets) == 6, "setup_error : 5-6 joueurs avec %s accepte" % str(sets))
+	_ok.call(m.setup_error(5, ["crash-landing", "next-level", "players-choice"]) != "", "setup_error : Player's Choice reste refuse a 5-6 joueurs")
+	for n in [5, 6]:
+		for pack in ["next-level", "minibosses"]:
+			var G: Dictionary = m.new_match(n, 1, ["crash-landing", pack])
+			var heroes: Array = G["decks"]["heroes"]
+			var epics: Array = G["decks"]["epics"]
+			_ok.call((G["sets"] as Array).has(pack) and int(G["numPlayers"]) == n, "%d joueurs + %s : le paquet est garde, %d sieges" % [n, pack, n])
+			_ok.call(heroes.size() == 32 and epics.size() == 22, "%d joueurs + %s : 32 + 22 heros (obtenu %d + %d)" % [n, pack, heroes.size(), epics.size()])
+			var ids := {}
+			for h in heroes + epics:
+				ids[str((h as Dictionary)["id"])] = true
+			_ok.call(ids.size() == 54 and _count_set(heroes + epics, "crash-landing") == 12, "%d joueurs + %s : 54 heros differents dont les 12 de CRL" % [n, pack])
+			_ok.call((G["bossPicks"] as Array).size() >= n, "%d joueurs + %s : assez de boss proposes" % [n, pack])
+	var G2: Dictionary = m.new_match(6, 1, ["crash-landing", "tools-wiki", "iod"])
+	_ok.call((G2["decks"]["heroes"] as Array).size() == 32 and (G2["decks"]["epics"] as Array).size() == 21, "6 joueurs + THK wiki + IOD : pool de base 32 + 21")
+	m.new_match(6, 1, ["crash-landing", "tools-wiki", "iod"])
+	m._reveal_items()
+	_ok.call((m.G["townItems"] as Array).size() == 3, "6 joueurs + THK wiki : trois Objets reveles par tour")
+	m.queue_free()
+
+## Statistiques des 33 cartes CRL, table par table : valeurs attendues ecrites ici (texte des cartes) ET identiques au JSON du wiki.
+func _t_card_stats() -> void:
+	var wiki: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/data/expansions/crash-landing.json"))
+	var ints := func(a) -> Array: return (a as Array).map(func(t): return int(t))
+	# boss : XP (un tresor Explorer chacun)
+	var bosses := {"CRL001": 475, "CRL002": 175, "CRL003": 855}
+	# salles : [type, avancee, degats, tresors, exemplaires]
+	var rooms := {
+		"CRL004": ["trap", false, 2, [5], 2], "CRL005": ["trap", false, 1, [5], 2], "CRL006": ["monster", false, 1, [5], 1], "CRL007": ["monster", false, 2, [5], 2],
+		"CRL008": ["monster", false, 0, [5], 2], "CRL009": ["trap", false, 2, [5], 2], "CRL010": ["trap", true, 3, [5], 1], "CRL011": ["trap", true, 4, [5], 2],
+		"CRL012": ["trap", true, 3, [5], 1], "CRL013": ["trap", false, 1, [1, 5], 2], "CRL014": ["monster", false, 1, [2, 5], 2], "CRL015": ["trap", false, 1, [3, 5], 2],
+		"CRL016": ["monster", false, 1, [4, 5], 2]}
+	# sorts : [categorie, exemplaires] (1 = construction, 3 = aventure)
+	var spells := {"CRL029": [3, 1], "CRL030": [3, 2], "CRL031": [3, 1], "CRL032": [1, 1], "CRL033": [3, 2]}
+	# heros : [classe, tresor, PV, epique]
+	var heroes := {
+		"CRL017": ["Cleric", 1, 3, false], "CRL018": ["Explorer", 5, 4, false], "CRL019": ["Explorer", 5, 4, false], "CRL020": ["Explorer", 5, 6, false],
+		"CRL021": ["Explorer", 5, 6, false], "CRL022": ["Explorer", 5, 8, false], "CRL023": ["Explorer", 5, 8, false], "CRL024": ["Explorer", 5, 11, true],
+		"CRL025": ["Explorer", 5, 11, true], "CRL026": ["Explorer", 5, 13, true], "CRL027": ["Explorer", 5, 13, true], "CRL028": ["Cleric", 1, 20, true]}
+	var bad: Array = []
+	for id in bosses:
+		var b := _card(CardDB.bosses, id)
+		if int(b.get("xp", -1)) != int(bosses[id]) or ints.call(b.get("treasures", [])) != [5]:
+			bad.append(id)
+	for id in rooms:
+		var r := _card(CardDB.rooms, id)
+		var e: Array = rooms[id]
+		if str(r.get("type", "")) != e[0] or bool(r.get("advanced", false)) != e[1] or int(r.get("damage", -1)) != int(e[2]) or ints.call(r.get("treasures", [])) != e[3] or int(r.get("quantity", 1)) != int(e[4]):
+			bad.append(id)
+	for id in spells:
+		var s := _card(CardDB.spells, id)
+		if int(s.get("category", -1)) != int(spells[id][0]) or int(s.get("quantity", 1)) != int(spells[id][1]):
+			bad.append(id)
+	for id in heroes:
+		var h := _card(CardDB.heroes, id)
+		var e: Array = heroes[id]
+		var rank := 2 if e[3] else 1
+		if str(h.get("class", "")) != e[0] or int(h.get("treasure", -1)) != int(e[1]) or int(h.get("hp", -1)) != int(e[2]) or bool(h.get("epic", false)) != e[3] \
+				or int(h.get("souls", -1)) != rank or int(h.get("wounds", -1)) != rank or int(h.get("quantity", 1)) != 1:
+			bad.append(id)
+	_ok.call(bad.is_empty(), "CRL : statistiques des 33 cartes conformes au tableau attendu %s" % str(bad))
+	# cards.json = JSON wiki, champ par champ
+	var diff: Array = []
+	var seen := 0
+	for kind in ["bosses", "rooms", "spells", "heroes"]:
+		var pool: Array = {"bosses": CardDB.bosses, "rooms": CardDB.rooms, "spells": CardDB.spells, "heroes": CardDB.heroes}[kind]
+		for w in (wiki[kind] as Array):
+			seen += 1
+			var c := _card(pool, str(w["id"]))
+			for k in w:
+				if k in ["set", "description", "levelUpDesc"]:
+					continue
+				var a = ints.call(c.get(k)) if c.get(k) is Array else c.get(k)
+				var b = ints.call(w[k]) if w[k] is Array else w[k]
+				var numeric: bool = typeof(a) in [TYPE_INT, TYPE_FLOAT] and typeof(b) in [TYPE_INT, TYPE_FLOAT]
+				if (numeric and int(a) != int(b)) or (not numeric and str(a) != str(b)):
+					diff.append("%s.%s" % [str(w["id"]), k])
+	_ok.call(seen == 33 and diff.is_empty(), "CRL : cards.json identique au JSON du wiki (33 cartes) %s" % str(diff))
+
 ## 5-6 joueurs : plafond selon les paquets, pool exact 32 + 21, 3 objets par tour, paquets non pris en charge ecartes / refuses.
 func _t_big_game_setup() -> void:
 	var m = load("res://godot/scripts/Match.gd").new()
@@ -201,10 +310,9 @@ func _t_big_game_setup() -> void:
 	_ok.call(m.max_players(["base"]) == 4 and m.max_players(["crash-landing"]) == 6, "plafond : 4 joueurs, 6 avec Crash Landing")
 	_ok.call(m.setup_error(6, ["crash-landing"]) == "" and m.setup_error(5, ["crash-landing", "tools", "hidden-heroes"]) == "" and m.setup_error(4, ["next-level"]) == "",
 		"setup_error : 5-6 avec CRL (+ Tools / Hidden Heroes) accepte, 2-4 toujours accepte")
-	_ok.call(m.setup_error(5, ["base"]) != "" and m.setup_error(6, []) != "" and m.setup_error(5, ["crash-landing", "next-level"]) != ""
-		and m.setup_error(5, ["crash-landing", "minibosses"]) != "" and m.setup_error(5, ["crash-landing", "players-choice"]) != "" and m.setup_error(5, ["crash-landing", "iod"]) != ""
-		and m.setup_error(5, ["crash-landing", "tools-wiki"]) != "" and m.setup_error(5, ["crash-landing", "players-choice-wiki"]) != "",
-		"setup_error : 5-6 sans CRL, ou avec TNL / Minibosses / Player's Choice / IOD / THK wiki, refuse")
+	_ok.call(m.setup_error(5, ["base"]) != "" and m.setup_error(6, []) != ""
+		and m.setup_error(5, ["crash-landing", "players-choice"]) != "" and m.setup_error(5, ["crash-landing", "players-choice-wiki"]) != "",
+		"setup_error : 5-6 sans CRL, ou avec Player's Choice (APK ou wiki), refuse")
 	_ok.call(CardDB.HERO_COUNTS[5] == {"ordinary": 32, "epic": 21} and CardDB.HERO_COUNTS[6] == {"ordinary": 32, "epic": 21}, "HERO_COUNTS : 32 + 21 heros a 5 et 6 joueurs")
 	for n in [5, 6]:
 		for sets in [["crash-landing"], ["crash-landing", "hidden-heroes"], ["crash-landing", "tools"]]:
@@ -220,9 +328,9 @@ func _t_big_game_setup() -> void:
 			_ok.call(_count_set(heroes + epics, "crash-landing") == 12 and _count_set(heroes + epics, "players-choice") == 0, "%d joueurs %s : les 12 heros CRL, aucun Player's Choice" % [n, str(sets)])
 			_ok.call((G["bossPicks"] as Array).size() >= n, "%d joueurs %s : assez de boss proposes (%d)" % [n, str(sets), (G["bossPicks"] as Array).size()])
 	# paquets non pris en charge ecartes (Match ne plante jamais) ; 5 joueurs sans CRL : repli a 4.
-	var G2: Dictionary = m.new_match(6, 1, ["crash-landing", "next-level", "minibosses", "players-choice"])
-	_ok.call(not (G2["sets"] as Array).has("next-level") and not (G2["sets"] as Array).has("minibosses") and not (G2["sets"] as Array).has("players-choice")
-		and (G2["decks"]["heroes"] as Array).size() == 32 and (G2["decks"]["epics"] as Array).size() == 21, "6 joueurs + TNL / RMB / PC : ecartes, pool 32 + 21")
+	var G2: Dictionary = m.new_match(6, 1, ["crash-landing", "players-choice", "players-choice-wiki"])
+	_ok.call(not (G2["sets"] as Array).has("players-choice") and not (G2["sets"] as Array).has("players-choice-wiki")
+		and (G2["decks"]["heroes"] as Array).size() == 32 and (G2["decks"]["epics"] as Array).size() == 21, "6 joueurs + Player's Choice : ecarte, pool 32 + 21")
 	var G3: Dictionary = m.new_match(5, 1, ["base"])
 	_ok.call(int(G3["numPlayers"]) == 4, "5 joueurs sans CRL : repli a 4 (le serveur refuse avant)")
 	# objets : 1 (2-3 joueurs), 2 (4), 3 (5-6)
@@ -1135,3 +1243,155 @@ func _t_heroes_prince_king() -> void:
 	G2["kingVote"] = {}
 	_ok.call(BossEngine.lure_target(G2["players"], CardDB.order_by_xp(G2["players"]), 1, G2["town"][0], G2) == -1, "CRL028 : aucun vote = le Roi reste en ville")
 	m2.queue_free()
+
+## Glossaire « Uncover » : une salle remontee au sommet de sa pile par un autre effet (Alien Excavator, Mando) est decouverte, y compris ses declencheurs TNL
+## (Sorcerobe School : « when you build or uncover »). Eclipse ne vaut que pour une destruction.
+func _t_uncover_by_move_fires_tnl() -> void:
+	var p0 := _player(0, "BMA001", [[_real("TNL036"), _room("top", "trap", [3])]])
+	var G := _G([p0, _player(1, "BMA002")])
+	G["sets"] = ["base", "crash-landing", "next-level"]
+	(G["decks"]["spells"] as Array).append(_spell("CRL032"))
+	RoomAbilities.uncover_move_to_top(G, 0, {"roomIndex": 0, "depth": 0, "card": (p0["dungeon"] as Array)[0][0]})
+	_ok.call(_stack_ids(p0, 0) == ["top", "TNL036"] and (p0["hand"] as Array).size() == 1, "TNL036 remontee par un effet : l'effet « uncover » pioche un sort")
+	# sans la case TNL : la meme remontee ne declenche que le jeu de base / CRL
+	var q0 := _player(0, "BMA001", [[_real("TNL036"), _room("top", "trap", [3])]])
+	var G2 := _G([q0, _player(1, "BMA002")])
+	(G2["decks"]["spells"] as Array).append(_spell("CRL032"))
+	RoomAbilities.uncover_move_to_top(G2, 0, {"roomIndex": 0, "depth": 0, "card": (q0["dungeon"] as Array)[0][0]})
+	_ok.call((q0["hand"] as Array).is_empty(), "sans The Next Level : aucune pioche")
+	# Eclipse (TNL012, « when you destroy ») : +3 a la destruction, rien a la remontee
+	var e0 := _player(0, "TNL012", [[_real("TNL044"), _room("top", "trap", [4])]])
+	e0["leveledUp"] = true
+	var G3 := _G([e0, _player(1, "BMA002")])
+	G3["sets"] = ["base", "crash-landing", "next-level"]
+	RoomAbilities.uncover_move_to_top(G3, 0, {"roomIndex": 0, "depth": 0, "card": (e0["dungeon"] as Array)[0][0]})
+	_ok.call(_dmg(G3, e0, 0) == 4, "Eclipse : une remontee ne donne pas +3 (Spiked Pit : 1 + 3 de sa propre capacite, obtenu %d)" % _dmg(G3, e0, 0))
+	var e1 := _player(0, "TNL012", [[_real("TNL044"), _room("top", "trap", [4])]])
+	e1["leveledUp"] = true
+	var G4 := _G([e1, _player(1, "BMA002")])
+	G4["sets"] = ["base", "crash-landing", "next-level"]
+	BossEngine.destroy_room(e1, 0, G4)
+	_ok.call(_dmg(G4, e1, 0) == 7, "Eclipse : la destruction du sommet donne toujours +3 (1 + 3 + 3, obtenu %d)" % _dmg(G4, e1, 0))
+
+## Etat rattache a l'emplacement (Caged Gundarf doublee, salle desactivee) : la salle recouverte par une remontee le perd, la salle remontee ne l'herite pas.
+func _t_uncover_by_move_clears_slot_state() -> void:
+	var p0 := _player(0, "BMA001", [[_room("cov", "trap", [1], 2), _real("CRL014")]])
+	var G := _G([p0, _player(1, "BMA002")])
+	_effects(G)["roomDamageBonus"] = [{"playerId": 0, "roomIndex": 0, "amount": 1}] # Gundarf (1 de degats) doublee : +1
+	_effects(G)["deactivatedRooms"] = [{"playerId": 0, "roomIndex": 0}]
+	_ok.call(_dmg(G, p0, 0) == 0 and BossEngine.is_room_deactivated(G, 0, 0), "avant : la salle du sommet est desactivee")
+	RoomAbilities.uncover_move_to_top(G, 0, {"roomIndex": 0, "depth": 0, "card": (p0["dungeon"] as Array)[0][0]})
+	_ok.call(_stack_ids(p0, 0) == ["CRL014", "cov"] and _dmg(G, p0, 0) == 2 and not BossEngine.is_room_deactivated(G, 0, 0), "Excavator / Mando : la salle remontee (2 degats) n'herite ni du doublement ni de la desactivation")
+	# la salle remontee qui a elle-meme un effet « uncover » (Caged Gundarf) double ses PROPRES degats
+	var q0 := _player(0, "BMA001", [[_real("CRL014"), _room("top", "trap", [1], 2)]])
+	var G2 := _G([q0, _player(1, "BMA002")])
+	_effects(G2)["roomDamageBonus"] = [{"playerId": 0, "roomIndex": 0, "amount": 5}]
+	RoomAbilities.uncover_move_to_top(G2, 0, {"roomIndex": 0, "depth": 0, "card": (q0["dungeon"] as Array)[0][0]})
+	_ok.call(_stack_ids(q0, 0) == ["top", "CRL014"] and _dmg(G2, q0, 0) == 2, "Caged Gundarf remontee : ses degats sont doubles (1 -> 2), sans le bonus de l'ancienne salle")
+
+func _effects(G: Dictionary) -> Dictionary:
+	return G["effects"] as Dictionary
+
+## CRL012 The Omega 42 et The Next Level : les effets « build » / « uncover » des salles TNL sont rejouables ; une salle sans texte non ; Smoake ne se rejoue pas.
+func _omega_state(boss_id: String = "BMA001", dungeon_extra: Array = []) -> Array:
+	var p0 := _player(0, boss_id, [_real("CRL012")] + dungeon_extra)
+	(p0["hand"] as Array).append(_real("CRL011"))
+	var G := _G([p0, _player(1, "BMA002")])
+	G["sets"] = ["base", "crash-landing", "next-level"]
+	(G["decks"]["spells"] as Array).append(_spell("CRL032"))
+	(G["decks"]["rooms"] as Array).append(_room("drawn", "trap", [1]))
+	return [G, p0]
+
+func _t_omega_42_tnl_rooms() -> void:
+	var st := _omega_state("BMA001", [_real("TNL044"), _real("TNL036")])
+	var G: Dictionary = st[0]
+	var p0: Dictionary = st[1]
+	_ok.call(RoomAbilities.activate_room_ability(G, 0, 0) == null, "CRL012 avec Spiked Pit et Sorcerobe School : activable")
+	var pc: Dictionary = G["pendingChoice"]
+	var seen: Array = (pc["options"] as Array).map(func(o): return "%s:%s" % [str(o["card"]["id"]), str(o["mode"])])
+	seen.sort()
+	_ok.call(str(pc["type"]) == "omega-refire" and seen == ["TNL036:build", "TNL036:uncover", "TNL044:build", "TNL044:uncover"], "CRL012 propose les effets build et uncover des salles TNL (obtenu %s)" % str(seen))
+	var spiked := _index_of(p0, "TNL044")
+	RoomAbilities.omega_finish(G, 0, {"roomIndex": spiked, "mode": "build"}, 0)
+	_ok.call((p0["hand"] as Array).is_empty() and _dmg(G, p0, spiked) == 4, "CRL012 rejoue l'effet « build » de Spiked Pit : +3 (1 + 3), carte avancee defaussee")
+	var st2 := _omega_state("BMA001", [_real("TNL044"), _real("TNL036")])
+	var G2: Dictionary = st2[0]
+	var p2: Dictionary = st2[1]
+	RoomAbilities.omega_finish(G2, 0, {"roomIndex": _index_of(p2, "TNL036"), "mode": "uncover"}, 0)
+	_ok.call((p2["hand"] as Array).size() == 1 and bool(((p2["hand"] as Array)[0] as Dictionary).get("isSpell", false)), "CRL012 rejoue l'effet « uncover » de Sorcerobe School : un sort pioche")
+	# salle sans texte (Meddling Kids!) : plus rien a rejouer
+	var st3 := _omega_state("BMA001", [_real("TNL036")])
+	var G3: Dictionary = st3[0]
+	var p3: Dictionary = st3[1]
+	(p3["dungeon"][_index_of(p3, "TNL036")] as Array)[0]["tnl"] = {"noText": true}
+	_ok.call(RoomAbilities.activate_room_ability(G3, 0, 0) == "no Room effect to activate", "CRL012 : une salle sans texte n'est pas une cible")
+	# Smoake (TNL006, « when you build a Monster Room ») n'est pas l'effet de la salle : pas de pioche au rejeu de Decoy Garden
+	var st4 := _omega_state("BMA001", [_real("CRL006")])
+	var G4: Dictionary = st4[0]
+	var p4: Dictionary = st4[1]
+	p4["tnlBoss"] = {"TNL006": true}
+	_ok.call(RoomAbilities.activate_room_ability(G4, 0, 0) == null, "CRL012 sur Decoy Garden avec Smoake : activation")
+	_ok.call((p4["hand"] as Array).is_empty() and (G4["decks"]["rooms"] as Array).size() == 1, "CRL012 : le rejeu ne fait pas piocher Smoake (la carte avancee est defaussee, aucune salle tiree)")
+	# Bone Crank (KSA010) n'est une cible qu'avec les cases wiki qui le font agir
+	var st5 := _omega_state("BMA001", [_real("KSA010")])
+	_ok.call(RoomAbilities.has_build_effect(_real("KSA010")) and RoomAbilities.activate_room_ability(st5[0], 0, 0) == "no Room effect to activate", "CRL012 : Bone Crank n'est pas proposee sans la case wiki")
+
+func _index_of(p: Dictionary, id: String) -> int:
+	for i in (p["dungeon"] as Array).size():
+		if str(((p["dungeon"] as Array)[i] as Array).back()["id"]) == id:
+			return i
+	return -1
+
+## CRL005 Alien Ooze : une autre salle Explorer encore face cachee (posee ce tour) ne compte pas.
+func _t_room_alien_ooze_face_down() -> void:
+	var fd := _room("fd", "trap", [5])
+	fd["faceDown"] = true
+	var p0 := _player(0, "BMA001", [_real("CRL005"), fd])
+	var G := _G([p0, _player(1, "BMA002")])
+	_ok.call(_dmg(G, p0, 0) == 1, "CRL005 : une salle Explorer face cachee ne compte pas")
+	fd.erase("faceDown")
+	_ok.call(_dmg(G, p0, 0) == 2, "CRL005 : revelee, elle compte")
+
+## IA : Finish Him! / Essence Transfer / Not Dead Yet ne se jouent que quand ils changent l'issue d'un heros ; Mando / Excavator ne remontent que ce qui sert.
+func _t_ai_crl_weights() -> void:
+	var p0 := _player(0, "BMA001", [_room("a", "trap", [1], 2)])
+	var p1 := _player(1, "BMA002", [_room("b", "trap", [1], 3)])
+	var G := _G([p0, p1])
+	var mine := _hero("CRL018")
+	mine["hp"] = 2 # 2 PV - 2 degats : meurt de toute facon
+	(p0["entrance"] as Array).append(mine)
+	var strong := _hero("CRL018")
+	strong["hp"] = 2
+	(p1["entrance"] as Array).append(strong)
+	var spell := _spell("CRL029")
+	_ok.call(AI._score_spell(spell, {"targetPlayerId": 1, "entranceIndex": 0}, p0, G, 0) < 0.0, "IA Finish Him! : jamais le heros d'un adversaire (il lui rendrait l'ame)")
+	_ok.call(AI._score_spell(spell, {"targetPlayerId": 0, "entranceIndex": 0}, p0, G, 0) == 20.0, "IA Finish Him! : son propre heros qui mourrait de toute facon vaut peu")
+	mine["hp"] = 3 # 3 PV - 2 degats : atteindrait le boss
+	_ok.call(AI._score_spell(spell, {"targetPlayerId": 0, "entranceIndex": 0}, p0, G, 0) == 100.0, "IA Finish Him! : son propre heros qui atteindrait le boss (une ame au lieu d'une blessure)")
+	# Essence Transfer : X = 2 blessures ; le heros adverse (3 degats a traverser) meurt a 2 PV, vivrait a 4
+	p0["wounds"] = _wounds(2)
+	var et := _spell("CRL030")
+	_ok.call(AI._score_spell(et, {"targetPlayerId": 1, "entranceIndex": 0}, p0, G, 0) == 90.0, "IA Essence Transfer : +2 PV font survivre un heros qui mourait")
+	strong["hp"] = 9
+	_ok.call(AI._score_spell(et, {"targetPlayerId": 1, "entranceIndex": 0}, p0, G, 0) < 0.0, "IA Essence Transfer : inutile si le heros survit deja")
+	strong["hp"] = 1
+	_ok.call(AI._score_spell(et, {"targetPlayerId": 1, "entranceIndex": 0}, p0, G, 0) < 0.0, "IA Essence Transfer : inutile si le heros meurt encore")
+	# Not Dead Yet : X = 2 degats ; mon heros (2 degats a traverser) a 3 PV survivrait, mourrait a 1 PV restant
+	var nd := _spell("CRL033")
+	mine["hp"] = 3
+	_ok.call(AI._score_spell(nd, {}, p0, G, 0) == 100.0, "IA Not Dead Yet : 2 degats font mourir mon heros qui atteindrait le boss")
+	mine["hp"] = 9
+	_ok.call(AI._score_spell(nd, {}, p0, G, 0) < 0.0, "IA Not Dead Yet : sans effet sur un heros solide")
+	# Mando (adversaire) / Excavator (soi) : la salle couverte contre celle du sommet
+	var weak_top := _room("top", "trap", [1], 1)
+	var strong_cov := _room("cov", "trap", [1], 4)
+	var q0 := _player(0, "BMA001", [[strong_cov, weak_top]])
+	var q1 := _player(1, "BMA002", [[_room("cov2", "trap", [1], 1), _room("top2", "trap", [1], 4)]])
+	var G2 := _G([q0, q1])
+	var own_opt := {"targetPlayerId": 0, "roomIndex": 0, "depth": 0, "card": strong_cov}
+	_ok.call(AiWiki.uncover_value(G2, strong_cov, own_opt, true) > 0.0, "IA Excavator : remonter chez soi une salle plus forte")
+	_ok.call(AiWiki.uncover_value(G2, strong_cov, own_opt, false) < 0.0, "IA Mando : ne pas remonter chez l'adversaire une salle plus forte")
+	var opp_opt := {"targetPlayerId": 1, "roomIndex": 0, "depth": 0, "card": (q1["dungeon"][0] as Array)[0]}
+	_ok.call(AiWiki.uncover_value(G2, (q1["dungeon"][0] as Array)[0], opp_opt, false) > 0.0, "IA Mando : remonter chez l'adversaire une salle plus faible")
+	_ok.call(AiWiki.uncover_value(G2, (q1["dungeon"][0] as Array)[0], opp_opt, true) < 0.0, "IA Excavator : ne pas remonter une salle plus faible")
+

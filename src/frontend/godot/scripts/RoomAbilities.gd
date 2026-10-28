@@ -1305,15 +1305,15 @@ static func _hand_advanced(p: Dictionary) -> Array:
 
 ## Salles dont l'effet « when you build this Room » existe dans le moteur (+ drapeaux data `onBuild*`) : cibles de The Omega 42.
 static func has_build_effect(room: Dictionary) -> bool:
-	if ["BMA011", "BMA022", "BMA033", "BMA034", "BMA036", "BMA037", "CRL004", "CRL006", "CRL010"].has(str(room.get("id", ""))):
+	if ["BMA011", "BMA022", "BMA033", "BMA034", "BMA036", "BMA037", "CRL004", "CRL006", "CRL010", "KSA010"].has(str(room.get("id", ""))):
 		return true
 	for k in room.keys():
 		if str(k).begins_with("onBuild"):
 			return true
-	return RmbAbilities.has_build_effect(room)
+	return RmbAbilities.has_build_effect(room) or TnlAbilities.has_build_effect(room)
 
 static func has_uncover_effect(room: Dictionary) -> bool:
-	return ["CRL013", "CRL014", "CRL015", "CRL016"].has(str(room.get("id", ""))) or room.has("onUncover") or RmbAbilities.has_uncover_effect(room)
+	return ["CRL013", "CRL014", "CRL015", "CRL016"].has(str(room.get("id", ""))) or room.has("onUncover") or RmbAbilities.has_uncover_effect(room) or TnlAbilities.has_uncover_effect(room)
 
 ## PV d'un heros +/- delta : le heros actif de l'aventure vit dans adventure.hp, les autres dans leur carte (DealHero -> Hero.Deal).
 static func hero_hp_change(G: Dictionary, owner_pid: int, hero: Dictionary, delta: int) -> void:
@@ -1416,8 +1416,22 @@ static func uncover_move_to_top(G: Dictionary, owner_pid: int, option: Dictionar
 		return
 	var card: Dictionary = stack.pop_at(depth)
 	stack.append(card)
+	# Etats rattaches a l'emplacement : la salle recouverte les perd (Caged Gundarf doublee, Frostman / gel : « covered [...] loses all counters »,
+	# rules.md:2973), la salle remontee ne les herite pas.
+	for key in ["deactivatedRooms", "roomDamageBonus"]:
+		var arr: Array = _effects(G).get(key, [])
+		for k in range(arr.size() - 1, -1, -1):
+			if int((arr[k] as Dictionary).get("playerId", -1)) == owner_pid and int((arr[k] as Dictionary).get("roomIndex", -1)) == ri:
+				arr.remove_at(k)
 	_log(G, "%s est decouverte." % str(card.get("name", "?")))
-	on_uncover(G, owner_pid, ri)
+	fire_uncover(G, owner_pid, ri)
+
+## « Uncover » par un effet (glossaire : « returned to the top of the Room card stack by another effect ») : memes declencheurs qu'une destruction
+## (BossEngine.destroy_room), sauf Eclipse qui ne vaut que « when you destroy ».
+static func fire_uncover(G: Dictionary, pid: int, room_index: int) -> void:
+	on_uncover(G, pid, room_index)
+	if TnlAbilities.active(G):
+		TnlAbilities.on_uncover(G, pid, room_index, false)
 
 ## Capacite de main CRL007 Frostman Lander : salles avancees ciblables (n'importe quel donjon) pour la desactiver jusqu'a la fin du tour.
 static func hand_room_targets(G: Dictionary, hand_index: int, pid: int) -> Array:
@@ -1455,7 +1469,9 @@ static func _omega_42(G: Dictionary, p: Dictionary, player_id: int, room: Dictio
 		if rv == null or bool((rv as Dictionary).get("faceDown", false)) or BossEngine.is_room_deactivated(G, player_id, i):
 			continue
 		var rd: Dictionary = rv
-		if has_build_effect(rd):
+		if TnlAbilities.no_text(rd):
+			continue # Meddling Kids! / Sabotage! : plus de texte, rien a rejouer
+		if has_build_effect(rd) and (str(rd.get("id", "")) != "KSA010" or ThkAbilities.active(G)): # Bone Crank n'agit qu'avec la case wiki Tools
 			targets.append({"roomIndex": i, "mode": "build", "card": rd, "label": "%s (build)" % str(rd.get("name", "?"))})
 		if has_uncover_effect(rd):
 			targets.append({"roomIndex": i, "mode": "uncover", "card": rd, "label": "%s (uncover)" % str(rd.get("name", "?"))})
@@ -1511,7 +1527,7 @@ static func omega_finish(G: Dictionary, player_id: int, option: Dictionary, hand
 			(ch as Dictionary)["resume"] = false
 			enqueue_pending(G, ch)
 	else:
-		on_uncover(G, player_id, ri)
+		fire_uncover(G, player_id, ri)
 
 ## CRL002 Klonos : copie le level-up d'un AUTRE boss en jeu (choix s'il y en a plusieurs). Les level-ups passifs copies restent toute la partie
 ## (`copiedLevelUps`, lus par BossEngine.level_ups) ; l'effet s'execute aussi tout de suite (process_level_up avec boss_override).

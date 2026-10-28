@@ -13,9 +13,10 @@ const WIN_SOULS := 10
 ## Paquets de l'APK (BaseDeck, PlayerChoice, HiddenHeros, ToolsHeroKind) ; les autres sont des extensions wiki.
 const APK_SETS := ["base", "players-choice", "hidden-heroes", "tools"]
 
-## 5-6 joueurs : seulement avec Crash Landing (livret CRL), et seulement avec ces paquets (jeu de base, Hidden Heroes qui le remplace, Tools et CRL) ;
-## les autres (Player's Choice, TNL, Minibosses, THK, IOD, Player's Choice wiki) sont refuses (voir setup_error) pour garder le pool exact de 32 + 21 heros.
-const BIG_GAME_SETS := ["base", "hidden-heroes", "tools", "crash-landing"]
+## 5-6 joueurs : seulement avec Crash Landing (livret CRL), avec un jeu de base complet (BMR ou Hidden Heroes, TNL, Minibosses : « a full set of Heroes
+## from one of the base sets ») et les mini-extensions qui se combinent a tout jeu de base (Tools, THK wiki, IOD). Les paquets sans regle de taille de
+## heros a 5-6 joueurs (Player's Choice, Player's Choice wiki) sont refuses (voir setup_error) pour garder le pool exact : 32 + 21 heros (32 + 22 avec TNL / Minibosses).
+const BIG_GAME_SETS := ["base", "hidden-heroes", "tools", "crash-landing", "next-level", "minibosses", "tools-wiki", "iod"]
 
 ## Nombre de joueurs maximal selon les paquets choisis : 6 avec Crash Landing, 4 sinon.
 static func max_players(p_sets: Array) -> int:
@@ -32,7 +33,7 @@ static func setup_error(num_players: int, p_sets: Array) -> String:
 		return "5 ou 6 joueurs : l'extension Crash Landing est obligatoire"
 	for s in p_sets:
 		if not str(s) in BIG_GAME_SETS and not Variants.is_token(s): # les variantes (jetons « -wiki ») ne sont pas des paquets
-			return "5 ou 6 joueurs : le paquet « %s » n'est pas pris en charge (seulement Crash Landing, Hidden Heroes et Tools)" % str(s)
+			return "5 ou 6 joueurs : le paquet « %s » n'est pas pris en charge (Player's Choice n'a pas de regle de taille de paquet de heros)" % str(s)
 	return ""
 
 ## Salles du base set ayant une abilite activable (roomAbilities.js:activateRoomAbility).
@@ -62,7 +63,7 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	for s in p_sets:
 		if Variants.is_token(s):
 			continue
-		if n < 5 or String(s) in BIG_GAME_SETS: # a 5-6 joueurs un paquet non pris en charge est ecarte (garantit les 32 + 21 heros)
+		if n < 5 or String(s) in BIG_GAME_SETS: # a 5-6 joueurs un paquet non pris en charge est ecarte (garantit les 32 + 21 / 22 heros)
 			sets[String(s)] = true
 	if sets.has(ThkAbilities.SET_ID):
 		sets["tools"] = true # Tools of Hero-Kind wiki : les memes cartes que le paquet de l'APK, jouees par ThkAbilities
@@ -146,13 +147,21 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	# Tailles officielles (base set) selon le nombre de joueurs.
 	var counts: Dictionary = CardDB.HERO_COUNTS[n]
 	if tnl or rmb: # livrets TNL / RMB : 13+9 / 17+13 / 25+17 heros, les heros a capacite (etoile) toujours inclus
-		hero_deck = TnlAbilities.limit_heroes(hero_deck, n, false)
-		epic_deck = TnlAbilities.limit_heroes(epic_deck, n, true)
+		# Crash Landing s'AJOUTE au paquet limite (comme au jeu de base, CRL-R06) ; a 5-6 joueurs : 25 + 7 ordinaires, 17 + 5 epiques (livret, « TNL / RMB + Cr. Landing »)
+		var is_crl := func(h): return str((h as Dictionary).get("set", "")) == "crash-landing"
+		var crl_o: Array = hero_deck.filter(is_crl)
+		var crl_e: Array = epic_deck.filter(is_crl)
+		hero_deck = TnlAbilities.limit_heroes(hero_deck.filter(func(h): return not is_crl.call(h)), n, false) + crl_o
+		epic_deck = TnlAbilities.limit_heroes(epic_deck.filter(func(h): return not is_crl.call(h)), n, true) + crl_e
+		if crl: # les heros CRL ajoutes en queue sont melanges ; sans CRL le tirage de TNL / RMB reste inchange
+			hero_deck.shuffle()
+			epic_deck.shuffle()
 	elif not apk_only and not crl: # (avec CRL, hero_ok a deja filtre par icone : 2-4 = base de n joueurs + 12 heros CRL ; 5-6 = 32 + 21)
 		hero_deck = hero_deck.slice(0, int(counts["ordinary"]))
 		epic_deck = epic_deck.slice(0, int(counts["epic"]))
-	if n >= 5 and (hero_deck.size() != int(counts["ordinary"]) or epic_deck.size() != int(counts["epic"])):
-		push_error("5-6 joueurs : pool de heros %d + %d au lieu de %d + %d" % [hero_deck.size(), epic_deck.size(), counts["ordinary"], counts["epic"]])
+	var want_epics := int(counts["epic"]) + (1 if (tnl or rmb) else 0) # TNL / Minibosses : 17 epiques de base au lieu de 16
+	if n >= 5 and (hero_deck.size() != int(counts["ordinary"]) or epic_deck.size() != want_epics):
+		push_error("5-6 joueurs : pool de heros %d + %d au lieu de %d + %d" % [hero_deck.size(), epic_deck.size(), counts["ordinary"], want_epics])
 	# APK (RandomBossSelectionScene, GameBoardExtensions) : le carrousel montre TOUS les boss des paquets choisis ; le boss de l'humain est
 	# tire parmi eux, ceux des IA parmi les restants (pickBoss les retire de la liste).
 	var picks: Array = CardDB.shuffled(bosses)

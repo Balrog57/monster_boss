@@ -5,7 +5,7 @@ extends Node
 ##     reconnexion avec jeton en cours de partie ;
 ##  3. rechargement de page (nouvelle instance + try_resume) ;
 ##  4. minuteur : l'IA prend le relais d'un humain muet, le joueur reprend la main a la reconnexion ;
-##  6. 5 et 6 joueurs (Crash Landing) : refus sans CRL / avec un paquet non pris en charge (`bad_setup`), filtrage des vues a 5-6 sieges,
+##  6. 5 et 6 joueurs (Crash Landing) : refus sans CRL / avec Player's Choice (`bad_setup`), filtrage des vues a 5-6 sieges,
 ##     partie complete (1 humain + IA) jusqu'a la fin, sur le nombre de sieges demande.
 ##  5. onglet endormi : un grand trou entre deux images declenche un ping, une liaison muette est rouverte avec le jeton.
 ##  7. anti-force-brute par connexion (un joueur innocent n'est pas bloque), rafale coupee a 5 reponses, soupape globale ;
@@ -492,7 +492,7 @@ func _scenario_full_game() -> void:
 ## (n - 1 IA) joue une partie complete et Match.new_match cree bien n joueurs.
 func _scenario_big_game(n: int) -> void:
 	var bad := _client("Refus")
-	for sets in [[], ["tools"], ["crash-landing", "next-level"], ["crash-landing", "minibosses"], ["crash-landing", "players-choice"]]:
+	for sets in [[], ["tools"], ["crash-landing", "players-choice"], ["crash-landing", "players-choice-wiki"]]:
 		_expect(not await bad.create_lobby(n, sets, 1) and bad.last_error_code == "bad_setup", "%d joueurs %s : refus attendu (bad_setup), obtenu '%s'" % [n, str(sets), bad.last_error_code])
 	bad.queue_free()
 	if not _fails.is_empty():

@@ -247,6 +247,8 @@ static func _score_choice(G: Dictionary, p: Dictionary, pid: int, idx: int, sel:
 		"draw-type": # DrawCalculator.CalculateDeckDrawValue : P(pioche salle) ; pick_move tire au sort (rng <= p), ici la probabilite
 			var p_room := ApkAI.draw_room_probability(G, p, pid)
 			return p_room if str(o.get("pile", "")) == "rooms" else 1.0 - p_room
+		"uncover-own-room", "uncover-room": # CRL004 Alien Excavator / CRL003 Mando : remonter la salle couverte ne vaut que si elle change le donjon dans le sens voulu
+			return AiWiki.uncover_value(G, card, o, str(pc.get("type", "")) == "uncover-own-room")
 		"heal-wound": # CRL031 Healing Tank (hors APK) : on retourne le heros qui rapporte le plus d'ames
 			return float(BossEngine.hero_souls(card))
 		"omega-discard": # CRL012 The Omega 42 : l'avancee qui ne se construit nulle part d'abord, sinon la moins precieuse
@@ -271,10 +273,16 @@ static func _score_spell(spell: Dictionary, target: Dictionary, p: Dictionary, G
 	match sid:
 		"THK025": # Excavation (case wiki Tools of Hero-Kind, heuristique maison)
 			return ThkAbilities.score_excavation(G, pid, target)
-		"CRL029": # Finish Him! (hors APK : heuristique maison) : tuer un heros vaut mieux que reprendre un survivant
-			return 100.0 if target.has("entranceIndex") else 60.0
-		"CRL030": # Essence Transfer : donne des PV a un heros adverse (blesse l'adversaire)
-			return 90.0
+		"CRL029": # Finish Him! (hors APK : heuristique maison) : tuer SON heros qui atteindrait le boss (une ame au lieu d'une blessure) ; jamais celui d'un adversaire (il lui rend l'ame)
+			if not target.has("entranceIndex"):
+				return 60.0 # reprendre un survivant
+			if int(target.get("targetPlayerId", -1)) != pid:
+				return -30.0
+			return 100.0 if AiWiki.hero_margin(G, pid, AiWiki.entrance_hero(G, pid, int(target["entranceIndex"]))) > 0 else 20.0
+		"CRL030": # Essence Transfer : seulement si les X PV font survivre un heros adverse qui mourait (blessure pour l'adversaire)
+			var tid := int(target.get("targetPlayerId", -1))
+			var mg := AiWiki.hero_margin(G, tid, AiWiki.entrance_hero(G, tid, int(target.get("entranceIndex", -1))))
+			return 90.0 if mg <= 0 and mg + CardDB.total_wounds(p) > 0 else -10.0
 		"CRL031": # Healing Tank : conditions deja verifiees par le ciblage
 			return 90.0
 		"CRL032": # Meteorite : utile seulement sur sa propre salle quand des Explorers attendent en ville
@@ -286,8 +294,12 @@ static func _score_spell(spell: Dictionary, target: Dictionary, p: Dictionary, G
 			if mr != null and AiWiki.extra_treasure_gain(G, pid, mr as Dictionary, 5) >= 1.0:
 				return AiWiki.BUILD_FIRST
 			return 25.0 if wanted and int(target.get("targetPlayerId", pid)) == pid else -20.0
-		"CRL033": # Not Dead Yet
-			return 100.0
+		"CRL033": # Not Dead Yet : seulement si X degats font mourir un de mes heros qui atteindrait le boss
+			for h in (p.get("entrance", []) as Array):
+				var hm := AiWiki.hero_margin(G, pid, h as Dictionary)
+				if hm > 0 and hm - CardDB.total_wounds(p) <= 0:
+					return 100.0
+			return -5.0
 		"KSA012": # Agent of Evil (case wiki, heuristique maison)
 			return PcwAbilities.score_agent(G, pid, target)
 		_:

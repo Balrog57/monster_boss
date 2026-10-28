@@ -122,7 +122,7 @@ static func reveal_items(G: Dictionary) -> void:
 	var town_items: Array = G.get("townItems", [])
 	G["townItems"] = town_items
 	var seats: int = (G["players"] as Dictionary).size()
-	for _i in (3 if seats >= 5 else (2 if seats == 4 else 1)): # (THK est refuse a 5-6 joueurs ; regle du livret par coherence)
+	for _i in (3 if seats >= 5 else (2 if seats == 4 else 1)): # (livret des Objets : 5-6 joueurs, avec ou sans CRL, trois Objets)
 		if not deck.is_empty():
 			var it: Dictionary = deck.pop_back()
 			it.erase("faceDown")

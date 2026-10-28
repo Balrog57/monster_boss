@@ -452,7 +452,7 @@ static func room_damage_with_modifiers(G: Dictionary, player: Dictionary, room_i
 	if str(r.get("id", "")) == "CRL005" and not own_off:
 		for i in dungeon.size():
 			var other_ex = active_room(dungeon[i])
-			if i != room_index and other_ex != null and not is_room_deactivated(G, pid, i) and room_treasures(other_ex as Dictionary).has(5):
+			if i != room_index and other_ex != null and not bool((other_ex as Dictionary).get("faceDown", false)) and not is_room_deactivated(G, pid, i) and room_treasures(other_ex as Dictionary).has(5):
 				dmg += 1
 				break
 

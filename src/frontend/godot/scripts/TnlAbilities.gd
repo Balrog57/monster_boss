@@ -457,7 +457,7 @@ static func flush_torix(G: Dictionary) -> void:
 ## Renvoie un choix a resoudre, ou null.
 static func on_build(G: Dictionary, pid: int, room: Dictionary) -> Variant:
 	var p := _player(G, pid)
-	if str(room.get("type", "")) == "monster" and has_boss(p, "TNL006"):
+	if str(room.get("type", "")) == "monster" and has_boss(p, "TNL006") and not bool(G.get("rmbReplay", false)): # The Omega 42 rejoue l'effet de la salle, pas Smoake
 		draw_logged(G, pid, "rooms", 1, "Smoake") # « you may » : toujours pris
 	if not is_tnl(room) or no_text(room):
 		return null
@@ -468,7 +468,7 @@ static func on_build(G: Dictionary, pid: int, room: Dictionary) -> Variant:
 static var destroy_actor := -1
 
 ## Declencheur « when you uncover this Room » (appele par BossEngine.destroy_room, pile deja mise a jour) + Eclipse (boss).
-static func on_uncover(G: Dictionary, pid: int, room_index: int) -> void:
+static func on_uncover(G: Dictionary, pid: int, room_index: int, by_destroy: bool = true) -> void:
 	var p := _player(G, pid)
 	var dungeon: Array = p.get("dungeon", [])
 	if room_index < 0 or room_index >= dungeon.size():
@@ -481,13 +481,20 @@ static func on_uncover(G: Dictionary, pid: int, room_index: int) -> void:
 	if bool((rv as Dictionary).get("faceDown", false)):
 		return
 	var room: Dictionary = rv
-	if has_boss(p, "TNL012") and (destroy_actor < 0 or destroy_actor == pid): # Eclipse : seulement quand le proprietaire detruit la salle
+	if by_destroy and has_boss(p, "TNL012") and (destroy_actor < 0 or destroy_actor == pid): # Eclipse : seulement quand le proprietaire detruit la salle
 		SpellEffects._buff_room_instance(room, 3) # Eclipse : la salle decouverte gagne +3 jusqu'a la fin du tour
 		_log(G, "Eclipse: %s gains +3 until end of turn." % _label(room))
 	if not is_tnl(room) or no_text(room) or BossEngine.abilities_locked(G, pid) or BossEngine.is_room_deactivated(G, pid, room_index):
 		return
 	for c in _build_or_uncover(G, pid, room, false):
 		emit(G, c)
+
+## Salles TNL dont l'effet « build » / « uncover » existe (cibles de The Omega 42), voir `_build_or_uncover`.
+static func has_build_effect(room: Dictionary) -> bool:
+	return ["TNL016", "TNL019", "TNL024", "TNL027", "TNL029", "TNL036", "TNL044", "TNL052"].has(str(room.get("id", "")))
+
+static func has_uncover_effect(room: Dictionary) -> bool:
+	return ["TNL016", "TNL027", "TNL036", "TNL044"].has(str(room.get("id", "")))
 
 ## Effets communs « build or uncover » (et « build » seul pour Incubus Gym, Barbarian Hall, Megaworm Burrow, Genie Lounge).
 static func _build_or_uncover(G: Dictionary, pid: int, room: Dictionary, built: bool) -> Array:
@@ -624,7 +631,7 @@ static func seed_discards(G: Dictionary) -> void:
 		if not spells.is_empty():
 			sd.append(spells.pop_back())
 
-## (TNL / RMB sont refuses a 5-6 joueurs, voir Match.setup_error : 2-4 seulement.)
+## (A 5-6 joueurs, `n` est borne a 4 : le paquet TNL / RMB complet, 25 + 17, puis Match.new_match y ajoute les 12 heros CRL.)
 const HERO_COUNTS := {2: {"ordinary": 13, "epic": 9}, 3: {"ordinary": 17, "epic": 13}, 4: {"ordinary": 25, "epic": 17}}
 
 ## Livret TNL : 13 heros + 9 epiques (2 joueurs), 17 + 13 (3), 25 + 17 (4). Les heros marques d'une etoile (noirs, hybrides, Fool, Brothers) sont

@@ -685,9 +685,7 @@ static func on_hero_start(G: Dictionary, pid: int, hero: Dictionary, hp: int) ->
 				for k in range(stack.size() - 1):
 					if int((stack[k] as Dictionary).get("damage", 0)) > int((stack[pick] as Dictionary).get("damage", 0)):
 						pick = k
-				RoomAbilities.uncover_move_to_top(G, pid, {"roomIndex": i, "depth": pick, "card": stack[pick]})
-				if TnlAbilities.active(G):
-					TnlAbilities.on_uncover(G, pid, i)
+				RoomAbilities.uncover_move_to_top(G, pid, {"roomIndex": i, "depth": pick, "card": stack[pick]}) # declenche aussi les effets TNL (fire_uncover)
 			_log(G, "%s: a covered Room of each stack is brought to the top." % name)
 		"IOD019": # Pandora's Box : peut tuer un autre heros de l'entree
 			var kopts: Array = []

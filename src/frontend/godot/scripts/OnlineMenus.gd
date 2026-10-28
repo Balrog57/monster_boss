@@ -26,7 +26,7 @@ const WAIT_LINK_GRACE_S := 10.0     # salle d'attente : liaison coupee depuis ce
 const PUBLIC_REFRESH_S := 5.0       # liste publique : le serveur pousse chaque changement, on redemande quand meme toutes les 5 s
 const PUBLIC_UNREACHABLE_S := 3.0   # liaison absente depuis ce delai : « UNABLE TO REACH THE SERVER »
 const PACK_ABBR := {"tools": "THK", "players-choice": "PC", "hidden-heroes": "HH", "next-level": "TNL", "crash-landing": "CRL", "minibosses": "RMB", "iod": "IOD"}
-const BIG_GAME_MSG := "5 or 6 players need Crash Landing, with the base game, Hidden Heroes and Tools only" # (police arcadepix : pas d'accents, d'ou pas le texte de Match.setup_error)
+const BIG_GAME_MSG := "5 or 6 players need Crash Landing (not with Player's Choice)" # (police arcadepix : pas d'accents, d'ou pas le texte de Match.setup_error)
 
 var m # Main (type volontairement libre : on appelle ses utilitaires _tex / _hit / _img_btn / _clear ...)
 var _busy := false

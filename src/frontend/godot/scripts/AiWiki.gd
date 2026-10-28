@@ -245,6 +245,38 @@ static func king_vote_ai(G: Dictionary, pid: int, tp: int) -> float:
 		return 3.0 if dies else -3.0
 	return -1.0 if dies else 1.5
 
+## Heros `idx` de l'entree du donjon de `owner` (vide si absent).
+static func entrance_hero(G: Dictionary, owner: int, idx: int) -> Dictionary:
+	var ent: Array = ((G.get("players", {}) as Dictionary).get(owner, {}) as Dictionary).get("entrance", []) as Array
+	return ent[idx] if idx >= 0 and idx < ent.size() else {}
+
+## CRL029 / CRL030 / CRL033 : marge d'un heros de l'entree (PV - degats a venir). > 0 il atteint le boss (blessure), <= 0 il meurt (ame). Le heros actif : les salles
+## qu'il n'a pas traversees (`fate`) ; un heros qui attend : tout le donjon.
+static func hero_margin(G: Dictionary, owner: int, hero: Dictionary) -> int:
+	if hero.is_empty():
+		return 999
+	var f := fate(G)
+	if bool(f["active"]) and int(f["owner"]) == owner and is_same(f["hero"], hero):
+		return int(f["margin"])
+	var op: Dictionary = (G.get("players", {}) as Dictionary).get(owner, {}) as Dictionary
+	return RoomAbilities.current_hero_hp(G, owner, hero) - dungeon_damage(G, op, hero)
+
+## CRL003 Mando / CRL004 Alien Excavator : note de la remontee de la salle couverte `card` (option `o`) au sommet de sa pile. Chez soi : plus de degats et
+## d'icones qu'au sommet actuel (+ un effet « uncover » qui se declenche). Chez l'adversaire : l'inverse (et un effet « uncover » qui le sert est un cout).
+## Une note <= 0 devient -5 : l'IA passe (le choix est facultatif).
+static func uncover_value(G: Dictionary, card: Dictionary, o: Dictionary, own: bool) -> float:
+	var dungeon: Array = ((G.get("players", {}) as Dictionary).get(int(o.get("targetPlayerId", -1)), {}) as Dictionary).get("dungeon", []) as Array
+	var ri := int(o.get("roomIndex", -1))
+	if ri < 0 or ri >= dungeon.size() or (dungeon[ri] as Array).is_empty():
+		return -5.0
+	var top: Dictionary = (dungeon[ri] as Array).back()
+	var gain := float(int(card.get("damage", 0)) - int(top.get("damage", 0))) + 2.0 * float(BossEngine.room_treasures(card).size() - BossEngine.room_treasures(top).size())
+	if own:
+		gain += 0.1 * refire_value(card) if RoomAbilities.has_uncover_effect(card) else 0.0
+	else:
+		gain = -gain - (0.1 * refire_value(card) if RoomAbilities.has_uncover_effect(card) else 0.0)
+	return gain if gain > 0.0 else -5.0
+
 ## Valeur d'un effet « quand vous construisez / decouvrez cette salle » que The Omega 42 rejoue (carte de la salle).
 static func refire_value(room: Dictionary) -> float:
 	match str(room.get("id", "")):
