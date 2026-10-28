@@ -28,6 +28,35 @@ Cible : `src/frontend/` (Godot 4.7, GL Compatibility, export Web sans threads) +
 | 12 | Export web / perf | `export_presets.cfg`, `.pck`, chargement | **Fait (2026-10-26)** |
 | 13 | Couverture résiduelle | les 177 classes non citées par les modules 1 à 12 | **Fait (2026-10-26)** |
 
+## Progression Godot vs APK décompilé (2026-10-28)
+
+Bilan des 1 194 lignes des modules 1 à 13, avec le dernier statut consigné dans ce fichier (tableaux d'origine, puis lots de correction 1a–6e). Ces statuts sont ceux écrits par les lots précédents : je ne les ai pas revérifiés ligne par ligne. Seules les mesures du dernier paragraphe ont été relancées le 2026-10-28.
+
+| # | Module | Lignes | Sans écart | Corrigé | Accepté | Conforme | Renvoyé* | Ouvert |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| 1 | Sauvegarde | 21 | 10 | 3 | 5 | 2 | 0 | 1 |
+| 2 | Audio | 32 | 21 | 7 | 1 | 3 | 0 | 0 |
+| 3 | Entrées | 24 | 10 | 4 | 3 | 3 | 0 | 4 |
+| 4 | UI / menus | 167 | 67 | 55 | 29 | 16 | 0 | 0 |
+| 5 | Règles (modèle) | 202 | 130 | 28 | 20 | 16 | 7 | 1 |
+| 6 | IA | 135 | 101 | 10 | 16 | 2 | 5 | 1 |
+| 7 | Plateau / scènes de jeu | 179 | 83 | 46 | 16 | 19 | 14 | 1 |
+| 8 | Tutoriel | 71 | 58 | 9 | 3 | 1 | 0 | 0 |
+| 9 | En ligne | 128 | 82 | 20 | 11 | 15 | 0 | 0 |
+| 10 | Dépendances Android | 51 | 42 | 2 | 3 | 4 | 0 | 0 |
+| 11 | Assets / rendu | 36 | 29 | 2 | 5 | 0 | 0 | 0 |
+| 12 | Export web / perf | 20 | 4 | 3 | 2 | 8 | 0 | 3 |
+| 13 | Couverture résiduelle | 128 | 100 | 16 | 5 | 6 | 0 | 1 |
+| | **Total** | **1 194** | **737** | **205** | **119** | **95** | **26** | **12** |
+
+\* Renvoyé : ligne qui dit « voir X » ; son statut est celui de la ligne X, comptée à part.
+
+- **Écarts ouverts (12)** : S-02 (Moyenne, web), I-03, I-04, I-10, I-22 (Basse, cible souris), R-E30 et IA-H70 (Moyenne), P-C14 (Moyenne), W-08 et W-14 (Moyenne), W-18 (Haute, « Partiel »), X-M30 (Moyenne, « à confirmer »). Aucun n'est classé Critique ; W-18 est la seule Haute encore ouverte.
+- **Sur 457 lignes avec écart relevé** (1 194 − 737 sans écart) : 205 corrigées, 119 acceptées (choix assumés ou cible souris/web), 95 classées conformes, 26 renvoyées, 12 ouvertes.
+- **Extensions du wiki** (hors APK, donc sans référence décompilée) : TNL (The Next Level) et CRL ont chacune un audit carte par carte et leurs écarts corrigés (commits `0cb64cd`, `eedf159`, `ac554aa`, `edb9f22`) ; elles ne comptent pas dans les 1 194 lignes.
+- **Côté décompilation** : l'APK de référence est extrait et décompilé à 100 % au niveau des types (27 DLL, 4 930 / 4 930 déclarations, 560 `.cs` pour `DBMGame`), plus `classes.dex` (1 152 méthodes avec code décompilées sur 1 152) et les 4 bibliothèques natives, 0 échec (voir `docs/audit-apk-2-2-6.md`, annexe de complétude). Le portage ne couvre que `DBMGame` ; WaveEngine, Photon, Insights, billing et BCL sont remplacés par Godot ou supprimés (boutique, Insights), ce que les modules 9 à 12 consignent.
+- **Mesures relancées le 2026-10-28** (arbre de travail à `edb9f22` plus modifications non validées) : l'oracle `python tools/parity/apk.py` (`DBMGame.dll` d'origine, hors ligne) donne 6/6 (jeu de base, graines 1–3, 2–3 joueurs), 12/12 (jeu de base, graines 4–7, 2–4 joueurs) et 6/6 (jeu de base + PlayerChoice + HiddenHeros + ToolsHeroKind, graines 1–3, 2–3 joueurs), 0 erreur de script Godot, 0 carte non appariée. Ces traces comparent des parties entières mais en sautent des décisions (166, 435 et 162 décisions passées selon la série) : elles prouvent la parité sur les chemins joués, pas sur les 1 194 lignes. `python tools/run_godot_tests.py` : 19/19 suites OK (goldens, couverture, 14 soaks dont paquets APK, TNL, variantes 5–6 joueurs et extensions du wiki, en ligne, smoke UI) ; cela vérifie que le code actuel est cohérent avec ses propres références, pas la parité avec l'APK.
+
 ---
 
 ## Module 1 — Sauvegarde

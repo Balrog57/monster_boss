@@ -38,6 +38,23 @@ Commandes d'extraction (depuis la racine du dépôt) :
   323 générés par le compilateur (dont 3 `__StaticArrayInitTypeSize=N`) + 35 types imbriqués
   retrouvés + 560 types de premier niveau, tous déclarés dans les 560 `.cs` de `decompiled/DBMGame/`.
   **Types sans déclaration : aucun.**
+- Les 27 DLL (2026-10-28) : recensées avec `System.Reflection.Metadata`, puis re-décompilées une à
+  une avec `ilspycmd` 11.1 (code de retour 0 pour toutes) : 6 294 TypeDefs, **4 930 types de premier
+  niveau, 4 930 déclarations retrouvées, 0 manquant**, 0 marqueur d'échec, mêmes 4 915 chemins que
+  `decompiled/` (3 478 fichiers identiques, 1 437 différents entre ilspycmd 9.1 et 11.1 ; `decompiled/`
+  n'a pas été modifié). Limite : une déclaration présente ne prouve pas que chaque corps de méthode
+  soit exact (29 fichiers gardent des `goto IL_`, aucun dans `DBMGame`). Détail par DLL :
+  `docs/audit-apk-2-2-6.md`, annexe de complétude. Le décompte de `DBMGame` y est 917 TypeDefs (918 ici,
+  pseudo-type `<Module>` compris, non revérifié).
+- Code Java : `classes.dex` n'existe qu'en smali (196 fichiers) ; aucun autre code dans l'APK que
+  `classes.dex` et les 4 `.so` ARM32.
+- Code natif (`lib/armeabi-v7a/`, Ghidra 12) : `libmonodroid.so` (285 fonctions), `libmonodroid_bundle_app.so`
+  (3), `libopenal32.so` (733), `libmonosgen-2.0.so` (5 164) décompilées vers `native_decompiled/`
+  (local, ignoré par git) ; 0 instruction de `.text` hors fonction ; 0 échec de décompilation
+  (2 fonctions de Mono reprises avec une limite de charge utile relevée). `classes.dex` : 1 152 méthodes
+  avec code décompilées sur 1 152 (loader DEX de Ghidra), et 196 classes / 1 539 méthodes / 376 champs
+  identiques en smali. `tools/extract_assemblies.py` n'existe plus : `extracted_assemblies/`
+  (27 DLL, SHA-256 vérifiés contre le bundle) a été produit avant sa suppression.
 - Le seul manque d'assets : `Common/marketItems.json` est absent de l'APK (boutique supprimée du
   clone : acceptable).
 
