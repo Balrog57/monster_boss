@@ -148,11 +148,10 @@ func _fly_pending(card_ui: Control, shadow: Control) -> void:
 	var off := float(dungeon.size() - 1 - slot_index - mini(4, BossEngine.apk_dungeon_size(dungeon))) * 140.0 # donjon Godot a l'envers : index C# = taille - 1 - index Godot
 	if off == 0.0:
 		return
-	var tw := create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	for n in [card_ui, shadow]:
+	for n in [card_ui, shadow]: # un tween par noeud, lie a lui : _update_view libere la carte et l'ombre au prochain etat, le tween meurt avec eux
 		var x: float = (n as Control).position.x
 		(n as Control).position.x = x + off
-		tw.tween_property(n, "position:x", x, absf(off) / 1920.0)
+		(n as Control).create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT).tween_property(n, "position:x", x, absf(off) / 1920.0)
 
 ## Un Card.tscn pose dans un hote qui n'est pas encore dans l'arbre garde la taille de la scene (140 x 200) malgre `size` : on la fixe une fois l'hote dans l'arbre.
 static func fit_cards(host: Control) -> void:

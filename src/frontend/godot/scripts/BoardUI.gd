@@ -1229,6 +1229,27 @@ func _auto_pass(delta: float) -> bool:
 # Rafraichissement
 # ---------------------------------------------------------------------------------------------------------------------
 
+var _warned_pending := {} # (tour, joueur, emplacement) deja signales par _warn_pending_after_build
+
+## Diagnostic : une salle face cachee ne doit plus exister une fois la construction close (APK BuildPhase_b : RevealAllRoomCards avant BAIT / ADVENTURE).
+## Une seule ligne par (tour, joueur, emplacement) ; le client n'a pas de numero de sequence, `serverTime` du dernier etat recu en tient lieu.
+func _warn_pending_after_build(G: Dictionary, phase: String) -> void:
+	if phase != "bait" and phase != "adventure":
+		return
+	for pid in (G.get("players", {}) as Dictionary):
+		var dun: Array = ((G["players"] as Dictionary)[pid] as Dictionary).get("dungeon", [])
+		for si in dun.size():
+			var r = BossEngine.active_room(dun[si])
+			if r is Dictionary and bool((r as Dictionary).get("faceDown", false)):
+				var key := "%s:%s:%d" % [str(G.get("turn", 0)), str(pid), si]
+				if _warned_pending.has(key):
+					continue
+				_warned_pending[key] = true
+				var seq := "-"
+				if _is_online():
+					seq = str(((game_manager as OnlineGameManager).client.current_ctx as Dictionary).get("serverTime", "-"))
+				push_warning("SALLE FACE CACHEE EN %s : tour=%s joueur=%s emplacement=%d carte=%s etat(serverTime)=%s" % [phase.to_upper(), str(G.get("turn", 0)), str(pid), si, str((r as Dictionary).get("id", "?")), seq])
+
 func refresh() -> void:
 	if game_manager == null or game_manager.G.is_empty():
 		return
@@ -1250,6 +1271,7 @@ func refresh() -> void:
 
 	var p: Dictionary = (G["players"] as Dictionary)[view_pid]
 	var phase: String = G.get("phase", "")
+	_warn_pending_after_build(G, phase)
 
 	# Animation de combat / traversée héroïque si en attente
 	var lhf = G.get("lastHeroFight")
@@ -2646,7 +2668,8 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 				_hero_arrive(pid, slot_idx)
 				if dmg > 0:
 					_play_sfx("char_hero_hurt") # HeartDecrementEmitter.cs:70
-				_show_floating_dmg(pawn, dmg)
+				if is_instance_valid(pawn):
+					_show_floating_dmg(pawn, dmg)
 			)
 			current_hp -= dmg
 
@@ -2659,7 +2682,8 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 		tw.tween_property(pawn, "modulate:a", 0.0, 0.7 * _speed) # fondu lineaire (HeroCrossingBehavior.cs:94,99)
 		tw.parallel().tween_property(pawn, "position:y", pawn.position.y + (400.0 + 40.0) * ky, 0.7 * _speed).set_trans(Tween.TRANS_CIRC).set_ease(Tween.EASE_IN) # HeroCrossingBehavior.cs:99-102
 		tw.tween_callback(func():
-			pawn.queue_free()
+			if is_instance_valid(pawn):
+				pawn.queue_free()
 			_animating_hero = false
 			refresh()
 		)
@@ -2675,10 +2699,12 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 		tw.tween_property(pawn, "modulate:a", 0.0, 0.5 * _speed)
 		tw.tween_callback(func():
 			# CreateBossHitAnimationTask (DungeonFrameEntity.cs:489-496) : apres le fondu du heros, calque additif + secousse + son
-			_boss_hit(boss_sprite)
+			if is_instance_valid(boss_sprite):
+				_boss_hit(boss_sprite)
 			var boss_dict: Dictionary = (game_manager.G.get("players", {}) as Dictionary).get(pid, {}).get("boss", {})
 			_play_sfx(AudioManager.boss_voice(str(boss_dict.get("id", "")), "hurt")) # DungeonFrameEntity.cs:494,503-510 (CardAssetService.cs:260-272)
-			_show_floating_dmg(boss_platform, 1, Color(1, 0.3, 0.3))
+			if is_instance_valid(boss_platform):
+				_show_floating_dmg(boss_platform, 1, Color(1, 0.3, 0.3))
 		)
 		var pl_dict: Dictionary = (game_manager.G.get("players", {}) as Dictionary).get(pid, {})
 		if bool(pl_dict.get("eliminated", false)): # DungeonFrameEntity.cs:495,512-519 : boss mort, la voix de mort part apres la secousse (0,44 s), avec la pierre tombale
@@ -2687,7 +2713,8 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 			tw.tween_interval(10.0 * PI / 72.0)
 			tw.tween_callback(func(): _play_sfx(dead_voice))
 		tw.tween_callback(func():
-			pawn.queue_free()
+			if is_instance_valid(pawn):
+				pawn.queue_free()
 			_animating_hero = false
 			refresh()
 		)
@@ -2769,7 +2796,7 @@ func _animate_step(hero: Dictionary, pid: int, from_room: int, to_room: int, hp_
 			_hero_arrive(pid, to_room) # a chaque arrivee, degats ou non (HeroCrossingBehavior.cs:72-76)
 		if to_room >= 0 and dmg != 0:
 			_play_sfx("char_hero_hurt" if dmg > 0 else "sfx_spell_buff") # HeartDecrementEmitter.cs:64-70 : PV perdus / rendus a un heros dans le donjon
-		if dmg != 0 and room_ctrl != null:
+		if dmg != 0 and room_ctrl != null and is_instance_valid(pawn):
 			_show_floating_dmg(pawn, dmg)
 		if is_instance_valid(hp_lbl):
 			hp_lbl.text = str(maxi(hp_after, 0)))
@@ -2849,7 +2876,9 @@ func _apply_focus(animate := false) -> void:
 				c.scale = sc
 
 ## HeartDecrementEmitter de l'APK : un coeur « -N » part de la salle / du boss, monte de 140 px en 1,3 s et s'estompe sur la fin (coeur vide health_hero_trans_icon).
-func _show_floating_dmg(parent: Control, dmg: int, color := Color(1.0, 1.0, 1.0)) -> void:
+func _show_floating_dmg(parent: Variant, dmg: int, color := Color(1.0, 1.0, 1.0)) -> void:
+	if not is_instance_valid(parent):
+		return
 	var heart := Control.new()
 	heart.name = "HeartFx"
 	heart.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2876,12 +2905,14 @@ func _shake_node(node: Control) -> void:
 	tw.tween_method(_shake_step.bind(node, node.position.x), 0.0, 10.0 * half, 10.0 * half)
 	tw.tween_callback(_shake_step.bind(10.0 * half, node, node.position.x))
 
-func _shake_step(t: float, node: Control, orig_x: float) -> void:
+func _shake_step(t: float, node: Variant, orig_x: float) -> void: # Variant : le noeud lie peut etre libere avant le dernier pas
 	if is_instance_valid(node):
-		node.position.x = orig_x + sin(t * 72.0) * maxf(20.0 - 2.0 * floorf(t / (PI / 72.0)), 0.0)
+		(node as Control).position.x = orig_x + sin(t * 72.0) * maxf(20.0 - 2.0 * floorf(t / (PI / 72.0)), 0.0)
 
 ## CreateBossHitAnimationTask (DungeonFrameEntity.cs:489-496) : calque additif du sprite du boss (opacite 1, :493) qui s'efface en 0,25 s lineaire (:284) pendant la secousse.
-func _boss_hit(sprite: Control) -> void:
+func _boss_hit(sprite: Variant) -> void:
+	if not is_instance_valid(sprite):
+		return
 	_shake_node(sprite)
 	var tr := sprite as TextureRect
 	if tr == null or tr.texture == null or not tr.visible:

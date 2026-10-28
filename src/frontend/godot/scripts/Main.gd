@@ -175,6 +175,9 @@ func go(swap: Callable) -> void:
 	tw.tween_property(veil, "color:a", 1.0, 0.5)
 	tw.tween_callback(func():
 		swap.call()
+		if not is_instance_valid(veil):
+			_fading = false
+			return
 		veil.mouse_filter = Control.MOUSE_FILTER_IGNORE # W-19 : le nouvel ecran est deja visible, un clic pendant l'eclaircie ne doit pas etre avale par le voile
 		_fading = false)
 	tw.tween_property(veil, "color:a", 0.0, 0.5)
@@ -915,7 +918,7 @@ func show_options(from_credits: bool = false) -> void:
 	host.text = server_host
 	var is_web := OS.has_feature("web")
 	var leave := func():
-		if not is_web:
+		if not is_web and is_instance_valid(host):
 			server_host = host.text
 		Profile.save_settings(server_host, use_extensions, apk_decks)
 		show_menu()
@@ -923,7 +926,7 @@ func show_options(from_credits: bool = false) -> void:
 	var decor := get_children() # fond, torches, logo, fleche (et les noeuds d'avant, deja condamnes) : tout ce qui s'ajoute ensuite = commandes d'OPTIONS (masquees par CREDITS)
 	# 4 boutons empiles (OptionsScene.cs:55-103) : centre x 960, y 356,4 + 162 n (haut = centre - 72).
 	var save_host := func():
-		if not is_web:
+		if not is_web and is_instance_valid(host):
 			server_host = host.text # chaque sortie d'OPTIONS reconstruit l'ecran : on garde le champ serveur
 		Profile.save_settings(server_host, use_extensions, apk_decks)
 	var tut := UiKit.stone_button(self, "TUTORIAL", Vector2(687, 284))

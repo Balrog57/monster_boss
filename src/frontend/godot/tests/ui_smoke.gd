@@ -1825,6 +1825,36 @@ func _check_ai_entry_window() -> void:
 	_check((foe["entrance"] as Array).is_empty() and not board._win_bar.visible, "fenetre d'entree IA : le heros n'est pas entre a la fin de la barre")
 	_cov("window_ai_entry")
 
+## Les animations (tweens du plateau, lambdas) peuvent s'executer apres la liberation du noeud vise, car refresh() reconstruit les salles et les pions :
+## aucune ne doit produire d'erreur (« Lambda capture ... was freed », appel sur un objet libere). Le ErrLogger de la campagne les compte.
+func _check_freed_targets() -> void:
+	_tag = "[freed]"
+	await _new_game()
+	var gone := Control.new()
+	add_child(gone)
+	gone.free()
+	board._show_floating_dmg(gone, 2)
+	board._boss_hit(gone)
+	board._shake_step(0.1, gone, 0.0)
+	var slot = board._dungeon_slots[0] if not board._dungeon_slots.is_empty() else null
+	if slot != null:
+		var ghost := Control.new()
+		var shadow := Control.new()
+		slot.add_child(ghost)
+		slot.add_child(shadow)
+		slot._fly_pending(ghost, shadow)
+		ghost.free() # le vol de P-C14 est en cours quand l'etat suivant reconstruit la salle
+		shadow.free()
+	await get_tree().create_timer(0.3).timeout
+	_cov("freed_targets")
+
+## Phase forcee a la main : les salles posees par les etapes d'avant seraient encore face cachees (diagnostic de BoardUI).
+func _reveal_all(G: Dictionary) -> void:
+	for q in G["players"]:
+		for st in (G["players"][q] as Dictionary).get("dungeon", []):
+			for rr in st:
+				(rr as Dictionary)["faceDown"] = false
+
 func _check_windows() -> void:
 	_tag = "[windows]"
 	var gi := await _adventure_window_setup()
@@ -3129,6 +3159,7 @@ func _check_crossing_ui() -> void:
 	(me["entrance"] as Array).clear()
 	(me["entrance"] as Array).append(hero)
 	G["phase"] = "adventure"
+	_reveal_all(G)
 	G.erase("buildWindow")
 	var hp0: int = BossEngine.hero_hp(hero)
 	G["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": 1, "hp": hp0 - 2, "pause": "post-damage"}
@@ -3223,6 +3254,7 @@ func _check_apk_particles() -> void:
 	(me["entrance"] as Array).clear()
 	(me["entrance"] as Array).append(hero)
 	G["phase"] = "adventure"
+	_reveal_all(G)
 	G["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": -1, "hp": 4, "pause": null}
 	board.refresh()
 	await get_tree().process_frame
@@ -3520,6 +3552,7 @@ func _extra_checks() -> void:
 	await _check_hand_room()
 	await _check_wiki_ui()
 	await _check_windows()
+	await _check_freed_targets()
 	await _check_ai_entry_window()
 	await _check_window_clock()
 	await _check_single_click()
@@ -3866,6 +3899,7 @@ func _check_audio() -> void:
 	(me["entrance"] as Array).clear()
 	(me["entrance"] as Array).append(hero)
 	G["phase"] = "adventure"
+	_reveal_all(G)
 	G.erase("buildWindow")
 	var hp0: int = BossEngine.hero_hp(hero)
 	board.skip_animations = false
