@@ -20,7 +20,7 @@ const SECRET_PILES := ["rooms", "spells", "heroes", "epics", "items"]
 ## Cles de joueur publiques (coins, rmbBoss, tnlBoss... : tout ce qui est pose devant le joueur). Liste blanche aussi :
 ## une cle de joueur inconnue n'est pas emise aux adversaires (le siege lui-meme voit tout son joueur).
 const PLAYER_PUBLIC_KEYS := ["id", "boss", "souls", "wounds", "eliminated", "leveledUp", "buildsThisTurn", "buildLimit", "isAI", "entrance", "passed",
-	"hasActed", "coins", "tnlSoulsStart", "rmbBoss", "tnlBoss", "bonusTreasures", "copiedLevelUps", "untilEndSpells"]
+	"hasActed", "coins", "tnlSoulsStart", "rmbBoss", "tnlBoss", "bonusTreasures", "copiedLevelUps", "untilEndSpells", "respawnTurn"]
 ## Cles de joueur masquees pour les adversaires : main (taille seule), donjon (salles / minibosses face cachee), objets face caches.
 const PLAYER_HIDDEN_KEYS := ["hand", "dungeon", "items"]
 const LOG_TAIL := 60 # lignes de journal emises (le journal "logs" des capacites n'est pas borne cote moteur)

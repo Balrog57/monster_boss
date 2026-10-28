@@ -40,6 +40,8 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--players="):
 			counts = Array(a.substr(len("--players=")).split(",", false)).map(func(x): return clampi(int(x), 2, 6))
+		elif a.begins_with("--seed="):
+			_fixed_seed = int(a.substr(len("--seed=")))
 		elif a.begins_with("--runs="):
 			runs = maxi(1, int(a.substr(len("--runs="))))
 	for n in counts:
@@ -50,10 +52,19 @@ func _ready() -> void:
 	print("SOAK OK")
 	get_tree().quit(0)
 
+var _fixed_seed := -1
+
 ## Une partie IA-vs-IA a n joueurs ; false (et diagnostic) si elle cale ou depasse MAX_STEPS.
 func _play(n_players: int) -> bool:
 	var m = GameManager.new()
 	add_child(m)
+	# Graine de la partie (affichee, rejouable avec `-- --seed=N`) : tous les generateurs du moteur partent d'elle.
+	var game_seed := _fixed_seed if _fixed_seed >= 0 else int(randi())
+	seed(game_seed)
+	m.rng.seed = game_seed
+	CardDB._rng.seed = game_seed
+	TnlAbilities._rng_get().seed = game_seed
+	print("SOAK seed=", game_seed, " players=", n_players)
 	var sets: Array = ["base"] # `-- --sets=players-choice,hidden-heroes,tools` : meme soak avec les paquets APK
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--sets="):
@@ -74,7 +85,10 @@ func _play(n_players: int) -> bool:
 			var owner := int(pc.get("playerId", 0))
 			var cmoves: Array = m.legal_moves(owner)
 			if not cmoves.is_empty():
-				m.apply_move(owner, cmoves[0])
+				# Un siege IA resout ses choix avec AI.pick_move (comme GameRoom et BoardUI) ; cmoves[0] seul bouclait a l'infini (Tomb of Terrors reprend sa propre carte de la defausse).
+				var cmv = AI.pick_move(m, owner)
+				if cmv == null or not m.apply_move(owner, cmv):
+					m.apply_move(owner, cmoves[0])
 				steps += 1
 				continue
 		if phase == "boss":

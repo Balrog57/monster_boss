@@ -227,6 +227,7 @@ static func cast(G: Dictionary, caster: int, card: Dictionary, t: Dictionary) ->
 			(SpellEffects._effects(G)["ignoreTreasureMatch"] as Array).append(caster)
 			_log(G, "%s: Advanced Rooms can be built over any Room this turn." % name)
 		"RMB075": # Respawn : toutes vos salles sont traitees comme venant d'etre construites
+			me["respawnTurn"] = int(G.get("turn", 0)) # IA : un seul Respawn par tour (Arcane Crypt le recupere sans fin, voir score_spell)
 			var rooms_now: Array = []
 			for stack in (me.get("dungeon", []) as Array):
 				var top = BossEngine.active_room(stack)
@@ -346,7 +347,7 @@ static func score_spell(G: Dictionary, p: Dictionary, pid: int, sid: String, t: 
 		"RMB072": return 80.0 if str(t.get("mode", "")) == "mb" and tid == pid else (40.0 if str(t.get("mode", "")) == "own" else -20.0)
 		"RMB073": return (15.0 if tid == pid and int(t.get("pay", 0)) == 0 else -5.0) if not (p.get("entrance", []) as Array).is_empty() else -5.0
 		"RMB074": return 18.0
-		"RMB075": return 8.0
+		"RMB075": return -5.0 if int(p.get("respawnTurn", -1)) == int(G.get("turn", 0)) else 8.0 # Respawn + Arcane Crypt : boucle sans fin sinon (soak, graine 3204597387)
 		"RMB076": # Heist : la salle adverse perd ses icones, avant de construire, si un heros qui me blesserait va chez moi plutot que chez elle
 			var hr = SpellEffects.find_room(G, tid, int(t.get("roomIndex", -1))) if tid != pid else null
 			return AiWiki.BUILD_FIRST if hr != null and AiWiki.no_treasure_gain(G, pid, hr as Dictionary) >= 1.0 else (6.0 if tid != pid else -10.0)

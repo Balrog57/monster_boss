@@ -33,6 +33,9 @@ SUITES = [
     ("soak TNL + variants", T + "Soak.tscn", "SOAK OK", ["--", "--sets=next-level,hard-wiki,choose-wiki,machinations-wiki", "--runs=3"]),
     ("soak Unlimited Lives", T + "Soak.tscn", "SOAK OK", ["--", "--sets=unlimited-wiki,machinations-wiki,hard-wiki", "--runs=3"]),
     ("soak all packs", T + "Soak.tscn", "SOAK OK", ["--", f"--sets={SOAK_ALL}", "--runs=3"]),
+    # Parties qui bouclaient sans fin (graines fixes) : Tomb of Terrors reprenant sa propre carte (le soak choisissait l'option 0), puis Respawn + Arcane Crypt.
+    ("soak graines bloquees", T + "Soak.tscn", "SOAK OK", ["--", f"--sets={SOAK_ALL}", "--players=4", "--runs=1", "--seed=1266755014"]),
+    ("soak graine Respawn + Arcane Crypt", T + "Soak.tscn", "SOAK OK", ["--", f"--sets={SOAK_ALL}", "--players=2", "--runs=1", "--seed=3204597387"]),
     ("online", T + "OnlineTest.tscn", "ONLINE OK", []),
     ("ui smoke", T + "UiSmoke.tscn", "UISMOKE OK", []),
 ]
