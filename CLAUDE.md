@@ -1,12 +1,17 @@
 # CLAUDE.md
 
-@AGENTS.md
+- `apk-original/` : l'APK et toute la décompilation
+- `src/frontend/` : le jeu (Godot) ; suites de tests Godot dans `src/frontend/godot/tests/`
+- `deploy/` : infra et DevOps
+- `security/` : security auditor
+- `docs/` : technical writer
+- `tools/` : runners Python (`tools/run_godot_tests.py`, `tools/parity/apk.py`), oracle .NET `tools/apk-oracle/`, extraction APK / wiki
 
 ## Avant d'écrire du code
 
 ### Référence et open source
 
-La référence, c'est le C# décompilé de l'APK (`apk-original/`) et le livre de règles officiel ; le wiki ne sert que pour les extensions. Pour les règles, l'IA, l'interface, les durées et la géométrie, on porte ce que fait l'APK, bizarreries comprises.
+La référence, c'est le C# décompilé de l'APK (`apk-original/`) et le livre de règles officiel ; le wiki ne sert que pour les extensions. Pour les règles, l'IA, l'interface, les durées et la géométrie, on porte ce que fait l'APK.
 
 Pour la manière de l'implémenter, quand la technique est mal connue (shader, effet visuel, réseau, audio web, outil d'extraction, parseur...), n'écris pas from scratch :
 
