@@ -133,7 +133,7 @@ static func is_queued(G: Dictionary, room: Dictionary) -> bool:
 	if not room.has("_tuid"):
 		return false
 	for e in (G.get("stack", []) as Array):
-		if str((e as Dictionary).get("type", "")) == "ability" and int((e as Dictionary).get("roomUid", -1)) == int(room["_tuid"]):
+		if str((e as Dictionary).get("type", "")) == "ability" and not (e as Dictionary).has("rmb") and int((e as Dictionary).get("roomUid", -1)) == int(room["_tuid"]):
 			return true
 	return false
 

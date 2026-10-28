@@ -106,13 +106,14 @@ static func _spell_source_left(G: Dictionary) -> bool:
 	return not (d.get("spells", []) as Array).is_empty() or not (d.get("spellDiscard", []) as Array).is_empty()
 
 ## RMB025 Fetid Beast : une salle Monster ne peut etre posee ni a cote de lui. `target_index` < 0 : nouvelle pile en bout de donjon (a cote de la pile 0).
-static func fetid_blocks(dungeon: Array, card: Dictionary, target_index: int) -> bool:
+static func fetid_blocks(dungeon: Array, card: Dictionary, target_index: int, G: Dictionary = {}, pid: int = -1) -> bool:
 	if str(card.get("type", "")) != "monster" or str(card.get("id", "")) == "RMB025":
 		return false
 	for j in ([0] if target_index < 0 else [target_index - 1, target_index + 1]):
 		if j >= 0 and j < dungeon.size():
 			var top = BossEngine.active_room(dungeon[j])
-			if top != null and str((top as Dictionary).get("id", "")) == "RMB025" and not bool((top as Dictionary).get("faceDown", false)):
+			if top != null and str((top as Dictionary).get("id", "")) == "RMB025" and not bool((top as Dictionary).get("faceDown", false)) \
+					and (G.is_empty() or pid < 0 or TnlAbilities.live(G, pid, j, top as Dictionary)):
 				return true
 	return false
 
@@ -152,7 +153,7 @@ static func on_destroyed(G: Dictionary, owner: int, destroyed: Dictionary) -> vo
 		var d: Array = p.get("dungeon", [])
 		for i in d.size():
 			var r = BossEngine.active_room(d[i])
-			if r == null or bool((r as Dictionary).get("faceDown", false)) or TnlAbilities.no_text(r as Dictionary) or is_same(r, destroyed):
+			if r == null or is_same(r, destroyed) or not TnlAbilities.live(G, int(q), i, r as Dictionary):
 				continue
 			var rd: Dictionary = r
 			match str(rd.get("id", "")):
@@ -167,10 +168,10 @@ static func on_destroyed(G: Dictionary, owner: int, destroyed: Dictionary) -> vo
 ## Un joueur vient de poser / promouvoir un miniboss : Personnel Office de ses adversaires (une fois par tour, +1 Coin).
 static func on_opponent_miniboss(G: Dictionary, actor: int) -> void:
 	for q in TnlAbilities._opponents(G, actor):
-		for stack in (_player(G, int(q)).get("dungeon", []) as Array):
-			var r = BossEngine.active_room(stack)
-			if r != null and str((r as Dictionary).get("id", "")) == "RMB049" and not bool((r as Dictionary).get("faceDown", false)) \
-					and not TnlAbilities.no_text(r as Dictionary) and not bool((r as Dictionary).get("usedThisTurn", false)):
+		var qd: Array = _player(G, int(q)).get("dungeon", [])
+		for i in qd.size():
+			var r = BossEngine.active_room(qd[i])
+			if r != null and str((r as Dictionary).get("id", "")) == "RMB049" and TnlAbilities.live(G, int(q), i, r as Dictionary) and not bool((r as Dictionary).get("usedThisTurn", false)):
 				(r as Dictionary)["usedThisTurn"] = true
 				Minibosses.gain_coin(G, int(q), 1, "Personnel Office")
 				break
@@ -194,14 +195,14 @@ static func on_room_exit(G: Dictionary, pid: int, prev: int) -> void:
 
 ## Un heros meurt dans `room` du donjon de `pid` (declencheurs de salles) : Lightning Rod, Mind Thresher (une fois par tour).
 static func on_hero_died(G: Dictionary, pid: int, room: Dictionary) -> void:
-	if TnlAbilities.no_text(room):
-		return
 	var id := str(room.get("id", ""))
 	if id != "RMB051" and id != "RMB034":
 		return
+	var p := _player(G, pid)
+	if not TnlAbilities.live(G, pid, TnlAbilities._index_of_room(p, room), room): # texte ignore, salle desactivee ou capacites verrouillees
+		return
 	if bool(room.get("usedThisTurn", false)):
 		return
-	var p := _player(G, pid)
 	if id == "RMB051": # Lightning Rod : +3 Coins
 		room["usedThisTurn"] = true
 		Minibosses.gain_coin(G, pid, 3, "Lightning Rod")

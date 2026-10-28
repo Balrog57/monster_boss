@@ -224,6 +224,8 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 	if TnlAbilities.is_tnl_move(mtype): # The Next Level (heuristiques maison)
 		return TnlAbilities.score_move(G, p, pid, mtype, args)
 	if Minibosses.is_rmb_move(mtype): # Rise of the Minibosses (heuristiques maison)
+		if Minibosses.QUEUED_MOVES.has(mtype) and not (G.get("stack", []) as Array).is_empty():
+			return -50.0 # Spell Battle : comme les salles wiki, l'IA ne repond pas avec une capacite RMB (politique, pas une regle)
 		return Minibosses.score_move(G, p, pid, mtype, args)
 	if mtype == "useItem": # Tools of Hero-Kind (heuristiques maison)
 		return ThkAbilities.score_move(G, p, pid, mtype, args)

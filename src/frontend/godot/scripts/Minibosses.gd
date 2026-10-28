@@ -72,10 +72,11 @@ static func gain_coin(G: Dictionary, pid: int, n: int, label: String) -> void:
 		return
 	var total := n
 	if not used(G, pid, "paddywhack"):
-		for stack in (p.get("dungeon", []) as Array):
-			var top = BossEngine.active_room(stack)
+		var dg: Array = p.get("dungeon", [])
+		for i in dg.size():
+			var top = BossEngine.active_room(dg[i])
 			var m := revealed(top)
-			if not m.is_empty() and mb_id(m) == "RMB060" and level(m) >= 2 and not TnlAbilities.no_text(top as Dictionary):
+			if not m.is_empty() and mb_id(m) == "RMB060" and level(m) >= 2 and not TnlAbilities.no_text(top as Dictionary) 					and not BossEngine.is_room_deactivated(G, pid, i) and not BossEngine.abilities_locked(G, pid):
 				mark_used(G, pid, "paddywhack")
 				total += 1
 				break
@@ -250,10 +251,11 @@ static func passive_damage(G: Dictionary, player: Dictionary, room_index: int, r
 static func hero_text_ignored(G: Dictionary, pid: int) -> bool:
 	if list(G, "ignoreText").has(pid):
 		return true
-	for stack in (_player(G, pid).get("dungeon", []) as Array):
-		var top = BossEngine.active_room(stack)
+	var dg: Array = _player(G, pid).get("dungeon", [])
+	for i in dg.size():
+		var top = BossEngine.active_room(dg[i])
 		var m := revealed(top)
-		if not m.is_empty() and mb_id(m) == "RMB061" and level(m) >= 2 and not TnlAbilities.no_text(top as Dictionary):
+		if not m.is_empty() and mb_id(m) == "RMB061" and level(m) >= 2 and not TnlAbilities.no_text(top as Dictionary) and not BossEngine.is_room_deactivated(G, pid, i):
 			return true
 	return false
 
@@ -629,7 +631,7 @@ static func stack_moves(G: Dictionary, p: Dictionary, pid: int) -> Array:
 static func on_hero_died(G: Dictionary, pid: int, room: Dictionary) -> void:
 	var p := _player(G, pid)
 	var m := revealed(room)
-	if not m.is_empty() and level(m) >= 2 and not TnlAbilities.no_text(room):
+	if not m.is_empty() and level(m) >= 2 and not TnlAbilities.no_text(room) and TnlAbilities.live(G, pid, _index_of(p, room), room):
 		var id := mb_id(m)
 		var name := mb_name(m)
 		match id:
@@ -690,13 +692,12 @@ static func on_spell_cast(G: Dictionary, caster: int) -> void:
 	var p := _player(G, caster)
 	if RmbAbilities.has_boss(p, "RMB007"):
 		gain_coin(G, caster, 1, "Baron Hex")
-	for stack in (p.get("dungeon", []) as Array):
-		var r = BossEngine.active_room(stack)
-		if r != null and str((r as Dictionary).get("id", "")) == "RMB032" and not bool((r as Dictionary).get("faceDown", false)) \
-				and not TnlAbilities.no_text(r as Dictionary) and not bool((r as Dictionary).get("usedThisTurn", false)):
+	var dg: Array = p.get("dungeon", [])
+	for i in dg.size(): # chaque Lab se declenche (une fois par tour chacun)
+		var r = BossEngine.active_room(dg[i])
+		if r != null and str((r as Dictionary).get("id", "")) == "RMB032" and TnlAbilities.live(G, caster, i, r as Dictionary) and not bool((r as Dictionary).get("usedThisTurn", false)):
 			(r as Dictionary)["usedThisTurn"] = true
 			gain_coin(G, caster, 2, "Alchemist's Lab")
-			return
 
 ## Short Circuit : le joueur doit payer 1 Coin par sort jusqu'a la fin du tour, sinon le sort est annule. Renvoie faux si le sort est annule.
 static func pay_short_circuit(G: Dictionary, caster: int) -> bool:
@@ -720,10 +721,11 @@ static func on_hand_discard(G: Dictionary, owner: int, card: Dictionary) -> void
 	for q in CardDB.order_by_xp(G.get("players", {})):
 		if int(q) == owner or bool(_player(G, int(q)).get("eliminated", false)):
 			continue
-		for stack in (_player(G, int(q)).get("dungeon", []) as Array):
-			var r = BossEngine.active_room(stack)
-			if r == null or str((r as Dictionary).get("id", "")) != "RMB017" or bool((r as Dictionary).get("faceDown", false)) \
-					or TnlAbilities.no_text(r as Dictionary) or bool((r as Dictionary).get("usedThisTurn", false)):
+		var qd: Array = _player(G, int(q)).get("dungeon", [])
+		for i in qd.size():
+			var r = BossEngine.active_room(qd[i])
+			if r == null or str((r as Dictionary).get("id", "")) != "RMB017" or not TnlAbilities.live(G, int(q), i, r as Dictionary) \
+					or bool((r as Dictionary).get("usedThisTurn", false)):
 				continue
 			(r as Dictionary)["usedThisTurn"] = true
 			pile.pop_back()
@@ -759,7 +761,83 @@ static func extra_moves(G: Dictionary, p: Dictionary, pid: int, my_turn: bool) -
 					out.append({"type": "discardForCoin", "args": [hi]})
 	out.append_array(activate_moves(G, p, pid))
 	out.append_array(RmbAbilities.extra_moves(G, p, pid))
-	return out
+	return _unqueued(G, pid, out)
+
+# --- capacites activees = entrees de pile "ability" (R-D67) : pouvoir de miniboss, pouvoir de boss, paiement du Paywall ------------------------------
+## Ces trois coups ne s'appliquent plus tout de suite : Match les met en file (cibles choisies a la mise en file, reponse des adversaires, execution avec la pile).
+const QUEUED_MOVES := ["activateMiniboss", "rmbBoss", "rmbPay"]
+
+## Cle d'unicite d'une capacite deja en file (une seule fois a la fois, comme Room.CanPlayerPlayAbility). "" = rejouable (Paywall : « any number of coins »).
+static func move_key(G: Dictionary, pid: int, move: Dictionary) -> String:
+	var a: Array = move.get("args", [])
+	match str(move.get("type", "")):
+		"activateMiniboss":
+			var d: Array = _player(G, pid).get("dungeon", [])
+			var room = BossEngine.active_room(d[int(a[0])]) if int(a[0]) >= 0 and int(a[0]) < d.size() else null
+			return "mb:%d:%d" % [int(room.get("_tuid", -1)) if room != null else -1, int(a[1])]
+		"rmbBoss":
+			return "boss:%s:%d:%d" % [str(a[0]), pid, int(a[1])]
+	return ""
+
+static func is_queued(G: Dictionary, key: String) -> bool:
+	if key == "":
+		return false
+	for e in (G.get("stack", []) as Array):
+		var ed: Dictionary = e
+		if ed.has("rmb") and not bool(ed.get("resolved", false)) and not bool(ed.get("canceled", false)) and str((ed["rmb"] as Dictionary).get("key", "")) == key:
+			return true
+	return false
+
+static func _unqueued(G: Dictionary, pid: int, moves: Array) -> Array:
+	return moves.filter(func(m): return not is_queued(G, move_key(G, pid, m)))
+
+## Coups RMB offerts en reponse pendant une Spell Battle (toute capacite dont les conditions passent peut repondre).
+static func respond_moves(G: Dictionary, p: Dictionary, pid: int) -> Array:
+	var phase := str(G.get("phase", ""))
+	if phase != "build" and phase != "adventure":
+		return []
+	var out := activate_moves(G, p, pid)
+	out.append_array(RmbAbilities.extra_moves(G, p, pid).filter(func(m): return str((m as Dictionary)["type"]) != "rmbHand"))
+	return _unqueued(G, pid, out)
+
+## GameBoard.PlayRoomAbility -> EnqueueAbilityTransaction pour un coup RMB : l'entree de pile (cibles ensuite choisies par Match._advance_targeting).
+static func make_entry(G: Dictionary, pid: int, move: Dictionary) -> Dictionary:
+	var p := _player(G, pid)
+	var a: Array = move.get("args", [])
+	Match._tuid_seq += 1 # compteur et non randi() : ne pas consommer le tirage global
+	var e := {"id": "ability-rmb-%d" % Match._tuid_seq, "type": "ability", "playerId": pid, "card": {}, "target": {}, "picks": [], "resolved": false,
+		"rmb": {"type": str(move["type"]), "args": a.duplicate(), "key": move_key(G, pid, move)}}
+	match str(move["type"]):
+		"activateMiniboss":
+			var room = BossEngine.active_room((p["dungeon"] as Array)[int(a[0])])
+			e["roomUid"] = RoomAbilities.room_uid(room)
+			e["card"] = ((revealed(room)).get("card", {}) as Dictionary).duplicate()
+		"rmbBoss":
+			e["card"] = (p.get("boss", {}) as Dictionary).duplicate()
+		"rmbPay":
+			var op := _player(G, int(a[0]))
+			var r = BossEngine.active_room((op["dungeon"] as Array)[int(a[1])])
+			e["roomUid"] = RoomAbilities.room_uid(r)
+			e["ownerPid"] = int(a[0])
+			e["card"] = (r as Dictionary).duplicate()
+	return e
+
+## Lance (copie de mise en file) ou execute (AbilityTransaction.Run) l'entree : la salle visee est retrouvee par son uid, une salle partie ou recouverte annule
+## la transaction (RemovePendingTransactionsByTarget). Les conditions sont reverifiees par le coup lui-meme. Renvoie null ou la raison.
+static func run_entry(G: Dictionary, e: Dictionary) -> Variant:
+	var pid := int(e.get("playerId", -1))
+	var rm: Dictionary = e["rmb"]
+	var move := {"type": str(rm["type"]), "args": (rm["args"] as Array).duplicate()}
+	if e.has("roomUid"):
+		var holder := _player(G, int(e["ownerPid"])) if e.has("ownerPid") else _player(G, pid)
+		var found := RoomAbilities._find_room_by_uid(holder, int(e["roomUid"]))
+		if found.is_empty() or not bool(found[1]):
+			return "room left the game or is covered"
+		if e.has("ownerPid"):
+			move["args"][1] = int(found[0])
+		else:
+			move["args"][0] = int(found[0])
+	return apply_move(G, pid, move)
 
 static func is_rmb_move(mtype: String) -> bool:
 	return ["buildMiniboss", "promoteMiniboss", "activateMiniboss", "discardForCoin", "rmbBoss", "rmbHand", "rmbPay", "rmbCancel"].has(mtype)

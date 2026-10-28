@@ -12,6 +12,8 @@ func run(ok: Callable, h: Node) -> void:
 	host = h
 	_t_data()
 	_t_rmb_card_stats()
+	_t_stack_rmb_abilities()
+	_t_fix_deactivated_triggers()
 	_t_new_match_decks()
 	_t_setup_hands()
 	_t_build_miniboss()
@@ -168,6 +170,18 @@ func _drain(m: Node, idx: int = 0) -> int:
 		m._resolve_choice(int(pc["playerId"]), i)
 		n += 1
 	return n
+
+## Fait vivre la pile (R-D67) : choix d'execution en attente, puis chaque joueur passe jusqu'a ce que la pile soit vide.
+func _settle(m: Node, idx: int = 0) -> void:
+	var n := 0
+	while n < 60:
+		n += 1
+		if not (m.G["pendingChoice"] as Dictionary).is_empty():
+			_drain(m, idx)
+		elif not (m.G.get("stack", []) as Array).is_empty():
+			m.apply_move(m.active_player(), {"type": "pass", "args": []})
+		else:
+			break
 
 func _pending(G: Dictionary) -> Dictionary:
 	return G["pendingChoice"] as Dictionary
@@ -616,6 +630,7 @@ func _t_level_two_activations() -> void:
 	_ok.call(m.apply_move(0, {"type": "activateMiniboss", "args": [0, 2]}), "Spike : pouvoir utilise")
 	_ok.call(str(_pending(G).get("step", "")) == "rmb_cost" and (_pending(G)["options"] as Array).size() == 2, "Spike : choix de la carte a defausser")
 	m._resolve_choice(0, 1)
+	_settle(m)
 	_ok.call(int(G["adventure"]["hp"]) == 3 and _hand(G, 0).size() == 1 and _decks(G, "spellDiscard").size() == 1, "Spike : 2 degats au heros, la carte choisie est defaussee")
 	_ok.call(_types(m.legal_moves(0), "activateMiniboss").is_empty(), "Spike : une seule fois par tour")
 	var G0 := _G([_player(0, "BMA001", [_with_mb(_plain("A"), "RMB055", 2)]), _player(1, "BMA002")])
@@ -721,6 +736,7 @@ func _t_level_three_each() -> void:
 	_adventure(Gp, 0, _hero("RMB091"), 0, 7)
 	var kill := _types(mp.legal_moves(0), "activateMiniboss").filter(func(mv): return int((mv as Dictionary)["args"][1]) == 3)
 	_ok.call(kill.size() == 1 and mp.apply_move(0, kill[0]), "Paddywhack niveau 3 : coup propose et applique")
+	_settle(mp)
 	_ok.call((Gp["adventure"] as Dictionary).is_empty() and (Gp["players"][0]["souls"] as Array).size() == 1 and int((pw["mb"] as Dictionary)["level"]) == 1, "Paddywhack : le heros meurt (une ame), le miniboss retombe au niveau 1")
 	# Icicle Man : desactive une salle d'un donjon jusqu'a la fin du tour
 	var ic := _with_mb(_plain("A"), "RMB061", 3)
@@ -899,7 +915,9 @@ func _t_boss_oculus_croak_scott() -> void:
 	var m := _match(G)
 	var pay := _types(m.legal_moves(1), "rmbBoss").filter(func(mv): return str((mv as Dictionary)["args"][0]) == "RMB011")
 	_ok.call(pay.size() == 1 and _types(m.legal_moves(0), "rmbBoss").filter(func(mv): return str((mv as Dictionary)["args"][0]) == "RMB011").is_empty(), "Scott : seul un adversaire peut payer pour annuler")
-	_ok.call(m.apply_move(1, pay[0]) and _coins(G, 1) == 1 and _coins(G, 0) == 1, "l'adversaire donne 1 Coin a Scott")
+	var scott_ok: bool = m.apply_move(1, pay[0])
+	_settle(m)
+	_ok.call(scott_ok and _coins(G, 1) == 1 and _coins(G, 0) == 1, "l'adversaire donne 1 Coin a Scott")
 	_ok.call(BossEngine.room_damage_with_modifiers(G, p0, 0, null) == 2, "Scott : le +1 est annule jusqu'a la fin du tour")
 	_ok.call(_types(m.legal_moves(1), "rmbBoss").filter(func(mv): return str((mv as Dictionary)["args"][0]) == "RMB011").is_empty(), "inutile de payer deux fois")
 
@@ -915,6 +933,7 @@ func _t_boss_active_powers() -> void:
 	var mv := _types(m.legal_moves(0), "rmbBoss")
 	_ok.call(mv.size() == 1 and str((mv[0] as Dictionary)["args"][0]) == "RMB003", "Belladonna : pouvoir propose (2 Coins, un adversaire a un sort)")
 	m.apply_move(0, mv[0])
+	_settle(m)
 	_ok.call(_coins(G, 0) == 3 and _hand(G, 1).size() == 1 and _ids(_decks(G, "spellDiscard")).has("S1"), "Belladonna : 2 Coins payes, le sort de l'adversaire est defausse")
 	_ok.call(_types(m.legal_moves(0), "rmbBoss").is_empty(), "Belladonna : une fois par tour")
 	# Ravenus : 2 Coins, double les degats d'une salle Monster
@@ -925,6 +944,7 @@ func _t_boss_active_powers() -> void:
 	var rv := _types(m2.legal_moves(0), "rmbBoss")
 	_ok.call(rv.size() == 1, "Ravenus : pouvoir propose")
 	m2.apply_move(0, rv[0])
+	_settle(m2)
 	_ok.call(BossEngine.room_damage_with_modifiers(G2, p2, 0, null) == 6 and _coins(G2, 0) == 0, "Ravenus : degats doubles (3 -> 6), 2 Coins payes")
 	# Kazanna : 2 Coins, pioche un sort
 	var p3 := _player(0, "RMB009", [], 2)
@@ -933,6 +953,7 @@ func _t_boss_active_powers() -> void:
 	_fill(G3, "spells", 2, "spell")
 	var m3 := _match(G3)
 	m3.apply_move(0, _types(m3.legal_moves(0), "rmbBoss")[0])
+	_settle(m3)
 	_ok.call(_hand(G3, 0).size() == 1 and _coins(G3, 0) == 0, "Kazanna : un sort pioche pour 2 Coins")
 	# Kirax : 2 Coins, un tresor de plus (au choix) dans le donjon de n'importe quel joueur jusqu'a la fin du tour
 	var p4 := _player(0, "RMB012", [], 2)
@@ -945,6 +966,7 @@ func _t_boss_active_powers() -> void:
 	m4._resolve_choice(0, 0)
 	_ok.call(str(_pending(G4).get("step", "")) == "rmb_icon" and (_pending(G4)["options"] as Array).size() == 4, "Kirax : choix du type de tresor")
 	m4._resolve_choice(0, 2)
+	_settle(m4)
 	_ok.call(BossEngine.treasure_count(p4, 3, G4) == 1, "Kirax : une icone Mage de plus dans le donjon (jusqu'a la fin du tour)")
 	m4.G["effects"] = SpellEffects.empty_effects()
 	_ok.call(BossEngine.treasure_count(p4, 3, G4) == 1, "Kirax : l'icone reste au tour suivant (aucune duree imprimee, arbitrage wiki)")
@@ -958,6 +980,7 @@ func _t_boss_active_powers() -> void:
 	m5._resolve_choice(0, 0)
 	_ok.call(str(_pending(G5).get("step", "")) == "rmb_icon" and (_pending(G5)["options"] as Array).size() == 5, "Kirax + CRL : cinq types de tresor dont Explorer")
 	m5._resolve_choice(0, 4)
+	_settle(m5)
 	_ok.call(BossEngine.treasure_count(p5, 5, G5) == 1, "Kirax + CRL : une icone Explorer de plus dans le donjon")
 
 # --- les 42 salles --------------------------------------------------------------------------------------------------------------------
@@ -1439,7 +1462,9 @@ func _t_rooms_paywall_cavern_guardtower() -> void:
 	var pays := _types(m.legal_moves(1), "rmbPay")
 	_ok.call(pays.size() == 1 and _types(m.legal_moves(0), "rmbPay").is_empty(), "RMB046 Paywall : un adversaire peut payer (pas le proprietaire)")
 	m.apply_move(1, pays[0])
+	_settle(m)
 	m.apply_move(1, pays[0])
+	_settle(m)
 	_ok.call(_coins(G, 0) == 2 and _coins(G, 1) == 1 and BossEngine.room_damage_with_modifiers(G, p0, 0, null) == 2, "RMB046 : 2 Coins donnes, la salle perd 2 (4 -> 2)")
 	G["effects"] = SpellEffects.empty_effects()
 	for r in [wall]:
@@ -2268,3 +2293,138 @@ func _t_rmb_card_stats() -> void:
 				if a != b:
 					diff.append("%s.%s" % [str(w["id"]), k])
 	_ok.call(seen == 121 and diff.is_empty(), "RMB : cards.json identique au JSON du wiki, champ par champ (%d cartes) %s" % [seen, str(diff)])
+
+## RMB-R07 : pouvoir de miniboss, pouvoir de boss et paiement du Paywall sont des entrees de pile comme les capacites de salle (R-D67) :
+## mises en file avec leurs cibles, les adversaires repondent, rien n'est paye ni consomme avant l'execution, une cible disparue annule la transaction.
+func _t_stack_rmb_abilities() -> void:
+	# 1. mise en file, pas d'effet immediat, une seule fois, puis execution quand tout le monde a passe
+	var p0 := _player(0, "RMB009", [], 2)
+	p0["rmbBoss"] = {"RMB009": true}
+	var G := _G([p0, _player(1, "BMA002")])
+	_build_phase(G)
+	_fill(G, "spells", 2, "spell")
+	var m := _match(G)
+	var k: Dictionary = _types(m.legal_moves(0), "rmbBoss")[0]
+	_ok.call(m.apply_move(0, k), "RMB-R07 : pouvoir de boss mis en file")
+	var st: Array = G["stack"]
+	_ok.call(st.size() == 1 and str((st[0] as Dictionary)["type"]) == "ability" and (st[0] as Dictionary).has("rmb") and _coins(G, 0) == 2 and _hand(G, 0).is_empty() and not Minibosses.used(G, 0, "RMB009"), "RMB-R07 : entree de pile, aucun Coin paye ni pouvoir consomme avant l'execution")
+	_ok.call(not m.apply_move(0, k) and _types(m.legal_moves(0), "rmbBoss").is_empty() and G["stack"].size() == 1, "RMB-R07 : une seule fois en file")
+	_ok.call(m.active_player() == 1 and not _types(m.legal_moves(1), "pass").is_empty(), "RMB-R07 : l'adversaire peut repondre (passer)")
+	_settle(m)
+	_ok.call((G["stack"] as Array).is_empty() and _coins(G, 0) == 0 and _hand(G, 0).size() == 1 and Minibosses.used(G, 0, "RMB009"), "RMB-R07 : execution a la resolution de la pile (2 Coins, un sort, une fois par tour)")
+	m.queue_free()
+	# 2. l'adversaire repond et change l'issue : Belladonna (joueur hors tour) perd sa cible, la transaction est annulee et rien n'est consomme
+	var b0 := _player(0, "BMA001", [_plain("A")], 0)
+	b0["hand"] = [_spell("RMB065")] # Windfall : seul sort de l'adversaire
+	var b1 := _player(1, "RMB003", [], 5)
+	b1["rmbBoss"] = {"RMB003": true}
+	var G2 := _G([b0, b1])
+	_adventure(G2, 0, _hero("RMB087"), 0, 5)
+	var m2 := _match(G2)
+	var bell := _types(m2.legal_moves(1), "rmbBoss")
+	_ok.call(bell.size() == 1 and m2.apply_move(1, bell[0]) and (G2["stack"] as Array).size() == 1 and _coins(G2, 1) == 5, "RMB-R07 : Belladonna d'un joueur hors tour mise en file")
+	var wf := _types(m2.legal_moves(0), "playSpell")
+	_ok.call(wf.size() == 1 and m2.apply_move(0, wf[0]), "RMB-R07 : la cible repond en jouant son seul sort")
+	_settle(m2)
+	_ok.call(_coins(G2, 1) == 5 and not Minibosses.used(G2, 1, "RMB003") and _coins(G2, 0) == 3, "RMB-R07 : plus de sort a defausser, transaction annulee sans Coin paye ni pouvoir consomme")
+	m2.queue_free()
+	# 3. cible choisie a la mise en file qui quitte la main : transaction annulee, once-per-turn intact (Spike)
+	var sp := _with_mb(_plain("A"), "RMB055", 2)
+	var s0 := _player(0, "BMA001", [sp], 3)
+	s0["hand"] = [_plain("K1"), _plain("K2"), _plain("K3")] # trois cartes : avec une seule option restante le choix serait pris d'office
+	var G3 := _G([s0, _player(1, "BMA002")])
+	_adventure(G3, 0, _hero("RMB087"), 0, 5)
+	var m3 := _match(G3)
+	m3.apply_move(0, {"type": "activateMiniboss", "args": [0, 2]})
+	_ok.call(bool(_pending(G3).get("targeting", false)) and (G3["stack"] as Array).is_empty(), "RMB-R07 : la carte a defausser se choisit avant l'entree en pile")
+	m3._resolve_choice(0, 0)
+	var spike_entry: Dictionary = (G3["stack"] as Array)[0]
+	_ok.call((G3["stack"] as Array).size() == 1 and (spike_entry["picks"] as Array).size() == 1 and int((sp["mb"] as Dictionary)["usedTurn"]) == -1 and _hand(G3, 0).size() == 3, "RMB-R07 : cible memorisee, rien defausse ni consomme")
+	_hand(G3, 0).remove_at(0) # K1 (la carte choisie) quitte la main en reponse
+	_settle(m3)
+	_ok.call(int(G3["adventure"]["hp"]) == 5 and int((sp["mb"] as Dictionary)["usedTurn"]) == -1 and _hand(G3, 0).size() == 2, "RMB-R07 : cible disparue -> 0 degat, once-per-turn intact")
+	m3.queue_free()
+	# 4. salle visee detruite en reponse (Paywall) : le paiement est annule, le Coin reste a son payeur
+	var wall := _room("RMB046")
+	var w0 := _player(0, "BMA001", [wall], 0)
+	var G4 := _G([w0, _player(1, "BMA002", [], 3)])
+	var m4 := _match(G4)
+	_ok.call(m4.apply_move(1, _types(m4.legal_moves(1), "rmbPay")[0]) and _coins(G4, 1) == 3, "RMB-R07 : paiement du Paywall mis en file, Coin pas encore donne")
+	BossEngine.destroy_room(w0, 0, G4)
+	_settle(m4)
+	_ok.call(_coins(G4, 1) == 3 and _coins(G4, 0) == 0, "RMB-R07 : Paywall detruit en reponse -> paiement annule")
+	m4.queue_free()
+	# 5. l'adversaire ne voit pas les cibles privees (picks) de l'entree
+	var vp := _player(0, "BMA001", [_with_mb(_plain("A"), "RMB055", 2)], 3)
+	vp["hand"] = [_plain("K1")]
+	var G5 := _G([vp, _player(1, "BMA002")])
+	_adventure(G5, 0, _hero("RMB087"), 0, 5)
+	var m5 := _match(G5)
+	m5.apply_move(0, {"type": "activateMiniboss", "args": [0, 2]})
+	m5._resolve_choice(0, 0)
+	var seen := ViewFilter.for_seat(G5, 1)
+	_ok.call((seen["stack"] as Array).size() == 1 and not ((seen["stack"] as Array)[0] as Dictionary).has("picks"), "RMB-R07 : l'adversaire voit l'entree sans ses cibles privees")
+	m5.queue_free()
+
+## Re-verification (2026-10-28) : une salle desactivee « perd ses capacites jusqu'a la fin du tour » (rules.md:128) ; deux Alchemist's Lab se declenchent chacun.
+func _t_fix_deactivated_triggers() -> void:
+	var off := func(G: Dictionary, pid: int, idx: int) -> void:
+		BossEngine._effects(G)["deactivatedRooms"] = [{"playerId": pid, "roomIndex": idx}]
+	# Garbage Chute desactivee : pas de Coins ; active : +2
+	var p := _player(0, "BMA001", [_room("RMB041")], 0)
+	var po := _player(1, "BMA002", [_plain("A"), _plain("B")])
+	var G := _G([p, po])
+	off.call(G, 0, 0)
+	BossEngine.destroy_room(po, 0, G)
+	_ok.call(_coins(G, 0) == 0, "RMB041 desactivee : aucun Coin quand une salle est detruite")
+	# Imp Hoard desactive : la carte defaussee reste dans la defausse
+	var h := _player(0, "BMA001", [_room("RMB017")], 0)
+	var ho := _player(1, "BMA002")
+	ho["hand"] = [_spl("S1"), _spl("S2")]
+	var Gh := _G([h, ho])
+	off.call(Gh, 0, 0)
+	RoomAbilities._discard_random_from(Gh, 1, true, "test", 0)
+	_ok.call(_hand(Gh, 0).is_empty() and _decks(Gh, "spellDiscard").size() == 1, "RMB017 desactive : la carte defaussee n'est pas prise")
+	# Personnel Office desactive : pas de Coin quand l'adversaire pose un miniboss
+	var o := _player(0, "BMA001", [_room("RMB049")], 0)
+	var oo := _player(1, "BMA002", [_plain("X"), _plain("Y"), _plain("Z")], 6)
+	oo["hand"] = [_minicard("RMB056")]
+	var Go := _G([o, oo])
+	_build_phase(Go, 1)
+	off.call(Go, 0, 0)
+	_ok.call(Minibosses.apply_build(Go, 1, 0, 2) and _coins(Go, 0) == 0, "RMB049 desactive : aucun Coin quand l'adversaire pose un miniboss")
+	# Deux Alchemist's Lab : chacun donne +2 au premier sort ; un Lab desactive ne donne rien
+	var l := _player(0, "BMA001", [_room("RMB032"), _room("RMB032")], 0)
+	var Gl := _G([l, _player(1, "BMA002")])
+	Minibosses.on_spell_cast(Gl, 0)
+	_ok.call(_coins(Gl, 0) == 4, "RMB032 : deux Alchemist's Lab -> +2 chacun (total %d)" % _coins(Gl, 0))
+	var l2 := _player(0, "BMA001", [_room("RMB032"), _room("RMB032")], 0)
+	var Gl2 := _G([l2, _player(1, "BMA002")])
+	off.call(Gl2, 0, 0)
+	Minibosses.on_spell_cast(Gl2, 0)
+	_ok.call(_coins(Gl2, 0) == 2, "RMB032 : le Lab desactive ne donne rien (total %d)" % _coins(Gl2, 0))
+	# Fetid Beast desactivee : une salle Monster peut se poser a cote
+	var b := _player(0, "BMA001", [_plain("A", "trap", [1], 1), _room("RMB025")], 0)
+	b["hand"] = [_plain("M", "monster", [2], 1)]
+	var Gb := _G([b, _player(1, "BMA002")])
+	_build_phase(Gb)
+	_ok.call(not BossEngine.can_build_room(b, Gb, 0, 0, 0), "RMB025 active : pas de Monster a cote")
+	off.call(Gb, 0, 1)
+	_ok.call(BossEngine.can_build_room(b, Gb, 0, 0, 0), "RMB025 desactivee : le Monster peut se poser a cote")
+	# Lightning Rod desactivee : pas de Coins a la mort du heros ; Paddywhack niveau 2 desactive : pas de Coin en plus
+	var rod := _room("RMB051")
+	var rp := _player(0, "BMA001", [rod], 0)
+	var Gr := _G([rp, _player(1, "BMA002")])
+	off.call(Gr, 0, 0)
+	RmbAbilities.on_hero_died(Gr, 0, rod)
+	_ok.call(_coins(Gr, 0) == 0, "RMB051 desactivee : aucun Coin a la mort du heros")
+	var pw := _with_mb(_plain("P"), "RMB060", 2)
+	var wp := _player(0, "BMA001", [pw], 0)
+	var Gw := _G([wp, _player(1, "BMA002")])
+	Minibosses.gain_coin(Gw, 0, 1, "test")
+	_ok.call(_coins(Gw, 0) == 2, "Paddywhack niveau 2 : +1 Coin en plus")
+	var wp2 := _player(0, "BMA001", [_with_mb(_plain("P"), "RMB060", 2)], 0)
+	var Gw2 := _G([wp2, _player(1, "BMA002")])
+	off.call(Gw2, 0, 0)
+	Minibosses.gain_coin(Gw2, 0, 1, "test")
+	_ok.call(_coins(Gw2, 0) == 1, "Paddywhack niveau 2 sur une salle desactivee : pas de Coin en plus")

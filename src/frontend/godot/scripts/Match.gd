@@ -264,8 +264,9 @@ func legal_moves(pid: int) -> Array:
 		out.append_array(_stack_response_moves(p, pid, stack.size()))
 		if TnlAbilities.active(G) or Minibosses.active(G): # Antimagic Zone (depuis la main), Dr. Timebender : annulations
 			out.append_array(TnlAbilities.stack_moves(G, p, pid))
-		if Minibosses.active(G): # Mageseeker niveau 2 : defausse un sort pour annuler un sort adverse
+		if Minibosses.active(G): # Mageseeker niveau 2 : defausse un sort pour annuler un sort adverse ; pouvoirs de miniboss / boss et Paywall en reponse
 			out.append_array(Minibosses.stack_moves(G, p, pid))
+			out.append_array(Minibosses.respond_moves(G, p, pid))
 		if ThkAbilities.active(G): # Tools of Hero-Kind : capacite de Boss d'un Objet (Ring of Invisibility annule un sort, Excavation peut etre contree)
 			out.append_array(ThkAbilities.use_moves(G, p, pid))
 		out.append({"type": "pass", "args": []})
@@ -719,7 +720,13 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 			else:
 				_advance_build()
 			return true
-		"promoteMiniboss", "activateMiniboss", "discardForCoin", "rmbBoss", "rmbHand", "rmbPay", "rmbCancel": # RMB (voir Minibosses.extra_moves / stack_moves)
+		"activateMiniboss", "rmbBoss", "rmbPay": # RMB : capacites activees = entrees de pile comme les salles (R-D67, Minibosses.make_entry)
+			if Minibosses.is_queued(G, Minibosses.move_key(G, pid, move)):
+				return false
+			_log("Joueur %d active une capacité RMB (%s)." % [pid, str(move["type"])])
+			_advance_targeting(Minibosses.make_entry(G, pid, move))
+			return true
+		"promoteMiniboss", "discardForCoin", "rmbHand", "rmbCancel": # RMB (voir Minibosses.extra_moves / stack_moves)
 			var in_battle2 := not (G.get("stack", []) as Array).is_empty()
 			var rerr = Minibosses.apply_move(G, pid, move)
 			if rerr != null:
@@ -1955,7 +1962,7 @@ const DEFERRED_CHOICES := ["uncover-room", "uncover-own-room"]
 
 ## Applique les cibles memorisees de `e` a `mt` : le moteur `mt` execute la capacite puis rejoue chaque choix. Renvoie null ou la raison de l'echec.
 func _exec_entry(mt: Match, e: Dictionary, queued: bool) -> Variant:
-	var err = RoomAbilities.run_queued(mt.G, e) if queued else RoomAbilities.start_queued(mt.G, e)
+	var err = Minibosses.run_entry(mt.G, e) if e.has("rmb") else (RoomAbilities.run_queued(mt.G, e) if queued else RoomAbilities.start_queued(mt.G, e))
 	if err != null:
 		return err
 	mt._replay = true

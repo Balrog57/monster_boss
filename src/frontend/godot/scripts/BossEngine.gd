@@ -138,7 +138,7 @@ static func can_build_room(player: Dictionary, G: Dictionary = {}, pid: int = -1
 		if int(player.get("buildsThisTurn", 0)) >= allowed:
 			return false
 		var visible := count_visible_rooms(dungeon)
-		if not G.is_empty() and Minibosses.active(G) and RmbAbilities.fetid_blocks(dungeon, card, target_index):
+		if not G.is_empty() and Minibosses.active(G) and RmbAbilities.fetid_blocks(dungeon, card, target_index, G, pid):
 			return false # RMB025 Fetid Beast : pas de salle Monster a cote
 		if not bool(card.get("advanced", false)):
 			# Salle ordinaire : en fin de donjon, ou PAR-DESSUS une pile existante (DungeonSlot.CheckRoomCanBeBuilt : pas de slot
