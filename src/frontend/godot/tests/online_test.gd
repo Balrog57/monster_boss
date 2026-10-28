@@ -357,6 +357,8 @@ func _run_network() -> void:
 	if _fails.is_empty():
 		await _scenario_deadline_window()
 	if _fails.is_empty():
+		_scenario_reveal_invariant()
+	if _fails.is_empty():
 		await _scenario_leave_and_lost()
 	if _fails.is_empty():
 		_scenario_profile_counts()
@@ -1002,6 +1004,51 @@ func _scenario_deadline_window() -> void:
 		room.tick()
 	_expect(not bool(room.seats[0]["auto"]), "timeout : auto apparu apres les ticks")
 	room.dispose()
+
+## Invariant APK (BuildPhase_b : RevealAllRoomCards avant BAIT / ADVENTURE) : jamais de salle face cachee, ni dans le moteur ni dans la vue d'un siege,
+## une fois la phase de construction close. Deux humains jouent au hasard (coups hors tour, sorts, DONE, depassements du delai, coupures de liaison).
+func _scenario_reveal_invariant() -> void:
+	for gs in 12:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 9100 + gs
+		var room := GameRoom.new("REV1", 2, [])
+		for i in 2:
+			room.seats[i].merge({"name": "H%d" % i, "taken": true, "token": "t%d" % i, "conn": 90 + i}, true)
+		room.bot_delay_ms = 0
+		room.start()
+		var steps := 0
+		while steps < 3000 and room.status == "running":
+			steps += 1
+			if rng.randi() % 25 == 0:
+				var q := rng.randi() % 2
+				if int(room.seats[q]["conn"]) >= 0:
+					room.seats[q]["conn"] = -1
+				else:
+					room.seats[q]["conn"] = 90 + q
+					room.resume(q, "t%d" % q, 90 + q)
+			var aw: Array = room._awaited()
+			if rng.randi() % 10 == 0 or aw.is_empty():
+				room.deadline_ms = GameRoom._now() - 1
+				room.tick()
+			else:
+				var pid: int = aw[rng.randi() % aw.size()] if rng.randi() % 3 else rng.randi() % 2
+				var mvs: Array = room.m.legal_moves(pid)
+				if mvs.is_empty():
+					continue
+				var mv = AI.pick_move(room.m, pid) if rng.randi() % 2 else mvs[rng.randi() % mvs.size()]
+				if mv != null:
+					room.submit_move(pid, mv)
+			var G: Dictionary = room.m.G
+			if str(G.get("phase", "")) in ["bait", "adventure"]:
+				for v in [G, ViewFilter.for_seat(G, 0), ViewFilter.for_seat(G, 1)]:
+					for pid in (v["players"] as Dictionary):
+						for st in ((v["players"] as Dictionary)[pid] as Dictionary).get("dungeon", []):
+							for r in st:
+								if r is Dictionary and bool(r.get("faceDown", false)):
+									_expect(false, "revelation : salle face cachee en phase %s (partie %d, pas %d, tour %s, joueur %s)" % [G["phase"], gs, steps, str(G.get("turn")), str(pid)])
+									room.dispose()
+									return
+		room.dispose()
 
 ## N-B11 / N-B08 : apres `leave` on peut creer une autre salle ; salle fermee / perdue en partie -> session_lost.
 func _scenario_leave_and_lost() -> void:
