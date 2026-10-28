@@ -18,8 +18,8 @@ Règles :
 | `boss-monster-2-2-6-android.apk` | APK Boss Monster 2.2.6 d'origine (SHA-256 `78592b48…2ffd`) | — |
 | `boss-monster-2-2-6/` | APK décompressé : `assets/Content/` (Audio, CardDecks, Common, Fonts, Loading, NinePatch, Tutorial, `EXPANSIONS.wpk`), `lib/`, `res/`, `classes.dex` | `tools/extract_apk_226.py` (WPK -> `src/frontend/assets/`), `tools/build_bmfonts.py` (polices), `tools/check_full_coverage.py` (rapport `decompiled/assets_full_coverage.md`) |
 | `extracted_assemblies/` | `DBMGame.dll`, `Mono.Android.dll`, … sortis de `libmonodroid_bundle_app.so` | `tools/extract_assemblies.py` |
-| `decompiled/` | C# décompilé (ilspycmd) : `DBMGame/` (560 `.cs`, 54 402 lignes, le jeu), `Wave/` (WaveEngine), 20 assemblages tiers ; `INDEX.md` ; `evidence/` (JSON REA) | `tools/build_decompiled_index.py`, `tools/build_reconstruction_payload.py` |
-| `apktool-decoded/` | `AndroidManifest.xml`, `res/` décodé, `smali/` (196 fichiers : `classes.dex` n'existe qu'en smali) | lecture seule |
+| `decompiled/` | C# décompilé (ilspycmd) : `DBMGame/` (560 `.cs`, 53 842 lignes dans l'arbre `decompiled/`, le jeu), `Wave/` (WaveEngine), 20 assemblages tiers ; `INDEX.md` ; `evidence/` (JSON REA) | `tools/build_decompiled_index.py`, `tools/build_reconstruction_payload.py` |
+| `apktool-decoded/` | `AndroidManifest.xml`, `res/` décodé, `smali/` (196 fichiers ; `classes.dex` : smali + pseudo-code Ghidra, pas de Java reconstitué) | lecture seule |
 
 L'oracle (`tools/apk-oracle/`, .NET, charge `DBMGame.dll`) est piloté par
 `python tools/parity/apk.py` : c'est la vraie mesure de parité des règles
@@ -43,14 +43,15 @@ Commandes d'extraction (depuis la racine du dépôt) :
   niveau, 4 930 déclarations retrouvées, 0 manquant**, 0 marqueur d'échec, mêmes 4 915 chemins que
   `decompiled/` (3 478 fichiers identiques, 1 437 différents entre ilspycmd 9.1 et 11.1 ; `decompiled/`
   n'a pas été modifié). Limite : une déclaration présente ne prouve pas que chaque corps de méthode
-  soit exact (29 fichiers gardent des `goto IL_`, aucun dans `DBMGame`). Détail par DLL :
+  soit exact (22 fichiers gardent des `goto IL_` et 29 des avertissements `//IL_`, 493 lignes, aucun dans `DBMGame`). Détail par DLL :
   `docs/audit-apk-2-2-6.md`, annexe de complétude. Le décompte de `DBMGame` y est 917 TypeDefs (918 ici,
-  pseudo-type `<Module>` compris, non revérifié).
-- Code Java : `classes.dex` n'existe qu'en smali (196 fichiers) ; aucun autre code dans l'APK que
-  `classes.dex` et les 4 `.so` ARM32.
+  pseudo-type `<Module>` compris, vérifié).
+- Code Java : `classes.dex` en smali (196 fichiers) et en pseudo-code Ghidra ; aucun autre code CPU dans
+  l'APK que `classes.dex` et les 4 `.so` ARM32 (les WPK contiennent des shaders, §5).
 - Code natif (`lib/armeabi-v7a/`, Ghidra 12) : `libmonodroid.so` (285 fonctions), `libmonodroid_bundle_app.so`
   (3), `libopenal32.so` (733), `libmonosgen-2.0.so` (5 164) décompilées vers `native_decompiled/`
-  (local, ignoré par git) ; 0 instruction de `.text` hors fonction ; 0 échec de décompilation
+  (local, ignoré par git) ; 0 instruction de `.text` hors fonction selon Ghidra (non revérifiable) ; 0 échec de l'outil, mais 3 fonctions
+  de Mono tronquées et 87 tables de saut non récupérées (voir l'annexe du rapport)
   (2 fonctions de Mono reprises avec une limite de charge utile relevée). `classes.dex` : 1 152 méthodes
   avec code décompilées sur 1 152 (loader DEX de Ghidra), et 196 classes / 1 539 méthodes / 376 champs
   identiques en smali. `tools/extract_assemblies.py` n'existe plus : `extracted_assemblies/`
