@@ -211,6 +211,7 @@ func _t_levelup_kawnee() -> void:
 ## KSA002 Hellcow : RearrangeDungeon, tout le donjon d'un joueur, ordre = slots C# (Dungeon[0] = fond = index Godot le plus grand).
 func _t_levelup_hellcow() -> void:
 	var p0 := _player(0, "KSA002", [_room("A", "trap", [1]), _room("B", "trap", [1]), _room("C", "trap", [1])])
+	p0["isAI"] = true # l'IA et l'oracle choisissent eux-memes ; un siege humain est autoresolu (voir plus bas)
 	var G := _G([p0, _player(1, "BMA001")])
 	var c = RoomAbilities.process_level_up(G, 0)
 	_ok.call(c != null and str(c["type"]) == "rearrange-dungeon" and str(c["step"]) == "order" and (c["options"] as Array).size() == 3,
@@ -226,14 +227,65 @@ func _t_levelup_hellcow() -> void:
 	_ok.call(G["pendingChoice"].is_empty() and ids == ["C", "B", "A"], "KSA002 : A au fond, B, C a l'entree (obtenu %s)" % str(ids))
 	# Un adversaire ET soi-meme ciblables : choix du donjon d'abord.
 	var p2 := _player(0, "KSA002", [_room("A", "trap", [1]), _room("B", "trap", [1])])
+	p2["isAI"] = true
 	var p3 := _player(1, "BMA001", [_room("X", "trap", [1]), _room("Y", "trap", [1])])
 	var G2 := _G([p2, p3])
 	var c2 = RoomAbilities.process_level_up(G2, 0)
 	_ok.call(c2 != null and str(c2["step"]) == "dungeon" and (c2["options"] as Array).size() == 2, "KSA002 : choix du donjon (le sien ou celui d'un adversaire)")
-	# Une salle face cachee (en attente de revelation) rend le donjon non ciblable (RoomInDungeon : !PendingToBeBuilt).
-	(p3["dungeon"][0][0] as Dictionary)["faceDown"] = true
+	# Une salle en attente AVANT une salle visible (trou) : Target1.Count != DungeonSize, donjon non ciblable (RoomInDungeon : !PendingToBeBuilt).
+	(p3["dungeon"][1][0] as Dictionary)["faceDown"] = true
 	var c3 = RoomAbilities.process_level_up(G2, 0)
-	_ok.call(c3 != null and c3["step"] == "order", "KSA002 : donjon adverse avec salle en attente ignore")
+	_ok.call(c3 != null and c3["step"] == "order", "KSA002 : donjon adverse avec salle en attente avant une salle visible ignore")
+	# Salle en attente en FIN de donjon (nouvelle salle de ce tour) : DungeonSize l'ignore, les salles avant elle restent ciblables.
+	(p3["dungeon"][1][0] as Dictionary)["faceDown"] = false
+	(p3["dungeon"][0][0] as Dictionary)["faceDown"] = true
+	var c4 = RoomAbilities.process_level_up(G2, 0)
+	_ok.call(c4 != null and c4["step"] == "dungeon" and (c4["options"] as Array).size() == 2, "KSA002 : salle en attente en fin de donjon, le reste du donjon adverse est ciblable")
+	# Siege humain, un seul donjon ciblable : ComposedTargetProvider.TryToAutoresolve, les salles sont prises dans l'ordre de GetAvailableTargets (inverse du donjon).
+	var ph := _player(0, "KSA002", [_room("A", "trap", [1]), _room("B", "trap", [1]), _room("C", "trap", [1])])
+	var GH := _G([ph, _player(1, "BMA001")])
+	var hids: Array = []
+	_ok.call(RoomAbilities.process_level_up(GH, 0) == null, "KSA002 humain : un seul donjon ciblable, aucun choix")
+	for st in ph["dungeon"]:
+		hids.append(str(st[0]["id"]))
+	_ok.call(hids == ["C", "B", "A"], "KSA002 humain : donjon inverse par l'autoresolution (obtenu %s)" % str(hids))
+	m.queue_free()
+	_t_levelup_hellcow_pending()
+
+## X-M30 (GameBoard.RevealAllRoomCards:928-967) : EnqueueAbilityTransaction resout les cibles de Hellcow AU MOMENT du level-up, pendant la boucle sur Players. Un joueur
+## traite apres lui a encore son emplacement construit ce tour PendingToBeBuilt : DungeonSize l'ignore et RoomInDungeon (!PendingToBeBuilt) aussi.
+func _t_levelup_hellcow_pending() -> void:
+	var p0 := _player(0, "KSA002", [_room("A", "trap", [1]), _room("B", "trap", [1]), _room("C", "trap", [1]), _room("D", "trap", [1]), _room("E", "trap", [1])])
+	p0["isAI"] = true
+	(p0["dungeon"][0][0] as Dictionary)["faceDown"] = true # 5e emplacement C# construit ce tour : declenche le level-up
+	var p1 := _player(1, "BMA001", [_room("X", "trap", [1]), _room("Y", "trap", [1]), _room("Z", "trap", [1])])
+	(p1["dungeon"][0][0] as Dictionary)["faceDown"] = true # nouvelle salle de l'adversaire traite apres
+	var G := _G([p0, p1])
+	G["apkSeats"] = [0, 1]
+	var m := _match(G)
+	var lv: Dictionary = {}
+	for it in m._build_reveal_queue():
+		if str((it as Dictionary).get("kind", "")) == "levelup" and int(it["pid"]) == 0:
+			lv = it
+	_ok.call(not lv.is_empty() and ((lv.get("pend", {}) as Dictionary).get("1", []) as Array) == [0] and not (lv["pend"] as Dictionary).has("0"),
+		"KSA002 X-M30 : a l'instant du level-up, seul l'emplacement de l'adversaire traite apres est en attente (obtenu %s)" % str(lv.get("pend")))
+	var pend: Dictionary = lv.get("pend", {})
+	var c = RoomAbilities.process_level_up(G, 0, {}, pend)
+	_ok.call(c != null and c["step"] == "dungeon" and (c["options"] as Array).size() == 2, "KSA002 X-M30 : les deux donjons restent ciblables")
+	var c2 = RoomAbilities.rearrange_choice(G, 0, 1, [], pend)
+	var idxs: Array = []
+	for o in (c2["options"] as Array):
+		idxs.append(int((o as Dictionary)["roomIndex"]))
+	idxs.sort()
+	_ok.call(c2 != null and idxs == [1, 2], "KSA002 X-M30 : la salle en attente de l'adversaire n'est pas proposee (obtenu %s)" % str(idxs))
+	var cold = RoomAbilities.rearrange_choice(G, 0, 1, [], {})
+	_ok.call((cold["options"] as Array).size() == 3, "KSA002 sans instantane : tout est revele, 3 salles (ancien comportement de Godot)")
+	G["pendingChoice"] = c2
+	m._resolve_choice(0, 0) # Z (index Godot 2 = emplacement C# 0) d'abord ; Y est place d'office
+	var ids: Array = []
+	for st in p1["dungeon"]:
+		ids.append(str(st[0]["id"]))
+	_ok.call(ids == ["X", "Y", "Z"] or ids == ["X", "Z", "Y"], "KSA002 X-M30 : la salle en attente reste a sa place (obtenu %s)" % str(ids))
 	m.queue_free()
 
 func _option_of(choice: Dictionary, room_id: String) -> int:

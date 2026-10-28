@@ -38,21 +38,21 @@ Bilan des 1 194 lignes des modules 1 à 13, avec le dernier statut consigné dan
 | 2 | Audio | 32 | 21 | 7 | 1 | 3 | 0 | 0 |
 | 3 | Entrées | 24 | 10 | 4 | 3 | 3 | 0 | 4 |
 | 4 | UI / menus | 167 | 67 | 55 | 29 | 16 | 0 | 0 |
-| 5 | Règles (modèle) | 202 | 130 | 28 | 20 | 16 | 7 | 1 |
-| 6 | IA | 135 | 101 | 10 | 16 | 2 | 5 | 1 |
+| 5 | Règles (modèle) | 202 | 130 | 29 | 20 | 16 | 7 | 0 |
+| 6 | IA | 135 | 101 | 11 | 16 | 2 | 5 | 0 |
 | 7 | Plateau / scènes de jeu | 179 | 83 | 46 | 16 | 19 | 14 | 1 |
 | 8 | Tutoriel | 71 | 58 | 9 | 3 | 1 | 0 | 0 |
 | 9 | En ligne | 128 | 82 | 20 | 11 | 15 | 0 | 0 |
 | 10 | Dépendances Android | 51 | 42 | 2 | 3 | 4 | 0 | 0 |
 | 11 | Assets / rendu | 36 | 29 | 2 | 5 | 0 | 0 | 0 |
 | 12 | Export web / perf | 20 | 4 | 3 | 2 | 8 | 0 | 3 |
-| 13 | Couverture résiduelle | 128 | 100 | 16 | 5 | 6 | 0 | 1 |
-| | **Total** | **1 194** | **737** | **205** | **119** | **95** | **26** | **12** |
+| 13 | Couverture résiduelle | 128 | 100 | 17 | 5 | 6 | 0 | 0 |
+| | **Total** | **1 194** | **737** | **208** | **119** | **95** | **26** | **9** |
 
 \* Renvoyé : ligne qui dit « voir X » ; son statut est celui de la ligne X, comptée à part.
 
-- **Écarts ouverts (12)** : S-02 (Moyenne, web), I-03, I-04, I-10, I-22 (Basse, cible souris), R-E30 et IA-H70 (Moyenne), P-C14 (Moyenne), W-08 et W-14 (Moyenne), W-18 (Haute, « Partiel »), X-M30 (Moyenne, « à confirmer »). Aucun n'est classé Critique ; W-18 est la seule Haute encore ouverte.
-- **Sur 457 lignes avec écart relevé** (1 194 − 737 sans écart) : 205 corrigées, 119 acceptées (choix assumés ou cible souris/web), 95 classées conformes, 26 renvoyées, 12 ouvertes.
+- **Écarts ouverts (9)** : S-02 (Moyenne, web), I-03, I-04, I-10, I-22 (Basse, cible souris), P-C14 (Moyenne), W-08 et W-14 (Moyenne), W-18 (Haute, « Partiel »). Aucun n'est classé Critique ; W-18 est la seule Haute encore ouverte. R-E30, IA-H70 et X-M30 ont été fermés le 2026-10-28 (voir leurs lignes).
+- **Sur 457 lignes avec écart relevé** (1 194 − 737 sans écart) : 208 corrigées, 119 acceptées (choix assumés ou cible souris/web), 95 classées conformes, 26 renvoyées, 9 ouvertes.
 - **Extensions du wiki** (hors APK, donc sans référence décompilée) : TNL (The Next Level), CRL et RMB (Minibosses, 121 cartes : 100 Conforme, 20 Corrigé, 1 Non implémenté, Luz) ont chacune un audit carte par carte et leurs écarts corrigés (commits `0cb64cd`, `eedf159`, `ac554aa`, `edb9f22`, `0130d7b`, `f0cbf31`) ; elles ne comptent pas dans les 1 194 lignes.
 - **Côté décompilation** : l'APK de référence est extrait et décompilé à 100 % au niveau des types et des méthodes (27 DLL, 4 930 / 4 930 déclarations, 560 `.cs` pour `DBMGame` sans aucun avertissement ; 29 fichiers de bibliothèques avec avertissements ILSpy), plus `classes.dex` (1 152 méthodes avec code décompilées sur 1 152) et les 4 bibliothèques natives, 0 échec de l'outil mais environ 3 % de fonctions Mono au pseudo-code dégradé dont 3 tronquées (voir `docs/audit-apk-2-2-6.md`, annexe de complétude). Le portage ne couvre que `DBMGame` ; WaveEngine, Photon, Insights, billing et BCL sont remplacés par Godot ou supprimés (boutique, Insights), ce que les modules 9 à 12 consignent.
 - **Mesures relancées le 2026-10-28** (arbre de travail à `edb9f22` plus modifications non validées) : l'oracle `python tools/parity/apk.py` (`DBMGame.dll` d'origine, hors ligne) donne 6/6 (jeu de base, graines 1–3, 2–3 joueurs), 12/12 (jeu de base, graines 4–7, 2–4 joueurs) et 6/6 (jeu de base + PlayerChoice + HiddenHeros + ToolsHeroKind, graines 1–3, 2–3 joueurs), 0 erreur de script Godot, 0 carte non appariée. Ces traces comparent des parties entières mais en sautent des décisions (166, 435 et 162 décisions passées selon la série) : elles prouvent la parité sur les chemins joués, pas sur les 1 194 lignes. `python tools/run_godot_tests.py` : 19/19 suites OK (goldens, couverture, 14 soaks dont paquets APK, TNL, variantes 5–6 joueurs et extensions du wiki, en ligne, smoke UI) ; cela vérifie que le code actuel est cohérent avec ses propres références, pas la parité avec l'APK.
@@ -590,7 +590,7 @@ Sources : `DBMGameModel.Logic.Abilities.*` (Commands, Targets, Conditions, Lured
 | R-E27 | `RemovePendingTransactionsByTarget` : annule les transactions dont la cible a quitté le jeu (`GameBoard.cs:1351-1361`, appelée GB:606, 618, 743, 843) | pile | Non (vérifié absent) | M:1701-1740 | **Différent** | Vérifié : seul Counterspell marque `canceled`. Les sorts visant un héros (`heroId`) ratent sans dégât si le héros est parti. Les sorts visant par **indice** (`roomIndex`, `townIndex`, `soulIndex`) ne sont jamais annulés et frappent ce qui occupe l'indice. Rare : il faut deux sorts empilés sur la même zone. | Corrigé (Moyenne) |
 | R-E28 | Contre-sort (`CancelSpellAbility`, All-Seeing Eye) | pile | Oui | M:1728-1734, RA:237-251 | Oui | Le lot E citait les échecs s16-p4, s20-p2, s28-p3 ; contre-vérifié : ce sont une course de l'IA oracle et un remélange (R-O04), pas le contre-sort. 7 Counterspell joués, 0 écart. | Conforme (Basse) |
 | R-E29 | `OncePerTurn` : `IsEffectApplied` posé à `Run` (`Ability.cs:135`, `OncePerTurn.cs:12`) | pile | Oui | RA:139, RA:167, RA:180 | Oui | `usedThisTurn` est posé à l'exécution de la transaction, pas à la mise en file ; une transaction annulée ou qui échoue ne le consomme pas, et `Room.CanPlayerPlayAbility` (`RoomAbilities.is_queued`) interdit une 2e mise en file. | Corrigé (Moyenne) |
-| R-E30 | Autorésolution d'une cible unique (`TryToAutoresolve`) | pile | Partiel | ST:51 | Non vérifié | Lié à R-E11. | Partiel (Moyenne) |
+| R-E30 | Autorésolution d'une cible unique (`TryToAutoresolve`) | pile | Oui | ST:51, RA:1056-1085 | Oui | Seul appel : `PlayerInteractionBase.ResolveTarget:39`, gardé par `tryToAutoresolveTargets`, vrai pour `HumanPlayerInteraction.cs:48` et `RemotePlayerInteraction.cs:69` seulement (l'IA ne l'a pas). `SingleTargetProvider` (l.16-40) : pas d'interaction requise, ou `Count() <= TargetsAmount` ; `ComposedTargetProvider` (l.35-52) : un seul propriétaire ET `Count() <= TargetsAmount`. Revu tous les choix du moteur (`RoomAbilities`, `Minibosses`, `RmbAbilities`, `SpellEffects`, `TnlAbilities.ask`) : tous se résolvent déjà seuls à une option (sorts : le clic sur la carte joue direct quand un seul coup est légal, `BoardUI._play_from_hand`), et une mesure sur 63 traces d'oracle (graines 10-30, 2-4 joueurs) n'a trouvé aucun choix ouvert avec une seule option. Un seul trou : Hellcow (`BossDungeon`, un seul donjon candidat) gardait le choix d'ordre. L'APK prend alors les salles d'office dans l'ordre de `GetAvailableTargets` (`source.Reverse()`) et `RearrangeDungeon.Execute` INVERSE le donjon ; Godot le fait désormais pour un siège humain (`rearrange_choice`, `isAI` faux et `autoAI` vrai), pas pour l'IA ni le harnais (même distinction que X-M32, sinon les traces divergent). Cartes jamais distribuées (BMA033) et choix « may » des extensions du wiki (Alien Excavator, Mando, vote de The King) laissés tels quels : ce ne sont pas des cibles APK. Golden `_t_levelup_hellcow` (humain : donjon inversé d'office). | Corrigé (Moyenne) |
 | R-E31 | `OnAbilityApplyDone` (déclencheurs après sort) | pile | Oui | SE (`cast_spell`), M:1743-1752 | Non vérifié | | Conforme (Moyenne) |
 
 ### 5C — Cartes des 4 paquets APK (lot F)
@@ -707,7 +707,7 @@ Stats comparées par script entre les 4 `src/frontend/assets/data/*/data.json` (
 
 - Aucun écart Haute n'a été **reproduit** par une partie : ils viennent de la lecture du C# et du GDScript, contre-vérifiée à la main (R-D31, R-D46, R-F15, R-F21, R-F48). Un golden par écart serait la preuve suivante.
 - R-E10 et R-E16 : ≈ 40 Commands et ≈ 25 Targets non relues une par une ; couvertes seulement à travers les cartes de 5C.
-- R-E14 (Robobo et salles gelées), R-D47 (cible à 0 PV dans la fenêtre post-dégâts), R-E30, R-E31 : non tranchés.
+- R-E14 (Robobo et salles gelées), R-D47 (cible à 0 PV dans la fenêtre post-dégâts), R-E31 : non tranchés. R-E30 a été tranché depuis (Corrigé, 2026-10-28).
 - R-D14 : tri des défausses par `UniqueID` sans grep côté Godot.
 - Cartes jamais exercées par l'oracle : BMA053, BMA025 (activation), KSA001, KSA005 ; passifs KSA016 et KSA014 non isolés.
 - Les noms des 41 BMH : 3 images ouvertes seulement.
@@ -757,7 +757,7 @@ Accord = l'IA Godot, interrogée sur l'état exact de l'oracle juste avant chaqu
 | IA-O03 | Passer (rien à jouer) | décision | Oui | `AI.gd:49-117` | Oui | **1611/1611**. | — |
 | IA-O04 | Capacités éligibles (`AbilityCalculator.CheckXXX` non nul) et capacité tirée dans l'ensemble | décision | Oui | `ApkAI.gd:1297-1338`, `AI.gd:95-108` | Oui à 99,8 % | Éligibles : sorts 716/718, salles 859/859, « rien d'éligible » 51636/51648. Tirée dans l'ensemble : 1575/1577. Les écarts sont Giant Size (IA-H14), Motivation (IA-H17) et Princess in Peril (IA-H18). | Accepté (Basse) |
 | IA-O05 | Cibles déterministes des sorts et capacités activées (`SetSelectedTargets`) | décision | Oui | `ApkAI.gd` (`_chk_*`) | Oui | Sorts **590/590**, salles **734/734**. | — |
-| IA-O06 | Cibles déterministes des déclencheurs (`TriggerCalculator`) | décision | Oui | `ApkAI.gd:1405-1744` | Oui à 98 % | **993/1009**. Les 16 écarts sont Mimic Vault ×10 (IA-H68), Specter's Sanctum ×5 (IA-H69) et Zombie Prison ×1 (IA-H70). Tous dans les graines 10-40. | Corrigé (Moyenne) |
+| IA-O06 | Cibles déterministes des déclencheurs (`TriggerCalculator`) | décision | Oui | `ApkAI.gd:1405-1744` | Oui à 98 % | **993/1009**. Les 16 écarts sont Mimic Vault ×10 (IA-H68), Specter's Sanctum ×5 (IA-H69) et Zombie Prison ×1 (IA-H70, depuis établi comme artefact du harnais et compté non mesurable). Tous dans les graines 10-40. | Corrigé (Moyenne) |
 | IA-O07 | Cibles tirées au hasard (`Shuffle()`, `NextBool`) | décision | Oui | `ApkAI.gd` (`shuf`) | Non comparable | Accord attendu ≈ 1/n : sorts 79/126, salles 67/125, déclencheurs 124/301. Le tirage est fidèle (`Random.Next(1,100)` = `randi_range(1,99)`), seule la graine diffère. | — |
 | IA-O08 | Coups jouables selon les règles (`CanPlayerPlayAbility`, mesure de la légalité du moteur et non de l'IA) | moteur | Oui | `Match.gd` (`legal_moves`) | Oui à 99,8 % | 53134/53225. Deux motifs : (a) BuildPhase_a à 3-4 joueurs, à la bascule entre deux joueurs (`NextStep` non exécuté) : l'APK a déjà ouvert la fenêtre du joueur suivant, Godot pas encore (Freeze, Jeopardy, Princess, Motivation, Soul Harvest) ; (b) AdventurePhase_c : Boulder Ramp jouable côté APK seulement, et BMA053 Teleportation jouable côté Godot seulement. Non tranché : décalage de fenêtre du harnais ou vraie règle. Renvoi au module 5. | Accepté (Moyenne) |
 
@@ -894,7 +894,7 @@ Tables de valeurs comparées par script, chiffre par chiffre : les 9 tableaux et
 | IA-H67 | Exécution différée des capacités (`EnqueueAbilityTransaction` puis `NextStep`) | méthode | Oui | `Match.gd` | Partiel | Même cause que IA-G47 et R-D67 ; seul le harnais reproduit la course (`_held`). | Accepté (Basse) |
 | IA-H68 | Écart Mimic Vault, 10 cas (`TriggerCalculator.cs:290-303`) | cause | Oui | `Match.gd:1492`, `ApkAI.gd:1664` | Partiel | Cause démontrée : le C# fige la cible dans `EnqueueAbilityTransaction` (`GameBoard.cs:1329-1330`) avant de lever `PendingToBeBuilt` (`GameBoard.cs:950-952`). La salle qui vient d'être révélée ne compte donc pas encore dans les dégâts du donjon. Godot a déjà tout retourné (`Match.gd:1492`). s13-p4 seq 1352 : dégâts APK 7, Godot 8, donc Godot accepte un héros à 8 PV que l'APK écarte. | Corrigé (Moyenne) |
 | IA-H69 | Écart Specter's Sanctum, 5 cas à 4 joueurs | cause | Oui | `Match.gd:1477-1500`, `ApkAI.gd:1648` | Partiel | Cause démontrée : l'APK décide toutes les cibles à la révélation, avant tout effet ; Godot applique chaque déclencheur avant de calculer le suivant, et ordonne la file par XP au lieu de l'ordre des sièges (`GameBoard.cs:930`). s10-p4 seq 13 : Dark Laboratory de P1 a déjà changé le nombre de sorts en main quand Godot choisit. | Corrigé (Moyenne) |
-| IA-H70 | Écart Zombie Prison, 1 cas (s21-p4) | cause | Oui | `RoomAbilities.gd:439-446`, `ApkAI.gd:1171,1759-1795` | Non vérifié | Godot retombe sur l'option 0, alors que `_chk_039` donnerait une autre cible. Hypothèse : artefact de mesure (cible préréglée non retrouvée). | Accepté (Moyenne) |
+| IA-H70 | Écart Zombie Prison, 1 cas (s21-p4) | cause | Oui | `ApkParityTrace.gd` (`_ai_measure_choice`, `_ai_choice`), `ApkAI.gd:1759-1795` | Oui | Reproduit (`--seeds 21 --players 4 --ai-agreement`) : artefact du harnais, pas un écart de l'IA ni des règles. À s21-p4@518 l'oracle tire la capacité de Zombie Prison dans la fenêtre BuildPhase_a APRÈS le DONE ; Godot a déjà fermé la phase BUILD et est en aventure, donc `_ai_measure_choice` sort en « ability:phase » avant `AI.remember` : la cible préréglée (`sel`) est vide et `ApkAI.choose` retombe sur l'option 0 au choix @519. `_chk_039` retrouve bien le héros BMA078 quand `sel` existe (activateTarget 10/10). Correction du harnais : le choix est compté « target:presetNotMeasurable[Zombie Prison] » (non mesurable) au lieu d'un désaccord. Résultat : `target` s21-p4 23/23 (23/24 avant), aucun écart restant sur Zombie Prison. Règles et IA inchangées. | Corrigé (Moyenne) |
 | IA-H71 | Écart d'éligibilité Giant Size | cause | Oui | `ApkAI.gd:670-676` | Partiel | = IA-H14. | Accepté (Basse) |
 | IA-H72 | Écart Motivation (s30-p4) | cause | Oui | `ApkAI.gd:859-869` | Partiel | = IA-H17. | voir IA-H17 |
 | IA-H73 | Écart Princess in Peril (s26-p4) | cause | Non vérifié | `ApkAI.gd:871-895` | Non vérifié | = IA-H18 ; cause non établie sans exécution. | voir IA-H18 |
@@ -902,7 +902,7 @@ Tables de valeurs comparées par script, chiffre par chiffre : les 9 tableaux et
 
 ### Non vérifié (module 6)
 
-- IA-H18 / IA-H73 (Princess in Peril, s26-p4) et IA-H70 (Zombie Prison, s21-p4) : cause non établie.
+- IA-H18 / IA-H73 (Princess in Peril, s26-p4) : cause non établie. IA-H70 (Zombie Prison, s21-p4) a été établi depuis : artefact du harnais, corrigé (2026-10-28).
 - IA-O08 : les 91 écarts de légalité sont-ils un décalage de fenêtre du harnais ou une vraie règle ? Non tranché.
 - IA-H61 (tour de construction forcé) et IA-H56 (`CalculateCommandTargets`) : lus en surface.
 - `BossEngine.room_damage_with_modifiers` et `hero_hp` face à `DungeonSlot.GetTopRoomTotalDamage` et `Hero.CurrentHealth`, qui nourrissent les calculs d'appât : non relus.
@@ -1747,7 +1747,7 @@ Contrôle par script : sur les 560 classes C# de `apk-original/decompiled/DBMGam
 | X-M27 | `ComposedTargetProvider` (CleanEmptyValues, `GetAvailableTargets`, `TryToAutoresolve`) | classe | Oui (au cas par cas) | RA:404-447, RA:955-1005 | Partiel | `CheckConditions` (`Ability.cs:117-118`) exige au moins un propriétaire avec `Min` cartes : Godot refuse Dracolich si moins de 2 salles en main ou défausse vide (RA:411-415). | — |
 | X-M28 | `BossOwner` (35 occurrences : 15 bosses, sorts et salles de pioche) | cible | Oui (implicite : `player_id`) | RA:ensemble, SE:46-47 `_target_id` | Oui | Pour un sort, `GetOwnerPlayer(spell)` renvoie le `FromPlayer` de la transaction en attente (`GB:229-243`) : Godot passe `caster_id`. Oracle : 24 traces, 0 écart. | — |
 | X-M29 | `BossDungeon` (KSA002 Hellcow : `["False","5","Any","Any","Any"]`, `HasOnboardVisibleTargets=false`) | cible | Oui | RA:955-1005, M:974-989 (`rearrange-dungeon`) | Oui | Joueur `Any` = tous les donjons non éliminés ; Godot exige que TOUT le donjon soit ciblable (`_rearrangeable`, RA:987-996), équivalent à `Target1.Count == DungeonSize` (`RearrangeDungeon.cs`). Oracle 1× (1). | — |
-| X-M30 | `BossDungeon` / `RearrangeDungeon` : cibles calculées dans `RevealAllRoomCards` (`GB:928-967` ; `EnqueueAbilityTransaction` résout tout de suite, GB:1317-1331) | cas limite | Non vérifié | M:1455-1500 (`_build_reveal_queue` met `faceDown=false` pour tous avant tout level-up) | Non vérifié | À l'instant du level-up de Hellcow, l'APK exclut les emplacements encore en attente des joueurs traités après lui (`!slot.PendingToBeBuilt`) et compare à `DungeonSize` (dernier emplacement non en attente). Godot a déjà tout révélé. Seul un adversaire qui construit le même tour, joueur de rang plus bas, serait touché. Je n'ai ni reproduit ni mesuré. Fichiers [flux]. | Moyenne (à confirmer) |
+| X-M30 | `BossDungeon` / `RearrangeDungeon` : cibles calculées dans `RevealAllRoomCards` (`GB:928-967` ; `EnqueueAbilityTransaction` résout tout de suite, GB:1317-1331) | cas limite | Oui | M:1575-1625 (`_build_reveal_queue`, `_pending_slots`), RA:1056-1110 (`rearrange_choice`, `_rearrangeable`) | Oui | À l'instant du level-up de Hellcow, l'APK exclut les emplacements encore en attente des joueurs traités après lui (`!slot.PendingToBeBuilt`) et compare à `DungeonSize` (dernier emplacement non en attente). Godot a déjà tout révélé. Seul un adversaire qui construit le même tour, joueur de rang plus bas, serait touché. Corrigé le 2026-10-28 : `_build_reveal_queue` photographie les emplacements encore face cachés (`_pending_slots`) à l'instant où il met le level-up en file ; `process_level_up` et `rearrange_choice` reçoivent cet instantané (`pend`, recopié dans les choix suivants) et `_rearrangeable` reprend `DungeonSize` : dernier emplacement non en attente + 1, comparé aux cibles actives. Un emplacement en attente en fin de donjon n'en fait plus partie (les salles avant lui restent réordonnables, l'ordre ne touche que ces salles) ; un trou en attente avant une salle visible rend le donjon non ciblable (l'APK le propose puis lève « Dungeon size must be equal to selected rooms » : non porté, un plantage n'est pas une règle). Golden `_t_levelup_hellcow_pending` (adversaire de rang plus bas qui construit le même tour : sa salle en attente n'est pas proposée, 2 salles au lieu de 3, salle en attente intacte). Les traces d'oracle ne l'exercent pas (parité inchangée). Klonos qui copie Hellcow lit un instantané vide. | Corrigé (Moyenne) |
 | X-M31 | `HeroInThisRoom` (BMA017, BMA027, BMA028 ; paramètres `["Any","Owner"]` ignorés) | cible | Oui | RA:22-28 (`hero_is_in_room`), RA:306-316, RA:328-340 ; M:1948-1951 | Oui | C# : héros de l'`EntranceQueue` dont `InsideDungeonSlot` est le slot de la salle ; Godot : `adventure.playerId` et `roomIndex`. Oracle : BMA017 10× (4), BMA027 16× (12), BMA028 3× (3). Mort différée de Boulder Ramp : voir R-D46. | — |
 | X-M32 | `RoomInHand` — Dracolich Lair (`["True","2","Any","Any","Owner"]`) | cible | Oui | RA:404-426 | Partiel | Même condition d'usage (2 salles en main ET 1 en défausse). Écart d'interface : avec exactement 2 salles, l'APK autorésout (`enumerable.Count() <= TargetsAmount`) alors que Godot ouvre toujours un choix de paires, parfois à une seule option. Affichage du popup non vérifié en jeu. **6e :** voir la section « Lot 6e ». | Corrigé (6e) |
 | X-M33 | `RoomInHand` — Witch's Kitchen (`["False","1","Any","Monster","Owner"]`) + `BossOwner` | cible | Oui | RA:501-533 | Oui | `RoomType.ToString()` Monster/Trap ↔ `type == "monster"` : 35/35 types de salles APK recoupés. Une seule Monster : défausse automatique. | — |
@@ -1861,7 +1861,7 @@ Un second contrôle, qui cherche le nom de classe comme mot entier, a trouvé 11
 
 ### Non vérifié
 
-- X-M30 : Hellcow face à un adversaire dont des salles sont encore en attente au moment du level-up (lu des deux côtés, non reproduit).
+- X-M30 : Hellcow face à un adversaire dont des salles sont encore en attente au moment du level-up (corrigé le 2026-10-28, golden).
 - X-M06 : effet visuel de `CharacterOffset` (aucune capture comparée).
 - X-M32 : choix de paires de Dracolich quand il n'y a qu'une paire ; X-M22 : ordre réel des défausses à l'écran ; X-M55 : couverture de chaque TypeName (Godot est codé par carte).
 - X-P21 (fondu des compteurs), X-P35 (couleurs de trésor des boss), X-P38 (écran de choix de pioche de Haunted Library), X-P01 (fondu au changement de bordure), X-P26 (débordement du saut du héros).
@@ -1870,7 +1870,7 @@ Un second contrôle, qui cherche le nom de classe comme mot entier, a trouvé 11
 
 - **Classes couvertes** : 177 sur 177, en 128 lignes (13A : 60, 13B : 57, 13C : 11). Avec les modules 1 à 12, **les 560 classes du décompilé et les 5 fichiers non C# de `DBMGame/` sont audités** ; contrôle par mot entier refait le 2026-10-26 (0 classe manquante).
 - **Écarts** : 28 — Critique 0, Haute 0, Moyenne 12, Basse 16.
-  - Moyenne 13A : X-M04 (Kaw'nee et Rotten Ruins proposent « passer » quand l'APK résout seul), X-M06 (décalage propre à chaque boss absent), X-M22 (défausses non triées par numéro de carte : ordre des choix et égalités de l'IA), X-M30 (Hellcow et salles en attente, à confirmer), X-M58 (deuxième art des cartes en double jamais affiché en partie).
+  - Moyenne 13A : X-M04 (Kaw'nee et Rotten Ruins proposent « passer » quand l'APK résout seul), X-M06 (décalage propre à chaque boss absent), X-M22 (défausses non triées par numéro de carte : ordre des choix et égalités de l'IA), X-M30 (Hellcow et salles en attente, corrigé le 2026-10-28), X-M58 (deuxième art des cartes en double jamais affiché en partie).
   - Moyenne 13B : X-P02 (bordure étirée sur petites cartes), X-P03 (halo vert de la salle source absent, contredit P-A44), X-P06 (ombre de carte glissée absente, sprite `card_shadow` manquant), X-P09 (colonne de pile défilante absente), X-P17 (cœur de buff du héros absent, sprite `health_hero_buff_icon` manquant), X-P22 (panneau adverse à 3-4 joueurs), X-P48 (deux sprites manquants, quatre jamais lus).
 - **Correction d'un module précédent** : P-A44 (module 7) est marqué Oui alors que `card_border_green_glow` n'est lu par aucun script (X-P03) ; R-E29 (module 5) suppose à tort que `RoomAbilities.gd:180` couvre tous les échecs de capacité (X-M34, sans effet en jeu).
 - **Bloquants web** : aucun.
@@ -1914,7 +1914,7 @@ Validé par `python tools/run_godot_tests.py` (14/14) et l'oracle (6/6, 12/12, 6
 | R-E11 | Corrigé | `SpellTargeting._front_hero` : seul le premier héros de chaque entrée est ciblable (`EntranceQueue.Take(1)`), dans `enumerate_targets` et dans l'UI. |
 | R-F10, R-F14 | Corrigé | Assassin et Fear : par R-E11. |
 | R-F13 | Corrigé | Exhaustion : cibles par R-E11, mort différée par R-D46. |
-| R-E30 | Partiel | Autorésolution d'une cible unique faite pour KSA003 et KSA004 ; le reste n'est pas contrôlé. |
+| R-E30 | Corrigé | Revue de tous les choix du moteur : seul Hellcow (un seul donjon candidat, siège humain) gardait un choix ; l'APK inverse alors le donjon d'office (`RoomAbilities.rearrange_choice`). Les autres se résolvaient déjà seuls. Golden `_t_levelup_hellcow`. |
 | R-F53 | Corrigé | Torture Chamber détruit la salle activée (`room_index` transmis). Golden ajouté. |
 | R-F36 | Corrigé | Monster's Ballroom ignore les salles gelées (`slot.IsActive`). Golden ajouté. |
 | R-F23 | Corrigé | Trepidation compte `CardDB.total_souls` (âmes passives comprises, comme `Boss.Souls`). Golden ajouté. |
@@ -1943,7 +1943,7 @@ Validé par `python tools/run_godot_tests.py` (14/14) et l'oracle (6/6, 12/12, 6
 | IA-G47 | Ouvert | L'oracle enregistre la décision d'avant la capacité : rien ne la mesure. |
 | IA-H17 | Ouvert | Une seule trace (s30-p4 seq 306) ; lecture de `MaxBuildRoomLimit` à poursuivre. |
 | IA-H23 | Ouvert | T.P.K. : dépend des cibles proposées par le moteur (décision de produit). |
-| IA-H70 | Ouvert | Le seul écart restant (s21-p4@519) est une égalité du harnais, probablement un artefact de mesure. |
+| IA-H70 | Corrigé | Artefact du harnais (cible préréglée non mémorisée quand Godot a déjà fermé la phase BUILD) : le choix est compté non mesurable, `ApkParityTrace.gd`. |
 
 ## Lot 2 : plateau (2026-10-27)
 
@@ -2044,7 +2044,7 @@ Validé par `python tools/run_godot_tests.py` (14/14) ; oracle 6/6, 12/12, 6/6 ;
 | IA-G47 | Corrigé (non mesurable) | La salle est choisie sur l'état d'avant la capacité, puis rejouée après elle si elle est toujours en main dans la même fenêtre. L'oracle ne mesure pas ce cas. |
 | IA-H23 | Corrigé | T.P.K. : tout siège IA peut viser n'importe quel boss (l'APK retient le premier de `InGamePlayersPriorized`) ; un humain n'a toujours que lui-même. |
 | R-E29 | Corrigé | `usedThisTurn` posé à l'exécution de la transaction (R-D67). |
-| IA-H70 | Ouvert (accepté) | Égalité du harnais isolée (s21-p4@519), probablement un artefact de mesure. |
+| IA-H70 | Corrigé | Artefact du harnais établi (s21-p4@519) : la capacité tirée par l'oracle après le DONE n'est pas mesurable côté Godot ; compté « presetNotMeasurable ». |
 
 ## Restes du lot 2, plateau (2026-10-27)
 

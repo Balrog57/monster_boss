@@ -1038,7 +1038,7 @@ func _resolve_choice_body(pid: int, index: int) -> void:
 				var picked: Array = (pc.get("picked", []) as Array).duplicate()
 				if str(pc.get("step", "")) == "order":
 					picked.append(int(ro.get("roomIndex", -1)))
-				var more = RoomAbilities.rearrange_choice(G, int(pc.get("playerId", pid)), target_pid, picked)
+				var more = RoomAbilities.rearrange_choice(G, int(pc.get("playerId", pid)), target_pid, picked, pc.get("pend", {}) as Dictionary)
 				if more != null:
 					G["pendingChoice"] = more
 					state_changed.emit()
@@ -1554,7 +1554,7 @@ func _reveal_and_level_up() -> bool:
 			"another":
 				RoomAbilities.run_another_room_trigger(G, pid, it["room"])
 			"levelup":
-				choice = RoomAbilities.process_level_up(G, pid)
+				choice = RoomAbilities.process_level_up(G, pid, {}, it.get("pend", {}) as Dictionary)
 		if choice != null:
 			if not (it.get("pre", {}) as Dictionary).is_empty():
 				choice["apkPre"] = it["pre"]
@@ -1562,6 +1562,20 @@ func _reveal_and_level_up() -> bool:
 			return true
 	G.erase("revealQueue")
 	return false
+
+## Emplacements dont la salle est encore face cachee (PendingToBeBuilt), par joueur : {str(pid): [index Godot]}.
+func _pending_slots() -> Dictionary:
+	var out := {}
+	for pid in G["players"]:
+		var dun: Array = (G["players"][pid] as Dictionary).get("dungeon", [])
+		var idx: Array = []
+		for si in dun.size():
+			var r = BossEngine.active_room(dun[si])
+			if r != null and bool((r as Dictionary).get("faceDown", false)):
+				idx.append(si)
+		if not idx.is_empty():
+			out[str(pid)] = idx
+	return out
 
 ## GameBoard.RevealAllRoomCards : par joueur (PlayerId croissant) et par slot en attente, retourne la salle et met en file
 ## ses declencheurs (WhenYouBuildThisRoom, WhenYouBuildAnotherRoom, level-up au 5e slot). EnqueueAbilityTransaction insere
@@ -1592,7 +1606,7 @@ func _build_reveal_queue() -> Array:
 			if dun.size() >= 5 and not bool((BossEngine.active_room(dun[0]) as Dictionary).get("faceDown", false)) and not p.get("leveledUp", false):
 				p["leveledUp"] = true
 				_log("Joueur %s EST MONTÉ EN NIVEAU !" % str(pid))
-				mine.append({"pid": int(pid), "kind": "levelup"})
+				mine.append({"pid": int(pid), "kind": "levelup", "pend": _pending_slots()}) # EnqueueAbilityTransaction resout les cibles ici : les joueurs traites apres ont encore des emplacements en attente (X-M30)
 		mine.reverse()
 		by_pid[pid] = mine
 	for pid in order:

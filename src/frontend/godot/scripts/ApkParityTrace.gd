@@ -1496,11 +1496,14 @@ var _ai: Dictionary = {}
 var _ai_by: Dictionary = {}
 var _ai_unav: Dictionary = {}
 var _ai_mut := 0
+## Joueurs dont l'oracle a tire une capacite dans une fenetre que Godot a deja fusionnee (BuildPhase_a oracle, aventure Godot) : ses cibles preregles ne sont pas mesurables (IA-H70).
+var _ai_nosel: Dictionary = {}
 
 
 func _ai_init() -> void:
 	var args := OS.get_cmdline_user_args()
 	_ai_on = args.has("--ai-agreement")
+	_ai_nosel.clear()
 	AI._sel.clear() # abilitySelected / listes memorisees d'une partie precedente
 	AI._memo.clear()
 	ApkAI.copy_trap_bug = args.has("--ai-copy-trap-bug") # diagnostic : l'oracle joue Giant Size sur une salle Trap (CheckBMA040And047, l.844-847)
@@ -1774,6 +1777,7 @@ func _ai_measure_choice(rec: Dictionary) -> void:
 	var pid := int(rec["player"]) - 1
 	var s := {"seq": int(rec["afterSeq"]), "turn": int(rec["turn"]), "phase": str(rec["phase"])}
 	var stack: Array = G.get("stack", [])
+	_ai_nosel.erase(pid)
 	if not (G["players"] as Dictionary).has(pid) or not (G.get("pendingChoice", {}) as Dictionary).is_empty() or G.get("gameOver") != null:
 		_ai_unavail("ability:%s" % ("pendingChoice" if not (G.get("pendingChoice", {}) as Dictionary).is_empty() else ("over" if G.get("gameOver") != null else "player")))
 		return
@@ -1782,6 +1786,8 @@ func _ai_measure_choice(rec: Dictionary) -> void:
 		return
 	if str(G.get("phase", "")) != ("build" if str(rec["phase"]) == "BuildPhase_a" else "adventure") or maxi(0, int(G.get("turn", 0)) - 1) != int(rec["turn"]):
 		_ai_unavail("ability:phase:%s:%s:T%d/%d" % [str(rec["phase"]), str(G.get("phase", "")), maxi(0, int(G.get("turn", 0)) - 1), int(rec["turn"])])
+		if int(rec["chosen"]) >= 0 and str(rec["phase"]) == "BuildPhase_a" and str(G.get("phase", "")) == "adventure":
+			_ai_nosel[pid] = true # Godot a deja ferme la phase BUILD : ApkAI.abilities ne peut pas recalculer les cibles preregles de cette capacite
 		return
 	var h := hash(G)
 	var rng_state := run.rng.state
@@ -1907,6 +1913,9 @@ func _ai_choice(pid: int, pc: Dictionary, pick: int, s: Dictionary, type: String
 	var opts: Array = pc.get("options", [])
 	if pick >= opts.size() or (pick < 0 and type != "target"):
 		_ai_unavail(type)
+		return
+	if type == "target" and _ai_nosel.get(pid, false) and ApkAI.TR_ACTIVATED.has(str(pc.get("bossName", ""))) and (AI._sel.get(AI._key(run, pid), {}) as Dictionary).is_empty():
+		_ai_unavail("target:presetNotMeasurable[%s]" % str(pc.get("bossName", ""))) # IA-H70 : cible preregle absente faute de fenetre mesurable, pas un ecart de l'IA
 		return
 	var h := hash(run.G)
 	var rng_state := run.rng.state

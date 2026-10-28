@@ -973,7 +973,8 @@ static func heroes_without_item(G: Dictionary) -> Array:
 ## --- Level up des boss (roomAbilities.js:processLevelUp) ---
 ## Declenche a 5 salles visibles. Renvoie un choix a resoudre, ou null.
 
-static func process_level_up(G: Dictionary, player_id: int, boss_override: Dictionary = {}) -> Variant:
+## `pend` = emplacements encore en attente de revelation a l'instant ou la transaction entre en file (Match._build_reveal_queue) : l'APK resout les cibles tout de suite (X-M30).
+static func process_level_up(G: Dictionary, player_id: int, boss_override: Dictionary = {}, pend: Dictionary = {}) -> Variant:
 	var p := _player(G, player_id)
 	if p.is_empty() or p.get("boss", null) == null:
 		return null
@@ -996,13 +997,13 @@ static func process_level_up(G: Dictionary, player_id: int, boss_override: Dicti
 	# Autres bosses (KSA / extensions) : LevelUpAbility de l'APK, lu dans cards.json (`levelUp`), pas par id de carte.
 	var lu = boss.get("levelUp")
 	if lu is Dictionary:
-		return _apk_level_up(G, player_id, p, lu as Dictionary)
+		return _apk_level_up(G, player_id, p, lu as Dictionary, pend)
 	return null
 
 ## Commandes de level-up du PlayerChoice. AddTreasuresToDungeon / LastRoomDealDamage / AddSoulsToBoss sont des effets PASSIFS
 ## (IPassive*Command, valables tant que Boss.IsLevelUpUnlocked) : lus par BossEngine.dungeon_treasures / room_damage_with_modifiers /
 ## CardDB.passive_souls, rien a executer ici. Les autres ouvrent un choix (`optional` = Ability.CanAvoid) ; aucune cible = capacite ignoree.
-static func _apk_level_up(G: Dictionary, player_id: int, p: Dictionary, lu: Dictionary) -> Variant:
+static func _apk_level_up(G: Dictionary, player_id: int, p: Dictionary, lu: Dictionary, pend: Dictionary = {}) -> Variant:
 	match str(lu.get("cmd", "")):
 		"MultiplyTreasuresDungeon": # KSA007 Elicon : tresors des salles x N jusqu'a la fin du tour (DungeonSlot.TreasuresMultiplier)
 			(_effects(G)["treasureDoubled"] as Array).append(player_id)
@@ -1043,7 +1044,7 @@ static func _apk_level_up(G: Dictionary, player_id: int, p: Dictionary, lu: Dict
 			return {"type": "steal-hero", "playerId": player_id, "optional": bool(lu.get("canAvoid", false)),
 				"bossName": "Kaw'nee", "message": "Kaw'nee: choose an ordinary Hero in an opponent's scorekeeping area", "options": opts}
 		"RearrangeDungeon": # KSA002 Hellcow : n'importe quel donjon, ordre des salles (toutes) au choix
-			return rearrange_choice(G, player_id, -1, [])
+			return rearrange_choice(G, player_id, -1, [], pend)
 		"CopyLevelUp": # CRL002 Klonos
 			return _klonos(G, player_id)
 		"UncoverOpponentRoom": # CRL003 Mando
@@ -1053,22 +1054,34 @@ static func _apk_level_up(G: Dictionary, player_id: int, p: Dictionary, lu: Dict
 
 ## KSA002 : etape 1 (target_pid < 0) = choisir le donjon ; ensuite on designe les salles dans l'ordre C# des slots (Dungeon[0] = fond =
 ## index Godot le plus grand). La derniere salle restante est placee d'office. Une seule salle / un seul donjon candidat = sans choix.
-static func rearrange_choice(G: Dictionary, player_id: int, target_pid: int, picked: Array) -> Variant:
+static func rearrange_choice(G: Dictionary, player_id: int, target_pid: int, picked: Array, pend: Dictionary = {}) -> Variant:
 	var players: Dictionary = G.get("players", {})
 	if target_pid < 0:
 		var opts: Array = []
 		for opid in players:
 			var d: Array = (players[opid] as Dictionary).get("dungeon", [])
-			if (players[opid] as Dictionary).get("eliminated", false) or _rearrangeable(G, int(opid)).is_empty():
+			if (players[opid] as Dictionary).get("eliminated", false) or _rearrangeable(G, int(opid), pend).is_empty():
 				continue
 			opts.append({"targetPlayerId": int(opid), "card": BossEngine.active_room(d[d.size() - 1]), "label": "Dungeon of player %d" % (int(opid) + 1)})
 		if opts.is_empty():
 			return null
 		if opts.size() == 1:
-			return rearrange_choice(G, player_id, int((opts[0] as Dictionary)["targetPlayerId"]), [])
-		return {"type": "rearrange-dungeon", "step": "dungeon", "playerId": player_id, "bossName": "Hellcow",
+			var only := int((opts[0] as Dictionary)["targetPlayerId"])
+			var seat := _player(G, player_id)
+			if not bool(seat.get("isAI", false)) and bool(G.get("autoAI", true)):
+				# PlayerInteractionBase.ResolveTarget:39 -> ComposedTargetProvider.TryToAutoresolve (un seul donjon, <= 5 salles) pour un siege humain : l'APK prend d'office
+				# les salles dans l'ordre de GetAvailableTargets (source.Reverse() = entree d'abord), donc RearrangeDungeon.Execute INVERSE le donjon. L'IA et l'oracle choisissent eux-memes.
+				var whole: Array = _rearrangeable(G, only, pend)
+				whole.reverse()
+				_apply_rearrange(G, only, whole)
+				return null
+			return rearrange_choice(G, player_id, only, [], pend)
+		var dpc := {"type": "rearrange-dungeon", "step": "dungeon", "playerId": player_id, "bossName": "Hellcow",
 			"message": "Hellcow: choose a dungeon to rearrange", "options": opts}
-	var rooms: Array = _rearrangeable(G, target_pid)
+		if not pend.is_empty():
+			dpc["pend"] = pend
+		return dpc
+	var rooms: Array = _rearrangeable(G, target_pid, pend)
 	var left: Array = []
 	for i in rooms:
 		if not picked.has(i):
@@ -1080,20 +1093,30 @@ static func rearrange_choice(G: Dictionary, player_id: int, target_pid: int, pic
 	var dungeon: Array = (players[target_pid] as Dictionary).get("dungeon", [])
 	for i in left:
 		opts2.append({"targetPlayerId": target_pid, "roomIndex": i, "card": BossEngine.active_room(dungeon[i])})
-	return {"type": "rearrange-dungeon", "step": "order", "playerId": player_id, "bossName": "Hellcow", "targetPlayerId": target_pid,
+	var opc := {"type": "rearrange-dungeon", "step": "order", "playerId": player_id, "bossName": "Hellcow", "targetPlayerId": target_pid,
 		"picked": picked, "message": "Hellcow: choose the Room that comes next from the back of the dungeon", "options": opts2}
+	if not pend.is_empty():
+		opc["pend"] = pend
+	return opc
 
 ## Slots ciblables par RoomInDungeon (actifs, non en attente de revelation, non geles) ; seul un donjon ENTIEREMENT ciblable peut etre
-## reordonne (RearrangeDungeon.Execute exige Target1.Count == DungeonSize). Renvoie les index Godot du fond vers l'entree.
-static func _rearrangeable(G: Dictionary, pid: int) -> Array:
+## reordonne (RearrangeDungeon.Execute exige Target1.Count == DungeonSize, ou DungeonSize = dernier emplacement NON en attente + 1 : un emplacement en attente a la fin
+## du donjon n'en fait pas partie, les salles qui le precedent restent donc reordonnables). Renvoie les index Godot du fond vers l'entree.
+## `pend` : emplacements encore en attente a l'instant du level-up (X-M30) ; une salle face cachee compte aussi comme en attente.
+static func _rearrangeable(G: Dictionary, pid: int, pend: Dictionary = {}) -> Array:
 	var d: Array = (G["players"][pid] as Dictionary).get("dungeon", [])
+	var waiting: Array = pend.get(str(pid), []) as Array
 	var out: Array = []
-	for i in range(d.size() - 1, -1, -1):
+	var size := 0
+	for k in d.size():
+		var i := d.size() - 1 - k # emplacement C# k = index Godot size-1-k
 		var r = BossEngine.active_room(d[i])
-		if r == null or bool((r as Dictionary).get("faceDown", false)) or BossEngine.is_room_deactivated(G, pid, i):
-			return []
-		out.append(i)
-	return out
+		if r == null or waiting.has(i) or bool((r as Dictionary).get("faceDown", false)):
+			continue
+		size = k + 1
+		if not BossEngine.is_room_deactivated(G, pid, i):
+			out.append(i)
+	return out if out.size() == size else []
 
 ## Dungeon[i] = piles dans l'ordre choisi (indices Godot, fond d'abord) : meme resultat que les echanges de RearrangeDungeon.Execute.
 static func _apply_rearrange(G: Dictionary, pid: int, order: Array) -> void:
