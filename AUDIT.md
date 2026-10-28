@@ -2609,3 +2609,103 @@ Tous les écarts de la section ci-dessus sont corrigés (statut `Corrigé (TNL)`
 - Statistiques des héros sans capacité : golden `hero_stats` compare PV, trésor, âmes, blessures, rang et classe de cards.json au JSON du wiki pour les 32 héros sans capacité (20 ordinaires, 12 épiques ; l'audit parlait de 24).
 
 Limites : le Mulligan TNL remet les sept cartes mais n'est proposé que si les cinq salles tirées sont mauvaises (les sorts n'ont pas de trésor) ; les variantes ne sont pas enregistrées dans le profil ; un client sans ce code ignore les jetons de variante.
+
+
+## CRL : audit carte par carte (2026-10-28)
+
+Lecture seule, aucun code de jeu modifié. Référence, dans l'ordre : texte de la carte (`assets/data/expansions/crash-landing.json`, tiré du wiki), livret officiel CRL (`docs/rules/rules.md` lignes 2288-2362 = `rules_crash_landing.pdf`), règles de mise en place et de mélange des paquets (lignes 2995-3050, 3187, 3427, 3526, 3643, 3744-3761), glossaire « Uncover » (lignes 3906-3908), arbitrages de `docs/rules/arbitrages-wiki.md` ; pour les mécaniques de base, l'APK déjà porté. Les FAQ de cartes (lignes 260-940) ne citent aucune carte CRL. Chaque ligne vient de la lecture du chemin de code, pas du nom ni des commentaires. Lancé : la suite `goldens` (2218 asserts, 0 échec) pour partir d'un état sain ; une sonde jetable (supprimée) a compté les héros d'une partie TNL / RMB + CRL (voir CRL-R06).
+
+Abréviations (dossier `src/frontend/godot/scripts/`) : RA = RoomAbilities.gd, TA = TnlAbilities.gd, BE = BossEngine.gd, M = Match.gd, SE = SpellEffects.gd, ST = SpellTargeting.gd, AW = AiWiki.gd, CD = CardDB.gd. Goldens : noms des fonctions `_t_*` de `tests/goldens_crl.gd` (sans le préfixe). IA : « auto » = effet sans décision, « poids » / « score » = `AI.gd` (`_score_choice` :234, `_score_spell` :265, `_score_activate_room`) ou `AiWiki.gd` note les options, « neutre » = aucune note (toutes les options valent 0, l'IA prend la première et ne passe jamais).
+
+Les textes imprimés des héros à capacité (The Prince, The King) sont ceux de `cards.json` (copiés du wiki, arbitrages-wiki.md) ; les dix Explorers n'ont aucun texte. Le wiki a répondu HTTP 402 aux audits précédents (`docs/reference/part2/2.1_crl.md`, dont presque tous les écarts ont depuis été corrigés : 5-6 joueurs, partage du leurre, Gundarf, Decoy Garden) ; il n'a pas été réessayé. Les 33 cartes de `cards.json` sont identiques à celles du JSON wiki (comparaison champ par champ : aucune différence).
+
+### Cartes (33)
+
+| Id | Carte | Texte (résumé) | Code | Golden | IA | Statut | Priorité |
+|---|---|---|---|---|---|---|---|
+| CRL001 | Imperiatrix | Level up : pour la partie, +1 à chaque salle de votre donjon par icône Explorer qu'elle porte | BE:487-491 (`RoomsDamagePerTreasure`, `room_treasures` : icônes gagnées jusqu'à la fin du tour comprises) ; cards.json `levelUp` ; passif, rien à exécuter (RA:1051) | boss_imperiatrix | auto | Conforme | — |
+| CRL002 | Klonos | Level up : choisit un autre boss, en garde le level up pour la partie (même si ce boss meurt) | RA:1518-1541 (`_klonos`, `copy_level_up` : copie dans `copiedLevelUps`, exécute l'effet tout de suite, un seul boss = automatique) ; BE:92-100 ; CD:262 ; M:996-999. Les joueurs éliminés sont exclus des choix (« another Boss » ne dit rien d'un boss éliminé : lecture prudente) | boss_klonos, boss_klonos_queues_choice | neutre (choix du boss : aucune règle écrite pour le départager) | Conforme | — |
+| CRL003 | Mando | Level up : peut remonter une salle couverte au sommet d'une pile du donjon de chaque adversaire | RA:1544-1562 (file `mandoQueue`, un choix facultatif par adversaire) ; M:991-995 -> RA:1408-1421 (`uncover_move_to_top`) : l'effet « uncover » de la salle remontée n'appelle que `RoomAbilities.on_uncover`, donc les salles TNL (Arcane Crypt, Sorcerobe School, Shrooman Cave, Spiked Pit) ne déclenchent rien alors que le glossaire dit « returned to the top of the Room card stack by another effect » ; aucun poids IA : l'IA remonte la première salle couverte de chaque adversaire (parfois une Crash Site ou une Darkling Lair qui sert son propriétaire) | boss_mando | neutre | Écart | Moyenne |
+| CRL004 | Alien Excavator | À la construction, peut remonter une de ses salles couvertes (uncover) | RA:653 (`_alien_excavator`), 1388-1394, 1408-1421 ; M:988-989 ; même défaut que Mando (effets TNL « uncover » ignorés) ; aucun poids IA : l'IA remonte la première salle couverte même si elle est plus faible que celle qu'elle recouvre | room_alien_excavator | neutre | Écart | Moyenne |
+| CRL005 | Alien Ooze | +1 s'il y a une autre salle au trésor Explorer (un boss n'est pas une salle) | BE:451-457 : ignore les salles gelées mais compte une salle encore face cachée (la boucle des voisines, BE:436, les ignore) | room_alien_ooze | auto | Écart | Basse |
+| CRL006 | Decoy Garden | À la construction, gagne Explorer*2 jusqu'à la fin du tour | RA:654-658 (`extraTreasures` + [5, 5], cumulatif si The Omega 42 le rejoue) ; BE:50-58 ; effacé au début du tour (M:1285) | room_decoy_garden, start_turn_clears_temporary_treasure | poids (AW:259) | Conforme | — |
+| CRL007 | Frostman Lander | Défaussée de la main : désactive une salle avancée de n'importe quel donjon jusqu'à la fin du tour | RA:1423-1447 (`hand_room_targets`, `use_hand_room`) ; M:330, 383, 691, 1664-1672 (BUILD et ADVENTURE) ; la désactivation est rangée par emplacement (`deactivatedRooms`, comme le gel de l'APK) : si Alien Excavator / Mando remonte ensuite une autre salle sur cet emplacement, la nouvelle salle du sommet hérite de la désactivation alors que le texte vise la carte désignée | room_frostman_lander | score (AI.gd:204-211) | Écart | Basse |
+| CRL008 | Invasion Swarm | Les salles adjacentes ont +1 | BE:446-447 (salles actives, ni gelées ni face cachées, texte non ignoré) | room_invasion_swarm | auto | Conforme | — |
+| CRL009 | Reactor Core | Les salles avancées de votre donjon ont +1 | BE:448-449 | room_reactor_core | auto | Conforme | — |
+| CRL010 | Digicron Library | À la construction, si au moins une autre salle avancée (elle comprise) : pioche 2 sorts | RA:659-666 (au moins 2 salles avancées visibles, elle comprise). Le texte se contredit lui-même (« at least one other [...] (including this one) ») : la lecture simple « au moins une autre avancée » est suivie | room_digicron_library | poids (AW:252) | Conforme | — |
+| CRL011 | Hypercube | Se bâtit sur n'importe quelle salle, quel que soit le trésor | BE:162-164 (Neanderthal Cave bloque avant, BE:158-160 ; une salle face cachée ne se couvre pas) | room_hypercube | score de pose (APK) | Conforme | — |
+| CRL012 | The Omega 42 | Une fois par tour, défausse une salle avancée pour rejouer un effet « build » ou « uncover » d'une salle de son donjon | RA:206, 265, 1450-1514 (choix de la salle, puis de la carte) ; M:1004-1009 ; cibles : `has_build_effect` / `has_uncover_effect` RA:1307-1316 = base, CRL, RMB, drapeaux `onBuild*` seulement : manquent les salles TNL (TNL016, 019, 024, 027, 029, 044 ; 036 et 052 passent par leurs drapeaux) et KSA010 Bone Crank ; en mode « uncover » (RA:1514) seul `RoomAbilities.on_uncover` est appelé, jamais `TnlAbilities.on_uncover` ; le rejeu d'une salle Monster fait aussi tirer Smoake (TA:460) alors que `rmbReplay` n'écarte que les boss RMB | room_omega_42, room_omega_42_choices | poids (AI.gd:252-262, 307) | Écart | Moyenne |
+| CRL013 | Crash Site | À la découverte, cherche une salle avancée dans la défausse et la prend en main | RA:1316, 1350, 1375-1386 (obligatoire, automatique s'il n'y a qu'une carte, choix sinon) | uncover_crash_site | poids (AW:253) | Conforme | — |
+| CRL014 | Caged Gundarf | À la découverte, ses dégâts sont doublés jusqu'à la fin du tour | RA:1351-1356 (`roomDamageBonus` = dégâts du moment, modificateurs compris) ; BE:465-468 ; le bonus est rangé par emplacement : une salle remontée ensuite sur ce même emplacement (Excavator, Mando, Omega) hérite du doublement alors que la carte doublée est couverte (règle des compteurs, rules.md:2973 : une salle couverte perd ses compteurs) | uncover_caged_gundarf, uncover_caged_gundarf_modifiers | poids (AW:260) | Écart | Basse |
+| CRL015 | Celestial Map | À la découverte, pioche 1 sort puis se détruit | RA:1357-1362 (la salle du dessous est découverte à son tour : cascade) | uncover_celestial_map | poids (AW:261) | Conforme | — |
+| CRL016 | Darkling Lair | À la découverte, 3 dégâts à un héros de votre donjon ou de votre entrée | RA:1363-1372 (choix s'il y a plusieurs héros) ; M:1000-1003 ; le héros actif est dans `entrance` (RA:1327) | uncover_darkling_lair | poids (AW:258) ; choix du héros neutre (tous les héros sont les siens) | Conforme | — |
+| CRL017 | The Prince | Attiré par le plus bas total Âmes - Blessures ; une fois devenu blessure ou âme, le propriétaire du donjon peut piocher 2 salles, 2 sorts ou un de chaque | BE:219-220 ; TA:1417-1423 (choix facultatif, poids) ; M:2352-2353 | heroes_prince_king | poids | Conforme | — |
+| CRL018 | Crash Dodgers | Explorer, 4 PV, 1 âme / blessure | cards.json (= JSON wiki) ; BE:`treasure_count` (trésor 5) | explorer_lure ; stats : aucune assertion | auto | Conforme | — |
+| CRL019 | Corbin Crickton | Explorer, 4 PV | idem | explorer_lure | auto | Conforme | — |
+| CRL020 | T'Matha | Explorer, 6 PV | idem | card_data (comptage) | auto | Conforme | — |
+| CRL021 | Lindo Callari | Explorer, 6 PV | idem | card_data (comptage) | auto | Conforme | — |
+| CRL022 | Doug O'Shibe, Ace Pilot | Explorer, 8 PV | idem | card_data (comptage) | auto | Conforme | — |
+| CRL023 | Guy the Redrobe | Explorer, 8 PV | idem | card_data (comptage) | auto | Conforme | — |
+| CRL024 | Andromeda James | Explorer épique, 11 PV, 2 âmes / blessures | idem | big_game_bait_split | auto | Conforme | — |
+| CRL025 | Morgan Fragman | Explorer épique, 11 PV | idem | card_data (comptage) | auto | Conforme | — |
+| CRL026 | Banzai Barb | Explorer épique, 13 PV | idem | card_data (comptage) | auto | Conforme | — |
+| CRL027 | Aliff | Explorer épique, 13 PV | idem | card_data (comptage) | auto | Conforme | — |
+| CRL028 | The King | Cleric épique 20 PV ; chaque joueur peut voter pour le donjon où il va (égalité : reste en ville) | BE:191-203 ; M:1462-1486 (`_king_vote`, un choix facultatif par joueur vivant) ; AW:236-247 ; jamais partagé à 5-6 joueurs (BE:`lure_split_targets`) | heroes_prince_king | poids | Conforme | — |
+| CRL029 | Finish Him! | Tue un héros à 2 PV ou moins ; OU, avec moins d'âmes que tout joueur, prend face cachée un héros qui a survécu au donjon d'un autre joueur ce tour | SE:463-490 ; ST:208-228 ; « kill » = PV à 0, il meurt dans la salle (glossaire, arbitrages-wiki.md) ; l'IA note 100 tout héros ciblable, y compris celui d'un adversaire (il meurt alors chez lui et lui donne l'âme) | spell_finish_him | score constant (AI.gd:274) | Écart | Basse |
+| CRL030 | Essence Transfer | +X PV à un héros dans le donjon d'un adversaire, X = vos blessures | SE:492-502 ; ST:229-238 (« in a dungeon » = l'entrée, comme les sorts de l'APK) ; l'IA note 90 sans regarder si le héros mourait de toute façon | spell_essence_transfer | score constant (AI.gd:276) | Écart | Basse |
+| CRL031 | Healing Tank | Si aucun héros n'a été attiré chez vous à la phase d'appât, soigne une blessure ordinaire | SE:504-523 ; ST:239-241 ; `luredThisTurn` M:1639, 1655 (catégorie 3 : seulement en ADVENTURE, donc après l'appât) | spell_healing_tank | poids (AI.gd:250) | Conforme | — |
+| CRL032 | Meteorite | Une salle de n'importe quel donjon gagne un trésor Explorer jusqu'à la fin du tour | SE:525-537 ; ST:25 | spell_meteorite, start_turn_clears_temporary_treasure | score (AI.gd:280-288) | Conforme | — |
+| CRL033 | Not Dead Yet | X dégâts à chaque héros de votre donjon ou entrée, X = vos blessures | SE:539-552 ; ST:242-244 ; un héros tombé à 0 meurt dans sa première salle | spell_not_dead_yet | score constant (AI.gd:289) : jouée même quand elle ne tue ni ne sert à rien | Écart | Basse |
+
+### Règles propres à CRL
+
+| Id | Règle (source) | Code | Golden | Statut | Priorité |
+|---|---|---|---|---|---|
+| CRL-R01 | Composition : 3 boss, 13 salles (23 exemplaires), 5 sorts (7), 12 héros (7 ordinaires + 5 épiques) | `cards.json` ; M:`new_match` | card_data, new_match_deck | Conforme | — |
+| CRL-R02 | Cinquième trésor, Alien Artifact / Explorer (livret p.1) | CD:17 (`TREASURE_NAMES`), BE:`treasure_count` ; BoardUI.gd:2468 (pas d'icône, compte affiché s'il y en a) | explorer_lure | Conforme | — |
+| CRL-R03 | « Uncover » : une salle est découverte quand celle du dessus est détruite ou remontée au sommet par un autre effet (livret p.1, glossaire) | BE:603-609 (destruction : base, CRL, TNL, RMB) ; RA:1408-1421 (remontée : base, CRL, RMB seulement, pas TNL) ; RA:1514 (Omega) | uncover_*, room_alien_excavator, boss_mando | Écart | Moyenne |
+| CRL-R04 | 5-6 joueurs avec CRL, avec un jeu de base complet (BMR, TNL ou RMB) : 25 + 7 ordinaires, 16 (BMR) ou 17 (TNL, RMB) + 5 épiques (lignes 3003-3050, 3643) ; les mini-extensions (THK, IOD) se combinent à tout jeu de base (lignes 3744-3761) ; trois Objets par tour à 5-6 (ligne 2859, « with or without CRL ») | M:18-34 (`BIG_GAME_SETS` = base, Hidden Heroes, Tools, CRL ; TNL, Minibosses, THK wiki, IOD refusés par `setup_error`, écartés par `new_match` :62-66) ; CD:20-21 (`HERO_COUNTS` 32 + 21 seulement) ; M:154-155 (contrôle 32 + 21) ; TA:628-640 (`limit_heroes` borné à 4 joueurs) ; Server.gd:336, OnlineMenus.gd:29, PROTOCOL.md:16 | big_game_setup (asserte le refus) | Écart | Moyenne |
+| CRL-R05 | Paquet de héros du jeu de base à 5-6 joueurs : 32 + 21 (BMR, Hidden Heroes), icônes de joueurs respectées, les 12 héros CRL tous là | M:91-121, 147-155 | big_game_setup | Conforme | — |
+| CRL-R06 | 2-4 joueurs avec CRL : le paquet de base de n joueurs, plus les 12 héros CRL (le livret ne retire que les icônes 3 / 4 joueurs) | M:91-121 (base) ; avec TNL ou RMB, `limit_heroes` (M:148-150, TA:632) coupe aussi les héros CRL : une sonde donne 4 + 1 héros CRL à 2 joueurs avec TNL (3 + 2 avec RMB), 6 + 3 à 4 joueurs, au lieu de 7 + 5 | crl_heroes_2_to_4 (base seulement) | Écart | Moyenne |
+| CRL-R07 | 5-6 joueurs : plus d'élimination à 5 blessures | M:2345, 2379 ; CD:29-31 ; ApkAI.gd:1252 | big_game_no_elimination | Conforme | — |
+| CRL-R08 | 5-6 joueurs : fin de partie à la fin du tour où un joueur a 10 âmes ou quand les pioches de héros ordinaires et épiques sont vides (des héros peuvent rester en ville) | M:2467-2493 (`_check_end_big_game`) | big_game_end_and_winner | Conforme | — |
+| CRL-R09 | 5-6 joueurs : gagnant = meilleur Âmes - Blessures de tous les joueurs ; égalité : l'XP la plus basse | M:2467-2515 (`_tie_break_players(.., true)`) ; le commentaire CD:24 (« départ à l'XP la plus basse ») est faux, c'est le départage | big_game_end_and_winner, tie_break_xp_direction | Conforme | — |
+| CRL-R10 | 5-6 joueurs : égalité de trésors = les héros du type sont partagés (autant que de joueurs à égalité, du plus ancien au plus haut XP, on recommence) ; sinon restent en ville | BE:238-290 (`lure_split_targets`) ; M:1637-1660 ; AW:75 | big_game_bait_split | Conforme | — |
+| CRL-R11 | 2-4 joueurs avec CRL : l'égalité laisse toujours le héros en ville (inchangé) | BE:`lure_target` ; M:`_resolve_bait` | big_game_bait_split (4 joueurs), explorer_lure | Conforme | — |
+| CRL-R12 | Un héros par joueur révélé à chaque tour, trois Objets par tour à 5-6 | M:1334-1360, ThkAbilities.gd:120-131 | big_game_setup | Conforme | — |
+| CRL-R13 | Sans Crash Landing, IOD retire les Objets Explorer et Banseer Bivan (lignes 2743, 2933) | M:72-74, 137 | iod `gating` | Conforme | — |
+| CRL-R14 | 2-4 joueurs avec CRL : fin « héros épuisés » reprise du livret mais gardée (aucun héros attiré ni à l'entrée) pour qu'un Explorer inattirable ne bloque pas la partie | M:2435-2446 (justifié dans le commentaire) | end_of_game_stuck_town, heroes_exhausted_end_not_in_apk_mode | Conforme | — |
+| CRL-R15 | 5-6 joueurs sans Crash Landing avec deux boîtes de base (ligne 3526 : « unofficial guidelines », variante Unlimited Lives, héros supplémentaires) | `setup_error` le refuse ; Unlimited Lives existe (Variants.gd) mais pas le paquet de héros du guide | — | Non implémenté | Basse |
+
+### Synthèse du lot CRL
+
+33 cartes : 24 Conforme, 9 Écart (3 Moyenne, 6 Basse), 0 Non implémenté, 0 Haute. Par type : 3 boss (2 Conforme, 1 Écart), 13 salles (8 Conforme, 5 Écart), 5 sorts (2 Conforme, 3 Écart), 12 héros (12 Conforme). Règles : 15 lignes, 11 Conforme, 3 Écart (Moyenne : CRL-R03, CRL-R04, CRL-R06), 1 Non implémenté (Basse : CRL-R15, hors CRL). Goldens : les 33 cartes apparaissent dans `goldens_crl.gd`, mais les dix Explorers et les statistiques de toutes les cartes ne sont que comptés (card_data) : aucun test table par table des PV, trésors, âmes, dégâts.
+
+Écarts Moyenne :
+
+- CRL003 Mando, CRL004 Alien Excavator, CRL-R03 : une salle remontée au sommet ne déclenche pas son effet « uncover » TNL (RA:1408-1421).
+- CRL012 The Omega 42 : ne propose pas les salles TNL ni Bone Crank, ne rejoue pas l'effet TNL en mode « uncover », fait tirer Smoake.
+- CRL-R04 : 5-6 joueurs refusés avec TNL, Minibosses, THK wiki, IOD alors que le livret les combine à CRL.
+- CRL-R06 : héros CRL coupés par `limit_heroes` en 2-4 joueurs avec TNL ou RMB.
+
+Écarts Basse :
+
+- CRL005 Alien Ooze compte une salle face cachée.
+- CRL007 Frostman Lander et CRL014 Caged Gundarf : l'état rangé par emplacement passe à la salle remontée par Excavator / Mando / Omega.
+- CRL029, CRL030, CRL033 : notes IA constantes (Finish Him! sert l'adversaire, Essence Transfer et Not Dead Yet jouées sans effet utile) ; Mando et Excavator sans poids.
+- CRL-R15 : 5-6 joueurs sans CRL (guide non officiel, hors règles de Crash Landing).
+
+Ordre de correction proposé, par thème :
+
+1. Paquets de héros : CRL-R06 (les héros CRL ne passent plus par `limit_heroes`), puis CRL-R04 (accepter TNL, Minibosses, THK wiki, IOD à 5-6 joueurs, 32 + 22 avec TNL / RMB).
+2. « Uncover » : CRL-R03 / CRL003 / CRL004 en un seul point partagé (`uncover_move_to_top`, Omega), Eclipse écarté (« when you destroy »), CRL012 (cibles TNL et Bone Crank, pas de Smoake au rejeu).
+3. États par emplacement : CRL007, CRL014 (effacés quand la salle de l'emplacement change par remontée), CRL005.
+4. IA : poids de CRL003, CRL004, CRL029, CRL030, CRL033.
+5. Golden table par table des statistiques CRL.
+
+Points non tranchés (aucun code changé) :
+
+- CRL010 Digicron Library : « at least one other Advanced Room [...] (including this one) » se contredit ; la lecture simple est gardée. Ce n'est pas un conflit entre le texte et le livret (le livret ne cite pas la carte).
+- CRL029 Finish Him! : « Kill » laisse le héros mourir dans sa prochaine salle (glossaire « The Room in which a Hero is reduced to zero Health [...] » et arbitrage déjà tranché).
+- CRL-R15 : le paragraphe de la ligne 3526 est un guide non officiel qui n'est pas une règle de Crash Landing ; ni l'APK, ni le livret, ni le wiki ne le définissent, donc rien à porter.
+- Non vérifié : les textes imprimés des cartes (scans), l'affichage à six sièges (ui_smoke seulement), le comportement en ligne à six joueurs au-delà d'`online_test`.
