@@ -2723,3 +2723,174 @@ Les 9 écarts de cartes et les 3 écarts de règles sont corrigés (statut `Corr
 - CRL003, CRL004, CRL029, CRL030, CRL033 (IA) : poids de la remontée (AI.gd:250, AiWiki.gd:267 `uncover_value`) ; Finish Him! ne tue plus un héros adverse, sert le sien qui atteindrait le boss (AI.gd:276) ; Essence Transfer seulement si les PV font survivre un héros adverse (AI.gd:282) ; Not Dead Yet seulement si X dégâts tuent un de mes héros qui atteindrait le boss (AI.gd:297) ; aides AiWiki.gd:249-266. Golden `ai_crl_weights`.
 - Commentaires faux corrigés (CardDB.gd:24, ThkAbilities.gd:125).
 - Statistiques des 33 cartes : golden table par table `card_stats` (valeurs attendues écrites dans le test et comparées champ par champ au JSON du wiki).
+
+## RMB : audit carte par carte (2026-10-28)
+
+Audit en lecture seule ; les corrections sont dans la section « RMB : corrections » ci-dessous. Référence, dans l'ordre : texte de la carte (`assets/data/expansions/minibosses.json`, tiré du wiki), manuel commun TNL / RMB (`docs/rules/rules.md`, section « Minibosses » ligne 1600, mise en place 3055-3070, variantes 3477, pile lignes 21 et 131), arbitrages de `docs/rules/arbitrages-wiki.md` ; pour les mécaniques de base, l'APK déjà porté. Les statistiques des 121 cartes sont comparées champ par champ au JSON du wiki par le golden `rmb_card_stats` ; les heros n'ont aucun texte dans le JSON (sauf les cinq dont la capacité est codée d'après une paraphrase du wiki).
+
+Abréviations (dossier `src/frontend/godot/scripts/`) : MB = Minibosses.gd, RB = RmbAbilities.gd, RS = RmbSpells.gd, BE = BossEngine.gd, TA = TnlAbilities.gd, M = Match.gd, RA = RoomAbilities.gd, SE = SpellEffects.gd, ST = SpellTargeting.gd, CD = CardDB.gd. Goldens : noms des fonctions `_t_*` de `tests/goldens_rmb.gd` (sans le préfixe). IA : « poids / score » = `AI.gd` / `AiWiki.gd` note les options, « auto » = effet sans décision, « neutre » = aucune note (l'IA prend la première option). Les références de code sont celles de la lecture de chaque chemin, les numéros de ligne datent de l'audit.
+
+### Cartes (121)
+
+| Id | Carte | Texte (résumé) | Code | Golden | IA | Statut | Priorité |
+|---|---|---|---|---|---|---|---|
+| RMB001 | Gregore | Level up : For the rest of the game, once per turn gain (c) when you kill a hero. | M:2334, RB:180, RA:983 | boss_coin_triggers, boss_flags_and_klonos | neutre | Conforme | — |
+| RMB002 | Calabeza | Level up : For the rest of the game, once per turn you may discard a Monster Room to promote a Miniboss instead of paying (c). | MB:360 | boss_flags_and_klonos, calabeza_promote, promote | neutre | Conforme | — |
+| RMB003 | Belladonna | Level up : For the rest of the game, once per turn you may pay (c)(c) to force an opponent to discard a randon Spell card. | RB:487, RB:546 | boss_active_powers, boss_flags_and_klonos | neutre | Conforme | — |
+| RMB004 | Lamia | Level up : For the rest of the game, gain (c) whenever you build a Monster Room. | RB:222 | boss_coin_triggers, boss_flags_and_klonos, spells_rooms | neutre | Conforme | — |
+| RMB005 | King Croak | Level up : For the rest of the game, Minibosses that you build start on Level 2. | MB:155 | boss_flags_and_klonos, reveal_and_discard | neutre | Conforme | — |
+| RMB006 | Ravenus | Level up : For the rest of the game, once per turn you may pay (c)(c) to double the damage value of a Monster Room. | RB:489, RB:548 | boss_active_powers, boss_flags_and_klonos | neutre | Conforme | — |
+| RMB007 | Baron Hex | Level up : For the rest of the game, gain (c) whenever you cast a Spell. | MB:691 | boss_coin_triggers, boss_flags_and_klonos | neutre | Conforme | — |
+| RMB008 | Oculus | Level up : For the rest of the game, draw a Spell when a Hero dies in a room with a Miniboss. | MB:656 | boss_coin_triggers, boss_flags_and_klonos | neutre | Conforme | — |
+| RMB009 | Kazanna | Level up : For the rest of the game, once per turn you may pay (c)(c) to draw a Spell card. | RB:491, RB:550 | boss_active_powers, boss_flags_and_klonos | neutre | Conforme | — |
+| RMB010 | Dr. Deadly | Level up : For the rest of the game, gain (c) whenever you build a Trap Room. | RB:224 | boss_coin_triggers, boss_flags_and_klonos | neutre | Conforme | — |
+| RMB011 | Scott | Level up : For the rest of the game, your Trap Rooms have +1. Any opponents may give you (c) to cancel this ability until the end of your turn. | BoardUI.gd:3632, MB:245, RB:505, RB:506 | boss_flags_and_klonos, boss_oculus_croak_scott, fix_sabotage_cuts_miniboss_text | neutre | Conforme | — |
+| RMB012 | Kirax | Level up : For the rest of the game, once per turn you may pay (c)(c) to add one of any treasure type to any player's dungeon | BE:82, RB:493, RB:552, RA:983 ; écart : « any treasure type » : Explorer manquait avec CRL (RB:681 `[1, 2, 3, 4]`) | boss_active_powers, boss_flags_and_klonos | neutre | Écart | Basse |
+| RMB013 | Spectral Bomb | You may destroy this Room to force an opponent to discard a random Spell card. | RB:336, RB:403 | rooms_destroy_for_coins, rooms_triggers | neutre | Conforme | — |
+| RMB014 | Monster Academy | When you build or uncover this Room, gain (c) (c) for every miniboss you reveal from your hand. | RB:267 | rooms_build_effects, rooms_uncover_effects | neutre | Conforme | — |
+| RMB015 | Ancient Guardtower | When you build this Room, choose one opponent. Once this turn you may give them (c) to take one random Spell card from them. | RB:274, RB:339 ; écart : `randi()` global pour le sort pris au hasard (RB:414) : tirage non reproductible, hors du générateur du moteur | rooms_build_effects, rooms_uncover_effects | neutre | Écart | Basse |
+| RMB016 | Tomb of Terrors | You may discard this from your hand to draw a room or spell card from the Discard pile. | RB:514, RB:573 | fix_draculad_no_miniboss, fix_tomb_no_miniboss, rooms_hand_abilities | neutre | Conforme | — |
+| RMB017 | Imp Hoard | Once per turn when an opponent discards a card, you may put it in your hand. | M:878, MB:725, RA:381, RA:525 | rooms_triggers | neutre | Conforme | — |
+| RMB018 | Vampire Lab | When you build or uncover this Room, you may discard a Miniboss to heal a Wound. | RB:279 | rooms_build_effects, rooms_uncover_effects | neutre | Conforme | — |
+| RMB019 | Haunted Cavern | Once per turn, You may pay (c) and choose a hero at the entrance to your dungeon. It cannot enter your dungeon until next turn. | M:789, M:2115, RB:344, RB:418 | rooms_paywall_cavern_guardtower, stack_probe_identity | neutre | Conforme | — |
+| RMB020 | Minion Clinic | When you build this Room, place up to three (c) on it. For each (c) you place, choose one card from the discard pile and put it in your hand. This Room has -1 for every (c) on it. | RB:140, RB:282 ; écart : Coins posés sur la salle invisibles à l'écran (DungeonSlot.gd:123) | rooms_build_effects, rooms_uncover_effects | neutre | Écart | Basse |
+| RMB021 | Robber's Vault | When you build this room, exchange your Hoard with another player's, even if you have no coins. | RB:285 | rooms_build_effects, rooms_uncover_effects | neutre | Conforme | — |
+| RMB022 | Minotaur Catacombs | Destroy this Room to return a Hero in it to the beginning of your Dungeon. | RB:347, RB:422 | rooms_destroy_for_coins | neutre | Conforme | — |
+| RMB023 | Goblin Market | Whenever you build a Room next to this Room, gain (c)(c). | RB:244 | rooms_passive_damage | neutre | Conforme | — |
+| RMB024 | Power Leech | If the Room to the right of this is a Monster Room, give that room +2. | RB:130 | rooms_passive_damage | neutre | Conforme | — |
+| RMB025 | Fetid Beast | Monster Rooms may not be built adjacent to this room. (But this Room may be built adjacent to other Monster Rooms.) | BE:142, RB:108, RB:110 | rooms_passive_damage | neutre | Conforme | — |
+| RMB026 | Training Camp | Once per turn, you may discard a Miniboss to double the damage of one of your Monster Rooms until end of turn. | RB:350, RB:425 | rooms_discard_and_coin_costs | neutre | Conforme | — |
+| RMB027 | Shrooman Aviary | You may discard this from your hand to give one hero +3 until end of turn. | RB:517, RB:579 | rooms_hand_abilities | neutre | Conforme | — |
+| RMB028 | Dragon's Nest | When you build or uncover this Room, until end of turn, give every other Monster Room in your dungeon +1 for every treasure icon that room has. | RB:292 | rooms_build_effects, rooms_uncover_effects | neutre | Conforme | — |
+| RMB029 | Doppelganger Hive | This room has +1 for every Hero that was lured to your dungeon this turn. | RB:134 | rooms_passive_damage | neutre | Conforme | — |
+| RMB030 | Foyer Elemental | Once per turn when a Hero survives this Room, gain (c) (c). | RB:190 | rooms_hero_dependent | neutre | Conforme | — |
+| RMB031 | Mysterious Portal | When you build or uncover this Room, you may discard a Miniboss to draw a Spell card. | RB:298 | rooms_build_effects, rooms_uncover_effects | neutre | Conforme | — |
+| RMB032 | Alchemist's Lab | Once per turn, when you cast a Spell, gain (c) (c). (Cancelled spells are not cast.) | MB:695 | boss_coin_triggers | neutre | Conforme | — |
+| RMB033 | Black Market | Once per turn, when a Room in any dungeon is destroyed, pay (c) to draw a spell card. | RB:163 | rooms_triggers | neutre | Conforme | — |
+| RMB034 | Mind Thresher | Once per turn if a Hero dies in this Room, you may remove that Hero from the game to draw two Spell cards. | RB:200, RB:698 | fix_build_slot_shift, fix_mind_thresher_once, rooms_hero_dependent | neutre | Conforme | — |
+| RMB035 | Cursed Well | You may discard this from your hand to draw a Spell card or gain (c) (c). | RB:520, RB:584 | rooms_hand_abilities | neutre | Conforme | — |
+| RMB036 | Loot Box | When you build this Room, pay (c)(c) and draw two Spell cards. | RB:301 | rooms_build_effects, rooms_uncover_effects | neutre | Conforme | — |
+| RMB037 | Crystal Ballroom | When you build this Room, place up to three (c) on it. For each (c) you place, draw one Spell card. This Room has -1 for every (c) on it. | RB:140, RB:304 ; écart : Coins posés sur la salle invisibles à l'écran (DungeonSlot.gd:123) | rooms_build_effects, rooms_uncover_effects | neutre | Écart | Basse |
+| RMB038 | Efreet's Chamber | Once per turn when a Hero is at the entrance to your dungeon, you may draw a Spell card to give this room -2 OR discard a Spell to give this room +2. | RB:353, RB:428 | rooms_efreet_blackmarket | neutre | Conforme | — |
+| RMB039 | Magipede | This room has +1 for every Spell card in your hand. | RB:136 | rooms_passive_damage | neutre | Conforme | — |
+| RMB040 | Delver's Quarry | When you build or uncover this Room, draw a Room card. | RB:307 | level_two_triggers, rooms_build_effects, rooms_uncover_effects | neutre | Conforme | — |
+| RMB041 | Garbage Chute | Once per turn when a Room is destroyed, gain (c) (c). | RB:159 | rooms_triggers | neutre | Conforme | — |
+| RMB042 | Unstable Mine | You may destroy this Room to gain (c) (c) (c). | RB:436, RB:887 | rooms_destroy_for_coins | neutre | Conforme | — |
+| RMB043 | Sawtooth Pendulum | Once per turn, you may pay (c) to kill a Hero in this Room with 3 or less Health. | RB:356, RB:439 | rooms_hero_dependent | neutre | Conforme | — |
+| RMB044 | The Catapult | Once per turn, you may discard a Miniboss to deactivate a Room in an opponent's dungeon. | RB:360, RB:445 | rooms_discard_and_coin_costs | neutre | Conforme | — |
+| RMB045 | Endless Gallery | You can destroy this room to add one treasure of any type to any player's dungeon until end of turn. | BE:82, RB:448, RB:890 ; écart : « treasure of any type » : Explorer manquait avec CRL (RB:681) | rooms_destroy_for_coins | neutre | Écart | Basse |
+| RMB046 | Paywall | Each turn, any player may give you any number of (c). For every (c) they give you, give this Room -1 until end of turn. | RB:509 | rooms_paywall_cavern_guardtower | neutre | Conforme | — |
+| RMB047 | Living Trap | You may destroy a Monster room in your dungeon to kill a hero in this Room. | RB:363, RB:454 | rooms_hero_dependent | neutre | Conforme | — |
+| RMB048 | The Dreadmill | Once per Build phase, place a (c) on this Room. This Room has +1 for every (c) on it. If you cannot place a coin on this Room, destroy it. | MB:680, RB:138 ; écart : Coins posés sur la salle invisibles à l'écran (DungeonSlot.gd:123) | rooms_passive_damage | neutre | Écart | Basse |
+| RMB049 | Personnel Office | Once per turn gain (c) when an opponent plays or promotes a Miniboss. | RB:172 | rooms_build_effects, rooms_triggers | neutre | Conforme | — |
+| RMB050 | Trophy Room | When you build or uncover this Room, Gain (c) for every multi-treasure Room in your dungeon, including this one. | RB:309 | rooms_build_effects, rooms_uncover_effects | neutre | Conforme | — |
+| RMB051 | Lightning Rod | Once per turn, if a Hero dies in this Room, gain (c)(c)(c). | RB:200, RB:205 | rooms_hero_dependent | neutre | Conforme | — |
+| RMB052 | Pixie Fountain | You may destroy this Room to gain (c) for every Wound you have. | RB:366, RB:457 | rooms_destroy_for_coins | neutre | Conforme | — |
+| RMB053 | The Keystone | You may destroy this Room to gain (c) for every Room remaining in your dungeon. | RB:461, RB:894 | rooms_destroy_for_coins | neutre | Conforme | — |
+| RMB054 | Pool of Shadows | Once per turn, you may discard a Spell to gain (c) (c). | RB:369, RB:464 | rooms_discard_and_coin_costs, spells_rooms | neutre | Conforme | — |
+| RMB065 | Windfall | If you have no coins in your Hoard, gain (c)(c)(c). | RS:3, RS:133, SE:58, ST:420 | boss_coin_triggers, spell_phases_and_targets, spells_economy | neutre | Conforme | — |
+| RMB066 | Internship | Place the top three cards of the Room deck in the discard pile. If one of these cards is a Miniboss, you may immediately build it. (In addition to your normal build turn.) | RS:137, RS:338 | spell_phases_and_targets, spells_rooms | neutre | Conforme | — |
+| RMB067 | Spirit Dragon | Choose a Room in any dungeon. Until end of turn, it has one of each treasure type instead of its normal treasure. | BE:54, RS:160, RS:339 | spell_phases_and_targets, spells_rooms | neutre | Conforme | — |
+| RMB068 | Sabotage! | Choose a Room. Until end of turn it has no ability text. OR, if if you have more Minibosses than your opponent, deactivate that Room until end of turn./ | RS:165, RS:342 | fix_build_slot_shift, fix_pay_without_cap, fix_sabotage_cuts_miniboss_text | neutre | Conforme | — |
+| RMB069 | Rage! | Choose a Miniboss. For every level that Miniboss has, give its Room +1 until end of turn. AND, if you have only one Miniboss, you may then double the damage of that Room. | RS:176, RS:343 | spell_phases_and_targets, spells_heroes | neutre | Conforme | — |
+| RMB070 | Ambush | Yo may discard two Monster Room cards or one Miniboss card to kill one Hero in your dungeon. | RS:185, RS:344 | spell_phases_and_targets, spells_heroes | neutre | Conforme | — |
+| RMB071 | Rebirth | Chose a player (including yourself). That playwe discards their hand and draws Rooms and Spells equal to the number of each they discarded. | RS:192, RS:345 | spell_phases_and_targets, spells_economy | neutre | Conforme | — |
+| RMB072 | Smash! | Deal 2 damage to a Hero in your dungeon. OR deal 4 damage to a Hero in a Room that contains a Miniboss. | RS:211, RS:346 | spell_phases_and_targets, spells_heroes | neutre | Conforme | — |
+| RMB073 | Pay to Win | Choose a Room to gain +1 until end of turn, plus an additional +1 for each (c) you pay when you cast this spell. | RS:219, RS:347 ; écart : « Choose a Room » : seules les salles du lanceur étaient proposées (RS:81-86) | fix_pay_without_cap, fix_tomb_no_miniboss, spell_phases_and_targets | neutre | Écart | Basse |
+| RMB074 | Zoning Board | For your build turn, you may build an Advanced Room on top of any other Room, ignoring matching treasure icon requirements. | BE:166, RS:226, RS:348 | spell_phases_and_targets, spells_rooms, spells_stack_and_traitor | neutre | Conforme | — |
+| RMB075 | Respawn | Treat all of your Rooms as if they were just built. | RS:229, RS:349 | spell_phases_and_targets, spells_rooms | neutre | Conforme | — |
+| RMB076 | Heist | Choose a Room in any dungeon. Until end of turn end that Room's treasure icons. | RS:240, RS:350 | spell_phases_and_targets, spells_rooms | neutre | Conforme | — |
+| RMB077 | Short Circuit | Choose an opponent casting a spell. Until end of turn, that opponent must pay (c) for each spell they wish to cast. If they don't, that spell is cancelled. | CD:347, M:1881, RS:245, RS:353 | spell_phases_and_targets, spells_stack_and_traitor | poids/score (AI:189, AI:191) | Conforme | — |
+| RMB078 | Traitor | Choose an opponent's Miniboss. You may pay that opponent one (c) per that Miniboss's Level to take it and immediatly build it at that same level. You may not build a room this turn. | RS:248, RS:356 | spell_phases_and_targets, spells_stack_and_traitor | neutre | Conforme | — |
+| RMB079 | Armor Up! | Give a Hero +1 until end of turn AND give this Hero an additional +2 until end of turn for every (c) you spend when casting this spell. | RS:3, RS:259, SE:58, ST:420 | fix_pay_without_cap, fix_tomb_no_miniboss, spell_phases_and_targets | neutre | Conforme | — |
+| RMB055 | Spike | L1: This Room has +1. / L2: Once per turn, discard a card to do 2 damage to a Hero in this Room. / L3: Choose a Miniboss. Return that card to its owner's hand. Reset to Level One. | MB:432, MB:447 | boss_coin_triggers, build_miniboss, build_restrictions | neutre | Conforme | — |
+| RMB056 | Kid Croak | L1: This Room gains +1 Fighter. / L2: Once per turn during the Build phase, you may switch the position of two Rooms in any dungeon. / L3: Give all Monster Rooms in one dungeon +1 or -1 until end of turn. Reset to Level One. | MB:435, MB:450 | attached_to_top_room, build_restrictions, calabeza_promote | neutre | Conforme | — |
+| RMB057 | Draculad | L1: This Room gains +1 Cleric. / L2: Once per turn, you may return a Hero in your dungeon to town. / L3: Look at one opponent's hand. You may take one Spell or Room card from them. Reset to Level One. | MB:438, MB:458 | destroyed_miniboss, fix_draculad_no_miniboss, fix_mind_thresher_once | neutre | Conforme | — |
+| RMB058 | Rocky | L1: You may build any Room on top of this one, regardless of treasure icon. / L2: When a Hero dies in this Room, you may treat another Room in your dungeon as just built. / L3: Give a Hero in any dungeon +5 until end of turn. Reset to Level One. | BE:166, MB:273, MB:461 | attached_to_top_room, boss_flags_and_klonos, calabeza_promote | neutre | Conforme | — |
+| RMB059 | Cerebella | L1: This Room gains +1 Mage. / L2: When a Hero dies in this Room, you may draw a Spell card. / L3: Choose a dungeon. Heroes ignore all ability text in that dungeon until end of turn. Reset to Level One. | BE:351, MB:565, MB:569 | destroyed_miniboss, fix_sabotage_cuts_miniboss_text, level_one_passives | neutre | Conforme | — |
+| RMB060 | Paddywhack | L1: This Room gains +1 Thief. / L2: Once per turn when you gain one or more coins, gain one extra coin. / L3: Kill a Hero in this Room. Reset to Level One. | MB:78, MB:464 | level_one_passives, level_three_each, level_two_triggers | neutre | Conforme | — |
+| RMB061 | Icicle Man | L1: This Room has +1. / L2: Ignore the ability text of any Heroes or Epic Heroes in, or at the entrance to, your dungeon. / L3: Deactivate a Room in any dungeon until end of turn. Reset to Level One. | BE:351, MB:256, MB:467 | heroes, level_one_passives, level_three_each | neutre | Conforme | — |
+| RMB062 | Mageseeker | L1: This Room has +1 for every treasure icon it has. / L2: Once per turn, you may discard a Spell card to cancel an opponent's Spell. / L3: Choose a dungeon. Until end of turn, Heroes entering that dungeon skip its first room. Reset to Level One. | MB:238, MB:565 | level_one_passives, level_three_each, level_two_activations | neutre | Conforme | — |
+| RMB063 | Brassknuckle | L1: This Room has +1. / L2: Once per turn when a Hero dies in this Room, draw a Room card. You may immediately build that Room. / L3: Double this Room's damage until end of turn. Reset to Level One. | MB:580, MB:644 | activation_guards, level_one_passives, level_three_each | neutre | Conforme | — |
+| RMB064 | Jinx | L1: Draw an extra Room at the beginning of the Build phase, then discard a Room. / L2: Double this Room's treasure value. (It has one extra copy of each printed treasure icon it has.) / L3: Choose a Hero in town. Place it at the entrance to your dungeon. Reset to Level One. | MB:222, MB:470 | level_one_passives, level_three_each, level_two_activations | neutre | Conforme | — |
+| RMB080 | Felicity, Joyful Nurse | Cleric, 4 PV, trésor 1, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | boss_coin_triggers, boss_flags_and_klonos, heroes | auto | Conforme | — |
+| RMB081 | Wolfhard, Teen Hero | Cleric, 4 PV, trésor 1, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | boss_coin_triggers, level_two_triggers | auto | Conforme | — |
+| RMB082 | Holkin, Propheteer | Cleric, 6 PV, trésor 1, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | level_two_triggers | auto | Conforme | — |
+| RMB083 | Luz, Merciful Healer | Cleric, 6 PV, trésor 1, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) ; texte « When Luz is around, heroes only sometimes die » : aucune règle déterministe (arbitrages-wiki.md:26) | level_two_triggers | auto | Non implémenté | Basse |
+| RMB084 | Inquisitor | Cleric, 6 PV, trésor 1, 1 âme(s) ; capacité codée d'après la paraphrase du wiki (arbitrages-wiki.md) | TA:12 | boss_coin_triggers, heroes | auto | Conforme | — |
+| RMB085 | Josie, Vampire Slayer | Cleric, 8 PV, trésor 1, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | level_two_triggers, rooms_destroy_for_coins | auto | Conforme | — |
+| RMB086 | Tess, Dwarven Shieldmaiden | Fighter, 4 PV, trésor 2, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | boss_coin_triggers, rooms_hero_dependent | auto | Conforme | — |
+| RMB087 | Steven the Human | Fighter, 4 PV, trésor 2, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | level_two_activations, rooms_hero_dependent | auto | Conforme | — |
+| RMB088 | Rotgut, Half-Giant Berserker | Fighter, 6 PV, trésor 2, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | level_two_activations, rooms_hero_dependent | auto | Conforme | — |
+| RMB089 | Maxine, Sister of Steel | Fighter, 6 PV, trésor 2, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | rooms_hero_dependent | auto | Conforme | — |
+| RMB090 | Sellsword | Fighter, 6 PV, trésor 2, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | fix_mind_thresher_once, fix_sabotage_cuts_miniboss_text, heroes | auto | Conforme | — |
+| RMB091 | Joe the Smith | Fighter, 8 PV, trésor 2, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | fix_mind_thresher_once, level_three_each, rooms_hero_dependent | auto | Conforme | — |
+| RMB092 | Eloi Marlborn | Mage, 4 PV, trésor 3, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | fix_mind_thresher_once, level_three_each, rooms_hero_dependent | auto | Conforme | — |
+| RMB093 | Exai, Mindmage | Mage, 4 PV, trésor 3, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | level_three_each, rooms_hand_abilities | auto | Conforme | — |
+| RMB094 | Clebrina, Familiar | Mage, 6 PV, trésor 3, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | level_three_each, rooms_paywall_cavern_guardtower, stack_probe_identity | auto | Conforme | — |
+| RMB095 | Bross, Illusionist Adept | Mage, 6 PV, trésor 3, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | rooms_paywall_cavern_guardtower, stack_probe_identity | auto | Conforme | — |
+| RMB096 | Alchemist | Mage, 6 PV, trésor 3, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | heroes, rooms_efreet_blackmarket | auto | Conforme | — |
+| RMB097 | Dovkro, Born of the Dragon | Mage, 8 PV, trésor 3, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | rooms_efreet_blackmarket | auto | Conforme | — |
+| RMB098 | K'Bothi the Spy | Thief, 4 PV, trésor 4, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | spell_phases_and_targets | auto | Conforme | — |
+| RMB099 | The Steel Mouser | Thief, 4 PV, trésor 4, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | fix_pay_without_cap, spells_economy | auto | Conforme | — |
+| RMB100 | Ofcroak, Vengeful Handmaid | Thief, 6 PV, trésor 4, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | spells_heroes | auto | Conforme | — |
+| RMB101 | Koko the Piper | Thief, 6 PV, trésor 4, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | spells_heroes | auto | Conforme | — |
+| RMB102 | Scoundrel | Thief, 6 PV, trésor 4, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | heroes, spells_heroes | auto | Conforme | — |
+| RMB103 | Marmo, Master of Dreams | Thief, 8 PV, trésor 4, 1 âme(s) ; aucun texte imprimé | cards.json (statistiques) | rmb_card_stats | auto | Conforme | — |
+| RMB104 | The Fool | Cleric, 2 PV, trésor 1, 1 âme(s) ; capacité codée d'après la paraphrase du wiki (arbitrages-wiki.md) | cards.json (statistiques) | heroes | auto | Conforme | — |
+| RMB105 | Haize, Half-angel | Cleric, 11 PV, trésor 1, 2 âme(s), épique ; aucun texte imprimé | cards.json (statistiques) | rmb_card_stats | auto | Conforme | — |
+| RMB106 | The Overseer | Cleric, 11 PV, trésor 1, 2 âme(s), épique ; aucun texte imprimé | cards.json (statistiques) | rmb_card_stats | auto | Conforme | — |
+| RMB107 | Paladin | Cleric, 12 PV, trésor 1, 2 âme(s), épique ; aucun texte imprimé | cards.json (statistiques) | heroes | auto | Conforme | — |
+| RMB108 | Koverian, Executioner | Cleric, 13 PV, trésor 1, 2 âme(s), épique ; aucun texte imprimé | cards.json (statistiques) | rmb_card_stats | auto | Conforme | — |
+| RMB109 | Varraka, Combat Instructor | Fighter, 11 PV, trésor 2, 2 âme(s), épique ; aucun texte imprimé | cards.json (statistiques) | rmb_card_stats | auto | Conforme | — |
+| RMB110 | Zheng-Yi, One Kick Woman | Fighter, 11 PV, trésor 2, 2 âme(s), épique ; aucun texte imprimé | cards.json (statistiques) | rmb_card_stats | auto | Conforme | — |
+| RMB111 | Relic Hunter | Mage, 12 PV, trésor 3, 2 âme(s), épique ; aucun texte imprimé | cards.json (statistiques) | rmb_card_stats | auto | Conforme | — |
+| RMB112 | Unseena, Invisible Wrestler | Fighter, 13 PV, trésor 2, 2 âme(s), épique ; aucun texte imprimé | cards.json (statistiques) | rmb_card_stats | auto | Conforme | — |
+| RMB113 | Zutara, Elemental Master | Mage, 11 PV, trésor 3, 2 âme(s), épique ; aucun texte imprimé | cards.json (statistiques) | rmb_card_stats | auto | Conforme | — |
+| RMB114 | Mortimer, Evil Genius | Mage, 11 PV, trésor 3, 2 âme(s), épique ; aucun texte imprimé | cards.json (statistiques) | rmb_card_stats | auto | Conforme | — |
+| RMB115 | Warlock | Mage, 12 PV, trésor 3, 2 âme(s), épique ; capacité codée d'après la paraphrase du wiki (arbitrages-wiki.md) | M:2178, TA:15, TA:1421 | heroes_wiki_paraphrases | auto | Conforme | — |
+| RMB116 | Shigeru the Spellbinder | Mage, 13 PV, trésor 3, 2 âme(s), épique ; aucun texte imprimé | cards.json (statistiques) | rmb_card_stats | auto | Conforme | — |
+| RMB117 | Moran, Master of Keys | Thief, 11 PV, trésor 4, 2 âme(s), épique ; aucun texte imprimé | cards.json (statistiques) | rmb_card_stats | auto | Conforme | — |
+| RMB118 | Marsden, Reformed Outlaw | Thief, 11 PV, trésor 4, 2 âme(s), épique ; aucun texte imprimé | cards.json (statistiques) | rmb_card_stats | auto | Conforme | — |
+| RMB119 | Tax Collector | Thief, 12 PV, trésor 4, 2 âme(s), épique ; capacité codée d'après la paraphrase du wiki (arbitrages-wiki.md) | M:2178, TA:16, TA:1421 | heroes_wiki_paraphrases | auto | Conforme | — |
+| RMB120 | Petros, Dwarven Noble | Thief, 13 PV, trésor 4, 2 âme(s), épique ; aucun texte imprimé | cards.json (statistiques) | rmb_card_stats | auto | Conforme | — |
+| RMB121 | The Progenitors | Cleric, 20 PV, trésor 1, 2 âme(s), épique ; capacité codée d'après la paraphrase du wiki (arbitrages-wiki.md) | BE:221 | heroes_wiki_paraphrases | auto | Conforme | — |
+
+### Règles propres à RMB
+
+| Id | Règle (source) | Code | Golden | Statut | Priorité |
+|---|---|---|---|---|---|
+| RMB-R01 | Mise en place : 5 salles + 2 sorts, on garde les 7 ; la défausse de 2 cartes est le Classic Mode (`docs/rules/rules.md` 3059-3064, 3477) | M:1146-1166 (`_deal_opening_hands`, `_queue_next_opening_discard`) ; Variants.gd:39 (`keeps_opening_hand`) ne gardait les 7 que pour TNL ; le commentaire de M:1171 écrivait que RMB défausse 2 cartes « comme l'APK » alors que le manuel commun TNL / RMB dit le contraire | setup_hands | Écart | Moyenne |
+| RMB-R02 | Mulligan : quatre salles avancées ou quatre cartes d'un même trésor, on peut remélanger toute la main (rules.md 3064-3065) | M:1148-1153 (`tnl_mull = TnlAbilities.active`) : jamais proposé avec RMB seul ; Variants.mulligan (Variants.gd:73) | setup_hands | Écart | Moyenne |
+| RMB-R03 | 3 Coins au départ (rules.md 3060-3061) | Match.gd:179 ( `START_COINS`) ; BoardUI affiche « COINS » | setup_hands | Conforme | — |
+| RMB-R04 | Miniboss : posé face cachée sur n'importe quelle salle à la place de la construction ; révélation 1 Coin ; promotion 1 Coin (autre tour) ; le niveau 3 remet au niveau 1 | MB:154-181 (`attach`, `normalize`), MB:313 (`apply_build`), MB:333 (`reveal_all`), MB:356-378 (`promote_options`, `apply_promote`) | build_miniboss, reveal_and_discard, promote, level_three_each | Conforme | — |
+| RMB-R05 | Salle détruite : son miniboss est défaussé ; salle recouverte : il saute (livret p.6, arbitrages-wiki.md:12) | MB:193 (`on_destroy`) | destroyed_miniboss | Conforme | — |
+| RMB-R06 | Coins posés sur une salle (Dreadmill, Minion Clinic, Crystal Ballroom) : information publique | `room.coins` (RB:647, MB:682) ; aucun affichage : DungeonSlot.gd:123 et BoardUI.gd:1959 ne posaient un badge que pour un miniboss | badge de salle (`ui_labels_and_menu`), ui smoke | Écart | Basse |
+| RMB-R07 | Pile : « Spells and activated abilities resolve in a streamlined Last In, First Out order » (rules.md 21, 131) | M:722-731 : `activateMiniboss`, `rmbBoss`, `rmbHand`, `rmbPay` s'appliquent tout de suite (AUDIT.md « Écarts connus » de R-D67) ; les capacités de salle RMB sont, elles, des entrées de pile | stack_probe_identity (salles seulement) | Écart | Moyenne |
+| RMB-R08 | Statistiques des 121 cartes (12 boss, 42 salles, 15 sorts, 42 héros, 10 minibosses) | `cards.json` ; CardDB.gd:46-57 | rmb_card_stats | Conforme | — |
+
+### Synthèse du lot RMB
+
+121 cartes : 113 Conforme, 7 Écart (7 Basse), 1 Non implémenté (Luz), 0 Haute. Par type : 12 boss (11 Conforme, 1 Écart), 42 salles (37 Conforme, 5 Écart), 15 sorts (14 Conforme, 1 Écart), 10 minibosses (10 Conforme), 42 héros (41 Conforme, 1 Non implémenté). Règles : 8 lignes, dont 2 Écart Moyenne (RMB-R01, RMB-R02), 1 Écart Basse (RMB-R06), 1 Écart Moyenne non corrigé (RMB-R07).
+
+Écarts Moyenne :
+
+- RMB-R01 : une partie Minibosses seule défaussait 2 cartes à l'ouverture, alors que le manuel garde les 7 (Classic Mode = défausse).
+- RMB-R02 : le mulligan n'était proposé qu'avec TNL.
+- RMB-R07 : les capacités de miniboss (niveau 2), les pouvoirs de boss RMB et le paiement du Paywall ne passent pas par la pile.
+
+Écarts Basse :
+
+- RMB015 Ancient Guardtower : tirage avec `randi()` global (non reproductible).
+- RMB012 Kirax, RMB045 Endless Gallery : « any treasure type » sans Explorer avec Crash Landing.
+- RMB073 Pay to Win : seules les salles du lanceur étaient ciblables.
+- RMB048 Dreadmill, RMB020 Minion Clinic, RMB037 Crystal Ballroom, RMB-R06 : Coins posés sur la salle non affichés.
+- RMB083 Luz : « When Luz is around, heroes only sometimes die » n'a aucune règle déterministe (arbitrages-wiki.md:26).
+
+Ordre de correction : (1) mise en place RMB-R01 / RMB-R02 ; (2) cibles et listes de choix RMB073, RMB012, RMB045 ; (3) RMB015 ; (4) affichage des Coins RMB-R06 ; (5) golden table par table `rmb_card_stats` ; (6) RMB-R07.
+
+Points non tranchés :
+
+- RMB083 Luz : aucun effet n'est défini par le texte ; elle joue comme un héros de statistiques.
+- RMB104 The Fool : `cards.json` garde la fiche de l'APK (aucune classe, aucun trésor, leurre par le moins d'âmes) alors que le wiki écrit Cleric / trésor 1.
+- Non vérifié : les textes imprimés des cartes (scans), la relecture ligne à ligne des 113 cartes « Conforme » après la compaction de contexte de cet audit (la liste vient de l'état des goldens et des audits précédents), l'IA des pouvoirs de boss.
