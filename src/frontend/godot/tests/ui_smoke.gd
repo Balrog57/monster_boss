@@ -1454,6 +1454,18 @@ func _check_wiki_ui() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	var me: Dictionary = gm.G["players"][0]
+	var coin_room = BossEngine.active_room((me["dungeon"] as Array)[0]) if not (me["dungeon"] as Array).is_empty() else null # RMB-I01 : Coins poses sur une salle (Dreadmill...)
+	if _check(coin_room != null, "tous paquets : une salle posee pour afficher les Coins"):
+		(coin_room as Dictionary)["coins"] = 2
+		board.refresh()
+		await get_tree().process_frame
+		var coin_badge := false
+		for slot in board._dungeon_slots:
+			var cb = (slot as Node).get_node_or_null("MbBadge")
+			coin_badge = coin_badge or (cb != null and str(cb.text).contains("COINS: 2"))
+		_check(coin_badge, "tous paquets : les Coins poses sur une salle sont affiches")
+		(coin_room as Dictionary).erase("coins")
+		board.refresh()
 	var coin_moves := gm.legal_moves(0).filter(func(m): return m["type"] == "discardForCoin")
 	if _check(not coin_moves.is_empty(), "tous paquets : aucun coup DISCARD: +1 COIN en construction"):
 		_check_no_slot_cover()

@@ -1145,7 +1145,7 @@ func _deal_opening_hands() -> void:
 	var mulligans: Array = [] # livret TNL : « you may shuffle your entire hand back and draw a new hand » (choix) ; l'APK le fait d'office (AvoidMulliganCondition)
 	for pid in G["players"]:
 		var p: Dictionary = G["players"][pid]
-		var tnl_mull := TnlAbilities.active(G)
+		var tnl_mull := _big_hand() # livret TNL / RMB : mulligan au choix
 		var rooms5: Array = CardDB.draw_cards(G["decks"]["rooms"], 5) if tnl_mull else _draw_opening_rooms(G["decks"]["rooms"])
 		var drawn: Array = rooms5 + CardDB.draw_cards(G["decks"]["spells"], 2)
 		p["hand"] = drawn
@@ -1169,8 +1169,8 @@ func _deal_opening_hands() -> void:
 		return
 	_queue_next_opening_discard()
 
-## Mise en place des livrets TNL et RMB : la defausse est amorcee par 4 salles + 2 sorts au hasard. La defausse de 2 cartes a l'ouverture vaut pour l'APK, RMB et le Classic Mode de TNL ;
-## une partie TNL (set « next-level » choisi) garde ses 7 cartes (Variants.keeps_opening_hand).
+## Mise en place des livrets TNL et RMB : la defausse est amorcee par 4 salles + 2 sorts au hasard. La defausse de 2 cartes a l'ouverture vaut pour l'APK et le Classic Mode ;
+## une partie TNL ou RMB garde ses 7 cartes (Variants.keeps_opening_hand).
 func _big_hand() -> bool:
 	return TnlAbilities.active(G) or Minibosses.active(G)
 

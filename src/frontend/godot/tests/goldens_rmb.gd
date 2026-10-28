@@ -11,6 +11,7 @@ func run(ok: Callable, h: Node) -> void:
 	_ok = ok
 	host = h
 	_t_data()
+	_t_rmb_card_stats()
 	_t_new_match_decks()
 	_t_setup_hands()
 	_t_build_miniboss()
@@ -266,7 +267,7 @@ func _t_new_match_decks() -> void:
 	_ok.call(only_tnl and _count(both["decks"]["rooms"], "RMB") == 82 and _count(both["decks"]["rooms"], "TNL") == 75, "TNL + RMB : un seul paquet de heros (TNL), salles des deux extensions")
 	m.queue_free()
 
-## Livret : 5 salles + 2 sorts (puis defausse de 2 cartes, regle commune a tous les modes), 3 Coins ; defausse amorcee par 4 salles + 2 sorts.
+## Livret (manuel TNL / RMB) : 5 salles + 2 sorts, on garde les 7 ; Classic Mode : defausse de 2 cartes ; 3 Coins ; defausse amorcee par 4 salles + 2 sorts.
 func _t_setup_hands() -> void:
 	var m = load("res://godot/scripts/Match.gd").new()
 	host.add_child(m)
@@ -274,13 +275,38 @@ func _t_setup_hands() -> void:
 	for pid in [0, 1]:
 		var pick: Dictionary = (G["bossPicks"] as Array)[0]
 		m.apply_move(pid, {"type": "pickBoss", "args": [pick["id"]]})
-	_ok.call(_hand(G, 0).size() == 7 and _hand(G, 1).size() == 7 and str(_pending(G).get("type", "")) == "opening-discard", "RMB : 5 salles + 2 sorts, puis defausse de 2 cartes au choix")
+	var pt := str(_pending(G).get("type", ""))
+	_ok.call(_hand(G, 0).size() == 7 and _hand(G, 1).size() == 7 and pt != "opening-discard", "RMB : 5 salles + 2 sorts, on garde les 7 cartes (RMB-R01)")
 	_ok.call(_decks(G, "roomDiscard").size() == 4 and _decks(G, "spellDiscard").size() == 2, "RMB : defausse amorcee par 4 salles + 2 sorts")
-	m.apply_move(0, {"type": "openingDiscard", "args": [0, 1]})
-	m.apply_move(1, {"type": "openingDiscard", "args": [0, 1]})
-	_ok.call(_hand(G, 0).size() == 5 and _hand(G, 1).size() == 5 and _pending(G).is_empty(), "RMB : 5 cartes gardees apres la defausse d'ouverture")
-	_ok.call(_coins(G, 0) == 3 and _coins(G, 1) == 3, "RMB : 3 Coins au depart")
 	m.queue_free()
+	var m2 = load("res://godot/scripts/Match.gd").new()
+	host.add_child(m2)
+	var mc: Dictionary = m2.new_match(2, 2, ["minibosses", "classic-wiki"])
+	for pid in [0, 1]:
+		m2.apply_move(pid, {"type": "pickBoss", "args": [((mc["bossPicks"] as Array)[0] as Dictionary)["id"]]})
+	var guard := 0
+	while str(_pending(mc).get("step", "")) == "var_mulligan" and guard < 8: # main « mauvaise » : on la garde
+		guard += 1
+		m2._resolve_choice(int(_pending(mc)["playerId"]), 0)
+	_ok.call(_hand(mc, 0).size() == 7 and str(_pending(mc).get("type", "")) == "opening-discard", "RMB + Classic Mode : defausse de 2 cartes au choix")
+	m2.apply_move(0, {"type": "openingDiscard", "args": [0, 1]})
+	m2.apply_move(1, {"type": "openingDiscard", "args": [0, 1]})
+	_ok.call(_hand(mc, 0).size() == 5 and _hand(mc, 1).size() == 5 and _pending(mc).is_empty(), "RMB + Classic Mode : 5 cartes gardees apres la defausse")
+	_ok.call(_coins(mc, 0) == 3 and _coins(mc, 1) == 3, "RMB : 3 Coins au depart")
+	m2.queue_free()
+	# RMB-R02 : mulligan du manuel TNL / RMB -- cinq salles du meme tresor -> « you may » redistribuer toute la main
+	var m3 = load("res://godot/scripts/Match.gd").new()
+	host.add_child(m3)
+	var G3: Dictionary = m3.new_match(2, 1, ["minibosses"])
+	for i in 10:
+		(G3["decks"]["rooms"] as Array).append(_plain("bad%d" % i, "monster", [1], 1))
+	for pid in [0, 1]:
+		m3.apply_move(pid, {"type": "pickBoss", "args": [((G3["bossPicks"] as Array)[0] as Dictionary)["id"]]})
+	var bad_ids: Array = _ids(_hand(G3, 0).slice(0, 5))
+	_ok.call(bad_ids.all(func(i): return str(i).begins_with("bad")) and str(_pending(G3).get("step", "")) == "var_mulligan" and int(_pending(G3)["playerId"]) == 0, "RMB : main a 5 salles du meme tresor -> choix du mulligan pour l'humain")
+	m3._resolve_choice(0, 1)
+	_ok.call(_hand(G3, 0).size() == 7 and _ids(_hand(G3, 0).slice(0, 5)) != bad_ids and _pending(G3).is_empty(), "RMB : la main entiere est redistribuee (5 salles + 2 sorts)")
+	m3.queue_free()
 
 # --- minibosses : pose, revelation, promotion -----------------------------------------------------------------------------
 
@@ -922,6 +948,17 @@ func _t_boss_active_powers() -> void:
 	_ok.call(BossEngine.treasure_count(p4, 3, G4) == 1, "Kirax : une icone Mage de plus dans le donjon (jusqu'a la fin du tour)")
 	m4.G["effects"] = SpellEffects.empty_effects()
 	_ok.call(BossEngine.treasure_count(p4, 3, G4) == 1, "Kirax : l'icone reste au tour suivant (aucune duree imprimee, arbitrage wiki)")
+	# RMB-C05 : « any treasure type » -- Explorer en plus quand Crash Landing est dans la partie
+	var p5 := _player(0, "RMB012", [], 2)
+	p5["rmbBoss"] = {"RMB012": true}
+	var G5 := _G([p5, _player(1, "BMA002")])
+	G5["sets"] = ["minibosses", "crash-landing"]
+	var m5 := _match(G5)
+	m5.apply_move(0, _types(m5.legal_moves(0), "rmbBoss")[0])
+	m5._resolve_choice(0, 0)
+	_ok.call(str(_pending(G5).get("step", "")) == "rmb_icon" and (_pending(G5)["options"] as Array).size() == 5, "Kirax + CRL : cinq types de tresor dont Explorer")
+	m5._resolve_choice(0, 4)
+	_ok.call(BossEngine.treasure_count(p5, 5, G5) == 1, "Kirax + CRL : une icone Explorer de plus dans le donjon")
 
 # --- les 42 salles --------------------------------------------------------------------------------------------------------------------
 
@@ -1490,7 +1527,7 @@ func _t_spell_phases_and_targets() -> void:
 	(G["players"][0]["dungeon"] as Array)[0] = [_with_mb(_plain("A"), "RMB056", 1)]
 	_ok.call(_targets(G, 0, "RMB072").size() == 2, "Smash! : heros dans une salle avec miniboss -> aussi 4 degats")
 	G["players"][0]["coins"] = 5
-	_ok.call(_targets(G, 0, "RMB073").size() == 2 * 6, "Pay to Win : vos 2 salles x 0 a 5 Coins payes (aucun plafond a 3 : un Coin paye = +1)")
+	_ok.call(_targets(G, 0, "RMB073").size() == 3 * 6, "Pay to Win : n'importe quelle salle (vos 2 + 1 adverse) x 0 a 5 Coins payes (aucun plafond a 3 : un Coin paye = +1)")
 	_ok.call(_targets(G, 0, "RMB079").size() == 1 * 6, "Armor Up! : le heros x 0 a 5 Coins (aucun plafond a 2 : un Coin paye = +2)")
 	_ok.call(_targets(G, 0, "RMB077").is_empty() and _targets(G, 0, "RMB078").is_empty(), "Short Circuit, Traitor : rien a cibler")
 	G["players"][1]["dungeon"] = [[_with_mb(_plain("D"), "RMB058", 2)]]
@@ -1754,6 +1791,13 @@ func _t_ui_labels_and_menu() -> void:
 	_ok.call(Minibosses.badge_text(room, false) == "Spike  L2" and Minibosses.badge_text(_top(G, 0, 1), true) == "", "badge de salle : nom et niveau du miniboss, rien sans miniboss")
 	(room["mb"] as Dictionary)["faceDown"] = true
 	_ok.call(Minibosses.badge_text(room, false) == "MINIBOSS (face-down)" and Minibosses.badge_text(room, true).contains("Spike"), "badge : le nom d'un miniboss face cache n'est montre qu'a son proprietaire")
+	var bare := _top(G, 0, 1)
+	bare["coins"] = 2
+	_ok.call(Minibosses.badge_text(bare, false) == "COINS: 2" and Minibosses.badge_tooltip(bare, false).contains("2"), "badge (RMB-I01) : les Coins poses sur une salle sans miniboss sont affiches")
+	room["coins"] = 1
+	_ok.call(Minibosses.badge_text(room, true).ends_with("COINS: 1") and Minibosses.badge_text(room, false) == "MINIBOSS (face-down)  COINS: 1", "badge : Coins et miniboss (nom cache pour l'adversaire)")
+	room.erase("coins")
+	bare.erase("coins")
 	var lbl := Minibosses.make_badge(room, true)
 	_ok.call(lbl != null and lbl.tooltip_text.contains("L1") and lbl.tooltip_text.contains("L3"), "badge : infobulle avec les trois niveaux")
 	if lbl != null:
@@ -2045,6 +2089,9 @@ func _t_fix_tomb_no_miniboss() -> void:
 func _t_fix_pay_without_cap() -> void:
 	var G := _G([_player(0, "BMA001", [_plain("A", "monster", [1], 2)], 5), _player(1, "BMA002")])
 	_ok.call(_cast(G, 0, "RMB073", {"targetPlayerId": 0, "roomIndex": 0, "pay": 5}) and _coins(G, 0) == 0 and BossEngine.room_damage_with_modifiers(G, G["players"][0], 0, null) == 2 + 6, "RMB073 Pay to Win : 5 Coins payes -> +6 (pas de plafond a 3)")
+	# RMB-C03 : « Choose a Room » -- la salle d'un adversaire est une cible
+	var G3 := _G([_player(0, "BMA001", [], 2), _player(1, "BMA002", [_plain("B", "monster", [1], 2)])])
+	_ok.call(_cast(G3, 0, "RMB073", {"targetPlayerId": 1, "roomIndex": 0, "pay": 2}) and _coins(G3, 0) == 0 and BossEngine.room_damage_with_modifiers(G3, G3["players"][1], 0, null) == 2 + 3, "RMB073 Pay to Win : salle adverse, 2 Coins -> +3")
 	var h := _hero("RMB099")
 	var G2 := _G([_player(0, "BMA001", [], 5), _player(1, "BMA002")])
 	G2["town"] = [h]
@@ -2167,3 +2214,57 @@ func _t_heroes_wiki_paraphrases() -> void:
 	_ok.call(str(_pending(Gf).get("step", "")) == "hero_weaken" and int(Gf["adventure"]["hp"]) == 9, "Tax Collector : le choix s'ouvre avant les degats de la premiere salle")
 	mf._resolve_choice(0, -1)
 	_ok.call(_pending(Gf).is_empty() and int(Gf["adventure"]["hp"]) == 7 and Gf["adventure"]["pause"] == "post-damage", "Tax Collector : choix passe -> la salle inflige ses degats, une seule fois")
+
+## Statistiques des 121 cartes RMB (RMB-T01) : valeurs attendues ecrites ici, comparees a cards.json puis cards.json au JSON du wiki champ par champ.
+func _t_rmb_card_stats() -> void:
+	var wiki: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://assets/data/expansions/minibosses.json"))
+	var ints := func(a) -> Array: return (a as Array).map(func(t): return int(t))
+	# boss : [XP, tresors]
+	var bosses := {"RMB001": [365, [1]], "RMB002": [205, [1]], "RMB003": [860, [1]], "RMB004": [255, [2]], "RMB005": [760, [2]], "RMB006": [760, [2]], "RMB007": [535, [3]], "RMB008": [630, [3]], "RMB009": [935, [3]], "RMB010": [300, [4]], "RMB011": [780, [4]], "RMB012": [980, [4]]}
+	# salles : [type, avancee, degats, tresors, exemplaires]
+	var rooms := {"RMB013": ["trap", false, 1, [1], 1], "RMB014": ["monster", false, 1, [1], 2], "RMB015": ["trap", false, 2, [1], 2], "RMB016": ["trap", false, 2, [1], 2], "RMB017": ["monster", false, 1, [1], 2], "RMB018": ["monster", false, 2, [1], 2], "RMB019": ["monster", true, 3, [1], 1], "RMB020": ["monster", true, 3, [1], 2], "RMB021": ["trap", true, 3, [1], 1], "RMB022": ["monster", false, 1, [2], 1], "RMB023": ["monster", false, 1, [2], 2], "RMB024": ["monster", false, 1, [2], 2], "RMB025": ["monster", false, 3, [2], 2], "RMB026": ["monster", false, 2, [2], 2], "RMB027": ["monster", false, 2, [2], 2], "RMB028": ["monster", true, 4, [2], 1], "RMB029": ["monster", true, 2, [2], 2], "RMB030": ["monster", true, 4, [2], 1], "RMB031": ["trap", false, 1, [3], 1], "RMB032": ["trap", false, 1, [3], 2], "RMB033": ["trap", false, 2, [3], 2], "RMB034": ["trap", false, 2, [3], 2], "RMB035": ["trap", false, 2, [3], 2], "RMB036": ["trap", false, 1, [3], 2], "RMB037": ["trap", true, 3, [3], 1], "RMB038": ["monster", true, 2, [3], 2], "RMB039": ["monster", true, 2, [3], 1], "RMB040": ["trap", false, 1, [4], 1], "RMB041": ["trap", false, 1, [4], 2], "RMB042": ["trap", false, 2, [4], 2], "RMB043": ["trap", false, 2, [4], 2], "RMB044": ["trap", false, 2, [4], 2], "RMB045": ["trap", false, 2, [4], 2], "RMB046": ["trap", true, 4, [4], 1], "RMB047": ["trap", true, 3, [4], 2], "RMB048": ["trap", true, 2, [4], 1], "RMB049": ["monster", false, 1, [2, 3], 2], "RMB050": ["trap", false, 1, [2, 4], 2], "RMB051": ["trap", false, 1, [3, 4], 2], "RMB052": ["monster", false, 1, [1, 2], 2], "RMB053": ["trap", false, 1, [1, 4], 2], "RMB054": ["trap", false, 1, [1, 3], 2]}
+	# sorts : [categorie, exemplaires]
+	var spells := {"RMB065": [4, 2], "RMB066": [1, 2], "RMB067": [1, 2], "RMB068": [4, 2], "RMB069": [4, 2], "RMB070": [3, 2], "RMB071": [4, 2], "RMB072": [4, 2], "RMB073": [4, 2], "RMB074": [1, 2], "RMB075": [4, 2], "RMB076": [1, 2], "RMB077": [4, 2], "RMB078": [1, 2], "RMB079": [4, 2]}
+	# heros : [classe, tresor, PV, epique, ames, blessures]
+	var heroes := {"RMB080": ["Cleric", 1, 4, false, 1, 1], "RMB081": ["Cleric", 1, 4, false, 1, 1], "RMB082": ["Cleric", 1, 6, false, 1, 1], "RMB083": ["Cleric", 1, 6, false, 1, 1], "RMB084": ["Cleric", 1, 6, false, 1, 1], "RMB085": ["Cleric", 1, 8, false, 1, 1], "RMB086": ["Fighter", 2, 4, false, 1, 1], "RMB087": ["Fighter", 2, 4, false, 1, 1], "RMB088": ["Fighter", 2, 6, false, 1, 1], "RMB089": ["Fighter", 2, 6, false, 1, 1], "RMB090": ["Fighter", 2, 6, false, 1, 1], "RMB091": ["Fighter", 2, 8, false, 1, 1], "RMB092": ["Mage", 3, 4, false, 1, 1], "RMB093": ["Mage", 3, 4, false, 1, 1], "RMB094": ["Mage", 3, 6, false, 1, 1], "RMB095": ["Mage", 3, 6, false, 1, 1], "RMB096": ["Mage", 3, 6, false, 1, 1], "RMB097": ["Mage", 3, 8, false, 1, 1], "RMB098": ["Thief", 4, 4, false, 1, 1], "RMB099": ["Thief", 4, 4, false, 1, 1], "RMB100": ["Thief", 4, 6, false, 1, 1], "RMB101": ["Thief", 4, 6, false, 1, 1], "RMB102": ["Thief", 4, 6, false, 1, 1], "RMB103": ["Thief", 4, 8, false, 1, 1], "RMB104": ["The Fool", 0, 2, false, 1, 1], "RMB105": ["Cleric", 1, 11, true, 2, 2], "RMB106": ["Cleric", 1, 11, true, 2, 2], "RMB107": ["Cleric", 1, 12, true, 2, 2], "RMB108": ["Cleric", 1, 13, true, 2, 2], "RMB109": ["Fighter", 2, 11, true, 2, 2], "RMB110": ["Fighter", 2, 11, true, 2, 2], "RMB111": ["Mage", 3, 12, true, 2, 2], "RMB112": ["Fighter", 2, 13, true, 2, 2], "RMB113": ["Mage", 3, 11, true, 2, 2], "RMB114": ["Mage", 3, 11, true, 2, 2], "RMB115": ["Mage", 3, 12, true, 2, 2], "RMB116": ["Mage", 3, 13, true, 2, 2], "RMB117": ["Thief", 4, 11, true, 2, 2], "RMB118": ["Thief", 4, 11, true, 2, 2], "RMB119": ["Thief", 4, 12, true, 2, 2], "RMB120": ["Thief", 4, 13, true, 2, 2], "RMB121": ["Cleric", 1, 20, true, 2, 2]}
+	# minibosses : [exemplaires, nombre de niveaux]
+	var minis := {"RMB055": [1, 3], "RMB056": [1, 3], "RMB057": [1, 3], "RMB058": [1, 3], "RMB059": [1, 3], "RMB060": [1, 3], "RMB061": [1, 3], "RMB062": [1, 3], "RMB063": [1, 3], "RMB064": [1, 3]}
+	var bad: Array = []
+	for id in bosses:
+		var b := _card(CardDB.bosses, id)
+		if int(b.get("xp", -1)) != int(bosses[id][0]) or ints.call(b.get("treasures", [])) != bosses[id][1]:
+			bad.append(id)
+	for id in rooms:
+		var r := _card(CardDB.rooms, id)
+		var e: Array = rooms[id]
+		if str(r.get("type", "")) != e[0] or bool(r.get("advanced", false)) != e[1] or int(r.get("damage", -1)) != int(e[2]) or ints.call(r.get("treasures", [])) != e[3] or int(r.get("quantity", 1)) != int(e[4]):
+			bad.append(id)
+	for id in spells:
+		var s := _card(CardDB.spells, id)
+		if int(s.get("category", -1)) != int(spells[id][0]) or int(s.get("quantity", 1)) != int(spells[id][1]):
+			bad.append(id)
+	for id in heroes:
+		var h := _card(CardDB.heroes, id)
+		var e: Array = heroes[id]
+		if str(h.get("class", "")) != e[0] or int(h.get("treasure", -1)) != int(e[1]) or int(h.get("hp", -1)) != int(e[2]) or bool(h.get("epic", false)) != e[3] 				or int(h.get("souls", -1)) != int(e[4]) or int(h.get("wounds", -1)) != int(e[5]) or int(h.get("quantity", 1)) != 1:
+			bad.append(id)
+	for id in minis:
+		var mn := _card(CardDB.minibosses, id)
+		if int(mn.get("quantity", 1)) != int(minis[id][0]) or (mn.get("levels", []) as Array).size() != int(minis[id][1]):
+			bad.append(id)
+	_ok.call(bad.is_empty(), "RMB : statistiques des 121 cartes conformes au tableau attendu %s" % str(bad))
+	var diff: Array = []
+	var seen := 0
+	for kind in ["bosses", "rooms", "spells", "heroes", "minibosses"]:
+		var pool: Array = {"bosses": CardDB.bosses, "rooms": CardDB.rooms, "spells": CardDB.spells, "heroes": CardDB.heroes, "minibosses": CardDB.minibosses}[kind]
+		for w in (wiki[kind] as Array):
+			seen += 1
+			var c := _card(pool, str(w["id"]))
+			for k in w:
+				if k in ["set", "description", "levelUpDesc", "levels", "gainCoin"] or (str(w["id"]) == "RMB104" and k in ["treasure", "class"]): # gainCoin : indication du wiki pour la fiche, non stockee ; RMB104 = The Fool de l'APK (aucune classe, aucun tresor, leurre par le moins d'ames)
+					continue
+				var a = ints.call(c.get(k)) if c.get(k) is Array else c.get(k)
+				var b = ints.call(w[k]) if w[k] is Array else w[k]
+				if a != b:
+					diff.append("%s.%s" % [str(w["id"]), k])
+	_ok.call(seen == 121 and diff.is_empty(), "RMB : cards.json identique au JSON du wiki, champ par champ (%d cartes) %s" % [seen, str(diff)])

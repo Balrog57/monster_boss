@@ -411,7 +411,7 @@ static func activate(G: Dictionary, p: Dictionary, pid: int, idx: int, r: Dictio
 			var tp := _player(G, tid)
 			tp["coins"] = Minibosses.coins(tp) + 1
 			var spells: Array = (tp.get("hand", []) as Array).filter(func(c): return bool((c as Dictionary).get("isSpell", false)))
-			var pick: Dictionary = spells[randi() % spells.size()]
+			var pick: Dictionary = spells[TnlAbilities._rng_get().randi_range(0, spells.size() - 1)]
 			TnlAbilities.take_from_hand(G, tid, pick)
 			(p["hand"] as Array).append(pick)
 			_log(G, "%s: player %d gives a Coin to player %d and takes %s." % [name, pid + 1, tid + 1, _label(pick)], "%s: player %d gives a Coin to player %d and takes a Spell." % [name, pid + 1, tid + 1], [pid, tid])
@@ -678,7 +678,7 @@ static func resolve_pick(G: Dictionary, pid: int, pc: Dictionary, idx: int) -> V
 		"rmb_player": # Endless Gallery / Kirax : le donjon, puis le type de tresor
 			var tid2 := int(o.get("targetPlayerId", -1))
 			var icons: Array = []
-			for t in [1, 2, 3, 4]:
+			for t in icon_types(G):
 				icons.append({"treasure": t, "targetPlayerId": tid2, "label": str(CardDB.TREASURE_NAMES[t]), "ai": AiWiki.icon_gain(G, pid, tid2, t) + (0.1 if tid2 == pid else 0.0)})
 			return TnlAbilities.ask(G, pid, "rmb_icon", icons, {"label": str(ctx.get("label", ""))}, "Choose a treasure type to add to player %d's dungeon" % (tid2 + 1), "Treasure")
 		"rmb_icon":
@@ -897,10 +897,14 @@ static func score_activate(G: Dictionary, p: Dictionary, pid: int, rid: String, 
 		"RMB054": return 10.0
 	return -10.0
 
+## « Any treasure type » (Endless Gallery, Kirax) : les 4 types de base, plus Explorer quand Crash Landing est dans la partie.
+static func icon_types(G: Dictionary) -> Array:
+	return [1, 2, 3, 4, 5] if (G.get("sets", []) as Array).has("crash-landing") else [1, 2, 3, 4]
+
 ## Meilleur gain de leurre de `pid` si une icone (parmi les 4 types de base) s'ajoute au donjon de `tp`.
 static func _best_icon_gain(G: Dictionary, pid: int, tp: int) -> float:
 	var best := -99.0
-	for t in [1, 2, 3, 4]:
+	for t in icon_types(G):
 		best = maxf(best, AiWiki.icon_gain(G, pid, tp, t))
 	return best
 

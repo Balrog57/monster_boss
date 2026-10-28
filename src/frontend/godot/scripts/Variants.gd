@@ -8,7 +8,7 @@ extends RefCounted
 const IDS := ["classic", "hard", "choose", "machinations", "unlimited"]
 const NAMES := {"classic": "Classic Mode", "hard": "Hard Mode", "choose": "I Choose You", "machinations": "Machinations", "unlimited": "Unlimited Lives"}
 const HELP := {
-	"classic": "Setup: draw 5 Rooms and 2 Spells, then discard 2 cards of your choice (The Next Level only: it otherwise keeps all 7).",
+	"classic": "Setup: draw 5 Rooms and 2 Spells, then discard 2 cards of your choice (The Next Level and Minibosses only: they otherwise keep all 7).",
 	"hard": "Remove all ordinary Heroes with a Health value of four.",
 	"choose": "Setup: each player is dealt two Bosses, keeps one and removes the other from the game.",
 	"machinations": "At the end of a turn, a player who did not gain a Soul this turn may draw one card from the Room or Spell deck.",
@@ -35,9 +35,12 @@ static func ids_in(p_sets: Array) -> Array:
 static func has(G: Dictionary, id: String) -> bool:
 	return (G.get("variants", []) as Array).has(id)
 
-## Livret TNL, mise en place : on GARDE les 5 salles + 2 sorts (7 cartes) ; la defausse de 2 cartes est le Classic Mode. Hors TNL, mise en place de l'APK.
+## Livret TNL / RMB (manuel commun, « Starting Hand »), mise en place : on GARDE les 5 salles + 2 sorts (7 cartes) ; la defausse de 2 cartes est le Classic Mode. Hors TNL, mise en place de l'APK.
+static func _big_set(G: Dictionary) -> bool:
+	return TnlAbilities.active(G) or Minibosses.active(G)
+
 static func keeps_opening_hand(G: Dictionary) -> bool:
-	return TnlAbilities.active(G) and not has(G, "classic")
+	return _big_set(G) and not has(G, "classic")
 
 # --- I Choose You -------------------------------------------------------------------------------------------------------------
 

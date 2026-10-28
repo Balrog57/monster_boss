@@ -78,10 +78,8 @@ static func targets_for(G: Dictionary, me: Dictionary, pid: int, spell_id: Strin
 			var a := TnlAbilities.adv(G)
 			if hero_in_mb_room(G):
 				out.append({"mode": "mb", "heroId": (a["hero"] as Dictionary).get("id"), "targetPlayerId": int(a.get("playerId", -1))})
-		"paytowin": # la carte permet n'importe quelle salle, mais un bonus ne sert que sur la sienne (politique : moins de boutons)
+		"paytowin": # « Choose a Room » : n'importe quelle salle, la sienne ou celle d'un adversaire
 			for t in SpellTargeting.enumerate_targets("any-room", G, me, pid):
-				if int((t as Dictionary)["targetPlayerId"]) != pid:
-					continue
 				for n in range(0, coins + 1): # « for each Coin you pay » : de 0 a tous vos Coins (aucun plafond de la carte)
 					out.append({"targetPlayerId": (t as Dictionary)["targetPlayerId"], "roomIndex": (t as Dictionary)["roomIndex"], "pay": n})
 		"respawn":

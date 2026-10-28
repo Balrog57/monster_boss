@@ -855,16 +855,24 @@ static func _opponent_miniboss_level(G: Dictionary, pid: int) -> int:
 ## Texte du badge d'une salle qui porte un miniboss ; `own` = false cache le nom d'un miniboss encore face cachee (information privee).
 static func badge_text(room, own: bool) -> String:
 	var m := mb_of(room)
+	var c := room_coins(room)
+	var coins_txt := ("COINS: %d" % c) if c > 0 else "" # Coins poses sur la salle (Dreadmill, Minion Clinic, Crystal Ballroom) : publics
 	if m.is_empty():
-		return ""
+		return coins_txt
+	var t := "%s  L%d" % [mb_name(m), level(m)]
 	if bool(m.get("faceDown", false)):
-		return "MINIBOSS (face-down%s)" % [": %s" % mb_name(m) if own else ""]
-	return "%s  L%d" % [mb_name(m), level(m)]
+		t = "MINIBOSS (face-down%s)" % [": %s" % mb_name(m) if own else ""]
+	return t if c == 0 else t + "  " + coins_txt
+
+static func room_coins(room) -> int:
+	return int((room as Dictionary).get("coins", 0)) if room is Dictionary else 0
 
 ## Infobulle : les trois niveaux, le niveau atteint en tete.
 static func badge_tooltip(room, own: bool) -> String:
 	var m := mb_of(room)
-	if m.is_empty() or (bool(m.get("faceDown", false)) and not own):
+	if m.is_empty():
+		return "Coins on this Room: %d" % room_coins(room) if room_coins(room) > 0 else ""
+	if bool(m.get("faceDown", false)) and not own:
 		return ""
 	var lines: Array = ["%s (level %d)" % [mb_name(m), level(m)]]
 	for lv in ((m.get("card", {}) as Dictionary).get("levels", []) as Array):
