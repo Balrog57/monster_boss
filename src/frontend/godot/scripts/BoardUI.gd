@@ -1017,7 +1017,8 @@ func _process(delta: float) -> void:
 	var pc: Dictionary = game_manager.G.get("pendingChoice", {})
 	if phase == "boss" and players.values().any(func(q): return not bool((q as Dictionary).get("isAI", false)) and (q as Dictionary).get("boss") == null):
 		return # les humains tirent leur boss d'abord : l'IA ne peut pas prendre celui que le carrousel va designer
-	for pid in players:
+	# GamePlayBaseScene.cs:864-871 : les IA jouent dans l'ordre de InGamePlayersPriorized (XP decroissant) ; au tirage des boss, personne n'a encore de boss
+	for pid in (players.keys() if phase == "boss" else CardDB.order_by_xp(players)):
 		if not (players[pid] as Dictionary).get("isAI", false):
 			continue
 		if phase == "build" and pc.is_empty() and int(pid) != game_manager.active_player() and not game_manager.G.has("buildWindow"):

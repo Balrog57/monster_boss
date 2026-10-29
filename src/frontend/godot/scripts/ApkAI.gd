@@ -428,8 +428,8 @@ static func draw_room_probability(G: Dictionary, p: Dictionary, pid: int) -> flo
 #  - AIPlayerInteraction.cs : UseAbility (l.188-222), AbilityApplyRequest (l.29-43, Spell Battle), InternalDoPlayerActions (l.60-110) ;
 #  - AIHelper.cs : GetUsableAbilities (l.20-31), CalculateMostDamagingSlot, HasHeroPassedSlot, WhoWouldBaitHero, HasRoomBelow...
 # Les tirages internes du C# (`Shuffle()`, `NextBool()`) utilisent le RNG de la partie Godot (`rng`).
-# Ecart ASSUME avec le C# : AbilityCalculator.CheckBMA040And047 (l.844-847) reprend la liste de salles TRAP dans sa branche « heros actif » pour
-# Giant Size aussi ; on garde le type de la carte (une salle Trap n'est pas une cible legale de Giant Size : bogue, pas une regle).
+# Bogue de l'APK PORTE : AbilityCalculator.CheckBMA040And047 (l.844-847) reprend la liste de salles TRAP dans sa branche « heros actif » pour
+# Giant Size aussi ; l'IA vise donc une Trap, et le moteur ne revalide rien (SpellTargeting / SpellEffects._giant_size : un siege IA peut buffer une Trap).
 # ======================================================================================================================
 
 const AB_SPELLS := ["BMA040", "BMA041", "BMA042", "BMA044", "BMA045", "BMA046", "BMA047", "BMA048", "BMA049", "BMA050", "BMA051", "BMA052", "BMA053", "BMA054", "BMA055", "KSA013"]
@@ -437,9 +437,6 @@ const AB_ROOMS := ["BMA009", "BMA013", "BMA024", "BMA027", "BMA028", "BMA030", "
 const WIKI_PREFIXES := ["TNL", "RMB", "CRL", "THK", "IOD"]
 ## Cartes KSA que l'APK ne joue pas (pseudo-paquet players-choice-wiki) : leur IA est maison, comme celle des autres paquets wiki.
 const WIKI_KSA := ["KSA008", "KSA009", "KSA010", "KSA011", "KSA012", "KSA015"]
-## Diagnostic de mesure seulement (ApkParityTrace `--ai-copy-trap-bug`) : reproduit le bogue de CheckBMA040And047 (Giant Size sur une salle Trap).
-static var copy_trap_bug := false
-
 ## Carte d'un paquet wiki (hors APK) : son IA reste AiWiki / TnlAbilities / RmbAbilities.
 static func is_wiki_card(id: String) -> bool:
 	return WIKI_PREFIXES.has(id.substr(0, 3)) or WIKI_KSA.has(id)
@@ -659,7 +656,7 @@ static func _chk_040_047(x: Dictionary, rtype: String) -> Variant:
 			return r
 	if _lured_by(x, int(x["pid"])):
 		var ah: Dictionary = x["ah"]
-		rooms = _rooms_of_type(x, "trap" if copy_trap_bug else rtype, int(ah["c"])) # le C# reprend ici la liste Trap pour Giant Size aussi (voir l'en-tete)
+		rooms = _rooms_of_type(x, "trap", int(ah["c"])) # le C# reprend ici la liste Trap pour Giant Size aussi (voir l'en-tete)
 		if not rooms.is_empty():
 			var r2 = _logic_040_047(x, ah["hero"] as Dictionary, int(ah["c"]), rooms)
 			if r2 != null:
@@ -1403,9 +1400,12 @@ static func abilities(G: Dictionary, pid: int, moves: Array, rng: RandomNumberGe
 #  - DBMGameProject.Services.PlayerInteraction/AIPlayerInteraction.cs l.45-74 : une capacite que l'IA vient de tirer (`abilitySelected`) fournit
 #    ses cibles preregles (AbilityCalculator, etape 2) ; seules les autres cibles passent par TriggerCalculator.
 # Les niveaux de boss (LevelUpAbility) suivent le meme chemin. FixedAI.SelectTriggerTargets deleguait a StatisticAI (aucun tri propre).
-# Ecarts ASSUMES (bogues du C#, pas des regles) : le cache `resolvingCard` / `selectedTargets` (l.22-27, l.40-45, l.143-149) rend des cibles PERIMEES (liste d'une autre
-# carte ou deja consommee : Mimic Vault et Open Grave 2e fois, tout CheckXXX qui ne remet pas `resolvingCard` a null) -> chaque choix est calcule a neuf ;
-# Succubus Spa (CheckBMA012) renvoie `player` pour le fournisseur BossOpponent (l'ordre des listes est inverse) -> on prend l'adversaire que la carte designe.
+# Bogues du C# PORTES (IA-H37, IA-H47, IA-H63) : le cache `resolvingCard` / `targetIndex` / `selectedTargets` d'un siege IA (TriggerCalculator.cs:12-27, 40-45, 143-149)
+# rend des cibles PERIMEES (liste d'une autre carte ou deja consommee : Open Grave a la 2e activation, Mimic Vault sans heros, tout CheckXXX qui ne remet pas
+# `resolvingCard` a null) ; Succubus Spa (CheckBMA012) range `player` avant l'adversaire : au 1er appel le fournisseur BossOpponent recoit l'IA elle-meme. Une cible
+# qui n'est pas une option, une liste vide ou une exception (indice hors bornes) : l'IA ne designe rien et AbilityTransaction abandonne (`_tc_call`, `resolveChoice -1`).
+# Non porte, code mort (IA-H56) : CalculateCommandTargets / CheckSpellInHandCommand ne sont atteints que si `target.Ability == null` (AIPlayerInteraction.cs:57), or le
+# constructeur de BaseTargetProvider (l.37-39) range toujours une capacite non nulle et ShallowCopy (Effect.cs:175, Ability.cs:156) aussi.
 # Copies fideles de choix legaux mais etranges : Open Grave recupere d'abord une salle NON batissable (orderby sur un booleen), Kaw'nee prend le heros de
 # plus de PV de base (CalculateHeroValuetoSteal : `Intersect` n'est jamais nul), Xyzax peut viser deux fois la meme salle.
 # Tirages (`Shuffle()`, WaveServices.Random) : le RNG de la partie Godot ; ils sont signales (`shuf`) pour que la mesure les compte a part.
@@ -1419,7 +1419,8 @@ const TR_ACTIVATED := {"Dracolich Lair": "BMA013", "Dark Altar": "BMA009", "Witc
 ## Reponse de l'IA a un choix en attente : {"idx": indice de l'option (-1 = ne rien designer), "shuf": la cible vient d'un tirage} ou null
 ## (carte hors APK, cible introuvable parmi les options : l'appelant garde son ancien comportement).
 ## `sel` = entree de ApkAI.abilities que l'IA a tiree (cibles preregles), `memo` = liste calculee au premier choix d'une carte a deux choix (Xyzax).
-static func choose(G: Dictionary, pid: int, pc: Dictionary, rng: RandomNumberGenerator, sel: Dictionary = {}, memo: Dictionary = {}) -> Variant:
+## `commit` faux : question de mesure, le cache de TriggerCalculator (`memo["tc"]`) n'est pas modifie (voir `_tc_call`).
+static func choose(G: Dictionary, pid: int, pc: Dictionary, rng: RandomNumberGenerator, sel: Dictionary = {}, memo: Dictionary = {}, commit := true) -> Variant:
 	var opts: Array = pc.get("options", [])
 	if opts.is_empty() or not (G["players"] as Dictionary).has(pid):
 		return null
@@ -1436,6 +1437,13 @@ static func choose(G: Dictionary, pid: int, pc: Dictionary, rng: RandomNumberGen
 			return _out(-1)
 	if TR_ACTIVATED.has(name):
 		return _tr_activated(x, pc, opts, sel, name)
+	var okey := _tc_owner(pc, name)
+	if okey == "" or (name == "Xyzax" and (opts.size() <= 2 or int(pc.get("remaining", 1)) < 2)): # sans proprietaire connu, ou cibles prises telles quelles (<= Number) / 2e carte de Xyzax : pas d'appel du cache
+		return _choose_fresh(x, pc, opts, name, memo)
+	return _tc_call(x, pc, opts, name, okey, memo, commit)
+
+## Calcul d'une carte sans le cache (TriggerCalculator.InternalCalculateTriggerTargets).
+static func _choose_fresh(x: Dictionary, pc: Dictionary, opts: Array, name: String, memo: Dictionary) -> Variant:
 	match name:
 		"Draculord": return _tr_001(x, opts)
 		"Xyzax": return _tr_002(x, pc, opts, memo)
@@ -1455,26 +1463,116 @@ static func choose(G: Dictionary, pid: int, pc: Dictionary, rng: RandomNumberGen
 		"Kaw'nee": return _tr_ksa004(opts)
 	return null
 
+# --- cache de TriggerCalculator (IA-H37) -----------------------------------------------------------------------------------
+
+## Cartes dont les cibles passent par TriggerCalculator.CalculateTriggerTargets. [forme, remplit-elle toujours la liste ?] (CheckXXX, TriggerCalculator.cs:151-607) :
+## "A" = `[[cible]]` puis `targetIndex = 0; resolvingCard = null` (jamais perime quand la liste est remplie) ; "B" = `[[cible], [joueur]]` et `resolvingCard` RESTE a la carte
+## (le fournisseur BossOwner suivant est pris tel quel, sans appel du cache : l'appel suivant de la meme carte rend donc `[joueur]`, perime) ; "S" = Succubus Spa,
+## `[[joueur], [adversaire]]` (CheckBMA012 range `player` d'abord). Non portee : Hellcow (BossDungeon puis ordre, deux etapes).
+const TC_SHAPE := {
+	"Open Grave": ["B", true], "Monstrous Monument": ["B", true], "Xyzax": ["B", true], "Mimic Vault": ["B", false], "Draculord": ["B", false],
+	"King Croak": ["B", false], "Cleopatra": ["B", false], "Seducia": ["B", false], "Gorgona": ["B", false], "The Brothers Wise": ["B", false], "Kaw'nee": ["B", false],
+	"Specter's Sanctum": ["A", true], "Vampire Bordello": ["A", false], "Robobo": ["A", false], "Cerebellus": ["A", true], "Dark Laboratory": ["A", true],
+	"Succubus Spa": ["S", true],
+}
+## Niveaux de boss : le proprietaire (`AbilityOwner`) est la carte boss ; les autres sont des salles, reconnues par le `roomUid` du choix.
+const TC_BOSS := ["Draculord", "Xyzax", "King Croak", "Cleopatra", "Robobo", "Cerebellus", "Seducia", "Gorgona", "The Brothers Wise", "Kaw'nee"]
+
+## Ce choix passe-t-il par le cache de TriggerCalculator (et l'IA peut-elle donc l'abandonner, `resolveChoice -1`) ?
+static func is_tc_choice(pc: Dictionary) -> bool:
+	return TC_SHAPE.has(str(pc.get("bossName", "")))
+
+## Cle de la carte proprietaire de la capacite ; "" = inconnue (choix de test ou de carte wiki) : le cache n'est pas utilise.
+static func _tc_owner(pc: Dictionary, name: String) -> String:
+	if not TC_SHAPE.has(name):
+		return ""
+	if TC_BOSS.has(name):
+		return "boss:" + name
+	return "room:%d" % int(pc["roomUid"]) if pc.has("roomUid") else ""
+
+## Reference stable d'une option : {"card": carte} ou {"targetPlayerId", "roomIndex"}.
+static func _tc_ref(o: Dictionary) -> Dictionary:
+	return {"card": o["card"]} if o.has("card") else {"targetPlayerId": int(o.get("targetPlayerId", -1)), "roomIndex": int(o.get("roomIndex", -1))}
+
+static func _tc_is(o: Dictionary, r: Dictionary) -> bool:
+	if o.has("card") or r.has("card"):
+		return o.has("card") and r.has("card") and _same(o["card"], r["card"])
+	return int(o.get("targetPlayerId", -9)) == int(r["targetPlayerId"]) and int(o.get("roomIndex", -1)) == int(r["roomIndex"])
+
+static func _tc_find(opts: Array, refs: Array) -> int:
+	for r in refs:
+		for i in opts.size():
+			if _tc_is(opts[i], r):
+				return i
+	return -1
+
+## TriggerCalculator.CalculateTriggerTargets (l.19-27, 143-149) : un appel d'une carte differente de `resolvingCard` (R) recalcule (Check), l'appel suivant de la MEME carte rend
+## `selectedTargets[targetIndex++]` sans recalculer, donc perime si la carte a change d'etat. Un indice hors bornes ou une liste nulle leve (InternalResolveTarget attrape :
+## l'IA ne designe rien), un `resolvingCard` jamais remis a null reste en place. Une cible qui n'est pas une option, ou une liste vide : -1 (AbilityTransaction.cs:187-195 abandonne).
+## memo["tc"] = {"R": cle, "I": targetIndex, "S": selectedTargets (listes de references)}, par partie et par siege (AI._memo).
+static func _tc_call(x: Dictionary, pc: Dictionary, opts: Array, name: String, okey: String, memo: Dictionary, commit: bool) -> Variant:
+	var st: Dictionary = memo.get_or_add("tc", {"R": "", "I": 0, "S": null}) if commit else (memo.get("tc", {"R": "", "I": 0, "S": null}) as Dictionary).duplicate()
+	var shape: Array = TC_SHAPE[name]
+	var s: Variant = st["S"]
+	var ret: Array = []
+	var shuf := false
+	if str(st["R"]) != okey:
+		var fresh: Variant = _choose_fresh(x, pc, opts, name, memo)
+		if fresh == null:
+			return null # carte hors des options : l'appelant garde son comportement
+		st["R"] = okey
+		st["I"] = 0
+		var idx := int((fresh as Dictionary)["idx"])
+		if bool(shape[1]) or idx >= 0: # Check a rempli la liste
+			var ref: Array = [_tc_ref(opts[idx])] if idx >= 0 else []
+			var me := [{"targetPlayerId": int(x["pid"]), "roomIndex": -1}]
+			if name == "Xyzax":
+				ref = ((memo.get("Xyzax", {}) as Dictionary).get("list", []) as Array).map(func(c): return {"card": c})
+			s = [me, ref] if str(shape[0]) == "S" else [ref, me]
+			st["S"] = s
+			shuf = bool((fresh as Dictionary)["shuf"])
+			if str(shape[0]) == "A":
+				st["R"] = ""
+		if s != null and int(st["I"]) < (s as Array).size():
+			ret = (s as Array)[int(st["I"])]
+		if s != null:
+			st["I"] = int(st["I"]) + 1
+	else:
+		if s != null and int(st["I"]) < (s as Array).size():
+			ret = (s as Array)[int(st["I"])]
+			st["I"] = 0
+			st["R"] = ""
+		else:
+			st["I"] = int(st["I"]) + 1 # l'acces leve apres l'increment : `resolvingCard` reste
+	var i := _tc_find(opts, ret)
+	if name == "Xyzax" and commit:
+		memo["Xyzax"] = {"list": ret.map(func(r): return (r as Dictionary).get("card")).filter(func(c): return c != null), "shuf": shuf}
+	return _out(i, shuf and i >= 0)
+
 ## GameBoard.RevealAllRoomCards -> EnqueueAbilityTransaction -> ResolveTargets : l'APK designe la cible de chaque declencheur A LA MISE EN FILE, avant tout effet,
 ## et les salles encore en attente (la sienne comprise) ne comptent pas. Match._build_reveal_queue appelle ceci a cet instant (salle encore face cachee) ;
 ## `choose` rejoue ce resultat. Rend {} (rien de fige) ou {"key": cle de l'option, "val": valeur} (val null = ne rien designer). Mimic Vault / Specter's Sanctum.
-static func reveal_target(G: Dictionary, pid: int, room: Dictionary) -> Dictionary:
+static func reveal_target(G: Dictionary, pid: int, room: Dictionary, memo: Dictionary = {}, commit := false) -> Dictionary:
 	var x := _ctx(G, pid, [], RandomNumberGenerator.new())
 	var opts: Array = []
 	var res: Variant = null
 	var key := "card"
+	var name := ""
 	match str(room.get("id", "")):
 		"BMA036":
+			name = "Mimic Vault"
 			var town: Array = G.get("town", [])
 			for i in town.size():
 				if not bool((town[i] as Dictionary).get("epic", false)):
 					opts.append({"card": town[i], "townIndex": i})
-			res = _tr_036(x, opts) if opts.size() > 1 else null
 		"BMA011":
+			name = "Specter's Sanctum"
 			key = "targetPlayerId"
 			for q in opponents(G, pid):
 				opts.append({"targetPlayerId": int(q)})
-			res = _tr_011_012(x, opts, false) if opts.size() > 1 else null
+	if opts.size() > 1: # un seul candidat : pris tel quel (SingleTargetProvider), le cache n'est pas appele
+		var pc := {"bossName": name, "roomUid": RoomAbilities.room_uid(room)}
+		res = _tc_call(x, pc, opts, name, _tc_owner(pc, name), memo, commit)
 	if res == null:
 		return {}
 	var idx := int((res as Dictionary)["idx"])

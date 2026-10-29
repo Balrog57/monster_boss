@@ -36,6 +36,8 @@ func run(ok: Callable, h: Node) -> void:
 	_t_apk_rooms_checks()
 	_t_apk_draw_uniform()
 	_t_apk_triggers()
+	_t_apk_trigger_cache()
+	_t_apk_forced_build_and_order()
 
 # --- fabriques d'etats minimaux ----------------------------------------------------------------------
 
@@ -785,13 +787,15 @@ func _t_apk_spells_checks() -> void:
 
 ## Giant Size ne vise JAMAIS une salle Trap (le bogue de CheckBMA040And047 l.844-847 n'est pas copie), Annihilator jamais une Monster.
 func _t_apk_giant_size_type() -> void:
-	# le heros de P0 est dans sa salle g0 (monster) ; devant lui : trap (g1, 2 degats), monster (g2, 3 degats)
+	# le heros de P0 est dans sa salle g0 (monster) ; devant lui : trap (g1, 2 degats), monster (g2, 3 degats). 6 PV : le donjon entier (6) ne laisse rien
+	# (branche des heros a l'entree : null), les salles devant le heros (5) lui laissent 1 PV -> branche « heros actif » (CheckBMA040And047, l.836-851).
+	# Bogue de l'APK PORTE (IA-H14 / IA-H71) : cette branche reprend la liste des salles TRAP pour Giant Size aussi ; avant, Godot gardait le type Monster.
 	for sid in ["BMA047", "BMA040"]:
 		var G := _G([_player(0, "BMA001", [_plain("m0", "monster", [1], 1), _plain("t1", "trap", [1], 2), _plain("m2", "monster", [1], 3)]), _player(1, "BMA002")], ["base"])
 		G["turn"] = 3
-		_adventure(G, 0, _hero("TNL073"), 0, 7) # 7 - 5 = 2 PV apres le donjon : dans (0;3]
+		(G["players"][0] as Dictionary)["isAI"] = true
+		_adventure(G, 0, _hero("TNL073"), 0, 6)
 		_hand(G, 0).append(_spell(sid))
-		var want := "monster" if sid == "BMA047" else "trap"
 		var all_ok := true
 		var seen := 0
 		for seed_i in 30:
@@ -802,9 +806,135 @@ func _t_apk_giant_size_type() -> void:
 				seen += 1
 				var tgt: Dictionary = (((o as Dictionary)["move"] as Dictionary)["args"] as Array)[1]
 				var room: Dictionary = BossEngine.active_room(G["players"][int(tgt["targetPlayerId"])]["dungeon"][int(tgt["roomIndex"])])
-				all_ok = all_ok and str(room["type"]) == want
+				all_ok = all_ok and str(room["type"]) == "trap"
 			m.queue_free()
-		_ok.call(seen == 30 and all_ok, "%s : la cible est toujours une salle %s (30 tirages)" % [sid, want])
+		_ok.call(seen == 30 and all_ok, "%s : branche « heros actif » = salle Trap, meme pour Giant Size (bogue APK, 30 tirages)" % sid)
+	# le coup est legal pour un siege IA et le sort se resout sur la Trap (+3) ; un humain garde le ciblage Monster
+	var G2 := _G([_player(0, "BMA001", [_plain("m0", "monster", [1], 1), _plain("t1", "trap", [1], 2), _plain("m2", "monster", [1], 3)]), _player(1, "BMA002")], ["base"])
+	G2["turn"] = 3
+	_adventure(G2, 0, _hero("TNL073"), 0, 6)
+	_hand(G2, 0).append(_spell("BMA047"))
+	var m2 := _match(G2)
+	var on_trap := func(moves: Array) -> bool:
+		return moves.any(func(mv): return str((mv as Dictionary)["type"]) == "playSpell" and int((((mv as Dictionary)["args"] as Array)[1] as Dictionary).get("roomIndex", -1)) == 1)
+	_ok.call(not on_trap.call(m2.legal_moves(0)), "Giant Size (siege humain) : la Trap n'est pas ciblable")
+	(G2["players"][0] as Dictionary)["isAI"] = true
+	_ok.call(on_trap.call(m2.legal_moves(0)), "Giant Size (siege IA) : la Trap est ciblable (bogue APK)")
+	var before := BossEngine.room_damage_with_modifiers(G2, G2["players"][0], 1, {})
+	m2.apply_move(0, _mv("playSpell", [0, {"targetPlayerId": 0, "roomIndex": 1}]))
+	m2._resolve_pending_stack()
+	_ok.call(BossEngine.room_damage_with_modifiers(G2, G2["players"][0], 1, {}) == before + 3, "Giant Size (siege IA) sur la Trap : +3 degats, sort resolu (AbilityTransaction ne revalide pas)")
+	m2.queue_free()
+
+## IA-H37 / IA-H47 / IA-H63 : cache de TriggerCalculator (resolvingCard / targetIndex / selectedTargets), propre a chaque siege IA (TriggerCalculator.cs:19-27, 143-149).
+func _t_apk_trigger_cache() -> void:
+	var G := _g3()
+	var adv := _plain("adv", "trap", [1], 3, true)
+	(G["decks"]["roomDiscard"] as Array).append_array([_plain("easy", "monster", [1], 1), adv, _plain("hi", "monster", [1], 4)])
+	var pc: Dictionary = RoomAbilities._open_grave(G, G["players"][0], 0)
+	pc["roomUid"] = 7
+	var memo := {}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5
+	# commit = false : question de mesure, jamais d'effet sur le cache
+	var peek: Array = []
+	for i in 3:
+		peek.append(_pick_of(pc, ApkAI.choose(G, 0, pc, rng, {}, memo, false)))
+	_ok.call(peek == ["adv", "adv", "adv"] and not memo.has("tc"), "Open Grave : une question de mesure (commit faux) ne touche pas le cache")
+	var seq: Array = []
+	for i in 4:
+		seq.append(_pick_of(pc, _choose(G, 0, pc, {}, memo)))
+	_ok.call(seq == ["adv", "-", "adv", "-"], "Open Grave : la 2e activation de la MEME salle rend la liste perimee (le joueur, pas une salle) -> abandon ; la 3e recalcule : %s" % str(seq))
+	var pc_b := pc.duplicate()
+	pc_b["roomUid"] = 8
+	var seq2: Array = [_pick_of(pc, _choose(G, 0, pc, {}, memo)), _pick_of(pc_b, _choose(G, 0, pc_b, {}, memo)), _pick_of(pc, _choose(G, 0, pc, {}, memo))]
+	_ok.call(seq2 == ["adv", "adv", "adv"], "Open Grave : une autre salle entre deux (resolvingCard change) -> toujours recalcule : %s" % str(seq2))
+	_ok.call(_pick_of(pc, _choose(G, 0, pc, {}, {})) == "adv" and _pick_of(pc, _choose(G, 0, pc, {}, {})) == "adv", "Open Grave : un autre siege (autre memoire) ne partage pas le cache")
+	# Mimic Vault a la revelation : la cible est figee a la mise en file, le cache s'applique aussi
+	var G3 := _g3()
+	(G3["players"][0]["dungeon"] as Array).append([_plain("d", "monster", [], 4)])
+	G3["town"] = [_hero_hp("TNL073", 9), _hero_hp("TNL073", 3)]
+	var vault := {"id": "BMA036"}
+	var memo3 := {}
+	var pre1 := ApkAI.reveal_target(G3, 0, vault, memo3, true)
+	var pre2 := ApkAI.reveal_target(G3, 0, vault, memo3, true)
+	var pre3 := ApkAI.reveal_target(G3, 0, vault, memo3, true)
+	_ok.call(pre1.get("val") != null and pre2.has("val") and pre2["val"] == null and pre3.get("val") != null, "Mimic Vault (revelation) : 1er appel = le heros, 2e de la meme salle = perime (rien), 3e = recalcule")
+	# Succubus Spa : CheckBMA012 range `player` AVANT l'adversaire ; au 1er appel BossOpponent recoit l'IA elle-meme
+	var G4 := _g3()
+	(G4["players"][0] as Dictionary)["isAI"] = true
+	var spa: Dictionary = RoomAbilities._succubus_spa(G4, 0)
+	spa["roomUid"] = 9
+	var memo4 := {}
+	var who: Array = []
+	for i in 3:
+		var r = _choose(G4, 0, spa, {}, memo4)
+		who.append(int((spa["options"][int(r["idx"])] as Dictionary)["targetPlayerId"]) if int(r["idx"]) >= 0 else -1)
+	_ok.call((spa["options"] as Array).size() == 3 and who[0] == 0 and who[1] != 0 and who[2] == 0, "Succubus Spa (siege IA) : 1er appel = l'IA elle-meme, 2e = un adversaire, 3e = elle-meme : %s" % str(who))
+	(G4["players"][0] as Dictionary)["isAI"] = false
+	_ok.call((RoomAbilities._succubus_spa(G4, 0)["options"] as Array).size() == 2, "Succubus Spa (siege humain) : adversaires seulement")
+	# IA-H63 : l'abandon est un coup legal pour un siege IA seulement, et libere la capacite OncePerTurn
+	var G5 := _g3()
+	var grave := _room("BMA010")
+	(G5["players"][0]["dungeon"] as Array).append([grave])
+	grave["usedThisTurn"] = true
+	(G5["decks"]["roomDiscard"] as Array).append_array([_plain("easy", "monster", [1], 1), _plain("hi", "monster", [1], 4)])
+	var pc5: Dictionary = RoomAbilities._open_grave(G5, G5["players"][0], 0)
+	pc5["roomUid"] = RoomAbilities.room_uid(grave)
+	G5["pendingChoice"] = pc5
+	var m5 := _match(G5)
+	var can_pass := func() -> bool:
+		return m5.legal_moves(0).any(func(mv): return str((mv as Dictionary)["type"]) == "resolveChoice" and int(((mv as Dictionary)["args"] as Array)[0]) == -1)
+	_ok.call(not can_pass.call(), "Open Grave : un humain ne peut pas abandonner")
+	(G5["players"][0] as Dictionary)["isAI"] = true
+	_ok.call(can_pass.call(), "Open Grave : un siege IA peut abandonner (cibles perimees -> AbilityTransaction annule)")
+	_ok.call(m5.apply_move(0, _mv("resolveChoice", [-1])) and not bool(grave.get("usedThisTurn", false)) and (G5["pendingChoice"] as Dictionary).is_empty(), "Open Grave abandonne : choix ferme, OncePerTurn de nouveau libre")
+	m5.queue_free()
+	# l'IA applique la reponse du cache par pick_move (resolveChoice -1 offert)
+	var G6 := _g3()
+	(G6["players"][0] as Dictionary)["isAI"] = true
+	G6["town"] = [_hero_hp("TNL073", 9), _hero_hp("TNL073", 8)]
+	(G6["players"][0]["dungeon"] as Array).append([_plain("d", "monster", [], 4)])
+	var pc6: Dictionary = RoomAbilities._mimic_vault(G6, G6["players"][0], 0)
+	G6["pendingChoice"] = pc6
+	var m6 := _match(G6)
+	var mv6 = AI.pick_move(m6, 0)
+	_ok.call(mv6 != null and str(mv6["type"]) == "resolveChoice" and int((mv6["args"] as Array)[0]) == -1, "Mimic Vault : aucun heros a portee -> pick_move repond « ne rien designer » (-1)")
+	m6.queue_free()
+
+## IA-H61 : ExtraBuildPhase ne fait que BuildRoom (pas d'UseAbility) ; IA-H66 : les IA hors tour jouent dans l'ordre d'XP (InGamePlayersPriorized).
+func _t_apk_forced_build_and_order() -> void:
+	var G := _G([_player(0, "BMA001", [_plain("d1")]), _player(1, "BMA002")], ["base"])
+	G["turn"] = 3
+	G["phase"] = "build"
+	G["activePlayer"] = 0
+	for i in 5:
+		_hand(G, 1).append(_plain("o%d" % i))
+	_hand(G, 0).append(_plain("room", "monster", [1], 4))
+	_hand(G, 0).append(_spell("BMA048")) # Jeopardy : jouable aussi hors BuildPhase_a (DuringPhase any)
+	var m := _match(G)
+	_ok.call(_elig(G, 0) == ["BMA048"], "Jeopardy eligible (main plus petite que la moyenne adverse - 1)")
+	G["forcedBuild"] = ""
+	var mv = AI.pick_move(m, 0)
+	_ok.call(mv != null and str(mv["type"]) == "buildRoom", "tour de construction force : l'IA construit, sans UseAbility (AIPlayerInteraction.ExtraBuildPhase)")
+	G.erase("forcedBuild")
+	mv = AI.pick_move(m, 0)
+	_ok.call(mv != null and str(mv["type"]) == "playSpell", "... et hors tour force, la meme main joue Jeopardy d'abord")
+	m.queue_free()
+	var G2 := _G([_player(0, "BMA001", [_plain("d1")]), _player(1, "BMA002"), _player(2, "BMA003")], ["base"])
+	G2["turn"] = 3
+	G2["phase"] = "build"
+	G2["activePlayer"] = 0
+	(G2["players"][2]["boss"] as Dictionary)["xp"] = 5
+	(G2["players"][1]["boss"] as Dictionary)["xp"] = 1
+	for pid in [1, 2]:
+		(G2["players"][pid] as Dictionary)["isAI"] = true
+		_hand(G2, pid).append(_spell("BMA048"))
+	for i in 5:
+		_hand(G2, 0).append(_plain("o%d" % i))
+	var m2 := _match(G2)
+	_ok.call(m2._ai_offturn() and _hand(G2, 2).is_empty() and _hand(G2, 1).size() == 1, "IA hors tour : l'IA qui a le plus d'XP (P2) joue avant P1")
+	m2.queue_free()
 
 ## Spell Battle : seuls Counterspell (BMA043) et All-Seeing Eye (BMA025) sont evalues (AbilityCalculator.cs l.22-30).
 func _t_apk_spell_battle() -> void:

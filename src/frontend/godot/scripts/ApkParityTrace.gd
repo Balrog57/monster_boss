@@ -1203,6 +1203,10 @@ func _on_decision_now(_i: int, s: Dictionary, age := -1) -> void:
 		if age < 2 and not chosen.is_empty():
 			_late.append({"s": s, "age": maxi(age, 0)})
 		return
+	# Succubus Spa : BossOwner (targetId 1, sans choix Godot) puis BossOpponent (targetId 2, le choix Godot, qui passe par le cache de TriggerCalculator)
+	if pc_name == "Succubus Spa" and kind == "resolveTarget" and int(d.get("targetId", 0)) == 1:
+		_skip("implicitTargetNoOption", s)
+		return
 	var opts: Array = pc.get("options", [])
 	# Cible implicite (salle proprietaire / boss) qu'aucune option ne designe par instance : ne pas la rapprocher
 	# d'une AUTRE copie du meme code (ex. Dark Altar vs un 2e BMA009 en defausse).
@@ -1323,6 +1327,7 @@ func _is_card_name(name: String) -> bool:
 ## reste utilisable ce tour (Ability.IsEffectApplied faux). On ferme le choix Godot sans effet.
 func _abort_trigger(s: Dictionary, d: Dictionary, pid: int, boss_name: String) -> void:
 	_note(s, "ABORTED", "%s : l'oracle a designe une cible invalide (boss/carte hors options), capacite avortee" % boss_name)
+	_ai_choice(pid, run.G.get("pendingChoice", {}), -1, s, "target") # le C# a designe une cible perimee : l'IA Godot doit abandonner aussi
 	var oi := _stack_index(pid, int((d.get("owner", {}) as Dictionary).get("id", -1)))
 	if oi >= 0:
 		(((run.G["players"][pid] as Dictionary)["dungeon"] as Array)[oi].back() as Dictionary).erase("usedThisTurn")
@@ -1506,7 +1511,6 @@ func _ai_init() -> void:
 	_ai_nosel.clear()
 	AI._sel.clear() # abilitySelected / listes memorisees d'une partie precedente
 	AI._memo.clear()
-	ApkAI.copy_trap_bug = args.has("--ai-copy-trap-bug") # diagnostic : l'oracle joue Giant Size sur une salle Trap (CheckBMA040And047, l.844-847)
 	for a in args:
 		if str(a).begins_with("--ai-ex="):
 			_ai_ex = int(str(a).substr(8))
@@ -1946,6 +1950,8 @@ func _ai_choice(pid: int, pc: Dictionary, pick: int, s: Dictionary, type: String
 	_ai_rec(rtype, agree, s, pid, keys.size() + (1 if pick < 0 else 0), "option %d %s" % [pick, ko], "option %d %s" % [gi, kg],
 		"%s:%s[%s]" % [rtype, ptype, str(pc.get("bossName", ""))], tie)
 	_ai_guard(h)
+	AI.pick_move(run, pid, true) # le C# a appele le cache de TriggerCalculator : la reponse est maintenant definitive (memo["tc"])
+	run.rng.state = rng_state
 
 
 ## Un `spellBattleReady` est « propre » (fin de l'action du joueur) quand l'action IA precedente de meme profondeur est un sort / une capacite de ce

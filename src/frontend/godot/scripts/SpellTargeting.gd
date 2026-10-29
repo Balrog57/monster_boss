@@ -115,9 +115,10 @@ static func enumerate_targets(type: String, G: Dictionary, me: Dictionary, playe
 				for i in (op.get("dungeon", []) as Array).size():
 					var r = _targetable_top(G, int(opid), i, (op["dungeon"] as Array)[i])
 					# Giant Size = RoomInDungeon[Monster] : le ciblage C# (GetAvailableTargets) ne propose que des Monster. Mais l'IA de l'APK
-					# (AbilityCalculator.CheckBMA040And047) reprend la liste de salles TRAP dans sa branche « heros actif » pour les DEUX sorts,
-					# et le moteur n'y revalide rien : le harnais d'oracle ouvre ce choix (G.aiTargetsAnyRoomType).
-					if r != null and (str((r as Dictionary).get("type", "")) == "monster" or bool(G.get("aiTargetsAnyRoomType", false))):
+					# (AbilityCalculator.CheckBMA040And047, l.844-847) reprend la liste de salles TRAP dans sa branche « heros actif » pour les DEUX sorts,
+					# et le moteur n'y revalide rien (AbilityTransaction : `flag = true`, CheckIfTargetIsWellResolved jamais appele) : ce choix est ouvert
+					# a tout siege IA (bogue de l'APK porte) et au harnais d'oracle (G.aiTargetsAnyRoomType). Un humain garde le ciblage Monster.
+					if r != null and (str((r as Dictionary).get("type", "")) == "monster" or bool(G.get("aiTargetsAnyRoomType", false)) or bool(me.get("isAI", false))):
 						out.append({"targetPlayerId": int(opid), "roomIndex": i})
 		"any-room":
 			for opid in (G.get("players", {}) as Dictionary):

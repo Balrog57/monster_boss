@@ -208,7 +208,7 @@ Classement (a) benin, (b) choix Godot manquant, (c) bogue/artefact oracle. Mesur
 | Retenues puis rejouees (`replayed`) | 5 | 1 | (a) | BMA010 Open Grave t1 (`recover-card`, appariement exact : s2-p2@166 `DBGM`), BMA003/BMA008 t1 (`otherPlayer-deferred`) : le choix est bien rejoue, seul le premier passage compte |
 | `openingDiscard` de Setup_a d'un autre joueur (`otherPlayer-deferred:discard`) | 3 | 6 | (a) | Rejouee des que le choix de ce joueur s'ouvre (`replayed` = n). s1-p2@2 |
 | Cibles main perimees BMA013/BMA024 (`STALE-TARGET`) | 0 | 11 | (c) | Course de l'IA oracle (activation en file, main modifiee avant l'execution) : s11-p3@314, @428, @456 (BMA013) et s11-p2@32 (BMA024) ; voir « Limites assumees » |
-| Succubus Spa sur son propre boss (BMA012) | 4 | 0 | (c) | `chosen = [boss du joueur 1]` pour le proprietaire joueur 1 : s1-p3@60-61 (2 decisions, comptees 2 fois) |
+| Succubus Spa sur son propre boss (BMA012) | 0 | 0 | - | Porte (IA-H47) : le siege IA se voit offrir l'option « soi-meme » (`chosen = [boss du joueur 1]`, s1-p3@60-61), la decision est appariee et mesuree (`target`) |
 | **Total** | **432** | **2211** | | (b) : **aucun cas** |
 
 Aucune classe (b) (choix que l'APK propose a un humain et que Godot resout seul) n'est prouvee sur ces traces. Limite de la preuve :
@@ -347,8 +347,9 @@ Aucun `seq` n'est consomme : **les 24 traces regenerees (defaut, wide, decks) so
 | `pass` (l'oracle ne joue rien) | 214 | 168 (78,5 %) | 214 | **100,0** |
 | `usableSet` (legalite du moteur, pas l'IA) | 7799 | - | 7065 | 90,6 a ce stade ; **100 %** apres la passe de legalite (voir plus bas) |
 
-`--ai-copy-trap-bug` (option de `ApkParity.tscn`, mesure seulement) reproduit le bogue de `CheckBMA040And047` : `eligibleSet` et `chosenInSet` passent alors a **100 %** partout
-(spell 102/102, activate 142/142, pass 7555/7555), ce qui prouve que le seul ecart d'ensemble restant EST ce bogue.
+Le bogue de `CheckBMA040And047` (la branche « heros actif » reprend la liste des salles Trap pour Giant Size aussi) est PORTE dans le jeu (IA-H14 / IA-H71, `ApkAI.gd`, `SpellTargeting.gd`,
+`SpellEffects.gd` : un siege IA peut viser une Trap avec Giant Size) ; l'ancienne option de mesure `--ai-copy-trap-bug` est supprimee, `eligibleSet` et `chosenInSet` sont a **100 %** partout sans option
+(chiffres de la ligne ci-dessus : mesures avant le port, avec l'option).
 
 *Desaccords restants (6 decisions sur 7799 ; tout le reste de la ligne = 0)* : cinq `eligibleSet:pass` et un `eligibleSet:spell` / `chosenInSet:spell`, tous BMA047 Giant Size :
 s4-p4@116, @117, @244, @245, @246 (Godot propose Giant Size sur une Monster devant le heros ; l'oracle regarde ses salles Trap, il n'y en a pas devant le heros) et s5-p2@492
@@ -375,8 +376,11 @@ quand le C# ne trouve rien (Seducia, Mimic Vault, King Croak sans salle batissab
 Les deux piles de Godot rangent le SOMMET en dernier (`draw` = `pop_back`) alors que le C# enumere `DeckHeroes` / `DeckRooms` / `DeckSpells` du sommet au fond : `_cs_order` remet l'ordre du C#
 pour les departages (Seducia a souls egaux : le heros du sommet de la pioche ; King Croak / Cleopatra a valeur egale).
 Tirages (`Shuffle()` : un sort de Draculord, les 2 sorts de Xyzax, `SelectSpellToDiscard`, `CheckBMA009`, `CalculateSpellValue` de The Brothers Wise) : RNG de la partie Godot, signales (`shuf`).
-Ecarts ASSUMES : le cache `resolvingCard` / `selectedTargets` rend des cibles perimees (Mimic Vault et Open Grave aux activations suivantes, tout `CheckXXX` qui ne remet pas `resolvingCard` a null) ->
-chaque choix est calcule a neuf ; Succubus Spa (`CheckBMA012`) rend `player` pour le fournisseur `BossOpponent` (ordre des listes) -> on designe l'adversaire que la carte vise. Copies fideles de choix
+Bogues du C# PORTES (IA-H37, IA-H47, IA-H63) : le cache `resolvingCard` / `targetIndex` / `selectedTargets` de `TriggerCalculator` (`ApkAI._tc_call`, memoire par partie et par siege `AI.memo_of`) rend des
+cibles perimees (Mimic Vault et Open Grave aux activations suivantes de la meme salle, tout `CheckXXX` qui ne remet pas `resolvingCard` a null) ; Succubus Spa (`CheckBMA012`) range `player` avant
+l'adversaire : le fournisseur `BossOpponent` recoit l'IA elle-meme au 1er appel (option « soi-meme » offerte aux sieges IA, `RoomAbilities._succubus_spa`) ; une liste vide, une cible qui n'est pas une option
+ou une exception d'`InternalResolveTarget` = l'IA n'designe rien et `AbilityTransaction` abandonne (`resolveChoice -1`, offert aux sieges IA par `Match.legal_moves`, `usedThisTurn` rendu). Limite : une cible
+perimee qui est une vraie carte HORS des options (p. ex. une salle de la defausse devenue sans objet) serait appliquee par le C# (`flag = true`, pas de revalidation) ; Godot abandonne. Copies fideles de choix
 legaux mais etranges : Open Grave prend d'abord une salle NON batissable (`orderby` sur un booleen), Kaw'nee prend le heros de plus de PV de base (`Intersect` n'est jamais nul), Xyzax peut viser deux fois la
 meme salle. Non porte : `CheckBMA033` Centipede Tunnel (carte jamais distribuee, `notInGameCards`) ; `CheckBMA017/019/021/031/034` (cible = soi-meme ou premier heros : le moteur les auto-resout).
 
@@ -402,7 +406,7 @@ Laboratory]` 4 et `[Cerebellus]` 2, `kitchen-discard[Witch's Kitchen]` 4, `recov
 Aucune des 162 cibles deterministes ne desaccorde : le seuil du lot est donc **100 %** (voir « Seuil du lot 1.2 »).
 
 **Seuil du lot 1.2 (fixe)** : 0 desaccord et 0 indifference sur `build`, `buildCard`, `buildSlot`, `discard`, `eligibleSet:activate`, `chosenInSet:activate`, `spellTarget`, `activateTarget`,
-`target`, `targetPass`, `pass` et `usableSet` (code de sortie 1 de `apk.py --ai-agreement` au moindre ecart) ; >= 99 % sur `eligibleSet:*` et `chosenInSet:spell` (le seul ecart est le bogue de `CheckBMA040And047`, 100 % avec `--ai-copy-trap-bug`). Hors seuil : les types
+`target`, `targetPass`, `pass` et `usableSet` (code de sortie 1 de `apk.py --ai-agreement` au moindre ecart) ; >= 99 % sur `eligibleSet:*` et `chosenInSet:spell` (le bogue de `CheckBMA040And047` est porte : 100 % sans option). Hors seuil : les types
 `...Shuffle` (tirages au hasard, accord attendu ~ 1/n), `draw` (non exerce).
 
 **Passe de legalite du moteur (apres l'etape 3 ; `usableSet` 7065/7799 -> 7778/7778, 100 %)**

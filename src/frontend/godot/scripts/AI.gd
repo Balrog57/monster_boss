@@ -37,6 +37,18 @@ static var last_choice_shuf := false
 static func _key(match_obj, pid: int) -> String:
 	return "%d:%d" % [match_obj.get_instance_id(), pid]
 
+## Oublie la memoire de l'IA d'une partie (identifiant d'instance reutilisable, serveur de longue duree).
+static func forget(match_obj) -> void:
+	var prefix := "%d:" % match_obj.get_instance_id()
+	for d in [_sel, _used, _pre_build, _memo]:
+		for k in (d as Dictionary).keys():
+			if str(k).begins_with(prefix):
+				(d as Dictionary).erase(k)
+
+## Memoire de l'IA d'un siege (liste de Xyzax, cache de TriggerCalculator `tc`).
+static func memo_of(match_obj, pid: int) -> Dictionary:
+	return _memo.get_or_add(_key(match_obj, pid), {})
+
 ## abilitySelected = l'entree tiree, ou null ({}) quand l'IA n'a rien tire. Appele aussi par le harnais de parite (qui rejoue l'oracle au lieu de tirer).
 static func remember(match_obj, pid: int, entry: Variant) -> void:
 	_sel[_key(match_obj, pid)] = entry if entry is Dictionary else {}
@@ -77,7 +89,7 @@ static func pick_move(match_obj, pid: int, commit := true):
 					trace.call(match_obj, pid, moves, m)
 				return m
 	if str(pc.get("type", "")) != "" and str((moves[0] as Dictionary).get("type", "")) == "resolveChoice" and int(pc.get("playerId", -1)) == pid:
-		var ch: Variant = ApkAI.choose(match_obj.G, pid, pc, match_obj.rng, _sel.get(_key(match_obj, pid), {}), _memo.get_or_add(_key(match_obj, pid), {}))
+		var ch: Variant = ApkAI.choose(match_obj.G, pid, pc, match_obj.rng, _sel.get(_key(match_obj, pid), {}), memo_of(match_obj, pid), commit)
 		if ch != null:
 			for m in moves:
 				if int((m as Dictionary)["args"][0]) == int((ch as Dictionary)["idx"]):
@@ -97,7 +109,8 @@ static func pick_move(match_obj, pid: int, commit := true):
 		if str((m as Dictionary).get("type", "")) == "buildRoom":
 			builds.append(m)
 		elif ApkAI.is_apk_ability_move(p, m):
-			apk_abilities = true # sort / capacite d'une carte de l'APK : l'ensemble des capacites eligibles (ApkAI.abilities) les remplace
+			# sort / capacite d'une carte de l'APK : l'ensemble des capacites eligibles (ApkAI.abilities) les remplace ; ExtraBuildPhase ne fait que BuildRoom (IA-H61)
+			apk_abilities = apk_abilities or not match_obj.G.has("forcedBuild")
 		else:
 			others.append(m)
 	var best = null

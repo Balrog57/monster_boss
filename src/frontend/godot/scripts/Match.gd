@@ -60,6 +60,9 @@ var human_count := 1
 var rng := RandomNumberGenerator.new()
 var _ai_driving := false
 
+func _exit_tree() -> void:
+	AI.forget(self)
+
 func _ready() -> void:
 	rng.randomize()
 
@@ -274,7 +277,7 @@ func legal_moves(pid: int) -> Array:
 				out.append({"type": "resolveChoice", "args": [i]})
 			# Un choix facultatif (Ability.CanAvoid) propose en plus l'option "passer" (index -1). `aiCancel` : CanAvoid faux, un humain ne peut pas annuler, mais l'IA de
 			# l'APK abandonne en ne designant rien (AbilityTransaction.cs:187-195) : « passer » reserve aux sieges IA et au harnais d'oracle (G.aiMayCancel).
-			if bool(pc.get("optional", false)) or (bool(pc.get("aiCancel", false)) and (bool((players[pid] as Dictionary).get("isAI", false)) or bool(G.get("aiMayCancel", false)))):
+			if bool(pc.get("optional", false)) or ((bool(pc.get("aiCancel", false)) or ApkAI.is_tc_choice(pc)) and (bool((players[pid] as Dictionary).get("isAI", false)) or bool(G.get("aiMayCancel", false)))):
 				out.append({"type": "resolveChoice", "args": [-1]})
 		return out
 	var p: Dictionary = players[pid]
@@ -880,6 +883,11 @@ func _resolve_choice_body(pid: int, index: int) -> void:
 	var valid := index >= -1 and (index < opts.size() or index == -1)
 	if not valid:
 		return
+	if index < 0 and pc.has("roomUid") and ["Open Grave", "Succubus Spa", "Vampire Bordello"].has(str(pc.get("bossName", ""))):
+		# L'IA a abandonne la transaction (cibles mal resolues, AbilityTransaction.Run) : OncePerTurn reste utilisable (Ability.IsEffectApplied faux).
+		var fr := RoomAbilities._find_room_by_uid(p, int(pc["roomUid"]))
+		if not fr.is_empty():
+			(fr[2] as Dictionary).erase("usedThisTurn")
 	var finish_dead := false # des degats viennent d'etre infliges au heros actif : il meurt apres la remise a zero du choix
 	match kind:
 		"recover-card":
@@ -1625,6 +1633,8 @@ func _reveal_and_level_up() -> bool:
 		match str(it["kind"]):
 			"room":
 				choice = RoomAbilities.on_build_room(G, pid, it["room"])
+				if choice != null:
+					choice["roomUid"] = RoomAbilities.room_uid(it["room"]) # proprietaire du cache de TriggerCalculator (ApkAI._tc_call)
 			"another":
 				RoomAbilities.run_another_room_trigger(G, pid, it["room"])
 			"levelup":
@@ -1672,7 +1682,7 @@ func _build_reveal_queue() -> Array:
 			if room == null or not (room as Dictionary).get("faceDown", false):
 				continue
 			var r: Dictionary = room
-			mine.append({"pid": int(pid), "kind": "room", "room": r, "pre": ApkAI.reveal_target(G, int(pid), r)}) # cible figee a la mise en file (C#)
+			mine.append({"pid": int(pid), "kind": "room", "room": r, "pre": ApkAI.reveal_target(G, int(pid), r, AI.memo_of(self, int(pid)), true)}) # cible figee a la mise en file (C#)
 			for o in RoomAbilities.another_room_triggers(G, int(pid)): # avant faceDown=false : la salle compte comme « en attente » (C#)
 				mine.append({"pid": int(pid), "kind": "another", "room": o})
 			r["faceDown"] = false
@@ -1730,8 +1740,7 @@ func _ai_offturn() -> bool:
 	if G.has("buildWindow") or G.has("forcedBuild") or not (G.get("stack", []) as Array).is_empty():
 		return false
 	var ap := active_player()
-	var ids: Array = (G["players"] as Dictionary).keys()
-	ids.sort()
+	var ids: Array = CardDB.order_by_xp(G["players"]) # InGamePlayersPriorized : le plus d'XP d'abord (GamePlayBaseScene.cs:864-871)
 	for pid in ids:
 		if int(pid) == ap or not bool((G["players"][pid] as Dictionary).get("isAI", false)):
 			continue
@@ -2495,6 +2504,7 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 func _hero_died_trigger(pid: int, death_room: Dictionary) -> void:
 	var choice = RoomAbilities.on_hero_died_in_room(G, pid, death_room)
 	if choice != null:
+		choice["roomUid"] = RoomAbilities.room_uid(death_room) # proprietaire du cache de TriggerCalculator (ApkAI._tc_call)
 		RoomAbilities.enqueue_pending(G, choice) # (file derriere un choix deja ouvert, ex. Lightning Bolt!)
 
 func _check_end_or_next_turn() -> void:

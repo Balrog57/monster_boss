@@ -764,6 +764,9 @@ static func _succubus_spa(G: Dictionary, player_id: int) -> Variant:
 	var opts: Array = []
 	for o in opps:
 		opts.append({"targetPlayerId": int((o as Dictionary)["playerId"])})
+	if bool(_player(G, player_id).get("isAI", false)) or bool(G.get("aiTargetsAllBosses", false)):
+		# CheckBMA012 range `player` AVANT l'adversaire : au 1er appel du cache, BossOpponent recoit l'IA elle-meme (sans controle de type, `flag = true`) ; le vol est sans effet net.
+		opts.append({"targetPlayerId": player_id})
 	return {"type": "pick-opponent", "action": "steal-random", "playerId": player_id, "bossName": "Succubus Spa",
 		"message": "Succubus Spa: choose an opponent to take a random card from", "options": opts}
 

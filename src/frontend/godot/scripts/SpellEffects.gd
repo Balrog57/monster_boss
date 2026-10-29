@@ -116,7 +116,8 @@ static func _giant_size(G: Dictionary, caster_id: int, _card: Dictionary, target
 	var tid := _target_id(target, caster_id)
 	var idx := auto_room_index(G, tid, target)
 	var room = find_room(G, tid, idx)
-	if room == null or (str((room as Dictionary).get("type", "")) != "monster" and not bool(G.get("aiTargetsAnyRoomType", false))): # DealDamageToRoom ne revalide pas le type (voir SpellTargeting)
+	var caster_ai := bool(((G.get("players", {}) as Dictionary).get(caster_id, {}) as Dictionary).get("isAI", false))
+	if room == null or (str((room as Dictionary).get("type", "")) != "monster" and not bool(G.get("aiTargetsAnyRoomType", false)) and not caster_ai): # DealDamageToRoom ne revalide pas le type : une IA peut buffer une Trap (voir SpellTargeting)
 		_log(G, "Giant Size requires a Monster Room.")
 		return false
 	_buff_room_instance(room, 3)
