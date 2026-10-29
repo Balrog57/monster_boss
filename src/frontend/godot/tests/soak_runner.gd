@@ -15,6 +15,8 @@ const GameManager = preload("res://godot/scripts/GameManager.gd")
 const AI = preload("res://godot/scripts/AI.gd")
 
 func _ready() -> void:
+	var closed := OS.get_cmdline_user_args().has("--ship-all") # `-- --ship-all` : paquets fermes disponibles (CardDB.SHIPPED_SETS) ; sans, ils sont refuses
+	CardDB.ship_all = closed
 	print("CARDS bosses=", CardDB.bosses.size(), " rooms=", CardDB.rooms.size(), " heroes=", CardDB.heroes.size(), " spells=", CardDB.spells.size())
 	if CardDB.bosses.size() < 10 or CardDB.rooms.size() < 20 or CardDB.heroes.is_empty():
 		print("SOAK ECHEC : cards.json incomplet")
@@ -65,10 +67,14 @@ func _play(n_players: int) -> bool:
 	CardDB._rng.seed = game_seed
 	TnlAbilities._rng_get().seed = game_seed
 	print("SOAK seed=", game_seed, " players=", n_players)
-	var sets: Array = ["base"] # `-- --sets=players-choice,hidden-heroes,tools` : meme soak avec les paquets APK
+	var sets: Array = ["base"] # `-- --sets=players-choice,hidden-heroes` : meme soak avec ces paquets (fermes : ajouter --ship-all)
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--sets="):
 			sets = Array(a.substr(len("--sets=")).split(",", false))
+	if Match.setup_error(n_players, sets) != "":
+		print("SOAK ECHEC : paquets refuses (%s) : %s" % [str(sets), Match.setup_error(n_players, sets)])
+		m.queue_free()
+		return false
 	m.start_new_game(n_players, 0, sets)
 	if n_players >= 5 and not sets.has("crash-landing"):
 		print("SOAK ECHEC : %d joueurs exigent --sets=crash-landing" % n_players)

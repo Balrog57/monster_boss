@@ -34,6 +34,7 @@ func _shot(name: String) -> void:
 	print("Captured: ", name)
 
 func _ready() -> void:
+	CardDB.ship_all = true # captures de tous les paquets, fermes compris (CardDB.SHIPPED_SETS)
 	out_dir = ProjectSettings.globalize_path(OUT_DIR)
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--out="):

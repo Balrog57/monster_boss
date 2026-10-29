@@ -13,10 +13,15 @@ const WIN_SOULS := 10
 ## Paquets de l'APK (BaseDeck, PlayerChoice, HiddenHeros, ToolsHeroKind) ; les autres sont des extensions wiki.
 const APK_SETS := ["base", "players-choice", "hidden-heroes", "tools"]
 
-## 5-6 joueurs : seulement avec Crash Landing (livret CRL), avec un jeu de base complet (BMR ou Hidden Heroes, TNL, Minibosses : « a full set of Heroes
-## from one of the base sets ») et les mini-extensions qui se combinent a tout jeu de base (Tools, THK wiki, IOD). Les paquets sans regle de taille de
-## heros a 5-6 joueurs (Player's Choice, Player's Choice wiki) sont refuses (voir setup_error) pour garder le pool exact : 32 + 21 heros (32 + 22 avec TNL / Minibosses).
-const BIG_GAME_SETS := ["base", "hidden-heroes", "tools", "crash-landing", "next-level", "minibosses", "tools-wiki", "iod"]
+## 5-6 joueurs : seulement avec Crash Landing (livret CRL), avec un jeu de base complet (BMR, Hidden Heroes ou TNL : « a full set of Heroes
+## from one of the base sets »). Les paquets sans regle de taille de heros a 5-6 joueurs (Player's Choice) sont refuses (voir setup_error)
+## pour garder le pool exact : 32 + 21 heros (32 + 22 avec TNL).
+const BIG_GAME_SETS := ["base", "hidden-heroes", "crash-landing", "next-level"]
+## Paquets fermes (CardDB.SHIPPED_SETS) qui se combinent a 5-6 joueurs une fois rouverts (Minibosses, mini-extensions Tools / THK wiki / IOD) : comptent seulement si livres.
+const BIG_GAME_SETS_CLOSED := ["tools", "minibosses", "tools-wiki", "iod"]
+
+static func _big_game_ok(s: String) -> bool:
+	return s in BIG_GAME_SETS or (s in BIG_GAME_SETS_CLOSED and CardDB.is_shipped(s))
 
 ## Nombre de joueurs maximal selon les paquets choisis : 6 avec Crash Landing, 4 sinon.
 static func max_players(p_sets: Array) -> int:
@@ -25,6 +30,9 @@ static func max_players(p_sets: Array) -> int:
 ## Message d'erreur (vide = acceptable) pour une partie a `num_players` avec `p_sets` : 5-6 joueurs exigent Crash Landing et n'admettent que BIG_GAME_SETS.
 ## Partage entre Match.new_match (qui ecarte), le serveur et le lobby (qui refusent).
 static func setup_error(num_players: int, p_sets: Array) -> String:
+	for s in p_sets: # frontiere de confiance (serveur, lobby) : un paquet ferme est refuse, pas ignore en silence
+		if not Variants.is_token(s) and not CardDB.is_shipped(str(s)):
+			return "le paquet « %s » n'est pas disponible" % str(s)
 	if num_players < 5:
 		return ""
 	if num_players > 6:
@@ -32,7 +40,7 @@ static func setup_error(num_players: int, p_sets: Array) -> String:
 	if not p_sets.has("crash-landing"):
 		return "5 ou 6 joueurs : l'extension Crash Landing est obligatoire"
 	for s in p_sets:
-		if not str(s) in BIG_GAME_SETS and not Variants.is_token(s): # les variantes (jetons « -wiki ») ne sont pas des paquets
+		if not _big_game_ok(str(s)) and not Variants.is_token(s): # les variantes (jetons « -wiki ») ne sont pas des paquets
 			return "5 ou 6 joueurs : le paquet « %s » n'est pas pris en charge (Player's Choice n'a pas de regle de taille de paquet de heros)" % str(s)
 	return ""
 
@@ -63,7 +71,9 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	for s in p_sets:
 		if Variants.is_token(s):
 			continue
-		if n < 5 or String(s) in BIG_GAME_SETS: # a 5-6 joueurs un paquet non pris en charge est ecarte (garantit les 32 + 21 / 22 heros)
+		if not CardDB.is_shipped(String(s)):
+			continue # paquet ferme (CardDB.SHIPPED_SETS) : ignore
+		if n < 5 or _big_game_ok(String(s)): # a 5-6 joueurs un paquet non pris en charge est ecarte (garantit les 32 + 21 / 22 heros)
 			sets[String(s)] = true
 	if sets.has(ThkAbilities.SET_ID):
 		sets["tools"] = true # Tools of Hero-Kind wiki : les memes cartes que le paquet de l'APK, jouees par ThkAbilities

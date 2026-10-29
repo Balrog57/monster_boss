@@ -9,6 +9,7 @@ var host: Node
 func run(ok: Callable, h: Node) -> void:
 	_ok = ok
 	host = h
+	_t_closed_sets_shut()
 	_t_hero_rules_keyed_by_kind()
 	_t_new_match_decks()
 	_t_items_revealed_each_turn()
@@ -62,6 +63,40 @@ func _match(G: Dictionary) -> Node:
 	host.add_child(m)
 	m.G = G
 	return m
+
+# --- paquets fermes (CardDB.SHIPPED_SETS) -----------------------------------------------------------------------------------
+
+const CLOSED_SETS := ["minibosses", "iod", "tools", "tools-wiki", "players-choice-wiki"]
+
+## Clone 1:1 de l'APK : avec ship_all = false, rien d'un paquet ferme n'est atteignable (CardDB, setup_error, new_match). Le refus du serveur est dans online_test.
+func _t_closed_sets_shut() -> void:
+	var was: bool = CardDB.ship_all
+	CardDB.ship_all = false
+	var leaked: Array = []
+	for list in [CardDB.bosses, CardDB.rooms, CardDB.spells, CardDB.heroes, CardDB.items, CardDB.minibosses]:
+		for c in list:
+			if not CardDB.SHIPPED_SETS.has(str((c as Dictionary).get("set", "base"))):
+				leaked.append(str((c as Dictionary).get("id", "?")))
+	_ok.call(leaked.is_empty(), "paquets fermes : aucune carte hors SHIPPED_SETS dans CardDB (%s)" % str(leaked.slice(0, 5)))
+	_ok.call(CardDB.get_card_data("RMB055") == null and CardDB.get_card_data("THK001") == null and CardDB.get_card_data("IOD001") == null and CardDB.get_card_data("KSA010") == null
+		and CardDB.get_card_data("BMA001") != null and CardDB.get_card_data("KSA013") != null, "paquets fermes : get_card_data ne rend plus que les cartes livrees")
+	var m = load("res://godot/scripts/Match.gd").new()
+	host.add_child(m)
+	for tok in CLOSED_SETS:
+		_ok.call(m.setup_error(2, [tok]) != "" and m.setup_error(6, ["crash-landing", tok]) != "", "paquets fermes : setup_error refuse « %s »" % tok)
+		var G: Dictionary = m.new_match(2, 1, ["next-level", tok])
+		var d: Dictionary = G["decks"]
+		var stray := 0
+		for pile in ["rooms", "spells", "heroes", "epics", "items"]:
+			for c in (d[pile] as Array):
+				stray += 0 if CardDB.SHIPPED_SETS.has(str((c as Dictionary).get("set", "base"))) else 1
+		for b in (G["bossPicks"] as Array):
+			stray += 0 if CardDB.SHIPPED_SETS.has(str((b as Dictionary).get("set", "base"))) else 1
+		_ok.call(not (G["sets"] as Array).has(tok) and stray == 0 and (d["items"] as Array).is_empty(), "paquets fermes : new_match ignore « %s » (G.sets, pioches, boss)" % tok)
+	var G5: Dictionary = m.new_match(5, 1, ["crash-landing", "hidden-heroes"])
+	_ok.call(m.setup_error(5, ["crash-landing", "next-level", "hidden-heroes"]) == "" and (G5["decks"]["heroes"] as Array).size() == 32, "5-6 joueurs : base, Hidden Heroes, Crash Landing, TNL admis")
+	m.queue_free()
+	CardDB.ship_all = was
 
 # --- BMH / regles de heros par type de condition --------------------------------------------------------
 

@@ -14,6 +14,7 @@ extends Node
 ## 10. taille maximale de message (1009) et debit par connexion (1008) ;
 ## 11. lot 3.2 : API client du lobby public (watch_rooms / rooms_received / create_lobby public / join_lobby / reconnexion qui redemande la liste) ;
 ## 12. lot 3.3 (audit 3.0 §4.3, test INVERSE) : deux connexions sur le meme jeton -> la plus ancienne est evincee et NE se reconnecte PAS (plus de boucle).
+## 14. paquets fermes (CardDB.SHIPPED_SETS, ship_all = false) : `create` refuse minibosses / iod / tools / tools-wiki / players-choice-wiki par `bad_setup`, aucune salle creee.
 ## 13. lot 3.5 : titre de salon modifiable par l'hote (`setTitle`, nettoyage serveur), filtre de la liste publique, plafond de connexions du serveur.
 ## Usage : godot --headless --path src/frontend res://godot/tests/OnlineTest.tscn   -> "ONLINE OK"
 
@@ -37,7 +38,9 @@ var _priv_lines := 0 # lignes de journal privees verifiees
 var _mb_tagged := 0 # minibosses face caches verifies
 
 func _ready() -> void:
+	CardDB.ship_all = true # le filtrage de vue couvre aussi les paquets fermes (CardDB.SHIPPED_SETS) ; le reseau tourne ensuite en mode livre
 	_check_filter_unit()
+	CardDB.ship_all = false
 	if _fails.is_empty():
 		await _run_network()
 	if _fails.is_empty():
@@ -351,6 +354,8 @@ func _run_network() -> void:
 		if _fails.is_empty():
 			await _scenario_big_game(n)
 	if _fails.is_empty():
+		await _scenario_closed_sets()
+	if _fails.is_empty():
 		await _scenario_reload()
 	if _fails.is_empty():
 		await _scenario_timeout()
@@ -489,6 +494,18 @@ func _scenario_full_game() -> void:
 	_expect(JSON.stringify(room.m.G["gameOver"]) == JSON.stringify(gos), "etat modifie apres la fin")
 	c0.queue_free()
 	c1.queue_free()
+
+## Frontiere de confiance : un client qui demande un paquet ferme recoit `bad_setup` (ni accepte, ni ecarte en silence), en salle privee comme publique, a 2 et 4 joueurs.
+func _scenario_closed_sets() -> void:
+	_expect(not CardDB.ship_all, "paquets fermes : le serveur doit tourner en mode livre")
+	var bad := _client("Ferme")
+	var rooms_before: int = server._rooms.size()
+	for tok in ["minibosses", "iod", "tools", "tools-wiki", "players-choice-wiki"]:
+		for sets in [[tok], ["next-level", tok]]:
+			for n in [2, 4]:
+				_expect(not await bad.create_lobby(n, sets, 1, n == 4) and bad.last_error_code == "bad_setup", "%d joueurs %s : refus attendu (bad_setup), obtenu '%s'" % [n, str(sets), bad.last_error_code])
+	_expect(server._rooms.size() == rooms_before, "paquets fermes : aucune salle creee par les demandes refusees")
+	bad.queue_free()
 
 ## 5-6 joueurs : le serveur refuse sans Crash Landing (ou avec un paquet non pris en charge) au lieu de plafonner a 4 ; avec CRL, une salle de n sieges
 ## (n - 1 IA) joue une partie complete et Match.new_match cree bien n joueurs.

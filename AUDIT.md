@@ -28,7 +28,110 @@ Cible : `src/frontend/` (Godot 4.7, GL Compatibility, export Web sans threads) +
 | 12 | Export web / perf | `export_presets.cfg`, `.pck`, chargement | **Fait (2026-10-26)** |
 | 13 | Couverture résiduelle | les 177 classes non citées par les modules 1 à 12 | **Fait (2026-10-26)** |
 
-## Progression Godot vs APK décompilé (2026-10-28)
+## Écart restant et plan de la copie 1:1 (2026-10-29)
+
+Cette section remplace la lecture « 119 écarts acceptés » du bilan du 2026-10-28 (conservé plus bas, **historique**). Périmètre fixé par le propriétaire : l'application est une copie **1:1** de l'APK 2.2.6, avec **trois différences seulement** :
+
+1. la boutique (IN-APP STORE) est remplacée par l'onglet des **règles** ;
+2. les **extensions du wiki** sont ajoutées, mais seulement si elles sont complètes (voir les critères ci-dessous) ;
+3. le multijoueur se fait en **salons** (chaque joueur dans son navigateur), sans appariement automatique ni Pass and Play sur le même écran.
+
+Tout autre écart n'est plus « accepté » : c'est un écart à porter ou à justifier comme sans objet (web, code mort). Rappel des décisions déjà prises : l'APK et les règles officielles font foi ; Godot s'adapte, bogues de l'APK compris (mémoire du projet, 2026-10-26 et 2026-10-27).
+
+Sources de cette section : les 1 194 lignes des modules 1 à 13 de ce fichier, `docs/audit-apk-2-2-6.md` (audit technique statique de l'APK), `docs/cartes.xlsx` (catalogue des cartes) et trois contrôles lancés le 2026-10-29 : `python tools/verify_assets.py` (304 cartes d'extension : 196 visuels réels, 108 provisoires, 0 manquant), un relevé par script du statut de chaque carte de `cards.json` (477 cartes) et un relevé par script des lignes de statut « Accepté ». **Non relancés aujourd'hui** : l'oracle `tools/parity/apk.py` et `tools/run_godot_tests.py` (derniers résultats : voir la section du 2026-10-28 plus bas).
+
+### 1. Reclassement des 118 lignes « Accepté »
+
+Le tableau du 2026-10-28 annonce 119 lignes acceptées ; le relevé par script (dernière colonne commençant par « Accepté ») en retrouve 118, l'écart d'une ligne n'est pas expliqué. Classement des 118, à partir du texte de chaque ligne :
+
+| Classe | Lignes | Sens | IDs |
+|---|---:|---|---|
+| A1 : boutique → onglet des règles | 23 | Différence 1 : achats, mécène, déblocage par victoires, code de rachat, textes de la boutique. | S-08, S-12, S-16, A-15, I-09, U-A02, U-A28, U-A36, U-A37, U-A47, U-A60, U-B39, U-B40, U-B50 à U-B53, U-C16, P-A05, P-A06, P-A13, N-A45, N-B36 |
+| A2 : salons | 22 | Différence 3 : appariement mondial, minuteries de salle publique, Pass and Play, siège repris par l'IA, minuteur de tour en ligne. | U-A17, U-B32, U-C04, U-C07, U-C08, U-C23, U-C30 à U-C32, N-A30, N-A31, N-A33, N-A50, N-B06, N-B27, N-B40 à N-B42, R-D54, P-C18, P-A12, X-P23 |
+| B : sans objet sur le web | 7 | Retour Android, mode immersif, clavier virtuel, remontée d'erreurs Insights, mobile (cible souris). | S-07, U-A07, U-A15, D-08, D-17, D-19, W-20 |
+| D : code mort ou inatteignable dans l'APK | 12 | Aucune carte livrée ni chemin de jeu ne les exécute (classes inutilisées dans les `data.json`, IA de débogage, plantages inatteignables, code de test). | R-E04, R-E10, R-E15, R-E16, R-E20, R-E22, R-E25, IA-G12, IA-G19, IA-G27, IA-G44, P-A57 |
+| M : limite de mesure | 4 | Notes sur l'oracle, pas sur le jeu. | R-O04, R-O05, IA-O04, IA-O08 |
+| **C : écart rouvert** | **50** | Rien ne les couvre : à porter (liste et lots ci-dessous). | voir §2 |
+
+Hypothèses de classement (à contester par le propriétaire) : P-A12 et X-P23 sont rangées en A2 parce que le jingle de victoire et le hotseat n'existent que par le Pass and Play ; R-E10 et R-E16 (≈ 40 Commands et ≈ 25 Targets non relues une par une) sont rangées en D parce qu'aucune carte livrée ne les utilise d'après la ligne, **ce qui n'a pas été re-vérifié** et reste dans le §4.
+
+### 2. Écarts rouverts (classe C, 50 lignes) en lots de travail
+
+| Lot | Lignes | Ce qu'il faut faire |
+|---|---|---|
+| L1. Aléa et ordre d'initialisation | R-D03, R-D15, R-D18, R-D19, T-A07 | `DbmRandom.gd` reproduit déjà le générateur de Knuth de .NET (graine 2832 du tutoriel) : les lignes R-D15 et T-A07 sont donc **périmées** sur « non reproductible ». Reste à prouver que tous les mélanges (partie normale, pioches, tutoriel) passent par lui dans le même ordre d'appel que `GameBoard.InternalInititalizeGameBoard`, puis à porter l'ordre `InGamePlayersPriorized` pour la pioche de début de tour et `RevealAllRoomCards` (R-D18, R-D19), et à retirer la borne de 100 itérations du mulligan (R-D03) si elle est portable sans boucle infinie. Preuve : oracle .NET avec graine imposée. |
+| L2. Ordre des événements de règles | R-D49, R-D53, R-D68, R-D81, R-D90, R-F76 | Fenêtre de sorts sur emplacement désactivé (R-D49) ; `Boss.IsAlive` recalculé en direct (R-D53) ; le sort quitte la main au lancement (R-D68) ; `DestroyRoom` défausse avant le déclencheur (R-D90) ; pioches du tutoriel (R-D81) ; textes de BMH056–096 (R-F76 : l'image et la description se contredisent, à trancher d'après les images de l'APK). Chaque correction a son golden et passe l'oracle. |
+| L3. IA : bogues de l'APK à reproduire | IA-H14, IA-H71, IA-H37, IA-H47, IA-H56, IA-H61, IA-H63, IA-H64, IA-H66, IA-H67 | La règle du projet est de porter les bogues de l'APK (Giant Size, cache de cibles périmées, Succubus Spa) ; l'option de mesure `--ai-copy-trap-bug` devient le comportement par défaut. IA-H56 et IA-H61 n'ont été lues qu'en surface : relecture complète avant. Délais de l'IA (IA-H64) : reprendre le rythme de l'APK. Exécution différée des capacités (IA-H67) : rejoint R-D67. |
+| L4. Plateau et composants | P-A09, P-A32, P-A37, P-B57, P-C12, P-C13, P-C31, P-C32, P-C45 | Ordre de la chaîne de tâches de fin de tour (P-A09) ; reprise d'une salle posée par glissement hors du donjon (P-A32) ; contour vert de la source d'un ciblage et titre = description de la carte (P-A37) ; reflets `bg_lu_shine_cuarto` (P-B57) ; éventail : carte survolée ×1,2 et voisines écartées (P-C12) ; `CardSelectorComponent` à N cartes (P-C13) ; `RearrangeSelectorComponent` de Hellcow (P-C31) ; `TouchOutBehavior` (fermeture au relâchement hors zone, P-C45). P-C32 (`RupisLoadingBehavior`) passe dans L7. |
+| L5. Cadres, rotation, couleurs, cadrage | X-P01, X-P07, X-P33, X-P35 | `BaseBorderBehavior` à états et fondu ; rotation 3D de `CardRotationBehavior` (rendu 2D avec cosinus aujourd'hui) ; 6 couleurs de `CustomColors` non reconnues ; bords utiles du viewport (voir la question U-A01). |
+| L6. Menus, réglages et entrées | S-21, I-05, I-06, U-C20, U-C21, G-21 | Retirer ce qui n'existe pas dans l'APK : curseur de volume général (S-21), clic sur une carte de la main (I-05), clic droit = appui long et annulation à 12 px (I-06, à rendre identique : annulation par tout `TouchMoved`), 9e avatar `avatar_xyzax` réservé aux mécènes (U-C20, U-C21 : 8 avatars, bornes recalculées). `settings_text_bg` (G-21) et `settings_slider_bg` (extrait le 2026-10-28, **non branché**) à poser dans l'écran des réglages. |
+| L7. Chargement et rendu | U-A04, U-A05, G-17, G-18, W-01, P-C32, G-26, G-31, U-A01 | Écran `LoadingScene` : fond `loading_bg`, sprite « loading » et trois rupies animées (`RupisLoadingBehavior`), fondu vers l'intro ; shader de grisage `CardEffectpsTexture` (calibrage 0,62 / 0,65 contre captures) ; `AddressMode.PointClamp` pour les sprites d'interface ; viewport 1440×1080 contre 1920×1080 actuel (question ouverte ci-dessous). |
+| L8. Tutoriel | T-A07, T-A31, T-B33 | Faire coller l'IA du tutoriel à `FixedAI` ; vérifier que p25, p26, p28 et p29 se déclenchent avec les mêmes tirages que l'APK ; priorité de hit-test des entités LEVEL UP et boss sous le voile (T-B33). T-A07 figure aussi en L1. |
+
+Total : 5 + 6 + 10 + 9 + 4 + 6 + 9 + 3 = 52 affectations pour 50 lignes distinctes : T-A07 (L1 et L8) et P-C32 (L4 et L7) figurent dans deux lots.
+
+**Questions pour le propriétaire (non bloquantes)** :
+- U-A01 / X-P33 : passer le viewport de 1920×1080 (coordonnées de l'APK + 240 px) à 1440×1080 comme l'APK est un remaniement important de tous les écrans ; à décider avant L5 et L7.
+- I-05 et I-06 : sous un 1:1 strict, les commodités souris (clic pour jouer, clic droit) disparaissent. La cible est la souris ; le glisser reste le seul geste de l'APK. À confirmer.
+- N-B15 (délai dépassé en ligne : passer la seule décision expirée comme l'APK, ou laisser l'IA jouer) : relève des salons, donc de la différence 3 ; décision de produit, pas un écart.
+
+### 3. Extensions : critères d'admission et verdict (catalogue : `docs/cartes.xlsx`)
+
+Règle posée par le propriétaire : une extension n'est ajoutée que si **chaque carte** a son artwork et que ses **règles sont complètes**. Il vaut mieux le jeu 1:1 sans extension qu'une extension incomplète. Critères appliqués, tous exigés :
+
+1. un visuel réel pour chaque carte (pas de face « provisoire » générée par `tools/generate_placeholder_art.py`) ;
+2. un livret officiel dans `docs/rules/` qui couvre l'extension ;
+3. un audit carte par carte dans ce fichier, sans carte « non implémentée » ni écart ouvert.
+
+| Extension | Cartes | Visuels | Livret officiel | Audit carte par carte | Verdict |
+|---|---:|---|---|---|---|
+| Jeu de base (BMA) | 96 | 96 APK | `rules_base.pdf` + FAQ | oracle .NET de l'APK | Inclus (APK) |
+| Player's Choice (11 KSA), Hidden Heroes (41 BMH) | 52 | APK | FAQ | oracle .NET | Inclus (APK, débloqués d'emblée) |
+| Next Level (TNL) | 115 | 115 réels | `rules_next_level.pdf` | 115/115, tous les écarts corrigés (2026-10-28) | **Incluse** |
+| Crash Landing (CRL) | 33 | 33 réels | `rules_crash_landing.pdf` | 33/33, tous les écarts corrigés | **Incluse** |
+| Rise of the Minibosses (RMB) | 121 | 14 réels, **107 provisoires** | `rules_minibosses.pdf` | 121 audités, Luz (RMB083) sans règle déterministe | **Exclue** (critères 1 et 3) |
+| Implements of Destruction (IOD) | 29 | 28 réels, **1 provisoire** (IOD023) | **aucun** (guide non officiel) | goldens seulement | **Exclue** (critères 1, 2 et 3) |
+| Tools of Hero-Kind (THK) | 25 | APK | **aucun** (FAQ et guide non officiel) | goldens seulement ; cartes inertes dans l'APK | **Exclue** : le paquet reste « COMING SOON » comme dans l'APK (critères 2 et 3) |
+| Player's Choice, 6 cartes KSA hors APK (`players-choice-wiki`) | 6 | 6 réels | **aucun** (FAQ pour 4 cartes) | goldens seulement | **Exclue** (critères 2 et 3) |
+
+Limites : « visuel réel » repose sur `is_placeholder` (heuristique de `tools/generate_placeholder_art.py`) ; je n'ai pas regardé les 196 images d'extension une à une. Le verdict « Incluse » de TNL et CRL suppose que leurs 148 visuels viennent d'une source réutilisable : la provenance et la licence des images wiki ne sont pas auditées ici. THK, IOD et la mini-extension KSA sont exclues faute de **preuve** (livret absent, audit absent), pas parce qu'un défaut a été démontré : elles redeviennent candidates dès qu'elles passent les trois critères.
+
+Mise en œuvre : ne pas supprimer le code (RMB, IOD, THK, PCW restent implémentés et testés) mais le **fermer à un seul endroit**. Un drapeau « livré » par ensemble (à créer : `SHIPPED_SETS`, dans `CardDB.gd` ou un fichier de données lu aussi par le serveur) alimente tous les points suivants :
+- sélection des extensions (`Main.gd` : `WIKI_GATED`, listes de paquets, `_active_sets`), galerie (`CardGallery.gd:151`), variantes (`Variants.gd`, dont les règles de départ propres à RMB) ;
+- **serveur** : refus d'un ensemble non livré dans `Server.gd` (`KNOWN_SETS`, frontière de confiance : un client modifié ne doit pas pouvoir demander RMB) ; `PROTOCOL.md` ; `Match.gd` (`BIG_GAME_SETS`) et `OnlineMenus.gd` (`BIG_GAME_MSG`) pour les parties à 5-6 joueurs, qui citent TNL, Minibosses, THK et IOD ;
+- onglet des règles : ne pas afficher `assets/rules/minibosses` (ni THK, IOD) ; le livret CRL cite ces extensions, vérifier le texte affiché ;
+- tests : goldens et soaks qui sélectionnent ces ensembles (`goldens_rmb`, `goldens_iod`, `goldens_thk`, `goldens_pcw`, soaks « tous paquets » de `tools/run_godot_tests.py`) passent par le même drapeau, avec un test qui échoue si un ensemble non livré devient sélectionnable ;
+- export : ne pas embarquer dans le `.pck` les visuels des ensembles non livrés (gain de poids, voir W-08).
+
+### 4. Ce qui n'a jamais été vérifié (reste à faire pour affirmer « 1:1 »)
+
+Aucune comparaison image contre image n'a été faite : les verdicts d'interface viennent du code rapproché d'une centaine de captures de l'APK (`docs/reference/apk_orig/`) ; `docs/reference/godot_screens/COMPARISON.md` mesure quelques écrans. À traiter par la phase 5 du plan : positions au pixel (U-B11, U-B21, U-B28, P-B48, P-C10, P-C47), fondus et durées réels dans le navigateur, scènes du tutoriel sans capture APK (T-B24, T-B28, T-B31, T-B32), mesure de légalité de l'IA (IA-O08 : 91 écarts, décalage de fenêtre du harnais ou vraie règle ?), Princess in Peril (IA-H18, IA-H73, cause non établie), les 3 traces de stress en échec (s16-p4, s20-p2, s28-p3), cartes jamais exercées par l'oracle (BMA053, BMA025 activation, KSA001, KSA005, passifs KSA014 et KSA016), commandes non tranchées (R-E14 Robobo et salles gelées, R-D47, R-E31), et les 41 noms de BMH (3 images ouvertes seulement). Web : W-14 (écoute humaine), W-18 (Safari réel), MIME `application/wasm` en production, images par seconde.
+
+### 5. Apports de `docs/audit-apk-2-2-6.md` pour le portage
+
+- **Ne pas porter** : le callback TLS permissif de `WebUtils.cs:19` (S-01), la télémétrie Insights forcée (P-01, déjà supprimée), le débogage `debug.mono.*` et l'ABI `armeabi-v7a` (sans objet pour le web). Le serveur de codes Azure n'existe plus, ce qui conforte la suppression du code de rachat.
+- **À faire** : brancher `settings_slider_bg` et `mascara_01` (extraits mais non référencés ; les deux `.webp` sont encore non suivis par git le 2026-10-29) ; garder `f04b03` (police inutilisée) hors du portage tant qu'aucun écran ne la charge, à re-vérifier dans le C#.
+- **À conserver pour la parité** : les fautes de nommage d'origine (`HeroHasAtachedItem`, `BCKUP_SUFIX`) ; la constante `nothingimportantatall` de `SerialHelper.cs` n'est pas tracée.
+
+### 6. Plan de la copie 1:1, par phases
+
+Ordre imposé par le propriétaire (mémoire du projet) : clone exact d'abord, extensions ensuite, boutique → règles, multijoueur en dernier. Chaque phase se termine par `python tools/run_godot_tests.py` vert et, quand elle touche les règles ou l'IA, par l'oracle `tools/parity/apk.py` (6/6, 12/12, 6/6, `--ai-agreement` à 100 %).
+
+| Phase | Contenu | Sortie attendue |
+|---|---|---|
+| 0. Périmètre | **Fait le 2026-10-29, non commité** : `CardDB.SHIPPED_SETS` (base, players-choice, hidden-heroes, next-level, crash-landing) et `CardDB.ship_all` (tests et oracle seulement) ; RMB, IOD, THK et PCW fermés dans les menus, la galerie, les règles (livret Minibosses retiré), `Match.setup_error` et le serveur (`bad_setup`) ; filtre d'export du `.pck` étendu ; catalogue `docs/cartes.xlsx` à jour. Pour rouvrir un ensemble : l'ajouter à `SHIPPED_SETS`, retirer ses fichiers de `exclude_filter` et, pour 5-6 joueurs, vérifier `Match.BIG_GAME_SETS`. | Une partie ne peut plus contenir de carte incomplète, ni en solo ni par un salon. Mesuré : `run_godot_tests.py` 22/22 (dont un soak et un test en mode fermé), goldens 2 346 / 0 échec, oracle 6/6, 12/12, 6/6. **Non vérifié** : export web réel et poids du `.pck`, rendu de la tuile THK « COMING SOON » à l'écran, `OnlineMenus.PACK_ABBR` garde encore THK/RMB/IOD (sans effet), `assets/apk_cards/tools` (2,3 Mo) encore embarqué. |
+| 1. Règles et aléa | Lots L1 et L2 ; cartes jamais exercées par l'oracle (§4) ; trois traces de stress en échec. | Oracle sur davantage de graines et de cartes ; golden par écart. |
+| 2. IA | Lot L3 ; IA-O08, IA-H18. | `--ai-agreement` à 100 % avec les bogues de l'APK reproduits. |
+| 3. Plateau et menus | Lots L4, L5, L6, L7 (dont l'écran de chargement et le viewport si le propriétaire tranche). | `ui_smoke` vert ; captures Godot refaites pour chaque écran. |
+| 4. Tutoriel | Lot L8, identité des pioches contre l'oracle. | Les 19 étapes rejouées avec les tirages de l'APK. |
+| 5. Validation image contre image | Comparer chaque capture de `docs/reference/apk_orig/` à une capture Godot de même état (script de différence, seuil par écran), puis traiter les écarts. C'est la seule preuve possible du « 1:1 » visuel. | Tableau écran par écran, écart mesuré en pixels. |
+| 6. Web | W-14 (écoute), W-18 (Safari réel), MIME, performances. | Les 2 lignes « Ouvert » fermées. |
+| 7. Salons | Parties en ligne réelles à 2 à 6 joueurs avec les seules extensions livrées ; points non vérifiés du module 9 (N-B11, N-B24, N-B51 à N-B53, N-A54, N-A56, N-A69) ; diagnostic de la salle face cachée (section du 2026-10-28). | `online_test` vert et partie jouée à plusieurs navigateurs. |
+| 8. Clôture | Revue (`/code-review`), une seule branche, aucune PR ouverte, dépôt propre (mémoire `feedback-final-repo-state`). | `git status` propre. |
+
+---
+
+## Progression Godot vs APK décompilé (2026-10-28, historique)
 
 Bilan des 1 194 lignes des modules 1 à 13, avec le dernier statut consigné dans ce fichier (tableaux d'origine, puis lots de correction 1a–6e). Ces statuts sont ceux écrits par les lots précédents : je ne les ai pas revérifiés ligne par ligne. Seules les mesures du dernier paragraphe ont été relancées le 2026-10-28.
 
@@ -1629,7 +1732,7 @@ Méthode : un lot en lecture seule (aucun export, aucun profilage). La seule lig
 
 ---
 
-## Synthèse générale (2026-10-26)
+## Synthèse générale (2026-10-26, historique : les 16 écarts Haute sont fermés, voir la section du 2026-10-29 en tête)
 
 Comptes refaits par un script sur les lignes des tableaux (une ligne = un élément ; les renvois entre modules comptent dans chaque module).
 

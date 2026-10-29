@@ -43,19 +43,41 @@ func _ready() -> void:
 	_rng.randomize()
 	load_cards()
 
+## Paquets LIVRES : l'appli est un clone 1:1 de l'APK, seuls ces paquets sont jouables, galerie et menus compris. Les autres (minibosses, iod, tools, tools-wiki,
+## players-choice-wiki : art provisoire, pas de livret officiel ou non audites) restent implementes mais fermes. POUR REOUVRIR UN PAQUET : ajouter son id ICI
+## (et retirer ses fichiers de exclude_filter dans export_presets.cfg).
+const SHIPPED_SETS := ["base", "players-choice", "hidden-heroes", "next-level", "crash-landing"]
+
+## Tests et oracle seulement : vrai = tous les paquets disponibles (comme avant la fermeture). Le changement relit cards.json.
+var ship_all := false:
+	set(v):
+		ship_all = v
+		load_cards(_cards_path)
+
+var _cards_path := "res://godot/data/cards.json"
+
+## Une carte sans cle `set` est du jeu de base.
+func is_shipped(set_id: String) -> bool:
+	return ship_all or SHIPPED_SETS.has(set_id)
+
+func _gate(list: Array) -> Array:
+	return list.filter(func(c): return is_shipped(str((c as Dictionary).get("set", "base"))))
+
 func load_cards(path: String = "res://godot/data/cards.json") -> void:
 	var f := FileAccess.open(path, FileAccess.READ)
 	if f == null:
 		push_error("CardDB: impossible d'ouvrir " + path)
 		return
+	_cards_path = path
 	var data: Dictionary = JSON.parse_string(f.get_as_text())
-	bosses = data.get("bosses", [])
-	rooms = data.get("rooms", [])
-	spells = data.get("spells", [])
-	heroes = data.get("heroes", [])
-	items = data.get("items", [])
-	minibosses = data.get("minibosses", [])
+	bosses = _gate(data.get("bosses", []))
+	rooms = _gate(data.get("rooms", []))
+	spells = _gate(data.get("spells", []))
+	heroes = _gate(data.get("heroes", []))
+	items = _gate(data.get("items", []))
+	minibosses = _gate(data.get("minibosses", []))
 	name_map = data.get("nameMap", {})
+	_card_data_cache.clear()
 
 var _card_data_cache: Dictionary = {}
 

@@ -146,6 +146,7 @@ func _ready() -> void:
 	_t_apk_teleportation_restarts_dungeon()
 	_t_apk_seducia_human_cannot_pass()
 
+	CardDB.ship_all = true # les suites suivantes testent aussi les paquets FERMES (CardDB.SHIPPED_SETS) ; les tests ci-dessus tournent en mode livre ; goldens_decks._t_closed_sets_shut bascule lui-meme en mode livre puis restaure
 	load("res://godot/tests/goldens_decks.gd").new().run(_ok, self) # paquets APK : PlayerChoice (KSA), HiddenHeros (BMH), ToolsHeroKind (THK)
 	load("res://godot/tests/goldens_tnl.gd").new().run(_ok, self) # extension The Next Level (TNL, hors APK)
 	load("res://godot/tests/goldens_crl.gd").new().run(_ok, self) # extension wiki Crash Landing (CRL, hors APK)

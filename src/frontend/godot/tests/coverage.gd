@@ -3,6 +3,7 @@ extends Node
 ## Lancé par res://godot/tests/Coverage.tscn (headless, autoloads requis).
 
 func _ready() -> void:
+	CardDB.ship_all = true # integrite de cards.json et des images : tous les paquets, fermes compris (CardDB.SHIPPED_SETS)
 	var total := 0
 	var typed := 0
 	var tex_path := 0

@@ -52,6 +52,7 @@ var _count := ""   # --count=useItem : affiche choisi/offert (en parties) de cha
 var _debug := ""   # --debug=cle : affiche le score de chaque coup offert portant cette cle (phase, marge du heros actif)
 
 func _ready() -> void:
+	CardDB.ship_all = true # le recensement couvre aussi les paquets fermes (CardDB.SHIPPED_SETS)
 	var sets: Array = ["base"]
 	var games := 20
 	var counts: Array = []

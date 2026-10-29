@@ -28,6 +28,7 @@ func _opt(prefix: String) -> String:
 
 
 func _ready() -> void:
+	CardDB.ship_all = true # l'oracle rejoue aussi ToolsHeroKind (paquet ferme, CardDB.SHIPPED_SETS)
 	var dir := _traces_dir()
 	if dir == "" or not DirAccess.dir_exists_absolute(dir):
 		print("APK PARITY FAIL: --traces=<dossier absolu> requis (recu: '%s')" % dir)

@@ -8,7 +8,8 @@ const GameRoom = preload("res://godot/server/GameRoom.gd")
 const NetCodec = preload("res://godot/scripts/NetCodec.gd")
 const MatchScript = preload("res://godot/scripts/Match.gd")
 
-## Paquets acceptes dans create.sets (le jeu de base est toujours present, voir Match.new_match).
+## Jetons reconnus dans create.sets (le jeu de base est toujours present, voir Match.new_match). Un jeton inconnu est ecarte en silence ; un jeton connu mais
+## ferme (hors CardDB.SHIPPED_SETS : minibosses, iod, tools, tools-wiki, players-choice-wiki) est REFUSE par Match.setup_error (`bad_setup`, voir `create`).
 const KNOWN_SETS := ["players-choice", "hidden-heroes", "tools", "tools-wiki", "next-level", "minibosses", "crash-landing", "iod", "players-choice-wiki",
 	"classic-wiki", "hard-wiki", "choose-wiki", "machinations-wiki", "unlimited-wiki"] # derniers : variantes de jeu (Variants.gd), cases wiki
 ## Code de salon : 4 lettres comme l'APK (OnlineService.GetNewRoomName, RndWord(4)) ; sans I ni O (confusion avec 1 et 0).
@@ -333,7 +334,7 @@ func _on_message(id: int, d: Dictionary) -> void:
 				if str(s) in KNOWN_SETS and not sets.has(str(s)):
 					sets.append(str(s))
 			var n := clampi(int(d.get("players", 2)), 2, 6)
-			var setup_err := MatchScript.setup_error(n, sets) # 5-6 joueurs : Crash Landing obligatoire, paquets limites (sinon la salle serait plafonnee a 4)
+			var setup_err := MatchScript.setup_error(n, sets) # paquet ferme refuse ; 5-6 joueurs : Crash Landing obligatoire, paquets limites (sinon la salle serait plafonnee a 4)
 			if setup_err != "":
 				return _error(id, setup_err, "bad_setup")
 			var r := GameRoom.new(_new_code(), n, sets)

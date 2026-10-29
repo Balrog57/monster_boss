@@ -9,7 +9,11 @@ signal closed
 const UI := "res://assets/ui/"
 const FONT_A := "res://assets/fonts/arcadepix.fnt"
 const GOLD := Color("cdb15f")
-const BOOKS := [["base", "BOSS MONSTER"], ["next-level", "THE NEXT LEVEL"], ["minibosses", "RISE OF THE MINIBOSSES"], ["crash-landing", "CRASH LANDING"]]
+const ALL_BOOKS := [["base", "BOSS MONSTER"], ["next-level", "THE NEXT LEVEL"], ["minibosses", "RISE OF THE MINIBOSSES"], ["crash-landing", "CRASH LANDING"]]
+
+## Livrets des paquets livres seulement (CardDB.SHIPPED_SETS) : pas de livret Minibosses tant que le paquet est ferme.
+static func shipped_books() -> Array:
+	return ALL_BOOKS.filter(func(b): return CardDB.is_shipped(str(b[0])))
 
 var tab := 0
 var free_on_close := true
@@ -43,16 +47,17 @@ func _build() -> void:
 		close_viewer())
 	add_child(back)
 	add_child(_lbl("RULES", 42, GOLD, Vector2(0, 22), Vector2(1920, 98))) # titre arcadepix x2 = 42, or #cdb15f, centre : ne chevauche pas la fleche (x 20-141)
-	tab = clampi(tab, 0, BOOKS.size() - 1)
-	var tw := minf(470.0, 1880.0 / BOOKS.size())
-	for i in BOOKS.size():
+	var books := shipped_books()
+	tab = clampi(tab, 0, books.size() - 1)
+	var tw := minf(470.0, 1880.0 / books.size())
+	for i in books.size():
 		var x := int(20 + tw * i)
 		var r := ColorRect.new()
 		r.color = GOLD if i == tab else Color(0.16, 0.12, 0.2)
 		r.position = Vector2(x, 136)
 		r.size = Vector2(tw - 10, 46)
 		add_child(r)
-		add_child(_lbl(str(BOOKS[i][1]), 21, Color.BLACK if i == tab else GOLD, Vector2(x, 136), Vector2(tw - 10, 46)))
+		add_child(_lbl(str(books[i][1]), 21, Color.BLACK if i == tab else GOLD, Vector2(x, 136), Vector2(tw - 10, 46)))
 		var hit := Button.new()
 		for n in ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]:
 			hit.add_theme_stylebox_override(n, StyleBoxEmpty.new())
@@ -77,13 +82,13 @@ func _build() -> void:
 	panel.size = Vector2(1900, 878)
 	add_child(panel)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var files := _page_files(str(BOOKS[tab][0]))
+	var files := _page_files(str(shipped_books()[tab][0]))
 	page_count = files.size()
 	page = clampi(page, 0, maxi(page_count - 1, 0))
 	if page_count == 0:
 		return
 	var pg := TextureRect.new() # une seule page chargee a la fois (livret) : ratio conserve, la plus grande qui tienne dans le panneau
-	pg.texture = load("res://assets/rules/%s/%s" % [BOOKS[tab][0], files[page]])
+	pg.texture = load("res://assets/rules/%s/%s" % [shipped_books()[tab][0], files[page]])
 	pg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	pg.position = Vector2(170, 200)

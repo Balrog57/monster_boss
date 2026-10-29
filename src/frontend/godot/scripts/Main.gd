@@ -6,15 +6,15 @@ extends Control
 ## IN-APP STORE supprime -> RULES ; tout est gratuit et debloque.
 ## WORLDWIDE (hors APK) : liste des salons publics du serveur, sans comptes ; CREATE PUBLIC GAME = NEW GAME avec le mode « public ».
 
-## Extensions du wiki hors APK (bascule « Options »).
+## Extensions du wiki hors APK (bascule « Options »). Seuls les paquets de CardDB.SHIPPED_SETS sont proposes (tuiles et _active_sets) : minibosses et iod restent ici, fermes.
 const EXT_PACKS := ["next-level", "minibosses", "crash-landing", "iod"]
 ## Paquet de l'APK dont les cartes ne se jouent QUE derriere la case wiki (Tools of Hero-Kind : l'APK ne les joue pas) : grise sans la case.
 const WIKI_GATED := ["tools"]
 ## Paquets de l'APK (ExpansionScene) : le jeu de base est toujours present, les autres se combinent librement.
-## Boutique supprimee : tout est debloque (ToolsHeroKind, « COMING SOON » dans l'APK, est jouable ici : Match gere deja les Items).
+## Boutique supprimee : tout est debloque. ToolsHeroKind reste « COMING SOON » comme dans l'APK (CardDB.SHIPPED_SETS ne le livre pas ; `soon_when_closed` garde sa tuile).
 const APK_DECKS := [
 	{"id": "power-up", "name": "POWER-UP PACK", "info": "", "playable": false, "coming_soon": true, "art": "power_up_pack_front"}, # LocalMarket.cs:108-117 : bande COMING SOON, jamais selectionnable (le paquet n'existe pas dans l'APK)
-	{"id": "tools", "name": "TOOLS OF HERO KIND", "info": "20 item cards", "playable": true, "art": "tools_of_hero_front", "desc": "Adds 20 Item cards. One Item is revealed each turn: Heroes carry Power-Ups, and killing them earns the Reward. The APK leaves the Items inert: they are only played with the wiki expansions option checked."},
+	{"id": "tools", "name": "TOOLS OF HERO KIND", "info": "20 item cards", "playable": true, "soon_when_closed": true, "art": "tools_of_hero_front", "desc": "Adds 20 Item cards. One Item is revealed each turn: Heroes carry Power-Ups, and killing them earns the Reward. The APK leaves the Items inert: they are only played with the wiki expansions option checked."},
 	{"id": "players-choice", "name": "THE PLAYER'S CHOICE", "info": "7 bosses, 3 epic heroes, 1 spell", "playable": true, "art": "the_players_choice_front",
 		"details": ["7; NEW BOSSES", "3; NEW HEROS", "1; NEW SPELL"], # LocalMarket.cs:130-137 (Details, Info, DetailsExpanded)
 		"desc": "An 11-card digital mini-expansion that includes seven new Bosses, three challenging Epic Heroes, and a game-changing Spell. These hard-to-find cards were only printed once, so we're bringing them back in digital form for your enjoyment!"},
@@ -25,7 +25,7 @@ const APK_DECKS := [
 	{"id": "next-level", "name": "THE NEXT LEVEL", "info": "13 bosses, 43 rooms, 17 spells, 42 heroes - wiki", "playable": true},
 	# Extension du wiki hors APK, selectionnable seule (en plus de la bascule « Extensions du wiki » qui active tous les paquets wiki).
 	{"id": "crash-landing", "name": "CRASH LANDING", "info": "3 bosses, 13 rooms, 5 spells, 12 heroes - wiki", "playable": true,
-		"desc": "3 bosses, 13 rooms, 5 spells and 12 heroes. Unlocks 5 and 6 player games (only with the base game, Hidden Heroes and Tools): nobody is eliminated, and the game ends at 10 souls or when both hero decks run out."},
+		"desc": "3 bosses, 13 rooms, 5 spells and 12 heroes. Unlocks 5 and 6 player games (only with the base game, Hidden Heroes and The Next Level): nobody is eliminated, and the game ends at 10 souls or when both hero decks run out."},
 	# Extension du wiki hors APK (livret « Rise of the Minibosses » + guide officieux) : minibosses (niveaux 1-3), Coins, paquet de heros RMB, 3 Coins au depart.
 	{"id": "minibosses", "name": "MINIBOSSES", "info": "12 bosses, 42 rooms, 15 spells, 42 heroes, 10 minibosses - wiki", "playable": true},
 	# Mini-extension du wiki hors APK (2017) : 24 Objets + 5 Boss, jouee par IodAbilities (meme mecanique d'Objets que Tools of Hero-Kind). Sans Crash Landing, les Objets Explorer et Banseer Bivan sont ecartes.
@@ -142,15 +142,15 @@ func _clear() -> void:
 func _deck_playable(id: String) -> bool:
 	for d in APK_DECKS:
 		if str((d as Dictionary)["id"]) == id:
-			return bool((d as Dictionary)["playable"])
+			return bool((d as Dictionary)["playable"]) and CardDB.is_shipped(id)
 	return false
 
 func _active_sets() -> Array:
 	# Les paquets du wiki ne comptent que si l'option « Extensions du wiki » est cochee.
-	var sets: Array = apk_decks.filter(func(d): return use_extensions or not (EXT_PACKS.has(d) or WIKI_GATED.has(d)))
-	if sets.has("tools"):
+	var sets: Array = apk_decks.filter(func(d): return CardDB.is_shipped(str(d)) and (use_extensions or not (EXT_PACKS.has(d) or WIKI_GATED.has(d))))
+	if sets.has("tools") and CardDB.is_shipped(ThkAbilities.SET_ID):
 		sets.append(ThkAbilities.SET_ID) # case wiki cochee : les Objets et les salles THK se jouent (ThkAbilities)
-	if sets.has("players-choice") and use_extensions:
+	if sets.has("players-choice") and use_extensions and CardDB.is_shipped(PcwAbilities.SET_ID):
 		sets.append(PcwAbilities.SET_ID) # case wiki cochee : les 6 cartes KSA que l'APK ne joue pas (PcwAbilities)
 	if use_extensions:
 		for v in Variants.IDS:
@@ -616,6 +616,12 @@ func _gray_mat(alpha: float = 1.0) -> ShaderMaterial:
 func _is_wiki(d: Dictionary) -> bool:
 	return EXT_PACKS.has(d["id"])
 
+## Tuile listee : paquet livre, ou tuile « COMING SOON » de l'APK (POWER-UP, TOOLS) ; les paquets du wiki seulement avec la case.
+func _tile_listed(d: Dictionary) -> bool:
+	if _is_wiki(d) and not use_extensions:
+		return false
+	return CardDB.is_shipped(str(d["id"])) or bool(d.get("coming_soon", false)) or bool(d.get("soon_when_closed", false))
+
 func show_setup(num_players: int, mode: String = "solo") -> void:
 	_apk_screen(func(): show_solo_count(mode, true), mode == "online" or mode == "public")
 	_band("SELECT EXPANSIONS")
@@ -678,7 +684,7 @@ func _draw_tiles() -> void:
 	_tiles_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tiles_box.position.x = _tx
 	dyn_root.add_child(_tiles_box)
-	var tiles: Array = APK_DECKS.filter(func(d): return use_extensions or not _is_wiki(d))
+	var tiles: Array = APK_DECKS.filter(_tile_listed)
 	_tile_min = minf(0.0, -float(tiles.size()) * 331.0 + 1368.0) if tiles.size() >= 4 else 0.0
 	for i in tiles.size():
 		_draw_tile(tiles[i], Vector2(312.5 + 331.0 * i, 405.0))
@@ -688,7 +694,7 @@ func _draw_tiles() -> void:
 
 func _draw_tile(d: Dictionary, pos: Vector2) -> void:
 	var id := str(d["id"])
-	var gated := WIKI_GATED.has(id) and not use_extensions # THK : jouable seulement avec la case wiki ; sinon « COMING SOON » comme dans l'APK (LocalMarket.cs:119-127)
+	var gated := not CardDB.is_shipped(id) or (WIKI_GATED.has(id) and not use_extensions) # THK : « COMING SOON » comme dans l'APK (LocalMarket.cs:119-127), jouable seulement si livre ET derriere la case wiki
 	var soon := bool(d.get("coming_soon", false)) or gated
 	var on := apk_decks.has(id) and not soon
 	var w := 285.0

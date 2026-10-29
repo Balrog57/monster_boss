@@ -59,6 +59,7 @@ var _dbg := ""
 var _cancelled := false       # un CANCEL de ciblage vient d'avoir lieu : « sans effet » est alors normal
 
 func _ready() -> void:
+	CardDB.ship_all = true # les parties et menus testes ici couvrent aussi les paquets FERMES (CardDB.SHIPPED_SETS) ; _check_shipped_menus teste le mode livre
 	cfg = _parse_args()
 	OS.add_logger(_log)
 	var t0 := Time.get_ticks_msec()
@@ -2459,6 +2460,38 @@ func _check_gallery() -> void:
 
 ## OPTIONS > CREDITS (CreditsScreen.gd ; CreditsScene.cs, CreditRollBehavior.cs) : 4e bouton d'OPTIONS, textes de credits.json, logo immobile 8,8 s puis qui monte (100 px/s),
 ## pied arrete a y = 400, glisser, retour en fondu noir vers OPTIONS. Le temps est avance a la main (_process(dt)) : la scene ne tourne pas seule.
+## Mode livre (ship_all = false, le defaut de l'appli) : SELECT EXPANSIONS ne propose ni Minibosses, ni IOD, ni les jetons wiki fermes ; la tuile Tools reste
+## « COMING SOON » meme avec la case wiki ; pas de livret Minibosses.
+func _check_shipped_menus() -> void:
+	_tag = "[shipped-menus]"
+	await _teardown()
+	var was: bool = CardDB.ship_all
+	CardDB.ship_all = false
+	var main = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main)
+	await _wait(0.2)
+	var saved_decks: Array = main.apk_decks.duplicate()
+	var saved_ext: bool = main.use_extensions
+	main.use_extensions = true
+	var listed: Array = main.APK_DECKS.filter(main._tile_listed).map(func(d): return str(d["id"]))
+	_check(listed == ["power-up", "tools", "players-choice", "hidden-heroes", "next-level", "crash-landing"], "tuiles livrees : %s" % str(listed))
+	main.apk_decks = ["tools", "players-choice", "hidden-heroes", "next-level", "crash-landing", "minibosses", "iod"]
+	var act: Array = main._active_sets()
+	_check(act == ["players-choice", "hidden-heroes", "next-level", "crash-landing"], "case wiki cochee : aucun paquet ferme dans _active_sets (%s)" % str(act))
+	main.use_extensions = false
+	main.apk_decks = ["tools"]
+	_check(not (main._active_sets() as Array).has("tools") and not main._deck_playable("tools") and not main._deck_playable("minibosses"), "Tools : jamais jouable en mode livre")
+	main.show_setup(2, "solo")
+	await _wait(0.2)
+	_check(main.find_child("Tiles", true, false) != null, "SELECT EXPANSIONS se dessine en mode livre")
+	var books: Array = RulesViewer.shipped_books().map(func(b): return str(b[0]))
+	_check(books == ["base", "next-level", "crash-landing"], "regles : livrets livres %s" % str(books))
+	main.apk_decks = saved_decks
+	main.use_extensions = saved_ext
+	main.queue_free()
+	CardDB.ship_all = was
+	await _teardown()
+
 func _check_credits() -> void:
 	_tag = "[credits]"
 	await _teardown()
@@ -3562,6 +3595,7 @@ func _extra_checks() -> void:
 	await _check_review_fixes()
 	await _check_apk_gaps()
 	await _check_gallery()
+	await _check_shipped_menus()
 	await _check_credits()
 	await _check_online_menus()
 	await _check_public_lobby()
