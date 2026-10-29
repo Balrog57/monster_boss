@@ -46,8 +46,8 @@ static func find_room(G: Dictionary, player_id: int, room_index: int) -> Variant
 static func _target_id(target: Dictionary, caster_id: int) -> int:
 	return int(target["targetPlayerId"]) if target.has("targetPlayerId") else caster_id
 
-static func _draw(decks: Dictionary, pile: String, n: int) -> Array:
-	return CardDB.draw_pile(decks, pile, n) # DrawCards -> GameBoard.DrawRooms/DrawSpells (pioche vide : defausses remelangees)
+static func _draw(G: Dictionary, pile: String, n: int) -> Array:
+	return CardDB.draw_pile(G.get("decks", {}), pile, n, null, CardDB.dbm_of(G)) # DrawCards -> GameBoard.DrawRooms/DrawSpells (pioche vide : defausses remelangees)
 
 ## Point d'entree : resout le sort. Renvoie false si aucun effet pour cette carte.
 static func cast_spell(G: Dictionary, caster_id: int, card: Dictionary, target: Dictionary) -> bool:
@@ -265,7 +265,7 @@ static func _soul_harvest(G: Dictionary, caster_id: int, _card: Dictionary, targ
 				souls.remove_at(k)
 				break
 	var decks: Dictionary = G.get("decks", {})
-	var spells := _draw(decks, "spells", 2)
+	var spells := _draw(G, "spells", 2)
 	var hand: Array = me.get("hand", [])
 	me["hand"] = hand
 	hand.append_array(spells)
@@ -287,10 +287,8 @@ static func _teleportation(G: Dictionary, caster_id: int, _card: Dictionary, tar
 
 static func _jeopardy(G: Dictionary, _caster_id: int, _card: Dictionary, _target: Dictionary) -> bool:
 	var decks: Dictionary = G.get("decks", {})
-	for opid in (G.get("players", {}) as Dictionary):
+	for opid in CardDB.order_by_xp(G.get("players", {})): # AllBoss -> GameBoard.InGamePlayersPriorized (PlayerId = rang d'XP, joueurs vivants) : l'ordre decide qui vide la pioche
 		var p: Dictionary = G["players"][opid]
-		if p.get("eliminated", false):
-			continue # AllBoss -> GameBoard.InGamePlayersPriorized (Boss.IsAlive : Wounds < 5)
 		var hand: Array = p.get("hand", [])
 		p["hand"] = hand
 		var held := hand.duplicate()
@@ -300,8 +298,8 @@ static func _jeopardy(G: Dictionary, _caster_id: int, _card: Dictionary, _target
 				CardDB.discard_add(_decks_pile(decks, "spellDiscard") as Array, c)
 			else:
 				BossEngine.discard_room_to_pile(decks, c)
-		hand.append_array(_draw(decks, "spells", 1))
-		hand.append_array(_draw(decks, "rooms", 2))
+		hand.append_array(_draw(G, "spells", 1))
+		hand.append_array(_draw(G, "rooms", 2))
 	_log(G, "Jeopardy: all players discarded hands and drew 1 Spell + 2 Rooms.")
 	return true
 
@@ -483,8 +481,7 @@ static func _finish_him(G: Dictionary, caster_id: int, _card: Dictionary, target
 	var mine := _player(G, caster_id)
 	for _k in BossEngine.hero_souls(hero):
 		(mine["souls"] as Array).append(CardDB.soul_entry(hero))
-	if bool(victim.get("eliminated", false)) and CardDB.total_wounds(victim) < 5:
-		victim["eliminated"] = false # sa 5e blessure vient de lui etre retiree
+	BossEngine.refresh_alive(G) # sa 5e blessure vient de lui etre retiree : Boss.IsAlive est de nouveau vrai
 	_log(G, "Finish Him!: %s moves face-down to player %d's scorekeeping area." % [str(hero.get("name", "?")), caster_id])
 	return true
 
@@ -512,6 +509,7 @@ static func _healing_tank(G: Dictionary, caster_id: int, _card: Dictionary, _tar
 		return false
 	if heroes.size() == 1:
 		BossEngine.heal_one_wound(me, heroes[0])
+		BossEngine.refresh_alive(G)
 		_log(G, "Healing Tank: healed a Wound.")
 		return true
 	var opts: Array = []

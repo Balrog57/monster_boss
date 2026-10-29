@@ -426,6 +426,7 @@ func _t_mirrax() -> void:
 	TnlAbilities.resolve_pick(G2, 0, c, 0)
 	_ok.call((m0["bonusTreasures"] as Array).size() == 4, "TNL000 : copier Kirax (monte de niveau) donne toutes ses icones (FAQ)")
 	kirax["eliminated"] = true # l'icone reste meme si le boss copie meurt
+	kirax["manuallyKilled"] = true # fixture : elimination sans blessures = IsManuallyKilled (Boss.IsAlive est recalcule en direct)
 	_ok.call(BossEngine.treasure_count(m0, 1, G2) == 1 and BossEngine.treasure_count(m0, 2, G2) == 1, "TNL000 : l'icone copiee reste apres la mort du boss copie")
 
 ## TNL001 Doc Scarecrow : en construction, defausse une carte -> un heros de la ville ne peut pas etre leurre ce tour (sans limite par tour : le texte imprime n'en a pas).
@@ -635,7 +636,9 @@ func _t_timebender() -> void:
 	G["phase"] = "build"
 	G["activePlayer"] = 0
 	(p0["hand"] as Array).append_array([_spl("mine1"), _spl("mine2")])
-	G["stack"] = [{"id": "e1", "type": "spell", "playerId": 1, "card": _spl("BMA040"), "target": {}, "resolved": false}]
+	var theirs := _spl("BMA040")
+	(G["decks"] as Dictionary)["spellDiscard"] = [theirs] # deja en defausse depuis son lancement
+	G["stack"] = [{"id": "e1", "type": "spell", "playerId": 1, "card": theirs, "target": {}, "resolved": false}]
 	G["stackReturnPlayer"] = 1
 	var m := _match(G)
 	var offered: Array = m.legal_moves(0).filter(func(mv): return str((mv as Dictionary)["type"]) == "timebenderCancel")
@@ -1100,7 +1103,9 @@ func _t_antimagic_zone() -> void:
 	G["phase"] = "build"
 	G["activePlayer"] = 0
 	_hand(G, 0).append(_room("TNL031"))
-	G["stack"] = [{"id": "e1", "type": "spell", "playerId": 1, "card": _spl("BMA040"), "target": {}, "resolved": false}]
+	var theirs := _spl("BMA040")
+	(G["decks"] as Dictionary)["spellDiscard"] = [theirs] # deja en defausse depuis son lancement
+	G["stack"] = [{"id": "e1", "type": "spell", "playerId": 1, "card": theirs, "target": {}, "resolved": false}]
 	G["stackReturnPlayer"] = 1
 	var m := _match(G)
 	var cancels: Array = m.legal_moves(0).filter(func(mv): return str((mv as Dictionary)["type"]) == "antimagicCancel")
@@ -2148,6 +2153,7 @@ func _t_arbitrages_wiki() -> void:
 	var Gs := _G([_player(0, "BMA001", [_room("TNL055")]), _player(1, "BMA002")])
 	var cancelled := _spl("cancelled")
 	Gs["stack"] = [{"type": "spell", "card": cancelled, "playerId": 0, "target": {}, "canceled": true}]
+	(Gs["decks"] as Dictionary)["spellDiscard"] = [cancelled] # la defausse se fait au lancement (R-D68), plus a la resolution : la pile ecrite a la main la suppose deja faite
 	_match(Gs)._resolve_pending_stack()
 	_ok.call(_act(Gs, 0, 0) == null and _ids(_hand(Gs, 0)) == ["cancelled"], "arbitrage Save Point : un sort joue puis annule peut etre repris")
 	# TNL068 Shortcut! : une salle desactivee reste « a Room it would enter » (elle est sautee) ; cinq salles dont une face cachee = cinq salles

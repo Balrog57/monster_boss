@@ -80,6 +80,7 @@ func _play(n_players: int) -> bool:
 		print("SOAK ECHEC : %d joueurs exigent --sets=crash-landing" % n_players)
 		m.queue_free()
 		return false
+	var spells_total := _spell_uids(m.G).size()
 	var steps := 0
 	var max_steps := MAX_STEPS_BIG if n_players >= 5 else MAX_STEPS
 	while m.G.get("gameOver") == null and steps < max_steps:
@@ -143,8 +144,13 @@ func _play(n_players: int) -> bool:
 	if int(m.G.get("numPlayers", 0)) != n_players:
 		print("SOAK ECHEC : ", n_players, " joueurs demandes, ", m.G.get("numPlayers"), " sieges")
 		return false
-	print("SOAK players=", n_players, " steps=", steps, " turn=", m.G.get("turn", -1), " gameOver=", m.G.get("gameOver"))
+	print("SOAK players=", n_players, " steps=", steps, " turn=", m.G.get("turn", -1), " gameOver=", m.G.get("gameOver"), " spells=", spells_total)
 	var done: bool = m.G.get("gameOver") != null
+	# Conservation des sorts (R-D68 : defausse au lancement) : chaque carte (_uid) est a un seul endroit et aucune n'a disparu.
+	if done and not _spells_conserved(m.G, spells_total):
+		print("SOAK ECHEC : sorts non conserves (paquet, defausse, mains, sorts permanents)")
+		m.queue_free()
+		return false
 	if not done:
 		print("SOAK INCOMPLET (phase=", m.G.get("phase"), ")")
 		for pid in m.G["players"]:
@@ -160,3 +166,30 @@ func _play(n_players: int) -> bool:
 		print("  iaP0=", AI.pick_move(m, 0))
 	m.queue_free()
 	return done
+
+## Tous les sorts (paquet, defausse, mains, sorts jusqu'a la fin de partie) : liste de leurs _uid.
+func _spell_uids(G: Dictionary) -> Array:
+	var out: Array = []
+	var lists: Array = [G["decks"].get("spells", []), G["decks"].get("spellDiscard", [])]
+	for pid in G["players"]:
+		var pl: Dictionary = G["players"][pid]
+		lists.append((pl.get("hand", []) as Array).filter(func(c): return (c as Dictionary).get("isSpell", false)))
+		lists.append(pl.get("untilEndSpells", []))
+	for l in lists:
+		for c in l:
+			out.append((c as Dictionary).get("_uid", -1))
+	return out
+
+## Ni doublon (sort defausse deux fois ou copie), ni perte (sort lance puis jamais defausse) par rapport au debut de partie.
+func _spells_conserved(G: Dictionary, total: int) -> bool:
+	var uids := _spell_uids(G)
+	var seen := {}
+	for u in uids:
+		if seen.has(u):
+			print("SOAK doublon _uid=", u)
+			return false
+		seen[u] = true
+	if uids.size() != total:
+		print("SOAK sorts perdus : ", total, " au depart, ", uids.size(), " a la fin")
+		return false
+	return true

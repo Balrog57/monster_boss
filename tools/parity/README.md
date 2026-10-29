@@ -86,6 +86,16 @@ Le rejeu ne recoit aucune aide de regles : Godot implemente la salle initiale (`
   est ensuite rejouee via `openingDiscard`.
 - `Match._start_turn` est retenu (`ApkMatch`) jusqu'au step `BeginningOfTurn` de l'oracle.
 
+## Parite d'initialisation (`initParity`, R-D15 / T-A07)
+
+Le rejeu ci-dessus **recopie** les pioches et les mains de l'oracle : il ne mesure pas l'initialisation de Godot. `InitParity.tscn` (`init_parity.gd`) la mesure :
+pour chaque trace, `Match.new_match(n, 0, paquets, graine)` (tous les sieges IA, comme l'oracle) tire avec `DbmRandom(graine)` dans l'ordre de `GameBoard.InternalInititalizeGameBoard`
+(heros, salles, sorts, objets), puis les boss des IA (`Except(...).Shuffle().Take(k)`), puis la distribution (`Setup_a` : 5 salles, 2 sorts, `AvoidMulliganCondition`).
+`apk.py` compare, par trace : boss des sieges, rang PlayerId, les quatre pioches avant distribution (carte et UniqueID ; heros et objets : carte seule, Godot ne les numerote pas),
+les mains d'ouverture avant defausse (`options` de la decision `discard`), les quatre pioches apres distribution (`deckOrders`, mulligan compris).
+Resultat dans `report.json` : `initParity` (`traces`, `ok`, `mulligans`, `mulliganOk`, `list[].diffs`) ; l'etape se saute avec `--no-init-parity` ; un ecart fait echouer le script.
+Ce que cela ne couvre pas : les tirages APRES la distribution (melanges de defausse, `Shuffle()` de l'IA : elle est rejouee, pas simulee) ; le premier joueur est le rang PlayerId 1 (XP le plus haut), pas observe en jeu.
+
 ## Paquets supplementaires (`--decks`)
 
 `--decks` est passe tel quel a l'oracle (`GameDecks` : `BaseDeck`, `PlayerChoice`, `HiddenHeros`, `ToolsHeroKind`). Le moteur Godot les nomme par

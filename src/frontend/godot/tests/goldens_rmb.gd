@@ -664,6 +664,7 @@ func _t_level_two_activations() -> void:
 	var Gg := _G([pg, pg1])
 	_build_phase(Gg)
 	var theirs := _spl("THEIRS")
+	(Gg["decks"] as Dictionary)["spellDiscard"] = [theirs] # deja en defausse depuis son lancement
 	Gg["stack"] = [{"id": "st1", "type": "spell", "playerId": 1, "card": theirs, "target": {}, "resolved": false}]
 	Gg["activePlayer"] = 0
 	Gg["stackReturnPlayer"] = 1

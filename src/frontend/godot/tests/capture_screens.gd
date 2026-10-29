@@ -1083,6 +1083,7 @@ func _states() -> void:
 	(_foe()["wounds"] as Array).append({"name": "x", "wounds": 1})
 	(_foe()["wounds"] as Array).append({"name": "x", "wounds": 1})
 	G2["players"][1]["eliminated"] = true
+	G2["players"][1]["manuallyKilled"] = true # fixture : elimination sans blessures = IsManuallyKilled (Boss.IsAlive est recalcule en direct)
 	await _settle()
 	await _shot("adv_boss_dead_rip_tombstone_hero_card_stack_town_left")
 
@@ -1120,6 +1121,7 @@ func _end_screens() -> void:
 	await _new_game()
 	gm.G["gameOver"] = {"winner": 1, "reason": "wounds"}
 	_me()["eliminated"] = true # vraie fin de partie (GameManager.gd:190) : le boss vaincu laisse sa petite pierre RIP dans son couloir (DungeonFrameEntity.cs:297-306,498-501, frame lose_rip)
+	_me()["manuallyKilled"] = true # fixture : elimination sans blessures = IsManuallyKilled (Boss.IsAlive est recalcule en direct)
 	for i in 5:
 		(_me()["wounds"] as Array).append({"name": "Fighter", "wounds": 1})
 	await _settle(8)

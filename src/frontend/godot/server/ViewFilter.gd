@@ -15,12 +15,13 @@ const PUBLIC_KEYS := ["activePlayer", "adventure", "adventurePausePassed", "afte
 ## apkSkippedHero est publique : numero de siege pose par Trepidation (sort face visible) ; Match.apk_active_hero() la lit cote client en ligne.
 const FILTERED_KEYS := ["decks", "players", "bossPicks", "pendingChoice", "choiceQueue", "log", "logs"]
 ## aiMayCancel (harnais d'oracle), iodFlame / rmbReplay / lincolnReveal (drapeaux internes au moteur, poses puis effaces dans un meme coup) : aucun lecteur cote client.
-const DROPPED_KEYS := ["revealQueue", "forcedBuilds", "forcedRandom", "aiTargetsAllBosses", "apkSeats", "aiTargetsAnyRoomType", "aiMayCancel", "iodFlame", "rmbReplay", "lincolnReveal"]
+const DROPPED_KEYS := ["revealQueue", "forcedBuilds", "forcedRandom", "aiTargetsAllBosses", "apkSeats", "aiTargetsAnyRoomType", "aiMayCancel", "iodFlame", "rmbReplay", "lincolnReveal",
+	"dbm", "bossOrder", "humanBoss", "aiBossOrder", "aiBossSeats"] # generateur de la partie et tirage des boss : jamais emis
 const SECRET_PILES := ["rooms", "spells", "heroes", "epics", "items"]
 ## Cles de joueur publiques (coins, rmbBoss, tnlBoss... : tout ce qui est pose devant le joueur). Liste blanche aussi :
 ## une cle de joueur inconnue n'est pas emise aux adversaires (le siege lui-meme voit tout son joueur).
 const PLAYER_PUBLIC_KEYS := ["id", "boss", "souls", "wounds", "eliminated", "leveledUp", "buildsThisTurn", "buildLimit", "isAI", "entrance", "passed",
-	"hasActed", "coins", "tnlSoulsStart", "rmbBoss", "tnlBoss", "bonusTreasures", "copiedLevelUps", "untilEndSpells", "respawnTurn"]
+	"hasActed", "coins", "tnlSoulsStart", "rmbBoss", "tnlBoss", "bonusTreasures", "copiedLevelUps", "untilEndSpells", "respawnTurn", "iodBoss", "manuallyKilled"]
 ## Cles de joueur masquees pour les adversaires : main (taille seule), donjon (salles / minibosses face cachee), objets face caches.
 const PLAYER_HIDDEN_KEYS := ["hand", "dungeon", "items"]
 const LOG_TAIL := 60 # lignes de journal emises (le journal "logs" des capacites n'est pas borne cote moteur)

@@ -774,7 +774,9 @@ func _t_reward_ring() -> void:
 	# THK020 Ring of Invisibility : annule un sort joue pendant VOTRE phase d'aventure
 	var G := _G([_player(0), _player(1)])
 	G["phase"] = "adventure"
-	G["stack"] = [{"type": "spell", "playerId": 1, "card": _spl("Bolt")}]
+	var bolt := _spl("Bolt")
+	(G["decks"] as Dictionary)["spellDiscard"] = [bolt] # deja en defausse depuis son lancement
+	G["stack"] = [{"type": "spell", "playerId": 1, "card": bolt}]
 	G["stackActivePlayer"] = 0
 	_owned(G, 0, "THK020")
 	_ok.call(ThkAbilities.effect_check(G, 0, "THK020") == "" and not ThkAbilities.use_moves(G, _p(G, 0), 0).is_empty(), "THK020 Ring of Invisibility (Boss) : jouable en reponse a un sort adverse")

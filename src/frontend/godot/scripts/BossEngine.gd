@@ -306,6 +306,22 @@ static func wound_heroes(player: Dictionary) -> Array:
 			out.append(h)
 	return out
 
+## Boss.IsAlive = Wounds < 5 && !IsManuallyKilled (Boss.cs:82), recalcule en direct : `eliminated` suit les blessures dans les deux sens (une 5e blessure retiree,
+## Finish Him! ou Vampire Bordello, rend le boss a la partie). `manuallyKilled` (GameBoard.KillManually) est un drapeau a part. Pas d'elimination par blessures a
+## 5-6 joueurs, en Unlimited Lives ni sous THK Extra Life (hors APK). Appele a chaque changement de blessures et en fin de coup (Match.apply_move).
+static func refresh_alive(G: Dictionary) -> void:
+	var players: Dictionary = G.get("players", {})
+	for pid in players:
+		var p: Dictionary = players[pid]
+		var dead := bool(p.get("manuallyKilled", false)) or (CardDB.total_wounds(p) >= 5 and not ThkAbilities.wound_immune(G, int(pid)) and not CardDB.no_elimination(G))
+		if bool(p.get("eliminated", false)) != dead:
+			p["eliminated"] = dead
+
+## GameBoard.KillManually : le joueur quitte la partie (IsManuallyKilled), quelles que soient ses blessures.
+static func kill_manually(G: Dictionary, pid: int) -> void:
+	(G["players"][pid] as Dictionary)["manuallyKilled"] = true
+	refresh_alive(G)
+
 ## Retourne une blessure et rend l'ame correspondante face cachee. FlipHero deplace le HEROS entier de WoundsHeroes vers
 ## SoulsHeroes (un epique : toutes ses blessures, toutes ses ames) ; `hero` = celui choisi, sinon la derniere blessure.
 ## Entrees sans identite de heros (etats synthetiques) : une seule blessure, une seule ame.
@@ -625,7 +641,7 @@ static func _on_other_room_destroyed(G: Dictionary, player: Dictionary, destroye
 			discard_room_to_pile(G.get("decks", {}) as Dictionary, destroyed)
 			destroyed["pileEarly"] = true
 		# DrawRooms : pioche vide => defausses remelangees (GameBoard.cs:529-545, 1335-1349), puis la suite de la pioche.
-		(player.get("hand", []) as Array).append_array(CardDB.draw_pile(G.get("decks", {}) as Dictionary, "rooms", 2))
+		(player.get("hand", []) as Array).append_array(CardDB.draw_pile(G.get("decks", {}) as Dictionary, "rooms", 2, null, CardDB.dbm_of(G)))
 
 static func discard_room_to_pile(decks: Dictionary, card) -> void:
 	if card == null:

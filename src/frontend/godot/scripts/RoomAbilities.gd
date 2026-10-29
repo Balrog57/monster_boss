@@ -334,10 +334,7 @@ static func cancel_last_opponent_spell(G: Dictionary, player_id: int, label: Str
 	var e: Dictionary = stack[i]
 	stack.remove_at(i)
 	var card: Dictionary = e.get("card", {})
-	var decks: Dictionary = G.get("decks", {})
-	var pile: Array = decks.get("spellDiscard", [])
-	decks["spellDiscard"] = pile
-	CardDB.discard_add(pile, card)
+	# Le sort est deja en defausse depuis son lancement (Match, playSpell : GameBoard.OnAbilityApplyRequest).
 	_log(G, "%s: %s annule." % [label, str(card.get("name", "?"))])
 	# Meme reprise que le Counterspell.
 	stack_return_control(G)
@@ -620,7 +617,7 @@ static func kitchen_discard(G: Dictionary, player_id: int, option: Dictionary) -
 
 static func _draw_into(G: Dictionary, player: Dictionary, pile: String, n: int) -> Array:
 	var decks: Dictionary = G.get("decks", {})
-	var out: Array = CardDB.draw_pile(decks, pile, n) # DrawCards -> GameBoard.DrawRooms/DrawSpells (pioche vide : defausses remelangees)
+	var out: Array = CardDB.draw_pile(decks, pile, n, null, CardDB.dbm_of(G)) # DrawCards -> GameBoard.DrawRooms/DrawSpells (pioche vide : defausses remelangees)
 	if not out.is_empty():
 		var hand: Array = player.get("hand", []) as Array
 		hand.append_array(out)
@@ -770,6 +767,16 @@ static func _succubus_spa(G: Dictionary, player_id: int) -> Variant:
 	return {"type": "pick-opponent", "action": "steal-random", "playerId": player_id, "bossName": "Succubus Spa",
 		"message": "Succubus Spa: choose an opponent to take a random card from", "options": opts}
 
+## Tirage « au hasard » de l'APK : `liste.Shuffle().Take(1)` sur le generateur partage de la partie (RandomProvider, G.dbm), la liste etant les salles de la main puis ses sorts
+## (RoomsInHand puis SpellsInHand : PickRandomCardFromHand.cs:84-92, DiscardRandomCardFromHand.cs:69-80). Rend l'indice dans `hand` ; sans generateur (etat synthetique), hasard du moteur.
+static func _apk_random_pick(G: Dictionary, hand: Array, idxs: Array) -> int:
+	var dbm := CardDB.dbm_of(G)
+	if dbm == null:
+		return int(idxs[randi() % idxs.size()])
+	var rooms: Array = idxs.filter(func(i): return not bool((hand[i] as Dictionary).get("isSpell", false)))
+	var spells: Array = idxs.filter(func(i): return bool((hand[i] as Dictionary).get("isSpell", false)))
+	return int(dbm.take(rooms + spells, 1)[0])
+
 ## PickRandomCardFromHand.Execute : une carte au hasard parmi toutes les cartes (salles et sorts) de la main de la victime.
 static func steal_random_card(G: Dictionary, thief_pid: int, victim_pid: int, label: String) -> void:
 	var victim := _player(G, victim_pid)
@@ -777,7 +784,7 @@ static func steal_random_card(G: Dictionary, thief_pid: int, victim_pid: int, la
 	var hand: Array = victim.get("hand", []) as Array
 	if hand.is_empty() or thief.is_empty():
 		return
-	var pick: int = randi() % hand.size()
+	var pick: int = _apk_random_pick(G, hand, range(hand.size()))
 	# Crochet de rejeu (harnais de parite APK) : G["forcedRandom"] = _oid des cartes tirees par l'oracle, dans l'ordre. Absent => hasard.
 	var forced := -1
 	for f in (G.get("forcedRandom", []) as Array):
@@ -894,6 +901,7 @@ static func _vampire_bordello(G: Dictionary, p: Dictionary, player_id: int) -> V
 		return {"type": "heal-wound", "playerId": player_id, "bossName": "Vampire Bordello",
 			"message": "Vampire Bordello: choose a Hero to flip", "options": opts}
 	var soul = BossEngine.heal_one_wound(p)
+	BossEngine.refresh_alive(G)
 	if soul != null:
 		_log(G, "Vampire Bordello: healed a Wound (%d soul)." % int((soul as Dictionary).get("souls", 1)))
 	return null
@@ -913,7 +921,7 @@ static func _discard_random_from(G: Dictionary, pid: int, spell: bool, label: St
 			idxs.append(i)
 	if idxs.is_empty():
 		return
-	var pick: int = idxs[randi() % idxs.size()]
+	var pick: int = _apk_random_pick(G, hand, idxs)
 	# Crochet de rejeu (harnais de parite APK) : G["forcedRandom"] = _oid des cartes tirees par l'oracle, dans l'ordre. Absent => hasard.
 	for f in (G.get("forcedRandom", []) as Array):
 		var hit := idxs.filter(func(i): return int((hand[i] as Dictionary).get("_oid", -1)) == int(f))

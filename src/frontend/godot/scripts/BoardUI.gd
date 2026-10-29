@@ -2183,6 +2183,8 @@ func _build_boss_carousel(G: Dictionary, my_moves: Array) -> void:
 		return
 	_boss_seat = view_pid
 	_boss_pick_id = str(cands[game_manager.rng.randi_range(0, cands.size() - 1)])
+	if cands.has(str(G.get("humanBoss", ""))):
+		_boss_pick_id = str(G["humanBoss"]) # GamePlaySPScene : le boss de l'humain est tire avant les paquets, le carrousel s'arrete dessus (en ligne : cle absente de la vue)
 	var forced := str(_tg("boss", cands, "")) # tutoriel : le carrousel s'arrete sur King Croak (GamePlayTutScene.cs:115)
 	if forced != "" and cands.has(forced):
 		_boss_pick_id = forced

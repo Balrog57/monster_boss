@@ -568,6 +568,7 @@ func _t_boss_klonos() -> void:
 	p0["leveledUp"] = true
 	_ok.call((p0["copiedLevelUps"] as Array).size() == 1 and CardDB.total_souls(p0, G) == 1, "CRL002 copie Jarin : +1 ame (passif)")
 	p1["eliminated"] = true
+	p1["manuallyKilled"] = true # fixture : elimination sans blessures = IsManuallyKilled (Boss.IsAlive est recalcule en direct)
 	_ok.call(CardDB.total_souls(p0, G) == 1, "CRL002 : la capacite reste meme si le boss copie disparait")
 	# Plusieurs boss en jeu : on choisit lequel copier.
 	var q0 := _player(0, "CRL002", [_room("A", "trap", [1]), _room("B", "trap", [1]), _room("C", "trap", [1])])

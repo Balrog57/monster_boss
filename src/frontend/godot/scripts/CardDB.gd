@@ -130,10 +130,12 @@ static func expanded_deck(cards: Array) -> Array:
 			out.append(d)
 	return out
 
-## Generateur de l'APK pour les melanges de paquets (tutoriel : graine 2832) ; null = hasard du moteur (_rng).
-var dbm: DbmRandom = null
+## Generateur de la partie (G["dbm"], RandomProvider de l'APK) ; null pour un etat construit a la main : les tirages passent alors par `rng`.
+static func dbm_of(g: Dictionary) -> DbmRandom:
+	return DbmRandom.of(g["dbm"]) if g.get("dbm") is Dictionary else null
 
-func shuffled(arr: Array) -> Array:
+## Melange : `dbm` (RandomProvider.Shuffle de l'APK, graine de la partie) ou, sans generateur, le hasard du moteur (_rng).
+func shuffled(arr: Array, dbm: DbmRandom = null) -> Array:
 	if dbm != null:
 		return dbm.shuffle(arr)
 	var a := arr.duplicate()
@@ -165,7 +167,7 @@ static func refill_from_discard(deck: Array, discard: Array, rng: RandomNumberGe
 
 ## GameBoard.DrawRooms / DrawSpells : a CHAQUE carte, pioche vide => ReShuffleDiscardsPilesBackToDeck remet les DEUX defausses
 ## (salles ET sorts) dans leurs pioches et melange les deux. Pioche d'effet (DrawCards) et pioche de debut de tour passent par ici.
-static func draw_pile(decks: Dictionary, pile: String, n: int, rng: RandomNumberGenerator = null) -> Array:
+static func draw_pile(decks: Dictionary, pile: String, n: int, rng: RandomNumberGenerator = null, dbm: DbmRandom = null) -> Array:
 	var deck: Array = decks.get(pile, [])
 	decks[pile] = deck
 	var out: Array = []
@@ -174,13 +176,20 @@ static func draw_pile(decks: Dictionary, pile: String, n: int, rng: RandomNumber
 			for pr in [["rooms", "roomDiscard"], ["spells", "spellDiscard"]]:
 				var d: Array = decks.get(pr[0], [])
 				var disc: Array = decks.get(pr[1], [])
-				while not disc.is_empty():
-					d.append(disc.pop_back())
-				for i in range(d.size() - 1, 0, -1):
-					var j := rng.randi_range(0, i) if rng != null else randi_range(0, i) # sans rng : alea global (seed() des soaks)
-					var t = d[i]
-					d[i] = d[j]
-					d[j] = t
+				if dbm != null:
+					# ReShuffleDiscardsPilesBackToDeck : la Queue (tete en premier = fin du tableau Godot), puis la defausse triee ; Shuffle() de l'ensemble.
+					var queue := d.duplicate()
+					queue.reverse()
+					d = dbm.shuffle(queue + disc)
+					disc = []
+				else:
+					while not disc.is_empty():
+						d.append(disc.pop_back())
+					for i in range(d.size() - 1, 0, -1):
+						var j := rng.randi_range(0, i) if rng != null else randi_range(0, i) # sans rng : alea global (seed() des soaks)
+						var t = d[i]
+						d[i] = d[j]
+						d[j] = t
 				decks[pr[0]] = d
 				decks[pr[1]] = disc
 			deck = decks[pile]

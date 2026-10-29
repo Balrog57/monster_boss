@@ -286,6 +286,72 @@ def run_godot(ai=False):
     return [l for l in lines if re.search(r"SCRIPT ERROR|^ERROR|Parse Error", l)]
 
 
+# --- parite d'initialisation (R-D15 / T-A07) : meme graine, memes pioches, memes mains, memes boss ----------------
+
+def run_init_parity():
+    p = subprocess.Popen([godot_exe(), "--headless", "--path", os.path.join(REPO, "src", "frontend"), "res://godot/tests/InitParity.tscn", "--",
+                          "--traces=" + OUT.replace("\\", "/")], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+    try:
+        raw, _ = p.communicate(timeout=600)
+    except subprocess.TimeoutExpired:
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True)
+        else:
+            p.kill()
+        raw, _ = p.communicate()
+    out = raw.decode("utf-8", errors="replace")
+    if "INIT PARITY OK" not in out:
+        print("[apk-parity] la parite d'initialisation Godot a echoue :", file=sys.stderr)
+        print("\n".join([l for l in out.splitlines() if re.search(r"ERROR|SCRIPT|FAIL", l)][:20]) or out[-2000:], file=sys.stderr)
+        sys.exit(1)
+
+
+def compare_init(trace, gi):
+    """Compare l'initialisation de l'oracle (`initial`, mains d'ouverture avant defausse, `deckOrders` apres distribution) a celle de Godot (meme graine)."""
+    ini = trace["initial"]
+    diffs = []
+
+    def chk(field, oracle, godot):
+        if oracle != godot:
+            diffs.append(field)
+            return False
+        return True
+
+    chk("bosses", [b["card"] for b in ini["bosses"]], gi["bosses"])
+    chk("rank", [b["playerId"] for b in ini["bosses"]], gi["rank"])
+    spell_cards = {c[0] for c in gi["pre"]["spells"]} | {c[0] for h in gi["hands"] for c in h if c[2]}
+    discards = [st for st in trace["steps"] if st["kind"] == "decision" and st["detail"].get("decision") == "discard" and st["phase"] == "Setup_a"]
+    opt_rooms = [o["id"] for st in discards for o in st["detail"]["options"] if o["card"] not in spell_cards]
+    opt_spells = [o["id"] for st in discards for o in st["detail"]["options"] if o["card"] in spell_cards]
+    # UniqueID : l'APK numerote heros, salles puis sorts d'une suite, Godot repart de 1 pour chaque categorie (meme ordre dans le paquet avant melange)
+    off = {"rooms": min([c["id"] for c in ini["deckRooms"]] + opt_rooms) - 1 if ini["deckRooms"] or opt_rooms else 0,
+           "spells": min([c["id"] for c in ini["deckSpells"]] + opt_spells) - 1 if ini["deckSpells"] or opt_spells else 0}
+
+    def norm(c, kind):  # carte oracle -> [carte, uid Godot]
+        return [c["card"], c["id"] - off[kind] if kind in off else 0]
+
+    def g_norm(arr, kind):
+        return [[c[0], c[1] if kind in off else 0] for c in arr]
+
+    for k, name in (("heroes", "deckHeroes"), ("rooms", "deckRooms"), ("spells", "deckSpells"), ("items", "deckItems")):
+        chk("pre." + k, [norm(c, k) for c in ini[name]], g_norm(gi["pre"][k], k))
+    # mains d'ouverture avant defausse, par PlayerId (rang d'XP)
+    ohands = {}
+    for st in trace["steps"]:
+        if st["kind"] == "decision" and st["detail"].get("decision") == "discard" and st["phase"] == "Setup_a":
+            ohands[st["detail"]["player"]] = sorted((o["card"], o["id"] - off["spells" if o["card"] in spell_cards else "rooms"]) for o in st["detail"]["options"])
+    ghands = {gi["rank"][i]: sorted((c[0], c[1]) for c in h) for i, h in enumerate(gi["hands"])}
+    chk("hands", ohands, ghands)
+    post = next((st["deckOrders"] for st in trace["steps"] if "deckOrders" in st), None)
+    if post is not None:
+        for k in ("heroes", "rooms", "spells", "items"):
+            chk("post." + k, [norm(c, k) for c in post[k]], g_norm(gi["post"][k], k))
+    # mulligan : la pioche de salles apres distribution n'est pas la queue de la pioche d'avant
+    n = trace["meta"]["players"]
+    mull = post is not None and [c["id"] for c in post["rooms"]] != [c["id"] for c in ini["deckRooms"]][5 * n:]
+    return {"trace": re.sub(r"^oracle-|\.json$", "", trace.get("_name", "")), "ok": not diffs, "diffs": diffs, "mulligan": mull}
+
+
 def aggregate_skipped(traces):
     """Somme `stats.skippedBy` de toutes les traces : classe -> {n, distinct, traces, cards, ex} (diagnostic, aucun seuil)."""
     agg = {}
@@ -377,6 +443,7 @@ def main():
     ap.add_argument("--players", type=int, nargs="+", default=[2, 3])
     ap.add_argument("--decks", default="BaseDeck")
     ap.add_argument("--skip-gen", action="store_true")
+    ap.add_argument("--no-init-parity", action="store_true", help="saute la parite d'initialisation (meme graine : pioches, mains d'ouverture, boss ; report.json `initParity`)")
     ap.add_argument("--ai-agreement", action="store_true", help="lot 1.2 : accord de l'IA Godot (AI.gd) avec l'IA oracle, par type de coup (report.json `aiAgreement`)")
     a = ap.parse_args()
     if a.skip_gen:
@@ -386,6 +453,8 @@ def main():
 
     ai = a.ai_agreement
     godot_errors = run_godot(ai)
+    if not a.no_init_parity:
+        run_init_parity()
     traces, unmapped = [], set()
     for name in names:
         trace = load(os.path.join(OUT, name))
@@ -407,6 +476,14 @@ def main():
               "skippedBy": aggregate_skipped(traces), "traces": traces}
     if ai:
         report["aiAgreement"] = aggregate_ai(traces)
+    if not a.no_init_parity:
+        inits = []
+        for name in names:
+            tr = load(os.path.join(OUT, name))
+            tr["_name"] = name
+            inits.append(compare_init(tr, load(os.path.join(OUT, "init-" + re.sub(r"^oracle-", "", name)))))
+        report["initParity"] = {"traces": len(inits), "ok": sum(1 for i in inits if i["ok"]), "mulligans": sum(1 for i in inits if i["mulligan"]),
+                                "mulliganOk": sum(1 for i in inits if i["mulligan"] and i["ok"]), "list": inits}
     with open(os.path.join(OUT, "report.json"), "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
 
@@ -446,13 +523,18 @@ def main():
         print_ai(report["aiAgreement"], traces)
         print()
     print(f"[apk-parity] rapport: {os.path.join(OUT, 'report.json')}")
+    ip = report.get("initParity")
+    if ip:
+        bad_init = [i["trace"] + ":" + ",".join(i["diffs"]) for i in ip["list"] if not i["ok"]]
+        print(f"[apk-parity] initialisation (meme graine : boss, rang, pioches avant et apres distribution, mains avant defausse) : {ip['ok']}/{ip['traces']} traces identiques, "
+              f"dont {ip['mulliganOk']}/{ip['mulligans']} avec mulligan" + (f" ; ecarts : {' '.join(bad_init)}" if bad_init else ""))
     bad = [t["trace"] for t in traces if t["status"] != "OK"]
     print(f"APK PARITY RAPPORT: {len(traces) - len(bad)}/{len(traces)} traces OK" + (f" (hors OK: {', '.join(bad)})" if bad else ""))
     # Seuil d'echec de --ai-agreement : `usableSet` (legalite du moteur) est a 100 % depuis la passe « ecarts de legalite » ; tout ecart est un ecart de REGLE.
     us = report["aiAgreement"]["types"]["usableSet"] if ai else None
     if us and us["agree"] != us["n"]:
         print(f"ECHEC usableSet: {us['n'] - us['agree']} ecart(s) de legalite sur {us['n']} (voir la ventilation par carte ci-dessus)")
-    return 1 if bad or (us and us["agree"] != us["n"]) else 0
+    return 1 if bad or (us and us["agree"] != us["n"]) or (ip and ip["ok"] != ip["traces"]) else 0
 
 
 if __name__ == "__main__":

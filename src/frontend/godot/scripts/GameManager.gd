@@ -30,8 +30,7 @@ const TUT_HEROES := ["BMA064", "BMA068"]
 ## Partie forcee du tutoriel : 2 joueurs, jeu de base, humain King Croak (le carrousel est force par BoardUI.tutorial_gate), IA Seducia.
 ## Les pioches sont posees AVANT le dernier pickBoss (celui de l'humain), qui distribue les mains d'ouverture (Match._deal_opening_hands).
 func start_tutorial() -> Dictionary:
-	CardDB.dbm = DbmRandom.new(TUT_SEED) # paquets melanges comme l'APK (RandomProvider.Seed = 2832, DBMRandom) : le tutoriel est le meme pour tous
-	var state := new_match(2, 1, ["base"]) # remet CardDB.dbm a null une fois les paquets melanges
+	var state := new_match(2, 1, ["base"], TUT_SEED, false) # RandomProvider.Seed = 2832 (DBMRandom) : paquets melanges comme l'APK, le tutoriel est le meme pour tous ; le boss de l'humain est impose
 	rng.seed = TUT_SEED
 	var decks: Dictionary = G["decks"]
 	_tut_force(decks["rooms"], TUT_ROOMS)

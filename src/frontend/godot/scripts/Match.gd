@@ -63,8 +63,11 @@ var _ai_driving := false
 func _ready() -> void:
 	rng.randomize()
 
-func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["base"]) -> Dictionary:
+## `seed_value` : RandomProvider.Seed de la partie (tutoriel : 2832 ; tests de parite : graine de l'oracle) ; 0 = RandomProvider.SetNewRandomSeed (tire de `rng`).
+## `preselect_human` : GamePlaySPScene.InitializeGameboard tire le boss de l'humain (Shuffle().Take(1)) AVANT les paquets quand aucun boss n'est impose.
+func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["base"], seed_value: int = 0, preselect_human := true) -> Dictionary:
 	human_count = p_human_count
+	var dbm := DbmRandom.new(seed_value if seed_value != 0 else rng.randi_range(1, 2147483646)) # RandomProvider.Seed ne peut pas etre 0 (Shuffle leve)
 	var n := clampi(num_players, 2, max_players(p_sets)) # 5-6 joueurs sans Crash Landing : repli a 4 (le serveur et le lobby refusent avant, voir setup_error)
 	var sets := {}
 	var variants: Array = Variants.ids_in(p_sets) # variantes du livret TNL (cochees avec la case wiki) : G.variants, jamais dans `sets`
@@ -95,6 +98,10 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	var apk_only := true
 	for s in sets:
 		apk_only = apk_only and s in APK_SETS
+	if apk_only: # CardInfoService : l'ordre des cartes est celui du dictionnaire (paquets charges dans l'ordre de l'enum GameDecks), pas celui du choix des paquets
+		bosses = _apk_deck_order(bosses)
+		rooms = _apk_deck_order(rooms)
+		spells = _apk_deck_order(spells)
 	# The Next Level : « decide on just one Hero and Epic Hero deck to use » -> avec TNL, le paquet de heros TNL remplace celui du jeu de base.
 	var tnl: bool = sets.has(TnlAbilities.SET_ID)
 	# Rise of the Minibosses : meme regle (un seul paquet de heros) ; avec TNL, le paquet TNL passe devant celui de RMB.
@@ -114,9 +121,14 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 	var epics: Array = CardDB.heroes.filter(func(c): return hero_ok.call(c, true))
 	# Tutoriel (DBMRandom graine 2832) : RandomProvider.Shuffle d'un seul paquet de heros (ordinaires et epiques melanges, GameBoardExtensions.cs:143-146),
 	# PUIS les salles, les sorts, les objets ; le tri par HeroType (stable) range les ordinaires avant les epiques.
+	# Boss de l'humain d'abord (GamePlaySPScene : Shuffle().Take(1) sur tous les boss des paquets, avant InternalInititalizeGameBoard).
+	var human_boss := ""
+	var boss_order: Array = bosses.map(func(b): return str((b as Dictionary).get("id", ""))) # ordre des cartes de l'APK : la pioche des boss de l'IA (Except + Shuffle().Take) en depend
+	if p_human_count == 1 and preselect_human and not bosses.is_empty():
+		human_boss = str(dbm.take(boss_order, 1)[0])
 	var apk_heroes := []
-	if CardDB.dbm != null:
-		apk_heroes = CardDB.shuffled(CardDB.expanded_deck(CardDB.heroes.filter(func(c): return hero_ok.call(c, false) or hero_ok.call(c, true))).map(func(h):
+	if apk_only:
+		apk_heroes = dbm.shuffle(CardDB.expanded_deck(_apk_deck_order(CardDB.heroes.filter(func(c): return hero_ok.call(c, false) or hero_ok.call(c, true)))).map(func(h):
 			var d = (h as Dictionary).duplicate()
 			d["souls"] = 2 if bool(d.get("epic", false)) else 1
 			d["wounds"] = d["souls"]
@@ -126,13 +138,13 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 		room_src.append_array(CardDB.expanded_deck(CardDB.minibosses.filter(in_sets)))
 	for i in room_src.size():
 		(room_src[i] as Dictionary)["_uid"] = i + 1 # UniqueID de l'APK : numerotation dans l'ordre du paquet avant melange (GetLogicCards)
-	var room_deck: Array = CardDB.shuffled(room_src.map(_room_card))
+	var room_deck: Array = CardDB.shuffled(room_src.map(_room_card), dbm if apk_only else null)
 	# Shuffle de l'APK est un iterateur qui rend shuffled[n-1] en premier : la tete de la Queue = le dernier element du tableau = notre sommet (pas d'inversion).
 	var thk_live: bool = sets.has(ThkAbilities.SET_ID) # Excavation (THK025) n'est jouable que derriere la case wiki (l'APK : Ability nulle)
 	var spell_src: Array = CardDB.expanded_deck(spells)
 	for i in spell_src.size():
 		(spell_src[i] as Dictionary)["_uid"] = i + 1 # voir room_src
-	var spell_deck: Array = CardDB.shuffled(spell_src.map(func(s): var d = (s as Dictionary).duplicate(); d["isSpell"] = true; return d))
+	var spell_deck: Array = CardDB.shuffled(spell_src.map(func(s): var d = (s as Dictionary).duplicate(); d["isSpell"] = true; return d), dbm if apk_only else null)
 	if thk_live:
 		for sc in spell_deck:
 			if str((sc as Dictionary).get("id", "")) == "THK025":
@@ -147,13 +159,15 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 		if str(d.get("set", "")) == IodAbilities.SET_ID and int(d.get("treasure", 0)) == 5 and not crl:
 			return false # IOD : sans Crash Landing, pas d'Objets Explorer
 		return sets.has(ThkAbilities.SET_ID) or not sets.has(IodAbilities.SET_ID) or not str(d.get("id", "")).begins_with("THK")) # IOD sans tools-wiki : le moteur des Objets est actif, les Objets THK restent ecartes
-	var item_deck: Array = CardDB.shuffled(CardDB.expanded_deck(items).map(func(i): var d = (i as Dictionary).duplicate(); d["isItem"] = true; return d))
-	var hero_deck: Array = CardDB.shuffled(CardDB.expanded_deck(heroes).map(func(h): var d = (h as Dictionary).duplicate(); d["souls"] = 1; d["wounds"] = 1; return d))
-	var epic_deck: Array = CardDB.shuffled(CardDB.expanded_deck(epics).map(func(h): var d = (h as Dictionary).duplicate(); d["souls"] = 2; d["wounds"] = 2; return d))
-	if CardDB.dbm != null:
+	var item_deck: Array = CardDB.shuffled(CardDB.expanded_deck(_apk_deck_order(items) if apk_only else items).map(func(i): var d = (i as Dictionary).duplicate(); d["isItem"] = true; return d), dbm if apk_only else null)
+	var hero_deck: Array
+	var epic_deck: Array
+	if apk_only: # une seule file de heros melangee, rangee par HeroType (stable) : ordinaires puis epiques (GameBoardExtensions.cs:143-146)
 		hero_deck = apk_heroes.filter(func(h): return not bool((h as Dictionary).get("epic", false)))
 		epic_deck = apk_heroes.filter(func(h): return bool((h as Dictionary).get("epic", false)))
-		CardDB.dbm = null # les tirages suivants (boss, parties) ne passent plus par le generateur de l'APK
+	else: # paquets du wiki : pas de reference APK, tirages du moteur
+		hero_deck = CardDB.shuffled(CardDB.expanded_deck(heroes).map(func(h): var d = (h as Dictionary).duplicate(); d["souls"] = 1; d["wounds"] = 1; return d))
+		epic_deck = CardDB.shuffled(CardDB.expanded_deck(epics).map(func(h): var d = (h as Dictionary).duplicate(); d["souls"] = 2; d["wounds"] = 2; return d))
 	# Tailles officielles (base set) selon le nombre de joueurs.
 	var counts: Dictionary = CardDB.HERO_COUNTS[n]
 	if tnl or rmb: # livrets TNL / RMB : 13+9 / 17+13 / 25+17 heros, les heros a capacite (etoile) toujours inclus
@@ -189,6 +203,7 @@ func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["b
 			players[i]["coins"] = Minibosses.START_COINS # livret RMB : chaque joueur commence avec 3 Coins dans son Hoard
 	G = {
 		"players": players, "bossPicks": picks, "numPlayers": n, "sets": sets.keys(), "variants": variants,
+		"dbm": dbm.st, "bossOrder": boss_order, "humanBoss": human_boss, # generateur de la partie (RandomProvider) : hors vue des clients (ViewFilter.DROPPED_KEYS)
 		"xpOrder": [], "decks": {"rooms": room_deck, "spells": spell_deck, "heroes": hero_deck, "epics": epic_deck, "items": item_deck, "roomDiscard": [], "spellDiscard": [], "heroDiscard": []},
 		"itemQueue": [],
 		"town": [], "turn": 0, "phase": CardDB.PHASE["BOSS"], "gameOver": null, "log": [], "autoAI": true,
@@ -538,6 +553,7 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 	if ThkAbilities.active(G):
 		IodAbilities.sweep_covered(G) # IOD026 Malakill : l'Objet d'une salle couverte rentre avant que le coup ne la decouvre
 	var ok := _apply_move_core(pid, move)
+	_sync_alive() # Boss.IsAlive en direct : les blessures ont pu monter ou baisser pendant le coup
 	if ok:
 		_lock_undo(pid, str(move.get("type", "")))
 	if TnlAbilities.active(G):
@@ -644,6 +660,9 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 					return false
 				target = {"stackId": str(target["stackId"])}
 			hand.remove_at(si)
+			var sdisc: Array = (G["decks"] as Dictionary).get("spellDiscard", [])
+			G["decks"]["spellDiscard"] = sdisc
+			CardDB.discard_add(sdisc, spell) # GameBoard.OnAbilityApplyRequest (cs:751-783) : le sort quitte la main pour la defausse AU LANCEMENT, annule ou non
 			_log("Joueur %d joue %s." % [pid, spell.get("name", "?")])
 			G["stack"] = stack
 			if stack.is_empty():
@@ -1138,23 +1157,67 @@ static func _bad_opening_rooms(rooms: Array) -> bool:
 				per_type[t] += 1
 	return advanced >= 4 or per_type.values().any(func(n): return n >= 4)
 
+## Ordre de chargement des paquets de l'APK (enum GameDecks : BaseDeck, PowerUpPack, PlayerChoice, ToolsHeroKind, HiddenHeros) ; l'ordre dans un paquet est celui de cards.json.
+const APK_DECK_ORDER := ["base", "players-choice", "tools", "hidden-heroes"]
+
+static func _apk_deck_order(cards: Array) -> Array:
+	var out: Array = []
+	for set_id in APK_DECK_ORDER:
+		out.append_array(cards.filter(func(c): return str((c as Dictionary).get("set", "base")) == set_id))
+	return out
+
+## Garde-fou du mulligan : l'APK boucle sans borne (GameBoard.AvoidMulliganCondition), ici 10 000 tours, soit des milliers de fois ce qu'une partie reelle
+## consomme (une main mauvaise revient avec une probabilite de quelques %) : la borne ne change aucune partie, elle evite seulement un gel du navigateur sur un paquet degenere.
+const MULLIGAN_CAP := 10000
+
 ## AvoidMulliganCondition : tant que la main est mauvaise, les 5 salles retournent au fond de la pioche,
 ## TOUTE la pioche est remelangee, puis 5 salles sont repiochees (les sorts ne sont pas concernes).
 func _draw_opening_rooms(deck: Array) -> Array:
 	var hand: Array = CardDB.draw_cards(deck, 5)
+	var dbm := CardDB.dbm_of(G)
 	var guard := 0
-	while _bad_opening_rooms(hand) and guard < 100:
+	while _bad_opening_rooms(hand) and guard < MULLIGAN_CAP:
 		guard += 1
-		var all: Array = hand + deck
-		deck.clear()
-		deck.append_array(all)
-		for i in range(deck.size() - 1, 0, -1):
-			var j := rng.randi_range(0, i)
-			var t = deck[i]
-			deck[i] = deck[j]
-			deck[j] = t
+		if dbm != null:
+			# Queue de l'APK, tete en premier (= la fin du tableau Godot, d'ou l'inversion), puis la main r0..r4 remise au fond ; Shuffle() de l'ensemble.
+			var queue := deck.duplicate()
+			queue.reverse()
+			deck.assign(dbm.shuffle(queue + hand))
+		else:
+			var all: Array = hand + deck
+			deck.clear()
+			deck.append_array(all)
+			for i in range(deck.size() - 1, 0, -1):
+				var j := rng.randi_range(0, i)
+				var t = deck[i]
+				deck[i] = deck[j]
+				deck[j] = t
 		hand = CardDB.draw_cards(deck, 5)
 	return hand
+
+## Boss des sieges IA : GameBoardExtensions.InititalizeGameBoard = Except(boss des humains).Shuffle().Take(k), les IA prenant les k premiers dans
+## l'ordre des sieges. Tire une seule fois, quand tous les humains ont leur boss (le tirage depend de leur choix) ; "" tant que ce n'est pas possible.
+func apk_ai_boss(pid: int) -> String:
+	if not G.has("aiBossOrder"):
+		var dbm := CardDB.dbm_of(G)
+		if dbm == null or not G.has("bossOrder"):
+			return ""
+		var taken: Array = []
+		var seats: Array = []
+		var ids: Array = (G["players"] as Dictionary).keys()
+		ids.sort()
+		for q in ids:
+			var pl: Dictionary = G["players"][q]
+			if bool(pl.get("isAI", false)):
+				seats.append(int(q))
+			elif pl.get("boss") == null:
+				return ""
+			else:
+				taken.append(str((pl["boss"] as Dictionary).get("id", "")))
+		G["aiBossOrder"] = dbm.take((G["bossOrder"] as Array).filter(func(b): return not (str(b) in taken)), seats.size())
+		G["aiBossSeats"] = seats
+	var at: int = (G["aiBossSeats"] as Array).find(pid)
+	return str(G["aiBossOrder"][at]) if at >= 0 and at < (G["aiBossOrder"] as Array).size() else ""
 
 func _deal_opening_hands() -> void:
 	# GameBoard Setup_a : par joueur 5 salles + 2 sorts + AvoidMulligan, puis defausse de 2 cartes pour 5 en main.
@@ -1282,6 +1345,7 @@ func _start_turn() -> void:
 		ThkAbilities.on_turn_start(G) # la Blessure supplementaire de Vorpal Blade disparait
 	# Les effets « jusqu'a la fin du tour » (Jackpot Stash, bonus de degats...) expirent (reducer.js beginPhaseBeginning).
 	G["effects"] = SpellEffects.empty_effects()
+	_sync_alive() # Extra Life expire avec les effets du tour : le boss a 5 blessures ou plus est elimine avant que quiconque joue ce tour
 	# Phase 1 : BEGINNING (Début de tour)
 	G["phase"] = CardDB.PHASE["BEGINNING"]
 	_log("Tour %d — phase BEGINNING." % G["turn"])
@@ -1292,9 +1356,9 @@ func _start_turn() -> void:
 	_reveal_items()
 	_reveal_heroes_in_town()
 
-	# Chaque joueur non-éliminé pioche 1 carte Salle (en ordre d'index de joueur, miroir reducer.js)
-	var pids: Array = (G.get("players", {}) as Dictionary).keys()
-	pids.sort_custom(func(a, b): return int(a) < int(b))
+	# Chaque joueur vivant pioche 1 carte Salle, dans l'ordre de InGamePlayersPriorized (GameBoard.cs:360-393 : PlayerId = rang d'XP), pas celui des sieges :
+	# la pioche vide se remelange entre deux joueurs d'un meme tour.
+	var pids: Array = CardDB.order_by_xp(G["players"])
 	var choosers: Array = []
 	for pid in pids:
 		var p: Dictionary = G["players"][pid]
@@ -1351,7 +1415,7 @@ func _start_turn() -> void:
 
 ## Pioche de debut de tour (DrawRooms / DrawSpells : une carte, la defausse remelangee si la pioche est vide).
 func _draw_turn_card(p: Dictionary, pile: String) -> void:
-	var drawn := CardDB.draw_pile(G["decks"], pile, 1, rng)
+	var drawn := CardDB.draw_pile(G["decks"], pile, 1, rng, CardDB.dbm_of(G))
 	if not drawn.is_empty():
 		(p["hand"] as Array).append(drawn[0])
 
@@ -1594,8 +1658,10 @@ func _build_reveal_queue() -> Array:
 	var out: Array = []
 	var by_pid := {}
 	var order: Array = CardDB.order_by_xp(G["players"])
-	# C# : les cibles se figent en parcourant Players (sieges, `G.apkSeats` du harnais), la file reste triee par PlayerId.
-	for pid in G.get("apkSeats", order):
+	# C# : RevealAllRoomCards parcourt Players (ordre des sieges : cles de G.players, ou `G.apkSeats` du harnais, ou pid = PlayerId - 1), la file reste triee par PlayerId.
+	var seats: Array = G["players"].keys()
+	seats.sort()
+	for pid in G.get("apkSeats", seats):
 		var p: Dictionary = (G["players"] as Dictionary).get(pid, {})
 		if p.is_empty() or p.get("eliminated", false):
 			continue
@@ -1898,9 +1964,6 @@ func _resolve_pending_stack() -> void:
 			var caster_id := int(effect.get("playerId", 0))
 			var target: Dictionary = effect.get("target", {})
 			var decks: Dictionary = G.get("decks", {})
-			var sd: Array = decks.get("spellDiscard", [])
-			decks["spellDiscard"] = sd
-			CardDB.discard_add(sd, card) # la carte part en defausse a l'activation (OnAbilityApplyRequest), annulee ou non
 			if effect.has("tgtUid") and not _retarget_stack_effect(effect):
 				effect["canceled"] = true # RemovePendingTransactionsByTarget : la salle / le heros vise a quitte le jeu
 			if bool(effect.get("canceled", false)):
@@ -1935,7 +1998,7 @@ func _resolve_pending_stack() -> void:
 				var r = BossEngine.active_room(cdun[k])
 				# Ability.CheckConditions : slot actif (non gele) et capacites non verrouillees (Trap Master)
 				if r != null and str(r.get("id", "")) == "BMA026" and not bool(r.get("faceDown", false)) and not bool(r.get("usedThisTurn", false)) and not TnlAbilities.no_text(r) and not BossEngine.is_room_deactivated(G, caster_id, k) and not BossEngine.abilities_locked(G, caster_id):
-					var drawn = CardDB.draw_pile(decks, "spells", 1, rng)
+					var drawn = CardDB.draw_pile(decks, "spells", 1, rng, CardDB.dbm_of(G))
 					if not drawn.is_empty():
 						(caster.get("hand", []) as Array).append(drawn[0])
 						_log("Liger's Den : pioche un sort.")
@@ -2200,10 +2263,11 @@ func _advance_adventure_room() -> void:
 		return
 
 	var room = BossEngine.active_room(dungeon[i])
-	if room == null or bool((room as Dictionary).get("deactivated", false)):
+	if room == null:
 		_advance_adventure_room()
 		return
-
+	# Un emplacement gele (Freeze, effects.deactivatedRooms) n'est PAS saute : c'est un pas AdventurePhase_c de l'APK (fenetre de sorts, NearestBossSlotIndex mis a jour) ;
+	# _room_damage le traverse sans degats (BossEngine.room_damage_with_modifiers) et ouvre la pause « post-damage ».
 	if TnlAbilities.active(G):
 		TnlAbilities.on_room_enter(G, pid, i, room as Dictionary) # Fairy Fountain (+1 PV), memoire d'entree (Inner Sanctum)
 	if not adv.has("weakened") and TnlAbilities.hero_weakens(hero): # RMB115 Warlock, RMB119 Tax Collector : choix du proprietaire avant la premiere salle
@@ -2309,6 +2373,24 @@ func _next_xp_active_player(current: int) -> int:
 			return candidate
 	return -1
 
+## Boss.IsAlive en direct (R-D53) apres un coup. Un boss qui vient de tomber a 5 blessures en phase d'aventure perd ses heros a l'entree
+## (GameBoard.ChooseNextActiveHero : !IsAlive => EntranceQueue.Clear()) et, s'il avait la main hors heros en cours, la passe au joueur suivant.
+func _sync_alive() -> void:
+	var was := {}
+	for pid in G["players"]:
+		was[pid] = bool((G["players"][pid] as Dictionary).get("eliminated", false))
+	BossEngine.refresh_alive(G)
+	if str(G.get("phase", "")) != CardDB.PHASE["ADVENTURE"]:
+		return
+	for pid in G["players"]:
+		var pl: Dictionary = G["players"][pid]
+		if was[pid] or not bool(pl.get("eliminated", false)):
+			continue
+		(pl.get("entrance", []) as Array).clear()
+		if (G.get("adventure", {}) as Dictionary).is_empty() and int(pid) == active_player():
+			pl["passed"] = true
+			_advance_adventure_player()
+
 func _advance_adventure_player() -> void:
 	G.erase("apkSkippedHero")
 	var all_acted := true
@@ -2382,8 +2464,8 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 		if ThkAbilities.active(G):
 			ThkAbilities.on_hero_survived(G, pid, hero) # THK : Vorpal Blade, Holy Hand Grenade, Antimagic Lizard, Necronomicon ; l'Objet va face cachee
 		_log("Le héros survit et blesse le boss ! (%d blessures)" % CardDB.total_wounds(p))
-		if CardDB.total_wounds(p) >= 5 and not ThkAbilities.wound_immune(G, pid) and not CardDB.no_elimination(G): # 5-6 joueurs : plus d'elimination (livret CRL) ; Unlimited Lives de meme
-			p["eliminated"] = true
+		BossEngine.refresh_alive(G) # 5 blessures : elimine (Boss.IsAlive) ; 5-6 joueurs (livret CRL) et Unlimited Lives : plus d'elimination
+		if bool(p.get("eliminated", false)):
 			entrance.clear() # GameBoard.ChooseNextActiveHero : !IsAlive => EntranceQueue.Clear()
 			_log("Joueur %d éliminé !" % pid)
 		if TnlAbilities.active(G) and not bool(p.get("eliminated", false)):
@@ -2400,6 +2482,9 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 		"killed": (hp <= 0 and not returned),
 		"deathIndex": death_index,
 	}
+	BossEngine.refresh_alive(G) # une blessure ajoutee apres la premiere verification (TNL100 Necromancer) : IsAlive est deja faux
+	if bool(p.get("eliminated", false)):
+		entrance.clear()
 	# Le joueur actif vient d'etre elimine : plus aucun coup possible pour lui, la main passe au suivant
 	# (sinon l'adversaire qui a encore un heros a l'entree n'a jamais la main et la partie cale).
 	if bool(p.get("eliminated", false)) and pid == active_player():
@@ -2420,11 +2505,8 @@ func _check_end_or_next_turn() -> void:
 		_check_end_big_game()
 		return
 
-	# Vérification des éliminations (5 blessures)
-	for pid in G["players"]:
-		var p: Dictionary = G["players"][pid]
-		if CardDB.total_wounds(p) >= 5 and not ThkAbilities.wound_immune(G, int(pid)): # THK001 Extra Life : aucune perte par Blessures ce tour
-			p["eliminated"] = true
+	# Vérification des éliminations (5 blessures) : IsAlive est recalcule en direct (THK001 Extra Life : aucune perte par Blessures ce tour)
+	BossEngine.refresh_alive(G)
 
 	# Joueurs ayant 10 âmes et moins de 5 blessures (règle GameBoard.cs:1041-1049)
 	var winners_10_souls: Array = []

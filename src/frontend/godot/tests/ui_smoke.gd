@@ -1648,13 +1648,15 @@ func _check_boss_carousel() -> void:
 	(bc[(sel0 + 1) % bc.size()] as CardUI).card_clicked.emit(null)
 	await get_tree().process_frame
 	_check(board._boss_sel == sel0 and board._boss_pick_id == want and gm.G["players"][0].get("boss") == null, "carrousel : un clic a change la selection ou valide le boss")
-	# le tirage est aleatoire : plusieurs tirages successifs ne donnent pas toujours le meme boss
+	# le boss est tire UNE fois par partie (G.humanBoss, GamePlaySPScene : Shuffle().Take(1) avant les paquets) : le carrousel redessine toujours le meme, des parties differentes tirent des boss differents
+	_check(board._boss_pick_id == str(gm.G.get("humanBoss", "")), "carrousel : le boss du carrousel est celui que la partie a tire (%s)" % str(gm.G.get("humanBoss")))
 	var seen := {}
+	var mm = load("res://godot/scripts/Match.gd").new()
+	add_child(mm)
 	for k in 12:
-		board._boss_stop()
-		board.refresh()
-		seen[board._boss_pick_id] = true
-	_check(seen.size() > 1, "carrousel : 12 tirages, toujours le meme boss (%s)" % str(seen.keys()))
+		seen[str(mm.new_match(2, 1, ["base"], 1000 + k)["humanBoss"])] = true
+	mm.queue_free()
+	_check(seen.size() > 1, "carrousel : 12 parties, toujours le meme boss (%s)" % str(seen.keys()))
 	want = board._boss_pick_id
 	board._confirm_btn.pressed.emit()
 	await get_tree().process_frame
@@ -3167,6 +3169,7 @@ func _check_gameover_banner() -> void:
 	board.set_process(false)
 	G = gm.G
 	G["players"][1]["eliminated"] = true
+	G["players"][1]["manuallyKilled"] = true # fixture : elimination sans blessures = IsManuallyKilled (Boss.IsAlive est recalcule en direct)
 	board.refresh()
 	var spr: TextureRect = board._lane[0]["sprite"]
 	_check(spr.texture == board._tex(board.UI_DIR + "bosses_tombstone.webp"), "boss mort : pas de pierre tombale RIP")
@@ -3961,6 +3964,7 @@ func _check_audio() -> void:
 	G.erase("adventure")
 	(me["entrance"] as Array).clear()
 	me["eliminated"] = true
+	me["manuallyKilled"] = true # fixture : elimination sans blessures = IsManuallyKilled (Boss.IsAlive est recalcule en direct)
 	board.refresh()
 	await _wait(0.4)
 	m = am.rec.size()

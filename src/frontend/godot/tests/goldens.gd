@@ -148,6 +148,7 @@ func _ready() -> void:
 
 	CardDB.ship_all = true # les suites suivantes testent aussi les paquets FERMES (CardDB.SHIPPED_SETS) ; les tests ci-dessus tournent en mode livre ; goldens_decks._t_closed_sets_shut bascule lui-meme en mode livre puis restaure
 	load("res://godot/tests/goldens_decks.gd").new().run(_ok, self) # paquets APK : PlayerChoice (KSA), HiddenHeros (BMH), ToolsHeroKind (THK)
+	load("res://godot/tests/goldens_apk_order.gd").new().run(_ok, self) # ordre d'aleatoire et d'evenements de l'APK (L1 / L2 de l'audit)
 	load("res://godot/tests/goldens_tnl.gd").new().run(_ok, self) # extension The Next Level (TNL, hors APK)
 	load("res://godot/tests/goldens_crl.gd").new().run(_ok, self) # extension wiki Crash Landing (CRL, hors APK)
 	load("res://godot/tests/goldens_rmb.gd").new().run(_ok, self) # extension wiki Rise of the Minibosses (RMB, hors APK)
@@ -980,6 +981,7 @@ func _t_choice_all_seeing_eye() -> void:
 	p0["dungeon"] = [[_room("BMA025", "trap", true, [3])]]
 	p0["hand"] = [{"id": "S1", "name": "S1", "isSpell": true}, {"id": "S2", "name": "S2", "isSpell": true}]
 	var theirs := {"id": "BMA040", "name": "Annihilator", "isSpell": true}
+	(m.G["decks"] as Dictionary)["spellDiscard"] = [theirs] # un sort en attente sur la pile est deja en defausse (lancement : OnAbilityApplyRequest)
 	m.G["stack"] = [{"id": "x", "type": "spell", "playerId": 0, "card": {"id": "OWN", "name": "Own", "isSpell": true}, "target": {}, "resolved": false}]
 	m.G["activePlayer"] = 0
 	m.G["stackReturnPlayer"] = 1
@@ -1002,6 +1004,7 @@ func _t_choice_all_seeing_eye() -> void:
 	# Un seul sort en main : defausse automatique.
 	var G1 := _ability_G("BMA025")
 	(G1["players"][0]["hand"] as Array).append({"id": "ONLY", "name": "Only", "isSpell": true})
+	(G1["decks"] as Dictionary)["spellDiscard"] = [theirs]
 	G1["stack"] = [{"id": "z", "type": "spell", "playerId": 1, "card": theirs, "target": {}, "resolved": false}]
 	_ok(RoomAbilities.activate_room_ability(G1, 0, 0) == null and (G1["stack"] as Array).is_empty(), "1 sort : annulation directe")
 	_ok((G1["decks"]["spellDiscard"] as Array).size() == 2, "les 2 sorts sont en defausse")
@@ -1188,6 +1191,7 @@ func _t_choice_draculord() -> void:
 	var G2 := _levelup_G("BMA001", 5)
 	((G2["players"][1] as Dictionary)["hand"] as Array).append_array([{"id": "A", "isSpell": true}, {"id": "B", "isSpell": true}])
 	(G2["players"][1] as Dictionary)["eliminated"] = true
+	(G2["players"][1] as Dictionary)["manuallyKilled"] = true # fixture : elimination sans blessures = IsManuallyKilled (Boss.IsAlive est recalcule en direct)
 	_ok(RoomAbilities.process_level_up(G2, 0) == null, "adversaire elimine ignore")
 
 ## BMA004 : chaque adversaire (PlayerId croissant) detruit une salle de SON donjon ; 0 salle = saute,
@@ -1625,6 +1629,7 @@ func _t_reveal_heroes_counts_eliminated_and_effects_expire() -> void:
 	add_child(m)
 	m.G = _ability_G("BMA010")
 	(m.G["players"][1] as Dictionary)["eliminated"] = true
+	(m.G["players"][1] as Dictionary)["manuallyKilled"] = true # fixture : elimination sans blessures = IsManuallyKilled (Boss.IsAlive est recalcule en direct)
 	m.G["log"] = []
 	var heroes: Array = []
 	for i in 5:
@@ -2209,6 +2214,7 @@ func _t_apk_all_boss_effects_skip_eliminated_players() -> void:
 	(G["players"][0] as Dictionary)["id"] = 0
 	var dead: Dictionary = G["players"][1]
 	dead["eliminated"] = true
+	dead["manuallyKilled"] = true # fixture : elimination sans blessures = IsManuallyKilled (Boss.IsAlive est recalcule en direct)
 	dead["hand"] = [_room("Keep", "trap", false, [1])]
 	(G["decks"]["rooms"] as Array).append_array([_room("R1", "trap", false, [1]), _room("R2", "trap", false, [1])])
 	(G["decks"]["spells"] as Array).append({"id": "BMA040", "name": "Annihilator", "isSpell": true})
