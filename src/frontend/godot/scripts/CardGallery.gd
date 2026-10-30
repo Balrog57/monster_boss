@@ -59,27 +59,31 @@ func _build() -> void:
 	add_child(bg)
 	# PointClamp : fond (ControlsFactory.CreateBackground) et bandeaux (GalleryScene.cs:110,121)
 	UiKit.image(self, UI + "backgrounds/gallery_bg.webp", Vector2(0, 105), Vector2(1920, 975)).modulate = Color(0.3, 0.3, 0.3) # APK : fond presque noir (~13 contre 64)
-	UiKit.image(self, UI + "ingame/bg_top.webp", Vector2(175, 0), Vector2(1920, 77)) # taille native en (175, 0) : ecart 0,0 sur la capture APK (filet orange y 61-62 ; avant : etire en (175, -15), filet y 46-47)
-	UiKit.image(self, UI + "ingame/card_gallery_top.webp", Vector2.ZERO, Vector2(175, 96))
+	var edges: Array = [] # GalleryScene.cs:100-145,205-325 : colonne d'onglets et titre colles au bord gauche, logo au bord droit
+	edges.append(UiKit.image(self, UI + "ingame/bg_top.webp", Vector2(175, 0), Vector2(1920, 77))) # taille native en (175, 0) : ecart 0,0 sur la capture APK (filet orange y 61-62 ; avant : etire en (175, -15), filet y 46-47)
+	edges.append(UiKit.image(self, UI + "ingame/card_gallery_top.webp", Vector2.ZERO, Vector2(175, 96)))
 	for c in get_children():
 		if c is TextureRect:
 			(c as TextureRect).texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	title_label = UiKit.label(self, "", 29, Color.WHITE, Vector2(136, 9), 1745.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # APK : titre 231 x 20 px centre en (1008, 30)
-	UiKit.image(self, UI + "navigation/bm_logo.webp", Vector2(1590, 45), Vector2(260, 105))
+	Vp.edge(UiKit.image(self, UI + "navigation/bm_logo.webp", Vector2(1590, 45), Vector2(260, 105)), Vp.RIGHT)
 	var panel := ColorRect.new()
 	panel.color = Color(0, 0, 0, 0.4)
 	panel.position = Vector2(0, 70)
 	panel.size = Vector2(175, 1010)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(panel)
+	edges.append(panel)
 	var line := ColorRect.new()
 	line.color = Color(0.85, 0.65, 0.2, 0.85)
 	line.position = Vector2(175, 0)
 	line.size = Vector2(2, 1080)
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(line)
+	edges.append(line)
 	var back := UiKit.texture_button(self, UI + "buttons/back_bt.webp", UI + "buttons/back_bt_pressed.webp", Vector2(200, 101))
 	back.name = "Back"
+	edges.append(back)
 	back.pressed.connect(close_gallery)
 	# Onglets : une pile verticale de dos de carte, defilable comme l'APK (ScrollListBehavior Vertical : course 596 px, depassement de 100 px, ressort 0,4, inertie 0,1)
 	_tclip = Control.new()
@@ -88,6 +92,7 @@ func _build() -> void:
 	_tclip.clip_contents = true
 	_tclip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_tclip)
+	edges.append(_tclip)
 	_tab_box = Control.new()
 	_tab_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tclip.add_child(_tab_box)
@@ -120,6 +125,9 @@ func _build() -> void:
 			elif ev.button_index == MOUSE_BUTTON_WHEEL_UP or ev.button_index == MOUSE_BUTTON_WHEEL_LEFT:
 				_set_pos(_pos + 220.0))
 	add_child(scroll)
+	edges.append(scroll)
+	for e in edges:
+		Vp.edge(e as Control, Vp.LEFT)
 	select_tab(0)
 
 ## Glissement vertical de la colonne d'onglets (TouchMoved : position += glissement, inertie = dernier glissement) ; molette hors APK.
@@ -402,6 +410,7 @@ func show_detail(card: Dictionary, texture: Texture2D, from: Rect2 = Rect2()) ->
 	# Fleche posee par-dessus le voile (CardDetailScene.cs:51-56) : celle de la galerie reste assombrie dessous
 	var db := UiKit.texture_button(_detail, UI + "buttons/back_bt.webp", UI + "buttons/back_bt_pressed.webp", Vector2(200, 101))
 	db.name = "DetailBack"
+	Vp.edge(db, Vp.LEFT)
 	db.pressed.connect(back_out)
 	add_child(_detail)
 	var big := Vector2(350, 488) * 1.8 # CardDetailScene.cs:84-91 : carte 350 x 488 a l'echelle 1,8, soit 630 x 878

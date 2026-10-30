@@ -46,6 +46,7 @@ func build(winner_name: String, boss_id: String, lose: bool) -> void:
 		_boss(boss_id)
 	ok_btn = UiKit.texture_button(self, UI + "buttons/ok_bt.webp", UI + "buttons/ok_bt_pressed.webp", Vector2(1458, 960))
 	ok_btn.name = "Ok"
+	Vp.edge(ok_btn, Vp.RIGHT) # WinnerScene / LoseScene : CreateOkButton, bord droit
 	ok_btn.pressed.connect(func():
 		AudioManager.play_sfx("ui_button_select")
 		ok_pressed.emit())

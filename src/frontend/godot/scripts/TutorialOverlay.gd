@@ -551,15 +551,9 @@ func _gate_tap(d: Dictionary) -> bool:
 	if _scene != null:
 		return false
 	var card: Dictionary = d.get("card", {})
-	var id := str(card.get("id", ""))
 	if _discard_pending():
-		return _discard_tap(id, int(d.get("idx", -1)))
-	if not _restricted():
-		return true
-	if _forced_id() != "" and id == _forced_id():
-		return true
-	_reinforce() # ExtractCard (CardExtractBehavior.cs:211-237) : l'appui sur une carte non imposee declenche InvalidCardPlayed, glisse ou non
-	return false
+		return _discard_tap(str(card.get("id", "")), int(d.get("idx", -1)))
+	return true # le tap d'une carte de la main ne sert qu'a la defausse d'ouverture ; hors defausse, c'est le glisser qui est garde (kind "drag")
 
 ## TutorialSelectorComponent.UpdateSelectedCards : seules les 2 cartes designees se choisissent (jamais deselectionnees), les autres affichent une moquerie.
 func _discard_tap(id: String, idx: int) -> bool:
@@ -687,9 +681,9 @@ func _drawn_holder(id: String) -> Control:
 
 ## TutorialBaitScene : colonne HEROES IN TOWN attachee, bulle large (800,350), main retournee a (LimitedLeftEdge + 200, 320), icones a (bulle + (-240,60)).
 func _bait() -> void:
-	_begin([Rect2(0, 0, 183, 903)])
+	_begin([Rect2(Vp.lx(0.0), 0, 183, 903)])
 	var lb := _balloon("large", Vector2(1040, 350))
-	var hands := [{"pos": Vector2(200, 320), "flip": true}]
+	var hands := [{"pos": Vector2(Vp.lx(200.0), 320), "flip": true}]
 	await _text_step(lb, {"text": TEXT["page20"][0], "finish": _show_treasures, "hands": hands})
 	await _text_step(lb, {"text": TEXT["page21"][0], "hands": hands})
 	_end()
@@ -709,7 +703,7 @@ func _adv(n: int) -> void:
 			c = Vector2(840, 250)
 			# BUG DE L'APK reproduit : UpdateCommonVisibility applique le retournement / la rotation / l'origine de la main 2 a la transform de la main 1
 			# (TutorialBaseScene.cs:165-167) : la main 1 est retournee (doigt vers la gauche, sur le heros), la main 2 reste normale (doigt vers la droite, sur les degats).
-			hands = [{"pos": Vector2(560, 700), "flip": true}, {"pos": Vector2(1210, 490)}]
+			hands = [{"pos": Vector2(560, 700), "flip": true}, {"pos": Vector2(Vp.limited_right_edge() - 710.0, 490)}]
 		23: # cs:247 : la salle de BMA027 et la barre de temps ; bulle medium (salle + (0,-350)), main (salle + (-250,0))
 			var s := _slot_node(0)
 			var rc := s.get_global_rect() if s != null else Rect2(840, 640, 130, 180)
@@ -723,17 +717,17 @@ func _adv(n: int) -> void:
 			c = Vector2(960, 190)
 			hands = [{"pos": Vector2(660, 740)}]
 		25: # cs:223 : boss adverse + panneau OneOpponentDetail (1709,60) ; bulle medium (panneau + (-550,100)), main (panneau + (-200,50))
-			holes = [Rect2(1708, 62, 212, 435)] # tut_126 (Pillow) : panneau y 60..497 ; le boss seul est eclairci, pas sa plateforme
+			holes = [Rect2(Vp.rx(1708.0), 62, 212, 435)] # tut_126 (Pillow) : panneau y 60..497 ; le boss seul est eclairci, pas sa plateforme
 			sprites = [board._lane[0]["sprite"]]
 			kind = "medium"
-			c = Vector2(1159, 160)
-			hands = [{"pos": Vector2(1509, 110)}]
+			c = Vector2(Vp.rx(1159.0), 160)
+			hands = [{"pos": Vector2(Vp.rx(1509.0), 110)}]
 		26: # cs:219 : mon boss + panneau ChallengerDetail (1709,483) ; bulle medium (panneau + (-550,200)), main (panneau + (-200,150))
-			holes = [Rect2(1708, 483, 212, 549)] # tut_108 (Pillow) : panneau + LevelUpBg (TopRightPanelEntity.cs:146-151) = y 483..1032, bouton LEVEL UP compris
+			holes = [Rect2(Vp.rx(1708.0), 483, 212, 549)] # tut_108 (Pillow) : panneau + LevelUpBg (TopRightPanelEntity.cs:146-151) = y 483..1032, bouton LEVEL UP compris
 			sprites = [board._lane[1]["sprite"]]
 			kind = "medium"
-			c = Vector2(1159, 683)
-			hands = [{"pos": Vector2(1509, 633)}]
+			c = Vector2(Vp.rx(1159.0), 683)
+			hands = [{"pos": Vector2(Vp.rx(1509.0), 633)}]
 		28: # cs:313 : le sort sur la pile, la main et la barre ; bulle long (VirtualWidth/2, VirtualHeight/2 - 400), main (400,350)
 			if board._stack_ui != null and is_instance_valid(board._stack_ui):
 				for k in board._stack_ui.get_children():
@@ -758,10 +752,10 @@ func _adv(n: int) -> void:
 func _levelup() -> void:
 	_begin([board.levelup_btn.get_global_rect()], [board._lane[1]["sprite"]]) # le boss (BossCharacter) et le bouton LEVEL UP seuls sont attaches, comme p26
 	var lb := _balloon("long", Vector2(960, 400))
-	await _text_step(lb, {"text": TEXT["page30"][0], "hands": [{"pos": Vector2(150, 640)}]})
+	await _text_step(lb, {"text": TEXT["page30"][0], "hands": [{"pos": Vector2(Vp.limited_left_edge() + 150.0, 640)}]})
 	lb.get_parent().queue_free() # p31 : une nouvelle bulle remplace la premiere (cs: EntityManager.Remove(balloon))
-	lb = _balloon("long", Vector2(500, 580))
-	await _text_step(lb, {"text": TEXT["page31"][0], "hands": [{"pos": Vector2(1525, 950)}, {"pos": Vector2(1370, 780)}]})
+	lb = _balloon("long", Vector2(Vp.left_edge() + 500.0, 580))
+	await _text_step(lb, {"text": TEXT["page31"][0], "hands": [{"pos": Vector2(Vp.limited_right_edge() - 395.0, 950)}, {"pos": Vector2(Vp.limited_right_edge() - 550.0, 780)}]})
 	_end()
 	_lvl_done = true
 	_finish() # le jeu continue normalement : banniere LEVEL UP puis choix de niveau
@@ -1096,9 +1090,10 @@ func _hint_clear() -> void:
 		_hint.queue_free()
 	_hint = null
 
-func _input(ev: InputEvent) -> void:
+func _input(raw_ev: InputEvent) -> void:
 	if _hint == null or not is_instance_valid(_hint) or _hint_age < HINT_TIME or _hint.has_meta("closing"):
 		return
+	var ev := Vp.canvas_event(raw_ev)
 	if not (ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed) or _hint.get_global_rect().has_point((ev as InputEventMouseButton).position):
 		return
 	if board.skip_animations: # ZoomOutWhenTouchOutside : un toucher hors de la bulle la ferme en fondu

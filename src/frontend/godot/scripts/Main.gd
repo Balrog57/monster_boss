@@ -80,6 +80,7 @@ var profile := {"name": "Player", "avatar": "avatar_draculord"}
 static var skip_loading := false # tests : pas de LoadingScene (le titre est affiche tout de suite)
 
 func _ready() -> void:
+	Vp.make_stage(self) # maquette 1920 x 1080 centree dans la fenetre (largeur utile 1440..1920, Vp.gd)
 	game_manager = GameManager.new()
 	add_child(game_manager)
 	online = OnlineClient.new()
@@ -109,7 +110,7 @@ func _ready() -> void:
 		show_title()
 		var veil := ColorRect.new()
 		veil.color = Color.BLACK
-		veil.size = Vector2(1920, 1080)
+		veil.size = Vector2(Vp.width, 1080) # la couche du voile est dans la fenetre, pas dans la scene centree
 		veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_fade_layer.add_child(veil)
 		var tw := create_tween()
@@ -118,7 +119,7 @@ func _ready() -> void:
 	else:
 		_boot_loading()
 	if OS.has_feature("web") and not OS.is_userfs_persistent(): # S-02 : navigation privee ou stockage bloque, user:// (IndexedDB) ne survit pas a l'onglet
-		var warn := UiKit.label(_fade_layer, "Browser storage is blocked: settings and profile will not be saved.", 30, Color("ffb347"), Vector2(0, 1020), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
+		var warn := UiKit.label(_fade_layer, "Browser storage is blocked: settings and profile will not be saved.", 30, Color("ffb347"), Vector2(Vp.centre_offset(), 1020), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
 		var wt := warn.create_tween()
 		wt.tween_interval(8.0)
 		wt.tween_property(warn, "modulate:a", 0.0, 1.0)
@@ -137,7 +138,7 @@ func _boot_loading() -> void:
 ## Le verrou est rendu par le navigateur quand l'onglet est masque : on le redemande au retour (visibilitychange) et au premier appui si la 1re demande a ete refusee.
 func _keep_screen_on() -> void:
 	JavaScriptBridge.eval("(function(){var n=navigator;if(!('wakeLock' in n))return false;var s=null;var r=function(){if(s&&!s.released)return;n.wakeLock.request('screen').then(function(l){s=l;}).catch(function(){});};document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')r();});document.addEventListener('pointerdown',r);r();return true;})()")
-	JavaScriptBridge.eval("document.addEventListener('contextmenu',function(e){e.preventDefault();})") # le clic droit sert au zoom des cartes (CardUI) : pas de menu du navigateur
+	JavaScriptBridge.eval("document.addEventListener('contextmenu',function(e){e.preventDefault();})") # le clic droit ne fait rien (I-06) : pas de menu du navigateur par-dessus le jeu
 
 ## I-22, AndroidActivity.cs:12-15 (ScreenOrientation.Landscape) + HideSoftKeys (immersif) : sur appareil tactile seulement (rien sur bureau), au premier appui
 ## (le plein ecran exige un geste de l'utilisateur) : plein ecran puis verrou paysage ; l'API est absente ou refuse (iOS, Firefox) -> echec silencieux.
@@ -182,7 +183,7 @@ func go(swap: Callable) -> void:
 	_fading = true
 	var veil := ColorRect.new()
 	veil.color = Color(0, 0, 0, 0)
-	veil.size = Vector2(1920, 1080)
+	veil.size = Vector2(Vp.width, 1080)
 	_fade_layer.add_child(veil) # mouse_filter STOP par defaut : aucun clic pendant la transition
 	var tw := create_tween()
 	tw.tween_property(veil, "color:a", 1.0, 0.5)
@@ -322,13 +323,16 @@ func _apk_screen(back: Callable, online: bool = false) -> void:
 		var bk := _img_btn("buttons/back_bt.webp", "buttons/back_bt_pressed.webp", Vector2(20, 22), back, Vector2.ZERO, "ui_button_goback")
 		bk.name = "Back"
 		add_child(bk)
+		Vp.edge(bk, Vp.LEFT) # ControlsFactory.CreateEmptyBackButton (cs:243-254) : bord gauche
 
 func _band(text: String) -> void:
 	add_child(_tex("gradients/bg_txt.webp", Vector2(394, 298)))
 	add_child(_lbl(text, 21, GOLD, Vector2(394, 298), Vector2(1132, 64), FONT_A))
 
 func _ok_btn(cb: Callable) -> void:
-	add_child(_img_btn("buttons/ok_bt.webp", "buttons/ok_bt_pressed.webp", Vector2(1697, 960), cb))
+	var ok := _img_btn("buttons/ok_bt.webp", "buttons/ok_bt_pressed.webp", Vector2(1697, 960), cb)
+	add_child(ok)
+	Vp.edge(ok, Vp.RIGHT) # ControlsFactory.CreateOkButton (cs:264-268) : bas / bord droit
 
 # --- ecran titre -------------------------------------------------------------------
 
@@ -974,7 +978,7 @@ func show_options(from_credits: bool = false) -> void:
 	ext.text = "Wiki expansions (not in the APK)"
 	ext.button_pressed = use_extensions
 	ext.add_theme_font_size_override("font_size", 16)
-	ext.position = Vector2(30, 1030)
+	ext.position = Vector2(Vp.lx(30.0), 1030) # (hors APK) coin bas gauche
 	ext.toggled.connect(func(on: bool):
 		use_extensions = on
 		Profile.save_settings(server_host, use_extensions, apk_decks))
@@ -982,7 +986,7 @@ func show_options(from_credits: bool = false) -> void:
 	if from_credits: # OptionsScene.ShowButtons(true) (:150-153) : logo en fondu 0,5 s, boutons en cascade (0 / 0,1 / 0,2 / 0,3 s), fondu 0,3 s + glisse de 0,2 s (BackEase Out)
 		_options_buttons_in([tut, sett, gal, cred], _logo_node())
 	host.add_theme_font_size_override("font_size", 16)
-	host.position = Vector2(1440, 1034)
+	host.position = Vector2(Vp.rx(1440.0), 1034) # (hors APK) coin bas droit
 	host.size = Vector2(440, 36)
 	host.tooltip_text = "Multiplayer server"
 	if is_web:

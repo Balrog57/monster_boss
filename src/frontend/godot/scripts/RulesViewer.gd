@@ -24,40 +24,48 @@ func _ready() -> void:
 	size = Vector2(1920, 1080)
 	mouse_filter = Control.MOUSE_FILTER_STOP # bloque les clics vers ce qui est dessous (le plateau)
 	_build()
+	Vp.width_changed.connect(_on_vp_width)
+
+func _on_vp_width(_w: float) -> void:
+	_build()
 
 func _build() -> void:
+	var L := Vp.left_edge() # la fenetre dans le repere F : 0 / 1920 a 1920 de large, 240 / 1680 a 1440
+	var W := Vp.width
 	for c in get_children():
 		remove_child(c)
 		c.queue_free()
 	var bg := ColorRect.new()
 	bg.color = Color(0.11, 0.08, 0.15)
-	bg.size = Vector2(1920, 1080)
+	bg.position.x = L
+	bg.size = Vector2(W, 1080)
 	add_child(bg)
 	var top := ColorRect.new()
 	top.color = Color(0.18, 0.13, 0.22)
-	top.size = Vector2(1920, 128)
+	top.position.x = L
+	top.size = Vector2(W, 128)
 	add_child(top)
 	var back := TextureButton.new() # fleche verte de tous les ecrans du menu : back_bt a (20, 22), son ui_button_goback (MainMenuScene.cs:49-54)
 	back.texture_normal = load(UI + "buttons/back_bt.webp")
 	back.texture_pressed = load(UI + "buttons/back_bt_pressed.webp")
 	back.name = "Back"
-	back.position = Vector2(20, 22)
+	back.position = Vector2(Vp.lx(20.0), 22)
 	back.pressed.connect(func():
 		AudioManager.play_sfx("ui_button_goback")
 		close_viewer())
 	add_child(back)
-	add_child(_lbl("RULES", 42, GOLD, Vector2(0, 22), Vector2(1920, 98))) # titre arcadepix x2 = 42, or #cdb15f, centre : ne chevauche pas la fleche (x 20-141)
+	add_child(_lbl("RULES", 42, GOLD, Vector2(L, 22), Vector2(W, 98))) # titre arcadepix x2 = 42, or #cdb15f, centre : ne chevauche pas la fleche (x 20-141)
 	var books := shipped_books()
 	tab = clampi(tab, 0, books.size() - 1)
-	var tw := minf(470.0, 1880.0 / books.size())
+	var tw := minf(470.0, (W - 40.0) / books.size())
 	for i in books.size():
-		var x := int(20 + tw * i)
+		var x := int(L + 20.0 + tw * i)
 		var r := ColorRect.new()
 		r.color = GOLD if i == tab else Color(0.16, 0.12, 0.2)
 		r.position = Vector2(x, 136)
 		r.size = Vector2(tw - 10, 46)
 		add_child(r)
-		add_child(_lbl(str(books[i][1]), 21, Color.BLACK if i == tab else GOLD, Vector2(x, 136), Vector2(tw - 10, 46)))
+		add_child(_lbl(str(books[i][1]), clampi(int(21.0 * (tw - 10.0) / 440.0), 15, 21), Color.BLACK if i == tab else GOLD, Vector2(x, 136), Vector2(tw - 10, 46)))
 		var hit := Button.new()
 		for n in ["normal", "hover", "pressed", "focus", "disabled", "hover_pressed"]:
 			hit.add_theme_stylebox_override(n, StyleBoxEmpty.new())
@@ -78,8 +86,8 @@ func _build() -> void:
 	sb.set_border_width_all(4)
 	sb.set_corner_radius_all(26)
 	panel.add_theme_stylebox_override("panel", sb)
-	panel.position = Vector2(10, 192)
-	panel.size = Vector2(1900, 878)
+	panel.position = Vector2(L + 10.0, 192)
+	panel.size = Vector2(W - 20.0, 878)
 	add_child(panel)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var files := _page_files(str(shipped_books()[tab][0]))
@@ -91,11 +99,11 @@ func _build() -> void:
 	pg.texture = load("res://assets/rules/%s/%s" % [shipped_books()[tab][0], files[page]])
 	pg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	pg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	pg.position = Vector2(170, 200)
-	pg.size = Vector2(1580, 818)
+	pg.position = Vector2(L + 170.0, 200)
+	pg.size = Vector2(W - 340.0, 818)
 	pg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(pg)
-	add_child(_lbl("%d / %d" % [page + 1, page_count], 24, GOLD, Vector2(710, 1026), Vector2(500, 40)))
+	add_child(_lbl("%d / %d" % [page + 1, page_count], 24, GOLD, Vector2(L + (W - 500.0) / 2.0, 1026), Vector2(500, 40)))
 	if page > 0:
 		add_child(_arrow(false, Vector2(30, 582)))
 	if page < page_count - 1:
@@ -106,7 +114,7 @@ func _arrow(next: bool, pos: Vector2) -> TextureButton:
 	b.texture_normal = load(UI + "buttons/back_bt.webp") # fleche « retour » de l'APK, retournee pour « suivant »
 	b.texture_pressed = load(UI + "buttons/back_bt_pressed.webp")
 	b.flip_h = next
-	b.position = pos
+	b.position = Vector2(Vp.rx(pos.x) if next else Vp.lx(pos.x), pos.y) # fleches aux bords de la fenetre
 	b.pressed.connect(func(): turn(1 if next else -1))
 	return b
 

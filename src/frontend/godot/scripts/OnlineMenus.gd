@@ -68,6 +68,7 @@ func _screen(back: Callable) -> void:
 		var bk: TextureButton = m._img_btn("buttons/back_bt.webp", "buttons/back_bt_pressed.webp", Vector2(20, 22), back, Vector2.ZERO, "ui_button_goback")
 		bk.name = "Back"
 		m.add_child(bk)
+		Vp.edge(bk, Vp.LEFT) # fleche de retour au bord gauche (comme Main._scene)
 
 ## ButtonWithLabelEntity : bg_bt_multi (619x177, taille native) centre en (cx, cy), libelle arcadepix x 1.3 centre ; `pressed_color` = couleur pendant l'appui.
 func _label_btn(text: String, cx: float, cy: float, cb: Callable, pressed_color: Color = Color.WHITE, s: float = 1.0, text_scale: float = 1.3, parent: Node = null) -> TextureButton:
@@ -621,6 +622,7 @@ func show_friends() -> void:
 	_blur_on_background(edit) # le code est sensible a la casse : rien n'est mis en majuscules
 	var ok: TextureButton = m._img_btn("buttons/ok_bt.webp", "buttons/ok_bt_pressed.webp", Vector2(1697, 960), func(): join_room(edit.text))
 	m.add_child(ok)
+	Vp.edge(ok, Vp.RIGHT) # CreateOkButton : bord droit
 	ok.modulate.a = 0.0
 	ok.disabled = true
 	var ui := {"code_btn": null, "shown": false}
@@ -771,11 +773,13 @@ func show_waiting() -> void:
 	# OK : maitre de salle seulement et plus d'un humain (WaitingPrivateRoomScene.ShowOkButton)
 	_wait_ok = m._img_btn("buttons/ok_bt.webp", "buttons/ok_bt_pressed.webp", Vector2(1697, 960), func(): o.start_match())
 	m.add_child(_wait_ok)
+	Vp.edge(_wait_ok, Vp.RIGHT)
 	_wait_ok.modulate.a = 0.0
 	_wait_ok.disabled = true
 	# Hors APK : lancer tout de suite, les sieges vides deviennent des IA (hote seulement).
 	_wait_bots = _label_btn("START WITH BOTS", 1370.0 + 161.0, 966.0 + 46.0, func(): o.start_match(), GOLD, 0.52, 2.2)
 	_wait_bots.name = "StartWithBots"
+	Vp.edge(_wait_bots, Vp.RIGHT) # reste a gauche du bouton OK, colle au bord droit
 	_wait_bots.visible = false
 	if o.lobby_changed.is_connected(_on_lobby_changed):
 		o.lobby_changed.disconnect(_on_lobby_changed)

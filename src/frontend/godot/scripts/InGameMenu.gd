@@ -61,6 +61,7 @@ func _build_main() -> void:
 func _build_settings() -> void:
 	var back := UiKit.texture_button(self, UI + "buttons/back_bt.webp", UI + "buttons/back_bt_pressed.webp", Vector2(200, 41))
 	back.name = "Back"
+	Vp.edge(back, Vp.LEFT)
 	back.pressed.connect(func():
 		AudioManager.play_sfx("ui_button_goback")
 		page = "main"

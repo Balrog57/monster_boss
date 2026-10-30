@@ -290,6 +290,49 @@ func _play_game(g: Dictionary) -> void:
 func _hand_cards() -> Array:
 	return board.hand_layer.get_children().filter(func(c): return not c.is_queued_for_deletion())
 
+## Le geste de l'APK (CardExtractBehavior) sans la boucle d'evenements : appui sur la carte `idx` de la main, extraction, relachement en `drop` (memes fonctions que
+## BoardUI._drag_input). Renvoie vrai si la carte a ete extraite (une carte grisee ou refusee par le tutoriel ne l'est pas). Une carte ne se joue PAS autrement.
+func _drag_card(idx: int, drop: Vector2) -> bool:
+	var cards := _hand_cards()
+	if idx < 0 or idx >= cards.size():
+		return false
+	var c := cards[idx] as CardUI
+	board._press = {"card": c, "idx": idx, "pos": c.get_global_rect().get_center()}
+	board._drag_begin()
+	var ok: bool = not board._drag.is_empty()
+	board._press = {}
+	if ok:
+		board._drag_end(drop)
+	else:
+		board._press_clear()
+	return ok
+
+## Centre d'un emplacement de mon donjon pouvant recevoir la salle `idx` : l'emplacement libre de preference (`ti` < 0), sinon `ti` ; (-1, -1) si aucun.
+func _room_drop_pos(idx: int, ti: int = -1) -> Vector2:
+	var data := {"type": "card", "hand_index": idx}
+	var dsize: int = (gm.G["players"][0]["dungeon"] as Array).size()
+	var best: DungeonSlot = null
+	for sl in board._dungeon_slots:
+		var d := sl as DungeonSlot
+		if not d._can_drop_data(Vector2.ZERO, data):
+			continue
+		if ti >= 0 and d.slot_index == ti:
+			return d.get_global_rect().get_center()
+		if ti < 0 and (best == null or d.slot_index == dsize):
+			best = d
+	return best.get_global_rect().get_center() if best != null else Vector2(-1, -1)
+
+## Ou lacher le sort / la capacite de main `mv` : sur sa cible quand elle est a l'ecran, sinon n'importe ou au-dessus de la main.
+func _spell_drop_pos(mv: Dictionary) -> Vector2:
+	var a: Array = mv.get("args", [])
+	if a.size() > 1 and a[1] is Dictionary:
+		var spot: Dictionary = board._spot_of_target(a[1], 0)
+		if not spot.is_empty():
+			var node: Control = board._spot_node(spot)
+			if node != null:
+				return (board._spot_rect(spot, node) as Rect2).get_center()
+	return Vector2(960, 500)
+
 ## Selecteur d'adversaire : vignettes de la colonne droite (3-4 joueurs) ou boutons P<n> de la barre du haut (5-6) ; `selected` = deja affiche.
 func _foe_buttons() -> Array:
 	return (_buttons(board.foe_bar) + _buttons(board.opp_box)).filter(func(b): return not (b as Button).disabled and not bool((b as Button).get_meta("selected", false)))
@@ -619,9 +662,13 @@ func _do_build_click(pid: int, idx: int) -> void:
 			_engine_note("buildRoom legal mais can_build_room refuse (buildBlocked=%s)" % str((gm.G.get("effects", {}) as Dictionary).get("buildBlocked")))
 			_cancelled = true
 			return
-		var n_menu := _n_build_targets(pid, idx) + _n_hand_uses(pid, idx) # comptes AVANT le clic : une pose directe change les coups legaux
-		(cards[idx] as CardUI).card_clicked.emit(null)
-		await _pick_target(n_menu, "construire (carte %d)" % idx) # plusieurs emplacements (A3) : le joueur choisit lequel
+		var n0 := (gm.G["players"][pid]["hand"] as Array).size()
+		var at := _room_drop_pos(idx)
+		if _check(at.x >= 0.0, "construire (carte %d) : aucun emplacement n'accepte la salle" % idx):
+			_check(_drag_card(idx, at), "construire (carte %d) : la carte n'a pas pu etre glissee" % idx) # le glisser de l'APK est le seul geste qui pose une salle
+			for _f in 3:
+				await get_tree().process_frame
+			_check((gm.G["players"][pid]["hand"] as Array).size() == n0 - 1 or not (gm.G.get("pendingChoice", {}) as Dictionary).is_empty(), "construire (carte %d) : la salle n'a pas ete posee par le glisser" % idx)
 
 ## Coups que l'interface HUMAINE offre (APK : ni sort ni capacite sans heros actif, BoardUI._my_moves) ; `gm.legal_moves` reste celui du moteur.
 func _ui_moves(pid: int) -> Array:
@@ -636,14 +683,6 @@ func _n_hand_uses(pid: int, idx: int) -> int:
 	return _ui_moves(pid).filter(func(m): return m["type"] != "buildRoom" and BoardUI.hand_idx_of(m) == idx).size()
 
 func _do_drop(pid: int, idx: int, ti: int) -> void:
-	if rng.randf() < 0.4: # variante au clic : fenetre « construire par-dessus » (une entree par salle recouvrable + l'emplacement libre)
-		var n_over := _n_build_targets(pid, idx) + _n_hand_uses(pid, idx)
-		var cards := _hand_cards()
-		if _check(idx < cards.size(), "construire par-dessus : carte %d absente" % idx):
-			(cards[idx] as CardUI).card_clicked.emit(null)
-			await _pick_target(n_over, "construire par-dessus (carte %d)" % idx)
-			_cov("build_over_click")
-		return
 	var slot: DungeonSlot = null
 	for sl in board._dungeon_slots:
 		if (sl as DungeonSlot).slot_index == ti and not (sl as DungeonSlot).current_stack.is_empty():
@@ -652,7 +691,10 @@ func _do_drop(pid: int, idx: int, ti: int) -> void:
 		return
 	var data := {"type": "card", "hand_index": idx}
 	if _check(slot._can_drop_data(Vector2.ZERO, data), "depot : la salle %d refuse la carte %d alors que le coup est legal" % [ti, idx]):
-		slot._drop_data(Vector2.ZERO, data)
+		var n0 := (gm.G["players"][pid]["hand"] as Array).size()
+		_check(_drag_card(idx, slot.get_global_rect().get_center()), "depot : la carte %d n'a pas pu etre glissee" % idx) # lachee sur l'emplacement, comme l'APK
+		_check((gm.G["players"][pid]["hand"] as Array).size() == n0 - 1 or not (gm.G.get("pendingChoice", {}) as Dictionary).is_empty(), "depot : la salle %d n'a pas ete posee" % ti)
+		_cov("build_over_drag")
 
 func _do_hand(pid: int, idx: int, cands: Array) -> void:
 	var cards := _hand_cards()
@@ -661,11 +703,13 @@ func _do_hand(pid: int, idx: int, cands: Array) -> void:
 		return
 	var cname := str(hand[idx].get("name"))
 	_check(not (cards[idx] as CardUI).greyed, "carte jouable %s grisee" % cname)
-	# une salle a capacite de main (CRL007) propose aussi BUILD en phase de construction
-	var phase := str(gm.G.get("phase", ""))
-	var n_build: int = _n_build_targets(pid, idx) if (phase == "build" or phase == "setup") and bool(hand[idx].get("isRoom", false)) else 0
-	(cards[idx] as CardUI).card_clicked.emit(null)
-	await _pick_target(cands.size() + n_build, "carte %s" % cname)
+	# Le sort se joue en le glissant sur sa cible (PlaySpellsInHandSceneBehavior.MyHand_CardDropped) : un sort sans cible, n'importe ou au-dessus de la main.
+	var pick: Dictionary = cands[rng.randi_range(0, cands.size() - 1)]
+	var at := _spell_drop_pos(pick)
+	var hits := cands.filter(func(m): return _spell_drop_pos(m).distance_to(at) < 1.0 and at != Vector2(960, 500))
+	var n_menu: int = 1 if cands.size() == 1 else (hits.size() if not hits.is_empty() else cands.size())
+	_check(_drag_card(idx, at), "carte %s : le glisser n'a pas extrait la carte" % cname)
+	await _pick_target(n_menu, "carte %s" % cname)
 
 ## Apres un clic qui peut ouvrir un choix de cible : plusieurs coups = les cibles s'allument sur le plateau (clic sur l'une, ou CANCEL) ;
 ## sans representation a l'ecran (ames, defausse...), la liste centrale (une pierre par cible + CANCEL).
@@ -760,8 +804,8 @@ func _click_at(pos: Vector2) -> void:
 	for pressed in [true, false]:
 		var ev := InputEventMouseButton.new()
 		ev.button_index = MOUSE_BUTTON_LEFT
-		ev.position = pos
-		ev.global_position = pos
+		ev.position = Vp.to_view(pos)
+		ev.global_position = Vp.to_view(pos)
 		ev.pressed = pressed
 		get_viewport().push_input(ev, true)
 		await get_tree().process_frame
@@ -825,7 +869,7 @@ func _do_slot(pid: int, di: int, cands: Array) -> void:
 	_dbg = "salle %s" % str(BossEngine.active_room(slot.current_stack).get("id"))
 	var s0 := _sig()
 	var ev := InputEventMouseButton.new()
-	ev.button_index = MOUSE_BUTTON_LEFT if rng.randf() < 0.7 else MOUSE_BUTTON_RIGHT
+	ev.button_index = MOUSE_BUTTON_LEFT # I-06 : le clic droit ne fait plus rien
 	ev.pressed = true
 	slot._gui_input(ev)
 	# APK : 1er appui = zoom de la pile, 2e appui sur la bordure de capacite = resolution (GamePlayBaseScene.cs:681-718)
@@ -916,8 +960,8 @@ func _act_discard(pid: int) -> void:
 		return
 	_check(hand.size() == 7, "defausse d'ouverture : 5 salles + 2 sorts = 7 cartes dans tous les modes (%d)" % hand.size()) # TNL / RMB inclus : plus de grosse main sans choix
 	var i0 := rng.randi_range(0, hand.size() - 1)
-	board._on_hand_card_clicked(i0, hand[i0])
-	board._on_hand_card_clicked(i0, hand[i0]) # re-clic = deselection
+	board._on_hand_card_tap(i0, hand[i0])
+	board._on_hand_card_tap(i0, hand[i0]) # re-clic = deselection
 	_check(board.discard_pick.is_empty(), "defausse : un 2e clic doit deselectionner")
 	var order: Array = range(hand.size())
 	for i in range(order.size() - 1, 0, -1):
@@ -925,15 +969,15 @@ func _act_discard(pid: int) -> void:
 		var t = order[i]
 		order[i] = order[j]
 		order[j] = t
-	board._on_hand_card_clicked(int(order[0]), hand[int(order[0])])
+	board._on_hand_card_tap(int(order[0]), hand[int(order[0])])
 	await get_tree().process_frame
 	_check(not board._confirm_btn.visible, "defausse : CONTINUE visible avec une seule carte choisie")
-	board._on_hand_card_clicked(int(order[1]), hand[int(order[1])])
+	board._on_hand_card_tap(int(order[1]), hand[int(order[1])])
 	await get_tree().process_frame
 	_check(board._confirm_btn.visible and board._confirm_btn.is_visible_in_tree(), "defausse : CONTINUE absent avec 2 cartes choisies")
 	_check(board._confirm_btn.size == Vector2(131, 173) and board._confirm_btn.position == Vector2(1540, 410), "defausse : CONTINUE n'est pas le losange de l'APK (%s a %s)" % [board._confirm_btn.size, board._confirm_btn.position])
 	_check(board._dim.visible and board._dim.size == Vector2(1523, 400) and not board.phase_banner.visible, "defausse : seul le bandeau des cartes s'assombrit, sans plaque de phase")
-	board._on_hand_card_clicked(int(order[2]), hand[int(order[2])]) # une 3e remplace la plus ancienne (CardSelectorComponent.cs:128-134)
+	board._on_hand_card_tap(int(order[2]), hand[int(order[2])]) # une 3e remplace la plus ancienne (CardSelectorComponent.cs:128-134)
 	_check(board.discard_pick == [int(order[1]), int(order[2])], "defausse : la 3e carte doit remplacer la plus ancienne (%s)" % str(board.discard_pick))
 	_check(_emitting(board._fx_hand).size() == 2, "defausse : une carte choisie doit emettre (YellowGlow, CardBorderBehavior.cs:48-50), %d emetteur(s) actifs pour 2 cartes" % _emitting(board._fx_hand).size())
 	var n_before := hand.size()
@@ -960,9 +1004,12 @@ func _noise(pid: int) -> void:
 				if can_undo and bool((hand[i] as Dictionary).get("isRoom", false)): # pose en attente : toute salle de la main la remplace (undoBuild + buildRoom)
 					continue
 				if not playable.has(i):
-					board._on_hand_card_clicked(i, hand[i])
+					(_hand_cards()[i] as CardUI).card_clicked.emit(null)
 					_cov("noise_dead_card")
 					break
+			if rng.randf() < 0.5 and not playable.is_empty(): # I-05 : une carte JOUABLE ne reagit pas non plus au clic (seul le glisser la joue)
+				(_hand_cards()[int(playable.keys()[0])] as CardUI).card_clicked.emit(null)
+				_cov("noise_click_playable")
 			await get_tree().process_frame
 			_check(_sig() == s0 and board._popup_kind == "", "clic sur une carte injouable : l'etat a change ou un popup s'est ouvert")
 		1: # clic sur la salle non activable / un emplacement vide
@@ -976,7 +1023,7 @@ func _noise(pid: int) -> void:
 			_check(_sig() == s0 and board._popup_kind == "", "clic sur des salles non activables : effet inattendu")
 			_cov("noise_dead_slot")
 		2: # bouton LEVEL UP (cosmetique : le niveau est automatique)
-			board.levelup_btn.pressed.emit()
+			board.levelup_btn.button_down.emit()
 			await get_tree().process_frame
 			_check(_sig() == s0, "bouton LEVEL UP : l'etat a change")
 			var click := InputEventMouseButton.new() # le zoom du boss part au clic suivant (sinon la barre de temps reste en pause)
@@ -1302,8 +1349,8 @@ func _act_simple() -> void:
 		board.refresh()
 	if not pc.is_empty():
 		if board._is_opening_discard_for_me():
-			board._on_hand_card_clicked(0, (me["hand"] as Array)[0])
-			board._on_hand_card_clicked(1, (me["hand"] as Array)[1])
+			board._on_hand_card_tap(0, (me["hand"] as Array)[0])
+			board._on_hand_card_tap(1, (me["hand"] as Array)[1])
 			board._on_discard_confirm()
 		elif int(pc.get("playerId", -1)) == 0:
 			var mv: Array = gm.legal_moves(0)
@@ -1325,9 +1372,9 @@ func _act_simple() -> void:
 				var hand: Array = me["hand"]
 				for i in hand.size():
 					if (hand[i] as Dictionary).get("isRoom", false) and gm.can_build_room_at(0, i, (me["dungeon"] as Array).size()):
-						board._on_hand_card_clicked(i, hand[i])
-						if not board._tgt.is_empty(): # plusieurs emplacements possibles : la 1re entree est l'emplacement libre
-							(board._tgt["entries"][0]["cb"] as Callable).call()
+						var at := _room_drop_pos(i)
+						if at.x >= 0.0:
+							_drag_card(i, at) # la salle se pose en la glissant sur l'emplacement libre (CardExtractBehavior)
 						return
 			if not gm.legal_moves(0).is_empty():
 				_press_pass()
@@ -1429,17 +1476,16 @@ func _check_hand_room() -> void:
 	var idx: int = (me["hand"] as Array).size() - 1
 	var uses := gm.legal_moves(0).filter(func(m): return m["type"] == "useHandRoom" and int(m["args"][0]) == idx)
 	if _check(not uses.is_empty(), "CRL007 : aucun coup useHandRoom legal en construction"):
-		board._on_hand_card_clicked(idx, (me["hand"] as Array)[idx])
+		# I-05 : la salle se pose en la glissant sur un emplacement ; lachee ailleurs, sur la salle visee, elle joue sa capacite de main (useHandRoom)
+		var at := _spell_drop_pos(uses[0])
+		_check(at != Vector2(960, 500), "CRL007 : la salle visee n'est pas a l'ecran")
+		_check(_drag_card(idx, at), "CRL007 : la carte n'a pas pu etre glissee")
 		await get_tree().process_frame
-		if _check(board._popup_kind == "target", "CRL007 en construction : un clic doit proposer BUILD / cible (popup=%s)" % board._popup_kind):
-			var btns := _buttons(board._popup)
-			var n_b := _n_build_targets(0, idx) # emplacements (libre + recouvrables) d'abord, puis les cibles de la capacite
-			_check(btns.size() == n_b + uses.size() + 1, "CRL007 : %d boutons (%d emplacements + %d cibles + CANCEL attendus)" % [btns.size(), n_b, uses.size()])
-			if btns.size() > n_b:
-				(btns[n_b] as Button).pressed.emit() # premiere cible
-				await get_tree().process_frame
-				_check(board._popup_kind == "" and not (me["hand"] as Array).has(proto), "CRL007 : la capacite n'a pas ete utilisee (carte encore en main)")
-				_cov("hand_room_menu")
+		if board._popup_kind == "target": # plusieurs coups sur la meme salle : petite liste, on prend la premiere cible
+			(_buttons(board._popup)[0] as Button).pressed.emit()
+			await get_tree().process_frame
+		_check(board._popup_kind == "" and not (me["hand"] as Array).has(proto), "CRL007 : la capacite n'a pas ete utilisee (carte encore en main)")
+		_cov("hand_room_drag")
 
 ## Aucun bouton visible (hors fenetres et main) ne recouvre un emplacement de donjon, le mien comme celui de l'adversaire.
 func _check_no_slot_cover() -> void:
@@ -1508,23 +1554,26 @@ func _check_wiki_ui() -> void:
 			if _n_build_targets(0, int(cm["args"][0])) + _n_hand_uses(0, int(cm["args"][0])) >= 2:
 				idx = int(cm["args"][0])
 				break
-		var menu := _n_build_targets(0, idx) + _n_hand_uses(0, idx) >= 2 # sinon l'unique coup (DISCARD) est joue directement
 		var coins0 := int(me.get("coins", 0))
 		var n_hand := (me["hand"] as Array).size()
-		(_hand_cards()[idx] as CardUI).card_clicked.emit(null)
+		# I-05 : « DISCARD: +1 COIN » se joue en glissant la salle de la main HORS des emplacements (un clic ne fait rien) ; sur un emplacement elle se construit
+		_hand_cards()[idx].card_clicked.emit(null)
 		await get_tree().process_frame
-		if menu:
+		_check(int(me.get("coins", 0)) == coins0 and (me["hand"] as Array).size() == n_hand and board._popup_kind == "", "tous paquets : un clic sur la salle de la main ne doit rien jouer")
+		_check(_drag_card(idx, Vector2(960, 420)), "tous paquets : la salle n'a pas pu etre glissee")
+		await get_tree().process_frame
+		var coin_pick: Array = gm.legal_moves(0).filter(func(m): return m["type"] == "discardForCoin")
+		if board._popup_kind == "target": # plusieurs coups de la carte : petite liste, l'entree DISCARD: +1 COIN
 			var entry: Button = null
-			if _check(board._popup_kind == "target", "tous paquets : le clic sur la salle de la main n'ouvre pas son menu (popup=%s)" % board._popup_kind):
-				for b in _buttons(board._popup):
-					if "+1 COIN" in (b as Button).text:
-						entry = b
-			if not _check(entry != null, "tous paquets : pas d'entree DISCARD: +1 COIN dans le menu de la carte"):
+			for b in _buttons(board._popup):
+				if "+1 COIN" in (b as Button).text:
+					entry = b
+			if not _check(entry != null, "tous paquets : pas d'entree DISCARD: +1 COIN dans la liste de la carte"):
 				return
 			entry.pressed.emit()
 			await get_tree().process_frame
-		_check(int(me.get("coins", 0)) == coins0 + 1 and (me["hand"] as Array).size() == n_hand - 1, "tous paquets : DISCARD: +1 COIN sans effet")
-		_cov("coin_discard_menu" if menu else "coin_discard_direct")
+		_check(int(me.get("coins", 0)) == coins0 + 1 and (me["hand"] as Array).size() == n_hand - 1, "tous paquets : DISCARD: +1 COIN sans effet (coups restants %d)" % coin_pick.size())
+		_cov("coin_discard_drag")
 	# Boss du wiki (aucune image de personnage APK) : fond de donjon jamais vide, carte du boss dans la zone du sprite APK
 	var wiki := CardDB.bosses.filter(func(b): return not ResourceLoader.exists("res://assets/ui/characters/%s_character.webp" % str(b.get("id", "")).to_lower()))
 	if _check(not wiki.is_empty(), "aucun boss du wiki sans sprite APK"):
@@ -1698,11 +1747,14 @@ func _check_boss_carousel() -> void:
 	_cov("boss_carousel")
 
 ## Evenements souris reels (push_input avec masque de boutons) : appui, mouvements, relachement.
+var _mouse_prev := Vector2.ZERO
+
 func _mouse(pos: Vector2, pressed: bool, motion: bool, mask: int = 0) -> void:
 	var ev: InputEventMouse
 	if motion:
 		var m := InputEventMouseMotion.new()
 		m.button_mask = mask
+		m.relative = pos - _mouse_prev # comme un vrai deplacement : CardUI annule l'appui long sur tout `relative` non nul
 		ev = m
 	else:
 		var b := InputEventMouseButton.new()
@@ -1710,8 +1762,9 @@ func _mouse(pos: Vector2, pressed: bool, motion: bool, mask: int = 0) -> void:
 		b.pressed = pressed
 		b.button_mask = MOUSE_BUTTON_MASK_LEFT if pressed else 0
 		ev = b
-	ev.position = pos
-	ev.global_position = pos
+	ev.position = Vp.to_view(pos) # la fenetre peut etre plus etroite que 1920 : la maquette est decalee de Vp.centre_offset()
+	ev.global_position = Vp.to_view(pos)
+	_mouse_prev = pos
 	get_viewport().push_input(ev, true)
 	await get_tree().process_frame
 
@@ -1760,6 +1813,24 @@ func _check_boss_flip() -> void:
 	_check(str((bc[board._boss_sel] as CardUI).card_dict.get("id", "")) == want and (bc[board._boss_sel] as CardUI).texture_rect.texture != back_tex, "sequence : arret sur le boss tire, face visible")
 	_check(bc.filter(func(c): return (c as CardUI).texture_rect.texture == back_tex).size() == bc.size() - 1, "sequence : les autres cartes restent face cachee")
 	_check(board._confirm_btn.visible and board._carousel_text.text.contains(str((bc[board._boss_sel] as CardUI).card_dict.get("name", "")).to_upper()), "sequence : bouton et nom du boss attendus apres l'arret")
+	# I-06 : le seul LongTouchBehavior de l'APK (CardCarrouselEntity.cs:124) : 1,0 s sans AUCUN mouvement ouvre le detail de la carte (CardDetailEntity), tout mouvement l'annule
+	var sel_c := bc[board._boss_sel] as CardUI
+	var cpos := sel_c.get_global_rect().get_center()
+	await _mouse(cpos, true, false)
+	await _wait(1.2)
+	_check(board._boss_detail != null and is_instance_valid(board._boss_detail), "carrousel du boss : 1,0 s d'appui n'ouvre pas le detail de la carte")
+	await _mouse(cpos, false, false)
+	_check(board._boss_detail != null and board._boss_ready, "carrousel du boss : le relachement apres l'appui long ne doit ni fermer le detail ni valider le boss")
+	await _click_at(Vector2(100, 900)) # un appui n'importe ou ferme le detail (CardDetailEntity : TouchTap -> GoBack)
+	await _wait(0.4)
+	_check(board._boss_detail == null, "carrousel du boss : le detail ne se ferme pas au tap")
+	await _mouse(cpos, true, false)
+	await _wait(0.5)
+	await _mouse(cpos + Vector2(1, 0), false, true, MOUSE_BUTTON_MASK_LEFT) # 1 px suffit : aucune tolerance, tout TouchMoved remet le compte a zero
+	await _wait(0.8)
+	_check(board._boss_detail == null, "carrousel du boss : un mouvement de 1 px doit annuler l'appui long")
+	await _mouse(cpos + Vector2(1, 0), false, false)
+	_cov("boss_long_touch")
 	board._confirm_btn.pressed.emit()
 	board._confirm_btn.pressed.emit() # un 2e appui ne fait rien
 	await get_tree().process_frame
@@ -1967,7 +2038,107 @@ func _check_windows() -> void:
 		_cov("window_stack")
 
 ## Vrai glisser-deposer a la souris (push_input) : une salle vers l'emplacement dore, annulation sur la main, un sort vers sa cible,
-## sort hors cible sans effet ; appui long et clic droit = zoom ; un clic simple joue encore un sort sans cible.
+## sort hors cible sans effet ; ni appui long ni clic droit sur la main ; un clic simple ne joue rien, le glisser joue un sort sans cible.
+## Rect global (echelle comprise) d'un controle.
+func _grect(c: Control) -> Rect2:
+	var xf := c.get_global_transform()
+	return Rect2(xf.origin, c.size * xf.get_scale())
+
+## Zooms de l'APK declenches par le geste de l'APK a la souris (un tap = un clic) : meme taille / position que les frames de reference (docs/reference/apk_orig).
+## Declencheurs C# : CardStackSlotComponent_TouchTap (salles), TouchPressed (boss, LEVEL UP), TouchTap (heros de la ville, file d'entree) ; CardHoverBehavior (main).
+func _check_zoom_gestures() -> void:
+	_tag = "[zoom-gestes]"
+	await _new_game()
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	for i in 3:
+		var r: Dictionary = (CardDB.rooms[i] as Dictionary).duplicate(true)
+		r["faceDown"] = false
+		(me["dungeon"] as Array).append([r])
+	_foe_rooms(G)
+	for st in (G["players"][1] as Dictionary)["dungeon"] as Array: # salles adverses face visible (face cachee : rien a montrer)
+		for r in st as Array:
+			(r as Dictionary)["faceDown"] = false
+	var town: Array = G["town"]
+	while town.size() < 3:
+		town.append((CardDB.heroes[town.size()] as Dictionary).duplicate(true))
+	board.refresh()
+	for i in 4:
+		await get_tree().process_frame
+	var away := Vector2(960, 150) # clic dans le vide : ferme le zoom
+	# tap sur une salle de mon donjon : cadre noir de la carte du dessus ~550 x 771 (tap_own_dungeon_room_brainsucker_hive_zoom : x 685..1236, y 217..987)
+	var own: Array = board._dungeon_slots.filter(func(sl): return not (sl as DungeonSlot).current_stack.is_empty())
+	if _check(not own.is_empty(), "zoom salle : aucune salle dans mon donjon"):
+		await _click_at((own[0] as Control).get_global_rect().get_center())
+		await _wait(0.6)
+		if _check(board._zoom != null and board._zoom.get_child_count() > 0, "zoom salle : un clic sur ma salle ne zoome pas"):
+			var r0 := _grect(board._zoom.get_child(0) as Control)
+			_check(absf(r0.size.x - 550.0) <= 8.0 and absf(r0.size.y - 771.0) <= 12.0, "zoom salle : %s au lieu de ~550 x 771" % r0.size)
+			_check(Rect2(0, 0, 1920, 1080).encloses(r0) and absf(r0.get_center().y - 600.0) <= 40.0, "zoom salle : position %s" % r0)
+		await _click_at(away)
+		_check(board._zoom == null, "zoom salle : le clic suivant ne ferme pas")
+	# tap sur une salle adverse : meme zoom (CardStackSlotComponent_TouchTap, aucun cote)
+	var foes: Array = board._foe_slots.filter(func(sl): return (sl as Control).visible and not (sl as Control).find_children("*", "CardUI", true, false).is_empty())
+	if _check(not foes.is_empty(), "zoom salle adverse : aucune salle"):
+		await _click_at((foes[0] as Control).get_global_rect().get_center())
+		await _wait(0.6)
+		if _check(board._zoom != null and board._zoom.get_child_count() > 0, "zoom salle adverse : un clic ne zoome pas"):
+			var r1 := _grect(board._zoom.get_child(0) as Control)
+			_check(absf(r1.size.x - 550.0) <= 8.0 and absf(r1.size.y - 771.0) <= 12.0, "zoom salle adverse : %s au lieu de ~550 x 771" % r1.size)
+		await _click_at(away)
+	# tap sur un heros de la ville : carte a gauche (x 450, TopLeftPanel_ShowHeroInTown), echelle 1
+	var tcs: Array = board.town_container.get_children().filter(func(c): return not c.is_queued_for_deletion())
+	if _check(tcs.size() >= 2, "zoom ville : pas assez de heros"):
+		await _click_at((tcs[1] as Control).get_global_rect().get_center())
+		await _wait(0.6)
+		if _check(board._zoom != null, "zoom ville : un clic sur le heros ne zoome pas"):
+			var r2 := _grect(board._zoom)
+			_check(absf(r2.position.x - 450.0) <= 4.0 and absf(r2.size.x - 350.0) <= 4.0 and absf(r2.size.y - 490.0) <= 4.0, "zoom ville : %s au lieu de x 450, 350 x 490" % r2)
+		await _click_at(away)
+	# file d'entree, un seul heros : x1,3 au centre (DungeonFrameEntity.cs:382 -> ShowDungeonQueue)
+	board._queue_clicked(1, [(CardDB.heroes[0] as Dictionary).duplicate(true)])
+	await _wait(0.6)
+	if _check(board._zoom != null, "zoom file : un seul heros ne zoome pas"):
+		var r3 := _grect(board._zoom)
+		_check(absf(r3.size.x - 455.0) <= 6.0 and absf(r3.get_center().x - 960.0) <= 4.0, "zoom file : %s au lieu de 455 de large au centre" % r3)
+	await _click_at(away)
+	# boss : appui (TouchPressed), a droite, bord droit 1730, ferme au clic suivant (frame levelup_button_tap : 457 de large)
+	var spr: Control = board._lane[1]["sprite"]
+	await _mouse(spr.get_global_rect().get_center(), true, false)
+	await _wait(0.4)
+	if _check(board._zoom != null, "zoom boss : l'appui sur le boss ne zoome pas"):
+		var r4 := _grect(board._zoom)
+		_check(absf(r4.end.x - 1730.0) <= 4.0 and absf(r4.size.x - 455.0) <= 6.0, "zoom boss : %s au lieu de 455 de large, bord droit 1730" % r4)
+	await _mouse(spr.get_global_rect().get_center(), false, false)
+	_check(board._zoom != null, "zoom boss : le relachement ferme le zoom (APK : TouchPressed)")
+	await _click_at(away)
+	# LEVEL UP : meme zoom, des l'appui (TopRightPanelEntity.cs:158 TouchPressed) ; le relachement ne le ferme pas
+	var lb: Vector2 = board.levelup_btn.get_global_rect().get_center()
+	await _mouse(lb, true, false)
+	await _wait(0.4)
+	if _check(board._zoom != null, "LEVEL UP : l'appui ne zoome pas (le zoom ne doit pas attendre le relachement)"):
+		var r5 := _grect(board._zoom)
+		_check(absf(r5.end.x - 1730.0) <= 4.0 and absf(r5.size.x - 455.0) <= 6.0 and absf(r5.end.y - 1076.0) <= 6.0, "LEVEL UP : %s au lieu de 455 de large, bord droit 1730, bas 1076" % r5)
+	await _mouse(lb, false, false)
+	_check(board._zoom != null, "LEVEL UP : le relachement ferme le zoom")
+	await _click_at(away)
+	_check(board._zoom == null, "LEVEL UP : le clic suivant ne ferme pas")
+	# main : le survol seul fait la carte tenue (416 de large, pas de liseré or ni de halo ; frames longpress_*)
+	await _new_game()
+	board.skip_animations = false
+	board.refresh()
+	var hc := _hand_cards()
+	if _check(hc.size() >= 3, "zoom main : main trop courte"):
+		var card := hc[2] as CardUI
+		card.set_hovered(true) # le curseur reel n'existe pas en headless
+		await _wait(1.0)
+		var rh := _grect(card)
+		_check(absf(rh.size.x - 420.0) <= 8.0, "zoom main : carte tenue de %.0f de large (APK : ~416)" % rh.size.x)
+		_check(card.glow_rect == null or not card.glow_rect.visible, "zoom main : halo or sur la carte tenue (absent de l'APK)")
+		_check(card.border.border_color != Color(1.0, 0.85, 0.2, 1.0), "zoom main : liseré or sur la carte tenue (absent de l'APK)")
+		card.set_hovered(false)
+	_cov("zoom_gestures")
+
 func _check_drag_and_zoom() -> void:
 	_tag = "[drag]"
 	await _new_game()
@@ -2067,22 +2238,24 @@ func _check_drag_and_zoom() -> void:
 	var fz = tgt_slot.find_child("Frozen", true, false)
 	_check(fz != null and fz.visible, "glace : la salle ciblee par Freeze n'est pas couverte de glace")
 	_cov("drag_spell")
-	# appui long (zoom) puis relachement : aucun clic ; clic droit maintenu = zoom aussi
+	# I-05 / I-06 : sur une carte de la main l'APK n'a NI appui long NI clic droit (LongTouchBehavior n'existe que sur le carrousel du choix du boss) : maintenir 1,0 s
+	# ou cliquer a droite ne zoome rien et ne joue rien ; le zoom de la main est le survol (CardHoverBehavior) et le glisser.
 	board.refresh()
 	await get_tree().process_frame
 	card = _hand_cards()[_hand_cards().size() - 1]
 	start = card.get_global_rect().get_center()
 	var s0 := _sig()
 	await _mouse(start, true, false)
-	await _wait(1.0)
-	_check(board._zoom != null and board._zoom.size.x > 340.0 and board.hand_layer.modulate.r < 0.9, "appui long : pas de zoom / main non assombrie")
+	await _wait(1.3)
+	_check(board._zoom == null and board.hand_layer.modulate.r > 0.99 and board._drag.is_empty(), "appui de 1,0 s sur la main : l'APK n'a pas d'appui long (zoom=%s)" % str(board._zoom))
 	await _mouse(start, false, false)
-	_check(board._zoom == null and board.hand_layer.modulate.r > 0.99 and _sig() == s0, "appui long : le relachement doit fermer le zoom sans jouer")
+	_check(board._zoom == null and _sig() == s0, "appui de 1,0 s sur la main : le relachement ne doit rien jouer")
 	await _right_click(start, true)
-	_check(board._zoom != null, "clic droit : pas de zoom")
+	_check(board._zoom == null and board._drag.is_empty(), "clic droit sur la main : rien (pas d'appui long a la souris)")
 	await _right_click(start, false)
-	_check(board._zoom == null, "clic droit : zoom reste ouvert")
-	_cov("long_press")
+	_check(board._zoom == null and _sig() == s0, "clic droit sur la main : rien ne doit etre joue")
+	# l'appui long de 1,0 s annule par TOUT mouvement existe sur le carrousel du choix du boss seulement : voir _check_boss_flip
+	_cov("no_long_press_on_hand")
 	# relachement jamais livre (pointeur hors fenetre) : la perte de focus abandonne l'appui, le rafraichissement suivant reconstruit la main
 	board.refresh()
 	await get_tree().process_frame
@@ -2095,7 +2268,7 @@ func _check_drag_and_zoom() -> void:
 	await get_tree().process_frame
 	_check(board._press.is_empty() and not (is_instance_valid(card) and card in _hand_cards()), "perte de focus : l'appui doit etre abandonne et la main reconstruite")
 	await _mouse(Vector2(5, 5), false, false) # relachement tardif sans effet
-	# un clic simple joue encore un sort sans cible
+	# I-05 : un clic simple sur la carte ne joue rien ; le sort sans cible se joue en le glissant au-dessus de la main (vrais evenements souris)
 	await _new_game()
 	G = gm.G
 	me = G["players"][0]
@@ -2107,9 +2280,12 @@ func _check_drag_and_zoom() -> void:
 	var nh: int = (me["hand"] as Array).size()
 	var pc: Vector2 = _hand_cards()[mi].get_global_rect().get_center()
 	await _click_at(pc)
-	_check((me["hand"] as Array).size() == nh - 1, "clic : le sort sans cible n'a pas ete joue a la souris")
+	_check((me["hand"] as Array).size() == nh and (G.get("stack", []) as Array).is_empty() and board._zoom == null, "clic : une carte de la main ne doit rien jouer a la souris")
+	_cov("no_click_play")
+	await _drag(pc, Vector2(960, 420))
+	_check((me["hand"] as Array).size() == nh - 1, "glisser : le sort sans cible n'a pas ete joue a la souris")
 	await _drain()
-	_cov("click_spell")
+	_cov("drag_play_spell")
 
 ## Ecarts APK refermes : colonne HEROES IN TOWN (glisser / molette / arrivee d'un heros), carrousel pour les choix de cartes, bulle de l'adversaire
 ## (un appui montre la carte jouee), construction par-dessus une salle sans donjon plein (Boss.CanBuildRoom : l'emplacement libre est un choix).
@@ -2237,14 +2413,16 @@ func _check_apk_gaps() -> void:
 	var n_over := mvs.filter(func(m): return (m["args"] as Array).size() > 1).size()
 	if not _check(dn < 5 and n_over >= 1 and mvs.size() == n_over + 1, "A3 : %d coups de construction (%d par-dessus) pour un donjon de %d salles" % [mvs.size(), n_over, dn]):
 		return
-	board._on_hand_card_clicked(idx, (me["hand"] as Array)[idx])
-	for i in 3:
-		await get_tree().process_frame
-	if _check(not board._tgt.is_empty() and (board._tgt["entries"] as Array).size() == mvs.size() and board._tgt_spots.size() == mvs.size(), "A3 : le clic doit proposer %d emplacements sur le plateau (%d zones)" % [mvs.size(), board._tgt_spots.size()]):
-		var hand_n: int = (me["hand"] as Array).size()
-		var ti := int(((board._tgt["entries"][1]["mv"] as Dictionary)["args"] as Array)[1])
-		var h0: int = ((me["dungeon"] as Array)[ti] as Array).size()
-		await _click_at((board._tgt_spots[1]["ctrl"] as Control).get_global_rect().get_center())
+	# I-05 : plus de menu « construire par-dessus » au clic ; la salle se lache sur la salle visible (ou sur l'emplacement libre) comme dans l'APK
+	var over_mv: Dictionary = mvs.filter(func(m): return (m["args"] as Array).size() > 1 and m["args"][1] != null)[0]
+	var ti := int((over_mv["args"] as Array)[1])
+	var hand_n: int = (me["hand"] as Array).size()
+	var h0: int = ((me["dungeon"] as Array)[ti] as Array).size()
+	(_hand_cards()[idx] as CardUI).card_clicked.emit(null)
+	await get_tree().process_frame
+	_check((me["hand"] as Array).size() == hand_n and board._tgt.is_empty() and board._popup_kind == "", "A3 : un clic sur la salle de la main ne doit rien proposer")
+	var at := _room_drop_pos(idx, ti)
+	if _check(at.x >= 0.0 and _drag_card(idx, at), "A3 : la salle n'a pas pu etre glissee sur la salle %d" % ti):
 		_check((me["hand"] as Array).size() == hand_n - 1 and ((me["dungeon"] as Array)[ti] as Array).size() == h0 + 1 and (me["dungeon"] as Array).size() == dn, "A3 : la salle n'a pas ete posee par-dessus la salle %d" % ti)
 		_cov("build_over_not_full")
 
@@ -2285,10 +2463,7 @@ func _check_done_and_warning() -> void:
 	var hand: Array = me["hand"]
 	for i in hand.size():
 		if (hand[i] as Dictionary).get("isRoom", false) and gm.can_build_room_at(0, i, (me["dungeon"] as Array).size()):
-			board._on_hand_card_clicked(i, hand[i])
-			if not board._tgt.is_empty(): # plusieurs emplacements possibles : la 1re entree est l'emplacement libre
-				(board._tgt["entries"][0]["cb"] as Callable).call()
-			built = true
+			built = _drag_card(i, _room_drop_pos(i)) # la salle se pose en la glissant sur l'emplacement libre
 			break
 	if not _check(built, "DONE : aucune salle construisible"):
 		return
@@ -2329,9 +2504,7 @@ func _check_review_fixes() -> void:
 			bi = i
 			break
 	if _check(bi >= 0, "reprise : aucune salle construisible"):
-		board._on_hand_card_clicked(bi, hand[bi])
-		if not board._tgt.is_empty():
-			(board._tgt["entries"][0]["cb"] as Callable).call()
+		_check(_drag_card(bi, _room_drop_pos(bi)), "reprise : la salle n'a pas pu etre glissee")
 		await get_tree().process_frame
 		var und: Array = gm.legal_moves(0).filter(func(m): return m["type"] == "undoBuild")
 		if _check(not und.is_empty(), "reprise : pas de coup undoBuild apres la pose"):
@@ -3588,12 +3761,12 @@ func _check_window_clock() -> void:
 	_check(str(G["adventure"].get("pause")) == "pre-exit" and n >= 4 and n <= 7, "horloge : la fenetre de 1,5 s doit finir en 4-7 images lentes de 0,3 s (%d images, pause %s)" % [n, str(G["adventure"].get("pause"))])
 	_cov("window_clock")
 
-## Un seul clic (deplacement, appui, relachement) agit : sur une salle de la main avec plusieurs emplacements il ouvre le ciblage « construire
-## par-dessus », sur la zone doree il construit. Cas qui perdaient le clic : un rafraichissement (coup de l'IA) entre l'appui et le relachement
-## detruisait la carte appuyee ; un appui qui tombait sur le voile pendant la repose des zones.
+## I-05 : un clic (deplacement, appui, relachement) sur une salle de la main ne fait rien (ni ciblage ni pose) ; le geste complet appui / glisser /
+## relachement la pose sur l'emplacement libre, meme si un rafraichissement (coup de l'IA) tombe entre l'appui et le relachement (la carte appuyee
+## etait alors detruite et le geste perdu).
 func _check_single_click() -> void:
 	_tag = "[single-click]"
-	for variant in ["plain", "refresh-mid-click", "dim-fallback"]:
+	for variant in ["plain", "refresh-mid-drag"]:
 		await _new_game()
 		var me: Dictionary = gm.G["players"][0]
 		var hand: Array = me["hand"]
@@ -3602,7 +3775,7 @@ func _check_single_click() -> void:
 			if bool((hand[i] as Dictionary).get("isRoom", false)) and not bool((hand[i] as Dictionary).get("advanced", false)):
 				idx = i
 				break
-		if not _check(idx >= 0, "clic simple : aucune salle en main"):
+		if not _check(idx >= 0, "geste simple : aucune salle en main"):
 			return
 		for k in 2: # deux salles de meme type en donjon : la salle de la main peut aller sur l'une, l'autre ou l'emplacement libre
 			var host: Dictionary = (hand[idx] as Dictionary).duplicate(true)
@@ -3612,43 +3785,113 @@ func _check_single_click() -> void:
 		await get_tree().process_frame
 		await get_tree().process_frame
 		var n_targets := _n_build_targets(0, idx)
-		if not _check(n_targets >= 3, "clic simple (%s) : %d emplacements seulement" % [variant, n_targets]):
+		if not _check(n_targets >= 3, "geste simple (%s) : %d emplacements seulement" % [variant, n_targets]):
 			return
 		var dsize: int = (me["dungeon"] as Array).size()
 		var pos: Vector2 = (_hand_cards()[idx] as CardUI).get_global_rect().get_center()
 		await _mouse(pos, false, true) # survol
 		await _mouse(pos, true, false)
-		if variant == "refresh-mid-click":
-			board.refresh() # l'IA a joue entre l'appui et le relachement
-			await get_tree().process_frame
 		await _mouse(pos, false, false)
 		await get_tree().process_frame
-		await get_tree().process_frame
-		if not _check(not board._tgt.is_empty(), "clic simple (%s) : un seul clic sur la salle de la main n'a pas ouvert le ciblage" % variant):
+		_check(board._tgt.is_empty() and board._popup_kind == "" and (me["dungeon"] as Array).size() == dsize and (me["hand"] as Array).size() == hand.size(), "geste simple (%s) : un clic sur la salle de la main a agi" % variant)
+		var to := _room_drop_pos(idx)
+		if not _check(to.x >= 0.0, "geste simple (%s) : aucun emplacement libre pour la salle" % variant):
 			return
-		_check(board._tgt_spots.size() == n_targets, "clic simple (%s) : %d zones pour %d emplacements" % [variant, board._tgt_spots.size(), n_targets])
-		var free_spot: Dictionary = {}
-		for s in board._tgt_spots:
-			var e: Dictionary = (board._tgt["entries"] as Array)[int((s["ids"] as Array)[0])]
-			if str((e.get("spot", {}) as Dictionary).get("k", "")) == "free":
-				free_spot = s
-		if not _check(not free_spot.is_empty(), "clic simple (%s) : pas de zone « emplacement libre »" % variant):
-			return
-		var c2: Vector2 = (free_spot["ctrl"] as Control).get_global_rect().get_center()
-		if variant == "dim-fallback":
-			var ev := InputEventMouseButton.new() # appui qui atterrit sur le voile (zones en cours de repose) : la zone qui contient le point joue
-			ev.button_index = MOUSE_BUTTON_LEFT
-			ev.pressed = true
-			ev.position = c2
-			ev.global_position = c2
-			board._target_dim_input(ev)
-		else:
-			await _mouse(c2, false, true)
-			await _mouse(c2, true, false)
-			await _mouse(c2, false, false)
+		pos = (_hand_cards()[idx] as CardUI).get_global_rect().get_center()
+		await _mouse(pos, false, true)
+		await _mouse(pos, true, false)
+		for k in range(1, 7):
+			await _mouse(pos.lerp(to, float(k) / 6.0), false, true, MOUSE_BUTTON_MASK_LEFT)
+			if variant == "refresh-mid-drag" and k == 3:
+				board.refresh() # l'IA a joue entre l'appui et le relachement
+				await get_tree().process_frame
+		await _mouse(to, false, false)
 		await get_tree().process_frame
-		_check(board._tgt.is_empty() and (me["dungeon"] as Array).size() == dsize + 1, "clic simple (%s) : un seul clic sur la zone doree n'a pas construit (donjon %d -> %d)" % [variant, dsize, (me["dungeon"] as Array).size()])
+		_check((me["dungeon"] as Array).size() == dsize + 1, "geste simple (%s) : le glisser sur l'emplacement libre n'a pas construit (donjon %d -> %d)" % [variant, dsize, (me["dungeon"] as Array).size()])
 		_cov("single_click_" + variant)
+
+## U-A01 / X-P33 : largeur utile de l'APK = clamp(ratio x 1080, 1440, 1920) (ViewportManagerExtensions, EdgeAlignmentComponent) ; la maquette 1920 est recentree, les elements
+## colles aux bords suivent les bords de la fenetre ; un 4:3 reste jouable (vrais evenements souris decales par Vp.to_view).
+func _check_viewport() -> void:
+	_tag = "[viewport]"
+	var win := get_window()
+	# 1) regle de largeur (ratio de fenetre -> largeur utile) : 4:3, 16:10, 16:9, 21:9, portrait
+	for c in [[4.0 / 3.0, 1440.0], [1600.0 / 1000.0, 1728.0], [1920.0 / 1080.0, 1920.0], [2560.0 / 1080.0, 1920.0], [1440.0 / 1080.0, 1440.0], [0.5, 1440.0], [1366.0 / 768.0, 1920.0]]:
+		_check(is_equal_approx(Vp.width_for(float(c[0])), float(c[1])), "largeur utile : ratio %.3f -> %.1f au lieu de %.1f" % [float(c[0]), Vp.width_for(float(c[0])), float(c[1])])
+	# 1b) un ecran plus large que la fenetre utile doit etre mis en bandes noires, pas etire (« keep_aspect » n'existe pas : la valeur valide est « keep »)
+	_check(win.content_scale_aspect == Window.CONTENT_SCALE_ASPECT_KEEP, "stretch/aspect : %d au lieu de KEEP (project.godot : « keep »)" % win.content_scale_aspect)
+	# 2) aides de bord a 1920 / 1728 / 1440 : [largeur, centre, gauche, droite, decalage gauche, decalage droit, decalage droit + terme proportionnel de 300]
+	for c in [[1920.0, 0.0, 0.0, 1920.0, 0.0, 0.0, 0.0], [1728.0, -96.0, 96.0, 1824.0, 96.0, -96.0, -96.0 + 300.0 * 192.0 / 1440.0], [1440.0, -240.0, 240.0, 1680.0, 240.0, -240.0, -240.0 + 100.0]]:
+		Vp.set_width(float(c[0]))
+		_check(win.content_scale_size == Vector2i(int(c[0]), 1080), "content_scale_size %s au lieu de %dx1080" % [win.content_scale_size, int(c[0])])
+		_check(is_equal_approx(Vp.centre_offset(), float(c[1])) and is_equal_approx(Vp.left_edge(), float(c[2])) and is_equal_approx(Vp.right_edge(), float(c[3])), "bords a %d : centre %.1f / gauche %.1f / droite %.1f" % [int(c[0]), Vp.centre_offset(), Vp.left_edge(), Vp.right_edge()])
+		_check(is_equal_approx(Vp.limited_left_edge(), float(c[2])) and is_equal_approx(Vp.limited_right_edge(), float(c[3])), "bords limites a %d" % int(c[0]))
+		_check(is_equal_approx(Vp.shift_left(), float(c[4])) and is_equal_approx(Vp.shift_right(), float(c[5])) and is_equal_approx(Vp.shift_right(300.0), float(c[6])), "decalages a %d : gauche %.1f / droite %.1f / droite+300 %.2f" % [int(c[0]), Vp.shift_left(), Vp.shift_right(), Vp.shift_right(300.0)])
+		_check(is_equal_approx(Vp.to_canvas(Vp.to_view(Vector2(500, 300))).x, 500.0), "to_view / to_canvas ne sont pas inverses a %d" % int(c[0]))
+	Vp.set_width(1920.0)
+	_check(win.content_scale_size == Vector2i(1920, 1080), "retour a 1920 : content_scale_size %s" % win.content_scale_size)
+	# 3) plateau a 1920 : aucun decalage ; puis fenetre 4:3 (1440) : les colonnes / le boss suivent les bords, le reste reste centre
+	await _new_game()
+	var edge_nodes: Array = Vp._edges.filter(func(n): return is_instance_valid(n) and board.is_ancestor_of(n))
+	_check(edge_nodes.size() >= 20, "plateau : %d elements colles aux bords (20 attendus au moins)" % edge_nodes.size())
+	var base_x := {}
+	for n in edge_nodes:
+		base_x[n] = (n as Control).position.x
+		_check(is_equal_approx((n as Control).position.x, Vp.base_x(n)), "1920 : %s decale de %.2f" % [(n as Control).name, (n as Control).position.x - Vp.base_x(n)])
+	var plat: Control = board._lane[1]["platform"]
+	var gear: Control = board.top_menu_btn
+	var plat_x := plat.get_global_rect().position.x
+	Vp.set_width(1440.0) # fenetre 4:3
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check(is_equal_approx(get_viewport().canvas_transform.origin.x, -240.0), "canvas_transform x %.1f au lieu de -240" % get_viewport().canvas_transform.origin.x)
+	_check(is_equal_approx(board._town_header.get_global_rect().position.x, Vp.left_edge()), "4:3 : la colonne de gauche n'est pas au bord gauche (%.1f)" % board._town_header.get_global_rect().position.x)
+	_check(gear.get_global_rect().end.x <= Vp.right_edge() + 0.5 and gear.get_global_rect().position.x >= Vp.left_edge(), "4:3 : l'engrenage sort de la fenetre %s" % gear.get_global_rect())
+	_check(is_equal_approx(plat.get_global_rect().position.x, plat_x + Vp.shift_right(300.0)), "4:3 : l'estrade du boss n'a pas suivi le bord droit + 300 (%.1f)" % plat.get_global_rect().position.x)
+	_check(plat.get_global_rect().end.x <= Vp.right_edge() + 0.5, "4:3 : l'estrade du boss sort de la fenetre")
+	_check(board.discard_btn.get_global_rect().position.x >= Vp.left_edge() - 0.5, "4:3 : la defausse sort de la fenetre")
+	var win_rect := Rect2(Vp.left_edge(), 0.0, Vp.width, 1080.0)
+	for c in _hand_cards(): # largeur seulement : le bas des cartes de la main depasse l'ecran (APK)
+		var cr := (c as Control).get_global_rect()
+		_check(cr.position.x >= win_rect.position.x - 0.5 and cr.end.x <= win_rect.end.x + 0.5, "4:3 : une carte de la main sort de la fenetre %s" % cr)
+	for sl in board._dungeon_slots:
+		if (sl as Control).visible:
+			_check(win_rect.encloses((sl as Control).get_global_rect()), "4:3 : un emplacement sort de la fenetre %s" % (sl as Control).get_global_rect())
+	# jouable : un clic ne fait rien, un vrai glisser (evenements fenetre decales) pose la salle sur l'emplacement libre
+	var me: Dictionary = gm.G["players"][0]
+	var hand: Array = me["hand"]
+	var idx := -1
+	for i in hand.size():
+		if bool((hand[i] as Dictionary).get("isRoom", false)) and not bool((hand[i] as Dictionary).get("advanced", false)) and gm.can_build_room_at(0, i, (me["dungeon"] as Array).size()):
+			idx = i
+			break
+	if _check(idx >= 0, "4:3 : aucune salle posable en main"):
+		var to := _room_drop_pos(idx)
+		var dsize: int = (me["dungeon"] as Array).size()
+		var pos: Vector2 = (_hand_cards()[idx] as CardUI).get_global_rect().get_center()
+		await _mouse(pos, false, true)
+		await _mouse(pos, true, false)
+		await _mouse(pos, false, false)
+		_check((me["dungeon"] as Array).size() == dsize and board._popup_kind == "", "4:3 : un clic sur la salle de la main a agi")
+		pos = (_hand_cards()[idx] as CardUI).get_global_rect().get_center()
+		await _drag(pos, to)
+		await get_tree().process_frame
+		_check((me["dungeon"] as Array).size() == dsize + 1, "4:3 : le glisser sur l'emplacement libre n'a pas construit (donjon %d -> %d)" % [dsize, (me["dungeon"] as Array).size()])
+		await _drain()
+		if board.btn_pass.is_visible_in_tree(): # un clic fenetre sur DONE passe par le vrai routage souris decale
+			var ph0 := str(gm.G.get("phase"))
+			var done0: int = int((gm.G["players"][0] as Dictionary).get("buildsThisTurn", 0))
+			await _click_at(board.btn_pass.get_global_rect().get_center())
+			await get_tree().process_frame
+			_check(str(gm.G.get("phase")) != ph0 or int((gm.G["players"][0] as Dictionary).get("buildsThisTurn", 0)) != done0 or board._popup_kind != "" or not board.btn_pass.is_visible_in_tree(), "4:3 : le clic sur DONE n'est pas arrive")
+	# retour a 1920 : les elements redeviennent a leur place d'origine
+	Vp.set_width(1920.0)
+	await get_tree().process_frame
+	for n in edge_nodes:
+		if is_instance_valid(n):
+			_check(is_equal_approx((n as Control).position.x, float(base_x[n])), "retour a 1920 : %s a %.2f au lieu de %.2f" % [(n as Control).name, (n as Control).position.x, float(base_x[n])])
+	_check(win.content_scale_size == Vector2i(1920, 1080) and is_zero_approx(get_viewport().canvas_transform.origin.x), "retour a 1920 : fenetre / canvas_transform")
+	_cov("viewport")
 
 ## Choix du boss : l'IA ne prend jamais le boss tire pour le joueur (elle attend que l'humain ait le sien), puis tire au hasard parmi le reste.
 func _check_boss_race() -> void:
@@ -3906,8 +4149,10 @@ func _extra_checks() -> void:
 	await _check_ai_entry_window()
 	await _check_window_clock()
 	await _check_single_click()
+	await _check_viewport()
 	await _check_choice_target()
 	await _check_drag_and_zoom()
+	await _check_zoom_gestures()
 	await _check_done_and_warning()
 	await _check_review_fixes()
 	await _check_apk_gaps()
@@ -3933,7 +4178,7 @@ func _extra_checks() -> void:
 	var me: Dictionary = G["players"][0]
 	board.refresh()
 	# LEVEL UP : zoom du boss au-dessus du bouton ; il survit a un refresh (l'IA joue, state_changed) et part au clic suivant
-	board.levelup_btn.pressed.emit()
+	board.levelup_btn.button_down.emit()
 	await get_tree().process_frame
 	await get_tree().process_frame
 	board.refresh()
@@ -3951,45 +4196,39 @@ func _extra_checks() -> void:
 		_check((cards[0] as Control).size.is_equal_approx(Vector2(175, 244)), "carte de main %s != 175x244" % (cards[0] as Control).size)
 		_check_fan(cards)
 	_check(board.extra_bar.get_child_count() == 0 or not board.extra_bar.visible, "bouton non-APK visible en partie de base")
-	# 1) Sort sans cible : un clic sur la carte le joue (aucun bouton « Sort : ... »)
+	# 1) Sort sans cible : se joue en le glissant au-dessus de la main (aucun bouton « Sort : ... » ; un clic ne fait rien, I-05)
 	var idx := _take_spell("BMA050") # Motivation : phase de construction, sans cible
 	_foe_rooms(G)
+	board.refresh() # le griser de la carte suit l'etat (une salle adverse rend le sort jouable)
 	if _check(idx >= 0, "BMA050 introuvable dans la pioche de sorts"):
 		var n_before := (me["hand"] as Array).size()
 		var legal := gm.legal_moves(0).filter(func(m): return m["type"] == "playSpell" and int(m["args"][0]) == idx)
 		if _check(legal.size() == 1, "BMA050 : %d coups playSpell (1 attendu)" % legal.size()):
-			board._on_hand_card_clicked(idx, (me["hand"] as Array)[idx])
+			(_hand_cards()[idx] as CardUI).card_clicked.emit(null)
 			await get_tree().process_frame
-			_check((me["hand"] as Array).size() == n_before - 1, "clic sur le sort : la carte n'a pas ete jouee")
+			_check((me["hand"] as Array).size() == n_before and board._popup_kind == "" and board._tgt.is_empty(), "clic sur le sort : une carte de la main ne doit rien jouer")
+			_check(_drag_card(idx, Vector2(960, 420)), "glisser du sort sans cible impossible")
+			await get_tree().process_frame
+			_check((me["hand"] as Array).size() == n_before - 1, "glisser du sort : la carte n'a pas ete jouee")
 			_check(board._popup_kind == "", "popup inattendu pour un sort sans cible")
 			await _drain()
-	# 2) Sort a cible multiple : fenetre de ciblage, choix d'une cible ; CANCEL la referme sans jouer
+	# 2) Sort a cible multiple : lache hors d'une cible il ne se joue pas (la carte revient), lache sur un heros il est joue
 	var town: Array = G["town"]
 	while town.size() < 2: # le tour 1 peut commencer avec la ville vide : on y met deux heros pour avoir plusieurs cibles
 		town.append((CardDB.heroes[town.size()] as Dictionary).duplicate(true))
 	idx = _take_spell("BMA051")
 	if _check(idx >= 0, "BMA051 introuvable dans la pioche de sorts"):
 		var n2 := (me["hand"] as Array).size()
-		board._on_hand_card_clicked(idx, (me["hand"] as Array)[idx])
-		for i in 3:
+		_check(_drag_card(idx, Vector2(960, 420)), "glisser du sort a cibles multiples impossible")
+		await get_tree().process_frame
+		_check((me["hand"] as Array).size() == n2 and board._tgt.is_empty(), "sort a cibles multiples lache hors cible : il ne doit pas etre joue")
+		var sp_moves := gm.legal_moves(0).filter(func(m): return m["type"] == "playSpell" and int(m["args"][0]) == idx)
+		_check(sp_moves.size() == town.size(), "BMA051 : %d cibles pour %d heros en ville" % [sp_moves.size(), town.size()])
+		if not sp_moves.is_empty():
+			_check(_drag_card(idx, _spell_drop_pos(sp_moves[0])), "glisser du sort sur sa cible impossible")
 			await get_tree().process_frame
-		if _check(board._popup_kind == "" and not board._tgt.is_empty(), "sort a cibles multiples : pas de ciblage sur le plateau (popup=%s)" % board._popup_kind):
-			_check(board._tgt_spots.size() == town.size(), "ciblage : %d zones allumees pour %d heros en ville" % [board._tgt_spots.size(), town.size()])
-			_check(board._tgt_cancel_btn != null and board._tgt_cancel_btn.text == "CANCEL" and not board.action_box.visible, "ciblage : CANCEL absent ou PASS TURN visible")
-			var s_h := _sig()
-			await _click_at((_hand_cards()[0] as Control).get_global_rect().get_center())
-			_check(not board._tgt.is_empty() and _sig() == s_h, "ciblage : la main n'est pas bloquee par le voile")
-			board._tgt_cancel_btn.pressed.emit() # CANCEL
-			await get_tree().process_frame
-			_check(board._tgt.is_empty() and board._popup_kind == "" and (me["hand"] as Array).size() == n2, "CANCEL : mode ferme et carte conservee")
-			_check(board.action_box.visible, "CANCEL : PASS TURN non restaure")
-			board._on_hand_card_clicked(idx, (me["hand"] as Array)[idx])
-			for i in 3:
-				await get_tree().process_frame
-			if _check(not board._tgt_spots.is_empty(), "ciblage : plus de zone apres CANCEL puis nouveau clic"):
-				await _click_at(((board._tgt_spots[0]["ctrl"]) as Control).get_global_rect().get_center()) # vrai clic sur la 1re cible
-				_check(board._tgt.is_empty() and (me["hand"] as Array).size() == n2 - 1, "cible choisie par un clic : le sort doit etre joue")
-			await _drain()
+			_check((me["hand"] as Array).size() == n2 - 1, "sort lache sur sa cible : il doit etre joue")
+		await _drain()
 	# 3) Capacite de salle : halo + clic gauche sur la salle (aucun bouton « Capacite : ... »)
 	if str(G.get("phase", "")) == "adventure" and not gm.apk_active_hero():
 		_check(board._my_moves(0).all(func(m): return not (str(m["type"]) in BoardUI.NO_HERO_BLOCKED)), "aventure sans heros actif : l'interface humaine offre encore un sort / une capacite")
@@ -4209,7 +4448,7 @@ func _check_audio() -> void:
 	var G: Dictionary = gm.G
 	var me: Dictionary = G["players"][0]
 	var m: int = am.rec.size()
-	board.levelup_btn.pressed.emit() # TopRightPanelEntity.cs:155 (pas de son propre) -> GamePlayBaseScene.cs:779,1272 : zoom = ui_card_slide_up, pas le sting
+	board.levelup_btn.button_down.emit() # TopRightPanelEntity.cs:155 (pas de son propre) -> GamePlayBaseScene.cs:779,1272 : zoom = ui_card_slide_up, pas le sting
 	await get_tree().process_frame
 	var ev := _audio_since(m)
 	_check(ev == ["sfx:ui_card_slide_up"], "LEVEL UP : %s (ui_card_slide_up seul attendu)" % str(ev))
@@ -4649,8 +4888,8 @@ func _tut_forced(ov, fid: String, probed: Dictionary) -> void:
 				other = i
 				break
 		await _tut_click_card(other)
-		# CardExtractBehavior.ExtractCard : l'appui sur une carte non imposee declenche InvalidCardPlayed (rappel en setup / build, rien en aventure)
-		_check(board._popup_kind == "" and board._tgt.is_empty() and hand.size() == n_hand and (ov._scene != null) == (not spell), "tutoriel : %s : un clic sur une autre carte ne joue rien (rappel hors aventure)" % key)
+		# I-05 : un clic ne joue rien ; le rappel (InvalidCardPlayed) vient de l'extraction de la mauvaise carte, testee juste apres par le glisser
+		_check(board._popup_kind == "" and board._tgt.is_empty() and hand.size() == n_hand, "tutoriel : %s : un clic sur une autre carte ne joue rien" % key)
 		if ov._scene != null:
 			await _tut_scene(ov)
 		await _tut_drag(other, to)

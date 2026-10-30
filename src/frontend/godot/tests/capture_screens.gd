@@ -10,6 +10,8 @@ const MainScript = preload("res://godot/scripts/Main.gd")
 const OUT_DIR := "res://../../docs/reference/godot_screens"
 
 var out_dir := ""
+var want_size := Vector2i.ZERO # --resolution WxH de la ligne de commande
+var size_warned := false
 var only := ""   # --only=online : seulement les ecrans multijoueur
 var gm: GameManager
 var board
@@ -23,12 +25,23 @@ func _frames(n: int = 4) -> void:
 	for i in n:
 		await get_tree().process_frame
 
+func _zrect() -> String: # cadre du zoom en cours (repere F) : pile = carte du dessus
+	var z: Control = board._zoom if board != null and is_instance_valid(board._zoom) else null
+	if z == null:
+		return "pas de zoom"
+	var c: Control = z.get_child(0) as Control if z.has_meta("stack") else z
+	var r: Rect2 = c.get_global_transform() * Rect2(Vector2.ZERO, c.size)
+	return "ZRECT x%d..%d y%d..%d (%dx%d)" % [r.position.x, r.end.x, r.position.y, r.end.y, r.size.x, r.size.y]
+
 func _shot(name: String) -> void:
+	print("SHOT ", name, " ", _zrect())
 	await _frames(3)
 	await RenderingServer.frame_post_draw
-	var img := get_viewport().get_texture().get_image()
-	if img.get_size() != Vector2i(1920, 1080):
-		img.resize(1920, 1080, Image.INTERPOLATE_BILINEAR)
+	var img := get_viewport().get_texture().get_image() # taille native de la fenetre (--resolution) : plus de remise a l'echelle en 1920 x 1080
+	if want_size != Vector2i.ZERO and img.get_size() != want_size and not size_warned:
+		size_warned = true
+		push_error("capture : fenetre %s au lieu de --resolution %s (le systeme a borne la taille ?)" % [img.get_size(), want_size])
+		print("SIZE MISMATCH: ", img.get_size(), " != ", want_size)
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	img.save_png("%s/godot_%s.png" % [out_dir, name])
 	n_shots += 1
@@ -38,6 +51,12 @@ func _ready() -> void:
 	MainScript.skip_loading = true # le titre direct ; _loading_shots montre la LoadingScene
 	CardDB.ship_all = true # captures de tous les paquets, fermes compris (CardDB.SHIPPED_SETS)
 	out_dir = ProjectSettings.globalize_path(OUT_DIR)
+	var ca := OS.get_cmdline_args()
+	var ri := ca.find("--resolution")
+	if ri >= 0 and ri + 1 < ca.size():
+		var wh := ca[ri + 1].split("x")
+		if wh.size() == 2:
+			want_size = Vector2i(int(wh[0]), int(wh[1]))
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--out="):
 			out_dir = a.substr(6)
@@ -58,6 +77,11 @@ func _ready() -> void:
 	if only == "opp": # panneaux adverses 3-4 joueurs (pas de frame APK : verrou payant), zooms boss / pile / defausse
 		await _opp_shots()
 		print("OPP SCREENS CAPTURED: ", n_shots)
+		get_tree().quit(0)
+		return
+	if only == "gesture": # zooms de l'APK declenches par le geste (clic = tap, survol = main tenue)
+		await _gesture_shots()
+		print("GESTURE SCREENS CAPTURED: ", n_shots)
 		get_tree().quit(0)
 		return
 	if only == "zoom": # zooms de pile / boss / file d'entree, defausse en carrousel, coeurs sur les cartes
@@ -367,6 +391,67 @@ func _zoom_shots() -> void:
 	((_me()["dungeon"] as Array)[2] as Array).push_back(_room_proto("monster", false, 1))
 	await _settle()
 	await _shot("hearts_room_damage_ballroom_gold_heart_hero_hp_heart")
+	await _teardown()
+
+## Clic de souris reel (appui + relachement, une image entre) : un tap de l'APK = un clic.
+func _click(pos: Vector2) -> void:
+	await _mouse(pos, false, true)
+	await _mouse(pos, true, false)
+	await _mouse(pos, false, false)
+
+## Zooms de l'APK declenches par le GESTE de l'APK a la souris (tap = clic, survol = main tenue) : memes noms de frames que les captures APK, suffixe `_geste`.
+func _gesture_shots() -> void:
+	await _new_game()
+	_heroes_town(3)
+	_dungeon_fill(_me(), 3)
+	_dungeon_fill(_foe(), 3)
+	_hand_n(6, 2)
+	_me()["boss"] = _boss_dict("BMA001")
+	_foe()["boss"] = _boss_dict("BMA003")
+	var heroes: Array = CardDB.heroes.filter(func(h): return not bool((h as Dictionary).get("epic", false)))
+	_me()["entrance"] = [(heroes[0] as Dictionary).duplicate(true)]
+	_foe()["entrance"] = [(heroes[3] as Dictionary).duplicate(true)]
+	await _settle()
+	# survol d'une carte de la main (CardHoverBehavior : le pointeur, souris ou doigt, choisit la carte ; frames longpress_* de l'APK)
+	var hc := _hand_cards()[2] as Control
+	get_viewport().warp_mouse(hc.get_global_rect().get_center()) # le pointeur reel : _tick_hand_hover lit get_global_mouse_position
+	await _mouse(hc.get_global_rect().get_center(), false, true)
+	await _frames(3)
+	board._tick_hand_hover() # _process est coupe pendant les captures : le meme tick que celui du jeu
+	await _wait(0.9)
+	print("HOVER ", board._hover_card, " ", (board._hover_card as Control).get_global_transform() * Rect2(Vector2.ZERO, (board._hover_card as Control).size) if board._hover_card != null else "-")
+	await _shot("longpress_succubus_spa_zoom_from_6_card_hand_first_turn_geste")
+	await _mouse(Vector2(960, 300), false, true)
+	board._tick_hand_hover()
+	await _wait(0.6)
+	# tap sur une salle de mon donjon (CardStackSlotComponent_TouchTap -> DungeonFrame_ShowRoomSlotDetail)
+	var slots: Array = board._dungeon_slots.filter(func(sl): return not (sl as DungeonSlot).current_stack.is_empty())
+	await _click((slots[0] as Control).get_global_rect().get_center())
+	await _wait(0.8)
+	await _shot("tap_own_dungeon_room_brainsucker_hive_zoom_geste")
+	await _click(Vector2(960, 150)) # le clic suivant ferme
+	await _wait(0.5)
+	# tap sur une salle de l'adversaire
+	var fslots: Array = board._foe_slots.filter(func(sl): return (sl as Control).visible and not (sl as Control).find_children("*", "CardUI", true, false).is_empty())
+	if not fslots.is_empty():
+		await _click((fslots[0] as Control).get_global_rect().get_center())
+		await _wait(0.8)
+		await _shot("tap_opponent_dungeon_room_zoom_geste")
+		await _click(Vector2(960, 150))
+		await _wait(0.5)
+	# tap sur un heros de la ville (TopLeftPanel_ShowHeroInTown)
+	var town_cards: Array = board.town_container.get_children().filter(func(c): return not c.is_queued_for_deletion())
+	await _click((town_cards[1] as Control).get_global_rect().get_center())
+	await _wait(0.8)
+	await _shot("tap_hero_in_town_zoom_left_geste")
+	await _click(Vector2(960, 150))
+	await _wait(0.5)
+	# tap sur le bouton LEVEL UP (TopRightPanel_ShowChallengerBossDetail)
+	await _click(board.levelup_btn.get_global_rect().get_center())
+	await _wait(0.8)
+	await _shot("levelup_button_tap_shows_boss_card_zoom_with_levelup_text_geste")
+	await _click(Vector2(960, 150))
+	await _wait(0.5)
 	await _teardown()
 
 ## 5-6 joueurs (lot 2.4b) : pas de frame APK, captures de controle de lisibilite.
@@ -690,6 +775,37 @@ func _teardown() -> void:
 	gm = null
 	await _frames(2)
 
+## Le geste de l'APK (CardExtractBehavior) : appui sur la carte `idx` de la main, extraction, relachement en `drop` (cf. ui_smoke._drag_card).
+func _drag_card(idx: int, drop: Vector2) -> bool:
+	var cards := _hand_cards()
+	if idx < 0 or idx >= cards.size():
+		return false
+	var c := cards[idx] as CardUI
+	board._press = {"card": c, "idx": idx, "pos": c.get_global_rect().get_center()}
+	board._drag_begin()
+	var ok: bool = not board._drag.is_empty()
+	board._press = {}
+	if ok:
+		board._drag_end(drop)
+	else:
+		board._press_clear()
+	return ok
+
+## Centre de l'emplacement libre (ou de `ti`) pouvant recevoir la salle `idx` ; (-1, -1) si aucun.
+func _room_drop_pos(idx: int, ti: int = -1) -> Vector2:
+	var data := {"type": "card", "hand_index": idx}
+	var dsize: int = ((gm.G["players"] as Dictionary)[0]["dungeon"] as Array).size()
+	var best: DungeonSlot = null
+	for sl in board._dungeon_slots:
+		var d := sl as DungeonSlot
+		if not d._can_drop_data(Vector2.ZERO, data):
+			continue
+		if ti >= 0 and d.slot_index == ti:
+			return d.get_global_rect().get_center()
+		if ti < 0 and (best == null or d.slot_index == dsize):
+			best = d
+	return best.get_global_rect().get_center() if best != null else Vector2(-1, -1)
+
 func _act_simple() -> void:
 	var G: Dictionary = gm.G
 	var phase: String = G.get("phase", "")
@@ -699,8 +815,8 @@ func _act_simple() -> void:
 		board.refresh()
 	if not pc.is_empty():
 		if board._is_opening_discard_for_me():
-			board._on_hand_card_clicked(0, (me["hand"] as Array)[0])
-			board._on_hand_card_clicked(1, (me["hand"] as Array)[1])
+			board._on_hand_card_tap(0, (me["hand"] as Array)[0])
+			board._on_hand_card_tap(1, (me["hand"] as Array)[1])
 			board._on_discard_confirm()
 		elif int(pc.get("playerId", -1)) == 0:
 			var mv: Array = gm.legal_moves(0)
@@ -926,23 +1042,9 @@ func _board_shots() -> void:
 	await _settle()
 	card = _hand_cards()[idx]
 	c0 = card.get_global_rect().get_center()
-	await _mouse(c0, true, false)
-	await _wait(1.1)
-	await _shot("build_longpress_card_zoom_preview")
-	await _mouse(c0, false, false)
-	await _frames(3)
-	# appui long sur un sort grise (construction)
-	var gi := -1
-	for i in hand.size():
-		if bool((hand[i] as Dictionary).get("isSpell", false)):
-			gi = i
-	if gi >= 0:
-		c0 = _hand_cards()[gi].get_global_rect().get_center()
-		await _mouse(c0, true, false)
-		await _wait(1.1)
-		await _shot("longpress_motivation_spell_zoom_greyscale_unplayable_in_build_phase")
-		await _mouse(c0, false, false)
-		await _frames(3)
+	# I-06 : plus d'appui long sur une carte de la main (l'APK n'en a pas) : plus de captures longpress_*
+	_dungeon_fill(_me(), 1)
+	await _settle()
 
 	# --- salles empilees : salle posee sur une salle visible (la plus ancienne dessine son bandeau)
 	var over := _room_proto("trap", false, 1)
@@ -1209,8 +1311,8 @@ func _phases() -> void:
 	await _new_game(424242, "discard")
 	board.skip_animations = false
 	await _settle()
-	board._on_hand_card_clicked(1, (_me()["hand"] as Array)[1])
-	board._on_hand_card_clicked(4, (_me()["hand"] as Array)[4])
+	board._on_hand_card_tap(1, (_me()["hand"] as Array)[1])
+	board._on_hand_card_tap(4, (_me()["hand"] as Array)[4])
 	await _settle()
 	await _shot("discard_selected_gold_border_continue_diamond_button")
 
@@ -1304,19 +1406,6 @@ func _phases() -> void:
 		await _shot("ability_bottomless_pit_activated_red_glow_room_zoom_hero_in_room_timer_t9")
 		board._zoom_hide()
 		await _frames(3)
-		# appui long : sort dore en main pendant l'aventure, puis le heros a l'entree
-		var hnd: Array = _me()["hand"]
-		var spi := -1
-		for i in hnd.size():
-			if bool((hnd[i] as Dictionary).get("isSpell", false)):
-				spi = i
-		if spi >= 0:
-			var sc0: Vector2 = _hand_cards()[spi].get_global_rect().get_center()
-			await _mouse(sc0, true, false)
-			await _wait(1.1)
-			await _shot("longpress_spell_kobold_strike_zoom_in_adventure")
-			await _mouse(sc0, false, false)
-			await _frames(3)
 		# appui sur la notice adverse : la carte au centre, cible entouree en rouge
 		var fspell := _take("spells")
 		(_foe()["hand"] as Array).append(fspell)
@@ -1327,12 +1416,6 @@ func _phases() -> void:
 		await _wait(0.3)
 		await _shot("notice_tap_card_at_center_targets_red_frame")
 		board._zoom_hide()
-		await _frames(3)
-		var hc0: Vector2 = (board._ent_tok[0][0] as Control).get_global_rect().get_center()
-		await _mouse(hc0, true, false)
-		await _wait(1.1)
-		await _shot("longpress_hero_card_at_entrance_zoom")
-		await _mouse(hc0, false, false)
 		await _frames(3)
 	await _teardown()
 
@@ -1452,9 +1535,7 @@ func _tut_free_play() -> void:
 				var hand: Array = me["hand"]
 				for i in hand.size():
 					if (hand[i] as Dictionary).get("isRoom", false) and gm.can_build_room_at(0, i, (me["dungeon"] as Array).size()):
-						board._on_hand_card_clicked(i, hand[i])
-						if not board._tgt.is_empty():
-							(board._tgt["entries"][0]["cb"] as Callable).call()
+						_drag_card(i, _room_drop_pos(i)) # I-05 : une carte ne se joue qu'en la glissant
 						return
 			if not gm.legal_moves(0).is_empty():
 				board._on_pass_pressed()
@@ -1513,13 +1594,13 @@ func _tutorial_shots() -> void:
 				var wrong := 0
 				while keep.has(wrong):
 					wrong += 1
-				board._on_hand_card_clicked(wrong, hand[wrong]) # mauvaise carte : moquerie du boss
+				board._on_hand_card_tap(wrong, hand[wrong]) # mauvaise carte : moquerie du boss
 				await _tut_pump(ov, 0.4)
 				await _shot("tutorial_discard_wrong_card")
-				board._on_hand_card_clicked(int(keep[0]), hand[int(keep[0])])
+				board._on_hand_card_tap(int(keep[0]), hand[int(keep[0])])
 				await _tut_pump(ov, 0.4)
 				await _shot("tutorial_discard_first_pick")
-				board._on_hand_card_clicked(int(keep[1]), hand[int(keep[1])])
+				board._on_hand_card_tap(int(keep[1]), hand[int(keep[1])])
 				await _tut_pump(ov, 1.0)
 				await _shot("tutorial_discard_continue") # tut_26 de l'APK : CONTINUE + « HIT CONTINUE, MINION »
 				board._on_discard_confirm()
@@ -1535,9 +1616,8 @@ func _tutorial_shots() -> void:
 						board._do(m)
 						break
 			else:
-				board._on_hand_card_clicked(hi, (me["hand"] as Array)[hi])
-				if not board._tgt.is_empty():
-					(board._tgt["entries"][0]["cb"] as Callable).call()
+				var dp := _room_drop_pos(hi)
+				_drag_card(hi, dp if dp.x >= 0.0 else Vector2(960, 500))
 			continue
 		if ov._hit_state():
 			if board._zoom == null:

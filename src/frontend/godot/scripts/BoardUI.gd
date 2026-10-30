@@ -28,11 +28,9 @@ var foe_pid: int = -1                    # adversaire dont le donjon occupe le c
 var _foe_follow_seen := -1               # dernier donjon adverse suivi automatiquement (aventure en cours)
 var extra_bar: HFlowContainer
 var discard_pick: Array = []
-var _swap_idx := -1                       # salle de la main a poser des que la reprise de la pose en attente est confirmee (_swap_resume)
 var _extract_n := -1                    # taille de la main avant la reprise d'une pose par appui (_on_slot_undo_press) : -1 = rien a glisser
 var _extract_from := Vector2.ZERO       # centre de l'emplacement d'ou la pose est reprise (depart du glisser)
 var _extract_until := 0                 # delai (ms) apres lequel on abandonne l'attente de la reprise (en ligne)
-var _swap_until := 0                     # delai (ms) apres lequel on abandonne l'attente
 var _last_phase: String = ""
 
 ## Tutoriel (TutorialOverlay) : `tutorial_gate` vide = aucun effet, le plateau se comporte exactement comme avant. Rempli par mount_tutorial,
@@ -196,7 +194,7 @@ var _pulse_t := 0.0                      # temps depuis l'apparition du bouton P
 var _gameover: Control
 var _press := {}                         # appui sur une carte de la main : {card, idx, pos} (arme le glisser)
 var _drag := {}                          # glisser en cours : {idx, preview, frames}
-var _zoom: Control                       # zoom d'appui long
+var _zoom: Control                       # zoom de carte (appui sur un heros de la ville / une pile, LEVEL UP, notice, carrousel du boss)
 var _stack_sig := ""
 var _pass_tw: Tween                      # fondu du bouton PASS TURN / DONE! (voir _set_pass_visible)
 var _pass_want := false
@@ -262,7 +260,7 @@ const TEX_PASS := UI_DIR + "pass_button.webp"
 const TEX_DONE := UI_DIR + "done_button_unlimited.webp"
 const PASS_TYPES := ["pass", "passBuild"]
 const GO_TYPES := ["adventureNext", "resolveNextHero"]
-const HAND_CLICK_TYPES := ["playSpell", "useHandRoom"] # jouees en cliquant la carte de la main (pas de bouton)
+const HAND_PLAY_TYPES := ["playSpell", "useHandRoom"] # jouees en glissant la carte de la main (pas de bouton)
 
 func _is_online() -> bool:
 	return game_manager is OnlineGameManager
@@ -340,6 +338,9 @@ func _font_with_fallback(path: String) -> Font:
 	return fv
 
 func _ready() -> void:
+	if not (get_parent() is Control): # plateau seul (tests, captures) : maquette 1920 x 1080 fixe, recentree par la fenetre (Main le fait sinon)
+		Vp.make_stage(self)
+	Vp.width_changed.connect(_on_vp_width)
 	_fa = _font_with_fallback(FONT_A)
 	_fb = _font_with_fallback(FONT_B)
 	_rect(self, Color.BLACK, Vector2.ZERO, Vector2(1920, 1080))
@@ -402,6 +403,7 @@ func _make_lane(idx: int) -> Dictionary:
 	plat.size = Vector2(300, 210)
 	plat.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(plat)
+	Vp.edge(plat, Vp.RIGHT, 300.0) # DungeonFrameEntity.cs:545-549 : bord droit + ProportionalMarginOffset 300
 	L["platform"] = plat
 	var sprite := TextureRect.new()
 	sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -418,27 +420,33 @@ func _make_lane(idx: int) -> Dictionary:
 	plat.add_child(cont)
 	L["container"] = cont
 	# Badges : DAMAGE <coeur n> puis <n>XP + niveau + type de tresor du boss
-	_img(root, TEX_TOTAL_DAMAGE, Vector2(1355, 12))
-	L["dmg"] = _lbl(root, "0", 19, Color.WHITE, Vector2(1355 + 105 - 25, 20), 50.0, _fa, HORIZONTAL_ALIGNMENT_CENTER) # APK : chiffre centre sur le coeur (y 96 / 532), ~13 px de haut
-	_img(root, TEX_XP_BADGE, Vector2(1503, 12))
-	L["xp"] = _lbl(root, "0XP", 22, Color.WHITE, Vector2(1509, 12 + 11), 0.0, _fb)
-	L["xp_unit"] = _lbl(root, "XP", 22, APK_GOLD, Vector2(1509, 12 + 11), 0.0, _fb) # APK : « XP » en or, les chiffres en blanc (recouvre le « XP » blanc de L["xp"])
-	L["lvl"] = _lbl(root, "1", 24, Color.WHITE, Vector2(1503 + 95, 12 + 7), 40.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
-	L["icon"] = _img(root, "", Vector2(1503 + 153 - 13, 12 + 25 - 13), Vector2(26, 26), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
+	var bd := Control.new() # BossXPAndOrderControl : bord droit (DungeonFrameEntity.cs:241-245)
+	bd.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(bd)
+	Vp.edge(bd, Vp.RIGHT)
+	_img(bd, TEX_TOTAL_DAMAGE, Vector2(1355, 12))
+	L["dmg"] = _lbl(bd, "0", 19, Color.WHITE, Vector2(1355 + 105 - 25, 20), 50.0, _fa, HORIZONTAL_ALIGNMENT_CENTER) # APK : chiffre centre sur le coeur (y 96 / 532), ~13 px de haut
+	_img(bd, TEX_XP_BADGE, Vector2(1503, 12))
+	L["xp"] = _lbl(bd, "0XP", 22, Color.WHITE, Vector2(1509, 12 + 11), 0.0, _fb)
+	L["xp_unit"] = _lbl(bd, "XP", 22, APK_GOLD, Vector2(1509, 12 + 11), 0.0, _fb) # APK : « XP » en or, les chiffres en blanc (recouvre le « XP » blanc de L["xp"])
+	L["lvl"] = _lbl(bd, "1", 24, Color.WHITE, Vector2(1503 + 95, 12 + 7), 40.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
+	L["icon"] = _img(bd, "", Vector2(1503 + 153 - 13, 12 + 25 - 13), Vector2(26, 26), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
 	return L
 
 func _build_frame() -> void:
 	# Colonnes laterales en pierre sombre + traits dores, barres haute et basse.
 	for x in [0.0, 1708.0]:
 		var w: float = 183.0 if x == 0.0 else 212.0
-		_rect(self, Color8(96, 82, 110), Vector2(x, 0), Vector2(w, 1080)) # calque sous le panneau : l'APK le laisse voir a 15 % (mesure : panneau gauche (35, 21, 37) sur les captures, donc dessous ~ (96, 82, 110))
-		_rect(self, Color(UiKit.SIDE_PANELS, 0.85), Vector2(x, 0), Vector2(w, 1080)) # CreateColorPanel(SidePanelsBackColor, 0,85) : TopLeftPanelEntity.cs:110, OneOpponentDetail.cs:71
-	_img(self, UI_DIR + "vertical_line.webp", Vector2(183, 0))
-	_img(self, UI_DIR + "vertical_line.webp", Vector2(1707, 0))
+		var side := Vp.LEFT if x == 0.0 else Vp.RIGHT # colonnes collees aux bords de la fenetre (TopLeftPanelEntity / OneOpponentDetail : EdgeAlignmentComponent)
+		Vp.edge(_rect(self, Color8(96, 82, 110), Vector2(x, 0), Vector2(w, 1080)), side) # calque sous le panneau : l'APK le laisse voir a 15 % (mesure : panneau gauche (35, 21, 37) sur les captures, donc dessous ~ (96, 82, 110))
+		Vp.edge(_rect(self, Color(UiKit.SIDE_PANELS, 0.85), Vector2(x, 0), Vector2(w, 1080)), side) # CreateColorPanel(SidePanelsBackColor, 0,85) : TopLeftPanelEntity.cs:110, OneOpponentDetail.cs:71
+	Vp.edge(_img(self, UI_DIR + "vertical_line.webp", Vector2(183, 0)), Vp.LEFT)
+	Vp.edge(_img(self, UI_DIR + "vertical_line.webp", Vector2(1707, 0)), Vp.RIGHT)
 	_img(self, UI_DIR + "bg_top.webp", Vector2(0, -15), Vector2(1920, 77))
 	_img(self, UI_DIR + "bg_bottom.webp", Vector2(0, 953), Vector2(1920, 127))
 
 func _build_left() -> void:
+	var n0 := get_child_count()
 	var scroll := ScrollContainer.new()
 	_town_scroll = scroll
 	scroll.position = Vector2(14, 96)
@@ -452,8 +460,11 @@ func _build_left() -> void:
 	scroll.add_child(town_container)
 	_town_header = _img(self, UI_DIR + "heroes_in_town_top.webp", Vector2(0, 0), Vector2(183, 96))
 	discard_btn = _tex_button(self, UI_DIR + "discard_pile.webp", "", Vector2(0, 907), Vector2(192, 149))
+	for i in range(n0, get_child_count()):
+		Vp.edge(get_child(i) as Control, Vp.LEFT) # colonne HEROES IN TOWN + pioche de defausse : bord gauche
 
 func _build_right() -> void:
+	var n0 := get_child_count()
 	# --- Boss adverse (positions mesurees sur les frames de l'APK ; polices : arcadepix A pour tout le texte de la colonne)
 	foe_group = Control.new() # OneOpponentDetail (2 joueurs) ; a 3-4 joueurs, les vignettes opp_box + opp_detail le remplacent
 	foe_group.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -508,13 +519,15 @@ func _build_right() -> void:
 	add_child(treasures_container)
 	levelup_btn = _tex_button(self, UI_DIR + "levelup_bt.webp", UI_DIR + "levelup_bt_pressed.webp", Vector2(1722, 978), Vector2(183, 59))
 	opp_detail = Control.new() # ExpandedOpponentDetail : bg_boss_detail 295 x 451, tire de 498 px depuis le bord droit (ExpandedOpponentComponent.cs:9,43)
-	opp_detail.position = Vector2(1422, 55)
+	opp_detail.position = Vector2(Vp.rx(1422.0), 55)
 	opp_detail.size = Vector2(295, 451)
 	opp_detail.visible = false
 	opp_detail.gui_input.connect(func(ev: InputEvent):
 		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 			_opp_toggle()) # ExpandedOpponentDetail.cs:61-64 : un appui sur le panneau le replie
 	add_child(opp_detail)
+	for i in range(n0, get_child_count() - 1): # colonne de droite : bord droit (opp_detail, tire par un tween, se place avec Vp.rx)
+		Vp.edge(get_child(i) as Control, Vp.RIGHT)
 
 func _build_actions() -> void:
 	# PASS TURN / GO centres sur la separation des deux couloirs.
@@ -656,12 +669,14 @@ func _build_top() -> void:
 	top_menu_btn.button_down.connect(func(): gear.texture = _tex(UI_DIR + "bt_options_pressed.webp"))
 	top_menu_btn.button_up.connect(func(): gear.texture = _tex(UI_DIR + "bt_options.webp"))
 	add_child(top_menu_btn)
+	Vp.edge(top_menu_btn, Vp.RIGHT) # ControlsFactory.CreateInGameOptionsButton : bord droit
 	# Selecteur de donjon (3-4 joueurs)
 	seat_bar = HBoxContainer.new()
 	seat_bar.position = Vector2(200, 8)
 	seat_bar.add_theme_constant_override("separation", 8)
 	seat_bar.theme = _make_bar_theme()
 	add_child(seat_bar)
+	Vp.edge(seat_bar, Vp.LEFT) # (hors APK) colle a la colonne de gauche
 	# Selecteur d'adversaire : a gauche de l'engrenage, visible seulement s'il y a plusieurs adversaires
 	foe_bar = HBoxContainer.new()
 	foe_bar.position = Vector2(1500, 8)
@@ -672,6 +687,7 @@ func _build_top() -> void:
 	foe_bar.theme = _make_bar_theme()
 	foe_bar.visible = false
 	add_child(foe_bar)
+	Vp.edge(foe_bar, Vp.RIGHT) # a gauche de l'engrenage
 
 func setup(p_gm: GameManager, p_exit_cb: Callable) -> void:
 	game_manager = p_gm
@@ -683,7 +699,7 @@ func setup(p_gm: GameManager, p_exit_cb: Callable) -> void:
 	btn_advance.pressed.connect(_on_advance_pressed)
 	btn_pass.pressed.connect(_on_pass_pressed)
 	discard_btn.pressed.connect(_on_discard_pile_pressed)
-	levelup_btn.pressed.connect(_on_level_up_pressed)
+	levelup_btn.button_down.connect(_on_level_up_pressed) # TopRightPanelEntity.cs:158 : TouchPressed (au bouton enfonce, comme le boss)
 	_confirm_btn.pressed.connect(_on_confirm_pressed)
 	_init_dungeon_slots()
 	AudioManager.play_music("music_dungeon_v3")
@@ -897,6 +913,11 @@ func _opp_toggle() -> void:
 			if gen == _opp_gen and _opp_open:
 				_opp_toggle())
 
+## Largeur utile changee (fenetre redimensionnee) : les elements recalcules a chaque rafraichissement se replacent.
+func _on_vp_width(_w: float) -> void:
+	if game_manager != null:
+		refresh()
+
 var _opp_tw: Tween
 func _opp_detail_sync(animate := false) -> void:
 	var on := _opp_open and foe_pid >= 0
@@ -909,15 +930,15 @@ func _opp_detail_sync(animate := false) -> void:
 		_opp_tw = create_tween().set_parallel(true) # ExpandedOpponentComponent.cs:32,42 : 0,5 s, CubicEase (EaseOut), x -> bord droit - 498
 		if on:
 			opp_detail.visible = true
-			opp_detail.position.x = 1920.0
+			opp_detail.position.x = Vp.rx(1920.0)
 			opp_detail.modulate.a = 0.0
-		_opp_tw.tween_property(opp_detail, "position:x", 1422.0 if on else 1920.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		_opp_tw.tween_property(opp_detail, "position:x", Vp.rx(1422.0 if on else 1920.0), 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		_opp_tw.tween_property(opp_detail, "modulate:a", 1.0 if on else 0.0, 0.5)
 		if not on:
 			_opp_tw.chain().tween_callback(func(): opp_detail.visible = false)
 	elif not running:
 		opp_detail.visible = on
-		opp_detail.position.x = 1422.0
+		opp_detail.position.x = Vp.rx(1422.0)
 		opp_detail.modulate.a = 1.0
 
 ## ExpandedOpponentDetail.Refresh : en-tete du boss, XP, blessures, ames, pioches (cartes en main) de l'adversaire choisi.
@@ -988,8 +1009,6 @@ func _init_dungeon_slots() -> void:
 		slot.size = SLOT_SIZE
 		slot.activate_requested.connect(_on_slot_activate)
 		slot.undo_pressed.connect(_on_slot_undo_press)
-		slot.zoom_on.connect(_zoom_show)
-		slot.zoom_off.connect(_zoom_close)
 		slot.zoom_stack.connect(func(di: int): _slot_zoom(view_pid, di))
 		slot.room_dropped.connect(func(_h: int, _s: int):
 			_play_sfx("ui_card_slide_down") # BuildRoomHandSceneBehavior.cs:182 -> FlipCardBehavior.cs:126 : la salle posee se retourne face cachee
@@ -1361,7 +1380,6 @@ func refresh() -> void:
 	_refresh_extra_bar(G, my_moves)
 	if not _drag.is_empty():
 		_drag_refresh()
-	_swap_resume()
 	_extract_resume()
 
 func _carousel_active(G: Dictionary, phase: String) -> bool:
@@ -1386,9 +1404,11 @@ func _refresh_overlay(G: Dictionary, phase: String) -> void:
 	# APK : choix du boss = tout l'ecran s'assombrit (panneaux et plaque de phase compris) ; defausse d'ouverture = seulement le bandeau
 	# des cartes (y 296..696, filets or), le reste du plateau reste visible et la plaque de phase est cachee.
 	_dim.color = Color(0, 0, 0, 0.92 if full else 0.88)
-	_dim.position = Vector2.ZERO if full else Vector2(184, 296)
-	_dim.size = Vector2(1920, 1080) if full else Vector2(1523, 400)
+	var band_w := 1523.0 + Vp.shift_right() - Vp.shift_left() # entre les deux colonnes collees aux bords
+	_dim.position = Vector2.ZERO if full else Vector2(184.0 + Vp.shift_left(), 296)
+	_dim.size = Vector2(1920, 1080) if full else Vector2(band_w, 400)
 	for gl in _dim.get_children():
+		(gl as Control).size.x = band_w
 		gl.visible = discard
 	# tutoriel (tut_11..20) : ni voile noir general ni plaque de phase ; decor de l'intro, voile du carrousel seulement quand le choix du boss est a l'ecran
 	var intro: bool = full and bool(_tg("intro_blank", null, false))
@@ -1456,7 +1476,7 @@ func _style_confirm(diamond: bool, btn: Button = null) -> void:
 			btn.add_theme_color_override(c, Color(0, 0, 0, 0)) # le libelle est dans l'image
 		btn.custom_minimum_size = Vector2(131, 173)
 		btn.size = Vector2(131, 173)
-		btn.position = Vector2(1540, 410)
+		btn.position = Vector2(Vp.rx(1540.0), 410) # CarouselSelectorEntity.cs:26-31 : bord droit - 250
 	else:
 		for n in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
 			btn.remove_theme_stylebox_override(n)
@@ -1542,11 +1562,11 @@ func _show_levelup(pid: int, boss: Dictionary) -> void:
 	clip.name = "LevelUpBanner"
 	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	clip.clip_contents = true
-	clip.position = Vector2(184, LANE_Y[idx])
-	clip.size = Vector2(1523, LANE_H[idx])
+	clip.position = Vector2(184.0 + Vp.shift_left(), LANE_Y[idx])
+	clip.size = Vector2(1523.0 + Vp.shift_right() - Vp.shift_left(), LANE_H[idx])
 	_ui_layer.add_child(clip)
 	var bottom := float(LANE_Y[idx]) + (446.0 if idx == 0 else 456.0) - clip.position.y
-	var bx := 1708.0 + 895.0 - clip.position.x # bord droit du portrait au depart (X_DISPLACEMENT = 895), repere du decoupage
+	var bx := 1708.0 + Vp.shift_right() + 895.0 - clip.position.x # bord droit du portrait au depart (X_DISPLACEMENT = 895), repere du decoupage
 	var tex := _tex("res://assets/ui/characters/%s_hr.webp" % str(boss.get("id", "")).to_lower())
 	var boss_node: TextureRect = null
 	if tex != null:
@@ -1589,7 +1609,7 @@ func _show_levelup(pid: int, boss: Dictionary) -> void:
 		var blink := shine.create_tween().set_loops()
 		blink.tween_property(shine, "modulate:a", 1.0, 0.8)
 		blink.tween_property(shine, "modulate:a", 0.7, 0.8)
-	var p_in := 985.0 - clip.position.x
+	var p_in := 985.0 + Vp.shift_right() - clip.position.x
 	var p_out := p_in + 2335.0 # 895 + 700 + 740 : de -740 a 700 relatifs au portrait, qui recule de 895
 	panel.position = Vector2(p_out, bottom - 200.0)
 	var tw := clip.create_tween().set_parallel(true)
@@ -1638,8 +1658,6 @@ func _refresh_town(G: Dictionary) -> void:
 		hero_card.is_in_hand = false
 		hero_card.setup(hero)
 		_item_tag(hero_card, hero)
-		hero_card.long_pressed.connect(_zoom_show)
-		hero_card.long_released.connect(func(_c): _zoom_close())
 		hero_card.card_clicked.connect(func(_d): _town_tap(hero_card))
 		ids.append(hero.get("id", hero))
 		var ci := ids.size() - 1
@@ -1678,7 +1696,7 @@ func _town_restore(sv: int, fresh: int, moved: Array = []) -> void:
 		_town_scroll.ensure_control_visible(town_container.get_child(fresh))
 
 ## Glisser (ou molette) dans la colonne HEROES IN TOWN : la colonne suit le doigt (VerticalScrollQueueComponent, TouchMoved) ; sous 12 px
-## c'est un clic (la carte garde son appui long). Pas de rebond elastique (l'APK ramene la colonne dans [810 - hauteur, 0]).
+## c'est un clic. Pas de rebond elastique (l'APK ramene la colonne dans [810 - hauteur, 0]).
 ## TopLeftPanel_ShowHeroInTown (GamePlayBaseScene.cs:787-797) : un clic sur un heros de la ville le zoome a gauche du plateau, bord gauche a x 450,
 ## centre vertical = celui de la carte borne a [300 ; 700] ; il se ferme au clic suivant.
 var _zoom_press_ms := -10000
@@ -1691,7 +1709,7 @@ func _town_tap(card: Control) -> void:
 	var cy := card.get_global_rect().get_center().y
 	_zoom_show(card)
 	if _zoom != null:
-		_zoom.position = Vector2(450.0, clampf(cy, 300.0, 700.0) - _zoom.size.y / 2.0)
+		_zoom.position = Vector2(Vp.lx(450.0), clampf(cy, 300.0, 700.0) - _zoom.size.y / 2.0) # BaseZoomComponent : bord gauche + 450
 
 func _town_input(event: InputEvent) -> void:
 	if _town_scroll == null or _popup != null or _modal_open():
@@ -1806,7 +1824,7 @@ func _fly_hero_card(pid: int, hero: Dictionary, k: int, tok: Control, order: int
 	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ghost.visible = false
 	hero_crossing_layer.add_child(ghost)
-	ghost.global_position = Vector2(23.0, 107.0)
+	ghost.global_position = Vector2(Vp.lx(23.0), 107.0) # colonne de gauche
 	var tw := ghost.create_tween()
 	tw.tween_interval(BAIT_FLY * _speed * float(order))
 	tw.tween_callback(func(): ghost.visible = true)
@@ -1828,8 +1846,6 @@ func _create_entrance_card(hero: Dictionary) -> Control:
 	if BossEngine.hero_hp(hero) > BossEngine.hero_base_hp(hero):
 		c.add_heart(BossEngine.hero_hp(hero), true) # HeroCardEntity.cs:109 : PV gagnes (cardHeart, health_hero_buff_icon, chiffre or)
 	_item_tag(c, hero)
-	c.long_pressed.connect(_zoom_show)
-	c.long_released.connect(func(_c): _zoom_close())
 	return c
 
 ## Tools of Hero-Kind (case wiki) : le nom de l'Objet attache au heros, en bandeau au pied de sa carte.
@@ -1904,7 +1920,7 @@ func _set_boss(L: Dictionary, boss, dead := false, lit := false) -> void:
 			var off: Vector2 = BOSS_OFFSET[bid]
 			sprite.size = tex.get_size()
 			var top: bool = L["root"] == (_lane[0] as Dictionary)["root"]
-			sprite.position = Vector2(1609.0 - off.x, (52.0 if top else 498.0) + off.y) - sprite.size / 2.0 - ((L["root"] as Control).position + plat.position)
+			sprite.position = Vector2(1609.0 - off.x, (52.0 if top else 498.0) + off.y) - sprite.size / 2.0 - ((L["root"] as Control).position + Vector2(Vp.base_x(plat), plat.position.y))
 		if dead:
 			sprite.position.x = plat.size.x - sprite.size.x + 2.0 # APK : la pierre tombale est collee au bord droit du couloir (x ~1707)
 	# Boss monte de niveau : <id>_character_glow derriere le sprite, meme centre (DungeonFrameEntity.cs:273-279,484 : FadeBehavior 0,5 s, ouvert par CreateLevelUpAnimationTask)
@@ -1989,8 +2005,6 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 				room_ui.setup(r)
 				room_ui.add_lane_badge()
 				room_ui.mouse_filter = Control.MOUSE_FILTER_PASS
-				room_ui.long_pressed.connect(_zoom_show)
-				room_ui.long_released.connect(func(_c): _zoom_close())
 				var fpid := foe_pid
 				room_ui.card_clicked.connect(func(_d): _slot_zoom(fpid, di)) # clic sans appui long : zoom de la pile
 				var fz: bool = BossEngine.is_room_deactivated(game_manager.G, foe_pid, di)
@@ -2093,12 +2107,10 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 		if discarding and card_ui.border != null:
 			card_ui.border.visible = false # tut_26 : pas de filet gris autour des cartes du bandeau de defausse (cadre noir de la carte seul)
 		var idx := i
-		card_ui.card_clicked.connect(func(_data): _on_hand_card_clicked(idx, card_dict))
+		card_ui.card_clicked.connect(func(_data): _on_hand_card_tap(idx, card_dict))
 		card_ui.press_started.connect(_on_hand_press)
 		var rank: int = order.find(i) # _hand_hover manipule le rang dans l'eventail trie
 		card_ui.card_hovered.connect(func(_d, on: bool): _hand_hover(rank, on))
-		card_ui.long_pressed.connect(_zoom_show)
-		card_ui.long_released.connect(func(_c): _zoom_close())
 		# APK : carte injouable = grisee (toute la main pendant l'aventure sans sort jouable) ; fondu 0,5 s a chaque changement d'etat (CardAttributesComponent.cs:73-90)
 		var grey_now: bool = not discard_pick.has(idx) and not discarding and (phase == "build" or phase == "setup" or phase == "adventure" or G.get("gameOver") != null) and not playable.has(i) # fin de partie : plus rien de jouable, main grisee sous le voile (APK : etat du dernier RefreshCardsStatus, CardAttributesComponent.cs:92-96)
 		var gk := "%d:%s" % [i, str(card_dict.get("id", ""))]
@@ -2197,7 +2209,61 @@ func _boss_card_rect(d: int) -> Rect2:
 	var sz := BOSS_CARD * float(BOSS_SIDE_SCALE[k])
 	return Rect2(Vector2(PLAY_CX + signf(d) * float(BOSS_SIDE_X[k]) - sz.x / 2.0, BOSS_CENTER_Y - sz.y / 2.0), sz)
 
+## CardDetailEntity (CardCarrouselEntity.longTouch_TimeIsUp -> ShowModalScene, cs:200-213 ; CardDetailEntity.cs:62-139) : fond noir 0,7 en fondu de 0,1 s, la carte rejoint le centre a l'echelle 1,8
+## en 0,2 s (ui_button_select), cadre jaune ; un appui n'importe ou ou la fleche de retour la ramene a sa place en 0,2 s (ui_button_goback). Actif seulement une fois le boss retourne (EnableSelect).
+const BOSS_DETAIL_SIZE := Vector2(630, 878)      # carte de jeu 350 x 488 a l'echelle 1,8
+var _boss_detail: Control
+
+func _boss_detail_show(card: Control) -> void:
+	var ci := card as CardUI
+	if not _boss_ready or _boss_detail != null or ci == null or ci.card_dict.is_empty():
+		return
+	var layer := Control.new()
+	layer.size = Vector2(1920, 1080)
+	layer.z_index = 10
+	layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	_ui_layer.add_child(layer)
+	_boss_detail = layer
+	var back := _rect(layer, Color(0, 0, 0, 0.7), Vector2.ZERO, Vector2(1920, 1080))
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var det := UiKit.zoom_card(ci.card_dict, BOSS_DETAIL_SIZE, false, 0.0)
+	det.pivot_offset = det.size / 2.0
+	layer.add_child(det)
+	var from_rect := ci.get_global_rect()
+	var scale0 := from_rect.size.x / BOSS_DETAIL_SIZE.x
+	var home := from_rect.get_center() - det.size / 2.0
+	var mid := Vector2(960, 540) - det.size / 2.0
+	var bb := UiKit.texture_button(layer, "res://assets/ui/buttons/back_bt.webp", "res://assets/ui/buttons/back_bt_pressed.webp", Vector2(Vp.lx(240.0), 102), Vector2(200, 101)) # CreateEmptyBackButton(TopCardsLayer, 300, 150)
+	var close := func():
+		if _boss_detail != layer or layer.has_meta("closing"):
+			return
+		layer.set_meta("closing", true)
+		_play_sfx("res://assets/audio/sfx/ui_button_goback.wav")
+		var tw := layer.create_tween().set_parallel(true)
+		tw.tween_property(det, "position", home, 0.2)
+		tw.tween_property(det, "scale", Vector2.ONE * scale0, 0.2)
+		tw.tween_property(back, "modulate:a", 0.0, 0.1)
+		tw.chain().tween_callback(func():
+			if _boss_detail == layer:
+				_boss_detail = null
+			layer.queue_free())
+	layer.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			close.call())
+	bb.pressed.connect(close)
+	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
+	det.position = home
+	det.scale = Vector2.ONE * scale0
+	back.modulate.a = 0.0
+	var tw0 := layer.create_tween().set_parallel(true)
+	tw0.tween_property(det, "position", mid, 0.2)
+	tw0.tween_property(det, "scale", Vector2.ONE, 0.2)
+	tw0.tween_property(back, "modulate:a", 1.0, 0.1)
+
 func _boss_stop() -> void:
+	if _boss_detail != null and is_instance_valid(_boss_detail):
+		_boss_detail.queue_free()
+	_boss_detail = null
 	_boss_gen += 1
 	if _boss_tw != null:
 		_boss_tw.kill()
@@ -2232,6 +2298,8 @@ func _build_boss_carousel(G: Dictionary, my_moves: Array) -> void:
 		c.custom_minimum_size = Vector2.ZERO # la taille change avec la distance au centre
 		c.mouse_entered.disconnect(c._on_mouse_entered) # pas de zoom / premier plan au survol : l'ordre du carrousel prime
 		c.mouse_exited.disconnect(c._on_mouse_exited)
+		c.long_touch = true # le seul LongTouchBehavior de l'APK (CardCarrouselEntity.cs:124) : 1,0 s sans bouger ouvre le detail de la carte
+		c.long_pressed.connect(_boss_detail_show)
 		_boss_cards.append(c)
 	var n := pool.size()
 	_boss_sel = game_manager.rng.randi_range(0, n - 1)
@@ -2353,7 +2421,8 @@ func _boss_confirm() -> void:
 	_boss_ready = false # un seul appui / une seule minuterie compte
 	_do({"type": "pickBoss", "args": [_boss_pick_id]})
 
-func _input(event: InputEvent) -> void:
+func _input(raw_event: InputEvent) -> void:
+	var event := Vp.canvas_event(raw_event) # positions en repere F (la fenetre peut etre plus etroite que 1920, Vp.gd)
 	if not _tg("input", event):
 		return # tutoriel : une scene est affichee, le tap lui appartient (il ne doit ni fermer le zoom ni armer un glisser)
 	_warn_outside(event)
@@ -2377,7 +2446,7 @@ func _input(event: InputEvent) -> void:
 		_zoom_close() # relachement hors de la zone du zoom de pile
 	elif _zoom != null and event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (not stack_zoom or hit):
 		_zoom_press_ms = Time.get_ticks_msec()
-		_zoom_close() # le zoom de LEVEL UP part au clic suivant (le zoom d'appui long se ferme deja au relachement)
+		_zoom_close() # le zoom de LEVEL UP part au clic suivant
 		if hit:
 			get_viewport().set_input_as_handled() # le clic ne doit pas retomber sur l'emplacement dessous
 			_resolve_slot_ability(int(ab["di"]), ab["cands"])
@@ -3790,8 +3859,8 @@ func _option_label(opts: Array, i: int) -> String:
 	return "Choice %d" % (i + 1)
 
 ## Coups propres aux extensions du wiki (Minibosses, TNL...) : aucun equivalent APK. Les coups d'une carte de la main (DISCARD: +1 COIN,
-## capacites de main, poser un miniboss...) sont dans le menu de la carte (clic, voir _build_over_menu / _play_hand_menu) ; les sorts
-## (clic sur la carte) et les capacites de salle (clic sur la salle) n'ont pas de bouton. Les autres (boss, paiement, miniboss en place)
+## capacites de main, poser un miniboss...) se jouent en glissant la carte (voir _drag_end / _spell_drop / _play_hand_menu) ; les sorts
+## et les capacites de salle (clic sur la salle) n'ont pas de bouton. Les autres (boss, paiement, miniboss en place)
 ## tiennent derriere UN seul bouton « EXTRA MOVES » sous PASS TURN : aucune grille de boutons sur le donjon.
 func _refresh_extra_bar(G: Dictionary, my_moves: Array) -> void:
 	for c in extra_bar.get_children():
@@ -3805,7 +3874,7 @@ func _refresh_extra_bar(G: Dictionary, my_moves: Array) -> void:
 	var entries: Array = []
 	var hand: Array = ((G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("hand", [])
 	for m in my_moves:
-		if not (m is Dictionary) or str((m as Dictionary).get("type", "")) in CORE_MOVE_TYPES + HAND_CLICK_TYPES + ["activateRoom"] or hand_idx_of(m) >= 0:
+		if not (m is Dictionary) or str((m as Dictionary).get("type", "")) in CORE_MOVE_TYPES + HAND_PLAY_TYPES + ["activateRoom"] or hand_idx_of(m) >= 0:
 			continue
 		var mv := (m as Dictionary).duplicate()
 		entries.append({"label": _move_label(mv, G, hand), "cb": func(): _do(mv)})
@@ -3873,57 +3942,21 @@ func _do(move: Dictionary) -> void:
 	game_manager.apply_move(_my_pid(), move)
 	refresh() # toujours : ce qui reste a decider (nouveau choix) doit reapparaitre
 
-func _on_hand_card_clicked(idx: int, card: Dictionary) -> void:
-	if not _tg("tap", {"idx": idx, "card": card}):
-		return # tutoriel : seule la carte imposee reagit (CardExtractBehavior.cs:216)
-	if _is_opening_discard_for_me():
-		if discard_pick.has(idx):
-			discard_pick.erase(idx)
-			_play_sfx("ui_button_subselect") # CardSelectorComponent.cs:120-125 : une carte deselectionnee ne joue que subselect
-		else:
-			if discard_pick.size() >= 2:
-				discard_pick.remove_at(0) # la plus ancienne est remplacee (CardSelectorComponent.cs:128-134)
-				_play_sfx("ui_button_subselect")
-			discard_pick.append(idx)
-			_play_sfx("ui_button_select") # :135
-		refresh()
-		return
-	if _modal_open() or (_popup != null and is_instance_valid(_popup)) or not _tgt.is_empty():
-		return
-	var phase: String = game_manager.G.get("phase", "")
-	if (phase == "build" or phase == "setup") and card.get("isRoom", false):
-		var dungeon: Array = ((game_manager.G["players"] as Dictionary)[_my_pid()] as Dictionary).get("dungeon", [])
-		var target_slot := dungeon.size()
-		# Autres coups de cette salle en main (CRL007 Frostman Lander, DISCARD: +1 COIN des Minibosses...) : proposes avec les emplacements.
-		var uses := _hand_moves(idx)
-		# Plusieurs emplacements possibles (Boss.CanBuildRoom : n'importe quelle salle visible peut etre recouverte, meme hors donjon plein) :
-		# on demande lequel, l'emplacement libre compris ; un seul (fin de donjon) = pose directe.
-		var plain := {}
-		var over: Array = []
-		var builds: Array = _moves_of(game_manager.legal_moves(_my_pid()), "buildRoom").filter(func(m): return int(((m as Dictionary).get("args", [-1]) as Array)[0]) == idx)
-		if builds.is_empty() and uses.is_empty() and not bool(card.get("isMiniboss", false)): # limite de poses atteinte : la pose en attente est reprise, puis cette salle se pose (APK CheckMaxBuildRooms)
-			var undo: Dictionary = game_manager.pending_undo(_my_pid())
-			if not undo.is_empty():
-				_swap_idx = idx
-				_swap_until = Time.get_ticks_msec() + 3000
-				_do(undo) # en ligne la reprise n'est confirmee que par l'etat suivant : _swap_resume rejoue le clic alors
-				return
-		for m in _moves_of(game_manager.legal_moves(_my_pid()), "buildRoom"):
-			var a: Array = (m as Dictionary).get("args", [])
-			if a.is_empty() or int(a[0]) != idx:
-				continue
-			if a.size() > 1 and a[1] != null:
-				over.append(m)
-			else:
-				plain = m
-		if not over.is_empty() or not uses.is_empty():
-			_build_over_menu(card, over, plain, uses)
-			return
-		_play_sfx("ui_card_slide_down") # BuildRoomHandSceneBehavior.cs:182 -> FlipCardBehavior.cs:126 : la salle posee se retourne face cachee
-		if game_manager.build_room_at(_my_pid(), idx, target_slot):
-			refresh() # apply_move n'emet pas toujours state_changed en fin de coup (transition de phase)
+## Tap sur une carte de la main : seule la selection de defausse existe (CardSelectorComponent.TouchGestures_TouchTap, cs:101-108). Une carte de la main ne se joue
+## qu'en la glissant (CardExtractBehavior, cs:112-137) : voir _drag_begin / _drag_end.
+func _on_hand_card_tap(idx: int, card: Dictionary) -> void:
+	if not _is_opening_discard_for_me() or not _tg("tap", {"idx": idx, "card": card}):
+		return # tutoriel : seule la carte imposee reagit
+	if discard_pick.has(idx):
+		discard_pick.erase(idx)
+		_play_sfx("ui_button_subselect") # CardSelectorComponent.cs:120-125 : une carte deselectionnee ne joue que subselect
 	else:
-		_play_from_hand(idx)
+		if discard_pick.size() >= 2:
+			discard_pick.remove_at(0) # la plus ancienne est remplacee (CardSelectorComponent.cs:128-134)
+			_play_sfx("ui_button_subselect")
+		discard_pick.append(idx)
+		_play_sfx("ui_button_select") # :135
+	refresh()
 
 ## CardPositionComponent.Refresh (cs:73-100) : survoler une autre carte de la main joue ui_shuffle_left (indice plus grand, ou depuis « aucune ») ou _right ;
 ## quitter la main apres en avoir survole une joue ui_card_slide_general. L'evaluation est differee d'une image : sortir d'une carte et entrer dans la voisine est un seul changement.
@@ -3944,22 +3977,7 @@ func _hand_leave() -> void:
 		_play_sfx("ui_card_slide_general") # CardPositionComponent.cs:94-98
 		_hand_last = -1
 
-## Suite d'un clic sur une salle qui remplace la pose en attente : une fois la reprise visible dans l'etat, la salle se pose normalement.
-func _swap_resume() -> void:
-	if _swap_idx < 0:
-		return
-	var idx := _swap_idx
-	if Time.get_ticks_msec() > _swap_until:
-		_swap_idx = -1
-		return
-	if not game_manager.pending_undo(_my_pid()).is_empty():
-		return # pas encore confirmee (serveur)
-	_swap_idx = -1
-	var hand := _my_hand()
-	if idx < hand.size():
-		_on_hand_card_clicked(idx, hand[idx])
-
-## Clic sur une carte de la main hors construction : sort (build / aventure / pile) ou capacite jouable depuis la main.
+## Carte de la main lachee hors d'un emplacement : sort (build / aventure / pile) ou capacite jouable depuis la main.
 ## Un seul coup legal = joue direct ; plusieurs cibles = fenetre de ciblage au centre (comme la bulle d'ouverture).
 func _play_from_hand(idx: int) -> void:
 	var cands := _hand_moves(idx)
@@ -3970,36 +3988,6 @@ func _play_from_hand(idx: int) -> void:
 		return
 	var hand: Array = ((game_manager.G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("hand", [])
 	_play_hand_menu(hand[idx], cands)
-
-## Fenetre « construire par-dessus » : une entree par salle recouvrable (equivalent du glisser-deposer sur l'emplacement).
-## `plain` : le coup « emplacement libre » (fin de donjon) quand il est legal, propose en premier. `uses` : autres coups de la carte
-## (capacite de main, DISCARD: +1 COIN...), ajoutes en fin de liste ; l'entree unique est jouee directement.
-func _build_over_menu(card: Dictionary, over: Array, plain: Dictionary = {}, uses: Array = []) -> void:
-	var dungeon: Array = ((game_manager.G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("dungeon", [])
-	var entries: Array = []
-	var on_board := uses.is_empty() # avec d'autres coups, une liste : les entrees sans zone du plateau ne s'allument pas
-	if not plain.is_empty():
-		var pmv: Dictionary = plain.duplicate()
-		entries.append({"label": "NEW ROOM (FREE SLOT)", "mv": pmv, "spot": {"k": "free", "pid": _my_pid()} if on_board else {}, "cb": func():
-			_play_sfx("ui_card_slide_down") # BuildRoomHandSceneBehavior.cs:182
-			_do(pmv)})
-	for c in over:
-		var mv: Dictionary = (c as Dictionary).duplicate()
-		var ti := int((mv["args"] as Array)[1])
-		var host = BossEngine.active_room(dungeon[ti]) if ti >= 0 and ti < dungeon.size() else null
-		entries.append({"label": "ON %s" % (str((host as Dictionary).get("name", "Room %d" % (ti + 1))) if host != null else "Room %d" % (ti + 1)), "mv": mv,
-			"spot": {"k": "room", "pid": _my_pid(), "idx": ti} if on_board else {}, "cb": func():
-			_play_sfx("ui_card_slide_down") # BuildRoomHandSceneBehavior.cs:182
-			_do(mv)})
-	for u in uses:
-		entries.append(_hand_entry(card, u))
-	if entries.is_empty():
-		return
-	if entries.size() == 1: # un seul coup possible : on le joue directement
-		(entries[0]["cb"] as Callable).call()
-		return
-	_target_list("%s - build over a Room" % str(card.get("name", "")) if on_board else str(card.get("name", "")),
-		("Select a Room to build over" if plain.is_empty() else "Select a Room to build over, or the free slot") if on_board else "Build, or choose an action", entries, func(): _popup_close())
 
 ## Indice de la carte de la main a laquelle un coup est attache (construire, sort, capacites de main des extensions, defausse contre
 ## 1 piece...), -1 si le coup n'est lie a aucune carte de la main (boss, salle, paiement) : ceux-la vont dans le bouton EXTRA MOVES.
@@ -4025,7 +4013,7 @@ func _hand_moves(idx: int) -> Array:
 func _hand_entry(card: Dictionary, c: Dictionary) -> Dictionary:
 	var mv: Dictionary = c.duplicate()
 	var margs: Array = mv.get("args", [])
-	var is_spell: bool = str(mv.get("type", "")) in HAND_CLICK_TYPES
+	var is_spell: bool = str(mv.get("type", "")) in HAND_PLAY_TYPES
 	return {"label": _target_label(mv, card) if is_spell else _move_label(mv, game_manager.G, _my_hand()), "mv": mv,
 		"spot": _spot_of_target(margs[1] as Dictionary, _my_pid()) if is_spell and margs.size() > 1 and margs[1] is Dictionary else {}, "cb": func():
 		_do(mv)}
@@ -4141,7 +4129,7 @@ func _on_slot_activate(di: int) -> void:
 	for sl in _dungeon_slots:
 		if (sl as DungeonSlot).slot_index == di and not (sl as DungeonSlot).current_stack.is_empty():
 			cx = (sl as Control).get_global_rect().get_center().x
-	_zoom.position = Vector2(clampf(cx - _zoom.size.x / 2.0, 190.0, 1707.0 - _zoom.size.x), 295.0 if zs == 1.0 else 985.0 - _zoom.size.y)
+	_zoom.position = Vector2(clampf(cx - _zoom.size.x / 2.0, 190.0 + Vp.shift_left(), 1707.0 + Vp.shift_right() - _zoom.size.x), 295.0 if zs == 1.0 else 985.0 - _zoom.size.y)
 	_ui_layer.add_child(_zoom)
 	_zoom_appear()
 	hand_layer.modulate = Color(0.6, 0.6, 0.6)
@@ -4231,7 +4219,7 @@ func _on_pass_pressed() -> void:
 			refresh()
 
 # ---------------------------------------------------------------------------------------------------------------------
-# Interactions de l'APK : glisser-deposer, zoom d'appui long, pile de sorts, notices de l'adversaire, pioche, mise en garde, fin de partie
+# Interactions de l'APK : glisser-deposer, zoom au tap, pile de sorts, notices de l'adversaire, pioche, mise en garde, fin de partie
 # ---------------------------------------------------------------------------------------------------------------------
 
 func _can_drag() -> bool:
@@ -4241,6 +4229,8 @@ func _can_drag() -> bool:
 
 func _on_hand_press(card: Control, at: Vector2) -> void:
 	_press = {"card": card, "idx": (card as CardUI).hand_index, "pos": at}
+	if at.y < HAND_UPPER and _can_drag(): # CardExtractBehavior.Update : un doigt pose au-dessus de la limite extrait la carte tout de suite, sans mouvement
+		_drag_begin()
 
 ## Relachement jamais livre (pointeur sorti du canvas / fenetre perdue) : on abandonne l'appui pour que la main puisse se rafraichir.
 func _notification(what: int) -> void:
@@ -4299,7 +4289,7 @@ func _drag_begin() -> void:
 		_press_clear()
 		return
 	# APK (CardExtractBehavior.ExtractCard) : la carte tiree reprend l'echelle de la main (ToScale = NormalScale, rotation 0), cadre noir fin ;
-	# la grande apercu 350 x 490 est le zoom d'appui long, pas le glisser.
+	# la grande apercu 350 x 490 est le zoom de pile / de tap, pas le glisser.
 	var prev := UiKit.zoom_card(hand[idx], HAND_CARD, greyed, 4.0)
 	prev.modulate = Color(1, 1, 1, 0.96)
 	# X-P06, CardShadowBehavior.cs : card_shadow sous la carte, decalee de (40, 70) a l'echelle 0,5 (Lerp sur 0,37..0,5), opacite 0,75, meme echelle que la carte
@@ -4431,7 +4421,7 @@ func _drag_hover() -> void:
 func _challenger_glow(spot: Dictionary, red: bool, parent: Node) -> Control:
 	if str(spot.get("k", "")) != "player" or not foe_group.visible or int(spot.get("pid", -1)) != foe_pid:
 		return null
-	var g := _img(parent, UI_DIR + ("challenger_panel_selected_red.webp" if red else "challenger_panel_selected_yellow.webp"), Vector2(1693, 48), Vector2(229, 465.5))
+	var g := _img(parent, UI_DIR + ("challenger_panel_selected_red.webp" if red else "challenger_panel_selected_yellow.webp"), Vector2(Vp.rx(1693.0), 48), Vector2(229, 465.5))
 	g.name = "ChallengerGlow"
 	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if not skip_animations:
@@ -4489,6 +4479,8 @@ func _drag_end(pos: Vector2) -> void:
 						break
 			if target != null and _tg("drop", target) and target._can_drop_data(Vector2.ZERO, data):
 				target._drop_data(Vector2.ZERO, data)
+			elif target == null:
+				_spell_drop(idx, pos) # salle de la main qui se joue aussi comme un sort (CRL007 Frostman Lander) : lachee hors des emplacements
 		else:
 			_spell_drop(idx, pos)
 	refresh() # remet la main en place (carte revenue) quoi qu'il arrive
@@ -4509,7 +4501,9 @@ func _spell_drop(idx: int, pos: Vector2) -> void:
 			unspotted += 1
 			continue
 		var node := _spot_node(spot)
-		if node != null and _spot_rect(spot, node).has_point(pos):
+		if node == null:
+			unspotted += 1 # cible non affichee (adversaire hors ecran a 5-6 joueurs) : liste centrale comme les ames
+		elif _spot_rect(spot, node).has_point(pos):
 			hits.append(c)
 	if cands.size() == 1 and inside:
 		_do(cands[0])
@@ -4525,7 +4519,7 @@ func _spell_drop(idx: int, pos: Vector2) -> void:
 	elif unspotted > 0 and inside:
 		_play_from_hand(idx)
 
-## Zoom d'appui long (ou clic droit maintenu) : la carte en grand dans son cadre noir au-dessus de la main, le reste de la main s'assombrit.
+## Zoom d'un tap (heros de la ville, pile, notice) : la carte en grand dans son cadre noir au-dessus de la main, le reste de la main s'assombrit.
 func _zoom_show(card: Control) -> void:
 	var ci := card as CardUI
 	if ci == null or ci.card_dict.is_empty() or bool(ci.card_dict.get("faceDown", false)):
@@ -4533,7 +4527,7 @@ func _zoom_show(card: Control) -> void:
 	_zoom_hide()
 	var greyed: bool = ci.greyed
 	_zoom = UiKit.zoom_card(ci.card_dict, UiKit.ZOOM_CARD, greyed)
-	_zoom.position = Vector2(clampf(ci.get_global_rect().get_center().x - _zoom.size.x / 2.0, 190.0, 1707.0 - _zoom.size.x), 295.0) # APK : cadre noir de 350 x 490 dont le haut est a y ~295
+	_zoom.position = Vector2(clampf(ci.get_global_rect().get_center().x - _zoom.size.x / 2.0, 190.0 + Vp.shift_left(), 1707.0 + Vp.shift_right() - _zoom.size.x), 295.0) # APK : cadre noir de 350 x 490 dont le haut est a y ~295
 	_ui_layer.add_child(_zoom)
 	_zoom_appear()
 	hand_layer.modulate = Color(0.6, 0.6, 0.6)
@@ -4552,7 +4546,7 @@ func _zoom_appear() -> void:
 	tw.tween_property(_zoom, "scale", Vector2.ONE, 0.2)
 	tw.tween_property(_zoom, "modulate:a", 1.0, 0.2)
 
-## Fermeture voulue d'un zoom (relachement de l'appui long, clic suivant) : GamePlayBaseScene.cs:1265-1267 joue ui_card_slide_down ; _zoom_hide, lui, est silencieux (reconstruction, remplacement).
+## Fermeture voulue d'un zoom (clic suivant) : GamePlayBaseScene.cs:1265-1267 joue ui_card_slide_down ; _zoom_hide, lui, est silencieux (reconstruction, remplacement).
 func _zoom_close() -> void:
 	if _zoom != null and is_instance_valid(_zoom):
 		_play_sfx("ui_card_slide_down")
@@ -4797,7 +4791,7 @@ func _playing_bubble(pid: int, idx: int) -> Control:
 	var n := Control.new()
 	n.name = "IsPlaying%d" % pid
 	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	n.position = Vector2(1458, 63 + 138 * idx)
+	n.position = Vector2(Vp.rx(1458.0), 63 + 138 * idx)
 	n.size = Vector2(234, 136)
 	UiKit.image(n, UI_DIR + "action_bubble.webp", Vector2.ZERO, Vector2(234, 136))
 	UiKit.label(n, "   IS\nPLAYING!", 21, Color.WHITE, Vector2(-12, 56), 190.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # BubblesFactory.cs:20-23 (x -215, y -45, largeur 190)
@@ -4839,7 +4833,7 @@ func _show_notice(what: String, card = null, spot := {}, pid := -1, against := [
 	var n := Control.new()
 	n.name = "Notice"
 	n.mouse_filter = Control.MOUSE_FILTER_STOP if card is Dictionary else Control.MOUSE_FILTER_IGNORE
-	n.position = Vector2(1458, 63 + 138 * maxi(ids.find(pid), 0)) # APK : boite x 1458..1672, y 65..194, queue jusqu'a 1692 ; un panneau d'adversaire = 138 px (BubblesPlayerEmitter.cs:11,66)
+	n.position = Vector2(Vp.rx(1458.0), 63 + 138 * maxi(ids.find(pid), 0)) # BubbleEntity.cs:70-75 : bord droit # APK : boite x 1458..1672, y 65..194, queue jusqu'a 1692 ; un panneau d'adversaire = 138 px (BubblesPlayerEmitter.cs:11,66)
 	n.size = Vector2(234, 136)
 	if card is Dictionary:
 		n.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -5454,7 +5448,7 @@ func _zoom_stack_layout() -> void:
 
 ## Zoom d'une pile : cartes empilees verticalement autour de `center` (la premiere devant, a l'echelle 1,2), le reste depasse en dessous ; glisser / molette = defiler.
 ## Reste ouvert jusqu'a un appui hors de la zone (TouchOutBehavior).
-func _zoom_stack(cards: Array, center: Vector2, sz: Vector2, k: float) -> void:
+func _zoom_stack(cards: Array, center: Vector2, sz: Vector2, k: float, pad := UiKit.ZOOM_PAD) -> void:
 	_zoom_hide()
 	var root := Control.new()
 	root.name = "StackZoom"
@@ -5463,7 +5457,7 @@ func _zoom_stack(cards: Array, center: Vector2, sz: Vector2, k: float) -> void:
 	root.set_meta("levelup", true) # survit aux refresh jusqu'au clic suivant (_input)
 	root.set_meta("stack", {"idx": 0.0, "k": k, "rect": Rect2(center - Vector2(200, 300) * k, Vector2(400, 600) * k)}) # collider 400 x 600 de SlotDetailEntity ; k = echelle de l'entite x 1,3 (AppearBehavior)
 	for c in cards:
-		var z := UiKit.zoom_card(c, sz)
+		var z := UiKit.zoom_card(c, sz, false, pad)
 		z.pivot_offset = z.size / 2.0
 		root.add_child(z)
 	_zoom = root
@@ -5542,11 +5536,12 @@ func _slot_zoom(pid: int, di: int, cands := []) -> void:
 	var at := Vector2(960.0, 500.0)
 	if j < slots.size():
 		at = (slots[j] as Control).get_global_rect().get_center()
-	var sz := UiKit.ZOOM_CARD * 1.3 # AppearBehavior : le conteneur passe a 1,3 (entite a l'echelle 1, cartes a 1) ; frame APK tap_own_dungeon_room : carte du dessus 550 px de large
-	var half := sz.x * 0.6 + UiKit.ZOOM_PAD
-	_zoom_stack(cards, Vector2(clampf(at.x, 190.0 + half, 1707.0 - half), clampf(at.y, 400.0, 600.0)), sz, 1.3)
+	var sz := UiKit.ZOOM_CARD * 1.3 # AppearBehavior : le conteneur passe a 1,3 (entite a l'echelle 1, cartes a 1) : carte ET cadre noir (pad) x 1,3 ; frame APK tap_own_dungeon_room : cadre noir du dessus 550 x 771
+	var pad := UiKit.ZOOM_PAD * 1.3
+	var half := (sz.x + pad * 2.0) * 0.6 # moitie de la largeur de la carte du dessus (echelle 1,2 dans la pile)
+	_zoom_stack(cards, Vector2(clampf(at.x, 190.0 + half, 1707.0 - half), clampf(at.y, 400.0, 600.0)), sz, 1.3, pad)
 	if not cands.is_empty():
-		_zoom_ability(_zoom.get_child(0), sz, UiKit.ZOOM_PAD, di, cands)
+		_zoom_ability(_zoom.get_child(0), sz, pad, di, cands)
 
 ## Clic sur le boss d'un couloir (DungeonFrameEntity.cs:269 -> GamePlayBaseScene.ShowZoomCard, cs:1221-1244) : sa carte x1,3, bord droit a 1730 ; avec des sorts gardes
 ## jusqu'a la fin de la partie (Boss.UntilEndOfTurnSpells) : pile boss + sorts a 0,8.
@@ -5562,12 +5557,13 @@ func _boss_zoom(lane: int) -> void:
 	var bottom: float = BOSS_ZOOM_BOTTOM[lane]
 	if cards.size() > 1:
 		var sz := UiKit.ZOOM_CARD * 0.832 # 1,3 (Appear) x 0,8 (entite) x 0,8 (cartes creees a maxScale, CardZoomComponent.cs:40)
-		_zoom_stack(cards, Vector2(1730.0 - sz.x * 0.6 - UiKit.ZOOM_PAD, bottom - 316.0 - (100.0 if lane == 1 else 0.0)), sz, 1.04)
+		var pad := UiKit.ZOOM_PAD * 0.832
+		_zoom_stack(cards, Vector2(1730.0 - sz.x * 0.6 - pad, bottom - 316.0 - (100.0 if lane == 1 else 0.0)), sz, 1.04, pad)
 		return
 	_zoom_hide()
-	_zoom = UiKit.zoom_card(boss, UiKit.ZOOM_CARD * 1.3)
+	_zoom = UiKit.zoom_card(boss, UiKit.ZOOM_CARD * 1.3, false, UiKit.ZOOM_PAD * 1.3) # cadre noir x 1,3 comme la carte (frame APK levelup_button_tap : 457 de large, bord droit 1733)
 	_zoom.set_meta("levelup", true)
-	_zoom.position = Vector2(1730.0 - _zoom.size.x, bottom - _zoom.size.y)
+	_zoom.position = Vector2(Vp.rx(1730.0) - _zoom.size.x, bottom - _zoom.size.y) # BaseZoomComponent : bord droit
 	_ui_layer.add_child(_zoom)
 	_zoom_appear()
 
@@ -5585,7 +5581,7 @@ func _queue_clicked(lane: int, ents: Array) -> void:
 		_slide_hide()
 	else:
 		_zoom_hide()
-		_zoom = UiKit.zoom_card(heroes[0], UiKit.ZOOM_CARD * 1.3)
+		_zoom = UiKit.zoom_card(heroes[0], UiKit.ZOOM_CARD * 1.3, false, UiKit.ZOOM_PAD * 1.3)
 		_zoom.set_meta("levelup", true)
 		_zoom.position = Vector2(STACK_CX, 498.0) - _zoom.size / 2.0
 		_ui_layer.add_child(_zoom)

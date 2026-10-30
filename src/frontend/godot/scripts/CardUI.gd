@@ -8,8 +8,7 @@ const CardData = preload("res://godot/scripts/CardData.gd")
 signal card_clicked(card_data: CardData)
 signal card_hovered(card_data: CardData, is_hovered: bool)
 signal press_started(card: Control, at: Vector2) ## bouton gauche enfonce sur la carte (BoardUI arme le glisser-deposer)
-signal long_pressed(card: Control)        ## appui long (~0,8 s sans bouger) ou clic droit maintenu : zoom de la carte
-signal long_released(card: Control)       ## fin du maintien : le zoom se ferme
+signal long_pressed(card: Control)        ## appui long de 1,0 s sans aucun mouvement (LongTouchBehavior) ; seulement si `long_touch` (carrousel du choix du boss)
 
 @export var default_size := Vector2(140, 200)
 @export var hover_scale := 1.2 # CardPositionComponent.cs:35 (SelectedScale 1,2)
@@ -25,8 +24,12 @@ var is_in_hand: bool = true
 @onready var border: ReferenceRect = $Border
 @onready var glow_rect: TextureRect = get_node_or_null("GlowRect")
 
-const LONG_PRESS_TIME := 1.0             # APK : appui long 1,0 s (CardCarrouselEntity.cs:124, LongTouchBehavior) ; CLICK_SLOP : en dessous, c'est un clic (au relachement)
+const LONG_PRESS_TIME := 1.0             # APK : LongTouchBehavior 1,0 s (CardCarrouselEntity.cs:124), annule par TOUT TouchMoved ; CLICK_SLOP : seulement la tolerance du clic (TouchTap) au relachement
 const CLICK_SLOP := 12.0
+
+## Appui long : l'APK n'en a qu'un, sur le carrousel du choix du boss (le seul CardCarrouselEntity, RandomBossSelectionScene.cs:70) ; BoardUI l'active sur ces cartes seulement.
+var long_touch := false
+var _lt_moved := false
 
 var suppress_click := false               # BoardUI l'active quand un glisser a commence : le relachement n'est pas un clic
 var _pressed := false
@@ -294,9 +297,9 @@ func set_hovered(on: bool) -> void:
 
 func _hover_in() -> void:
 	z_index = 20
-	if glow_rect:
+	if glow_rect and not is_in_hand: # la carte tenue de la main n'a pas de liseré or dans l'APK (cadre noir de la carte seul : frames longpress_*, drag_*_hovered)
 		glow_rect.visible = true
-	if border:
+	if border and not is_in_hand:
 		border.border_color = Color(1.0, 0.85, 0.2, 1.0)
 	lerp_vers(self, "scale", _rest_scale * hover_scale)
 	card_hovered.emit(card_data, true)
@@ -317,42 +320,36 @@ func _on_gui_input(event: InputEvent) -> void:
 	if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
 		_pressed = true
 		_long = false
+		_lt_moved = false
 		suppress_click = false
 		_press_pos = mb.global_position
 		_press_id += 1
 		set_process_input(true)
 		press_started.emit(self, _press_pos)
-		var id := _press_id
-		get_tree().create_timer(LONG_PRESS_TIME).timeout.connect(func():
-			if _pressed and id == _press_id and not suppress_click and not _long:
-				_long = true
-				long_pressed.emit(self))
-	elif mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed and not _long and not _pressed:
-		_long = true
-		set_process_input(true)
-		long_pressed.emit(self)
+		if long_touch:
+			var id := _press_id
+			get_tree().create_timer(LONG_PRESS_TIME).timeout.connect(func():
+				if _pressed and id == _press_id and not _lt_moved and not suppress_click and not _long:
+					_long = true
+					long_pressed.emit(self))
 
 ## Relachement ou deplacement vus meme hors de la carte (le glisser la quitte) : un clic = relachement sans glisser ni appui long.
 func _input(event: InputEvent) -> void:
-	if not _pressed and not _long:
+	if not _pressed:
 		set_process_input(false)
 		return
 	if event is InputEventMouseMotion:
-		if _pressed and (event as InputEventMouseMotion).global_position.distance_to(_press_pos) >= CLICK_SLOP:
+		var mm := event as InputEventMouseMotion
+		if mm.relative != Vector2.ZERO:
+			_lt_moved = true # LongTouchBehavior.TouchGestures_TouchMoved : n'importe quel mouvement remet le compte a zero, sans tolerance
+		if Vp.to_canvas(mm.global_position).distance_to(_press_pos) >= CLICK_SLOP: # _press_pos vient d'un _gui_input (repere F)
 			suppress_click = true
-	elif event is InputEventMouseButton and not (event as InputEventMouseButton).pressed:
+	elif event is InputEventMouseButton and not (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT and _pressed:
-			var was_long := _long
-			var moved := mb.global_position.distance_to(_press_pos) >= CLICK_SLOP
-			_pressed = false
-			_long = false
-			set_process_input(false)
-			if was_long:
-				long_released.emit(self)
-			elif not suppress_click and not moved:
-				card_clicked.emit(card_data)
-		elif mb.button_index == MOUSE_BUTTON_RIGHT and _long and not _pressed:
-			_long = false
-			set_process_input(false)
-			long_released.emit(self)
+		var was_long := _long
+		var moved := Vp.to_canvas(mb.global_position).distance_to(_press_pos) >= CLICK_SLOP
+		_pressed = false
+		_long = false
+		set_process_input(false)
+		if not was_long and not suppress_click and not moved: # le tap qui suit un appui long est ignore (CardCarrouselEntity.cs:131)
+			card_clicked.emit(card_data)
