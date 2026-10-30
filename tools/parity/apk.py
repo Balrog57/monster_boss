@@ -2,6 +2,7 @@
 """Parite Godot <-> APK ORIGINALE (oracle = DBMGame.dll 2.2.6 headless, tools/apk-oracle).
 
   python tools/parity/apk.py [--seeds 1 2 3] [--players 2 3] [--decks BaseDeck,PlayerChoice] [--skip-gen] [--ai-agreement]
+  python tools/parity/apk.py --tutorial [--waves 1 2 3] [--tut-turns 4] [--ai-agreement]   # tutoriel de l'APK (lot L8), voir tutorial_main
 
 1. genere les traces oracle (seeds x joueurs) dans tools/parity/out/apk/ (ou $APK_PARITY_OUT)
 2. Godot (ApkParity.tscn) rejoue chaque trace (aucune aide) et enregistre sa projection
@@ -437,6 +438,137 @@ def load(path):
         return json.load(f)
 
 
+# --- tutoriel de l'APK (lot L8, T-A07 / T-A31) ------------------------------------------------------------------------
+# Oracle : `--tutorial` = GameBoardExtensions.InitializeGameBoardTutorial (graine 2832, pioches imposees, BMA003 contre BMA006), humain scripte
+# (tools/apk-oracle/TutorialHumanBrain.cs : defausse BMA026+BMA055, salles BMA034 / BMA016 / BMA027, capacite de BMA027, sort BMA041 sur BMA068), IA = FixedAI.
+# `--seed` = graine de WaveServices.Random (decisions de StatisticAI) : la trace doit en etre independante (voir `waves`).
+# Godot : (1) rejeu de la trace par ApkParity (regles : humain et IA rejoues), (2) TutParity : MEME partie jouee par Godot lui-meme (start_tutorial, humain scripte,
+# IA du siege 2 = AI.pick_move) comparee aux points de controle de l'oracle, (3) avec --ai-agreement : accord de l'IA Godot sur les decisions du siege 2.
+
+def tutorial_generate(waves, turns):
+    os.makedirs(OUT, exist_ok=True)
+    for f in os.listdir(OUT):
+        if re.match(r"^(oracle|gd-|init-|tut-).*\.json$|^report\.json$", f):
+            os.unlink(os.path.join(OUT, f))
+    names = []
+    for w in waves:
+        name = f"oracle-tut-w{w}.json"
+        r = subprocess.run(["dotnet", "run", "--project", "tools/apk-oracle", "-v", "q", "--", "--tutorial", "--seed", str(w), "--max-turns", str(turns), "--out", os.path.join(OUT, name)],
+                           cwd=REPO, capture_output=True, text=True, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL)
+        if not os.path.exists(os.path.join(OUT, name)):
+            sys.exit(f"[apk-parity] oracle {name} ECHEC\n{(r.stdout + r.stderr).strip()}")
+        names.append(name)
+    return names
+
+
+def run_tut_parity():
+    p = subprocess.Popen([godot_exe(), "--headless", "--path", os.path.join(REPO, "src", "frontend"), "res://godot/tests/TutParity.tscn", "--",
+                          "--traces=" + OUT.replace("\\", "/")], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+    try:
+        raw, _ = p.communicate(timeout=600)
+    except subprocess.TimeoutExpired:
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(p.pid)], capture_output=True)
+        else:
+            p.kill()
+        raw, _ = p.communicate()
+    out = raw.decode("utf-8", errors="replace")
+    if "TUT PARITY OK" not in out:
+        print("[apk-parity] TutParity Godot a echoue :", file=sys.stderr)
+        print("\n".join([l for l in out.splitlines() if re.search(r"ERROR|SCRIPT|FAIL", l)][:20]) or out[-2000:], file=sys.stderr)
+        sys.exit(1)
+    return [l for l in out.splitlines() if "stuck" in l]
+
+
+def oracle_actions(trace):
+    """Actions du jeu (buildRoom / playRoomAbility / playSpell) par siege : [genre, carte, tour] dans l'ordre de l'oracle."""
+    out = {"1": [], "2": []}
+    for s in trace["steps"]:
+        d = s.get("detail") or {}
+        a = d.get("action")
+        if s["kind"] == "action" and a in ("buildRoom", "playRoomAbility", "playSpell"):
+            card = (d.get("room") or d.get("spell"))["card"]
+            out[str(d["player"])].append([a, card, s["turn"]])
+    return out
+
+
+def godot_actions(tut):
+    out = {"1": [], "2": []}
+    for pid, mtype, card, turn in tut["live"]["moves"]:
+        out[str(pid)].append([{"activateRoom": "playRoomAbility"}.get(mtype, mtype), card, max(0, turn)])
+    return out
+
+
+def compare_tut_live(trace, tut):
+    """Points de controle du tutoriel joue par Godot (debut de tour, leurre) + journal des actions, contre l'oracle."""
+    live = tut["live"]
+    diffs, checks = [], 0
+    last = trace["turns"] - 2  # Godot s'arrete au debut du dernier tour (turnstart:turns-1) : actions et leurres comparables jusqu'au tour `last`
+    steps = trace["steps"]
+    for i, s in enumerate(steps):
+        kind = check_kind(steps, i)
+        if kind not in ("turnstart", "bait") or s["turn"] > last + (1 if kind == "turnstart" else 0):
+            continue
+        g = live["snaps"].get(f"{kind}:{s['turn']}")
+        checks += 1
+        d = diff_proj(oracle_proj(s, trace), g, kind) if g else [{"field": "(point non atteint par Godot)", "oracle": None, "godot": None}]
+        for x in d:
+            diffs.append({"check": f"{kind}:{s['turn']}", "field": x["field"], "oracle": x["oracle"], "godot": x["godot"]})
+    oa, ga = oracle_actions(trace), godot_actions(tut)
+    for pid in ("1", "2"):
+        o = [x for x in oa[pid] if x[2] <= last]
+        g = [x for x in ga[pid] if x[2] <= last]
+        checks += 1
+        if o != g:
+            diffs.append({"check": f"actions:P{pid}", "field": "actions", "oracle": o, "godot": g})
+    return {"checks": checks, "diffs": diffs}
+
+
+def tutorial_main(a):
+    global OUT
+    OUT = OUT + "-tut"
+    names = sorted(f for f in os.listdir(OUT) if re.match(r"^oracle-tut-.*\.json$", f)) if a.skip_gen and os.path.isdir(OUT) else tutorial_generate(a.waves, a.tut_turns)
+    run_godot(a.ai_agreement)
+    stuck = run_tut_parity()
+    rows = []
+    sig = {}
+    for n in names:  # WaveServices.Random : la trace de l'APK (hors graine) est-elle independante du hasard de l'IA ?
+        t = load(os.path.join(OUT, n))
+        sig.setdefault(json.dumps([t["initial"], t["steps"]], sort_keys=True), []).append(t["meta"]["seed"])
+    for n in names:
+        t = load(os.path.join(OUT, n))
+        tid = re.sub(r"^oracle-", "", n)
+        replay = compare_trace(t, load(os.path.join(OUT, "gd-" + tid)))
+        tut = load(os.path.join(OUT, tid))
+        t["_name"] = n
+        init = compare_init(t, tut["init"])
+        live = compare_tut_live(t, tut)
+        rows.append((tid, replay, init, live, replay["status"] == "OK" and init["ok"] and not live["diffs"]))
+    print()
+    print("trace          rejeu ok/total refus   init           live ok/total   statut")
+    for tid, replay, init, live, ok in rows:
+        print(f"{tid:<14} {replay['matched']:>4}/{replay['checks']:<5} {replay['refusCount']:>5}   {'identique' if init['ok'] else 'ECART ' + ','.join(init['diffs']):<13}  {live['checks'] - len(live['diffs']):>4}/{live['checks']:<8}  {'OK' if ok else 'ECART'}")
+        for d in live["diffs"][:6]:
+            print(f"    live {d['check']} {d['field']} oracle={fmt(d['oracle'])} godot={fmt(d['godot'])}")
+        if replay["firstDivergence"]:
+            d = replay["firstDivergence"]
+            print(f"    rejeu seq {d['seq']} {d['field']} oracle={fmt(d['oracle'])} godot={fmt(d['godot'])}")
+    print(f"[apk-parity] tutoriel : {len(names)} graine(s) de WaveServices.Random, {len(sig)} trace(s) distincte(s) de l'oracle (1 = l'IA scriptee de l'APK ne depend pas de son hasard)")
+    for line in stuck:
+        print("[apk-parity] " + line)
+    ok_all = all(r[4] for r in rows)
+    if a.ai_agreement:
+        traces = []
+        for n in names:
+            gd = load(os.path.join(OUT, "gd-" + re.sub(r"^oracle-", "", n)))
+            traces.append({"trace": re.sub(r"^oracle-|\.json$", "", n), "aiAgreement": gd.get("aiAgreement")})
+        ag = aggregate_ai(traces)
+        print_ai(ag, traces)
+        ok_all = ok_all and ag["mutations"] == 0 and ag["types"]["usableSet"]["agree"] == ag["types"]["usableSet"]["n"]
+    print(f"APK TUTORIAL RAPPORT: {sum(1 for r in rows if r[4])}/{len(rows)} traces OK")
+    return 0 if ok_all and not stuck else 1
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--seeds", type=int, nargs="+", default=[1, 2, 3])
@@ -444,8 +576,13 @@ def main():
     ap.add_argument("--decks", default="BaseDeck")
     ap.add_argument("--skip-gen", action="store_true")
     ap.add_argument("--no-init-parity", action="store_true", help="saute la parite d'initialisation (meme graine : pioches, mains d'ouverture, boss ; report.json `initParity`)")
+    ap.add_argument("--tutorial", action="store_true", help="lot L8 : tutoriel de l'APK (InitializeGameBoardTutorial + FixedAI), voir tutorial_main")
+    ap.add_argument("--waves", type=int, nargs="+", default=[1, 2, 3], help="--tutorial : graines de WaveServices.Random de l'oracle")
+    ap.add_argument("--tut-turns", type=int, default=4, help="--tutorial : nombre de tours joues")
     ap.add_argument("--ai-agreement", action="store_true", help="lot 1.2 : accord de l'IA Godot (AI.gd) avec l'IA oracle, par type de coup (report.json `aiAgreement`)")
     a = ap.parse_args()
+    if a.tutorial:
+        return tutorial_main(a)
     if a.skip_gen:
         names = sorted(f for f in os.listdir(OUT) if re.match(r"^oracle-.*\.json$", f))
     else:

@@ -4589,10 +4589,35 @@ func _tut_scene(ov, typing := false) -> Array:
 			if lb != null:
 				_check(lb.get_minimum_size().y <= lb.size.y + 1.0 and lb.position.x >= 0.0 and lb.position.x + lb.size.x <= 1920.0 and lb.position.y >= 0.0, "tutoriel : le texte deborde de sa bulle (%s, %s)" % [lb.get_minimum_size(), Rect2(lb.position, lb.size)])
 			seen.append(_tut_text(ov))
-		await _click_at(Vector2(960, 540))
+			await _tut_tap_rules(ov, sc)
+		await _tut_tap()
 		await _tut_pump(ov, 0.1)
 	_check(not is_instance_valid(ov) or ov._scene == null or ov._scene.get_instance_id() != sc, "tutoriel : la scene ne se ferme pas par des taps (%s)" % str(seen))
 	return seen
+
+## T-B33 : la scene attend un tap ; seul un appui dans le rectangle 1440 x 1080 de l'APK (x de 240 a 1680 en repere F), sans glissement de plus de 10 unites, la fait avancer (backTouch de TutorialBaseScene).
+## Tap dans la bande de gauche / de droite, et glissement de 30 unites : rien ne bouge. L'etat compare : scene, texte, attente de tap.
+func _tut_tap_rules(ov, sc: int) -> void:
+	var before := [sc, _tut_text(ov), ov._tap_wait]
+	var probes := {
+		"bande gauche": [Vector2(140, 540), Vector2(140, 540)],
+		"bande droite": [Vector2(1780, 540), Vector2(1780, 540)],
+		"glissement de 30": [Vector2(960, 540), Vector2(990, 540)],
+	}
+	for k in probes:
+		await _mouse(probes[k][0], true, false)
+		if probes[k][1] != probes[k][0]:
+			await _mouse(probes[k][1], false, true, MOUSE_BUTTON_MASK_LEFT)
+		await _mouse(probes[k][1], false, false)
+		var now := [ov._scene.get_instance_id() if is_instance_valid(ov) and ov._scene != null else 0, _tut_text(ov) if is_instance_valid(ov) else "", ov._tap_wait if is_instance_valid(ov) else false]
+		if not _check(now == before, "tutoriel : %s ne doit rien faire avancer (%s -> %s)" % [k, str(before), str(now)]):
+			return
+
+## Tap de la boucle : l'appui bouge de 5 unites (< TapThreshold 10) et doit rester un tap, sinon les scenes ne se ferment plus.
+func _tut_tap() -> void:
+	await _mouse(Vector2(960, 540), true, false)
+	await _mouse(Vector2(965, 540), false, true, MOUSE_BUTTON_MASK_LEFT)
+	await _mouse(Vector2(965, 540), false, false)
 
 func _tut_card_node(idx: int) -> CardUI:
 	for c in board.hand_layer.get_children():
@@ -4816,6 +4841,9 @@ func _tut_play(main) -> void:
 	var seen_order: Array = texts.keys().filter(func(k): return order.has(k))
 	_check(seen_order == order, "tutoriel : ordre des etapes %s au lieu de %s" % [str(seen_order), str(order)])
 	_check(not is_instance_valid(ov), "tutoriel : la surcouche reste apres le LEVEL UP")
+	# T-A07 / T-A31 : la partie reelle (graine 2832 + FixedAI) suit le deroule de l'APK, aucun saut defensif ne doit etre declenche
+	print("UISMOKE tutoriel : sauts defensifs = %d %s" % [TutorialScript.skips.size(), str(TutorialScript.skips)])
+	_check(TutorialScript.skips.is_empty(), "tutoriel : sauts defensifs declenches %s" % str(TutorialScript.skips))
 	_check(gm.G.get("gameOver") != null or int(gm.G.get("turn", 0)) > int(probed.get("turn_end", 99)), "tutoriel : la partie ne continue pas apres le LEVEL UP (tour %s)" % gm.G.get("turn"))
 	_check(not board.tutorial_gate.is_valid() and board._tg("run") == true, "tutoriel : la garde reste apres le LEVEL UP")
 
@@ -4890,6 +4918,9 @@ func _tut_forced(ov, fid: String, probed: Dictionary) -> void:
 		await _tut_click_card(other)
 		# I-05 : un clic ne joue rien ; le rappel (InvalidCardPlayed) vient de l'extraction de la mauvaise carte, testee juste apres par le glisser
 		_check(board._popup_kind == "" and board._tgt.is_empty() and hand.size() == n_hand, "tutoriel : %s : un clic sur une autre carte ne joue rien" % key)
+		if not spell:
+			# CardExtractBehavior.Update (cs:178-182, 216, 231) : ExtractCard n'est appele que doigt au-dessus de y 797 ; un clic (y > 797, cartes au repos des y 843) ne rappelle rien, le rappel vient du doigt qui monte (glisser, juste apres)
+			_check(ov._scene == null, "tutoriel : %s : un clic sous la limite de la main (y 797) ne doit pas rappeler la consigne" % key)
 		if ov._scene != null:
 			await _tut_scene(ov)
 		await _tut_drag(other, to)
@@ -4920,6 +4951,10 @@ func _tut_forced(ov, fid: String, probed: Dictionary) -> void:
 				_check(seen3 == [want], "tutoriel : %s : rappel p27 %s" % [key, str(seen3)])
 		return
 	var n0 := hand.size()
+	if spell: # MyHand_CardDropped + FindTargetByPosition : lache hors de la main mais loin du heros, le sort ne se joue pas (cs:51-79)
+		await _tut_drag(fi, Vector2(1300, 330))
+		await _tut_pump(ov, 0.2)
+		_check(ov._hand_idx(fid) >= 0 and (G.get("stack", []) as Array).is_empty(), "tutoriel : %s : le sort lache loin du heros ne doit pas se jouer" % key)
 	await _tut_drag(fi, to)
 	await _tut_pump(ov, 0.2)
 	if spell:
@@ -4932,6 +4967,15 @@ func _tut_hit(ov, probed: Dictionary) -> void:
 	var G: Dictionary = gm.G
 	if not probed.has("hit"):
 		probed["hit"] = true
+		var hfx: Array = _emitting(board._lane[1]["root"]) # tut_75..82 : particules dorees autour de la carte du heros (HeroesQueueComponent.cs:105-107, 142-145)
+		_check(hfx.size() == 1 and (hfx[0] as Node).name == "HeroFx", "tutoriel : le heros de l'aventure doit emettre des particules (%d emetteur(s))" % hfx.size())
+		# menu pause ouvert : la scene de base est en pause (GamePlayTutScene.cs:121-128), la minuterie du rappel ne court pas et aucune scene ne s'ouvre
+		board._open_game_menu()
+		var hold0: float = ov._hold_t
+		await _tut_pump(ov, TutorialScript.NAG + 1.0)
+		_check(board._modal_open() and ov._scene == null and is_equal_approx(ov._hold_t, hold0), "tutoriel : sous le menu pause la minuterie du rappel court encore (%s -> %s, scene %s)" % [hold0, ov._hold_t, ov._scene != null])
+		board._close_menu()
+		await _tut_pump(ov, 0.1)
 		var adv0: Dictionary = (G["adventure"] as Dictionary).duplicate()
 		adv0.erase("hero")
 		await _tut_pump(ov, TutorialScript.NAG - 1.0)
@@ -4956,6 +5000,12 @@ func _tut_hit(ov, probed: Dictionary) -> void:
 		return
 	var seen2 := await _tut_scene(ov)
 	_check(seen2 == TutorialScript.TEXT["page24"], "tutoriel : p24 %s" % str(seen2))
+	# OnRoomDetailShow verrouille CardDetailBehavior (BaseZoomComponent.cs:115) : un toucher hors du zoom ne le ferme pas, seule la capacite le fait
+	await _click_at(Vector2(1500, 600))
+	await _tut_pump(ov, 0.2)
+	_check(board._zoom != null and is_instance_valid(board._zoom), "tutoriel : apres p24 le zoom de la salle doit rester ouvert (verrouille) apres un toucher ailleurs")
+	if board._zoom == null:
+		return
 	var ab: Rect2 = board._zoom.get_meta("ability")["rect"]
 	await _click_at(board._zoom.get_global_transform() * ab.get_center())
 	await _tut_pump(ov, 0.3)

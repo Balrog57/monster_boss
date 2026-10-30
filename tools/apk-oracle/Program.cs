@@ -18,6 +18,7 @@ static class Program
     {
         int seed = 1, players = 2, maxTurns = 2000;
         string outPath = null, decksArg = "BaseDeck";
+        bool tutorial = false; // --tutorial : plateau du tutoriel de l'APK (InitializeGameBoardTutorial), humain scripte (TutorialHumanBrain) ; --seed = graine de WaveServices.Random seulement
         for (int i = 0; i < args.Length; i++)
         {
             switch (args[i])
@@ -26,6 +27,7 @@ static class Program
                 case "--players": players = int.Parse(args[++i]); break;
                 case "--out": outPath = args[++i]; break;
                 case "--decks": decksArg = args[++i]; break; // ex: BaseDeck,PlayerChoice,HiddenHeros
+                case "--tutorial": tutorial = true; players = 2; break;
                 case "--max-turns": maxTurns = int.Parse(args[++i]); break;
                 default: Console.Error.WriteLine("arg inconnu " + args[i]); return 2;
             }
@@ -55,8 +57,8 @@ static class Program
         var core = device.GetProperty("Core", any).GetValue(null);
         core.GetType().GetMethod("Initialize", new[] { typeof(string) }).Invoke(core, new[] { insights.GetType("Xamarin.Insights").GetField("DebugModeKey", any).GetValue(null) });
         var decks = decksArg.Split(',').Select(d => Enum.Parse<GameDecks>(d.Trim())).ToList();
-        var board = Boot(repo, seed, players, decks);
-        var trace = new Trace(board, seed, players, decks);
+        var board = Boot(repo, seed, players, decks, tutorial);
+        var trace = new Trace(board, seed, players, decks, tutorial);
         TracingAI.Trace = trace;
         var result = Play(board, trace, maxTurns);
 
@@ -67,7 +69,7 @@ static class Program
     }
 
     // Reproduit GameFlowTestService.Initialize() (service de test de l'APK), mais avec nos services Wave.
-    static GameBoard Boot(string repo, int seed, int players, List<GameDecks> decks)
+    static GameBoard Boot(string repo, int seed, int players, List<GameDecks> decks, bool tutorial)
     {
         // RNG #1 : WaveServices.Random (xorshift de WaveEngine) sert a toutes les decisions de StatisticAI.
         // Le ctor est internal et seede sur Environment.TickCount : on l'appelle par reflexion avec notre graine.
@@ -109,10 +111,19 @@ static class Program
         }
 
         // RNG #2 : RandomProvider (DBMRandom = clone de System.Random) -> melanges des decks et Shuffle() de l'IA.
-        RandomProvider.Seed = seed;
+        // Tutoriel : GamePlayTutScene.InitializeGameboard appelle SetNewRandomSeed() puis InitializeGameBoardTutorial() fixe RandomProvider.Seed = 2832 (GameBoardExtensions.cs:25).
+        RandomProvider.Seed = tutorial ? 2832 : seed;
         // rndSeed (Shuffle(useSharedRandom:false)) est initialise sur Environment.TickCount : on le fixe.
         typeof(RandomProvider).GetField("rndSeed", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, new DBMRandom(seed ^ 0x5eed));
 
+        if (tutorial)
+        {
+            var tut = new GameBoard();
+            tut.InitializeGameBoardTutorial(); // humain BMA003 (PlayerId 1), IA BMA006 (PlayerId 2, FixedAI), pioches imposees (PrioritizeQueueCards)
+            tut.Players[0].PlayerInteraction = new TracingAI(tut, tut.Players[0], new TutorialHumanBrain());
+            tut.Players[1].PlayerInteraction = new TracingAI(tut, tut.Players[1], new TracingBrain());
+            return tut;
+        }
         var cards = WaveServices.GetService<CardInfoService>().GetCardInfoFromDeck(decks);
         var board = new GameBoard();
         board.InititalizeGameBoard(players, new List<BossInfo>(), cards); // tous les boss sont IA

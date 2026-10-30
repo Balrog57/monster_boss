@@ -4,9 +4,10 @@ extends Control
 ##
 ## Chaque scene de l'APK est une scene modale (TutorialBaseScene) posee sur le jeu fige : voile mascara_black, bulle (BalloonEntity), mains hand.webp qui
 ## tremblent, entites « attachees » (AttachEntity) dessinees AU-DESSUS du voile = ici des trous dans le voile. Un tap saute la frappe (AsSkippableTask),
-## le tap suivant passe a la suite (CreateBackTapTask). Les 19 etapes s'enchainent par l'ETAT de la partie (G), pas par la chronologie de l'APK : si l'IA ou
-## le hasard s'ecarte (seuls les tirages forces sont garantis, GameManager.start_tutorial), une etape dont la condition ne se produit pas est simplement ignoree
-## et ne bloque jamais le joueur (voir _poll et _holding). Cas ou une etape saute :
+## le tap suivant passe a la suite (CreateBackTapTask). Les 19 etapes s'enchainent par l'ETAT de la partie (G), pas par la chronologie de l'APK. Le deroule est celui de l'APK (T-A07 / T-A31) : pioches imposees + graine 2832 (DbmRandom,
+## GameManager.start_tutorial) et IA du siege 2 = FixedAI (ApkAI via AI.pick_move, l'IA de tous les sieges IA de l'APK, GameBoardExtensions.cs:49) ; `tools/parity/apk.py --tutorial`
+## montre la partie identique a l'oracle sur 4 tours et indifferente au hasard de WaveServices.Random. Le saut d'une etape dont la condition ne se produit pas n'est donc qu'un
+## FILET DE SECURITE (ne jamais bloquer le joueur, voir _poll et _holding), compte dans `skips` : une partie reelle doit en rendre 0 (ui_smoke l'exige). Cas ou une etape saute :
 ##  - BMA022 / une carte imposee absente de la main : sa scene et sa restriction sautent (_forced_id ne renvoie rien) ;
 ##  - p25 (blessure de l'IA) : seulement si le heros 068 survit au donjon adverse, donc seulement si le sort BMA041 a ete joue (declenchee des que la
 ##    blessure existe, en phase d'aventure avec l'IA active et les animations finies : CheckFirstWoundHero, cs:221-223) ;
@@ -21,6 +22,11 @@ const BossEngine = preload("res://godot/scripts/BossEngine.gd")
 signal tick(dt: float)  # horloge unique des scenes : _process(delta) ou step(dt) (tests)
 signal tapped
 
+## Etapes exigees d'une partie de tutoriel, dans l'ordre de l'APK (hors p24, dont la scene s'ouvre au tap de la salle).
+const STEPS := ["intro1", "intro2", "discard", "build1", "done1", "build2", "done2", "firstdraw", "bait", "build3", "done3", "adv22", "adv23", "adv26", "adv27", "adv28", "adv29", "adv25", "lvl"]
+## Etapes / restrictions sautees par precaution dans la partie courante (filet de securite, T-A31) : statique, car la surcouche se libere a la fin du tutoriel.
+static var skips: Array = []
+
 const DIR := "res://assets/ui/tutorial/"
 const FONT := "res://assets/fonts/arcadepix.fnt"
 const VEIL := Color(0, 0, 0, 165.0 / 255.0) # mascara_black : l'extraction webp lit alpha 0, l'APK affiche un voile de 165/255 (mesure sur le cadre de mascara_00)
@@ -30,6 +36,10 @@ const FADE_IN := 0.2                        # ModalTransitionsTime : CrossFade d
 const HINT_TIME := 0.5                      # HideWhenTouchBehavior.cs:36-37 : entree et sortie de la bulle du boss
 const SHAKE_AMP := 20.0                     # ShakeBehavior (TutorialFactory.cs:30-35) : amplitude 20, pas de decroissance
 const SHAKE_W := 7.2                        # VelocityFactor 0,12 x 60 images/s
+const TAP_SLOP := 10.0 # TouchGestures.TapThreshold : un appui deplace de plus de 10 unites devient un glissement, pas un tap (TouchGestures.cs:25,455-459)
+## Seul le rectangle 1440 x 1080 de l'APK capte les taps (RectangleCollider de TutorialBaseScene.cs:84-91, repere F = APK + 240) : sur un ecran plus large, les bandes laterales
+## ne font rien avancer (backTouch, TouchOrder 1100, bat toutes les entites attachees dans ce rectangle ; hors de lui seules les entites attachees captent l'appui).
+const TAP_RECT := Rect2(240, 0, 1440, 1080)
 const NAG := 3.0                            # delai avant de rejouer la consigne (p23 / p27) : la barre de temps de l'aventure dure 3 s (GamePlayBaseScene.cs:215) et boucle (IsLoopActive) tant que le coup n'est pas joue ; elle ne tourne pas sous une scene
 
 # Idees d'etapes (APK) et cartes imposees (GamePlayTutScene.cs:13-37)
@@ -154,8 +164,12 @@ var _stable := {}
 var _lvl_done := false
 var _frozen: Control         # carte piochee figee pendant la scene p19_a (rendue au vol a la fin ou a la sortie)
 var _finished := false
+var _p24 := false           # la scene p24 a verrouille le zoom de la salle (OnRoomDetailShow, GamePlayTutScene.cs:325-337)
+var _press: Variant = null  # position de l'appui qui peut devenir un tap (dans TAP_RECT), null sinon
+var _moved := false         # l'appui a depasse TAP_SLOP : pas un tap
 
 func _ready() -> void:
+	skips = []
 	_mask_tex = UiKit.tex(DIR + "mascara_00.webp") # chargee des le debut : a sa 1re utilisation (p05) le voile affichait un rectangle blanc jusqu'au redessin suivant
 	z_index = 105
 	size = Vector2(1920, 1080)
@@ -180,7 +194,7 @@ func step(dt: float) -> void:
 	var G := _G()
 	if G.is_empty():
 		return
-	if _scene == null:
+	if _scene == null and not board._modal_open(): # menu pause / regles : la scene de base est en pause (ScreenContextManager_OnDesactivatingScene, GamePlayTutScene.cs:121-128, ModalSceneService.cs:92-100) : ni minuterie ni etape
 		_clocks(dt)
 		_poll()
 
@@ -253,7 +267,10 @@ func _forced_id() -> String:
 		"adventure":
 			if _spell_window():
 				fid = SPELL
-	return fid if fid != "" and _hand_idx(fid) >= 0 else ""
+	if fid != "" and _hand_idx(fid) < 0:
+		_skip_step("forced:" + fid)
+		return ""
+	return fid
 
 ## Le heros 068 attend a l'entree du donjon adverse, sort jouable (CheckPlaySpellCondition, GamePlayTutScene.cs:396-405 : InsideDungeonSlot == null).
 func _spell_window() -> bool:
@@ -298,6 +315,11 @@ func _spell_up() -> bool:
 func _busy_anim() -> bool:
 	return board._animating_hero or board._bait_active()
 
+## Un saut defensif (voir l'en-tete) : note une seule fois par cle.
+func _skip_step(key: String) -> void:
+	if not skips.has(key):
+		skips.append(key)
+
 ## Condition vraie depuis `secs` secondes de suite (laisse finir les animations avant une scene).
 func _since(key: String, cond: bool, secs: float) -> bool:
 	if not cond:
@@ -324,7 +346,7 @@ func _clocks(dt: float) -> void:
 # ---------------------------------------------------------------------------------------------------------------------
 
 func _poll() -> void:
-	if _finished or _scene != null:
+	if _finished or _scene != null or board._modal_open():
 		return
 	var G := _G()
 	if G.is_empty():
@@ -366,6 +388,7 @@ func _poll() -> void:
 				_discard()
 		elif phase != "boss":
 			_done["discard"] = true # defausse deja faite sans la scene : on ne la rejoue pas
+			_skip_step("discard")
 		return
 	# 4. Construction (cs:184-208) et boutons DONE (cs:336-361)
 	var fid := _forced_id()
@@ -392,6 +415,7 @@ func _poll() -> void:
 		if not _done.has("firstdraw") and builds == 0:
 			if _hand_idx("BMA022") < 0:
 				_done["firstdraw"] = true # carte absente (tirage different) : etape sautee
+				_skip_step("firstdraw")
 			else:
 				# tut_58..63 : la scene s'ouvre quand la carte retournee est grande au centre, le vol vers la main attend la fin de la scene (sans animation : carte deja dans la main)
 				var dh := _drawn_holder("BMA022")
@@ -485,6 +509,7 @@ func _on_room_detail(di: int) -> void:
 	var top = BossEngine.active_room(dun[di])
 	if top != null and str((top as Dictionary).get("id", "")) == THIRD_ROOM: # OnRoomDetailShow : p24 sur la salle BMA027 avec le heros 064 dedans
 		_hold_t = 0.0
+		_p24 = true
 		_adv(24)
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -509,6 +534,11 @@ func gate(kind: String, arg = null):
 			return _done.has("intro1") and _scene == null
 		"zoom_scale":
 			return 1.62
+		"zoom_lock":
+			# CardDetailBehavior.IsLocked (BaseZoomComponent.cs:70,115) : ni autre zoom ni fermeture au toucher hors du zoom, jusqu'au prochain CreateBeforePlayerInteractionTask (cs:180) = ici la capacite resolue
+			if _p24 and not _hit_state():
+				_p24 = false
+			return _p24
 		"boss":
 			return "BMA003" # GamePlayTutScene.cs:115 (HUMAN_PLAYER)
 		"levelup":
@@ -536,7 +566,14 @@ func gate(kind: String, arg = null):
 		"spell_drop":
 			if not _restricted() or _forced_id() != SPELL:
 				return true
-			var ent: Control = board._lane[0]["entrance"]
+			# PlaySpellsInHandSceneBehavior.MyHand_CardDropped + FindTargetByPosition (TargetResolverBaseSceneBehavior.cs:156-170) : le sort se joue si la carte tombe SUR la cible (le heros), pas a cote
+			for c in board._hand_moves(_hand_idx(SPELL)):
+				var margs: Array = (c as Dictionary).get("args", [])
+				var spot: Dictionary = board._spot_of_target(margs[1] as Dictionary, board._my_pid()) if margs.size() > 1 and margs[1] is Dictionary else {}
+				var tn: Control = board._spot_node(spot) if not spot.is_empty() else null
+				if tn != null:
+					return board._spot_rect(spot, tn).has_point(arg as Vector2)
+			var ent: Control = board._lane[0]["entrance"] # cible non affichee : l'entree du donjon adverse
 			return ent.get_global_rect().grow(80.0).has_point(arg as Vector2)
 		"pass":
 			if _restricted() and _forced_id() != "":
@@ -624,6 +661,7 @@ func _discard() -> void:
 func _drag_scene(page: String, fid: String, reinf: bool, extra: Array = []) -> void:
 	var node := _card_node(fid)
 	if node == null:
+		_skip_step("scene:" + page)
 		return # carte absente : scene sautee, la restriction tombe aussi (_forced_id)
 	_begin([_hand_rect()] + extra)
 	var lb := _balloon("long", Vector2(960, 645))
@@ -804,11 +842,21 @@ func _end() -> void:
 	_detail = null
 	_tap_wait = false
 
+## Le voile capte tout (aucun clic n'atteint le jeu dessous), mais ne FAIT AVANCER que comme backTouch : appui dans TAP_RECT, sans glissement de plus de TAP_SLOP
+## (TouchGestures : Pressed -> Tap seulement si le doigt reste sous le seuil). Les bandes laterales d'un ecran large n'avancent rien.
 func _on_veil_input(ev: InputEvent) -> void:
 	if ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		_veil.accept_event()
-		if not (ev as InputEventMouseButton).pressed:
-			tap()
+		if (ev as InputEventMouseButton).pressed:
+			_press = (ev as InputEventMouseButton).position if TAP_RECT.has_point((ev as InputEventMouseButton).position) else null
+			_moved = false
+		else:
+			var was_tap: bool = _press != null and not _moved
+			_press = null
+			if was_tap:
+				tap()
+	elif ev is InputEventMouseMotion and _press != null and ((ev as InputEventMouseMotion).position - (_press as Vector2)).length() > TAP_SLOP:
+		_moved = true
 
 ## Un tap : fin de la frappe / de l'attente en cours (TrySkip), ou passage a la suite si la scene attend un tap (CreateBackTapTask). Public : les tests tapent par ici.
 func tap() -> void:
@@ -1164,6 +1212,9 @@ func _finish() -> void:
 	if _finished:
 		return
 	_finished = true
+	for k in STEPS:
+		if not _done.has(k):
+			_skip_step("missing:" + k) # une etape jamais montree
 	if _scene != null:
 		_scene.queue_free()
 		_scene = null

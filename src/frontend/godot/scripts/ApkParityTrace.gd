@@ -201,6 +201,7 @@ func replay(trace: Dictionary) -> Dictionary:
 	_ai_init()
 	var initial: Dictionary = trace["initial"]
 	var meta: Dictionary = trace.get("meta", {})
+	_human_pid = 0 if bool(meta.get("tutorial", false)) else -1
 	var players := {}
 	# Ordre d'insertion = PlayerId croissant, comme Match.new_match (l'oracle liste les bosses par siege) : les effets sur
 	# « tous les joueurs » (Jeopardy...) suivent InGamePlayersPriorized, soit l'ordre du dictionnaire cote Godot.
@@ -1496,6 +1497,8 @@ func _ents() -> String:
 ## le coup oracle a le MEME score que le choix Godot (Godot est indifferent, il prend le premier).
 const AI_NOTHING := ["passBuild", "pass", "adventureNext", "resolveNextHero", "(none)"]
 var _ai_on := false
+## Trace du tutoriel (meta.tutorial) : le siege 0 est l'humain scripte (TutorialHumanBrain), pas une IA ; ses coups ne sont pas des decisions de l'IA a mesurer.
+var _human_pid := -1
 var _ai_ex := 6
 var _ai: Dictionary = {}
 var _ai_by: Dictionary = {}
@@ -1620,6 +1623,8 @@ func _ai_state(pid: int) -> String:
 
 
 func _ai_rec(type: String, agree: bool, s: Dictionary, pid: int, choices: int, oracle: String, godot: String, by := "", tie := false) -> void:
+	if pid == _human_pid:
+		return
 	var c: Dictionary = _ai.get_or_add(type, {"n": 0, "agree": 0, "forced": 0, "nt": 0, "ntAgree": 0, "ties": 0, "ex": []})
 	c["n"] += 1
 	if agree:

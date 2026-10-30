@@ -2444,7 +2444,7 @@ func _input(raw_event: InputEvent) -> void:
 		return
 	if _zoom != null and zoom_out:
 		_zoom_close() # relachement hors de la zone du zoom de pile
-	elif _zoom != null and event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (not stack_zoom or hit):
+	elif _zoom != null and event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (not stack_zoom or hit) and (hit or not _tg("zoom_lock", null, false)):
 		_zoom_press_ms = Time.get_ticks_msec()
 		_zoom_close() # le zoom de LEVEL UP part au clic suivant
 		if hit:
@@ -4098,7 +4098,7 @@ func _extract_resume() -> void:
 
 ## Clic sur une salle activable de mon donjon : capacite directe, ou choix de la salle cible (Centipede Tunnel...).
 func _on_slot_activate(di: int) -> void:
-	if _modal_open() or (_popup != null and is_instance_valid(_popup)) or not _tgt.is_empty():
+	if _tg("zoom_lock", null, false) or _modal_open() or (_popup != null and is_instance_valid(_popup)) or not _tgt.is_empty():
 		return
 	var cands: Array = []
 	for m in _moves_of(_my_moves(_my_pid()), "activateRoom"):
@@ -4522,8 +4522,8 @@ func _spell_drop(idx: int, pos: Vector2) -> void:
 ## Zoom d'un tap (heros de la ville, pile, notice) : la carte en grand dans son cadre noir au-dessus de la main, le reste de la main s'assombrit.
 func _zoom_show(card: Control) -> void:
 	var ci := card as CardUI
-	if ci == null or ci.card_dict.is_empty() or bool(ci.card_dict.get("faceDown", false)):
-		return # une salle adverse face cachee ne se devoile pas
+	if ci == null or ci.card_dict.is_empty() or bool(ci.card_dict.get("faceDown", false)) or _tg("zoom_lock", null, false):
+		return # une salle adverse face cachee ne se devoile pas ; tutoriel p24 : zoom verrouille (BaseZoomComponent.Show, IsLocked)
 	_zoom_hide()
 	var greyed: bool = ci.greyed
 	_zoom = UiKit.zoom_card(ci.card_dict, UiKit.ZOOM_CARD, greyed)

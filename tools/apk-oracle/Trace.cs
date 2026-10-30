@@ -36,13 +36,13 @@ sealed class Trace
             activePlayer = board.ActivePlayer?.PlayerId, usable = usable.Select(C).ToArray(), eligible = eligible.ToArray(), chosen,
         });
 
-    public Trace(GameBoard b, int seed, int players, List<GameDecks> decks)
+    public Trace(GameBoard b, int seed, int players, List<GameDecks> decks, bool tutorial = false)
     {
         board = b;
         meta = new
         {
             engine = "DBMGame.dll 2.2.6 (original assemblies, headless on .NET)",
-            seed, players, decks = decks.Select(d => d.ToString()).ToArray(),
+            seed, players, tutorial, decks = decks.Select(d => d.ToString()).ToArray(),
             ai = "FixedAI (StatisticAI backup), as used by the APK's GameFlowTestService",
             rng = "RandomProvider.Seed=seed (deck shuffles); WaveServices.Random.Reinitialise(seed) (AI choices)",
         };

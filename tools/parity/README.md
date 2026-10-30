@@ -458,6 +458,18 @@ construction (`_held`, `_held_pass`) peuvent differer legerement de celui que l'
 des `options` oracle ; (5) non mesures : fenetres d'aventure (`_settle`) et de revelation (`_close_window`), cibles de `playRoomAbility` imbriquees
 (BMA028/032 2e salle), `rearrange-dungeon` (KSA002), 2e carte de `recover-card` (Xyzax), cartes wiki.
 
+## Tutoriel (`--tutorial`, lot L8, T-A07 / T-A31)
+
+```bash
+python tools/parity/apk.py --tutorial [--waves 1 2 3] [--tut-turns 4] [--ai-agreement]    # sortie : tools/parity/out/apk-tut
+```
+
+L'oracle joue `GameBoardExtensions.InitializeGameBoardTutorial` (graine 2832, pioches imposees, BMA003 contre BMA006) : le siege 2 est FixedAI (l'IA de tous les sieges IA de l'APK),
+le siege 1 est un humain scripte (`tools/apk-oracle/TutorialHumanBrain.cs` : defausse BMA026 + BMA055, salles BMA034 / BMA016 / BMA027, capacite de BMA027, sort BMA041, comme GamePlayTutScene.cs).
+Trois mesures : (1) rejeu de la trace par `ApkParity` (regles), (2) `TutParity.tscn` joue la MEME partie avec le vrai `GameManager.start_tutorial`, le meme humain scripte et l'IA du siege 2 (`AI.pick_move`),
+puis compare les points de controle de debut de tour et du leurre et le journal des actions a l'oracle, (3) `--waves` : l'oracle est rejoue avec plusieurs graines de `WaveServices.Random` (decisions de StatisticAI)
+et doit rendre la meme trace (la partie du tutoriel n'en depend pas). Non mesure : l'interface (voile, scenes, taps : `ui_smoke --only=tutorial`) et les tours apres `--tut-turns` ; au-dela la partie n'est plus scriptee.
+
 ## Limites assumees
 
 - **Tirages au hasard** (Specter's Sanctum, Torture Chamber, Succubus Spa) : le harnais releve dans la trace les cartes qui
