@@ -77,28 +77,39 @@ func _build_settings() -> void:
 func _volume(y: float) -> void:
 	UiKit.label(self, "MASTER VOLUME", 28, Color.WHITE, Vector2(260, y), 450.0, UiKit.FONT_B, HORIZONTAL_ALIGNMENT_RIGHT)
 	var pct := UiKit.label(self, "%d%%" % roundi(AudioManager.master_volume * 100.0), 28, UiKit.GOLD, Vector2(1380, y), 100.0, UiKit.FONT_B, HORIZONTAL_ALIGNMENT_LEFT)
+	# SettingsSliderControl (jamais instancie dans l'APK) : fond ninepatch settings_slider_bg 571 x 24, barre verte rognee a la valeur, bouton rond 68 x 76 centre sur la valeur.
+	# Le HSlider reste la logique (souris, valeur continue) ; ses styles sont vides et son poignee invisible.
+	const W := 571.0
+	var cy := y + 14.0
+	UiKit.ninepatch(self, "ninepatch/settings_slider_bg.webp", Vector2(760, cy - 12.0), Vector2(W, 24), Vector4(6, 6, 6, 6)).material = UiKit.premult_mat()
+	var bar := UiKit.image(self, UI + "navigation/settings_slider_bar.webp", Vector2(761, cy - 11.0))
+	var bar_tex := AtlasTexture.new()
+	bar_tex.atlas = bar.texture
+	bar.texture = bar_tex
+	bar.stretch_mode = TextureRect.STRETCH_KEEP
+	var knob := UiKit.image(self, UI + "navigation/settings_slider_button.webp", Vector2.ZERO)
 	var sl := HSlider.new()
 	sl.min_value = 0.0
 	sl.max_value = 1.0
 	sl.step = 0.01
 	sl.value = AudioManager.master_volume
-	sl.position = Vector2(760, y - 2)
-	sl.size = Vector2(606, 32)
+	sl.position = Vector2(760, cy - 38.0)
+	sl.size = Vector2(W, 76)
 	sl.focus_mode = Control.FOCUS_NONE
-	var track := StyleBoxFlat.new()
-	track.bg_color = Color(0.2, 0.17, 0.12)
-	track.set_corner_radius_all(8)
-	track.content_margin_top = 8
-	track.content_margin_bottom = 8
-	var fill := StyleBoxFlat.new()
-	fill.bg_color = Color(0.36, 0.7, 0.2)
-	fill.set_corner_radius_all(8)
-	fill.content_margin_top = 8
-	fill.content_margin_bottom = 8
-	sl.add_theme_stylebox_override("slider", track)
-	sl.add_theme_stylebox_override("grabber_area", fill)
-	sl.add_theme_stylebox_override("grabber_area_highlight", fill)
+	for n in ["slider", "grabber_area", "grabber_area_highlight"]:
+		sl.add_theme_stylebox_override(n, StyleBoxEmpty.new())
+	var none := PlaceholderTexture2D.new()
+	none.size = Vector2(1, 1)
+	for n in ["grabber", "grabber_highlight", "grabber_disabled"]:
+		sl.add_theme_icon_override(n, none)
+	var draw := func(v: float):
+		var px := floorf(v * W)
+		bar_tex.region = Rect2(0, 0, maxf(px, 1.0), 22) # SourceRectangle.Width = (int)num
+		bar.size = Vector2(maxf(px, 1.0), 22)
+		knob.position = Vector2(760.0 + px - 34.0, cy - 38.0)
+	draw.call(sl.value)
 	sl.value_changed.connect(func(v: float):
+		draw.call(v)
 		AudioManager.set_master_volume(v, false)
 		pct.text = "%d%%" % roundi(v * 100.0))
 	sl.drag_ended.connect(func(_changed: bool): AudioManager.set_master_volume(sl.value))

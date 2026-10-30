@@ -6,6 +6,7 @@ extends Node
 ## Parties graine fixe, etats injectes dans GameManager.G (meme technique que ui_smoke.gd), souris reelle (push_input) pour glisser / appui long.
 
 const GameManager = preload("res://godot/scripts/GameManager.gd")
+const MainScript = preload("res://godot/scripts/Main.gd")
 const OUT_DIR := "res://../../docs/reference/godot_screens"
 
 var out_dir := ""
@@ -34,6 +35,7 @@ func _shot(name: String) -> void:
 	print("Captured: ", name)
 
 func _ready() -> void:
+	MainScript.skip_loading = true # le titre direct ; _loading_shots montre la LoadingScene
 	CardDB.ship_all = true # captures de tous les paquets, fermes compris (CardDB.SHIPPED_SETS)
 	out_dir = ProjectSettings.globalize_path(OUT_DIR)
 	for a in OS.get_cmdline_user_args():
@@ -133,7 +135,20 @@ func _ready() -> void:
 # Menus (menu principal, carrousel joueurs...)
 # ---------------------------------------------------------------------------------------------------------------------
 
+## LoadingScene (LoadingScene.cs) : pas de frame APK (l'ecran n'est pas dans les captures BlueStacks) ; deux instants, rupies eteintes puis allumees.
+func _loading_shots() -> void:
+	var ls = load("res://godot/scripts/LoadingScene.gd").new() # seule, sans le fondu de Main (qui l'assombrit des le 1er instant)
+	add_child(ls)
+	await _wait(0.1)
+	await _shot("loading_screen_start")
+	ls.step()
+	await _wait(0.3)
+	await _shot("loading_screen_first_rupia_on")
+	ls.queue_free()
+	await _frames(2)
+
 func _menus() -> void:
+	await _loading_shots()
 	main_scene = load("res://godot/scenes/Main.tscn").instantiate()
 	add_child(main_scene)
 	await _wait(0.5)

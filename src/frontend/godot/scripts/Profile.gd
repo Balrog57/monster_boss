@@ -4,14 +4,14 @@ extends RefCounted
 ## (INSERT USERNAME / SELECT AVATAR). Avatars extraits de l'APK.
 
 const AVATARS: Array = [
-	"avatar_draculord", "avatar_xyzax", "avatar_croak", "avatar_robobo",
+	"avatar_draculord", "avatar_croak", "avatar_robobo",
 	"avatar_cerebellus", "avatar_seducia", "avatar_cleopatra", "avatar_gorgona",
 	"avatar_anererak", "avatar_none",
 ]
-## Avatars du selecteur, dans l'ordre de l'enum Atlas.AVATAR de l'APK (les « leg_avatar_* » sont reserves aux mecenes, pas d'avatar_none).
+## Avatars du selecteur : les 8 premiers de l'enum Atlas.AVATAR de l'APK (AvatarScrollComponent.cs:70-74). Les « leg_avatar_* » et avatar_xyzax (9e, fichier garde dans assets/ui/avatar) sont reserves aux mecenes, qui n'existent plus ; pas d'avatar_none.
 const PICKER: Array = [
 	"avatar_anererak", "avatar_cerebellus", "avatar_cleopatra", "avatar_croak", "avatar_draculord",
-	"avatar_gorgona", "avatar_robobo", "avatar_seducia", "avatar_xyzax",
+	"avatar_gorgona", "avatar_robobo", "avatar_seducia",
 ]
 const NAME_MAX := 45 # ChangeNameAvatarScene : Truncate(45)
 const SAVE_PATH := "user://profile.cfg"

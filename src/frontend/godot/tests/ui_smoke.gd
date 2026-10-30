@@ -26,6 +26,7 @@ const OnlineMenus = preload("res://godot/scripts/OnlineMenus.gd")
 const Server = preload("res://godot/server/Server.gd")
 const OnlineClient = preload("res://godot/scripts/OnlineClient.gd")
 const TutorialScript = preload("res://godot/scripts/TutorialOverlay.gd")
+const MainScript = preload("res://godot/scripts/Main.gd")
 
 const DUNGEON_N := 5
 const MAX_STEPS := 6000
@@ -60,6 +61,7 @@ var _dbg := ""
 var _cancelled := false       # un CANCEL de ciblage vient d'avoir lieu : « sans effet » est alors normal
 
 func _ready() -> void:
+	MainScript.skip_loading = true # pas de LoadingScene devant le titre ; _check_l6_l7 la teste a part
 	CardDB.ship_all = true # les parties et menus testes ici couvrent aussi les paquets FERMES (CardDB.SHIPPED_SETS) ; _check_shipped_menus teste le mode livre
 	cfg = _parse_args()
 	OS.add_logger(_log)
@@ -1074,6 +1076,13 @@ func _check_pause_menu() -> void:
 		_check(Profile.load_speed() == 2 and is_equal_approx(board._speed, 0.5), "reglages : GAME SPEED FAST non pris en compte")
 		Profile.save_speed(speed0)
 		board._speed = board._speed_factor()
+	# G-21 : les 3 barres sont le ninepatch settings_text_bg (204 px par segment, 97 de haut) ; le curseur pose settings_slider_bg (571 x 24)
+	var nps: Array = board._popup.find_children("*", "NinePatchRect", true, false)
+	var bars: Array = nps.filter(func(n): return (n.texture as AtlasTexture).atlas.resource_path.ends_with("settings_text_bg.webp"))
+	var sliders: Array = nps.filter(func(n): return (n.texture as AtlasTexture).atlas.resource_path.ends_with("settings_slider_bg.webp"))
+	_check(bars.size() == 3 and bars.all(func(n): return n.size.y == 97.0 and n.patch_margin_left == 5 and n.patch_margin_top == 5 and n.material is CanvasItemMaterial and n.material.blend_mode == CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA), "reglages : 3 barres ninepatch settings_text_bg en alpha premultiplie attendues (%d)" % bars.size())
+	_check(bars.map(func(n): return n.size.x) == [408.0, 408.0, 612.0], "reglages : largeurs des barres %s" % str(bars.map(func(n): return n.size.x)))
+	_check(sliders.size() == 1 and sliders[0].size == Vector2(571, 24) and sliders[0].patch_margin_left == 6, "reglages : fond du curseur settings_slider_bg (ninepatch 571 x 24, marges 6)")
 	var back = board._popup.find_child("Back", true, false)
 	if _check(back != null, "reglages : fleche de retour absente"):
 		(back as TextureButton).pressed.emit()
@@ -2662,6 +2671,104 @@ func _check_credits() -> void:
 	main.queue_free()
 	await get_tree().process_frame
 
+## L6 / L7 : 8 avatars (U-C20, U-C21), repli d'un avatar retire, LoadingScene (U-A04, U-A05, G-17, G-18, W-01), shader de grisage (G-26), PointClamp (G-31).
+func _check_l6_l7() -> void:
+	_tag = "[l6-l7]"
+	await _teardown()
+	var P = load("res://godot/scripts/Profile.gd")
+	# avatars : 8 dans le selecteur, bornes recalculees sur 8 (AvatarScrollComponent.cs:70-74,56), xyzax retire de la liste valide
+	_check(P.PICKER.size() == 8 and not P.PICKER.has("avatar_xyzax") and not P.AVATARS.has("avatar_xyzax"), "avatars : 8 attendus, sans avatar_xyzax")
+	var sc = OnlineMenus.AvatarScroll.new(P.PICKER, "avatar_xyzax")
+	add_child(sc)
+	_check(sc.ids.size() == 8 and sc.selected == "avatar_anererak" and is_equal_approx(sc._max_left, -8.0 * 240.0 + 1368.0), "avatars : avatar retire -> 1er avatar ; bornes %s au lieu de %s" % [sc._max_left, -8.0 * 240.0 + 1368.0])
+	_check(sc._items.size() == 8 and (sc._bgs["avatar_croak"] as Control).texture_filter == CanvasItem.TEXTURE_FILTER_NEAREST, "avatars : 8 vignettes en PointClamp")
+	sc.queue_free()
+	var cfg_path: String = ProjectSettings.globalize_path(P.SAVE_PATH)
+	var had := FileAccess.file_exists(cfg_path)
+	var backup := FileAccess.get_file_as_bytes(cfg_path) if had else PackedByteArray()
+	P.save_profile("Zed", "avatar_xyzax")
+	_check(P.load_profile()["avatar"] == "avatar_draculord", "avatars : un avatar xyzax enregistre ne revient pas tel quel (%s)" % P.load_profile()["avatar"])
+	P.save_profile("Zed", "avatar_croak")
+	_check(P.load_profile()["avatar"] == "avatar_croak", "avatars : un avatar valide reste")
+	if had:
+		var f := FileAccess.open(cfg_path, FileAccess.WRITE)
+		f.store_buffer(backup)
+		f.close()
+	else:
+		DirAccess.remove_absolute(cfg_path)
+	_check(Server._clean_profile({"avatar": "avatar_xyzax"})["avatar"] == "" and Server._clean_profile({"avatar": "leg_avatar_kirax"})["avatar"] == "" and Server._clean_profile({"avatar": "avatar_croak"})["avatar"] == "avatar_croak", "serveur : seuls les avatars de la liste fermee passent")
+	# LoadingScene : fond, sprite, 3 rupies ; puis fondu noir 1,0 s vers le titre
+	MainScript.skip_loading = false
+	var main = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main)
+	MainScript.skip_loading = true
+	await _wait(0.1)
+	var ls = main.find_child("LoadingScene", false, false)
+	if _check(ls != null, "chargement : LoadingScene absente au demarrage"):
+		_check((ls.get_child(0) as ColorRect).color == Color("270000"), "chargement : fond #270000")
+		var spr: TextureRect = ls.find_child("Loading", false, false)
+		_check(spr != null and spr.position + spr.size / 2.0 == Vector2(1070, 864) and spr.texture_filter == CanvasItem.TEXTURE_FILTER_NEAREST, "chargement : sprite loading en (830 + 240, 864), PointClamp")
+		_check(ls.on.size() == 3 and ls.off.size() == 3 and (ls.on[2] as Control).position.x + 16.0 == 920.0 and (ls.off[0] as Control).position.y + 23.5 == 864.0, "chargement : 3 rupies de 40 px a partir de (600 + 240, 864)")
+		# RupisLoadingBehavior : une rupie par pas de 0,5 s (rupia_on s'allume, rupia_off s'eteint en 0,2 s) ; apres 3 pas le sens s'inverse
+		ls._t = 1.0
+		ls._process(0.0)
+		await _wait(0.3)
+		_check(is_equal_approx((ls.on[0] as Control).modulate.a, 1.0) and is_equal_approx((ls.off[0] as Control).modulate.a, 0.0) and (ls.on[1] as Control).modulate.a == 0.0, "chargement : la 1re rupie s'allume seule")
+		for i in 2:
+			ls.step()
+		_check(ls._fill == false and ls._index == 0, "chargement : apres 3 rupies pleines le sens s'inverse")
+		ls.set_process(false)
+		# la transition (noir 0,5 s, titre, 0,5 s) est deja lancee par Main : le titre arrive et l'ecran de chargement est libere
+		await _wait(1.5)
+		_check(main.find_child("LoadingScene", false, false) == null and _texts_of(main).has("TAP TO START"), "chargement : l'intro n'a pas remplace l'ecran de chargement")
+	main.queue_free()
+	await get_tree().process_frame
+	# shader de grisage : formule du .frag (0,3 / 0,55 / 0,15), pas d'assombrissement ; un seul fichier pour les deux sites
+	var sh: Shader = load("res://godot/scripts/CardEffect.gdshader")
+	_check(sh != null and sh.code.contains("vec3(0.3, 0.55, 0.15)") and sh.code.contains("* out_color") and not sh.code.contains("0.62") and not sh.code.contains("0.65"), "shader : formule CardEffectpsTexture")
+	var cu_src := FileAccess.get_file_as_string("res://godot/scripts/CardUI.gd") + FileAccess.get_file_as_string("res://godot/scripts/Main.gd")
+	_check(cu_src.count("load(\"res://godot/scripts/CardEffect.gdshader\")") == 2 and not cu_src.contains("shader_type canvas_item"), "shader : un seul .gdshader pour CardUI et Main")
+	if DisplayServer.get_name() != "headless": # rendu reel : couleur connue (0,8 / 0,4 / 0,2) -> gris 0,49, x opacite sur noir
+		var vp := SubViewport.new()
+		vp.size = Vector2i(8, 8)
+		vp.transparent_bg = false
+		vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+		add_child(vp)
+		var bgc := ColorRect.new()
+		bgc.color = Color.BLACK
+		bgc.size = Vector2(8, 8)
+		vp.add_child(bgc)
+		var img := Image.create(2, 2, false, Image.FORMAT_RGBA8)
+		img.fill(Color(0.8, 0.4, 0.2))
+		var tr := TextureRect.new()
+		tr.texture = ImageTexture.create_from_image(img)
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.size = Vector2(8, 8)
+		var mat := ShaderMaterial.new()
+		mat.shader = sh
+		tr.material = mat
+		vp.add_child(tr)
+		for amt in [1.0, 0.0, 0.5]:
+			for a in [1.0, 0.8]:
+				mat.set_shader_parameter("amt", amt)
+				tr.modulate.a = a
+				await _wait(0.1)
+				await RenderingServer.frame_post_draw
+				var px: Color = vp.get_texture().get_image().get_pixel(4, 4)
+				var g := 0.3 * 0.8 + 0.55 * 0.4 + 0.15 * 0.2
+				var want: Color = Color(lerpf(g, 0.8, amt), lerpf(g, 0.4, amt), lerpf(g, 0.2, amt)) * a
+				_check(absf(px.r - want.r) < 0.012 and absf(px.g - want.g) < 0.012 and absf(px.b - want.b) < 0.012, "shader : amt %s opacite %s -> %s au lieu de %s" % [amt, a, px, want])
+		vp.queue_free()
+	# PointClamp : fonds de menu (ControlsFactory.CreateBackground) en NEAREST
+	var m2 = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(m2)
+	await _wait(0.2)
+	var bgt = m2.get_children().filter(func(c): return c is TextureRect)
+	_check(not bgt.is_empty() and (bgt[0] as TextureRect).texture_filter == CanvasItem.TEXTURE_FILTER_NEAREST, "PointClamp : le fond du titre n'est pas NEAREST")
+	m2.queue_free()
+	await get_tree().process_frame
+	_cov("l6_l7")
+
 ## Ecrans multijoueur de l'APK (OnlineMenus.gd) : MultiplayerScene, ChangeNameAvatar, MenuOnline, WithFriends, boite d'erreur, salle d'attente,
 ## PASS AND PLAY, compte a rebours. Le profil reel (user://profile.cfg) est sauvegarde puis remis en place.
 func _texts_of(root: Node) -> Array:
@@ -2711,7 +2818,7 @@ func _check_online_menus() -> void:
 		await _nav(main)
 		var scroll = main.find_child("AvatarScroll", true, false)
 		if _check(scroll != null, "profil : selecteur d'avatars absent au premier passage"):
-			_check(scroll.ids.size() == 9 and not scroll.ids.has("avatar_none"), "profil : 9 avatars reguliers, pas d'avatar_none")
+			_check(scroll.ids.size() == 8 and not scroll.ids.has("avatar_none") and not scroll.ids.has("avatar_xyzax"), "profil : 8 avatars reguliers, ni avatar_none ni avatar_xyzax (mecene)")
 			_check(_tb_by_texture(main, "back_bt.webp") == null, "profil : pas de fleche de retour au premier passage")
 			_check(str(main.profile["name"]).begins_with("player_") and str(main.profile["name"]).length() == 11, "profil : pseudo par defaut player_xxxx : %s" % main.profile["name"])
 			_check(_texts_of(main).has("INSERT USERNAME") and _texts_of(main).has("SELECT AVATAR"), "profil : libelles APK")
@@ -3808,6 +3915,7 @@ func _extra_checks() -> void:
 	await _check_shipped_menus()
 	await _check_credits()
 	await _check_online_menus()
+	await _check_l6_l7()
 	await _check_public_lobby()
 	await _check_online_game()
 	await _check_gameover_banner()

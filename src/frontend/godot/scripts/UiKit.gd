@@ -101,6 +101,16 @@ static func np_tex(path: String) -> AtlasTexture:
 		at.region = Rect2(2, 1, t.get_width() - 2, t.get_height() - 2)
 	return at
 
+static var _premult: CanvasItemMaterial
+
+## Wave stocke ses textures en alpha PREMULTIPLIE (SpriteBatch : src + dst x (1 - alpha)) : la barre (18, 12, 32, alpha 0,5) sur (9, 9, 9) donne (22, 16, 36) sur l'APK, comme mesure ;
+## le melange standard de Godot donnerait (14, 10, 21).
+static func premult_mat() -> CanvasItemMaterial:
+	if _premult == null:
+		_premult = CanvasItemMaterial.new()
+		_premult.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
+	return _premult
+
 static func ninepatch(parent: Node, path: String, pos: Vector2, sz: Vector2, margins: Vector4) -> NinePatchRect:
 	var n := NinePatchRect.new()
 	n.texture = np_tex(path)
@@ -239,7 +249,7 @@ static func draw_toggle(row: Control, y: int, opts: Array, sel: int, cb: Callabl
 	for c in row.get_children():
 		row.remove_child(c)
 		c.queue_free()
-	ninepatch(row, "ninepatch/settings_text_bg.webp", Vector2(760, y - 48.5), Vector2(SEG * opts.size(), 97), Vector4(5, 5, 5, 5))
+	ninepatch(row, "ninepatch/settings_text_bg.webp", Vector2(760, y - 48.5), Vector2(SEG * opts.size(), 97), Vector4(5, 5, 5, 5)).material = premult_mat()
 	for i in opts.size():
 		var x := 760.0 + SEG * i
 		if i == sel:

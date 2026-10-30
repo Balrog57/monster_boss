@@ -514,10 +514,12 @@ class AvatarScroll extends Control:
 			var bg := TextureRect.new()
 			bg.texture = load(UI + "avatar/avatar_bg_selected.webp" if id == selected else UI + "avatar/avatar_bg.webp")
 			bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			bg.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST # OnlineAvatarComponent.cs:73,80 : AddressMode.PointClamp
 			it.add_child(bg)
 			var av := TextureRect.new()
 			av.texture = load(Profile.avatar_path(id))
 			av.position = Vector2(4, 4)
+			av.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 			av.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			it.add_child(av)
 			it.position = Vector2(ORIGIN_X + float(i) * STEP - 141.0, 160.0 - 141.0)
@@ -891,7 +893,7 @@ func _update_waiting(info: Dictionary) -> void:
 		if taken:
 			var sd: Dictionary = s
 			var want := str(sd.get("avatar", ""))
-			if ResourceLoader.exists(Profile.avatar_path(want)):
+			if want in Profile.AVATARS: # un avatar retire (xyzax, mecenes) d'un ancien client retombe sur avatar_none
 				av = want
 			(r["name"] as Label).text = str(sd.get("name", "?")).left(25)
 			(r["wins"] as Label).text = str(int(sd.get("wins", 0)))

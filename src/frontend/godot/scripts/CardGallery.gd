@@ -57,9 +57,13 @@ func _build() -> void:
 	bg.color = Color.BLACK
 	bg.size = Vector2(1920, 1080)
 	add_child(bg)
+	# PointClamp : fond (ControlsFactory.CreateBackground) et bandeaux (GalleryScene.cs:110,121)
 	UiKit.image(self, UI + "backgrounds/gallery_bg.webp", Vector2(0, 105), Vector2(1920, 975)).modulate = Color(0.3, 0.3, 0.3) # APK : fond presque noir (~13 contre 64)
 	UiKit.image(self, UI + "ingame/bg_top.webp", Vector2(175, 0), Vector2(1920, 77)) # taille native en (175, 0) : ecart 0,0 sur la capture APK (filet orange y 61-62 ; avant : etire en (175, -15), filet y 46-47)
 	UiKit.image(self, UI + "ingame/card_gallery_top.webp", Vector2.ZERO, Vector2(175, 96))
+	for c in get_children():
+		if c is TextureRect:
+			(c as TextureRect).texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	title_label = UiKit.label(self, "", 29, Color.WHITE, Vector2(136, 9), 1745.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # APK : titre 231 x 20 px centre en (1008, 30)
 	UiKit.image(self, UI + "navigation/bm_logo.webp", Vector2(1590, 45), Vector2(260, 105))
 	var panel := ColorRect.new()

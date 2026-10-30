@@ -55,10 +55,7 @@ func set_greyed(on: bool, animate := false, elapsed := 0.0) -> void:
 	var mat := texture_rect.material as ShaderMaterial
 	if mat == null:
 		if _gray_shader == null:
-			_gray_shader = Shader.new()
-			_gray_shader.code = "shader_type canvas_item;
-uniform float amt = 0.0;
-void fragment() { vec4 c = texture(TEXTURE, UV); float g = dot(c.rgb, vec3(0.3, 0.59, 0.11)) * 0.62; COLOR = vec4(mix(vec3(g), c.rgb, amt), c.a); }"
+			_gray_shader = load("res://godot/scripts/CardEffect.gdshader") # shader partage avec Main.gd (CardEffectpsTexture)
 		mat = ShaderMaterial.new()
 		mat.shader = _gray_shader
 		texture_rect.material = mat

@@ -42,6 +42,7 @@ const OnlineMenus = preload("res://godot/scripts/OnlineMenus.gd")
 const CountDown = preload("res://godot/scripts/CountDown.gd")
 const Variants = preload("res://godot/scripts/Variants.gd")
 const CreditsScreen = preload("res://godot/scripts/CreditsScreen.gd")
+const LoadingScene = preload("res://godot/scripts/LoadingScene.gd")
 const TutorialOverlay = preload("res://godot/scripts/TutorialOverlay.gd")
 
 const UI := "res://assets/ui/"
@@ -76,6 +77,7 @@ var _gray: ShaderMaterial
 var _fade_layer: CanvasLayer # voile noir des transitions : survit a _clear()
 var _fading := false
 var profile := {"name": "Player", "avatar": "avatar_draculord"}
+static var skip_loading := false # tests : pas de LoadingScene (le titre est affiche tout de suite)
 
 func _ready() -> void:
 	game_manager = GameManager.new()
@@ -103,22 +105,33 @@ func _ready() -> void:
 	_fade_layer = CanvasLayer.new()
 	_fade_layer.layer = 128
 	add_child(_fade_layer)
-	show_title()
-	# LoadingScene.cs:55-60 : To(IntroScene, ColorFade noir 1,0 s) ; l'ecran de chargement est celui du moteur, reste la moitie « noir -> titre » (0,5 s)
-	var veil := ColorRect.new()
-	veil.color = Color.BLACK
-	veil.size = Vector2(1920, 1080)
-	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_fade_layer.add_child(veil)
-	var tw := create_tween()
-	tw.tween_property(veil, "color:a", 0.0, 0.5)
-	tw.tween_callback(veil.queue_free)
+	if skip_loading: # tests : directement le titre, voile noir -> titre (0,5 s)
+		show_title()
+		var veil := ColorRect.new()
+		veil.color = Color.BLACK
+		veil.size = Vector2(1920, 1080)
+		veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_fade_layer.add_child(veil)
+		var tw := create_tween()
+		tw.tween_property(veil, "color:a", 0.0, 0.5)
+		tw.tween_callback(veil.queue_free)
+	else:
+		_boot_loading()
 	if OS.has_feature("web") and not OS.is_userfs_persistent(): # S-02 : navigation privee ou stockage bloque, user:// (IndexedDB) ne survit pas a l'onglet
 		var warn := UiKit.label(_fade_layer, "Browser storage is blocked: settings and profile will not be saved.", 30, Color("ffb347"), Vector2(0, 1020), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
 		var wt := warn.create_tween()
 		wt.tween_interval(8.0)
 		wt.tween_property(warn, "modulate:a", 0.0, 1.0)
 		wt.tween_callback(warn.queue_free)
+
+## Game.cs:56 -> LoadingScene (LoadingScene.cs:42-58) : l'ecran de chargement reste le temps de charger les ressources lourdes, puis To(IntroScene, ColorFade noir 1,0 s) = `go`.
+## Godot charge a la demande : on prechauffe ici ce que l'intro et le menu lisent (IntroScene.Initialize) ; la transition de 1,0 s (0,5 s de fondu sur l'ecran de chargement) est celle de l'APK.
+func _boot_loading() -> void:
+	add_child(LoadingScene.new())
+	await get_tree().process_frame
+	for p in ["backgrounds/intro_bg.webp", "backgrounds/menu_bg.webp", "gradients/candle.webp", "gradients/monster_eyes.webp", "navigation/bm_logo.webp", "gradients/logo_small.webp", "gradients/torch.webp"]:
+		load(UI + p)
+	go(show_title)
 
 ## Window.AddFlags(KeepScreenOn) (AndroidActivity.cs:52) : API Screen Wake Lock du navigateur, seulement si elle existe (contexte securise, navigateur recent).
 ## Le verrou est rendu par le navigateur quand l'onglet est masque : on le redemande au retour (visibilitychange) et au premier appui si la 1re demande a ete refusee.
@@ -227,6 +240,7 @@ func _bg(path: String) -> TextureRect:
 	t.set_anchors_preset(Control.PRESET_FULL_RECT)
 	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST # ControlsFactory.CreateBackground : AddressMode.PointClamp
 	if ResourceLoader.exists(path):
 		t.texture = load(path)
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -595,20 +609,17 @@ func _fan(c: Vector2, h: float, ids: Array, sel: bool) -> Control:
 		t.rotation = rots[k]
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if not sel:
-			t.material = _gray_mat()
+			t.material = _gray_mat() # carte desactivee : Amount 0 et opacite 0,8 (CardAttributesComponent.cs:90-97 ; pentes mesurees ~0,8 sur la frame APK, sans assombrissement)
+			t.modulate.a = 0.8
 		root.add_child(t)
 	return root
 
-func _gray_mat(alpha: float = 1.0) -> ShaderMaterial:
+## Gris de CardMaterial (Amount 0) : meme shader que les cartes (CardEffect.gdshader) ; l'opacite se pose par modulate (x outColor du .frag).
+func _gray_mat() -> ShaderMaterial:
 	if _gray == null:
-		var sh := Shader.new()
-		sh.code = "shader_type canvas_item;\nuniform float alpha = 1.0;\nvoid fragment() { vec4 c = texture(TEXTURE, UV); float g = dot(c.rgb, vec3(0.3, 0.59, 0.11)) * 0.65; COLOR = vec4(vec3(g), c.a * alpha); }"
 		_gray = ShaderMaterial.new()
-		_gray.shader = sh
-	if alpha < 1.0: # copie : le parametre est propre a la tuile
-		var mat := _gray.duplicate() as ShaderMaterial
-		mat.set_shader_parameter("alpha", alpha)
-		return mat
+		_gray.shader = load("res://godot/scripts/CardEffect.gdshader")
+		_gray.set_shader_parameter("amt", 0.0)
 	return _gray
 
 # --- SELECT EXPANSIONS ------------------------------------------------------------
@@ -715,7 +726,8 @@ func _draw_tile(d: Dictionary, pos: Vector2) -> void:
 	if d.has("art"):
 		var art := _tex("expansions/%s.webp" % d["art"], Vector2(15, 13), Vector2(249, 304))
 		if soon:
-			art.material = _gray_mat(0.75) # CardMaterial Amount 0 (PurchaseItemButton.cs:63) ; opacite 0,75
+			art.material = _gray_mat() # CardMaterial Amount 0 (PurchaseItemButton.cs:78) ; opacite 0,75
+			art.modulate.a = 0.75
 		holder.add_child(art)
 	else: # extension du wiki : pas d'illustration, le nom tient lieu de couverture
 		holder.add_child(_lbl(str(d["name"]), 26, GOLD, Vector2(14, 20), Vector2(257, 280), FONT_A))

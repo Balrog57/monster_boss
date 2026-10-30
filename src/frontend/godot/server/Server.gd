@@ -7,6 +7,7 @@ extends Node
 const GameRoom = preload("res://godot/server/GameRoom.gd")
 const NetCodec = preload("res://godot/scripts/NetCodec.gd")
 const MatchScript = preload("res://godot/scripts/Match.gd")
+const ProfileScript = preload("res://godot/scripts/Profile.gd")
 
 ## Jetons reconnus dans create.sets (le jeu de base est toujours present, voir Match.new_match). Un jeton inconnu est ecarte en silence ; un jeton connu mais
 ## ferme (hors CardDB.SHIPPED_SETS : minibosses, iod, tools, tools-wiki, players-choice-wiki) est REFUSE par Match.setup_error (`bad_setup`, voir `create`).
@@ -270,10 +271,7 @@ static func _clean_title(v, host_name: String) -> String:
 ## Avatar (nom de fichier sans chemin), victoires et defaites declares par le client : purement cosmetiques (salle d'attente).
 static func _clean_profile(d: Dictionary) -> Dictionary:
 	var av := str(d.get("avatar", ""))
-	var ok := av.length() > 0 and av.length() <= 32
-	for ch in av:
-		if not (ch in "abcdefghijklmnopqrstuvwxyz_"):
-			ok = false
+	var ok := av in ProfileScript.AVATARS # liste fermee : les 8 avatars de l'APK + avatar_none (pas d'avatar de mecene)
 	var w = d.get("wins", 0)
 	var df = d.get("defeats", 0)
 	return {"avatar": av if ok else "", "wins": clampi(int(w) if typeof(w) in [TYPE_INT, TYPE_FLOAT] else 0, 0, 99999), "defeats": clampi(int(df) if typeof(df) in [TYPE_INT, TYPE_FLOAT] else 0, 0, 99999)}

@@ -49,6 +49,7 @@ func _init() -> void:
 	if ResourceLoader.exists(CLOCK):
 		_clock = TextureRect.new()
 		_clock.texture = load(CLOCK)
+		_clock.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST # ProgressBarEntity.cs:57 : AddressMode.PointClamp
 		_clock.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_clock.modulate.a = 0.0
 		add_child(_clock)
