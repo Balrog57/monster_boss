@@ -2721,7 +2721,7 @@ func _check_credits() -> void:
 	# 4 boutons empiles au centre x 960, y 356,4 + 162 n (OptionsScene.cs:55-103) ; les reglages sont dans SETTINGS
 	var stack: Array = ["Tutorial", "Settings", "CardGallery", "Credits"].map(func(n): return main.find_child(n, true, false))
 	_check(stack.all(func(b): return b is Button and is_equal_approx(b.position.x + b.size.x / 2.0, 960.0)), "options : les 4 boutons ne sont pas centres sur x = 960")
-	_check(stack.all(func(b): return b is Button) and is_equal_approx(stack[0].position.y + stack[0].size.y / 2.0, 356.0) and is_equal_approx(stack[3].position.y - stack[0].position.y, 486.0), "options : empilement TUTORIAL / SETTINGS / CARD GALLERY / CREDITS hors APK")
+	_check(stack.all(func(b): return b is Button) and is_equal_approx(stack[0].position.y + stack[0].size.y / 2.0, 356.4) and is_equal_approx(stack[3].position.y - stack[0].position.y, 486.0), "options : empilement TUTORIAL / SETTINGS / CARD GALLERY / CREDITS hors APK")
 	_check(main.find_children("*", "Label", true, false).all(func(l): return (l as Label).text != "MUSIC"), "options : MUSIC doit etre dans SETTINGS")
 	if stack[1] is Button:
 		(stack[1] as Button).pressed.emit()

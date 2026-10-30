@@ -49,7 +49,8 @@ func _build() -> void:
 	back.texture_normal = load(UI + "buttons/back_bt.webp")
 	back.texture_pressed = load(UI + "buttons/back_bt_pressed.webp")
 	back.name = "Back"
-	back.position = Vector2(Vp.lx(20.0), 22)
+	back.position = Vector2(20.0, 22)
+	Vp.edge(back, Vp.LEFT)
 	back.pressed.connect(func():
 		AudioManager.play_sfx("ui_button_goback")
 		close_viewer())
@@ -114,7 +115,8 @@ func _arrow(next: bool, pos: Vector2) -> TextureButton:
 	b.texture_normal = load(UI + "buttons/back_bt.webp") # fleche « retour » de l'APK, retournee pour « suivant »
 	b.texture_pressed = load(UI + "buttons/back_bt_pressed.webp")
 	b.flip_h = next
-	b.position = Vector2(Vp.rx(pos.x) if next else Vp.lx(pos.x), pos.y) # fleches aux bords de la fenetre
+	b.position = pos # fleches aux bords de la fenetre
+	Vp.edge(b, Vp.RIGHT if next else Vp.LEFT)
 	b.pressed.connect(func(): turn(1 if next else -1))
 	return b
 

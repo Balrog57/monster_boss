@@ -95,7 +95,8 @@ func _ready() -> void:
 	back.name = "Back"
 	back.texture_normal = load(UI + "buttons/back_bt.webp")
 	back.texture_pressed = load(UI + "buttons/back_bt_pressed.webp")
-	back.position = Vector2(Vp.lx(BACK_POS.x), BACK_POS.y)
+	back.position = BACK_POS
+	Vp.edge(back, Vp.LEFT) # suit la largeur utile (Vp.width_changed)
 	back.pressed.connect(func():
 		AudioManager.play_sfx("ui_button_goback") # ui_button_goback (ControlsFactory.cs:245)
 		closed.emit())

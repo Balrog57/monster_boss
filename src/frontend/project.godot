@@ -36,3 +36,7 @@ pointing/emulate_touch_from_mouse=true
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 environment/defaults/default_clear_color=Color(0.039, 0.039, 0.059, 1)
+
+[gui]
+
+common/snap_controls_to_pixels=false

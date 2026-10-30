@@ -1,7 +1,30 @@
 # Harnais de parite Godot <-> APK
 
-Le seul harnais de parite est `apk.py` : il compare le port Godot (`src/frontend/godot/`) a l'APK d'origine
-(oracle .NET `tools/apk-oracle`). L'ancien harnais JS <-> GDScript a ete supprime avec le code JS.
+Deux harnais : `apk.py` (regles / IA, contre l'oracle .NET `tools/apk-oracle`) et `image_diff.py` (image contre image, ci-dessous). L'ancien harnais
+JS <-> GDScript a ete supprime avec le code JS. Tout ce qui suit est **local** : les frames APK (`docs/reference/apk_orig*`), les captures Godot et les sorties sont ignorees par git.
+
+## image_diff.py : ecart image APK / Godot (phase 5)
+
+```
+python tools/parity/image_diff.py --capture          # relance CaptureScreens (fenetre reelle, ~2 min) puis mesure + ecrit les PNG
+python tools/parity/image_diff.py                    # mesure seule sur les captures deja la ; PNG dans docs/reference/diff/<frame>.png
+python tools/parity/image_diff.py --check            # garde anti-regression : code 1 si un seuil est depasse ou une capture manque (pas de PNG)
+python tools/parity/image_diff.py --only=<texte> --top=N --no-png --tag=<nom> --godot-dir=<dossier sous docs/reference>
+python tools/parity/image_diff.py --freeze           # ecrit un plafond (ecart actuel + 20 %) dans les paires des kinds "freeze" qui n'en ont pas
+```
+
+- **Entree** : `frame_pairs.json` (source versionnee, a editer a la main). Une entree par frame APK (263) : `godot` = nom de la capture (`docs/reference/godot_screens/godot_<nom>.png`,
+  produite par `src/frontend/godot/tests/capture_screens.gd`) ou `null` + `reason` (animation, contenu de partie sans capture equivalente, boutique...). Une paire peut porter des
+  `mask` ([x, y, l, h, raison] : zone exclue, toujours avec sa raison), des `probes` (patch RGB moyen a comparer, tolerance), des plafonds propres `max_mean` / `max_pct` / `max_cell` / `max_chrome`
+  (+ `limit_reason`). `kinds` donne les defauts : `ui` (ecrans de menu : moyenne <= 2 / 255, aucune cellule > 11), `board` (plateau : `chrome` = rectangles du decor fixe, plafonds geles par `--freeze`),
+  `tutorial` (idem). Les captures 1600x1000 / 1440x1080 / 2560x1080 ne sont pas comparees (le rognage central n'a pas de sens apres mise a l'echelle).
+- **Mesures** : ecart absolu moyen en gris (0-255), part de pixels > 16, grille 12 x 7 (pire cellule), SSIM par blocs de 16, moyenne sur le `chrome` du kind (hors masques), sondes RGB.
+  Sorties : `tools/parity/out/<tag>.md` / `.csv` (tableau trie pire d'abord), PNG 2 x 2 (APK | Godot | diff x4 | carte de chaleur, masques en magenta).
+- **Lecture** : un ecart de contenu (autres cartes, autre heros, autre boss) n'est pas un defaut ; le `chrome` (titre, defausse, colonne de droite, plaque de phase, PASS TURN) et tous les ecrans `ui`
+  sont les seuls juges. Les plafonds des paires `board` sont un cliquet : les baisser quand un ecart est corrige, jamais les monter sans raison ecrite.
+- **Ajouter un etat** : creer la capture dans `capture_screens.gd` (groupe par defaut, sinon `--check` ne la voit pas apres un `--capture`), puis la paire dans le JSON.
+
+## apk.py : oracle des regles
 Fichiers Godot associes : `src/frontend/godot/tests/apk_parity.gd` + `ApkParity.tscn`, `scripts/ApkParityTrace.gd`.
 
 ## Machine de phases de reference (APK 2.2.6, verifie)

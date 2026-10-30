@@ -149,7 +149,8 @@ static func stone_button(parent: Node, text: String, pos: Vector2, sz: Vector2 =
 	for n in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
 		var sb := StyleBoxTexture.new()
 		sb.texture = tex(UI + ("buttons/options_bt_pressed.webp" if n in ["pressed", "hover_pressed"] else "buttons/options_bt.webp"))
-		sb.content_margin_bottom = 6.0 # remonte le libelle de 3 px : l'encre APK est centree 3 px plus haut qu'avec arcadepix centre par Godot
+		sb.content_margin_bottom = 4.0 # l'encre APK est centree ~2 px plus haut qu'avec arcadepix centre par Godot (mesure : TUTORIAL APK y 346..364, Godot 345..362 a 6 px)
+		sb.content_margin_right = 6.0 # et 3 px plus a gauche (APK x 875..1039, Godot 879..1041) : la largeur du texte APK compte l'interlettre final
 		if n == "hover":
 			sb.modulate_color = Color(1.25, 1.2, 1.05)
 		b.add_theme_stylebox_override(n, sb)
@@ -234,7 +235,13 @@ static func zoom_back(kind: String, sz: Vector2 = ZOOM_CARD) -> Control:
 ## porte la bulle verte settings_bt (204 x 110, 5 px plus haut) et son texte or decale de -5 px par-dessus le texte blanc ; polices x 1,4 (29 px).
 ## Absolu en 1920x1080 : libelle a droite de x=710, segments a partir de x=760, centre vertical y.
 static func toggle_row(parent: Control, y: int, text: String, opts: Array, sel: int, cb: Callable) -> void:
-	var l := label(parent, text, 36, Color.WHITE, Vector2(264, y - 44), 450.0, FONT_B, HORIZONTAL_ALIGNMENT_RIGHT) # APK : libelle 6 px plus bas que la bascule, bord droit a x=710
+	var l := label(parent, text, 40, Color.WHITE, Vector2(265, y - 44), 450.0, FONT_B, HORIZONTAL_ALIGNMENT_RIGHT) # APK : libelle 6 px plus bas que la bascule, bord droit a x=710
+	var fv := FontVariation.new() # APK : arcadepix2 x1,4 (taille 40) dont l'avance suit l'encre du glyphe, pas la case (mesure sur 03_settings)
+	fv.base_font = load(FONT_B)
+	fv.fallbacks = [ThemeDB.fallback_font]
+	fv.spacing_glyph = -4
+	l.add_theme_font_override("font", fv)
+	l.add_theme_constant_override("outline_size", 0)
 	l.custom_minimum_size.y = 100.0
 	l.size.y = 100.0
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -252,10 +259,10 @@ static func draw_toggle(row: Control, y: int, opts: Array, sel: int, cb: Callabl
 	ninepatch(row, "ninepatch/settings_text_bg.webp", Vector2(760, y - 48.5), Vector2(SEG * opts.size(), 97), Vector4(5, 5, 5, 5)).material = premult_mat()
 	for i in opts.size():
 		var x := 760.0 + SEG * i
-		if i == sel:
-			image(row, UI + "buttons/settings_bt.webp", Vector2(x, y - 60), Vector2(SEG, 110))
 		var chosen := i == sel
 		for gold in ([false, true] if chosen else [false]):
+			if gold:
+				image(row, UI + "buttons/settings_bt.webp", Vector2(x, y - 60), Vector2(SEG, 110)) # le texte blanc (ordre -0,1) reste sous le bouton (-0,2), l'or (-0,3) par-dessus
 			var l := label(row, str(opts[i]), 29, GOLD if gold else Color.WHITE, Vector2(x - 50, y - 48 - (5 if gold else 0)), 300.0, FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
 			l.add_theme_constant_override("outline_size", 0)
 			l.custom_minimum_size.y = 96.0

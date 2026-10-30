@@ -236,14 +236,18 @@ func _unhandled_key_input(e: InputEvent) -> void:
 
 # --- widgets ---------------------------------------------------------------
 
+const BG_OFFSET := Vector2(-2, 0)
+
 func _bg(path: String) -> TextureRect:
 	var t := TextureRect.new()
-	t.set_anchors_preset(Control.PRESET_FULL_RECT)
 	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	t.stretch_mode = TextureRect.STRETCH_SCALE
 	t.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST # ControlsFactory.CreateBackground : AddressMode.PointClamp
 	if ResourceLoader.exists(path):
 		t.texture = load(path)
+	# Les fonds font 1920 x 1081 et l'APK les pose a taille native, centres (Origin centre) : plus de squash 1081 -> 1080 ; decalage mesure sur les frames (menu, titre, carte du monde)
+	t.position = BG_OFFSET
+	t.size = t.texture.get_size() if t.texture != null else Vector2(1920, 1081)
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return t
 
@@ -316,8 +320,8 @@ func _blink(n: CanvasItem, d: float) -> void:
 func _apk_screen(back: Callable, online: bool = false) -> void:
 	_clear()
 	add_child(_bg(UI + ("backgrounds/multiplayer_bg.webp" if online else "backgrounds/menu_bg.webp")))
-	for x in ([] if online else [713, 992]): # torch.webp : socle a (820|1100, 900) dans la maquette
-		add_child(_tex("gradients/torch.webp", Vector2(x, 690))) # torches statiques (ControlsFactory.cs:330-344), aucun scintillement
+	for x in ([] if online else [712.5, 994.5]): # torch.webp 221 x 253 centree en (583 | 865 ; 820) + 240 (ControlsFactory.CreateTorch)
+		add_child(_tex("gradients/torch.webp", Vector2(x, 693.5))) # torches statiques (ControlsFactory.cs:330-344), aucun scintillement
 	add_child(_tex("gradients/logo_small.webp", Vector2(616, 10)))
 	if back.is_valid():
 		var bk := _img_btn("buttons/back_bt.webp", "buttons/back_bt_pressed.webp", Vector2(20, 22), back, Vector2.ZERO, "ui_button_goback")
@@ -347,7 +351,7 @@ func show_title() -> void:
 	eyes.modulate.a = 0.0 # invisibles au depart : BlinkBehavior(5 s), Opacity MinOpacity 0 (IntroScene.cs:49-55, BlinkBehavior.cs:36-60)
 	add_child(eyes)
 	_blink(eyes, 5.0)
-	add_child(_tex("navigation/bm_logo.webp", Vector2(537, 78), Vector2(850, 343)))
+	add_child(_tex("navigation/bm_logo.webp", Vector2(534, 80))) # taille native 852 x 344, haut-centre a (960, 80) : CreateLogo(true)
 	var tap := _lbl("TAP TO START", 42, Color("bfca7a"), Vector2(547, 600), Vector2(800, 86), FONT_A) # x 547 : texte APK centre vers x 948 (CreateArcadepixTB(515, 620) + decalage 240) ; arcadepix x2 = 42, PistachioColor #bfca7a (IntroScene.cs:57, CustomColors.cs:18)
 	tap.modulate.a = 0.0
 	add_child(tap)
@@ -385,7 +389,9 @@ func show_menu() -> void:
 	_apk_screen(func(): go(show_title)) # la fleche du menu appelle NavigatedBack = Pop ColorFade (MainMenuScene.cs:49-54,199-202)
 	_stone_btn("SINGLE PLAYER", "boss_icon.webp", Vector2(31, 55), 294, Vector2(458, 314), _solo_pressed) # MainMenuScene.cs:84-87
 	_stone_btn("MULTIPLAYER", "boss_multi_icon.webp", Vector2(26, 63), 329, Vector2(988, 314), func(): go(show_multi)) # MainMenuScene.cs:92-104
-	_stone_btn("OPTIONS", "options_icon.webp", Vector2(24, 57), 269, Vector2(458, 524), func(): go(show_options)) # MainMenuScene.cs:107-112
+	_stone_btn("OPTIONS", "options_icon.webp", Vector2(24, 57), 269, Vector2(458, 524), func():
+		_logo_stale = false
+		go(show_options)) # MainMenuScene.cs:107-112
 	_stone_btn("RULES", "rules_icon.webp", Vector2(23, 46), 308, Vector2(988, 524), func(): go(show_rules), Vector2(96, 96)) # icone 64 -> 96 px : encre 80 px de haut comme inapp_icon (60 x 81) ; emplacement du store : MainMenuScene.cs:114-119
 
 # --- solo : HOW MANY PLAYERS? -------------------------------------------------
@@ -542,11 +548,11 @@ func _draw_fans(animate: bool = false) -> void:
 	var i := ring.find(players)
 	var k := ring.size()
 	var shown := {}
-	for slot in [[ring[(i + k - 1) % k], 577.0, 200.0], [players, 958.0, 310.0], [ring[(i + 1) % k], 1335.0, 200.0]]:
+	for slot in [[ring[(i + k - 1) % k], 581.0, 190.0], [players, 960.0, 300.7], [ring[(i + 1) % k], 1341.0, 190.0]]:
 		var n: int = slot[0]
 		var cx: float = slot[1]
 		var sel: bool = n == players
-		var fan := _fan(Vector2(cx, 625 if sel else 600), slot[2], FANS[n], sel)
+		var fan := _fan(Vector2(cx, 626 if sel else 595), slot[2], FANS[n], sel)
 		fan.set_meta("fan", n)
 		dyn_root.add_child(fan)
 		shown[n] = true
@@ -567,10 +573,10 @@ func _draw_fans(animate: bool = false) -> void:
 			tw.tween_property(fan, "scale", Vector2.ONE, 0.3)
 		fan.set_meta("h", slot[2])
 		if sel:
-			dyn_root.add_child(_tex("navigation/bg_number.webp", Vector2(922, 371)))
-			dyn_root.add_child(_lbl(str(n), 63, GOLD, Vector2(922, 371), Vector2(77, 77), FONT_A))
+			dyn_root.add_child(_tex("navigation/bg_number.webp", Vector2(921.5, 367.9))) # PlayerNumberSelectionEntity.cs:55-60 : centre (960 ; 626,4 - 220), 77 x 77
+			dyn_root.add_child(_lbl(str(n), 63, GOLD, Vector2(918.5, 365.9), Vector2(77, 77), FONT_A))
 		else:
-			var num := _lbl(str(n), 32, Color.WHITE, Vector2(cx - 32, 415), Vector2(80, 44), FONT_A) # arcadepix blanc (PlayerNumberDeckEntity.cs:66) ; 32 px donne l'encre 21 x 21 mesuree sur la capture APK (a 42 px : 28 x 28)
+			var num := _lbl(str(n), 32, Color.WHITE, Vector2(cx - 36, 414), Vector2(80, 44), FONT_A) # arcadepix blanc (PlayerNumberDeckEntity.cs:66) ; 32 px donne l'encre 21 x 21 mesuree sur la capture APK (a 42 px : 28 x 28)
 			dyn_root.add_child(num)
 			if animate:
 				num.modulate.a = 0.0
@@ -595,7 +601,7 @@ func _fan(c: Vector2, h: float, ids: Array, sel: bool) -> Control:
 	root.position = c
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# OpponentsExpandBehavior.cs : les listes a 4 cartes servent quel que soit le nombre (InitializeValues tourne avant la liste), la selection est « ouverte ».
-	var sep := 50.0 * (0.84 if sel else 0.6) # separation 50, a l'echelle des captures APK
+	var sep := 50.0 * (0.78 if sel else 0.6) # separation 50, a l'echelle des captures APK
 	var offs := [Vector2(0, 0), Vector2(sep if sel else sep / 3, 0), Vector2(-sep if sel else -sep / 3, sep / 4), Vector2(sep * 2 if sel else sep / 3, sep / 4)]
 	var rots := [-0.15, 0.2, -0.35, 0.35] if sel else [-0.1, 0.05, -0.2, 0.15]
 	var order := [0.31, 0.32, 0.3, 0.33] # LocalDrawOrder : le plus petit est devant
@@ -935,7 +941,13 @@ func start_online_match() -> void:
 
 # --- options / regles ------------------------------------------------------------
 
+## OptionsScene.Resume (:117-123) remplace le logo apres chaque retour d'un ecran fils (REGLAGES, GALERIE, CREDITS), mais `fadeLogo` reste lie a l'ancien : le logo ne s'estompe plus
+## (le fantome visible sous le voile des frames 06_credits_t10 / 07_credits_t20 de l'APK) et ne fait plus de fondu a l'entree. Vrai apres un retour, faux a l'entree depuis le menu.
+var _logo_stale := false
+
 func show_options(from_credits: bool = false) -> void:
+	if from_credits:
+		_logo_stale = true
 	var host := LineEdit.new()
 	host.text = server_host
 	var is_web := OS.has_feature("web")
@@ -951,24 +963,26 @@ func show_options(from_credits: bool = false) -> void:
 		if not is_web and is_instance_valid(host):
 			server_host = host.text # chaque sortie d'OPTIONS reconstruit l'ecran : on garde le champ serveur
 		Profile.save_settings(server_host, use_extensions, apk_decks)
-	var tut := UiKit.stone_button(self, "TUTORIAL", Vector2(687, 284))
+	var tut := UiKit.stone_button(self, "TUTORIAL", Vector2(687, 284.4))
 	tut.name = "Tutorial"
 	tut.pressed.connect(func():
 		save_host.call()
 		start_tutorial()) # OptionsScene.cs:62-67 : To(GamePlayTutScene) sans transition
-	var sett := UiKit.stone_button(self, "SETTINGS", Vector2(687, 446))
+	var sett := UiKit.stone_button(self, "SETTINGS", Vector2(687, 446.4))
 	sett.name = "Settings"
 	sett.pressed.connect(func():
 		save_host.call()
 		go(show_settings)) # OptionsScene.cs:68-79 : Push ColorFade noir NormalTransitionsTime
-	var gal := UiKit.stone_button(self, "CARD GALLERY", Vector2(687, 608))
+	var gal := UiKit.stone_button(self, "CARD GALLERY", Vector2(687, 608.4))
 	gal.name = "CardGallery"
 	gal.pressed.connect(func():
 		go(func():
 			var g := CardGallery.new()
-			g.closed.connect(func(): (gal.get_meta("unpress") as Callable).call()) # OnDesactivatingScene : IsPressed = false
+			g.closed.connect(func():
+				_logo_stale = true
+				(gal.get_meta("unpress") as Callable).call()) # OnDesactivatingScene : IsPressed = false
 			add_child(g))) # OptionsScene.cs:85-90 (ColorFade 1,0 s)
-	var cred := UiKit.stone_button(self, "CREDITS", Vector2(687, 770))
+	var cred := UiKit.stone_button(self, "CREDITS", Vector2(687, 770.4))
 	cred.name = "Credits"
 	cred.pressed.connect(func():
 		save_host.call()
@@ -978,15 +992,17 @@ func show_options(from_credits: bool = false) -> void:
 	ext.text = "Wiki expansions (not in the APK)"
 	ext.button_pressed = use_extensions
 	ext.add_theme_font_size_override("font_size", 16)
-	ext.position = Vector2(Vp.lx(30.0), 1030) # (hors APK) coin bas gauche
+	ext.position = Vector2(30.0, 1030) # (hors APK) coin bas gauche
+	Vp.edge(ext, Vp.LEFT)
 	ext.toggled.connect(func(on: bool):
 		use_extensions = on
 		Profile.save_settings(server_host, use_extensions, apk_decks))
 	add_child(ext)
-	if from_credits: # OptionsScene.ShowButtons(true) (:150-153) : logo en fondu 0,5 s, boutons en cascade (0 / 0,1 / 0,2 / 0,3 s), fondu 0,3 s + glisse de 0,2 s (BackEase Out)
-		_options_buttons_in([tut, sett, gal, cred], _logo_node())
+	if from_credits: # OptionsScene.ShowButtons(true) (:150-153) : boutons en cascade (0 / 0,1 / 0,2 / 0,3 s), fondu 0,3 s + glisse de 0,2 s (BackEase Out) ; le fondu du logo vise l'ancien (Resume)
+		_options_buttons_in([tut, sett, gal, cred], null)
 	host.add_theme_font_size_override("font_size", 16)
-	host.position = Vector2(Vp.rx(1440.0), 1034) # (hors APK) coin bas droit
+	host.position = Vector2(1440.0, 1034) # (hors APK) coin bas droit
+	Vp.edge(host, Vp.RIGHT)
 	host.size = Vector2(440, 36)
 	host.tooltip_text = "Multiplayer server"
 	if is_web:
@@ -996,7 +1012,9 @@ func show_options(from_credits: bool = false) -> void:
 
 ## SETTINGS (SettingsScene.cs:58-106) : MUSIC / SOUND / GAME SPEED aux y 360 / 480 / 600 ; la fleche pop SANS transition vers OPTIONS (NavigatedBack :133-145).
 func show_settings() -> void:
-	_apk_screen(show_options)
+	_apk_screen(func():
+		_logo_stale = true
+		show_options())
 	_toggle_row(360, "MUSIC", ["ON", "OFF"], 0 if AudioManager.music_on else 1, func(i: int): AudioManager.set_music_on(i == 0))
 	_toggle_row(480, "SOUND", ["ON", "OFF"], 0 if AudioManager.sfx_on else 1, func(i: int): AudioManager.set_sfx_on(i == 0))
 	_toggle_row(600, "GAME SPEED", ["SLOW", "NORMAL", "FAST"], Profile.load_speed(), func(i: int): Profile.save_speed(i))
@@ -1009,7 +1027,7 @@ func _open_credits(decor: Array, buttons: Array) -> void:
 		if c is CanvasItem and not decor.has(c) and not buttons.has(c):
 			(c as CanvasItem).visible = false # champ serveur, case wiki : hors APK
 	# ShowButtons(false) (OptionsScene.cs:143-147) : logo en fondu de 0,5 s ; chaque bouton s'estompe (0,3 s) puis glisse de 50 px vers la gauche en 0,2 s (BackEase In, amplitude 0,5)
-	if logo != null:
+	if logo != null and not _logo_stale:
 		logo.create_tween().tween_property(logo, "modulate:a", 0.0, 0.5)
 	for b in buttons:
 		var tw := (b as Control).create_tween()
@@ -1040,10 +1058,7 @@ func _options_buttons_in(buttons: Array, logo: TextureRect) -> void:
 
 ## Rangee de segments facon APK : voir UiKit.draw_toggle.
 func _toggle_row(y: int, text: String, opts: Array, sel: int, cb: Callable) -> void:
-	add_child(_lbl(text, 36, Color.WHITE, Vector2(260, y - 50), Vector2(450, 100), FONT_B, HORIZONTAL_ALIGNMENT_RIGHT))
-	var row := Control.new()
-	add_child(row)
-	UiKit.draw_toggle(row, y, opts, sel, cb)
+	UiKit.toggle_row(self, y, text, opts, sel, cb)
 
 ## Visionneuse des regles : voir RulesViewer.gd (partagee avec le plateau).
 func show_rules(tab: int = 0) -> void:

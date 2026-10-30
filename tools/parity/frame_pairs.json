@@ -1,0 +1,3145 @@
+{
+ "kinds": {
+  "ui": {
+   "max_mean": 2.0,
+   "max_cell": 11.0
+  },
+  "board": {
+   "chrome": [
+    [
+     0,
+     0,
+     184,
+     92,
+     "titre HEROES IN TOWN"
+    ],
+    [
+     0,
+     905,
+     185,
+     175,
+     "tuile DISCARD PILE"
+    ],
+    [
+     1708,
+     0,
+     212,
+     1080,
+     "colonne de droite (panneaux boss)"
+    ],
+    [
+     740,
+     0,
+     400,
+     80,
+     "plaque de phase"
+    ],
+    [
+     830,
+     440,
+     240,
+     120,
+     "bouton PASS TURN / DONE"
+    ]
+   ],
+   "freeze": true
+  },
+  "tutorial": {
+   "freeze": true
+  }
+ },
+ "godot_dir": "godot_screens",
+ "pairs": [
+  {
+   "apk": "apk_orig/ability_ai_played_room_ability_dracolich_lair_notice_top_right_green_timer.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee notice_opponent_has_played_a_room_ability_mimic_vault_glow"
+  },
+  {
+   "apk": "apk_orig/ability_bottomless_pit_activated_red_glow_room_zoom_hero_in_room_timer_t9.png",
+   "godot": "ability_bottomless_pit_activated_red_glow_room_zoom_hero_in_room_timer_t9",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 18.4,
+   "max_cell": 100.4,
+   "max_chrome": 23.4
+  },
+  {
+   "apk": "apk_orig/ability_opponent_dark_lab_card_lifted_has_played_a_room_ability_bubble.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee notice_opponent_has_played_a_room_ability_mimic_vault_glow"
+  },
+  {
+   "apk": "apk_orig/ability_two_room_abilities_zoom_jackpot_stash_recycling_center_pass_turn_behind.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee ability_bottomless_pit_activated_red_glow_room_zoom_hero_in_room_timer_t9"
+  },
+  {
+   "apk": "apk_orig/adv_boss_dead_rip_tombstone_hero_card_stack_town_left.png",
+   "godot": "adv_boss_dead_rip_tombstone_hero_card_stack_town_left",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 13.1,
+   "max_cell": 92.5,
+   "max_chrome": 14.2
+  },
+  {
+   "apk": "apk_orig/adv_drawn_spell_teleportation_zoom_center.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_longpress_card_zoom_preview"
+  },
+  {
+   "apk": "apk_orig/adv_hero_enters_mimic_vault_enlarged_gold_glow.png",
+   "godot": null,
+   "reason": "image transitoire d'une animation (vol de carte, fondu, glissade) : instant non reproductible a l'image pres"
+  },
+  {
+   "apk": "apk_orig/adv_hero_in_room_succubus_spa_enlarged.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee adv_hero_in_room_witchs_kitchen_enlarged_damage_heart"
+  },
+  {
+   "apk": "apk_orig/adv_hero_in_room_witchs_kitchen_enlarged_damage_heart.png",
+   "godot": "adv_hero_in_room_witchs_kitchen_enlarged_damage_heart",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 12.5,
+   "max_cell": 91.8,
+   "max_chrome": 12.4
+  },
+  {
+   "apk": "apk_orig/adv_hero_killed_bonus_spell_deck_draw_big_card_back_center.png",
+   "godot": null,
+   "reason": "image transitoire d'une animation (vol de carte, fondu, glissade) : instant non reproductible a l'image pres"
+  },
+  {
+   "apk": "apk_orig/adv_hero_killed_soul_gained_souls_row_half_lit_hero_card_in_slot.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee adv_t10_cleric_reaches_boss_wound_taken_boss_wounds_x5"
+  },
+  {
+   "apk": "apk_orig/adv_hero_queue_5_heroes_fanned_in_town_cleric_in_zombie_prison_minus1_top.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee bait_phase_heroes_assigned_to_dungeons"
+  },
+  {
+   "apk": "apk_orig/adv_hero_reaches_boss_attack_faded_heart.png",
+   "godot": null,
+   "reason": "image transitoire d'une animation (vol de carte, fondu, glissade) : instant non reproductible a l'image pres"
+  },
+  {
+   "apk": "apk_orig/adv_longpress_trepidation_zoom_clock_timer_icon_bar_opponent_side.png",
+   "godot": "lot6b_timebar_clock_slowed",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 17.2,
+   "max_cell": 96.6,
+   "max_chrome": 19.6
+  },
+  {
+   "apk": "apk_orig/adv_mage_enters_brainsucker_hive_heart_counter_2.png",
+   "godot": null,
+   "reason": "image transitoire d'une animation (vol de carte, fondu, glissade) : instant non reproductible a l'image pres"
+  },
+  {
+   "apk": "apk_orig/adv_mage_in_brainsucker_hive_heart5_timer_bar_ours.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee adv_timer_bar_full_green_above_hero_card"
+  },
+  {
+   "apk": "apk_orig/adv_mage_in_dizzygas_hallway_spells_lit_gold_in_hand.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee adv_timer_bar_full_green_above_hero_card"
+  },
+  {
+   "apk": "apk_orig/adv_mage_killed_heart_icon_flies_to_top_bar_hero_still_on_card.png",
+   "godot": null,
+   "reason": "image transitoire d'une animation (vol de carte, fondu, glissade) : instant non reproductible a l'image pres"
+  },
+  {
+   "apk": "apk_orig/adv_opponent_dungeon_attacked_boss_red_glow_hero_in_dark_lab_spells_grey.png",
+   "godot": null,
+   "reason": "image transitoire d'une animation (vol de carte, fondu, glissade) : instant non reproductible a l'image pres"
+  },
+  {
+   "apk": "apk_orig/adv_opponent_fighter_in_dracolich_lair_heart2_epic_heroes_header.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee adv_hero_in_room_witchs_kitchen_enlarged_damage_heart"
+  },
+  {
+   "apk": "apk_orig/adv_opponent_hero_damage_minus1_heart_flying_top_center.png",
+   "godot": null,
+   "reason": "image transitoire d'une animation (vol de carte, fondu, glissade) : instant non reproductible a l'image pres"
+  },
+  {
+   "apk": "apk_orig/adv_our_dungeon_timer_bar_spell_trepidation_lit_gold_in_hand.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee adv_timer_bar_full_green_above_hero_card"
+  },
+  {
+   "apk": "apk_orig/adv_room_damage_heart_minus1_floating_top_bar.png",
+   "godot": null,
+   "reason": "image transitoire d'une animation (vol de carte, fondu, glissade) : instant non reproductible a l'image pres"
+  },
+  {
+   "apk": "apk_orig/adv_t10_cleric_reaches_boss_wound_taken_boss_wounds_x5.png",
+   "godot": "adv_t10_cleric_reaches_boss_wound_taken_boss_wounds_x5",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 11.7,
+   "max_cell": 68.0,
+   "max_chrome": 14.2
+  },
+  {
+   "apk": "apk_orig/adv_t2_mage_in_witchs_kitchen_hero_hp7_fear_spell_lit_gold.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee adv_hero_in_room_witchs_kitchen_enlarged_damage_heart"
+  },
+  {
+   "apk": "apk_orig/adv_t3_cleric_in_our_succubus_spa_heart1_damage_minus1_opponent_timer.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee adv_hero_in_room_witchs_kitchen_enlarged_damage_heart"
+  },
+  {
+   "apk": "apk_orig/adv_t8_full_state_5_rooms_each_side_hero_in_dark_lab_heart7_souls_x6.png",
+   "godot": "lot6b_board_gear_entrance_queue",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 15.5,
+   "max_cell": 93.9,
+   "max_chrome": 21.5
+  },
+  {
+   "apk": "apk_orig/adv_thief_in_recycling_center_trap_room_heart5.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee adv_hero_in_room_witchs_kitchen_enlarged_damage_heart"
+  },
+  {
+   "apk": "apk_orig/adv_thief_in_witchs_kitchen_minus1_heart_flies_to_top_bar.png",
+   "godot": null,
+   "reason": "image transitoire d'une animation (vol de carte, fondu, glissade) : instant non reproductible a l'image pres"
+  },
+  {
+   "apk": "apk_orig/adv_timer_bar_full_green_above_hero_card.png",
+   "godot": "adv_timer_bar_full_green_above_hero_card",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 11.8,
+   "max_cell": 86.9,
+   "max_chrome": 12.7
+  },
+  {
+   "apk": "apk_orig/adv_timer_bar_nearly_empty.png",
+   "godot": "adv_timer_bar_nearly_empty",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 11.7,
+   "max_cell": 86.9,
+   "max_chrome": 12.7
+  },
+  {
+   "apk": "apk_orig/adventure_phase_banner_start.png",
+   "godot": "adventure_phase_banner_start",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 9.7,
+   "max_cell": 64.2,
+   "max_chrome": 14.3
+  },
+  {
+   "apk": "apk_orig/adventure_waiting_timer_bar_over_dungeon.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee adv_timer_bar_full_green_above_hero_card"
+  },
+  {
+   "apk": "apk_orig/bait_phase_heroes_assigned_to_dungeons.png",
+   "godot": "bait_phase_heroes_assigned_to_dungeons",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 11.4,
+   "max_cell": 64.9,
+   "max_chrome": 14.6
+  },
+  {
+   "apk": "apk_orig/bait_phase_t2_cleric_to_our_dungeon_fool_to_ai.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee bait_phase_heroes_assigned_to_dungeons"
+  },
+  {
+   "apk": "apk_orig/bait_t3_heroes_assigned_new_rooms_in_both_dungeons.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee bait_phase_heroes_assigned_to_dungeons"
+  },
+  {
+   "apk": "apk_orig/bait_t4_fighter_to_ai_mage_to_ours_heroes_fly_to_dungeons.png",
+   "godot": null,
+   "reason": "image transitoire d'une animation (vol de carte, fondu, glissade) : instant non reproductible a l'image pres"
+  },
+  {
+   "apk": "apk_orig/bait_t5_room_deck_x0_rooms_revealed_heroes_dropping.png",
+   "godot": null,
+   "reason": "image transitoire d'une animation (vol de carte, fondu, glissade) : instant non reproductible a l'image pres"
+  },
+  {
+   "apk": "apk_orig/build_card_selected_in_hand.png",
+   "godot": "build_card_selected_in_hand",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 12.0,
+   "max_cell": 83.1,
+   "max_chrome": 13.3
+  },
+  {
+   "apk": "apk_orig/build_dark_laboratory_played_deck_card_draw_prompt.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_longpress_card_zoom_preview"
+  },
+  {
+   "apk": "apk_orig/build_done_button_green_after_playing_room_t4.png",
+   "godot": "lot6b_done_button_timer_variant",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 15.3,
+   "max_cell": 103.0,
+   "max_chrome": 16.1
+  },
+  {
+   "apk": "apk_orig/build_drag_card_valid_slot_highlight.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_dragging_card_over_slot_midway"
+  },
+  {
+   "apk": "apk_orig/build_drag_over_occupied_slot_stack_target.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_dragging_card_over_slot_midway"
+  },
+  {
+   "apk": "apk_orig/build_dragging_card_over_slot_midway.png",
+   "godot": "build_dragging_card_over_slot_midway",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 11.9,
+   "max_cell": 83.1,
+   "max_chrome": 13.2
+  },
+  {
+   "apk": "apk_orig/build_draw_prompt_deck_card.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_longpress_card_zoom_preview"
+  },
+  {
+   "apk": "apk_orig/build_facedown_rooms_flying_in_both_dungeons.png",
+   "godot": null,
+   "reason": "image transitoire d'une animation (vol de carte, fondu, glissade) : instant non reproductible a l'image pres"
+  },
+  {
+   "apk": "apk_orig/build_hand_dealing_anim.png",
+   "godot": null,
+   "reason": "image transitoire d'une animation (vol de carte, fondu, glissade) : instant non reproductible a l'image pres"
+  },
+  {
+   "apk": "apk_orig/build_longpress_card_zoom_preview.png",
+   "godot": null,
+   "reason": "pas de capture Godot de cet etat dans le groupe par defaut de CaptureScreens (zoom sur appui long : groupe lot2b a lancer a part, fixture de partie differente) ; capture ancienne retiree pour ne pas garder un chiffre perime"
+  },
+  {
+   "apk": "apk_orig/build_pass_warning_bubble_you_can_build_a_room_still_want_to_pass.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_t7_pass_warning_bubble_8_card_hand_fan"
+  },
+  {
+   "apk": "apk_orig/build_reveal_ai_recycling_center_dark_lab_in_our_dungeon_stack_peek.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee stacked_rooms_older_card_peeks_header_strip"
+  },
+  {
+   "apk": "apk_orig/build_room_placed_facedown_done_button.png",
+   "godot": "build_room_placed_facedown_done_button",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 7.9,
+   "max_cell": 53.9,
+   "max_chrome": 11.8
+  },
+  {
+   "apk": "apk_orig/build_stacked_room_facedown_over_older_hand_3cards.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee stacked_rooms_older_card_peeks_header_strip"
+  },
+  {
+   "apk": "apk_orig/build_t1_empty_dungeons_5_slot_outlines_room_deck_pile_in_opponent_row.png",
+   "godot": "build_t1_empty_dungeons_5_slot_outlines_room_deck_pile_in_opponent_row",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 7.2,
+   "max_cell": 21.1,
+   "max_chrome": 11.6
+  },
+  {
+   "apk": "apk_orig/build_t1_first_room_placed_facedown_room_deck_back_done_button.png",
+   "godot": "build_t1_first_room_placed_facedown_room_deck_back_done_button",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 7.4,
+   "max_cell": 21.1,
+   "max_chrome": 11.6
+  },
+  {
+   "apk": "apk_orig/build_t2_first_room_revealed_succubus_spa_both_dungeons_2heroes_town_5card_hand.png",
+   "godot": "build_t2_first_room_revealed_succubus_spa_both_dungeons_2heroes_town_5card_hand",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 11.1,
+   "max_cell": 98.8,
+   "max_chrome": 18.6
+  },
+  {
+   "apk": "apk_orig/build_t2_hand_5cards_freeze_active_motivation_dim.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_t3_hand_5cards_mage_thief_cleric_in_town"
+  },
+  {
+   "apk": "apk_orig/build_t2_heroes_in_town_cards_left.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_t3_hand_5cards_mage_thief_cleric_in_town"
+  },
+  {
+   "apk": "apk_orig/build_t3_4heroes_in_town_stack_hand_4cards.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_t3_hand_5cards_mage_thief_cleric_in_town"
+  },
+  {
+   "apk": "apk_orig/build_t3_ai_built_bottomless_pit_third_room.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_t3_hand_5cards_mage_thief_cleric_in_town"
+  },
+  {
+   "apk": "apk_orig/build_t3_hand_5cards_3heroes_in_town_3_wide.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_t3_hand_5cards_mage_thief_cleric_in_town"
+  },
+  {
+   "apk": "apk_orig/build_t3_hand_5cards_mage_thief_cleric_in_town.png",
+   "godot": "build_t3_hand_5cards_mage_thief_cleric_in_town",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 7.2,
+   "max_cell": 32.3,
+   "max_chrome": 12.8
+  },
+  {
+   "apk": "apk_orig/build_t3_third_room_placed_facedown_room_deck_back_over_slot_done_button.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_t1_first_room_placed_facedown_room_deck_back_done_button"
+  },
+  {
+   "apk": "apk_orig/build_t4_hand_5_cards_all_advanced_greyscale_pass_turn_on_midline_boss_wound1.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_t3_hand_5cards_mage_thief_cleric_in_town"
+  },
+  {
+   "apk": "apk_orig/build_t4_hand_5cards_3heroes_in_town_fighter_mage_cleric.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_t3_hand_5cards_mage_thief_cleric_in_town"
+  },
+  {
+   "apk": "apk_orig/build_t4_hand_5cards_overlap_3heroes_left_wound1.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_t3_hand_5cards_mage_thief_cleric_in_town"
+  },
+  {
+   "apk": "apk_orig/build_t4_hand_hover_card_raised_unplayable_cards_grayscale_wounds2.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_t3_hand_5cards_mage_thief_cleric_in_town"
+  },
+  {
+   "apk": "apk_orig/build_t5_hand_6_cards_fan_3heroes_in_town_soul1.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_t3_hand_5cards_mage_thief_cleric_in_town"
+  },
+  {
+   "apk": "apk_orig/build_t5_hand_6_cards_wide_fan_playable_rooms_colored_spells_grey.png",
+   "godot": "build_t5_hand_6_cards_wide_fan_playable_rooms_colored_spells_grey",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 7.6,
+   "max_cell": 32.3,
+   "max_chrome": 13.6
+  },
+  {
+   "apk": "apk_orig/build_t6_hand_7_cards_fan_epic_heroes_gold_cards_in_town.png",
+   "godot": "build_t6_hand_7_cards_fan_epic_heroes_gold_cards_in_town",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 8.1,
+   "max_cell": 68.0,
+   "max_chrome": 13.6
+  },
+  {
+   "apk": "apk_orig/build_t6_pass_warning_bubble_with_4_epic_heroes_town_red_unplayable_card.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_t7_pass_warning_bubble_8_card_hand_fan"
+  },
+  {
+   "apk": "apk_orig/build_t7_hand_8_cards_wide_fan_hero_column_overflow_scrolled.png",
+   "godot": "build_t7_hand_8_cards_wide_fan_hero_column_overflow_scrolled",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 8.5,
+   "max_cell": 68.0,
+   "max_chrome": 14.2
+  },
+  {
+   "apk": "apk_orig/build_t7_pass_warning_bubble_8_card_hand_fan.png",
+   "godot": "build_t7_pass_warning_bubble_8_card_hand_fan",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 8.7,
+   "max_cell": 68.0,
+   "max_chrome": 14.3
+  },
+  {
+   "apk": "apk_orig/discard_hand_7cards.png",
+   "godot": "discard_hand_7cards",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 17.5,
+   "max_cell": 71.7,
+   "max_chrome": 16.5
+  },
+  {
+   "apk": "apk_orig/drag_advanced_room_monsters_ballroom_greyscale_zoom_cannot_place_empty_slot.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_dragging_card_over_slot_midway"
+  },
+  {
+   "apk": "apk_orig/drag_motivation_spell_with_boss_card_zoom_pinned.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_dragging_card_over_slot_midway"
+  },
+  {
+   "apk": "apk_orig/drag_neanderthal_cave_preview_overlapping_hand_t7.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_dragging_card_over_slot_midway"
+  },
+  {
+   "apk": "apk_orig/drag_trap_room_over_occupied_slot_stack.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_dragging_card_over_slot_midway"
+  },
+  {
+   "apk": "apk_orig/drag_trap_room_two_zoom_previews_dragged_plus_hovered.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_dragging_card_over_slot_midway"
+  },
+  {
+   "apk": "apk_orig/drag_witchs_kitchen_dragging_big_preview_over_dungeon.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_dragging_card_over_slot_midway"
+  },
+  {
+   "apk": "apk_orig/draw_card_center_zoom_preview.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_longpress_card_zoom_preview"
+  },
+  {
+   "apk": "apk_orig/gameover_lose_frame_early.png",
+   "godot": null,
+   "reason": "image transitoire d'une animation (vol de carte, fondu, glissade) : instant non reproductible a l'image pres"
+  },
+  {
+   "apk": "apk_orig/gameover_lose_opponent_is_the_winner_gold_crystals_ok_button.png",
+   "godot": "gameover_lose_opponent_is_the_winner_gold_crystals_ok_button",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 9.7,
+   "max_cell": 68.4,
+   "max_chrome": 7.7
+  },
+  {
+   "apk": "apk_orig/levelup_button_tap_shows_boss_card_zoom_with_levelup_text.png",
+   "godot": "levelup_button_tap_shows_boss_card_zoom_with_levelup_text",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 16.0,
+   "max_cell": 81.7,
+   "max_chrome": 15.3
+  },
+  {
+   "apk": "apk_orig/longpress_bottomless_pit_trap_zoom_hand_6_cards_t5.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_longpress_card_zoom_preview"
+  },
+  {
+   "apk": "apk_orig/longpress_dark_laboratory_zoom_from_hand.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_longpress_card_zoom_preview"
+  },
+  {
+   "apk": "apk_orig/longpress_fear_spell_zoom_build_phase_unplayable_greyscale.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_longpress_card_zoom_preview"
+  },
+  {
+   "apk": "apk_orig/longpress_motivation_spell_zoom_greyscale_unplayable_in_build_phase.png",
+   "godot": null,
+   "reason": "pas de capture Godot de cet etat dans le groupe par defaut de CaptureScreens (zoom sur appui long : groupe lot2b a lancer a part, fixture de partie differente) ; capture ancienne retiree pour ne pas garder un chiffre perime"
+  },
+  {
+   "apk": "apk_orig/longpress_neanderthal_cave_zoom_hand_7_cards_t6.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_longpress_card_zoom_preview"
+  },
+  {
+   "apk": "apk_orig/longpress_spell_kobold_strike_zoom_in_adventure.png",
+   "godot": null,
+   "reason": "pas de capture Godot de cet etat dans le groupe par defaut de CaptureScreens (zoom sur appui long : groupe lot2b a lancer a part, fixture de partie differente) ; capture ancienne retiree pour ne pas garder un chiffre perime"
+  },
+  {
+   "apk": "apk_orig/longpress_succubus_spa_zoom_5_card_hand_small_scale.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_longpress_card_zoom_preview"
+  },
+  {
+   "apk": "apk_orig/longpress_succubus_spa_zoom_from_6_card_hand_first_turn.png",
+   "godot": "longpress_succubus_spa_zoom_from_6_card_hand_first_turn_geste",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 16.0,
+   "max_cell": 103.0,
+   "max_chrome": 15.2
+  },
+  {
+   "apk": "apk_orig/longpress_teleportation_zoom_over_hand_dimmed.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_longpress_card_zoom_preview"
+  },
+  {
+   "apk": "apk_orig/menu_3_4_players_blocked_full_game_needed_buy_now_popup.png",
+   "godot": null,
+   "reason": "boutique / ecran payant de l'APK : remplace par l'onglet des regles (difference 1 assumee)"
+  },
+  {
+   "apk": "apk_orig/menu_card_gallery_boss_cards_grid_left_tabs.png",
+   "godot": "menu_card_gallery_boss_cards_grid_left_tabs",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 9.8,
+   "max_cell": 59.1,
+   "max_chrome": 12.3
+  },
+  {
+   "apk": "apk_orig/menu_main_single_multiplayer_options_store.png",
+   "godot": "menu_main_single_multiplayer_options_store",
+   "kind": "ui",
+   "mask": [
+    [
+     988,
+     524,
+     504,
+     192,
+     "bouton IN-APP STORE remplace par RULES (difference 1)"
+    ]
+   ]
+  },
+  {
+   "apk": "apk_orig/menu_paused_resume_card_gallery_settings_quit_game.png",
+   "godot": "menu_paused_resume_card_gallery_settings_quit_game",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 4.6,
+   "max_cell": 19.1,
+   "max_chrome": 6.0
+  },
+  {
+   "apk": "apk_orig/menu_player_count_carousel_4_left_2_center_3_right.png",
+   "godot": "menu_player_count_carousel_4_left_2_center_3_right",
+   "kind": "ui",
+   "max_mean": 2.6,
+   "max_cell": 15.0,
+   "limit_reason": "rotations individuelles des cartes de l'eventail et eclairage des cartes : residu apres calage de la taille / position"
+  },
+  {
+   "apk": "apk_orig/menu_settings_music_sound_game_speed_toggles_back_arrow.png",
+   "godot": "menu_settings_music_sound_game_speed_toggles_back_arrow",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 5.8,
+   "max_cell": 24.8,
+   "max_chrome": 6.5
+  },
+  {
+   "apk": "apk_orig/notice_opponent_has_played_a_room_ability_mimic_vault_glow.png",
+   "godot": "notice_opponent_has_played_a_room_ability_mimic_vault_glow",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 9.2,
+   "max_cell": 37.8,
+   "max_chrome": 16.8
+  },
+  {
+   "apk": "apk_orig/overlay_choose_spell_to_discard_dark_laboratory_with_boss_zoom.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee discard_selected_gold_border_continue_diamond_button"
+  },
+  {
+   "apk": "apk_orig/overlay_choose_spell_to_discard_two_drawn_spells_dim_backdrop.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee discard_selected_gold_border_continue_diamond_button"
+  },
+  {
+   "apk": "apk_orig/overlay_discard_spell_selected_gold_border_continue_diamond_button.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee discard_selected_gold_border_continue_diamond_button"
+  },
+  {
+   "apk": "apk_orig/reveal_rooms_flipped_faceup_after_done.png",
+   "godot": "reveal_rooms_flipped_faceup_after_done",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 10.3,
+   "max_cell": 41.5,
+   "max_chrome": 19.1
+  },
+  {
+   "apk": "apk_orig/spell_drag_midway_valid_targets_gold_border.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee spell_stack_motivation_in_center_with_green_timer_bar"
+  },
+  {
+   "apk": "apk_orig/spell_drag_over_target_room.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee spell_stack_motivation_in_center_with_green_timer_bar"
+  },
+  {
+   "apk": "apk_orig/spell_drag_preview_motivation_large.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee spell_stack_motivation_in_center_with_green_timer_bar"
+  },
+  {
+   "apk": "apk_orig/spell_freeze_resolved_target_room_frozen_ice.png",
+   "godot": "spell_freeze_resolved_target_room_frozen_ice",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 8.0,
+   "max_cell": 35.0,
+   "max_chrome": 16.5
+  },
+  {
+   "apk": "apk_orig/spell_resolved_hand_all_rooms_lit_extra_build.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_t3_hand_5cards_mage_thief_cleric_in_town"
+  },
+  {
+   "apk": "apk_orig/spell_stack_motivation_in_center_with_green_timer_bar.png",
+   "godot": "spell_stack_motivation_in_center_with_green_timer_bar",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 7.9,
+   "max_cell": 37.8,
+   "max_chrome": 13.5
+  },
+  {
+   "apk": "apk_orig/spellbattle_has_played_a_spell_notice_top_right_exhaustion_stack.png",
+   "godot": "spellbattle_has_played_a_spell_notice_top_right_exhaustion_stack",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 15.5,
+   "max_cell": 68.0,
+   "max_chrome": 21.9
+  },
+  {
+   "apk": "apk_orig/spellbattle_opponent_exhaustion_on_stack_center_timer_bar_counterspell_lit.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee spellbattle_has_played_a_spell_notice_top_right_exhaustion_stack"
+  },
+  {
+   "apk": "apk_orig/stacked_rooms_older_card_peeks_header_strip.png",
+   "godot": "stacked_rooms_older_card_peeks_header_strip",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 9.6,
+   "max_cell": 44.6,
+   "max_chrome": 20.5
+  },
+  {
+   "apk": "apk_orig/tap_own_dungeon_room_brainsucker_hive_zoom.png",
+   "godot": "tap_own_dungeon_room_brainsucker_hive_zoom_geste",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 29.5,
+   "max_cell": 135.7,
+   "max_chrome": 21.2
+  },
+  {
+   "apk": "apk_orig/title_screen_after_gameover_ok_returns_here_no_score_panel.png",
+   "godot": "title_screen_after_gameover_ok_returns_here_no_score_panel",
+   "kind": "ui",
+   "mask": [
+    [
+     740,
+     605,
+     440,
+     70,
+     "TAP TO START : clignote (BlinkBehavior 0,3 s), instant de capture non maitrise"
+    ],
+    [
+     880,
+     700,
+     220,
+     150,
+     "yeux du monstre : clignotent (BlinkBehavior 5 s)"
+    ]
+   ]
+  },
+  {
+   "apk": "apk_orig/zoom_preview_advanced_room_dracolich.png",
+   "godot": null,
+   "reason": "contenu de la partie APK (cartes / heros / salles differents), interface identique a la frame appariee build_longpress_card_zoom_preview"
+  },
+  {
+   "apk": "apk_orig2/00_launch.png",
+   "godot": "title_screen_after_gameover_ok_returns_here_no_score_panel",
+   "kind": "ui",
+   "mask": [
+    [
+     740,
+     605,
+     440,
+     70,
+     "TAP TO START : clignote (BlinkBehavior 0,3 s), instant de capture non maitrise"
+    ],
+    [
+     880,
+     700,
+     220,
+     150,
+     "yeux du monstre : clignotent (BlinkBehavior 5 s)"
+    ]
+   ]
+  },
+  {
+   "apk": "apk_orig2/01_mainmenu.png",
+   "godot": "menu_main_single_multiplayer_options_store",
+   "kind": "ui",
+   "mask": [
+    [
+     988,
+     524,
+     504,
+     192,
+     "bouton IN-APP STORE remplace par RULES (difference 1)"
+    ]
+   ]
+  },
+  {
+   "apk": "apk_orig2/02_options.png",
+   "godot": null,
+   "reason": "boutons en cascade (fondu + glissade de 50 px, OptionsScene.ShowButtons) : frame transitoire ; l'etat stable est 04_back_options"
+  },
+  {
+   "apk": "apk_orig2/03_settings.png",
+   "godot": "menu_settings_music_sound_game_speed",
+   "kind": "ui"
+  },
+  {
+   "apk": "apk_orig2/04_back_options.png",
+   "godot": "menu_options",
+   "kind": "ui",
+   "mask": [
+    [
+     10,
+     1035,
+     340,
+     40,
+     "case « Wiki expansions » : controle de developpement hors APK (difference 2)"
+    ],
+    [
+     1420,
+     1025,
+     500,
+     55,
+     "champ serveur multijoueur : hors APK (difference 3)"
+    ]
+   ]
+  },
+  {
+   "apk": "apk_orig2/05_credits_t1.png",
+   "godot": "menu_credits_start",
+   "kind": "ui"
+  },
+  {
+   "apk": "apk_orig2/06_credits_t10.png",
+   "godot": "menu_credits_scrolled_10s",
+   "kind": "ui",
+   "max_mean": 3.0,
+   "max_cell": 22.0,
+   "limit_reason": "texte du defilement a echelle x1,3 / x1,4 : la police ne s'agrandit qu'a l'entier (29 px pour 29,4)"
+  },
+  {
+   "apk": "apk_orig2/07_credits_t20.png",
+   "godot": "menu_credits_scrolled_20s",
+   "kind": "ui",
+   "max_mean": 3.5,
+   "max_cell": 20.0,
+   "limit_reason": "idem 06_credits_t10"
+  },
+  {
+   "apk": "apk_orig2/08_back.png",
+   "godot": "menu_options",
+   "kind": "ui",
+   "mask": [
+    [
+     10,
+     1035,
+     340,
+     40,
+     "case « Wiki expansions » : controle de developpement hors APK (difference 2)"
+    ],
+    [
+     1420,
+     1025,
+     500,
+     55,
+     "champ serveur multijoueur : hors APK (difference 3)"
+    ]
+   ]
+  },
+  {
+   "apk": "apk_orig2/10_tut_a.png",
+   "godot": "tutorial_intro_five_wounds",
+   "kind": "tutorial",
+   "match": 3.6,
+   "max_mean": 5.5,
+   "max_cell": 37.4
+  },
+  {
+   "apk": "apk_orig2/levelup_06.png",
+   "godot": null,
+   "reason": "LEVEL UP : vol des cartes / entree de la banniere, frame transitoire (animation)"
+  },
+  {
+   "apk": "apk_orig2/levelup_07.png",
+   "godot": null,
+   "reason": "LEVEL UP : vol des cartes / entree de la banniere, frame transitoire (animation)"
+  },
+  {
+   "apk": "apk_orig2/levelup_08.png",
+   "godot": null,
+   "reason": "LEVEL UP : vol des cartes / entree de la banniere, frame transitoire (animation)"
+  },
+  {
+   "apk": "apk_orig2/levelup_09.png",
+   "godot": null,
+   "reason": "LEVEL UP : vol des cartes / entree de la banniere, frame transitoire (animation)"
+  },
+  {
+   "apk": "apk_orig2/levelup_10.png",
+   "godot": "levelup_draculord_banner_full",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 36.9,
+   "max_cell": 104.7,
+   "max_chrome": 20.6
+  },
+  {
+   "apk": "apk_orig2/levelup_14.png",
+   "godot": "levelup_draculord_choice_after_banner",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 20.7,
+   "max_cell": 115.2,
+   "max_chrome": 21.1
+  },
+  {
+   "apk": "apk_orig2/levelup_selected.png",
+   "godot": "levelup_draculord_card_selected_continue",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 21.0,
+   "max_cell": 114.5,
+   "max_chrome": 21.3
+  },
+  {
+   "apk": "apk_orig2/lose_rip.png",
+   "godot": "gameover_lose_you_lose_tombstone",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 4.5,
+   "max_cell": 21.5,
+   "max_chrome": 7.8
+  },
+  {
+   "apk": "apk_orig2/menu2.png",
+   "godot": "menu_main_single_multiplayer_options_store",
+   "kind": "ui",
+   "mask": [
+    [
+     988,
+     524,
+     504,
+     192,
+     "bouton IN-APP STORE remplace par RULES (difference 1)"
+    ]
+   ]
+  },
+  {
+   "apk": "apk_orig2/mp1.png",
+   "godot": "online_menu_worldwide_with_friends_change_user",
+   "kind": "ui",
+   "max_mean": 2.3,
+   "max_cell": 14.0,
+   "limit_reason": "texte a echelle fractionnaire arrondi par Godot (libelles des boutons de salle)"
+  },
+  {
+   "apk": "apk_orig2/mp_back.png",
+   "godot": "online_with_friends_new_game_room_code",
+   "kind": "ui"
+  },
+  {
+   "apk": "apk_orig2/mp_friends.png",
+   "godot": "online_with_friends_new_game_room_code",
+   "kind": "ui"
+  },
+  {
+   "apk": "apk_orig2/mp_newgame.png",
+   "godot": null,
+   "reason": "ecran SELECT EXPANSIONS en ligne de l'APK (extensions verrouillees : Coming Soon / Buy now / Unlock it, boutique) : remplace par les extensions du wiki et les salles (differences 1 a 3) ; pas de capture Godot equivalente"
+  },
+  {
+   "apk": "apk_orig2/mp_ok.png",
+   "godot": "online_waiting_room_host_alone_start_with_bots",
+   "kind": "ui",
+   "mask": [
+    [
+     1540,
+     665,
+     290,
+     130,
+     "noms des joueurs (player_xxxx) et boutons de salle : contenu"
+    ],
+    [
+     1360,
+     960,
+     340,
+     100,
+     "bouton START WITH BOTS : salles multijoueur hors APK (difference 3)"
+    ],
+    [
+     390,
+     380,
+     1140,
+     135,
+     "ligne du joueur 1 (nom, avatar, victoires) : contenu de la partie"
+    ]
+   ],
+   "max_cell": 14.5,
+   "limit_reason": "titre WAITING FRIENDS... / WINS / DEFEATS et code de salle : texte a echelle fractionnaire (x1,3) arrondi par Godot"
+  },
+  {
+   "apk": "apk_orig2/mp_roomcode.png",
+   "godot": "online_with_friends_room_code_entry_empty",
+   "kind": "ui"
+  },
+  {
+   "apk": "apk_orig2/pause.png",
+   "godot": "menu_paused_resume_card_gallery_settings_quit_game",
+   "kind": "board",
+   "mask": [
+    [
+     680,
+     230,
+     560,
+     830,
+     "boutons RULES (ajout hors APK) / SETTINGS / QUIT GAME : RULES decale les deux derniers (difference 1)"
+    ]
+   ],
+   "max_mean": 14.6,
+   "max_cell": 43.9,
+   "max_chrome": 6.4
+  },
+  {
+   "apk": "apk_orig2/quit1.png",
+   "godot": null,
+   "reason": "plateau pendant le fondu de sortie (popup pas encore la) : transitoire"
+  },
+  {
+   "apk": "apk_orig2/quit2.png",
+   "godot": "quit2",
+   "kind": "board",
+   "mask": [
+    [
+     8,
+     92,
+     172,
+     800,
+     "cartes de heros en ville : contenu de la partie"
+    ],
+    [
+     280,
+     780,
+     1300,
+     300,
+     "main (eventail) : cartes de la partie"
+    ],
+    [
+     650,
+     180,
+     720,
+     200,
+     "salles du donjon adverse : contenu"
+    ],
+    [
+     650,
+     626,
+     720,
+     200,
+     "salles de notre donjon : contenu"
+    ]
+   ],
+   "max_mean": 12.2,
+   "max_cell": 27.6,
+   "max_chrome": 7.3
+  },
+  {
+   "apk": "apk_orig2/quit3.png",
+   "godot": "title_screen_after_gameover_ok_returns_here_no_score_panel",
+   "kind": "ui",
+   "mask": [
+    [
+     740,
+     605,
+     440,
+     70,
+     "TAP TO START : clignote (BlinkBehavior 0,3 s), instant de capture non maitrise"
+    ],
+    [
+     880,
+     700,
+     220,
+     150,
+     "yeux du monstre : clignotent (BlinkBehavior 5 s)"
+    ]
+   ]
+  },
+  {
+   "apk": "apk_orig2/tut_100.png",
+   "godot": "tutorial_room_description",
+   "kind": "tutorial",
+   "match": 2.9,
+   "max_mean": 7.2,
+   "max_cell": 39.6
+  },
+  {
+   "apk": "apk_orig2/tut_101.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_102.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_103.png",
+   "godot": "tutorial_soul_closer",
+   "kind": "tutorial",
+   "match": 4.8,
+   "max_mean": 8.0,
+   "max_cell": 39.7
+  },
+  {
+   "apk": "apk_orig2/tut_104.png",
+   "godot": "tutorial_soul_closer",
+   "kind": "tutorial",
+   "match": 2.0,
+   "max_mean": 5.0,
+   "max_cell": 37.4
+  },
+  {
+   "apk": "apk_orig2/tut_105.png",
+   "godot": "tutorial_soul_closer",
+   "kind": "tutorial",
+   "match": 1.7,
+   "max_mean": 4.7,
+   "max_cell": 20.1
+  },
+  {
+   "apk": "apk_orig2/tut_106.png",
+   "godot": "tutorial_soul_closer",
+   "kind": "tutorial",
+   "match": 1.9,
+   "max_mean": 4.9,
+   "max_cell": 32.2
+  },
+  {
+   "apk": "apk_orig2/tut_107.png",
+   "godot": "tutorial_soul_closer",
+   "kind": "tutorial",
+   "match": 1.7,
+   "max_mean": 4.7,
+   "max_cell": 19.7
+  },
+  {
+   "apk": "apk_orig2/tut_108.png",
+   "godot": "tutorial_soul_closer",
+   "kind": "tutorial",
+   "match": 1.8,
+   "max_mean": 4.9,
+   "max_cell": 28.6
+  },
+  {
+   "apk": "apk_orig2/tut_109.png",
+   "godot": "tutorial_soul_closer",
+   "kind": "tutorial",
+   "match": 2.0,
+   "max_mean": 5.0,
+   "max_cell": 35.1
+  },
+  {
+   "apk": "apk_orig2/tut_11.png",
+   "godot": "tutorial_intro_king_croak",
+   "kind": "tutorial",
+   "match": 2.9,
+   "max_mean": 5.1,
+   "max_cell": 32.7
+  },
+  {
+   "apk": "apk_orig2/tut_110.png",
+   "godot": "tutorial_drag_spell_to_hero",
+   "kind": "tutorial",
+   "match": 2.1,
+   "max_mean": 5.9,
+   "max_cell": 45.5
+  },
+  {
+   "apk": "apk_orig2/tut_111.png",
+   "godot": "tutorial_drag_spell_to_hero",
+   "kind": "tutorial",
+   "match": 2.2,
+   "max_mean": 5.9,
+   "max_cell": 45.5
+  },
+  {
+   "apk": "apk_orig2/tut_112.png",
+   "godot": "tutorial_drag_spell_to_hero",
+   "kind": "tutorial",
+   "match": 2.2,
+   "max_mean": 5.9,
+   "max_cell": 45.5
+  },
+  {
+   "apk": "apk_orig2/tut_113.png",
+   "godot": "tutorial_drag_spell_to_hero",
+   "kind": "tutorial",
+   "match": 2.2,
+   "max_mean": 5.9,
+   "max_cell": 45.5
+  },
+  {
+   "apk": "apk_orig2/tut_114.png",
+   "godot": "tutorial_drag_spell_to_hero",
+   "kind": "tutorial",
+   "match": 2.2,
+   "max_mean": 5.9,
+   "max_cell": 45.5
+  },
+  {
+   "apk": "apk_orig2/tut_115.png",
+   "godot": "tutorial_drag_spell_to_hero",
+   "kind": "tutorial",
+   "match": 2.2,
+   "max_mean": 5.9,
+   "max_cell": 45.5
+  },
+  {
+   "apk": "apk_orig2/tut_116.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_117.png",
+   "godot": "tutorial_spell_on_stack",
+   "kind": "tutorial",
+   "match": 2.2,
+   "max_mean": 6.3,
+   "max_cell": 49.6
+  },
+  {
+   "apk": "apk_orig2/tut_118.png",
+   "godot": "tutorial_spell_on_stack",
+   "kind": "tutorial",
+   "match": 2.0,
+   "max_mean": 6.1,
+   "max_cell": 40.4
+  },
+  {
+   "apk": "apk_orig2/tut_119.png",
+   "godot": "tutorial_spell_on_stack",
+   "kind": "tutorial",
+   "match": 2.2,
+   "max_mean": 6.3,
+   "max_cell": 49.7
+  },
+  {
+   "apk": "apk_orig2/tut_12.png",
+   "godot": "tutorial_intro_arcadia",
+   "kind": "tutorial",
+   "match": 1.9,
+   "max_mean": 5.0,
+   "max_cell": 50.0
+  },
+  {
+   "apk": "apk_orig2/tut_120.png",
+   "godot": "tutorial_spell_on_stack",
+   "kind": "tutorial",
+   "match": 2.1,
+   "max_mean": 6.2,
+   "max_cell": 40.4
+  },
+  {
+   "apk": "apk_orig2/tut_121.png",
+   "godot": "tutorial_spell_on_stack",
+   "kind": "tutorial",
+   "match": 2.2,
+   "max_mean": 6.3,
+   "max_cell": 49.6
+  },
+  {
+   "apk": "apk_orig2/tut_122.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_123.png",
+   "godot": "tutorial_spell_effect",
+   "kind": "tutorial",
+   "match": 1.7,
+   "max_mean": 4.6,
+   "max_cell": 28.6
+  },
+  {
+   "apk": "apk_orig2/tut_124.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_125.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_126.png",
+   "godot": "tutorial_ai_wound",
+   "kind": "tutorial",
+   "match": 1.8,
+   "max_mean": 4.9,
+   "max_cell": 24.2
+  },
+  {
+   "apk": "apk_orig2/tut_127.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_128.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_129.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_13.png",
+   "godot": "tutorial_intro_king_croak",
+   "kind": "tutorial",
+   "match": 2.9,
+   "max_mean": 5.0,
+   "max_cell": 32.9
+  },
+  {
+   "apk": "apk_orig2/tut_14.png",
+   "godot": "tutorial_intro_king_croak",
+   "kind": "tutorial",
+   "match": 2.8,
+   "max_mean": 5.3,
+   "max_cell": 48.4
+  },
+  {
+   "apk": "apk_orig2/tut_15.png",
+   "godot": "tutorial_boss_reveal",
+   "kind": "tutorial",
+   "match": 5.8,
+   "max_mean": 10.4,
+   "max_cell": 86.3
+  },
+  {
+   "apk": "apk_orig2/tut_16.png",
+   "godot": "tutorial_boss_reveal",
+   "kind": "tutorial",
+   "match": 4.7,
+   "max_mean": 10.1,
+   "max_cell": 68.9
+  },
+  {
+   "apk": "apk_orig2/tut_17.png",
+   "godot": "tutorial_intro_king_croak",
+   "kind": "tutorial",
+   "match": 2.9,
+   "max_mean": 5.1,
+   "max_cell": 32.8
+  },
+  {
+   "apk": "apk_orig2/tut_18.png",
+   "godot": "tutorial_intro_ten_souls",
+   "kind": "tutorial",
+   "match": 4.2,
+   "max_mean": 7.2,
+   "max_cell": 71.4
+  },
+  {
+   "apk": "apk_orig2/tut_19.png",
+   "godot": "tutorial_intro_king_croak",
+   "kind": "tutorial",
+   "match": 3.7,
+   "max_mean": 5.9,
+   "max_cell": 38.7
+  },
+  {
+   "apk": "apk_orig2/tut_20.png",
+   "godot": "tutorial_intro_five_wounds",
+   "kind": "tutorial",
+   "match": 3.8,
+   "max_mean": 7.4,
+   "max_cell": 71.4
+  },
+  {
+   "apk": "apk_orig2/tut_21.png",
+   "godot": "tutorial_discard_two_cards",
+   "kind": "tutorial",
+   "match": 2.8,
+   "max_mean": 5.8,
+   "max_cell": 56.1
+  },
+  {
+   "apk": "apk_orig2/tut_22.png",
+   "godot": "tutorial_discard_two_cards",
+   "kind": "tutorial",
+   "match": 1.9,
+   "max_mean": 5.6,
+   "max_cell": 44.8
+  },
+  {
+   "apk": "apk_orig2/tut_23.png",
+   "godot": "tutorial_discard_first_pick",
+   "kind": "tutorial",
+   "match": 3.9,
+   "max_mean": 10.1,
+   "max_cell": 53.0
+  },
+  {
+   "apk": "apk_orig2/tut_24.png",
+   "godot": "tutorial_discard_first_pick",
+   "kind": "tutorial",
+   "match": 3.2,
+   "max_mean": 9.3,
+   "max_cell": 32.8
+  },
+  {
+   "apk": "apk_orig2/tut_25.png",
+   "godot": "tutorial_discard_first_pick",
+   "kind": "tutorial",
+   "match": 3.7,
+   "max_mean": 9.9,
+   "max_cell": 53.0
+  },
+  {
+   "apk": "apk_orig2/tut_26.png",
+   "godot": "tutorial_discard_continue",
+   "kind": "tutorial",
+   "match": 2.9,
+   "max_mean": 9.1,
+   "max_cell": 22.7
+  },
+  {
+   "apk": "apk_orig2/tut_27.png",
+   "godot": "tutorial_build_first_room_b",
+   "kind": "tutorial",
+   "match": 2.7,
+   "max_mean": 5.8,
+   "max_cell": 28.5
+  },
+  {
+   "apk": "apk_orig2/tut_28.png",
+   "godot": "tutorial_build_first_room_b",
+   "kind": "tutorial",
+   "match": 2.2,
+   "max_mean": 5.6,
+   "max_cell": 27.8
+  },
+  {
+   "apk": "apk_orig2/tut_29.png",
+   "godot": "tutorial_build_first_room_b",
+   "kind": "tutorial",
+   "match": 2.1,
+   "max_mean": 5.7,
+   "max_cell": 27.8
+  },
+  {
+   "apk": "apk_orig2/tut_30.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_31.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_32.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_33.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_34_drag.png",
+   "godot": null,
+   "reason": "tutoriel : glisser d'une carte en cours (instant du geste, carte tenue au doigt)"
+  },
+  {
+   "apk": "apk_orig2/tut_35.png",
+   "godot": "tutorial_build_first_room",
+   "kind": "tutorial",
+   "match": 2.3,
+   "max_mean": 6.4,
+   "max_cell": 25.8
+  },
+  {
+   "apk": "apk_orig2/tut_36_drag.png",
+   "godot": "tutorial_build_first_room",
+   "kind": "tutorial",
+   "match": 2.3,
+   "max_mean": 6.4,
+   "max_cell": 25.8
+  },
+  {
+   "apk": "apk_orig2/tut_37.png",
+   "godot": "tutorial_build_first_room",
+   "kind": "tutorial",
+   "match": 2.3,
+   "max_mean": 6.4,
+   "max_cell": 25.8
+  },
+  {
+   "apk": "apk_orig2/tut_38.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_39_drag.png",
+   "godot": null,
+   "reason": "tutoriel : glisser d'une carte en cours (instant du geste, carte tenue au doigt)"
+  },
+  {
+   "apk": "apk_orig2/tut_40.png",
+   "godot": "tutorial_build_first_room",
+   "kind": "tutorial",
+   "match": 2.3,
+   "max_mean": 6.4,
+   "max_cell": 25.9
+  },
+  {
+   "apk": "apk_orig2/tut_41_drag.png",
+   "godot": null,
+   "reason": "tutoriel : glisser d'une carte en cours (instant du geste, carte tenue au doigt)"
+  },
+  {
+   "apk": "apk_orig2/tut_42.png",
+   "godot": "tutorial_build_first_room",
+   "kind": "tutorial",
+   "match": 2.3,
+   "max_mean": 6.3,
+   "max_cell": 25.7
+  },
+  {
+   "apk": "apk_orig2/tut_43.png",
+   "godot": "tutorial_build_first_room",
+   "kind": "tutorial",
+   "match": 2.3,
+   "max_mean": 6.3,
+   "max_cell": 25.7
+  },
+  {
+   "apk": "apk_orig2/tut_44.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_45.png",
+   "godot": "tutorial_done_button",
+   "kind": "tutorial",
+   "match": 2.8,
+   "max_mean": 5.6,
+   "max_cell": 36.9
+  },
+  {
+   "apk": "apk_orig2/tut_46.png",
+   "godot": "tutorial_done_button",
+   "kind": "tutorial",
+   "match": 1.7,
+   "max_mean": 5.2,
+   "max_cell": 46.9
+  },
+  {
+   "apk": "apk_orig2/tut_47.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_48.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_49.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_50.png",
+   "godot": "tutorial_build_extra_room",
+   "kind": "tutorial",
+   "match": 2.8,
+   "max_mean": 5.6,
+   "max_cell": 26.7
+  },
+  {
+   "apk": "apk_orig2/tut_51.png",
+   "godot": "tutorial_build_extra_room",
+   "kind": "tutorial",
+   "match": 2.4,
+   "max_mean": 5.6,
+   "max_cell": 25.9
+  },
+  {
+   "apk": "apk_orig2/tut_52.png",
+   "godot": "tutorial_build_extra_room",
+   "kind": "tutorial",
+   "match": 2.2,
+   "max_mean": 5.5,
+   "max_cell": 25.9
+  },
+  {
+   "apk": "apk_orig2/tut_53.png",
+   "godot": "tutorial_build_extra_room",
+   "kind": "tutorial",
+   "match": 2.2,
+   "max_mean": 5.5,
+   "max_cell": 25.9
+  },
+  {
+   "apk": "apk_orig2/tut_54.png",
+   "godot": "tutorial_done_extra",
+   "kind": "tutorial",
+   "match": 1.4,
+   "max_mean": 3.8,
+   "max_cell": 25.8
+  },
+  {
+   "apk": "apk_orig2/tut_55.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_56.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_57.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_58.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_59.png",
+   "godot": "tutorial_room_draw",
+   "kind": "tutorial",
+   "match": 7.3,
+   "max_mean": 11.7,
+   "max_cell": 71.3
+  },
+  {
+   "apk": "apk_orig2/tut_60.png",
+   "godot": "tutorial_room_draw",
+   "kind": "tutorial",
+   "match": 6.8,
+   "max_mean": 11.7,
+   "max_cell": 71.3
+  },
+  {
+   "apk": "apk_orig2/tut_61.png",
+   "godot": "tutorial_room_draw",
+   "kind": "tutorial",
+   "match": 6.8,
+   "max_mean": 11.7,
+   "max_cell": 71.3
+  },
+  {
+   "apk": "apk_orig2/tut_62.png",
+   "godot": "tutorial_room_draw",
+   "kind": "tutorial",
+   "match": 6.6,
+   "max_mean": 11.5,
+   "max_cell": 71.3
+  },
+  {
+   "apk": "apk_orig2/tut_63.png",
+   "godot": "tutorial_room_draw",
+   "kind": "tutorial",
+   "match": 6.7,
+   "max_mean": 11.6,
+   "max_cell": 71.3
+  },
+  {
+   "apk": "apk_orig2/tut_64.png",
+   "godot": "tutorial_room_draw",
+   "kind": "tutorial",
+   "match": 6.6,
+   "max_mean": 11.4,
+   "max_cell": 71.3
+  },
+  {
+   "apk": "apk_orig2/tut_65.png",
+   "godot": "tutorial_bait_treasures",
+   "kind": "tutorial",
+   "match": 3.9,
+   "max_mean": 8.2,
+   "max_cell": 46.3
+  },
+  {
+   "apk": "apk_orig2/tut_66.png",
+   "godot": "tutorial_bait_treasures",
+   "kind": "tutorial",
+   "match": 2.6,
+   "max_mean": 6.9,
+   "max_cell": 42.7
+  },
+  {
+   "apk": "apk_orig2/tut_67.png",
+   "godot": "tutorial_bait_lure",
+   "kind": "tutorial",
+   "match": 3.5,
+   "max_mean": 7.7,
+   "max_cell": 46.3
+  },
+  {
+   "apk": "apk_orig2/tut_68.png",
+   "godot": "tutorial_bait_lure",
+   "kind": "tutorial",
+   "match": 2.7,
+   "max_mean": 7.5,
+   "max_cell": 42.7
+  },
+  {
+   "apk": "apk_orig2/tut_69.png",
+   "godot": "tutorial_build_third_room",
+   "kind": "tutorial",
+   "match": 2.5,
+   "max_mean": 6.3,
+   "max_cell": 29.8
+  },
+  {
+   "apk": "apk_orig2/tut_70.png",
+   "godot": "tutorial_build_third_room",
+   "kind": "tutorial",
+   "match": 2.3,
+   "max_mean": 6.2,
+   "max_cell": 29.8
+  },
+  {
+   "apk": "apk_orig2/tut_71.png",
+   "godot": "tutorial_done_third",
+   "kind": "tutorial",
+   "match": 1.7,
+   "max_mean": 4.6,
+   "max_cell": 26.9
+  },
+  {
+   "apk": "apk_orig2/tut_72.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_73.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_74.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_75.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_76.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_77.png",
+   "godot": "tutorial_adventure_hero_and_damage",
+   "kind": "tutorial",
+   "match": 2.7,
+   "max_mean": 8.0,
+   "max_cell": 48.5
+  },
+  {
+   "apk": "apk_orig2/tut_78.png",
+   "godot": "tutorial_adventure_hero_and_damage",
+   "kind": "tutorial",
+   "match": 2.9,
+   "max_mean": 8.4,
+   "max_cell": 48.5
+  },
+  {
+   "apk": "apk_orig2/tut_79.png",
+   "godot": "tutorial_adventure_hero_and_damage",
+   "kind": "tutorial",
+   "match": 3.0,
+   "max_mean": 8.5,
+   "max_cell": 48.5
+  },
+  {
+   "apk": "apk_orig2/tut_80.png",
+   "godot": "tutorial_adventure_hero_and_damage",
+   "kind": "tutorial",
+   "match": 3.1,
+   "max_mean": 8.7,
+   "max_cell": 48.6
+  },
+  {
+   "apk": "apk_orig2/tut_81.png",
+   "godot": "tutorial_adventure_hero_and_damage",
+   "kind": "tutorial",
+   "match": 3.2,
+   "max_mean": 8.7,
+   "max_cell": 49.0
+  },
+  {
+   "apk": "apk_orig2/tut_82.png",
+   "godot": "tutorial_adventure_hero_and_damage",
+   "kind": "tutorial",
+   "match": 3.2,
+   "max_mean": 8.7,
+   "max_cell": 48.9
+  },
+  {
+   "apk": "apk_orig2/tut_83.png",
+   "godot": "tutorial_hit_this_room",
+   "kind": "tutorial",
+   "match": 5.2,
+   "max_mean": 8.8,
+   "max_cell": 36.4
+  },
+  {
+   "apk": "apk_orig2/tut_84.png",
+   "godot": "tutorial_hit_this_room",
+   "kind": "tutorial",
+   "match": 2.0,
+   "max_mean": 5.7,
+   "max_cell": 34.5
+  },
+  {
+   "apk": "apk_orig2/tut_85.png",
+   "godot": "tutorial_hit_this_room",
+   "kind": "tutorial",
+   "match": 1.9,
+   "max_mean": 5.5,
+   "max_cell": 34.5
+  },
+  {
+   "apk": "apk_orig2/tut_86.png",
+   "godot": "tutorial_hit_this_room",
+   "kind": "tutorial",
+   "match": 1.9,
+   "max_mean": 5.5,
+   "max_cell": 34.5
+  },
+  {
+   "apk": "apk_orig2/tut_87.png",
+   "godot": "tutorial_hit_this_room",
+   "kind": "tutorial",
+   "match": 1.9,
+   "max_mean": 5.5,
+   "max_cell": 34.5
+  },
+  {
+   "apk": "apk_orig2/tut_88.png",
+   "godot": "tutorial_hit_this_room",
+   "kind": "tutorial",
+   "match": 2.0,
+   "max_mean": 5.5,
+   "max_cell": 34.5
+  },
+  {
+   "apk": "apk_orig2/tut_89.png",
+   "godot": null,
+   "reason": "tutoriel : plateau entre deux bulles ou transition (vol de carte, fondu) ; aucune capture Godot de cet instant (meme plateau que les paires tutoriel voisines)"
+  },
+  {
+   "apk": "apk_orig2/tut_90.png",
+   "godot": "tutorial_hit_this_room",
+   "kind": "tutorial",
+   "match": 2.2,
+   "max_mean": 5.9,
+   "max_cell": 34.5
+  },
+  {
+   "apk": "apk_orig2/tut_91.png",
+   "godot": "tutorial_hit_this_room",
+   "kind": "tutorial",
+   "match": 2.2,
+   "max_mean": 5.9,
+   "max_cell": 34.5
+  },
+  {
+   "apk": "apk_orig2/tut_92.png",
+   "godot": "tutorial_hit_this_room",
+   "kind": "tutorial",
+   "match": 2.1,
+   "max_mean": 5.8,
+   "max_cell": 34.5
+  },
+  {
+   "apk": "apk_orig2/tut_93.png",
+   "godot": "tutorial_hit_this_room",
+   "kind": "tutorial",
+   "match": 2.0,
+   "max_mean": 5.7,
+   "max_cell": 34.5
+  },
+  {
+   "apk": "apk_orig2/tut_94.png",
+   "godot": "tutorial_hit_this_room",
+   "kind": "tutorial",
+   "match": 1.9,
+   "max_mean": 5.5,
+   "max_cell": 34.5
+  },
+  {
+   "apk": "apk_orig2/tut_95.png",
+   "godot": "tutorial_room_description",
+   "kind": "tutorial",
+   "match": 2.8,
+   "max_mean": 7.0,
+   "max_cell": 39.6
+  },
+  {
+   "apk": "apk_orig2/tut_96.png",
+   "godot": "tutorial_room_description",
+   "kind": "tutorial",
+   "match": 3.3,
+   "max_mean": 7.6,
+   "max_cell": 43.9
+  },
+  {
+   "apk": "apk_orig2/tut_97.png",
+   "godot": "tutorial_room_description",
+   "kind": "tutorial",
+   "match": 3.1,
+   "max_mean": 7.5,
+   "max_cell": 39.6
+  },
+  {
+   "apk": "apk_orig2/tut_98.png",
+   "godot": "tutorial_room_description",
+   "kind": "tutorial",
+   "match": 3.1,
+   "max_mean": 7.5,
+   "max_cell": 39.9
+  },
+  {
+   "apk": "apk_orig2/tut_99.png",
+   "godot": "tutorial_room_description",
+   "kind": "tutorial",
+   "match": 3.2,
+   "max_mean": 7.6,
+   "max_cell": 42.7
+  }
+ ]
+}

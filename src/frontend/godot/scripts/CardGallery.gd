@@ -18,7 +18,7 @@ const GOLD := Color(1.0, 0.85, 0.1)  # cadre jaune de l'APK (onglet choisi, cart
 ## [titre, dos de carte de l'onglet, genre pour CardDB.card_image]
 const TABS := [["BOSS CARDS", "back-boss", "boss"], ["ROOM CARDS", "back-room", "room"], ["SPELL CARDS", "back-spell", "spell"],
 	["HERO CARDS", "back-hero", "hero"], ["EPIC HERO CARDS", "back-epic", "epic-hero"]]
-const CARD := Vector2(280, 400)       # APK : cadre noir compris x 235..514 (280 de large), 400 de haut
+const CARD := Vector2(280, 390.4)     # texture 350 x 488 a l'echelle 0,8 de ScrollCardBehavior (GalleryScene.cs:445) ; bords haut / bas mesures sur la frame APK
 const PITCH := Vector2(310, 410)       # ItemSize de l'APK : 310 x 410 (cartes a l'echelle ~0,82)
 
 var tab := 0
@@ -259,7 +259,7 @@ func _fill_grid() -> void:
 		t_rect.texture = UiKit.tex(CardDB.card_image(str(tiles[k][1]), str(TABS[tab][2])))
 		t_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t_rect.stretch_mode = TextureRect.STRETCH_SCALE
-		t_rect.position = Vector2(35.0 + PITCH.x * float(k / 2), 15.0 + PITCH.y * float(k % 2))
+		t_rect.position = Vector2(35.0 + PITCH.x * float(k / 2), 14.8 + PITCH.y * float(k % 2)) # carte centree dans la case de 410 (centre y 210 mesure sur la frame APK)
 		t_rect.size = CARD
 		t_rect.tooltip_text = str(d.get("name", ""))
 		t_rect.mouse_filter = Control.MOUSE_FILTER_PASS

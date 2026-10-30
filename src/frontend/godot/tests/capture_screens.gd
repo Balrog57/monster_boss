@@ -152,6 +152,9 @@ func _ready() -> void:
 	await _phases()
 	await _end_screens()
 	await _tutorial_shots()
+	await _lot3_shots() # quit2, mp_newgame
+	await _gesture_shots() # zooms au geste (appui long / tap)
+	await _lot6b_shots() # file d'entree, DONE a minuterie, horloge de la barre
 	print("ALL GODOT SCREENS CAPTURED: ", n_shots)
 	get_tree().quit(0)
 
@@ -188,22 +191,27 @@ func _menus() -> void:
 	main_scene.show_options()
 	await _wait(0.4)
 	await _shot("menu_options")
+	var old_speed := Profile.load_speed()
+	Profile.save_speed(2) # FAST : etat de la frame 03_settings.png
 	main_scene.show_settings() # OPTIONS > SETTINGS (SettingsScene.cs) : 03_settings.png
 	await _wait(0.4)
 	await _shot("menu_settings_music_sound_game_speed")
+	Profile.save_speed(old_speed) # le profil de l'utilisateur n'est pas modifie par la capture
+	main_scene._logo_stale = true # retour de REGLAGES a OPTIONS (OptionsScene.Resume : logo remplace), comme le parcours de l'APK avant 05_credits_t1
 	main_scene.show_options()
 	await _wait(0.4)
-	main_scene.find_child("Credits", true, false).pressed.emit() # OPTIONS > CREDITS (CreditsScreen.gd) : debut, puis defilement avance a la main (_process(dt)) : 14 s, 26 s, 50 s (pied arrete a y = 400)
-	await _wait(0.6)
-	await _shot("menu_credits_start")
+	main_scene.find_child("Credits", true, false).pressed.emit() # OPTIONS > CREDITS (CreditsScreen.gd) : debut, puis defilement avance a la main (_process(dt)) : positions de l'APK, 26 s, 50 s (pied arrete a y = 400)
 	var cs = main_scene.find_child("CreditsScreen", true, false)
-	cs.set_process(false)
+	cs.set_process(false) # le defilement ne depend pas du temps reel : positions reproductibles a l'image pres
 	var t_cs := 0.0
-	for stop in [14.0, 26.0, 50.0]:
-		while t_cs < stop:
-			cs._process(0.05)
-			t_cs += 0.05
-		await _shot("menu_credits_scrolled_%ds" % int(stop))
+	# 10,57 s et 21,15 s de defilement = positions (mesurees au pixel pres) des frames 06_credits_t10 / 07_credits_t20 de l'APK, dont l'horloge de jeu n'etait pas la reelle (BlueStacks)
+	for stop_name in [[0.6, 0], [10.57, 10], [14.6, 14], [21.15, 20], [26.6, 26], [50.6, 50]]:
+		var stop: float = stop_name[0]
+		while t_cs < stop - 0.001:
+			cs._process(0.01)
+			t_cs += 0.01
+		await _wait(0.6 if stop_name[1] == 0 else 0.1) # fondus (voile, logo) en temps reel
+		await _shot("menu_credits_start" if stop_name[1] == 0 else "menu_credits_scrolled_%ds" % stop_name[1])
 	main_scene.show_rules() # RULES (remplace l'IN-APP STORE) : pas de frame APK, comparaison au menu 2x2 / aux autres ecrans a fleche
 	await _wait(0.4)
 	await _shot("menu_rules")
@@ -846,17 +854,27 @@ func _new_game(seed_: int = 424242, stop_at := "", n_players := 2, n_humans := 1
 	for step in 150:
 		var G: Dictionary = gm.G
 		if stop_at == "discard" and board._is_opening_discard_for_me():
+			_apk_bosses(n_players)
 			return
 		if (str(G.get("phase", "")) == "build" or (str(G.get("phase", "")) == "setup" and bool(G.get("setupBuild", false)))) and (G.get("pendingChoice", {}) as Dictionary).is_empty() and int((G["players"][0] as Dictionary).get("buildsThisTurn", 0)) == 0 and not gm.legal_moves(0).is_empty():
 			board.set_process(false)
+			_apk_bosses(n_players)
 			return
 		await _wait(0.05)
 		if stop_at == "discard" and board._is_opening_discard_for_me(): # le choix peut apparaitre pendant l'attente : _act_simple le defausserait
+			_apk_bosses(n_players)
 			return
 		_act_simple()
 		board._process(0.21)
 	var Gd: Dictionary = gm.G
 	push_error("capture : la construction du tour 1 n'a pas ete atteinte (phase=%s pc=%s builds=%s moves=%d popup=%s)" % [Gd.get("phase"), str(Gd.get("pendingChoice", {})).substr(0, 200), (Gd["players"][0] as Dictionary).get("buildsThisTurn"), gm.legal_moves(0).size(), board._popup_kind])
+
+## Les frames de l'APK (INDEX.md) : Draculord (nous, en bas) contre King Croak (en haut), donc meme decor de donjon et memes sprites que la reference (tools/parity/image_diff.py).
+func _apk_bosses(n_players: int) -> void:
+	if n_players == 2:
+		_me()["boss"] = _boss_dict("BMA001")
+		_foe()["boss"] = _boss_dict("BMA003")
+		board.refresh()
 
 func _me() -> Dictionary:
 	return gm.G["players"][0]
@@ -1221,7 +1239,7 @@ func _states() -> void:
 	menu.page = "main"
 	menu._build()
 	menu._open_gallery()
-	await _frames(6)
+	await _wait(0.8) # fondu de la modale (0,2 s) + entree des cartes : l'APK est photographie a l'arret
 	await _shot("menu_card_gallery_boss_cards_grid_left_tabs")
 	var g = menu.gallery
 	g.select_tab(1)

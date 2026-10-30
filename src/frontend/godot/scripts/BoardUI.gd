@@ -385,7 +385,7 @@ func _make_lane(idx: int) -> Dictionary:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
 	L["root"] = root
-	L["bg"] = _img(root, "", Vector2.ZERO, Vector2(1920, 465))
+	L["bg"] = _img(root, "", Vector2(0, (52.0 - LANE_Y[0]) if idx == 0 else (498.0 - LANE_Y[1])), Vector2(1920, 465)) # fond a LocalY 52 / 498 (DungeonFrameEntity.cs:232), coupe par la fenetre du couloir ; mesure : frames APK build_t3 (fond adverse 10 px plus haut que 62)
 	var slots := Control.new()
 	slots.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(slots)
@@ -438,11 +438,12 @@ func _build_frame() -> void:
 	for x in [0.0, 1708.0]:
 		var w: float = 183.0 if x == 0.0 else 212.0
 		var side := Vp.LEFT if x == 0.0 else Vp.RIGHT # colonnes collees aux bords de la fenetre (TopLeftPanelEntity / OneOpponentDetail : EdgeAlignmentComponent)
-		Vp.edge(_rect(self, Color8(96, 82, 110), Vector2(x, 0), Vector2(w, 1080)), side) # calque sous le panneau : l'APK le laisse voir a 15 % (mesure : panneau gauche (35, 21, 37) sur les captures, donc dessous ~ (96, 82, 110))
-		Vp.edge(_rect(self, Color(UiKit.SIDE_PANELS, 0.85), Vector2(x, 0), Vector2(w, 1080)), side) # CreateColorPanel(SidePanelsBackColor, 0,85) : TopLeftPanelEntity.cs:110, OneOpponentDetail.cs:71
+		var panel := _rect(self, Color(UiKit.SIDE_PANELS, 0.85), Vector2(x, 0), Vector2(w, 1080)) # CreateColorPanel(SidePanelsBackColor, 0,85) : TopLeftPanelEntity.cs:110, OneOpponentDetail.cs:71
+		panel.material = UiKit.premult_mat() # Wave melange la teinte en alpha premultiplie : sortie = C + 0,15 x fond (regression sur les frames APK : pente 0,15, ordonnee (23,8 ; 10 ; 24,2) = #180a18)
+		Vp.edge(panel, side)
 	Vp.edge(_img(self, UI_DIR + "vertical_line.webp", Vector2(183, 0)), Vp.LEFT)
 	Vp.edge(_img(self, UI_DIR + "vertical_line.webp", Vector2(1707, 0)), Vp.RIGHT)
-	_img(self, UI_DIR + "bg_top.webp", Vector2(0, -15), Vector2(1920, 77))
+	_img(self, UI_DIR + "bg_top.webp", Vector2(0, 1), Vector2(1920, 77)) # trait dore a y 62 sur les frames APK (ligne de la texture : rangee 61)
 	_img(self, UI_DIR + "bg_bottom.webp", Vector2(0, 953), Vector2(1920, 127))
 
 func _build_left() -> void:
@@ -915,6 +916,9 @@ func _opp_toggle() -> void:
 
 ## Largeur utile changee (fenetre redimensionnee) : les elements recalcules a chaque rafraichissement se replacent.
 func _on_vp_width(_w: float) -> void:
+	for b in _diamond_btns:
+		if is_instance_valid(b) and b.get_meta("diamond", false):
+			b.position.x = Vp.rx(1540.0)
 	if game_manager != null:
 		refresh()
 
@@ -1459,12 +1463,16 @@ func _disc_open(on: bool) -> void:
 		create_tween().tween_property(c, "modulate:a", 1.0, 0.1)
 
 var _disc_band := false
+var _diamond_btns: Array = [] # boutons losange (CONTINUE) a recaler quand la largeur utile change
 
 ## CONTINUE de la defausse d'ouverture : le losange de l'APK (continue_button, libelle compris, x 1540 y 410) ; PLAY BOSS MONSTER! reste la pierre.
 func _style_confirm(diamond: bool, btn: Button = null) -> void:
 	if btn == null:
 		btn = _confirm_btn
 	btn.clip_text = diamond # le libelle (invisible) ne doit pas elargir le losange
+	btn.set_meta("diamond", diamond)
+	if not _diamond_btns.has(btn): # le losange colle au bord droit : suit la largeur utile tant qu'il est affiche
+		_diamond_btns.append(btn)
 	if diamond:
 		for n in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
 			var sb := StyleBoxTexture.new()
@@ -2233,7 +2241,8 @@ func _boss_detail_show(card: Control) -> void:
 	var scale0 := from_rect.size.x / BOSS_DETAIL_SIZE.x
 	var home := from_rect.get_center() - det.size / 2.0
 	var mid := Vector2(960, 540) - det.size / 2.0
-	var bb := UiKit.texture_button(layer, "res://assets/ui/buttons/back_bt.webp", "res://assets/ui/buttons/back_bt_pressed.webp", Vector2(Vp.lx(240.0), 102), Vector2(200, 101)) # CreateEmptyBackButton(TopCardsLayer, 300, 150)
+	var bb := UiKit.texture_button(layer, "res://assets/ui/buttons/back_bt.webp", "res://assets/ui/buttons/back_bt_pressed.webp", Vector2(240.0, 102), Vector2(200, 101)) # CreateEmptyBackButton(TopCardsLayer, 300, 150)
+	Vp.edge(bb, Vp.LEFT)
 	var close := func():
 		if _boss_detail != layer or layer.has_meta("closing"):
 			return
@@ -5371,12 +5380,12 @@ func _open_quit_confirm() -> void:
 	UiKit.cross_fade_in(pop)
 	_img(pop, "res://assets/ui/gradients/winner_bg.webp", Vector2(960.0 - 956.5, 486.0 - 94.0), Vector2(1913.0, 188.0))
 	_img(pop, "res://assets/ui/gradients/bg_txt.webp", Vector2(394, 75.6 - 32.0))
-	var lines: Array = [["QUIT GAME?", 42, Color("cdb15f"), 960.0, 75.6 - 32.0, 64.0]]
+	var lines: Array = [["QUIT GAME?", 42, Color("cdb15f"), 958.0, 75.6 - 36.0, 64.0]] # encre mesuree sur quit2 : titre 4 px et question / boutons 3 px plus haut que le centrage Godot
 	var m1 := "ARE YOU SURE YOU WANT TO "
 	var w1 := _fa.get_string_size(m1, HORIZONTAL_ALIGNMENT_LEFT, -1, 32).x
 	var w2 := _fa.get_string_size("QUIT?", HORIZONTAL_ALIGNMENT_LEFT, -1, 32).x
-	lines.append([m1, 32, Color.WHITE, 960.0 - (w1 + w2) / 2.0 + w1 / 2.0, 480.6 - 40.0, 80.0])
-	lines.append(["QUIT?", 32, Color("cdb15f"), 960.0 + (w1 + w2) / 2.0 - w2 / 2.0, 480.6 - 40.0, 80.0])
+	lines.append([m1, 32, Color.WHITE, 960.0 - (w1 + w2) / 2.0 + w1 / 2.0, 480.6 - 43.0, 80.0])
+	lines.append(["QUIT?", 32, Color("cdb15f"), 960.0 + (w1 + w2) / 2.0 - w2 / 2.0, 480.6 - 43.0, 80.0])
 	for ln in lines:
 		var l := _lbl(pop, ln[0], ln[1], ln[2], Vector2(float(ln[3]) - 800.0, ln[4]), 1600.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
 		l.add_theme_constant_override("outline_size", 0)
@@ -5384,7 +5393,7 @@ func _open_quit_confirm() -> void:
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	for spec in [["CANCEL", 744.0, _open_game_menu], ["QUIT", 1176.0, _confirm_quit]]:
 		var b := _tex_button(pop, UI_DIR + "bt_apply_effects.webp", UI_DIR + "bt_apply_effects_pressed.webp", Vector2(float(spec[1]) - 200.0, 604.8 - 51.5), Vector2(400, 103))
-		var l := _lbl(b, spec[0], 32, Color.WHITE, Vector2.ZERO, 400.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
+		var l := _lbl(b, spec[0], 32, Color.WHITE, Vector2(0, -3), 400.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
 		l.add_theme_constant_override("outline_size", 0)
 		l.size = Vector2(400, 103)
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

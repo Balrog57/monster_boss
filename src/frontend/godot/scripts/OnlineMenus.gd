@@ -739,17 +739,17 @@ func show_waiting() -> void:
 			le.focus_exited.connect(func(): _rename_room(le, le.text)) # Entree relache le focus (_filter_edit) : une seule voie
 			_wait_title = le
 		else:
-			_wait_title = _t(str(o.current_title), 1.3, Color.WHITE, Vector2(420, 330), 740.0)
+			_wait_title = _t(str(o.current_title), 1.3, Color.WHITE, Vector2(420, 325), 740.0) # texte 5 px plus haut que le bloc C# (encre mesuree sur mp_ok)
 			(_wait_title as Label).clip_text = true
 			m.add_child(_wait_title)
 	else:
-		m.add_child(_t("WAITING FRIENDS...", 1.3, Color.WHITE, Vector2(420, 330)))
-	m.add_child(_t("WINS", 1.0, Color.WHITE, Vector2(1190, 340)))
-	m.add_child(_t("DEFEATS", 1.0, Color.WHITE, Vector2(1370, 340)))
+		m.add_child(_t("WAITING FRIENDS...", 1.3, Color.WHITE, Vector2(420, 325)))
+	m.add_child(_t("WINS", 1.0, Color.WHITE, Vector2(1190, 336))) # encre de la salle d'attente 4-5 px plus haut que le bloc C# (mesure sur mp_ok : l'encre Godot tombait 4 px sous celle de l'APK)
+	m.add_child(_t("DEFEATS", 1.0, Color.WHITE, Vector2(1370, 336)))
 	_rows = []
 	for i in n_rows:
 		var y: float = ROW_Y[i] if not big else ROW_Y[0] + ROW_STEP_BIG * i
-		var ty := y + (40.0 if not big else 25.0)
+		var ty := y + (35.0 if not big else 20.0)
 		var av := TextureRect.new()
 		av.texture = load(UI + "avatar/avatar_none.webp")
 		av.position = Vector2(410, y)
@@ -766,8 +766,8 @@ func show_waiting() -> void:
 		_rows.append({"avatar": av, "name": nm, "wins": w, "defeats": d})
 	# RoomCodeEntity
 	UiKit.ninepatch(m, "ninepatch/code_area_inact.webp", Vector2(390, 950), Vector2(974, 113), Vector4(10, 10, 10, 10))
-	m.add_child(_t("ROOM CODE:", 1.3, Color.WHITE, Vector2(440, 990)))
-	var code := _t(str(o.match_id), 1.8, GOLD, Vector2(715, 980))
+	m.add_child(_t("ROOM CODE:", 1.3, Color.WHITE, Vector2(440, 985)))
+	var code := _t(str(o.match_id), 1.8, GOLD, Vector2(715, 974))
 	code.name = "RoomCode"
 	m.add_child(code)
 	# OK : maitre de salle seulement et plus d'un humain (WaitingPrivateRoomScene.ShowOkButton)
