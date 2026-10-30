@@ -91,6 +91,40 @@ static func enqueue_pending(G: Dictionary, choice: Dictionary) -> void:
 	else:
 		G["pendingChoice"] = choice
 
+## Carte dont la description titre un choix en attente (TargetResolverBaseSceneBehavior.cs:132,176 : cardInfo.Description de Ability.AbilityOwner) : la salle d'une capacite
+## activee (`entry.card` des cibles memorisees), sinon la carte nommee par `bossName` (ou par le prefixe « Nom : » du message) : boss de niveau, salle, sort. "" si inconnue.
+## Les noms sont uniques dans les paquets livres ; `ship_all` en ajoute d'autres, la premiere carte trouvee fait foi.
+static func choice_source_id(pc: Dictionary) -> String:
+	var ec = (pc.get("entry", {}) as Dictionary).get("card") if pc.get("entry") is Dictionary else null
+	if ec is Dictionary and str((ec as Dictionary).get("id", "")) != "":
+		return str((ec as Dictionary)["id"])
+	var nm := str(pc.get("bossName", ""))
+	if nm == "":
+		var msg := str(pc.get("message", ""))
+		var cut := msg.find(":")
+		nm = msg.substr(0, cut) if cut > 0 else ""
+	if nm == "":
+		return ""
+	for list in [CardDB.bosses, CardDB.rooms, CardDB.spells, CardDB.minibosses]:
+		for c in (list as Array):
+			if str((c as Dictionary).get("name", "")) == nm:
+				return str((c as Dictionary).get("id", ""))
+	return ""
+
+## Nombre de cartes a designer d'un coup dans le selecteur (CardSelectorComponent.selectionAmmount) pour les choix que le moteur pose N fois de suite ou par paires :
+## Dracolich Lair (paire de salles), Xyzax (`remaining` cartes de la defausse), defausse forcee de TNL (`remaining` cartes) ; 1 sinon.
+static func choice_pick_count(pc: Dictionary) -> int:
+	var n := 1
+	match str(pc.get("type", "")):
+		"dracolich-discard":
+			return 2 # options = paires de salles de la main (`handIndices`)
+		"recover-card":
+			n = int(pc.get("remaining", 1))
+		"tnl-pick":
+			if str(pc.get("step", "")) == "forced":
+				n = int((pc.get("ctx", {}) as Dictionary).get("remaining", 1))
+	return n if n <= (pc.get("options", []) as Array).size() else 1
+
 ## Boss.IsCanChooseCardToDraw : une salle ACTIVE (DungeonActiveRooms : face visible, non gelee) porte ChooseCardToDraw (BMA023 Haunted Library).
 static func can_choose_draw(p: Dictionary) -> bool:
 	for stack in (p.get("dungeon", []) as Array):

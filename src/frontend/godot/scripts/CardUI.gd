@@ -34,7 +34,7 @@ var _long := false
 var _press_pos := Vector2.ZERO
 var _press_id := 0
 var _rest_scale := Vector2.ONE             # echelle au repos (dos de carte pose en salle : voir set_face_down_scale)
-var _gold: TextureRect
+var _border: CardBorder
 var _frozen: TextureRect
 var greyed := false                        # etat cible du grisage (le fondu peut etre en cours)
 var _grey_tw: Tween
@@ -79,21 +79,19 @@ void fragment() { vec4 c = texture(TEXTURE, UV); float g = dot(c.rgb, vec3(0.3, 
 	if not on:
 		_grey_tw.tween_callback(func(): texture_rect.material = null)
 
-## Cadre dore de l'APK (sort jouable pendant l'aventure) : card_border_yellow (354x492 pour une carte de 350x488).
-func set_gold(on: bool) -> void:
-	if on and _gold == null:
-		_gold = TextureRect.new()
-		_gold.texture = load("res://assets/ui/ingame/card_border_yellow.webp")
-		_gold.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		_gold.stretch_mode = TextureRect.STRETCH_SCALE
-		_gold.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_gold.name = "GoldFrame"
-		var k := Vector2(size.x / 350.0, size.y / 488.0) if size.x > 0.0 else Vector2.ONE
-		_gold.position = Vector2(-2, -2) * k
-		_gold.size = Vector2(354, 492) * k
-		add_child(_gold)
-	if _gold != null:
-		_gold.visible = on
+## Cadre de style de la carte (BorderStyles, CardAttributesComponent.BorderStyle) : un CardBorder partage, fondu de 0,3 s a chaque changement. `from` = style visible juste avant :
+## la main est reconstruite a chaque rafraichissement, le cadre repart de l'etat precedent pour que le fondu ne reparte pas de zero.
+func set_border(style: int, animate := false, from: int = CardBorder.Style.NONE) -> void:
+	if _border == null:
+		if style == CardBorder.Style.NONE and from == CardBorder.Style.NONE:
+			return
+		var w := size.x if size.x > 0.0 else default_size.x
+		_border = CardBorder.attach(self, Vector2.ZERO, Vector2(w, w * 488.0 / 350.0 if size.y <= 0.0 else size.y), w, from, "StyleBorder")
+	_border.set_style(style, animate)
+
+## Cadre dore de l'APK (sort jouable pendant l'aventure) = BorderStyles.Yellow.
+func set_gold(on: bool, animate := false, from_on := false) -> void:
+	set_border(CardBorder.Style.YELLOW if on else CardBorder.Style.NONE, animate, CardBorder.Style.YELLOW if from_on else CardBorder.Style.NONE)
 
 ## APK : une salle posee face cachee est le dos de carte a l'echelle 0,5 (350 x 488 -> 175 x 244, CardStackSlotComponent.cs:139-140), plus grand que la salle
 ## visible (0,37) ; elle est centree sur l'emplacement et retrouve la taille de la salle une fois retournee.

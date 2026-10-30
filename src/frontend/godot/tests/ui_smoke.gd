@@ -21,6 +21,7 @@ extends Node
 ## Chaque anomalie est affichee avec sa graine : « [seed=7 players=3 ...] ... » = la commande pour la rejouer.
 
 const GameManager = preload("res://godot/scripts/GameManager.gd")
+const UiKit = preload("res://godot/scripts/UiKit.gd")
 const OnlineMenus = preload("res://godot/scripts/OnlineMenus.gd")
 const Server = preload("res://godot/server/Server.gd")
 const OnlineClient = preload("res://godot/scripts/OnlineClient.gd")
@@ -696,12 +697,34 @@ func _pick_target(n_cands: int, what: String) -> void:
 	await get_tree().process_frame
 	_check(board._popup_kind != "target", "%s : la fenetre de ciblage ne se ferme pas apres le choix" % what)
 
+## Carte de la main encadree de jaune (BorderStyles.Yellow : sort jouable pendant l'aventure).
+func _yellow(c: CardUI) -> bool:
+	return c._border != null and c._border.style == CardBorder.Style.YELLOW
+
+## Carte du selecteur encadree du halo dore YellowGlow (cadre CardBorder, X-P01).
+func _glow(c: CardUI) -> bool:
+	return c._border != null and c._border.style == CardBorder.Style.YELLOW_GLOW
+
 ## Carrousel central de cartes (popup « CardsContinue ») : une carte par option, le bouton n'est la qu'avec une carte choisie ou un SKIP possible.
 ## skip_plays : SKIP joue un coup (choix en attente) ; sinon c'est un CANCEL qui referme sans rien jouer.
-func _pick_in_cards(n_pick: int, has_skip: bool, skip_plays: bool, what: String) -> void:
+func _pick_in_cards(n_pick: int, has_skip: bool, skip_plays: bool, what: String, pick := 1) -> void:
 	var pop: Control = board._popup
 	var btn: Button = pop.get_node_or_null("CardsContinue")
 	var cards := pop.get_children().filter(func(c): return c is CardUI)
+	if pick > 1: # CardSelectorComponent a N cartes (P-C13) : N cartes dans UNE fenetre, CONTINUE seulement a la derniere, puis le moteur recoit les N designations
+		if not _check(btn != null and cards.size() >= pick, "%s : %d cartes au carrousel pour %d a designer" % [what, cards.size(), pick]):
+			return
+		var s1 := _sig()
+		for j in pick:
+			_check(not btn.visible or btn.text == "SKIP", "%s : CONTINUE avant la %de carte sur %d" % [what, j + 1, pick])
+			(cards[j] as CardUI).card_clicked.emit(null)
+		_check(btn.visible and btn.text == "CONTINUE", "%s : %d cartes choisies sans CONTINUE" % [what, pick])
+		btn.pressed.emit()
+		for _f in 8:
+			await get_tree().process_frame
+		_check(_sig() != s1 and board._multi.is_empty(), "%s : CONTINUE n'a pas joue les %d cartes (suite en attente %s)" % [what, pick, str(board._multi)])
+		_cov("cards_multi")
+		return
 	if not (_check(btn != null and cards.size() == n_pick, "%s : %d cartes au carrousel pour %d options" % [what, cards.size(), n_pick]) \
 			and _check(btn.visible == has_skip and btn.text == "SKIP", "%s : bouton SKIP %s alors que SKIP %s" % [what, btn.visible, has_skip])):
 		return
@@ -719,9 +742,9 @@ func _pick_in_cards(n_pick: int, has_skip: bool, skip_plays: bool, what: String)
 		return
 	var k := rng.randi_range(0, cards.size() - 1)
 	(cards[k] as CardUI).card_clicked.emit(null)
-	if _check(btn.visible and btn.text == "CONTINUE" and (cards[k] as CardUI).glow_rect.visible, "%s : carte choisie sans CONTINUE ni halo dore" % what):
+	if _check(btn.visible and btn.text == "CONTINUE" and _glow(cards[k]), "%s : carte choisie sans CONTINUE ni halo dore" % what):
 		(cards[k] as CardUI).card_clicked.emit(null) # re-appui = deselection
-		_check(btn.visible == has_skip and not (cards[k] as CardUI).glow_rect.visible, "%s : la deselection ne remet pas l'etat initial" % what)
+		_check(btn.visible == has_skip and not _glow(cards[k]), "%s : la deselection ne remet pas l'etat initial" % what)
 		(cards[k] as CardUI).card_clicked.emit(null)
 		var pc0: Dictionary = (gm.G.get("pendingChoice", {}) as Dictionary).duplicate(true)
 		btn.pressed.emit()
@@ -872,7 +895,7 @@ func _act_choice(pid: int, pc: Dictionary, moves: Array) -> void:
 		return
 	if board._popup.get_node_or_null("CardsContinue") != null: # options = cartes : carrousel central (APK CardSelector), SKIP = canBeCanceled
 		var n_cards := cm.filter(func(m): return int((m["args"] as Array)[0]) >= 0).size()
-		await _pick_in_cards(n_cards, n_cards < cm.size(), true, "choix « %s »" % typ)
+		await _pick_in_cards(n_cards, n_cards < cm.size(), true, "choix « %s »" % typ, int(pc.get("pickCount", 1)))
 		_cov("choice_cards:" + typ)
 		return
 	var btns := _buttons(board._popup)
@@ -1869,12 +1892,10 @@ func _check_windows() -> void:
 	if not _check(board._has_decision(moves) and moves.any(func(m): return m["type"] == "pass"), "fenetres : aucun sort jouable / pas de passe dans la fenetre construite"):
 		return
 	var cards := _hand_cards()
-	var gold = (cards[gi] as CardUI).get_node_or_null("GoldFrame")
-	_check(gold != null and gold.visible, "fenetres : le sort jouable n'a pas de cadre dore")
+	_check(_yellow(cards[gi]), "fenetres : le sort jouable n'a pas de cadre dore")
 	for i in cards.size():
 		if bool((me["hand"][i] as Dictionary).get("isRoom", false)):
-			var gf = (cards[i] as CardUI).get_node_or_null("GoldFrame")
-			_check(gf == null or not gf.visible, "fenetres : cadre dore sur une salle")
+			_check(not _yellow(cards[i]), "fenetres : cadre dore sur une salle")
 	_check(not board.pass_shown() and not board.btn_advance.is_visible_in_tree(), "fenetres : PASS TURN / GO visibles en aventure (flux APK)")
 	board._process(0.5)
 	_check(board._win_bar.visible, "fenetres : barre de temps absente")
@@ -1980,6 +2001,7 @@ func _check_drag_and_zoom() -> void:
 	for k in range(1, 7):
 		await _mouse(start.lerp(slot_c, float(k) / 6.0), false, true, MOUSE_BUTTON_MASK_LEFT)
 	_check(not board._drag.is_empty(), "glisser : salle - glisser perdu en route")
+	await _wait(0.6) # le centre de la carte rejoint le doigt (CardRotationBehavior.cs:86-96 : 18 x dt par image)
 	# APK : l'emplacement survole par la carte porte card_border_yellow_glow_scaled, les autres card_border_yellow_scaled (BuildRoomHandSceneBehavior.cs:120-127)
 	var glows: Array = board._ui_layer.find_children("SlotGlow", "TextureRect", true, false).filter(func(f): return not f.is_queued_for_deletion() and str((f as TextureRect).texture.resource_path).ends_with("card_border_yellow_glow_scaled.webp"))
 	_check(glows.size() == 1, "glisser : %d emplacements au cadre lumineux sous la carte (1 attendu)" % glows.size())
@@ -2179,7 +2201,7 @@ func _check_apk_gaps() -> void:
 		for c in cards:
 			_check(Rect2(0, 0, 1920, 1080).encloses((c as Control).get_global_rect()), "carrousel : carte hors ecran %s" % (c as Control).get_global_rect())
 		(cards[1] as CardUI).card_clicked.emit(null)
-		_check(btn.text == "CONTINUE" and (cards[1] as CardUI).glow_rect.visible and not (cards[0] as CardUI).glow_rect.visible, "carrousel : la carte choisie n'a pas de halo / CONTINUE absent")
+		_check(btn.text == "CONTINUE" and _glow(cards[1]) and not _glow(cards[0]), "carrousel : la carte choisie n'a pas de halo / CONTINUE absent")
 		_cov("cards_carousel")
 	G["pendingChoice"] = {"type": "ui-test", "playerId": 0, "message": "Pick a side", "options": [{"label": "Left"}, {"label": "Right"}]}
 	board.refresh()
@@ -2305,9 +2327,18 @@ func _check_review_fixes() -> void:
 		var und: Array = gm.legal_moves(0).filter(func(m): return m["type"] == "undoBuild")
 		if _check(not und.is_empty(), "reprise : pas de coup undoBuild apres la pose"):
 			var n0 := (me["hand"] as Array).size()
-			board._on_slot_activate(int((und[0]["args"] as Array)[0]))
+			var di := int((und[0]["args"] as Array)[0])
+			# P-A32 : l'appui sur la pose en attente la reprend ET la glisse (CardExtractBehavior.CardEntity_TouchPressed) ; un clic simple ne fait plus rien d'autre
+			board._on_slot_activate(di)
+			_check((me["hand"] as Array).size() == n0 and board._drag.is_empty(), "reprise : _on_slot_activate ne doit plus reprendre la pose")
+			board._on_slot_undo_press(di)
 			await get_tree().process_frame
 			_check((me["hand"] as Array).size() == n0 + 1, "reprise : la salle n'est pas revenue en main")
+			_check(not board._drag.is_empty() and int(board._drag["idx"]) == n0, "reprise : la salle reprise n'est pas glissee (idx %s attendu %d)" % [str(board._drag.get("idx", -1)), n0])
+			_cov("undo_drag")
+			board._drag_end(Vector2(960, 930)) # relachee sur la main : elle y reste
+			await get_tree().process_frame
+			_check(board._drag.is_empty() and (me["hand"] as Array).size() == n0 + 1, "reprise : relachee sur la main, la salle doit y rester")
 			_check(board._draw_hide.is_empty() and get_tree().get_nodes_in_group("drawn_card").is_empty(), "reprise : la salle reprise ne doit pas etre animee comme une pioche")
 			var hidden := _hand_hidden()
 			_check(hidden == 0, "reprise : %d carte(s) de la main cachee(s) (salle reprise injouable)" % hidden)
@@ -3359,6 +3390,20 @@ func _check_apk_anims() -> void:
 	board._drag = {}
 	pv.queue_free()
 	_cov("drag_tilt")
+	# CardRotationBehavior.cs:86-96 : le centre glisse vers le doigt a 18 x dt par image (30 % a 60 Hz), jusqu'a l'atteindre, puis il le suit
+	var pl := Control.new()
+	pl.size = Vector2(175, 244)
+	add_child(pl)
+	pl.position = Vector2(0, 0)
+	board._drag = {"preview": pl, "frames": [], "pull": true, "goal": Vector2(300, 0)}
+	board._drag_tilt(1.0 / 60.0)
+	_check(absf(pl.position.x - 90.0) < 0.01 and bool(board._drag["pull"]), "attraction : 18 x dt = 30 %% du chemin par image (x %.2f)" % pl.position.x)
+	for _i in 60:
+		board._drag_tilt(1.0 / 60.0)
+	_check(pl.position == Vector2(300, 0) and not bool(board._drag["pull"]), "attraction : le centre doit atteindre le doigt puis le suivre (x %.3f)" % pl.position.x)
+	board._drag = {}
+	pl.queue_free()
+	_cov("drag_pull")
 	# CardMoveBehavior : lerp 0,009 x ms par image (14,4 % a 16 ms), cible atteinte exactement
 	var mv := Control.new()
 	add_child(mv)
@@ -3579,6 +3624,168 @@ func _check_choice_target() -> void:
 		_check(not board._win_paused(), "choix plateau : la barre de temps reste figee apres la resolution")
 	_cov("choice_target_cleared")
 
+## Lot L4 : titre = description de la source (P-A37), selecteur a N cartes (P-C13), Hellcow (P-C31), survol de la main (P-C12), fermeture au relachement (P-C45),
+## cadre partage (X-P01), ordre de rafraichissement (P-A09).
+func _check_l4_board() -> void:
+	_tag = "[l4]"
+	await _new_game()
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	# --- P-A37 : le moteur publie sourceId / pickCount ; le titre du choix est la description de la carte source
+	var src: Dictionary = {}
+	for r in CardDB.rooms:
+		if str((r as Dictionary).get("description", "")) != "" and CardDB.rooms.filter(func(x): return str((x as Dictionary).get("name", "")) == str((r as Dictionary).get("name", ""))).size() == 1:
+			src = r
+			break
+	G["pendingChoice"] = {"type": "ui-test", "playerId": 0, "message": "%s: choose" % str(src.get("name", "")), "optional": true, "options": [{"card": CardDB.rooms[0]}, {"card": CardDB.rooms[1]}]}
+	gm._stamp_choices()
+	var pc: Dictionary = G["pendingChoice"]
+	_check(str(pc.get("sourceId", "")) == str(src.get("id", "")) and not pc.has("pickCount"), "sourceId : %s au lieu de %s" % [str(pc.get("sourceId", "")), str(src.get("id", ""))])
+	board.refresh()
+	await get_tree().process_frame
+	var want := str(src.get("description", "")).strip_edges().to_upper()
+	var got := " ".join((_texts_of(board._popup) as Array).map(func(t): return str(t).replace("\n", " ")))
+	_check(want != "" and got.find(want) >= 0, "titre du choix : « %s » absent des textes du selecteur (%s)" % [want.left(40), got.left(80)])
+	G["pendingChoice"] = {"type": "dracolich-discard", "playerId": 0, "options": [{"handIndices": [0, 1]}, {"handIndices": [0, 2]}, {"handIndices": [1, 2]}]}
+	gm._stamp_choices()
+	_check(int(G["pendingChoice"].get("pickCount", 1)) == 2, "pickCount : Dracolich Lair doit publier 2")
+	G["pendingChoice"] = {}
+	board._popup_close()
+	# --- P-C13 : N cartes designees dans UNE fenetre (Xyzax : 2 cartes de la defausse), le moteur recoit les 2 designations
+	var disc: Array = []
+	for i in 3:
+		disc.append((CardDB.rooms[i] as Dictionary).duplicate(true))
+	(G["decks"] as Dictionary)["roomDiscard"] = disc
+	G["pendingChoice"] = {"type": "recover-card", "playerId": 0, "bossName": "Xyzax", "message": "Xyzax: choose a card from the discard (2 remaining)", "remaining": 2, "options": RoomAbilities.discard_card_options(G, "any")}
+	gm._stamp_choices()
+	_check(int(G["pendingChoice"].get("pickCount", 1)) == 2 and str(G["pendingChoice"].get("sourceId", "")) != "", "pickCount / sourceId de Xyzax absents")
+	var h0: int = (me["hand"] as Array).size()
+	board.refresh()
+	await get_tree().process_frame
+	var btn: Button = board._popup.get_node_or_null("CardsContinue") if board._popup != null else null
+	var cards: Array = board._popup.get_children().filter(func(c): return c is CardUI) if btn != null else []
+	if _check(btn != null and cards.size() == 3, "selecteur a 2 cartes : %d cartes au carrousel" % cards.size()):
+		(cards[0] as CardUI).card_clicked.emit(null)
+		_check(not btn.visible, "selecteur a 2 cartes : CONTINUE apres une seule carte")
+		(cards[1] as CardUI).card_clicked.emit(null)
+		_check(btn.visible and btn.text == "CONTINUE" and _glow(cards[0]) and _glow(cards[1]), "selecteur a 2 cartes : deux cartes choisies sans CONTINUE ni halo")
+		(cards[2] as CardUI).card_clicked.emit(null) # une 3e remplace la plus ancienne (CardSelectorComponent.cs:128-134)
+		_check(not _glow(cards[0]) and _glow(cards[1]) and _glow(cards[2]), "selecteur a 2 cartes : la plus ancienne n'est pas remplacee")
+		btn.pressed.emit()
+		for _f in 8:
+			await get_tree().process_frame
+		_check((me["hand"] as Array).size() == h0 + 2 and (G["decks"]["roomDiscard"] as Array).size() == 1 and board._multi.is_empty(), "selecteur a 2 cartes : main %d -> %d, defausse %d (2 cartes attendues)" % [h0, (me["hand"] as Array).size(), (G["decks"]["roomDiscard"] as Array).size()])
+		_check((G.get("pendingChoice", {}) as Dictionary).is_empty() and board._popup_kind == "", "selecteur a 2 cartes : la fenetre reste ouverte")
+		_cov("cards_multi_e2e")
+	# --- P-C31 : Hellcow, deux cartes touchees s'echangent, CONTINUE valide l'ordre
+	G["pendingChoice"] = {"type": "rearrange-dungeon", "step": "order", "picked": [], "playerId": 0, "bossName": "Hellcow", "message": "Hellcow: rearrange",
+		"options": [{"roomIndex": 0, "card": CardDB.rooms[0]}, {"roomIndex": 1, "card": CardDB.rooms[1]}, {"roomIndex": 2, "card": CardDB.rooms[2]}]}
+	board.refresh()
+	await get_tree().process_frame
+	btn = board._popup.get_node_or_null("CardsContinue") if board._popup != null else null
+	cards = board._popup.get_children().filter(func(c): return c is CardUI) if btn != null else []
+	if _check(btn != null and cards.size() == 3 and btn.visible and btn.text == "CONTINUE", "Hellcow : selecteur de reordonnement absent (CONTINUE toujours present)"):
+		var x0: float = (cards[0] as Control).position.x
+		var x2: float = (cards[2] as Control).position.x
+		(cards[0] as CardUI).card_clicked.emit(null)
+		(cards[2] as CardUI).card_clicked.emit(null)
+		await _wait(0.8)
+		_check(absf((cards[0] as Control).position.x - x2) < 1.0 and absf((cards[2] as Control).position.x - x0) < 1.0, "Hellcow : les deux cartes ne se sont pas echangees")
+		_check(not _glow(cards[0]) and not _glow(cards[2]), "Hellcow : la selection doit etre videe apres l'echange")
+		_cov("rearrange_swap")
+	var items := [{"ri": 0}, {"ri": 1}, {"ri": 2}]
+	_check(board._rearrange_picks([0, 1, 2], items) == [2, 1, 0] and board._rearrange_picks([2, 1, 0], items) == [0, 1, 2], "Hellcow : ordre -> designations du moteur (fond d'abord)")
+	G["pendingChoice"] = {}
+	board._popup_close()
+	# --- P-C45 : TouchOutBehavior, le doigt LEVE hors de la zone ferme ; un appui dehors ramene dedans ne ferme pas
+	var t := UiKit.TouchOut.new()
+	var inside := func(p: Vector2): return Rect2(100, 100, 100, 100).has_point(p)
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
+	ev.global_position = Vector2(150, 150)
+	_check(not t.feed(ev, inside), "TouchOut : un appui ne doit pas fermer")
+	var mv := InputEventMouseMotion.new()
+	mv.button_mask = MOUSE_BUTTON_MASK_LEFT
+	mv.global_position = Vector2(500, 500)
+	t.feed(mv, inside)
+	var rel := InputEventMouseButton.new()
+	rel.button_index = MOUSE_BUTTON_LEFT
+	rel.pressed = false
+	rel.global_position = Vector2(500, 500)
+	_check(t.feed(rel, inside), "TouchOut : relachement hors zone = fermeture")
+	ev.global_position = Vector2(500, 500)
+	t.feed(ev, inside)
+	mv.global_position = Vector2(150, 150)
+	t.feed(mv, inside)
+	rel.global_position = Vector2(150, 150)
+	_check(not t.feed(rel, inside), "TouchOut : un appui dehors ramene dedans avant le relachement ne ferme pas")
+	# selecteur de cartes annulable : appui puis relachement hors de la bande = SKIP
+	G["pendingChoice"] = {"type": "ui-test", "playerId": 0, "message": "Pick", "optional": true, "options": [{"card": CardDB.rooms[0]}, {"card": CardDB.rooms[1]}]}
+	board.refresh()
+	await get_tree().process_frame
+	if _check(board._popup_kind == "choice" and board._popup != null, "relachement hors bande : pas de selecteur"):
+		var press := InputEventMouseButton.new()
+		press.button_index = MOUSE_BUTTON_LEFT
+		press.pressed = true
+		press.position = Vector2(960, 1040)
+		press.global_position = press.position
+		board._popup.gui_input.emit(press)
+		_check(not (G.get("pendingChoice", {}) as Dictionary).is_empty(), "relachement hors bande : l'APPUI ne doit pas fermer")
+		var up := press.duplicate() as InputEventMouseButton
+		up.pressed = false
+		board._popup.gui_input.emit(up)
+		await get_tree().process_frame
+		_check((G.get("pendingChoice", {}) as Dictionary).is_empty(), "relachement hors bande : le selecteur annulable doit se fermer (SKIP)")
+		_cov("release_outside")
+	# --- P-C12 : la carte survolee grossit (x 1,2 / 0,5) et la main s'ecarte
+	await _new_game()
+	board.skip_animations = false
+	board.refresh()
+	var hc := _hand_cards()
+	var n := hc.size()
+	if _check(n >= 5, "survol : main trop courte (%d)" % n):
+		var rest_x: Array = hc.map(func(c): return (c as Control).position.x)
+		var rest_s: float = (hc[2] as Control).scale.x
+		(hc[2] as CardUI).set_hovered(true) # CardHoverBehavior (le curseur reel n'existe pas en headless : _tick_hand_hover lit get_global_mouse_position)
+		await _wait(1.0)
+		_check(absf((hc[2] as Control).scale.x - rest_s * 2.4) < 0.02, "survol : echelle %.3f au lieu de %.3f (x 1,2 / 0,5)" % [(hc[2] as Control).scale.x, rest_s * 2.4])
+		var t1: Array = board._fan_target(1, n, 2)
+		var t3: Array = board._fan_target(3, n, 2)
+		var t2: Array = board._fan_target(2, n, 2)
+		_check(float(t2[0].y) + board._fan_sz.y / 2.0 == board.HAND_CY + board.HAND_SEL_Y and float(t1[1]) == 0.0 and float(t3[1]) == 0.0, "survol : la carte choisie monte a HAND_SEL_Y et ses voisines se redressent")
+		_check((hc[1] as Control).position.x < float(rest_x[1]) and (hc[3] as Control).position.x > float(rest_x[3]), "survol : les voisines ne s'ecartent pas")
+		(hc[2] as CardUI).set_hovered(false)
+		await _wait(1.0)
+		_check(absf((hc[2] as Control).scale.x - rest_s) < 0.02 and absf((hc[1] as Control).position.x - float(rest_x[1])) < 1.0, "survol : la main ne se remet pas en place")
+		_cov("hover_fan")
+	# --- X-P01 : un seul cadre partage, fondu de 0,3 s
+	var b0 := CardBorder.attach(self, Vector2.ZERO, Vector2(350, 488), 350.0)
+	b0.set_style(CardBorder.Style.YELLOW_GLOW, true)
+	await _wait(0.15)
+	_check(b0.modulate.a > 0.2 and b0.modulate.a < 0.8, "cadre : fondu entrant en cours a 0,15 s (%.2f)" % b0.modulate.a)
+	await _wait(0.4)
+	_check(is_equal_approx(b0.modulate.a, 1.0), "cadre : fondu entrant termine (%.2f)" % b0.modulate.a)
+	b0.set_style(CardBorder.Style.NONE, true)
+	await _wait(0.5)
+	_check(is_equal_approx(b0.modulate.a, 0.0), "cadre : fondu sortant termine (%.2f)" % b0.modulate.a)
+	var bs := CardBorder.attach(self, Vector2.ZERO, Vector2(175, 244), 175.0)
+	bs.set_style(CardBorder.Style.YELLOW, false)
+	_check(bs.is_scaled() and bs.size.x > 0.0, "cadre : la carte de la main (0,5) prend la variante _scaled")
+	b0.queue_free()
+	bs.queue_free()
+	_cov("card_border")
+	# --- P-A09 : toute la chaine de rafraichissement (DoNextStepAndRefresh, GamePlayBaseScene.cs:838-879 : controles, panneau, main, panneau gauche) tient dans UN
+	# appel synchrone : aucune image ne s'intercale, l'ordre des sous-etapes n'est donc pas observable (c'est le seul ecart avec les taches chainees de l'APK).
+	await _new_game()
+	var coins0: String = board.sidebar_boss_label.text
+	var p0: Dictionary = gm.G["players"][0]
+	(p0["hand"] as Array).pop_back()
+	var frames0 := Engine.get_process_frames()
+	board.refresh()
+	_check(Engine.get_process_frames() == frames0 and _hand_cards().size() == (p0["hand"] as Array).size() and board.sidebar_boss_label.text == coins0, "rafraichissement : doit etre synchrone (main %d / %d)" % [_hand_cards().size(), (p0["hand"] as Array).size()])
+	_cov("refresh_sync")
+
 func _extra_checks() -> void:
 	await _check_stacks()
 	await _check_boss_flip()
@@ -3606,6 +3813,7 @@ func _extra_checks() -> void:
 	await _check_gameover_banner()
 	await _check_apk_particles()
 	await _check_apk_anims()
+	await _check_l4_board()
 	await _check_tutorial()
 	await _check_tut_decks()
 	await _check_effects()

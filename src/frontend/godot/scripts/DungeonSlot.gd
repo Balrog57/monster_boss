@@ -8,6 +8,7 @@ const BossEngine = preload("res://godot/scripts/BossEngine.gd")
 
 signal room_dropped(hand_index: int, slot_index: int) ## emis APRES une construction reussie
 signal activate_requested(slot_index: int)
+signal undo_pressed(slot_index: int) ## appui sur la pose en attente (CardExtractBehavior.CardEntity_TouchPressed)
 signal zoom_on(card: Control)  ## appui long sur la salle : zoom (BoardUI)
 signal zoom_off
 signal zoom_stack(slot_index: int)  ## clic sur une salle non activable : zoom de la pile (BoardUI._slot_zoom)
@@ -17,7 +18,7 @@ var game_manager: GameManager
 var player_id: int = 0
 var current_stack: Array = []
 var activatable := false
-var undoable := false                    # pose en attente (face cachee) : un clic la reprend en main (undoBuild), sans halo
+var undoable := false                    # pose en attente (face cachee) : un appui la reprend en main (undoBuild) et la glisse, sans halo
 var _was_down := false                  # la salle du dessus etait face cachee au dernier affichage : si elle ne l'est plus, elle se retourne (CardUI.flip_in)
 ## Salles gelees au dernier affichage, par « joueur:indice de salle » (l'indice du moteur, pas le noeud : les salles glissent d'un noeud a l'autre quand le donjon grandit) :
 ## sinon le voile de glace apparait en fondu (CardUI.set_frozen).
@@ -241,7 +242,10 @@ static func _glow_tex(name: String, sz: Vector2) -> TextureRect:
 
 func _gui_input(event: InputEvent) -> void:
 	# Clic (gauche ou droit) sur une salle activable : BoardUI choisit le coup (et la cible s'il y en a plusieurs).
-	if event is InputEventMouseButton and event.pressed and (activatable or undoable) \
+	if event is InputEventMouseButton and event.pressed and undoable and event.button_index == MOUSE_BUTTON_LEFT and not current_stack.is_empty():
+		accept_event()
+		undo_pressed.emit(slot_index) # APK : l'appui sur la pose en attente la reprend et la glisse (BoardUI._on_slot_undo_press)
+	elif event is InputEventMouseButton and event.pressed and activatable \
 			and (event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT) and not current_stack.is_empty():
 		accept_event()
 		activate_requested.emit(slot_index)

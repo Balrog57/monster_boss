@@ -6,10 +6,44 @@ const FONT_A := "res://assets/fonts/arcadepix.fnt"   # texte plein (titres, ON /
 const FONT_B := "res://assets/fonts/arcadepix2.fnt"  # texte strie (boutons, libelles)
 const UI := "res://assets/ui/"
 const GOLD := Color("cdb15f")                        # or de l'APK : CustomColors.cs:16
+const PISTACHIO := Color("bfca7a")                   # CustomColors.cs:18
+const SIDE_PANELS := Color("180a18")                 # SidePanelsBackColor, CustomColors.cs:20 : fond des panneaux lateraux (alpha 0,85 : TopLeftPanelEntity.cs:110, OneOpponentDetail.cs:71)
+const LOADING_BG := Color("270000")                  # LoadingBg, CustomColors.cs:22 (LoadingScene.cs:24)
+const TUTORIAL_BG := Color("e2bc54")                 # TutorialBg, CustomColors.cs:24 (aucun appelant dans l'APK decompile)
+const BOSS_COLORS := {1: Color("34495c"), 2: Color("5e2a2f"), 3: Color("52506a"), 4: Color("74635d")} # GetBossTreasureColor (cs:58-77) : Cleric, Fighter, Mage, Thief (CardDB.TREASURE_NAMES)
+
+## GetBossTreasureColor (CustomColors.cs:58-77) : le premier tresor present dans l'ordre Cleric, Fighter, Mage, Thief ; noir sans boss (OneOpponentDetail.cs:218).
+static func boss_treasure_color(boss) -> Color:
+	if boss == null:
+		return Color.BLACK
+	var tr: Array = (boss as Dictionary).get("treasures", [])
+	for t in [1, 2, 3, 4]:
+		if tr.has(t):
+			return BOSS_COLORS[t]
+	return Color.BLACK
+
 const ZOOM_CARD := Vector2(330, 470)                 # zoom d'une carte (appui long, glisser, pioche, pile de sorts) ; cadre noir compris = 350 x 490 (mesure APK : pile de sorts, appui long)
 const ZOOM_PAD := 10.0                               # cadre noir arrondi autour de la carte zoomee
 
 static var _fonts := {}
+
+## TouchOutBehavior.cs:55-85 : tant que le doigt est pose, on retient si sa derniere position est HORS de la zone ; la fermeture part au RELACHEMENT (pas a l'appui),
+## et seulement si cette derniere position etait dehors. `inside` : Callable(Vector2) -> bool (la zone et ses colliders externes, AddCollider).
+class TouchOut extends RefCounted:
+	var out := false
+	## Vrai quand `ev` est le relachement gauche d'un appui dont la derniere position etait hors de la zone.
+	func feed(ev: InputEvent, inside: Callable) -> bool:
+		if ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
+			var mb := ev as InputEventMouseButton
+			if mb.pressed:
+				out = not bool(inside.call(mb.global_position))
+				return false
+			var fired := out
+			out = false
+			return fired
+		if ev is InputEventMouseMotion and ((ev as InputEventMouseMotion).button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+			out = not bool(inside.call((ev as InputEventMouseMotion).global_position))
+		return false
 
 ## Police pixel + police par defaut pour les glyphes absents (accents francais, etc.).
 static func font(path: String) -> Font:

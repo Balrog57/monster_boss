@@ -894,7 +894,9 @@ func _board_shots() -> void:
 	var card: CardUI = _hand_cards()[idx]
 	var c0 := card.get_global_rect().get_center()
 	await _mouse(Vector2(c0.x, c0.y - 60.0), false, true, 0) # survol : la carte monte
+	card.set_hovered(true) # _tick_hand_hover lit la VRAIE position du curseur (push_input ne la change pas) : on declenche le survol a la main
 	await _wait(0.3)
+	await _wait(1.0) # CardMoveBehavior : le lerp de survol (x 2,4, -180 px) met ~1 s a se poser
 	await _shot("build_card_selected_in_hand")
 	await _mouse(Vector2(1000, 400), false, true, 0)
 	await _wait(0.3)

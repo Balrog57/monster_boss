@@ -29,7 +29,10 @@ var _foe_follow_seen := -1               # dernier donjon adverse suivi automati
 var extra_bar: HFlowContainer
 var discard_pick: Array = []
 var _swap_idx := -1                       # salle de la main a poser des que la reprise de la pose en attente est confirmee (_swap_resume)
-var _swap_until := 0                      # delai (ms) apres lequel on abandonne l'attente
+var _extract_n := -1                    # taille de la main avant la reprise d'une pose par appui (_on_slot_undo_press) : -1 = rien a glisser
+var _extract_from := Vector2.ZERO       # centre de l'emplacement d'ou la pose est reprise (depart du glisser)
+var _extract_until := 0                 # delai (ms) apres lequel on abandonne l'attente de la reprise (en ligne)
+var _swap_until := 0                     # delai (ms) apres lequel on abandonne l'attente
 var _last_phase: String = ""
 
 ## Tutoriel (TutorialOverlay) : `tutorial_gate` vide = aucun effet, le plateau se comporte exactement comme avant. Rempli par mount_tutorial,
@@ -80,6 +83,8 @@ const SLOT_STEP := 140.0
 const PLAY_CX := 945.0                   # centre de la zone de jeu (entre les deux colonnes)
 const STACK_CX := 960.0                  # APK : pile de sorts, zoom central et barre de temps centres au milieu de l'ecran (cadre noir x 785..1135)
 const HAND_CARD := Vector2(175, 244)     # APK : carte 350x488 a l'echelle 0,5 (HandEntity.NormalScale), bas de carte sous le bord de l'ecran
+const HAND_SEL_SCALE := 1.2 / 0.5          # HandEntity.cs:44-45 : echelle de la carte survolee (SelectedScale 1,2) sur celle de la main (NormalScale 0,5)
+const HAND_SEL_Y := -180.0                # HandEntity.cs:42 SelectedYOffset
 const HAND_CX := 960.0                   # HandEntity : x = VirtualWidth * 0,5 (1440 centres dans 1920), y = VirtualHeight * 0,9
 const HAND_CY := 972.0
 const BIG_CARD := Vector2(245, 341.6)   # defausse d'ouverture : CarouselSelectorEntity.cs:46-52 NormalScale 0,7 x carte 350 x 488 (APK discard_hand_7cards : face visible 207 x 312 mesure)
@@ -95,7 +100,6 @@ const BOSS_CARD := Vector2(362, 506)     # carrousel du choix du boss (apk_boss0
 const BOSS_SIDE_SCALE := [1.0, 0.58, 0.55, 0.52, 0.5, 0.48]
 const BOSS_SIDE_X := [0.0, 272.0, 342.0, 378.0, 396.0, 406.0]
 const BOSS_CENTER_Y := 562.0
-const TEX_TARGET_GLOW := "res://assets/ui/ingame/card_border_yellow_glow.webp"
 const TARGET_Z := 60                     # salles / heros / boss ciblables : passent devant le voile du mode ciblage (z 40)
 const GOLD := Color(0.95, 0.78, 0.3)
 const CREAM := Color(0.93, 0.87, 0.7)
@@ -130,6 +134,7 @@ var foe_sub_label: Label
 var foe_wounds_label: Label
 var foe_souls_label: Label
 var foe_coins_label: Label
+var _foe_treasure_bg: TextureRect
 var foe_treasures_box: Control
 var foe_group: Control                   # panneau adverse a 2 joueurs (OneOpponentDetail)
 var opp_box: Control                     # 3-4 joueurs : CollapsedOpponentDetail x (N-1), colonne droite (TopRightPanelEntity)
@@ -177,6 +182,7 @@ var win_time_scale := 1.0                # tests : raccourcit les fenetres chron
 var _win_t := 0.0
 var _win_sig := ""
 var _last_ms := 0                        # horloge reelle du dernier _process : Godot plafonne delta a ~0,13 s par image (web a quelques i/s)
+var _border_prev: Dictionary = {}      # style de cadre de chaque carte de la main au dernier affichage (cle « indice:id ») : le fondu repart de la ou il en etait
 var _grey_prev: Dictionary = {}              # main : cle "index:id" -> {g: grise ?, t: ms du dernier changement} (fondu de grisage, voir _refresh_hand)
 var _hand_stale := false                 # un refresh() a ete saute pendant un appui sur une carte de la main (voir _refresh_hand)
 var _speed := 1.0                        # GameSettings.GetSpeed : SLOW 1,5 / NORMAL 1 / FAST 0,5 (durees des animations de heros)
@@ -425,9 +431,8 @@ func _build_frame() -> void:
 	# Colonnes laterales en pierre sombre + traits dores, barres haute et basse.
 	for x in [0.0, 1708.0]:
 		var w: float = 183.0 if x == 0.0 else 212.0
-		var stone := _img(self, "res://assets/ui/ingame/bg_levelup_panel.webp", Vector2(x, 0), Vector2(w, 1080), TextureRect.STRETCH_TILE)
-		stone.modulate = Color(0.55, 0.45, 0.7, 0.45)
-		_rect(self, Color(0.08, 0.03, 0.12, 0.62), Vector2(x, 0), Vector2(w, 1080)) # APK : panneau translucide, le couloir se devine derriere
+		_rect(self, Color8(96, 82, 110), Vector2(x, 0), Vector2(w, 1080)) # calque sous le panneau : l'APK le laisse voir a 15 % (mesure : panneau gauche (35, 21, 37) sur les captures, donc dessous ~ (96, 82, 110))
+		_rect(self, Color(UiKit.SIDE_PANELS, 0.85), Vector2(x, 0), Vector2(w, 1080)) # CreateColorPanel(SidePanelsBackColor, 0,85) : TopLeftPanelEntity.cs:110, OneOpponentDetail.cs:71
 	_img(self, UI_DIR + "vertical_line.webp", Vector2(183, 0))
 	_img(self, UI_DIR + "vertical_line.webp", Vector2(1707, 0))
 	_img(self, UI_DIR + "bg_top.webp", Vector2(0, -15), Vector2(1920, 77))
@@ -470,7 +475,7 @@ func _build_right() -> void:
 	foe_treasures_box.size = Vector2(202, 68)
 	foe_treasures_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	foe_group.add_child(foe_treasures_box)
-	_img(foe_treasures_box, UI_DIR + "bg_treasures_boss_profile.webp", Vector2.ZERO, Vector2(202, 68)).modulate = Color(1, 1, 1, 0.6)
+	_foe_treasure_bg = _img(foe_treasures_box, UI_DIR + "bg_treasures_boss_profile.webp", Vector2.ZERO, Vector2(202, 68)) # teinte par _refresh_sidebar (OneOpponentDetail.cs:206)
 	foe_coins_label = _lbl(foe_group, "", 12, GOLD, Vector2(1718, 268))
 	# --- Pioches
 	_lbl(foe_group, "ROOM DECK", 16, Color.WHITE, Vector2(1718, 286), 0.0, _fa)
@@ -982,6 +987,7 @@ func _init_dungeon_slots() -> void:
 		slot.position = _slot_pos(j, 1)
 		slot.size = SLOT_SIZE
 		slot.activate_requested.connect(_on_slot_activate)
+		slot.undo_pressed.connect(_on_slot_undo_press)
 		slot.zoom_on.connect(_zoom_show)
 		slot.zoom_off.connect(_zoom_close)
 		slot.zoom_stack.connect(func(di: int): _slot_zoom(view_pid, di))
@@ -998,7 +1004,7 @@ func _process(delta: float) -> void:
 	_tick_done_bar()
 	_tick_hand_hover()
 	_tick_stack_hover()
-	_drag_tilt()
+	_drag_tilt(delta)
 	# Godot plafonne delta (~0,13 s) quand les images sont lentes (web, onglet en arriere-plan) : les fenetres chronometrees (APK : horloge reelle)
 	# et l'IA suivent donc l'horloge murale si elle avance plus vite (au plus 1 s par image : un onglet endormi ne vide pas la barre d'un coup).
 	var now := Time.get_ticks_msec()
@@ -1356,6 +1362,7 @@ func refresh() -> void:
 	if not _drag.is_empty():
 		_drag_refresh()
 	_swap_resume()
+	_extract_resume()
 
 func _carousel_active(G: Dictionary, phase: String) -> bool:
 	return G.get("gameOver") == null and (_boss_pending(G) or _is_opening_discard_for_me())
@@ -1524,7 +1531,7 @@ func _track_levelup(G: Dictionary) -> void:
 ## avec la plaque « <BOSS> HAS ACTIVATED / LEVEL UP!! » ; 0,5 s d'entree, 1 s d'arret, 0,5 s de sortie. Decoupe au couloir (couches
 ## DungeonTop / BottomScissor). Pied du portrait = LANE_Y + 446 (haut) / 456 (bas) (DungeonFrameEntity.cs:386, frame levelup_10 : bas 952), bord
 ## droit final 1708 (hors du decoupage a 1707), plaque x gauche final 985 ; ils arrivent de 895 px (X_DISPLACEMENT) a droite, plaque de 700 -> -740
-## relatifs au portrait (LevelUpBanner.cs:35-37,150-165). Les 4 quarts de bg_lu_shine_cuarto (LevelUpBanner.cs:60-72) ne se voient sur aucune frame (levelup_09/10) : pas d'etoile.
+## relatifs au portrait (LevelUpBanner.cs:35-37,150-165). Les 4 quarts de bg_lu_shine_cuarto (LevelUpBanner.cs:60-72) tournent derriere le portrait (voir plus bas).
 func _show_levelup(pid: int, boss: Dictionary) -> void:
 	var idx := 1 if pid == view_pid else (0 if pid == foe_pid else -1)
 	if idx < 0:
@@ -1559,17 +1566,44 @@ func _show_levelup(pid: int, boss: Dictionary) -> void:
 	_lbl(panel, "LEVEL UP!!", 46, Color.WHITE, Vector2(25, 45), 0.0, _fa)
 	if boss_node != null:
 		clip.move_child(boss_node, -1) # le portrait recouvre la plaque (frames levelup_09/10)
+	# Reflets (LevelUpBanner.cs:60-72) : 4 quarts de bg_lu_shine_cuarto (463 x 465, origine = coin bas droit, tournes de i x 90 deg) autour du coin bas droit du portrait (Origin = One),
+	# derriere la plaque (DrawOrder 5E-05 contre 4E-05) ; Spinner IncreaseZ -0,2 rad/s ; BlinkBehavior 0,8 s lineaire entre 0,7 et 1 (aller puis retour).
+	var shine: Control = null
+	var qtex := _tex("res://assets/ui/gradients/bg_lu_shine_cuarto.webp")
+	if boss_node != null and qtex != null:
+		shine = Control.new()
+		shine.name = "Shine"
+		shine.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		shine.modulate.a = 0.7
+		clip.add_child(shine)
+		clip.move_child(shine, 0)
+		for qi in 4:
+			var q := _img(shine, "", -qtex.get_size(), qtex.get_size())
+			q.texture = qtex
+			q.name = "Quarter_%d" % qi
+			q.pivot_offset = qtex.get_size()
+			q.rotation = float(qi) * 1.570796
+		shine.position = boss_node.position + boss_node.size
+		var spin := shine.create_tween()
+		spin.tween_property(shine, "rotation", -0.2 * 6.0, 6.0) # lineaire : la banniere vit 3,4 s
+		var blink := shine.create_tween().set_loops()
+		blink.tween_property(shine, "modulate:a", 1.0, 0.8)
+		blink.tween_property(shine, "modulate:a", 0.7, 0.8)
 	var p_in := 985.0 - clip.position.x
 	var p_out := p_in + 2335.0 # 895 + 700 + 740 : de -740 a 700 relatifs au portrait, qui recule de 895
 	panel.position = Vector2(p_out, bottom - 200.0)
 	var tw := clip.create_tween().set_parallel(true)
 	if boss_node != null:
 		tw.tween_property(boss_node, "position:x", bx - 895.0 - tex.get_size().x, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		if shine != null: # les reflets suivent le portrait
+			tw.tween_property(shine, "position:x", bx - 895.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tw.tween_property(panel, "position:x", p_in, 0.6).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tw.chain().tween_interval(1.0)
 	tw.chain().tween_property(panel, "position:x", p_out, 0.33).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	if boss_node != null:
 		tw.tween_property(boss_node, "position:x", bx - tex.get_size().x, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		if shine != null:
+			tw.tween_property(shine, "position:x", bx, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	tw.chain().tween_callback(func():
 		clip.queue_free()
 		_lvl_busy = false
@@ -2041,6 +2075,7 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 				order.append(hi)
 	var cards: Array = []
 	var grey_next: Dictionary = {}
+	var border_next: Dictionary = {}
 	var hide_idx := {} # cartes piochees encore en vol vers la main (_show_draw) : les derniers exemplaires de chaque id restent cachees
 	if not _draw_hide.is_empty():
 		var hide_left: Dictionary = _draw_hide.duplicate()
@@ -2077,20 +2112,20 @@ func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array)
 			card_ui.set_greyed(grey_now, true, age)
 		elif grey_now:
 			card_ui.set_greyed(true)
+		# BorderStyles : carte choisie a la defausse d'ouverture = YellowGlow (CardSelectorComponent.cs:136), sort jouable pendant l'aventure ou une pile de sorts = Yellow ; le cadre fond
+		# a chaque changement (BaseBorderBehavior.cs:59-68), et repart de l'etat d'avant la reconstruction de la main (_border_prev).
+		var want := CardBorder.Style.NONE
 		if discard_pick.has(idx):
 			card_ui.modulate = Color.WHITE # tut_26 (mesure Pillow : art de Zombie Attack 152,138,155 des deux cotes) : la carte choisie garde sa luminosite native, le voile ne couvre que les autres
-			var glow := card_ui.get_node_or_null("GlowRect")
-			if glow != null:
-				glow.visible = true
-				var gm_ := 20.0 * sz.x / 350.0 # card_border_yellow_glow 390 x 528 pour une carte 350 x 488 : 20 px de halo de chaque cote (CardBorderBehavior.cs:48-50 ; tut_26 : cadre or + halo)
-				glow.offset_left = -gm_
-				glow.offset_top = -gm_
-				glow.offset_right = gm_
-				glow.offset_bottom = gm_
+			want = CardBorder.Style.YELLOW_GLOW # card_border_yellow_glow 390 x 528 pour une carte 350 x 488 : 20 px de halo de chaque cote (CardBorderBehavior.cs:48-50 ; tut_26 : cadre or + halo)
 		elif not grey_now and not discarding and (phase == "adventure" or not (G.get("stack", []) as Array).is_empty()) and bool(card_dict.get("isSpell", false)):
-			card_ui.set_gold(true) # APK : sort jouable pendant l'aventure ou une pile de sorts = cadre dore
+			want = CardBorder.Style.YELLOW
+		var was: int = int(_border_prev.get(gk, CardBorder.Style.NONE))
+		border_next[gk] = want
+		card_ui.set_border(want, want != was and not skip_animations, was)
 		cards.append(card_ui)
 	_grey_prev = grey_next
+	_border_prev = border_next
 	var disp: Array = order.map(func(hi): return cards[hi])
 	if discarding:
 		_place_cards(disp, sz, 125.0, 1000.0, DISCARD_TOP, DISCARD_CX)
@@ -2326,9 +2361,10 @@ func _input(event: InputEvent) -> void:
 	if not _press.is_empty() and _drag.is_empty() and event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		_press = {}
 		_press_recheck.call_deferred() # apres _gui_input : si ce nouvel appui est sur une carte de la main, _on_hand_press a rearme _press
-	if _slide != null and is_instance_valid(_slide) and event is InputEventMouseButton and (event as InputEventMouseButton).pressed \
-			and not SLIDE_RECT.has_point((event as InputEventMouseButton).position) and not _slide_keep.has_point((event as InputEventMouseButton).position):
-		_slide_hide() # TouchOutBehavior : un appui hors du bandeau (et hors du bouton qui l'a ouvert, qui le referme lui-meme) le ferme
+	if _slide != null and is_instance_valid(_slide) and _slide_out.feed(event, func(p: Vector2): return SLIDE_RECT.has_point(p) or _slide_keep.has_point(p)):
+		_slide_hide() # TouchOutBehavior (cs:55-85) : le doigt LEVE hors du bandeau (et hors du bouton qui l'a ouvert, qui le referme lui-meme) le ferme, pas l'appui
+	var stack_zoom := _zoom != null and _zoom.has_meta("stack")
+	var zoom_out := stack_zoom and _zoom_out.feed(event, func(p: Vector2): return ((_zoom.get_meta("stack") as Dictionary)["rect"] as Rect2).has_point(p)) # BaseZoomComponent : TouchOutBehavior sur le zoom de pile
 	var ab = (_zoom.get_meta("ability") if _zoom != null and _zoom.has_meta("ability") else null) # zoom d'une salle activable : un appui sur la bordure de capacite resout
 	var hit := false
 	if ab != null and event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
@@ -2337,12 +2373,16 @@ func _input(event: InputEvent) -> void:
 	if not hit and _zoom != null and _zoom.has_meta("stack") and _zoom_stack_input(event):
 		get_viewport().set_input_as_handled()
 		return
-	if _zoom != null and event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+	if _zoom != null and zoom_out:
+		_zoom_close() # relachement hors de la zone du zoom de pile
+	elif _zoom != null and event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (not stack_zoom or hit):
 		_zoom_press_ms = Time.get_ticks_msec()
 		_zoom_close() # le zoom de LEVEL UP part au clic suivant (le zoom d'appui long se ferme deja au relachement)
 		if hit:
 			get_viewport().set_input_as_handled() # le clic ne doit pas retomber sur l'emplacement dessous
 			_resolve_slot_ability(int(ab["di"]), ab["cands"])
+	if _extract_n >= 0 and event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (event as InputEventMouseButton).pressed:
+		_extract_n = -1 # relache avant la confirmation de la reprise : la salle reste en main
 	if not _press.is_empty() or not _drag.is_empty():
 		_drag_input(event)
 	_town_input(event)
@@ -2362,8 +2402,8 @@ func _place_cards(cards: Array, sz: Vector2, step_max: float, span_max: float, t
 		(cards[i] as Control).position = Vector2(x0 + step * i, top_y)
 
 ## Main en eventail : transcription de CardPositionComponent de l'APK (HandEntity : RotationMax 9 deg, MaxDistanceBtwCards 250,
-## DistanceUnselectedFactor 0,8, ArcHeight -30) ; centres des cartes, repere ecran 1920x1080. La carte survolee monte en entier,
-## se redresse et passe au premier plan (z_index de CardUI).
+## DistanceUnselectedFactor 0,8, ArcHeight -30) ; centres des cartes, repere ecran 1920x1080. La carte survolee grossit (x 2,4 = 1,2 / 0,5), monte de 180 px,
+## se redresse et passe au premier plan (z_index de CardUI) ; ses voisines se redressent et toute la main s'ecarte (n + 1 places).
 func _place_fan(cards: Array, sz: Vector2, old: Array = []) -> void:
 	_fan_cards = cards
 	_fan_sz = sz
@@ -2371,7 +2411,7 @@ func _place_fan(cards: Array, sz: Vector2, old: Array = []) -> void:
 	for i in cards.size():
 		var c: Control = cards[i]
 		(c as CardUI).hover_managed = true
-		(c as CardUI).hover_scale = 1.0 # l'APK ne grossit pas la carte touchee : elle monte seulement
+		(c as CardUI).hover_scale = HAND_SEL_SCALE # CardPositionComponent.Scale (cs:140-143) : la carte survolee passe de NormalScale 0,5 a SelectedScale 1,2 (HandEntity.cs:44-45)
 		var t := _fan_target(i, cards.size(), -1)
 		c.position = t[0]
 		c.rotation_degrees = t[1]
@@ -2385,7 +2425,7 @@ func _place_fan(cards: Array, sz: Vector2, old: Array = []) -> void:
 				break
 
 ## Position et rotation (degres) de la carte i de la main selon la carte selectionnee `sel` (-1 = aucune) : CardPositionComponent.PositionX / Rotation (cs).
-## La selectionnee monte en entier et se redresse ; les autres s'ecartent d'elle (n + 1 places) et ses voisines se redressent aussi.
+## La selectionnee monte (centre a HAND_SEL_Y) et se redresse ; les autres s'ecartent d'elle (n + 1 places) et ses voisines se redressent aussi.
 func _fan_target(i: int, n: int, sel: int) -> Array:
 	var slots := float(n) if sel < 0 or sel == i else float(n + 1)
 	var k := i + 1 if sel >= 0 and i > sel else i
@@ -2398,7 +2438,7 @@ func _fan_target(i: int, n: int, sel: int) -> Array:
 		rot = 0.0
 	var pos := Vector2(cx, cy) - _fan_sz / 2.0
 	if i == sel:
-		pos.y = 1080.0 - _fan_sz.y - 4.0 # carte entierement visible
+		pos.y = HAND_CY + HAND_SEL_Y - _fan_sz.y / 2.0 # PositionY (cs:121-128) : centre a SelectedYOffset (HandEntity.cs:42) au-dessus de l'axe de la main
 	return [pos, rot]
 
 ## CardHoverBehavior -> CardPositionComponent.Refresh : toute la main se replace autour de la carte survolee.
@@ -2595,6 +2635,7 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 	_fade_text(foe_sub_label, _truncate(str(fb.get("subtitle", "")), 25) if fb != null and not blank else "")
 	_fade_text(foe_wounds_label, "x%d" % CardDB.total_wounds(foe))
 	_fade_text(foe_souls_label, "x%d" % CardDB.total_souls(foe, game_manager.G))
+	_foe_treasure_bg.modulate = UiKit.boss_treasure_color(fb) # treasuresBackPanelAtlas.TintColor (OneOpponentDetail.cs:203-206,218)
 	_fill_treasures(foe_treasures_box, BossEngine.treasure_counts(foe, game_manager.G),
 		[[4, Vector2(8, 6)], [3, Vector2(106, 6)], [2, Vector2(6, 38)], [1, Vector2(106, 38)], [5, Vector2(40, 8)]], 22.0)
 
@@ -2957,7 +2998,7 @@ func _refresh_activatable(my_moves: Array) -> void:
 		var sl: DungeonSlot = slot
 		sl.set_activatable(act.has(sl.slot_index) and not sl.current_stack.is_empty())
 
-## Emplacements dont la salle du dessus est une pose en attente : un clic la reprend (BoardUI._on_slot_activate).
+## Emplacements dont la salle du dessus est une pose en attente : un appui la reprend et la glisse (BoardUI._on_slot_undo_press).
 func _refresh_undoable(my_moves: Array) -> void:
 	var und: Dictionary = {}
 	for m in _moves_of(my_moves, "undoBuild"):
@@ -3063,10 +3104,13 @@ func _popup_list(kind: String, title: String, entries: Array, cancel_cb: Callabl
 ## Selecteur de cartes de l'APK (CarouselSelectorEntity + CardSelectorComponent, comme « SELECT 2 CARDS TO DISCARD » et le choix de
 ## Draculord au niveau 2, frames levelup_14 / levelup_selected) : meme bandeau sombre (y 296..696, filets or), meme bulle top_globe, cartes
 ## BIG_CARD en eventail chevauche (pas 1002 / (n + 1), mesure levelup_14 : 167 pour 5 cartes) sans filet gris ; la carte touchee prend le halo
-## dore (retoucher = deselectionner) et passe devant, CONTINUE = le losange continue_button (x 1540 y 410, CarouselSelectorEntity.cs:17-23) ;
+## dore YellowGlow (retoucher = deselectionner) et passe devant, CONTINUE = le losange continue_button (x 1540 y 410, CarouselSelectorEntity.cs:17-23) ;
 ## `skip_cb` valide = le choix peut etre refuse (canBeCanceled) : le bouton est alors present meme sans carte (SKIP, pierre), sinon il
-## n'apparait qu'une fois une carte choisie (IsContinueButtonVisible). items : [{card: Dictionary, cb: Callable}].
-func _popup_cards(kind: String, title: String, items: Array, skip_cb: Callable = Callable()) -> void:
+## n'apparait qu'une fois `pick` cartes choisies (IsContinueButtonVisible, CardSelectorComponent.cs:146-149). items : [{card: Dictionary, cb: Callable}].
+## `pick` > 1 : N cartes d'un coup (CardSelectorComponent.UpdateSelectedCards, cs:116-139 : une N+1e carte remplace la plus ancienne) ; CONTINUE appelle `pick_cb(indices)`
+## (indices des items, dans l'ordre de selection). `swap` : RearrangeSelectorComponent (cs:19-47), deux cartes choisies = elles s'echangent, CONTINUE toujours present,
+## `pick_cb(ordre)` recoit l'ordre final des items de gauche a droite. Un appui relache hors du bandeau annule quand le choix est annulable (MiddleCarouselShowComponent.cs:74).
+func _popup_cards(kind: String, title: String, items: Array, skip_cb: Callable = Callable(), pick := 1, pick_cb: Callable = Callable(), swap := false) -> void:
 	var pop := _popup_begin(kind, 0.0)
 	_carousel_band(pop)
 	_img(pop, UI_DIR + "top_globe.webp", Vector2(PLAY_CX - 440, 150)) # levelup_14 : bulle x 510..1430
@@ -3087,21 +3131,22 @@ func _popup_cards(kind: String, title: String, items: Array, skip_cb: Callable =
 	var sz := BIG_CARD
 	var step := 0.0 if n < 2 else minf(1002.0 / float(n + 1), 250.0)
 	var x0 := DISCARD_CX - (step * float(n - 1) + sz.x) / 2.0
-	var st := {"sel": -1}
+	var st := {"sel": [], "slot": range(n)} # sel : indices d'items dans l'ordre de selection ; slot[i] : place (de gauche a droite) de l'item i (echanges du reordonnement)
 	var cards: Array = []
 	var btn := Button.new()
 	btn.name = "CardsContinue"
 	var update := func():
+		var sel: Array = st["sel"]
 		for k in cards.size():
-			var on: bool = k == int(st["sel"])
+			var on: bool = sel.has(k)
 			var cu: CardUI = cards[k]
 			cu.z_index = 10 if on else 0
-			if cu.glow_rect != null:
-				cu.glow_rect.visible = on
-		btn.visible = int(st["sel"]) >= 0 or skip_cb.is_valid()
-		btn.text = "CONTINUE" if int(st["sel"]) >= 0 else "SKIP"
-		_style_confirm(int(st["sel"]) >= 0, btn) # losange pour CONTINUE, pierre pour SKIP
-		if int(st["sel"]) < 0:
+			cu.set_border(CardBorder.Style.YELLOW_GLOW if on else CardBorder.Style.NONE, not skip_animations)
+		var ready: bool = swap or sel.size() == pick
+		btn.visible = ready or skip_cb.is_valid()
+		btn.text = "CONTINUE" if ready else "SKIP"
+		_style_confirm(ready, btn) # losange pour CONTINUE, pierre pour SKIP
+		if not ready:
 			btn.custom_minimum_size = Vector2(220, 54)
 			btn.size = Vector2(220, 54)
 			btn.position = Vector2(PLAY_CX - 110, 730)
@@ -3115,30 +3160,53 @@ func _popup_cards(kind: String, title: String, items: Array, skip_cb: Callable =
 		cu.position = Vector2(x0 + step * float(i), DISCARD_TOP)
 		if cu.border != null:
 			cu.border.visible = false # comme la defausse d'ouverture (tut_26) : pas de filet gris autour des cartes du bandeau
-		if cu.glow_rect != null:
-			var gm_ := 20.0 * sz.x / 350.0 # halo card_border_yellow_glow : 20 px de chaque cote d'une carte 350 x 488
-			cu.glow_rect.offset_left = -gm_
-			cu.glow_rect.offset_top = -gm_
-			cu.glow_rect.offset_right = gm_
-			cu.glow_rect.offset_bottom = gm_
 		cu.mouse_entered.disconnect(cu._on_mouse_entered) # pas de grossissement au survol : le halo dit « choisie »
 		cu.mouse_exited.disconnect(cu._on_mouse_exited)
 		var idx := i
 		cu.card_clicked.connect(func(_d):
-			if int(st["sel"]) >= 0:
-				_play_sfx("ui_button_subselect") # CardSelectorComponent.cs:124,133 : la carte retiree de la selection
-			if int(st["sel"]) != idx:
+			var sel: Array = st["sel"]
+			if sel.has(idx): # CardSelectorComponent.cs:120-125 : la carte retiree de la selection ne joue que subselect
+				sel.erase(idx)
+				_play_sfx("ui_button_subselect")
+			else:
+				if not sel.is_empty() and sel.size() >= pick: # :128-134 : la plus ancienne est remplacee
+					sel.remove_at(0)
+					_play_sfx("ui_button_subselect")
 				_play_sfx("ui_button_select") # :135
-			st["sel"] = -1 if int(st["sel"]) == idx else idx
+				sel.append(idx)
+			if swap and sel.size() == 2: # RearrangeSelectorComponent.cs:27-34 : SwapCards puis la selection est videe
+				var a: int = sel[0]
+				var b: int = sel[1]
+				var slot: Array = st["slot"]
+				var t: int = slot[a]
+				slot[a] = slot[b]
+				slot[b] = t
+				for k in [a, b]:
+					CardUI.lerp_vers(cards[k], "position", Vector2(x0 + step * float(slot[k]), DISCARD_TOP)) # CardMoveBehavior
+				sel.clear()
 			update.call())
 		cards.append(cu)
 	btn.pressed.connect(func():
 		_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
-		if int(st["sel"]) >= 0:
-			((items[int(st["sel"])] as Dictionary)["cb"] as Callable).call()
+		var sel: Array = st["sel"]
+		if swap or (pick > 1 and sel.size() == pick):
+			if swap:
+				var order: Array = range(n)
+				order.sort_custom(func(x, y): return int((st["slot"] as Array)[x]) < int((st["slot"] as Array)[y]))
+				pick_cb.call(order)
+			else:
+				pick_cb.call(sel.duplicate())
+		elif sel.size() == 1 and pick == 1:
+			((items[int(sel[0])] as Dictionary)["cb"] as Callable).call()
 		elif skip_cb.is_valid():
 			skip_cb.call())
 	pop.add_child(btn)
+	if skip_cb.is_valid(): # TouchOutBehavior (cs:55-85) : le doigt leve hors du bandeau annule, quand le choix peut etre refuse
+		var out := UiKit.TouchOut.new()
+		pop.gui_input.connect(func(ev: InputEvent):
+			if out.feed(ev, func(p: Vector2): return SLIDE_RECT.has_point(p) or btn.get_global_rect().has_point(p)):
+				_play_sfx("res://assets/audio/sfx/ui_button_goback.wav")
+				skip_cb.call())
 	update.call()
 
 ## Carte d'une entree de choix (propre a l'entree, ou portee par la cible du coup : sort sur une carte, ame, pile...) ; {} si aucune.
@@ -3222,7 +3290,8 @@ func _target_open_layer() -> void:
 	dim.gui_input.connect(_target_dim_input)
 	var bubble := _img(_tgt_layer, UI_DIR + "top_globe.webp", Vector2(PLAY_CX - 280, 96), Vector2(560, 82))
 	bubble.z_index = TARGET_Z + 10
-	var txt := _lbl(_tgt_layer, str(_tgt["hint"]).to_upper(), 20, Color.WHITE, Vector2(PLAY_CX - 250, 104), 500.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
+	var hint_len := str(_tgt["hint"]).length() # la description d'une carte (jusqu'a ~150 signes) tient dans la bulle de 500 x 62
+	var txt := _lbl(_tgt_layer, str(_tgt["hint"]).to_upper(), 20 if hint_len <= 60 else (16 if hint_len <= 100 else 13), Color.WHITE, Vector2(PLAY_CX - 250, 104), 500.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
 	txt.custom_minimum_size.y = 62.0
 	txt.size.y = 62.0
 	txt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -3444,11 +3513,8 @@ func _target_source_glow() -> void:
 		return
 	_tgt_src = node
 	_fx_target(node, true)
-	var g := UiKit.image(node, UI_DIR + "card_border_green_glow.webp", Vector2.ZERO, node.size)
-	g.name = "SourceGlow"
-	if not _border_fit(g, "card_border_green_glow", node.size, DungeonSlot.CARD_SIZE.x):
-		g.queue_free()
-		return
+	var g := CardBorder.attach(node, Vector2.ZERO, node.size, DungeonSlot.CARD_SIZE.x, CardBorder.Style.NONE, "SourceGlow") # BorderStyles.GreenGlow (TargetResolverBaseSceneBehavior.cs:26,228)
+	g.set_style(CardBorder.Style.GREEN_GLOW, not skip_animations)
 	node.pivot_offset = node.size / 2.0
 	if not skip_animations:
 		node.create_tween().tween_property(node, "scale", Vector2.ONE * 0.5 / 0.37, 0.3)
@@ -3483,15 +3549,8 @@ func _target_make_spot(g: Dictionary) -> void:
 	sp.z_index = TARGET_Z + 10
 	var entries: Array = _tgt["entries"]
 	sp.tooltip_text = str((entries[int(ids[0])] as Dictionary).get("label", "")) if ids.size() == 1 else "%d choices" % ids.size()
-	var glow := TextureRect.new()
-	glow.texture = _tex(TEX_TARGET_GLOW)
-	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	glow.stretch_mode = TextureRect.STRETCH_SCALE
-	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
-	sp.add_child(glow)
-	if not _border_fit(glow, "card_border_yellow", sp.size, r.size.x): # cibles = BorderStyles.Yellow (TargetResolverBaseSceneBehavior.cs:24)
-		sp.draw.connect(func(): sp.draw_rect(Rect2(Vector2(9, 9), sp.size - Vector2(18, 18)), GOLD, false, 4.0)) # trait net sous le halo
+	var tb := CardBorder.attach(sp, Vector2.ZERO, sp.size, r.size.x, CardBorder.Style.NONE, "TargetBorder", true) # cibles = BorderStyles.Yellow (TargetResolverBaseSceneBehavior.cs:24)
+	tb.set_style(CardBorder.Style.YELLOW, not skip_animations)
 	var tw := sp.create_tween().set_loops()
 	tw.tween_property(sp, "modulate:a", 0.5, 0.55).set_trans(Tween.TRANS_SINE)
 	tw.tween_property(sp, "modulate:a", 1.0, 0.55).set_trans(Tween.TRANS_SINE)
@@ -3527,6 +3586,11 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 	if not mine:
 		discard_pick.clear()
 	var cmoves: Array = _moves_of(my_moves, "resolveChoice") + _moves_of(my_moves, "resolveLevelUpChoice")
+	if not _multi.is_empty():
+		if mine and not cmoves.is_empty() and str(pc.get("type", "")) == _multi_type:
+			_multi_step.call_deferred() # la suite d'une designation de N cartes (selecteur) : le moteur repose le meme choix, on y repond sans rouvrir la fenetre
+			return
+		_multi = []
 	if not mine or str(pc.get("type", "")) == "opening-discard" or cmoves.is_empty():
 		if _tgt.has("choice"):
 			_target_end() # choix sur le plateau resolu ailleurs
@@ -3546,6 +3610,7 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 	var entries: Array = []
 	var board: Array = [] # options hors SKIP, avec leur zone du plateau
 	var items: Array = [] # options hors SKIP, avec leur carte (carrousel)
+	var cbs := {} # indice d'option -> son coup (designations de N cartes, _choice_multi)
 	var all_cards := true
 	var skip := Callable()
 	for m in cmoves:
@@ -3553,6 +3618,7 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 		var i := int((mv.get("args", [0]) as Array)[0])
 		var e := {"label": _option_label(opts, i), "mv": mv, "cb": func(): _do(mv)} # mv : _target_sync ferme le ciblage des que le coup n'est plus legal
 		entries.append(e)
+		cbs[i] = e["cb"]
 		if i < 0:
 			skip = e["cb"]
 			continue
@@ -3567,14 +3633,18 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 		else:
 			board.append({"spot": {}})
 			all_cards = false
-	var title := str(pc.get("message", "")) if str(pc.get("message", "")) != "" else "CHOOSE"
-	if str(pc.get("type", "")) == "steal-card": # texte APK du niveau 2 de Draculord (capture levelup_14), pas la phrase du moteur
-		title = "LEVEL UP: TARGET OPPONENT REVEALS HIS OR HER HAND. TAKE ONE CARD AND PUT IT INTO YOUR HAND."
+	# TargetResolverBaseSceneBehavior.cs:132,176 : titre = description de la carte source (le message du moteur seulement quand la carte est inconnue)
+	var title := _source_title(str(pc.get("sourceId", "")), str(pc.get("message", "")) if str(pc.get("message", "")) != "" else "CHOOSE")
 	# APK (RearrangeSelector/CardSelector) : si chaque option est une zone du plateau, on la designe dessus, SKIP = CANCEL
 	var on_board := not board.is_empty()
 	for e in board:
 		on_board = on_board and not (e["spot"] as Dictionary).is_empty()
-	if on_board:
+	var pick := int(pc.get("pickCount", 1))
+	if str(pc.get("type", "")) == "rearrange-dungeon" and str(pc.get("step", "")) == "order" and (pc.get("picked", []) as Array).is_empty() and opts.size() > 1:
+		_choice_rearrange(pc, cbs, title) # Hellcow : RearrangeSelectorComponent
+	elif pick > 1 and not on_board:
+		_choice_multi(pc, pick, cbs, title, skip) # CardSelectorComponent a N cartes
+	elif on_board:
 		_target_list(title, title, board, skip)
 	elif all_cards and not items.is_empty(): # APK : CardSelector dans le carrousel central, SKIP = canBeCanceled
 		_popup_cards("choice", title, items, skip)
@@ -3586,6 +3656,117 @@ func _refresh_choice_popup(G: Dictionary, my_moves: Array) -> void:
 		_tgt_cancel_btn.visible = skip.is_valid() # choix obligatoire : pas de CANCEL
 		return
 	_choice_sig = sig
+
+## Description de la carte source d'un choix en MAJUSCULES (CardInfo.Description.ToUpperInvariant, TargetResolverBaseSceneBehavior.cs:132,176) : texte de niveau d'un boss,
+## texte d'une salle, d'un sort ou d'un miniboss ; `fallback` quand la carte est inconnue (choix sans source).
+func _source_title(card_id: String, fallback: String) -> String:
+	if card_id == "":
+		return fallback
+	for list in [CardDB.bosses, CardDB.rooms, CardDB.spells, CardDB.minibosses]:
+		for c in (list as Array):
+			if str((c as Dictionary).get("id", "")) == card_id:
+				var t := str((c as Dictionary).get("levelUpDesc", (c as Dictionary).get("description", ""))).strip_edges()
+				return t.to_upper() if t != "" else fallback
+	return fallback
+
+## Suite d'une designation de N cartes dans le selecteur : `_multi` = cles des cartes restant a designer (le moteur repose le meme choix apres chaque carte, ses indices glissent) ;
+## la designation suivante est le coup resolveChoice dont l'option porte cette cle (carte `_uid`, ou `roomIndex` pour le reordonnement). Rien ne correspond = on abandonne la suite.
+var _multi: Array = []
+var _multi_type := ""
+
+func _multi_key_matches(o: Dictionary, key) -> bool:
+	if key is Dictionary:
+		return o.has("roomIndex") and int(o["roomIndex"]) == int((key as Dictionary).get("roomIndex", -9))
+	var c = o.get("card")
+	return c is Dictionary and _card_key(c as Dictionary) == str(key)
+
+static func _card_key(c: Dictionary) -> String:
+	return str(c.get("_uid", c.get("id", "")))
+
+func _multi_step() -> void:
+	if _multi.is_empty():
+		return
+	var pc: Dictionary = game_manager.G.get("pendingChoice", {})
+	var opts: Array = pc.get("options", [])
+	var key = _multi[0]
+	var at := -1
+	if int(pc.get("playerId", -1)) == _my_pid() and str(pc.get("type", "")) == _multi_type:
+		for k in opts.size():
+			if opts[k] is Dictionary and _multi_key_matches(opts[k], key):
+				at = k
+				break
+	if at < 0:
+		_multi = []
+		refresh()
+		return
+	_multi.remove_at(0)
+	_do({"type": "resolveChoice", "args": [at]})
+
+## N cartes designees d'un coup (CardSelectorComponent.selectionAmmount = `pickCount`, publie par le moteur) : Dracolich Lair (les options sont les paires de salles de la main,
+## `handIndices`) ; Xyzax et la defausse forcee de TNL (le moteur repose N fois un choix a une carte). Le moteur ne change pas : le selecteur rejoue ses designations.
+func _choice_multi(pc: Dictionary, pick: int, cbs: Dictionary, title: String, skip: Callable) -> void:
+	var opts: Array = pc.get("options", [])
+	var items: Array = []
+	if str(pc.get("type", "")) == "dracolich-discard":
+		var hand := _my_hand()
+		var seen := {}
+		for o in opts:
+			for hi in ((o as Dictionary).get("handIndices", []) as Array):
+				if not seen.has(int(hi)) and int(hi) < hand.size():
+					seen[int(hi)] = true
+					items.append({"card": hand[int(hi)], "hi": int(hi)})
+		_popup_cards("choice", title, items, skip, pick, func(sel: Array):
+			var want: Array = [int(items[int(sel[0])]["hi"]), int(items[int(sel[1])]["hi"])]
+			want.sort()
+			for k in opts.size():
+				var hs: Array = []
+				for x in ((opts[k] as Dictionary).get("handIndices", []) as Array):
+					hs.append(int(x))
+				hs.sort()
+				if hs == want:
+					(cbs[k] as Callable).call()
+					return)
+		return
+	for k in opts.size():
+		var c = (opts[k] as Dictionary).get("card")
+		if c is Dictionary and not (c as Dictionary).is_empty():
+			items.append({"card": c, "k": k})
+	_popup_cards("choice", title, items, skip, pick, func(sel: Array):
+		_multi = []
+		_multi_type = str(pc.get("type", ""))
+		for j in range(1, sel.size()):
+			_multi.append(_card_key(items[int(sel[j])]["card"]))
+		(cbs[int(items[int(sel[0])]["k"])] as Callable).call())
+
+## Hellcow (KSA002) : RearrangeSelectorComponent. Les salles du donjon choisi de gauche a droite (entree -> fond, comme sur le plateau) ; deux cartes touchees s'echangent,
+## CONTINUE valide l'ordre final. Le moteur choisit les salles « du fond vers l'entree » (une designation par salle, la derniere est posee d'office) :
+## l'ordre affiche est converti en cette suite de designations (RearrangeSelectorComponent.GetSelectedCards, cs:36-40 : Cards.Reverse()).
+## Ordre final (indices d'items de gauche a droite) -> designations du moteur : une salle par coup, le fond d'abord = la carte la plus a droite (RearrangeSelectorComponent.GetSelectedCards : Cards.Reverse()).
+static func _rearrange_picks(order: Array, items: Array) -> Array:
+	var picks: Array = []
+	for j in range(order.size() - 1, -1, -1):
+		picks.append(int(items[int(order[j])]["ri"]))
+	return picks
+
+func _choice_rearrange(pc: Dictionary, cbs: Dictionary, title: String) -> void:
+	var opts: Array = (pc.get("options", []) as Array).duplicate()
+	opts.sort_custom(func(a, b): return int((a as Dictionary).get("roomIndex", 0)) < int((b as Dictionary).get("roomIndex", 0)))
+	var items: Array = []
+	for o in opts:
+		items.append({"card": (o as Dictionary).get("card", {}), "ri": int((o as Dictionary).get("roomIndex", 0))})
+	_popup_cards("choice", title, items, Callable(), 2, func(order: Array):
+		var picks := _rearrange_picks(order, items)
+		var first := -1
+		var all_opts: Array = pc.get("options", [])
+		for k in all_opts.size():
+			if int((all_opts[k] as Dictionary).get("roomIndex", -1)) == int(picks[0]):
+				first = k
+		_multi = []
+		_multi_type = str(pc.get("type", ""))
+		for j in range(1, picks.size() - 1): # la derniere salle restante est posee d'office par le moteur
+			_multi.append({"roomIndex": picks[j]})
+		if first >= 0:
+			(cbs[first] as Callable).call(), true)
 
 func _option_label(opts: Array, i: int) -> String:
 	if i < 0:
@@ -3855,7 +4036,9 @@ func _play_hand_menu(card: Dictionary, cands: Array) -> void:
 	for c in cands:
 		entries.append(_hand_entry(card, c))
 	var hint: String = str((SpellTargeting.SPELL_TARGETS.get(str(card.get("id", "")), {}) as Dictionary).get("label", ""))
-	_target_list("%s - %s" % [str(card.get("name", "")), hint] if hint != "" else str(card.get("name", "")), hint, entries, func(): _popup_close())
+	var old_title := "%s - %s" % [str(card.get("name", "")), hint] if hint != "" else str(card.get("name", ""))
+	var spell_title := _source_title(str(card.get("id", "")), old_title) # TargetResolverBaseSceneBehavior.cs:132 : description de la carte jouee
+	_target_list(spell_title, hint if spell_title == old_title else spell_title, entries, func(): _popup_close())
 
 ## Description anglaise d'une cible de sort (listes de SpellTargeting ; extensions : leurs propres describe_target).
 func _target_label(m: Dictionary, card: Dictionary) -> String:
@@ -3894,15 +4077,41 @@ func _target_label(m: Dictionary, card: Dictionary) -> String:
 		parts.append(str((td.get("card", {}) as Dictionary).get("name", "Spell")))
 	return " / ".join(parts) if not parts.is_empty() else str(card.get("name", "OK"))
 
+## Appui sur la pose en attente (CardExtractBehavior.CardEntity_TouchPressed, cs:287-299) : la salle est reprise (UndoBuild, BuildRoomHandSceneBehavior.cs:138-150) et
+## suit le pointeur comme une carte de la main ; relachee sur un emplacement elle s'y pose de nouveau, sinon elle reste en main. En ligne la reprise n'est confirmee que par
+## l'etat suivant : _extract_resume (fin de refresh) arme alors le glisser si le bouton est toujours enfonce.
+func _on_slot_undo_press(di: int) -> void:
+	if not _can_drag() or not _tg("undo"): # tutoriel : la pose imposee ne se reprend pas
+		return
+	for m in _moves_of(game_manager.legal_moves(_my_pid()), "undoBuild"):
+		if int(((m as Dictionary)["args"] as Array)[0]) == di:
+			_extract_n = _my_hand().size()
+			for sl in _dungeon_slots: # la carte part de son emplacement (centre) pour rejoindre le pointeur
+				if (sl as DungeonSlot).slot_index == di and not (sl as DungeonSlot).current_stack.is_empty():
+					_extract_from = (sl as Control).get_global_rect().get_center()
+			_extract_until = Time.get_ticks_msec() + 3000
+			_do(m)
+			return
+
+## Le glisser de la salle reprise : elle est la derniere carte de la main (Match.undo_build_on).
+func _extract_resume() -> void:
+	if _extract_n < 0:
+		return
+	if Time.get_ticks_msec() > _extract_until:
+		_extract_n = -1
+		return
+	var hand := _my_hand()
+	if hand.size() <= _extract_n or not _drag.is_empty():
+		return
+	var idx := hand.size() - 1
+	_extract_n = -1
+	_press = {"card": null, "idx": idx, "pos": get_global_mouse_position(), "from": _extract_from}
+	_drag_begin()
+
 ## Clic sur une salle activable de mon donjon : capacite directe, ou choix de la salle cible (Centipede Tunnel...).
 func _on_slot_activate(di: int) -> void:
 	if _modal_open() or (_popup != null and is_instance_valid(_popup)) or not _tgt.is_empty():
 		return
-	for m in _moves_of(game_manager.legal_moves(_my_pid()), "undoBuild"): # clic sur la pose en attente : elle revient en main
-		if int(((m as Dictionary)["args"] as Array)[0]) == di:
-			if _tg("undo"): # tutoriel : la pose imposee ne se reprend pas
-				_do(m)
-			return
 	var cands: Array = []
 	for m in _moves_of(_my_moves(_my_pid()), "activateRoom"):
 		var a: Array = (m as Dictionary).get("args", [])
@@ -3954,7 +4163,8 @@ func _resolve_slot_ability(di: int, cands: Array) -> void:
 		entries.append({"label": str((tr as Dictionary).get("name", "Room %d" % (tj + 1))) if tr != null else "Room %d" % (tj + 1), "mv": mv,
 			"spot": {"k": "room", "pid": _my_pid(), "idx": tj}, "cb": func(): _do(mv)})
 	var rd = BossEngine.active_room(dungeon[di]) if di >= 0 and di < dungeon.size() else null
-	_target_list("%s - choose a Room" % str((rd as Dictionary).get("name", "")) if rd != null else "Choose a Room", "Choose a Room", entries, func(): _popup_close(), {"k": "room", "pid": _my_pid(), "idx": di})
+	var room_title := _source_title(str((rd as Dictionary).get("id", "")) if rd != null else "", "Choose a Room") # TargetResolverBaseSceneBehavior.cs:132 : description de la salle source
+	_target_list(room_title, room_title, entries, func(): _popup_close(), {"k": "room", "pid": _my_pid(), "idx": di})
 
 func _on_confirm_pressed() -> void:
 	if game_manager.G.get("gameOver") != null:
@@ -4097,15 +4307,27 @@ func _drag_begin() -> void:
 	shadow.modulate.a = 0.75
 	_ui_layer.add_child(prev)
 	_drag = {"idx": idx, "preview": prev, "frames": [], "shadow": shadow}
+	# CardRotationBehavior.UpdateCardDragEffect (cs:84-96) : a l'appui le centre de la carte glisse vers le doigt (Lerp a 18 x dt par image) jusqu'a l'atteindre (carre < 0,01), puis la suit
+	var from = (ci as Control).get_global_transform() * ((ci as Control).size / 2.0) if is_instance_valid(ci) else _press.get("from")
+	if from is Vector2:
+		prev.position = (from as Vector2) - prev.size / 2.0
+		_drag["pull"] = true
 	_drag_move(_press["pos"])
 	_drag_refresh()
 
 ## Inclinaison de la carte glissee (CardRotationBehavior.UpdateCardDragEffect, cs:84-111) : rotation autour de Y = (position precedente - position) x 0,005 rad PAR IMAGE, bornee a +-22,5 deg (0,3927 rad) ;
 ## l'axe X est calcule mais jamais applique (cs:99,106-108), retombe a 0 des que la carte s'arrete. Approximation 2D : largeur x cos(angle), sans la perspective du rendu 3D.
-func _drag_tilt() -> void:
+func _drag_tilt(delta := 1.0 / 60.0) -> void:
 	if _drag.is_empty() or not is_instance_valid(_drag["preview"]):
 		return
 	var prev: Control = _drag["preview"]
+	if bool(_drag.get("pull", false)): # le centre glisse vers le doigt (cs:86-96), l'inclinaison suit ce mouvement comme n'importe quel autre
+		var goal: Vector2 = _drag["goal"]
+		prev.position = prev.position.lerp(goal, minf(18.0 * delta, 1.0))
+		if (goal - prev.position).length_squared() < 0.01:
+			prev.position = goal
+			_drag["pull"] = false
+		_drag_hover()
 	var dx: float = float(_drag.get("lx", prev.position.x)) - prev.position.x
 	_drag["lx"] = prev.position.x
 	prev.pivot_offset = prev.size / 2.0
@@ -4114,7 +4336,10 @@ func _drag_tilt() -> void:
 
 func _drag_move(pos: Vector2) -> void:
 	var prev: Control = _drag["preview"]
-	prev.position = Vector2(clampf(pos.x - prev.size.x / 2.0, 0.0, 1920.0 - prev.size.x), clampf(pos.y - prev.size.y * 0.62, 0.0, 1080.0 - prev.size.y))
+	var goal := Vector2(clampf(pos.x - prev.size.x / 2.0, 0.0, 1920.0 - prev.size.x), clampf(pos.y - prev.size.y * 0.62, 0.0, 1080.0 - prev.size.y))
+	_drag["goal"] = goal
+	if not bool(_drag.get("pull", false)):
+		prev.position = goal
 	_drag_shadow()
 	_drag_hover()
 
@@ -4175,16 +4400,9 @@ func _drag_refresh() -> void:
 ## DungeonFrameEntity.HighLightBuildableSlots, DungeonFrameEntity.cs:320-330 "SlotGlow" IsForceScaled) ; celui que la carte survole passe a card_border_yellow_glow_scaled
 ## (BuildRoomHandSceneBehavior.cs:120-127). Le cadre est derriere la carte glissee.
 func _slot_frame(slot: Control) -> Control:
-	var f := TextureRect.new()
-	f.texture = _tex(UI_DIR + "card_border_yellow_scaled.webp")
-	f.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	f.stretch_mode = TextureRect.STRETCH_SCALE
-	f.size = Vector2(152, 203)
-	f.position = slot.global_position + slot.size / 2.0 - f.size / 2.0
-	f.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	f.name = "SlotGlow"
+	var f := CardBorder.attach(_ui_layer, slot.global_position, slot.size, DungeonSlot.CARD_SIZE.x, CardBorder.Style.NONE, "SlotGlow") # IsForceScaled : 152 x 203, centre sur l'emplacement
+	f.set_style(CardBorder.Style.YELLOW, not skip_animations) # HighLightBuildableSlots : Yellow, fondu entrant
 	f.set_meta("slot", slot)
-	_ui_layer.add_child(f)
 	var prev = _drag.get("preview")
 	if prev != null and is_instance_valid(prev):
 		_ui_layer.move_child(f, (prev as Control).get_index())
@@ -4201,23 +4419,11 @@ func _drag_hover() -> void:
 	for f in (_drag["frames"] as Array):
 		if is_instance_valid(f) and (f as Node).has_meta("slot"):
 			var hot := _slot_hovered((f as Node).get_meta("slot") as Control, prev.position + prev.size / 2.0)
-			((f as Node) as TextureRect).texture = _tex(UI_DIR + ("card_border_yellow_glow_scaled.webp" if hot else "card_border_yellow_scaled.webp"))
+			(f as CardBorder).set_style(CardBorder.Style.YELLOW_GLOW if hot else CardBorder.Style.YELLOW, not skip_animations) # BuildRoomHandSceneBehavior.cs:120-127 : GlowBorderStyle
 			# Particules seulement sur l'emplacement survole (SlotGlow pose en YellowGlow : BuildRoomHandSceneBehavior.cs:125-132, DungeonFrameEntity.cs:309-318, CardBorderBehavior.cs:48-50) ;
 			# les emplacements simplement constructibles (HighLightBuildableSlots, bordure Yellow) n'en ont pas. Emetteur = l'emplacement (card_slot, ParticlesParentSizeBehavior Scale 1), derriere le cadre.
 			var slot := (f as Node).get_meta("slot") as Control
 			ApkParticles.sur(f as Control, "SlotFx", (f as Control).size * 0.5, slot.size, hot)
-
-## CardBorderBehavior.cs:31,64-71 : sous l'echelle 0,5 la bordure est la variante _scaled (152 x 203) posee x2,7, soit 152 x 203 pour une salle de couloir (0,37), au lieu de la bordure
-## 390 x 528 etiree sur la carte (trait aminci). Vrai si `t` a ete ajuste.
-func _border_fit(t: TextureRect, border: String, host: Vector2, card_w: float) -> bool:
-	if card_w > 175.5:
-		return false
-	t.texture = _tex(UI_DIR + border + "_scaled.webp")
-	var sz := Vector2(152, 203) * 2.7 * card_w / 350.0
-	t.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	t.position = (host - sz) / 2.0
-	t.size = sz
-	return true
 
 ## Cadre dore de cible (APK : bordure doree sur la salle / le heros que le sort peut viser) ; ne bloque pas la souris.
 ## ChallengerBorderBehavior (cs:7-23) : quand le boss de l'adversaire (panneau OneOpponentDetail, 2 joueurs) est une cible, le panneau porte challenger_panel_selected_yellow (cible possible)
@@ -4238,17 +4444,10 @@ func _gold_frame(r: Rect2, red := false) -> Control:
 	f.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	f.position = r.position - Vector2(8, 8)
 	f.size = r.size + Vector2(16, 16)
-	var glow := TextureRect.new()
-	glow.texture = _tex(TEX_TARGET_GLOW if not red else UI_DIR + "card_border_red.webp")
-	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	glow.stretch_mode = TextureRect.STRETCH_SCALE
-	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
-	f.add_child(glow)
-	if not _border_fit(glow, "card_border_red" if red else "card_border_yellow_glow", f.size, r.size.x):
-		f.draw.connect(func(): f.draw_rect(Rect2(Vector2(7, 7), f.size - Vector2(14, 14)), Color(0.9, 0.2, 0.2) if red else GOLD, false, 3.0))
 	f.name = "RedFrame" if red else "GoldFrame"
 	_ui_layer.add_child(f)
+	var b := CardBorder.attach(f, Vector2.ZERO, f.size, r.size.x, CardBorder.Style.NONE, "Border", true)
+	b.set_style(CardBorder.Style.RED if red else CardBorder.Style.YELLOW_GLOW, not skip_animations) # BorderStyles.Red / YellowGlow, fondu entrant
 	if not red: # cibles possibles : cadre dore qui pulse ; cibles touchees par la carte jouee (BorderStyles.Red) : cadre rouge fixe
 		var tw := f.create_tween().set_loops()
 		tw.tween_property(f, "modulate:a", 0.55, 0.5).set_trans(Tween.TRANS_SINE)
@@ -5454,6 +5653,8 @@ var _slide_sel := -1
 var _slide_hot := false
 var _slide_gen := 0
 var _slide_keep := Rect2()
+var _slide_out := UiKit.TouchOut.new()
+var _zoom_out := UiKit.TouchOut.new()
 
 func _slide_attach(cu: CardUI) -> void:
 	cu.visible = true

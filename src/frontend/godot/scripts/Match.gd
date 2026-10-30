@@ -556,6 +556,7 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 	if ThkAbilities.active(G):
 		IodAbilities.sweep_covered(G) # IOD026 Malakill : l'Objet d'une salle couverte rentre avant que le coup ne la decouvre
 	var ok := _apply_move_core(pid, move)
+	_stamp_choices()
 	_sync_alive() # Boss.IsAlive en direct : les blessures ont pu monter ou baisser pendant le coup
 	if ok:
 		_lock_undo(pid, str(move.get("type", "")))
@@ -568,6 +569,26 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 		ThkAbilities.sync_hero(G) # Claws of the Berserker : +1 PV par salle Monster du donjon
 		IodAbilities.sweep_covered(G)
 	return ok
+
+## Cles publiques d'un choix en attente et de ceux en file (server/PROTOCOL.md) : `sourceId` = carte dont le texte titre la fenetre de ciblage (TargetResolverBaseSceneBehavior),
+## `pickCount` = nombre de cartes a designer d'un coup (CardSelectorComponent). L'interface ne les deduit pas : elle les lit.
+func _stamp_choices() -> void:
+	var list: Array = []
+	if G.get("pendingChoice", null) is Dictionary and not (G["pendingChoice"] as Dictionary).is_empty():
+		list.append(G["pendingChoice"])
+	if G.get("choiceQueue", null) is Array:
+		list.append_array(G["choiceQueue"])
+	for pc in list:
+		var d: Dictionary = pc
+		if not d.has("sourceId"):
+			var sid := RoomAbilities.choice_source_id(d)
+			if sid != "":
+				d["sourceId"] = sid
+		var n := RoomAbilities.choice_pick_count(d)
+		if n > 1:
+			d["pickCount"] = n
+		else:
+			d.erase("pickCount")
 
 func _apply_move_core(pid: int, move: Dictionary) -> bool:
 	var legal := legal_moves(pid)
