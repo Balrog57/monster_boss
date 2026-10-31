@@ -49,12 +49,14 @@ func _ready() -> void:
 	for n in counts:
 		for _r in runs:
 			if not _play(n):
+				print("SOAK ECHEC rejouer : -- ", _replay, " --runs=1")
 				get_tree().quit(1)
 				return
 	print("SOAK OK")
 	get_tree().quit(0)
 
 var _fixed_seed := -1
+var _replay := "" # arguments pour rejouer la partie en cours (graine, joueurs, paquets)
 
 ## Une partie IA-vs-IA a n joueurs ; false (et diagnostic) si elle cale ou depasse MAX_STEPS.
 func _play(n_players: int) -> bool:
@@ -66,11 +68,12 @@ func _play(n_players: int) -> bool:
 	m.rng.seed = game_seed
 	CardDB._rng.seed = game_seed
 	TnlAbilities._rng_get().seed = game_seed
-	print("SOAK seed=", game_seed, " players=", n_players)
 	var sets: Array = ["base"] # `-- --sets=players-choice,hidden-heroes` : meme soak avec ces paquets (fermes : ajouter --ship-all)
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--sets="):
 			sets = Array(a.substr(len("--sets=")).split(",", false))
+	_replay = "--seed=%d --players=%d --sets=%s%s" % [game_seed, n_players, ",".join(sets), " --ship-all" if CardDB.ship_all else ""]
+	print("SOAK seed=", game_seed, " players=", n_players, " sets=", ",".join(sets)) # avant la partie : meme si elle bloque (timeout), la graine est dans la sortie
 	if Match.setup_error(n_players, sets) != "":
 		print("SOAK ECHEC : paquets refuses (%s) : %s" % [str(sets), Match.setup_error(n_players, sets)])
 		m.queue_free()

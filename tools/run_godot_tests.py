@@ -72,8 +72,7 @@ def main() -> int:
             continue
         failed += 1
         print(f"[godot] {label}: ECHEC" + (f" - TIMEOUT after {TIMEOUT_S} s" if timed_out else ""), flush=True)
-        if timed_out:
-            print("\n".join(out.splitlines()[-20:]), flush=True)
+        print("\n".join(out.splitlines()[-20:]), flush=True)
         print("\n".join([l for l in out.splitlines() if re.search(r"ERROR|ECHEC|SCRIPT", l)][:10]), flush=True)
     print(f"[godot] {len(SUITES) - failed}/{len(SUITES)} suites OK")
     return 1 if failed else 0
