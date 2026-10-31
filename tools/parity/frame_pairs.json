@@ -87,11 +87,27 @@
      720,
      200,
      "salles de notre donjon : contenu"
+    ],
+    [
+     770,
+     230,
+     400,
+     540,
+     "zoom de la salle activee : l'APK est dans le donjon adverse (aventure de King Croak), le capture dans le mien"
+    ],
+    [
+     1440,
+     250,
+     260,
+     230,
+     "lueur rouge sur le boss adverse (aventure dans son donjon) : etat non reproduit"
     ]
    ],
-   "max_mean": 18.4,
-   "max_cell": 100.4,
-   "max_chrome": 23.4
+   "max_mean": 12.3,
+   "max_cell": 83.6,
+   "max_chrome": 7.3,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 10.4, pire cellule 72) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/ability_opponent_dark_lab_card_lifted_has_played_a_room_ability_bubble.png",
@@ -137,9 +153,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 13.1,
-   "max_cell": 92.5,
-   "max_chrome": 14.2
+   "max_mean": 10.5,
+   "max_cell": 88.6,
+   "max_chrome": 7.9,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 8.8, pire cellule 77) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/adv_drawn_spell_teleportation_zoom_center.png",
@@ -190,9 +208,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 12.5,
-   "max_cell": 91.8,
-   "max_chrome": 12.4
+   "max_mean": 10.0,
+   "max_cell": 88.1,
+   "max_chrome": 5.9,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 8.4, pire cellule 76) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/adv_hero_killed_bonus_spell_deck_draw_big_card_back_center.png",
@@ -248,9 +268,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 17.2,
-   "max_cell": 96.6,
-   "max_chrome": 19.6
+   "max_mean": 14.5,
+   "max_cell": 92.6,
+   "max_chrome": 13.5,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 12.3, pire cellule 80) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/adv_mage_enters_brainsucker_hive_heart_counter_2.png",
@@ -331,9 +353,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 11.7,
-   "max_cell": 68.0,
-   "max_chrome": 14.2
+   "max_mean": 9.3,
+   "max_cell": 65.2,
+   "max_chrome": 7.9,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 7.8, pire cellule 56) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/adv_t2_mage_in_witchs_kitchen_hero_hp7_fear_spell_lit_gold.png",
@@ -379,9 +403,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 15.5,
-   "max_cell": 93.9,
-   "max_chrome": 21.5
+   "max_mean": 12.9,
+   "max_cell": 90.0,
+   "max_chrome": 15.3,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 10.9, pire cellule 78) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/adv_thief_in_recycling_center_trap_room_heart5.png",
@@ -427,9 +453,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 11.8,
-   "max_cell": 86.9,
-   "max_chrome": 12.7
+   "max_mean": 9.5,
+   "max_cell": 83.6,
+   "max_chrome": 6.8,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 7.9, pire cellule 72) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/adv_timer_bar_nearly_empty.png",
@@ -465,9 +493,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 11.7,
-   "max_cell": 86.9,
-   "max_chrome": 12.7
+   "max_mean": 9.4,
+   "max_cell": 83.6,
+   "max_chrome": 6.8,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 7.9, pire cellule 72) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/adventure_phase_banner_start.png",
@@ -503,9 +533,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 9.7,
-   "max_cell": 64.2,
-   "max_chrome": 14.3
+   "max_mean": 7.3,
+   "max_cell": 58.5,
+   "max_chrome": 7.7,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 6.0, pire cellule 51) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/adventure_waiting_timer_bar_over_dungeon.png",
@@ -546,9 +578,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 11.4,
-   "max_cell": 64.9,
-   "max_chrome": 14.6
+   "max_mean": 9.0,
+   "max_cell": 61.3,
+   "max_chrome": 8.1,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 7.5, pire cellule 53) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/bait_phase_t2_cleric_to_our_dungeon_fool_to_ai.png",
@@ -604,9 +638,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 12.0,
-   "max_cell": 83.1,
-   "max_chrome": 13.3
+   "max_mean": 9.4,
+   "max_cell": 78.9,
+   "max_chrome": 6.9,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 7.9, pire cellule 68) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/build_dark_laboratory_played_deck_card_draw_prompt.png",
@@ -615,7 +651,7 @@
   },
   {
    "apk": "apk_orig/build_done_button_green_after_playing_room_t4.png",
-   "godot": "lot6b_done_button_timer_variant",
+   "godot": "build_room_placed_facedown_done_button",
    "kind": "board",
    "mask": [
     [
@@ -647,9 +683,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 15.3,
-   "max_cell": 103.0,
-   "max_chrome": 16.1
+   "max_mean": 5.3,
+   "max_cell": 60.1,
+   "max_chrome": 6.1,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 4.3, pire cellule 52) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/build_drag_card_valid_slot_highlight.png",
@@ -695,9 +733,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 11.9,
-   "max_cell": 83.1,
-   "max_chrome": 13.2
+   "max_mean": 9.4,
+   "max_cell": 78.9,
+   "max_chrome": 6.8,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 7.8, pire cellule 68) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/build_draw_prompt_deck_card.png",
@@ -763,9 +803,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 7.9,
-   "max_cell": 53.9,
-   "max_chrome": 11.8
+   "max_mean": 5.5,
+   "max_cell": 51.6,
+   "max_chrome": 5.3,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 4.5, pire cellule 45) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/build_stacked_room_facedown_over_older_hand_3cards.png",
@@ -806,9 +848,10 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 7.2,
-   "max_cell": 21.1,
-   "max_chrome": 11.6
+   "max_mean": 4.6,
+   "max_cell": 16.2,
+   "max_chrome": 5.0,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig/build_t1_first_room_placed_facedown_room_deck_back_done_button.png",
@@ -844,9 +887,10 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 7.4,
-   "max_cell": 21.1,
-   "max_chrome": 11.6
+   "max_mean": 4.7,
+   "max_cell": 16.2,
+   "max_chrome": 5.0,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig/build_t2_first_room_revealed_succubus_spa_both_dungeons_2heroes_town_5card_hand.png",
@@ -882,9 +926,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 11.1,
-   "max_cell": 98.8,
-   "max_chrome": 18.6
+   "max_mean": 8.4,
+   "max_cell": 94.3,
+   "max_chrome": 11.9,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 7.0, pire cellule 82) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/build_t2_hand_5cards_freeze_active_motivation_dim.png",
@@ -945,9 +991,10 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 7.2,
-   "max_cell": 32.3,
-   "max_chrome": 12.8
+   "max_mean": 5.0,
+   "max_cell": 31.0,
+   "max_chrome": 6.8,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig/build_t3_third_room_placed_facedown_room_deck_back_over_slot_done_button.png",
@@ -1013,9 +1060,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 7.6,
-   "max_cell": 32.3,
-   "max_chrome": 13.6
+   "max_mean": 5.3,
+   "max_cell": 31.0,
+   "max_chrome": 7.6,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 4.3, pire cellule 27) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/build_t6_hand_7_cards_fan_epic_heroes_gold_cards_in_town.png",
@@ -1051,9 +1100,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 8.1,
-   "max_cell": 68.0,
-   "max_chrome": 13.6
+   "max_mean": 5.7,
+   "max_cell": 65.2,
+   "max_chrome": 7.4,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 4.7, pire cellule 56) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/build_t6_pass_warning_bubble_with_4_epic_heroes_town_red_unplayable_card.png",
@@ -1094,9 +1145,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 8.5,
-   "max_cell": 68.0,
-   "max_chrome": 14.2
+   "max_mean": 6.1,
+   "max_cell": 65.2,
+   "max_chrome": 8.0,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.0, pire cellule 56) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/build_t7_pass_warning_bubble_8_card_hand_fan.png",
@@ -1132,9 +1185,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 8.7,
-   "max_cell": 68.0,
-   "max_chrome": 14.3
+   "max_mean": 6.6,
+   "max_cell": 65.2,
+   "max_chrome": 8.0,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.5, pire cellule 56) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/discard_hand_7cards.png",
@@ -1168,11 +1223,19 @@
      720,
      200,
      "salles de notre donjon : contenu"
+    ],
+    [
+     380,
+     330,
+     980,
+     340,
+     "cartes de la main a defausser : tirage different de celui de la frame APK"
     ]
    ],
-   "max_mean": 17.5,
-   "max_cell": 71.7,
-   "max_chrome": 16.5
+   "max_mean": 6.3,
+   "max_cell": 14.1,
+   "max_chrome": 6.8,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig/drag_advanced_room_monsters_ballroom_greyscale_zoom_cannot_place_empty_slot.png",
@@ -1248,9 +1311,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 9.7,
-   "max_cell": 68.4,
-   "max_chrome": 7.7
+   "max_mean": 8.1,
+   "max_cell": 65.6,
+   "max_chrome": 5.8,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 6.7, pire cellule 57) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/levelup_button_tap_shows_boss_card_zoom_with_levelup_text.png",
@@ -1286,9 +1351,10 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 16.0,
-   "max_cell": 81.7,
-   "max_chrome": 15.3
+   "max_mean": 6.2,
+   "max_cell": 23.3,
+   "max_chrome": 6.0,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig/longpress_bottomless_pit_trap_zoom_hand_6_cards_t5.png",
@@ -1359,9 +1425,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 16.0,
-   "max_cell": 103.0,
-   "max_chrome": 15.2
+   "max_mean": 13.4,
+   "max_cell": 97.9,
+   "max_chrome": 9.3,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 11.3, pire cellule 85) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/longpress_teleportation_zoom_over_hand_dimmed.png",
@@ -1407,9 +1475,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 9.8,
-   "max_cell": 59.1,
-   "max_chrome": 12.3
+   "max_mean": 9.4,
+   "max_cell": 56.7,
+   "max_chrome": 11.8,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 7.8, pire cellule 49) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/menu_main_single_multiplayer_options_store.png",
@@ -1423,7 +1493,10 @@
      192,
      "bouton IN-APP STORE remplace par RULES (difference 1)"
     ]
-   ]
+   ],
+   "max_mean": 2.2,
+   "max_cell": 10.5,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig/menu_paused_resume_card_gallery_settings_quit_game.png",
@@ -1459,17 +1532,19 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 4.6,
-   "max_cell": 19.1,
-   "max_chrome": 6.0
+   "max_mean": 2.9,
+   "max_cell": 18.0,
+   "max_chrome": 3.4,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig/menu_player_count_carousel_4_left_2_center_3_right.png",
    "godot": "menu_player_count_carousel_4_left_2_center_3_right",
    "kind": "ui",
-   "max_mean": 2.6,
-   "max_cell": 15.0,
-   "limit_reason": "rotations individuelles des cartes de l'eventail et eclairage des cartes : residu apres calage de la taille / position"
+   "max_mean": 3.0,
+   "max_cell": 16.3,
+   "limit_reason": "rotations individuelles des cartes de l'eventail et eclairage des cartes : residu apres calage de la taille / position",
+   "state": "chrome"
   },
   {
    "apk": "apk_orig/menu_settings_music_sound_game_speed_toggles_back_arrow.png",
@@ -1505,9 +1580,10 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 5.8,
-   "max_cell": 24.8,
-   "max_chrome": 6.5
+   "max_mean": 4.0,
+   "max_cell": 23.7,
+   "max_chrome": 4.0,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig/notice_opponent_has_played_a_room_ability_mimic_vault_glow.png",
@@ -1543,9 +1619,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 9.2,
-   "max_cell": 37.8,
-   "max_chrome": 16.8
+   "max_mean": 7.1,
+   "max_cell": 36.2,
+   "max_chrome": 10.7,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.9, pire cellule 31) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/overlay_choose_spell_to_discard_dark_laboratory_with_boss_zoom.png",
@@ -1596,9 +1674,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 10.3,
-   "max_cell": 41.5,
-   "max_chrome": 19.1
+   "max_mean": 7.6,
+   "max_cell": 39.6,
+   "max_chrome": 12.5,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 6.3, pire cellule 34) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/spell_drag_midway_valid_targets_gold_border.png",
@@ -1649,9 +1729,10 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 8.0,
-   "max_cell": 35.0,
-   "max_chrome": 16.5
+   "max_mean": 4.6,
+   "max_cell": 12.7,
+   "max_chrome": 6.0,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig/spell_resolved_hand_all_rooms_lit_extra_build.png",
@@ -1692,9 +1773,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 7.9,
-   "max_cell": 37.8,
-   "max_chrome": 13.5
+   "max_mean": 5.5,
+   "max_cell": 31.0,
+   "max_chrome": 7.3,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 4.4, pire cellule 27) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/spellbattle_has_played_a_spell_notice_top_right_exhaustion_stack.png",
@@ -1730,9 +1813,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 15.5,
-   "max_cell": 68.0,
-   "max_chrome": 21.9
+   "max_mean": 12.1,
+   "max_cell": 65.1,
+   "max_chrome": 13.8,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 10.2, pire cellule 56) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/spellbattle_opponent_exhaustion_on_stack_center_timer_bar_counterspell_lit.png",
@@ -1773,9 +1858,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 9.6,
-   "max_cell": 44.6,
-   "max_chrome": 20.5
+   "max_mean": 7.0,
+   "max_cell": 42.8,
+   "max_chrome": 13.4,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.8, pire cellule 37) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/tap_own_dungeon_room_brainsucker_hive_zoom.png",
@@ -1811,9 +1898,11 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 29.5,
-   "max_cell": 135.7,
-   "max_chrome": 21.2
+   "max_mean": 13.5,
+   "max_cell": 97.3,
+   "max_chrome": 8.4,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 11.4, pire cellule 84) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig/title_screen_after_gameover_ok_returns_here_no_score_panel.png",
@@ -1834,7 +1923,10 @@
      150,
      "yeux du monstre : clignotent (BlinkBehavior 5 s)"
     ]
-   ]
+   ],
+   "max_mean": 1.4,
+   "max_cell": 2.9,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig/zoom_preview_advanced_room_dracolich.png",
@@ -1860,7 +1952,10 @@
      150,
      "yeux du monstre : clignotent (BlinkBehavior 5 s)"
     ]
-   ]
+   ],
+   "max_mean": 1.4,
+   "max_cell": 2.9,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/01_mainmenu.png",
@@ -1874,7 +1969,10 @@
      192,
      "bouton IN-APP STORE remplace par RULES (difference 1)"
     ]
-   ]
+   ],
+   "max_mean": 2.2,
+   "max_cell": 10.5,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/02_options.png",
@@ -1884,7 +1982,10 @@
   {
    "apk": "apk_orig2/03_settings.png",
    "godot": "menu_settings_music_sound_game_speed",
-   "kind": "ui"
+   "kind": "ui",
+   "max_mean": 2.1,
+   "max_cell": 9.3,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/04_back_options.png",
@@ -1905,28 +2006,36 @@
      55,
      "champ serveur multijoueur : hors APK (difference 3)"
     ]
-   ]
+   ],
+   "max_mean": 2.4,
+   "max_cell": 11.2,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/05_credits_t1.png",
    "godot": "menu_credits_start",
-   "kind": "ui"
+   "kind": "ui",
+   "max_mean": 1.1,
+   "max_cell": 6.1,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/06_credits_t10.png",
    "godot": "menu_credits_scrolled_10s",
    "kind": "ui",
-   "max_mean": 3.0,
-   "max_cell": 22.0,
-   "limit_reason": "texte du defilement a echelle x1,3 / x1,4 : la police ne s'agrandit qu'a l'entier (29 px pour 29,4)"
+   "max_mean": 2.4,
+   "max_cell": 10.7,
+   "limit_reason": "texte du defilement a echelle x1,3 / x1,4 : la police ne s'agrandit qu'a l'entier (29 px pour 29,4)",
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/07_credits_t20.png",
    "godot": "menu_credits_scrolled_20s",
    "kind": "ui",
-   "max_mean": 3.5,
-   "max_cell": 20.0,
-   "limit_reason": "idem 06_credits_t10"
+   "max_mean": 3.1,
+   "max_cell": 16.1,
+   "limit_reason": "idem 06_credits_t10",
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/08_back.png",
@@ -1947,15 +2056,19 @@
      55,
      "champ serveur multijoueur : hors APK (difference 3)"
     ]
-   ]
+   ],
+   "max_mean": 2.4,
+   "max_cell": 11.2,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/10_tut_a.png",
    "godot": "tutorial_intro_five_wounds",
    "kind": "tutorial",
    "match": 3.6,
-   "max_mean": 5.5,
-   "max_cell": 37.4
+   "max_mean": 5.1,
+   "max_cell": 35.8,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/levelup_06.png",
@@ -2009,11 +2122,27 @@
      720,
      200,
      "salles de notre donjon : contenu"
+    ],
+    [
+     400,
+     330,
+     940,
+     340,
+     "cartes du carrousel de choix (main adverse revelee) : contenu de partie, tirage different de celui de la frame APK"
+    ],
+    [
+     180,
+     290,
+     1520,
+     420,
+     "bande du carrousel de choix : l'APK l'ouvre pendant que la banniere LEVEL UP est encore a l'ecran, Godot apres elle (sequence d'animation, non alignee)"
     ]
    ],
-   "max_mean": 36.9,
-   "max_cell": 104.7,
-   "max_chrome": 20.6
+   "max_mean": 10.1,
+   "max_cell": 39.1,
+   "max_chrome": 8.2,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 20.1, pire cellule 79) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/levelup_14.png",
@@ -2047,11 +2176,20 @@
      720,
      200,
      "salles de notre donjon : contenu"
+    ],
+    [
+     400,
+     330,
+     940,
+     340,
+     "cartes du carrousel de choix (main adverse revelee) : contenu de partie, tirage different de celui de la frame APK"
     ]
    ],
-   "max_mean": 20.7,
-   "max_cell": 115.2,
-   "max_chrome": 21.1
+   "max_mean": 7.2,
+   "max_cell": 29.6,
+   "max_chrome": 7.7,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 6.0, pire cellule 25) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/levelup_selected.png",
@@ -2085,11 +2223,20 @@
      720,
      200,
      "salles de notre donjon : contenu"
+    ],
+    [
+     400,
+     330,
+     940,
+     340,
+     "cartes du carrousel de choix (main adverse revelee) : contenu de partie, tirage different de celui de la frame APK"
     ]
    ],
-   "max_mean": 21.0,
-   "max_cell": 114.5,
-   "max_chrome": 21.3
+   "max_mean": 7.5,
+   "max_cell": 29.6,
+   "max_chrome": 8.1,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 6.2, pire cellule 25) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/lose_rip.png",
@@ -2125,9 +2272,10 @@
      "salles de notre donjon : contenu"
     ]
    ],
-   "max_mean": 4.5,
-   "max_cell": 21.5,
-   "max_chrome": 7.8
+   "max_mean": 3.6,
+   "max_cell": 20.6,
+   "max_chrome": 5.7,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/menu2.png",
@@ -2141,25 +2289,35 @@
      192,
      "bouton IN-APP STORE remplace par RULES (difference 1)"
     ]
-   ]
+   ],
+   "max_mean": 2.2,
+   "max_cell": 10.5,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/mp1.png",
    "godot": "online_menu_worldwide_with_friends_change_user",
    "kind": "ui",
-   "max_mean": 2.3,
-   "max_cell": 14.0,
-   "limit_reason": "texte a echelle fractionnaire arrondi par Godot (libelles des boutons de salle)"
+   "max_mean": 2.7,
+   "max_cell": 15.0,
+   "limit_reason": "texte a echelle fractionnaire arrondi par Godot (libelles des boutons de salle)",
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/mp_back.png",
    "godot": "online_with_friends_new_game_room_code",
-   "kind": "ui"
+   "kind": "ui",
+   "max_mean": 2.2,
+   "max_cell": 8.3,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/mp_friends.png",
    "godot": "online_with_friends_new_game_room_code",
-   "kind": "ui"
+   "kind": "ui",
+   "max_mean": 2.2,
+   "max_cell": 8.3,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/mp_newgame.png",
@@ -2193,13 +2351,18 @@
      "ligne du joueur 1 (nom, avatar, victoires) : contenu de la partie"
     ]
    ],
-   "max_cell": 14.5,
-   "limit_reason": "titre WAITING FRIENDS... / WINS / DEFEATS et code de salle : texte a echelle fractionnaire (x1,3) arrondi par Godot"
+   "max_cell": 8.3,
+   "limit_reason": "titre WAITING FRIENDS... / WINS / DEFEATS et code de salle : texte a echelle fractionnaire (x1,3) arrondi par Godot",
+   "max_mean": 2.2,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/mp_roomcode.png",
    "godot": "online_with_friends_room_code_entry_empty",
-   "kind": "ui"
+   "kind": "ui",
+   "max_mean": 2.4,
+   "max_cell": 9.7,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/pause.png",
@@ -2212,11 +2375,19 @@
      560,
      830,
      "boutons RULES (ajout hors APK) / SETTINGS / QUIT GAME : RULES decale les deux derniers (difference 1)"
+    ],
+    [
+     180,
+     60,
+     1520,
+     950,
+     "plateau derriere le voile : autre partie (autre boss, autres salles)"
     ]
    ],
-   "max_mean": 14.6,
-   "max_cell": 43.9,
-   "max_chrome": 6.4
+   "max_mean": 8.4,
+   "max_cell": 41.7,
+   "max_chrome": 3.7,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/quit1.png",
@@ -2255,11 +2426,26 @@
      720,
      200,
      "salles de notre donjon : contenu"
+    ],
+    [
+     180,
+     90,
+     1520,
+     290,
+     "plateau derriere le voile (haut) : autre partie (autre boss, autre decor)"
+    ],
+    [
+     180,
+     660,
+     1520,
+     400,
+     "plateau derriere le voile (bas) : autre partie (autre boss, autre decor)"
     ]
    ],
-   "max_mean": 12.2,
-   "max_cell": 27.6,
-   "max_chrome": 7.3
+   "max_mean": 9.4,
+   "max_cell": 26.3,
+   "max_chrome": 5.7,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/quit3.png",
@@ -2280,15 +2466,20 @@
      150,
      "yeux du monstre : clignotent (BlinkBehavior 5 s)"
     ]
-   ]
+   ],
+   "max_mean": 1.4,
+   "max_cell": 2.9,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_100.png",
    "godot": "tutorial_room_description",
    "kind": "tutorial",
    "match": 2.9,
-   "max_mean": 7.2,
-   "max_cell": 39.6
+   "max_mean": 6.5,
+   "max_cell": 38.2,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.3, pire cellule 33) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_101.png",
@@ -2305,112 +2496,127 @@
    "godot": "tutorial_soul_closer",
    "kind": "tutorial",
    "match": 4.8,
-   "max_mean": 8.0,
-   "max_cell": 39.7
+   "max_mean": 6.8,
+   "max_cell": 38.1,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.6, pire cellule 33) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_104.png",
    "godot": "tutorial_soul_closer",
    "kind": "tutorial",
    "match": 2.0,
-   "max_mean": 5.0,
-   "max_cell": 37.4
+   "max_mean": 3.7,
+   "max_cell": 30.1,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_105.png",
    "godot": "tutorial_soul_closer",
    "kind": "tutorial",
    "match": 1.7,
-   "max_mean": 4.7,
-   "max_cell": 20.1
+   "max_mean": 3.4,
+   "max_cell": 17.2,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_106.png",
    "godot": "tutorial_soul_closer",
    "kind": "tutorial",
    "match": 1.9,
-   "max_mean": 4.9,
-   "max_cell": 32.2
+   "max_mean": 3.6,
+   "max_cell": 26.4,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_107.png",
    "godot": "tutorial_soul_closer",
    "kind": "tutorial",
    "match": 1.7,
-   "max_mean": 4.7,
-   "max_cell": 19.7
+   "max_mean": 3.4,
+   "max_cell": 16.5,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_108.png",
    "godot": "tutorial_soul_closer",
    "kind": "tutorial",
    "match": 1.8,
-   "max_mean": 4.9,
-   "max_cell": 28.6
+   "max_mean": 3.6,
+   "max_cell": 23.4,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_109.png",
    "godot": "tutorial_soul_closer",
    "kind": "tutorial",
    "match": 2.0,
-   "max_mean": 5.0,
-   "max_cell": 35.1
+   "max_mean": 3.7,
+   "max_cell": 27.9,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_11.png",
    "godot": "tutorial_intro_king_croak",
    "kind": "tutorial",
    "match": 2.9,
-   "max_mean": 5.1,
-   "max_cell": 32.7
+   "max_mean": 4.6,
+   "max_cell": 31.4,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_110.png",
    "godot": "tutorial_drag_spell_to_hero",
    "kind": "tutorial",
    "match": 2.1,
-   "max_mean": 5.9,
-   "max_cell": 45.5
+   "max_mean": 4.9,
+   "max_cell": 40.0,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_111.png",
    "godot": "tutorial_drag_spell_to_hero",
    "kind": "tutorial",
    "match": 2.2,
-   "max_mean": 5.9,
-   "max_cell": 45.5
+   "max_mean": 4.9,
+   "max_cell": 40.0,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_112.png",
    "godot": "tutorial_drag_spell_to_hero",
    "kind": "tutorial",
    "match": 2.2,
-   "max_mean": 5.9,
-   "max_cell": 45.5
+   "max_mean": 5.0,
+   "max_cell": 40.0,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_113.png",
    "godot": "tutorial_drag_spell_to_hero",
    "kind": "tutorial",
    "match": 2.2,
-   "max_mean": 5.9,
-   "max_cell": 45.5
+   "max_mean": 4.9,
+   "max_cell": 40.0,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_114.png",
    "godot": "tutorial_drag_spell_to_hero",
    "kind": "tutorial",
    "match": 2.2,
-   "max_mean": 5.9,
-   "max_cell": 45.5
+   "max_mean": 5.0,
+   "max_cell": 40.0,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_115.png",
    "godot": "tutorial_drag_spell_to_hero",
    "kind": "tutorial",
    "match": 2.2,
-   "max_mean": 5.9,
-   "max_cell": 45.5
+   "max_mean": 5.0,
+   "max_cell": 40.0,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_116.png",
@@ -2422,48 +2628,54 @@
    "godot": "tutorial_spell_on_stack",
    "kind": "tutorial",
    "match": 2.2,
-   "max_mean": 6.3,
-   "max_cell": 49.6
+   "max_mean": 5.3,
+   "max_cell": 47.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_118.png",
    "godot": "tutorial_spell_on_stack",
    "kind": "tutorial",
    "match": 2.0,
-   "max_mean": 6.1,
-   "max_cell": 40.4
+   "max_mean": 5.1,
+   "max_cell": 38.7,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_119.png",
    "godot": "tutorial_spell_on_stack",
    "kind": "tutorial",
    "match": 2.2,
-   "max_mean": 6.3,
-   "max_cell": 49.7
+   "max_mean": 5.3,
+   "max_cell": 47.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_12.png",
    "godot": "tutorial_intro_arcadia",
    "kind": "tutorial",
    "match": 1.9,
-   "max_mean": 5.0,
-   "max_cell": 50.0
+   "max_mean": 4.5,
+   "max_cell": 47.9,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_120.png",
    "godot": "tutorial_spell_on_stack",
    "kind": "tutorial",
    "match": 2.1,
-   "max_mean": 6.2,
-   "max_cell": 40.4
+   "max_mean": 5.2,
+   "max_cell": 38.7,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_121.png",
    "godot": "tutorial_spell_on_stack",
    "kind": "tutorial",
    "match": 2.2,
-   "max_mean": 6.3,
-   "max_cell": 49.6
+   "max_mean": 5.3,
+   "max_cell": 47.5,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_122.png",
@@ -2475,8 +2687,9 @@
    "godot": "tutorial_spell_effect",
    "kind": "tutorial",
    "match": 1.7,
-   "max_mean": 4.6,
-   "max_cell": 28.6
+   "max_mean": 3.8,
+   "max_cell": 26.9,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_124.png",
@@ -2493,8 +2706,9 @@
    "godot": "tutorial_ai_wound",
    "kind": "tutorial",
    "match": 1.8,
-   "max_mean": 4.9,
-   "max_cell": 24.2
+   "max_mean": 3.7,
+   "max_cell": 23.2,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_127.png",
@@ -2516,136 +2730,161 @@
    "godot": "tutorial_intro_king_croak",
    "kind": "tutorial",
    "match": 2.9,
-   "max_mean": 5.0,
-   "max_cell": 32.9
+   "max_mean": 4.6,
+   "max_cell": 31.5,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_14.png",
    "godot": "tutorial_intro_king_croak",
    "kind": "tutorial",
    "match": 2.8,
-   "max_mean": 5.3,
-   "max_cell": 48.4
+   "max_mean": 4.8,
+   "max_cell": 46.4,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_15.png",
    "godot": "tutorial_boss_reveal",
    "kind": "tutorial",
    "match": 5.8,
-   "max_mean": 10.4,
-   "max_cell": 86.3
+   "max_mean": 9.1,
+   "max_cell": 82.8,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 7.6, pire cellule 72) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_16.png",
    "godot": "tutorial_boss_reveal",
    "kind": "tutorial",
    "match": 4.7,
-   "max_mean": 10.1,
-   "max_cell": 68.9
+   "max_mean": 8.9,
+   "max_cell": 66.0,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 7.4, pire cellule 57) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_17.png",
    "godot": "tutorial_intro_king_croak",
    "kind": "tutorial",
    "match": 2.9,
-   "max_mean": 5.1,
-   "max_cell": 32.8
+   "max_mean": 4.6,
+   "max_cell": 31.5,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_18.png",
    "godot": "tutorial_intro_ten_souls",
    "kind": "tutorial",
    "match": 4.2,
-   "max_mean": 7.2,
-   "max_cell": 71.4
+   "max_mean": 6.5,
+   "max_cell": 68.4,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.3, pire cellule 59) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_19.png",
    "godot": "tutorial_intro_king_croak",
    "kind": "tutorial",
    "match": 3.7,
-   "max_mean": 5.9,
-   "max_cell": 38.7
+   "max_mean": 5.4,
+   "max_cell": 37.1,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_20.png",
    "godot": "tutorial_intro_five_wounds",
    "kind": "tutorial",
    "match": 3.8,
-   "max_mean": 7.4,
-   "max_cell": 71.4
+   "max_mean": 6.7,
+   "max_cell": 68.4,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.5, pire cellule 59) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_21.png",
    "godot": "tutorial_discard_two_cards",
    "kind": "tutorial",
    "match": 2.8,
-   "max_mean": 5.8,
-   "max_cell": 56.1
+   "max_mean": 5.2,
+   "max_cell": 53.8,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_22.png",
    "godot": "tutorial_discard_two_cards",
    "kind": "tutorial",
    "match": 1.9,
-   "max_mean": 5.6,
-   "max_cell": 44.8
+   "max_mean": 4.9,
+   "max_cell": 42.9,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_23.png",
    "godot": "tutorial_discard_first_pick",
    "kind": "tutorial",
    "match": 3.9,
-   "max_mean": 10.1,
-   "max_cell": 53.0
+   "max_mean": 8.5,
+   "max_cell": 50.8,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 7.1, pire cellule 44) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_24.png",
    "godot": "tutorial_discard_first_pick",
    "kind": "tutorial",
    "match": 3.2,
-   "max_mean": 9.3,
-   "max_cell": 32.8
+   "max_mean": 7.7,
+   "max_cell": 31.2,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 6.4, pire cellule 27) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_25.png",
    "godot": "tutorial_discard_first_pick",
    "kind": "tutorial",
    "match": 3.7,
-   "max_mean": 9.9,
-   "max_cell": 53.0
+   "max_mean": 8.3,
+   "max_cell": 50.8,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 6.9, pire cellule 44) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_26.png",
    "godot": "tutorial_discard_continue",
    "kind": "tutorial",
    "match": 2.9,
-   "max_mean": 9.1,
-   "max_cell": 22.7
+   "max_mean": 7.6,
+   "max_cell": 21.3,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 6.3, pire cellule 18) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_27.png",
    "godot": "tutorial_build_first_room_b",
    "kind": "tutorial",
    "match": 2.7,
-   "max_mean": 5.8,
-   "max_cell": 28.5
+   "max_mean": 4.9,
+   "max_cell": 27.3,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_28.png",
    "godot": "tutorial_build_first_room_b",
    "kind": "tutorial",
    "match": 2.2,
-   "max_mean": 5.6,
-   "max_cell": 27.8
+   "max_mean": 4.7,
+   "max_cell": 26.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_29.png",
    "godot": "tutorial_build_first_room_b",
    "kind": "tutorial",
    "match": 2.1,
-   "max_mean": 5.7,
-   "max_cell": 27.8
+   "max_mean": 4.8,
+   "max_cell": 26.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_30.png",
@@ -2677,24 +2916,27 @@
    "godot": "tutorial_build_first_room",
    "kind": "tutorial",
    "match": 2.3,
-   "max_mean": 6.4,
-   "max_cell": 25.8
+   "max_mean": 5.4,
+   "max_cell": 24.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_36_drag.png",
    "godot": "tutorial_build_first_room",
    "kind": "tutorial",
    "match": 2.3,
-   "max_mean": 6.4,
-   "max_cell": 25.8
+   "max_mean": 5.4,
+   "max_cell": 24.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_37.png",
    "godot": "tutorial_build_first_room",
    "kind": "tutorial",
    "match": 2.3,
-   "max_mean": 6.4,
-   "max_cell": 25.8
+   "max_mean": 5.4,
+   "max_cell": 24.7,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_38.png",
@@ -2711,8 +2953,9 @@
    "godot": "tutorial_build_first_room",
    "kind": "tutorial",
    "match": 2.3,
-   "max_mean": 6.4,
-   "max_cell": 25.9
+   "max_mean": 5.4,
+   "max_cell": 24.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_41_drag.png",
@@ -2724,16 +2967,18 @@
    "godot": "tutorial_build_first_room",
    "kind": "tutorial",
    "match": 2.3,
-   "max_mean": 6.3,
-   "max_cell": 25.7
+   "max_mean": 5.4,
+   "max_cell": 24.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_43.png",
    "godot": "tutorial_build_first_room",
    "kind": "tutorial",
    "match": 2.3,
-   "max_mean": 6.3,
-   "max_cell": 25.7
+   "max_mean": 5.3,
+   "max_cell": 24.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_44.png",
@@ -2745,16 +2990,18 @@
    "godot": "tutorial_done_button",
    "kind": "tutorial",
    "match": 2.8,
-   "max_mean": 5.6,
-   "max_cell": 36.9
+   "max_mean": 4.8,
+   "max_cell": 35.4,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_46.png",
    "godot": "tutorial_done_button",
    "kind": "tutorial",
    "match": 1.7,
-   "max_mean": 5.2,
-   "max_cell": 46.9
+   "max_mean": 4.4,
+   "max_cell": 45.0,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_47.png",
@@ -2776,40 +3023,45 @@
    "godot": "tutorial_build_extra_room",
    "kind": "tutorial",
    "match": 2.8,
-   "max_mean": 5.6,
-   "max_cell": 26.7
+   "max_mean": 4.6,
+   "max_cell": 25.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_51.png",
    "godot": "tutorial_build_extra_room",
    "kind": "tutorial",
    "match": 2.4,
-   "max_mean": 5.6,
-   "max_cell": 25.9
+   "max_mean": 4.6,
+   "max_cell": 24.8,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_52.png",
    "godot": "tutorial_build_extra_room",
    "kind": "tutorial",
    "match": 2.2,
-   "max_mean": 5.5,
-   "max_cell": 25.9
+   "max_mean": 4.5,
+   "max_cell": 24.8,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_53.png",
    "godot": "tutorial_build_extra_room",
    "kind": "tutorial",
    "match": 2.2,
-   "max_mean": 5.5,
-   "max_cell": 25.9
+   "max_mean": 4.6,
+   "max_cell": 24.8,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_54.png",
    "godot": "tutorial_done_extra",
    "kind": "tutorial",
    "match": 1.4,
-   "max_mean": 3.8,
-   "max_cell": 25.8
+   "max_mean": 3.1,
+   "max_cell": 24.7,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_55.png",
@@ -2836,104 +3088,127 @@
    "godot": "tutorial_room_draw",
    "kind": "tutorial",
    "match": 7.3,
-   "max_mean": 11.7,
-   "max_cell": 71.3
+   "max_mean": 10.5,
+   "max_cell": 68.3,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 8.8, pire cellule 59) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_60.png",
    "godot": "tutorial_room_draw",
    "kind": "tutorial",
    "match": 6.8,
-   "max_mean": 11.7,
-   "max_cell": 71.3
+   "max_mean": 10.5,
+   "max_cell": 68.3,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 8.8, pire cellule 59) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_61.png",
    "godot": "tutorial_room_draw",
    "kind": "tutorial",
    "match": 6.8,
-   "max_mean": 11.7,
-   "max_cell": 71.3
+   "max_mean": 10.4,
+   "max_cell": 68.3,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 8.7, pire cellule 59) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_62.png",
    "godot": "tutorial_room_draw",
    "kind": "tutorial",
    "match": 6.6,
-   "max_mean": 11.5,
-   "max_cell": 71.3
+   "max_mean": 10.2,
+   "max_cell": 68.3,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 8.6, pire cellule 59) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_63.png",
    "godot": "tutorial_room_draw",
    "kind": "tutorial",
    "match": 6.7,
-   "max_mean": 11.6,
-   "max_cell": 71.3
+   "max_mean": 10.4,
+   "max_cell": 68.3,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 8.7, pire cellule 59) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_64.png",
    "godot": "tutorial_room_draw",
    "kind": "tutorial",
    "match": 6.6,
-   "max_mean": 11.4,
-   "max_cell": 71.3
+   "max_mean": 10.1,
+   "max_cell": 68.3,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 8.5, pire cellule 59) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_65.png",
    "godot": "tutorial_bait_treasures",
    "kind": "tutorial",
    "match": 3.9,
-   "max_mean": 8.2,
-   "max_cell": 46.3
+   "max_mean": 7.3,
+   "max_cell": 44.3,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 6.1, pire cellule 38) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_66.png",
    "godot": "tutorial_bait_treasures",
    "kind": "tutorial",
    "match": 2.6,
-   "max_mean": 6.9,
-   "max_cell": 42.7
+   "max_mean": 6.1,
+   "max_cell": 40.9,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.0, pire cellule 35) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_67.png",
    "godot": "tutorial_bait_lure",
    "kind": "tutorial",
    "match": 3.5,
-   "max_mean": 7.7,
-   "max_cell": 46.3
+   "max_mean": 6.7,
+   "max_cell": 44.3,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.5, pire cellule 38) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_68.png",
    "godot": "tutorial_bait_lure",
    "kind": "tutorial",
    "match": 2.7,
-   "max_mean": 7.5,
-   "max_cell": 42.7
+   "max_mean": 6.5,
+   "max_cell": 40.9,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.4, pire cellule 35) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_69.png",
    "godot": "tutorial_build_third_room",
    "kind": "tutorial",
    "match": 2.5,
-   "max_mean": 6.3,
-   "max_cell": 29.8
+   "max_mean": 5.3,
+   "max_cell": 26.7,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_70.png",
    "godot": "tutorial_build_third_room",
    "kind": "tutorial",
    "match": 2.3,
-   "max_mean": 6.2,
-   "max_cell": 29.8
+   "max_mean": 5.2,
+   "max_cell": 26.7,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_71.png",
    "godot": "tutorial_done_third",
    "kind": "tutorial",
    "match": 1.7,
-   "max_mean": 4.6,
-   "max_cell": 26.9
+   "max_mean": 3.8,
+   "max_cell": 25.8,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_72.png",
@@ -2965,96 +3240,115 @@
    "godot": "tutorial_adventure_hero_and_damage",
    "kind": "tutorial",
    "match": 2.7,
-   "max_mean": 8.0,
-   "max_cell": 48.5
+   "max_mean": 7.0,
+   "max_cell": 46.5,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.8, pire cellule 40) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_78.png",
    "godot": "tutorial_adventure_hero_and_damage",
    "kind": "tutorial",
    "match": 2.9,
-   "max_mean": 8.4,
-   "max_cell": 48.5
+   "max_mean": 7.3,
+   "max_cell": 46.5,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 6.1, pire cellule 40) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_79.png",
    "godot": "tutorial_adventure_hero_and_damage",
    "kind": "tutorial",
    "match": 3.0,
-   "max_mean": 8.5,
-   "max_cell": 48.5
+   "max_mean": 7.5,
+   "max_cell": 46.5,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 6.2, pire cellule 40) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_80.png",
    "godot": "tutorial_adventure_hero_and_damage",
    "kind": "tutorial",
    "match": 3.1,
-   "max_mean": 8.7,
-   "max_cell": 48.6
+   "max_mean": 7.6,
+   "max_cell": 46.5,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 6.3, pire cellule 40) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_81.png",
    "godot": "tutorial_adventure_hero_and_damage",
    "kind": "tutorial",
    "match": 3.2,
-   "max_mean": 8.7,
-   "max_cell": 49.0
+   "max_mean": 7.7,
+   "max_cell": 46.5,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 6.4, pire cellule 40) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_82.png",
    "godot": "tutorial_adventure_hero_and_damage",
    "kind": "tutorial",
    "match": 3.2,
-   "max_mean": 8.7,
-   "max_cell": 48.9
+   "max_mean": 7.7,
+   "max_cell": 46.5,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 6.4, pire cellule 40) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_83.png",
    "godot": "tutorial_hit_this_room",
    "kind": "tutorial",
    "match": 5.2,
-   "max_mean": 8.8,
-   "max_cell": 36.4
+   "max_mean": 7.8,
+   "max_cell": 33.9,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 6.5, pire cellule 29) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_84.png",
    "godot": "tutorial_hit_this_room",
    "kind": "tutorial",
    "match": 2.0,
-   "max_mean": 5.7,
-   "max_cell": 34.5
+   "max_mean": 4.8,
+   "max_cell": 33.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_85.png",
    "godot": "tutorial_hit_this_room",
    "kind": "tutorial",
    "match": 1.9,
-   "max_mean": 5.5,
-   "max_cell": 34.5
+   "max_mean": 4.6,
+   "max_cell": 33.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_86.png",
    "godot": "tutorial_hit_this_room",
    "kind": "tutorial",
    "match": 1.9,
-   "max_mean": 5.5,
-   "max_cell": 34.5
+   "max_mean": 4.6,
+   "max_cell": 33.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_87.png",
    "godot": "tutorial_hit_this_room",
    "kind": "tutorial",
    "match": 1.9,
-   "max_mean": 5.5,
-   "max_cell": 34.5
+   "max_mean": 4.6,
+   "max_cell": 33.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_88.png",
    "godot": "tutorial_hit_this_room",
    "kind": "tutorial",
    "match": 2.0,
-   "max_mean": 5.5,
-   "max_cell": 34.5
+   "max_mean": 4.6,
+   "max_cell": 33.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_89.png",
@@ -3066,80 +3360,95 @@
    "godot": "tutorial_hit_this_room",
    "kind": "tutorial",
    "match": 2.2,
-   "max_mean": 5.9,
-   "max_cell": 34.5
+   "max_mean": 5.0,
+   "max_cell": 33.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_91.png",
    "godot": "tutorial_hit_this_room",
    "kind": "tutorial",
    "match": 2.2,
-   "max_mean": 5.9,
-   "max_cell": 34.5
+   "max_mean": 4.9,
+   "max_cell": 33.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_92.png",
    "godot": "tutorial_hit_this_room",
    "kind": "tutorial",
    "match": 2.1,
-   "max_mean": 5.8,
-   "max_cell": 34.5
+   "max_mean": 4.9,
+   "max_cell": 33.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_93.png",
    "godot": "tutorial_hit_this_room",
    "kind": "tutorial",
    "match": 2.0,
-   "max_mean": 5.7,
-   "max_cell": 34.5
+   "max_mean": 4.8,
+   "max_cell": 33.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_94.png",
    "godot": "tutorial_hit_this_room",
    "kind": "tutorial",
    "match": 1.9,
-   "max_mean": 5.5,
-   "max_cell": 34.5
+   "max_mean": 4.6,
+   "max_cell": 33.6,
+   "state": "chrome"
   },
   {
    "apk": "apk_orig2/tut_95.png",
    "godot": "tutorial_room_description",
    "kind": "tutorial",
    "match": 2.8,
-   "max_mean": 7.0,
-   "max_cell": 39.6
+   "max_mean": 6.3,
+   "max_cell": 38.2,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.2, pire cellule 33) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_96.png",
    "godot": "tutorial_room_description",
    "kind": "tutorial",
    "match": 3.3,
-   "max_mean": 7.6,
-   "max_cell": 43.9
+   "max_mean": 6.9,
+   "max_cell": 43.4,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.7, pire cellule 37) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_97.png",
    "godot": "tutorial_room_description",
    "kind": "tutorial",
    "match": 3.1,
-   "max_mean": 7.5,
-   "max_cell": 39.6
+   "max_mean": 6.8,
+   "max_cell": 38.2,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.6, pire cellule 33) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_98.png",
    "godot": "tutorial_room_description",
    "kind": "tutorial",
    "match": 3.1,
-   "max_mean": 7.5,
-   "max_cell": 39.9
+   "max_mean": 6.8,
+   "max_cell": 39.2,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.6, pire cellule 34) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   },
   {
    "apk": "apk_orig2/tut_99.png",
    "godot": "tutorial_room_description",
    "kind": "tutorial",
    "match": 3.2,
-   "max_mean": 7.6,
-   "max_cell": 42.7
+   "max_mean": 6.9,
+   "max_cell": 42.1,
+   "state": "content",
+   "state_reason": "ecart residuel (moyenne 5.7, pire cellule 36) : etat de partie ou image d'animation differents de la frame APK, non reproduits"
   }
  ]
 }

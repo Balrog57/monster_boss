@@ -174,7 +174,7 @@ func _build_logo(data: Dictionary) -> void:
 
 ## Un TextDrawableBlock : boite de largeur `w_apk` (avant echelle), texte centre dans la boite, echelle `scale` ; coin haut-gauche (x_apk ; y).
 func _text(parent: Control, kind: String, text: String, x_apk: float, y: float, w_apk: float, scale: float, color: Color, wrap := false) -> void:
-	var size := int(BASE * scale)
+	var size := int(BASE) # taille native : l'echelle de l'APK (1,4 / 1,3) est appliquee en vrai par Label.scale, sans arrondir 29,4 -> 29
 	var l := Label.new()
 	l.name = kind
 	l.set_meta("kind", kind)
@@ -189,11 +189,12 @@ func _text(parent: Control, kind: String, text: String, x_apk: float, y: float, 
 		# TextWrapping + LineSpacing 8 (CreditsScene.cs:177-180) : le C# ajoute une espace apres chaque mot, y compris le dernier, avant de centrer la ligne
 		# (TextControl.UpdateSize : text5 = $"{stringBuilder2}{text4} ") ; la ligne visible est donc decalee de la moitie d'une espace vers la gauche.
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.add_theme_constant_override("line_spacing", 0) # pas de ligne de l'APK : (FontHeight + LineSpacing 8) x 1,4 = 40 px (mesure sur flow_02_build.png) ; arcadepix 29 fait deja 40 px de haut dans Godot
-		x -= _font.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, size).x / 2.0
+		l.add_theme_constant_override("line_spacing", -1) # pas de 40 px sur 07_credits_t20 : la ligne d'un Label arcadepix 21 fait ~30 px, (30 - 1) x 1,4 = 40,6 (LineSpacing 8 de l'APK + hauteur de police Wave ~ 20,6)
+		x -= _font.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, size).x * scale / 2.0
 	l.position = Vector2(x, y + TEXT_DY)
-	l.custom_minimum_size.x = w_apk * scale
-	l.size.x = w_apk * scale
+	l.custom_minimum_size.x = w_apk
+	l.size.x = w_apk
+	l.scale = Vector2(scale, scale) # Transform2D.LocalScale : le texte est mis a l'echelle depuis son coin haut-gauche
 	parent.add_child(l)
 
 ## H2 / noms : CreateArcadepixTB(currentPosition.X = 0, ...), Width 1090, echelle 1,3, centres dans la boite (la boite part de x = 0 : axe = 1090 x 1,3 / 2 = 708,5 ; mesure sur la frame APK : ~949).

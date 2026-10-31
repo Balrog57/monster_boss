@@ -1195,8 +1195,7 @@ func _check_ui() -> void:
 		_check(foe_pid != pid, "adversaire affiche = mon propre siege (%d)" % pid)
 		if not (phase == "boss" and p.get("boss") == null):
 			_check_lane(0, foe_dict, "couloir adverse (siege %d)" % foe_pid)
-	var can_lvl: bool = BossEngine.count_visible_rooms(p.get("dungeon", [])) >= 5
-	_check((board.levelup_btn.modulate.r > 1.0) == can_lvl, "bouton LEVEL UP : %s avec %d salles visibles" % ["allume" if board.levelup_btn.modulate.r > 1.0 else "eteint", BossEngine.count_visible_rooms(p.get("dungeon", []))])
+	_check(board.levelup_btn.modulate == Color.WHITE, "bouton LEVEL UP : l'APK n'a ni etat eteint ni etat allume (teinte %s)" % str(board.levelup_btn.modulate))
 	# donjons : mon couloir (emplacements) et celui de l'adversaire affiche
 	var dungeon: Array = p["dungeon"]
 	var off: int = maxi(0, CardDB.DUNGEON_SLOTS - dungeon.size())
@@ -2102,13 +2101,13 @@ func _check_zoom_gestures() -> void:
 		var r3 := _grect(board._zoom)
 		_check(absf(r3.size.x - 455.0) <= 6.0 and absf(r3.get_center().x - 960.0) <= 4.0, "zoom file : %s au lieu de 455 de large au centre" % r3)
 	await _click_at(away)
-	# boss : appui (TouchPressed), a droite, bord droit 1730, ferme au clic suivant (frame levelup_button_tap : 457 de large)
+	# boss : appui (TouchPressed), a droite, bord droit 1736, ferme au clic suivant (frame levelup_button_tap : 460 de large)
 	var spr: Control = board._lane[1]["sprite"]
 	await _mouse(spr.get_global_rect().get_center(), true, false)
 	await _wait(0.4)
 	if _check(board._zoom != null, "zoom boss : l'appui sur le boss ne zoome pas"):
 		var r4 := _grect(board._zoom)
-		_check(absf(r4.end.x - 1730.0) <= 4.0 and absf(r4.size.x - 455.0) <= 6.0, "zoom boss : %s au lieu de 455 de large, bord droit 1730" % r4)
+		_check(absf(r4.end.x - 1736.0) <= 4.0 and absf(r4.size.x - 460.0) <= 6.0, "zoom boss : %s au lieu de 460 de large, bord droit 1736" % r4)
 	await _mouse(spr.get_global_rect().get_center(), false, false)
 	_check(board._zoom != null, "zoom boss : le relachement ferme le zoom (APK : TouchPressed)")
 	await _click_at(away)
@@ -2118,7 +2117,7 @@ func _check_zoom_gestures() -> void:
 	await _wait(0.4)
 	if _check(board._zoom != null, "LEVEL UP : l'appui ne zoome pas (le zoom ne doit pas attendre le relachement)"):
 		var r5 := _grect(board._zoom)
-		_check(absf(r5.end.x - 1730.0) <= 4.0 and absf(r5.size.x - 455.0) <= 6.0 and absf(r5.end.y - 1076.0) <= 6.0, "LEVEL UP : %s au lieu de 455 de large, bord droit 1730, bas 1076" % r5)
+		_check(absf(r5.end.x - 1736.0) <= 4.0 and absf(r5.size.x - 460.0) <= 6.0 and absf(r5.end.y - 1080.0) <= 6.0, "LEVEL UP : %s au lieu de 460 de large, bord droit 1736, bas 1080" % r5)
 	await _mouse(lb, false, false)
 	_check(board._zoom != null, "LEVEL UP : le relachement ferme le zoom")
 	await _click_at(away)
@@ -2783,7 +2782,7 @@ func _check_credits() -> void:
 	var powered: Label = cs.footer.node.find_children("*", "Label", true, false)[0]
 	_check(powered.text == "POWERED BY" and powered.get_theme_color("font_color") == Color("bfca7a"), "credits : pied sans POWERED BY (%s)" % powered.text)
 	for l in labels: # rien ne deborde en largeur ; axe des noms 1090 x 1,3 / 2 + 240 = 948,5 (frame APK : ~949)
-		var r := Rect2((l as Label).position, (l as Label).size)
+		var r := Rect2((l as Label).position, (l as Label).size * (l as Label).scale) # le texte est mis a l'echelle par Label.scale (1,3 / 1,4), taille de police native
 		_check(r.position.x >= 0.0 and r.end.x <= 1920.0, "credits : %s deborde en largeur %s" % [(l as Label).text, r])
 		if l.get_meta("kind") != "h1":
 			_check(is_equal_approx(r.position.x + r.size.x / 2.0, 948.5), "credits : axe de %s en %f (948,5 attendu)" % [(l as Label).text, r.position.x + r.size.x / 2.0])
@@ -3857,6 +3856,15 @@ func _check_viewport() -> void:
 	for sl in board._dungeon_slots:
 		if (sl as Control).visible:
 			_check(win_rect.encloses((sl as Control).get_global_rect()), "4:3 : un emplacement sort de la fenetre %s" % (sl as Control).get_global_rect())
+	# BubbleEntity / CountDownEntity : collees au bord droit (marge de l'APK : 1458 / 1150 + shift_right) et dans la fenetre
+	var bub: Control = board._playing_bubble(1, 0)
+	var cdn: Control = preload("res://godot/scripts/CountDown.gd").new(null)
+	board.add_child(cdn)
+	await get_tree().process_frame
+	_check(is_equal_approx(bub.position.x, 1458.0 + Vp.shift_right()) and bub.get_global_rect().end.x - 20.0 <= Vp.right_edge() + 0.5, "4:3 : la bulle IS PLAYING ne suit pas le bord droit (%s)" % bub.get_global_rect())
+	_check(is_equal_approx(cdn.position.x, 1150.0 + Vp.shift_right()), "4:3 : le compte a rebours ne suit pas le bord droit (%.1f)" % cdn.position.x)
+	bub.queue_free()
+	cdn.queue_free()
 	# jouable : un clic ne fait rien, un vrai glisser (evenements fenetre decales) pose la salle sur l'emplacement libre
 	var me: Dictionary = gm.G["players"][0]
 	var hand: Array = me["hand"]

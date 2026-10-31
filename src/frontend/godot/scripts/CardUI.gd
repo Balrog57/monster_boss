@@ -186,6 +186,9 @@ func _update_view() -> void:
 			texture_rect.texture = load(card_data.texture_path)
 			has_tex = true
 
+	var bg := get_node_or_null("Background") # fond de secours : visible seulement sans image (sinon il remplit les coins arrondis, transparents sur l'APK)
+	if bg != null:
+		bg.visible = not has_tex
 	if card_data.face_down:
 		if title_label:
 			title_label.visible = false
@@ -309,7 +312,7 @@ func _hover_out() -> void:
 	if glow_rect:
 		glow_rect.visible = false
 	if border:
-		border.border_color = Color(0.4, 0.4, 0.5, 0.5)
+		border.border_color = Color(0.4, 0.4, 0.5, 0.0) # l'APK n'a aucun liseré autour des cartes (la carte porte son propre cadre noir arrondi)
 	lerp_vers(self, "scale", _rest_scale)
 	card_hovered.emit(card_data, false)
 

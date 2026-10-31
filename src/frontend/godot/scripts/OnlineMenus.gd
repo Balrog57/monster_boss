@@ -44,19 +44,25 @@ func _init(main) -> void:
 
 # --- briques --------------------------------------------------------------------
 
-## Texte arcadepix a l'echelle `scale` (taille = 21 x echelle), coin haut-gauche en `pos`, largeur `w` (0 = au plus juste).
+## Texte arcadepix a l'echelle `scale` (taille native 21, echelle appliquee en vrai par Label.scale : plus d'arrondi 27,3 -> 27), coin haut-gauche en `pos`, largeur `w` en pixels ecran (0 = au plus juste).
+## La hauteur de boite se pose avec `_h` (en pixels ecran).
 func _t(text: String, scale: float, color: Color, pos: Vector2, w: float = 0.0, align: int = HORIZONTAL_ALIGNMENT_LEFT, font: String = A) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.add_theme_font_override("font", UiKit.font(font))
-	l.add_theme_font_size_override("font_size", roundi((24.0 if font == BOOKMAN else 21.0) * scale))
+	l.add_theme_font_size_override("font_size", 24 if font == BOOKMAN else 21)
+	l.scale = Vector2(scale, scale)
 	l.add_theme_color_override("font_color", color)
 	l.horizontal_alignment = align as HorizontalAlignment
 	l.position = pos
 	if w > 0.0:
-		l.size.x = w
+		l.size.x = w / scale
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
+
+## Hauteur de la boite d'un texte de `_t`, en pixels ecran (la boite est mise a l'echelle avec le texte).
+func _h(l: Label, h: float) -> void:
+	l.size.y = h / l.scale.y
 
 ## Decor des scenes en ligne : multiplayer_bg, petit logo (CreateLogo(false) : haut-centre a y = 10), fleche de retour (80,70).
 func _screen(back: Callable) -> void:
@@ -79,7 +85,7 @@ func _label_btn(text: String, cx: float, cy: float, cb: Callable, pressed_color:
 	b.scale = Vector2(s, s)
 	b.focus_mode = Control.FOCUS_NONE
 	var l := _t(text, text_scale, Color.WHITE, Vector2.ZERO, 619.0, HORIZONTAL_ALIGNMENT_CENTER)
-	l.size.y = 177.0
+	_h(l, 177.0)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.name = "Label"
 	b.add_child(l)
@@ -102,11 +108,11 @@ func msg_box(title: String, text: String, ok: Callable = Callable()) -> Control:
 	if title != "":
 		dim.add_child(m._tex("gradients/bg_txt.webp", Vector2(394, 75.6 - 32.0)))
 		var tl := _t(title.to_upper(), 2.0, GOLD, Vector2(394, 75.6 - 32.0), 1132.0, HORIZONTAL_ALIGNMENT_CENTER)
-		tl.size.y = 64.0
+		_h(tl, 64.0)
 		tl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		dim.add_child(tl)
 	var ml := _t(text, 1.5, Color.WHITE, Vector2(160, 480.6 - 40.0), 1600.0, HORIZONTAL_ALIGNMENT_CENTER)
-	ml.size.y = 80.0
+	_h(ml, 80.0)
 	ml.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	ml.name = "Message"
 	dim.add_child(ml)
@@ -121,7 +127,7 @@ func msg_box(title: String, text: String, ok: Callable = Callable()) -> Control:
 	b.focus_mode = Control.FOCUS_NONE
 	b.name = "Ok"
 	var ol := _t("OK", 1.5, Color.WHITE, Vector2.ZERO, 400.0, HORIZONTAL_ALIGNMENT_CENTER)
-	ol.size.y = 103.0
+	_h(ol, 103.0)
 	ol.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	b.add_child(ol)
 	b.button_down.connect(func():

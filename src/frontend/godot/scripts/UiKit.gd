@@ -16,14 +16,14 @@ const BOSS_COLORS := {1: Color("34495c"), 2: Color("5e2a2f"), 3: Color("52506a")
 static func boss_treasure_color(boss) -> Color:
 	if boss == null:
 		return Color.BLACK
-	var tr: Array = (boss as Dictionary).get("treasures", [])
+	var tr: Array = ((boss as Dictionary).get("treasures", []) as Array).map(func(v): return int(v)) # le JSON donne des flottants : Array.has(2) est faux sur [2.0]
 	for t in [1, 2, 3, 4]:
 		if tr.has(t):
 			return BOSS_COLORS[t]
 	return Color.BLACK
 
-const ZOOM_CARD := Vector2(330, 470)                 # zoom d'une carte (appui long, glisser, pioche, pile de sorts) ; cadre noir compris = 350 x 490 (mesure APK : pile de sorts, appui long)
-const ZOOM_PAD := 10.0                               # cadre noir arrondi autour de la carte zoomee
+const ZOOM_CARD := Vector2(354, 494)                 # zoom d'une carte (appui long, glisser, pioche, pile de sorts) ; la carte porte deja son bord noir de 16 px (mesure APK : boss x 1,3 = 460 de large, bord 21 ; pile de salles x 1,56 = 552, bord 27)
+const ZOOM_PAD := 0.0                                # plus de cadre noir en plus : celui de l'APK est le bord de la carte (avant : 10 px de cadre autour d'une carte de 330 x 470)
 
 static var _fonts := {}
 
@@ -183,7 +183,7 @@ static func zoom_card(card: Dictionary, sz: Vector2 = ZOOM_CARD, greyed: bool = 
 	var root := Panel.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.03, 0.02, 0.03, 0.97)
-	sb.set_corner_radius_all(int(16.0 * pad / ZOOM_PAD))
+	sb.set_corner_radius_all(int(16.0 * sz.x / 354.0))
 	root.add_theme_stylebox_override("panel", sb)
 	root.size = sz + Vector2(pad, pad) * 2.0
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE

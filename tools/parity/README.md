@@ -11,6 +11,7 @@ python tools/parity/image_diff.py                    # mesure seule sur les capt
 python tools/parity/image_diff.py --check            # garde anti-regression : code 1 si un seuil est depasse ou une capture manque (pas de PNG)
 python tools/parity/image_diff.py --only=<texte> --top=N --no-png --tag=<nom> --godot-dir=<dossier sous docs/reference>
 python tools/parity/image_diff.py --freeze           # ecrit un plafond (ecart actuel + 20 %) dans les paires des kinds "freeze" qui n'en ont pas
+python tools/parity/image_diff.py --tighten         # serre TOUS les plafonds a (ecart actuel x 1,15 + 0,3) et ecrit `state` (voir ci-dessous) ; a lancer apres une recapture complete
 ```
 
 - **Entree** : `frame_pairs.json` (source versionnee, a editer a la main). Une entree par frame APK (263) : `godot` = nom de la capture (`docs/reference/godot_screens/godot_<nom>.png`,
@@ -22,6 +23,9 @@ python tools/parity/image_diff.py --freeze           # ecrit un plafond (ecart a
   Sorties : `tools/parity/out/<tag>.md` / `.csv` (tableau trie pire d'abord), PNG 2 x 2 (APK | Godot | diff x4 | carte de chaleur, masques en magenta).
 - **Lecture** : un ecart de contenu (autres cartes, autre heros, autre boss) n'est pas un defaut ; le `chrome` (titre, defausse, colonne de droite, plaque de phase, PASS TURN) et tous les ecrans `ui`
   sont les seuls juges. Les plafonds des paires `board` sont un cliquet : les baisser quand un ecart est corrige, jamais les monter sans raison ecrite.
+- **`state` / `state_reason`** (ecrits par `--tighten`) : `chrome` = l'etat de la frame APK est reproduit, l'ecart restant est du chrome + le plancher de mesure (frames APK un peu floues : ~1,5 a 3 de moyenne meme alignees au pixel) ;
+  `content` = etat de partie ou image d'animation differents (autre phase, autre boss, carrousel qui s'ouvre a un autre instant...), la raison est dans `state_reason`. Critere : `ui` moyenne <= 2,5 ; `board` chrome <= 6 et pire cellule <= 40 ; `tutorial` moyenne <= 4,5. Un `state_reason` ecrit a la main est conserve.
+- **Plancher** : une frame APK alignee a (0, 0) sur l'image Godot donne encore ~1,5 a 3 de moyenne en gris sur les fonds (flou de la capture BlueStacks) : sous ce seuil un ecart n'est pas un defaut.
 - **Ajouter un etat** : creer la capture dans `capture_screens.gd` (groupe par defaut, sinon `--check` ne la voit pas apres un `--capture`), puis la paire dans le JSON.
 
 ## apk.py : oracle des regles

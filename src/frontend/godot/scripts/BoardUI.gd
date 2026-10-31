@@ -141,8 +141,8 @@ var _opp_open := false
 var _opp_gen := 0
 var sidebar_boss_label: Label
 var sidebar_sub_label: Label
-var souls_container: HBoxContainer
-var wounds_container: HBoxContainer
+var souls_container: Control
+var wounds_container: Control
 var treasures_container: Control
 var room_deck_label: Label
 var spell_deck_label: Label
@@ -308,6 +308,18 @@ func _lbl(parent: Node, text: String, font_size: int, color: Color, pos: Vector2
 	parent.add_child(l)
 	return l
 
+## Bloc de texte a la C# (ControlsFactory.CreateTB) : police bitmap a sa taille native (arcadepix 21, arcadepix2 29), mise a l'echelle `scale` par la
+## transformation (Transform2D.LocalScale), sans contour, coin haut-gauche en `pos`. Remplace les tailles de police arrondies a l'entier.
+## TB_DY : le haut des glyphes d'un Label Godot tombe ~4,1 px (a l'echelle 1) plus bas que celui d'un TextDrawableBlock de Wave au meme point (balayage 3,5 - 5,5 contre les textes de la colonne de droite : minimum a 4,1 ; cause : ascent de la police bitmap).
+const TB_DY := 4.1
+const DMG_TEXT_X := 1356.0 + 93.0
+func _tb(parent: Node, text: String, pos: Vector2, scale: float, color: Color, font: Font = null, width: float = 0.0, align: int = HORIZONTAL_ALIGNMENT_LEFT) -> Label:
+	var f: Font = font if font != null else _fa
+	var l := _lbl(parent, text, 29 if f == _fb else 21, color, pos - Vector2(0.0, TB_DY * scale), width, f, align)
+	l.add_theme_constant_override("outline_size", 0)
+	l.scale = Vector2(scale, scale)
+	return l
+
 func _rect(parent: Node, color: Color, pos: Vector2, sz: Vector2) -> ColorRect:
 	var r := ColorRect.new()
 	r.color = color
@@ -424,13 +436,15 @@ func _make_lane(idx: int) -> Dictionary:
 	bd.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(bd)
 	Vp.edge(bd, Vp.RIGHT)
-	_img(bd, TEX_TOTAL_DAMAGE, Vector2(1355, 12))
-	L["dmg"] = _lbl(bd, "0", 19, Color.WHITE, Vector2(1355 + 105 - 25, 20), 50.0, _fa, HORIZONTAL_ALIGNMENT_CENTER) # APK : chiffre centre sur le coeur (y 96 / 532), ~13 px de haut
-	_img(bd, TEX_XP_BADGE, Vector2(1503, 12))
-	L["xp"] = _lbl(bd, "0XP", 22, Color.WHITE, Vector2(1509, 12 + 11), 0.0, _fb)
-	L["xp_unit"] = _lbl(bd, "XP", 22, APK_GOLD, Vector2(1509, 12 + 11), 0.0, _fb) # APK : « XP » en or, les chiffres en blanc (recouvre le « XP » blanc de L["xp"])
-	L["lvl"] = _lbl(bd, "1", 24, Color.WHITE, Vector2(1503 + 95, 12 + 7), 40.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
-	L["icon"] = _img(bd, "", Vector2(1503 + 153 - 13, 12 + 25 - 13), Vector2(26, 26), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
+	var by := 10.0 if idx == 0 else 11.0 # haut du badge dans le couloir : frames APK (1502, 72) adversaire / (1502, 508) joueur (couloirs a 62 / 497)
+	_img(bd, TEX_TOTAL_DAMAGE, Vector2(1356, by + 1.0)) # sprite retrouve a (1356, 73) / (1356, 509) (centre en (-80, 30) du badge, Origin Center)
+	L["dmg"] = _tb(bd, "0", Vector2(DMG_TEXT_X, by + 13.0), 0.9, Color.WHITE) # BossXPAndOrderControl : enfant (27, -17) du sprite centre ; a 2 chiffres et plus, 5 px a gauche (TotalDamage)
+	_img(bd, TEX_XP_BADGE, Vector2(1502, by))
+	L["xp"] = _tb(bd, "0XP", Vector2(1502 + 5, by + 14), 0.9, Color.WHITE) # BossXPAndOrderControl : texte riche (chiffres blancs + « XP » or) en (5, 14), echelle 0,9 ; aligne a gauche sur l'APK malgre Width 120 / Center
+	L["xp_unit"] = _tb(bd, "XP", Vector2(1502 + 5, by + 14), 0.9, APK_GOLD) # APK : « XP » en or, les chiffres en blanc (recouvre le « XP » blanc de L["xp"])
+	L["lvl"] = _tb(bd, "1", Vector2(1502 + 80, by + 6), 1.4, Color.WHITE, _fa, 50.0, HORIZONTAL_ALIGNMENT_CENTER) # BossXPAndOrderControl : `order` en (80, 6), echelle 1,4, largeur 50 centree
+	L["icon"] = _img(bd, "", Vector2(1502 + 155 - 16, by + 21 - 16), Vector2(32, 32), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
+	L["by"] = by
 	return L
 
 func _build_frame() -> void:
@@ -466,59 +480,61 @@ func _build_left() -> void:
 
 func _build_right() -> void:
 	var n0 := get_child_count()
-	# --- Boss adverse (positions mesurees sur les frames de l'APK ; polices : arcadepix A pour tout le texte de la colonne)
+	# Colonne de droite a la C# (TopRightPanelEntity : panneau de 211 px a x 1709 ; adversaire OneOpponentDetail en y 60, mon boss ChallengerDetail en y 483).
+	# Sprites a leur taille native, aux positions du C# (retrouvees au pixel pres sur les frames : tools/parity/locate), texte via _tb (arcadepix, echelle du C#).
 	foe_group = Control.new() # OneOpponentDetail (2 joueurs) ; a 3-4 joueurs, les vignettes opp_box + opp_detail le remplacent
 	foe_group.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(foe_group)
 	opp_box = Control.new()
 	opp_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(opp_box)
-	_img(foe_group, UI_DIR + "boss_icon.webp", Vector2(1712.5, 74.5), Vector2(43, 43), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
-	foe_name_label = _lbl(foe_group, "", 18, APK_GOLD, Vector2(1762, 75), 150.0, _fa)
-	foe_sub_label = _lbl(foe_group, "", 11, Color.WHITE, Vector2(1762, 100), 110.0, _fa)
+	_img(foe_group, UI_DIR + "boss_icon.webp", Vector2(1708, 63)) # BossDetailHeaderControl(8, 16) + icone (-9, -13)
+	foe_name_label = _tb(foe_group, "", Vector2(1761, 78), 0.9, APK_GOLD) # (44, 2), echelle 0,9
+	foe_sub_label = _tb(foe_group, "", Vector2(1761, 102), 0.55, Color.WHITE, _fa, 200.0) # (44, 26), largeur 200, retour a la ligne
 	foe_sub_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	foe_sub_label.add_theme_constant_override("line_spacing", -4)
-	_img(foe_group, TEX_WOUND, Vector2(1715.5, 138), Vector2(27, 35), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
-	foe_wounds_label = _lbl(foe_group, "x0", 18, Color.WHITE, Vector2(1746, 142), 0.0, _fa)
-	_img(foe_group, TEX_SOUL, Vector2(1775.5, 137.5), Vector2(29, 34), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
-	foe_souls_label = _lbl(foe_group, "x0", 18, Color.WHITE, Vector2(1806, 142), 0.0, _fa)
-	foe_treasures_box = Control.new()
-	foe_treasures_box.position = Vector2(1715, 197)
-	foe_treasures_box.size = Vector2(202, 68)
+	foe_sub_label.add_theme_constant_override("line_spacing", -6)
+	_img(foe_group, TEX_WOUND, Vector2(1717, 140)) # IconCounterControlEntity sans maximum : une icone + « xN » (largeur de l'icone + 3, centre sur 20 de haut, echelle 0,8)
+	foe_wounds_label = _tb(foe_group, "x0", Vector2(1717 + 26 + 3, 140 + (35 - 20) / 2.0), 0.8, Color.WHITE)
+	_img(foe_group, TEX_SOUL, Vector2(1779, 140))
+	foe_souls_label = _tb(foe_group, "x0", Vector2(1779 + 25 + 3, 140 + (35 - 20) / 2.0), 0.8, Color.WHITE)
+	foe_treasures_box = Control.new() # TreasuresBackPanel en (4, 135) du panneau, compteurs en (13, 142) / (113, 142) / (13, 176) / (113, 176)
+	foe_treasures_box.position = Vector2(1713, 195)
+	foe_treasures_box.size = Vector2(202, 71)
 	foe_treasures_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	foe_group.add_child(foe_treasures_box)
-	_foe_treasure_bg = _img(foe_treasures_box, UI_DIR + "bg_treasures_boss_profile.webp", Vector2.ZERO, Vector2(202, 68)) # teinte par _refresh_sidebar (OneOpponentDetail.cs:206)
+	_foe_treasure_bg = _img(foe_treasures_box, UI_DIR + "bg_treasures_boss_profile.webp", Vector2.ZERO) # teinte par _refresh_sidebar (OneOpponentDetail.cs:206)
 	foe_coins_label = _lbl(foe_group, "", 12, GOLD, Vector2(1718, 268))
-	# --- Pioches
-	_lbl(foe_group, "ROOM DECK", 16, Color.WHITE, Vector2(1718, 286), 0.0, _fa)
-	_img(foe_group, UI_DIR + "rooms_icon.webp", Vector2(1717, 315), Vector2(50, 48))
-	room_deck_label = _lbl(foe_group, "x0", 20, APK_GOLD, Vector2(1784, 335), 0.0, _fa)
-	_lbl(foe_group, "SPELL DECK", 16, Color.WHITE, Vector2(1718, 382), 0.0, _fa)
-	_img(foe_group, UI_DIR + "spells_icon.webp", Vector2(1717, 410), Vector2(50, 48))
-	spell_deck_label = _lbl(foe_group, "x0", 20, APK_GOLD, Vector2(1784, 431), 0.0, _fa)
+	# --- Pioches (CreateHandCounters)
+	_tb(foe_group, "ROOM DECK", Vector2(1717, 289), 0.8, Color.WHITE)
+	_img(foe_group, UI_DIR + "rooms_icon.webp", Vector2(1742 - 26, 339 - 25.5)) # Origin centre en (33, 279)
+	room_deck_label = _tb(foe_group, "x0", Vector2(1783, 339), 1.0, APK_GOLD)
+	_tb(foe_group, "SPELL DECK", Vector2(1717, 385), 0.8, Color.WHITE)
+	_img(foe_group, UI_DIR + "spells_icon.webp", Vector2(1742 - 26.5, 435 - 25.5))
+	spell_deck_label = _tb(foe_group, "x0", Vector2(1783, 435), 1.0, APK_GOLD)
 	deck_info_label = _lbl(self, "", 13, GOLD, Vector2(1718, 472))
-	# --- Mon boss
-	_img(self, UI_DIR + "boss_icon.webp", Vector2(1712.5, 507.5), Vector2(43, 43), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
-	sidebar_boss_label = _lbl(self, "", 18, APK_GOLD, Vector2(1762, 508), 150.0, _fa)
-	sidebar_sub_label = _lbl(self, "", 11, Color.WHITE, Vector2(1762, 533), 110.0, _fa)
+	# --- Mon boss (ChallengerDetail : panneau en (1709, 483))
+	_img(self, UI_DIR + "boss_icon.webp", Vector2(1708, 496)) # BossDetailHeaderControl(8, 26)
+	sidebar_boss_label = _tb(self, "", Vector2(1761, 511), 0.9, APK_GOLD)
+	sidebar_sub_label = _tb(self, "", Vector2(1761, 535), 0.55, Color.WHITE, _fa, 200.0)
 	sidebar_sub_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	sidebar_sub_label.add_theme_constant_override("line_spacing", -4)
-	_lbl(self, "WOUNDS", 16, Color.WHITE, Vector2(1718, 578), 0.0, _fa)
-	wounds_container = HBoxContainer.new()
-	wounds_container.position = Vector2(1718, 606)
-	wounds_container.add_theme_constant_override("separation", 3)
+	sidebar_sub_label.add_theme_constant_override("line_spacing", -6)
+	_tb(self, "WOUNDS", Vector2(1717, 581), 0.8, Color.WHITE)
+	wounds_container = Control.new()
+	wounds_container.position = Vector2(1717, 603)
+	wounds_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(wounds_container)
-	_lbl(self, "SOULS", 16, Color.WHITE, Vector2(1718, 642), 0.0, _fa)
-	souls_container = HBoxContainer.new()
-	souls_container.position = Vector2(1718, 668)
-	souls_container.add_theme_constant_override("separation", 0)
+	_tb(self, "SOULS", Vector2(1717, 645), 0.8, Color.WHITE)
+	souls_container = Control.new()
+	souls_container.position = Vector2(1717, 665)
+	souls_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(souls_container)
-	_lbl(self, "TREASURES", 16, Color.WHITE, Vector2(1718, 704), 0.0, _fa)
+	_tb(self, "TREASURES", Vector2(1717, 707), 0.8, Color.WHITE)
 	treasures_container = Control.new()
 	treasures_container.position = Vector2(1717, 737)
 	treasures_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(treasures_container)
-	levelup_btn = _tex_button(self, UI_DIR + "levelup_bt.webp", UI_DIR + "levelup_bt_pressed.webp", Vector2(1722, 978), Vector2(183, 59))
+	_img(self, UI_DIR + "bg_levelup_panel.webp", Vector2(1709, 952)) # LevelUpBg en (0, 470) du panneau (TopRightPanelEntity.cs:121-123), retrouve a (1709, 952)
+	levelup_btn = _tex_button(self, UI_DIR + "levelup_bt.webp", UI_DIR + "levelup_bt_pressed.webp", Vector2(1722, 979), Vector2(183, 59))
 	opp_detail = Control.new() # ExpandedOpponentDetail : bg_boss_detail 295 x 451, tire de 498 px depuis le bord droit (ExpandedOpponentComponent.cs:9,43)
 	opp_detail.position = Vector2(Vp.rx(1422.0), 55)
 	opp_detail.size = Vector2(295, 451)
@@ -962,17 +978,15 @@ func _opp_detail_fill(pid: int) -> void:
 		_lbl(opp_detail, str(int((boss as Dictionary).get("xp", 0))), 16, APK_GOLD, Vector2(67, 59), 0.0, _fa)
 		_lbl(opp_detail, "XP", 16, Color.WHITE, Vector2(133, 59), 0.0, _fa)
 	_lbl(opp_detail, "WOUNDS", 16, Color.WHITE, Vector2(23, 95), 0.0, _fa)
-	var wc := HBoxContainer.new()
+	var wc := Control.new()
 	wc.position = Vector2(23, 123)
-	wc.add_theme_constant_override("separation", 3)
 	opp_detail.add_child(wc)
-	_icon_row(wc, 5, CardDB.total_wounds(pl), TEX_WOUND, TEX_WOUND_EMPTY, Vector2(21, 27))
+	_icon_row(wc, 5, CardDB.total_wounds(pl), TEX_WOUND, TEX_WOUND_EMPTY, -3.0)
 	_lbl(opp_detail, "SOULS", 16, Color.WHITE, Vector2(23, 157), 0.0, _fa)
-	var sc := HBoxContainer.new()
+	var sc := Control.new()
 	sc.position = Vector2(23, 183)
-	sc.add_theme_constant_override("separation", 0)
 	opp_detail.add_child(sc)
-	_icon_row(sc, 10, CardDB.total_souls(pl, G), TEX_SOUL, TEX_SOUL_EMPTY, Vector2(19, 26))
+	_icon_row(sc, 10, CardDB.total_souls(pl, G), TEX_SOUL, TEX_SOUL_EMPTY, -6.0)
 	var hand: Array = pl.get("hand", [])
 	_lbl(opp_detail, "ROOM DECK", 16, Color.WHITE, Vector2(23, 227), 0.0, _fa)
 	_img(opp_detail, UI_DIR + "rooms_icon.webp", Vector2(22, 256), Vector2(50, 48))
@@ -1530,10 +1544,11 @@ func _refresh_lane_badges(idx: int, pl: Dictionary) -> void:
 	var L: Dictionary = _lane[idx]
 	var boss = pl.get("boss")
 	_fade_text(L["dmg"] as Label, str(_get_total_dungeon_damage(pl))) # BossXPAndOrderControl.cs:TotalDamage : CreateUpdateTask avec fondu
+	(L["dmg"] as Label).position.x = DMG_TEXT_X - (5.0 if (L["dmg"] as Label).text.length() > 1 else 0.0)
 	var xp_n := int((boss as Dictionary).get("xp", 0)) if boss != null else 0
 	(L["xp"] as Label).text = "%dXP" % xp_n
 	var xp_digits := str(xp_n)
-	(L["xp_unit"] as Label).position.x = (L["xp"] as Label).position.x + _fb.get_string_size(xp_digits, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
+	(L["xp_unit"] as Label).position.x = (L["xp"] as Label).position.x + _fa.get_string_size(xp_digits, HORIZONTAL_ALIGNMENT_LEFT, -1, 21).x * 0.9
 	(L["xp_unit"] as Label).text = "XP"
 	(L["lvl"] as Label).text = str(_player_order(int(pl.get("id", 0)))) # BossXPAndOrderControl.cs:109 : Boss.PlayerId
 	var tr: Array = (boss as Dictionary).get("treasures", []) if boss != null else []
@@ -1542,7 +1557,7 @@ func _refresh_lane_badges(idx: int, pl: Dictionary) -> void:
 	ic.texture = _tex(UI_DIR + "mp_icon_treasure_%s.webp" % tn) if tn != "" else null
 	if ic.texture != null:
 		ic.size = ic.texture.get_size() * 0.9
-		ic.position = Vector2(1503.0 + 155.0, 12.0 + 21.0) - ic.size / 2.0
+		ic.position = Vector2(1502.0 + 155.0, float(L["by"]) + 21.0) - ic.size / 2.0
 
 ## Un boss vient de monter de niveau (leveledUp passe a vrai) : banniere LEVEL UP dans son couloir. Le premier refresh ne fait que memoriser.
 func _track_levelup(G: Dictionary) -> void:
@@ -2597,12 +2612,11 @@ func _fade_in_lanes() -> void:
 		tw.tween_interval(0.5 * float(1 - i))
 		tw.tween_property(root, "modulate:a", 1.0, 0.5)
 
-## Remplit une zone d'icones de tresor : chaque type est repete `count` fois (grise si 0).
-func _fill_treasures(box: Control, counts: Dictionary, layout: Array, icon_sz: float) -> void:
+## Compteurs de tresor (IconCounterControlEntity, maximum `maxn`) : l'icone « vide » est toujours posee (icone zero, cs:CreateIconEntites), les icones pleines
+## s'alignent dessus (pas = largeur + marge) jusqu'a `maxn`, au-dela une seule icone suivie de « xN » (cs:UpdateValue). Tailles natives.
+func _fill_treasures(box: Control, counts: Dictionary, layout: Array, name_fmt: String, maxn: int) -> void:
 	for c in box.get_children():
-		if c is TextureRect and (c as TextureRect).texture != null and str((c as TextureRect).name).begins_with("T_"):
-			c.queue_free()
-		elif c is Label:
+		if (c is TextureRect and str((c as TextureRect).name).begins_with("T_")) or c is Label:
 			c.queue_free()
 	for item in layout:
 		var tp: int = int(item[0])
@@ -2612,14 +2626,22 @@ func _fill_treasures(box: Control, counts: Dictionary, layout: Array, icon_sz: f
 			if count > 0:
 				_lbl(box, "EXPL x%d" % count, 12, GOLD, pos)
 			continue
-		for k in range(clampi(count, 1, 5)):
-			var t := _img(box, str(TREASURE_TEX[tp]), pos + Vector2(k * (icon_sz + 2.0), 0), Vector2(icon_sz, icon_sz), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
-			t.name = "T_%d_%d" % [tp, k]
-			t.modulate = Color(1, 1, 1, 1) if count > 0 else Color(1, 1, 1, 0.3)
+		var base: String = UI_DIR + name_fmt % TREASURE_NAMES[tp]
+		var zero := _img(box, base + "_empty.webp", pos)
+		zero.name = "T_%d_z" % tp
+		var step := zero.size.x + float(item[2])
+		if count > 0 and count <= maxn:
+			for k in count:
+				var t := _img(box, base + ".webp", pos + Vector2(k * step, 0))
+				t.name = "T_%d_%d" % [tp, k]
+		elif count > maxn:
+			var t := _img(box, base + ".webp", pos)
+			t.name = "T_%d_0" % tp
+			_tb(box, "x%d" % count, pos + Vector2(t.size.x + 3.0, (t.size.y - 20.0) / 2.0), 0.8, Color.WHITE)
 
 ## Les icones apparues depuis le dernier rafraichissement (from -> to) apparaissent en fondu lineaire de 0,5 s sur l'icone vide
 ## (IconCounterControlEntity.cs:134,173 : FadeBehavior 0,5 s ; l'icone « allumee » fond par-dessus l'icone vide).
-func _flash_icons(box: Container, from: int, to: int, off_path: String) -> void:
+func _flash_icons(box: Control, from: int, to: int, off_path: String) -> void:
 	if from < 0 or to <= from:
 		return
 	var live := box.get_children().filter(func(c): return not c.is_queued_for_deletion()) # _icon_row vient de vider la rangee (queue_free)
@@ -2640,24 +2662,15 @@ func _flash_icons(box: Container, from: int, to: int, off_path: String) -> void:
 				ic.texture = fill.texture
 			fill.queue_free())
 
-func _icon_row(box: Container, total: int, filled: int, on_path: String, off_path: String, sz: Vector2) -> void:
+## Rangee d'icones natives (IconCounterControlEntity avec maximum absolu : `filled` pleines puis vides, pas = largeur + `margin`).
+func _icon_row(box: Control, total: int, filled: int, on_path: String, off_path: String, margin: float) -> void:
 	for c in box.get_children():
+		box.remove_child(c) # tout de suite : le test de compte lit les enfants apres le rafraichissement
 		c.queue_free()
+	var w: float = _tex(on_path).get_size().x
 	for i in range(total):
-		var t := TextureRect.new()
-		t.custom_minimum_size = sz
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.texture = _tex(on_path if i < filled else off_path)
-		box.add_child(t)
-
-## Un nom trop long pour la colonne (1762..1912) est reduit pour y tenir (l'APK ne deborde pas).
-func _fit_label(l: Label, max_w: float, base: int) -> void:
-	var f: Font = l.get_theme_font("font")
-	var sz := base
-	while sz > 9 and f.get_string_size(l.text, HORIZONTAL_ALIGNMENT_LEFT, -1, sz).x > max_w:
-		sz -= 1
-	l.add_theme_font_size_override("font_size", sz)
+		var t := _img(box, on_path if i < filled else off_path, Vector2(i * (w + margin), 0))
+		t.size = _tex(on_path).get_size()
 
 ## UpdatableTextBlock.CreateUpdateTask (cs:19-46) : l'ancien texte s'estompe (0,25 s), puis le nouveau apparait (0,25 s) ; rien si le texte est identique.
 ## `.text` change tout de suite (l'etat reste lisible) : l'ancien texte s'efface sur une copie, le nouveau entre apres 0,25 s.
@@ -2692,30 +2705,29 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 	# Mon boss
 	var pb = p.get("boss")
 	var blank: bool = bool(_tg("intro_blank", null, false)) # tutoriel, intro (tut_11..20) : pas de noms de boss ni de pioches, le plateau n'est pas encore distribue
-	sidebar_boss_label.text = str(pb.get("name", "")).to_upper() if pb != null and not blank else ""
-	_fit_label(sidebar_boss_label, 150.0, 18)
-	sidebar_sub_label.text = str(pb.get("subtitle", "")) if pb != null and not blank else ""
+	sidebar_boss_label.text = _truncate(str(pb.get("name", "")), 10).to_upper() if pb != null and not blank else "" # BossDetailHeaderControl.cs:CreateRefreshTask : Truncate(10) pour les deux colonnes
+	sidebar_sub_label.text = _truncate(str(pb.get("subtitle", "")), 25) if pb != null and not blank else ""
 	var n_souls: int = CardDB.total_souls(p, game_manager.G)
 	var n_wounds: int = CardDB.total_wounds(p)
-	_icon_row(souls_container, 10, n_souls, TEX_SOUL, TEX_SOUL_EMPTY, Vector2(19, 26))
-	_icon_row(wounds_container, 5, n_wounds, TEX_WOUND, TEX_WOUND_EMPTY, Vector2(21, 27))
+	_icon_row(souls_container, 10, n_souls, TEX_SOUL, TEX_SOUL_EMPTY, -6.0) # IconCounterControlEntity : icones natives, ElementsMargin -6 (ames) / -3 (blessures)
+	_icon_row(wounds_container, 5, n_wounds, TEX_WOUND, TEX_WOUND_EMPTY, -3.0)
 	if not skip_animations: # APK : le cristal / la goutte gagnes s'allument
 		_flash_icons(souls_container, _souls_seen, mini(n_souls, 10), TEX_SOUL_EMPTY)
 		_flash_icons(wounds_container, _wounds_seen, mini(n_wounds, 5), TEX_WOUND_EMPTY)
 	_souls_seen = n_souls
 	_wounds_seen = n_wounds
 	_fill_treasures(treasures_container, BossEngine.treasure_counts(p, game_manager.G),
-		[[3, Vector2(0, 0)], [4, Vector2(0, 54)], [2, Vector2(0, 101)], [1, Vector2(0, 153)], [5, Vector2(0, 200)]], 30.0)
+		[[3, Vector2(0, 0), 3.0], [4, Vector2(0, 50), 3.0], [2, Vector2(0, 100), 3.0], [1, Vector2(0, 150), 3.0], [5, Vector2(0, 200), 0.0]], "mp_icon_treasure_%s", 5)
 
 	# Boss adverse
 	var fb = foe.get("boss")
-	_fade_text(foe_name_label, _truncate(str(fb.get("name", "")), 10).to_upper() if fb != null and not blank else "", func(): _fit_label(foe_name_label, 150.0, 18)) # BossDetailHeaderControl.cs:CreateRefreshTask : fondu du nom et du sous-titre
+	_fade_text(foe_name_label, _truncate(str(fb.get("name", "")), 10).to_upper() if fb != null and not blank else "") # BossDetailHeaderControl.cs:CreateRefreshTask : fondu du nom et du sous-titre
 	_fade_text(foe_sub_label, _truncate(str(fb.get("subtitle", "")), 25) if fb != null and not blank else "")
 	_fade_text(foe_wounds_label, "x%d" % CardDB.total_wounds(foe))
 	_fade_text(foe_souls_label, "x%d" % CardDB.total_souls(foe, game_manager.G))
 	_foe_treasure_bg.modulate = UiKit.boss_treasure_color(fb) # treasuresBackPanelAtlas.TintColor (OneOpponentDetail.cs:203-206,218)
 	_fill_treasures(foe_treasures_box, BossEngine.treasure_counts(foe, game_manager.G),
-		[[4, Vector2(8, 6)], [3, Vector2(106, 6)], [2, Vector2(6, 38)], [1, Vector2(106, 38)], [5, Vector2(40, 8)]], 22.0)
+		[[4, Vector2(9, 7), 2.0], [3, Vector2(109, 7), 2.0], [2, Vector2(9, 41), 6.0], [1, Vector2(109, 41), 2.0], [5, Vector2(40, 8), 0.0]], "icon_treasure_%s", 4)
 
 	# Pioches
 	var decks: Dictionary = G.get("decks", {})
@@ -2727,9 +2739,7 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 		deck_info_label.text = "COINS: %d" % Minibosses.coins(p)
 		foe_coins_label.text = "COINS: %d" % Minibosses.coins(foe)
 
-	# Bouton Level Up : brille si 5 salles
-	var can_lvl: bool = BossEngine.count_visible_rooms(p.get("dungeon", [])) >= 5
-	levelup_btn.modulate = Color(1.2, 1.2, 0.4, 1.0) if can_lvl else Color(0.7, 0.7, 0.7, 0.8)
+	levelup_btn.modulate = Color.WHITE # TopRightPanelEntity.cs : aucun etat teinte (ni eteint ni allume) ; 50,9 / 255 de luminosite constante sur les 100+ frames de l'APK
 
 func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 	if skip_animations:
@@ -4800,8 +4810,9 @@ func _playing_bubble(pid: int, idx: int) -> Control:
 	var n := Control.new()
 	n.name = "IsPlaying%d" % pid
 	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	n.position = Vector2(Vp.rx(1458.0), 63 + 138 * idx)
+	n.position = Vector2(1458.0, 63 + 138 * idx)
 	n.size = Vector2(234, 136)
+	Vp.edge(n, Vp.RIGHT) # BubbleEntity.cs:70-75 : EdgeAlignment a droite, suit la largeur utile
 	UiKit.image(n, UI_DIR + "action_bubble.webp", Vector2.ZERO, Vector2(234, 136))
 	UiKit.label(n, "   IS\nPLAYING!", 21, Color.WHITE, Vector2(-12, 56), 190.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # BubblesFactory.cs:20-23 (x -215, y -45, largeur 190)
 	_ui_layer.add_child(n)
@@ -4842,8 +4853,9 @@ func _show_notice(what: String, card = null, spot := {}, pid := -1, against := [
 	var n := Control.new()
 	n.name = "Notice"
 	n.mouse_filter = Control.MOUSE_FILTER_STOP if card is Dictionary else Control.MOUSE_FILTER_IGNORE
-	n.position = Vector2(Vp.rx(1458.0), 63 + 138 * maxi(ids.find(pid), 0)) # BubbleEntity.cs:70-75 : bord droit # APK : boite x 1458..1672, y 65..194, queue jusqu'a 1692 ; un panneau d'adversaire = 138 px (BubblesPlayerEmitter.cs:11,66)
+	n.position = Vector2(1458.0, 63 + 138 * maxi(ids.find(pid), 0)) # APK : boite x 1458..1672, y 65..194, queue jusqu'a 1692 ; un panneau d'adversaire = 138 px (BubblesPlayerEmitter.cs:11,66)
 	n.size = Vector2(234, 136)
+	Vp.edge(n, Vp.RIGHT) # BubbleEntity.cs:70-75 : bord droit, suit la largeur utile
 	if card is Dictionary:
 		n.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		n.gui_input.connect(func(ev: InputEvent):
@@ -4987,7 +4999,7 @@ func _show_discard(cards: Array) -> void:
 		fx.suit = holder
 		fx.set_emit(true)
 		_ui_layer.move_child(fx, holder.get_index())
-		var cx := lerpf(400.0, 1490.0, float(i + 1) / float(n + 1)) # meme rangee que la pioche (cs:109)
+		var cx := lerpf(Vp.limited_left_edge() + 160.0, Vp.limited_right_edge() - 190.0, float(i + 1) / float(n + 1)) # meme rangee que la pioche (cs:109 : LimitedLeftEdge + 160 .. LimitedRightEdge - 190)
 		var tw := holder.create_tween().set_parallel(true)
 		tw.tween_property(holder, "position", Vector2(cx, 540.0) - back.size / 2.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		tw.tween_property(holder, "scale", Vector2.ONE, 0.5)
@@ -4998,7 +5010,7 @@ func _show_discard(cards: Array) -> void:
 			face.visible = false
 			back.visible = true)
 		tw.chain().tween_property(holder, "scale:x", 1.0, 0.25).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-		tw.chain().tween_property(holder, "position", Vector2(72.0, 972.0) - back.size / 2.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT) # cs:126 : x = bord gauche + 0,05 L, y = 0,9 H
+		tw.chain().tween_property(holder, "position", Vector2(Vp.limited_left_edge() + 72.0, 972.0) - back.size / 2.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT) # cs:126 : x = bord gauche + 0,05 L, y = 0,9 H
 		tw.tween_property(holder, "scale", Vector2.ONE * (0.375 / sc), 0.5)
 		tw.tween_property(holder, "rotation_degrees", 90.0, 0.5)
 		tw.chain().tween_callback(fx.finir) # EmitParticles = false (cs:137) : les particules vivantes finissent leur vie
@@ -5028,7 +5040,7 @@ func _show_draw(cards: Array) -> void:
 		holder.add_child(face)
 		holder.size = back.size
 		holder.pivot_offset = back.size / 2.0
-		var cx := lerpf(400.0, 1490.0, float(i + 1) / float(n + 1))
+		var cx := lerpf(Vp.limited_left_edge() + 160.0, Vp.limited_right_edge() - 190.0, float(i + 1) / float(n + 1))
 		holder.position = Vector2(-480.0, 540.0) - back.size / 2.0 # DrawInitialPosition (DrawCardEmitter.cs:23) : y = VirtualHeight x 0,5 ; tut_63 et adv_drawn_spell_teleportation_zoom_center : cadre noir y 296..783
 		_ui_layer.add_child(holder)
 		# Particules de la pioche : EmitParticles = true des la creation de la carte (DrawCardEmitter.cs:153), jusqu'a Attach a la main (CardManagerComponent.cs:108, _draw_land).
@@ -5109,7 +5121,7 @@ func _warn_show() -> void:
 	UiKit.image(b, UI_DIR + "boss_globe.webp", Vector2.ZERO, Vector2(238, 150))
 	# 4 lignes comme l'APK (le retour a la ligne automatique debordait de la bulle)
 	var t := UiKit.label(b, "HEY! YOU CAN\nBUILD A\nROOM! STILL\nWANT TO PASS?", 21, Color.WHITE, Vector2(2, 6), 232.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER)
-	t.add_theme_constant_override("line_spacing", -4)
+	t.add_theme_constant_override("line_spacing", -6)
 	t.custom_minimum_size = Vector2(232.0, 118.0)
 	t.size = Vector2(232.0, 118.0)
 	t.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -5354,7 +5366,7 @@ func _close_menu() -> void:
 
 func _open_game_menu() -> void:
 	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
-	var pop := _popup_begin("menu", 0.72)
+	var pop := _popup_begin("menu", 0.7) # voile noir 0,7 comme QUIT GAME? : pause.png = 0,294 de la luminosite du plateau (0,72 donnait 0,255)
 	var menu := InGameMenu.new()
 	menu.show_gallery = not _is_online()
 	pop.add_child(menu)
@@ -5417,7 +5429,7 @@ const STACK_A := [0.0, 1.0, 0.8, 0.6, 0.4, 0.0]
 const SLIDE_RECT := Rect2(184, 296, 1523, 400)               # bandeau du carrousel central (mesure APK)
 const SLIDE_CX := 940.0                                      # MiddleCarrouselEntity (960, 498) + CarouselShowEntity.LocalX -20
 const SLIDE_CY := 498.0
-const BOSS_ZOOM_BOTTOM := [661.0, 1076.0]                    # bas du zoom du boss [adverse, mien] : bord droit 1730 ; le mien = LEVEL UP (frame APK), l'adverse 415 px plus haut (sprites 355 / 770)
+const BOSS_ZOOM_BOTTOM := [665.0, 1080.0]                    # bas du zoom du boss [adverse, mien] : bord droit 1736 ; le mien = LEVEL UP (frame APK), l'adverse 415 px plus haut (sprites 355 / 770)
 
 ## Bandeau sombre a deux filets or du carrousel central (MiddleCarouselAnimationBehavior.CreateBackPanel) ; rendu dans un conteneur qui s'ouvre / se ferme en hauteur.
 func _carousel_band(parent: Control) -> Control:
@@ -5552,7 +5564,7 @@ func _slot_zoom(pid: int, di: int, cands := []) -> void:
 	if not cands.is_empty():
 		_zoom_ability(_zoom.get_child(0), sz, pad, di, cands)
 
-## Clic sur le boss d'un couloir (DungeonFrameEntity.cs:269 -> GamePlayBaseScene.ShowZoomCard, cs:1221-1244) : sa carte x1,3, bord droit a 1730 ; avec des sorts gardes
+## Clic sur le boss d'un couloir (DungeonFrameEntity.cs:269 -> GamePlayBaseScene.ShowZoomCard, cs:1221-1244) : sa carte x1,3, bord droit a 1736 ; avec des sorts gardes
 ## jusqu'a la fin de la partie (Boss.UntilEndOfTurnSpells) : pile boss + sorts a 0,8.
 func _boss_zoom(lane: int) -> void:
 	var pid := view_pid if lane == 1 else foe_pid
@@ -5567,12 +5579,12 @@ func _boss_zoom(lane: int) -> void:
 	if cards.size() > 1:
 		var sz := UiKit.ZOOM_CARD * 0.832 # 1,3 (Appear) x 0,8 (entite) x 0,8 (cartes creees a maxScale, CardZoomComponent.cs:40)
 		var pad := UiKit.ZOOM_PAD * 0.832
-		_zoom_stack(cards, Vector2(1730.0 - sz.x * 0.6 - pad, bottom - 316.0 - (100.0 if lane == 1 else 0.0)), sz, 1.04, pad)
+		_zoom_stack(cards, Vector2(1736.0 - sz.x * 0.6 - pad, bottom - 316.0 - (100.0 if lane == 1 else 0.0)), sz, 1.04, pad)
 		return
 	_zoom_hide()
 	_zoom = UiKit.zoom_card(boss, UiKit.ZOOM_CARD * 1.3, false, UiKit.ZOOM_PAD * 1.3) # cadre noir x 1,3 comme la carte (frame APK levelup_button_tap : 457 de large, bord droit 1733)
 	_zoom.set_meta("levelup", true)
-	_zoom.position = Vector2(Vp.rx(1730.0) - _zoom.size.x, bottom - _zoom.size.y) # BaseZoomComponent : bord droit
+	_zoom.position = Vector2(Vp.rx(1736.0) - _zoom.size.x, bottom - _zoom.size.y) # BaseZoomComponent : bord droit
 	_ui_layer.add_child(_zoom)
 	_zoom_appear()
 

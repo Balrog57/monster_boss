@@ -77,7 +77,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-border_color = Color(0.6, 0.6, 0.7, 0.8)
+border_color = Color(0.6, 0.6, 0.7, 0)
 border_width = 2.0
 editor_only = false
 

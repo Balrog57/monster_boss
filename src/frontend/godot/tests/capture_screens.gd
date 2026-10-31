@@ -420,6 +420,13 @@ func _gesture_shots() -> void:
 	_me()["entrance"] = [(heroes[0] as Dictionary).duplicate(true)]
 	_foe()["entrance"] = [(heroes[3] as Dictionary).duplicate(true)]
 	await _settle()
+	for r in CardDB.rooms: # APK : la carte survolee (3e de la main) est Succubus Spa (BMA012)
+		if str((r as Dictionary).get("id", "")) == "BMA012":
+			var sp: Dictionary = (r as Dictionary).duplicate(true)
+			sp["isRoom"] = true
+			sp["faceDown"] = false
+			(_me()["hand"] as Array)[2] = sp
+	await _settle()
 	# survol d'une carte de la main (CardHoverBehavior : le pointeur, souris ou doigt, choisit la carte ; frames longpress_* de l'APK)
 	var hc := _hand_cards()[2] as Control
 	get_viewport().warp_mouse(hc.get_global_rect().get_center()) # le pointeur reel : _tick_hand_hover lit get_global_mouse_position
@@ -433,12 +440,29 @@ func _gesture_shots() -> void:
 	board._tick_hand_hover()
 	await _wait(0.6)
 	# tap sur une salle de mon donjon (CardStackSlotComponent_TouchTap -> DungeonFrame_ShowRoomSlotDetail)
-	var slots: Array = board._dungeon_slots.filter(func(sl): return not (sl as DungeonSlot).current_stack.is_empty())
-	await _click((slots[0] as Control).get_global_rect().get_center())
+	# APK : la salle tapee est la 5e emplacement (zoom centre en x 1288, DungeonFrame_ShowRoomSlotDetail : x de l'emplacement) et c'est Brainsucker Hive (BMA021)
+	_dungeon_fill(_me(), 5)
+	var bh: Dictionary = {}
+	for r in CardDB.rooms:
+		if str((r as Dictionary).get("id", "")) == "BMA021":
+			bh = (r as Dictionary).duplicate(true)
+			bh["isRoom"] = true
+			bh["faceDown"] = false
+	await _settle()
+	var k5 := 0
+	for i in board._dungeon_slots.size():
+		if absf((board._dungeon_slots[i] as Control).get_global_rect().get_center().x - 1288.0) < absf((board._dungeon_slots[k5] as Control).get_global_rect().get_center().x - 1288.0):
+			k5 = i
+	((_me()["dungeon"] as Array)[k5] as Array).clear()
+	((_me()["dungeon"] as Array)[k5] as Array).push_back(bh)
+	await _settle()
+	await _click((board._dungeon_slots[k5] as Control).get_global_rect().get_center())
 	await _wait(0.8)
 	await _shot("tap_own_dungeon_room_brainsucker_hive_zoom_geste")
 	await _click(Vector2(960, 150)) # le clic suivant ferme
 	await _wait(0.5)
+	_dungeon_fill(_me(), 3)
+	await _settle()
 	# tap sur une salle de l'adversaire
 	var fslots: Array = board._foe_slots.filter(func(sl): return (sl as Control).visible and not (sl as Control).find_children("*", "CardUI", true, false).is_empty())
 	if not fslots.is_empty():
@@ -874,6 +898,8 @@ func _apk_bosses(n_players: int) -> void:
 	if n_players == 2:
 		_me()["boss"] = _boss_dict("BMA001")
 		_foe()["boss"] = _boss_dict("BMA003")
+		gm.G["xpOrder"] = [0, 1] # APK : Draculord (900 XP) joue en 1er (pastille « 1 »), King Croak (800 XP) en 2e ; le boss tire au hasard changeait l'ordre
+		board._order_cache = {}
 		board.refresh()
 
 func _me() -> Dictionary:
@@ -1137,6 +1163,7 @@ func _states() -> void:
 	await _frames(3)
 	await _shot("spell_stack_motivation_in_center_with_green_timer_bar")
 	(G["stack"][0] as Dictionary)["playerId"] = 1 # le sort de l'adversaire arrive a l'echelle 1 (APK : 350 x 490)
+	G["phase"] = "adventure" # frame APK spellbattle_has_played : plaque ADVENTURE PHASE (le sort est joue pendant la traversee)
 	board.refresh()
 	board._process(0.1)
 	print("PHASE-DBG stack my moves: ", str(gm.legal_moves(0)).substr(0, 300))
@@ -1252,11 +1279,14 @@ func _end_screens() -> void:
 	await _new_game()
 	_hand_n(5, 1)
 	gm.G["gameOver"] = {"winner": 0, "reason": "souls"}
+	_foe()["eliminated"] = true # APK : le boss adverse vaincu laisse sa pierre RIP dans son couloir
+	_foe()["manuallyKilled"] = true
 	await _settle(8)
 	await _wait(0.6)
 	await _shot("gameover_lose_opponent_is_the_winner_gold_crystals_ok_button")
 	await _new_game()
 	gm.G["gameOver"] = {"winner": 1, "reason": "wounds"}
+	gm.G["phase"] = "adventure" # APK lose_rip : la plaque ADVENTURE PHASE reste affichee sous le voile de fin
 	_me()["eliminated"] = true # vraie fin de partie (GameManager.gd:190) : le boss vaincu laisse sa petite pierre RIP dans son couloir (DungeonFrameEntity.cs:297-306,498-501, frame lose_rip)
 	_me()["manuallyKilled"] = true # fixture : elimination sans blessures = IsManuallyKilled (Boss.IsAlive est recalcule en direct)
 	for i in 5:
@@ -1400,7 +1430,9 @@ func _phases() -> void:
 		_dungeon_fill(_me(), 2)
 		(_me()["dungeon"] as Array)[0] = [pit]
 		_dungeon_fill(_foe(), 3)
-		_heroes_town(1)
+		_heroes_town(3)
+		var ep: Array = CardDB.heroes.filter(func(h): return bool((h as Dictionary).get("epic", false)))
+		(gm.G["town"] as Array).push_front((ep[0] as Dictionary).duplicate(true)) # APK : un heros epique en ville (titre « EPIC HEROES IN TOWN », cadre or) devant 3 ordinaires
 		var h2: Dictionary = (CardDB.heroes[5] as Dictionary).duplicate(true)
 		(_me()["entrance"] as Array).clear()
 		(_me()["entrance"] as Array).append(h2)
@@ -1412,6 +1444,7 @@ func _phases() -> void:
 		G3["activePlayer"] = 0
 		_hand_n(5, 2)
 		await _settle()
+		board._town_scroll.scroll_vertical = 0 # APK : la colonne montre le heros epique du haut
 		board._set_focus(0, 0)
 		board._hero_pawn = board._create_hero_pawn(h2, 6)
 		board.hero_crossing_layer.add_child(board._hero_pawn)
@@ -1420,7 +1453,7 @@ func _phases() -> void:
 		board._process(0.4)
 		print("PHASE-DBG ability moves: ", str(gm.legal_moves(0).filter(func(m): return m["type"] == "activateRoom")))
 		board._on_slot_activate(0) # capacite de salle = zoom puis appui (APK GamePlayBaseScene.cs:681-718) : 1er appui = zoom de la salle, bordure de capacite en rouge
-		await _frames(4)
+		await _wait(0.5) # l'apparition du zoom dure 0,2 s (AppearBehavior)
 		await _shot("ability_bottomless_pit_activated_red_glow_room_zoom_hero_in_room_timer_t9")
 		board._zoom_hide()
 		await _frames(3)

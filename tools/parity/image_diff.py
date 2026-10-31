@@ -210,6 +210,27 @@ def main():
                     p["max_chrome"] = up(q["chrome"])
         json.dump(cfg, open(PAIRS, "w", encoding="utf8"), indent=1, ensure_ascii=False)
         print("plafonds ecrits dans", PAIRS)
+    if "--tighten" in args:  # plafond = ecart actuel x 1,15 + 0,3 sur TOUTES les paires mesurees (cliquet serre) + marque `state` : "chrome" = etat reproduit, ecart restant = chrome + plancher ; "content" = etat de partie / animation different
+        up = lambda v: math.ceil((v * 1.15 + 0.3) * 10) / 10
+        for r in rows:
+            p, q = r["p"], r["res"]
+            p["max_mean"], p["max_cell"] = up(q["mean"]), up(q["cell"])
+            if q["chrome"] is not None:
+                p["max_chrome"] = up(q["chrome"])
+            kind = p.get("kind", "")
+            if kind == "ui":
+                clean = q["mean"] <= 2.5
+            elif q["chrome"] is not None:
+                clean = q["chrome"] <= 6.0 and q["cell"] <= 40.0
+            else:
+                clean = q["mean"] <= 4.5
+            p["state"] = "chrome" if clean else "content"
+            if clean:
+                p.pop("state_reason", None)
+            elif not p.get("state_reason"):
+                p["state_reason"] = "ecart residuel (moyenne %.1f, pire cellule %.0f) : etat de partie ou image d'animation differents de la frame APK, non reproduits" % (q["mean"], q["cell"])
+        json.dump(cfg, open(PAIRS, "w", encoding="utf8"), indent=1, ensure_ascii=False)
+        print("plafonds serres (x 1,15 + 0,3) et etats ecrits dans", PAIRS)
     failing = [r for r in rows if r["fails"]]
     print("\n".join(md[:5]))
     for r in rows[:int(next((a[6:] for a in args if a.startswith('--top=')), 25))]:

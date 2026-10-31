@@ -15,6 +15,7 @@ var _last := -1
 func _init(p_online = null) -> void:
 	online = p_online
 	position = Vector2(1150, 12)
+	Vp.edge(self, Vp.RIGHT) # CountDownEntity.cs : EdgeAlignmentComponent(position), x > moitie de l'ecran = aligne a droite
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	modulate.a = 0.0
 	UiKit.image(self, UiKit.UI + "gradients/sandclock_icon.webp", Vector2(30, -8))
