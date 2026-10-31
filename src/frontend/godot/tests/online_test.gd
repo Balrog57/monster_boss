@@ -472,6 +472,7 @@ func _scenario_full_game() -> void:
 			sampled += 1
 		await get_tree().process_frame
 	_expect(dropped, "la reconnexion n'a pas ete exercee (partie trop courte)")
+	_expect(room.awaited_seats.is_empty() and (room.state_msg(0)["awaited"] as Array).is_empty(), "partie finie : aucun siege ne doit rester attendu (%s)" % str(room.awaited_seats))
 	if not _fails.is_empty():
 		return
 	# les deux clients doivent recevoir l'etat final

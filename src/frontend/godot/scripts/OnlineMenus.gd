@@ -27,6 +27,7 @@ const PUBLIC_REFRESH_S := 5.0       # liste publique : le serveur pousse chaque 
 const PUBLIC_UNREACHABLE_S := 3.0   # liaison absente depuis ce delai : « UNABLE TO REACH THE SERVER »
 const PACK_ABBR := {"tools": "THK", "players-choice": "PC", "hidden-heroes": "HH", "next-level": "TNL", "crash-landing": "CRL", "minibosses": "RMB", "iod": "IOD"}
 const BIG_GAME_MSG := "5 or 6 players need Crash Landing (not with Player's Choice)" # (police arcadepix : pas d'accents, d'ou pas le texte de Match.setup_error)
+const CLOSED_SET_MSG := "This expansion is not available online" # bad_setup alors que le controle local est passe : le serveur ne propose pas un paquet demande (client perime)
 
 var m # Main (type volontairement libre : on appelle ses utilitaires _tex / _hit / _img_btn / _clear ...)
 var _busy := false
@@ -680,7 +681,7 @@ func create_room(count: int, is_public: bool = false) -> void:
 	if ok:
 		m.go(show_waiting) # ExpansionScene.cs:153 (ColorFade 1,0 s)
 	elif str(m.online.last_error_code) == "bad_setup":
-		msg_box("INVALID SETUP", BIG_GAME_MSG, back)
+		msg_box("INVALID SETUP", CLOSED_SET_MSG, back)
 	elif str(m.online.last_error_code) == "version":
 		msg_box("NETWORK ERROR", VERSION_MSG, back)
 	else:

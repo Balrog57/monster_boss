@@ -237,8 +237,8 @@ func _send(id: int, msg: Dictionary) -> void:
 	if c.is_empty():
 		return
 	var ws: WebSocketPeer = c["ws"]
-	if ws.get_ready_state() == WebSocketPeer.STATE_OPEN:
-		ws.send_text(JSON.stringify(msg))
+	if ws.get_ready_state() == WebSocketPeer.STATE_OPEN and ws.send_text(JSON.stringify(msg)) != OK:
+		ws.close(1013, "client trop lent") # tampon de sortie plein (il ne lit plus) : on le coupe au lieu d'un ERROR moteur a chaque envoi ; il reprendra son siege par jeton
 
 func _error(id: int, text: String, kind: String = "") -> void:
 	_send(id, {"t": "error", "message": text, "code": kind})

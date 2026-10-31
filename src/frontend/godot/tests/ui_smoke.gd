@@ -3367,6 +3367,21 @@ func _check_online_game() -> void:
 	_check(await _wait_until(func(): return b._playing.size() == 2, 5.0), "IS PLAYING : une bulle par adversaire attendu (%d)" % b._playing.size())
 	_check(_texts_of(b).filter(func(t): return str(t).ends_with("PLAYING!")).size() == 2, "IS PLAYING : texte absent %s" % str(_texts_of(b)))
 	_cov("online_is_playing")
+	# N-B51 : le nom affiche est l'alias du siege (Boss.UIName), pas le nom du boss ; N-B52 : en ligne seul MON siege elimine declenche la defaite
+	var pls: Dictionary = b.game_manager.G["players"]
+	_check(b._ui_name(0, pls[0]["boss"]) == "Zed" and b._ui_name(1, pls[1]["boss"]) == "Bobby" and b._ui_name(2, pls[2]["boss"]) == "Cara", "N-B51 : alias des sieges en ligne (%s)" % str([b._ui_name(0, pls[0]["boss"]), b._ui_name(1, pls[1]["boss"]), b._ui_name(2, pls[2]["boss"])]))
+	var mine := {"phase": "build", "players": {0: {"eliminated": true}, 1: {"eliminated": false}, 2: {"eliminated": false}}}
+	var theirs := {"phase": "build", "players": {0: {"eliminated": false}, 1: {"eliminated": true}, 2: {"eliminated": true}}}
+	_check(b._all_humans_dead(mine) and not b._all_humans_dead(theirs) and not b._all_humans_dead({"phase": "adventure", "players": mine["players"]}), "N-B52 : en ligne, defaite seulement si MON siege est elimine")
+	# N-B53 : le donjon adverse affiche suit le joueur actif
+	var gfoe: Dictionary = b.game_manager.G
+	var old_active = gfoe.get("activePlayer")
+	for want in [2, 1]:
+		gfoe["activePlayer"] = want
+		b._foe_follow_seen = -9
+		b._update_foe(gfoe)
+		_check(b.foe_pid == want, "N-B53 : en ligne le donjon adverse suit le joueur actif (voulu %d, affiche %d)" % [want, b.foe_pid])
+	gfoe["activePlayer"] = old_active
 	# N-B20 : PauseScene(showTutorialAndGallery = !activateTimeOuts) : pas de CARD GALLERY dans le menu en jeu en ligne
 	b._open_game_menu()
 	await _wait(0.4)

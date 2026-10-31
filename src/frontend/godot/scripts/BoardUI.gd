@@ -775,8 +775,8 @@ func _update_foe(G: Dictionary) -> Array:
 		follow = int(lhf.get("pid", -1))
 	elif not adv.is_empty() and adv.get("hero") != null:
 		follow = int(adv.get("playerId", -1))
-	elif G.get("gameOver") == null and not _is_online():
-		follow = game_manager.active_player() # GamePlaySPScene.CreateBeforePlayerInteractionTask : le donjon du joueur actif s'affiche avant son tour
+	elif G.get("gameOver") == null:
+		follow = game_manager.active_player() # GamePlaySPScene / GamePlayMOScene.CreateBeforePlayerInteractionTask (cs:232-240) : le donjon du joueur actif s'affiche avant son tour, en ligne aussi (N-B53)
 	if follow != _foe_follow_seen:
 		_foe_follow_seen = follow
 		if others.has(follow):
@@ -894,7 +894,7 @@ func _opp_front(b: Button, pid: int) -> void:
 		var ic := _img(b, ip, Vector2(3, 5))
 		ic.pivot_offset = Vector2(66, ic.size.y / 2.0) # Origin (1, 0,5), LocalX -143, LocalY -38
 		ic.scale = Vector2.ONE if active else Vector2(0.83, 0.83)
-		var nm := str((boss as Dictionary).get("name", "")).to_upper()
+		var nm := _ui_name(pid, boss).to_upper() # CollapsedOpponentDetail.cs:317 : UIName en majuscules, Truncate(10)
 		_lbl(b, nm if nm.length() <= 10 else nm.substr(0, 10) + "...", 16, APK_GOLD if sel else Color.WHITE, Vector2(73, 7.5), 0.0, _fa)
 	_opp_count(b, TEX_WOUND, CardDB.total_wounds(pl), Vector2(72, 31.5))
 	_opp_count(b, TEX_SOUL, CardDB.total_souls(pl, G), Vector2(141, 31.5))
@@ -971,7 +971,7 @@ func _opp_detail_fill(pid: int) -> void:
 	_img(opp_detail, UI_DIR + "bg_boss_detail.webp", Vector2.ZERO)
 	_img(opp_detail, UI_DIR + "boss_icon.webp", Vector2(8, 5), Vector2(43, 43), TextureRect.STRETCH_KEEP_ASPECT_CENTERED)
 	if boss != null:
-		var nm := str((boss as Dictionary).get("name", "")).to_upper()
+		var nm := _ui_name(pid, boss).to_upper() # BossDetailHeaderControl.cs:71 : UIName, Truncate(10)
 		_lbl(opp_detail, nm if nm.length() <= 10 else nm.substr(0, 10) + "...", 18, APK_GOLD, Vector2(62, 17), 0.0, _fa)
 		_lbl(opp_detail, str((boss as Dictionary).get("subtitle", "")), 11, Color.WHITE, Vector2(62, 41), 200.0, _fa)
 		_lbl(opp_detail, str(int((boss as Dictionary).get("xp", 0))), 16, APK_GOLD, Vector2(67, 59), 0.0, _fa)
@@ -2483,6 +2483,17 @@ func _input(raw_event: InputEvent) -> void:
 static func _truncate(t: String, n: int) -> String:
 	return t if t.length() <= n else t.substr(0, n) + "..."
 
+## Nom affiche d'un boss (Boss.UIName, Boss.cs:70-78) : en ligne, le pseudo du salon du siege (Alias, GamePlayMOScene.InitializeGameboard cs:184-188, posé sur chaque boss,
+## le mien compris) ; hors ligne ou sans pseudo, le nom de la carte. Lu par BossDetailHeaderControl, CollapsedOpponentDetail et WinnerScene (N-B51).
+func _ui_name(pid: int, boss) -> String:
+	if _is_online():
+		var seats: Array = (game_manager as OnlineGameManager).client.current_seats
+		if pid >= 0 and pid < seats.size() and seats[pid] is Dictionary:
+			var n = (seats[pid] as Dictionary).get("name")
+			if n is String and (n as String) != "":
+				return n
+	return str((boss as Dictionary).get("name", "")) if boss != null else ""
+
 ## Aligne les cartes (chevauchement si necessaire) autour de cx, sur une ligne (ecran de defausse d'ouverture).
 func _place_cards(cards: Array, sz: Vector2, step_max: float, span_max: float, top_y: float, cx: float = PLAY_CX) -> void:
 	var n := cards.size()
@@ -2704,7 +2715,7 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 	# Mon boss
 	var pb = p.get("boss")
 	var blank: bool = bool(_tg("intro_blank", null, false)) # tutoriel, intro (tut_11..20) : pas de noms de boss ni de pioches, le plateau n'est pas encore distribue
-	sidebar_boss_label.text = _truncate(str(pb.get("name", "")), 10).to_upper() if pb != null and not blank else "" # BossDetailHeaderControl.cs:CreateRefreshTask : Truncate(10) pour les deux colonnes
+	sidebar_boss_label.text = _truncate(_ui_name(view_pid, pb), 10).to_upper() if pb != null and not blank else "" # BossDetailHeaderControl.cs:CreateRefreshTask : Truncate(10) pour les deux colonnes
 	sidebar_sub_label.text = _truncate(str(pb.get("subtitle", "")), 25) if pb != null and not blank else ""
 	var n_souls: int = CardDB.total_souls(p, game_manager.G)
 	var n_wounds: int = CardDB.total_wounds(p)
@@ -2720,7 +2731,7 @@ func _refresh_sidebar(G: Dictionary, p: Dictionary, foe: Dictionary) -> void:
 
 	# Boss adverse
 	var fb = foe.get("boss")
-	_fade_text(foe_name_label, _truncate(str(fb.get("name", "")), 10).to_upper() if fb != null and not blank else "") # BossDetailHeaderControl.cs:CreateRefreshTask : fondu du nom et du sous-titre
+	_fade_text(foe_name_label, _truncate(_ui_name(foe_pid, fb), 10).to_upper() if fb != null and not blank else "") # BossDetailHeaderControl.cs:CreateRefreshTask : fondu du nom et du sous-titre
 	_fade_text(foe_sub_label, _truncate(str(fb.get("subtitle", "")), 25) if fb != null and not blank else "")
 	_fade_text(foe_wounds_label, "x%d" % CardDB.total_wounds(foe))
 	_fade_text(foe_souls_label, "x%d" % CardDB.total_souls(foe, game_manager.G))
@@ -5297,8 +5308,11 @@ func _style_pass_button(done: bool) -> void:
 
 ## GamePlayBaseScene.cs:1071-1078 : tous les humains morts en fin de tour -> OnUserPlayerDefeat, meme si les IA continuent (hors ligne seulement).
 func _all_humans_dead(G: Dictionary) -> bool:
-	if _is_online() or str(G.get("phase", "")) in ["boss", "adventure", "bait"]:
+	if str(G.get("phase", "")) in ["boss", "adventure", "bait"]:
 		return false
+	if _is_online(): # APK : seul le siege local est `Human`, les autres sont `RemoteHuman` (GameBoardExtensions.cs:93-98) : LoseScene des que MON boss est mort,
+		# la partie des autres continuant sans lui (CreateCheckEndOfGameTask, GamePlayBaseScene.cs:1071-1078) ; le OK du bandeau quitte la salle (N-B52)
+		return bool(((G.get("players", {}) as Dictionary).get(_my_pid(), {}) as Dictionary).get("eliminated", false))
 	var n := 0
 	for pid in G.get("players", {}):
 		var q: Dictionary = G["players"][pid]
@@ -5333,7 +5347,7 @@ func _show_gameover(G: Dictionary) -> void:
 	_gameover.z_index = 90
 	add_child(_gameover)
 	UiKit.cross_fade_in(_gameover) # WinnerScene / LoseScene = modales : CrossFade 0,2 s (GamePlayBaseScene.cs:889,895 ; ModalSceneService.cs:112-115)
-	_gameover.build(str((boss as Dictionary).get("name", "")) if boss != null else "PLAYER %d" % (w + 1), str((boss as Dictionary).get("id", "")) if boss != null else "", lose)
+	_gameover.build(_ui_name(w, boss) if boss != null else "PLAYER %d" % (w + 1), str((boss as Dictionary).get("id", "")) if boss != null else "", lose)
 	_gameover.ok_pressed.connect(_confirm_quit)
 
 # ---------------------------------------------------------------------------------------------------------------------

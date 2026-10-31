@@ -57,7 +57,7 @@ func add_bots(count: int) -> void:
 	var i := num_players - 1
 	while count > 0 and i >= 1:
 		if not seats[i]["taken"]:
-			seats[i].merge({"bot": true, "taken": true, "name": "IA %d" % i}, true)
+			seats[i].merge({"bot": true, "taken": true, "name": "AI %d" % i}, true)
 			count -= 1
 		i -= 1
 
@@ -209,7 +209,7 @@ func start() -> bool:
 	var humans := 0
 	for i in num_players:
 		if not seats[i]["taken"]:
-			seats[i].merge({"bot": true, "taken": true, "name": "IA %d" % i}, true)
+			seats[i].merge({"bot": true, "taken": true, "name": "AI %d" % i}, true)
 		if not seats[i]["bot"]:
 			humans += 1
 	if humans == 0:
@@ -276,6 +276,7 @@ func _after_move() -> void:
 	if m.G.get("gameOver") != null:
 		status = "finished"
 		deadline_ms = 0
+		awaited_seats = [] # partie finie : plus personne n'est attendu (sinon le dernier etat annoncerait encore « IS PLAYING! »)
 	else:
 		var aw := _awaited() # calcule une seule fois par coup (legal_moves de chaque siege)
 		if deadline_ms <= 0 or str(m.G.get("phase", "")) != "build" or _window_signature(aw) != _window_sig:

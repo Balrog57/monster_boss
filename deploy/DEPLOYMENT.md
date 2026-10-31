@@ -103,6 +103,20 @@ python tools/web_serve.py --port 8090
 python tools/web_smoke.py --browser chromium --shots docs/reference/web/smoke      # idem : --browser firefox | webkit | chrome | msedge, --size 1440x1080, --headed
 ```
 
+Salons multijoueurs, toujours sans Docker (le script lance lui-même le serveur Godot headless `godot/server/Server.tscn` et le site, `tools/web_serve.py` fait passer `/ws` au serveur comme nginx ; pose préalable : `python -m pip install playwright websockets psutil`) :
+
+```bash
+# 6. parties complètes dans de vrais navigateurs (un contexte Playwright par joueur humain, clics souris : pseudo, avatar, salon, code, lobby, partie jusqu'à l'écran de fin)
+python tools/web_online_smoke.py --players 2                          # 2 humains ; --players 4 --bots 2 : 2 humains + 2 IA du serveur
+python tools/web_online_smoke.py --players 6 --bots 3 --packs crash-landing   # 5-6 joueurs : Crash Landing et case « wiki » cochées par le script
+python tools/web_online_smoke.py --scenario all                       # p2 p3 p4 p5 p6 ext solo + rematch drop multi closed ; --browser firefox, --shot-every 30, --speed fast
+# 7. serveur seul, sans navigateur : N salons en parallèle (IA contre robot WebSocket, 2-6 joueurs, paquets livrés) puis abus (messages mal formés, trame trop grosse, rafale, coups hors tour, doubles jonctions, reprises rapides, paquets fermés)
+godot --headless --path src/frontend res://godot/server/Server.tscn -- --port=8091 --bot-delay=0
+python tools/online_bots.py --rooms 22 --mix --server-pid <pid du serveur> ; python tools/online_bots.py --abuse
+```
+
+Chaque partie navigateur vérifie : même résultat final chez tous les clients, console sans erreur ni avertissement imprévu, journal serveur sans ligne `ERROR`, aucune information cachée d'un autre siège dans les vues reçues (contrat de `ViewFilter.gd`, relu sur chaque trame `state`), invariants de la liste `awaited`, absence de salle du dessus face cachée en phase `bait` / `adventure`. Scénarios scriptés : `rematch` (nouveau salon après la fin d'une partie puis après un départ en cours de partie), `drop` (coupure de la liaison de tous les clients, reconnexion automatique avec le même siège, puis onglet fermé en pleine partie : le siège passe à l'IA après la grâce), `multi` (deux salons simultanés, joins refusés : salon complet, code inconnu, partie déjà lancée), `closed` (paquet fermé demandé : refus `bad_setup` et message « INVALID SETUP » à l'écran). Les captures vont dans `docs/reference/web/online/` (ignoré par git). Une partie à 3 humains dure environ 10 à 15 minutes (une décision que le script ne joue pas, comme un choix de cible, expire au bout de `--turn-timeout` secondes et l'IA du serveur la joue).
+
 `tools/web_serve.py` n'est qu'une imitation : il ne remplace pas le `curl -I` ci-dessus sur le vrai conteneur. Le type `application/wasm` de
 `nginx:alpine` n'a pas pu être contrôlé sur un conteneur ici (pas de Docker sur le poste) ; il est confirmé par le `mime.types` livré
 par nginx (`application/wasm  wasm;`, dépôt nginx, relu le 2026-10-31).

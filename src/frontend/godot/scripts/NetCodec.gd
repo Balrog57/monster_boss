@@ -31,9 +31,9 @@ static func decode(v):
 
 ## Parse une ligne JSON ; {} si invalide ou si ce n'est pas un objet.
 static func parse_message(text: String) -> Dictionary:
-	var j = JSON.parse_string(text)
-	if j is Dictionary:
-		return decode(j)
+	var js := JSON.new() # parse() renvoie une erreur sans rien ecrire dans le journal (JSON.parse_string y met une ligne ERROR par message invalide : bruit pour un serveur expose)
+	if js.parse(text) == OK and js.data is Dictionary:
+		return decode(js.data)
 	return {}
 
 ## Inverse (cote emission) : toutes les cles de dictionnaire deviennent du texte. Match.gd ecrit parfois la meme
