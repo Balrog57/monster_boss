@@ -992,7 +992,7 @@ func _act_discard(pid: int) -> void:
 func _noise(pid: int) -> void:
 	var G: Dictionary = gm.G
 	var s0 := _sig()
-	match rng.randi_range(0, 6):
+	match rng.randi_range(0, 5):
 		0: # clic sur une carte de la main sans coup legal
 			var hand: Array = G["players"][pid]["hand"]
 			var playable := {}
@@ -1060,20 +1060,7 @@ func _noise(pid: int) -> void:
 				await get_tree().process_frame
 				_check(board._popup_kind == "" or board._popup_kind == "choice", "engrenage : menu non referme (%s)" % board._popup_kind)
 			_cov("menu_toggle")
-		5: # regles superposees
-			board._on_menu_pressed()
-			board._open_rules()
-			await get_tree().process_frame
-			if _check(board._rules != null and is_instance_valid(board._rules), "regles : non ouvertes"):
-				board._process(1.0)
-				_check(_sig() == s0, "regles : la partie avance derriere la fenetre")
-				board._rules.close_viewer()
-				await get_tree().process_frame
-				_check(board._rules == null, "regles : reference non liberee")
-			board._popup_close()
-			board.refresh()
-			_cov("rules_toggle")
-		6: # selecteur d'adversaire (3-4 joueurs)
+		5: # selecteur d'adversaire (3-4 joueurs)
 			var bs := _foe_buttons()
 			if not bs.is_empty():
 				(bs[rng.randi_range(0, bs.size() - 1)] as Button).pressed.emit()
@@ -1083,11 +1070,11 @@ func _noise(pid: int) -> void:
 		board._popup_close()
 		board.refresh()
 
-## Menu en jeu de l'APK : PAUSED = RESUME / CARD GALLERY / RULES / SETTINGS / QUIT GAME ; SETTINGS = MUSIC / SOUND / GAME SPEED + MASTER VOLUME
+## Menu en jeu de l'APK : PAUSED = RESUME / CARD GALLERY / SETTINGS / QUIT GAME ; SETTINGS = MUSIC / SOUND / GAME SPEED + MASTER VOLUME
 ## (le curseur agit sur AudioManager ; valeurs d'origine rendues ensuite, rien n'est ecrit sur disque). Appelee avec le menu ouvert.
 func _check_pause_menu() -> void:
 	var texts: Array = _buttons(board._popup).map(func(b): return (b as Button).text)
-	_check(texts == ["RESUME", "CARD GALLERY", "RULES", "SETTINGS", "QUIT GAME"], "menu en jeu : boutons %s" % str(texts))
+	_check(texts == ["RESUME", "CARD GALLERY", "SETTINGS", "QUIT GAME"], "menu en jeu : boutons %s" % str(texts))
 	var title = board._popup.find_child("Title", true, false)
 	_check(title != null and (title as Label).text == "PAUSED", "menu en jeu : titre PAUSED absent")
 	var settings: Button = null
@@ -3380,11 +3367,11 @@ func _check_online_game() -> void:
 	_check(await _wait_until(func(): return b._playing.size() == 2, 5.0), "IS PLAYING : une bulle par adversaire attendu (%d)" % b._playing.size())
 	_check(_texts_of(b).filter(func(t): return str(t).ends_with("PLAYING!")).size() == 2, "IS PLAYING : texte absent %s" % str(_texts_of(b)))
 	_cov("online_is_playing")
-	# N-B20 : PauseScene(showTutorialAndGallery = !activateTimeOuts) : pas de CARD GALLERY dans le menu en jeu en ligne (RULES, ajout, reste)
+	# N-B20 : PauseScene(showTutorialAndGallery = !activateTimeOuts) : pas de CARD GALLERY dans le menu en jeu en ligne
 	b._open_game_menu()
 	await _wait(0.4)
 	var pause_btns: Array = _buttons(b._popup).map(func(x): return (x as Button).text)
-	_check(pause_btns == ["RESUME", "RULES", "SETTINGS", "QUIT GAME"], "menu en jeu en ligne : boutons %s (sans CARD GALLERY)" % str(pause_btns))
+	_check(pause_btns == ["RESUME", "SETTINGS", "QUIT GAME"], "menu en jeu en ligne : boutons %s (sans CARD GALLERY)" % str(pause_btns))
 	b._close_menu()
 	await _wait(0.2)
 	_cov("online_pause_no_gallery")
@@ -4294,21 +4281,9 @@ func _extra_checks() -> void:
 	_check(board._popup_kind == "menu" and quit_calls == q0, "engrenage : menu non ouvert ou sortie directe")
 	board._close_menu()
 	_check(board._popup_kind == "", "menu non referme")
-	# 5) Regles en superposition (le plateau reste en place), puis fermeture
+	# 5) QUIT GAME : confirmation, NO revient au menu, YES quitte
 	board._on_menu_pressed()
-	board._open_rules()
 	await get_tree().process_frame
-	_check(board._rules != null and is_instance_valid(board._rules) and board._rules.get_parent() == board, "regles : pas de superposition sur le plateau")
-	_check(RulesViewer._page_files("base").size() == 24 and board._rules.page_count == 24 and board._rules.page == 0, "regles : onglet BOSS MONSTER = %d pages (24 attendues), page %d" % [board._rules.page_count, board._rules.page])
-	board._rules.turn(1)
-	_check(board._rules.page == 1, "regles : page suivante")
-	board._rules.turn(-2)
-	_check(board._rules.page == 0, "regles : retour borne a la premiere page")
-	_check(board.hand_layer != null and is_instance_valid(board.hand_layer) and board.is_inside_tree(), "regles : plateau detruit")
-	board._rules.close_viewer()
-	await get_tree().process_frame
-	_check(board._rules == null and board._popup_kind == "menu", "regles : fermeture -> retour au menu")
-	# 6) QUIT GAME : confirmation, NO revient au menu, YES quitte
 	var quit_btn: Button = null
 	for b in _buttons(board._popup):
 		if (b as Button).text == "QUIT GAME":

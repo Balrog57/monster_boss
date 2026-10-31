@@ -167,7 +167,6 @@ var _sparkle_on := false                 # boucle sfx_sparklecard en cours (surb
 var _popup: Control                      # fenetre modale courante (choix, cibles, options, confirmation)
 var _popup_kind := ""                    # "choice" | "target" | "menu" | "quit"
 var _choice_sig := ""
-var _rules: Control                      # RulesViewer superpose au plateau (null si ferme)
 var _auto_timer := 0.0                   # delai avant une passe automatique (aventure, rien a decider)
 var _hero_pawn: Control                  # pion du heros en aventure : persiste d'une salle a l'autre
 var _hero_pawn_hp: Label
@@ -1097,7 +1096,7 @@ func _process(delta: float) -> void:
 			return
 
 func _modal_open() -> bool:
-	return (_popup != null and is_instance_valid(_popup) and (_popup_kind == "menu" or _popup_kind == "quit")) 		or (_rules != null and is_instance_valid(_rules))
+	return (_popup != null and is_instance_valid(_popup) and (_popup_kind == "menu" or _popup_kind == "quit"))
 
 ## Un coup « decision » = tout sauf passer / avancer (sort, capacite de salle, coups d'extension...).
 func _has_decision(moves: Array) -> bool:
@@ -5338,12 +5337,10 @@ func _show_gameover(G: Dictionary) -> void:
 	_gameover.ok_pressed.connect(_confirm_quit)
 
 # ---------------------------------------------------------------------------------------------------------------------
-# Menu en jeu (engrenage) : PAUSED = RESUME / CARD GALLERY / RULES / SETTINGS / QUIT GAME (InGameMenu), regles superposees au plateau
+# Menu en jeu (engrenage) : PAUSED = RESUME / CARD GALLERY / SETTINGS / QUIT GAME (InGameMenu)
 # ---------------------------------------------------------------------------------------------------------------------
 
 func _on_menu_pressed() -> void:
-	if _rules != null and is_instance_valid(_rules):
-		return
 	if _popup_kind == "menu":
 		_close_menu()
 		return
@@ -5372,19 +5369,8 @@ func _open_game_menu() -> void:
 	pop.add_child(menu)
 	UiKit.cross_fade_in(pop) # PauseScene = modale : CrossFade 0,2 s (GamePlayBaseScene.cs:1093-1099 ; ModalSceneService.cs:89,112-115)
 	menu.resume_requested.connect(_close_menu)
-	menu.rules_requested.connect(_open_rules)
 	menu.quit_requested.connect(_open_quit_confirm)
 	menu.speed_changed.connect(func(): _speed = _speed_factor())
-
-## RULES : la visionneuse des regles (RulesViewer, la meme que le menu principal) se superpose au plateau ; fermer = retour au menu pause, toujours ouvert dessous.
-func _open_rules() -> void:
-	if _rules != null and is_instance_valid(_rules):
-		return
-	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
-	_rules = RulesViewer.new()
-	_rules.z_index = 110 # devant le voile du mode ciblage
-	_rules.closed.connect(func(): _rules = null)
-	add_child(_rules)
 
 ## QuitGameScene (MessageBoxScene, :16-27) : bande winner_bg, titre « QUIT GAME? », « ARE YOU SURE YOU WANT TO QUIT? » (QUIT? en or), boutons CANCEL (0,35) / QUIT (0,65) a 0,56 de la hauteur.
 func _open_quit_confirm() -> void:

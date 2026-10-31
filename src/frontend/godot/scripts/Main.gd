@@ -1060,7 +1060,7 @@ func _options_buttons_in(buttons: Array, logo: TextureRect) -> void:
 func _toggle_row(y: int, text: String, opts: Array, sel: int, cb: Callable) -> void:
 	UiKit.toggle_row(self, y, text, opts, sel, cb)
 
-## Visionneuse des regles : voir RulesViewer.gd (partagee avec le plateau).
+## Visionneuse des regles : voir RulesViewer.gd (menu principal seulement).
 func show_rules(tab: int = 0) -> void:
 	_clear()
 	var v := RulesViewer.new()

@@ -1,10 +1,9 @@
 extends Control
-## Menu en jeu (engrenage) de l'APK (PauseScene) : « PAUSED » + RESUME / CARD GALLERY / RULES (ajout) / SETTINGS / QUIT GAME.
+## Menu en jeu (engrenage) de l'APK (PauseScene) : « PAUSED » + RESUME / CARD GALLERY / SETTINGS / QUIT GAME.
 ## SETTINGS (SettingsScene) : MUSIC et SOUND ON/OFF, GAME SPEED SLOW/NORMAL/FAST, fleche de retour ; MASTER VOLUME est un ajout
 ## (curseur sous les bascules). CARD GALLERY ouvre la galerie par-dessus. QUIT GAME demande confirmation (BoardUI).
 
 signal resume_requested
-signal rules_requested
 signal quit_requested
 signal speed_changed
 
@@ -41,7 +40,7 @@ func _build() -> void:
 func _build_main() -> void:
 	var t := UiKit.label(self, "PAUSED", 42, UiKit.GOLD, Vector2(1, 45), 1920.0, UiKit.FONT_A, HORIZONTAL_ALIGNMENT_CENTER) # or #cdb15f (PauseScene.cs:42, CustomColors.cs:16) ; APK : texte 198 x 28 px centre en (961, 76)
 	t.name = "Title"
-	var entries := [["RESUME", func(): resume_requested.emit()], ["CARD GALLERY", _open_gallery], ["RULES", func(): rules_requested.emit()],
+	var entries := [["RESUME", func(): resume_requested.emit()], ["CARD GALLERY", _open_gallery],
 		["SETTINGS", func():
 			page = "settings"
 			_build()
@@ -50,12 +49,12 @@ func _build_main() -> void:
 	if not show_gallery:
 		entries.remove_at(1)
 	for i in entries.size():
-		# APK : boutons au pas de 194 px (bordures a y 124, 318, 512, 707, PauseScene.cs:44-94) ; RULES (ajout) est insere avant SETTINGS, QUIT GAME reste le dernier (5e bouton : bas a 1043 px)
+		# APK : boutons au pas de 194 px (bordures a y 124, 318, 512, 707, PauseScene.cs:44-94) 
 		var row := i
 		var sfx := "ui_button_goback" if i == 0 else "ui_button_select"
 		if not show_gallery:
 			row += 1 # num4 demarre a 1 sans galerie : RESUME descend d'un cran (PauseScene.cs:37)
-		var b := UiKit.stone_button(self, str(entries[i][0]), Vector2(960.0 - BTN.x / 2.0, 122.5 + 194.2 * row), BTN, 27, sfx, str(entries[i][0]) != "RULES") # RULES : ajout hors APK, rien ne le remet a plat
+		var b := UiKit.stone_button(self, str(entries[i][0]), Vector2(960.0 - BTN.x / 2.0, 122.5 + 194.2 * row), BTN, 27, sfx)
 		b.pressed.connect(entries[i][1])
 
 func _build_settings() -> void:

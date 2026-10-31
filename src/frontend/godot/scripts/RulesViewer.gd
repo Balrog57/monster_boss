@@ -1,7 +1,7 @@
 class_name RulesViewer
 extends Control
 ## Visionneuse des regles : les livrets officiels Brotherwise (assets/rules/<livre>/pNN.webp, generes par tools/render_rules_pages.py), un onglet par livret.
-## Partagee par le menu principal (plein ecran) et le plateau (superposee, sans detruire la partie).
+## Ouverte depuis le menu principal (plein ecran) ; le menu en jeu de l'APK n'a pas de RULES.
 ## Se ferme en emettant `closed` puis en se liberant (sauf `free_on_close` = false : l'hote la libere, Main la garde sous le ColorFade jusqu'au changement d'ecran).
 
 signal closed
