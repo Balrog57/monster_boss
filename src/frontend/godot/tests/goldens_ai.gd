@@ -1161,6 +1161,11 @@ func _t_apk_triggers() -> void:
 		var rr = _choose(G6, 0, pc6, {}, {}, sd + 1)
 		seen[_pick_of(pc6, rr)] = bool(rr["shuf"])
 	_ok.call(seen.size() == 2 and seen.values().all(func(v): return v), "Cerebellus : sinon un sort AU HASARD (tirage signale)")
+	# Choix ouvert sur une COPIE (The Omega 42 rejoue Dark Laboratory, hors APK) : les 2 sorts pioches sont dans les options, pas encore dans la main reelle -> l'IA doit en designer un (sinon elle abandonne et rejoue Omega sans fin, graine de soak 1058539585)
+	var G6b := _g3()
+	var pc6b := {"type": "discard-spell", "playerId": 0, "bossId": "BMA022", "bossName": "Dark Laboratory", "options": [{"card": _spell("BMA041")}, {"card": _spell("BMA049")}]}
+	var r6b = _choose(G6b, 0, pc6b)
+	_ok.call(_pick_of(pc6b, r6b) == "BMA049", "Dark Laboratory : sorts proposes absents de la main reelle -> Kobold Strike, pas d'abandon")
 	# CheckBMA002 Xyzax : deux sorts au hasard ; la liste du premier choix sert au second
 	var G7 := _g3()
 	G7["decks"]["spellDiscard"] = [_spell("BMA041"), _spell("BMA042"), _spell("BMA043")]

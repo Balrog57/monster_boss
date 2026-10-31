@@ -1,7 +1,7 @@
 extends Node
 ## Largeur utile de l'ecran, comme l'APK (ViewportManager Uniform sur une maquette de 1440 x 1080, Game.cs:49 ; ViewportManagerExtensions.cs ; EdgeAlignmentComponent.cs).
 ##
-## Regle : largeur utile = clamp(ratio de la fenetre x 1080, 1440, 1920). `Window.content_scale_size` suit (keep_aspect) : un 16:9 ou plus large garde 1920 x 1080 (bandes noires
+## Regle : largeur utile = clamp(ratio de la fenetre x 1080, 1440, 1920). `Window.content_scale_size` suit (stretch aspect « keep », sondee chaque image : voir _process) : un 16:9 ou plus large garde 1920 x 1080 (bandes noires
 ## sur les cotes, comme avant), un 4:3 passe a 1440 x 1080 sans bande.
 ##
 ## Tout le code d'interface garde sa maquette 1920 x 1080 (« repere F » = coordonnees APK + 240) : Main (ou le plateau seul dans les tests, `make_stage`) est un Control fixe de
@@ -26,17 +26,26 @@ var _edges: Array = [] # noeuds enregistres par edge() (meta vp_x / vp_side / vp
 static func width_for(aspect: float) -> float:
 	return clampf(aspect * H, MIN_W, MAX_W)
 
-func _ready() -> void:
-	get_window().size_changed.connect(_on_size_changed)
-	_apply_canvas()
-	_on_size_changed()
+var _win := Vector2i.ZERO # derniere taille de fenetre vue
 
-func _on_size_changed() -> void:
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS # le redimensionnement doit suivre aussi sous la pause
+	_apply_canvas()
+	_poll_size()
+
+## Sonde la taille chaque image au lieu d'ecouter `size_changed` : avec stretch « keep », ce signal (taille du viewport virtuel) n'est pas emis quand la fenetre grandit
+## sans changer la taille du contenu (4:3 -> 16:9 en direct dans le navigateur) ; et changer `content_scale_size` depuis son handler laisse le rendu en lettre-box perime.
+func _process(_d: float) -> void:
+	_poll_size()
+
+func _poll_size() -> void:
 	if DisplayServer.get_name() == "headless": # serveur / tests sans fenetre : la largeur ne change que par set_width()
 		return
-	var s: Vector2i = get_window().size
-	if s.x > 0 and s.y > 0:
-		set_width(width_for(float(s.x) / float(s.y)))
+	var s: Vector2i = DisplayServer.window_get_size()
+	if s == _win or s.x <= 0 or s.y <= 0:
+		return
+	_win = s
+	set_width(width_for(float(s.x) / float(s.y)))
 
 ## Fixe la largeur utile (appelee par la fenetre ; les tests l'appellent directement : un serveur sans fenetre n'emet aucun size_changed).
 func set_width(w: float) -> void:

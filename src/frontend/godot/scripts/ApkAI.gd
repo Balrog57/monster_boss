@@ -1742,8 +1742,9 @@ static func _tr_004(x: Dictionary, opts: Array) -> Variant:
 	return null
 
 ## SelectSpellToDiscard (l.638-646) : Jeopardy / Kobold Strike d'abord, sinon un sort au hasard.
-static func _select_spell_to_discard(x: Dictionary) -> Dictionary:
-	var sp := _hand_cards(x["p"], true)
+## `sp` = les sorts proposes par le choix (SpellInHand) : la main reelle ne les a pas encore quand The Omega 42 (hors APK) ouvre le choix sur une copie, apres la pioche simulee (sinon l'IA abandonnait en boucle).
+static func _select_spell_to_discard(x: Dictionary, opts: Array) -> Dictionary:
+	var sp: Array = opts.map(func(o): return (o as Dictionary)["card"])
 	for c in sp:
 		if ["BMA048", "BMA049"].has(str((c as Dictionary).get("id", ""))):
 			return {"card": c, "shuf": false}
@@ -1752,7 +1753,7 @@ static func _select_spell_to_discard(x: Dictionary) -> Dictionary:
 
 ## CheckBMA005 Cerebellus (l.451-457) / CheckBMA022 Dark Laboratory (l.219-225) : SelectSpellToDiscard.
 static func _tr_005_022(x: Dictionary, opts: Array) -> Variant:
-	var d := _select_spell_to_discard(x)
+	var d := _select_spell_to_discard(x, opts)
 	return _pick_card(opts, d["card"], bool(d["shuf"]))
 
 ## CheckBMA006 Seducia (l.459-476) : heros de la ville puis de la pioche dont les PV sont <= aux degats de notre donjon, le plus d'ames ; sinon rien (facultatif).

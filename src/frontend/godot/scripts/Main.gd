@@ -948,9 +948,10 @@ var _logo_stale := false
 func show_options(from_credits: bool = false) -> void:
 	if from_credits:
 		_logo_stale = true
-	var host := LineEdit.new()
-	host.text = server_host
 	var is_web := OS.has_feature("web")
+	var host: LineEdit = null if is_web else LineEdit.new() # web : pas de champ (les lambdas ci-dessous captureraient un noeud libere : erreur « Lambda capture was freed » a chaque sortie d'OPTIONS)
+	if host != null:
+		host.text = server_host
 	var leave := func():
 		if not is_web and is_instance_valid(host):
 			server_host = host.text
@@ -1000,14 +1001,12 @@ func show_options(from_credits: bool = false) -> void:
 	add_child(ext)
 	if from_credits: # OptionsScene.ShowButtons(true) (:150-153) : boutons en cascade (0 / 0,1 / 0,2 / 0,3 s), fondu 0,3 s + glisse de 0,2 s (BackEase Out) ; le fondu du logo vise l'ancien (Resume)
 		_options_buttons_in([tut, sett, gal, cred], null)
-	host.add_theme_font_size_override("font_size", 16)
-	host.position = Vector2(1440.0, 1034) # (hors APK) coin bas droit
-	Vp.edge(host, Vp.RIGHT)
-	host.size = Vector2(440, 36)
-	host.tooltip_text = "Multiplayer server"
-	if is_web:
-		host.free() # web : le serveur est toujours celui qui sert la page (window.location.origin), pas de champ
-	else:
+	if host != null: # web : le serveur est toujours celui qui sert la page (window.location.origin)
+		host.add_theme_font_size_override("font_size", 16)
+		host.position = Vector2(1440.0, 1034) # (hors APK) coin bas droit
+		Vp.edge(host, Vp.RIGHT)
+		host.size = Vector2(440, 36)
+		host.tooltip_text = "Multiplayer server"
 		add_child(host)
 
 ## SETTINGS (SettingsScene.cs:58-106) : MUSIC / SOUND / GAME SPEED aux y 360 / 480 / 600 ; la fleche pop SANS transition vers OPTIONS (NavigatedBack :133-145).

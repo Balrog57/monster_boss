@@ -76,7 +76,7 @@ docker compose -f deploy/docker-compose.yml ps
 curl -sI -H 'Accept-Encoding: gzip' http://192.168.1.98:8090/index.wasm
 # attendu : Content-Type: application/wasm  et  Content-Encoding: gzip
 
-# pck : environ 38 Mo (non compressé)
+# pck : environ 40,5 Mo (non compressé)
 curl -sI http://192.168.1.98:8090/index.pck
 
 # la table MIME de nginx:alpine connaît bien wasm
@@ -85,6 +85,37 @@ docker run --rm nginx:alpine grep wasm /etc/nginx/mime.types
 
 Tous les fichiers sont servis avec `Cache-Control: no-cache` (noms non hashés) :
 le navigateur revalide à chaque chargement (ETag, réponses 304 peu coûteuses).
+Poids mesurés le 2026-10-31 (export local, recette du `Dockerfile`) : `index.wasm` 39,5 Mo (gzip 10,1 Mo), `index.pck` 40,5 Mo
+(gzip 39,6 Mo : webp déjà compressé, le gzip n'apporte rien), `index.js` 280 Ko (gzip 68 Ko), `index.png` 1,2 Mo : environ 49 Mo au
+premier chargement, 0 Mo ensuite (304 à 300 octets chacun, vérifié sous Chrome et Firefox avec un profil persistant ; pour Firefox, par le journal du serveur).
+
+### Contrôle local sans Docker
+
+Pour essayer l'export web sur le poste de développement (aucun Docker requis) :
+
+```bash
+# 1. export + gzip : mêmes commandes que le Dockerfile (Godot 4.7.2 et ses modèles d'export installés)
+godot --headless --path src/frontend --export-release Web godot/build_web/index.html
+(cd src/frontend/godot/build_web && gzip -9k index.wasm index.pck index.js)
+# 2. serveur statique qui reproduit nginx.conf (gzip_static, application/wasm, no-cache, ETag/304) ; --bind 0.0.0.0 pour tester depuis le LAN
+python tools/web_serve.py --port 8090
+# 3. test de fumée dans un vrai navigateur : console propre, canvas non vide, menus, une partie à 2, pause, redimensionnement en direct (python -m pip install playwright && python -m playwright install chromium firefox webkit)
+python tools/web_smoke.py --browser chromium --shots docs/reference/web/smoke      # idem : --browser firefox | webkit | chrome | msedge, --size 1440x1080, --headed
+```
+
+`tools/web_serve.py` n'est qu'une imitation : il ne remplace pas le `curl -I` ci-dessus sur le vrai conteneur. Le type `application/wasm` de
+`nginx:alpine` n'a pas pu être contrôlé sur un conteneur ici (pas de Docker sur le poste) ; il est confirmé par le `mime.types` livré
+par nginx (`application/wasm  wasm;`, dépôt nginx, relu le 2026-10-31).
+
+### Navigateurs : ce qui reste à vérifier par le propriétaire (Safari)
+
+Aucun appareil Apple n'a servi aux tests ; WebKit de Playwright (Windows, sans Web Audio) est le seul proxy. À faire une fois sur un Mac / iPhone / iPad
+(Safari ≥ 15 pour WebGL 2) : (1) la page se charge sans écran blanc (avertissements `glBlitFramebuffer` / `WEBGL_polygon_mode` seuls tolérés) ;
+(2) après le premier clic sur TAP TO START, la musique démarre (règle de reprise de l'`AudioContext` : un geste utilisateur est exigé) et les effets sonores
+sont audibles ; (3) la musique boucle sans trou audible (Godot relance le morceau à chaque fin) ; (4) redimensionner la fenêtre ou passer en plein écran
+(Ctrl+Cmd+F) redimensionne le canvas sans bande noire sur les côtés d'un 4:3 ; (5) un `Cmd+R` recharge le jeu sans service worker périmé ;
+(6) navigation privée : le jeu démarre et signale que la sauvegarde ne persiste pas (IndexedDB indisponible, voir S-02) ; (7) en `http://` sur le LAN
+(contexte non sécurisé), le jeu démarre quand même (shim `head_include`).
 
 ## 7. Cloudflare
 
