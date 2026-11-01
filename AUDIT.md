@@ -3110,3 +3110,38 @@ En ligne sur HEAD :
 - `--abuse` : 39/39.
 
 **Reste** : à 5-6 joueurs, chaque début de tour produit encore des grappes d'images de 50 à 150 ms. Le tour d'un seul appel `Match._drive_ai` joue toute la construction des IA (max 61 ms en natif, hors interface), et `refresh()` reconstruit encore tout le plateau (donjon adverse 23 %, `DungeonSlot.set_stack` 17 %). **Non vérifié** : vitesse réelle avec un siège humain, Firefox et Safari, et l'effet visuel du regroupement des `refresh()` : les animations pilotées par l'écart avec l'état déjà vu (`_last_phase`, `_lvl_seen`, `_souls_seen`) ne voient plus les états intermédiaires d'un même coup, qui n'étaient de toute façon jamais dessinés.
+
+### Rafraîchissement partiel du plateau (2026-11-01)
+
+`refresh()` ne reconstruit plus ce qui n'a pas changé. La clé de comparaison couvre ce que chaque partie affiche.
+
+| Partie du plateau | Ce qui est comparé |
+|---|---|
+| Emplacements du joueur (`DungeonSlot.set_stack`) | Copie profonde de la pile, emplacement, joueur, gel, dégâts courants, Minibosses |
+| Emplacements adverses (`_refresh_foe_dungeon`) | Même clé, avec en plus le siège affiché. Tout est reconstruit pendant un ciblage |
+| Boutons P<n> à 5-6 joueurs | Sièges, siège affiché, joueur actif, noms de boss |
+| Rangées d'icônes et trésors | Comptes et icônes |
+
+`_my_moves` n'est appelé qu'une fois par `refresh` (2 487 rafraîchissements contrôlés) et n'est pas mis en cache.
+
+Le drapeau `DungeonSlot.skip_anim` recopie `skip_animations`, que seuls les tests posent : sans lui, les captures du tutoriel montraient un retournement figé en cours.
+
+| Mesure | avant | après |
+|---|---|---|
+| Natif 6 j. avec plateau : `refresh` p50 / p95 / max | 6,58 / 9,68 / 87,1 ms | 3,09 / 4,65 / 87,2 ms |
+| Natif 6 j. avec plateau : `refresh` total | 55,6 s | 29,1 s |
+| Natif 6 j. avec plateau : image p50 / p95 / max | 8,94 / 19,86 / 199 ms | 5,23 / 15,44 / 184 ms |
+| Wasm 6 j. : images > 50 ms / > 100 ms / plus longue | 121 / 29 / 283 ms | 119 / 28 / 282 ms |
+
+**Effet visible** : les retournements, vols et fondus de gel vont maintenant à leur terme. Avant, le `refresh` suivant les coupait. Face aux frames de l'APK, 22 paires s'améliorent, 89 sont identiques et aucune ne se dégrade.
+
+Contrôles :
+- `run_godot_tests.py` : 23/23 ;
+- `image_diff.py --capture --check` : 1/149, la même paire et les mêmes valeurs qu'avant ;
+- empreintes et états finaux identiques.
+
+**Les grappes du début de tour ne bougent pas en wasm.** 45 % des `refresh` de plus de 20 ms viennent de la reconstruction du donjon adverse quand le siège affiché passe au joueur actif : c'est un contenu réellement nouveau. Les plateformes de boss pèsent environ 20 %. Le reste de l'accroc vient de la construction des IA jouée en un seul appel (`Match._drive_ai`).
+
+**Non optimisé** : `_refresh_entrances`, `_refresh_boss_platforms`, `_refresh_hand`, `_refresh_overlay`, vignettes à 3-4 joueurs.
+
+**Non vérifié** : Firefox, Safari, siège humain en session réelle.

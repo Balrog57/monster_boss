@@ -43,11 +43,33 @@ func setup(p_gm: GameManager, p_slot_idx: int, p_pid: int = 0) -> void:
 	game_manager = p_gm
 	slot_index = p_slot_idx
 	player_id = p_pid
+	_view_key_seen = []
 	_update_view()
 
 func set_stack(stack: Array) -> void:
 	current_stack = stack
+	var key := _view_key()
+	if is_inside_tree() and key == _view_key_seen:
+		return # refresh() rappelle set_stack a chaque etat : rien n'a change, les cartes restent (et leurs animations vont a leur terme)
+	_view_key_seen = key if is_inside_tree() else []
 	_update_view()
+
+var skip_anim := false ## BoardUI.skip_animations : le refresh ne reconstruit plus la salle, un retournement ou un vol commence reste donc visible
+var _view_key_seen: Array = [] ## copie de ce qu'_update_view a affiche (cle de _view_key)
+
+func _animated() -> bool:
+	return DisplayServer.get_name() != "headless" and not skip_anim
+
+## Tout ce dont _update_view depend : la pile (copie, l'etat est modifie sur place), l'emplacement, le joueur, et ce qu'il lit dans l'etat (gel, degats courants).
+func _view_key() -> Array:
+	var room = BossEngine.active_room(current_stack)
+	var frozen := false
+	var dmg := -1
+	if game_manager != null and room != null:
+		frozen = BossEngine.is_room_deactivated(game_manager.G, player_id, slot_index)
+		if not frozen and not bool((room as Dictionary).get("faceDown", false)) and str((room as Dictionary).get("type", "")) in ["monster", "trap"]:
+			dmg = BossEngine.room_damage_with_modifiers(game_manager.G, (game_manager.G["players"] as Dictionary)[player_id], slot_index, null)
+	return [current_stack.duplicate(true), slot_index, player_id, frozen, dmg, game_manager != null and Minibosses.active(game_manager.G)]
 
 func _update_view() -> void:
 	if not is_inside_tree():
@@ -87,7 +109,7 @@ func _update_view() -> void:
 				zoom_stack.emit(slot_index))
 		var frozen: bool = game_manager != null and BossEngine.is_room_deactivated(game_manager.G, player_id, slot_index)
 		var fkey := "%d:%d" % [player_id, slot_index]
-		card_ui.set_frozen(frozen, frozen != frozen_seen.has(fkey) and DisplayServer.get_name() != "headless")
+		card_ui.set_frozen(frozen, frozen != frozen_seen.has(fkey) and _animated())
 		if frozen:
 			frozen_seen[fkey] = true
 		else:
@@ -98,9 +120,9 @@ func _update_view() -> void:
 			var dmg := BossEngine.room_damage_with_modifiers(game_manager.G, (game_manager.G["players"] as Dictionary)[player_id], slot_index, null)
 			if card_ui.card_data.card_type in ["monster", "trap"] and dmg != int(active_room.get("damage", 0)):
 				card_ui.add_heart(dmg) # CardStackSlotComponent.cs:148 : degats courants de la salle du dessus quand ils different de l'imprime
-		if _was_down and not down and DisplayServer.get_name() != "headless":
+		if _was_down and not down and _animated():
 			card_ui.flip_in()
-		var fly := down and not _was_down and DisplayServer.get_name() != "headless" # P-C14 : la salle vient d'etre posee en attente
+		var fly := down and not _was_down and _animated() # P-C14 : la salle vient d'etre posee en attente
 		_was_down = down
 		if down: # X-P06 : salle en attente = IsShadowVisible (CardStackSlotComponent.cs:130), ombre card_shadow decalee de (40, 70) a l'echelle 0,5, opacite 0,75
 			var sh := TextureRect.new()
@@ -288,8 +310,7 @@ func _drop_data(_at_position: Vector2, data) -> void:
 	room_dropped.emit(hand_idx, slot_index) # BoardUI rafraichit l'ecran (apply_move n'emet pas toujours state_changed en fin de coup)
 
 	# Feedback visuel fluide (flash vert)
-	if border:
-		var orig_col = border.border_color
+	if border and not skip_anim:
 		border.border_color = Color(0.2, 1.0, 0.3, 1.0)
 		var t = create_tween()
-		t.tween_property(border, "border_color", orig_col, 0.4)
+		t.tween_property(border, "border_color", Color(0.4, 0.8, 0.4, 0.0), 0.4) # fin = liseré d'un emplacement garni (_update_view ne recolore plus un emplacement inchange)

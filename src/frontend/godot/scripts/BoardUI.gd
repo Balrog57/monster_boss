@@ -228,6 +228,7 @@ var _bait_flown := {}                    # cartes deja parties en vol pour ce le
 var _bait_landed := {}                   # cartes deja arrivees a l'entree du donjon pour ce leurre : {pid:id:rang -> _bait_t0}
 var _phase_tw: Tween                     # saut de la plaque de phase (PhaseTitleControl + JumpBehavior)
 var _foe_frozen := {}                    # « adversaire:indice de salle » -> salle gelee au dernier affichage (voile de glace en fondu au gel)
+var _foe_keys: Array = []               # cle de ce que chaque emplacement adverse affiche (_refresh_foe_dungeon)
 var _foe_down := {}                      # emplacement adverse -> salle face cachee au dernier affichage (retournement a la revelation)
 var _lvl_busy := false                   # la banniere LEVEL UP passe : le choix de niveau attend sa fin (l'APK enchaine banniere puis choix)
 var _lvl_seen := {}                      # pid -> « monte de niveau » deja vu : un passage a vrai joue la banniere LEVEL UP (_show_levelup)
@@ -787,18 +788,30 @@ func _update_foe(G: Dictionary) -> Array:
 
 var _foe_fading := false
 
+var _foe_bar_key: Array = [] # ce que les boutons P<n> affichent (5-6 joueurs) ; vide : vignettes ou pas de selecteur
+
 func _refresh_foe_bar(others: Array) -> void:
-	for c in foe_bar.get_children() + opp_box.get_children():
-		c.get_parent().remove_child(c)
-		c.queue_free()
 	# 3-4 joueurs : vignettes de la colonne droite (TopRightPanelEntity.cs:80-96) ; 5-6 joueurs (hors APK) : boutons P<n> dans la barre du haut
 	var panels := others.size() in [2, 3]
+	var key := []
+	if not panels and others.size() > 1: # les boutons ne dependent que de ceci : siege choisi, joueur actif, noms de boss (infobulle)
+		var names := []
+		for k in others:
+			var bs = ((game_manager.G["players"] as Dictionary)[k] as Dictionary).get("boss")
+			names.append(str((bs as Dictionary).get("name", "")) if bs != null else null)
+		key = [others.duplicate(), foe_pid, game_manager.active_player() if game_manager.G.get("gameOver") == null else -1, names]
+	var same: bool = not key.is_empty() and key == _foe_bar_key and foe_bar.get_child_count() == others.size()
+	_foe_bar_key = key
+	if not same:
+		for c in foe_bar.get_children() + opp_box.get_children():
+			c.get_parent().remove_child(c)
+			c.queue_free()
 	foe_group.visible = not panels
 	foe_bar.visible = others.size() > 3
 	if not panels:
 		_opp_open = false
 	_opp_detail_sync()
-	if others.size() <= 1:
+	if others.size() <= 1 or same:
 		return
 	foe_bar.theme = _make_bar_theme(others.size() > 3) # 5-6 joueurs : boutons plus serres
 	for i in others.size():
@@ -1373,9 +1386,11 @@ func refresh() -> void:
 		var di := j - off
 		if di >= 0 and di < n:
 			slot.slot_index = di
+			slot.skip_anim = skip_animations
 			slot.set_stack(dungeon[di])
 		else:
 			slot.slot_index = n
+			slot.skip_anim = skip_animations
 			slot.set_stack([])
 
 	var my_moves: Array = _my_moves(_my_pid())
@@ -2006,15 +2021,39 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 	var prev_down := _foe_down.duplicate()
 	var prev_frozen := _foe_frozen.duplicate()
 	var holder: Control = _lane[0]["slots"]
-	for c in holder.get_children():
-		c.queue_free()
+	var old_slots := _foe_slots.duplicate()
+	var old_keys := _foe_keys
 	_foe_slots.clear()
+	_foe_keys = []
 
 	var dungeon: Array = foe.get("dungeon", [])
 	var off: int = maxi(0, CardDB.DUNGEON_SLOTS - dungeon.size())
 	_foe_down.clear()
 	_foe_frozen.clear()
+	var G: Dictionary = game_manager.G
+	var mini: bool = Minibosses.active(G)
 	for j in CardDB.DUNGEON_SLOTS:
+		# Un emplacement dont la pile, le gel et les degats courants n'ont pas change garde ses noeuds (reconstruit a chaque refresh, c'etait 23 % du cout). Ciblage en cours : tout est reconstruit.
+		var di0 := j - off
+		var stack = dungeon[di0] if di0 >= 0 and di0 < dungeon.size() else null
+		var room = BossEngine.active_room(stack) if stack != null else null
+		var kz := false
+		var kdmg := -1
+		if room != null:
+			kz = BossEngine.is_room_deactivated(G, foe_pid, di0)
+			if not kz and not bool((room as Dictionary).get("faceDown", false)) and str((room as Dictionary).get("type", "")) in ["monster", "trap"]:
+				kdmg = BossEngine.room_damage_with_modifiers(G, foe, di0, null)
+		var key := [foe_pid, di0, stack.duplicate(true) if stack != null else null, kz, kdmg, mini]
+		_foe_keys.append(key)
+		var kept = old_slots[j] if j < old_slots.size() and j < old_keys.size() and old_keys[j] == key and _tgt.is_empty() else null
+		if kept != null and is_instance_valid(kept) and not (kept as Node).is_queued_for_deletion() and (kept as Node).get_parent() == holder:
+			if room != null:
+				var kfk := "%d:%d" % [foe_pid, di0]
+				_foe_frozen[kfk] = kz
+				_foe_down[kfk] = bool((room as Dictionary).get("faceDown", false))
+			_foe_slots.append(kept)
+			old_slots[j] = null
+			continue
 		var slot_ctrl := Control.new()
 		slot_ctrl.custom_minimum_size = SLOT_SIZE
 		slot_ctrl.size = SLOT_SIZE
@@ -2069,9 +2108,20 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 					if mb_badge != null:
 						slot_ctrl.add_child(mb_badge)
 						slot_ctrl.tooltip_text = Minibosses.badge_tooltip(r, false)
+		var at := holder.get_child_count() # le nouveau noeud prend la place de l'ancien (ordre de dessin inchange)
+		var old = old_slots[j] if j < old_slots.size() else null
+		if old != null and is_instance_valid(old) and (old as Node).get_parent() == holder:
+			at = (old as Node).get_index()
+			holder.remove_child(old)
+			(old as Node).queue_free()
 		holder.add_child(slot_ctrl)
+		holder.move_child(slot_ctrl, at)
 		DungeonSlot.fit_cards(slot_ctrl)
 		_foe_slots.append(slot_ctrl)
+	for c in holder.get_children(): # les emplacements non repris
+		if not _foe_slots.has(c):
+			holder.remove_child(c)
+			c.queue_free()
 
 ## Main du joueur : eventail en bas ; carrousel central pour le choix du boss et la defausse d'ouverture.
 func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array) -> void:
@@ -2641,6 +2691,10 @@ func _fade_in_lanes() -> void:
 ## Compteurs de tresor (IconCounterControlEntity, maximum `maxn`) : l'icone « vide » est toujours posee (icone zero, cs:CreateIconEntites), les icones pleines
 ## s'alignent dessus (pas = largeur + marge) jusqu'a `maxn`, au-dela une seule icone suivie de « xN » (cs:UpdateValue). Tailles natives.
 func _fill_treasures(box: Control, counts: Dictionary, layout: Array, name_fmt: String, maxn: int) -> void:
+	var key := [counts, name_fmt] # la mise en page est fixe par rangee : les icones ne changent qu'avec les comptes
+	if box.has_meta("fill_key") and box.get_meta("fill_key") == key:
+		return
+	box.set_meta("fill_key", key)
 	for c in box.get_children():
 		if (c is TextureRect and str((c as TextureRect).name).begins_with("T_")) or c is Label:
 			c.queue_free()
@@ -2690,6 +2744,10 @@ func _flash_icons(box: Control, from: int, to: int, off_path: String) -> void:
 
 ## Rangee d'icones natives (IconCounterControlEntity avec maximum absolu : `filled` pleines puis vides, pas = largeur + `margin`).
 func _icon_row(box: Control, total: int, filled: int, on_path: String, off_path: String, margin: float) -> void:
+	var key := [total, filled, on_path, off_path, margin]
+	if box.has_meta("row_key") and box.get_meta("row_key") == key and box.get_child_count() == total:
+		return # rien n'a change (refresh() passe a chaque etat) : les icones, et le fondu d'une icone gagnee, restent
+	box.set_meta("row_key", key)
 	for c in box.get_children():
 		box.remove_child(c) # tout de suite : le test de compte lit les enfants apres le rafraichissement
 		c.queue_free()
