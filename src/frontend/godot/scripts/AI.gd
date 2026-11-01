@@ -70,11 +70,14 @@ static func pick_move(match_obj, pid: int, commit := true):
 		return null
 	var p: Dictionary = (match_obj.G["players"] as Dictionary)[pid]
 	if str((moves[0] as Dictionary).get("type", "")) == "pickBoss": # APK : le boss de l'IA est tire au hasard (Except(humains).Shuffle().Take(k)), sans score
-		var pick = moves[match_obj.rng.randi_range(0, moves.size() - 1)]
+		var pick = null
 		var want: String = match_obj.apk_ai_boss(pid)
 		for mv in moves:
 			if want != "" and str(((mv as Dictionary).get("args", [""]) as Array)[0]) == want:
 				pick = mv
+				break
+		if pick == null: # pas de boss impose (ou absent des options) : tirage
+			pick = moves[match_obj.rng.randi_range(0, moves.size() - 1)]
 		if trace.is_valid():
 			trace.call(match_obj, pid, moves, pick)
 		return pick

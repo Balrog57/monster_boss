@@ -53,7 +53,10 @@ class Handler(BaseHTTPRequestHandler):
     def _resolve(self):
         path = unquote(urlsplit(self.path).path)
         full = os.path.normpath(os.path.join(self.root, path.lstrip("/")))
-        if os.path.commonpath([full, self.root]) != self.root:
+        try:
+            if os.path.commonpath([full, self.root]) != self.root:
+                return None
+        except ValueError:  # lecteur Windows dans l'URL (/D:/x) : commonpath refuse de melanger les lecteurs
             return None
         if os.path.isdir(full):
             full = os.path.join(full, "index.html")

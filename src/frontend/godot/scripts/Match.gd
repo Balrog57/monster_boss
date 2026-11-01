@@ -60,8 +60,10 @@ var human_count := 1
 var rng := RandomNumberGenerator.new()
 var _ai_driving := false
 
-func _exit_tree() -> void:
-	AI.forget(self)
+## PREDELETE et non _exit_tree : le serveur headless n'ajoute jamais la partie a l'arbre (GameRoom.dispose fait free()).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE:
+		AI.forget(self)
 
 func _ready() -> void:
 	rng.randomize()

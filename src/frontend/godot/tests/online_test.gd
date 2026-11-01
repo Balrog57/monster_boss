@@ -41,6 +41,8 @@ func _ready() -> void:
 	CardDB.ship_all = true # le filtrage de vue couvre aussi les paquets fermes (CardDB.SHIPPED_SETS) ; le reseau tourne ensuite en mode livre
 	_check_filter_unit()
 	CardDB.ship_all = false
+	_check_ai_forget()
+	_check_hardening()
 	if _fails.is_empty():
 		await _run_network()
 	if _fails.is_empty():
@@ -55,6 +57,42 @@ func _expect(cond: bool, msg: String) -> bool:
 	if not cond:
 		_fails.append(msg)
 	return cond
+
+## La memoire statique de l'IA est oubliee quand la partie est liberee HORS de l'arbre (cas du serveur headless : GameRoom.dispose fait free()).
+func _check_ai_forget() -> void:
+	var m := Match.new() # jamais ajoute a l'arbre : _exit_tree ne se declencherait pas
+	var id := m.get_instance_id()
+	AI.memo_of(m, 0)["x"] = 1
+	AI.remember(m, 1, {"a": 1})
+	AI._used[AI._key(m, 0)] = "w"
+	AI._pre_build[AI._key(m, 1)] = {}
+	var other := Match.new() # une autre partie vivante garde sa memoire
+	AI.memo_of(other, 0)["y"] = 2
+	var prefix := "%d:" % id
+	var n := 0
+	for d in [AI._sel, AI._used, AI._pre_build, AI._memo]:
+		for k in (d as Dictionary).keys():
+			n += 1 if str(k).begins_with(prefix) else 0
+	_expect(n == 4, "AI.forget : %d cles posees au lieu de 4" % n)
+	m.free()
+	for d in [AI._sel, AI._used, AI._pre_build, AI._memo]:
+		for k in (d as Dictionary).keys():
+			_expect(not str(k).begins_with(prefix), "AI.forget : cle %s restee apres free() hors arbre" % str(k))
+	_expect(AI._memo.has(AI._key(other, 0)), "AI.forget : la memoire d'une autre partie a ete effacee")
+	var okey := AI._key(other, 0)
+	other.free()
+	_expect(not AI._memo.has(okey), "AI.forget : cle de l'autre partie restee apres free()")
+
+## Durcissement du protocole : NetCodec.parse_message ne renvoie un dictionnaire que pour un objet JSON valide.
+## Server._send (fermeture 1013 quand send_text echoue) n'est pas testable sans vraie liaison saturee : seule la partie pure est verifiee.
+func _check_hardening() -> void:
+	for bad in ["", "{pas du json", "[1, 2]", "42", "\"texte\"", "null", "true"]:
+		_expect(NetCodec.parse_message(bad).is_empty(), "parse_message(%s) devrait renvoyer {}" % bad)
+	var ok: Dictionary = NetCodec.parse_message('{"t":"ping","n":3}')
+	_expect(str(ok.get("t", "")) == "ping" and int(ok.get("n", 0)) == 3, "parse_message : objet valide mal decode : %s" % str(ok))
+	var srv = Server.new()
+	srv._send(12345, {"t": "x"}) # connexion inconnue : sans effet ni erreur
+	srv.free()
 
 # --- 1. filtrage des vues -------------------------------------------------------
 
