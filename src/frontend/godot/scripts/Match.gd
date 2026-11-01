@@ -250,6 +250,10 @@ func active_player() -> int:
 	return int(xp[0]) if not xp.is_empty() else 0
 
 # --- Coups légaux (miroir legalMoves) ---
+## Type du coup en cours de validation (_apply_move_core) : legal_moves saute alors les boucles de sorts / capacites de salle, seules sources de playSpell / activateRoom
+## (chacune coute une copie profonde de l'etat par salle) quand le coup valide est d'un autre type. "" = liste complete.
+var _checking_type := ""
+
 func legal_moves(pid: int) -> Array:
 	var out: Array = []
 	if G.get("gameOver") != null:
@@ -359,7 +363,7 @@ func legal_moves(pid: int) -> Array:
 							out.append({"type": "buildRoom", "args": [i, ti]})
 			# Sorts jouables en phase BUILD (miroir reducer.js:playSpell).
 			# Kobold Strike (SkipBuildPhase : MaxBuildRoomLimit = 0) ne bloque que les constructions, pas les sorts de la phase.
-			for i in (p.get("hand", []) as Array).size():
+			for i in ((p.get("hand", []) as Array).size() if _checking_type in ["", "playSpell"] else 0):
 				var c: Dictionary = (p["hand"] as Array)[i]
 				if not c.get("isSpell", false):
 					continue
@@ -369,7 +373,7 @@ func legal_moves(pid: int) -> Array:
 					out.append({"type": "playSpell", "args": [i, t]})
 			out.append_array(_hand_room_moves(pid)) # CRL007 Frostman Lander (se defausse de la main)
 				# Abilites de salle activables (miroir reducer.js:activateRoom).
-			for i in (p.get("dungeon", []) as Array).size():
+			for i in ((p.get("dungeon", []) as Array).size() if _checking_type in ["", "activateRoom"] else 0):
 				var room = BossEngine.active_room((p["dungeon"] as Array)[i])
 				if room == null:
 					continue
@@ -411,7 +415,7 @@ func legal_moves(pid: int) -> Array:
 
 			# Sorts jouables en phase ADVENTURE (Ring of Invisibility : aucun sort pour le proprietaire du donjon)
 			var no_spells: bool = ThkAbilities.spells_blocked(G, pid)
-			for i in (p.get("hand", []) as Array).size():
+			for i in ((p.get("hand", []) as Array).size() if _checking_type in ["", "playSpell"] else 0):
 				var c: Dictionary = (p["hand"] as Array)[i]
 				if not c.get("isSpell", false) or no_spells:
 					continue
@@ -422,7 +426,7 @@ func legal_moves(pid: int) -> Array:
 
 			out.append_array(_hand_room_moves(pid)) # CRL007 Frostman Lander
 				# Capacités de salle activables
-			for i in (p.get("dungeon", []) as Array).size():
+			for i in ((p.get("dungeon", []) as Array).size() if _checking_type in ["", "activateRoom"] else 0):
 				var room = BossEngine.active_room((p["dungeon"] as Array)[i])
 				if room == null:
 					continue
@@ -593,7 +597,9 @@ func _stamp_choices() -> void:
 			d.erase("pickCount")
 
 func _apply_move_core(pid: int, move: Dictionary) -> bool:
+	_checking_type = str(move.get("type", ""))
 	var legal := legal_moves(pid)
+	_checking_type = ""
 	var wanted := str(_trim_args(move.get("args", [])))
 	var found := false
 	for m in legal:

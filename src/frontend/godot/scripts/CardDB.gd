@@ -200,7 +200,14 @@ static func draw_pile(decks: Dictionary, pile: String, n: int, rng: RandomNumber
 
 ## Chemin d'image carte, miroir de getWikiCardImage/getApkCardImage (web: /cards/...).
 ## Priorité : textures authentiques de l'APK (res://assets/apk_cards/), puis wiki (res://assets/cards/).
+var _image_paths := {} # (id, kind, art) -> chemin : ResourceLoader.exists (jusqu'a 8 recherches de fichier par carte) ne tourne qu'une fois, les fichiers et name_map sont fixes apres _ready
 func card_image(id: String, kind: String, art := 1) -> String:
+	var key := "%s|%s|%d" % [id, kind, art]
+	if not _image_paths.has(key):
+		_image_paths[key] = _resolve_card_image(id, kind, art)
+	return _image_paths[key]
+
+func _resolve_card_image(id: String, kind: String, art: int) -> String:
 	# 1. Dos de carte
 	match kind:
 		"back-room":

@@ -709,7 +709,7 @@ func setup(p_gm: GameManager, p_exit_cb: Callable) -> void:
 	game_manager = p_gm
 	_speed = _speed_factor() # _ready() tourne avant setup() : en ligne le facteur ne se connait qu'ici
 	on_exit_callback = p_exit_cb
-	game_manager.state_changed.connect(refresh)
+	game_manager.state_changed.connect(_refresh_soon)
 	if _is_online():
 		(game_manager as OnlineGameManager).client.remote_play.connect(_on_remote_play)
 	btn_advance.pressed.connect(_on_advance_pressed)
@@ -1065,7 +1065,6 @@ func _process(delta: float) -> void:
 			continue
 		if phase == "build" and pc.is_empty() and int(pid) != game_manager.active_player() and not game_manager.G.has("buildWindow"):
 			continue # IA hors tour : son UseAbility du pas est joue par Match._drive_ai (AIPlayerInteraction.cs:86-101), pas par cette boucle
-		var moves: Array = game_manager.legal_moves(int(pid))
 		var has_ai_choice: bool = not pc.is_empty() and int(pc.get("playerId", -1)) == int(pid)
 		# Aventure : l'IA active doit avancer / passer, sinon la partie attend indefiniment (pause : tous les sieges IA passent).
 		var adv_turn: bool = phase == "adventure" and pc.is_empty() and (int(pid) == game_manager.active_player() or ((game_manager.G.get("adventure", {}) as Dictionary).get("pause") != null))
@@ -1073,7 +1072,10 @@ func _process(delta: float) -> void:
 		# (aucun heros en cours, pile vide) une IA hors tour joue aussi sa capacite (Trepidation...), une fois par fenetre (AI._window_key).
 		var pre_entry: bool = phase == "adventure" and pc.is_empty() and not adv_turn and (game_manager.G.get("adventure", {}) as Dictionary).is_empty() and (game_manager.G.get("stack", []) as Array).is_empty()
 		adv_turn = adv_turn or pre_entry
-		if not moves.is_empty() and (has_ai_choice or phase == "boss" or phase == "build" or adv_turn):
+		if not (has_ai_choice or phase == "boss" or phase == "build" or adv_turn):
+			continue # rien a faire jouer a ce siege : on ne calcule pas ses coups (legal_moves, a chaque image et pour chaque IA, pese a 5-6 joueurs)
+		var moves: Array = game_manager.legal_moves(int(pid))
+		if not moves.is_empty():
 			_ai_timer += dt
 			if _ai_timer > (0.2 if adv_turn else 0.5):
 				var mv = AI.pick_move(game_manager, int(pid))
@@ -1293,7 +1295,21 @@ func _warn_pending_after_build(G: Dictionary, phase: String) -> void:
 					seq = str(((game_manager as OnlineGameManager).client.current_ctx as Dictionary).get("serverTime", "-"))
 				push_warning("SALLE FACE CACHEE EN %s : tour=%s joueur=%s emplacement=%d carte=%s etat(serverTime)=%s" % [phase.to_upper(), str(G.get("turn", 0)), str(pid), si, str((r as Dictionary).get("id", "?")), seq])
 
+var _refresh_queued := false
+
+## state_changed part plusieurs fois dans un meme coup (Match._drive_ai : ~6 a chaque debut de tour a 6 joueurs) et chaque refresh() reconstruit tout le plateau :
+## un seul refresh(), differe a la fin de l'image. Un refresh() direct (apres apply_move) annule celui qui attend.
+func _refresh_soon() -> void:
+	if not _refresh_queued:
+		_refresh_queued = true
+		_refresh_flush.call_deferred()
+
+func _refresh_flush() -> void:
+	if _refresh_queued:
+		refresh()
+
 func refresh() -> void:
+	_refresh_queued = false
 	if game_manager == null or game_manager.G.is_empty():
 		return
 
@@ -4790,6 +4806,7 @@ func _notice_ai(pid: int, mv: Dictionary, shown = null) -> void:
 
 ## Coup d'un autre siege en ligne (humain distant ou IA du serveur) : meme bulle que la boucle IA locale.
 func _on_remote_play(play: Dictionary) -> void:
+	_refresh_flush() # la bulle se place sur le plateau a jour : l'etat recu juste avant (state_received) n'est pas encore affiche
 	_notice_ai(int(play.get("seat", -1)), play.get("move", {}) as Dictionary, play.get("card"))
 
 ## « IS PLAYING! » (IsPlayingOnlineBubbleSceneBehavior) : une bulle par adversaire dont la decision retient la partie. Elle s'efface quand une bulle de coup entre
