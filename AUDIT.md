@@ -3093,4 +3093,20 @@ Corrigé :
 
 Empreintes et états finaux identiques avant et après. Contrôles : `run_godot_tests.py` 23/23 ; oracle 6/6, `--ai-agreement` identique octet à octet (usableSet 2 121/2 121, 0 mutation), `--tutorial` 3/3 ; `image_diff.py --check` 0/149 sur les captures existantes, 1/149 sur une capture refaite (`levelup_button_tap_shows_boss_card_zoom_with_levelup_text`, 6,21 / 29,1) **avec ou sans ce changement**.
 
-**Reste** : le début de tour à 5-6 joueurs joue toute la construction des IA dans un seul `Match._drive_ai` (max 61 ms en natif, hors interface) ; `refresh()` reconstruit encore tout le plateau (donjon adverse 23 %, `DungeonSlot.set_stack` 17 %). **Non vérifié** : gain réel en wasm dans un navigateur, partie en ligne de bout en bout après le changement, et l'effet visuel du regroupement des `refresh()` : les animations pilotées par l'écart avec l'état déjà vu (`_last_phase`, `_lvl_seen`, `_souls_seen`) ne voient plus les états intermédiaires d'un même coup, qui n'étaient de toute façon jamais dessinés.
+**Wasm (vérifié le 2026-11-01)** : Chromium avec fenêtre (GPU réel), 1920×1080. Les deux builds (76d8766 et 4940505) ont reçu la même surcouche temporaire, hors dépôt, qui joue une partie tout IA à graine fixe sur le vrai `Board.tscn` (`win_time_scale` 0,25). Le hash de l'état final est identique avant et après pour chaque graine.
+
+| Wasm, images cumulées sur les graines | avant | après |
+|---|---|---|
+| 2 j., 5 graines : > 50 ms / > 100 ms / plus longue | 17 / 5 / 110-142 ms | 7 / 2 / 93-110 ms |
+| 6 j. Crash Landing, 3 graines : > 50 ms / > 100 ms / plus longue | 172 / 52 / 324-463 ms | 127 / 31 / 148-293 ms |
+| 6 j. : p99 | 16-22 ms | 6,7-11,5 ms |
+
+À 2 joueurs, il ne reste plus d'accroc en cours de partie : le seul restant est la création du plateau, présente aussi avant. Ces chiffres ne se comparent pas à ceux de la phase 6, mesurés à vitesse normale avec un protocole non conservé.
+
+En ligne sur HEAD :
+- `web_online_smoke.py --players 6 --bots 4 --packs crash-landing` : OK, aucun problème ;
+- `--scenario all` : 10/10 ;
+- `online_bots.py --rooms 11 --mix` : 11/11, 0 fuite de vue sur 5 056 états, aucune erreur ;
+- `--abuse` : 39/39.
+
+**Reste** : à 5-6 joueurs, chaque début de tour produit encore des grappes d'images de 50 à 150 ms. Le tour d'un seul appel `Match._drive_ai` joue toute la construction des IA (max 61 ms en natif, hors interface), et `refresh()` reconstruit encore tout le plateau (donjon adverse 23 %, `DungeonSlot.set_stack` 17 %). **Non vérifié** : vitesse réelle avec un siège humain, Firefox et Safari, et l'effet visuel du regroupement des `refresh()` : les animations pilotées par l'écart avec l'état déjà vu (`_last_phase`, `_lvl_seen`, `_souls_seen`) ne voient plus les états intermédiaires d'un même coup, qui n'étaient de toute façon jamais dessinés.
