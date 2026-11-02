@@ -60,8 +60,12 @@ static func cross_fade_in(n: CanvasItem) -> void:
 	n.modulate.a = 0.0
 	n.create_tween().tween_property(n, "modulate:a", 1.0, 0.2)
 
+static var _tex_memo := {} # chemin -> texture (ou null) : exists + load() coutent ~1 ms en wasm
+
 static func tex(path: String) -> Texture2D:
-	return load(path) if ResourceLoader.exists(path) else null
+	if not _tex_memo.has(path):
+		_tex_memo[path] = load(path) if ResourceLoader.exists(path) else null
+	return _tex_memo[path]
 
 static func label(parent: Node, text: String, size: int, color: Color, pos: Vector2, width: float = 0.0, font_path: String = FONT_B, align: int = HORIZONTAL_ALIGNMENT_LEFT) -> Label:
 	var l := Label.new()

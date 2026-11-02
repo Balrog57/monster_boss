@@ -41,6 +41,8 @@ static func attach(parent: Node, at: Vector2, host_size: Vector2, card_w: float,
 func is_scaled() -> bool:
 	return _scale <= SCALED_MAX + 0.0006 # 175,5 / 350 : la main (0,5) est « scaled », le carrousel (0,7) non
 
+static var _tex_memo := {} # chemin -> texture : exists + load() coutent ~1 ms en wasm
+
 ## BaseBorderBehavior.BorderStyle (cs:19-30) + UpdateBorderStyle (cs:59-68) : texture selon le style, puis fondu entrant (visible) ou sortant (None), depuis l'opacite courante.
 func set_style(s: int, animate := true) -> void:
 	if s == style:
@@ -48,7 +50,9 @@ func set_style(s: int, animate := true) -> void:
 	style = s
 	if s != Style.NONE:
 		var path: String = DIR + NAMES[s] + ("_scaled" if is_scaled() else "") + ".webp"
-		texture = load(path) if ResourceLoader.exists(path) else null
+		if not _tex_memo.has(path):
+			_tex_memo[path] = load(path) if ResourceLoader.exists(path) else null
+		texture = _tex_memo[path]
 		size = (SCALED_SIZE * SCALED_K * _scale) if is_scaled() else (_host if _stretch or texture == null else texture.get_size() * _scale)
 		position = _origin + (_host - size) / 2.0
 	if _tw != null:

@@ -35,6 +35,13 @@ class BenchGM extends "res://godot/scripts/GameManager.gd":
 		ref_us += Time.get_ticks_usec() - _ref_t0
 		ref_n += 1
 
+	## Les coups IA repris par images sont comptes comme imbriques (comme dans l'ancien appel unique) : meme empreinte.
+	func drive_ai_step() -> bool:
+		depth += 1
+		var r: bool = super.drive_ai_step()
+		depth -= 1
+		return r
+
 	func apply_move(pid: int, move: Dictionary) -> bool:
 		var top := depth == 0
 		var label := ""
@@ -84,6 +91,7 @@ var frame_us: Array = []  # --ui : un pas de board._process
 var ref_each: Array = []
 var all_recs: Array = []
 var ui_mode := false
+var _sync_ai := false
 var humans := 0
 var sets: Array = ["base"]
 var players := 6
@@ -108,6 +116,8 @@ func _ready() -> void:
 			top_n = maxi(1, int(a.substr(6)))
 		elif a == "--ui":
 			ui_mode = true
+		elif a == "--sync-ai":
+			_sync_ai = true
 		elif a == "--ship-all": # paquets fermes (CardDB.SHIPPED_SETS), comme les soaks
 			CardDB.ship_all = true
 	if Match.setup_error(players, sets) != "":
@@ -134,6 +144,7 @@ func _play(game_seed: int) -> bool:
 		board.set_anchors_preset(Control.PRESET_FULL_RECT)
 		add_child(board)
 		board.skip_animations = true
+		board.spread_ai = not _sync_ai # comme Main : pilotage IA par images (--sync-ai : ancien comportement, pour comparer)
 		board.win_time_scale = 0.12 # fenetres chronometrees raccourcies, comme ui_smoke
 		board.set_process(false)
 		gm.start_new_game(players, humans, sets)

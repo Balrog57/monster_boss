@@ -59,6 +59,13 @@ var G: Dictionary = {}
 var human_count := 1
 var rng := RandomNumberGenerator.new()
 var _ai_driving := false
+## Mode « par images » (BoardUI seul) : _drive_ai rend la main apres ai_step_budget_us de travail et reste en attente (_ai_pending) ; drive_ai_step() le reprend.
+## Les coups joues et leur ordre sont ceux du mode synchrone (defaut : serveur, oracle, soaks, goldens).
+var ai_step_mode := false
+var ai_step_budget_us := 4000 # un coup au moins par image ; ~un quart d'image a 60 fps
+var _ai_pending := false
+var _ai_guard := 0 # garde de 64 tours de boucle, cumulee sur les images d'un meme pilotage
+var _ai_lock_later: Array = [] # [pid, type] du coup humain dont _lock_undo attend la fin du pilotage (en synchrone il passait apres l'IA)
 
 ## PREDELETE et non _exit_tree : le serveur headless n'ajoute jamais la partie a l'arbre (GameRoom.dispose fait free()).
 func _notification(what: int) -> void:
@@ -72,6 +79,9 @@ func _ready() -> void:
 ## `preselect_human` : GamePlaySPScene.InitializeGameboard tire le boss de l'humain (Shuffle().Take(1)) AVANT les paquets quand aucun boss n'est impose.
 func new_match(num_players: int = 2, p_human_count: int = 1, p_sets: Array = ["base"], seed_value: int = 0, preselect_human := true) -> Dictionary:
 	human_count = p_human_count
+	_ai_pending = false # partie quittee pendant un pilotage par images : rien ne doit deborder sur la suivante
+	_ai_guard = 0
+	_ai_lock_later = []
 	var dbm := DbmRandom.new(seed_value if seed_value != 0 else rng.randi_range(1, 2147483646)) # RandomProvider.Seed ne peut pas etre 0 (Shuffle leve)
 	var n := clampi(num_players, 2, max_players(p_sets)) # 5-6 joueurs sans Crash Landing : repli a 4 (le serveur et le lobby refusent avant, voir setup_error)
 	var sets := {}
@@ -256,7 +266,7 @@ var _checking_type := ""
 
 func legal_moves(pid: int) -> Array:
 	var out: Array = []
-	if G.get("gameOver") != null:
+	if G.get("gameOver") != null or (_ai_pending and not _ai_driving): # plateau perime tant que l'IA n'a pas fini : rien a jouer
 		return out
 	var players: Dictionary = G["players"]
 	if not players.has(pid) or (players[pid] as Dictionary).get("eliminated", false):
@@ -559,13 +569,18 @@ static func _trim_args(args: Variant) -> Array:
 
 
 func apply_move(pid: int, move: Dictionary) -> bool:
+	if _ai_pending and not _ai_driving:
+		flush_ai() # un coup arrive avant la fin du pilotage IA : on le termine d'abord, comme en synchrone
 	if ThkAbilities.active(G):
 		IodAbilities.sweep_covered(G) # IOD026 Malakill : l'Objet d'une salle couverte rentre avant que le coup ne la decouvre
 	var ok := _apply_move_core(pid, move)
 	_stamp_choices()
 	_sync_alive() # Boss.IsAlive en direct : les blessures ont pu monter ou baisser pendant le coup
 	if ok:
-		_lock_undo(pid, str(move.get("type", "")))
+		if _ai_pending and not _ai_driving:
+			_ai_lock_later = [pid, str(move.get("type", ""))]
+		else:
+			_lock_undo(pid, str(move.get("type", "")))
 	if TnlAbilities.active(G):
 		TnlAbilities.flush_torix(G) # TNL003 Torix : les salles Monster defaussees / detruites pendant le coup rejoignent sa main
 		TnlAbilities.sync_hero(G) # TNL108 Druid : +X PV selon les sorts en main
@@ -1351,7 +1366,7 @@ func _setup_progress() -> void:
 					apply_move(int(pid), {"type": "passBuild", "args": []})
 		_ai_driving = false
 		if str(G.get("phase", "")) == CardDB.PHASE["BUILD"]:
-			_drive_ai() # Setup_c a eu lieu pendant la boucle : le premier joueur de BUILD peut etre une IA
+			_drive_ai_now() # Setup_c a eu lieu pendant la boucle : le premier joueur de BUILD peut etre une IA
 	if not bool(G.get("setupBuild", false)):
 		return
 	for pid in G["players"]:
@@ -1645,7 +1660,7 @@ func _start_forced_build() -> bool:
 			continue
 		_log("Joueur %d : tour de construction supplementaire." % pid)
 		state_changed.emit()
-		_drive_ai()
+		_drive_ai_now() # l'appelant (_finish_setup) pose setupForced apres le pilotage : pas de report
 		return true
 	return false
 
@@ -1740,13 +1755,18 @@ func _drive_ai() -> void:
 	if not bool(G.get("autoAI", true)) or _ai_driving:
 		return
 	_ai_driving = true
-	var guard := 0
-	while guard < 64:
-		guard += 1
+	var t0 := Time.get_ticks_usec()
+	var played := false
+	while _ai_guard < 64:
 		if G.get("gameOver") != null or G.get("pendingChoice", {}) != {}:
 			break
 		if str(G.get("phase", "")) != CardDB.PHASE["BUILD"]:
 			break
+		if ai_step_mode and played and Time.get_ticks_usec() - t0 >= ai_step_budget_us:
+			_ai_pending = true # la suite (meme boucle, meme etat) reprend a l'image suivante
+			break
+		_ai_guard += 1
+		played = true
 		if _ai_offturn():
 			continue
 		var pid := active_player()
@@ -1763,6 +1783,38 @@ func _drive_ai() -> void:
 		if not apply_move(pid, {"type": "passBuild", "args": []}):
 			break
 	_ai_driving = false
+	if not _ai_pending:
+		_ai_guard = 0
+		if not _ai_lock_later.is_empty():
+			var lk := _ai_lock_later
+			_ai_lock_later = []
+			_lock_undo(int(lk[0]), str(lk[1]))
+
+## Pilotage IA toujours synchrone : les appelants lisent l'etat juste apres.
+func _drive_ai_now() -> void:
+	var sm := ai_step_mode
+	ai_step_mode = false
+	_drive_ai()
+	ai_step_mode = sm
+
+## Image suivante du pilotage IA en attente (BoardUI._process). Vrai s'il en reste.
+func drive_ai_step() -> bool:
+	if _ai_pending:
+		_ai_pending = false
+		_drive_ai()
+	return _ai_pending
+
+func ai_pending() -> bool:
+	return _ai_pending
+
+## Termine d'un coup le pilotage en attente (tout coup entrant le fait avant d'etre valide).
+func flush_ai() -> void:
+	var sm := ai_step_mode
+	ai_step_mode = false
+	while _ai_pending:
+		_ai_pending = false
+		_drive_ai()
+	ai_step_mode = sm
 
 ## Les IA hors tour jouent leur UseAbility du pas (AIPlayerInteraction.cs:86-101, GamePlayBaseScene.cs:864-871). Vrai si l'une a joue.
 func _ai_offturn() -> bool:

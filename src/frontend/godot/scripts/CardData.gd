@@ -23,8 +23,13 @@ extends Resource
 ## kind_hint : type reel de la collection source ("boss","room","spell","hero","epic-hero","item","miniboss").
 ## Les cles de cards.json ne suffisent pas : les salles portent type "trap"/"monster" (jamais "room"),
 ## les heros exposent "hp" (pas "health"), et sorts/objets/miniboss n'ont aucun marqueur.
+static var _script: Script
+static var _tex_memo := {} # chemin -> texture : ResourceLoader.exists + load() coutent ~1 ms en wasm et tournent pour chaque carte construite
+
 static func from_dict(d: Dictionary, kind_hint: String = "") -> Resource:
-	var c = load("res://godot/scripts/CardData.gd").new()
+	if _script == null:
+		_script = load("res://godot/scripts/CardData.gd")
+	var c = _script.new()
 	c.id = str(d.get("id", d.get("cardNumber", d.get("CardNumber", ""))))
 	c.title = str(d.get("name", d.get("Name", "")))
 	c.subtitle = str(d.get("subtitle", d.get("Subtitle", "")))
@@ -62,6 +67,8 @@ static func from_dict(d: Dictionary, kind_hint: String = "") -> Resource:
 			c.texture_path = db.card_image("", "back-room")
 		else:
 			c.texture_path = db.card_image(c.id, c.card_type, int(d.get("art", 1)))
-		if c.texture_path != "" and ResourceLoader.exists(c.texture_path):
-			c.texture = load(c.texture_path)
+		if c.texture_path != "":
+			if not _tex_memo.has(c.texture_path):
+				_tex_memo[c.texture_path] = load(c.texture_path) if ResourceLoader.exists(c.texture_path) else null
+			c.texture = _tex_memo[c.texture_path]
 	return c

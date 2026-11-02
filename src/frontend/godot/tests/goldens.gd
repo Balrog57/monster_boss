@@ -156,6 +156,7 @@ func _ready() -> void:
 	load("res://godot/tests/goldens_iod.gd").new().run(_ok, self) # extension wiki Implements of Destruction (IOD, hors APK : derriere la case wiki)
 	load("res://godot/tests/goldens_pcw.gd").new().run(_ok, self) # cartes wiki manquantes du Player's Choice (KSA, pseudo-paquet players-choice-wiki)
 	load("res://godot/tests/goldens_undo.gd").new().run(_ok, self) # APK : pool de boss complet, pose de salle revocable jusqu'a DONE
+	load("res://godot/tests/goldens_stepai.gd").new().run(_ok, self) # pilotage IA par images : memes coups qu en synchrone
 	load("res://godot/tests/goldens_ai.gd").new().run(_ok, self) # IA : cartes wiki jouees dans la bonne situation, construction immediate dans un nouvel emplacement
 
 	print("GOLDENS passed=", _passed, " failed=", _failed.size())

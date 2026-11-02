@@ -844,6 +844,7 @@ func _open_board(gm: GameManager, tutorial := false) -> void:
 	board = board_scene.instantiate()
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(board)
+	board.spread_ai = not tutorial # tutoriel : parties scriptees, on garde le pilotage synchrone
 	if tutorial:
 		board.mount_tutorial(TutorialOverlay.new())
 	board.setup(gm, func(): _leave_board(gm)) # APK LeaveGameplayScene : retour a l'ecran titre (fin de partie : OK ; menu : QUIT GAME)

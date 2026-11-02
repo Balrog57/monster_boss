@@ -155,6 +155,7 @@ var _dungeon_slots: Array = []           # ordre visuel : 0 = fond a gauche, 4 =
 var _foe_slots: Array = []
 var _ai_timer: float = 0.0
 var _animating_hero: bool = false
+var spread_ai := false # vrai (Main, banc --ui) : le pilotage IA de Match se fait par tranches d'une image au lieu d'un seul appel
 var skip_animations: bool = DisplayServer.get_name() == "headless" # le smoke test le passe a false
 var _over_sting_played: bool = false
 var _order_cache: Dictionary = {} # pid -> Boss.PlayerId
@@ -218,6 +219,7 @@ var _tgt_lifted: Array = []              # noeuds du plateau passes devant le vo
 var _town_header: TextureRect           # « HEROES IN TOWN » ; « EPIC / HEROES IN TOWN » (cadre or) tant qu'un heros epique est en ville
 var _town_scroll: ScrollContainer
 var _town_drag := {}                     # glisser la colonne HEROES IN TOWN (VerticalScrollQueueComponent) : {y, sv}
+var _town_keys: Array = []               # JSON de chaque carte de la colonne, dans l'ordre des enfants (cartes reprises d'un refresh a l'autre)
 var _town_sig := ""                      # heros affiches : la colonne n'est reconstruite (et son defilement garde) que s'ils changent
 var _town_ids: Array = []
 var _ent_tok: Dictionary = {}            # pid -> cartes de l'entree, alignees sur les heros de `entrance` (la carte du heros qui traverse reste a l'entree)
@@ -228,6 +230,7 @@ var _bait_flown := {}                    # cartes deja parties en vol pour ce le
 var _bait_landed := {}                   # cartes deja arrivees a l'entree du donjon pour ce leurre : {pid:id:rang -> _bait_t0}
 var _phase_tw: Tween                     # saut de la plaque de phase (PhaseTitleControl + JumpBehavior)
 var _foe_frozen := {}                    # « adversaire:indice de salle » -> salle gelee au dernier affichage (voile de glace en fondu au gel)
+var _foe_cache := {}                    # pid -> {slots, keys} : emplacements adverses retires du plateau au changement de joueur affiche, repris s'ils sont inchanges
 var _foe_keys: Array = []               # cle de ce que chaque emplacement adverse affiche (_refresh_foe_dungeon)
 var _foe_down := {}                      # emplacement adverse -> salle face cachee au dernier affichage (retournement a la revelation)
 var _lvl_busy := false                   # la banniere LEVEL UP passe : le choix de niveau attend sa fin (l'APK enchaine banniere puis choix)
@@ -274,8 +277,12 @@ func _my_pid() -> int:
 # Construction de l'interface
 # ---------------------------------------------------------------------------------------------------------------------
 
+var _tex_memo := {} # chemin -> texture (ou null) : ResourceLoader.exists + load() coutent plusieurs ms en wasm, appeles a chaque refresh
+
 func _tex(path: String) -> Texture2D:
-	return load(path) if ResourceLoader.exists(path) else null
+	if not _tex_memo.has(path):
+		_tex_memo[path] = load(path) if ResourceLoader.exists(path) else null
+	return _tex_memo[path]
 
 func _img(parent: Node, path: String, pos: Vector2, sz: Vector2 = Vector2.ZERO, stretch: int = TextureRect.STRETCH_SCALE) -> TextureRect:
 	var t := TextureRect.new()
@@ -708,6 +715,7 @@ func _build_top() -> void:
 
 func setup(p_gm: GameManager, p_exit_cb: Callable) -> void:
 	game_manager = p_gm
+	game_manager.ai_step_mode = spread_ai and not _is_online()
 	_speed = _speed_factor() # _ready() tourne avant setup() : en ligne le facteur ne se connait qu'ici
 	on_exit_callback = p_exit_cb
 	game_manager.state_changed.connect(_refresh_soon)
@@ -1054,6 +1062,10 @@ func _process(delta: float) -> void:
 	_tick_hand_hover()
 	_tick_stack_hover()
 	_drag_tilt(delta)
+	if game_manager.drive_ai_step():
+		return # les IA n'ont pas fini leur construction : ni minuterie ni coup du joueur tant que le plateau est perime
+	_refresh_flush() # le refresh retenu pendant le pilotage IA par images
+	_warm_step()
 	# Godot plafonne delta (~0,13 s) quand les images sont lentes (web, onglet en arriere-plan) : les fenetres chronometrees (APK : horloge reelle)
 	# et l'IA suivent donc l'horloge murale si elle avance plus vite (au plus 1 s par image : un onglet endormi ne vide pas la barre d'un coup).
 	var now := Time.get_ticks_msec()
@@ -1309,6 +1321,58 @@ func _warn_pending_after_build(G: Dictionary, phase: String) -> void:
 				push_warning("SALLE FACE CACHEE EN %s : tour=%s joueur=%s emplacement=%d carte=%s etat(serverTime)=%s" % [phase.to_upper(), str(G.get("turn", 0)), str(pid), si, str((r as Dictionary).get("id", "?")), seq])
 
 var _refresh_queued := false
+var _warm_seen := {}
+
+## Les images que les prochains refresh vont instancier (heros du prochain tirage, salles des donjons, boss) sont decodees a l'avance, une par image : le decodage
+## (~4 ms par carte en wasm) tombait sinon tout entier dans le refresh qui les affiche pour la premiere fois (colonne HEROES IN TOWN, donjon adverse, boss).
+## Seules les textures sont chargees (memos de CardData / _tex) : rien n'est affiche, aucun etat touche.
+func _warm_step() -> void:
+	if Engine.get_frames_drawn() % 4 != 0:
+		return
+	var G: Dictionary = game_manager.G
+	var players: Dictionary = G.get("players", {})
+	var decks: Dictionary = G.get("decks", {})
+	var heroes: Array = decks.get("heroes", [])
+	var epics: Array = decks.get("epics", [])
+	var n := players.size()
+	for i in n: # le tirage prend en fin de pioche (CardDB.draw_cards), les epiques quand les heros manquent
+		var h = heroes[heroes.size() - 1 - i] if i < heroes.size() else (epics[epics.size() - 1 - (i - heroes.size())] if i - heroes.size() < epics.size() else null)
+		if h is Dictionary and _warm_card(h):
+			return
+	for pile_name in ["rooms", "spells"]: # prochaines pioches (fin de pioche)
+		var pile: Array = decks.get(pile_name, [])
+		for i in mini(3, pile.size()):
+			if pile[pile.size() - 1 - i] is Dictionary and _warm_card(pile[pile.size() - 1 - i]):
+				return
+	for pile_name in ["roomDiscard", "spellDiscard", "heroDiscard"]: # defausses : cartes proposees par les choix « depuis la defausse »
+		for c in (decks.get(pile_name, []) as Array):
+			if c is Dictionary and _warm_card(c):
+				return
+	for q in players.values():
+		var boss = (q as Dictionary).get("boss")
+		if boss is Dictionary and _warm_seen.get("boss:" + str((boss as Dictionary).get("id", "")), false) == false:
+			_warm_seen["boss:" + str((boss as Dictionary).get("id", ""))] = true
+			var bid := str((boss as Dictionary).get("id", "")).to_lower()
+			_tex("res://assets/ui/dungeon/%s_bg.webp" % bid)
+			_tex("res://assets/ui/characters/%s_character.webp" % bid)
+			return
+		for stack in (q as Dictionary).get("dungeon", []):
+			for r in (stack as Array):
+				if r is Dictionary and _warm_card(r):
+					return
+
+## Charge l'image de face de la carte (meme chemin que CardUI.setup) ; vrai si elle ne l'etait pas encore.
+func _warm_card(c: Dictionary) -> bool:
+	var k := "%s|%s" % [c.get("id", ""), c.get("art", 1)]
+	if _warm_seen.has(k):
+		return false
+	_warm_seen[k] = true
+	var d := c
+	if c.get("faceDown", false):
+		d = c.duplicate()
+		d["faceDown"] = false
+	CardData.from_dict(d)
+	return true
 
 ## state_changed part plusieurs fois dans un meme coup (Match._drive_ai : ~6 a chaque debut de tour a 6 joueurs) et chaque refresh() reconstruit tout le plateau :
 ## un seul refresh(), differe a la fin de l'image. Un refresh() direct (apres apply_move) annule celui qui attend.
@@ -1318,7 +1382,7 @@ func _refresh_soon() -> void:
 		_refresh_flush.call_deferred()
 
 func _refresh_flush() -> void:
-	if _refresh_queued:
+	if _refresh_queued and not (game_manager != null and game_manager.ai_pending()): # pilotage IA par images en cours : un seul refresh a la fin (_process)
 		refresh()
 
 func refresh() -> void:
@@ -1697,21 +1761,41 @@ func _refresh_town(G: Dictionary) -> void:
 		yl.append((town_container.get_child(j) as Control).position.y)
 		old_y[_town_ids[j]] = yl
 	var moved: Array = []
-	for c in town_container.get_children():
-		town_container.remove_child(c) # tout de suite : les zones de ciblage lisent les positions des nouvelles cartes
-		c.queue_free()
+	var keep_cards := {} # JSON du heros -> cartes d'avant, reprises telles quelles (instancier une carte coute des ms en wasm) ; ciblage en cours : tout est reconstruit
+	var kids := town_container.get_children()
+	for j in kids.size():
+		var c := kids[j]
+		var ck: String = _town_keys[j] if kids.size() == _town_keys.size() and _tgt.is_empty() else ""
+		if ck != "":
+			if not keep_cards.has(ck):
+				keep_cards[ck] = []
+			(keep_cards[ck] as Array).append(c)
+		else:
+			town_container.remove_child(c) # tout de suite : les zones de ciblage lisent les positions des nouvelles cartes
+			c.queue_free()
 	var pool := _town_ids.duplicate()
 	var fresh := -1 # dernier heros arrive (absent de la ville precedente)
 	var ids: Array = []
+	var keys: Array = []
 	for hi in range(town.size() - 1, -1, -1): # dernier arrive en haut, le plus ancien (le prochain attire) en bas (CreateReorderTask : y 120 pour le dernier de la liste, +230 par heros plus ancien)
 		var hero: Dictionary = town[hi]
-		var hero_card = _card_scene.instantiate()
-		hero_card.default_size = Vector2(154, 215)
-		town_container.add_child(hero_card)
-		hero_card.is_in_hand = false
-		hero_card.setup(hero)
-		_item_tag(hero_card, hero)
-		hero_card.card_clicked.connect(func(_d): _town_tap(hero_card))
+		var hk := JSON.stringify(hero)
+		var hero_card = null
+		if keep_cards.has(hk) and not (keep_cards[hk] as Array).is_empty():
+			hero_card = (keep_cards[hk] as Array).pop_front()
+			if hero_card.has_meta("town_tw"):
+				(hero_card.get_meta("town_tw") as Tween).kill() # glissement d'un reordonnancement precedent
+			town_container.move_child(hero_card, keys.size())
+		else:
+			hero_card = _card_scene.instantiate()
+			hero_card.default_size = Vector2(154, 215)
+			town_container.add_child(hero_card)
+			town_container.move_child(hero_card, keys.size())
+			hero_card.is_in_hand = false
+			hero_card.setup(hero)
+			_item_tag(hero_card, hero)
+			hero_card.card_clicked.connect(func(_d): _town_tap(hero_card))
+		keys.append(hk)
 		ids.append(hero.get("id", hero))
 		var ci := ids.size() - 1
 		var k := pool.find(ids[ci])
@@ -1722,6 +1806,11 @@ func _refresh_town(G: Dictionary) -> void:
 				moved.append([hero_card, yl.pop_front()])
 		else:
 			fresh = ci
+	for l in keep_cards.values(): # heros partis
+		for c in (l as Array):
+			town_container.remove_child(c)
+			c.queue_free()
+	_town_keys = keys
 	_town_ids = ids
 	if fresh >= 0 and not skip_animations:
 		_play_sfx("ui_shuffle_left") # VerticalScrollQueueComponent.cs:194 : un heros s'ajoute a la file
@@ -1744,7 +1833,9 @@ func _town_restore(sv: int, fresh: int, moved: Array = []) -> void:
 			if hc.is_inside_tree() and not is_equal_approx(hc.position.y, float(m[1])):
 				var to_y := hc.position.y
 				hc.position.y = float(m[1])
-				hc.create_tween().tween_property(hc, "position:y", to_y, 0.5 * _speed_factor()).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+				var ttw := hc.create_tween()
+				hc.set_meta("town_tw", ttw)
+				ttw.tween_property(hc, "position:y", to_y, 0.5 * _speed_factor()).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	if fresh >= 0 and fresh < town_container.get_child_count():
 		_town_scroll.ensure_control_visible(town_container.get_child(fresh))
 
@@ -1792,12 +1883,26 @@ func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 	var seq := 0 # rang de vol : les heros partent l'un apres l'autre (VerticalScrollQueueComponent.cs:229-263)
 	for r in rows:
 		var box: Control = (_lane[int(r[0])] as Dictionary)["entrance"]
+		var ents0: Array = (r[1] as Dictionary).get("entrance", [])
+		var pid0: int = view_pid if int(r[0]) == 1 else foe_pid
+		var ek := [pid0, JSON.stringify(ents0), skip_animations]
+		var toks0: Array = _ent_tok.get(pid0, [])
+		if not _bait_active() and box.get_meta("ek", []) == ek and toks0.size() == ents0.size() and box.get_child_count() == ents0.size(): # file inchangee : on garde les cartes (et leurs glissements en cours)
+			_fx_hero_entry(box, pid0, ents0, toks0)
+			seq += ents0.size()
+			continue
+		box.set_meta("ek", ek)
 		var prev := {} # position / echelle courantes des cartes d'avant : la file glisse (HeroesQueueComponent.cs:301-307)
+		var old_tok := {} # qid -> carte d'avant, reprise si c'est le meme heros (instancier une carte coute des ms en wasm)
+		var can_reuse := not _bait_active()
 		for c in box.get_children():
 			if c.has_meta("qid") and not c.is_queued_for_deletion():
 				prev[c.get_meta("qid")] = [(c as Control).position, (c as Control).scale]
+				if can_reuse and c.has_meta("hk"):
+					old_tok[c.get_meta("qid")] = c
 			box.remove_child(c)
-			c.queue_free()
+			if not (can_reuse and old_tok.has(c.get_meta("qid", "")) and old_tok[c.get_meta("qid", "")] == c):
+				c.queue_free()
 		var ents: Array = (r[1] as Dictionary).get("entrance", [])
 		var pid_key: int = view_pid if int(r[0]) == 1 else foe_pid
 		var pitch := clampf(30.0 + 6.0 * float(ents.size() - 2), 30.0, 48.0) # APK : 30 px de debord pour 2 cartes, 48 pour 5
@@ -1805,17 +1910,28 @@ func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 		toks.resize(ents.size())
 		var flying: bool = _bait_active()
 		for k in range(ents.size() - 1, -1, -1): # la derniere d'abord : la premiere reste au premier plan
-			var tok := _create_entrance_card(ents[k])
-			tok.position = Vector2(-pitch * float(k), 0.0)
-			tok.pivot_offset = HERO_CARD / 2.0
-			if k > 0: # HeroesQueueComponent.GetRelativePositionAndScale : echelle 0,4 pour la premiere, 0,36 pour les suivantes (x 0,9) ; le bord gauche reste ou les captures le placent
-				tok.scale = Vector2(0.9, 0.9)
-				tok.position.x -= HERO_CARD.x * 0.05
+			var hk := JSON.stringify(ents[k])
 			var qn := 0 # doublons de carte (meme id) : rang parmi les semblables, de la fin de la file
 			for q2 in range(k + 1, ents.size()):
 				if str((ents[q2] as Dictionary).get("id", "")) == str((ents[k] as Dictionary).get("id", "")):
 					qn += 1
 			var qid := "%s:%d" % [str((ents[k] as Dictionary).get("id", "")), qn]
+			var tok: Control = old_tok.get(qid)
+			if tok != null and tok.get_meta("hk") == hk and is_instance_valid(tok):
+				old_tok.erase(qid)
+				if tok.has_meta("qtw"):
+					(tok.get_meta("qtw") as Tween).kill()
+				tok.scale = Vector2.ONE
+				tok.modulate.a = 1.0
+				tok.card_clicked.disconnect(tok.get_meta("clk"))
+			else:
+				tok = _create_entrance_card(ents[k])
+				tok.set_meta("hk", hk)
+			tok.position = Vector2(-pitch * float(k), 0.0)
+			tok.pivot_offset = HERO_CARD / 2.0
+			if k > 0: # HeroesQueueComponent.GetRelativePositionAndScale : echelle 0,4 pour la premiere, 0,36 pour les suivantes (x 0,9) ; le bord gauche reste ou les captures le placent
+				tok.scale = Vector2(0.9, 0.9)
+				tok.position.x -= HERO_CARD.x * 0.05
 			tok.set_meta("qid", qid)
 			if prev.has(qid) and not skip_animations:
 				var pp: Array = prev[qid]
@@ -1825,15 +1941,20 @@ func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 					tok.position = pp[0]
 					tok.scale = pp[1]
 					var qt := tok.create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+					tok.set_meta("qtw", qt)
 					qt.tween_property(tok, "position", to_pos, 0.5)
 					qt.tween_property(tok, "scale", to_scale, 0.5)
 			var lane_i := int(r[0])
-			tok.card_clicked.connect(func(_d): _queue_clicked(lane_i, ents))
+			var clk := func(_d): _queue_clicked(lane_i, ents)
+			tok.set_meta("clk", clk)
+			tok.card_clicked.connect(clk)
 			box.add_child(tok)
 			toks[k] = tok
 			if flying and _bait_landed.get(_bait_key(pid_key, ents[k], k), 0) != _bait_t0: # carte arrivee par le leurre : cachee jusqu'a l'arrivee de son double, qui vole depuis la ville (voir _fly_hero_card)
 				tok.modulate.a = 0.0
 				_fly_hero_card(pid_key, ents[k], k, tok, seq + k)
+		for c in old_tok.values(): # heros partis
+			(c as Node).queue_free()
 		_ent_tok[pid_key] = toks
 		_fx_hero_entry(box, pid_key, ents, toks)
 		seq += ents.size()
@@ -2006,11 +2127,15 @@ func _set_boss(L: Dictionary, boss, dead := false, lit := false) -> void:
 ## Boss sans sprite (wiki) : sa carte tient la place du sprite APK (a 1920x1080 : le mien x 1465..1610 / y 690..850, l'adversaire
 ## x 1470..1640 / y 270..440), carte 5:7 centree dans cette zone. Le conteneur centre la carte : on le decale pour viser le centre voulu.
 func _ensure_boss_card(container: CenterContainer, boss_dict: Dictionary, is_foe: bool) -> void:
-	for c in container.get_children():
-		c.queue_free()
 	var area := Rect2(1470, 270, 170, 170) if is_foe else Rect2(1465, 690, 145, 160)
 	var plat := container.get_parent() as Control
 	container.position = area.get_center() - ((plat.get_parent() as Control).position + plat.position) - plat.size / 2.0
+	var bk := boss_dict.hash()
+	if container.get_child_count() == 1 and container.get_meta("bk", 0) == bk and not container.get_child(0).is_queued_for_deletion():
+		return # meme boss : la carte reste (refresh() passe a chaque etat)
+	container.set_meta("bk", bk)
+	for c in container.get_children():
+		c.queue_free()
 	var boss_ui = _card_scene.instantiate()
 	boss_ui.default_size = Vector2(area.size.y * 5.0 / 7.0, area.size.y)
 	container.add_child(boss_ui)
@@ -2032,6 +2157,10 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 	_foe_frozen.clear()
 	var G: Dictionary = game_manager.G
 	var mini: bool = Minibosses.active(G)
+	var moved_back := false
+	var old_pid: int = int((old_keys[0] as Array)[0]) if not old_keys.is_empty() else -1
+	var stash: Array = []
+	stash.resize(CardDB.DUNGEON_SLOTS)
 	for j in CardDB.DUNGEON_SLOTS:
 		# Un emplacement dont la pile, le gel et les degats courants n'ont pas change garde ses noeuds (reconstruit a chaque refresh, c'etait 23 % du cout). Ciblage en cours : tout est reconstruit.
 		var di0 := j - off
@@ -2046,13 +2175,25 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 		var key := [foe_pid, di0, stack.duplicate(true) if stack != null else null, kz, kdmg, mini]
 		_foe_keys.append(key)
 		var kept = old_slots[j] if j < old_slots.size() and j < old_keys.size() and old_keys[j] == key and _tgt.is_empty() else null
+		var from_cache := false
+		var ck_nodes: Array = (_foe_cache.get(foe_pid, {}) as Dictionary).get("slots", [])
+		var ck_keys: Array = (_foe_cache.get(foe_pid, {}) as Dictionary).get("keys", [])
+		if (kept == null or not is_instance_valid(kept) or (kept as Node).get_parent() != holder) and _tgt.is_empty() and j < ck_nodes.size() and ck_nodes[j] != null and ck_keys[j] == key: # le donjon de ce joueur revient tel qu'on l'a quitte : ses noeuds reviennent (le reconstruire coute 7 ms par emplacement en wasm)
+			var cn = ck_nodes[j]
+			ck_nodes[j] = null
+			if is_instance_valid(cn) and not (cn as Node).is_queued_for_deletion() and (cn as Node).get_parent() == null:
+				holder.add_child(cn)
+				kept = cn
+				moved_back = true
+				from_cache = true
 		if kept != null and is_instance_valid(kept) and not (kept as Node).is_queued_for_deletion() and (kept as Node).get_parent() == holder:
 			if room != null:
 				var kfk := "%d:%d" % [foe_pid, di0]
 				_foe_frozen[kfk] = kz
 				_foe_down[kfk] = bool((room as Dictionary).get("faceDown", false))
 			_foe_slots.append(kept)
-			old_slots[j] = null
+			if not from_cache:
+				old_slots[j] = null
 			continue
 		var slot_ctrl := Control.new()
 		slot_ctrl.custom_minimum_size = SLOT_SIZE
@@ -2113,7 +2254,10 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 		if old != null and is_instance_valid(old) and (old as Node).get_parent() == holder:
 			at = (old as Node).get_index()
 			holder.remove_child(old)
-			(old as Node).queue_free()
+			if old_pid >= 0 and old_pid != foe_pid and j < old_keys.size() and not bool((old_keys[j] as Array)[3]) and _tgt.is_empty():
+				stash[j] = old # donjon d'un autre joueur : on le garde pour son retour (voir _foe_cache)
+			else:
+				(old as Node).queue_free()
 		holder.add_child(slot_ctrl)
 		holder.move_child(slot_ctrl, at)
 		DungeonSlot.fit_cards(slot_ctrl)
@@ -2121,7 +2265,25 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 	for c in holder.get_children(): # les emplacements non repris
 		if not _foe_slots.has(c):
 			holder.remove_child(c)
-			c.queue_free()
+			var cj := old_slots.find(c)
+			if cj >= 0 and old_pid >= 0 and old_pid != foe_pid and cj < old_keys.size() and not bool((old_keys[cj] as Array)[3]) and _tgt.is_empty():
+				stash[cj] = c
+			else:
+				c.queue_free()
+	if moved_back: # l'ordre de dessin suit l'indice d'emplacement
+		for j in _foe_slots.size():
+			holder.move_child(_foe_slots[j], j)
+	if old_pid >= 0 and old_pid != foe_pid and stash.any(func(n): return n != null):
+		var prev_cache: Dictionary = _foe_cache.get(old_pid, {})
+		for n in prev_cache.get("slots", []):
+			if n != null and is_instance_valid(n):
+				(n as Node).queue_free()
+		_foe_cache[old_pid] = {"slots": stash, "keys": old_keys}
+	if _foe_cache.has(foe_pid): # les noeuds non repris du joueur affiche sont perimes
+		for n in _foe_cache[foe_pid]["slots"]:
+			if n != null and is_instance_valid(n):
+				(n as Node).queue_free()
+		_foe_cache.erase(foe_pid)
 
 ## Main du joueur : eventail en bas ; carrousel central pour le choix du boss et la defausse d'ouverture.
 func _refresh_hand(G: Dictionary, p: Dictionary, phase: String, my_moves: Array) -> void:
@@ -4337,6 +4499,13 @@ func _on_hand_press(card: Control, at: Vector2) -> void:
 
 ## Relachement jamais livre (pointeur sorti du canvas / fenetre perdue) : on abandonne l'appui pour que la main puisse se rafraichir.
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_PREDELETE: # emplacements adverses gardes hors de l'arbre (_foe_cache) : plus personne ne les liberera
+		for e in _foe_cache.values():
+			for n in (e as Dictionary)["slots"]:
+				if n != null and is_instance_valid(n):
+					(n as Node).free()
+		CardData._tex_memo.clear() # ~0,7 Mo de VRAM par illustration : la partie suivante ne doit pas garder celles de toutes les precedentes
+		return
 	if what in [NOTIFICATION_WM_MOUSE_EXIT, NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_WM_WINDOW_FOCUS_OUT] and _drag.is_empty() and not _press.is_empty():
 		_press_clear()
 

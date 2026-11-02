@@ -3145,3 +3145,34 @@ Contrôles :
 **Non optimisé** : `_refresh_entrances`, `_refresh_boss_platforms`, `_refresh_hand`, `_refresh_overlay`, vignettes à 3-4 joueurs.
 
 **Non vérifié** : Firefox, Safari, siège humain en session réelle.
+
+### Construction des IA par images et refresh allégé en wasm (2026-11-02)
+
+**Mesure image par image en wasm** (6 j., Crash Landing, graine 1000, Chromium, `refresh` instrumenté appel par appel) : chaque image de plus de 50 ms est un seul `refresh()`. Le pilotage IA ne coûte que 7 à 12 ms par image. L'hypothèse de la section précédente (construction des IA en un seul appel) n'était donc pas la cause en wasm.
+
+| Appel dans `refresh` (wasm) | Cause | Correctif | avant | après |
+|---|---|---|---|---|
+| `_refresh_foe_dungeon` | chaque changement de siège affiché reconstruisait les 5 emplacements | `_foe_cache` : emplacements détachés gardés par joueur, repris si leur clé est inchangée (jamais les salles gelées) ; libérés au PREDELETE | 20-48 ms | < 3 ms hors première visite |
+| `_refresh_boss_platforms` | `ResourceLoader.exists` + `load()` coûtent ~1 ms en wasm, ~10 par refresh | mémo de textures (`_tex`, `UiKit.tex`, `CardData.from_dict`, `CardBorder.set_style`) | 10-15 ms | < 3 ms |
+| `_refresh_entrances` | file reconstruite à chaque refresh | clé de la file ; jetons d'un même héros réutilisés (reconstruction complète pendant l'appât) | 4-24 ms | < 3 ms |
+| `_refresh_town` | décodage de l'illustration de chaque nouveau héros (4-8 ms) | cartes réutilisées par héros + prédécodage | 25-59 ms | ~3 ms |
+| `_refresh_choice_popup` | 35 `CardUI.setup`, surtout du décodage | prédécodage des défausses | 134-251 ms | < 40 ms |
+
+**Prédécodage** (`BoardUI._warm_step`, une image sur 4) : une illustration à la fois parmi les prochains tirages de héros, de salles et de sorts, les défausses, les donjons et les boss. Rien n'est affiché, aucun état touché. Le mémo `CardData._tex_memo` (~0,7 Mo de VRAM par illustration) est vidé quand le plateau est libéré.
+
+**Pilotage IA par images** (`Match.ai_step_mode`, posé par `BoardUI.spread_ai` en solo hors tutoriel) : `_drive_ai` rend la main après 4 ms de travail (au moins un coup) et `BoardUI._process` le reprend à l'image suivante. Mêmes coups, même ordre, même hasard : tout coup entrant (`apply_move`) termine d'abord le pilotage en attente, `legal_moves` est vide tant qu'il reste du travail, et le verrou d'annulation du coup humain attend la fin du pilotage. Le refresh est retenu jusqu'à la fin de la construction (un seul au lieu d'un par image). Serveur, en ligne, oracle, soaks et goldens restent synchrones. L'état du pilotage est remis à zéro par `new_match` (partie quittée en pleine construction).
+
+| Mesure | avant | après |
+|---|---|---|
+| Wasm 6 j. : images > 50 ms / > 100 ms / plus longue | 58 / 8 / 280 ms | 3 / 1 / 119 ms |
+| Natif 6 j. avec plateau, 1 humain : plus long coup avec IA imbriquée | 48,7 ms | 13,9 ms |
+
+Les 3 images restantes : le démarrage (91 ms), le refresh de mise en place (119 ms, premier décodage des boss et animation de la main de départ) et une image hors refresh (53 ms).
+
+Contrôles :
+- `run_godot_tests.py` : 23/23, dont `goldens_stepai` (2, 4 et 6 joueurs, avec un humain : mêmes coups dans le même ordre et même état final en synchrone et par images, coups humains arrivant pendant un pilotage en attente) ;
+- `apk.py` : 6/6, accord IA usableSet 2121/2121 et construction 137/137, `--tutorial` 3/3 ;
+- `image_diff.py --capture --check` : 1/149, la paire déjà connue ;
+- empreintes et états finaux du banc identiques en synchrone et par images (graines 1000-1002) ; état final wasm identique (3763079933).
+
+**Non vérifié** : Firefox, Safari, fenêtres de choix sur de très grosses défausses hors de cette graine.
