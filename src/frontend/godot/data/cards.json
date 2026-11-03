@@ -5225,7 +5225,8 @@
       "quantity": 1,
       "dark": true,
       "heroAbility": {"cmd": "DarkHeroCoin"},
-      "implemented": true
+      "implemented": true,
+      "description": "Once per turn, each opponent may pay any number of Coins to give this hero +1 Health per Coin spent until end of turn."
     },
     {
       "id": "RMB085",
@@ -5305,7 +5306,8 @@
       "quantity": 1,
       "dark": true,
       "heroAbility": {"cmd": "DarkHeroCoin"},
-      "implemented": true
+      "implemented": true,
+      "description": "Once per turn, each opponent may pay any number of Coins to give this hero +1 Health per Coin spent until end of turn."
     },
     {
       "id": "RMB091",
@@ -5385,7 +5387,8 @@
       "quantity": 1,
       "dark": true,
       "heroAbility": {"cmd": "DarkHeroCoin"},
-      "implemented": true
+      "implemented": true,
+      "description": "Once per turn, each opponent may pay any number of Coins to give this hero +1 Health per Coin spent until end of turn."
     },
     {
       "id": "RMB097",
@@ -5465,7 +5468,8 @@
       "quantity": 1,
       "dark": true,
       "heroAbility": {"cmd": "DarkHeroCoin"},
-      "implemented": true
+      "implemented": true,
+      "description": "Once per turn, each opponent may pay any number of Coins to give this hero +1 Health per Coin spent until end of turn."
     },
     {
       "id": "RMB103",
@@ -5807,7 +5811,8 @@
       "quantity": 1,
       "dark": true,
       "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]},
-      "implemented": true
+      "implemented": true,
+      "description": "Once per turn, any opponent may discard a Room with Cleric treasure to give this Hero +3 Health until end of turn."
     },
     {
       "id": "TNL078",
@@ -5887,7 +5892,8 @@
       "quantity": 1,
       "dark": true,
       "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]},
-      "implemented": true
+      "implemented": true,
+      "description": "Once per turn, any opponent may discard a Room with Fighter treasure to give this Hero +3 Health until end of turn."
     },
     {
       "id": "TNL084",
@@ -5967,7 +5973,8 @@
       "quantity": 1,
       "dark": true,
       "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]},
-      "implemented": true
+      "implemented": true,
+      "description": "Once per turn, any opponent may discard a Room with Mage treasure to give this Hero +3 Health until end of turn."
     },
     {
       "id": "TNL090",
@@ -6047,7 +6054,8 @@
       "quantity": 1,
       "dark": true,
       "heroAbility": {"cmd": "DarkHeroPay", "args": ["3"]},
-      "implemented": true
+      "implemented": true,
+      "description": "Once per turn, any opponent may discard a Room with Thief treasure to give this Hero +3 Health until end of turn."
     },
     {
       "id": "TNL096",
@@ -6122,7 +6130,8 @@
       ],
       "hybrid": true,
       "heroAbility": {"cmd": "FlipSoulOnSurvive"},
-      "implemented": true
+      "implemented": true,
+      "description": "This Hero is lured to the dungeon with the highest combined Cleric and Thief treasure. If this Hero survives your dungeon, choose one face-down Hero in your scorekeeping area and flip it face-up."
     },
     {
       "id": "TNL101",
@@ -6180,7 +6189,8 @@
       ],
       "hybrid": true,
       "heroAbility": {"cmd": "HealthPerSpell", "args": ["2"]},
-      "implemented": true
+      "implemented": true,
+      "description": "This Hero is lured to the dungeon with the highest combined Mage and Fighter treasure. Each time a player plays a Spell while this Hero is in your dungeon, give this Hero +2 Health."
     },
     {
       "id": "TNL105",
@@ -6238,7 +6248,8 @@
       ],
       "hybrid": true,
       "heroAbility": {"cmd": "HealthPerSpellInHand"},
-      "implemented": true
+      "implemented": true,
+      "description": "This Hero is lured to the dungeon with the highest combined Cleric and Mage treasure. Give this Hero +X Health, where X equals the number of Spell cards in your hand."
     },
     {
       "id": "TNL109",
@@ -6296,7 +6307,8 @@
       ],
       "hybrid": true,
       "heroAbility": {"cmd": "SkipLastRoom"},
-      "implemented": true
+      "implemented": true,
+      "description": "This Hero is lured to the dungeon with the highest combined Fighter and Thief treasure. This Hero skips the last Room of your dungeon."
     },
     {
       "id": "TNL113",

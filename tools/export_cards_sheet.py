@@ -2,6 +2,7 @@
 Usage : python tools/export_cards_sheet.py [sortie.xlsx]   (defaut : docs/cartes.xlsx ; necessite openpyxl)"""
 import json
 import os
+import re
 import sys
 from collections import Counter
 
@@ -16,6 +17,23 @@ SHEETS = [("bosses", "Boss"), ("rooms", "Salles"), ("spells", "Sorts"), ("heroes
           ("items", "Objets"), ("minibosses", "Minibosses")]
 FIRST = ["id", "name", "subtitle", "set", "quantity", "implemented"]
 NEW = ["source", "jouable_apk", "visuel", "fichier_visuel", "statut", "motif_exclusion"]
+# stats lisibles, juste apres FIRST (les colonnes absentes d'une feuille sont ignorees)
+TYPES = ["Cleric", "Fighter", "Mage", "Thief", "Explorer"]
+TREASURE = dict(enumerate(["Aucun", *TYPES]))  # CardDB.gd TREASURE_NAMES, CardInfo.cs
+ROOM_CATEGORY = dict(enumerate(["None", "FallingDamage", "MediumMonsterDamage", "UndeadDamage",
+                                "GeneralPhysicalDamage", "BigMonsterDamage", "GeneralMagicDamage"]))  # RoomCategory.cs
+TAIL = ["capacité_moteur", "joueurs_min"]
+STATS = {"bosses": ["xp", "trésors", *TYPES, "levelUpDesc", *TAIL],
+         "rooms": ["type", "catégorie_salle", "damage", "trésors", *TYPES, "advanced", "description", *TAIL],
+         "spells": ["phase", "description", *TAIL],
+         "heroes": ["class", "hp", "wounds", "souls", "epic", "trésors", *TYPES, "lure", "description", *TAIL],
+         "items": ["trésors", *TYPES, "description", *TAIL]}
+RAW = {"treasure", "treasures", "ability", "levelUp", "heroAbility"}  # remplacees par trésors / capacité_moteur
+BUILD, ADVENTURE = "Construction", "Aventure"
+PHASES = {"build": BUILD, "adventure": ADVENTURE, "any": f"{BUILD} et {ADVENTURE}"}
+CATEGORY_PHASE = {1: BUILD, 2: BUILD, 3: ADVENTURE, 4: PHASES["any"], 5: PHASES["any"]}
+DECKS = os.path.join(ROOT, "apk-original", "boss-monster-2-2-6", "assets", "Content", "CardDecks")
+CARDDB = os.path.join(ROOT, "src", "frontend", "godot", "scripts", "CardDB.gd")
 ASSETS = os.path.join(ROOT, "src", "frontend", "assets")
 MANIFEST = os.path.join(ROOT, "tools", "data", "apkCardManifest.json")
 _FACES = None  # faces du manifeste APK, chargees a la demande par card_extras
@@ -66,6 +84,61 @@ def card_extras(c, section, data):
     return dict(zip(NEW, [source, jouable, visuel, rel, statut, motif]))
 
 
+def load_apk():
+    """CardNumber -> carte brute des data.json de l'APK."""
+    apk = {}
+    for deck in ("BaseDeck", "HiddenHeros", "PlayerChoice", "ToolsHeroKind"):
+        with open(os.path.join(DECKS, deck, "data.json"), encoding="utf-8-sig") as f:
+            d = json.load(f)
+        apk.update({a["CardNumber"]: a for k in ("BossCards", "SpellCards", "RoomCards", "HeroCards", "ItemCards") for a in d[k]})
+    return apk
+
+
+def spell_phase_table():
+    """SPELL_PHASE de CardDB.gd (id -> build / adventure / any), lu sans le recopier."""
+    with open(CARDDB, encoding="utf-8") as f:
+        block = re.search(r"const SPELL_PHASE := \{(.*?)\n\}", f.read(), re.S).group(1)
+    return dict(re.findall(r'"(\w+)": "(\w+)"', block))
+
+
+def treasure_codes(c):
+    return c["treasures"] if "treasures" in c else [c["treasure"]] if "treasure" in c else None
+
+
+def card_stats(c, section, apk, phases):
+    """Colonnes lisibles d'une carte : trésors, phase des sorts, catégorie de salle, joueurs min, script d'effet."""
+    a, out = apk.get(c["id"]), {}
+    if (codes := treasure_codes(c)) is not None:
+        names = [TREASURE[x] for x in codes]  # KeyError sur un code inconnu
+        out |= {"trésors": ", ".join(names), **{t: names.count(t) for t in TYPES}}
+    if section == "spells":  # can_play_spell de CardDB.gd
+        out["phase"] = ("Jamais (inerte dans l'APK)" if c["id"] == "THK025"
+                        else PHASES[phases[c["id"]]] if c["id"] in phases else CATEGORY_PHASE[c["category"]])
+    if section == "rooms":
+        out["catégorie_salle"] = ROOM_CATEGORY[a["RoomCategory"]] if a and "RoomCategory" in a else None  # absent des salles THK
+    if section == "heroes":  # CardDB.hero_lure : The Fool (BMA080 / BMH080) suit « fewerSouls », sinon « treasures »
+        out["lure"] = str(c["lure"]) if "lure" in c else "fewerSouls" if c["id"] in ("BMA080", "BMH080") else "treasures"
+    mp = a["MinimumPlayers"] if a else None
+    out["joueurs_min"] = c.get("playerCount") if mp is None else mp
+    if a is None:
+        script = next((c[k] for k in ("ability", "levelUp", "heroAbility") if k in c), None)
+    elif section == "items":
+        script = {k: a[k] for k in ("BossAbility", "HeroAbility")}
+        script = script if any(script.values()) else None
+    else:
+        script = a.get("Ability", a.get("LevelUpAbility"))
+    out["capacité_moteur"] = script
+    return out
+
+
+def check_apk(rows, apk):
+    """Trésors décodés = Treasures de l'APK, et somme des comptes = nombre de trésors non nuls."""
+    for cid, a in apk.items():
+        codes, r = a["Treasures"] or [], rows[cid]
+        assert r.get("trésors", "") == ", ".join(TREASURE[x] for x in codes), (cid, r.get("trésors"), codes)
+        assert sum(r.get(t, 0) for t in TYPES) == sum(1 for x in codes if x), (cid, codes)
+
+
 def cell(v):
     if isinstance(v, bool):
         return "oui" if v else "non"
@@ -78,9 +151,10 @@ def cell(v):
     return v
 
 
-def write_sheet(ws, cards):
+def write_sheet(ws, cards, key):
     seen = Counter(k for c in cards for k in c)
-    cols = [k for k in FIRST if k in seen] + NEW + sorted(k for k in seen if k not in FIRST and k not in NEW)
+    head = [k for k in FIRST + STATS.get(key, []) if k in seen]
+    cols = head + NEW + sorted(k for k in seen if k not in head and k not in NEW)
     ws.append(cols)
     for c in cards:
         ws.append([cell(c.get(k)) for k in cols])
@@ -101,13 +175,16 @@ def write_sheet(ws, cards):
 def main():
     data = load_cards()
     out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "docs", "cartes.xlsx")
+    apk, phases, rows = load_apk(), spell_phase_table(), {}
     wb = Workbook()
     summary = wb.active
     summary.title = "Résumé"
     summary.append(["Type", "Cartes distinctes", "Exemplaires (quantity)", "Implémentées", "Incluses", "Exclues"])
     stats = {k: Counter() for k in SETS}  # set -> compteurs cartes / visuels
     for key, title in SHEETS:
-        cards = [{**c, **card_extras(c, key, data)} for c in data[key]]
+        cards = [{**{k: v for k, v in c.items() if k not in RAW}, **card_extras(c, key, data),
+                  **(card_stats(c, key, apk, phases) if key in STATS else {})} for c in data[key]]
+        rows.update((c["id"], c) for c in cards)
         for c in cards:
             st = stats[c.get("set") or "base"]
             st["cartes"] += 1
@@ -115,7 +192,8 @@ def main():
         summary.append([title, len(cards), sum(c.get("quantity", 1) for c in cards),
                         sum(1 for c in cards if c.get("implemented")),
                         sum(1 for c in cards if c["statut"] == "Inclus"), sum(1 for c in cards if c["statut"] == "Exclu")])
-        write_sheet(wb.create_sheet(title), cards)
+        write_sheet(wb.create_sheet(title), cards, key)
+    check_apk(rows, apk)
     summary.append(["Total", *(f"=SUM({get_column_letter(i)}2:{get_column_letter(i)}{len(SHEETS) + 1})" for i in range(2, 7))])
     for c in summary[1]:
         c.font = Font(bold=True)
