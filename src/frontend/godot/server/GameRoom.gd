@@ -297,13 +297,19 @@ func _pass_move(moves: Array):
 	return null
 
 ## Fait jouer le siege par l'IA (ou "passer" si pass_only). Faux si rien n'a pu etre applique.
-func _ai_play(pid: int, pass_only: bool) -> bool:
+func _ai_play(pid: int, pass_only: bool, ability := false) -> bool:
 	var moves: Array = m.legal_moves(pid)
 	if moves.is_empty():
 		return false
 	var cands: Array = []
-	if pass_only and _pass_move(moves) != null:
-		cands.append(_pass_move(moves))
+	if pass_only:
+		# Bots (`ability`) : fenetre de fin de construction (Match._drive_ai) et pause d'aventure des sieges non actifs (BoardUI._process) : la capacite tiree par
+		# AI.pick_move, sinon passer ; pause : un coup juge nocif (score < 0) n'est pas joue. L'echeance d'un humain ne fait que passer.
+		var pm = AI.pick_move(m, pid) if ability else null
+		if pm != null and (str(m.G.get("phase", "")) != "adventure" or AI.score_move(m, pid, pm) >= 0.0):
+			cands.append(pm)
+		if _pass_move(moves) != null:
+			cands.append(_pass_move(moves))
 	else:
 		cands.append(AI.pick_move(m, pid))
 	cands.append(moves[0])
@@ -336,7 +342,7 @@ func _ai_step() -> bool:
 	if phase == "build":
 		if G.has("buildWindow") and (G.get("stack", []) as Array).is_empty():
 			for pid in num_players:
-				if _is_ai(pid) and not bool((G["buildWindow"] as Dictionary).get(pid, false)) and _ai_play(pid, true):
+				if _is_ai(pid) and not bool((G["buildWindow"] as Dictionary).get(pid, false)) and _ai_play(pid, true, true):
 					return true
 			return false
 		if not G.has("forcedBuild") and (G.get("stack", []) as Array).is_empty():
@@ -350,7 +356,7 @@ func _ai_step() -> bool:
 	if phase == "adventure":
 		if _in_adventure_pause():
 			for pid in num_players:
-				if _is_ai(pid) and _ai_play(pid, pid != ap):
+				if _is_ai(pid) and _ai_play(pid, pid != ap, true):
 					return true
 			return false
 		return _is_ai(ap) and _ai_play(ap, false)

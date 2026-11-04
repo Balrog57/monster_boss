@@ -246,8 +246,8 @@ func _t_levelup_kawnee() -> void:
 ## KSA002 Hellcow : RearrangeDungeon, tout le donjon d'un joueur, ordre = slots C# (Dungeon[0] = fond = index Godot le plus grand).
 func _t_levelup_hellcow() -> void:
 	var p0 := _player(0, "KSA002", [_room("A", "trap", [1]), _room("B", "trap", [1]), _room("C", "trap", [1])])
-	p0["isAI"] = true # l'IA et l'oracle choisissent eux-memes ; un siege humain est autoresolu (voir plus bas)
 	var G := _G([p0, _player(1, "BMA001")])
+	G["autoAI"] = false # l'oracle choisit lui-meme (un siege humain est autoresolu, voir plus bas) ; un siege IA vise l'adversaire de meilleur score, donjon vide compris (ApkAI.hellcow_target)
 	var c = RoomAbilities.process_level_up(G, 0)
 	_ok.call(c != null and str(c["type"]) == "rearrange-dungeon" and str(c["step"]) == "order" and (c["options"] as Array).size() == 3,
 		"KSA002 : un seul donjon ciblable = pas de choix de donjon, ordre des salles")
@@ -262,9 +262,9 @@ func _t_levelup_hellcow() -> void:
 	_ok.call(G["pendingChoice"].is_empty() and ids == ["C", "B", "A"], "KSA002 : A au fond, B, C a l'entree (obtenu %s)" % str(ids))
 	# Un adversaire ET soi-meme ciblables : choix du donjon d'abord.
 	var p2 := _player(0, "KSA002", [_room("A", "trap", [1]), _room("B", "trap", [1])])
-	p2["isAI"] = true
 	var p3 := _player(1, "BMA001", [_room("X", "trap", [1]), _room("Y", "trap", [1])])
 	var G2 := _G([p2, p3])
+	G2["autoAI"] = false
 	var c2 = RoomAbilities.process_level_up(G2, 0)
 	_ok.call(c2 != null and str(c2["step"]) == "dungeon" and (c2["options"] as Array).size() == 2, "KSA002 : choix du donjon (le sien ou celui d'un adversaire)")
 	# Une salle en attente AVANT une salle visible (trou) : Target1.Count != DungeonSize, donjon non ciblable (RoomInDungeon : !PendingToBeBuilt).

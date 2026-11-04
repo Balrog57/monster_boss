@@ -52,16 +52,25 @@ static func memo_of(match_obj, pid: int) -> Dictionary:
 ## abilitySelected = l'entree tiree, ou null ({}) quand l'IA n'a rien tire. Appele aussi par le harnais de parite (qui rejoue l'oracle au lieu de tirer).
 static func remember(match_obj, pid: int, entry: Variant) -> void:
 	_sel[_key(match_obj, pid)] = entry if entry is Dictionary else {}
+	# All-Seeing Eye (AbilityCalculator.cs:741) : l'IA annule le sort adverse qu'elle a designe (cible 1), pas le dernier de la pile ; RoomAbilities.cancel_last_opponent_spell le lit.
+	var G: Dictionary = match_obj.G
+	G.erase("aseTarget")
+	if entry is Dictionary and str(((entry as Dictionary).get("card", {}) as Dictionary).get("id", "")) == "BMA025":
+		var want: Array = ApkAI._t_cards(entry, 1, 0)
+		for e in (G.get("stack", []) as Array):
+			if not want.is_empty() and ApkAI._same((e as Dictionary).get("card"), want[0]):
+				G["aseTarget"] = {"playerId": pid, "stackId": str((e as Dictionary).get("id", ""))}
 
-static func _window_key(G: Dictionary) -> String:
+## `steps` = resolutions de pile deja faites (Match.stack_steps) : chaque NextStep rappelle DoPlayerActions, meme celui qui ne fait que resoudre une transaction (GamePlayBaseScene.cs:864-871).
+static func _window_key(G: Dictionary, steps := 0) -> String:
 	var adv: Dictionary = G.get("adventure", {}) as Dictionary
 	var st: Array = G.get("stack", [])
 	var hero_id := str((adv.get("hero", {}) as Dictionary).get("id", "")) if not adv.is_empty() else ""
 	# BuildPhase_a : un appel d'UseAbility par NextStep et par IA (GamePlayBaseScene.cs:864-871) -> le joueur actif fait partie de la fenetre.
 	# AdventurePhase_b avant l'entree du heros : chaque IA a sa fenetre, par joueur actif et par heros a l'entree (IA-H60).
 	var act := str(G.get("activePlayer", "-")) if str(G.get("phase", "")) == "build" or (str(G.get("phase", "")) == "adventure" and adv.is_empty() and st.is_empty()) else ""
-	return "%d|%s|%s|%s|%s|%s|%s" % [int(G.get("turn", 0)), str(G.get("phase", "")), str(adv.get("roomIndex", "-")), hero_id,
-		str((st[st.size() - 1] as Dictionary).get("id", "")) if not st.is_empty() else "", str(G.has("buildWindow")), act]
+	return "%d|%s|%s|%s|%s|%s|%s|%d" % [int(G.get("turn", 0)), str(G.get("phase", "")), str(adv.get("roomIndex", "-")), hero_id,
+		str((st[st.size() - 1] as Dictionary).get("id", "")) if not st.is_empty() else "", str(G.has("buildWindow")), act, steps]
 
 ## Choisit le meilleur coup légal parmi les options offertes. `commit` = false : question de mesure, sans memoriser la fenetre de decision.
 static func pick_move(match_obj, pid: int, commit := true):
@@ -126,13 +135,15 @@ static func pick_move(match_obj, pid: int, commit := true):
 	# StatisticAI.SelectAbilityToUse : tirage UNIFORME parmi les capacites eligibles (AbilityCalculator : toute carte sans CheckXXX n'est jamais jouee), une fois par fenetre.
 	if apk_abilities:
 		var wkey := "%d:%d" % [match_obj.get_instance_id(), pid]
-		var win := _window_key(match_obj.G)
+		var win := _window_key(match_obj.G, match_obj.stack_steps)
 		if str(_used.get(wkey, "")) != win:
-			var elig: Array = ApkAI.abilities(match_obj.G, pid, moves, match_obj.rng)
+			var dbm := ApkAI.dbm_copy(match_obj.G)
+			var elig: Array = ApkAI.abilities(match_obj.G, pid, moves, match_obj.rng, dbm)
 			if commit:
 				remember(match_obj, pid, null)
 			if commit and (off_turn or not elig.is_empty()):
 				_used[wkey] = win # un seul UseAbility par pas ; hors tour, meme sans tirage (sinon la boucle d'IA le redemande a chaque coup)
+				ApkAI.dbm_commit(match_obj.G, dbm) # les Shuffle() des CheckXXX consomment le generateur partage, une fois par fenetre
 			if not elig.is_empty():
 				var drawn: Dictionary = elig[match_obj.rng.randi_range(0, elig.size() - 1)]
 				if commit:
@@ -258,7 +269,7 @@ static func _score_choice(G: Dictionary, p: Dictionary, pid: int, idx: int, sel:
 	var opts: Array = pc.get("options", [])
 	var scratch := RandomNumberGenerator.new()
 	scratch.seed = 1
-	var apk: Variant = ApkAI.choose(G, pid, pc, scratch, sel, {})
+	var apk: Variant = ApkAI.choose(G, pid, pc, scratch, sel, {}, false)
 	if apk != null:
 		return 100.0 if int((apk as Dictionary)["idx"]) == idx else 0.0
 	if idx < 0 or idx >= opts.size():

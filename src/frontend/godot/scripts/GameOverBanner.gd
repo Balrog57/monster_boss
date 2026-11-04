@@ -44,12 +44,10 @@ func build(winner_name: String, boss_id: String, lose: bool) -> void:
 		var w := UiKit.image(self, UI + "ingame/winner_txt.webp", Vector2(960 - 233, 228))
 		w.name = "WinnerText"
 		_boss(boss_id)
-	ok_btn = UiKit.texture_button(self, UI + "buttons/ok_bt.webp", UI + "buttons/ok_bt_pressed.webp", Vector2(1458, 960))
+	ok_btn = UiKit.texture_button(self, UI + "buttons/ok_bt.webp", UI + "buttons/ok_bt_pressed.webp", Vector2(1458, 960), Vector2.ZERO, "ui_button_select") # a l'appui (ControlsFactory.cs:263)
 	ok_btn.name = "Ok"
 	Vp.edge(ok_btn, Vp.RIGHT) # WinnerScene / LoseScene : CreateOkButton, bord droit
-	ok_btn.pressed.connect(func():
-		AudioManager.play_sfx("ui_button_select")
-		ok_pressed.emit())
+	ok_btn.pressed.connect(func(): ok_pressed.emit())
 
 func _boss(boss_id: String) -> void:
 	var shine := UiKit.image(self, UI + "gradients/winner_boss_shine.webp", BOSS_CENTER - Vector2(300, 300), Vector2(600, 600))

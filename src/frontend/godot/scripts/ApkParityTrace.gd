@@ -146,6 +146,8 @@ var _late: Array = []
 var _losses: Array = [] # [oid, seq] des cartes quittant une main sans cause visible (voir _involuntary_losses)
 var _ach: Array = [] # trace["abilityChoices"]
 var _ach_pos := 0
+var _dbm_cache: DbmRandom = null
+var _dbm_seed := 1 # RandomProvider.Seed de l'oracle (2832 au tutoriel)
 var _held_pass: Dictionary = {} # derniere passe de Spell Battle retenue jusqu'au prochain step de phase (voir _on_action)
 var _held: Dictionary = {} # activation de capacite de salle retenue jusqu'au prochain step de phase (voir _on_action)
 var _idle_pid := -1 # joueur sans heros dont le « pass » est differe (voir _pass_idle)
@@ -202,6 +204,7 @@ func replay(trace: Dictionary) -> Dictionary:
 	var initial: Dictionary = trace["initial"]
 	var meta: Dictionary = trace.get("meta", {})
 	_human_pid = 0 if bool(meta.get("tutorial", false)) else -1
+	_dbm_seed = 2832 if bool(meta.get("tutorial", false)) else int(meta.get("seed", 1))
 	var players := {}
 	# Ordre d'insertion = PlayerId croissant, comme Match.new_match (l'oracle liste les bosses par siege) : les effets sur
 	# « tous les joueurs » (Jeopardy...) suivent InGamePlayersPriorized, soit l'ordre du dictionnaire cote Godot.
@@ -282,6 +285,7 @@ func replay(trace: Dictionary) -> Dictionary:
 		# Les decisions de revelation (BuildPhase_a puis _b) peuvent rester en attente a travers le NextStep de B.
 		if str(s["kind"]) != "decision" and not (str(s["kind"]) == "phase" and str(s["phase"]) in ["BuildPhase_a", "BuildPhase_b"]):
 			_deferred.clear()
+		_dbm_at(int(s.get("rn0", 0))) # le generateur partage de l'oracle au debut du step : les remelanges de pioche du moteur Godot le consomment comme l'APK
 		match str(s["kind"]):
 			"phase":
 				_on_phase(s, i)
@@ -289,6 +293,7 @@ func replay(trace: Dictionary) -> Dictionary:
 				_on_action(i, s)
 			"decision":
 				_on_decision(i, s)
+		run.G.erase("dbm")
 		proj[str(int(s["seq"]))] = project()
 		_dbg(s)
 		_refresh_bait_snap(s)
@@ -1733,11 +1738,31 @@ func _ai_discard(pid: int, a: int, b: int, s: Dictionary) -> void:
 ##  - spellTarget / activateTarget      : cible preregle Godot pour la carte tiree par l'oracle == celle de l'oracle ; `...Shuffle` : cibles issues d'un `Shuffle()`
 ##                                         (BMA040, BMA047, BMA009 : tirage au hasard, comptees a part).
 func _ai_flush_choices(next_seq: int) -> void:
-	if not _ai_on:
-		return
 	while _ach_pos < _ach.size() and int((_ach[_ach_pos] as Dictionary)["afterSeq"]) < next_seq:
-		_ai_measure_choice(_ach[_ach_pos])
+		if _ai_on:
+			var prev = _dbm_at(int((_ach[_ach_pos] as Dictionary).get("n0", 0)))
+			_ai_measure_choice(_ach[_ach_pos])
+			_dbm_drop(prev)
 		_ach_pos += 1
+
+
+## Les Shuffle() de l'IA de l'oracle (CheckXXX, cibles de declencheurs) tirent dans le RandomProvider partage. Le rejeu ne l'execute pas : pour une mesure, on pose dans
+## G["dbm"] le generateur de l'oracle tel qu'il etait au debut de la decision (graine + `n0` appels a Next(), releves par la trace), puis on le retire.
+func _dbm_at(n0: int) -> Variant:
+	if _dbm_cache == null or n0 < _dbm_cache.samples():
+		_dbm_cache = DbmRandom.new(_dbm_seed)
+	while _dbm_cache.samples() < n0:
+		_dbm_cache.next_raw()
+	var prev = run.G.get("dbm")
+	run.G["dbm"] = _dbm_cache.st.duplicate(true)
+	return prev
+
+
+func _dbm_drop(prev: Variant) -> void:
+	if prev == null:
+		run.G.erase("dbm")
+	else:
+		run.G["dbm"] = prev
 
 
 func _ai_ids(entries: Array, oracle: bool) -> Array:
@@ -1808,7 +1833,7 @@ func _ai_measure_choice(rec: Dictionary) -> void:
 	var off_turn: bool = rec.get("activePlayer") != null and int(rec["activePlayer"]) != int(rec["player"])
 	if off_turn:
 		ApkAI.not_build_turn = pid # Motivation (CheckBMA050) : IsPlayerBuildTurn faux cote oracle alors que Godot est deja passe au joueur suivant
-	var opts: Array = ApkAI.abilities(G, pid, moves, scratch)
+	var opts: Array = ApkAI.abilities(G, pid, moves, scratch, ApkAI.dbm_copy(G))
 	ApkAI.not_build_turn = -1
 	run.rng.state = rng_state
 	AI.remember(run, pid, null) # abilitySelected : remplace a chaque UseAbility (null si l'oracle ne tire rien)
@@ -1917,6 +1942,12 @@ func _ai_pass(pid: int, site: String, s: Dictionary, oracle_pid := -1) -> void:
 ## (`Shuffle()` : cle `shuffled` de la decision oracle, ou tirage de l'IA Godot) est compte a part (`targetShuffle`) ; l'abstention de l'oracle sur un choix facultatif
 ## (`pick` = -1) est `targetPass` (accord : Godot ne designe rien non plus).
 func _ai_choice(pid: int, pc: Dictionary, pick: int, s: Dictionary, type: String) -> void:
+	var prev = _dbm_at(int(((s.get("detail", {}) as Dictionary)).get("n0", 0)))
+	_ai_choice_measure(pid, pc, pick, s, type)
+	_dbm_drop(prev)
+
+
+func _ai_choice_measure(pid: int, pc: Dictionary, pick: int, s: Dictionary, type: String) -> void:
 	if not _ai_on:
 		return
 	var opts: Array = pc.get("options", [])

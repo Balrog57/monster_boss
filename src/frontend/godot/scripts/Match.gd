@@ -64,6 +64,7 @@ var _ai_driving := false
 var ai_step_mode := false
 var ai_step_budget_us := 4000 # un coup au moins par image ; ~un quart d'image a 60 fps
 var _ai_pending := false
+var stack_steps := 0 # resolutions de pile de la partie : fait avancer la fenetre de decision des IA (GamePlayBaseScene.cs:864-871)
 var _ai_guard := 0 # garde de 64 tours de boucle, cumulee sur les images d'un meme pilotage
 var _ai_lock_later: Array = [] # [pid, type] du coup humain dont _lock_undo attend la fin du pilotage (en synchrone il passait apres l'IA)
 
@@ -874,7 +875,7 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 					return false
 				var hero: Dictionary = entrance[first]
 				# BMA041 Assassin (DealHero [-3] sur HeroInDungeon = 1er heros de l'entree) : Target1.Deal(-1 * Number) pose +3 PV sur la carte, gardes a
-				# l'entree. effects.heroHealthBonus (remis a zero a _start_turn, comme l'Undo de fin de tour) les porte jusqu'ici ; un heros deja en
+				# l'entree. effects.heroHealthBonus (garde a _start_turn tant que le heros attend a l'entree) les porte jusqu'ici ; un heros deja en
 				# aventure recoit le +3 dans adventure.hp (SpellEffects._assassin) et ne repasse pas par ici : pas de double compte.
 				var hp := BossEngine.hero_health_with_modifiers(G, hero)
 				if TnlAbilities.active(G) or Minibosses.active(G) or ThkAbilities.active(G):
@@ -1189,8 +1190,8 @@ func _swap_rooms(p: Dictionary, option: Dictionary) -> void:
 	var tb = BossEngine.active_room(sb)
 	if ta == null or tb == null:
 		return
-	sa[sa.size() - 1] = tb
-	sb[sb.size() - 1] = ta
+	dungeon[a] = sb # SwapSlotInDungeon.cs:71-73 echange les emplacements entiers (piles de salles comprises), pas les sommets
+	dungeon[b] = sa
 	_log("Centipede Tunnel : %s <-> %s." % [str(ta.get("name", "?")), str(tb.get("name", "?"))])
 
 ## GameBoard.AvoidMulliganCondition : main de salles « mauvaise » si >= 4 salles avancees ou >= 4 salles
@@ -1396,7 +1397,17 @@ func _start_turn() -> void:
 	if ThkAbilities.active(G):
 		ThkAbilities.on_turn_start(G) # la Blessure supplementaire de Vorpal Blade disparait
 	# Les effets « jusqu'a la fin du tour » (Jackpot Stash, bonus de degats...) expirent (reducer.js beginPhaseBeginning).
+	var kept_hp: Array = []
+	for e in (SpellEffects._effects(G).get("heroHealthBonus", []) as Array):
+		if bool((e as Dictionary).get("spent", false)):
+			continue
+		for pl in G["players"].values():
+			for h in ((pl as Dictionary).get("entrance", []) as Array):
+				if str((h as Dictionary).get("id", "")) == str((e as Dictionary).get("heroId", "")):
+					kept_hp.append(e)
+					break
 	G["effects"] = SpellEffects.empty_effects()
+	G["effects"]["heroHealthBonus"] = kept_hp # Hero.Deal (Hero.cs:41) grave les PV sur la carte : le +3 d'Assassin reste tant que le heros attend a l'entree (RestoreHealth seulement a l'attribution / retrait)
 	_sync_alive() # Extra Life expire avec les effets du tour : le boss a 5 blessures ou plus est elimine avant que quiconque joue ce tour
 	# Phase 1 : BEGINNING (Début de tour)
 	G["phase"] = CardDB.PHASE["BEGINNING"]
@@ -2049,6 +2060,17 @@ func _resolve_pending_stack() -> void:
 					return
 			effect["resolved"] = true
 			continue
+		if etype == "trigger": # Liger's Den (BMA026) : DoEffect sans reverifier les conditions, la salle peut etre partie entre-temps
+			var lp: Dictionary = (G.get("players", {}) as Dictionary).get(int(effect.get("playerId", 0)), {}) as Dictionary
+			var drawn = CardDB.draw_pile(G.get("decks", {}), "spells", 1, rng, CardDB.dbm_of(G))
+			if not drawn.is_empty():
+				(lp.get("hand", []) as Array).append(drawn[0])
+				_log("Liger's Den : pioche un sort.")
+			var found := RoomAbilities._find_room_by_uid(lp, int(effect.get("roomUid", -1)))
+			if not found.is_empty():
+				(found[2] as Dictionary)["usedThisTurn"] = true
+			effect["resolved"] = true
+			continue
 		if etype == "spell":
 			var card: Dictionary = effect.get("card", {})
 			var caster_id := int(effect.get("playerId", 0))
@@ -2088,13 +2110,14 @@ func _resolve_pending_stack() -> void:
 				var r = BossEngine.active_room(cdun[k])
 				# Ability.CheckConditions : slot actif (non gele) et capacites non verrouillees (Trap Master)
 				if r != null and str(r.get("id", "")) == "BMA026" and not bool(r.get("faceDown", false)) and not bool(r.get("usedThisTurn", false)) and not TnlAbilities.no_text(r) and not BossEngine.is_room_deactivated(G, caster_id, k) and not BossEngine.abilities_locked(G, caster_id):
-					var drawn = CardDB.draw_pile(decks, "spells", 1, rng, CardDB.dbm_of(G))
-					if not drawn.is_empty():
-						(caster.get("hand", []) as Array).append(drawn[0])
-						_log("Liger's Den : pioche un sort.")
-					r["usedThisTurn"] = true # OncePerTurn est PAR salle (Ability.CheckConditions) : chaque Liger's Den actif pioche (GameBoard.cs:796, 1290-1305)
+					# YouPlaySpellCard -> CheckTriggerInDungeon (GameBoard.cs:796, 1290-1305) : la transaction entre dans la pile (EnqueueAbilityTransaction, rang de
+					# _stack_insert_index) et ne pioche qu'a son tour ; OncePerTurn (IsEffectApplied) n'est pose qu'a l'execution.
+					var trig := {"id": "trigger-BMA026-%d" % RoomAbilities.room_uid(r), "type": "trigger", "playerId": caster_id, "card": r.duplicate(), "target": {},
+						"picks": [], "resolved": false, "roomUid": RoomAbilities.room_uid(r)}
+					stack.insert(_stack_insert_index(trig, -1), trig)
 		effect["resolved"] = true
 	G["stack"] = []
+	stack_steps += 1 # chaque resolution de pile est un NextStep : les IA rappellent DoPlayerActions (AI._window_key)
 	RoomAbilities.stack_return_control(G)
 	_finish_hero_if_dead()
 
@@ -2418,7 +2441,7 @@ func _room_damage(pid: int, i: int) -> void:
 	# BMA017 Minotaur's Maze = MoveHeroToRelativeSlot(1), le heros recule d'une salle et la re-subit au pas suivant.
 	if i > int(adv.get("nearest", -1)):
 		adv["nearest"] = i
-		if str((room as Dictionary).get("id", "")) == "BMA017" and not BossEngine.is_room_deactivated(G, pid, i) and not TnlAbilities.no_text(room as Dictionary) and int(adv["hp"]) > 0 and i > 0:
+		if str((room as Dictionary).get("id", "")) == "BMA017" and not BossEngine.is_room_deactivated(G, pid, i) and not TnlAbilities.no_text(room as Dictionary) and not BossEngine.abilities_locked(G, pid) and int(adv["hp"]) > 0 and i > 0: # Ability.cs:88 IsLocked (Trap Master)
 			adv["back"] = true
 	_log("%s subit %d dégâts dans %s (PV restants : %d)." % [
 		hero.get("name", "?"), dmg, (room as Dictionary).get("name", "?"), int(adv["hp"])
@@ -2599,11 +2622,11 @@ func _check_end_or_next_turn() -> void:
 	# Vérification des éliminations (5 blessures) : IsAlive est recalcule en direct (THK001 Extra Life : aucune perte par Blessures ce tour)
 	BossEngine.refresh_alive(G)
 
-	# Joueurs ayant 10 âmes et moins de 5 blessures (règle GameBoard.cs:1041-1049)
+	# Joueurs vivants ayant 10 âmes et moins de 5 blessures (règle GameBoard.cs:1041-1049 : `source` = IsAlive, donc hors tués manuellement)
 	var winners_10_souls: Array = []
 	for pid in G["players"]:
 		var p: Dictionary = G["players"][pid]
-		if CardDB.total_souls(p, G) >= WIN_SOULS and (CardDB.total_wounds(p) < 5 or ThkAbilities.wound_immune(G, int(pid))) and not (TnlAbilities.active(G) and TnlAbilities.cannot_win(G, int(pid))): # TNL062 Meddling Kids!
+		if not bool(p.get("eliminated", false)) and CardDB.total_souls(p, G) >= WIN_SOULS and (CardDB.total_wounds(p) < 5 or ThkAbilities.wound_immune(G, int(pid))) and not (TnlAbilities.active(G) and TnlAbilities.cannot_win(G, int(pid))): # TNL062 Meddling Kids!
 			winners_10_souls.append(int(pid))
 
 	if not winners_10_souls.is_empty():

@@ -81,7 +81,7 @@ func _build() -> void:
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(line)
 	edges.append(line)
-	var back := UiKit.texture_button(self, UI + "buttons/back_bt.webp", UI + "buttons/back_bt_pressed.webp", Vector2(200, 101))
+	var back := UiKit.texture_button(self, UI + "buttons/back_bt.webp", UI + "buttons/back_bt_pressed.webp", Vector2(200, 101), Vector2.ZERO, "ui_button_goback") # ControlsFactory.cs:245 : son a l'appui
 	back.name = "Back"
 	edges.append(back)
 	back.pressed.connect(close_gallery)
@@ -282,8 +282,8 @@ func _fill_grid() -> void:
 			t_rect.size = sz
 			t_rect.position = (t_rect.get_meta("base") as Rect2).get_center() - sz / 2.0
 			t_rect.add_child(_border("Sel"))
-	_max = 0.0 # ScrollCardBehavior : MinPosition = -TotalWidth + largeur / 2, TotalWidth = ((n - 1) / Lignes) x 310 (GalleryScene.cs:452-453, ScrollListBehavior.cs:54)
-	_min = -float((tiles.size() - 1) / 2) * PITCH.x + 960.0
+	_max = 0.0 # ScrollCardBehavior : MinPosition = -TotalWidth + largeur / 2, TotalWidth = ((n - 1) / Lignes) x 310 (GalleryScene.cs:452-453, ScrollListBehavior.cs:54 ; VirtualWidth = 1440 : Game.cs:24, pas 1920)
+	_min = -float((tiles.size() - 1) / 2) * PITCH.x + Vp.APK_W * 0.5
 	_vel = 0.0
 	if int(_sel_idx[tab]) < 0:
 		_sel_tile = null
@@ -408,7 +408,7 @@ func show_detail(card: Dictionary, texture: Texture2D, from: Rect2 = Rect2()) ->
 		if ev is InputEventMouseButton and ev.pressed:
 			back_out.call())
 	# Fleche posee par-dessus le voile (CardDetailScene.cs:51-56) : celle de la galerie reste assombrie dessous
-	var db := UiKit.texture_button(_detail, UI + "buttons/back_bt.webp", UI + "buttons/back_bt_pressed.webp", Vector2(200, 101))
+	var db := UiKit.texture_button(_detail, UI + "buttons/back_bt.webp", UI + "buttons/back_bt_pressed.webp", Vector2(200, 101), Vector2.ZERO, "ui_button_goback") # appui (ControlsFactory.cs:245) puis GoBackAnimation au relachement (CardDetailScene.cs:74) : 2 sons
 	db.name = "DetailBack"
 	Vp.edge(db, Vp.LEFT)
 	db.pressed.connect(back_out)
@@ -435,6 +435,5 @@ func close_gallery() -> void:
 		AudioManager.play_sfx("ui_button_goback") # CardDetailScene.cs:74
 		close_detail()
 		return
-	AudioManager.play_sfx("ui_button_goback")
-	closed.emit()
+	closed.emit() # le son part a l'appui du bouton (GalleryScene.cs:93-96 : aucun son au relachement)
 	queue_free()

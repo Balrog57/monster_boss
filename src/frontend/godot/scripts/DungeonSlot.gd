@@ -122,7 +122,8 @@ func _update_view() -> void:
 				card_ui.add_heart(dmg) # CardStackSlotComponent.cs:148 : degats courants de la salle du dessus quand ils different de l'imprime
 		if _was_down and not down and _animated():
 			card_ui.flip_in()
-		var fly := down and not _was_down and _animated() # P-C14 : la salle vient d'etre posee en attente
+		if down and not _was_down and _animated():
+			_flip_down(card_ui, active_room, holder) # B22 : la salle posee se retourne face cachee (BuildRoomHandSceneBehavior.cs:182)
 		_was_down = down
 		if down: # X-P06 : salle en attente = IsShadowVisible (CardStackSlotComponent.cs:130), ombre card_shadow decalee de (40, 70) a l'echelle 0,5, opacite 0,75
 			var sh := TextureRect.new()
@@ -136,8 +137,6 @@ func _update_view() -> void:
 			sh.add_to_group("under_card")
 			add_child(sh)
 			move_child(sh, card_container.get_index())
-			if fly:
-				_fly_pending(card_ui, sh)
 		add_under_cards(self, current_stack, _card_ui_scene, CARD_SIZE, card_container.get_index())
 		if border:
 			border.border_color = Color(0.4, 0.8, 0.4, 0.0) # pas de liseré : seul le halo d'une salle activable est visible
@@ -157,17 +156,37 @@ func _update_view() -> void:
 		tooltip_text = ""
 	_update_glow()
 
-## P-C14, CardStackSlotComponent.MovePendingRoomToRightPlace (:210-233) + DungeonFrameEntity.Refresh (:398-409) : la salle posee en attente part de la pile d'attente (le premier emplacement libre,
-## Slots[min(4, DungeonSize)]) et glisse jusqu'a son emplacement : decalage de depart (i - k) x 140 px (i = index C# de l'emplacement, k = min(4, DungeonSize)), duree = |decalage| / 1920 s
-## (VirtualWidth), CubicEase (EaseOut). Rien quand la salle est posee sur le premier emplacement libre (decalage nul).
-func _fly_pending(card_ui: Control, shadow: Control) -> void:
-	if game_manager == null:
+## B22, BuildRoomHandSceneBehavior.cs:182 -> FlipCardBehavior.CreateFaceDownTask (:119-131) : la salle posee, face visible, se retourne en 0,5 s (pitch lineaire, comme CardUI.flip_in dans l'autre sens) ;
+## l'APK n'a aucun flash vert a la pose. La face visible se ferme (0,25 s), puis le dos s'ouvre (0,25 s).
+func _flip_down(card_ui: CardUI, room: Dictionary, holder: Control) -> void:
+	var front: CardUI = _card_ui_scene.instantiate()
+	front.default_size = CARD_SIZE
+	holder.add_child(front)
+	front.size = CARD_SIZE
+	front.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	front.is_in_hand = false
+	var fr := room.duplicate(true)
+	fr["faceDown"] = false
+	front.setup(fr)
+	var back_x := card_ui.scale.x
+	card_ui.scale.x = 0.0
+	var tw := card_ui.create_tween() # lie a la salle : un refresh qui la reconstruit arrete le retournement
+	tw.tween_property(front, "scale:x", 0.0, 0.25).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_callback(front.queue_free)
+	tw.tween_property(card_ui, "scale:x", back_x, 0.25).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+## P-C14 / M13, CardStackSlotComponent.MovePendingRoomToRightPlace (:210-233) + DungeonFrameEntity.Refresh (:398-409) : le decalage `positionToBuild` n'est calcule que pour le cadre du HAUT
+## (`PendingToBeBuilt && isTopFrame`), donc seule la salle posee en attente par l'ADVERSAIRE glisse (BoardUI._refresh_foe_dungeon) ; la notre (cadre du bas) apparait en place. Depart : le premier emplacement
+## libre, Slots[min(4, DungeonSize)] ; decalage (i - k) x 140 px (i = index C# de l'emplacement, k = min(4, DungeonSize)), duree = |decalage| / 1920 s (VirtualWidth), CubicEase (EaseOut).
+## Rien quand la salle est posee sur le premier emplacement libre (decalage nul). `di` : indice de la salle dans le donjon du moteur.
+static func fly_pending(gm: Node, pid: int, di: int, nodes: Array) -> void:
+	if gm == null:
 		return
-	var dungeon: Array = ((game_manager.G["players"] as Dictionary)[player_id] as Dictionary).get("dungeon", [])
-	var off := float(dungeon.size() - 1 - slot_index - mini(4, BossEngine.apk_dungeon_size(dungeon))) * 140.0 # donjon Godot a l'envers : index C# = taille - 1 - index Godot
+	var dungeon: Array = ((gm.G["players"] as Dictionary)[pid] as Dictionary).get("dungeon", [])
+	var off := float(dungeon.size() - 1 - di - mini(4, BossEngine.apk_dungeon_size(dungeon))) * 140.0 # donjon Godot a l'envers : index C# = taille - 1 - index Godot
 	if off == 0.0:
 		return
-	for n in [card_ui, shadow]: # un tween par noeud, lie a lui : _update_view libere la carte et l'ombre au prochain etat, le tween meurt avec eux
+	for n in nodes: # un tween par noeud, lie a lui : un refresh libere la carte au prochain etat, le tween meurt avec elle
 		var x: float = (n as Control).position.x
 		(n as Control).position.x = x + off
 		(n as Control).create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT).tween_property(n, "position:x", x, absf(off) / 1920.0)
@@ -308,9 +327,3 @@ func _drop_data(_at_position: Vector2, data) -> void:
 	elif not game_manager.apply_move(player_id, mv):
 		return
 	room_dropped.emit(hand_idx, slot_index) # BoardUI rafraichit l'ecran (apply_move n'emet pas toujours state_changed en fin de coup)
-
-	# Feedback visuel fluide (flash vert)
-	if border and not skip_anim:
-		border.border_color = Color(0.2, 1.0, 0.3, 1.0)
-		var t = create_tween()
-		t.tween_property(border, "border_color", Color(0.4, 0.8, 0.4, 0.0), 0.4) # fin = liseré d'un emplacement garni (_update_view ne recolore plus un emplacement inchange)

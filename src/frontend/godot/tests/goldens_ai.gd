@@ -38,6 +38,7 @@ func run(ok: Callable, h: Node) -> void:
 	_t_apk_triggers()
 	_t_apk_trigger_cache()
 	_t_apk_forced_build_and_order()
+	_t_apk_ai_gaps()
 
 # --- fabriques d'etats minimaux ----------------------------------------------------------------------
 
@@ -1251,3 +1252,145 @@ func _t_apk_triggers() -> void:
 	var pc14b: Dictionary = RoomAbilities.rearrange_choice(G14, 0, 1, [])
 	_ok.call(_pick_of(pc14b, _choose(G14, 0, pc14b)) == "BMA014", "Hellcow : Vampire Bordello en premier, du fond du donjon")
 	_ok.call(_choose(G, 0, {"type": "tnl-pick", "bossName": "Un boss wiki", "options": [{"ai": 1.0}]}) == null, "carte hors APK : pas d'avis (AiWiki garde la main)")
+
+## Lot IA du 2026-11-03 (liste d'ecarts M3, M10-M12, B8, B9, B11-B13).
+func _t_apk_ai_gaps() -> void:
+	# M3 : chaque resolution de pile est un NextStep, donc un nouvel appel d'UseAbility (GamePlayBaseScene.cs:864-871)
+	var G := _G([_player(0, "BMA001", [_plain("d1")]), _player(1, "BMA002")], ["base"])
+	G["turn"] = 3
+	G["phase"] = "build"
+	G["activePlayer"] = 0
+	for i in 5:
+		_hand(G, 1).append(_plain("o%d" % i))
+	_hand(G, 0).append(_plain("room", "monster", [1], 4))
+	_hand(G, 0).append(_spell("BMA048"))
+	var m := _match(G)
+	var first = AI.pick_move(m, 0)
+	var again = AI.pick_move(m, 0)
+	m.stack_steps += 1 # une transaction vient d'etre resolue
+	var after = AI.pick_move(m, 0)
+	_ok.call(first != null and str(first["type"]) == "playSpell" and (again == null or str(again["type"]) != "playSpell") and after != null and str(after["type"]) == "playSpell",
+		"M3 : la capacite est jouee, pas deux fois dans la meme fenetre, de nouveau apres une resolution de pile")
+	m.queue_free()
+	# B7 (IA-H67) : UseAbility() et BuildRoom() sont evaluees ensemble, sur l'etat d'avant la capacite (AIPlayerInteraction.cs:86-101) ; la salle choisie reste la meme apres elle
+	var G1 := _G([_player(0, "BMA001", [_plain("d1")]), _player(1, "BMA002")], ["base"])
+	G1["turn"] = 3
+	G1["phase"] = "build"
+	G1["activePlayer"] = 0
+	for i in 5:
+		_hand(G1, 1).append(_plain("o%d" % i))
+	_hand(G1, 0).append(_plain("low", "monster", [1], 1))
+	_hand(G1, 0).append(_spell("BMA048"))
+	var m1 := _match(G1)
+	var cap = AI.pick_move(m1, 0)
+	_hand(G1, 0).insert(0, _plain("high", "monster", [1], 6)) # ce que la capacite aurait pioche : la salle choisie avant ne change pas
+	var bld = AI.pick_move(m1, 0)
+	_ok.call(cap != null and str(cap["type"]) == "playSpell" and bld != null and str(bld["type"]) == "buildRoom" and str((_hand(G1, 0)[int(bld["args"][0])] as Dictionary)["id"]) == "low", "B7 : la salle est choisie avec la capacite, sur l'etat d'avant elle")
+	m1.queue_free()
+	# M11 : All-Seeing Eye annule le sort que l'IA a designe (CheckBMA025), pas le dernier de la pile ; un humain annule toujours le dernier
+	var G2 := _G([_player(0, "BMA001"), _player(1, "BMA002"), _player(2, "BMA003", [_room("BMA025")])], ["base"])
+	G2["turn"] = 3
+	G2["phase"] = "build"
+	G2["activePlayer"] = 2
+	_hand(G2, 2).append(_spell("BMA046"))
+	G2["stack"] = [{"id": "spell-a", "type": "spell", "playerId": 0, "card": _spell("BMA048"), "target": {}, "resolved": false},
+		{"id": "spell-b", "type": "spell", "playerId": 1, "card": _spell("BMA048"), "target": {}, "resolved": false}]
+	var m2 := _match(G2)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	var o2: Array = ApkAI.abilities(G2, 2, m2.legal_moves(2), rng)
+	_ok.call(o2.size() == 1 and str((o2[0]["card"] as Dictionary)["id"]) == "BMA025", "M11 : All-Seeing Eye eligible avec deux Jeopardy adverses en pile")
+	var G2h := G2.duplicate(true)
+	RoomAbilities.cancel_last_opponent_spell(G2h, 2, "All-Seeing Eye")
+	_ok.call((G2h["stack"] as Array).size() == 1 and str(G2h["stack"][0]["id"]) == "spell-a", "M11 : sans designation de l'IA (humain), le dernier sort adverse est annule")
+	AI.remember(m2, 2, o2[0])
+	RoomAbilities.cancel_last_opponent_spell(G2, 2, "All-Seeing Eye")
+	_ok.call((G2["stack"] as Array).size() == 1 and str(G2["stack"][0]["id"]) == "spell-b" and not G2.has("aseTarget"), "M11 : l'IA annule le sort qu'elle a designe (le premier de la pile)")
+	m2.queue_free()
+	# M12 : Kaw'nee (IA) voit aussi les heros epiques morts ; un humain non
+	var epic := {}
+	for h in CardDB.heroes:
+		if bool((h as Dictionary).get("epic", false)):
+			epic = (h as Dictionary).duplicate(true)
+			break
+	var G3 := _g3()
+	(G3["players"][0] as Dictionary)["boss"] = _card(CardDB.bosses, "KSA004")
+	(G3["players"][1] as Dictionary)["souls"] = [CardDB.soul_entry(_hero("TNL073")), CardDB.soul_entry(_hero("TNL073"))]
+	(G3["players"][2] as Dictionary)["souls"] = [CardDB.soul_entry(epic)]
+	var lu: Dictionary = (G3["players"][0]["boss"] as Dictionary)["levelUp"]
+	var pc_h: Dictionary = RoomAbilities._apk_level_up(G3, 0, G3["players"][0], lu)
+	_ok.call((pc_h["options"] as Array).size() == 2, "M12 : Kaw'nee humain, les heros epiques ne sont pas des options")
+	(G3["players"][0] as Dictionary)["isAI"] = true
+	var pc_a: Dictionary = RoomAbilities._apk_level_up(G3, 0, G3["players"][0], lu)
+	var ra = _choose(G3, 0, pc_a)
+	_ok.call((pc_a["options"] as Array).size() == 3 and ra != null and int((pc_a["options"][int(ra["idx"])] as Dictionary)["fromPid"]) == 2 and bool(((pc_a["options"][int(ra["idx"])] as Dictionary)["card"] as Dictionary).get("epic", false)), "M12 : Kaw'nee IA, l'epique mort (plus de PV de base) est pris")
+	# B12 : Kaw'nee a egalite de PV de base -> le premier de la liste du C# (adversaires par XP decroissant), pas le plus petit numero de siege
+	var G3b := _g3()
+	(G3b["players"][0] as Dictionary)["boss"] = _card(CardDB.bosses, "KSA004")
+	(G3b["players"][1] as Dictionary)["souls"] = [CardDB.soul_entry(_hero("TNL073")), CardDB.soul_entry(_hero("TNL073"))]
+	(G3b["players"][2] as Dictionary)["souls"] = [CardDB.soul_entry(_hero("TNL073"))]
+	(G3b["players"][0] as Dictionary)["isAI"] = true
+	var pc_t: Dictionary = RoomAbilities._apk_level_up(G3b, 0, G3b["players"][0], lu)
+	var rt = _choose(G3b, 0, pc_t)
+	var xp1 := int(G3b["players"][1]["boss"]["xp"])
+	var xp2 := int(G3b["players"][2]["boss"]["xp"])
+	_ok.call(rt != null and xp2 != xp1 and int((pc_t["options"][int(rt["idx"])] as Dictionary)["fromPid"]) == (2 if xp2 > xp1 else 1), "B12 : Kaw'nee a egalite -> l'adversaire de plus d'XP d'abord (%d contre %d)" % [xp2, xp1])
+	# B8 : CalculateSpellValue vaut 6 (KSA013) ... 2 (BMA045 Fear), les autres 1 / Random.Next(1, 100) : Fear l'emporte sur un tirage de 1
+	var seed_one := -1
+	for sd in 20000:
+		var probe := RandomNumberGenerator.new()
+		probe.seed = sd
+		if probe.randi_range(1, 99) == 1:
+			seed_one = sd
+			break
+	var G4 := _g3()
+	var rng4 := RandomNumberGenerator.new()
+	rng4.seed = seed_one
+	var x4 := ApkAI._ctx(G4, 0, [], rng4)
+	var opts4 := [{"card": _spell("BMA041"), "pile": "deck", "pileIndex": 1}, {"card": _spell("BMA045"), "pile": "deck", "pileIndex": 0}]
+	var r4 = ApkAI._tr_ksa003(x4, opts4)
+	_ok.call(seed_one >= 0 and r4 != null and int(r4["idx"]) == 1, "B8 : Brothers Wise, Fear (BMA045) vaut 2 et bat un sort hors liste tire a 1")
+	# B9 : Xyzax, liste [A, A] (meme salle deux fois) -> une seule carte recuperee
+	var G5 := _g3()
+	var rooms5: Array = G5["decks"]["roomDiscard"]
+	rooms5.append_array([_plain("a", "monster", [1], 4), _plain("adv1", "trap", [1], 1, true), _plain("adv2", "trap", [1], 1, true)])
+	var pc5: Dictionary = RoomAbilities._xyzax(G5, G5["players"][0])
+	var memo5 := {}
+	var first5 = _choose(G5, 0, pc5, {}, memo5)
+	var l5: Array = (memo5.get("Xyzax", {}) as Dictionary).get("list", [])
+	var pc5b := pc5.duplicate()
+	pc5b["remaining"] = 1
+	pc5b["options"] = (pc5["options"] as Array).filter(func(o): return not is_same((o as Dictionary)["card"], l5[0]))
+	var second5 = _choose(G5, 0, pc5b, {}, memo5)
+	_ok.call(l5.size() == 2 and is_same(l5[0], l5[1]) and first5 != null and second5 != null and int(second5["idx"]) == -1, "B9 : Xyzax, liste [A, A] -> la 2e cible ne designe rien (une seule carte recuperee) : %s" % str(l5.map(func(c): return (c as Dictionary).get("id"))))
+	# B11 : Kirax monte de niveau, les |boss.Treasures| DERNIERS elements de GetDungeonTreasures sont retires (passifs en queue)
+	var G6 := _g3()
+	var p6: Dictionary = G6["players"][0]
+	p6["boss"] = _card(CardDB.bosses, "KSA001")
+	p6["leveledUp"] = true
+	(p6["dungeon"] as Array).append([_plain("r", "monster", [1], 1)])
+	_ok.call(ApkAI.dungeon_treasures_of_type_list(G6, p6) == [1, 4, 1, 3], "B11 : Kirax niveau 2, liste des tresors de salles = salles ++ boss ++ passifs moins le dernier : %s" % str(ApkAI.dungeon_treasures_of_type_list(G6, p6)))
+	# B12 : Hellcow, le meilleur score a un donjon vide -> l'IA ouvre le choix du donjon (pas d'auto-resolution) et abandonne
+	var G7 := _g3()
+	(G7["players"][0] as Dictionary)["isAI"] = true
+	(G7["players"][1] as Dictionary)["souls"] = [{"souls": 2}]
+	(G7["players"][2] as Dictionary)["dungeon"] = [[_plain("a")], [_plain("b")]]
+	var pc7 = RoomAbilities.rearrange_choice(G7, 0, -1, [])
+	var r7 = _choose(G7, 0, pc7) if pc7 is Dictionary else null
+	_ok.call(pc7 is Dictionary and str(pc7.get("step", "")) == "dungeon" and r7 != null and int(r7["idx"]) == -1, "B12 : Hellcow IA, meilleur score sans salle -> le C# rend une liste vide, la capacite est abandonnee")
+	# M10 : les bots de salon jouent comme l'IA solo, la fenetre de fin de construction comprise
+	var room := GameRoom.new("TST", 2, ["base"])
+	room.seats[1].merge({"bot": true, "taken": true}, true)
+	var G8 := _G([_player(0, "BMA001", [_plain("d1")]), _player(1, "BMA002")], ["base"])
+	G8["turn"] = 3
+	G8["phase"] = "build"
+	G8["activePlayer"] = 0
+	for i in 5:
+		_hand(G8, 0).append(_plain("o%d" % i))
+	_hand(G8, 1).append(_spell("BMA048"))
+	G8["buildWindow"] = {0: true, 1: false}
+	(G8["players"][1] as Dictionary)["isAI"] = true
+	room.m = _match(G8)
+	var played := room._ai_step()
+	_ok.call(played and (G8["stack"] as Array).size() == 1 and str(G8["stack"][0]["type"]) == "spell" and int(G8["stack"][0]["playerId"]) == 1, "M10 : bot de salon, fenetre de fin de construction -> il joue sa capacite (avant : il passait)")
+	room.dispose()

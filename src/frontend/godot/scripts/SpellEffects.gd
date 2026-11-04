@@ -157,7 +157,12 @@ static func _cave_in(G: Dictionary, caster_id: int, _card: Dictionary, target: D
 		return false
 	# C# KillHeroInRoom puis DestroyRoom : le heros present dans cette salle meurt (meme mecanique que Bottomless Pit).
 	var adv: Dictionary = G.get("adventure", {}) as Dictionary
-	if not adv.is_empty() and int(adv.get("playerId", -1)) == caster_id and int(adv.get("roomIndex", -1)) == idx:
+	if not adv.is_empty() and int(adv.get("playerId", -1)) == caster_id and int(adv.get("roomIndex", -1)) == idx and int(adv.get("hp", 1)) <= 0 and not bool(adv.get("dealZero", false)):
+		# GameBoard.cs:1147,1170 : mort sous les degats, le heros est deja retire et HeroDiesInThisRoom deja en file : la mort garde sa salle
+		var dying = BossEngine.active_room(dungeon[idx])
+		if dying != null:
+			G["_deathRoom"] = dying
+	elif not adv.is_empty() and int(adv.get("playerId", -1)) == caster_id and int(adv.get("roomIndex", -1)) == idx:
 		adv["hp"] = 0
 		adv.erase("dealZero") # un KillHero l'emporte sur un DealHero a 0 PV en attente
 		adv["noDeathTrigger"] = true # KillHeroInRoom = RemoveHeroFromGame + SoulsHeroes.Add : aucun declencheur de mort (KillHeroInRoom.cs:37-45), ni sur la salle detruite ni sur celle qui remonte

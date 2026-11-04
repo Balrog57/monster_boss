@@ -12,6 +12,7 @@
 // L'etat d'un step "action"/"decision" est pris APRES la fin de l'appel ; seq est attribue au DEBUT de l'appel,
 // donc les steps sont tries par seq (ordre d'invocation) : un sort declenche d'abord son step, puis ses effets imbriques.
 using System.Text.Json;
+using DBMGameModel;
 using DBMGameModel.Info;
 using DBMGameModel.Logic;
 
@@ -29,16 +30,20 @@ sealed class Trace
     public int Depth { get => depth; set => depth = value; }
     public int Seq => seq;
 
-    public void AbilityChoice(Boss player, IEnumerable<LogicCardBase> usable, IEnumerable<object> eligible, int chosen) =>
+    public void AbilityChoice(Boss player, IEnumerable<LogicCardBase> usable, IEnumerable<object> eligible, int chosen, int draws, int n0)
+    {
         abilityChoices.Add(new
         {
             afterSeq = seq, player = player.PlayerId, turn = board.NumberOfTurns, phase = board.CurrentGamePhase.ToString(), spellBattle = board.IsSpellBattleActive,
-            activePlayer = board.ActivePlayer?.PlayerId, usable = usable.Select(C).ToArray(), eligible = eligible.ToArray(), chosen,
+            activePlayer = board.ActivePlayer?.PlayerId, usable = usable.Select(C).ToArray(), eligible = eligible.ToArray(), chosen, draws, n0,
         });
+        rnMark = RandomProvider.NumberOfCallsToNext;
+    }
 
     public Trace(GameBoard b, int seed, int players, List<GameDecks> decks, bool tutorial = false)
     {
         board = b;
+        rnMark = RandomProvider.NumberOfCallsToNext;
         meta = new
         {
             engine = "DBMGame.dll 2.2.6 (original assemblies, headless on .NET)",
@@ -55,6 +60,8 @@ sealed class Trace
             deckItems = b.DeckItems.Select(C).ToArray(),
         };
     }
+
+    int rnMark; // compteur du RandomProvider a la fin du dernier step / choix de capacite : etat du generateur partage au debut du suivant (`rn0`)
 
     public int Begin() => ++seq;
 
@@ -78,6 +85,8 @@ sealed class Trace
         e["heroesInTown"] = board.HeroesInTownQueue.Select(C).ToArray();
         e["deckCounts"] = new { heroes = board.DeckHeroes.Count, rooms = board.DeckRooms.Count, spells = board.DeckSpells.Count, items = board.DeckItems.Count, discardRooms = board.DiscardPileRooms.Count, discardSpells = board.DiscardPileSpells.Count };
         e["players"] = board.Players.Select(P).ToArray();
+        e["rn0"] = rnMark;
+        rnMark = RandomProvider.NumberOfCallsToNext;
         steps.Add((s, e));
     }
 

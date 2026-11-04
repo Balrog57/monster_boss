@@ -73,14 +73,15 @@ sealed class TracingAI : AIPlayerInteraction
         int draws0 = RandomProvider.NumberOfCallsToNext; // trace seulement : la cible vient-elle d'un Shuffle() (TriggerCalculator) ?
         base.InternalResolveTarget(target, r =>
         {
-            bool shuffled = RandomProvider.NumberOfCallsToNext != draws0; // lu AVANT callback(list) : les effets ulterieurs (melanges de pioche) ne comptent pas
+            int draws = RandomProvider.NumberOfCallsToNext - draws0;
+            bool shuffled = draws != 0; // lu AVANT callback(list) : les effets ulterieurs (melanges de pioche) ne comptent pas
             var list = r?.ToList();
             callback(list);
             Trace.Add(s, "decision", new
             {
                 decision = "resolveTarget", player = playerOwner.PlayerId, targetId = target.UniqueID, amount = target.TargetsAmount,
                 owner = (target.Ability?.AbilityOwner as LogicCardBase) is LogicCardBase o ? Trace.C(o) : null,
-                chosen = list?.Cast<LogicCardBase>().Select(Trace.C).ToArray(), shuffled,
+                chosen = list?.Cast<LogicCardBase>().Select(Trace.C).ToArray(), shuffled, draws, n0 = draws0,
             });
         }, canBeCanceled);
     }
@@ -103,6 +104,7 @@ sealed class TracingBrain : AIBrain
 
     public AbilitySelectedInformation SelectAbilityToUse(GameBoard gameState, Boss player)
     {
+        int draws0 = RandomProvider.NumberOfCallsToNext; // tirages du generateur partage consommes par les Shuffle() des CheckXXX (le rejeu Godot les rejoue)
         var usable = new List<Ability>();
         usable.AddRange(player.DungeonActiveRooms.Where(d => d.CanPlayerPlayAbility(gameState)).Select(d => d.Ability));
         usable.AddRange(player.SpellsInHand.Where(s => s.CanPlayerPlayAbility(gameState)).Select(s => s.Ability));
@@ -122,7 +124,7 @@ sealed class TracingBrain : AIBrain
             }
         }
         var eligible = (list ?? new()).Select(t => Describe(t.Item2));
-        TracingAI.Trace.AbilityChoice(player, usable.Select(a => (LogicCardBase)a.AbilityOwner), eligible, list == null ? -1 : list.FindIndex(t => t.Item2 == result));
+        TracingAI.Trace.AbilityChoice(player, usable.Select(a => (LogicCardBase)a.AbilityOwner), eligible, list == null ? -1 : list.FindIndex(t => t.Item2 == result), RandomProvider.NumberOfCallsToNext - draws0, draws0);
         return result;
     }
 

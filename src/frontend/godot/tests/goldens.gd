@@ -39,6 +39,7 @@ func _ready() -> void:
 	_t_apk_room_ability_owner_destroyed()
 	_t_spell_cave_in_kills_hero_in_room()
 	_t_spell_assassin_hero_at_entrance()
+	_t_assassin_bonus_kept_at_entrance_next_turn()
 	_t_spell_motivation_extra_build()
 	_t_spell_jeopardy_all_players()
 	_t_spell_unknown_returns_false()
@@ -113,10 +114,16 @@ func _ready() -> void:
 	_t_crushinator_repeatable_fear_active_hero()
 	_t_trepidation_skips_adventure()
 	_t_minotaur_maze_sends_hero_back()
+	_t_maze_locked_by_trap_master()
 	_t_reveal_levelup_before_room_trigger()
 	_t_witchs_kitchen_choice()
 	_t_died_brainsucker_once_per_turn()
 	_t_pit_kill_no_death_trigger_on_next_room()
+	_t_dead_hero_not_in_room_window()
+	_t_swap_slots_whole_stacks()
+	_t_robobo_all_frozen_aborts_rest()
+	_t_manual_kill_excluded_from_ten_souls()
+	_t_liger_den_trigger_queued_behind_counterspell()
 	_t_destroy_hero_slot_traverses_empty_slots()
 	_t_exhaustion_ignores_frozen_rooms()
 	_t_vampire_bordello_choice_flips_whole_hero()
@@ -237,6 +244,25 @@ func _t_ten_souls_wins_under_five_wounds() -> void:
 	m._check_end_or_next_turn()
 	var go = m.G.get("gameOver")
 	_ok(go != null and int((go as Dictionary).get("winner", -1)) == 0, "10 ames gagne (attendu joueur 0)")
+
+## GameBoard.cs:983-996 : seuls les joueurs IsAlive comptent pour les 10 ames ; un joueur tue manuellement (IsManuallyKilled) ne gagne pas.
+func _t_manual_kill_excluded_from_ten_souls() -> void:
+	var m = Match.new()
+	add_child(m)
+	m.G = {
+		"players": {
+			0: {"boss": {"xp": 300}, "souls": _n_souls(10), "wounds": _n_wounds(0), "eliminated": false, "manuallyKilled": true,
+				"dungeon": [], "hand": [], "buildsThisTurn": 0, "isAI": false},
+			1: {"boss": {"xp": 300}, "souls": _n_souls(2), "wounds": _n_wounds(0), "eliminated": false,
+				"dungeon": [], "hand": [], "buildsThisTurn": 0, "isAI": false},
+			2: {"boss": {"xp": 300}, "souls": _n_souls(3), "wounds": _n_wounds(0), "eliminated": false,
+				"dungeon": [], "hand": [], "buildsThisTurn": 0, "isAI": false},
+		},
+		"decks": {"heroes": [{"id": "H"}], "epics": [], "rooms": [], "roomDiscard": [], "spellDiscard": [], "heroDiscard": []},
+		"town": [], "phase": "end", "gameOver": null, "turn": 1, "log": [],
+	}
+	m._check_end_or_next_turn()
+	_ok(m.G.get("gameOver") == null, "joueur tue manuellement a 10 ames : pas de victoire")
 
 ## 5 blessures = elimination.
 func _t_five_wounds_eliminates() -> void:
@@ -457,6 +483,19 @@ func _t_spell_assassin_hero_at_entrance() -> void:
 	SpellEffects.cast_spell(G3, 0, {"id": "BMA041"}, {"heroId": "H9"})
 	SpellEffects.cast_spell(G3, 0, {"id": "BMA045"}, {"heroId": "H9"})
 	_ok(BossEngine.hero_health_with_modifiers(G3, h2) == 6, "Fear sur le heros actif : RestoreHealth, le +3 est perdu")
+
+## Hero.Deal (Hero.cs:41) grave les PV sur la carte : un heros Assassine qui reste a l'entree (Trepidation) garde son +3 au tour suivant.
+func _t_assassin_bonus_kept_at_entrance_next_turn() -> void:
+	var m = _match_with_spell()
+	var hero := {"id": "H9", "name": "H9", "hp": 6}
+	((m.G["players"][1] as Dictionary)["entrance"] as Array).append(hero)
+	SpellEffects.cast_spell(m.G, 0, {"id": "BMA041"}, {"heroId": "H9"})
+	m._start_turn()
+	_ok(BossEngine.hero_health_with_modifiers(m.G, hero) == 9, "Assassin : le +3 survit au changement de tour tant que le heros est a l'entree")
+	((m.G["players"][1] as Dictionary)["entrance"] as Array).clear()
+	m._start_turn()
+	_ok(BossEngine.hero_health_with_modifiers(m.G, hero) == 6, "heros parti de l'entree : plus de bonus")
+	m.queue_free()
 
 ## BMA050 Motivation : bonus de construction si moins de salles qu'un adversaire.
 func _t_spell_motivation_extra_build() -> void:
@@ -1398,6 +1437,7 @@ func _t_room_beast_menagerie() -> void:
 	RoomAbilities.on_build_another_room(G, 0, fresh)
 	_ok((G["players"][0]["hand"] as Array).size() == 1, "Beast Menagerie : une seule fois par tour")
 	menagerie["usedThisTurn"] = false
+	menagerie["usedThisTurn"] = false
 	fresh["type"] = "trap"
 	RoomAbilities.on_build_another_room(G, 0, fresh)
 	_ok((G["players"][0]["hand"] as Array).size() == 1, "Beast Menagerie : rien si la salle en attente n'est pas un Monster")
@@ -1872,6 +1912,20 @@ func _t_minotaur_maze_sends_hero_back() -> void:
 		seen.append(int((m.G["adventure"] as Dictionary)["roomIndex"]))
 	_ok(seen == [0, 1, 0, 1, 2], "Minotaur's Maze : A, Maze, A, Maze, C (obtenu %s)" % str(seen))
 
+## Ability.cs:88 : Trap Master (DeactivateDungeonAbility, IsLocked) verrouille aussi le Maze : le heros avance sans reculer.
+func _t_maze_locked_by_trap_master() -> void:
+	var m = Match.new()
+	add_child(m)
+	var hero := {"id": "KSA017", "name": "Trap Master", "hp": 20, "heroAbility": {"cmd": "DeactivateDungeonAbility"}}
+	m.G = {"players": {0: {"id": 0, "dungeon": [[_room("A", "monster", false, [1])], [_room("BMA017", "trap", false, [1])], [_room("C", "trap", false, [1])]],
+		"entrance": [hero], "hand": [], "souls": [], "wounds": []}},
+		"log": [], "effects": SpellEffects.empty_effects(), "decks": {"heroDiscard": []}, "adventure": {"playerId": 0, "hero": hero, "roomIndex": -1, "hp": 20, "pause": null}}
+	var seen: Array = []
+	for _k in 3:
+		m._advance_adventure_room()
+		seen.append(int((m.G["adventure"] as Dictionary)["roomIndex"]))
+	_ok(seen == [0, 1, 2], "Trap Master : le Maze verrouille ne repousse pas (obtenu %s)" % str(seen))
+
 ## SendBackToDungeonEntrance.Execute (DBMGameModel.Logic.Abilities.Commands:62) : un heros mort du scorekeeping fait Target1.RestoreHealth() avant de
 ## rejoindre l'entree. Zombie Attack ajoute ensuite DealHero(-2) (+2 PV) ; un heros ranime puis tue (hp 13) revient a 11 par Zombie Prison (s27-p3@562).
 func _t_zombie_restores_base_hp() -> void:
@@ -1956,6 +2010,57 @@ func _t_pit_kill_no_death_trigger_on_next_room() -> void:
 	_ok(RoomAbilities.activate_room_ability(m.G, 0, 1) == null, "Bottomless Pit s'active")
 	m._finish_hero_if_dead()
 	_ok((p["hand"] as Array).is_empty() and (p["souls"] as Array).size() == 1, "ame capturee, aucune pioche Golem Factory")
+
+## GameBoard.cs:1147,1170 : un heros mort sous les degats est deja retire (HeroDiesInThisRoom en file) : Bottomless Pit / Boulder Ramp n'ont plus de heros
+## dans la salle, et Cave-In ne lui retire pas son declencheur de mort.
+func _t_dead_hero_not_in_room_window() -> void:
+	for kind in ["pit", "ramp", "cave-in"]:
+		var m = Match.new()
+		add_child(m)
+		var hero := {"id": "H", "name": "H", "hp": 9, "souls": 1, "wounds": 1}
+		var mid := "BMA027" if kind == "pit" else ("BMA028" if kind == "ramp" else "BMA016")
+		var p := {"id": 0, "dungeon": [[_room(mid, "monster", false, [1])], [_room("B", "trap", false, [1])]],
+			"entrance": [hero], "hand": [], "souls": [], "wounds": []}
+		m.G = {"players": {0: p}, "log": [], "logs": [], "effects": SpellEffects.empty_effects(), "town": [], "turn": 1,
+			"decks": {"rooms": [_room("D", "trap", false, [1])], "spells": [], "roomDiscard": [], "spellDiscard": [], "heroDiscard": []},
+			"adventure": {"playerId": 0, "hero": hero, "roomIndex": 0, "hp": 0, "pause": "post-damage"}}
+		if kind == "cave-in":
+			_ok(SpellEffects.cast_spell(m.G, 0, {"id": "BMA042"}, {"roomIndex": 0}), "Cave-In accepte")
+			m._finish_hero_if_dead()
+			_ok((p["hand"] as Array).size() == 1, "Cave-In sur un heros deja mort : Golem Factory pioche encore (declencheur deja en file)")
+		else:
+			_ok(RoomAbilities.activate_room_ability(m.G, 0, 0, 1) != null, "%s : refuse, le heros mort n'est plus dans la salle" % kind)
+			_ok(((p["dungeon"] as Array).size() == 2), "%s : salle intacte" % kind)
+		m.queue_free()
+
+## SwapSlotInDungeon.cs:71-73 : Centipede Tunnel echange les emplacements entiers, la salle recouverte suit sa pile.
+func _t_swap_slots_whole_stacks() -> void:
+	var m = Match.new()
+	add_child(m)
+	var under := _room("U", "trap", false, [1])
+	var s0 := [under, _room("A", "trap", false, [1])]
+	var s1 := [_room("B", "trap", false, [1])]
+	m.G = {"players": {0: {"id": 0, "dungeon": [s0, s1]}}, "log": [], "logs": []}
+	m._swap_rooms(m.G["players"][0], {"roomIndex": 0, "otherRoomIndex": 1})
+	var d: Array = m.G["players"][0]["dungeon"]
+	_ok(d[0] == s1 and d[1] == s0 and (d[1] as Array).size() == 2 and (d[1] as Array)[0] == under, "Centipede Tunnel : les piles changent d'emplacement")
+	m.queue_free()
+
+## ComposedTargetProvider.cs:42 : Robobo face a un joueur humain dont toutes les salles sont gelees leve, AbilityTransaction.cs:100 avale l'exception :
+## les adversaires suivants gardent leurs salles. Une IA (pas d'autoresolution) est simplement sautee.
+func _t_robobo_all_frozen_aborts_rest() -> void:
+	for ai in [false, true]:
+		var G := _levelup_G("BMA004", 5)
+		var players: Dictionary = G["players"]
+		for pid in [2, 3]:
+			players[pid] = {"id": pid, "boss": {"id": "BMA002", "name": "Z", "xp": 300}, "dungeon": [], "hand": [], "souls": [],
+				"wounds": [], "entrance": [], "items": [], "eliminated": false, "buildsThisTurn": 0, "leveledUp": false}
+		(players[1]["dungeon"] as Array).append([_room("A1", "trap", false, [1])])
+		players[1]["isAI"] = ai
+		(players[3]["dungeon"] as Array).append([_room("C1", "trap", false, [1])])
+		SpellEffects._effects(G)["deactivatedRooms"] = [{"playerId": 1, "roomIndex": 0}]
+		RoomAbilities._robobo(G, 0)
+		_ok((players[3]["dungeon"] as Array).is_empty() == ai, "Robobo, salles gelees (IA=%s) : adversaire suivant %s" % [str(ai), "touche" if ai else "epargne"])
 
 ## BMA024 Witch's Kitchen : RoomInHand(Monster) se choisit ; une seule salle Monster en main = defausse automatique.
 func _t_witchs_kitchen_choice() -> void:
@@ -2242,6 +2347,30 @@ func _t_apk_each_liger_den_draws() -> void:
 		(m.G["decks"]["spells"] as Array).append({"id": "S%d" % i, "name": "S%d" % i, "isSpell": true})
 	_ok(_play(m, 0, "ZA") and _pass(m, 1) and _pass(m, 2), "ZA joue puis resolu")
 	_ok((p0["hand"] as Array).size() == 2, "deux Liger's Den : deux sorts pioches (obtenu %d)" % (p0["hand"] as Array).size())
+	m.queue_free()
+
+## GameBoard.cs:796,1290-1305 : le declencheur de Liger's Den entre dans la pile (rang de _stack_insert_index, un Counterspell restant le precede) au lieu de
+## piocher dans la foulee du sort.
+func _t_liger_den_trigger_queued_behind_counterspell() -> void:
+	var m = _battle_match()
+	var p1: Dictionary = m.G["players"][1]
+	p1["dungeon"] = [[_room("BMA026", "trap", false, [1])]]
+	(m.G["decks"]["spells"] as Array).append({"id": "S0", "name": "S0", "isSpell": true})
+	m.G["stackActivePlayer"] = 0
+	m.G["stack"] = [
+		{"id": "a", "type": "spell", "playerId": 1, "card": _zspell("ZA"), "target": {}, "resolved": false},
+		{"id": "c", "type": "spell", "playerId": 2, "card": _counter(), "target": {"stackId": "t"}, "resolved": false},
+		{"id": "t", "type": "spell", "playerId": 2, "card": _zspell("ZT"), "target": {}, "resolved": false}]
+	m._resolve_pending_stack()
+	var at_cs := -1
+	var at_liger := -1
+	var lg: Array = m.G["log"]
+	for i in lg.size():
+		if str(lg[i]).begins_with("Counterspell annule"):
+			at_cs = i
+		elif str(lg[i]).begins_with("Liger's Den"):
+			at_liger = i
+	_ok(at_cs >= 0 and at_liger > at_cs and (p1["hand"] as Array).size() == 1, "Liger's Den : pioche a son tour de pile, apres le Counterspell restant (%d, %d)" % [at_cs, at_liger])
 	m.queue_free()
 
 ## GameBoard.DrawRooms / DrawSpells : pioche vide => ReShuffleDiscardsPilesBackToDeck remet les DEUX defausses dans leurs pioches.

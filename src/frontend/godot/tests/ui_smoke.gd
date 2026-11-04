@@ -473,6 +473,13 @@ func _check_boss_layout() -> void:
 			_check(cards.back() == c, "carrousel : la carte centrale n'est pas au premier plan")
 		else:
 			_check(c.size.x < board.BOSS_CARD.x * 0.7 and (cx - board.PLAY_CX) * d > 0.0, "carrousel : voisine %d mal placee (taille %s, x=%.0f)" % [d, c.size, cx])
+	# M14 : indice flottant (CarrouselComponent.UpdateValues) : a +0,5 la carte centrale est a mi-chemin entre sa place et celle de sa voisine de gauche, sans tween
+	if not bc.is_empty():
+		var c0: Control = bc[board._boss_sel]
+		board._boss_layout(float(board._boss_sel) + 0.5)
+		var want_mid: float = (board._boss_card_rect(0).position.x + board._boss_card_rect(-1).position.x) / 2.0
+		_check(absf(c0.position.x - want_mid) < 0.5 and not c0.has_meta("tw"), "carrousel : indice fractionnaire, carte centrale en x=%.1f au lieu de %.1f" % [c0.position.x, want_mid])
+		board._boss_layout()
 	_cov("boss_layout")
 
 ## Eventail de la main = CardPositionComponent : x = 960 + lerp(-h, h, (i+1)/(n+1)) avec h = min((n - n%2) * 200, 1200) / 2, rotation
@@ -1083,6 +1090,9 @@ func _check_pause_menu() -> void:
 			settings = b
 	if not _check(settings != null, "menu en jeu : SETTINGS absent"):
 		return
+	var m0: int = AudioManager.rec.size() # B30 : RESUME garde le son par defaut (select), a l'appui (ButtonBaseEntity.cs:185,202)
+	(_buttons(board._popup)[0] as Button).button_down.emit()
+	_check(AudioManager.rec.slice(m0).filter(func(e): return str(e).begins_with("sfx:")) == ["sfx:ui_button_select"], "menu en jeu : RESUME doit jouer ui_button_select a l'appui, vu %s" % str(AudioManager.rec.slice(m0)))
 	settings.pressed.emit()
 	var sl: Array = []
 	var stack: Array = [board._popup]
@@ -1119,7 +1129,12 @@ func _check_pause_menu() -> void:
 	_check(sliders.size() == 1 and sliders[0].size == Vector2(571, 24) and sliders[0].patch_margin_left == 6, "reglages : fond du curseur settings_slider_bg (ninepatch 571 x 24, marges 6)")
 	var back = board._popup.find_child("Back", true, false)
 	if _check(back != null, "reglages : fleche de retour absente"):
+		m0 = AudioManager.rec.size() # B32 : le son de la fleche part a l'appui, rien au relachement
+		(back as TextureButton).button_down.emit()
+		_check(AudioManager.rec.slice(m0).filter(func(e): return str(e).begins_with("sfx:")) == ["sfx:ui_button_goback"], "reglages : la fleche doit jouer ui_button_goback a l'appui, vu %s" % str(AudioManager.rec.slice(m0)))
+		m0 = AudioManager.rec.size()
 		(back as TextureButton).pressed.emit()
+		_check(AudioManager.rec.slice(m0).filter(func(e): return str(e).begins_with("sfx:")).is_empty(), "reglages : la fleche ne doit rien jouer au relachement, vu %s" % str(AudioManager.rec.slice(m0)))
 		var texts2: Array = _buttons(board._popup).map(func(b): return (b as Button).text)
 		_check(texts2.has("RESUME"), "reglages : la fleche ne ramene pas au menu PAUSED")
 	_cov("pause_menu")
@@ -1786,12 +1801,14 @@ func _check_boss_flip() -> void:
 	await _wait(1.2) # 0,5 s + retournement de 0,5 s
 	_check(not board._boss_ready and bc.all(func(c): return (c as CardUI).texture_rect.texture == back_tex), "sequence : toutes les cartes doivent etre face cachee pendant la rotation")
 	var sels := {}
-	var t := 0.0
-	while not board._boss_ready and t < 12.0:
+	var frames := 0
+	# Une lecture par image : un minuteur de 0,1 s (a l'echelle de temps x6) tombe sur ~1 image sur 6 ou 12, et au pic de la rotation (10-19 crans/s) il saute des cartes
+	# selon la charge de la machine (« la rotation n'a parcouru que 7 cartes », intermittent) ; la rotation, elle, passe par toutes les cartes.
+	while not board._boss_ready and frames < 3000:
 		sels[board._boss_sel] = true
 		board._confirm_btn.pressed.emit() # un appui pendant la rotation ne fait rien
-		await _wait(0.1)
-		t += 0.1
+		await get_tree().process_frame
+		frames += 1
 	_check(board._boss_ready, "sequence : la rotation ne s'est jamais arretee")
 	_check(sels.size() >= 8, "sequence : la rotation n'a parcouru que %d cartes" % sels.size())
 	_check(gm.G["players"][0].get("boss") == null, "sequence : un appui pendant la rotation a valide le boss")
@@ -1837,7 +1854,7 @@ func _check_boss_flip() -> void:
 	Engine.time_scale = ANIM_TIME_SCALE
 	board.setup(gm, func(): quit_calls += 1)
 	await _wait(0.1)
-	t = 0.0
+	var t := 0.0
 	while not board._boss_ready and t < 12.0:
 		_check(not board._confirm_btn.visible, "hot-seat : PLAY BOSS MONSTER! visible")
 		await _wait(0.1)
@@ -1919,6 +1936,30 @@ func _check_ai_entry_window() -> void:
 
 ## Les animations (tweens du plateau, lambdas) peuvent s'executer apres la liberation du noeud vise, car refresh() reconstruit les salles et les pions :
 ## aucune ne doit produire d'erreur (« Lambda capture ... was freed », appel sur un objet libere). Le ErrLogger de la campagne les compte.
+## B21 : le pion du heros entre a la moitie de l'echelle finale (0,39 contre 0,78) et son coeur suit (-150 x echelle du personnage).
+func _check_pawn_scale() -> void:
+	_tag = "[pawn]"
+	var pawn: Control = board._create_hero_pawn((CardDB.heroes[0] as Dictionary).duplicate(true), 4)
+	var heart := pawn.get_node("HeroHeart") as Control
+	var y1 := heart.position.y
+	board._pawn_scale(0.5, pawn)
+	var spr := pawn.get_node_or_null("Sprite") as Control
+	_check(absf((y1 - heart.position.y) - (board.HERO_HEART_DY * 0.5)) < 0.01 and (spr == null or is_equal_approx(spr.scale.x, 0.5)), "pion : coeur ou sprite mal mis a l'echelle 0,5 (%.2f)" % (y1 - heart.position.y))
+	board._pawn_scale(1.0, pawn)
+	_check(is_equal_approx(heart.position.y, y1), "pion : retour a l'echelle 1 incorrect")
+	# M7 : la barre de temps est a (0 ; -350 x echelle du personnage) de celui-ci (GamePlayBaseScene.cs:215-218), soit 273 px au-dessus de son centre a l'echelle finale (frame APK : 427 pour un pion centre en 722)
+	add_child(pawn)
+	board._hero_pawn = pawn
+	pawn.global_position = Vector2(600.0, 500.0)
+	board._win_show(3.0, false)
+	var dy: float = (pawn.global_position.y + board.HERO_CARD.y / 2.0 + board.HERO_SPRITE_DY) - (board._win_bar.global_position.y + board._win_bar.size.y / 2.0)
+	_check(absf(dy - 273.0) < 1.0, "barre d'aventure : %.1f px au-dessus du personnage au lieu de 273 (M7)" % dy)
+	board._hero_pawn = null
+	board._win_hide()
+	remove_child(pawn)
+	pawn.free()
+	_cov("pawn_scale")
+
 func _check_freed_targets() -> void:
 	_tag = "[freed]"
 	await _new_game()
@@ -1934,7 +1975,7 @@ func _check_freed_targets() -> void:
 		var shadow := Control.new()
 		slot.add_child(ghost)
 		slot.add_child(shadow)
-		slot._fly_pending(ghost, shadow)
+		DungeonSlot.fly_pending(gm, slot.player_id, slot.slot_index, [ghost, shadow])
 		ghost.free() # le vol de P-C14 est en cours quand l'etat suivant reconstruit la salle
 		shadow.free()
 	await get_tree().create_timer(0.3).timeout
@@ -2104,7 +2145,8 @@ func _check_zoom_gestures() -> void:
 	await _wait(0.4)
 	if _check(board._zoom != null, "LEVEL UP : l'appui ne zoome pas (le zoom ne doit pas attendre le relachement)"):
 		var r5 := _grect(board._zoom)
-		_check(absf(r5.end.x - 1736.0) <= 4.0 and absf(r5.size.x - 460.0) <= 6.0 and absf(r5.end.y - 1080.0) <= 6.0, "LEVEL UP : %s au lieu de 460 de large, bord droit 1736, bas 1080" % r5)
+		_check(absf(r5.end.x - 1736.0) <= 4.0 and absf(r5.size.x - 460.0) <= 6.0 and absf(r5.end.y - 1082.0) <= 1.0, "LEVEL UP : %s au lieu de 460 de large, bord droit 1736, bas 1082 (B37)" % r5)
+	_check(is_zero_approx(board._win_dt(1.0)), "B28 : barre ralentie hors ligne = arretee (ProgressBarBehavior.cs:194, IsPausedWhenSlowDown)")
 	await _mouse(lb, false, false)
 	_check(board._zoom != null, "LEVEL UP : le relachement ferme le zoom")
 	await _click_at(away)
@@ -3461,7 +3503,12 @@ func _check_gameover_banner() -> void:
 		_check(not (gb._crystals[0] as Control).position.is_equal_approx(p0), "fin : les cristaux ne tournent pas")
 		_check(gb.find_children("*", "Label", true, false).size() == 1, "fin : texte parasite (score ?) sur le bandeau")
 		var q0 := quit_calls
+		var m1: int = AudioManager.rec.size() # B32 : OK joue select a l'appui (ControlsFactory.cs:263), rien au relachement
+		gb.ok_btn.button_down.emit()
+		_check(AudioManager.rec.slice(m1).filter(func(e): return str(e).begins_with("sfx:")) == ["sfx:ui_button_select"], "fin : OK doit jouer ui_button_select a l'appui, vu %s" % str(AudioManager.rec.slice(m1)))
+		m1 = AudioManager.rec.size()
 		gb.ok_btn.pressed.emit()
+		_check(AudioManager.rec.slice(m1).filter(func(e): return str(e).begins_with("sfx:")).is_empty(), "fin : OK ne doit rien jouer au relachement")
 		_check(quit_calls == q0 + 1, "fin : OK n'appelle pas la sortie (ecran titre)")
 	await _new_game()
 	board.set_process(false)
@@ -3819,6 +3866,13 @@ func _check_viewport() -> void:
 	# 1) regle de largeur (ratio de fenetre -> largeur utile) : 4:3, 16:10, 16:9, 21:9, portrait
 	for c in [[4.0 / 3.0, 1440.0], [1600.0 / 1000.0, 1728.0], [1920.0 / 1080.0, 1920.0], [2560.0 / 1080.0, 1920.0], [1440.0 / 1080.0, 1440.0], [0.5, 1440.0], [1366.0 / 768.0, 1920.0]]:
 		_check(is_equal_approx(Vp.width_for(float(c[0])), float(c[1])), "largeur utile : ratio %.3f -> %.1f au lieu de %.1f" % [float(c[0]), Vp.width_for(float(c[0])), float(c[1])])
+	# 1a) BackEase de l'APK (M17 / B24) : bornes exactes, depassement maximal ~1,177 pour l'amplitude 0,6 en sortie (TRANS_BACK de Godot : ~1,10)
+	_check(is_equal_approx(UiKit.back_ease(0.0, 0.6, true), 0.0) and is_equal_approx(UiKit.back_ease(1.0, 0.6, true), 1.0) and is_equal_approx(UiKit.back_ease(0.5, 0.5, false), 0.125 - 0.25), "BackEase : bornes / milieu faux")
+	var bmax := 0.0
+	for k in 101:
+		bmax = maxf(bmax, UiKit.back_ease(k / 100.0, 0.6, true))
+	_check(bmax > 1.15 and bmax < 1.2, "BackEase 0,6 : depassement %.3f hors de 1,15..1,2" % bmax)
+
 	# 1b) un ecran plus large que la fenetre utile doit etre mis en bandes noires, pas etire (« keep_aspect » n'existe pas : la valeur valide est « keep »)
 	_check(win.content_scale_aspect == Window.CONTENT_SCALE_ASPECT_KEEP, "stretch/aspect : %d au lieu de KEEP (project.godot : « keep »)" % win.content_scale_aspect)
 	# 2) aides de bord a 1920 / 1728 / 1440 : [largeur, centre, gauche, droite, decalage gauche, decalage droit, decalage droit + terme proportionnel de 300]
@@ -3851,6 +3905,16 @@ func _check_viewport() -> void:
 	_check(is_equal_approx(plat.get_global_rect().position.x, plat_x + Vp.shift_right(300.0)), "4:3 : l'estrade du boss n'a pas suivi le bord droit + 300 (%.1f)" % plat.get_global_rect().position.x)
 	_check(plat.get_global_rect().end.x <= Vp.right_edge() + 0.5, "4:3 : l'estrade du boss sort de la fenetre")
 	_check(board.discard_btn.get_global_rect().position.x >= Vp.left_edge() - 0.5, "4:3 : la defausse sort de la fenetre")
+	# un vrai clic sur une carte doit passer a 4:3 : le relachement (_input) et l'appui (_gui_input) sont compares dans le meme repere
+	var clicked := [false]
+	var hc: CardUI = _hand_cards()[0]
+	var on_click := func(_d): clicked[0] = true
+	hc.card_clicked.connect(on_click)
+	var hr := hc.get_global_rect()
+	await _click_at(Vector2(hr.position.x + 25.0, hr.get_center().y))
+	_check(clicked[0], "4:3 : un clic sur une carte de la main n'est pas reconnu")
+	if is_instance_valid(hc) and hc.card_clicked.is_connected(on_click):
+		hc.card_clicked.disconnect(on_click)
 	var win_rect := Rect2(Vp.left_edge(), 0.0, Vp.width, 1080.0)
 	for c in _hand_cards(): # largeur seulement : le bas des cartes de la main depasse l'ecran (APK)
 		var cr := (c as Control).get_global_rect()
@@ -4156,6 +4220,7 @@ func _extra_checks() -> void:
 	await _check_wiki_ui()
 	await _check_windows()
 	await _check_freed_targets()
+	_check_pawn_scale()
 	await _check_ai_entry_window()
 	await _check_window_clock()
 	await _check_single_click()
@@ -4194,7 +4259,7 @@ func _extra_checks() -> void:
 	board.refresh()
 	await get_tree().process_frame
 	if _check(board._zoom != null and is_instance_valid(board._zoom), "LEVEL UP : pas de zoom du boss (ou efface par un refresh)"):
-		_check(Rect2(0, 0, 1920, 1080).encloses(Rect2(board._zoom.position, board._zoom.size)), "LEVEL UP : zoom hors ecran %s" % Rect2(board._zoom.position, board._zoom.size))
+		_check(Rect2(0, 0, 1920, 1082).encloses(Rect2(board._zoom.position, board._zoom.size)), "LEVEL UP : zoom hors ecran %s" % Rect2(board._zoom.position, board._zoom.size)) # bas a 1082 : B37, la carte de l'APK est 2 px plus bas que 1080 (image_diff levelup_button_tap)
 		var click := InputEventMouseButton.new()
 		click.button_index = MOUSE_BUTTON_LEFT
 		click.pressed = true
@@ -4476,6 +4541,27 @@ func _check_audio() -> void:
 	await get_tree().process_frame
 	ev = _audio_since(m)
 	_check(ev == ["sfx:ui_shuffle_left", "sfx:ui_shuffle_left", "sfx:ui_shuffle_right", "sfx:ui_card_slide_general"], "survol de la main : %s" % str(ev))
+	# M9 : carrousel central, meme regle que la main (CardPositionComponent.cs:79-98 via CarouselShowEntity.cs:26)
+	for p in am._voices:
+		p.stop()
+	m = am.rec.size()
+	board._slide_last = -1
+	board._slide_pick(2)
+	board._slide_pick(3)
+	board._slide_pick(1)
+	board._slide_unhover(board._slide_gen)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	ev = _audio_since(m)
+	_check(ev == ["sfx:ui_shuffle_left", "sfx:ui_shuffle_left", "sfx:ui_shuffle_right", "sfx:ui_card_slide_general"], "survol du carrousel central : %s" % str(ev))
+	# B31 : le 1er relachement de PASS TURN ne fait que lever le drapeau (DoneButtonEntity.cs:118-143), StopAndHideButton (cs:164) ne joue select que quand le tour passe
+	if board._pass_turn_mode() and board._can_still_build(gm.legal_moves(0)):
+		m = am.rec.size()
+		board._pass_raised_key = ""
+		board._on_pass_pressed()
+		ev = _audio_since(m)
+		_check(not ev.has("sfx:ui_button_select"), "PASS TURN, 1er appui : %s (aucun ui_button_select attendu)" % str(ev))
+		board._warn_hide()
 	# arrivee du heros dans une salle (HeroCrossingBehavior.cs:72-76) : move + son de categorie, meme sans degats ; PV perdus = hurt, rendus = buff
 	var dng: Array = me["dungeon"]
 	dng.clear()
@@ -4527,6 +4613,17 @@ func _check_audio() -> void:
 	ev = _audio_since(m)
 	for w in ["sfx:char_hero_attack", "sfx:" + am.boss_voice(boss_id, "hurt"), "sfx:" + am.boss_voice(boss_id, "death")]:
 		_check(ev.has(w), "hero contre boss mort : %s absent de %s" % [w, str(ev)])
+	# B35 : un donjon hors ecran (3 joueurs et plus) joue ses sons de heros sans pion (HeroCrossingBehavior.cs:70-117)
+	m = am.rec.size()
+	board._hidden_step_sounds(0, -1, -1)
+	board._hidden_step_sounds(0, -1, 0)
+	board._hidden_crossing_sounds({"pid": 0, "killed": false})
+	board._hidden_crossing_sounds({"pid": 0, "killed": true})
+	await _wait(1.5)
+	ev = _audio_since(m)
+	for w in ["char_hero_intro", "sfx_room_fall", "char_hero_attack", "char_hero_death", am.boss_voice(boss_id, "hurt")]:
+		_check(ev.has("sfx:" + w), "donjon hors ecran : %s absent de %s" % [w, str(ev)])
+	_check(ev.count("sfx:char_hero_move") == 3, "donjon hors ecran : 3 char_hero_move attendus (depart + arrivee + traversee), vu %s" % str(ev))
 	Engine.time_scale = 1.0
 	board.skip_animations = true
 	# toute la campagne : musiques, construction (la salle posee se retourne face cachee, BuildRoomHandSceneBehavior.cs:182), clics ; jamais ui_card_flip (aucun appelant dans l'APK)
@@ -4850,7 +4947,14 @@ func _tut_click_card(idx: int) -> void:
 	var node := _tut_card_node(idx)
 	if _check(node != null, "tutoriel : carte %d absente de la main affichee" % idx):
 		var r: Rect2 = node.get_global_rect()
-		await _click_at(Vector2(r.position.x + 25.0, r.get_center().y))
+		var at := Vector2(r.position.x + 25.0, r.get_center().y)
+		var mv := InputEventMouseMotion.new() # une vraie souris survole la carte avant de cliquer : la carte levee doit rester cliquable
+		mv.position = Vp.to_view(at)
+		mv.global_position = mv.position
+		get_viewport().push_input(mv, true)
+		for _i in 20:
+			await get_tree().process_frame
+		await _click_at(at)
 
 func _tut_hint_text(ov) -> String:
 	if ov._hint == null or not is_instance_valid(ov._hint):

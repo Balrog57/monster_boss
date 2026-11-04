@@ -643,9 +643,9 @@ func _intro2() -> void:
 	_add_king()
 	await _text_step(lb, {"text": TEXT["page04"][0], "hands": [{"pos": Vector2(1040, 485)}]})
 	# p05 : mascara_00 a (LimitedRightEdge - 439, 528), main a (LimitedRightEdge - 395, 640) ; 10 ames depuis (690,385) (:72-75,120)
-	await _text_step(lb, {"text": TEXT["page05"][0], "mask": Vector2(1481, 528), "finish": _load_icons.bind("soul"), "hands": [{"pos": Vector2(1525, 640)}]})
+	await _text_step(lb, {"text": TEXT["page05"][0], "mask": Vector2(Vp.limited_right_edge() - 439.0, 528), "finish": _load_icons.bind("soul"), "hands": [{"pos": Vector2(Vp.limited_right_edge() - 395.0, 640)}]})
 	# p08 : mascara_00 a y 442, main a y 580 ; 5 blessures depuis (750,347) puis la pierre tombale ; le 2e texte prolonge le 1er (:81-83,136)
-	await _text_step(lb, {"text": TEXT["page08"][0], "second": TEXT["page08"][1], "mask": Vector2(1481, 442), "finish": _load_icons.bind("wound"), "hands": [{"pos": Vector2(1525, 580)}]})
+	await _text_step(lb, {"text": TEXT["page08"][0], "second": TEXT["page08"][1], "mask": Vector2(Vp.limited_right_edge() - 439.0, 442), "finish": _load_icons.bind("wound"), "hands": [{"pos": Vector2(Vp.limited_right_edge() - 395.0, 580)}]})
 	_end()
 	_blank = false # tut_21 : les noms de boss et les pioches apparaissent avec la defausse d'ouverture
 	board.refresh()

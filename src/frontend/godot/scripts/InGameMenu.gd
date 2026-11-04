@@ -51,24 +51,23 @@ func _build_main() -> void:
 	for i in entries.size():
 		# APK : boutons au pas de 194 px (bordures a y 124, 318, 512, 707, PauseScene.cs:44-94) 
 		var row := i
-		var sfx := "ui_button_goback" if i == 0 else "ui_button_select"
+		var sfx := "ui_button_select" # tous ces boutons gardent le PressedSfx par defaut (ButtonBaseEntity.cs:202), RESUME aussi
 		if not show_gallery:
 			row += 1 # num4 demarre a 1 sans galerie : RESUME descend d'un cran (PauseScene.cs:37)
 		var b := UiKit.stone_button(self, str(entries[i][0]), Vector2(960.0 - BTN.x / 2.0, 122.5 + 194.2 * row), BTN, 27, sfx)
 		b.pressed.connect(entries[i][1])
 
 func _build_settings() -> void:
-	var back := UiKit.texture_button(self, UI + "buttons/back_bt.webp", UI + "buttons/back_bt_pressed.webp", Vector2(200, 41))
+	var back := UiKit.texture_button(self, UI + "buttons/back_bt.webp", UI + "buttons/back_bt_pressed.webp", Vector2(200, 41), Vector2.ZERO, "ui_button_goback") # a l'appui
 	back.name = "Back"
 	Vp.edge(back, Vp.LEFT)
 	back.pressed.connect(func():
-		AudioManager.play_sfx("ui_button_goback")
 		page = "main"
 		_build()
 		UiKit.cross_fade_in(self)) # le Pop re-empile PauseScene avec le meme CrossFade (ModalSceneService.cs:69-72,112-115)
-	UiKit.toggle_row(self, 358, "MUSIC", ["ON", "OFF"], 0 if AudioManager.music_on else 1, func(i: int): AudioManager.set_music_on(i == 0))
-	UiKit.toggle_row(self, 478, "SOUND", ["ON", "OFF"], 0 if AudioManager.sfx_on else 1, func(i: int): AudioManager.set_sfx_on(i == 0))
-	UiKit.toggle_row(self, 598, "GAME SPEED", ["SLOW", "NORMAL", "FAST"], Profile.load_speed(), func(i: int):
+	UiKit.toggle_row(self, 360, "MUSIC", ["ON", "OFF"], 0 if AudioManager.music_on else 1, func(i: int): AudioManager.set_music_on(i == 0))
+	UiKit.toggle_row(self, 480, "SOUND", ["ON", "OFF"], 0 if AudioManager.sfx_on else 1, func(i: int): AudioManager.set_sfx_on(i == 0))
+	UiKit.toggle_row(self, 600, "GAME SPEED", ["SLOW", "NORMAL", "FAST"], Profile.load_speed(), func(i: int):
 		Profile.save_speed(i)
 		speed_changed.emit())
 	_volume(740.0)

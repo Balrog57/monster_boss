@@ -240,8 +240,8 @@ func _deck_btn(cx: float, count: int, title: String, sub: String, cb: Callable) 
 			var i: int = c.get_meta("i")
 			var p: Vector2 = (spec["open"] if expand else spec["close"])[i] * 0.7
 			var r: float = (spec["orot"] if expand else spec["crot"])[i]
-			tw.tween_property(c, "position", centre + p - card_sz / 2.0, dur).set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-			tw.tween_property(c, "rotation_degrees", rad_to_deg(r), dur).set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			UiKit.tween_back(tw, c, "position", centre + p - card_sz / 2.0, dur, 0.6, true).set_delay(delay) # BackEase Out amplitude 0,6, aussi au repli (ControlsFactory.cs:408-414, ExpandBaseBehavior.cs:130-132)
+			UiKit.tween_back(tw, c, "rotation_degrees", rad_to_deg(r), dur, 0.6, true).set_delay(delay)
 	for c in cards: # eventail ferme, puis ouvert apres 0,5 s sur 1 s (MultiplayerScene.Start)
 		var i: int = c.get_meta("i")
 		c.position = centre + (spec["close"] as Array)[i] * 0.7 - card_sz / 2.0

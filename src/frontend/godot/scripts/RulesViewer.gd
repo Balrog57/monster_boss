@@ -51,9 +51,8 @@ func _build() -> void:
 	back.name = "Back"
 	back.position = Vector2(20.0, 22)
 	Vp.edge(back, Vp.LEFT)
-	back.pressed.connect(func():
-		AudioManager.play_sfx("ui_button_goback")
-		close_viewer())
+	back.button_down.connect(func(): AudioManager.play_sfx("ui_button_goback")) # a l'appui (ButtonBaseEntity.cs:185)
+	back.pressed.connect(close_viewer)
 	add_child(back)
 	add_child(_lbl("RULES", 42, GOLD, Vector2(L, 22), Vector2(W, 98))) # titre arcadepix x2 = 42, or #cdb15f, centre : ne chevauche pas la fleche (x 20-141)
 	var books := shipped_books()

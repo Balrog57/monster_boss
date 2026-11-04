@@ -97,9 +97,8 @@ func _ready() -> void:
 	back.texture_pressed = load(UI + "buttons/back_bt_pressed.webp")
 	back.position = BACK_POS
 	Vp.edge(back, Vp.LEFT) # suit la largeur utile (Vp.width_changed)
-	back.pressed.connect(func():
-		AudioManager.play_sfx("ui_button_goback") # ui_button_goback (ControlsFactory.cs:245)
-		closed.emit())
+	back.button_down.connect(func(): AudioManager.play_sfx("ui_button_goback")) # a l'appui (ControlsFactory.cs:245, ButtonBaseEntity.cs:185)
+	back.pressed.connect(func(): closed.emit())
 	add_child(back)
 
 func _process(delta: float) -> void:

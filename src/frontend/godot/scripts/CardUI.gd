@@ -325,7 +325,7 @@ func _on_gui_input(event: InputEvent) -> void:
 		_long = false
 		_lt_moved = false
 		suppress_click = false
-		_press_pos = mb.global_position
+		_press_pos = Vp.to_canvas(mb.global_position) # _gui_input : global_position reste en pixels fenetre (pas de repere F), comme dans _input
 		_press_id += 1
 		set_process_input(true)
 		press_started.emit(self, _press_pos)
@@ -345,7 +345,7 @@ func _input(event: InputEvent) -> void:
 		var mm := event as InputEventMouseMotion
 		if mm.relative != Vector2.ZERO:
 			_lt_moved = true # LongTouchBehavior.TouchGestures_TouchMoved : n'importe quel mouvement remet le compte a zero, sans tolerance
-		if Vp.to_canvas(mm.global_position).distance_to(_press_pos) >= CLICK_SLOP: # _press_pos vient d'un _gui_input (repere F)
+		if Vp.to_canvas(mm.global_position).distance_to(_press_pos) >= CLICK_SLOP: # _press_pos en repere F
 			suppress_click = true
 	elif event is InputEventMouseButton and not (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 		var mb := event as InputEventMouseButton

@@ -129,9 +129,11 @@ static func ninepatch(parent: Node, path: String, pos: Vector2, sz: Vector2, mar
 	return n
 
 ## Bouton plat (aucun style Godot) dont le fond est une texture de l'APK ; `pressed` = texture appuyee ("" = aucune).
-static func texture_button(parent: Node, normal: String, pressed: String, pos: Vector2, sz: Vector2 = Vector2.ZERO) -> TextureButton:
+static func texture_button(parent: Node, normal: String, pressed: String, pos: Vector2, sz: Vector2 = Vector2.ZERO, sfx: String = "") -> TextureButton: # sfx : a l'APPUI (ButtonBaseEntity.SetPressedState :185)
 	var b := TextureButton.new()
 	b.texture_normal = tex(normal)
+	if sfx != "":
+		b.button_down.connect(func(): AudioManager.play_sfx(sfx))
 	if pressed != "":
 		b.texture_pressed = tex(pressed)
 	b.ignore_texture_size = true
@@ -234,6 +236,23 @@ static func zoom_texture(texture: Texture2D, sz: Vector2 = ZOOM_CARD) -> Control
 ## Dos de carte zoome (pioche de salles / de sorts).
 static func zoom_back(kind: String, sz: Vector2 = ZOOM_CARD) -> Control:
 	return zoom_texture(tex(CardDB.card_image("", kind)), sz)
+
+## BackEase de l'APK (BackEase.cs:21-22, EasingFunctionBase.cs:24-31) : EaseIn(t) = t^3 - a t sin(pi t), EaseOut(t) = 1 - EaseIn(1 - t). `Tween.TRANS_BACK` a un recul fixe (1,70158), il ne convient pas.
+static func back_ease(t: float, amp: float, ease_out: bool) -> float:
+	var u := 1.0 - t if ease_out else t
+	var v := u * u * u - amp * u * sin(PI * u)
+	return 1.0 - v if ease_out else v
+
+## CarrouselDragBehavior.DoCarouselIndexAnimation (cs:109-121) : a chaque image l'indice garde 20 % de moins de l'ecart, et se cale quand l'ecart tombe a 0,05 ; ecart restant apres x (0..1) de la course.
+const CAROUSEL_FRAMES := 13.4 # ln(0,05) / ln(0,8) images a 60 Hz, soit 0,22 s
+static func tween_carousel(tw: Tween, node: Object, prop: String, to: Variant) -> MethodTweener:
+	var from: Variant = node.get_indexed(prop)
+	return tw.tween_method(func(x: float): node.set_indexed(prop, to if x >= 1.0 else lerp(from, to, 1.0 - pow(0.8, x * CAROUSEL_FRAMES))), 0.0, 1.0, CAROUSEL_FRAMES / 60.0)
+
+## Equivalent de `tween_property(node, prop, to, dur)` avec un BackEase d'amplitude `amp` (a chainer avec .set_delay).
+static func tween_back(tw: Tween, node: Object, prop: String, to: Variant, dur: float, amp: float, ease_out: bool) -> MethodTweener:
+	var from: Variant = node.get_indexed(prop)
+	return tw.tween_method(func(x: float): node.set_indexed(prop, lerp(from, to, back_ease(x, amp, ease_out))), 0.0, 1.0, dur)
 
 ## Rangee de segments facon APK (ecran SETTINGS, SettingButtonDecorator) : barre = ninepatch settings_text_bg de 204 px par segment (hauteur 97), le segment choisi
 ## porte la bulle verte settings_bt (204 x 110, 5 px plus haut) et son texte or decale de -5 px par-dessus le texte blanc ; polices x 1,4 (29 px).

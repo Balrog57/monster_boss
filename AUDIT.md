@@ -3176,3 +3176,36 @@ Contrôles :
 - empreintes et états finaux du banc identiques en synchrone et par images (graines 1000-1002) ; état final wasm identique (3763079933).
 
 **Non vérifié** : Firefox, Safari, fenêtres de choix sur de très grosses défausses hors de cette graine.
+
+## Écarts Godot / APK, relecture du 2026-11-03 (corrigés le 2026-11-04)
+
+Relecture complète du port contre le C# décompilé : 17 écarts Moyenne (M1-M17), 37 Basse (B1-B37). Selon les rapports des agents, chaque écart a été reconfirmé dans le C# avant correction ; relus directement : le blocage de M15 et l'extension de B32.
+
+Corrigés :
+- Règles : M1, M2, B2, B3, B4, B5, B6.
+- IA : M3, M10 (cohérence interne : l'APK n'a pas d'IA en ligne), M11, M12, B8, B9, B11, B12, B13 (`Shuffle()` de l'IA dans le `DbmRandom` partagé, l'oracle trace le compteur du générateur).
+- Plateau et durées : M4 (attente de la barre de 3 s), M5, M6, M7, M13, M14, M15 (`_flow_busy`, blocage de l'humain : `GamePlayBaseScene.cs:1029-1049`), B15, B17, B20, B21, B22, B23, B26, B27, B28, B37.
+- Audio : M8, M9, B30, B31, B32 (étendu à CONTINUE, PLAY BOSS et au bouton du sélecteur : `ButtonBaseEntity.SetPressedState`), B33, B34, B35 (sons seulement), B36 (sauf `_popup_list`, dont les boutons remplacent des choix qui jouent `select` dans le C#).
+- Menus et tutoriel : M16, M17 (amplitude du `BackEase`), B14 (`VirtualWidth` vaut 1440, U-B18 prenait 1920), B19, B24.
+
+Trouvé pendant le contrôle à l'écran, hors liste : à une largeur inférieure à 16:9, un clic sur une carte était ignoré, donc la défausse d'ouverture bloquait la partie. `_gui_input` donne `global_position` en pixels fenêtre, pas en repère F, et `CardUI` le comparait à une position convertie (écart de 240 px à 1440). Corrigé dans `CardUI.gd` ; même confusion corrigée dans `BoardUI._target_dim_input` et le `TouchOut` de la popup. Test : clic réel à 4:3 dans `_check_viewport`, et survol avant clic dans `_tut_click_card`.
+
+Non confirmés par le C#, rien changé :
+- B1 : l'oracle contredit la liste (s2-p3@221, les deux déclenchements visent la même carte).
+- B16 : le C# calcule ces positions une seule fois à la création de l'étape (`TutorialIntroScene.cs:72-83`), Godot aussi.
+
+Partiels ou ouverts :
+- B7 : le choix de la salle sur l'état d'avant-capacité est porté, pas la pose avant la résolution (`AIPlayerInteraction.cs:75-86,138-152`). Une capacité de l'APK peut avorter si la construction consomme sa cible ; le harnais rejoue ces cas (`tools/parity/README.md:237`), donc l'oracle ne le voit pas. Le porter demande `buildRoom` légal avec une pile en attente.
+- B10 : équivalent pour les cibles de mauvais type et Monstrous Monument ; cible périmée du bon type (Mimic Vault, level-ups de King Croak, Cleopatra, Seducia, Robobo, Draculord) non portée : il faudrait déplacer une carte depuis n'importe quelle zone, et aucune trace ne le valide.
+- B18 : cause de l'écart de luminosité non établie (`OneOpponentDetail.cs:71-77`, `ChallengerDetail.cs:61`).
+- B25 : courbe du carrousel portée (`CarrouselDragBehavior.cs:109-121`), pas le glissé continu.
+- B29 : `GO_FAST` ne dépend plus de la vitesse de jeu ; 0,55 et 0,45 restent sans origine dans le C#.
+- M4 : les 0,5 s par coup d'IA en construction ne sont pas modifiées.
+- B35 : les pas et la durée restent instantanés pour un donjon hors écran.
+- Stress : s16-p4 diverge à 606 (cause inconnue) ; s20-p2 et s28-p3 sont des artefacts du harnais.
+
+Mesures finales sur le code définitif : `run_godot_tests.py` 23/23 ; `apk.py --ai-agreement` 6/6 ; `image_diff.py` 0/149. Mesurés juste avant les derniers correctifs d'interface (sons de CONTINUE et PLAY BOSS, repère du clic), qui ne touchent ni le moteur ni l'IA : `--seeds 4 5 6 7 --players 2 3 4` 12/12 ; `--decks BaseDeck,PlayerChoice,HiddenHeros,ToolsHeroKind` 6/6 ; `--tutorial` 3/3 ; stress (seeds 10-40) 90/93 ; couverture 103/19/1.
+
+Non vérifié : aucun son écouté ; les animations corrigées ne sont couvertes que par des tests de valeur. Version web regardée en 4:3, panneau masqué donc à environ 1 image/s (aucune durée jugeable, aucune erreur console) : tutoriel jusqu'à sa défausse (ses cartes imposées n'ont pas été choisies), puis partie normale à 2 joueurs sur un tour complet (boss, défausse, pose d'une salle, DONE, pioche, PASS TURN, leurre, aventure). Masques p05 et p08 du tutoriel (M16), barre M7 et détail des animations non vus.
+
+Encore périmés : `docs/reference/ANIMATIONS.md`, `docs/reference/AUDIO_MATRIX.md:78-191`.

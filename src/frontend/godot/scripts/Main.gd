@@ -569,7 +569,7 @@ func _draw_fans(animate: bool = false) -> void:
 			if sel:
 				fan.scale *= 0.7 # ScaleEffectBehavior(MinScale 0,7 -> 1)
 			var tw := fan.create_tween().set_parallel(true)
-			tw.tween_property(fan, "position", final_pos, 0.35).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+			UiKit.tween_carousel(tw, fan, "position", final_pos) # lerp 0,2 par image (CarrouselDragBehavior.cs:109-121)
 			tw.tween_property(fan, "scale", Vector2.ONE, 0.3)
 		fan.set_meta("h", slot[2])
 		if sel:
@@ -592,8 +592,8 @@ func _draw_fans(animate: bool = false) -> void:
 		var gone: Control = old[n]
 		dyn_root.add_child(gone)
 		var tw2 := gone.create_tween().set_parallel(true)
-		tw2.tween_property(gone, "position", Vector2(958.0, 720.0), 0.35).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
-		tw2.tween_property(gone, "scale", Vector2.ZERO, 0.35)
+		UiKit.tween_carousel(tw2, gone, "position", Vector2(958.0, 720.0))
+		UiKit.tween_carousel(tw2, gone, "scale", Vector2.ZERO)
 		tw2.chain().tween_callback(gone.queue_free)
 
 func _fan(c: Vector2, h: float, ids: Array, sel: bool) -> Control:
@@ -1032,7 +1032,7 @@ func _open_credits(decor: Array, buttons: Array) -> void:
 	for b in buttons:
 		var tw := (b as Control).create_tween()
 		tw.tween_property(b, "modulate:a", 0.0, 0.3)
-		tw.tween_property(b, "position:x", (b as Control).position.x - 50.0, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+		UiKit.tween_back(tw, b, "position:x", (b as Control).position.x - 50.0, 0.2, 0.5, false) # BackEase amplitude 0,5 (OptionsScene.cs:143-146)
 	var cs := CreditsScreen.new()
 	cs.closed.connect(func(): go(func(): show_options(true)))
 	add_child(cs)
@@ -1054,7 +1054,7 @@ func _options_buttons_in(buttons: Array, logo: TextureRect) -> void:
 		b.position.x = x - 50.0
 		var tw := b.create_tween().set_parallel(true)
 		tw.tween_property(b, "modulate:a", 1.0, 0.3).set_delay(0.1 * i)
-		tw.tween_property(b, "position:x", x, 0.2).set_delay(0.1 * i).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		UiKit.tween_back(tw, b, "position:x", x, 0.2, 0.5, true).set_delay(0.1 * i) # BackEase amplitude 0,5 (OptionsScene.cs:137-140)
 
 ## Rangee de segments facon APK : voir UiKit.draw_toggle.
 func _toggle_row(y: int, text: String, opts: Array, sel: int, cb: Callable) -> void:

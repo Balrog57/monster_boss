@@ -23,6 +23,9 @@ static func hero_is_in_room(G: Dictionary, player_id: int, room_index: int) -> b
 	var adv: Dictionary = G.get("adventure", {}) as Dictionary
 	if adv.is_empty():
 		return false
+	# ProccessActiveHero (GameBoard.cs:1147,1170) : mort sous les degats, le heros est deja retire (RemoveHeroFromGame) ; DealHero a 0 PV le laisse en vie (dealZero).
+	if int(adv.get("hp", 1)) <= 0 and not bool(adv.get("dealZero", false)):
+		return false
 	return int(adv.get("playerId", -1)) == player_id \
 		and int(adv.get("roomIndex", -1)) == room_index \
 		and not (adv.get("hero", {}) as Dictionary).is_empty()
@@ -362,6 +365,11 @@ static func _last_opponent_spell_index(G: Dictionary, player_id: int) -> int:
 ## Annule le dernier sort adverse de la pile (le sort part en defausse sans effet).
 static func cancel_last_opponent_spell(G: Dictionary, player_id: int, label: String) -> void:
 	var i := _last_opponent_spell_index(G, player_id)
+	var ase: Dictionary = G.get("aseTarget", {}) as Dictionary # sort designe par l'IA (AI.remember), seulement pour elle
+	G.erase("aseTarget")
+	if label == "All-Seeing Eye" and int(ase.get("playerId", -1)) == player_id:
+		var at: int = (G.get("stack", []) as Array).find_custom(func(e): return str((e as Dictionary).get("id", "")) == str(ase["stackId"]) and int((e as Dictionary).get("playerId", -1)) != player_id)
+		i = at if at >= 0 else i
 	if i < 0:
 		return
 	var stack: Array = G["stack"]
@@ -1074,7 +1082,7 @@ static func _apk_level_up(G: Dictionary, player_id: int, p: Dictionary, lu: Dict
 				var souls: Array = (G["players"][opid] as Dictionary).get("souls", [])
 				for i in souls.size():
 					var e: Dictionary = souls[i]
-					if not bool(e.get("epic", false)):
+					if not bool(e.get("epic", false)) or bool(p.get("isAI", false)): # TriggerCalculator.CheclKSA004 construit HeroInScorekeep sans HeroType : l'IA voit aussi les epiques (M12)
 						opts.append({"card": e.get("hero", e), "fromPid": int(opid), "soulIndex": i,
 							"label": "%s (player %d)" % [str(e.get("name", "?")), int(opid) + 1]})
 			if opts.is_empty():
@@ -1110,7 +1118,8 @@ static func rearrange_choice(G: Dictionary, player_id: int, target_pid: int, pic
 			opts.append({"targetPlayerId": int(opid), "card": BossEngine.active_room(d[d.size() - 1]), "label": "Dungeon of player %d" % (int(opid) + 1)})
 		if opts.is_empty():
 			return null
-		if opts.size() == 1:
+		# L'IA ne s'auto-resout jamais : si elle vise un autre donjon que le seul candidat (meilleur score, donjon vide), elle ouvre le choix du donjon et abandonne (ApkAI._tr_ksa002).
+		if opts.size() == 1 and not (bool(_player(G, player_id).get("isAI", false)) and ApkAI.hellcow_target(G, player_id) != int((opts[0] as Dictionary)["targetPlayerId"])):
 			var only := int((opts[0] as Dictionary)["targetPlayerId"])
 			var seat := _player(G, player_id)
 			if not bool(seat.get("isAI", false)) and bool(G.get("autoAI", true)):
@@ -1121,7 +1130,7 @@ static func rearrange_choice(G: Dictionary, player_id: int, target_pid: int, pic
 				_apply_rearrange(G, only, whole)
 				return null
 			return rearrange_choice(G, player_id, only, [], pend)
-		var dpc := {"type": "rearrange-dungeon", "step": "dungeon", "playerId": player_id, "bossName": "Hellcow",
+		var dpc := {"type": "rearrange-dungeon", "step": "dungeon", "playerId": player_id, "bossName": "Hellcow", "aiCancel": true,
 			"message": "Hellcow: choose a dungeon to rearrange", "options": opts}
 		if not pend.is_empty():
 			dpc["pend"] = pend
@@ -1290,9 +1299,15 @@ static func robobo_advance(G: Dictionary) -> Variant:
 	var queue: Array = raw_queue if raw_queue is Array else []
 	G["roboboQueue"] = queue
 	while not queue.is_empty():
-		var choice: Dictionary = robobo_choice(G, int(queue.pop_front())) as Dictionary
+		var vid := int(queue.pop_front())
+		var choice: Dictionary = robobo_choice(G, vid) as Dictionary
 		var opts: Array = choice.get("options", []) as Array
 		if opts.is_empty():
+			# Salles toutes gelees chez un joueur humain / distant (TryToAutoresolve) : ComposedTargetProvider.cs:42 leve, AbilityTransaction.Run l'avale
+			# (:100) et les commandes des adversaires suivants ne s'executent pas. Une IA n'autoresout pas (AIPlayerInteraction) : elle saute simplement.
+			var vp := _player(G, vid)
+			if not (vp.get("dungeon", []) as Array).is_empty() and not bool(vp.get("isAI", false)):
+				queue.clear()
 			continue
 		if opts.size() > 1:
 			return choice

@@ -506,11 +506,21 @@ static func active_hero(G: Dictionary) -> Dictionary:
 
 # --- contexte d'evaluation ------------------------------------------------------------------------------------------------
 
-static func _ctx(G: Dictionary, pid: int, moves: Array, rng: RandomNumberGenerator) -> Dictionary:
+static func _ctx(G: Dictionary, pid: int, moves: Array, rng: RandomNumberGenerator, dbm: DbmRandom = null) -> Dictionary:
 	var p: Dictionary = G["players"][pid]
 	var view := _view(p)
-	return {"G": G, "p": p, "pid": pid, "ph": phase(G), "rng": rng, "view": view, "ds": _dungeon_size(view), "ah": active_hero(G),
+	return {"G": G, "p": p, "pid": pid, "ph": phase(G), "rng": rng, "dbm": dbm, "view": view, "ds": _dungeon_size(view), "ah": active_hero(G),
 		"battle": not (G.get("stack", []) as Array).is_empty(), "moves": moves}
+
+## Les `Shuffle()` de l'IA tirent dans le generateur PARTAGE de la partie (RandomProvider.cs:43-62, G["dbm"]), pas dans WaveServices.Random (`rng`). Une evaluation
+## travaille sur une COPIE (une sonde ne consomme rien, et rend le tirage qu'aurait rendu l'evaluation definitive) ; l'appelant qui valide l'evaluation la rapporte avec
+## dbm_commit. Null (etat construit a la main, sans G["dbm"]) : les tirages passent par `rng`.
+static func dbm_copy(G: Dictionary) -> DbmRandom:
+	return DbmRandom.of((G["dbm"] as Dictionary).duplicate(true)) if G.get("dbm") is Dictionary else null
+
+static func dbm_commit(G: Dictionary, dbm: DbmRandom) -> void:
+	if dbm != null:
+		(G["dbm"] as Dictionary).merge(dbm.st, true)
 
 static func _early(x: Dictionary) -> bool:
 	return x["ph"] == "setup" or x["ph"] == "early"
@@ -668,7 +678,7 @@ static func _logic_040_047(x: Dictionary, hero: Dictionary, pos_c: int, rooms: A
 	var pid := int(x["pid"])
 	var hh := hero_health(x["G"], hero) - dungeon_damage(x["G"], x["p"], pid, pos_c)
 	if hh > 0 and hh <= 3:
-		var pick: Dictionary = rooms[(x["rng"] as RandomNumberGenerator).randi_range(0, rooms.size() - 1)]
+		var pick: Dictionary = _shuffle_take(x, rooms, 1)[0]
 		return _res([[0, 0, [pick["top"]]]], {"targetPlayerId": pid, "roomIndex": int(pick["g"])}, true)
 	return null
 
@@ -994,7 +1004,7 @@ static func _chk_009(x: Dictionary, g: int) -> Variant:
 	cands = _stable(cands, func(r): return [-_val0(x, r), _discard_rank(r)])
 	var room2 = cands[0] if not cands.is_empty() else null
 	var rng: RandomNumberGenerator = x["rng"]
-	var spell = spells[rng.randi_range(0, spells.size() - 1)] if not spells.is_empty() else null
+	var spell = _shuffle_take(x, spells, 1)[0] if not spells.is_empty() else null # DiscardPileSpells.Shuffle().FirstOrDefault()
 	var pick = null
 	if room2 != null and spell == null:
 		pick = room2
@@ -1097,6 +1107,18 @@ static func _chk_028(x: Dictionary, g: int) -> Variant:
 static func _shown_only(p: Dictionary) -> Dictionary:
 	return p # dungeon_treasures exclut deja les slots en attente (indices du donjon conserves pour le test du gel)
 
+## Liste de AIHelper.GetDungeonTreasuresOfType (l.204-209) : GetDungeonTreasures = salles ++ boss ++ passifs (Kirax monte de niveau), moins les |boss.Treasures| DERNIERS
+## elements : avec des passifs, ce sont eux (et non les icones du boss) qui sont retires. Godot range le boss en tete, les passifs en queue.
+static func dungeon_treasures_of_type_list(G: Dictionary, p: Dictionary) -> Array:
+	var all: Array = BossEngine.dungeon_treasures(_shown_only(p), G)
+	var head: int = ((p.get("boss", {}) as Dictionary).get("treasures", []) as Array).size() + (p.get("bonusTreasures", []) as Array).size()
+	var passive := 0
+	for lu in BossEngine.level_ups(p):
+		if str((lu as Dictionary).get("cmd", "")) == "AddTreasuresToDungeon":
+			passive += ((lu as Dictionary).get("args", []) as Array).size()
+	var cs: Array = all.slice(head, all.size() - passive) + all.slice(0, head) + all.slice(all.size() - passive)
+	return cs.slice(0, cs.size() - ((p.get("boss", {}) as Dictionary).get("treasures", []) as Array).size())
+
 ## BMA030Logic (l.882-918) : plus de heros de la ville que NOUS ne leurrons pas deviendraient attires par nous (tresors des salles doubles) et tues, que de
 ## heros que nous attirons deja et tuons.
 static func _bma030_logic(x: Dictionary, g: int) -> bool:
@@ -1113,7 +1135,7 @@ static func _bma030_logic(x: Dictionary, g: int) -> bool:
 	var stack: Array = p["dungeon"][g]
 	var bt: Array = (p.get("boss", {}) as Dictionary).get("treasures", []) as Array
 	# GetDungeonTreasures = salles ++ boss ++ passifs ; GetDungeonTreasuresOfType retire les |boss.Treasures| DERNIERS : les tresors du boss (Godot les range en tete).
-	var rooms_only: Array = BossEngine.dungeon_treasures(_shown_only(p), G).slice(bt.size() + (p.get("bonusTreasures", []) as Array).size())
+	var rooms_only := dungeon_treasures_of_type_list(G, p)
 	for h in town:
 		var b := _who_would_bait(G, h)
 		if int(b[0]) == pid:
@@ -1334,11 +1356,11 @@ static func _room_check(x: Dictionary, id: String, g: int) -> Variant:
 ## sorts de la main). `moves` = coups legaux de Godot (= CanPlayerPlayAbility). Une entree : {kind: "room"|"spell", idx: index de main / de pile, card, t: cibles
 ## preregles [[effet, fournisseur, [cartes]]], move: coup Godot qui porte cette cible (null si Godot ne la propose pas), shuf: la cible vient d'un tirage}.
 ## Lecture seule sur `G`. `rng` : tirages internes (Shuffle, NextBool).
-static func abilities(G: Dictionary, pid: int, moves: Array, rng: RandomNumberGenerator) -> Array:
+static func abilities(G: Dictionary, pid: int, moves: Array, rng: RandomNumberGenerator, dbm: DbmRandom = null) -> Array:
 	var out: Array = []
 	if not (G["players"] as Dictionary).has(pid):
 		return out
-	var x := _ctx(G, pid, moves, rng)
+	var x := _ctx(G, pid, moves, rng, dbm)
 	var p: Dictionary = x["p"]
 	var spell_mv: Dictionary = {}
 	var room_mv: Dictionary = {}
@@ -1424,7 +1446,7 @@ static func choose(G: Dictionary, pid: int, pc: Dictionary, rng: RandomNumberGen
 	var opts: Array = pc.get("options", [])
 	if opts.is_empty() or not (G["players"] as Dictionary).has(pid):
 		return null
-	var x := _ctx(G, pid, [], rng)
+	var x := _ctx(G, pid, [], rng, CardDB.dbm_of(G) if commit else dbm_copy(G)) # commit : la reponse est definitive, son Shuffle() consomme le generateur de la partie
 	var name := str(pc.get("bossName", ""))
 	var pre: Dictionary = pc.get("apkPre", {})
 	if not pre.is_empty(): # cible figee a la revelation (reveal_target) : on la rejoue si elle est encore une option
@@ -1460,7 +1482,7 @@ static func _choose_fresh(x: Dictionary, pc: Dictionary, opts: Array, name: Stri
 		"Monstrous Monument": return _tr_037(x, opts)
 		"Hellcow": return _tr_ksa002(x, pc, opts)
 		"The Brothers Wise": return _tr_ksa003(x, opts)
-		"Kaw'nee": return _tr_ksa004(opts)
+		"Kaw'nee": return _tr_ksa004(x, opts)
 	return null
 
 # --- cache de TriggerCalculator (IA-H37) -----------------------------------------------------------------------------------
@@ -1617,7 +1639,10 @@ static func _opt_cards(opts: Array) -> Array:
 	return opts.map(func(o): return (o as Dictionary)["card"])
 
 ## Enumerable.Shuffle() (RandomProvider.cs:43-62) : Fisher-Yates paresseux depuis la fin, `k` elements pris ; aucun tirage si la liste n'en a qu'un.
+## Generateur partage (x["dbm"], DbmRandom) quand la partie en a un, sinon `rng`.
 static func _shuffle_take(x: Dictionary, arr: Array, k: int) -> Array:
+	if x.get("dbm") != null:
+		return (x["dbm"] as DbmRandom).take(arr, k)
 	var a := arr.duplicate()
 	var out: Array = []
 	var i := a.size() - 1
@@ -1720,7 +1745,10 @@ static func _tr_002(x: Dictionary, pc: Dictionary, opts: Array, memo: Dictionary
 		if list.size() < 2:
 			list.append_array(_by_value_desc(x, rooms).slice(0, 2 - list.size()))
 		memo["Xyzax"] = {"list": list, "shuf": shuf}
-	return _pick_first(opts, list, shuf)
+	var pk: Variant = _pick_first(opts, list, shuf)
+	if pk == null and int(pc.get("remaining", 1)) < 2 and memo.has("Xyzax"):
+		return _out(-1, shuf) # liste [A, A] (meme salle deux fois) : A est deja partie de la defausse, la 2e cible n'ajoute pas de carte distincte
+	return pk
 
 ## CheckBMA003 King Croak / CheckBMA007 Cleopatra (l.418-435, 478-495) : parmi les salles avancees du type (pioche et defausse), celles que l'on peut batir ;
 ## la plus precieuse. Aucune batissable : le C# ne designe rien.
@@ -1811,7 +1839,7 @@ static func _tr_037(x: Dictionary, opts: Array) -> Variant:
 	return _pick_card(opts, best[0] if not best.is_empty() else null)
 
 ## CheclKSA003 The Brothers Wise (l.575-588) : le sort de la pioche de plus grande valeur (CalculateSpellValue, AbilityCalculator.cs:954-972 : KSA013 > BMA051 > BMA043 >
-## BMA046 > BMA045, les autres valent 1 / Random.Next(1, 100), un tirage chacun).
+## BMA046 > BMA045 = 6 a 2 : `num` part de Length + 1 et perd 1 par carte passee ; les autres valent 1 / Random.Next(1, 100), un tirage chacun).
 static func _tr_ksa003(x: Dictionary, opts: Array) -> Variant:
 	var order := ["KSA013", "BMA051", "BMA043", "BMA046", "BMA045"]
 	var idx := -1
@@ -1819,7 +1847,7 @@ static func _tr_ksa003(x: Dictionary, opts: Array) -> Variant:
 	var shuf := false
 	for i in _cs_order(opts):
 		var at := order.find(str(((opts[int(i)] as Dictionary)["card"] as Dictionary).get("id", "")))
-		var v := float(order.size() - at) if at >= 0 else 1.0 / float((x["rng"] as RandomNumberGenerator).randi_range(1, 99))
+		var v := float(order.size() + 1 - at) if at >= 0 else 1.0 / float((x["rng"] as RandomNumberGenerator).randi_range(1, 99))
 		shuf = shuf or at < 0
 		if v > top:
 			top = v
@@ -1827,19 +1855,29 @@ static func _tr_ksa003(x: Dictionary, opts: Array) -> Variant:
 	return _out(idx, shuf)
 
 ## CheclKSA004 Kaw'nee (l.590-607) : le heros mort (adversaires) de plus de PV de base (CalculateHeroValuetoSteal = InitialHealth - 40 : `Intersect` n'est jamais nul).
-static func _tr_ksa004(opts: Array) -> Variant:
-	return _out(_best_opt(opts, func(o): return [-BossEngine.hero_base_hp((o as Dictionary)["card"] as Dictionary)]))
+## Egalite de PV : le premier de la liste du C# (adversaires par XP decroissant, puis ordre du scorekeeping), pas l'ordre des options de Godot.
+static func _tr_ksa004(x: Dictionary, opts: Array) -> Variant:
+	var prio := prio_players(x["G"])
+	var ord := _stable(range(opts.size()), func(i): return [prio.find(int((opts[int(i)] as Dictionary).get("fromPid", -1))), int((opts[int(i)] as Dictionary).get("soulIndex", 0))])
+	return _out(int(_stable(ord, func(i): return [-BossEngine.hero_base_hp((opts[int(i)] as Dictionary)["card"] as Dictionary)])[0]))
 
 ## CheclKSA002 Hellcow (l.515-573) : le donjon de l'adversaire au meilleur score ; ordre voulu des salles (BMA014 d'abord ; les pieges ordinaires, BMA015 inseree apres le
 ## premier d'entre eux ; Dizzygas apres les pieges ; le reste dans l'ordre). Godot ouvre un choix par salle, du fond a l'entree.
+## `Keys.OrderByDescending(b => b.Score).First()` parmi les adversaires (tous, donjon vide compris) ; -1 sans adversaire.
+static func hellcow_target(G: Dictionary, pid: int) -> int:
+	var best := _stable(opponents(G, pid), func(q): return [-_score(G, int(q))])
+	return int(best[0]) if not best.is_empty() else -1
+
 static func _tr_ksa002(x: Dictionary, pc: Dictionary, opts: Array) -> Variant:
 	var G: Dictionary = x["G"]
 	if str(pc.get("step", "")) == "dungeon":
-		var best := _stable(opponents(G, int(x["pid"])), func(q): return [-_score(G, int(q))])
-		var who := int(best[0]) if not best.is_empty() else -1
+		var who := hellcow_target(G, int(x["pid"]))
 		for i in opts.size():
 			if int((opts[i] as Dictionary).get("targetPlayerId", -2)) == who:
 				return _out(i)
+		# Le meilleur score est un donjon vide : le C# (Keys.OrderByDescending(Score).First()) rend une liste vide et AbilityTransaction abandonne.
+		if who >= 0 and _view(G["players"][who]).all(func(s): return (s as Dictionary)["top"] == null):
+			return _out(-1)
 		return null
 	var tops: Array = []
 	for s in _view(G["players"][int(pc.get("targetPlayerId", -1))]):
