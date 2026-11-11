@@ -1,9 +1,10 @@
 # Boss Monster - Web (Godot 4)
 
 Recréation de **Boss Monster: Master of the Dungeon** (APK 2.2.6) jouable dans le navigateur : solo contre l'IA
-(2 à 4 joueurs, 2 à 6 avec Crash Landing), pass and play, parties en ligne par code de salle ou par liste publique de salons (WORLDWIDE), extensions de l'APK et du wiki.
+(2 à 4 joueurs, 2 à 6 avec Crash Landing), parties en ligne en salons (code de salle ou liste publique), sans boutique : tout est débloqué.
+Paquets jouables (`CardDB.SHIPPED_SETS`) : jeu de base, Player's Choice, Hidden Heroes, The Next Level, Crash Landing.
 Client **Godot 4.7 Compatibility** (export Web, threads désactivés : aucun header COOP/COEP requis), pas de Node ni de base de données.
-Reprise du projet : `docs/HANDOFF.md`.
+État du portage et écarts restants : `AUDIT.md`.
 
 ## Stack
 
@@ -33,7 +34,7 @@ Production : `docker compose -f deploy/docker-compose.yml up -d --build` (l'expo
 ## Tests & outils
 
 ```bash
-python tools/run_godot_tests.py          # 14 suites Godot headless (goldens, coverage, 10 soak dont THK / IOD / CRL 5-6 joueurs, online, ui smoke) ; c'est ce que lance la CI
+python tools/run_godot_tests.py          # suites Godot headless (goldens, coverage, soaks, online, ui smoke) ; c'est ce que lance la CI
 python tools/parity/apk.py               # parité vs l'APK d'origine : LOCAL UNIQUEMENT (oracle .NET + apk-original/ non versionné, voir tools/parity/README.md)
 python tools/verify_assets.py            # faces APK, assets UI, effectifs du set de base
 python tools/merge_expansions.py         # fusionne les packs wiki dans cards.json + recalcule `implemented`
@@ -50,7 +51,7 @@ src/frontend/            projet Godot 4 (res:// = src/frontend/)
   assets/                cartes WebP, UI, audio, fonts, pages des livrets de règles (versionnés)
 deploy/                  Dockerfile (export + nginx), Dockerfile.server, docker-compose.yml, DEPLOYMENT.md
 security/                SECURITY.md + .env.example (jamais de secret commité)
-docs/                    HANDOFF, règles ; docs/reference/ (captures APK) est local et ignoré par git
+docs/                    règles, catalogue des cartes ; docs/reference/ (captures APK) est local et ignoré par git
 tools/                   scripts Python (stdlib, Pillow pour l'art) : runners de tests/parité, extraction APK / wiki ; apk-oracle/ = oracle .NET
 apk-original/            APK + décompilation (référence locale, ni versionné ni embarqué)
 ```

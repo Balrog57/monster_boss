@@ -1,7 +1,7 @@
 extends Control
 ## Galerie de cartes de l'APK (GalleryScene) : colonne d'onglets a gauche (dos de carte : BOSS, ROOM DECK, SPELL DECK, HERO, EPIC HERO),
 ## titre « BOSS CARDS » & co, grille de cartes sur 2 lignes qui defile horizontalement, un clic ouvre la carte en grand.
-## Seuls les paquets de l'APK (base, Player's Choice, Hidden Heroes ; pas les Tools, GetAvailableDecks les ecarte) ; les extensions du wiki (apres les cartes APK) si l'option « Wiki expansions » est cochee.
+## Seuls les paquets de l'APK (base, Player's Choice, Hidden Heroes ; pas les Tools, GetAvailableDecks les ecarte) ; les extensions livrees du wiki (apres les cartes APK).
 ## Ordre APK : numero de carte decroissant ; BMA023 / BMA033 masquees (notInGameCards).
 ## Art alternatif (ScrollCardBehavior.AddElements) : Room et Spell ont une tuile par exemplaire (quantity) si une image « b » existe ; l'art est cyclique, num % (AlternativeArts + 1) + 1 (1 -> a, 2 -> b, ...).
 ## AlternativeArts n'est pas dans cards.json : on le deduit des images bma0XXb.webp extraites (tools/verify_assets.py les exige d'apres BaseDeck/data.json) ; sans art alternatif, une seule tuile.
@@ -156,11 +156,10 @@ func _set_tpos(v: float) -> void:
 	_tpos = clampf(v, TAB_MIN - TAB_AMP, TAB_AMP)
 	_tab_box.position.y = _tpos
 
-## Cartes de l'onglet : [dictionnaire, genre] ; jeu de base + paquets APK (+ wiki si l'option est cochee).
+## Cartes de l'onglet : [dictionnaire, genre] ; jeu de base + paquets APK + extensions livrees du wiki.
 func cards_for(t: int) -> Array:
 	var allowed: Array = APK_SETS.duplicate()
-	if bool(Profile.load_settings().get("extensions", false)):
-		allowed.append_array(["next-level", "crash-landing", "minibosses", "tools", "iod", "players-choice-wiki"].filter(CardDB.is_shipped)) # les paquets fermes n'y figurent pas
+	allowed.append_array(["next-level", "crash-landing", "minibosses", "tools", "iod", "players-choice-wiki"].filter(CardDB.is_shipped)) # les paquets fermes n'y figurent pas
 	var src: Array = [CardDB.bosses, CardDB.rooms, CardDB.spells, CardDB.heroes, CardDB.heroes][t]
 	var out: Array = []
 	for c in src:

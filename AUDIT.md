@@ -3209,3 +3209,93 @@ Mesures finales sur le code définitif : `run_godot_tests.py` 23/23 ; `apk.py --
 Non vérifié : aucun son écouté ; les animations corrigées ne sont couvertes que par des tests de valeur. Version web regardée en 4:3, panneau masqué donc à environ 1 image/s (aucune durée jugeable, aucune erreur console) : tutoriel jusqu'à sa défausse (ses cartes imposées n'ont pas été choisies), puis partie normale à 2 joueurs sur un tour complet (boss, défausse, pose d'une salle, DONE, pioche, PASS TURN, leurre, aventure). Masques p05 et p08 du tutoriel (M16), barre M7 et détail des animations non vus.
 
 Encore périmés : `docs/reference/ANIMATIONS.md`, `docs/reference/AUDIO_MATRIX.md:78-191`.
+
+## Contrôle du 2026-11-10 : jouable en solo et en salon
+
+Mesuré sur HEAD (1166178) plus les tuiles ci-dessous :
+- `run_godot_tests.py` : 23/23.
+- `apk.py --ai-agreement` 6/6 (usableSet et cibles à 100 %, 0 mutation ; `activateTargetShuffle` 2/3 et `targetShuffle` 10/11 sur s3-p3, BMA009 et Dark Altar) ; `--seeds 4 5 6 7 --players 2 3 4` 12/12 ; `--decks ...` 6/6 ; `--tutorial` 3/3.
+- Export web refait : `web_smoke.py --serve` OK (Chromium sans tête, 28 images/s en rendu logiciel) ; `web_online_smoke.py --scenario solo` OK (1 humain + 2 IA, 594 s) et `--scenario ext` OK (2 humains, Player's Choice + Hidden Heroes + Next Level).
+- À la main dans le navigateur, export web, 2 joueurs, case wiki cochée, les 4 paquets livrés : boss, main de 7, pose de salles, DONE, appât, aventure, héros tué et âme comptée ; console sans erreur. Deux tours seulement, panneau masqué (environ 1 image/s) : aucune durée jugée.
+
+Changé : les tuiles THE NEXT LEVEL et CRASH LANDING de SELECT EXPANSIONS n'avaient qu'un titre sur fond noir. Elles ont une couverture (`assets/ui/expansions/next_level_front.webp`, `crash_landing_front.webp`, composées depuis la page 1 des livrets officiels de `assets/rules/`) et deux lignes de détails (`Main.gd`, `APK_DECKS`). Contrôle dans `ui_smoke` (chaque `art` existe), vu à l'écran dans l'export web. README : pass and play et `docs/HANDOFF.md` retirés.
+
+Toujours ouvert : Minibosses (107 visuels provisoires, le wiki n'en a pas d'autres), IOD, THK et les 6 KSA du wiki restent fermés ; les partiels du 2026-11-04 (B7, B10, B18, B25, B29, M4, B35, s16-p4) ; Safari réel, écoute des sons, phase 8 (revue, `medD.npy` de 8 Mo suivi par git et cité nulle part).
+
+### Extensions listées d'emblée (décision du propriétaire, 2026-11-10)
+
+La case « Wiki expansions (not in the APK) » d'OPTIONS est supprimée : `Main.use_extensions` vaut vrai et n'est plus lu des réglages (un ancien `extensions=false` enregistré est ignoré ; `Profile` écrit encore le champ, plus personne ne le lit). THE NEXT LEVEL et CRASH LANDING sont donc toujours listées dans SELECT EXPANSIONS, non cochées tant que le joueur ne les choisit pas ; la galerie montre toujours leurs cartes. Conséquences hors APK sur des écrans de l'APK : la liste de tuiles défile, la rangée PLAY VARIANTS et la note « 5-6 players » de HOW MANY PLAYERS? sont toujours là. `capture_screens` pose encore `use_extensions = false` pour comparer ces écrans à l'APK.
+
+Mesuré le 2026-11-11 sur ce code : `run_godot_tests.py` 23/23 ; export web, `web_smoke.py` OK ; `web_online_smoke.py --scenario ext` OK (les tuiles sont cochées par le script après le glissement, maintenant inconditionnel).
+
+`--scenario p5` (2 humains, 3 IA, Crash Landing, `--speed fast`) : 2 échecs puis 1 succès. Les échecs viennent du seul seuil du script (plus de 5 `pass` refusés par client : 9 et 7 au second ; le premier n'a pas été détaillé) ; partie finie, même vainqueur, aucune fuite, aucune erreur serveur. La partie tracée (`BM_TRACE=<fichier>`, nouveau) en a eu 2, tous deux des courses : `pass` légal dans le dernier état reçu avant l'envoi, serveur déjà passé au joueur actif suivant 14 et 51 ms plus tard. **Non établi** : pourquoi 16 refus sur une partie (8 au total le 2026-11-01), ni si les IA qui jouent des capacités pendant les pauses depuis 1166178 y sont pour quelque chose ; `BoardUI` n'a pas été relu pour un bouton PASS affiché à tort. Oracle non relancé (ni règles ni IA touchées).
+
+## Pions des héros et comparaison filmée avec l'APK (2026-11-11)
+
+### Pions (le personnage qui traverse les salles)
+
+- Cause : `tools/extract_apk_226.py`, `parse_atlas` lisait les pixels en fin de fichier (`d[-nbytes:]`), donc le dernier niveau de mip quand l'atlas en a plusieurs. Les 41 pions du jeu de base (`bma056` à `bma096`) étaient des fragments ou vides ; les 44 `bmh`/`ksa` (un seul niveau) étaient bons. Corrigé : `d[off + 20 : off + 20 + nbytes]` (niveau 0, juste après l'en-tête de 20 octets). Les 41 fichiers `assets/ui/characters/heroes/bma0??_character.webp` sont ré-extraits ; `main()` n'a pas été relancé en entier (les faces de cartes à 12 mips passent par la même fonction : leur sortie changerait).
+- Les 54 héros du wiki (TNL 073-114, CRL 017-028) n'ont aucun pion dans l'APK : `BoardUI.HERO_PAWN_ALIAS` leur donne celui du héros APK le plus proche (même classe, allure voisine). Aucun pion dessiné : ni vectorcraft ni photocraft dans la session, seulement Blender.
+- Contrôle : `ui_smoke`, chaque héros des paquets livrés résout vers un fichier de `characters/heroes/` dont la zone non transparente couvre au moins 40 % de l'image. Planche des 85 pions regardée : tous entiers.
+
+### Méthode
+
+APK d'origine dans BlueStacks (instance Nougat32, `HD-Adb` seulement, `screenrecord` à 27 images/s, glisser de carte par `sendevent`) et export web dans Chromium (Playwright, vidéo 1920 x 1080), mêmes gestes, planches-contact horodatées. Les deux en GAME SPEED NORMAL (l'APK installé était sur FAST : les premiers films, en FAST, ne servent qu'à l'ordre des étapes). Parties différentes (boss, cartes et héros tirés au sort) : seules les étapes indépendantes du tirage sont comparées.
+
+### Mesures (NORMAL, secondes après l'appui)
+
+| Étape | APK | Portage |
+|---|---|---|
+| PLAY BOSS MONSTER -> sélecteur de défausse prêt | 1,5 (7 cartes face visible, vol direct en éventail) | 4,4 (animation de pioche des 7 cartes, pause de 2 s, regroupement) |
+| CONTINUE -> PASS TURN | 4 (animation de pioche des 5 cartes gardées) | 0 (main affichée d'un coup) |
+| DONE -> salles révélées | 1,7 (zoom, retournement, retour) | 0,3 (retournement sans zoom) |
+| DONE -> départ des héros de la ville | 2,7 | 0 |
+| DONE -> bandeau BAIT PHASE | 3,2 | 0,45 |
+| DONE -> bandeau ADVENTURE PHASE | 4,8 | 1,95 |
+| Pioche de début de tour (carte au centre) | 2 | 2 |
+
+Identiques à l'œil : bulle « HEY! YOU CAN BUILD A ROOM! STILL WANT TO PASS? », menu PAUSED et SETTINGS, carte de la main agrandie au survol puis ramenée à la taille d'un emplacement, emplacement légal cerné d'or, salle agrandie pendant le passage du héros, cœur au-dessus de la salle.
+
+### Écarts confirmés dans le C# et corrigés (`BoardUI.gd`, contrôles dans `ui_smoke`)
+
+- **Main d'ouverture.** APK : `GameBoard.cs:332-345` distribue 7 cartes et ouvre aussitôt la défausse ; `AddCarouselCardsBehavior` les fait voler droit dans le sélecteur ; après CONTINUE, `CreateRefreshHandTask` (`GamePlayBaseScene.cs:1044-1049`) joue `DrawCardEmitter` sur les 5 gardées (rangée de dos, 2 s + 0,1 s par carte, puis la main), et PASS TURN ne vient qu'après (`:1029-1042`). Le portage jouait la pioche sur les 7 avant le sélecteur. Corrigé : `deal` attend la fin de la défausse d'ouverture, PASS TURN est caché tant qu'une carte vole. Refilmé : sélecteur prêt 1,8 s après PLAY BOSS MONSTER, PASS TURN 3,7 s après CONTINUE.
+- **Fin de construction.** APK : BuildPhase_b retourne les salles (0,5 s + 0,3 s, `CardEntity.cs:71-72`, hors vitesse) sous la plaque BUILD, et seulement au pas suivant viennent la plaque BAIT et les vols des héros (`VerticalScrollQueueComponent.cs:229-263`, 1 s x vitesse par héros). Le portage lançait tout ensemble. Corrigé : `REVEAL_S = 0,8`, plaque, colonne de la ville et vols retardés d'autant quand une salle se retourne. Refilmé : départ des héros 0,8 s après DONE, BAIT 1,3 s, ADVENTURE 3,8 s (2 héros). **Reste** : l'APK filmé met 2,7 s avant le départ des héros ; la seconde d'écart n'est pas expliquée par le C# lu (IA, glissement de la salle de l'IA, émulateur ?).
+- **Début de tour.** APK (`GamePlayBaseScene.cs:838-860`) : plaque, pioche (attend l'arrivée en main), puis héros en ville, puis actions des IA, puis PASS TURN. Le portage reconstruisait la ville avant la pioche. Corrigé : `_refresh_town` attend la dernière carte en vol.
+- **Dépôt d'une salle.** APK : `BuildRoomHandSceneBehavior.MyHand_CardDropped` (`:127-160`) n'accepte que les emplacements éclairés par `HighLightBuildableSlots` (`DungeonFrameEntity.cs:360-381`), la carte retourne en main sinon. Le portage acceptait tout emplacement vide. Corrigé dans `_drag_end`.
+- **Question du tutoriel** : pas un écart. `MainMenuScene.cs:60-88` ne la pose que si `IsFirstGameplay`, le portage fait de même (`Profile.first_gameplay`) ; le navigateur de test n'avait pas de profil enregistré.
+
+Chaque nouveau contrôle échoue quand son correctif est retiré (vérifié par l'agent qui a écrit les correctifs).
+
+Vus dans le C# pendant cette lecture, **non portés** : les héros de la ville disparaissent ensemble à la fin du retournement (APK : chacun reste jusqu'à son vol, et la colonne défile jusqu'à lui, `:278-289`) ; sans héros à envoyer l'APK montre quand même la plaque BAIT ; la salle en attente d'une IA glisse à sa place à la révélation (`MovePendingRoomToRightPlace`), au moment de la pose chez nous ; au tour 1 l'APK ne montre pas de plaque pendant Setup_c et retourne les premières salles avant la pioche ; une capacité « quand vous construisez » retient le déroulé jusqu'à sa résolution ; la première salle de l'IA est posée après la pioche de la main (immédiate chez nous).
+
+Pions vus en partie réelle dans l'export refait (Thief et Mage, entiers, sur la salle agrandie). Non comparés faute de scènes identiques : durée par salle (environ 4 s APK, 5,5 s portage sur des salles différentes), montée de niveau, sorts, mort du boss, sons.
+
+Mesuré le 2026-11-11 sur ce code : `run_godot_tests.py` 23/23 ; export web refait ; `web_online_smoke.py --scenario ext` OK (2 humains, partie finie). Oracle non relancé (ni règles ni IA touchées) ; `web_smoke.py` et `--scenario solo`/`p5` non relancés. Réglage GAME SPEED de l'APK remis sur FAST après les films.
+
+### Suite du 2026-11-11 : six écarts d'ordre, scènes comparées sur plusieurs tours
+
+Les six écarts « non portés » ci-dessus, relus dans le C# (`BoardUI.gd`, `DungeonSlot.gd`, `CardUI.gd` ; contrôles `ui_smoke` : `town_hero_leaves_at_flight`, `bait_empty_banner`, `pending_slide`, `opening_reveal_before_draw`, `ai_room_after_deal`, chacun échoue sans son correctif) :
+
+1. **Héros de la ville au leurre** : porté. Chaque carte reste dans la colonne jusqu'à son propre vol et part de sa place (`VerticalScrollQueueComponent.cs:229-289`). Raccourci : le défilement de la colonne saute d'un coup (APK : glissement), visible seulement au-delà de 4 héros en ville ; les héros destinés à un donjon hors écran disparaissent encore à la reconstruction (APK : fondu).
+2. **Plaque BAIT sans héros** : portée (`PhaseTitleControl.Refresh`, cs:80-96, sans exception). Durée de 1,0 s choisie par nous : celle de l'APK ne se déduit pas du code (deux `JumpTask` qui se recouvrent).
+3. **Salle en attente de l'IA** : portée. Elle glisse à sa place à la révélation, avant le retournement (`CardStackSlotComponent.cs:203-233`, `|décalage| / 1920` s, hors vitesse). Constat : une pile neuve a un décalage nul, le glissement n'existe que pour une salle posée sur une pile ; ce cas n'était pas géré du tout (`_refresh_foe_dungeon`).
+4. **Tour 1** : porté. Pas de plaque pendant Setup_c (`PhaseTitleControl.cs:60`), les premières salles se retournent (0,8 s), puis la pioche, la ville et la plaque BUILD.
+5. **Capacité « quand vous construisez »** : pas un écart d'affichage. Le moteur pose déjà `pendingChoice` et reste en construction jusqu'au choix (`Match._reveal_and_level_up`) ; filmé sur l'APK deux fois (Monstrous Monument, Dark Laboratory), même blocage.
+6. **Première salle de l'IA** : portée, elle n'apparaît qu'une fois la main distribuée (`GamePlayBaseScene.cs:838-860`).
+
+Scènes filmées sur l'APK (une partie de 2 joueurs, 8 tours, NORMAL) et comparées :
+
+| Scène | APK | Portage | Verdict |
+|---|---|---|---|
+| Traversée d'une salle par un héros | 4,0 à 4,25 s | 4,0 à 4,5 s | conforme |
+| Montée de niveau (portrait + « HAS ACTIVATED LEVEL UP!! ») | 1,5 à 1,75 s visibles | 0,5 + 1 + 0,5 s (`_show_levelup`) | conforme |
+| Sort d'une IA affiché au centre | 5,75 s, puis l'effet | 0,45 s si le joueur n'a rien à répondre | **écart, corrigé** |
+| Capacité « quand vous construisez » | sélecteur bloquant sous la plaque suivante | idem | conforme |
+
+**Fenêtre de sort.** APK : `PlaySpell` ouvre la Spell Battle et remet tous les joueurs en attente (`GameBoard.cs:751-783`) ; l'effet ne joue qu'à `NextStep`, une fois tout le monde prêt (`:306-326`) ; l'humain n'est prêt qu'à la fin de la barre de 6,0 s (`SpellBattleEntity.cs:32`, `GamePlayBaseScene.cs:210-213`), remise à 6 s à chaque carte ajoutée (`SpellBattleComponent.cs:69-75`), hors vitesse (`ProgressBarBehavior.cs:141`). Le portage fermait la pile en 0,45 s quand le joueur n'avait rien de jouable, et en 0,5 s après son propre sort. Corrigé hors ligne (`_stk_hold`, barre toujours de 6 s) ; en ligne c'est le serveur qui décide, inchangé. Contrôle `stack_hold` (carte encore là à 5 s, partie à 8 s, sort d'IA et sort du joueur). Non testé : un Counterspell du joueur posé dans la fenêtre, plusieurs IA à la fois.
+
+Non filmé sur l'APK : un sort joué par le joueur (le glisser par `sendevent` n'a jamais pris sur une carte de sort, 2 essais), la mort du boss et l'écran de fin (les héros sont allés chez l'adversaire). Les 11 s d'affichage d'un sort relevées sur notre premier film n'ont pas été reproduites (environ 6 s en test) : cause non trouvée.
+
+Refilmé sur l'export refait, 5 tours : main d'ouverture puis salle de l'IA ; DONE du tour 1, retournement puis pioche puis héros en ville ; au leurre, salles retournées (0,75 s), plaque BAIT, héros partant un par un de leur place dans la colonne.
+
+Mesuré le 2026-11-11 sur le code définitif : `run_godot_tests.py` 23/23 ; `apk.py --ai-agreement` 6/6 (mêmes deux écarts de tirage sur s3-p3 que le 2026-11-10) ; `--seeds 4 5 6 7 --players 2 3 4` 12/12 ; `--decks BaseDeck,PlayerChoice,HiddenHeros,ToolsHeroKind` 6/6 ; `--tutorial` 3/3. Export web refait : `web_smoke.py --serve` OK (30 images/s) ; `web_online_smoke.py` `solo`, `ext` et `p5` OK (`p5` : 2 `pass` refusés par client, des courses de 22 à 26 ms comme le 2026-11-10 ; la cause des 7 à 9 refus d'hier reste non établie). Réglage GAME SPEED de l'APK remis sur FAST.

@@ -1181,7 +1181,7 @@ func _check_ui() -> void:
 	_check(board._all_humans_dead(dead) and not board._all_humans_dead({"phase": "adventure", "players": dead["players"]}), "defaite des humains en fin de tour : _all_humans_dead")
 	_check(not board._all_humans_dead({"phase": "build", "players": {0: {"eliminated": false, "isAI": false}}}), "un humain vivant : pas de defaite")
 	var town_n: int = board.town_container.get_children().filter(func(c): return not c.is_queued_for_deletion()).size()
-	_check(town_n == (G["town"] as Array).size(), "heros en ville : %d affiches pour %d" % [town_n, (G["town"] as Array).size()])
+	_check(town_n == (G["town"] as Array).size() or board._flow_busy() or board._town_hold, "heros en ville : %d affiches pour %d" % [town_n, (G["town"] as Array).size()])
 	# ames / blessures
 	var souls: int = board.souls_container.get_children().filter(func(c): return (c as TextureRect).texture == board._tex(board.TEX_SOUL)).size()
 	var wounds: int = board.wounds_container.get_children().filter(func(c): return (c as TextureRect).texture == board._tex(board.TEX_WOUND)).size()
@@ -1212,7 +1212,7 @@ func _check_ui() -> void:
 		var shown := 0
 		for s in board._foe_slots:
 			shown += (s as Control).get_children().filter(func(c): return c is CardUI and not c.is_in_group("under_card") and not c.is_queued_for_deletion()).size()
-		_check(shown == fd.size(), "donjon adverse (siege %d) : %d salles affichees pour %d" % [foe_pid, shown, fd.size()])
+		_check(shown == fd.size() or (str(G.get("phase", "")) == "setup" and board._flow_busy()), "donjon adverse (siege %d) : %d salles affichees pour %d" % [foe_pid, shown, fd.size()])
 	# boutons
 	var my_moves: Array = _ui_moves(pid)
 	var can_go := false
@@ -1839,6 +1839,49 @@ func _check_boss_flip() -> void:
 	await get_tree().process_frame
 	var boss = gm.G["players"][0].get("boss")
 	_check(boss != null and str((boss as Dictionary).get("id", "")) == want, "sequence : le boss tire n'a pas ete valide (boss=%s)" % str(boss))
+	# E1 : les 7 cartes d'ouverture vont droit dans le selecteur (pas de pioche animee), la distribution ne joue qu'apres CONTINUE, sur les 5 gardees
+	for _k in 40: # le siege de l'IA pose son boss puis la main d'ouverture est donnee (board._process est coupe : on le fait avancer)
+		if str(gm.G.get("phase", "")) != "boss":
+			break
+		board._process(0.2)
+		await _wait(0.1)
+	await get_tree().process_frame
+	_check(board._is_opening_discard_for_me() and board._deal_pending and get_tree().get_nodes_in_group("drawn_card").is_empty(), "ouverture : la distribution ne doit pas jouer avant la defausse de 2 cartes (defausse %s, attente %s, %d en vol, phase %s)" % [board._is_opening_discard_for_me(), board._deal_pending, get_tree().get_nodes_in_group("drawn_card").size(), str(gm.G.get("phase"))])
+	board.discard_pick = [0, 1]
+	board._on_discard_confirm()
+	await get_tree().process_frame
+	_check(get_tree().get_nodes_in_group("drawn_card").size() == 5 and not board._deal_pending, "ouverture : apres CONTINUE les 5 cartes gardees doivent etre distribuees (%d en vol)" % get_tree().get_nodes_in_group("drawn_card").size())
+	await _wait(0.3)
+	_check(not board.btn_pass.visible, "ouverture : PASS TURN ne doit pas etre affiche pendant la distribution")
+	_cov("opening_deal_after_discard")
+	# E6 : l'IA construit sa 1re salle apres le rafraichissement de la main du joueur (DoNextStepAndRefresh : CreateRefreshHandTask puis DoPlayerActions) : pas a l'ecran tant que les cartes volent
+	var foe_room := func() -> bool: return board._foe_slots.any(func(sl): return not ((sl as Control).get_child(0) as Control).visible)
+	_check(not (gm.G["players"][1]["dungeon"] as Array).is_empty(), "ouverture : l'IA a deja pose sa 1re salle dans le moteur (precondition)")
+	_check(board._flow_busy() and not foe_room.call(), "ouverture : la salle de l'IA ne doit pas apparaitre pendant la distribution")
+	for _k in 600:
+		if not board._flow_busy():
+			break
+		await _wait(0.05)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check(not board._flow_busy() and foe_room.call(), "ouverture : la salle de l'IA doit apparaitre une fois la distribution finie")
+	_cov("ai_room_after_deal")
+	# E4 / E5 : DONE du tour 1 (Setup_c) : plaque masquee, les premieres salles se retournent avant la pioche ; puis la plaque BUILD revient et la pioche part (BeginningOfTurn)
+	Engine.time_scale = 1.0 # les durees de l'APK sont mesurees en temps reel
+	var t_end := Time.get_ticks_msec() + 20000
+	while str(gm.G["phase"]) == "setup" and Time.get_ticks_msec() < t_end:
+		_act_simple()
+		await get_tree().process_frame
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if _check(str(gm.G["phase"]) == "build", "ouverture : la phase de construction n'a pas commence (phase %s)" % str(gm.G["phase"])):
+		await _wait(0.6)
+		_check(board.phase_banner.texture == null, "ouverture : aucune plaque pendant la revelation du tour 1 (Setup_c)")
+		_check(board._deal_hold and get_tree().get_nodes_in_group("drawn_card").is_empty(), "ouverture : la pioche attend la fin du retournement des salles")
+		await _wait(0.9)
+		_check(board.phase_banner.texture != null and not board._deal_hold, "ouverture : la plaque BUILD revient apres le retournement")
+		_check(get_tree().get_nodes_in_group("drawn_card").size() >= 1, "ouverture : la pioche du tour 1 part apres le retournement")
+		_cov("opening_reveal_before_draw")
 	# plusieurs humains : pas de bouton, la pose part seule apres 2 s
 	await _teardown()
 	CardDB._rng.seed = 321
@@ -1958,6 +2001,15 @@ func _check_pawn_scale() -> void:
 	board._win_hide()
 	remove_child(pawn)
 	pawn.free()
+	# Chaque heros livre a un vrai pion (fichier de characters/heroes/, pas l'icone de classe) non vide : les anciens atlas mal decoupes donnaient des fragments ou du transparent
+	for h in CardDB.heroes.filter(func(h): return CardDB.SHIPPED_SETS.has(str((h as Dictionary).get("set", "base")))):
+		var tex: Texture2D = board._hero_sprite(h)
+		var hid := str((h as Dictionary).get("id", ""))
+		if not _check(tex != null and "/characters/heroes/" in tex.resource_path, "pion : %s n'a pas de personnage dans characters/heroes/" % hid):
+			continue
+		var img := tex.get_image()
+		var cover := float(img.get_used_rect().get_area()) / float(img.get_width() * img.get_height())
+		_check(cover >= 0.4, "pion : %s presque vide (%.0f %% de l'image)" % [hid, cover * 100.0])
 	_cov("pawn_scale")
 
 func _check_freed_targets() -> void:
@@ -1987,6 +2039,41 @@ func _reveal_all(G: Dictionary) -> void:
 		for st in (G["players"][q] as Dictionary).get("dungeon", []):
 			for rr in st:
 				(rr as Dictionary)["faceDown"] = false
+
+## Pile de sorts (SpellBattleEntity.cs:32 : barre de 6 s remise a zero a chaque carte ; GamePlayBaseScene.cs:210-213 : sa fin est le seul « pret » de l'humain, IA
+## comprise : AIPlayerInteraction.cs:29-43 repond a l'instant). La carte reste donc affichee 6 s AVANT l'effet (GameBoard.NextStep resout la pile apres le dernier pret),
+## que le sort vienne de l'IA ou de moi et que j'aie ou non de quoi repondre.
+func _check_stack_hold() -> void:
+	for who in 2:
+		_tag = "[stack-hold %s]" % ["IA", "humain"][who]
+		await _new_game()
+		board.set_process(false)
+		board.win_time_scale = 1.0
+		var G: Dictionary = gm.G
+		var me: Dictionary = G["players"][0]
+		var foe: Dictionary = G["players"][1]
+		me["hand"] = (me["hand"] as Array).filter(func(c): return bool((c as Dictionary).get("isRoom", false))) # rien a jouer en reponse
+		var jp: Dictionary = {}
+		for sp in CardDB.spells:
+			if str((sp as Dictionary).get("id", "")) == "BMA048":
+				jp = (sp as Dictionary).duplicate(true)
+		jp["isSpell"] = true
+		var caster := 1 - who
+		(G["players"][caster]["hand"] as Array).append(jp)
+		if who == 1:
+			foe["hand"] = []
+		var hi: int = (G["players"][caster]["hand"] as Array).size() - 1
+		var mv = gm.legal_moves(caster).filter(func(m): return m["type"] == "playSpell" and int(m["args"][0]) == hi)
+		if not _check(not mv.is_empty() and gm.apply_move(caster, mv[0]), "pile : Jeopardy injouable"):
+			continue
+		board.refresh()
+		for i in 10:
+			board._process(0.5)
+		_check(not (G.get("stack", []) as Array).is_empty() and board._stack_ui != null and is_instance_valid(board._stack_ui), "pile : la carte n'est plus affichee a 5 s (APK : 6 s)")
+		for i in 6:
+			board._process(0.5)
+		_check((G.get("stack", []) as Array).is_empty() and board._stack_ui == null, "pile : la carte est encore affichee a 8 s (effet jamais applique)")
+		_cov("stack_hold")
 
 func _check_windows() -> void:
 	_tag = "[windows]"
@@ -2516,6 +2603,145 @@ func _check_done_and_warning() -> void:
 			_check(not gm.G.has("buildWindow"), "DONE : le bouton DONE! ne referme pas la fenetre")
 		_cov("done_button")
 
+## Relecture film APK / port : depot d'une salle (E4), ville tenue pendant la pioche (E3), revelation des salles avant la phase BAIT (E2).
+func _check_turn_order() -> void:
+	_tag = "[turn-order]"
+	Engine.time_scale = 1.0 # les durees de l'APK sont mesurees en temps reel
+	await _new_game()
+	board.set_process(false)
+	board.skip_animations = false
+	board.refresh()
+	var me: Dictionary = gm.G["players"][0]
+	var bi := -1
+	for i in (me["hand"] as Array).size():
+		if ((me["hand"] as Array)[i] as Dictionary).get("isRoom", false) and gm.can_build_room_at(0, i, (me["dungeon"] as Array).size()):
+			bi = i
+			break
+	if not _check(bi >= 0, "ordre du tour : aucune salle construisible"):
+		return
+	# E4 : seul un emplacement en surbrillance recoit la salle (HighLightBuildableSlots + FindHoverBuildableSlot) ; ailleurs elle retourne en main
+	var good := _room_drop_pos(bi)
+	var far: DungeonSlot = null
+	for sl in board._dungeon_slots:
+		var d := sl as DungeonSlot
+		if d.current_stack.is_empty() and d.get_global_rect().get_center() != good:
+			far = d
+			break
+	if _check(far != null, "depot : aucun emplacement libre non adjacent"):
+		var n0 := (me["dungeon"] as Array).size()
+		_check(_drag_card(bi, far.get_global_rect().get_center()), "depot : la salle n'a pas pu etre glissee")
+		_check((me["dungeon"] as Array).size() == n0, "depot : une salle lachee sur un emplacement libre non surligne ne doit pas se poser")
+		_check(_drag_card(bi, good) and (me["dungeon"] as Array).size() == n0 + 1, "depot : la salle lachee sur l'emplacement surligne doit se poser")
+		_cov("drop_lit_only")
+	# E3 : la pioche d'abord, puis les heros arrivent en ville (DoNextStepAndRefresh : CreateRefreshHandTask avant topLeftPanel.Refresh), PASS TURN apres
+	var sig0: String = board._town_sig
+	(me["hand"] as Array).append(CardDB.rooms[0].duplicate(true))
+	(gm.G["town"] as Array).append((CardDB.heroes[0] as Dictionary).duplicate(true))
+	board.refresh()
+	_check(board._flow_busy() and board._town_sig == sig0, "pioche : la ville ne doit pas changer tant que la carte vole")
+	board._draw_clear()
+	board.refresh()
+	_check(not board._flow_busy() and board._town_sig != sig0, "pioche : la ville doit se mettre a jour une fois la carte arrivee")
+	_cov("town_after_draw")
+	# E2 : DONE -> la revelation des salles (0,8 s) se joue sous la plaque BUILD, puis seulement la plaque BAIT
+	var build_tex: Texture2D = board._tex(board.PHASE_BANNERS["build"])
+	_check(board._rooms_to_reveal(), "revelation : la salle posee doit etre face cachee avant DONE")
+	for _k in 12:
+		if str(gm.G["phase"]) != "build":
+			break
+		board._on_pass_pressed()
+		board._process(0.6)
+		await get_tree().process_frame
+	if _check(str(gm.G["phase"]) != "build", "revelation : la phase de construction ne s'est pas terminee"):
+		var t0 := Time.get_ticks_msec()
+		var in_town: int = board.town_container.get_child_count()
+		var n_fly := 0
+		for q in [board.view_pid, board.foe_pid]:
+			n_fly += (gm.G["players"][q]["entrance"] as Array).size()
+		await _wait(0.4)
+		# E1 : chaque heros reste dans la colonne jusqu'au depart de son vol
+		_check(board._town_hold and board.town_container.get_child_count() == in_town and board.town_container.get_children().all(func(c): return (c as Control).modulate.a == 1.0), "leurre : les heros de la ville doivent rester en place pendant le retournement")
+		await _wait(0.3)
+		_check(board.phase_banner.texture == build_tex, "revelation : la plaque BUILD doit rester pendant le retournement des salles") # le retournement dure 0,8 s
+		await _wait(0.4 - float(Time.get_ticks_msec() - t0) / 1000.0 + 0.7) # 1er vol parti (0,8 s), pas encore le 2e (1,8 s)
+		var gone: int = board.town_container.get_children().filter(func(c): return (c as Control).modulate.a == 0.0).size()
+		_check(gone == 1 and board._town_hold, "leurre : au 1er vol, seule la carte de ce heros quitte la colonne (%d parties)" % gone)
+		if n_fly >= 2:
+			await _wait(1.0)
+			gone = board.town_container.get_children().filter(func(c): return (c as Control).modulate.a == 0.0).size()
+			_check(gone == 2, "leurre : au 2e vol, la carte du 2e heros quitte la colonne (%d parties)" % gone)
+		_cov("town_hero_leaves_at_flight")
+		await _wait(1.4)
+		_check(board.phase_banner.texture != build_tex, "revelation : la plaque BAIT / ADVENTURE doit suivre le retournement")
+		_cov("reveal_before_bait")
+
+## Leurre sans aucun heros a envoyer : la plaque BAIT PHASE s'affiche quand meme (PhaseTitleControl.Refresh), puis celle de l'aventure.
+func _check_bait_empty() -> void:
+	_tag = "[bait-empty]"
+	await _new_game()
+	Engine.time_scale = 1.0
+	board.set_process(false)
+	board.skip_animations = false
+	for q in gm.G["players"]:
+		(gm.G["players"][q] as Dictionary)["entrance"] = []
+	_reveal_all(gm.G)
+	board.refresh()
+	gm.G["phase"] = "adventure"
+	board.refresh()
+	await _wait(0.7)
+	_check(board.phase_banner.texture == board._tex(board.PHASE_BANNERS["bait"]), "leurre sans heros : la plaque BAIT PHASE doit s'afficher")
+	await _wait(2.0)
+	_check(board.phase_banner.texture == board._tex(board.PHASE_BANNERS["adventure"]), "leurre sans heros : la plaque de l'aventure suit")
+	_cov("bait_empty_banner")
+
+## Salle adverse posee en attente (cadre du haut) : elle attend a son decalage d'attente, glisse a sa place a la revelation (MovePendingRoomToRightPlace, avant le retournement), puis se retourne.
+func _check_pending_slide() -> void:
+	_tag = "[pending-slide]"
+	await _new_game()
+	Engine.time_scale = 1.0
+	board.set_process(false)
+	board.skip_animations = false
+	var foe_pid: int = board.foe_pid
+	var dun: Array = gm.G["players"][foe_pid]["dungeon"]
+	dun.clear()
+	for i in 3:
+		dun.append([(CardDB.rooms[i] as Dictionary).duplicate(true)])
+	board.refresh()
+	await get_tree().process_frame
+	var pend: Dictionary = (CardDB.rooms[3] as Dictionary).duplicate(true)
+	pend["faceDown"] = true
+	(dun[2] as Array).append(pend) # posee par-dessus la pile 2 : decalage d'attente non nul
+	board.refresh()
+	var fk := "%d:%d" % [foe_pid, 2]
+	var off := float(board._foe_pend_off.get(fk, 0.0))
+	_check(is_equal_approx(off, -420.0), "salle adverse en attente : decalage attendu -420 px, obtenu %s" % str(off))
+	var pid_s := str(pend.get("id", ""))
+	var find_room := func() -> CardUI:
+		for sl in board._foe_slots:
+			for c in (sl as Control).get_children():
+				if c is CardUI and str((c as CardUI).card_dict.get("id", "")) == pid_s:
+					return c as CardUI
+		return null
+	var room: CardUI = find_room.call()
+	if not _check(room != null, "salle adverse en attente : carte introuvable"):
+		return
+	var rest: float = (board.SLOT_SIZE.x - DungeonSlot.CARD_SIZE.x) / 2.0
+	_check(is_equal_approx(room.position.x, rest + off), "salle adverse en attente : posee a son decalage (%.1f, attendu %.1f)" % [room.position.x, rest + off])
+	await _wait(0.4)
+	_check(is_equal_approx(room.position.x, rest + off), "salle adverse en attente : elle ne doit pas glisser a la pose (%.1f)" % room.position.x)
+	_check(absf(board._foe_slide_s() - 420.0 / 1920.0) < 0.001, "revelation : la glissade (%.3f s) s'ajoute a l'attente" % board._foe_slide_s())
+	pend["faceDown"] = false
+	board.refresh()
+	room = find_room.call()
+	if not _check(room != null, "salle adverse revelee : carte introuvable"):
+		return
+	_check(not is_equal_approx(room.position.x, rest), "revelation : la salle adverse part de son decalage (%.1f)" % room.position.x)
+	await _wait(0.1)
+	_check(is_equal_approx(room.scale.x, 175.0 / DungeonSlot.CARD_SIZE.x), "revelation : le retournement attend la fin de la glissade (echelle %.2f)" % room.scale.x)
+	await _wait(0.3)
+	_check(is_equal_approx(room.position.x, rest), "revelation : la salle adverse est arrivee a sa place (%.1f)" % room.position.x)
+	_cov("pending_slide")
+
 ## Corrections de relecture : reprise d'une pose (pas de pioche animee), cle PASS TURN par siege, pioche coupee au changement de siege,
 ## RULES en ColorFade (la visionneuse reste sous le fondu), nouvel ordre de transition refuse pendant un fondu et voile qui bloque les clics.
 func _check_review_fixes() -> void:
@@ -2624,10 +2850,8 @@ func _check_gallery() -> void:
 	_tag = "[gallery]"
 	await _new_game()
 	board.set_process(false)
-	var ext: bool = bool(Profile.load_settings().get("extensions", false))
-	var allowed: Array = ["base", "players-choice", "hidden-heroes"] # APK : les Tools ne sont pas dans la galerie (ils s'y ajoutent avec la case wiki : jouables derriere elle)
-	if ext:
-		allowed.append_array(["next-level", "crash-landing", "minibosses", "tools", "iod", "players-choice-wiki"])
+	var allowed: Array = ["base", "players-choice", "hidden-heroes"] # APK : les Tools ne sont pas dans la galerie ; les extensions livrees du wiki s'y ajoutent toujours
+	allowed.append_array(["next-level", "crash-landing", "minibosses", "tools", "iod", "players-choice-wiki"].filter(CardDB.is_shipped))
 	board._on_menu_pressed()
 	await get_tree().process_frame
 	var gal_btn: Button = null
@@ -2715,9 +2939,19 @@ func _check_shipped_menus() -> void:
 	await _wait(0.2)
 	var saved_decks: Array = main.apk_decks.duplicate()
 	var saved_ext: bool = main.use_extensions
+	var fresh: Array = main.APK_DECKS.filter(main._tile_listed).map(func(d): return str(d["id"])) # rien pose : les extensions livrees sont proposees d'emblee, sans case dans OPTIONS
+	main.show_options()
+	await _wait(0.2)
+	_check(main.use_extensions and fresh.has("next-level") and fresh.has("crash-landing") and main.find_children("*", "CheckBox", true, false).is_empty(), "Main neuf : use_extensions vrai, tuiles %s, aucune CheckBox dans OPTIONS" % str(fresh))
 	main.use_extensions = true
 	var listed: Array = main.APK_DECKS.filter(main._tile_listed).map(func(d): return str(d["id"]))
 	_check(listed == ["power-up", "tools", "players-choice", "hidden-heroes", "next-level", "crash-landing"], "tuiles livrees : %s" % str(listed))
+	var art_ok := true
+	for d in main.APK_DECKS:
+		if d.has("art") and not ResourceLoader.exists("res://assets/ui/expansions/%s.webp" % d["art"]):
+			art_ok = false
+	var tnl_cl: Array = main.APK_DECKS.filter(func(d): return d["id"] in ["next-level", "crash-landing"])
+	_check(art_ok and tnl_cl.size() == 2 and tnl_cl.all(func(d): return d.has("art")), "tuiles : chaque « art » existe, next-level et crash-landing en ont un")
 	main.apk_decks = ["tools", "players-choice", "hidden-heroes", "next-level", "crash-landing", "minibosses", "iod"]
 	var act: Array = main._active_sets()
 	_check(act == ["players-choice", "hidden-heroes", "next-level", "crash-landing"], "case wiki cochee : aucun paquet ferme dans _active_sets (%s)" % str(act))
@@ -4219,6 +4453,7 @@ func _extra_checks() -> void:
 	await _check_hand_room()
 	await _check_wiki_ui()
 	await _check_windows()
+	await _check_stack_hold()
 	await _check_freed_targets()
 	_check_pawn_scale()
 	await _check_ai_entry_window()
@@ -4230,6 +4465,9 @@ func _extra_checks() -> void:
 	await _check_zoom_gestures()
 	await _check_done_and_warning()
 	await _check_review_fixes()
+	await _check_turn_order()
+	await _check_pending_slide()
+	await _check_bait_empty()
 	await _check_apk_gaps()
 	await _check_gallery()
 	await _check_shipped_menus()

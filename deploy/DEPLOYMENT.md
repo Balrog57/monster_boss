@@ -108,7 +108,7 @@ Salons multijoueurs, toujours sans Docker (le script lance lui-même le serveur 
 ```bash
 # 6. parties complètes dans de vrais navigateurs (un contexte Playwright par joueur humain, clics souris : pseudo, avatar, salon, code, lobby, partie jusqu'à l'écran de fin)
 python tools/web_online_smoke.py --players 2                          # 2 humains ; --players 4 --bots 2 : 2 humains + 2 IA du serveur
-python tools/web_online_smoke.py --players 6 --bots 3 --packs crash-landing   # 5-6 joueurs : Crash Landing et case « wiki » cochées par le script
+python tools/web_online_smoke.py --players 6 --bots 3 --packs crash-landing   # 5-6 joueurs : Crash Landing coché par le script
 python tools/web_online_smoke.py --scenario all                       # p2 p3 p4 p5 p6 ext solo + rematch drop multi closed ; --browser firefox, --shot-every 30, --speed fast
 # 7. serveur seul, sans navigateur : N salons en parallèle (IA contre robot WebSocket, 2-6 joueurs, paquets livrés) puis abus (messages mal formés, trame trop grosse, rafale, coups hors tour, doubles jonctions, reprises rapides, paquets fermés)
 godot --headless --path src/frontend res://godot/server/Server.tscn -- --port=8091 --bot-delay=0

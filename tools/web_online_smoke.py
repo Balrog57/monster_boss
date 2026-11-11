@@ -42,7 +42,6 @@ from web_smoke import ALLOW, NO_AUDIO_ALLOW, pt  # noqa: E402
 
 SHOTS_DEFAULT = os.path.join(ROOT, "docs", "reference", "web", "online")
 URL = "http://127.0.0.1:%d/"
-WIKI_BOX = (45, 1042)            # case « Wiki expansions » d'OPTIONS
 TILE_X = {"players-choice": 1117, "hidden-heroes": 1448, "next-level": 1779, "crash-landing": 2110}  # centres des tuiles (x), tx = 0
 AVATAR_X = [260, 500, 740, 980, 1220, 1460, 1700]   # avatars visibles du selecteur (y 745)
 SPEED_X = {"slow": 860, "normal": 1065, "fast": 1268}
@@ -263,6 +262,7 @@ class Client:
         if t == "move":
             self.sent_moves += 1
             self._last_move = (d.get("move") or {}).get("type")
+            self._sent_at, self._sent_state = time.time(), self._sum(self.state)
         self.log_lines.append(("->", t, str(payload)[:200]))
 
     def _rx(self, payload):
@@ -308,9 +308,34 @@ class Client:
             self.errors.append(d)
             if d.get("code") == "illegal":
                 self.illegal_after[getattr(self, "_last_move", None)] += 1
+                self._trace_illegal()
         elif t == "closed":
             self.closed = True
         self.log_lines.append(("<-", t, ""))
+
+    @staticmethod
+    def _sum(d):
+        if not d:
+            return None
+        v = d.get("view", {})
+        return dict(t=time.time(), n=None, turn=v.get("turn"), phase=v.get("phase"), active=v.get("activePlayer", v.get("current", v.get("active"))), stack=len(v.get("stack") or []),
+                    awaited=d.get("awaited"), seat=d.get("seat"), moves=sorted({m["type"] for m in d.get("moves", [])}), pc=bool(v.get("pendingChoice")))
+
+    def _trace_illegal(self):
+        """Diagnostic (BM_TRACE=fichier) : pour chaque `illegal`, dernier coup et etats avant l'envoi / avant l'erreur."""
+        path = os.environ.get("BM_TRACE")
+        if not path:
+            return
+        now = time.time()
+        a, b = getattr(self, "_sent_state", None), self._sum(self.state)
+        def ms(x):
+            return None if x is None else int((now - x) * 1000)
+        line = "%s ILLEGAL %s t=%.3f move=%s sent_ago=%sms | state_at_send=%s (age_at_send=%sms) | state_now=%s (age_now=%sms) same=%s" % (
+            self.name, time.strftime("%H:%M:%S"), now, getattr(self, "_last_move", None), ms(getattr(self, "_sent_at", None)),
+            a and {k: v for k, v in a.items() if k != "t"}, a and int((self._sent_at - a["t"]) * 1000), b and {k: v for k, v in b.items() if k != "t"}, ms(self.t_state),
+            a is not None and b is not None and {k: v for k, v in a.items() if k != "t"} == {k: v for k, v in b.items() if k != "t"})
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
 
     def check_awaited(self, d):
         """N-A54 : invariants de `awaited` (sieges humains dont une decision retient la partie) sur chaque etat recu par CE siege."""
@@ -402,11 +427,9 @@ class Client:
         self.click(960, 640, 2.5)            # TAP TO START
 
     def options(self, wiki=False, speed=None):
-        """Menu -> OPTIONS (case wiki, vitesse de jeu) -> menu."""
+        """Menu -> OPTIONS (vitesse de jeu ; `wiki` : ignore, plus de case) -> menu."""
         self.mark = "options"
         self.click(710, 615, 2.5)            # OPTIONS
-        if wiki:
-            self.click(*WIKI_BOX, 0.8)
         if speed:
             self.click(960, 517, 2.5)        # SETTINGS
             self.click(SPEED_X[speed], 600, 0.8)
@@ -449,10 +472,9 @@ class Client:
         self.click(1800, 1005, 4.0)          # OK -> creation du salon
 
     def pick_packs(self, packs, wiki, variants=()):
-        """Sur SELECT EXPANSIONS : coche les tuiles voulues ; avec la case wiki la liste defile (un glissement de 560 px : PC 547, HH 878, TNL 1209, CRL 1540)."""
-        if wiki:
-            self.drag(1500, 700, 940, 700, 1.0)
-        xs = {"players-choice": 547, "hidden-heroes": 878, "next-level": 1209, "crash-landing": 1540} if wiki else {"players-choice": 1117, "hidden-heroes": 1448}
+        """Sur SELECT EXPANSIONS : coche les tuiles voulues ; la liste defile toujours (TNL, CRL listes d'emblee ; un glissement de 560 px : PC 547, HH 878, TNL 1209, CRL 1540). `wiki` : ignore."""
+        self.drag(1500, 700, 940, 700, 1.0)
+        xs = {"players-choice": 547, "hidden-heroes": 878, "next-level": 1209, "crash-landing": 1540}
         for p in packs:
             self.click(xs[p], 600, 1.0)
         vx = {"classic": 45, "hard": 355, "choose": 665, "machinations": 975, "unlimited": 1285}
@@ -567,7 +589,7 @@ class Client:
 
 NAMES = ["Alice", "Bob", "Carol", "Dave", "Erin", "Frank"]
 SCENARIOS = {
-    # nom : sieges du salon, humains (un navigateur chacun ; le premier cree le salon), paquets, case wiki, demarrage par START WITH BOTS
+    # nom : sieges du salon, humains (un navigateur chacun ; le premier cree le salon), paquets, (wiki : ignore), demarrage par START WITH BOTS
     "p2": dict(seats=2, humans=2),
     "p3": dict(seats=3, humans=3),
     "p4": dict(seats=4, humans=2),
@@ -607,8 +629,8 @@ def open_room(cs, spec, speed=None, again=False):
     again : les profils existent deja (deuxieme salon du meme navigateur, N-B11) : menu -> WITH FRIENDS directement."""
     host = cs[0]
     wiki = spec.get("wiki", False)
-    if wiki or speed:
-        host.options(wiki=wiki, speed=speed)
+    if speed:
+        host.options(speed=speed)
     if speed and not again:  # la vitesse de jeu est un reglage du navigateur : tous les clients l'appliquent
         for c in cs[1:]:
             c.options(speed=speed)
@@ -894,7 +916,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--players", type=int, help="nombre de sieges du salon (2-6) : partie ad hoc")
     ap.add_argument("--bots", type=int, default=0, help="sieges d'IA parmi --players (les autres sont des humains, un navigateur chacun)")
-    ap.add_argument("--packs", default="", help="paquets (players-choice,hidden-heroes,next-level,crash-landing) ; la case wiki est cochee si besoin")
+    ap.add_argument("--packs", default="", help="paquets (players-choice,hidden-heroes,next-level,crash-landing)")
     ap.add_argument("--scenario", default="", help="nom d'un scenario (%s) ou `all`" % ",".join(list(SCENARIOS) + list(EXTRA)))
     ap.add_argument("--browser", default="chromium", choices=["chromium", "firefox"])
     ap.add_argument("--size", default="960x540", help="fenetre de chaque navigateur")

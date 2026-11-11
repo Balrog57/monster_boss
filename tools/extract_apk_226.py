@@ -309,9 +309,7 @@ def parse_atlas(path):
         off += 16
         sprites.append((name, x, y, w, h))
     fmt, aw, ah, _mips, nbytes = struct.unpack_from("<iiiii", d, off)
-    pixels = d[-nbytes:] if nbytes else d[off + 20 :]
-    if len(pixels) < nbytes:
-        pixels = d[-nbytes:]
+    pixels = d[off + 20 : off + 20 + nbytes] if nbytes else d[off + 20 :]  # niveau 0 d'abord, les mipmaps suivent
     return sprites, fmt, aw, ah, pixels
 
 

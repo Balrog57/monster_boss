@@ -179,17 +179,22 @@ func _flip_down(card_ui: CardUI, room: Dictionary, holder: Control) -> void:
 ## (`PendingToBeBuilt && isTopFrame`), donc seule la salle posee en attente par l'ADVERSAIRE glisse (BoardUI._refresh_foe_dungeon) ; la notre (cadre du bas) apparait en place. Depart : le premier emplacement
 ## libre, Slots[min(4, DungeonSize)] ; decalage (i - k) x 140 px (i = index C# de l'emplacement, k = min(4, DungeonSize)), duree = |decalage| / 1920 s (VirtualWidth), CubicEase (EaseOut).
 ## Rien quand la salle est posee sur le premier emplacement libre (decalage nul). `di` : indice de la salle dans le donjon du moteur.
-static func fly_pending(gm: Node, pid: int, di: int, nodes: Array) -> void:
+## slide = faux : les noeuds sont seulement poses au decalage (a la pose, la salle attend la revelation) ; `off` (non NAN) : decalage deja connu (a la revelation, la salle est face visible et le calcul ne vaut plus).
+## Renvoie le decalage applique.
+static func fly_pending(gm: Node, pid: int, di: int, nodes: Array, slide := true, off := NAN) -> float:
 	if gm == null:
-		return
-	var dungeon: Array = ((gm.G["players"] as Dictionary)[pid] as Dictionary).get("dungeon", [])
-	var off := float(dungeon.size() - 1 - di - mini(4, BossEngine.apk_dungeon_size(dungeon))) * 140.0 # donjon Godot a l'envers : index C# = taille - 1 - index Godot
+		return 0.0
+	if is_nan(off):
+		var dungeon: Array = ((gm.G["players"] as Dictionary)[pid] as Dictionary).get("dungeon", [])
+		off = float(dungeon.size() - 1 - di - mini(4, BossEngine.apk_dungeon_size(dungeon))) * 140.0 # donjon Godot a l'envers : index C# = taille - 1 - index Godot
 	if off == 0.0:
-		return
+		return 0.0
 	for n in nodes: # un tween par noeud, lie a lui : un refresh libere la carte au prochain etat, le tween meurt avec elle
 		var x: float = (n as Control).position.x
 		(n as Control).position.x = x + off
-		(n as Control).create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT).tween_property(n, "position:x", x, absf(off) / 1920.0)
+		if slide:
+			(n as Control).create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT).tween_property(n, "position:x", x, absf(off) / 1920.0)
+	return off
 
 ## Un Card.tscn pose dans un hote qui n'est pas encore dans l'arbre garde la taille de la scene (140 x 200) malgre `size` : on la fixe une fois l'hote dans l'arbre.
 static func fit_cards(host: Control) -> void:

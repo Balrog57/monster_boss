@@ -6,7 +6,7 @@ extends Control
 ## IN-APP STORE supprime -> RULES ; tout est gratuit et debloque.
 ## WORLDWIDE (hors APK) : liste des salons publics du serveur, sans comptes ; CREATE PUBLIC GAME = NEW GAME avec le mode « public ».
 
-## Extensions du wiki hors APK (bascule « Options »). Seuls les paquets de CardDB.SHIPPED_SETS sont proposes (tuiles et _active_sets) : minibosses et iod restent ici, fermes.
+## Extensions du wiki hors APK (proposees d'emblee, `use_extensions`). Seuls les paquets de CardDB.SHIPPED_SETS sont proposes (tuiles et _active_sets) : minibosses et iod restent ici, fermes.
 const EXT_PACKS := ["next-level", "minibosses", "crash-landing", "iod"]
 ## Paquet de l'APK dont les cartes ne se jouent QUE derriere la case wiki (Tools of Hero-Kind : l'APK ne les joue pas) : grise sans la case.
 const WIKI_GATED := ["tools"]
@@ -22,9 +22,11 @@ const APK_DECKS := [
 		"details": ["40; NEW HEROES"], # LocalMarket.cs:139-148
 		"desc": "For years a quiet group of mysterious heroes has labored in the shadows of Arcadia's dungeons. They've taken the quests others wouldn't take, slain the most terrifying monsters, braved the most gruesome traps. These Hidden Heroes have done Arcadia's dirty work, and now their time has finally come. An unlockable set of alternate Heroes defined by 40 backers of Digital Boss Monster Kickstarter campaign."},
 	# Extension du wiki hors APK (livret docs/rules « The Next Level » + FAQ) : paquets de heros TNL (noirs, hybrides), defausse amorcee, main de depart de 7.
-	{"id": "next-level", "name": "THE NEXT LEVEL", "info": "13 bosses, 43 rooms, 17 spells, 42 heroes - wiki", "playable": true},
+	{"id": "next-level", "name": "THE NEXT LEVEL", "info": "13 bosses, 43 rooms, 17 spells, 42 heroes - wiki", "playable": true, "art": "next_level_front",
+		"details": ["115; NEW CARDS", "13; NEW BOSSES"]},
 	# Extension du wiki hors APK, selectionnable seule (en plus de la bascule « Extensions du wiki » qui active tous les paquets wiki).
-	{"id": "crash-landing", "name": "CRASH LANDING", "info": "3 bosses, 13 rooms, 5 spells, 12 heroes - wiki", "playable": true,
+	{"id": "crash-landing", "name": "CRASH LANDING", "info": "3 bosses, 13 rooms, 5 spells, 12 heroes - wiki", "playable": true, "art": "crash_landing_front",
+		"details": ["33; NEW CARDS", "5-6; PLAYERS"],
 		"desc": "3 bosses, 13 rooms, 5 spells and 12 heroes. Unlocks 5 and 6 player games (only with the base game, Hidden Heroes and The Next Level): nobody is eliminated, and the game ends at 10 souls or when both hero decks run out."},
 	# Extension du wiki hors APK (livret « Rise of the Minibosses » + guide officieux) : minibosses (niveaux 1-3), Coins, paquet de heros RMB, 3 Coins au depart.
 	{"id": "minibosses", "name": "MINIBOSSES", "info": "12 bosses, 42 rooms, 15 spells, 42 heroes, 10 minibosses - wiki", "playable": true},
@@ -58,9 +60,9 @@ var game_manager: GameManager
 var online: OnlineClient
 var board: Control
 var menus: OnlineMenus
-var use_extensions := false
+var use_extensions := true # plus de case dans OPTIONS : jamais lu des reglages (les tests le posent)
 var apk_decks: Array = [] # ids des paquets APK coches (voir APK_DECKS)
-var variants: Array = [] # variantes de jeu du livret TNL cochees dans SELECT EXPANSIONS (Variants.IDS), seulement avec la case wiki ; non enregistrees : decochees a chaque lancement
+var variants: Array = [] # variantes de jeu du livret TNL cochees dans SELECT EXPANSIONS (Variants.IDS), seulement si use_extensions ; non enregistrees : decochees a chaque lancement
 var server_host := "http://127.0.0.1:8000"
 var players := 2 # choix courant de « HOW MANY PLAYERS? »
 var _setup_players := 2 # nombre de joueurs de l'ecran SELECT EXPANSIONS (pour le message d'erreur 5-6)
@@ -99,7 +101,6 @@ func _ready() -> void:
 	var settings := Profile.load_settings()
 	if not OS.has_feature("web") and settings.has("host") and str(settings["host"]) != "": # web : toujours l'origine de la page (un hote enregistre par une ancienne session ne compte pas)
 		server_host = str(settings["host"])
-	use_extensions = bool(settings.get("extensions", false))
 	apk_decks = (settings.get("decks", []) as Array).filter(func(d): return _deck_playable(str(d)))
 	profile = Profile.load_profile()
 	Profile.check_force_play_tutorial() # Game.cs:119
@@ -160,7 +161,7 @@ func _deck_playable(id: String) -> bool:
 	return false
 
 func _active_sets() -> Array:
-	# Les paquets du wiki ne comptent que si l'option « Extensions du wiki » est cochee.
+	# Les paquets du wiki ne comptent que si use_extensions (vrai par defaut, faux seulement dans les tests).
 	var sets: Array = apk_decks.filter(func(d): return CardDB.is_shipped(str(d)) and (use_extensions or not (EXT_PACKS.has(d) or WIKI_GATED.has(d))))
 	if sets.has("tools") and CardDB.is_shipped(ThkAbilities.SET_ID):
 		sets.append(ThkAbilities.SET_ID) # case wiki cochee : les Objets et les salles THK se jouent (ThkAbilities)
@@ -664,7 +665,7 @@ func show_setup(num_players: int, mode: String = "solo") -> void:
 		else:
 			start_match(num_players))
 
-## Variantes de jeu (livret TNL, section « Play variants ») : une case par variante sous les tuiles, decochees par defaut, offertes seulement avec la case « Wiki expansions ».
+## Variantes de jeu (livret TNL, section « Play variants ») : une case par variante sous les tuiles, decochees par defaut, offertes seulement si use_extensions (vrai par defaut).
 func _draw_variants() -> void:
 	if not use_extensions:
 		return
@@ -739,7 +740,7 @@ func _draw_tile(d: Dictionary, pos: Vector2) -> void:
 			art.material = _gray_mat() # CardMaterial Amount 0 (PurchaseItemButton.cs:78) ; opacite 0,75
 			art.modulate.a = 0.75
 		holder.add_child(art)
-	else: # extension du wiki : pas d'illustration, le nom tient lieu de couverture
+	else: # extension du wiki fermee (minibosses, iod) : pas d'illustration, le nom tient lieu de couverture
 		holder.add_child(_lbl(str(d["name"]), 26, GOLD, Vector2(14, 20), Vector2(257, 280), FONT_A))
 	if soon:
 		holder.add_child(_tex("expansions/coming_soon_band.webp", Vector2(w, h) / 2.0 + Vector2(-136.5, -83.0 + 38.5), Vector2(273, 167))) # bande a +40 sous le centre (PurchaseItemButton.cs:73), x 0,963 comme le fond
@@ -989,17 +990,6 @@ func show_options(from_credits: bool = false) -> void:
 	cred.pressed.connect(func():
 		save_host.call()
 		_open_credits(decor, [tut, sett, gal, cred])) # OptionsScene.cs:91-102
-	# Controles secondaires discrets (multijoueur / extensions du wiki : hors APK).
-	var ext := CheckBox.new()
-	ext.text = "Wiki expansions (not in the APK)"
-	ext.button_pressed = use_extensions
-	ext.add_theme_font_size_override("font_size", 16)
-	ext.position = Vector2(30.0, 1030) # (hors APK) coin bas gauche
-	Vp.edge(ext, Vp.LEFT)
-	ext.toggled.connect(func(on: bool):
-		use_extensions = on
-		Profile.save_settings(server_host, use_extensions, apk_decks))
-	add_child(ext)
 	if from_credits: # OptionsScene.ShowButtons(true) (:150-153) : boutons en cascade (0 / 0,1 / 0,2 / 0,3 s), fondu 0,3 s + glisse de 0,2 s (BackEase Out) ; le fondu du logo vise l'ancien (Resume)
 		_options_buttons_in([tut, sett, gal, cred], null)
 	if host != null: # web : le serveur est toujours celui qui sert la page (window.location.origin)
@@ -1025,7 +1015,7 @@ func _open_credits(decor: Array, buttons: Array) -> void:
 	var logo := _logo_node()
 	for c in get_children():
 		if c is CanvasItem and not decor.has(c) and not buttons.has(c):
-			(c as CanvasItem).visible = false # champ serveur, case wiki : hors APK
+			(c as CanvasItem).visible = false # champ serveur : hors APK
 	# ShowButtons(false) (OptionsScene.cs:143-147) : logo en fondu de 0,5 s ; chaque bouton s'estompe (0,3 s) puis glisse de 50 px vers la gauche en 0,2 s (BackEase In, amplitude 0,5)
 	if logo != null and not _logo_stale:
 		logo.create_tween().tween_property(logo, "modulate:a", 0.0, 0.5)

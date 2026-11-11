@@ -102,8 +102,9 @@ func set_face_down_scale() -> void:
 
 ## Retournement d'une salle qui vient d'etre revelee (APK CreateFlipUpTopRoomTask, CardStackSlotComponent.cs:274-296, tous les joueurs en meme temps) : la salle en attente est a l'echelle 0,5
 ## (:139-140), elle se retourne en 0,5 s (FlipCardBehavior, CardEntity.cs:72, sans EasingFunction : pitch lineaire donc largeur en cosinus) puis reprend sa taille en 0,3 s (ScaleOut, CardEntity.cs:71, lineaire).
-func flip_in(duration := 0.5, hold := 0.0) -> void:
-	AudioManager.play_sfx("ui_card_slide_up") # FlipCardBehavior.cs:113 (CardStackSlotComponent.cs:283 : CreateFaceUpTask de la salle revelee)
+func flip_in(duration := 0.5, hold := 0.0, delay := 0.0) -> void:
+	if delay <= 0.0:
+		AudioManager.play_sfx("ui_card_slide_up") # FlipCardBehavior.cs:113 (CardStackSlotComponent.cs:283 : CreateFaceUpTask de la salle revelee)
 	var target := _rest_scale
 	var big := Vector2(175.0 / default_size.x, 244.0 / default_size.y)
 	var back := TextureRect.new() # la face cachee, qui se referme avant que la face visible s'ouvre
@@ -115,6 +116,9 @@ func flip_in(duration := 0.5, hold := 0.0) -> void:
 	add_child(back)
 	scale = big
 	var tw := create_tween()
+	if delay > 0.0: # la salle adverse glisse d'abord a sa place (MovePendingRoomToRightPlace), puis se retourne
+		tw.tween_interval(delay)
+		tw.tween_callback(func(): AudioManager.play_sfx("ui_card_slide_up"))
 	tw.tween_property(self, "scale:x", 0.0, duration / 2.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	tw.tween_callback(back.queue_free)
 	tw.tween_property(self, "scale:x", big.x, duration / 2.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)

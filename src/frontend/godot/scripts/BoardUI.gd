@@ -179,6 +179,7 @@ var _win_bar: TimeBar
 var win_time_scale := 1.0                # tests : raccourcit les fenetres chronometrees
 var _win_t := 0.0
 var _win_sig := ""
+var _stk_hold := false                  # pile de sorts encore dans sa fenetre de 6 s : l'IA ne peut qu'y repondre, pas passer (_auto_pass)
 var _last_ms := 0                        # horloge reelle du dernier _process : Godot plafonne delta a ~0,13 s par image (web a quelques i/s)
 var _border_prev: Dictionary = {}      # style de cadre de chaque carte de la main au dernier affichage (cle « indice:id ») : le fondu repart de la ou il en etait
 var _grey_prev: Dictionary = {}              # main : cle "index:id" -> {g: grise ?, t: ms du dernier changement} (fondu de grisage, voir _refresh_hand)
@@ -224,6 +225,11 @@ var _town_sig := ""                      # heros affiches : la colonne n'est rec
 var _town_ids: Array = []
 var _ent_tok: Dictionary = {}            # pid -> cartes de l'entree, alignees sur les heros de `entrance` (la carte du heros qui traverse reste a l'entree)
 var _focus := {}                         # {pid, room} : salle agrandie parce que le heros s'y trouve (voir _set_focus)
+var _town_hold := false                  # fin de la construction : les heros de la ville restent en place pendant le retournement des salles (voir _refresh_phase_banner)
+var _bait_delay := 0.0                   # s : attente avant le 1er vol du leurre (retournement des salles revele avant la phase BAIT)
+var _deal_hold := false                  # tour 1 : la revelation des salles (Setup_c) precede la pioche (BeginningOfTurn) ; les cartes piochees attendent dans _held_draw
+var _held_draw: Array = []
+var _foe_pend_off := {}                  # "pid:salle" -> decalage (px) de la salle adverse posee en attente : elle glisse a sa place a la revelation (MovePendingRoomToRightPlace)
 var _bait_t0 := 0                        # BAIT PHASE : horloge (ms) du debut du leurre, 0 = aucun (voir _refresh_phase_banner)
 var _bait_ms := 0                        # duree du leurre (ms) : un vol de BAIT_FLY x vitesse par heros, l'un apres l'autre
 var _bait_flown := {}                    # cartes deja parties en vol pour ce leurre : {pid:id:rang -> _bait_t0}
@@ -250,6 +256,8 @@ const BOSS_AUTO_TIME := 2.0              # partie a plusieurs (useTimeout) : l'e
 # Fenetres de sorts de l'APK (GamePlayBaseScene) : barre verte de 3 s au-dessus du heros (aventure), de 6 s au-dessus de la pile de sorts.
 const PHASE_BANNER_Y := -62.0
 const DRAW_LAND := 0.3                   # une carte piochee rejoint sa place dans la main : lerp de CardMoveBehavior (0,009 x ms par image, ~0,3 s pour 95 %, CardMoveBehavior.cs:13,129-133)
+const BAIT_EMPTY_S := 1.0                # leurre sans heros a envoyer : la plaque BAIT PHASE entre (saut de 0,5 s hors / 0,5 s dedans, PhaseTitleControl) avant celle de l'aventure
+const REVEAL_S := 0.8                    # retournement 0,5 s + retour a la taille 0,3 s (CardEntity.cs:71-72), hors vitesse
 const BAIT_FLY := 1.0                    # vol d'une carte de heros depuis la ville jusqu'a l'entree du donjon, x vitesse (VerticalScrollQueueComponent.cs:261-262) ; la plaque BAIT PHASE dure tant que les vols (chacun apres le precedent) puis le reordonnancement de la ville (0,5 x vitesse)
 const WINDOW_ADVENTURE := 3.0
 const WINDOW_STACK := 6.0
@@ -1116,6 +1124,9 @@ func _process(delta: float) -> void:
 							break
 				if mv == null:
 					continue # rien a jouer pour ce siege (ses sorts n'ont aucun CheckXXX eligible, il a deja passe) : on regarde les suivants, le minuteur reste arme
+				if _stk_hold and str((mv as Dictionary).get("type", "")) in PASS_TYPES:
+					_ai_timer = 0.0 # fenetre de 6 s de la pile en cours : sa passe attend la fin de la barre (_auto_pass), une reponse (Counterspell) reste immediate
+					return
 				_ai_timer = 0.0
 				_notice_ai(int(pid), mv)
 				game_manager.apply_move(int(pid), mv)
@@ -1215,6 +1226,7 @@ func _auto_pass(delta: float) -> bool:
 	var G: Dictionary = game_manager.G
 	var stack_open: bool = not (G.get("stack", []) as Array).is_empty()
 	var phase := str(G.get("phase", ""))
+	_stk_hold = false
 	if not (G.get("pendingChoice", {}) as Dictionary).is_empty() or (phase != "adventure" and not stack_open):
 		_auto_timer = 0.0
 		_win_t = 0.0
@@ -1272,7 +1284,7 @@ func _auto_pass(delta: float) -> bool:
 		# (GetSpeed ne touche que les animations). Le GO qui la precede et la pause pre-exit passent vite. Pile de sorts : barre de 6 s si un sort est jouable.
 		# Meme barre avant la 1re salle : heros a l'entree (InsideDungeonSlot == null, GamePlayBaseScene.cs:924-952), le GO d'entree est alors la fin de la fenetre.
 		var at_entry: bool = adv.is_empty() and go_mv != null
-		var timed: bool = apk and ((not stack_open and (str(pause) == "post-damage" or at_entry)) or (stack_open and decision and str(pause) != "pre-exit"))
+		var timed: bool = apk and ((not stack_open and (str(pause) == "post-damage" or at_entry)) or (stack_open and str(pause) != "pre-exit")) # pile : 6 s meme sans rien a jouer, la fin de la barre est le seul « pret » de l'humain (GamePlayBaseScene.cs:210-213)
 		var want: float = (WINDOW_STACK if stack_open else WINDOW_ADVENTURE) * win_time_scale if timed else (GO_FAST if go_mv != null else PASS_FAST)
 		# APK : la barre repart a zero a chaque pas du heros et a chaque sort / capacite jouee (pile), jamais parce qu'un siege passe ou qu'une ligne de journal s'ajoute.
 		var key := JSON.stringify([phase, G.get("turn"), adv.get("playerId"), adv.get("roomIndex"), pause, (G.get("stack", []) as Array).size(), int(pid)])
@@ -1293,6 +1305,21 @@ func _auto_pass(delta: float) -> bool:
 		if game_manager.apply_move(int(pid), mv):
 			refresh()
 		return true
+	# Pile ouverte sans « passe » a donner (mon sort, ou j'ai deja repondu) : l'APK la garde quand meme 6 s apres la derniere carte (SpellBattleEntity.cs:32) avant de resoudre
+	# (GameBoard.NextStep) ; les IA ont deja repondu a l'instant (AIPlayerInteraction.cs:29-43), ici seule leur passe attend (voir _process). Hors ligne : en ligne le serveur arbitre.
+	if apk and stack_open and not _is_online() and str(pause) != "pre-exit":
+		var skey := JSON.stringify([phase, G.get("turn"), (G["stack"] as Array).map(func(e): return str((e as Dictionary).get("id", "")))])
+		if skey != _win_sig:
+			_win_sig = skey
+			_win_t = 0.0
+		_win_t += _win_dt(delta)
+		var swant: float = WINDOW_STACK * win_time_scale
+		if _win_t < swant:
+			_win_show(swant, true)
+			_stk_hold = true
+		else:
+			_win_hide()
+		return false
 	_auto_timer = 0.0
 	_win_t = 0.0
 	_win_sig = ""
@@ -1437,6 +1464,7 @@ func refresh() -> void:
 			foe_dict["boss"] = null
 
 	_refresh_phase_banner(phase)
+	_track_hand_draw(G, p, phase) # avant _refresh_town (la ville attend les cartes en vol) et avant _refresh_hand : les cartes piochees sont cachees des la reconstruction de la main
 	_refresh_lane_badges(1, p)
 	_refresh_lane_badges(0, foe_dict)
 	_track_levelup(G)
@@ -1462,10 +1490,13 @@ func refresh() -> void:
 			slot.set_stack([])
 
 	var my_moves: Array = _my_moves(_my_pid())
-	_refresh_foe_dungeon(foe_dict)
+	var foe_view := foe_dict
+	if phase == "setup" and _flow_busy() and not foe_dict.is_empty(): # APK : l'IA construit sa 1re salle apres le rafraichissement de la main du joueur (DoNextStepAndRefresh : CreateRefreshHandTask puis DoPlayerActions, cs:838-860)
+		foe_view = foe_dict.duplicate()
+		foe_view["dungeon"] = []
+	_refresh_foe_dungeon(foe_view)
 	_apply_focus() # les emplacements adverses viennent d'etre reconstruits
 	_refresh_overlay(G, phase)
-	_track_hand_draw(G, p, phase) # avant _refresh_hand : les cartes piochees sont cachees des la reconstruction de la main
 	_refresh_hand(G, p, phase, my_moves)
 	_refresh_activatable(my_moves)
 	_refresh_undoable(my_moves)
@@ -1485,7 +1516,7 @@ func refresh() -> void:
 	elif stack_open:
 		_set_pass_visible(can_pass and not apk)
 	else:
-		_set_pass_visible(can_pass) # pas de PASS TURN quand passer est illegal (choix en attente, pas mon tour de construire)
+		_set_pass_visible(can_pass and not _flow_busy()) # pas de PASS TURN quand passer est illegal (choix en attente, pas mon tour de construire) ; ni tant que la pioche vole (CreateActivateUserIteractionModeTask suit CreateRefreshHandTask, cs:838-860)
 	# BuildRoomHandSceneBehavior.cs:115 : IsPassTurnModeActive = IsPlayerBuildTurn && !IsBuildTurnDone (:41, poses en attente >= MaxBuildRoomLimit) ;
 	# DoneButtonBehavior.cs:25-40 : PASS TURN (pass_button) en mode passe, sinon DONE! (done_button_unlimited). Fenetre de sorts apres la derniere pose : pas mon tour de construction -> DONE!.
 	_style_pass_button((phase == "build" or phase == "setup") and not stack_open and _builds_done(G, p))
@@ -1748,6 +1779,8 @@ func _show_levelup(pid: int, boss: Dictionary) -> void:
 		clip.queue_free())
 
 func _refresh_town(G: Dictionary) -> void:
+	if _flow_busy() or _town_hold: # DoNextStepAndRefresh : CreateRefreshHandTask (pioche, attend l'arrivee) puis topLeftPanel.Refresh ; au leurre, la ville attend la fin du retournement des salles (cs:838-860)
+		return # _town_sig inchange : le refresh qui suit (derniere carte arrivee / fin de l'attente) reconstruit la colonne
 	var town: Array = G.get("town", [])
 	var sig := JSON.stringify(town)
 	if sig == _town_sig:
@@ -2006,9 +2039,23 @@ func _fly_hero_card(pid: int, hero: Dictionary, k: int, tok: Control, order: int
 	ghost.visible = false
 	hero_crossing_layer.add_child(ghost)
 	ghost.global_position = Vector2(Vp.lx(23.0), 107.0) # colonne de gauche
+	var tcard: Control = null # sa carte dans la colonne HEROES IN TOWN (encore la d'avant le leurre : _town_hold) : elle y reste jusqu'au depart de son vol
+	for j in mini(_town_ids.size(), town_container.get_child_count()):
+		var tc := town_container.get_child(j) as Control
+		if _town_ids[j] == hero.get("id", hero) and not tc.has_meta("bait_taken"):
+			tc.set_meta("bait_taken", true)
+			tcard = tc
+			break
 	var tw := ghost.create_tween()
-	tw.tween_interval(BAIT_FLY * _speed * float(order))
-	tw.tween_callback(func(): ghost.visible = true)
+	tw.tween_interval(_bait_delay + BAIT_FLY * _speed * float(order))
+	tw.tween_callback(func():
+		if tcard != null and is_instance_valid(tcard) and is_instance_valid(_town_scroll):
+			# CreateShowAtIndexTask (cs:229-241) : la colonne defile jusqu'a ce heros avant son vol, puis CreateAssignHeroesTask (cs:265-271) cache sa carte et fait partir la copie de sa place
+			# (shortcut : defilement immediat, l'APK l'anime par lerp 0,2 / image, seulement quand plus de 4 heros attendent ; la duree n'est pas ajoutee au rang de vol)
+			_town_scroll.ensure_control_visible(tcard)
+			ghost.global_position = _town_scroll.global_position + tcard.position + (tcard.size - ghost.size) / 2.0 - Vector2(_town_scroll.scroll_horizontal, _town_scroll.scroll_vertical)
+			tcard.modulate.a = 0.0
+		ghost.visible = true)
 	# CubicEase sans mode = EaseOut (VerticalScrollQueueComponent.cs:262 ; EasingFunctionBase.cs:8)
 	tw.tween_property(ghost, "global_position", tok.global_position, BAIT_FLY * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tw.tween_callback(func():
@@ -2216,6 +2263,8 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 
 		var di := j - off
 		var fly_ui: Control = null
+		var fly_slide := true
+		var fly_off := NAN
 		if di >= 0 and di < dungeon.size():
 			var r = BossEngine.active_room(dungeon[di])
 			if r != null:
@@ -2248,11 +2297,16 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 					# (GamePlayBaseScene.cs:668 : Gameboard_AbilityApplyRequest pour toute capacite) et, sur les captures APK (notice_opponent_has_played_a_room_ability_*,
 					# ability_opponent_dark_lab_*), la salle reste agrandie (0,5 : CardStackSlotComponent.cs:138-141, ScaleBehavior.MaxScale 0,5 CardsFactory.cs:101) pendant la bulle.
 					var trigger: bool = str((r as Dictionary).get("description", "")).to_lower().begins_with("when you build")
-					room_ui.flip_in(0.5, NOTICE_HOLD if trigger else 0.0)
+					fly_off = float(_foe_pend_off.get(fk, 0.0)) # MovePendingRoomToRightPlace (cs:210-233) precede le retournement : la salle glisse de sa place d'attente a la sienne (|decalage| / 1920 s, hors vitesse)
+					_foe_pend_off.erase(fk)
+					if fly_off != 0.0:
+						fly_ui = room_ui
+					room_ui.flip_in(0.5, NOTICE_HOLD if trigger else 0.0, absf(fly_off) / 1920.0)
 					if trigger:
 						_show_notice("ROOM ABILITY", r, {}, foe_pid)
-				if fd and not prev_down.has(fk) and old_pid == foe_pid and not skip_animations:
-					fly_ui = room_ui # M13 : salle adverse posee en attente, elle glisse depuis la pile d'attente (cadre du haut seulement) une fois dans l'arbre
+				if fd and not bool(prev_down.get(fk, false)) and old_pid == foe_pid and not skip_animations: # (nouvelle pile, ou salle posee par-dessus une pile visible : seul ce dernier cas a un decalage d'attente non nul)
+					fly_ui = room_ui # M13 : salle adverse posee en attente, posee a sa place d'attente (cadre du haut seulement) une fois dans l'arbre ; elle glisse a sa place a la revelation
+					fly_slide = false
 				_foe_down[fk] = fd
 				if Minibosses.active(game_manager.G): # Rise of the Minibosses : le miniboss de la salle adverse (nom cache tant qu'il est face cache)
 					var mb_badge := Minibosses.make_badge(r, false)
@@ -2272,7 +2326,9 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 		holder.move_child(slot_ctrl, at)
 		DungeonSlot.fit_cards(slot_ctrl)
 		if fly_ui != null:
-			DungeonSlot.fly_pending(game_manager, foe_pid, di, [fly_ui])
+			var placed := DungeonSlot.fly_pending(game_manager, foe_pid, di, [fly_ui], fly_slide, fly_off)
+			if not fly_slide:
+				_foe_pend_off["%d:%d" % [foe_pid, di]] = placed
 		_foe_slots.append(slot_ctrl)
 	for c in holder.get_children(): # les emplacements non repris
 		if not _foe_slots.has(c):
@@ -2805,25 +2861,96 @@ func _refresh_phase_banner(phase: String) -> void:
 		_fade_in_lanes() # fin du choix du boss : les donjons apparaissent en fondu
 		_deal_pending = true # puis la main d'ouverture est distribuee
 	# APK : entre la revelation des salles et l'aventure, la plaque BAIT PHASE s'affiche pendant que les heros de la ville volent vers les
-	# donjons (leurre), l'un apres l'autre. Le moteur n'a pas cette phase : l'interface montre la plaque et les vols, sans retarder la partie.
+	# donjons (leurre), l'un apres l'autre, meme quand il n'y en a aucun (PhaseTitleControl.Refresh n'a pas d'exception). Le moteur n'a pas cette phase : l'interface montre la plaque et les vols, sans retarder la partie.
+	var bait: bool = key == "adventure" and prev == "build" and not skip_animations
 	var bait_n := 0
-	if key == "adventure" and prev == "build" and not skip_animations:
+	if bait:
 		for q in [view_pid, foe_pid]:
 			if int(q) >= 0:
 				bait_n += ((game_manager.G.get("players", {}) as Dictionary).get(int(q), {}) as Dictionary).get("entrance", []).size()
-	if bait_n > 0:
+	# APK : BuildPhase_b revele les salles (retournement 0,5 s + retour a la taille 0,3 s, CardStackSlotComponent.CreateFlipUpTopRoomTask, cs:274-296 ; pas lie a la vitesse) sous la plaque BUILD,
+	# et seulement ensuite BaitPhase (plaque BAIT, vols des heros) : le pas suivant de DoNextStepAndRefresh attend la fin du pas precedent (GamePlayBaseScene.cs:838-860).
+	# Tour 1 : Setup_c revele de meme les premieres salles, sans plaque (PhaseTitleControl.cs:60 : phase hors des trois plaques = plaque masquee), puis BeginningOfTurn pioche et amene les heros en ville.
+	# La salle adverse posee en attente glisse d'abord a sa place (MovePendingRoomToRightPlace, avant le retournement, cs:203-205).
+	var opening: bool = prev == "setup" and key == "build" and not skip_animations
+	var reveal := 0.0
+	if (bait or opening) and _rooms_to_reveal():
+		reveal = REVEAL_S + _foe_slide_s()
+	if bait:
 		_bait_t0 = Time.get_ticks_msec()
-		_bait_ms = int((float(bait_n) * BAIT_FLY + 0.5) * _speed * 1000.0) # + CreateReorderTask 0,5 x vitesse apres le dernier vol, avant la fin de BaitPhase (VerticalScrollQueueComponent.cs:206,261,293)
+		_bait_delay = reveal
+		_town_hold = bait_n > 0 # la colonne garde chaque heros jusqu'au depart de son vol (VerticalScrollQueueComponent.CreateAssignHeroesTask) ; _town_release la remet a jour apres le dernier
+		if bait_n > 0:
+			_bait_ms = int(((float(bait_n) * BAIT_FLY + 0.5) * _speed + reveal) * 1000.0) # + CreateReorderTask 0,5 x vitesse apres le dernier vol, avant la fin de BaitPhase (VerticalScrollQueueComponent.cs:206,261,293)
+		else:
+			_bait_ms = int((BAIT_EMPTY_S + reveal) * 1000.0)
 		key = "bait"
-	if PHASE_BANNERS.has(key):
+	if reveal > 0.0:
+		if opening:
+			_town_hold = true
+			_deal_hold = true
+			_set_phase_banner(null)
+		var delayed := create_tween()
+		delayed.tween_interval(reveal)
+		delayed.tween_callback(func():
+			if _last_phase == phase and PHASE_BANNERS.has(key):
+				_set_phase_banner(_tex(PHASE_BANNERS[key]))
+			if opening:
+				_end_opening_hold())
+	elif PHASE_BANNERS.has(key):
 		_set_phase_banner(_tex(PHASE_BANNERS[key]))
-	if bait_n > 0:
+	if bait:
 		var tw := create_tween()
-		tw.tween_interval(float(_bait_ms) / 1000.0)
+		if bait_n > 0:
+			var fly_s := reveal + float(bait_n) * BAIT_FLY * _speed
+			tw.tween_interval(fly_s)
+			tw.tween_callback(_town_release)
+			tw.tween_interval(float(_bait_ms) / 1000.0 - fly_s)
+		else:
+			tw.tween_interval(float(_bait_ms) / 1000.0)
 		tw.tween_callback(_bait_end)
+
+## Duree de la glissade de la salle adverse posee en attente vers sa place (MovePendingRoomToRightPlace : |decalage| / 1920 s, cs:215-222), la plus longue des salles en attente affichees.
+func _foe_slide_s() -> float:
+	var s := 0.0
+	for fk in _foe_pend_off:
+		if bool(_foe_down.get(fk, false)):
+			s = maxf(s, absf(float(_foe_pend_off[fk])) / 1920.0)
+	return s
+
+## Fin de la revelation du tour 1 : la plaque BUILD revient et la pioche puis la ville (BeginningOfTurn) suivent.
+func _end_opening_hold() -> void:
+	_town_hold = false
+	_deal_hold = false
+	var fresh := _held_draw
+	_held_draw = []
+	for c in fresh: # _show_draw recache la carte : on rend d'abord celle que _track_hand_draw avait gardee
+		var cid := str((c as Dictionary).get("id", ""))
+		_draw_hide[cid] = maxi(int(_draw_hide.get(cid, 0)) - 1, 0)
+		if int(_draw_hide[cid]) == 0:
+			_draw_hide.erase(cid)
+	if not fresh.is_empty():
+		_show_draw(fresh)
+	refresh()
+
+## Dernier vol du leurre parti : les heros restants de la ville se reordonnent (UpdateItems puis CreateReorderTask).
+func _town_release() -> void:
+	_town_hold = false
+	refresh()
+
+## Une salle posee ce tour est encore face cachee a l'ecran (mon donjon, ou celui de l'adversaire affiche) : la revelation a un retournement a jouer.
+func _rooms_to_reveal() -> bool:
+	for s in _dungeon_slots:
+		if (s as DungeonSlot)._was_down:
+			return true
+	for v in _foe_down.values():
+		if bool(v):
+			return true
+	return false
 
 func _bait_end() -> void:
 	_bait_t0 = 0
+	_bait_delay = 0.0
 	if _last_phase == "adventure":
 		_set_phase_banner(_tex(PHASE_BANNERS["adventure"]))
 	for k in _ent_tok:
@@ -3241,11 +3368,25 @@ func _hero_arrive(pid: int, room: int) -> void:
 	var rd = BossEngine.active_room(dgn[room]) if room >= 0 and room < dgn.size() else null
 	_play_sfx(AudioManager.room_sfx(str((rd as Dictionary).get("id", "")) if rd != null else ""))
 
+## Heros des extensions du wiki (TNL, CRL) sans personnage dans l'APK : pion du personnage APK le plus proche (choix du proprietaire).
+const HERO_PAWN_ALIAS := {
+	"crl017": "bma063", "crl018": "bmh065", "crl019": "bma071", "crl020": "bma066", "crl021": "bmh092", "crl022": "bma082",
+	"crl023": "bmh079", "crl024": "ksa016", "crl025": "bmh083", "crl026": "ksa017", "crl027": "bma093", "crl028": "bma083",
+	"tnl073": "bma058", "tnl074": "bma059", "tnl075": "bma081", "tnl076": "bma075", "tnl077": "bmh073", "tnl078": "bma060",
+	"tnl079": "bmh078", "tnl080": "bmh085", "tnl081": "bma064", "tnl082": "bmh064", "tnl083": "bma062", "tnl084": "bmh066",
+	"tnl085": "bmh062", "tnl086": "bmh072", "tnl087": "bma068", "tnl088": "bmh074", "tnl089": "bmh058", "tnl090": "bma070",
+	"tnl091": "bmh095", "tnl092": "bma074", "tnl093": "bmh075", "tnl094": "bmh070", "tnl095": "bmh068", "tnl096": "bma092",
+	"tnl097": "bma080", "tnl098": "bma084", "tnl099": "bma083", "tnl100": "bmh089", "tnl101": "bmh084", "tnl102": "bma065",
+	"tnl103": "bmh067", "tnl104": "bmh063", "tnl105": "bma088", "tnl106": "bmh091", "tnl107": "bma073", "tnl108": "bma057",
+	"tnl109": "bma090", "tnl110": "bma085", "tnl111": "bma076", "tnl112": "bmh088", "tnl113": "bmh086", "tnl114": "bmh093",
+}
+
 ## Personnage du heros (hero_characters de l'APK) : sa carte reste a l'entree du donjon, c'est ce personnage qui traverse les salles, avec
 ## au-dessus de lui un coeur rouge portant ses PV restants (HeroCardEntity.HeroCharacter + heroHeart). Le noeud fait la taille d'une carte
 ## de heros et se place comme elle (HERO_IN_SLOT : centre sur la salle) ; le personnage est un peu au-dessus du centre.
 func _hero_sprite(hero: Dictionary) -> Texture2D:
-	var t := _tex("res://assets/ui/characters/heroes/%s_character.webp" % str(hero.get("id", "")).to_lower())
+	var hid := str(hero.get("id", "")).to_lower()
+	var t := _tex("res://assets/ui/characters/heroes/%s_character.webp" % HERO_PAWN_ALIAS.get(hid, hid))
 	if t == null: # heros du wiki sans sprite APK : l'icone de sa classe
 		t = _tex("res://assets/ui/icons/icon_%s.webp" % str({1: "cleric", 2: "fighter", 3: "mage", 4: "thief"}.get(int(hero.get("treasure", 0)), "")))
 	return t
@@ -4531,7 +4672,15 @@ func _pass_turn_mode() -> bool:
 ## M15 : la pioche et la defausse de la main bloquent le joueur tant que les cartes volent : CreateRefreshHandTask (GamePlayBaseScene.cs:1044-1049) attend CardDrawEmitter.Refresh (DrawCardEmitter.cs:46-49,
 ## WaitAll des vols) AVANT CreateActivateUserIteractionModeTask (cs:1029-1042 : IsUserInteractionActive, CardExtractBehavior.IsLocked, bouton DONE) dans CreateNextStepTask (cs:840-870).
 func _flow_busy() -> bool:
-	return not skip_animations and (get_tree().has_group("drawn_card") or get_tree().has_group("discarded_card"))
+	if skip_animations:
+		return false
+	if _deal_hold: # tour 1 : la pioche attend la fin de la revelation des salles
+		return true
+	for g in ["drawn_card", "discarded_card"]:
+		for n in get_tree().get_nodes_in_group(g):
+			if not n.is_queued_for_deletion(): # une carte arrivee (queue_free) n'est plus en vol : le refresh qu'elle declenche doit deja voir le flot libre
+				return true
+	return false
 
 func _on_pass_pressed() -> void:
 	if not _tgt.is_empty():
@@ -4809,18 +4958,22 @@ func _drag_end(pos: Vector2) -> void:
 	var is_room: bool = idx < hand.size() and bool((hand[idx] as Dictionary).get("isRoom", false))
 	var prev: Control = _drag["preview"]
 	var card_center: Vector2 = prev.position + prev.size / 2.0 if is_instance_valid(prev) else pos
+	var lit: Array = [] # emplacements en surbrillance (_drag_refresh) : BuildRoomHandSceneBehavior.FindHoverBuildableSlot ne cherche que parmi eux (cs:190-205), un depot ailleurs ne fait rien
+	for f in (_drag.get("frames", []) as Array):
+		if is_instance_valid(f) and (f as Node).has_meta("slot"):
+			lit.append((f as Node).get_meta("slot"))
 	_drag_clear()
 	if idx < hand.size() and pos.y < HAND_UPPER: # relacher sur la main = annuler
 		if is_room:
 			var data := {"type": "card", "hand_index": idx}
 			var target: DungeonSlot = null
 			for slot in _dungeon_slots: # le doigt sur un emplacement d'abord, sinon l'emplacement que survole la carte lachee (APK : FindHoverBuildableSlot)
-				if Rect2((slot as Control).global_position, (slot as Control).size).has_point(pos):
+				if lit.has(slot) and Rect2((slot as Control).global_position, (slot as Control).size).has_point(pos):
 					target = slot
 					break
 			if target == null:
 				for slot in _dungeon_slots:
-					if _slot_hovered(slot as Control, card_center) and (slot as DungeonSlot)._can_drop_data(Vector2.ZERO, data):
+					if lit.has(slot) and _slot_hovered(slot as Control, card_center) and (slot as DungeonSlot)._can_drop_data(Vector2.ZERO, data):
 						target = slot
 						break
 			if target != null and _tg("drop", target) and target._can_drop_data(Vector2.ZERO, data):
@@ -5256,7 +5409,8 @@ func _track_hand_draw(G: Dictionary, p: Dictionary, phase: String) -> void:
 	_discard_move = false
 	var seen_before := _hand_seen.duplicate()
 	var same_seat := _hand_seen_pid == view_pid
-	var deal := _deal_pending and not hand.is_empty() and phase != "boss"
+	# APK : les 7 cartes vont droit dans le selecteur (AddCarouselCardsBehavior, sans pioche) ; la distribution (DrawCardEmitter, lastHands vide) ne joue qu'apres CONTINUE, sur les 5 gardees
+	var deal := _deal_pending and not hand.is_empty() and phase != "boss" and not _is_opening_discard_for_me()
 	if deal:
 		_deal_pending = false
 		seen_before = []
@@ -5292,7 +5446,13 @@ func _track_hand_draw(G: Dictionary, p: Dictionary, phase: String) -> void:
 	if not gone.is_empty():
 		_show_discard(gone)
 	if not fresh.is_empty():
-		_show_draw(fresh)
+		if _deal_hold: # tour 1 : les cartes restent cachees dans la main jusqu'a la fin du retournement des salles (_end_opening_hold)
+			for c in fresh:
+				var cid := str((c as Dictionary).get("id", ""))
+				_draw_hide[cid] = int(_draw_hide.get(cid, 0)) + 1
+			_held_draw.append_array(fresh)
+		else:
+			_show_draw(fresh)
 
 ## Defausse depuis la main (DrawCardEmitter.CreateSingleCardDiscardTask, cs:113-145) : la carte (particules allumees des le depart) va au centre en 0,5 s (rotation 0, echelle ci-dessous, CubicEase),
 ## attend 2 s + 0,1 s x rang, se retourne (0,5 s), part vers la defausse en bas a gauche (0,5 s, tournee de 90 deg, echelle 0,375), puis les particules s'eteignent et elle s'estompe (FadeBehavior 0,3 s, CardEntity.cs:69).
@@ -5349,7 +5509,9 @@ func _show_discard(cards: Array) -> void:
 		tw.tween_property(holder, "rotation_degrees", 90.0, 0.5)
 		tw.chain().tween_callback(fx.finir) # EmitParticles = false (cs:137) : les particules vivantes finissent leur vie
 		tw.chain().tween_property(holder, "modulate:a", 0.0, 0.3)
-		tw.chain().tween_callback(holder.queue_free)
+		tw.chain().tween_callback(func():
+			holder.queue_free()
+			refresh()) # le flot est libre : PASS TURN reparait
 
 ## DrawCardEmitter.CreateSingleCardDrawTask (DrawCardEmitter.cs:147-165) : la carte part de x = -0,5 L (:23) et glisse en X jusqu'a sa place au centre (0,5 s, CubicEase = EaseOut), se retourne (0,5 s, :157),
 ## attend 2 s + 0,1 s x rang (:157,100) puis rejoint la main (Attach, :162). La main reelle est reconstruite a part : les cartes qu'elle recoit restent cachees (_draw_hide) jusqu'a l'arrivee.
@@ -5439,6 +5601,7 @@ func _draw_clear() -> void:
 	for h in get_tree().get_nodes_in_group("discarded_card"):
 		h.queue_free()
 	_draw_hide.clear()
+	_held_draw.clear()
 
 ## Bulle de mise en garde de mon boss (APK : BossHint) quand on veut passer alors qu'une salle peut encore etre construite.
 func _can_still_build(moves: Array) -> bool:
