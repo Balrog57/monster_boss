@@ -151,6 +151,24 @@ static func save_settings(host: String, extensions: bool, decks: Variant = null)
 		cfg.set_value("settings", "decks", decks)
 	write(cfg)
 
+## Variantes de jeu TNL cochees dans SELECT EXPANSIONS (pas d'equivalent APK : l'APK ne retient pas non plus les paquets cochees). Cle absente ou ids inconnus : ignores.
+static func load_variants() -> Array:
+	var cfg := ConfigFile.new()
+	read(cfg)
+	var v = cfg.get_value("settings", "variants", [])
+	var out: Array = []
+	if v is Array or v is PackedStringArray:
+		for id in preload("res://godot/scripts/Variants.gd").IDS:
+			if id in v:
+				out.append(id)
+	return out
+
+static func save_variants(variants: Array) -> void:
+	var cfg := ConfigFile.new()
+	read(cfg)
+	cfg.set_value("settings", "variants", variants)
+	write(cfg)
+
 ## Premier lancement du jeu solo : l'APK propose le tutoriel une seule fois (GameStats.IsFirstGameplay, MainMenuScene.cs:60-88). Consomme des qu'on repond a la boite.
 static func first_gameplay() -> bool:
 	var cfg := ConfigFile.new()

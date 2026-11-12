@@ -6,6 +6,7 @@ extends Control
 signal resume_requested
 signal quit_requested
 signal speed_changed
+signal gallery_toggled(open: bool) # la pause est depilee pendant la galerie (BoardUI cache son voile)
 
 const UiKit = preload("res://godot/scripts/UiKit.gd")
 const CardGallery = preload("res://godot/scripts/CardGallery.gd")
@@ -122,7 +123,11 @@ func _open_gallery() -> void:
 	gallery.z_index = 5
 	gallery.closed.connect(func():
 		gallery = null
+		gallery_toggled.emit(false)
 		_build() # PauseScene.OnDesactivatingScene : les boutons repassent a l'etat repos
 		UiKit.cross_fade_in(self)) # retour au menu PAUSED : re-empile avec CrossFade (ModalSceneService.cs:69-72)
+	for c in get_children(): # PauseScene.cs:67-70 + ModalSceneService.cs:52-57 : la pause est depilee, la galerie la remplace (retour : _build() ci-dessus)
+		(c as CanvasItem).visible = false
+	gallery_toggled.emit(true)
 	add_child(gallery)
 	UiKit.cross_fade_in(gallery) # PauseScene.cs:67-70 : GalleryScene(fromGameplay) = modale, CrossFade 0,2 s

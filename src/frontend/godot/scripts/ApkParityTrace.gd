@@ -273,6 +273,9 @@ func replay(trace: Dictionary) -> Dictionary:
 	proj["0"] = project()
 	for i in _steps.size():
 		var s: Dictionary = _steps[i]
+		# Le generateur partage de l'oracle au debut du step, AVANT les coups retenus (_release_held, _flush_late) : ils appartiennent a ce step,
+		# et un remelange de pioche qu'ils declenchent doit tirer dans DbmRandom comme l'APK (sinon `randi` : s16-p4@593, Recycling Center).
+		_dbm_at(int(s.get("rn0", 0)))
 		_ai_flush_choices(int(s["seq"]))
 		run.release_death()
 		# Un meme exemplaire peut etre perdu, recupere puis re-perdu : on ne propose que les pertes a venir (seq >= step courant), et proches
@@ -285,7 +288,6 @@ func replay(trace: Dictionary) -> Dictionary:
 		# Les decisions de revelation (BuildPhase_a puis _b) peuvent rester en attente a travers le NextStep de B.
 		if str(s["kind"]) != "decision" and not (str(s["kind"]) == "phase" and str(s["phase"]) in ["BuildPhase_a", "BuildPhase_b"]):
 			_deferred.clear()
-		_dbm_at(int(s.get("rn0", 0))) # le generateur partage de l'oracle au debut du step : les remelanges de pioche du moteur Godot le consomment comme l'APK
 		match str(s["kind"]):
 			"phase":
 				_on_phase(s, i)

@@ -57,6 +57,10 @@ func set_stack(stack: Array) -> void:
 
 var skip_anim := false ## BoardUI.skip_animations : le refresh ne reconstruit plus la salle, un retournement ou un vol commence reste donc visible
 var _view_key_seen: Array = [] ## copie de ce qu'_update_view a affiche (cle de _view_key)
+var _shown_ids: Array = [] ## ids des 2 salles du dessus au dernier affichage (CardStackSlotComponent.UpdateValues : RoomStack.Take(2), le dessus d'abord)
+var _shown_pid := -1 ## joueur affiche la derniere fois : les fondus ne valent que pour une meme pile qui change, pas pour un changement de joueur ni le premier affichage
+static var _snap := {} ## joueur -> {prev, now} : ids des salles de son donjon avant / apres le dernier changement
+const ROOM_FADE_S := 0.3 ## FadeBehavior d'une carte (CardEntity.cs:69) : apparition de la salle neuve (CardStackSlotComponent.cs:119-123) et retrait de la salle partie (cs:161-173)
 
 func _animated() -> bool:
 	return DisplayServer.get_name() != "headless" and not skip_anim
@@ -78,6 +82,34 @@ func _update_view() -> void:
 	if slot_label:
 		slot_label.visible = false # l'APK n'ecrit pas « Room N » sur les emplacements
 
+	var top2: Array = []
+	for k in range(current_stack.size() - 1, maxi(current_stack.size() - 3, -1), -1):
+		top2.append(str((current_stack[k] as Dictionary).get("id", "")))
+	# les noeuds se repartissent les salles quand le donjon grandit : "neuve" / "partie" se jugent sur le donjon entier (ids avant / apres), pas sur ce noeud
+	var ids := _dungeon_ids()
+	var snap: Dictionary = _snap.get(player_id, {})
+	if snap.is_empty() or snap["now"] != ids:
+		snap = {"prev": snap.get("now"), "now": ids}
+		_snap[player_id] = snap
+	var fade_ok := not skip_anim and game_manager != null and _shown_pid == player_id and snap["prev"] != null
+	var fresh: bool = fade_ok and not top2.is_empty() and not (snap["prev"] as Dictionary).has(top2[0])
+	var shown_holders := card_container.get_children().filter(func(c): return not c.is_queued_for_deletion())
+	if fade_ok and not _shown_ids.is_empty() and not ids.has(_shown_ids[0]) and not shown_holders.is_empty():
+		# la salle detruite / deplacee s'efface en 0,3 s avant d'etre retiree (cs:161-173) au lieu de disparaitre d'un coup
+		var ghost := shown_holders[shown_holders.size() - 1] as Control
+		var gp := ghost.global_position
+		card_container.remove_child(ghost)
+		add_child(ghost)
+		ghost.global_position = gp
+		ghost.set_meta("room_ghost", true)
+		for gc in ghost.get_children():
+			if gc is Control:
+				(gc as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var gt := ghost.create_tween()
+		gt.tween_property(ghost, "modulate:a", 0.0, ROOM_FADE_S)
+		gt.tween_callback(ghost.queue_free)
+	_shown_ids = top2
+	_shown_pid = player_id
 	for child in card_container.get_children():
 		child.queue_free()
 	var old_badge := get_node_or_null("MbBadge")
@@ -126,6 +158,9 @@ func _update_view() -> void:
 		if down and not _was_down and _animated():
 			_flip_down(card_ui, active_room, holder) # B22 : la salle posee se retourne face cachee (BuildRoomHandSceneBehavior.cs:182)
 		_was_down = down
+		if fresh and not down: # salle neuve face visible : elle entre en fondu (cs:119-123) ; la pose en attente de mon cadre (bas) n'en a pas, elle se retourne
+			holder.modulate.a = 0.0
+			holder.create_tween().tween_property(holder, "modulate:a", 1.0, ROOM_FADE_S)
 		if down: # X-P06 : salle en attente = IsShadowVisible (CardStackSlotComponent.cs:130), ombre card_shadow decalee de (40, 70) a l'echelle 0,5, opacite 0,75
 			var sh := TextureRect.new()
 			sh.texture = load("res://assets/ui/ingame/card_shadow.webp")
@@ -156,6 +191,15 @@ func _update_view() -> void:
 			border.border_color = Color(0.5, 0.45, 0.35, 0.4)
 		tooltip_text = ""
 	_update_glow()
+
+func _dungeon_ids() -> Dictionary:
+	var out := {}
+	var pl = ((game_manager.G.get("players", {}) as Dictionary).get(player_id)) if game_manager != null else null
+	if pl != null:
+		for st in (pl as Dictionary).get("dungeon", []):
+			for r in (st as Array):
+				out[str((r as Dictionary).get("id", ""))] = true
+	return out
 
 ## B22, BuildRoomHandSceneBehavior.cs:182 -> FlipCardBehavior.CreateFaceDownTask (:119-131) : la salle posee, face visible, se retourne en 0,5 s (pitch lineaire, comme CardUI.flip_in dans l'autre sens) ;
 ## l'APK n'a aucun flash vert a la pose. La face visible se ferme (0,25 s), puis le dos s'ouvre (0,25 s).

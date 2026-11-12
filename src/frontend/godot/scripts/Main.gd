@@ -62,7 +62,7 @@ var board: Control
 var menus: OnlineMenus
 var use_extensions := true # plus de case dans OPTIONS : jamais lu des reglages (les tests le posent)
 var apk_decks: Array = [] # ids des paquets APK coches (voir APK_DECKS)
-var variants: Array = [] # variantes de jeu du livret TNL cochees dans SELECT EXPANSIONS (Variants.IDS), seulement si use_extensions ; non enregistrees : decochees a chaque lancement
+var variants: Array = [] # variantes de jeu du livret TNL cochees dans SELECT EXPANSIONS (Variants.IDS), seulement si use_extensions ; enregistrees dans le profil (Profile.load_variants)
 var server_host := "http://127.0.0.1:8000"
 var players := 2 # choix courant de « HOW MANY PLAYERS? »
 var _setup_players := 2 # nombre de joueurs de l'ecran SELECT EXPANSIONS (pour le message d'erreur 5-6)
@@ -102,6 +102,7 @@ func _ready() -> void:
 	if not OS.has_feature("web") and settings.has("host") and str(settings["host"]) != "": # web : toujours l'origine de la page (un hote enregistre par une ancienne session ne compte pas)
 		server_host = str(settings["host"])
 	apk_decks = (settings.get("decks", []) as Array).filter(func(d): return _deck_playable(str(d)))
+	variants = Profile.load_variants()
 	profile = Profile.load_profile()
 	Profile.check_force_play_tutorial() # Game.cs:119
 	_fade_layer = CanvasLayer.new()
@@ -193,10 +194,11 @@ func go(swap: Callable) -> void:
 		if not is_instance_valid(veil):
 			_fading = false
 			return
-		veil.mouse_filter = Control.MOUSE_FILTER_IGNORE # W-19 : le nouvel ecran est deja visible, un clic pendant l'eclaircie ne doit pas etre avale par le voile
-		_fading = false)
+		veil.mouse_filter = Control.MOUSE_FILTER_IGNORE) # W-19 : le nouvel ecran est deja visible, un clic pendant l'eclaircie ne doit pas etre avale par le voile
 	tw.tween_property(veil, "color:a", 0.0, 0.5)
-	tw.tween_callback(veil.queue_free)
+	tw.tween_callback(func():
+		veil.queue_free()
+		_fading = false) # la navigation reste refusee jusqu'a la fin du fondu (ScreenContextManager.cs:233-236,372-400)
 
 func is_fading() -> bool:
 	return _fading
@@ -357,7 +359,9 @@ func show_title() -> void:
 	tap.modulate.a = 0.0
 	add_child(tap)
 	_blink(tap, 0.3) # BlinkBehavior(0,3 s) (IntroScene.cs:59)
-	add_child(_hit(Vector2.ZERO, Vector2(1920, 1080), func(): go(show_menu), "")) # IntroScene.cs:107-114 (ColorFade 1,0 s) ; aucun son au tap (IntroScene.cs ne joue que la musique, :84)
+	var tap_hit := _hit(Vector2.ZERO, Vector2(1920, 1080), func(): go(show_menu), "")
+	tap_hit.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS # le titre part a l'appui (IntroScene.cs:66,69-73,111-112)
+	add_child(tap_hit) # IntroScene.cs:107-114 (ColorFade 1,0 s) ; aucun son au tap (IntroScene.cs ne joue que la musique, :84)
 
 # --- menu principal ----------------------------------------------------------
 
@@ -386,7 +390,7 @@ func _stone_btn(text: String, icon: String, ipos: Vector2, tcx: float, pos: Vect
 func show_menu() -> void:
 	online.stop_lobby_poll()
 	online.stop_state_poll()
-	AudioManager.play_music("music_main")  # APK IntroScene
+	# aucune musique ici : l'APK ne lance music_main qu'a IntroScene.cs:84 (ecran titre, show_title) et ne l'arrete jamais
 	_apk_screen(func(): go(show_title)) # la fleche du menu appelle NavigatedBack = Pop ColorFade (MainMenuScene.cs:49-54,199-202)
 	_stone_btn("SINGLE PLAYER", "boss_icon.webp", Vector2(31, 55), 294, Vector2(458, 314), _solo_pressed) # MainMenuScene.cs:84-87
 	_stone_btn("MULTIPLAYER", "boss_multi_icon.webp", Vector2(26, 63), 329, Vector2(988, 314), func(): go(show_multi)) # MainMenuScene.cs:92-104
@@ -469,6 +473,7 @@ func show_solo_count(mode: String = "solo", keep: bool = false) -> void:
 	dyn_root = Control.new()
 	add_child(dyn_root)
 	_draw_fans()
+	_fan_entry()
 	_ok_btn(func(): go(func(): show_setup(players, mode))) # PlayerNumberScene.cs:48-54 (ColorFade 1,0 s)
 	_count_live = true
 
@@ -597,6 +602,26 @@ func _draw_fans(animate: bool = false) -> void:
 		UiKit.tween_carousel(tw2, gone, "scale", Vector2.ZERO)
 		tw2.chain().tween_callback(gone.queue_free)
 
+## Entree de l'ecran : PlayerNumberScene.Start -> HideNumber (0,1 s) puis ScaleIn 0,7 -> 1 (0,3 s, CubicEase) puis ExpandTask (0,3 s, BackEase Out 0,6)
+## (PlayerNumberScene.cs:60 ; PlayerNumberDeckEntity.cs:68,73-82 ; ControlsFactory.cs:408-420).
+func _fan_entry() -> void:
+	for f in dyn_root.get_children():
+		if not f.has_meta("fan") or int(f.get_meta("fan")) != players:
+			continue
+		f.scale = Vector2.ONE * 0.7
+		f.create_tween().tween_property(f, "scale", Vector2.ONE, 0.3).set_delay(0.1).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+		var tw := f.create_tween().set_parallel(true)
+		for t in f.get_children():
+			if not t.has_meta("close"):
+				continue
+			var cl: Array = t.get_meta("close")
+			var open_pos: Vector2 = t.position
+			var open_rot: float = t.rotation
+			t.position = cl[0]
+			t.rotation = cl[1]
+			UiKit.tween_back(tw, t, "position", open_pos, 0.3, 0.6, true).set_delay(0.4)
+			UiKit.tween_back(tw, t, "rotation", open_rot, 0.3, 0.6, true).set_delay(0.4)
+
 func _fan(c: Vector2, h: float, ids: Array, sel: bool) -> Control:
 	var root := Control.new()
 	root.position = c
@@ -619,6 +644,8 @@ func _fan(c: Vector2, h: float, ids: Array, sel: bool) -> Control:
 		t.position = -t.size / 2 + offs[k]
 		t.rotation = rots[k]
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if sel: # etat ferme (OpponentsExpandBehavior.InitializeValues : close / closeRotations) pour l'entree
+			t.set_meta("close", [-t.size / 2 + [Vector2(0, 0), Vector2(sep / 3, 0), Vector2(-sep / 3, sep / 4), Vector2(sep / 3, sep / 4)][k], [-0.1, 0.05, -0.2, 0.15][k]])
 		if not sel:
 			t.material = _gray_mat() # carte desactivee : Amount 0 et opacite 0,8 (CardAttributesComponent.cs:90-97 ; pentes mesurees ~0,8 sur la frame APK, sans assombrissement)
 			t.modulate.a = 0.8
@@ -687,7 +714,8 @@ func _draw_variants() -> void:
 			if on and not variants.has(vid):
 				variants.append(vid)
 			elif not on:
-				variants.erase(vid))
+				variants.erase(vid)
+			Profile.save_variants(variants))
 		row.add_child(cb)
 
 ## Tuiles de LocalMarket.Expansions (ExpansionScene.cs:39-44) : alignees a gauche (centre de la premiere en x 455, pas de 331, ExpansionScrollComponent.cs:57-59), le jeu de base

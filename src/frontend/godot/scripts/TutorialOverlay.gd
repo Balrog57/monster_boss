@@ -14,7 +14,8 @@ extends Control
 ##  - p26 (ame) : seulement si le heros 064 meurt, donc si la capacite de BMA027 a ete jouee ;
 ##  - p29 : seulement si l'effet du sort BMA041 s'est resolu ; p28 : seulement si le sort est arrive sur la pile ;
 ##  - p27 / p23 : consignes qui retiennent la partie (run = faux) tant que le coup demande est legal ; des qu'il ne l'est plus, la partie reprend.
-## Apres le LEVEL UP (p30 + p31) la garde est retiree et le jeu continue normalement.
+## Apres le LEVEL UP (p30 + p31) le jeu continue normalement ; la garde est retiree des que la fenetre restreinte (NumberOfTurns == 0) est finie. Dans la partie scriptee le LEVEL UP
+## (5 salles) ne vient qu'apres : 3 salles au plus au tour 1 (ui_smoke le verifie), donc toutes les autres etapes sont deja passees.
 
 const UiKit = preload("res://godot/scripts/UiKit.gd")
 const BossEngine = preload("res://godot/scripts/BossEngine.gd")
@@ -34,7 +35,7 @@ const TYPE_CPS := 15.0                      # AnimatedWritingBehavior.cs:11 : 15
 const AFTER_TYPE := 0.2                     # TutorialIntroScene.cs:100 : Delay(0,2 s) apres la frappe
 const FADE_IN := 0.2                        # ModalTransitionsTime : CrossFade de 0,2 s a l'ouverture d'une scene (GamePlayTutScene.cs:136-142)
 const HINT_TIME := 0.5                      # HideWhenTouchBehavior.cs:36-37 : entree et sortie de la bulle du boss
-const SHAKE_AMP := 20.0                     # ShakeBehavior (TutorialFactory.cs:30-35) : amplitude 20, pas de decroissance
+const SHAKE_AMP := 20.0                     # ShakeBehavior.DoEffect (ShakeBehavior.cs:11,77) : amplitude 20 ; TutorialFactory.cs:30-35 fixe AmplitudeDecrement 0 (pas de decroissance) et VelocityFactor 0,12
 const SHAKE_W := 7.2                        # VelocityFactor 0,12 x 60 images/s
 const TAP_SLOP := 10.0 # TouchGestures.TapThreshold : un appui deplace de plus de 10 unites devient un glissement, pas un tap (TouchGestures.cs:25,455-459)
 ## Seul le rectangle 1440 x 1080 de l'APK capte les taps (RectangleCollider de TutorialBaseScene.cs:84-91, repere F = APK + 240) : sur un ecran plus large, les bandes laterales
@@ -272,6 +273,16 @@ func _forced_id() -> String:
 		return ""
 	return fid
 
+## Main libre en aventure : CreateBeforePlayerInteractionTask remet ForcedToExtractCard = null et IsLocked = false a CHAQUE pas (cs:178-179) ; seules les fenetres du boss humain
+## verrouillent la main (p22 : AdventurePhase_b sans ame, cs:233-237 ; p23 : AdventurePhase_c, cs:239-247) et la carte imposee (sort, cs:225-232). En construction la carte imposee
+## reste la meme pour tout le pas, meme une fois posee (la reference n'est remise a null qu'au pas suivant) : toute autre carte y reste refusee (_forced_id vide, rappel DONE).
+func _free_hand() -> bool:
+	if _phase() != "adventure":
+		return false
+	if board.game_manager.active_player() != 0:
+		return true
+	return not (_p(0).get("souls", []) as Array).is_empty() and (_G().get("adventure", {}) as Dictionary).is_empty()
+
 ## Le heros 068 attend a l'entree du donjon adverse, sort jouable (CheckPlaySpellCondition, GamePlayTutScene.cs:396-405 : InsideDungeonSlot == null).
 func _spell_window() -> bool:
 	var G := _G()
@@ -335,7 +346,7 @@ func _clocks(dt: float) -> void:
 	if bool(_done.get("intro2", false)) and not bool(_done.get("discard", false)) and _discard_pending():
 		_disc_t += dt
 	if _holding():
-		_hold_t += dt
+		_hold_t += board._win_dt(dt) # la barre de 3 s de l'APK s'arrete (hors ligne) tant que le joueur glisse une carte ou zoome (OnTimerSlowDown, GamePlayBaseScene.cs:169-190)
 	else:
 		_hold_t = 0.0
 	if _hint != null:
@@ -351,8 +362,8 @@ func _poll() -> void:
 	var G := _G()
 	if G.is_empty():
 		return
-	if G.get("gameOver") != null:
-		_finish()
+	if G.get("gameOver") != null or (_lvl_done and not _restricted()):
+		_finish() # LEVEL UP montre une seule fois (cs:365-369) ; les scenes suivantes (NumberOfTurns == 0) tournent tant que la fenetre restreinte dure, ensuite plus aucune ne peut se produire
 		return
 	var p0 := _p(0)
 	var phase := _phase()
@@ -548,7 +559,7 @@ func gate(kind: String, arg = null):
 		"tap":
 			return _gate_tap(arg as Dictionary)
 		"drag":
-			if not _restricted():
+			if not _restricted() or (_forced_id() == "" and _free_hand()):
 				return true
 			var hand: Array = _p(0).get("hand", [])
 			var ok := int(arg) < hand.size() and _forced_id() != "" and str((hand[int(arg)] as Dictionary).get("id", "")) == _forced_id()
@@ -558,7 +569,7 @@ func gate(kind: String, arg = null):
 		"drop":
 			return not _restricted() or (arg as DungeonSlot).current_stack.is_empty() # BuildRoomHandSceneBehavior.cs:174 : pose sur un emplacement occupe interdite
 		"move":
-			if not _restricted():
+			if not _restricted() or (_forced_id() == "" and _free_hand()):
 				return true
 			var mv: Dictionary = arg
 			var a: Array = mv.get("args", [])
@@ -795,8 +806,7 @@ func _levelup() -> void:
 	lb = _balloon("long", Vector2(Vp.left_edge() + 500.0, 580))
 	await _text_step(lb, {"text": TEXT["page31"][0], "hands": [{"pos": Vector2(Vp.limited_right_edge() - 395.0, 950)}, {"pos": Vector2(Vp.limited_right_edge() - 550.0, 780)}]})
 	_end()
-	_lvl_done = true
-	_finish() # le jeu continue normalement : banniere LEVEL UP puis choix de niveau
+	_lvl_done = true # banniere LEVEL UP puis choix de niveau autorises ; la garde ne tombe (_poll) qu'a la fin de la fenetre restreinte, pour que les etapes restantes tournent
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Briques de scene

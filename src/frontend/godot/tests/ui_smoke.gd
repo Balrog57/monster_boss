@@ -310,7 +310,7 @@ func _drag_card(idx: int, drop: Vector2) -> bool:
 ## Centre d'un emplacement de mon donjon pouvant recevoir la salle `idx` : l'emplacement libre de preference (`ti` < 0), sinon `ti` ; (-1, -1) si aucun.
 func _room_drop_pos(idx: int, ti: int = -1) -> Vector2:
 	var data := {"type": "card", "hand_index": idx}
-	var dsize: int = (gm.G["players"][0]["dungeon"] as Array).size()
+	var dsize: int = (gm.G["players"][board._my_pid()]["dungeon"] as Array).size() # le siege affiche (pass and play : pas toujours le joueur 0)
 	var best: DungeonSlot = null
 	for sl in board._dungeon_slots:
 		var d := sl as DungeonSlot
@@ -324,14 +324,30 @@ func _room_drop_pos(idx: int, ti: int = -1) -> Vector2:
 
 ## Ou lacher le sort / la capacite de main `mv` : sur sa cible quand elle est a l'ecran, sinon n'importe ou au-dessus de la main.
 func _spell_drop_pos(mv: Dictionary) -> Vector2:
+	var spot := _cand_spot(mv)
+	if not spot.is_empty():
+		var node: Control = board._spot_node(spot)
+		if node != null:
+			return (board._spot_rect(spot, node) as Rect2).get_center()
+		if str(spot.get("k", "")) == "player": # boss adverse hors ecran : sa vignette du selecteur (CollapsedOpponentDetail)
+			var fb := _foe_button(int(spot["pid"]))
+			if fb != null:
+				return fb.get_global_rect().get_center()
+	return Vector2(960, 500)
+
+## Zone du plateau d'un coup de carte ({} : cible sans representation).
+func _cand_spot(mv: Dictionary) -> Dictionary:
 	var a: Array = mv.get("args", [])
 	if a.size() > 1 and a[1] is Dictionary:
-		var spot: Dictionary = board._spot_of_target(a[1], 0)
-		if not spot.is_empty():
-			var node: Control = board._spot_node(spot)
-			if node != null:
-				return (board._spot_rect(spot, node) as Rect2).get_center()
-	return Vector2(960, 500)
+		return board._spot_of_target(a[1], board._my_pid())
+	return {}
+
+## Vignette / bouton du selecteur d'adversaire d'un siege (null si absent).
+func _foe_button(pid: int) -> Button:
+	for b in board.foe_bar.get_children() + board.opp_box.get_children():
+		if b is Button and int((b as Button).get_meta("pid", -1)) == pid and not (b as Button).disabled:
+			return b as Button
+	return null
 
 ## Selecteur d'adversaire : vignettes de la colonne droite (3-4 joueurs) ou boutons P<n> de la barre du haut (5-6) ; `selected` = deja affiche.
 func _foe_buttons() -> Array:
@@ -711,7 +727,21 @@ func _do_hand(pid: int, idx: int, cands: Array) -> void:
 	var cname := str(hand[idx].get("name"))
 	_check(not (cards[idx] as CardUI).greyed, "carte jouable %s grisee" % cname)
 	# Le sort se joue en le glissant sur sa cible (PlaySpellsInHandSceneBehavior.MyHand_CardDropped) : un sort sans cible, n'importe ou au-dessus de la main.
-	var pick: Dictionary = cands[rng.randi_range(0, cands.size() - 1)]
+	# Cibles sur le plateau : le sort doit tomber SUR l'une d'elles (cs:61-77) ; une cible dans un donjon non affiche se joue en choisissant d'abord l'adversaire dans le selecteur (GamePlayBaseScene.cs:1008-1029).
+	var onboard := cands.filter(func(m): return not _cand_spot(m).is_empty())
+	var pool: Array = cands
+	if not onboard.is_empty():
+		var reach := onboard.filter(func(m): return board._spot_node(_cand_spot(m)) != null or _foe_button(int(_cand_spot(m).get("pid", -1))) != null)
+		pool = reach if not reach.is_empty() else onboard
+	var pick: Dictionary = pool[rng.randi_range(0, pool.size() - 1)]
+	var psp := _cand_spot(pick)
+	if not psp.is_empty() and str(psp.get("k", "")) != "player" and board._spot_node(psp) == null:
+		var fb := _foe_button(int(psp.get("pid", -1)))
+		if fb != null:
+			fb.pressed.emit()
+			for _i in 3:
+				await get_tree().process_frame
+			_cov("spell_foe_switch")
 	var at := _spell_drop_pos(pick)
 	var hits := cands.filter(func(m): return _spell_drop_pos(m).distance_to(at) < 1.0 and at != Vector2(960, 500))
 	var n_menu: int = 1 if cands.size() == 1 else (hits.size() if not hits.is_empty() else cands.size())
@@ -2181,6 +2211,106 @@ func _check_stack_ai_after() -> void:
 	_check((G.get("stack", []) as Array).is_empty() and board._stack_ui == null, "pile IA apres moi : encore ouverte a 8 s (2e fenetre de 6 s apres ma passe)")
 	_cov("stack_ai_after")
 
+## Survol d'une carte de la main : la barre de temps ralentit (CardExtractBehavior.Update cs:169-177 -> OnTimerSlowDown, GamePlayBaseScene.cs:169-185).
+func _check_hand_pause() -> void:
+	_tag = "[hand-pause]"
+	await _new_game()
+	board.set_process(false)
+	_check(not board._win_paused(), "survol : la barre est ralentie sans carte survolee")
+	var cards := _hand_cards()
+	if not _check(not cards.is_empty(), "survol : main vide"):
+		return
+	board._hover_card = cards[0] as CardUI
+	_check(board._win_paused(), "survol : la barre doit s'arreter (hors ligne) tant qu'une carte de la main est survolee")
+	board._hover_card = null
+	_check(not board._win_paused(), "survol : la barre doit repartir quand plus aucune carte n'est survolee")
+	_cov("hand_hover_pause")
+
+## Sort a une cible visible sur le plateau : lache hors de la cible il retourne en main, lache SUR elle il est joue (PlaySpellsInHandSceneBehavior.cs:61-77) et la meme carte glisse du point de depot
+## vers sa place dans la pile (cs:33-39 ; CardMoveBehavior.cs:13,129-133).
+func _check_spell_drop_parity() -> void:
+	_tag = "[spell-drop]"
+	await _new_game()
+	board.set_process(false)
+	board.skip_animations = false
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	me["hand"] = (me["hand"] as Array).filter(func(c): return bool((c as Dictionary).get("isRoom", false)))
+	(G["town"] as Array).clear()
+	(G["town"] as Array).append((CardDB.heroes[0] as Dictionary).duplicate(true)) # un seul heros = une seule cible
+	var idx := _take_spell("BMA051")
+	if not _check(idx >= 0, "sort a cible : BMA051 introuvable"):
+		return
+	var mv := gm.legal_moves(0).filter(func(m): return m["type"] == "playSpell" and int(m["args"][0]) == idx)
+	if not _check(mv.size() == 1, "sort a cible : %d coups (1 attendu)" % mv.size()):
+		return
+	var n0 := (me["hand"] as Array).size()
+	_check(_drag_card(idx, Vector2(960, 420)), "sort a cible : glisser impossible")
+	await get_tree().process_frame
+	_check((me["hand"] as Array).size() == n0 and (G.get("stack", []) as Array).is_empty(), "sort a une seule cible lache hors d'elle : il doit retourner en main")
+	_cov("spell_drop_off_target")
+	var at := _spell_drop_pos(mv[0])
+	_check(at != Vector2(960, 500), "sort a cible : la cible n'a pas de zone a l'ecran")
+	var cards := _hand_cards() # glisser avec mouvement : la carte suit le curseur jusqu'a la cible avant le relachement (le helper _drag_card ne bouge pas la carte)
+	board._press = {"card": cards[idx], "idx": idx, "pos": (cards[idx] as CardUI).get_global_rect().get_center()}
+	board._drag_begin()
+	board._press = {}
+	if _check(not board._drag.is_empty(), "sort a cible : glisser sur la cible impossible"):
+		board._drag["pull"] = false
+		board._drag_move(at)
+		board._drag_end(at)
+	await get_tree().process_frame
+	_check((me["hand"] as Array).size() == n0 - 1, "sort lache sur sa cible : il doit etre joue")
+	if _check(board._stack_ui != null and is_instance_valid(board._stack_ui) and board._stack_ui.get_child_count() > 0, "sort joue : la pile n'est pas affichee"):
+		var z := board._stack_ui.get_child(0) as Control
+		var c := z.position + z.size / 2.0
+		var home := Vector2(board.STACK_CX, 498.0)
+		var drop_c := Vector2(at.x, at.y - 0.12 * board.HAND_CARD.y) # centre de la carte tenue (_drag_move : le curseur est a 62 % de sa hauteur)
+		_check(c.distance_to(drop_c) < c.distance_to(home), "sort joue : la carte doit partir du point de depot (%s), pas de sa place dans la pile (centre %s)" % [drop_c, c])
+		_cov("spell_from_drop_point")
+
+## Salle neuve face visible : fondu d'entree de 0,3 s ; salle detruite : elle s'efface en 0,3 s avant d'etre retiree (CardStackSlotComponent.cs:119-123,161-173).
+func _check_room_fade() -> void:
+	_tag = "[room-fade]"
+	await _new_game()
+	board.set_process(false)
+	board.skip_animations = false
+	var me: Dictionary = gm.G["players"][0]
+	board.refresh()
+	var have := {}
+	for st in (me["dungeon"] as Array):
+		for r in (st as Array):
+			have[str((r as Dictionary).get("id", ""))] = true
+	var room: Dictionary = {}
+	for r in CardDB.rooms:
+		if not have.has(str((r as Dictionary).get("id", ""))):
+			room = (r as Dictionary).duplicate(true)
+			break
+	room["faceDown"] = false
+	(me["dungeon"] as Array).append([room])
+	board.refresh()
+	var slot: DungeonSlot = null
+	for sl in board._dungeon_slots:
+		var d := sl as DungeonSlot
+		if not d.current_stack.is_empty() and str((d.current_stack[d.current_stack.size() - 1] as Dictionary).get("id", "")) == str(room["id"]):
+			slot = d
+	if not _check(slot != null, "fondu : la salle posee n'est dans aucun emplacement"):
+		return
+	var holder := slot.card_container.get_child(slot.card_container.get_child_count() - 1) as Control # les anciens enfants (queue_free) restent en tete jusqu'a la fin de l'image
+	_check(holder.modulate.a < 1.0, "fondu : une salle neuve face visible doit entrer en fondu (alpha %.2f)" % holder.modulate.a)
+	_cov("room_fade_in")
+	await _wait(0.5)
+	_check(is_instance_valid(holder) and holder.modulate.a > 0.99, "fondu : la salle neuve n'est pas revenue a l'opacite pleine")
+	(me["dungeon"] as Array).pop_back()
+	board.refresh()
+	var ghosts: Array = []
+	for sl in board._dungeon_slots:
+		ghosts.append_array((sl as Node).get_children().filter(func(c): return c.has_meta("room_ghost")))
+	if _check(ghosts.size() == 1, "fondu : la salle detruite doit rester 0,3 s a l'ecran (%d fantomes)" % ghosts.size()):
+		await _wait(0.5)
+		_check(not is_instance_valid(ghosts[0]), "fondu : la salle detruite n'est pas retiree apres son fondu")
+		_cov("room_fade_out")
+
 ## Boss adverse monte de niveau (cas filme) : par le vrai refresh(), le halo reste derriere le sprite a chaque refresh (DrawOrder 9E-05 contre 8E-05, DungeonFrameEntity.cs:273-279 ;
 ## devant, il recouvre le boss d'une silhouette rouge) et entre en fondu de 0,5 s (FadeBehavior, cs:484).
 func _check_boss_glow() -> void:
@@ -3251,8 +3381,12 @@ func _check_review_fixes() -> void:
 	if _check(mp != null and main._fade_layer.get_child_count() == 1, "W-19 : menu absent apres TAP TO START"):
 		_check((main._fade_layer.get_child(0) as Control).mouse_filter == Control.MOUSE_FILTER_IGNORE, "W-19 : le voile bloque encore les clics dans l'eclaircie")
 		await _click_at(mp.get_global_rect().get_center())
+		_check(main.is_fading() and main.find_child("PLAY ONLINE", true, false) == null, "transition : un clic pendant l'eclaircie doit etre refuse (ScreenContextManager.cs:233-236)")
 		await _nav(main)
-		_check(main.find_child("PLAY ONLINE", true, false) != null, "W-19 : un seul clic sur MULTIPLAYER n'ouvre pas l'ecran multijoueur")
+		_check(main.find_child("PLAY ONLINE", true, false) == null, "transition : l'ordre refuse pendant l'eclaircie a ete execute apres coup")
+		await _click_at(mp.get_global_rect().get_center())
+		await _nav(main)
+		_check(main.find_child("PLAY ONLINE", true, false) != null, "W-19 : un clic sur MULTIPLAYER apres le fondu n'ouvre pas l'ecran multijoueur")
 	main.queue_free()
 	await get_tree().process_frame
 
@@ -3263,6 +3397,91 @@ func _hand_hidden() -> int:
 		if not (c as CanvasItem).visible:
 			n += 1
 	return n
+
+## Parite audio (S6) : music_main seulement a l'ecran titre (IntroScene.cs:84), RESUME = select seul (PauseScene.cs:57-60), char_hero_intro meme si le heros meurt (GamePlayBaseScene.cs:932-934).
+func _check_audio_parity() -> void:
+	_tag = "[audio_parity]"
+	var main = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	var m0: int = AudioManager.rec.size()
+	main.show_menu()
+	_check(AudioManager.rec.slice(m0).filter(func(e): return str(e).begins_with("music:")).is_empty(), "show_menu ne doit relancer aucune musique, vu %s" % str(AudioManager.rec.slice(m0)))
+	m0 = AudioManager.rec.size()
+	main.show_title()
+	_check(AudioManager.rec.slice(m0).has("music:music_main"), "show_title doit lancer music_main (IntroScene.cs:84)")
+	main.queue_free()
+	await _new_game()
+	board.set_process(false)
+	board._on_menu_pressed()
+	await get_tree().process_frame
+	m0 = AudioManager.rec.size()
+	var resume: Button = _buttons(board._popup)[0]
+	resume.button_down.emit()
+	resume.pressed.emit()
+	_check(AudioManager.rec.slice(m0).filter(func(e): return str(e).begins_with("sfx:")) == ["sfx:ui_button_select"], "RESUME : ui_button_select seul, vu %s" % str(AudioManager.rec.slice(m0)))
+	board.skip_animations = false
+	board._hero_pawn = null
+	m0 = AudioManager.rec.size()
+	board._play_hero_crossing_animation({"pid": board.view_pid, "hero": {"id": "x", "name": "X", "hp": 4}, "killed": true, "deathIndex": 0, "path": [], "initialHp": 4})
+	_check(AudioManager.rec.slice(m0).has("sfx:char_hero_intro"), "heros mort : char_hero_intro doit jouer, vu %s" % str(AudioManager.rec.slice(m0)))
+
+## Parcours des menus (S10) : CANCEL de QUIT GAME? = un seul select (a l'appui) puis retour muet a la pause (ConfirmationBoxScene.cs:116-124 ; ModalSceneService.cs:60-72) ;
+## CARD GALLERY depile la pause (ModalSceneService.cs:52-57) ; une transition refuse tout ordre jusqu'a la fin du fondu (ScreenContextManager.cs:233-236).
+func _check_menu_flow() -> void:
+	_tag = "[menu_flow]"
+	await _new_game()
+	board.set_process(false)
+	board._on_menu_pressed()
+	await get_tree().process_frame
+	board._open_quit_confirm()
+	await get_tree().process_frame
+	var cancel: BaseButton = board._popup.find_children("*", "TextureButton", true, false)[0]
+	var m0: int = AudioManager.rec.size()
+	cancel.button_down.emit()
+	cancel.pressed.emit()
+	await get_tree().process_frame
+	_check(AudioManager.rec.slice(m0).filter(func(e): return str(e).begins_with("sfx:")) == ["sfx:ui_button_select"], "CANCEL : un seul ui_button_select, vu %s" % str(AudioManager.rec.slice(m0)))
+	_check(board._popup_kind == "menu", "CANCEL : retour au menu PAUSED attendu")
+	var gal_btn: Button = null
+	for b in _buttons(board._popup):
+		if (b as Button).text == "CARD GALLERY":
+			gal_btn = b
+	if _check(gal_btn != null, "pause : CARD GALLERY absent"):
+		gal_btn.pressed.emit()
+		await get_tree().process_frame
+		var dim: CanvasItem = board._popup.get_child(0)
+		var resume: Button = null
+		for b in _buttons(board._popup):
+			if (b as Button).text == "RESUME":
+				resume = b
+		_check(not dim.visible and resume != null and not resume.is_visible_in_tree(), "galerie : la pause (voile et boutons) doit etre cachee")
+		var g = board._popup.find_children("*", "Control", true, false).filter(func(c): return c.get_script() != null and str(c.get_script().resource_path).ends_with("CardGallery.gd"))
+		if _check(g.size() == 1, "galerie : non ouverte"):
+			g[0].close_gallery()
+			await get_tree().process_frame
+			await get_tree().process_frame
+			resume = null
+			for b in _buttons(board._popup):
+				if (b as Button).text == "RESUME":
+					resume = b
+			_check(board._popup.get_child(0).visible and resume != null and resume.is_visible_in_tree(), "galerie fermee : la pause doit revenir")
+	await _teardown()
+	var main = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main)
+	await _wait(0.3)
+	var calls := [0]
+	main.go(func(): calls[0] += 1)
+	await _wait(0.75) # apres le milieu du fondu (0,5 s), avant sa fin (1,0 s)
+	_check(calls[0] == 1 and main.is_fading(), "transition : encore bloquee dans l'eclaircie")
+	main.go(func(): calls[0] += 1)
+	await _nav(main)
+	_check(calls[0] == 1, "transition : un go() pendant l'eclaircie a ete execute")
+	main.go(func(): calls[0] += 1)
+	await _nav(main)
+	_check(calls[0] == 2, "transition : un go() apres le fondu doit passer")
+	main.queue_free()
+	await get_tree().process_frame
 
 ## Galerie de cartes : 5 onglets (BOSS / ROOM / SPELL / HERO / EPIC HERO), grille, paquets de l'APK (+ wiki selon l'option), fermeture ;
 ## ouverte depuis le menu en jeu et depuis OPTIONS du menu principal.
@@ -3765,6 +3984,15 @@ func _check_online_menus() -> void:
 	_check(main.find_child("Variants", true, false) != null and main.find_child("Variant_unlimited", true, false) != null and not (main.find_child("Variant_hard", true, false) as CheckBox).button_pressed, "SELECT EXPANSIONS : cinq variantes, decochees par defaut")
 	(main.find_child("Variant_machinations", true, false) as CheckBox).button_pressed = true
 	_check(main.variants == ["machinations"] and (main._active_sets() as Array).has("machinations-wiki"), "SELECT EXPANSIONS : cocher une variante l'ajoute")
+	# les variantes cochees survivent a un rechargement ; un profil sans la cle (ancien) donne []
+	_check(Profile.load_variants() == ["machinations"], "variantes : cochee puis enregistree dans le profil")
+	main.variants = []
+	main.variants = Profile.load_variants()
+	main.show_setup(2, "solo")
+	await _wait(0.2)
+	_check((main.find_child("Variant_machinations", true, false) as CheckBox).button_pressed, "variantes : restaurees a la reouverture de SELECT EXPANSIONS")
+	(main.find_child("Variant_machinations", true, false) as CheckBox).button_pressed = false
+	_check(Profile.load_variants() == [], "variantes : decochee puis enregistree vide")
 	main.variants = []
 	main.use_extensions = false
 	main.show_setup(2, "solo")
@@ -4232,6 +4460,115 @@ func _check_crossing_ui() -> void:
 	_check(board._hero_pawn == null or not is_instance_valid(board._hero_pawn), "traversee : le personnage reste apres le depart du heros")
 	board.skip_animations = true
 	_cov("crossing")
+
+## Une salle de l'aventure en partie solo = deplacement (1,0 x vitesse) + barre de 3 s, rien d'autre (GamePlayBaseScene.cs:215,861-871 : la fin de la barre va droit a NextStep) ;
+## carte de heros qui quitte la file : fondu de 0,5 s (HeroesQueueComponent.cs:297) ; PV du coeur : fondu de texte 0,25 + 0,25 s (UpdatableTextBlock.cs:24,32-43).
+func _check_adventure_timing() -> void:
+	_tag = "[adv-timing]"
+	Engine.max_fps = 60 # headless sans limite : delta et horloge murale (max, _process) divergent a chaque image et la barre de 3 s se vide en ~2,2 s
+	for speed in [1.0, 0.5]:
+		await _new_game()
+		board.skip_animations = false
+		board._speed = speed
+		var G: Dictionary = gm.G
+		var me: Dictionary = G["players"][0]
+		var foe: Dictionary = G["players"][1]
+		(foe["hand"] as Array).clear()
+		(foe["dungeon"] as Array).clear()
+		var dng: Array = me["dungeon"]
+		dng.clear()
+		for i in 3:
+			var r: Dictionary = (CardDB.rooms[i] as Dictionary).duplicate(true)
+			r["isRoom"] = true
+			r["faceDown"] = false
+			dng.push_front([r])
+		var hero: Dictionary = (CardDB.heroes[5] as Dictionary).duplicate(true)
+		(me["entrance"] as Array).clear()
+		(me["entrance"] as Array).append(hero)
+		G["phase"] = "adventure"
+		G.erase("buildWindow")
+		G["adventure"] = {"playerId": 0, "hero": hero, "roomIndex": 0, "hp": 99, "pause": "post-damage"}
+		G["adventurePausePassed"] = {}
+		G["activePlayer"] = 0
+		board.refresh()
+		var stamps: Array = []
+		var last: int = 0
+		var t0 := Time.get_ticks_msec()
+		while stamps.size() < 2 and Time.get_ticks_msec() - t0 < 16000:
+			await get_tree().process_frame
+			var adv: Dictionary = G.get("adventure", {})
+			if adv.is_empty():
+				break
+			var ri: int = int(adv.get("roomIndex", 0))
+			if ri != last:
+				last = ri
+				stamps.append(Time.get_ticks_msec())
+		if _check(stamps.size() == 2, "salle (vitesse %.1f) : deux pas attendus, %d vus" % [speed, stamps.size()]):
+			var dt: float = float(stamps[1] - stamps[0]) / 1000.0
+			var want: float = 3.0 + 1.0 * speed
+			_check(absf(dt - want) <= 0.25, "salle (vitesse %.1f) : %.2f s mesures, %.2f s attendues (deplacement + barre de 3 s)" % [speed, dt, want])
+	# carte de heros qui quitte la file : fondu 0,5 s
+	await _new_game()
+	board.set_process(false)
+	board.skip_animations = false
+	var G2: Dictionary = gm.G
+	var me2: Dictionary = G2["players"][0]
+	var h0: Dictionary = (CardDB.heroes[5] as Dictionary).duplicate(true)
+	var h1: Dictionary = (CardDB.heroes[6] as Dictionary).duplicate(true)
+	(me2["entrance"] as Array).clear()
+	me2["entrance"] = [h0, h1]
+	board.refresh()
+	await _wait(0.1)
+	var par: Control = (board._lane[1] as Dictionary)["entrance"].get_parent()
+	me2["entrance"] = [h1]
+	board.refresh()
+	await _wait(0.25)
+	var ghosts: Array = par.get_children().filter(func(c): return c is Control and c.has_meta("hk") and (c as Control).modulate.a < 1.0)
+	if _check(ghosts.size() == 1, "file des heros : la carte partie doit s'estomper (%d)" % ghosts.size()):
+		var ga: float = (ghosts[0] as Control).modulate.a
+		_check(ga > 0.2 and ga < 0.8, "file des heros : fondu a mi-course attendu vers 0,5 (%.2f)" % ga)
+		await _wait(0.45)
+		_check(not is_instance_valid(ghosts[0]), "file des heros : la carte partie doit disparaitre apres 0,5 s")
+	# PV du coeur : fondu de texte
+	await _new_game()
+	board.set_process(false)
+	board.skip_animations = false
+	board._speed = 0.5
+	var G3: Dictionary = gm.G
+	var me3: Dictionary = G3["players"][0]
+	var dng3: Array = me3["dungeon"]
+	dng3.clear()
+	for i in 3:
+		var r3: Dictionary = (CardDB.rooms[i] as Dictionary).duplicate(true)
+		r3["isRoom"] = true
+		r3["faceDown"] = false
+		dng3.push_front([r3])
+	var hero3: Dictionary = (CardDB.heroes[5] as Dictionary).duplicate(true)
+	(me3["entrance"] as Array).clear()
+	(me3["entrance"] as Array).append(hero3)
+	G3["phase"] = "adventure"
+	_reveal_all(G3)
+	G3.erase("buildWindow")
+	board.refresh()
+	G3["adventure"] = {"playerId": 0, "hero": hero3, "roomIndex": 0, "hp": 10, "pause": "post-damage"} # pas de refresh : le pas est joue a la main
+	board._animate_step(hero3, 0, -1, 0, 10, 8)
+	var lbl: Label = board._hero_pawn_hp
+	if _check(lbl != null, "PV du heros : pas d'etiquette"):
+		var dimmed := false
+		var a_at_change := 1.0
+		var tt0 := Time.get_ticks_msec()
+		while is_instance_valid(lbl) and lbl.text != "8" and Time.get_ticks_msec() - tt0 < 4000:
+			dimmed = dimmed or (lbl.modulate.a < 0.9 and lbl.text == "10")
+			await get_tree().process_frame
+		if is_instance_valid(lbl):
+			a_at_change = lbl.modulate.a
+		_check(is_instance_valid(lbl) and lbl.text == "8", "PV du heros : le texte n'a jamais change")
+		_check(dimmed and a_at_change < 0.35, "PV du heros : l'ancien texte doit s'estomper avant que le nouveau n'entre (estompe %s, opacite au changement %.2f)" % [str(dimmed), a_at_change])
+		await _wait_until(func(): return not is_instance_valid(lbl) or lbl.modulate.a > 0.99, 3.0) # images lentes : le fondu suit delta, pas l'horloge murale
+		_check(is_instance_valid(lbl) and lbl.modulate.a > 0.99, "PV du heros : le texte doit etre revenu a pleine opacite (%.2f)" % (lbl.modulate.a if is_instance_valid(lbl) else -1.0))
+	Engine.max_fps = 0
+	board.skip_animations = true
+	_cov("adventure_timing")
 
 ## Petites animations : coeur qui monte (degats), cristal qui s'allume, pioche au centre, notice « HAS PLAYED A SPELL ».
 func _check_effects() -> void:
@@ -4864,6 +5201,10 @@ func _check_l4_board() -> void:
 	_check(Engine.get_process_frames() == frames0 and _hand_cards().size() == (p0["hand"] as Array).size() and board.sidebar_boss_label.text == coins0, "rafraichissement : doit etre synchrone (main %d / %d)" % [_hand_cards().size(), (p0["hand"] as Array).size()])
 	_cov("refresh_sync")
 
+## --only=extras : toutes les verifications supplementaires sans les parties aleatoires (isole une regression de l'enchainement).
+func _check_extras() -> void:
+	await _extra_checks()
+
 func _extra_checks() -> void:
 	await _check_stacks()
 	await _check_boss_flip()
@@ -4877,6 +5218,9 @@ func _extra_checks() -> void:
 	await _check_stack_counter()
 	await _check_stack_two_ai()
 	await _check_stack_ai_after()
+	await _check_hand_pause()
+	await _check_spell_drop_parity()
+	await _check_room_fade()
 	await _check_boss_glow()
 	await _check_town_slide()
 	await _check_bait_hidden()
@@ -4899,6 +5243,7 @@ func _extra_checks() -> void:
 	await _check_bait_empty()
 	await _check_apk_gaps()
 	await _check_gallery()
+	await _check_menu_flow()
 	await _check_shipped_menus()
 	await _check_credits()
 	await _check_online_menus()
@@ -4910,6 +5255,7 @@ func _extra_checks() -> void:
 	await _check_apk_anims()
 	await _check_l4_board()
 	await _check_tutorial()
+	await _check_tut_levelup()
 	await _check_tut_decks()
 	await _check_effects()
 	await _check_crossing_ui()
@@ -5461,6 +5807,42 @@ func _check_tutorial() -> void:
 		DirAccess.remove_absolute(cfg_path)
 	_cov("tutorial")
 
+## GamePlayTutScene.cs:362-371 : le LEVEL UP s'insere une seule fois et les scenes suivantes tournent encore. Plateau de tutoriel monte a la main, sans image entre le montage et le test
+## (aucune etape ne demarre seule) ; toutes les etapes sont marquees faites, puis la scene p30 / p31 est jouee au tour 1 (fenetre restreinte) : la surcouche doit survivre,
+## les restrictions rester en place, et tomber seulement quand la fenetre (NumberOfTurns == 0) est finie.
+func _check_tut_levelup() -> void:
+	_tag = "[tut_levelup]"
+	await _teardown()
+	gm = GameManager.new()
+	add_child(gm)
+	gm.start_tutorial()
+	board = load("res://godot/scenes/Board.tscn").instantiate()
+	board.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(board)
+	board.skip_animations = true
+	var ov = TutorialScript.new()
+	board.mount_tutorial(ov)
+	board.setup(gm, func(): quit_calls += 1)
+	board.set_process(false)
+	ov.manual = true
+	for k in TutorialScript.STEPS:
+		ov._done[k] = true
+	gm.G["turn"] = 1
+	ov._levelup()
+	await _tut_pump(ov, 0.1)
+	var seen: Array = await _tut_scene(ov)
+	_check(seen == _tut_step_texts("lvl"), "tutoriel : textes du LEVEL UP %s" % str(seen))
+	_check(is_instance_valid(ov) and not ov._finished and ov._lvl_done, "tutoriel : le LEVEL UP au tour 1 termine la surcouche (les etapes restantes ne tourneraient plus)")
+	if is_instance_valid(ov):
+		_check(board.tutorial_gate.is_valid() and ov._restricted() and ov.gate("levelup") == true, "tutoriel : garde absente apres le LEVEL UP au tour 1")
+		await _tut_pump(ov, 0.2)
+		_check(is_instance_valid(ov) and not ov._finished, "tutoriel : la surcouche tombe avant la fin de la fenetre restreinte")
+		gm.G["turn"] = 2
+		await _tut_pump(ov, 0.2)
+		_check(not is_instance_valid(ov) or ov._finished, "tutoriel : la surcouche reste apres la fenetre restreinte")
+		_check(not board.tutorial_gate.is_valid(), "tutoriel : la garde reste apres la fenetre restreinte")
+	_cov("tut_levelup")
+
 ## Drapeau de premier lancement : la boite TUTORIAL apparait au 1er SINGLE PLAYER (jamais ensuite), la garde du plateau est vide hors tutoriel.
 func _tut_launch_flag(main) -> void:
 	_check(Profile.first_gameplay(), "tutoriel : sans profil, le drapeau de premier lancement doit etre vrai")
@@ -5552,6 +5934,8 @@ func _tut_play(main) -> void:
 			continue
 		var G: Dictionary = gm.G
 		var me: Dictionary = G["players"][0]
+		if ov._done.has("lvl") and not probed.has("lvl_turn"):
+			probed["lvl_turn"] = int(G.get("turn", 0))
 		var sig := JSON.stringify([G.get("phase"), G.get("turn"), (G.get("log", []) as Array).size(), ov._done.size(), ov._scene != null, (me["hand"] as Array).size(), (G.get("stack", []) as Array).size(), G.get("pendingChoice", {})])
 		stuck = stuck + 1 if sig == last_sig else 0
 		last_sig = sig
@@ -5579,6 +5963,12 @@ func _tut_play(main) -> void:
 				await _tut_discard(ov)
 			continue
 		var fid: String = ov._forced_id()
+		# GamePlayTutScene.cs:178-179,233-247 : en aventure la main est libre (ForcedToExtractCard null, IsLocked faux) sauf pendant les fenetres du boss humain (p22 / p23)
+		if fid == "" and ov._restricted() and phase == "adventure" and not ov._hit_state() and not (me["hand"] as Array).is_empty():
+			var mine: bool = gm.active_player() == 0
+			if not probed.has("free:" + str(mine)):
+				probed["free:" + str(mine)] = true
+				_check(ov.gate("drag", 0) == (not mine) and ov._free_hand() == (not mine), "tutoriel : main %s en aventure (tour du boss %s)" % ["verrouillee attendue" if mine else "libre attendue", "humain" if mine else "adverse"])
 		if fid != "":
 			await _tut_forced(ov, fid, probed)
 			continue
@@ -5603,6 +5993,9 @@ func _tut_play(main) -> void:
 	var seen_order: Array = texts.keys().filter(func(k): return order.has(k))
 	_check(seen_order == order, "tutoriel : ordre des etapes %s au lieu de %s" % [str(seen_order), str(order)])
 	_check(not is_instance_valid(ov), "tutoriel : la surcouche reste apres le LEVEL UP")
+	_check(probed.has("free:true") and probed.has("free:false"), "tutoriel : main d'aventure non sondee (%s)" % str(probed.keys()))
+	# 5 salles = 3 au plus pendant NumberOfTurns == 0 : le LEVEL UP de la partie scriptee vient apres toutes les autres etapes, qui ont donc pu tourner
+	_check(int(probed.get("lvl_turn", 0)) > 1, "tutoriel : LEVEL UP au tour %s, dans la fenetre restreinte" % str(probed.get("lvl_turn")))
 	# T-A07 / T-A31 : la partie reelle (graine 2832 + FixedAI) suit le deroule de l'APK, aucun saut defensif ne doit etre declenche
 	print("UISMOKE tutoriel : sauts defensifs = %d %s" % [TutorialScript.skips.size(), str(TutorialScript.skips)])
 	_check(TutorialScript.skips.is_empty(), "tutoriel : sauts defensifs declenches %s" % str(TutorialScript.skips))

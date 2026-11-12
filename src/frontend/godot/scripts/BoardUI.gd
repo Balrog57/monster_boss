@@ -161,6 +161,8 @@ var _over_sting_played: bool = false
 var _order_cache: Dictionary = {} # pid -> Boss.PlayerId
 var _hand_last := -1                     # indice de la carte de la main survolee (CardPositionComponent.lastIndex, int.MinValue = aucune)
 var _hover_card: CardUI                  # carte de la main designee par _tick_hand_hover
+var _spell_from = null                   # centre de la carte lachee (Vector2) d'un sort joue au glisser : le sort part de la, pas de sa place dans la pile
+var _spell_from_ms := 0
 var _hand_cur := -1                      # carte de la main sous le curseur a cet instant
 var _fan_cards: Array = []               # cartes de la main en eventail (_place_fan) et leur taille
 var _fan_sz := Vector2.ZERO
@@ -278,7 +280,6 @@ const BAIT_FLY := 1.0                   # vol d'une carte de heros depuis la vil
 const WINDOW_ADVENTURE := 3.0
 const WINDOW_STACK := 6.0
 const PASS_FAST := 0.45                  # rien a jouer : le siege humain passe presque tout de suite (colle Godot, sans origine C# : l'APK n'a pas d'attente ici ; valeur non verifiable)
-const GO_FAST := 0.55                    # le heros suivant avance de lui-meme (colle Godot, sans origine C# ; independante de la vitesse de jeu, qui ne regle que les animations : GameSettings.GetSpeed)
 const HAND_UPPER := 797.0                # CardExtractBehavior.cs:ResolveDependencies : limite haute de la main (972 - 450/2 + 50) ; au-dessus la carte est extraite, en dessous elle retourne dans la main
 const NOTICE_HOLD := 3.5                 # bulle « HAS PLAYED A » : fondu d'entree 0,5 s + 3,0 s (BubblesPlayerEmitter.cs:22) ; la salle reste agrandie pendant ce temps (deduit des captures APK)
 const WARN_TIME := 0.5                   # bulle « YOU CAN BUILD A ROOM » (HideWhenTouchBehavior.cs:36-37) : entree et sortie de 0,5 s, fermee par un appui hors de la bulle une fois entree
@@ -1126,7 +1127,7 @@ func _process(delta: float) -> void:
 		var moves: Array = game_manager.legal_moves(int(pid))
 		if not moves.is_empty():
 			_ai_timer += dt
-			if _ai_timer > (0.2 if adv_turn else 0.5):
+			if _ai_timer > (0.0 if adv_turn and (game_manager.G.get("adventure", {}) as Dictionary).get("pause") != null else 0.2 if adv_turn else 0.5): # fenetre d'aventure : l'IA repond des la fin de la barre (DoPlayerActions juste apres CreateWaitAndMoveHeroToNextSlotTask, GamePlayBaseScene.cs:864-871)
 				var mv = AI.pick_move(game_manager, int(pid))
 				# Un coup juge nocif par l'IA (score < 0) n'est joue qu'en dernier recours : on prefere passer (comme soak_runner).
 				if pre_entry and mv != null and not ApkAI.is_apk_ability_move(players[pid], mv):
@@ -1179,7 +1180,8 @@ func _speed_factor() -> float:
 
 ## La barre de temps s'arrete tant que le joueur manipule une carte (glisse / zoom) ou une fenetre (APK : SlowDown pendant le zoom).
 func _win_paused() -> bool:
-	return not _drag.is_empty() or _zoom != null or not _tgt.is_empty() or (_popup != null and is_instance_valid(_popup))
+	# CardExtractBehavior.Update (cs:169-177) : OnHandInteractionChanged des qu'une carte de la main est designee par CardHoverBehavior (la souris est connectee : simple survol, sans appui) -> OnTimerSlowDown (GamePlayBaseScene.cs:169-185)
+	return not _drag.is_empty() or _zoom != null or not _tgt.is_empty() or (_popup != null and is_instance_valid(_popup)) or (_hover_card != null and is_instance_valid(_hover_card))
 
 ## Temps ecoule de la barre pour cette image : ralentie (SlowDown) elle avance a 0,07 en ligne (activateTimeOuts : IsPausedWhenSlowDown faux) et s'arrete hors ligne (ProgressBarBehavior.cs:23,192-194 ; GamePlayBaseScene.cs:270-271).
 func _win_dt(delta: float) -> float:
@@ -1301,11 +1303,11 @@ func _auto_pass(delta: float) -> bool:
 			continue
 		# Fenetre chronometree. APK : UNE barre de 3 s par pas du heros (CreateWaitAndMoveHeroToNextSlotTask), qui est la fenetre ou l'humain peut jouer
 		# un sort ; c'est la pause post-damage de Godot (fenetre de sorts de l'oracle), un sort jouable ou non, sans lien avec la vitesse de jeu
-		# (GetSpeed ne touche que les animations). Le GO qui la precede et la pause pre-exit passent vite. Pile de sorts : barre de 6 s si un sort est jouable.
+		# (GetSpeed ne touche que les animations). Le GO qui la precede et la pause pre-exit passent tout de suite (flux APK). Pile de sorts : barre de 6 s si un sort est jouable.
 		# Meme barre avant la 1re salle : heros a l'entree (InsideDungeonSlot == null, GamePlayBaseScene.cs:924-952), le GO d'entree est alors la fin de la fenetre.
 		var at_entry: bool = adv.is_empty() and go_mv != null
 		var timed: bool = apk and ((not stack_open and (str(pause) == "post-damage" or at_entry)) or (stack_open and str(pause) != "pre-exit")) # pile : 6 s meme sans rien a jouer, la fin de la barre est le seul « pret » de l'humain (GamePlayBaseScene.cs:210-213)
-		var want: float = (WINDOW_STACK if stack_open else WINDOW_ADVENTURE) * win_time_scale if timed else (GO_FAST if go_mv != null else PASS_FAST)
+		var want: float = (WINDOW_STACK if stack_open else WINDOW_ADVENTURE) * win_time_scale if timed else (0.0 if apk else PASS_FAST) # flux APK (hors ligne seul humain, en ligne) : la fin de la barre de 3 s va droit a NextStep, aucune attente ensuite (GamePlayBaseScene.cs:861-871, OnlineFlowManager.cs:223-236)
 		# APK : la barre repart a zero a chaque pas du heros et a chaque sort / capacite jouee (pile), jamais parce qu'un siege passe ou qu'une ligne de journal s'ajoute.
 		# Un seul humain hors ligne (flux APK) : meme cle et meme condition que la branche « sans passe a donner » plus bas, une seule barre de 6 s quel que soit l'ordre
 		# des repondants (IA avant ou apres moi). Hotseat / en ligne : cle d'origine avec le siege, sinon un siege herite du temps ecoule du precedent et passe aussitot.
@@ -1575,7 +1577,13 @@ func _refresh_overlay(G: Dictionary, phase: String) -> void:
 	# tutoriel : le carrousel attend la fin des bulles d'intro (_tg), mais l'APK montre deja l'ecran noir du choix du boss (10_tut_a)
 	var intro_wait: bool = not boss_pick and G.get("gameOver") == null and str(G.get("phase", "")) == "boss" and ((G.get("players", {}) as Dictionary).get(view_pid, {}) as Dictionary).get("boss") == null
 	var full := boss_pick or intro_wait
+	var dim_rise := full and not _dim.visible and not skip_animations and is_inside_tree() # le modal du choix du boss entre en CrossFade 0,2 s (GamePlayBaseScene.cs:997-1004 ; ModalSceneService.cs:112-115 ; ModalScene.cs:23-27)
 	_dim.visible = full or discard
+	if dim_rise:
+		_dim.modulate.a = 0.0
+		create_tween().tween_property(_dim, "modulate:a", 1.0, 0.2)
+	elif not full and not skip_animations:
+		_dim.modulate.a = 1.0
 	# APK : choix du boss = tout l'ecran s'assombrit (panneaux et plaque de phase compris) ; defausse d'ouverture = seulement le bandeau
 	# des cartes (y 296..696, filets or), le reste du plateau reste visible et la plaque de phase est cachee.
 	_dim.color = Color(0, 0, 0, 0.92 if full else 0.88)
@@ -2032,8 +2040,18 @@ func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 			if flying and _bait_landed.get(_bait_key(pid_key, ents[k], k), 0) != _bait_t0: # carte arrivee par le leurre : cachee jusqu'a l'arrivee de son double, qui vole depuis la ville (voir _fly_hero_card)
 				tok.modulate.a = 0.0
 				_fly_hero_card(pid_key, ents[k], k, tok)
-		for c in old_tok.values(): # heros partis
-			(c as Node).queue_free()
+		for c in old_tok.values(): # heros partis : leur carte s'estompe 0,5 s pendant que les autres glissent (ShiftAndRemoveFirstHero : FadeBehavior 0,5 s, HeroesQueueComponent.cs:297,306-307 ; HeroCardEntity.cs:60)
+			if skip_animations or not box.is_inside_tree():
+				(c as Node).queue_free()
+				continue
+			var gone := c as Control
+			gone.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			gone.position += box.position # frere de `box` (comme HeroFx) : les rafraichissements suivants ne le reprennent ni ne le liberent
+			box.get_parent().add_child(gone)
+			box.get_parent().move_child(gone, box.get_index())
+			var gt := gone.create_tween()
+			gt.tween_property(gone, "modulate:a", 0.0, 0.5)
+			gt.tween_callback(gone.queue_free)
 		_ent_tok[pid_key] = toks
 		_fx_hero_entry(box, pid_key, ents, toks)
 	if _bait_active():
@@ -2673,14 +2691,18 @@ func _boss_detail_show(card: Control) -> void:
 		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
 			close.call())
 	bb.pressed.connect(close)
-	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
 	det.position = home
 	det.scale = Vector2.ONE * scale0
 	back.modulate.a = 0.0
-	var tw0 := layer.create_tween().set_parallel(true)
-	tw0.tween_property(det, "position", mid, 0.2)
-	tw0.tween_property(det, "scale", Vector2.ONE, 0.2)
-	tw0.tween_property(back, "modulate:a", 1.0, 0.1)
+	# CardDetailEntity.cs:98-104,135-139 : Start() part 0,1 s apres la creation (timer showDetail), le son et le mouvement avec lui
+	get_tree().create_timer(0.1).timeout.connect(func():
+		if not is_instance_valid(layer) or layer.has_meta("closing"):
+			return
+		_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
+		var tw0 := layer.create_tween().set_parallel(true)
+		tw0.tween_property(det, "position", mid, 0.2)
+		tw0.tween_property(det, "scale", Vector2.ONE, 0.2)
+		tw0.tween_property(back, "modulate:a", 1.0, 0.1))
 
 func _boss_stop() -> void:
 	if _boss_detail != null and is_instance_valid(_boss_detail):
@@ -3320,8 +3342,7 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 	var pawn: Control = _hero_pawn
 	if pawn == null or not is_instance_valid(pawn):
 		pawn = _create_hero_pawn(hero, initial_hp)
-		if not (killed and int(lhf.get("deathIndex", -1)) >= 0):
-			_play_sfx("char_hero_intro") # GamePlayBaseScene.cs:932-934 : le heros entre dans le donjon
+		_play_sfx("char_hero_intro") # GamePlayBaseScene.cs:932-934 : joue des que le heros n'est pas encore dans un emplacement
 		hero_crossing_layer.add_child(pawn)
 		var death_idx: int = int(lhf.get("deathIndex", -1))
 		if killed and death_idx >= 0 and death_idx + vis_off < slots_list.size():
@@ -3385,6 +3406,7 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 			_play_sfx("char_hero_move")) # HeroCrossingBehavior.cs:111
 		tw.tween_property(pawn, "global_position:x", boss_pos.x, 0.5 * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		tw.parallel().tween_property(pawn, "global_position:y", boss_pos.y, 0.5 * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		tw.parallel().tween_property(pawn.get_node("HeroHeart"), "modulate:a", 0.0, 0.5) # HeroesQueueComponent.cs:166 : HeartFadeBehavior.CreateFadeOutTask, 0,5 s sans vitesse, en parallele du deplacement
 		tw.tween_callback(func(): _play_sfx("char_hero_attack")) # HeroCrossingBehavior.cs:117
 		tw.tween_property(pawn, "modulate:a", 0.0, 0.5 * _speed)
 		tw.tween_callback(func():
@@ -3393,8 +3415,6 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 				_boss_hit(boss_sprite)
 			var boss_dict: Dictionary = (game_manager.G.get("players", {}) as Dictionary).get(pid, {}).get("boss", {})
 			_play_sfx(AudioManager.boss_voice(str(boss_dict.get("id", "")), "hurt")) # DungeonFrameEntity.cs:494,503-510 (CardAssetService.cs:260-272)
-			if is_instance_valid(boss_platform):
-				_show_floating_dmg(boss_platform, 1, Color(1, 0.3, 0.3))
 		)
 		var pl_dict: Dictionary = (game_manager.G.get("players", {}) as Dictionary).get(pid, {})
 		if bool(pl_dict.get("eliminated", false)): # DungeonFrameEntity.cs:495,512-519 : boss mort, la voix de mort part apres la secousse (0,44 s), avec la pierre tombale
@@ -3519,8 +3539,11 @@ func _animate_step(hero: Dictionary, pid: int, from_room: int, to_room: int, hp_
 			_play_sfx("char_hero_hurt" if dmg > 0 else "sfx_spell_buff") # HeartDecrementEmitter.cs:64-70 : PV perdus / rendus a un heros dans le donjon
 		if dmg != 0 and room_ctrl != null and is_instance_valid(pawn):
 			_show_floating_dmg(pawn, dmg)
-		if is_instance_valid(hp_lbl):
-			hp_lbl.text = str(maxi(hp_after, 0)))
+		if is_instance_valid(hp_lbl) and hp_lbl.text != str(maxi(hp_after, 0)): # UpdatableTextBlock.CreateUpdateTask : l'ancien texte s'estompe 0,25 s, le nouveau revient en 0,25 s, sans vitesse (HeartControlComponent.cs:43, UpdatableTextBlock.cs:24,32-43)
+			var ft := hp_lbl.create_tween()
+			ft.tween_property(hp_lbl, "modulate:a", 0.0, 0.25)
+			ft.tween_callback(func(): hp_lbl.text = str(maxi(hp_after, 0)))
+			ft.tween_property(hp_lbl, "modulate:a", 1.0, 0.25))
 	tw.tween_callback(func():
 		_animating_hero = false
 		refresh())
@@ -5108,7 +5131,7 @@ func _gold_frame(r: Rect2, red := false) -> Control:
 	f.name = "RedFrame" if red else "GoldFrame"
 	_ui_layer.add_child(f)
 	var b := CardBorder.attach(f, Vector2.ZERO, f.size, r.size.x, CardBorder.Style.NONE, "Border", true)
-	b.set_style(CardBorder.Style.RED if red else CardBorder.Style.YELLOW_GLOW, not skip_animations) # BorderStyles.Red / YellowGlow, fondu entrant
+	b.set_style(CardBorder.Style.RED if red else CardBorder.Style.YELLOW, not skip_animations) # cibles = BorderStyles.Yellow (TargetResolverBaseSceneBehavior.cs:24, sans particules), cibles touchees par le survol = Red (SpellBattleHighLightsComponent.cs:52-53) ; fondu entrant
 	if not red: # cibles possibles : cadre dore qui pulse ; cibles touchees par la carte jouee (BorderStyles.Red) : cadre rouge fixe
 		var tw := f.create_tween().set_loops()
 		tw.tween_property(f, "modulate:a", 0.55, 0.5).set_trans(Tween.TRANS_SINE)
@@ -5139,7 +5162,9 @@ func _drag_end(pos: Vector2) -> void:
 		if is_instance_valid(f) and (f as Node).has_meta("slot"):
 			lit.append((f as Node).get_meta("slot"))
 	_drag_clear()
-	if idx < hand.size() and pos.y < HAND_UPPER: # relacher sur la main = annuler
+	_spell_from = card_center
+	_spell_from_ms = Time.get_ticks_msec()
+	if idx < hand.size() and pos.y < HAND_UPPER: # au-dessus de la ligne de la main = depot (CardExtractBehavior.Update : droppedIntoHand = faux) ; sur la main = annuler
 		if is_room:
 			var data := {"type": "card", "hand_index": idx}
 			var target: DungeonSlot = null
@@ -5177,10 +5202,18 @@ func _spell_drop(idx: int, pos: Vector2) -> void:
 			continue
 		var node := _spot_node(spot)
 		if node == null:
-			unspotted += 1 # cible non affichee (adversaire hors ecran a 5-6 joueurs) : liste centrale comme les ames
+			# Cible dans un donjon qui n'est pas affiche : l'entite est estompee (GlobalOpacity = 0), IsContainedByEntity la refuse (EntitiesExtensions.cs:12-16) ; le joueur choisit d'abord l'adversaire
+			# dans le selecteur (CreateChangeVisibleOpponentDungeon, GamePlayBaseScene.cs:1008-1029). Un boss adverse reste lui touchable par sa vignette (CollapsedOpponentDetail.HighLightCards, cs:349-358).
+			if str(spot.get("k", "")) == "player":
+				for fb in foe_bar.get_children() + opp_box.get_children():
+					if fb is Button and int((fb as Button).get_meta("pid", -1)) == int(spot["pid"]) and (fb as Button).get_global_rect().has_point(pos):
+						hits.append(c)
+						break
 		elif _spot_rect(spot, node).has_point(pos):
 			hits.append(c)
-	if cands.size() == 1 and inside:
+	# PlaySpellsInHandSceneBehavior.MyHand_CardDropped (cs:61-77) : si des cibles sont affichees sur le plateau (IsOnBoardResolvingActive), le sort ne compte que lache SUR une cible (selectedTarget != null),
+	# sinon la carte retourne dans la main ; sans cible sur le plateau il se joue n'importe ou au-dessus de la main.
+	if cands.size() == 1 and inside and unspotted == 1:
 		_do(cands[0])
 	elif hits.size() == 1:
 		_do(hits[0])
@@ -5191,7 +5224,7 @@ func _spell_drop(idx: int, pos: Vector2) -> void:
 			var mv: Dictionary = (h as Dictionary).duplicate()
 			entries.append({"label": _target_label(mv, card), "cb": func(): _do(mv)})
 		_popup_list("target", str(card.get("name", "")), entries, func(): _popup_close())
-	elif unspotted > 0 and inside:
+	elif unspotted == cands.size() and inside:
 		_play_from_hand(idx)
 
 ## Zoom d'un tap (heros de la ville, pile, notice) : la carte en grand dans son cadre noir au-dessus de la main, le reste de la main s'assombrit.
@@ -5301,11 +5334,21 @@ func _refresh_stack_cards(G: Dictionary) -> void:
 			z.pivot_offset = z.size / 2.0
 			z.scale = Vector2.ZERO
 			z.create_tween().tween_property(z, "scale", Vector2.ONE, 0.3)
+			if _spell_from is Vector2 and Time.get_ticks_msec() - _spell_from_ms < 1500: # la meme carte est rattachee a la pile : elle glisse du point de depot (CardMoveBehavior, ~0,3 s a 95 % : cs:13,129-133 ; PlaySpellsInHandSceneBehavior.cs:33-39)
+				var to_sp := z.position
+				z.position = (_spell_from as Vector2) - z.size / 2.0
+				z.create_tween().tween_property(z, "position", to_sp, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			_spell_from = null
 		elif not skip_animations and not old_keys.has(_stack_keys[i]):
 			# B27 : sort adverse ou capacite de salle = carte creee au bord droit de l'ecran (ScreenWidth ; ScreenHeight x 0,5) puis attachee a la pile (GamePlayBaseScene.cs:643-647), qui la ramene a sa place (CardMoveBehavior)
 			var to_in := z.position
 			z.position = Vector2(1920.0 + Vp.shift_right() - z.size.x / 2.0, 540.0 - z.size.y / 2.0)
-			z.create_tween().tween_property(z, "position", to_in, DRAW_LAND).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			# creee a l'echelle 1 puis ramenee a l'echelle de la pile par SimplePositionComponent.Refresh (Scale 0,6 des que la pile compte 2 cartes ou plus ; une seule carte garde l'echelle 1 : cs:50-52,61-74)
+			z.pivot_offset = z.size / 2.0
+			z.scale = Vector2.ONE / k
+			var in_tw := z.create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			in_tw.tween_property(z, "position", to_in, DRAW_LAND)
+			in_tw.tween_property(z, "scale", Vector2.ONE, DRAW_LAND)
 		if owner_pid != _my_pid() or str((stack[i] as Dictionary).get("type", "")) == "ability": # APK : sort adverse ou capacite de salle (la mienne aussi, GamePlayBaseScene.cs:640-648) = le portrait rond du boss (BossOwnerIcon) a cheval sur le haut de la carte
 			z.add_child(_owner_badge(owner_pid, z.size.x / 2.0))
 
@@ -6034,12 +6077,12 @@ func back_pressed() -> void:
 		_open_game_menu() # aussi depuis QUIT GAME? (CANCEL) et depuis une partie sans fenetre
 
 func _close_menu() -> void:
-	_play_sfx("res://assets/audio/sfx/ui_button_goback.wav")
-	_popup_close()
+	_popup_close() # RESUME : seul ui_button_select de l'appui (PauseScene.cs:57-60 -> CloseScene, aucun goback)
 	refresh() # un choix en attente (cache par le menu) reapparait
 
-func _open_game_menu() -> void:
-	_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
+func _open_game_menu(sound := true) -> void:
+	if sound:
+		_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
 	var pop := _popup_begin("menu", 0.7) # voile noir 0,7 comme QUIT GAME? : pause.png = 0,294 de la luminosite du plateau (0,72 donnait 0,255)
 	var menu := InGameMenu.new()
 	menu.show_gallery = not _is_online()
@@ -6048,6 +6091,7 @@ func _open_game_menu() -> void:
 	menu.resume_requested.connect(_close_menu)
 	menu.quit_requested.connect(_open_quit_confirm)
 	menu.speed_changed.connect(func(): _speed = _speed_factor())
+	menu.gallery_toggled.connect(func(open: bool): pop.get_child(0).visible = not open) # CARD GALLERY depile la pause : plus de voile dessous (ModalSceneService.cs:52-57,89)
 
 ## QuitGameScene (MessageBoxScene, :16-27) : bande winner_bg, titre « QUIT GAME? », « ARE YOU SURE YOU WANT TO QUIT? » (QUIT? en or), boutons CANCEL (0,35) / QUIT (0,65) a 0,56 de la hauteur.
 func _open_quit_confirm() -> void:
@@ -6066,16 +6110,15 @@ func _open_quit_confirm() -> void:
 		l.add_theme_constant_override("outline_size", 0)
 		l.size = Vector2(1600.0, ln[5])
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	for spec in [["CANCEL", 744.0, _open_game_menu], ["QUIT", 1176.0, _confirm_quit]]:
+	for spec in [["CANCEL", 744.0, _open_game_menu.bind(false)], ["QUIT", 1176.0, _confirm_quit]]: # CANCEL : le select de l'appui seul, le retour a la pause est muet (ConfirmationBoxScene.cs:116-124 ; ModalSceneService.cs:60-72)
 		var b := _tex_button(pop, UI_DIR + "bt_apply_effects.webp", UI_DIR + "bt_apply_effects_pressed.webp", Vector2(float(spec[1]) - 200.0, 604.8 - 51.5), Vector2(400, 103))
 		var l := _lbl(b, spec[0], 32, Color.WHITE, Vector2(0, -3), 400.0, _fa, HORIZONTAL_ALIGNMENT_CENTER)
 		l.add_theme_constant_override("outline_size", 0)
 		l.size = Vector2(400, 103)
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		var cb: Callable = spec[2]
-		b.pressed.connect(func():
-			_play_sfx("res://assets/audio/sfx/ui_button_select.wav")
-			cb.call())
+		b.button_down.connect(func(): _play_sfx("res://assets/audio/sfx/ui_button_select.wav")) # le son part a l'appui (ButtonBaseEntity.cs:183-185)
+		b.pressed.connect(cb)
 
 func _confirm_quit() -> void:
 	_popup_close()
@@ -6287,6 +6330,7 @@ func _slide_toggle(cards: Array, keep: Rect2) -> void:
 	_slide_sel = -1
 	_slide_last = -1
 	_slide_hot = false
+	_slide_t0 = Time.get_ticks_msec() # le delai de 0,3 s court depuis la creation du comportement, jamais re-arme (souris branchee : InputEnable() toujours vrai)
 	_slide_cards = []
 	_slide = Control.new()
 	_slide.name = "Slideshow"
@@ -6333,6 +6377,7 @@ var _slide_cards: Array = []
 var _slide_sel := -1
 var _slide_last := -1                    # carte survolee du carrousel (CardPositionComponent.lastIndex), -1 = aucune
 var _slide_hot := false
+var _slide_t0 := 0
 var _slide_gen := 0
 var _slide_keep := Rect2()
 var _slide_out := UiKit.TouchOut.new()
@@ -6340,7 +6385,7 @@ var _zoom_out := UiKit.TouchOut.new()
 
 func _slide_attach(cu: CardUI) -> void:
 	cu.visible = true
-	_play_sfx("ui_card_slide_general") # AddCarouselCardsBehavior.cs:93
+	_play_sfx("ui_card_slide_general") # AddCarouselCardsBehavior.cs:105
 	_slide_layout()
 
 ## CardPositionComponent.PositionX/Y/Scale/DrawOrder (cs:105-145) pour les cartes deja arrivees : MaxDistanceBtwCards 900 plafonne a la largeur utile 1200 ; la carte choisie
@@ -6370,7 +6415,7 @@ func _slide_hover(i: int, gen: int) -> void:
 	if _slide_hot:
 		_slide_pick(i)
 		return
-	await get_tree().create_timer(0.3).timeout # CardHoverWithDelayBehavior.TimeBeforeHover
+	await get_tree().create_timer(maxf(0.0, 0.3 - (Time.get_ticks_msec() - _slide_t0) / 1000.0)).timeout # CardHoverWithDelayBehavior.cs:14,19-31 : TimeBeforeHover, arme une fois (CardHoverBehavior.cs:122-129)
 	if gen == _slide_gen and i < _slide_cards.size() and (_slide_cards[i] as Control).is_hovered():
 		_slide_hot = true
 		_slide_pick(i)
@@ -6390,7 +6435,6 @@ func _slide_unhover(gen: int) -> void:
 	_slide_layout()
 	await get_tree().process_frame
 	if gen == _slide_gen and not _slide_cards.any(func(c): return (c as Control).is_hovered()):
-		_slide_hot = false
 		if _slide_last >= 0:
 			_play_sfx("ui_card_slide_general") # CardPositionComponent.cs:94-98 : plus aucune carte choisie
 			_slide_last = -1

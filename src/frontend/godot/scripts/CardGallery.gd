@@ -402,10 +402,14 @@ func show_detail(card: Dictionary, texture: Texture2D, from: Rect2 = Rect2()) ->
 		if not _detail_closing:
 			_detail_closing = true
 			AudioManager.play_sfx("ui_button_goback") # CardDetailScene.cs:74
-			_animate_detail(0.0, from.position - global_position, from.size, close_detail)
+			_animate_detail(0.7, from.position - global_position, from.size, close_detail) # le panneau noir reste a 0,7 jusqu'au Pop (CardDetailScene.cs:69-82)
+	var armed := [false]
 	_detail.gui_input.connect(func(ev: InputEvent):
-		if ev is InputEventMouseButton and ev.pressed:
-			back_out.call())
+		if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
+			if ev.pressed:
+				armed[0] = true
+			elif armed[0]:
+				back_out.call()) # TouchTap = relachement (CardDetailScene.cs:55-56,64-67)
 	# Fleche posee par-dessus le voile (CardDetailScene.cs:51-56) : celle de la galerie reste assombrie dessous
 	var db := UiKit.texture_button(_detail, UI + "buttons/back_bt.webp", UI + "buttons/back_bt_pressed.webp", Vector2(200, 101), Vector2.ZERO, "ui_button_goback") # appui (ControlsFactory.cs:245) puis GoBackAnimation au relachement (CardDetailScene.cs:74) : 2 sons
 	db.name = "DetailBack"
