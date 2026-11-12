@@ -1404,12 +1404,12 @@ func _take_spell(id: String) -> int:
 	return -1
 
 ## Partie neuve amenee au debut de la construction du tour 1 (aucun choix en attente) : etat comparable d'un lancement a l'autre.
-func _new_game(n_players: int = 2) -> void:
+func _new_game(n_players: int = 2, seed_v: int = 424242) -> void:
 	await _teardown()
-	CardDB._rng.seed = 424242
+	CardDB._rng.seed = seed_v
 	gm = GameManager.new()
 	add_child(gm)
-	gm.rng.seed = 424242 # Match._ready l'a randomise : le tirage du boss doit etre reproductible
+	gm.rng.seed = seed_v # Match._ready l'a randomise : le tirage du boss doit etre reproductible
 	gm.start_new_game(n_players, 1, ["base"])
 	board = load("res://godot/scenes/Board.tscn").instantiate()
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -2205,6 +2205,20 @@ func _check_boss_glow() -> void:
 	await _wait(0.6)
 	_check(is_equal_approx((L["glow"] as Control).modulate.a, 1.0), "halo du boss : fondu non termine apres 0,5 s (alpha %.2f)" % (L["glow"] as Control).modulate.a)
 	_cov("boss_glow_order")
+	# Mort du boss : le halo s'efface avec le personnage en 0,5 s (BossCharacter FadeOut, enfant a opacite heritee, cs:279,498-501), pas d'un coup
+	for q in gm.G["players"]:
+		if int(q) == board.foe_pid:
+			(gm.G["players"][q] as Dictionary)["eliminated"] = true
+	board.refresh()
+	await _wait(0.2)
+	var fading: Array = sprite.get_parent().get_children().filter(func(n): return n != sprite and n is TextureRect and n.get_child_count() > 0 and (n.get_child(0) as CanvasItem).visible)
+	if _check(fading.size() == 1, "halo du boss : disparu d'un coup a la mort (aucun halo en fondu)"):
+		var a: float = (fading[0] as Control).modulate.a * (fading[0].get_child(0) as Control).modulate.a
+		_check(a > 0.05 and a < 0.95, "halo du boss : pas en fondu a mi-course apres la mort (alpha %.2f)" % a)
+	await _wait(0.5)
+	var left: Array = sprite.get_parent().get_children().filter(func(n): return n != sprite and n is TextureRect and n.get_child_count() > 0)
+	_check(left.is_empty() and not (L["glow"] as Control).visible, "halo du boss : encore la 0,7 s apres la mort")
+	_cov("boss_glow_death")
 
 ## Ville a 5+ heros : un heros qui part, les restants glissent (0,5 x vitesse) puis sont a leur place (VerticalScrollQueueComponent.CreateReorderTask, cs:199-210).
 func _check_town_slide() -> void:
@@ -2333,6 +2347,152 @@ func _check_bait_order() -> void:
 					_check(on_screen and board._town_scroll.scroll_vertical == sv0, "leurre FAST : copie %d hors de sa carte visible ou colonne en mouvement au depart (sv %d -> %d)" % [seen.size(), sv0, board._town_scroll.scroll_vertical])
 			_check(seen.size() == 3, "leurre FAST : %d vols sur 3" % seen.size())
 			_cov("bait_order_fast_start")
+		board._speed = board._speed_factor()
+
+## Leurre a 4 joueurs, ville de 12 : seuls mon donjon et l'adversaire choisi sont affiches (GamePlayBaseScene.cs:233-236, 1012 ; VerticalScrollQueueComponent.cs:242-251),
+## les heros des 2 donjons caches s'effacent sur place (cs:269-272). Une seule boucle dans l'ordre de la ville (cs:229) ; defilement a -(230 x (index inverse - 1)) si index >= 4,
+## sinon en haut, rien s'il y est deja (cs:212-223) ; 5 heros restent : la colonne finit en bas (cs:277-284) avant la fin de la plaque (_bait_ms).
+func _check_bait_4p() -> void:
+	_tag = "[bait-4p]"
+	await _new_game(4)
+	Engine.time_scale = 1.0
+	board.set_process(false)
+	board.skip_animations = false
+	board._speed = 1.0
+	var G: Dictionary = gm.G
+	var hid: Array = []
+	for q in G["players"]:
+		(G["players"][q] as Dictionary)["entrance"] = []
+		if int(q) != board.view_pid and int(q) != board.foe_pid:
+			hid.append(int(q))
+	if not _check(hid.size() == 2 and CardDB.heroes.size() >= 12, "leurre 4j : %d donjons caches, %d heros" % [hid.size(), CardDB.heroes.size()]):
+		return
+	var town: Array = []
+	for k in 12:
+		town.append((CardDB.heroes[k] as Dictionary).duplicate(true))
+	G["town"] = town.duplicate()
+	_reveal_all(G)
+	board.refresh()
+	await _wait(0.3)
+	# town[i] est au rang 11 - i de la colonne. [heros, donjon, vole, defilement vise (-1 : aucun)]
+	var plan := [[0, hid[0], false, 230 * 10], [1, board.view_pid, true, 230 * 9], [3, hid[1], false, 230 * 7], [5, board.foe_pid, true, 230 * 5],
+		[6, hid[1], false, 230 * 4], [8, board.view_pid, true, 0], [10, hid[0], false, -1]]
+	for p in plan:
+		(G["players"][p[1]] as Dictionary)["entrance"].append(town[p[0]])
+	G["town"] = [town[2], town[4], town[7], town[9], town[11]]
+	G["phase"] = "adventure"
+	var t0 := Time.get_ticks_msec()
+	board.refresh()
+	var cards := {}
+	for p in plan:
+		var gk: String = board._bait_key(int(p[1]), town[p[0]], (G["players"][p[1]] as Dictionary)["entrance"].find(town[p[0]]))
+		var st: Array = board._bait_plan.get(gk, [])
+		if not _check(not st.is_empty(), "leurre 4j : heros %d absent du plan" % p[0]):
+			return
+		_check(int(st[2]) == int(p[3]), "leurre 4j : heros %d (rang %d) : defilement %d au lieu de %d" % [p[0], 11 - p[0], int(st[2]), p[3]])
+		cards[p[0]] = st[1]
+	# depart attendu (s, apres le retournement) : chaque pas = defilement 0,7 s s'il y en a un, puis vol 1,0 s ou fondu 0,3 s
+	var t := 0.0
+	var due: Array = []
+	for p in plan:
+		t += board.TOWN_SCROLL_S if int(p[3]) >= 0 else 0.0
+		due.append(t)
+		t += 1.0 if p[2] else 0.3
+	var total: float = board._bait_delay + t + 0.5 + board.TOWN_SCROLL_S # + reordonnancement + descente en bas
+	_check(absf(board._bait_ms / 1000.0 - total) < 0.01, "leurre 4j : plaque de %.2f s au lieu de %.2f s" % [board._bait_ms / 1000.0, total])
+	var sb: ScrollBar = board._town_scroll.get_v_scroll_bar()
+	var max_sv: int = int(sb.max_value - sb.page)
+	var gone := []
+	var ghosts := 0
+	while board._bait_active() and Time.get_ticks_msec() - t0 < 15000:
+		await get_tree().process_frame
+		var vis: int = board.hero_crossing_layer.get_children().filter(func(g): return (g as Control).visible and not g.is_queued_for_deletion()).size()
+		var new_ghost := vis > ghosts
+		ghosts = vis
+		for p in plan:
+			if gone.has(p[0]) or not is_instance_valid(cards[p[0]]):
+				continue
+			var c := cards[p[0]] as Control
+			if c.modulate.a >= 1.0:
+				continue
+			gone.append(p[0])
+			var i := plan.find(p)
+			var dt: float = (Time.get_ticks_msec() - t0) / 1000.0 - board._bait_delay
+			var want_sv := clampi(int(p[3]), 0, max_sv) if int(p[3]) >= 0 else int(plan[i - 1][3]) if i > 0 else 0
+			_check(absf(dt - float(due[i])) < 0.25, "leurre 4j : heros %d parti a %.2f s au lieu de %.2f s" % [p[0], dt, due[i]])
+			_check(abs(board._town_scroll.scroll_vertical - clampi(want_sv, 0, max_sv)) <= 1, "leurre 4j : heros %d parti colonne a %d au lieu de %d" % [p[0], board._town_scroll.scroll_vertical, clampi(want_sv, 0, max_sv)])
+			if p[2]:
+				_check(c.modulate.a == 0.0 and new_ghost, "leurre 4j : heros %d vers un donjon affiche doit voler (alpha %.2f, copie %s)" % [p[0], c.modulate.a, new_ghost])
+			else:
+				_check(c.modulate.a > 0.0 and not new_ghost, "leurre 4j : heros %d vers un donjon cache doit s'effacer sur place (alpha %.2f, copie %s)" % [p[0], c.modulate.a, new_ghost])
+	_check(gone == plan.map(func(p): return p[0]), "leurre 4j : departs %s au lieu de l'ordre de la ville" % str(gone))
+	_check(not board._bait_active(), "leurre 4j : plaque jamais terminee")
+	var dt_end := (Time.get_ticks_msec() - t0) / 1000.0
+	_check(dt_end >= board._bait_delay + t, "leurre 4j : la plaque finit a %.2f s, avant la fin du dernier pas (%.2f s)" % [dt_end, board._bait_delay + t])
+	await get_tree().process_frame
+	sb = board._town_scroll.get_v_scroll_bar()
+	_check(board.town_container.get_child_count() == 5 and board._town_scroll.scroll_vertical == int(sb.max_value - sb.page) and board._town_scroll.scroll_vertical > 0,
+		"leurre 4j : 5 heros restants, la colonne doit finir en bas (%d heros, sv %d / %d)" % [board.town_container.get_child_count(), board._town_scroll.scroll_vertical, int(sb.max_value - sb.page)])
+	_cov("bait_4p_order")
+	_cov("bait_4p_fly_fade")
+	_cov("bait_4p_bottom")
+	board._speed = board._speed_factor()
+
+## DONE -> 1er vol du leurre, solo a 2 joueurs, l'IA construit apres moi (APK, hors vitesse) : DONE s'efface (0,15 s, DoneButtonEntity.cs:179-193), la salle
+## de l'IA apparait en fondu (0,3 s, CardEntity.cs:69), les salles se revelent (glissade nulle pour une nouvelle pile + retournement 0,5 + taille 0,3),
+## ~10 images d'attente (0,15 s), puis le 1er pas du leurre : defilement de la colonne (0,7 s) s'il y a 5 heros ou plus (VerticalScrollQueueComponent.cs:212-223), rien sinon.
+func _check_done_to_bait() -> void:
+	var pool: Array = CardDB.heroes.filter(func(h): return CardDB.hero_lure(h as Dictionary) == "treasures" and not (h as Dictionary).has("treasures"))
+	for n_town in [6, 3]:
+		_tag = "[done-to-bait %d]" % n_town
+		for sd in range(424242, 424262): # une partie ou je construis le premier (ordre d'XP des boss, GameBoardExtensions.cs:115-119)
+			await _new_game(2, sd)
+			if (gm.G.get("buildOrder", []) as Array) == [0, 1]:
+				break
+		Engine.time_scale = 1.0
+		board.set_process(false)
+		board.skip_animations = false
+		board._speed = 1.0
+		var G: Dictionary = gm.G
+		var me: Dictionary = G["players"][0]
+		var ai: Dictionary = G["players"][1]
+		if not _check((G.get("buildOrder", []) as Array) == [0, 1] and int(ai.get("buildsThisTurn", 0)) == 0 and pool.size() >= n_town, "DONE -> leurre : l'IA doit construire apres moi (ordre %s)" % str(G.get("buildOrder", []))):
+			return
+		for p in [me, ai]: # aucune fenetre de sorts apres la derniere pose : mon DONE clot la construction
+			p["hand"] = (p["hand"] as Array).filter(func(c): return bool((c as Dictionary).get("isRoom", false)))
+		board.refresh()
+		var bi := -1
+		for i in (me["hand"] as Array).size():
+			if gm.can_build_room_at(0, i, (me["dungeon"] as Array).size()):
+				bi = i
+				break
+		if not _check(bi >= 0 and _drag_card(bi, _room_drop_pos(bi)), "DONE -> leurre : ma salle n'a pas pu etre posee"):
+			return
+		var town: Array = []
+		for k in n_town: # tous attires par mon donjon (affiche) : 1er pas = le plus ancien, au rang n - 1 de la colonne
+			var h: Dictionary = (pool[k] as Dictionary).duplicate(true)
+			h["treasure"] = 1
+			town.append(h)
+		G["town"] = town
+		me["bonusTreasures"] = [1, 1, 1, 1, 1, 1]
+		board.refresh()
+		await _wait(0.3)
+		var ai_n := (ai["dungeon"] as Array).size()
+		var t0 := Time.get_ticks_msec()
+		board._on_pass_pressed() # DONE!
+		if not _check(str(G["phase"]) == "adventure" and (ai["dungeon"] as Array).size() == ai_n + 1, "DONE -> leurre : l'IA n'a pas pose de nouvelle pile apres moi (phase %s, %d -> %d salles)" % [str(G["phase"]), ai_n, (ai["dungeon"] as Array).size()]):
+			return
+		var late: Array = board._foe_slots.filter(func(sl): return (sl as Control).get_children().any(func(c): return c is CardUI and (c as CardUI).modulate.a == 0.0))
+		_check(late.size() == 1, "DONE -> leurre : la salle posee par l'IA doit apparaitre en fondu (%d en fondu)" % late.size())
+		var want := 0.15 + 0.3 + 0.8 + 0.15 + (0.7 if n_town >= 5 else 0.0)
+		var dt := -1.0
+		while Time.get_ticks_msec() - t0 < 6000:
+			await get_tree().process_frame
+			if board.hero_crossing_layer.get_children().any(func(g): return (g as Control).visible and not g.is_queued_for_deletion()):
+				dt = (Time.get_ticks_msec() - t0) / 1000.0
+				break
+		_check(absf(dt - want) < 0.25, "DONE -> leurre (%d heros) : 1er vol a %.2f s au lieu de %.2f s" % [n_town, dt, want])
+		_cov("done_to_bait_%d" % n_town)
 		board._speed = board._speed_factor()
 
 func _check_windows() -> void:
@@ -2923,7 +3083,7 @@ func _check_turn_order() -> void:
 		_check(board._town_hold and board.town_container.get_child_count() == in_town and board.town_container.get_children().all(func(c): return (c as Control).modulate.a == 1.0), "leurre : les heros de la ville doivent rester en place pendant le retournement")
 		await _wait(0.3)
 		_check(board.phase_banner.texture == build_tex, "revelation : la plaque BUILD doit rester pendant le retournement des salles") # le retournement dure 0,8 s
-		await _wait(0.4 - float(Time.get_ticks_msec() - t0) / 1000.0 + 0.7) # 1er vol parti (0,8 s), pas encore le 2e (1,8 s)
+		await _wait(board._bait_delay + 0.3 - float(Time.get_ticks_msec() - t0) / 1000.0) # 1er vol parti (_bait_delay, voir _check_done_to_bait), pas encore le 2e (+ 1,0 s)
 		var gone: int = board.town_container.get_children().filter(func(c): return (c as Control).modulate.a == 0.0).size()
 		_check(gone == 1 and board._town_hold, "leurre : au 1er vol, seule la carte de ce heros quitte la colonne (%d parties)" % gone)
 		if n_fly >= 2:
@@ -2989,7 +3149,7 @@ func _check_pending_slide() -> void:
 	_check(is_equal_approx(room.position.x, rest + off), "salle adverse en attente : posee a son decalage (%.1f, attendu %.1f)" % [room.position.x, rest + off])
 	await _wait(0.4)
 	_check(is_equal_approx(room.position.x, rest + off), "salle adverse en attente : elle ne doit pas glisser a la pose (%.1f)" % room.position.x)
-	_check(absf(board._foe_slide_s() - 420.0 / 1920.0) < 0.001, "revelation : la glissade (%.3f s) s'ajoute a l'attente" % board._foe_slide_s())
+	_check(absf(board._foe_slide_s() - 420.0 / 1440.0) < 0.001, "revelation : la glissade (%.3f s) s'ajoute a l'attente" % board._foe_slide_s())
 	pend["faceDown"] = false
 	board.refresh()
 	room = find_room.call()
@@ -4721,6 +4881,8 @@ func _extra_checks() -> void:
 	await _check_town_slide()
 	await _check_bait_hidden()
 	await _check_bait_order()
+	await _check_bait_4p()
+	await _check_done_to_bait()
 	await _check_freed_targets()
 	_check_pawn_scale()
 	await _check_ai_entry_window()

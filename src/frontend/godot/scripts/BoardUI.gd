@@ -242,6 +242,12 @@ var _foe_cache := {}                    # pid -> {slots, keys} : emplacements ad
 var _foe_keys: Array = []               # cle de ce que chaque emplacement adverse affiche (_refresh_foe_dungeon)
 var _foe_down := {}                      # emplacement adverse -> salle face cachee au dernier affichage (retournement a la revelation)
 var _lvl_seen := {}                      # pid -> « monte de niveau » deja vu : un passage a vrai joue la banniere LEVEL UP (_show_levelup)
+var _pass_snap := {}                     # mon DONE (hors ligne) : pid -> piles affichees a cet instant (_pile_key) ; {} = pas de DONE en attente de la phase suivante
+var _pass_pid := -1                      # siege qui a appuye sur DONE
+var _pass_foe := -1                      # adversaire affiche a ce moment
+var _late_off := {}                      # "pid:salle" -> decalage d'attente des salles posees par une IA apres mon DONE (jamais affichees face cachee), ce refresh seulement
+var _reveal_wait := 0.0                  # s avant le retournement des salles, ce refresh seulement (DONE, constructions IA suivantes)
+var _lvl_wait := 0.0                     # s avant la banniere LEVEL UP, ce refresh seulement (apres la revelation)
 # Carrousel du choix du boss
 var _boss_sel := 0
 var _boss_cards: Array = []
@@ -259,7 +265,14 @@ const BOSS_AUTO_TIME := 2.0              # partie a plusieurs (useTimeout) : l'e
 const PHASE_BANNER_Y := -62.0
 const DRAW_LAND := 0.3                   # une carte piochee rejoint sa place dans la main : lerp de CardMoveBehavior (0,009 x ms par image, ~0,3 s pour 95 %, CardMoveBehavior.cs:13,129-133)
 const BAIT_EMPTY_S := 1.0                # leurre sans heros a envoyer : la plaque BAIT PHASE entre (saut de 0,5 s hors / 0,5 s dedans, PhaseTitleControl) avant celle de l'aventure
-const REVEAL_S := 0.8                    # retournement 0,5 s + retour a la taille 0,3 s (CardEntity.cs:71-72), hors vitesse
+const REVEAL_S := 0.8                    # retournement 0,5 s + retour a la taille 0,3 s (CardEntity.cs:71-72), hors vitesse ; le ScaleOut du gel (0,5 s) part de son echelle de repos : fini en une image (ScaleEffectBehavior.cs:37-51,102-107)
+# DONE -> 1er vol du leurre, termes hors vitesse que le moteur (synchrone) n'a pas : voir _pre_reveal
+const DONE_FADE_S := 0.15                # DONE s'efface (FadeBehavior 0,15 s, DoneButtonEntity.cs:93,179-193) avant le pas suivant
+const LATE_BUILD_FADE_S := 0.3           # salle posee par une IA apres mon DONE : fondu d'entree attendu (CardEntity.cs:69 ; CardStackSlotComponent.cs:119-123,175)
+const FOE_SWAP_S := 1.0                  # le donjon de l'IA suivante remplace celui affiche (CreateChangeVisibleOpponentDungeon, GamePlayBaseScene.cs:1024-1028 ; GamePlaySPScene.cs:93-101)
+const LEVELUP_S := 2.1                   # LevelUpBanner.CreateShowTask (cs:144-161) : 0,6 + 1,0 + 0,5, apres la revelation (pas BaitPhase, GameBoard.cs:953-956)
+const STEP_POLLS_S := 0.15               # ~10 attentes d'une image (CreateWaitConditionTask / AndWaitConditionActively) entre DONE et le 1er vol, a 60 i/s
+const SLIDE_PX_S := 1440.0               # MovePendingRoomToRightPlace : |decalage| / VirtualWidth s (cs:222 ; VirtualWidth = 1440, Game.cs:26,49)
 const TOWN_SCROLL_S := 0.7               # defilement de la colonne HEROES IN TOWN : lerp 0,2 / image de l'APK (non lie a la vitesse, ~0,7 s) rendu par un tween de 0,7 s (VerticalScrollQueueComponent.cs:212-223,277-284)
 const BAIT_FLY := 1.0                   # vol d'une carte de heros depuis la ville jusqu'a l'entree du donjon, x vitesse (VerticalScrollQueueComponent.cs:261-262) ; la plaque BAIT PHASE dure tant que les vols (chacun apres le precedent) puis le reordonnancement de la ville (0,5 x vitesse)
 const WINDOW_ADVENTURE := 3.0
@@ -1433,6 +1446,10 @@ func refresh() -> void:
 		return
 
 	var G: Dictionary = game_manager.G
+	_late_off = {}
+	_reveal_wait = 0.0
+	_lvl_wait = 0.0
+	DungeonSlot.reveal_delay = 0.0
 	if _zoom == null or not _zoom.has_meta("levelup"): # le zoom de LEVEL UP survit aux refresh (l'IA joue, state_changed) jusqu'au clic suivant
 		_zoom_hide() # la main est reconstruite : un zoom d'appui long ne peut plus etre relache
 	if _is_online():
@@ -1707,7 +1724,12 @@ func _track_levelup(G: Dictionary) -> void:
 		if _lvl_seen.has(pid) and now and not bool(_lvl_seen[pid]) and not skip_animations and pl.get("boss") != null:
 			if not _tg("levelup"):
 				continue # tutoriel : la banniere attend les consignes (ne pas marquer « vu »)
-			_show_levelup(int(pid), pl["boss"])
+			if _lvl_wait > 0.0: # fin de construction : la banniere suit la revelation (CreateRefreshControlsTask du pas BaitPhase, GamePlayBaseScene.cs:981)
+				var ltw := create_tween()
+				ltw.tween_interval(_lvl_wait)
+				ltw.tween_callback(_show_levelup.bind(int(pid), pl["boss"]))
+			else:
+				_show_levelup(int(pid), pl["boss"])
 		_lvl_seen[pid] = now
 
 ## LevelUpBanner de l'APK (DungeonFrameEntity.CreateLevelUpAnimationTask) : le portrait du boss (xxx_hr) entre par la droite du couloir
@@ -2202,6 +2224,9 @@ func _set_boss(L: Dictionary, boss, dead := false, lit := false) -> void:
 		ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		sprite.get_parent().add_child(ghost)
 		sprite.get_parent().move_child(ghost, sprite.get_index())
+		var og: TextureRect = L.get("glow")
+		if og != null and og.visible: # le halo est enfant du BossCharacter (cs:279) : il s'efface avec lui, opacite heritee (GlobalOpacity), sans fondu propre
+			ghost.add_child(og.duplicate())
 		var gt := ghost.create_tween()
 		gt.tween_property(ghost, "modulate:a", 0.0, 0.5)
 		gt.tween_callback(ghost.queue_free)
@@ -2363,16 +2388,22 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 					var fdmg := BossEngine.room_damage_with_modifiers(game_manager.G, foe, di, null)
 					if fdmg != int(r.get("damage", 0)):
 						room_ui.add_heart(fdmg) # CardStackSlotComponent.cs:148 : degats courants de la salle du dessus, en or, quand ils different de l'imprime
-				if bool(prev_down.get(fk, false)) and not fd and not skip_animations:
+				var late: bool = _late_off.has(fk) and not bool(prev_down.get(fk, false)) # posee par l'IA apres mon DONE : jamais affichee face cachee (_pre_reveal)
+				if (bool(prev_down.get(fk, false)) or late) and not fd and not skip_animations:
 					# revelation : la salle adverse se retourne. Si elle declenche « when you build... », la bulle ROOM ABILITY de l'adversaire s'affiche
 					# (GamePlayBaseScene.cs:668 : Gameboard_AbilityApplyRequest pour toute capacite) et, sur les captures APK (notice_opponent_has_played_a_room_ability_*,
 					# ability_opponent_dark_lab_*), la salle reste agrandie (0,5 : CardStackSlotComponent.cs:138-141, ScaleBehavior.MaxScale 0,5 CardsFactory.cs:101) pendant la bulle.
 					var trigger: bool = str((r as Dictionary).get("description", "")).to_lower().begins_with("when you build")
-					fly_off = float(_foe_pend_off.get(fk, 0.0)) # MovePendingRoomToRightPlace (cs:210-233) precede le retournement : la salle glisse de sa place d'attente a la sienne (|decalage| / 1920 s, hors vitesse)
+					fly_off = float(_late_off[fk] if late else _foe_pend_off.get(fk, 0.0)) # MovePendingRoomToRightPlace (cs:210-233) precede le retournement : la salle glisse de sa place d'attente a la sienne (|decalage| / SLIDE_PX_S s, hors vitesse)
 					_foe_pend_off.erase(fk)
 					if fly_off != 0.0:
 						fly_ui = room_ui
-					room_ui.flip_in(0.5, NOTICE_HOLD if trigger else 0.0, absf(fly_off) / 1920.0)
+					room_ui.flip_in(0.5, NOTICE_HOLD if trigger else 0.0, _reveal_wait + absf(fly_off) / SLIDE_PX_S) # apres DONE et les poses des IA suivantes (_pre_reveal)
+					if late: # elle apparait face cachee en fondu de 0,3 s (CardStackSlotComponent.cs:119-123), juste avant la revelation
+						room_ui.modulate.a = 0.0
+						var ftw: Tween = room_ui.create_tween()
+						ftw.tween_interval(maxf(_reveal_wait - LATE_BUILD_FADE_S, 0.0))
+						ftw.tween_property(room_ui, "modulate:a", 1.0, LATE_BUILD_FADE_S)
 					if trigger:
 						_show_notice("ROOM ABILITY", r, {}, foe_pid)
 				if fd and not bool(prev_down.get(fk, false)) and old_pid == foe_pid and not skip_animations: # (nouvelle pile, ou salle posee par-dessus une pile visible : seul ce dernier cas a un decalage d'attente non nul)
@@ -2397,7 +2428,7 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 		holder.move_child(slot_ctrl, at)
 		DungeonSlot.fit_cards(slot_ctrl)
 		if fly_ui != null:
-			var placed := DungeonSlot.fly_pending(game_manager, foe_pid, di, [fly_ui], fly_slide, fly_off)
+			var placed := DungeonSlot.fly_pending(game_manager, foe_pid, di, [fly_ui], fly_slide, fly_off, _reveal_wait)
 			if not fly_slide:
 				_foe_pend_off["%d:%d" % [foe_pid, di]] = placed
 		_foe_slots.append(slot_ctrl)
@@ -2943,26 +2974,35 @@ func _refresh_phase_banner(phase: String) -> void:
 	# La salle adverse posee en attente glisse d'abord a sa place (MovePendingRoomToRightPlace, avant le retournement, cs:203-205).
 	var opening: bool = prev == "setup" and key == "build" and not skip_animations
 	var reveal := 0.0
-	if (bait or opening) and _rooms_to_reveal():
-		reveal = REVEAL_S + _foe_slide_s()
+	var pre := [0.0, false, 0.0] # attente avant la revelation, salle posee apres mon DONE, sa glissade (_pre_reveal)
 	if bait:
+		pre = _pre_reveal()
+	if (bait or opening) and (_rooms_to_reveal() or bool(pre[1])):
+		reveal = REVEAL_S + maxf(_foe_slide_s(), float(pre[2]))
+	var banner_at: float = float(pre[0]) + reveal
+	if bait:
+		# DONE, constructions des IA suivantes, revelation (BuildPhase_b), puis au pas BaitPhase la banniere LEVEL UP, enfin les vols (pas sequentiels, GamePlayBaseScene.cs:838-878)
+		_reveal_wait = float(pre[0])
+		DungeonSlot.reveal_delay = _reveal_wait
+		_lvl_wait = banner_at
 		_bait_t0 = Time.get_ticks_msec()
-		_bait_delay = reveal
+		_bait_delay = banner_at + (LEVELUP_S if _levelup_new() else 0.0) + STEP_POLLS_S
 		_town_hold = not _bait_plan.is_empty() # la colonne garde chaque heros jusqu'au depart de son vol (VerticalScrollQueueComponent.CreateAssignHeroesTask) ; _town_release la remet a jour apres le dernier
 		if _town_hold:
 			var left := town_container.get_child_count() - _bait_plan.size()
 			# BaitPhase (cs:294) : les pas, puis CreateReorderTask 0,5 x vitesse, puis CreateShowBottomTask (fond s'il reste plus de 4 heros, sinon le haut) avant l'aventure
-			_bait_ms = int((reveal + float(steps[0]) + 0.5 * _speed + (TOWN_SCROLL_S if left > 4 or int(steps[1]) != 0 else 0.0)) * 1000.0)
+			_bait_ms = int((_bait_delay + float(steps[0]) + 0.5 * _speed + (TOWN_SCROLL_S if left > 4 or int(steps[1]) != 0 else 0.0)) * 1000.0)
 		else:
-			_bait_ms = int((BAIT_EMPTY_S + reveal) * 1000.0)
+			_bait_ms = int((BAIT_EMPTY_S + _bait_delay) * 1000.0)
 		key = "bait"
-	if reveal > 0.0:
+	_pass_snap = {} # le DONE est consomme par le premier changement de phase qui le suit
+	if banner_at > 0.0:
 		if opening:
 			_town_hold = true
 			_deal_hold = true
 			_set_phase_banner(null)
 		var delayed := create_tween()
-		delayed.tween_interval(reveal)
+		delayed.tween_interval(banner_at) # PhaseTitleControl.Refresh ouvre le pas BaitPhase (cs:974), avant la banniere LEVEL UP
 		delayed.tween_callback(func():
 			if _last_phase == phase and PHASE_BANNERS.has(key):
 				_set_phase_banner(_tex(PHASE_BANNERS[key]))
@@ -2973,7 +3013,7 @@ func _refresh_phase_banner(phase: String) -> void:
 	if bait:
 		var tw := create_tween()
 		if _town_hold:
-			var fly_s := reveal + float(steps[0])
+			var fly_s := _bait_delay + float(steps[0])
 			tw.tween_interval(fly_s)
 			tw.tween_callback(_town_release)
 			tw.tween_interval(float(_bait_ms) / 1000.0 - fly_s)
@@ -2981,13 +3021,64 @@ func _refresh_phase_banner(phase: String) -> void:
 			tw.tween_interval(float(_bait_ms) / 1000.0)
 		tw.tween_callback(_bait_end)
 
-## Duree de la glissade de la salle adverse posee en attente vers sa place (MovePendingRoomToRightPlace : |decalage| / 1920 s, cs:215-222), la plus longue des salles en attente affichees.
+## Duree de la glissade de la salle adverse posee en attente vers sa place (MovePendingRoomToRightPlace : |decalage| / SLIDE_PX_S s, cs:215-222), la plus longue des salles en attente affichees.
 func _foe_slide_s() -> float:
 	var s := 0.0
 	for fk in _foe_pend_off:
 		if bool(_foe_down.get(fk, false)):
-			s = maxf(s, absf(float(_foe_pend_off[fk])) / 1920.0)
+			s = maxf(s, absf(float(_foe_pend_off[fk])) / SLIDE_PX_S)
 	return s
+
+## Mon DONE (hors ligne) a clos la construction : le moteur a joue d'un coup ce que l'APK enchaine pas a pas avant la revelation (GameBoard.cs:394-403, un pas
+## DoNextStepAndRefresh par IA) : fondu de DONE, puis par IA suivante (ordre de construction) le changement de donjon affiche s'il le faut et le fondu
+## de la salle qu'elle pose. Rend [attente (s), une telle salle existe, sa plus longue glissade (s)] et remplit _late_off.
+## shortcut: le changement de donjon affiche (3-4 joueurs) n'est que compte, pas joue ; le fondu des salles posees se joue a la fin de l'attente.
+func _pre_reveal() -> Array:
+	if _pass_snap.is_empty() or _is_online():
+		return [0.0, false, 0.0]
+	var players: Dictionary = game_manager.G.get("players", {})
+	var order: Array = game_manager.G.get("buildOrder", [])
+	var wait := DONE_FADE_S
+	var any := false
+	var slide := 0.0
+	var shown := _pass_foe
+	for k in range(order.find(_pass_pid) + 1 if order.has(_pass_pid) else order.size(), order.size()):
+		var q := int(order[k])
+		var p: Dictionary = players.get(q, {})
+		if p.is_empty() or not bool(p.get("isAI", false)) or bool(p.get("eliminated", false)):
+			continue
+		if q != shown and q != _pass_pid: # GamePlaySPScene.CreateBeforePlayerInteractionTask : avant que l'IA joue, son donjon passe au premier plan
+			wait += FOE_SWAP_S
+			shown = q
+		var dun: Array = p.get("dungeon", [])
+		var old: Array = (_pass_snap.get(q, []) as Array).duplicate()
+		var news: Array = []
+		for di in dun.size():
+			var f := old.find(_pile_key(dun[di]))
+			if f >= 0:
+				old.remove_at(f)
+			else:
+				news.append(di)
+		if news.is_empty():
+			continue
+		wait += LATE_BUILD_FADE_S
+		any = true
+		var pend := dun.duplicate(true) # le donjon tel qu'affiche apres la pose : ces salles face cachee (decalage de DungeonSlot.fly_pending)
+		for di in news:
+			(BossEngine.active_room(pend[di]) as Dictionary)["faceDown"] = true
+		for di in news:
+			var off := float(dun.size() - 1 - di - mini(4, BossEngine.apk_dungeon_size(pend))) * 140.0
+			_late_off["%d:%d" % [q, di]] = off
+			slide = maxf(slide, absf(off) / SLIDE_PX_S)
+	return [wait, any, slide]
+
+## Un boss monte de niveau a cette revelation (meme condition que _track_levelup, qui joue la banniere) : l'APK la joue, tous donjons confondus, avant les vols.
+func _levelup_new() -> bool:
+	var players: Dictionary = game_manager.G.get("players", {})
+	for pid in players:
+		if _lvl_seen.has(pid) and bool((players[pid] as Dictionary).get("leveledUp", false)) and not bool(_lvl_seen[pid]) and (players[pid] as Dictionary).get("boss") != null:
+			return true
+	return false
 
 ## Fin de la revelation du tour 1 : la plaque BUILD revient et la pioche puis la ville (BeginningOfTurn) suivent.
 func _end_opening_hold() -> void:
@@ -4776,8 +4867,20 @@ func _on_pass_pressed() -> void:
 	if _is_online():
 		_do({"type": "pass", "args": []})
 	else:
+		_pass_pid = _my_pid()
+		_pass_foe = foe_pid
+		_pass_snap = {}
+		for q in game_manager.G["players"]:
+			_pass_snap[q] = ((game_manager.G["players"][q] as Dictionary).get("dungeon", []) as Array).map(_pile_key)
 		if game_manager.apply_move(_my_pid(), {"type": "passBuild", "args": []}):
 			refresh()
+		else:
+			_pass_snap = {}
+
+## Pile d'un donjon reduite a ce qui la distingue d'une pile posee apres (salle du dessus, hauteur) : les salles revelees changent de champs.
+func _pile_key(stack) -> String:
+	var r = BossEngine.active_room(stack)
+	return "%s/%d" % [str((r as Dictionary).get("id", "")) if r != null else "", (stack as Array).size()]
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Interactions de l'APK : glisser-deposer, zoom au tap, pile de sorts, notices de l'adversaire, pioche, mise en garde, fin de partie

@@ -21,6 +21,7 @@ var _was_down := false                  # la salle du dessus etait face cachee a
 ## Salles gelees au dernier affichage, par « joueur:indice de salle » (l'indice du moteur, pas le noeud : les salles glissent d'un noeud a l'autre quand le donjon grandit) :
 ## sinon le voile de glace apparait en fondu (CardUI.set_frozen).
 static var frozen_seen := {}
+static var reveal_delay := 0.0           # s avant le retournement d'une salle revelee (BoardUI._pre_reveal : DONE puis poses des IA suivantes), le temps d'un refresh
 var _glow: Control
 const PEEK := 28.0                       # APK : la salle recouverte depasse de ~28 px au-dessus de la salle du dessus (1920x1080)
 const MAX_PEEK := 1                      # nombre de salles recouvertes dessinees (CardStackSlotComponent.cs:UpdateValues, RoomStack.Take(2) : le dessus + une dessous)
@@ -121,7 +122,7 @@ func _update_view() -> void:
 			if card_ui.card_data.card_type in ["monster", "trap"] and dmg != int(active_room.get("damage", 0)):
 				card_ui.add_heart(dmg) # CardStackSlotComponent.cs:148 : degats courants de la salle du dessus quand ils different de l'imprime
 		if _was_down and not down and _animated():
-			card_ui.flip_in()
+			card_ui.flip_in(0.5, 0.0, reveal_delay)
 		if down and not _was_down and _animated():
 			_flip_down(card_ui, active_room, holder) # B22 : la salle posee se retourne face cachee (BuildRoomHandSceneBehavior.cs:182)
 		_was_down = down
@@ -177,11 +178,11 @@ func _flip_down(card_ui: CardUI, room: Dictionary, holder: Control) -> void:
 
 ## P-C14 / M13, CardStackSlotComponent.MovePendingRoomToRightPlace (:210-233) + DungeonFrameEntity.Refresh (:398-409) : le decalage `positionToBuild` n'est calcule que pour le cadre du HAUT
 ## (`PendingToBeBuilt && isTopFrame`), donc seule la salle posee en attente par l'ADVERSAIRE glisse (BoardUI._refresh_foe_dungeon) ; la notre (cadre du bas) apparait en place. Depart : le premier emplacement
-## libre, Slots[min(4, DungeonSize)] ; decalage (i - k) x 140 px (i = index C# de l'emplacement, k = min(4, DungeonSize)), duree = |decalage| / 1920 s (VirtualWidth), CubicEase (EaseOut).
+## libre, Slots[min(4, DungeonSize)] ; decalage (i - k) x 140 px (i = index C# de l'emplacement, k = min(4, DungeonSize)), duree = |decalage| / 1440 s (VirtualWidth, Game.cs:26), CubicEase (EaseOut).
 ## Rien quand la salle est posee sur le premier emplacement libre (decalage nul). `di` : indice de la salle dans le donjon du moteur.
 ## slide = faux : les noeuds sont seulement poses au decalage (a la pose, la salle attend la revelation) ; `off` (non NAN) : decalage deja connu (a la revelation, la salle est face visible et le calcul ne vaut plus).
-## Renvoie le decalage applique.
-static func fly_pending(gm: Node, pid: int, di: int, nodes: Array, slide := true, off := NAN) -> float:
+## `wait` : s avant la glissade (BoardUI._pre_reveal). Renvoie le decalage applique.
+static func fly_pending(gm: Node, pid: int, di: int, nodes: Array, slide := true, off := NAN, wait := 0.0) -> float:
 	if gm == null:
 		return 0.0
 	if is_nan(off):
@@ -193,7 +194,10 @@ static func fly_pending(gm: Node, pid: int, di: int, nodes: Array, slide := true
 		var x: float = (n as Control).position.x
 		(n as Control).position.x = x + off
 		if slide:
-			(n as Control).create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT).tween_property(n, "position:x", x, absf(off) / 1920.0)
+			var tw := (n as Control).create_tween().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+			if wait > 0.0:
+				tw.tween_interval(wait)
+			tw.tween_property(n, "position:x", x, absf(off) / 1440.0)
 	return off
 
 ## Un Card.tscn pose dans un hote qui n'est pas encore dans l'arbre garde la taille de la scene (140 x 200) malgre `size` : on la fixe une fois l'hote dans l'arbre.
