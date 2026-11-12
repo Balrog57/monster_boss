@@ -225,7 +225,8 @@ var _town_sig := ""                      # heros affiches : la colonne n'est rec
 var _town_ids: Array = []
 var _ent_tok: Dictionary = {}            # pid -> cartes de l'entree, alignees sur les heros de `entrance` (la carte du heros qui traverse reste a l'entree)
 var _focus := {}                         # {pid, room} : salle agrandie parce que le heros s'y trouve (voir _set_focus)
-var _town_hold := false                  # fin de la construction : les heros de la ville restent en place pendant le retournement des salles (voir _refresh_phase_banner)
+var _town_bottom := false                # _town_release en cours : la colonne redescend apres le reordonnancement
+var _town_hold := false                 # fin de la construction : les heros de la ville restent en place pendant le retournement des salles (voir _refresh_phase_banner)
 var _bait_delay := 0.0                   # s : attente avant le 1er vol du leurre (retournement des salles revele avant la phase BAIT)
 var _deal_hold := false                  # tour 1 : la revelation des salles (Setup_c) precede la pioche (BeginningOfTurn) ; les cartes piochees attendent dans _held_draw
 var _held_draw: Array = []
@@ -234,6 +235,7 @@ var _bait_t0 := 0                        # BAIT PHASE : horloge (ms) du debut du
 var _bait_ms := 0                        # duree du leurre (ms) : un vol de BAIT_FLY x vitesse par heros, l'un apres l'autre
 var _bait_flown := {}                    # cartes deja parties en vol pour ce leurre : {pid:id:rang -> _bait_t0}
 var _bait_landed := {}                   # cartes deja arrivees a l'entree du donjon pour ce leurre : {pid:id:rang -> _bait_t0}
+var _bait_plan := {}                     # pas du leurre (voir _bait_schedule) : {pid:id:rang -> [depart (s, apres le retournement), carte de la ville, defilement cible ou -1]}
 var _phase_tw: Tween                     # saut de la plaque de phase (PhaseTitleControl + JumpBehavior)
 var _foe_frozen := {}                    # « adversaire:indice de salle » -> salle gelee au dernier affichage (voile de glace en fondu au gel)
 var _foe_cache := {}                    # pid -> {slots, keys} : emplacements adverses retires du plateau au changement de joueur affiche, repris s'ils sont inchanges
@@ -258,7 +260,8 @@ const PHASE_BANNER_Y := -62.0
 const DRAW_LAND := 0.3                   # une carte piochee rejoint sa place dans la main : lerp de CardMoveBehavior (0,009 x ms par image, ~0,3 s pour 95 %, CardMoveBehavior.cs:13,129-133)
 const BAIT_EMPTY_S := 1.0                # leurre sans heros a envoyer : la plaque BAIT PHASE entre (saut de 0,5 s hors / 0,5 s dedans, PhaseTitleControl) avant celle de l'aventure
 const REVEAL_S := 0.8                    # retournement 0,5 s + retour a la taille 0,3 s (CardEntity.cs:71-72), hors vitesse
-const BAIT_FLY := 1.0                    # vol d'une carte de heros depuis la ville jusqu'a l'entree du donjon, x vitesse (VerticalScrollQueueComponent.cs:261-262) ; la plaque BAIT PHASE dure tant que les vols (chacun apres le precedent) puis le reordonnancement de la ville (0,5 x vitesse)
+const TOWN_SCROLL_S := 0.7               # defilement de la colonne HEROES IN TOWN : lerp 0,2 / image de l'APK (non lie a la vitesse, ~0,7 s) rendu par un tween de 0,7 s (VerticalScrollQueueComponent.cs:212-223,277-284)
+const BAIT_FLY := 1.0                   # vol d'une carte de heros depuis la ville jusqu'a l'entree du donjon, x vitesse (VerticalScrollQueueComponent.cs:261-262) ; la plaque BAIT PHASE dure tant que les vols (chacun apres le precedent) puis le reordonnancement de la ville (0,5 x vitesse)
 const WINDOW_ADVENTURE := 3.0
 const WINDOW_STACK := 6.0
 const PASS_FAST := 0.45                  # rien a jouer : le siege humain passe presque tout de suite (colle Godot, sans origine C# : l'APK n'a pas d'attente ici ; valeur non verifiable)
@@ -1222,6 +1225,10 @@ func _win_show(want: float, stack_open: bool) -> void:
 ## Automatisation UI de l'aventure et de la pile de sorts (aucune regle changee). Un humain qui n'a RIEN a jouer passe presque tout de suite ;
 ## flux APK : le heros suivant avance de lui-meme, et s'il y a un sort / une capacite a jouer, la barre de temps (3 s ; 6 s sur la pile)
 ## ouvre la fenetre, puis le jeu continue (passe / GO envoyes a la fin). Legacy (siege a siege, en ligne) : PASS TURN / GO manuels.
+## Signature de la pile ouverte : la barre de 6 s repart quand elle change (une carte de plus), pas quand la main passe d'un siege a l'autre.
+func _stack_key(G: Dictionary) -> String:
+	return JSON.stringify([G.get("phase"), G.get("turn"), (G.get("stack", []) as Array).map(func(e): return str((e as Dictionary).get("id", "")))])
+
 func _auto_pass(delta: float) -> bool:
 	var G: Dictionary = game_manager.G
 	var stack_open: bool = not (G.get("stack", []) as Array).is_empty()
@@ -1287,7 +1294,10 @@ func _auto_pass(delta: float) -> bool:
 		var timed: bool = apk and ((not stack_open and (str(pause) == "post-damage" or at_entry)) or (stack_open and str(pause) != "pre-exit")) # pile : 6 s meme sans rien a jouer, la fin de la barre est le seul « pret » de l'humain (GamePlayBaseScene.cs:210-213)
 		var want: float = (WINDOW_STACK if stack_open else WINDOW_ADVENTURE) * win_time_scale if timed else (GO_FAST if go_mv != null else PASS_FAST)
 		# APK : la barre repart a zero a chaque pas du heros et a chaque sort / capacite jouee (pile), jamais parce qu'un siege passe ou qu'une ligne de journal s'ajoute.
-		var key := JSON.stringify([phase, G.get("turn"), adv.get("playerId"), adv.get("roomIndex"), pause, (G.get("stack", []) as Array).size(), int(pid)])
+		# Un seul humain hors ligne (flux APK) : meme cle et meme condition que la branche « sans passe a donner » plus bas, une seule barre de 6 s quel que soit l'ordre
+		# des repondants (IA avant ou apres moi). Hotseat / en ligne : cle d'origine avec le siege, sinon un siege herite du temps ecoule du precedent et passe aussitot.
+		var solo_stack: bool = stack_open and apk and not _is_online() and str(pause) != "pre-exit"
+		var key := _stack_key(G) if solo_stack else JSON.stringify([phase, G.get("turn"), adv.get("playerId"), adv.get("roomIndex"), pause, (G.get("stack", []) as Array).size(), int(pid)])
 		if key != _win_sig: # un pas du heros ou un sort / une capacite sur la pile rouvre une fenetre complete
 			_win_sig = key
 			_win_t = 0.0
@@ -1298,8 +1308,9 @@ func _auto_pass(delta: float) -> bool:
 			_win_hide()
 		if _win_t < want:
 			return timed and not stack_open # barre de 3 s en cours : l'IA attend sa fin (GamePlayBaseScene.cs:864-871 : DoPlayerActions apres CreateWaitAndMoveHeroToNextSlotTask) ; sinon elle passe pendant ce temps
-		_win_t = 0.0
-		_win_sig = ""
+		if not solo_stack: # pile solo : la barre finie reste finie, les IA qui repondent apres moi passent sans 2e fenetre
+			_win_t = 0.0
+			_win_sig = ""
 		_win_hide()
 		var mv: Dictionary = ((go_mv if go_mv != null else pass_mv) as Dictionary).duplicate()
 		if game_manager.apply_move(int(pid), mv):
@@ -1308,7 +1319,7 @@ func _auto_pass(delta: float) -> bool:
 	# Pile ouverte sans « passe » a donner (mon sort, ou j'ai deja repondu) : l'APK la garde quand meme 6 s apres la derniere carte (SpellBattleEntity.cs:32) avant de resoudre
 	# (GameBoard.NextStep) ; les IA ont deja repondu a l'instant (AIPlayerInteraction.cs:29-43), ici seule leur passe attend (voir _process). Hors ligne : en ligne le serveur arbitre.
 	if apk and stack_open and not _is_online() and str(pause) != "pre-exit":
-		var skey := JSON.stringify([phase, G.get("turn"), (G["stack"] as Array).map(func(e): return str((e as Dictionary).get("id", "")))])
+		var skey := _stack_key(G)
 		if skey != _win_sig:
 			_win_sig = skey
 			_win_t = 0.0
@@ -1859,6 +1870,7 @@ func _refresh_town(G: Dictionary) -> void:
 ## Apres la mise en page des cartes : le defilement d'avant est restitue, et un heros qui vient d'arriver est amene a l'ecran
 ## (VerticalScrollQueueComponent.CreateShowBottomTask).
 func _town_restore(sv: int, fresh: int, moved: Array = []) -> void:
+	var bottom := _town_bottom # lu avant le premier await : _town_release le remet a faux au retour de refresh()
 	for i in 2:
 		await get_tree().process_frame
 	if not is_instance_valid(_town_scroll):
@@ -1876,6 +1888,13 @@ func _town_restore(sv: int, fresh: int, moved: Array = []) -> void:
 				var ttw := hc.create_tween()
 				hc.set_meta("town_tw", ttw)
 				ttw.tween_property(hc, "position:y", to_y, 0.5 * _speed_factor()).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	if bottom and not skip_animations:
+		var sb := _town_scroll.get_v_scroll_bar()
+		var to := int(sb.max_value - sb.page) if town_container.get_child_count() > 4 else 0 # CreateShowBottomTask : 4 heros ou moins = CreateShowTopTask
+		if to != _town_scroll.scroll_vertical:
+			var down := create_tween() # apres le reordonnancement (0,5 x vitesse)
+			down.tween_interval(0.5 * _speed)
+			down.tween_property(_town_scroll, "scroll_vertical", to, TOWN_SCROLL_S)
 	if fresh >= 0 and fresh < town_container.get_child_count():
 		_town_scroll.ensure_control_visible(town_container.get_child(fresh))
 
@@ -1920,7 +1939,6 @@ func _town_input(event: InputEvent) -> void:
 
 func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 	var rows := [[1, p], [0, foe]]
-	var seq := 0 # rang de vol : les heros partent l'un apres l'autre (VerticalScrollQueueComponent.cs:229-263)
 	for r in rows:
 		var box: Control = (_lane[int(r[0])] as Dictionary)["entrance"]
 		var ents0: Array = (r[1] as Dictionary).get("entrance", [])
@@ -1929,7 +1947,6 @@ func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 		var toks0: Array = _ent_tok.get(pid0, [])
 		if not _bait_active() and box.get_meta("ek", []) == ek and toks0.size() == ents0.size() and box.get_child_count() == ents0.size(): # file inchangee : on garde les cartes (et leurs glissements en cours)
 			_fx_hero_entry(box, pid0, ents0, toks0)
-			seq += ents0.size()
 			continue
 		box.set_meta("ek", ek)
 		var prev := {} # position / echelle courantes des cartes d'avant : la file glisse (HeroesQueueComponent.cs:301-307)
@@ -1992,12 +2009,19 @@ func _refresh_entrances(p: Dictionary, foe: Dictionary) -> void:
 			toks[k] = tok
 			if flying and _bait_landed.get(_bait_key(pid_key, ents[k], k), 0) != _bait_t0: # carte arrivee par le leurre : cachee jusqu'a l'arrivee de son double, qui vole depuis la ville (voir _fly_hero_card)
 				tok.modulate.a = 0.0
-				_fly_hero_card(pid_key, ents[k], k, tok, seq + k)
+				_fly_hero_card(pid_key, ents[k], k, tok)
 		for c in old_tok.values(): # heros partis
 			(c as Node).queue_free()
 		_ent_tok[pid_key] = toks
 		_fx_hero_entry(box, pid_key, ents, toks)
-		seq += ents.size()
+	if _bait_active():
+		var all_p: Dictionary = game_manager.G.get("players", {})
+		for q in all_p:
+			if int(q) == view_pid or int(q) == foe_pid:
+				continue
+			var hid: Array = (all_p[q] as Dictionary).get("entrance", [])
+			for k in hid.size():
+				_fade_hero_card(int(q), hid[k], k)
 
 ## Heros qui entre dans le donjon du joueur actif (AdventurePhase_b) : sa carte d'entree emet (HeroesQueueComponent.cs:105-107, 142-145 EmitParticles = true), jusqu'a
 ## son retrait de la file (ShiftAndRemoveFirstHero, :293-296). Ici : tant que l'aventure de ce joueur a un heros, sur sa carte d'entree. Emetteur 0,9 x la carte (CardEntity.cs:88-91),
@@ -2027,32 +2051,31 @@ func _bait_key(pid: int, hero: Dictionary, k: int) -> String:
 	return "%d:%s:%d" % [pid, str(hero.get("id", "")), k]
 
 ## Double de la carte d'entree qui vole de la colonne HEROES IN TOWN jusqu'a sa place (un seul par heros et par leurre, meme si l'entree est
-## reconstruite entre-temps) ; `order` = rang dans la file : chaque vol dure BAIT_FLY x vitesse et attend la fin du precedent.
-func _fly_hero_card(pid: int, hero: Dictionary, k: int, tok: Control, order: int) -> void:
+## reconstruite entre-temps) ; son depart est celui de son pas dans _bait_plan (chaque pas attend la fin du precedent).
+func _fly_hero_card(pid: int, hero: Dictionary, k: int, tok: Control) -> void:
 	var gk := _bait_key(pid, hero, k)
 	if _bait_flown.get(gk, 0) == _bait_t0:
 		return
 	_bait_flown[gk] = _bait_t0
+	var step: Array = _bait_plan.get(gk, [])
+	if step.is_empty(): # heros absent de la colonne : l'APK ne fait voler que les cartes de la ville (cs:229-236), il apparait a l'entree
+		_bait_landed[gk] = _bait_t0
+		tok.modulate.a = 1.0
+		return
 	var t0 := _bait_t0
 	var ghost := _create_entrance_card(hero)
 	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ghost.visible = false
 	hero_crossing_layer.add_child(ghost)
 	ghost.global_position = Vector2(Vp.lx(23.0), 107.0) # colonne de gauche
-	var tcard: Control = null # sa carte dans la colonne HEROES IN TOWN (encore la d'avant le leurre : _town_hold) : elle y reste jusqu'au depart de son vol
-	for j in mini(_town_ids.size(), town_container.get_child_count()):
-		var tc := town_container.get_child(j) as Control
-		if _town_ids[j] == hero.get("id", hero) and not tc.has_meta("bait_taken"):
-			tc.set_meta("bait_taken", true)
-			tcard = tc
-			break
+	var tcard = step[1] # sa carte dans la colonne HEROES IN TOWN (encore la d'avant le leurre : _town_hold) : elle y reste jusqu'au depart de son vol
 	var tw := ghost.create_tween()
-	tw.tween_interval(_bait_delay + BAIT_FLY * _speed * float(order))
+	tw.tween_interval(_bait_delay + float(step[0]))
+	_bait_scroll(tw, step)
 	tw.tween_callback(func():
-		if tcard != null and is_instance_valid(tcard) and is_instance_valid(_town_scroll):
-			# CreateShowAtIndexTask (cs:229-241) : la colonne defile jusqu'a ce heros avant son vol, puis CreateAssignHeroesTask (cs:265-271) cache sa carte et fait partir la copie de sa place
-			# (shortcut : defilement immediat, l'APK l'anime par lerp 0,2 / image, seulement quand plus de 4 heros attendent ; la duree n'est pas ajoutee au rang de vol)
-			_town_scroll.ensure_control_visible(tcard)
+		if is_instance_valid(tcard) and is_instance_valid(_town_scroll):
+			# CreateShowAtIndexTask (cs:212-223) : la colonne a defile (ou non) avant ce vol, puis CreateAssignHeroesTask (cs:255-262) cache sa carte et fait partir la copie de sa place,
+			# meme a demi visible (rang 3 en haut de la colonne : l'APK ne la ramene pas a l'ecran)
 			ghost.global_position = _town_scroll.global_position + tcard.position + (tcard.size - ghost.size) / 2.0 - Vector2(_town_scroll.scroll_horizontal, _town_scroll.scroll_vertical)
 			tcard.modulate.a = 0.0
 		ghost.visible = true)
@@ -2064,6 +2087,54 @@ func _fly_hero_card(pid: int, hero: Dictionary, k: int, tok: Control, order: int
 		if t0 == _bait_t0 and k < toks.size() and is_instance_valid(toks[k]):
 			(toks[k] as Control).modulate.a = 1.0
 		ghost.queue_free())
+
+## CreateAssignHeroesTask (cs:225-275) : UNE boucle sur les heros de la ville, du plus ancien (en bas, HeroEntitiesList[0]) au plus recent ; un heros que personne n'a attire est saute.
+## Pour chacun : CreateShowAtIndexTask (cs:212-223 : index inverse = rang dans la colonne ; >= 4 : il passe en 2e place visible, sinon la colonne remonte en haut ;
+## rien si elle y est deja), puis vol de BAIT_FLY x vitesse vers un donjon affiche (cs:242-262) ou fondu de 0,3 s sur place (cs:269-272, CardEntity.cs:69) ; chaque pas attend le precedent.
+## Remplit _bait_plan ; rend [duree des pas (s), defilement final de la colonne].
+func _bait_schedule() -> Array:
+	_bait_plan = {}
+	var players: Dictionary = game_manager.G.get("players", {})
+	var t := 0.0
+	var sv := _town_scroll.scroll_vertical # non borne, comme le lerp de l'APK (il peut viser plus bas que le fond)
+	for j in range(mini(_town_ids.size(), town_container.get_child_count()) - 1, -1, -1):
+		for q in players:
+			var ents: Array = (players[q] as Dictionary).get("entrance", [])
+			var k := -1
+			for e in ents.size():
+				if ents[e].get("id", ents[e]) == _town_ids[j] and not _bait_plan.has(_bait_key(int(q), ents[e], e)):
+					k = e
+					break
+			if k < 0:
+				continue
+			var to := 230 * (j - 1) if j >= 4 else 0 # -(230 x (index inverse - 1)) ; 230 = pas de la colonne (215 + 15)
+			_bait_plan[_bait_key(int(q), ents[k], k)] = [t, town_container.get_child(j), to if to != sv else -1]
+			if to != sv:
+				sv = to
+				t += TOWN_SCROLL_S
+			t += BAIT_FLY * _speed if (int(q) == view_pid or int(q) == foe_pid) else 0.3
+			break
+	return [t, sv]
+
+## Defilement du pas (CreateShowAtIndexTask), joue avant son vol ou son fondu.
+func _bait_scroll(tw: Tween, step: Array) -> void:
+	if int(step[2]) >= 0:
+		tw.tween_property(_town_scroll, "scroll_vertical", int(step[2]), TOWN_SCROLL_S)
+
+## Heros leurre vers un donjon non affiche (3-4 joueurs) : sa carte de la ville s'efface sur place, a son pas de _bait_plan.
+func _fade_hero_card(pid: int, hero: Dictionary, k: int) -> void:
+	var gk := _bait_key(pid, hero, k)
+	if _bait_flown.get(gk, 0) == _bait_t0:
+		return
+	_bait_flown[gk] = _bait_t0
+	var step: Array = _bait_plan.get(gk, [])
+	if step.is_empty() or not is_instance_valid(step[1]):
+		return
+	var tcard := step[1] as Control
+	var tw := tcard.create_tween()
+	tw.tween_interval(_bait_delay + float(step[0]))
+	_bait_scroll(tw, step)
+	tw.tween_property(tcard, "modulate:a", 0.0, 0.3)
 
 func _create_entrance_card(hero: Dictionary) -> Control:
 	var c = _card_scene.instantiate()
@@ -2161,17 +2232,17 @@ func _set_boss(L: Dictionary, boss, dead := false, lit := false) -> void:
 		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		glow.stretch_mode = TextureRect.STRETCH_SCALE
-		sprite.get_parent().add_child(glow)
+		glow.show_behind_parent = true # enfant du personnage (BossCharacter.AddChild, DungeonFrameEntity.cs:279), DrawOrder 9E-05 contre 8E-05 = derriere : suit la secousse, aucun ordre de freres a tenir
+		glow.visible = false # cache a la creation : le fondu de 0,5 s (FadeBehavior, cs:273-278,484) joue au premier passage de niveau
+		sprite.add_child(glow)
 		L["glow"] = glow
-	if glow != null:
-		sprite.get_parent().move_child(glow, sprite.get_index()) # DrawOrder 9E-05 contre 8E-05 pour le personnage : plus grand = derriere (DungeonFrameEntity.cs:257,273) ; halo plus large que le sprite
 	if glow != null:
 		var was: bool = glow.visible
 		glow.visible = glow_tex != null
 		if glow_tex != null:
 			glow.texture = glow_tex
 			glow.size = glow_tex.get_size() * (sprite.size.x / maxf(sprite.texture.get_size().x, 1.0))
-			glow.position = sprite.position + sprite.size / 2.0 - glow.size / 2.0
+			glow.position = (sprite.size - glow.size) / 2.0
 			if not was and not skip_animations:
 				glow.modulate.a = 0.0
 				glow.create_tween().tween_property(glow, "modulate:a", 1.0, 0.5)
@@ -2863,11 +2934,9 @@ func _refresh_phase_banner(phase: String) -> void:
 	# APK : entre la revelation des salles et l'aventure, la plaque BAIT PHASE s'affiche pendant que les heros de la ville volent vers les
 	# donjons (leurre), l'un apres l'autre, meme quand il n'y en a aucun (PhaseTitleControl.Refresh n'a pas d'exception). Le moteur n'a pas cette phase : l'interface montre la plaque et les vols, sans retarder la partie.
 	var bait: bool = key == "adventure" and prev == "build" and not skip_animations
-	var bait_n := 0
+	var steps := [0.0, 0] # duree des pas du leurre, defilement final (_bait_schedule)
 	if bait:
-		for q in [view_pid, foe_pid]:
-			if int(q) >= 0:
-				bait_n += ((game_manager.G.get("players", {}) as Dictionary).get(int(q), {}) as Dictionary).get("entrance", []).size()
+		steps = _bait_schedule()
 	# APK : BuildPhase_b revele les salles (retournement 0,5 s + retour a la taille 0,3 s, CardStackSlotComponent.CreateFlipUpTopRoomTask, cs:274-296 ; pas lie a la vitesse) sous la plaque BUILD,
 	# et seulement ensuite BaitPhase (plaque BAIT, vols des heros) : le pas suivant de DoNextStepAndRefresh attend la fin du pas precedent (GamePlayBaseScene.cs:838-860).
 	# Tour 1 : Setup_c revele de meme les premieres salles, sans plaque (PhaseTitleControl.cs:60 : phase hors des trois plaques = plaque masquee), puis BeginningOfTurn pioche et amene les heros en ville.
@@ -2879,9 +2948,11 @@ func _refresh_phase_banner(phase: String) -> void:
 	if bait:
 		_bait_t0 = Time.get_ticks_msec()
 		_bait_delay = reveal
-		_town_hold = bait_n > 0 # la colonne garde chaque heros jusqu'au depart de son vol (VerticalScrollQueueComponent.CreateAssignHeroesTask) ; _town_release la remet a jour apres le dernier
-		if bait_n > 0:
-			_bait_ms = int(((float(bait_n) * BAIT_FLY + 0.5) * _speed + reveal) * 1000.0) # + CreateReorderTask 0,5 x vitesse apres le dernier vol, avant la fin de BaitPhase (VerticalScrollQueueComponent.cs:206,261,293)
+		_town_hold = not _bait_plan.is_empty() # la colonne garde chaque heros jusqu'au depart de son vol (VerticalScrollQueueComponent.CreateAssignHeroesTask) ; _town_release la remet a jour apres le dernier
+		if _town_hold:
+			var left := town_container.get_child_count() - _bait_plan.size()
+			# BaitPhase (cs:294) : les pas, puis CreateReorderTask 0,5 x vitesse, puis CreateShowBottomTask (fond s'il reste plus de 4 heros, sinon le haut) avant l'aventure
+			_bait_ms = int((reveal + float(steps[0]) + 0.5 * _speed + (TOWN_SCROLL_S if left > 4 or int(steps[1]) != 0 else 0.0)) * 1000.0)
 		else:
 			_bait_ms = int((BAIT_EMPTY_S + reveal) * 1000.0)
 		key = "bait"
@@ -2901,8 +2972,8 @@ func _refresh_phase_banner(phase: String) -> void:
 		_set_phase_banner(_tex(PHASE_BANNERS[key]))
 	if bait:
 		var tw := create_tween()
-		if bait_n > 0:
-			var fly_s := reveal + float(bait_n) * BAIT_FLY * _speed
+		if _town_hold:
+			var fly_s := reveal + float(steps[0])
 			tw.tween_interval(fly_s)
 			tw.tween_callback(_town_release)
 			tw.tween_interval(float(_bait_ms) / 1000.0 - fly_s)
@@ -2936,7 +3007,9 @@ func _end_opening_hold() -> void:
 ## Dernier vol du leurre parti : les heros restants de la ville se reordonnent (UpdateItems puis CreateReorderTask).
 func _town_release() -> void:
 	_town_hold = false
+	_town_bottom = true # CreateShowBottomTask (cs:277-284) : _town_restore (lance par ce refresh) fait redescendre la colonne s'il reste plus de 4 heros
 	refresh()
+	_town_bottom = false
 
 ## Une salle posee ce tour est encore face cachee a l'ecran (mon donjon, ou celui de l'adversaire affiche) : la revelation a un retournement a jouer.
 func _rooms_to_reveal() -> bool:

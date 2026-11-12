@@ -1404,13 +1404,13 @@ func _take_spell(id: String) -> int:
 	return -1
 
 ## Partie neuve amenee au debut de la construction du tour 1 (aucun choix en attente) : etat comparable d'un lancement a l'autre.
-func _new_game() -> void:
+func _new_game(n_players: int = 2) -> void:
 	await _teardown()
 	CardDB._rng.seed = 424242
 	gm = GameManager.new()
 	add_child(gm)
 	gm.rng.seed = 424242 # Match._ready l'a randomise : le tirage du boss doit etre reproductible
-	gm.start_new_game(2, 1, ["base"])
+	gm.start_new_game(n_players, 1, ["base"])
 	board = load("res://godot/scenes/Board.tscn").instantiate()
 	board.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(board)
@@ -2074,6 +2074,266 @@ func _check_stack_hold() -> void:
 			board._process(0.5)
 		_check((G.get("stack", []) as Array).is_empty() and board._stack_ui == null, "pile : la carte est encore affichee a 8 s (effet jamais applique)")
 		_cov("stack_hold")
+
+func _spell_proto(id: String) -> Dictionary:
+	for sp in CardDB.spells:
+		if str((sp as Dictionary).get("id", "")) == id:
+			var c: Dictionary = (sp as Dictionary).duplicate(true)
+			c["isSpell"] = true
+			return c
+	return {}
+
+func _log_has(G: Dictionary, needle: String) -> bool:
+	return (G["log"] as Array).any(func(e): return needle in Match.log_text(e))
+
+## Une IA lance Jeopardy ; a 3 s l'humain y repond par Counterspell, joue par le glisser de la main (le geste d'un vrai joueur). La barre repart a 6 s
+## (SpellBattleComponent.cs:69-75), l'effet de Jeopardy est annule (Counterspell se resout avant sa cible et la marque annulee, Match._resolve_pending_stack).
+func _check_stack_counter() -> void:
+	_tag = "[stack-counter]"
+	await _new_game()
+	board.set_process(false)
+	board.win_time_scale = 1.0
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	var foe: Dictionary = G["players"][1]
+	me["hand"] = (me["hand"] as Array).filter(func(c): return bool((c as Dictionary).get("isRoom", false)))
+	var ci := _take_spell("BMA043") # Counterspell, vraie carte du paquet de base
+	var jp := _spell_proto("BMA048")
+	foe["hand"] = [jp]
+	var mv = gm.legal_moves(1).filter(func(m): return m["type"] == "playSpell")
+	if not _check(ci >= 0 and not mv.is_empty() and gm.apply_move(1, mv[0]), "pile contre : Jeopardy injouable par l'IA"):
+		return
+	board.refresh()
+	for i in 6:
+		board._process(0.5) # 3 s dans la fenetre
+	var cmv = gm.legal_moves(0).filter(func(m): return m["type"] == "playSpell" and int(m["args"][0]) == ci)
+	if not _check(not cmv.is_empty() and not (G.get("stack", []) as Array).is_empty(), "pile contre : Counterspell non jouable a 3 s"):
+		return
+	_check(_drag_card(ci, _spell_drop_pos(cmv[0])), "pile contre : Counterspell refuse au glisser")
+	await get_tree().process_frame
+	var st: Array = G.get("stack", [])
+	_check(st.size() == 2 and (st[0] as Dictionary)["card"]["id"] == "BMA043" and board._stack_ui != null and is_instance_valid(board._stack_ui), "pile contre : Counterspell non empile devant le sort (%d entrees)" % st.size())
+	for i in 10:
+		board._process(0.5) # 5 s apres le Counterspell
+	_check(not (G.get("stack", []) as Array).is_empty() and board._stack_ui != null and is_instance_valid(board._stack_ui), "pile contre : la pile s'est refermee avant 6 s apres le Counterspell (barre non remise a zero)")
+	for i in 6:
+		board._process(0.5) # 8 s apres
+	_check((G.get("stack", []) as Array).is_empty() and board._stack_ui == null, "pile contre : la pile est encore ouverte 8 s apres le Counterspell")
+	_check(_log_has(G, "Counterspell annule") and _log_has(G, "Le sort Jeopardy a ete annule") and not _log_has(G, "Le sort Jeopardy se"), "pile contre : l'effet de Jeopardy n'est pas annule")
+	_cov("stack_counter_in_window")
+
+## 3 joueurs : une IA lance Jeopardy, l'autre IA y repond par Counterspell a 3 s. Pas de fermeture anticipee, la barre repart, puis la pile se ferme et la partie continue.
+func _check_stack_two_ai() -> void:
+	_tag = "[stack-2ia]"
+	await _new_game(3)
+	board.set_process(false)
+	board.win_time_scale = 1.0
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	me["hand"] = (me["hand"] as Array).filter(func(c): return bool((c as Dictionary).get("isRoom", false)))
+	(G["players"][1] as Dictionary)["hand"] = [_spell_proto("BMA048")]
+	(G["players"][2] as Dictionary)["hand"] = [_spell_proto("BMA043")]
+	var mv = gm.legal_moves(1).filter(func(m): return m["type"] == "playSpell")
+	if not _check(not mv.is_empty() and gm.apply_move(1, mv[0]), "pile 2 IA : Jeopardy injouable par l'IA 1"):
+		return
+	board.refresh()
+	for i in 6:
+		board._process(0.5)
+	_check((G.get("stack", []) as Array).size() == 1 and board._stack_ui != null, "pile 2 IA : la pile s'est fermee avant 3 s (%d entrees)" % (G.get("stack", []) as Array).size())
+	var cmv = gm.legal_moves(2).filter(func(m): return m["type"] == "playSpell")
+	if not _check(not cmv.is_empty() and gm.apply_move(2, cmv[0]), "pile 2 IA : l'IA 2 ne peut pas contrer"):
+		return
+	board.refresh()
+	var phase0 := str(G.get("phase", ""))
+	for i in 10:
+		board._process(0.5)
+	_check((G.get("stack", []) as Array).size() == 2 and board._stack_ui != null and is_instance_valid(board._stack_ui), "pile 2 IA : fermee avant 6 s apres la 2e carte (barre non remise a zero)")
+	for i in 6:
+		board._process(0.5)
+	_check((G.get("stack", []) as Array).is_empty() and board._stack_ui == null, "pile 2 IA : pile bloquee 8 s apres la 2e carte (barre non remise a zero ou 2e fenetre de 6 s : t=%.1f)" % board._win_t)
+	_check(_log_has(G, "Le sort Jeopardy a ete annule"), "pile 2 IA : Jeopardy n'est pas annule")
+	for i in 20:
+		board._process(0.5)
+	_check((G.get("stack", []) as Array).is_empty() and (G.get("pendingChoice", {}) as Dictionary).is_empty() and str(G.get("phase", "")) in [phase0, "bait", "adventure"], "pile 2 IA : la partie ne reprend pas (phase %s)" % str(G.get("phase", "")))
+	_cov("stack_two_ai_casts")
+
+## 3 joueurs, je reponds AVANT une IA (xpOrder [0, 2, 1]) : ma passe a la fin de la barre est suivie de celle de l'IA, sans 2e fenetre de 6 s.
+func _check_stack_ai_after() -> void:
+	_tag = "[stack-ia-apres]"
+	await _new_game(3)
+	board.set_process(false)
+	board.win_time_scale = 1.0
+	var G: Dictionary = gm.G
+	G["xpOrder"] = [0, 2, 1]
+	var me: Dictionary = G["players"][0]
+	me["hand"] = (me["hand"] as Array).filter(func(c): return bool((c as Dictionary).get("isRoom", false)))
+	(G["players"][2] as Dictionary)["hand"] = []
+	(G["players"][1] as Dictionary)["hand"] = [_spell_proto("BMA048")]
+	var mv = gm.legal_moves(1).filter(func(m): return m["type"] == "playSpell")
+	if not _check(not mv.is_empty() and gm.apply_move(1, mv[0]) and gm.active_player() == 0, "pile IA apres moi : Jeopardy injouable ou je ne reponds pas en 1er"):
+		return
+	board.refresh()
+	for i in 10:
+		board._process(0.5)
+	_check(not (G.get("stack", []) as Array).is_empty(), "pile IA apres moi : fermee avant 6 s")
+	for i in 6:
+		board._process(0.5)
+	_check((G.get("stack", []) as Array).is_empty() and board._stack_ui == null, "pile IA apres moi : encore ouverte a 8 s (2e fenetre de 6 s apres ma passe)")
+	_cov("stack_ai_after")
+
+## Boss adverse monte de niveau (cas filme) : par le vrai refresh(), le halo reste derriere le sprite a chaque refresh (DrawOrder 9E-05 contre 8E-05, DungeonFrameEntity.cs:273-279 ;
+## devant, il recouvre le boss d'une silhouette rouge) et entre en fondu de 0,5 s (FadeBehavior, cs:484).
+func _check_boss_glow() -> void:
+	_tag = "[boss-glow]"
+	await _new_game()
+	Engine.time_scale = 1.0
+	board.set_process(false)
+	board.skip_animations = false
+	for q in gm.G["players"]:
+		(gm.G["players"][q] as Dictionary)["leveledUp"] = true
+	var L: Dictionary = board._lane[0]
+	var sprite := L["sprite"] as Control
+	for i in 5:
+		board.refresh()
+		var g = L.get("glow")
+		if not _check(g != null and (g as Control).visible, "halo du boss : absent apres le passage de niveau (refresh %d)" % i):
+			return
+		var behind: bool = ((g as Node).get_parent() == sprite and (g as CanvasItem).show_behind_parent) or ((g as Node).get_parent() == sprite.get_parent() and (g as Node).get_index() < sprite.get_index())
+		_check(behind, "halo du boss : dessine devant le sprite au refresh %d" % i)
+		if i == 0:
+			_check((g as Control).modulate.a < 1.0, "halo du boss : pas de fondu d'entree (alpha %.2f)" % (g as Control).modulate.a)
+	await _wait(0.6)
+	_check(is_equal_approx((L["glow"] as Control).modulate.a, 1.0), "halo du boss : fondu non termine apres 0,5 s (alpha %.2f)" % (L["glow"] as Control).modulate.a)
+	_cov("boss_glow_order")
+
+## Ville a 5+ heros : un heros qui part, les restants glissent (0,5 x vitesse) puis sont a leur place (VerticalScrollQueueComponent.CreateReorderTask, cs:199-210).
+func _check_town_slide() -> void:
+	_tag = "[town-slide]"
+	await _new_game()
+	Engine.time_scale = 1.0
+	board.set_process(false)
+	board.skip_animations = false
+	var town: Array = []
+	for k in 6:
+		town.append((CardDB.heroes[k] as Dictionary).duplicate(true))
+	gm.G["town"] = town.duplicate()
+	board.refresh()
+	await _wait(0.3)
+	gm.G["town"] = town.slice(0, 5) # le dernier arrive (en haut) part : les 5 autres remontent d'un cran
+	board.refresh()
+	for _i in 3:
+		await get_tree().process_frame
+	var c0 := board.town_container.get_child(0) as Control
+	_check(c0.position.y > 1.0 and c0.position.y < 229.0, "ville 5+ : le heros restant doit etre a mi-glissade (y %.1f)" % c0.position.y)
+	await _wait(0.5 * board._speed + 0.3)
+	_check(is_equal_approx(c0.position.y, 0.0), "ville 5+ : le heros doit finir a sa place (y %.1f)" % c0.position.y)
+	_cov("town_slide_5")
+
+## 3 joueurs, un heros leurre vers le donjon non affiche : la colonne defile jusqu'a lui (rang >= 4, 0,7 s) puis sa carte s'efface sur place en 0,3 s (cs:212-223, 242-272) ;
+## le heros suivant de la ville (plus recent, vers mon donjon) ne part qu'apres : retour en haut (0,7 s) puis vol (une seule boucle, cs:229-273).
+func _check_bait_hidden() -> void:
+	_tag = "[bait-hidden]"
+	await _new_game(3)
+	Engine.time_scale = 1.0
+	board.set_process(false)
+	board.skip_animations = false
+	var G: Dictionary = gm.G
+	var hid := -1
+	for q in G["players"]:
+		(G["players"][q] as Dictionary)["entrance"] = []
+		if int(q) != board.view_pid and int(q) != board.foe_pid:
+			hid = int(q)
+	if not _check(hid >= 0, "leurre cache : tous les donjons sont affiches"):
+		return
+	var town: Array = []
+	for k in 6:
+		town.append((CardDB.heroes[k] as Dictionary).duplicate(true))
+	G["town"] = town.duplicate()
+	_reveal_all(G)
+	board.refresh()
+	await _wait(0.3) # mise en page de la colonne
+	var lured: Dictionary = town[0] # le plus ancien : en bas de la colonne (rang 5)
+	var mine: Dictionary = town[2] # plus recent (rang 3), vers mon donjon affiche
+	(G["players"][hid] as Dictionary)["entrance"] = [lured]
+	(G["players"][board.view_pid] as Dictionary)["entrance"] = [mine]
+	G["town"] = [town[1], town[3], town[4], town[5]]
+	G["phase"] = "adventure"
+	board.refresh()
+	var card := board.town_container.get_child(board._town_ids.find(lured["id"])) as Control
+	var card2 := board.town_container.get_child(board._town_ids.find(mine["id"])) as Control
+	await _wait(0.35)
+	_check(board._town_scroll.scroll_vertical > 0 and card.modulate.a == 1.0, "leurre cache : la colonne doit defiler avant le fondu (sv %d, alpha %.2f)" % [board._town_scroll.scroll_vertical, card.modulate.a])
+	await _wait(0.5)
+	_check(card.is_inside_tree() and card.modulate.a > 0.0 and card.modulate.a < 1.0, "leurre cache : la carte doit etre a mi-fondu dans la colonne (alpha %.2f)" % card.modulate.a)
+	await _wait(0.4) # 1,25 s : fondu fini (1,0 s), retour en haut en cours (1,0 -> 1,7 s), vol du heros suivant pas encore parti
+	_check(not is_instance_valid(card) or card.is_queued_for_deletion() or not card.is_inside_tree() or card.modulate.a == 0.0, "leurre cache : la carte doit avoir disparu apres le fondu")
+	_check(is_instance_valid(card2) and card2.modulate.a == 1.0, "leurre cache : le heros plus recent vers un donjon affiche ne doit voler qu'apres le fondu du plus ancien (alpha %.2f)" % (card2.modulate.a if is_instance_valid(card2) else -1.0))
+	await _wait(0.75) # 2,0 s : vol parti a 1,7 s
+	_check(is_instance_valid(card2) and card2.modulate.a == 0.0 and board._town_scroll.scroll_vertical == 0, "leurre cache : apres le fondu, la colonne remonte puis le heros suivant vole (alpha %.2f, sv %d)" % [card2.modulate.a if is_instance_valid(card2) else -1.0, board._town_scroll.scroll_vertical])
+	_cov("bait_hidden_fade")
+	_cov("bait_hidden_then_flight")
+
+## Leurre a 2 joueurs, ville de 6 : rangs 4, 2, 1 attires (dans l'ordre de la ville). Pas 1 : defilement (0,7 s) + vol (1 s) ; pas 2 : retour en haut (0,7 s) + vol ;
+## pas 3 : vol. Les vols suivants attendent le defilement du milieu (CreateAssignHeroesTask, cs:225-275). Puis en FAST (0,5) : chaque copie part de sa carte, colonne immobile et encore en place.
+func _check_bait_order() -> void:
+	for fast in [false, true]:
+		_tag = "[bait-order%s]" % (" fast" if fast else "")
+		await _new_game()
+		Engine.time_scale = 1.0
+		board.set_process(false)
+		board.skip_animations = false
+		board._speed = 0.5 if fast else 1.0
+		var G: Dictionary = gm.G
+		for q in G["players"]:
+			(G["players"][q] as Dictionary)["entrance"] = []
+		var town: Array = []
+		for k in 6:
+			town.append((CardDB.heroes[k] as Dictionary).duplicate(true))
+		G["town"] = town.duplicate()
+		_reveal_all(G)
+		board.refresh()
+		await _wait(0.3)
+		(G["players"][board.view_pid] as Dictionary)["entrance"] = [town[1], town[4]] # rangs 4 et 1
+		(G["players"][board.foe_pid] as Dictionary)["entrance"] = [town[3]] # rang 2 : entre les deux dans l'ordre de la ville
+		G["town"] = [town[0], town[2], town[5]]
+		G["phase"] = "adventure"
+		board.refresh()
+		var gone := func() -> int: return board.town_container.get_children().filter(func(c): return (c as Control).modulate.a == 0.0).size()
+		if not fast:
+			await _wait(2.0) # pas 2 : retour en haut de 1,7 a 2,4 s
+			var sv: int = board._town_scroll.scroll_vertical
+			_check(gone.call() == 1 and sv > 0, "leurre : pendant le defilement du milieu, un seul vol doit etre parti (%d partis, sv %d)" % [gone.call(), sv])
+			await _wait(0.7) # 2,7 s : 2e vol parti a 2,4 s
+			_check(gone.call() == 2 and board._town_scroll.scroll_vertical == 0, "leurre : le 2e vol part apres le retour en haut (%d partis, sv %d)" % [gone.call(), board._town_scroll.scroll_vertical])
+			await _wait(0.5) # 3,2 s : le 3e n'est pas encore parti (3,4 s)
+			_check(gone.call() == 2, "leurre : le 3e vol attend la fin du 2e (%d partis)" % gone.call())
+			await _wait(0.4)
+			_check(gone.call() == 3 and board._town_hold, "leurre : le 3e vol doit etre parti, colonne encore tenue (%d partis)" % gone.call())
+			_cov("bait_order_scroll_middle")
+		else:
+			var seen := {}
+			var was_gone := {} # cartes de la ville deja parties
+			var t_end := Time.get_ticks_msec() + 4000
+			while Time.get_ticks_msec() < t_end and seen.size() < 3:
+				await get_tree().process_frame
+				for g in board.hero_crossing_layer.get_children():
+					if not (g as Control).visible or g.is_queued_for_deletion() or seen.has(g.get_instance_id()):
+						continue
+					seen[g.get_instance_id()] = true
+					var sv0: int = board._town_scroll.scroll_vertical
+					var src: Array = board.town_container.get_children().filter(func(c): return (c as Control).modulate.a == 0.0 and not was_gone.has(c))
+					_check(board._town_hold and src.size() == 1, "leurre FAST : copie %d partie sans que sa carte quitte la colonne tenue (%d nouvelles)" % [seen.size(), src.size()])
+					var on_screen := false
+					for c in src:
+						was_gone[c] = true
+						var r := (c as Control).get_global_rect()
+						if board._town_scroll.get_global_rect().encloses(r.grow(-2.0)) and r.get_center().distance_to((g as Control).get_global_rect().get_center()) < 200.0:
+							on_screen = true
+					await get_tree().process_frame
+					_check(on_screen and board._town_scroll.scroll_vertical == sv0, "leurre FAST : copie %d hors de sa carte visible ou colonne en mouvement au depart (sv %d -> %d)" % [seen.size(), sv0, board._town_scroll.scroll_vertical])
+			_check(seen.size() == 3, "leurre FAST : %d vols sur 3" % seen.size())
+			_cov("bait_order_fast_start")
+		board._speed = board._speed_factor()
 
 func _check_windows() -> void:
 	_tag = "[windows]"
@@ -4454,6 +4714,13 @@ func _extra_checks() -> void:
 	await _check_wiki_ui()
 	await _check_windows()
 	await _check_stack_hold()
+	await _check_stack_counter()
+	await _check_stack_two_ai()
+	await _check_stack_ai_after()
+	await _check_boss_glow()
+	await _check_town_slide()
+	await _check_bait_hidden()
+	await _check_bait_order()
 	await _check_freed_targets()
 	_check_pawn_scale()
 	await _check_ai_entry_window()
