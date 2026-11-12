@@ -327,8 +327,11 @@ func _spell_drop_pos(mv: Dictionary) -> Vector2:
 	var spot := _cand_spot(mv)
 	if not spot.is_empty():
 		var node: Control = board._spot_node(spot)
-		if node != null:
-			return (board._spot_rect(spot, node) as Rect2).get_center()
+		if node != null: # partie de la cible au-dessus de la main : un lacher sous HAND_UPPER y renvoie la carte (CardExtractBehavior), mon boss deborde dessous
+			var r: Rect2 = board._spot_rect(spot, node)
+			if r.end.y > board.HAND_UPPER and r.position.y < board.HAND_UPPER:
+				r.end.y = board.HAND_UPPER - 1.0
+			return r.get_center()
 		if str(spot.get("k", "")) == "player": # boss adverse hors ecran : sa vignette du selecteur (CollapsedOpponentDetail)
 			var fb := _foe_button(int(spot["pid"]))
 			if fb != null:
@@ -1067,6 +1070,11 @@ func _noise(pid: int) -> void:
 			click.button_index = MOUSE_BUTTON_LEFT
 			click.pressed = true
 			board._input(click)
+			if board._zoom != null and board._zoom.has_meta("stack"): # boss + sorts « jusqu'a la fin du tour » : zoom de pile, il se ferme au RELACHEMENT hors de la zone (TouchOutBehavior), pas a l'appui
+				var rel := InputEventMouseButton.new()
+				rel.button_index = MOUSE_BUTTON_LEFT
+				rel.pressed = false
+				board._input(rel)
 			_check(board._zoom == null, "bouton LEVEL UP : le zoom reste apres un clic")
 			_cov("levelup_click")
 		3: # pile de defausse : diaporama central (rien de modal), le second appui le referme

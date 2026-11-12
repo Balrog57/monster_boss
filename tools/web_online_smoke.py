@@ -319,7 +319,8 @@ class Client:
             return None
         v = d.get("view", {})
         return dict(t=time.time(), n=None, turn=v.get("turn"), phase=v.get("phase"), active=v.get("activePlayer", v.get("current", v.get("active"))), stack=len(v.get("stack") or []),
-                    awaited=d.get("awaited"), seat=d.get("seat"), moves=sorted({m["type"] for m in d.get("moves", [])}), pc=bool(v.get("pendingChoice")))
+                    awaited=d.get("awaited"), seat=d.get("seat"), moves=sorted({m["type"] for m in d.get("moves", [])}), pc=bool(v.get("pendingChoice")),
+                    ack=d.get("ack"), pause=(v.get("adventure") or {}).get("pause"), room=(v.get("adventure") or {}).get("roomIndex"), plays=len(d.get("plays") or []))
 
     def _trace_illegal(self):
         """Diagnostic (BM_TRACE=fichier) : pour chaque `illegal`, dernier coup et etats avant l'envoi / avant l'erreur."""
@@ -331,7 +332,7 @@ class Client:
         def ms(x):
             return None if x is None else int((now - x) * 1000)
         line = "%s ILLEGAL %s t=%.3f move=%s sent_ago=%sms | state_at_send=%s (age_at_send=%sms) | state_now=%s (age_now=%sms) same=%s" % (
-            self.name, time.strftime("%H:%M:%S"), now, getattr(self, "_last_move", None), ms(getattr(self, "_sent_at", None)),
+            self.name, time.strftime("%H:%M:%S"), now, "%s#%d" % (getattr(self, "_last_move", None), self.sent_moves), ms(getattr(self, "_sent_at", None)),
             a and {k: v for k, v in a.items() if k != "t"}, a and int((self._sent_at - a["t"]) * 1000), b and {k: v for k, v in b.items() if k != "t"}, ms(self.t_state),
             a is not None and b is not None and {k: v for k, v in a.items() if k != "t"} == {k: v for k, v in b.items() if k != "t"})
         with open(path, "a", encoding="utf-8") as f:

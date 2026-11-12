@@ -479,6 +479,19 @@ func _scenario_full_game() -> void:
 	add_child(gm1)
 	gm0.setup_online(c0, 0)
 	gm1.setup_online(c1, 1)
+	# BoardUI._auto_pass rejoue le meme coup a chaque image tant que le serveur n'a pas repondu : un seul envoi par etat recu, jamais de refus « illegal »
+	var mv0: Array = gm0.legal_moves(0)
+	if _expect(not mv0.is_empty(), "siege 0 sans coup au debut de partie"):
+		var refused: Array = []
+		c0.request_error.connect(func(msg): refused.append(msg))
+		var sent := 0
+		for i in 30:
+			if gm0.apply_move(0, mv0[0]):
+				sent += 1
+		_expect(sent == 1, "aucun coup tant que le precedent n'est pas acquitte : %d envois" % sent)
+		_expect(await _wait(func(): return not c0.move_in_flight(), 5.0), "le serveur n'a pas acquitte le coup (ack %d / envoyes %d)" % [c0.moves_acked, c0.moves_sent])
+		await get_tree().create_timer(0.3).timeout
+		_expect(refused.is_empty(), "coup refuse par le serveur apres envois repetes : %s" % str(refused))
 	var d0 := Driver.new(c0, gm0)
 	var d1 := Driver.new(c1, gm1)
 	var room = server.get_room(code)

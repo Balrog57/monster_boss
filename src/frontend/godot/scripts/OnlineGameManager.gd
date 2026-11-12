@@ -56,6 +56,10 @@ func apply_move(pid: int, move: Dictionary) -> bool:
 	var found = _cached(move)
 	if not (found is Dictionary):
 		return false
+	# Pas de coup tant que le dernier etat recu ne reflete pas mon coup precedent (`ack` du serveur) : la passe / le GO automatiques de BoardUI._auto_pass se rejouent
+	# a chaque image, et un etat diffuse avant le traitement de mon coup (autre siege) le propose encore alors que le serveur a avance (coup refuse « illegal »).
+	if client.move_in_flight():
+		return false
 	client.send_move(found)
 	return true
 

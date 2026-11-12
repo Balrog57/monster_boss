@@ -238,6 +238,7 @@ static func _trim(args) -> Array:
 func submit_move(seat: int, move: Dictionary) -> String:
 	if status != "running" or m == null:
 		return "partie non en cours"
+	seats[seat]["moves_in"] = int(seats[seat].get("moves_in", 0)) + 1 # state.ack : le client sait ainsi quel etat reflete son dernier coup (accepte ou refuse)
 	var type := str(move.get("type", ""))
 	var args := _trim(move.get("args", []))
 	for lm in m.legal_moves(seat):
@@ -455,6 +456,7 @@ func state_msg(seat: int) -> Dictionary:
 	msg["awaited"] = awaited_seats
 	msg["plays"] = NetCodec.encode(_plays)
 	msg["serverTime"] = _now()
+	msg["ack"] = int(seats[seat].get("moves_in", 0))
 	return msg
 
 ## Message adapte a l'etat de la salle pour un siege (lobby avant la partie, etat filtre ensuite).

@@ -72,6 +72,10 @@ var _retry_n := 0
 var _resume_on_open := false # reconnexion apres une coupure : renvoyer resume des l'ouverture
 var _want_open := false # une session est en cours : on reconnecte si la liaison tombe
 var _watching := false # lobby public ouvert : redemander la liste a chaque ouverture de la liaison
+var moves_sent := 0 # coups `move` envoyes depuis l'ouverture de la session (OnlineGameManager n'en emet pas tant que le serveur n'a pas rendu compte du precedent)
+var moves_acked := 0 # coups de ce siege que le serveur a traites (acceptes ou refuses) : champ `ack` de chaque etat
+var _has_ack := false # le serveur envoie `ack` (sinon on ne retient rien : jamais bloque)
+var _resync := false # liaison coupee : un coup en vol a pu se perdre, le prochain etat refixe moves_sent sur moves_acked
 var _plays_seen := -1 # numero du dernier `plays` traite (-1 : rien recu, le premier etat ne rejoue pas l'historique)
 var _last_fight := 0 # signature du dernier lastHeroFight recu (le serveur le garde dans G : on ne rejoue pas l'animation)
 var protocol_version := NetCodec.PROTOCOL_VERSION # variable pour que les tests simulent un client perime
@@ -161,6 +165,7 @@ func _process(delta: float) -> void:
 			connected = false
 			_pong_wait = 0.0
 			_ws = null
+			_resync = true
 			_reply.emit("closed", {})
 			_resume_on_open = match_id != ""
 			if seat_taken: # un autre onglet a repris ce siege : le reprendre a notre tour l'evincerait en boucle
@@ -303,6 +308,11 @@ func _store_view(d: Dictionary) -> void:
 	if int(d.get("serverTime", 0)) > 0:
 		clock_offset_ms = int(d["serverTime"]) - int(Time.get_unix_time_from_system() * 1000.0)
 	current_awaited = d.get("awaited", [])
+	_has_ack = d.has("ack")
+	moves_acked = int(d.get("ack", 0))
+	if _resync or moves_sent < moves_acked: # reprise apres coupure ou rechargement : le compteur du serveur fait foi
+		moves_sent = moves_acked
+		_resync = false
 	_emit_plays(d.get("plays", []))
 	current_moves = d.get("moves", [])
 	if str(d.get("status", "")) == "running":
@@ -446,6 +456,12 @@ func send_move(move: Dictionary) -> void:
 		return
 	if not _send({"t": "move", "move": move}):
 		request_error.emit("connexion perdue")
+		return
+	moves_sent += 1
+
+## Vrai tant qu'un coup envoye n'est pas reflete par le dernier etat recu : cet etat est perime pour ce siege (une passe / un GO rejoue dessus serait refuse).
+func move_in_flight() -> bool:
+	return _has_ack and moves_sent > moves_acked
 
 func _forget() -> void:
 	match_id = ""
@@ -453,6 +469,8 @@ func _forget() -> void:
 	credentials = ""
 	player_id = -1
 	_plays_seen = -1
+	moves_sent = 0
+	moves_acked = 0
 	_want_open = false
 	_clear_session()
 

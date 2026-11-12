@@ -271,7 +271,7 @@ const REVEAL_S := 0.8                    # retournement 0,5 s + retour a la tail
 # DONE -> 1er vol du leurre, termes hors vitesse que le moteur (synchrone) n'a pas : voir _pre_reveal
 const DONE_FADE_S := 0.15                # DONE s'efface (FadeBehavior 0,15 s, DoneButtonEntity.cs:93,179-193) avant le pas suivant
 const LATE_BUILD_FADE_S := 0.3           # salle posee par une IA apres mon DONE : fondu d'entree attendu (CardEntity.cs:69 ; CardStackSlotComponent.cs:119-123,175)
-const FOE_SWAP_S := 1.0                  # le donjon de l'IA suivante remplace celui affiche (CreateChangeVisibleOpponentDungeon, GamePlayBaseScene.cs:1024-1028 ; GamePlaySPScene.cs:93-101)
+const FOE_SWAP_S := 1.0                  # le donjon de l'IA suivante remplace celui affiche (CreateChangeVisibleOpponentDungeon, GamePlayBaseScene.cs:1024-1028 : fondu sortant puis entrant du cadre, FadeBehavior 0,5 s chacun, DungeonFrameEntity.cs:236 ; GamePlaySPScene.cs:93-101)
 const LEVELUP_S := 2.1                   # LevelUpBanner.CreateShowTask (cs:144-161) : 0,6 + 1,0 + 0,5, apres la revelation (pas BaitPhase, GameBoard.cs:953-956)
 const STEP_POLLS_S := 0.15               # ~10 attentes d'une image (CreateWaitConditionTask / AndWaitConditionActively) entre DONE et le 1er vol, a 60 i/s
 const SLIDE_PX_S := 1440.0               # MovePendingRoomToRightPlace : |decalage| / VirtualWidth s (cs:222 ; VirtualWidth = 1440, Game.cs:26,49)
@@ -805,10 +805,15 @@ func _update_foe(G: Dictionary) -> Array:
 	var follow := -1
 	var lhf = G.get("lastHeroFight")
 	var adv: Dictionary = G.get("adventure", {})
-	if lhf != null and lhf is Dictionary:
+	var rf := _reveal_foe(G)
+	if rf >= 0:
+		follow = rf # revelation apres mon DONE : le donjon au premier plan est celui de la derniere IA jouee apres moi (CreateBeforePlayerInteractionTask, GamePlaySPScene.cs:93-101)
+	elif lhf != null and lhf is Dictionary:
 		follow = int(lhf.get("pid", -1))
 	elif not adv.is_empty() and adv.get("hero") != null:
 		follow = int(adv.get("playerId", -1))
+	elif str(G.get("phase", "")) == "build" and not G.has("buildWindow") and game_manager.active_player() == view_pid and not _is_online() and _ai_before_me(G) >= 0:
+		follow = _ai_before_me(G) # mon tour : pas de changement de cadre pour moi (GamePlaySPScene.cs:96), reste celui de la derniere IA qui a construit avant moi (le moteur les enchaine d'un coup)
 	elif G.get("gameOver") == null:
 		follow = game_manager.active_player() # GamePlaySPScene / GamePlayMOScene.CreateBeforePlayerInteractionTask (cs:232-240) : le donjon du joueur actif s'affiche avant son tour, en ligne aussi (N-B53)
 	if follow != _foe_follow_seen:
@@ -1127,7 +1132,7 @@ func _process(delta: float) -> void:
 		var moves: Array = game_manager.legal_moves(int(pid))
 		if not moves.is_empty():
 			_ai_timer += dt
-			if _ai_timer > (0.0 if adv_turn and (game_manager.G.get("adventure", {}) as Dictionary).get("pause") != null else 0.2 if adv_turn else 0.5): # fenetre d'aventure : l'IA repond des la fin de la barre (DoPlayerActions juste apres CreateWaitAndMoveHeroToNextSlotTask, GamePlayBaseScene.cs:864-871)
+			if _ai_timer > 0.0: # IA-H64 : l'IA de l'APK joue sans delai hors ligne (InvokeCallback sans SimulateHumanDelays, AIPlayerInteraction.cs:225-239), des la fin des taches du pas (DoPlayerActions apres CreateWaitAndMoveHeroToNextSlotTask, GamePlayBaseScene.cs:864-871)
 				var mv = AI.pick_move(game_manager, int(pid))
 				# Un coup juge nocif par l'IA (score < 0) n'est joue qu'en dernier recours : on prefere passer (comme soak_runner).
 				if pre_entry and mv != null and not ApkAI.is_apk_ability_move(players[pid], mv):
@@ -3055,6 +3060,28 @@ func _foe_slide_s() -> float:
 ## DoNextStepAndRefresh par IA) : fondu de DONE, puis par IA suivante (ordre de construction) le changement de donjon affiche s'il le faut et le fondu
 ## de la salle qu'elle pose. Rend [attente (s), une telle salle existe, sa plus longue glissade (s)] et remplit _late_off.
 ## shortcut: le changement de donjon affiche (3-4 joueurs) n'est que compte, pas joue ; le fondu des salles posees se joue a la fin de l'attente.
+## Derniere IA vivante avant le siege affiche dans l'ordre de construction de ce tour ; -1 sans IA avant lui.
+func _ai_before_me(G: Dictionary) -> int:
+	var order: Array = G.get("buildOrder", [])
+	var out := -1
+	for k in range(maxi(order.find(view_pid), 0)):
+		var p: Dictionary = (G.get("players", {}) as Dictionary).get(int(order[k]), {})
+		if not p.is_empty() and bool(p.get("isAI", false)) and not bool(p.get("eliminated", false)):
+			out = int(order[k])
+	return out
+
+## Derniere IA vivante apres moi dans l'ordre de construction (son donjon passe au premier plan avant qu'elle joue, et y reste a la revelation) ; -1 hors DONE ou sans IA apres moi.
+func _reveal_foe(G: Dictionary) -> int:
+	if _pass_snap.is_empty() or _is_online() or str(G.get("phase", "")) != "adventure":
+		return -1
+	var order: Array = G.get("buildOrder", [])
+	var out := -1
+	for k in range(order.find(_pass_pid) + 1 if order.has(_pass_pid) else order.size(), order.size()):
+		var p: Dictionary = (G.get("players", {}) as Dictionary).get(int(order[k]), {})
+		if not p.is_empty() and bool(p.get("isAI", false)) and not bool(p.get("eliminated", false)):
+			out = int(order[k])
+	return out
+
 func _pre_reveal() -> Array:
 	if _pass_snap.is_empty() or _is_online():
 		return [0.0, false, 0.0]
@@ -3448,11 +3475,17 @@ func _hidden_crossing_sounds(lhf: Dictionary) -> void:
 
 ## Pas d'un heros dans un donjon hors ecran : memes sons que _animate_step (intro a l'entree, char_hero_move au depart puis a l'arrivee avec le son de la salle, 1,0 x vitesse plus tard).
 func _hidden_step_sounds(pid: int, from_room: int, to_room: int) -> void:
+	# B35 : le pas dure 1,0 x vitesse comme a l'ecran (HeroCrossingBehavior.cs:67-68, la tache du pas l'attend) ; sans cela le pas suivant partait aussitot.
+	_animating_hero = true
 	if to_room < 0:
 		_play_sfx("char_hero_intro")
 	elif to_room != from_room:
 		_play_sfx("char_hero_move")
-		get_tree().create_timer(1.0 * _speed).timeout.connect(func(): _hero_arrive(pid, to_room))
+	get_tree().create_timer(1.0 * _speed).timeout.connect(func():
+		if to_room >= 0 and to_room != from_room:
+			_hero_arrive(pid, to_room)
+		_animating_hero = false
+		refresh())
 
 ## Suit l'aventure en cours : chaque nouveau pas du moteur (heros entre dans une salle) = le pion marche jusqu'a la salle,
 ## les degats flottent, les PV du pion baissent. Aucune regle : on ne fait que comparer l'etat avec le pas deja montre.

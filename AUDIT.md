@@ -556,7 +556,7 @@ Méthode : lecture croisée du C# et du GDScript (3 lots en parallèle), puis co
 | R-O01 | Parties IA contre IA BaseDeck, graines 1-3, 2-3 joueurs (`apk.py --ai-agreement`) | trace oracle | Oui | `ApkParity.tscn`, `ApkParityTrace.gd` | Oui | **6/6** traces, 0 refus. Accord d'IA : ensemble des coups jouables 100 %, aucun coup « godotOnly » ni « oracleOnly » ; seuls écarts de choix = tirages aléatoires. | — |
 | R-O02 | Graines 4-7, 2-4 joueurs | trace oracle | Oui | idem | Oui | **12/12**. 443 décisions ignorées par le harnais, toutes classées (noChoice, abandonnées). | — |
 | R-O03 | 4 paquets APK (`--decks BaseDeck,PlayerChoice,HiddenHeros,ToolsHeroKind`) | trace oracle | Oui | idem | Oui | **6/6**. 163 décisions ignorées, classées. | — |
-| R-O04 | Graines 10-40, 2-4 joueurs (93 traces, run de stress hors rapport par défaut) | trace oracle | Oui | idem | Oui à 90/93 | **90/93**. Échecs s20-p2 et s28-p3 : l'IA oracle active Dracolich Lair après la sortie du dernier héros, fenêtre qu'un humain n'a pas (`GameBoard.IsAdventureInteractionTurn`, `GameBoard.cs:285-291`). s16-p4 : remélange sur pioche vide, ordre aléatoire absent de la trace. Les trois causes sont documentées dans `tools/parity/README.md:481-485` et reproduites à l'identique ; voir R-D90 pour le petit écart moteur révélé par s16-p4. | Accepté (Basse) |
+| R-O04 | Graines 10-40, 2-4 joueurs (93 traces, run de stress hors rapport par défaut) | trace oracle | Oui | idem | Oui à 93/93 | **93/93** (2026-11-12, S9). s20-p2 et s28-p3 corrigés : artefact du harnais, qui passait le joueur actif sans héros d'`AdventurePhase_b` avant la capacité de salle qu'il y joue lui-même (Dracolich Lair, `AIPlayerInteraction.cs:105-107`) ; `ApkParityTrace._window_has_spell` diffère maintenant ce `pass` comme pour un sort. Le moteur ouvrait déjà cette fenêtre aux IA (`Match.legal_moves`, `BoardUI._process`). s16-p4 repasse aussi. | — |
 | R-O05 | Couverture des cartes par les 24 traces par défaut (script sur `oracle-*.json` : `buildRoom`, `playRoomAbility`, `playSpell`, décisions `resolveTarget.owner`) | mesure | — | — | — | Salles construites 31/35, sorts joués 16/18, boss dont la capacité s'est déclenchée 13/15. **Jamais exercés** : BMA023 et BMA033 (jamais distribués par l'APK), BMA053 Teleportation, THK025 (injouable dans l'APK), THK021 et THK023 (salles sans capacité), KSA001 Kirax et KSA005 Scythe (boss jamais tirés). BMA025 All-Seeing Eye est construit mais jamais activé. | Accepté (Moyenne) |
 
 **Limite de l'oracle.** L'oracle ne compare que ce que l'IA APK joue, et le harnais rejoue les coups APK dans Godot : une règle **plus permissive** côté Godot (un coup légal en trop) est invisible, et les chemins que l'IA ne prend pas (Freeze puis construction, Crushinator puis construction, sorts pendant un tour forcé, Soul Harvest sur un épique) ne sont pas mesurés. Les écarts Haute ci-dessous viennent tous de la lecture du code, contre-vérifiée à la main, **non reproduits** par une partie.
@@ -2041,8 +2041,8 @@ Validé par `python tools/run_godot_tests.py` (14/14) et l'oracle (6/6, 12/12, 6
 | IA-H74 | Corrigé | Comme `RevealAllRoomCards` → `EnqueueAbilityTransaction`, la cible de chaque déclencheur de révélation est figée à la mise en file (`ApkAI.reveal_target`), avant tout effet et salles en attente exclues ; `ApkAI.choose` la rejoue (`apkPre`). Les cibles se figent dans l'ordre des sièges (`G.apkSeats`, posé par le harnais seulement), la file reste triée par PlayerId. Golden ajouté. |
 | IA-H68, IA-H69, IA-O06 | Corrigé | Par IA-H74 : accord des cibles 832/853 → 849/853 (Mimic Vault 41/41, Specter's Sanctum 89/89). |
 | — | Corrigé | `GameBoard.DestroyRoom` : la salle détruite est défaussée avant le déclencheur de Recycling Center, donc remélangée avec les défausses si la pioche est vide. Sans golden dédié. |
-| Stress s16-p4 | Ouvert | Remélange des défausses non reproductible (l'ordre tiré n'est pas dans la trace). Sans lien avec IA-H74. |
-| Stress s20-p2, s28-p3 | Ouvert | L'IA oracle active Dracolich Lair après la sortie du dernier héros, Godot a déjà fermé le tour. Sans lien avec IA-H74. |
+| Stress s16-p4 | Corrigé | Repasse au run du 2026-11-12 (93/93). |
+| Stress s20-p2, s28-p3 | Corrigé | Artefact du harnais (`pass` du joueur sans héros joué avant sa propre capacité), corrigé dans `ApkParityTrace._window_has_spell` (S9, 2026-11-12). |
 | IA-G47 | Ouvert | L'oracle enregistre la décision d'avant la capacité : rien ne la mesure. |
 | IA-H17 | Ouvert | Une seule trace (s30-p4 seq 306) ; lecture de `MaxBuildRoomLimit` à poursuivre. |
 | IA-H23 | Ouvert | T.P.K. : dépend des cibles proposées par le moteur (décision de produit). |
@@ -2168,7 +2168,7 @@ Validé par `python tools/run_godot_tests.py` (14/14), oracle APK 6/6, 12/12 et 
 
 | ID | État | Changement |
 |---|---|---|
-| R-O04 | Accepté | Trois échecs connus, causes documentées, non engine. |
+| R-O04 | Corrigé | 93/93 au 2026-11-12 (S9) : les deux échecs Dracolich Lair étaient un artefact du harnais. |
 | R-D03 | Accepté | Borne à 100 itérations, indiscernable. |
 | R-D14 | Conforme | Déjà conforme : `CardDB.discard_add` trie à l'ajout (X-M22). |
 | R-D15 | Accepté | Mélange non reproductible par conception. |
@@ -2215,9 +2215,9 @@ Validé par `python tools/run_godot_tests.py` (14/14), oracle APK 6/6, 12/12 et 
 | IA-H56 | Accepté | Aucun équivalent, rien d'observable. |
 | IA-H61 | Accepté | Lu en surface, aucun écart observé à l'oracle. |
 | IA-H63 | Accepté | Pas de chemin d'exception, voir IA-H37. |
-| IA-H64 | Accepté | Cosmétique, module 7. |
+| IA-H64 | Corrigé | 2026-11-12 (S9) : l'IA joue sans attente (`BoardUI._process`, seuil `_ai_timer > 0.0`), comme `InvokeCallback` sans `SimulateHumanDelays` (`AIPlayerInteraction.cs:225-239`). Gardés, avec leur source : fondu 0,3 s d'une salle posée par l'IA après le DONE (`CardEntity.cs:69`, `CardStackSlotComponent.cs:119-123` : fondu sur un cadre du haut), changement d'adversaire 1,0 s (`GamePlayBaseScene.cs:1024-1028`, 0,5 s sortie + 0,5 s entrée, `DungeonFrameEntity.cs:236`). Le cadre adverse affiché suit l'APK : à la révélation, la dernière IA jouée après moi (`BoardUI._reveal_foe`) ; à mon tour de construction, la dernière IA qui a construit avant moi (`_ai_before_me`, `GamePlaySPScene.cs:93-101`). Non fait : les poses des IA AVANT mon tour restent instantanées (l'APK enchaîne changement de cadre et fondu avant de me rendre la main). |
 | IA-H66 | Accepté | Même ordre en pratique. |
-| IA-H67 | Accepté | Seul le harnais reproduit la course. |
+| IA-H67 | Accepté | Seul le harnais reproduit la course. B7 (pose avant la résolution) reporté le 2026-11-12 : seul changement qui touche la légalité (`buildRoom` avec une pile en attente). |
 | IA-H71 | Accepté | = IA-H14. |
 
 ## Lot 6b : plateau, écarts Basse (2026-10-27)
@@ -2315,7 +2315,7 @@ Validé par `python tools/run_godot_tests.py` (14/14) ; oracle 6/6, 12/12, 6/6 ;
 | R-E31 | Conforme | `OnAbilityApplyDone` ne déclenche que `YouPlaySpellCard` (Liger's Den, appliqué après le sort non annulé dans `_resolve_pending_stack`) ; `WhenOpponentPlaysSpellCard` et `AnySpellCardIsPlayed` n'existent sur aucune carte des `data.json`. `IUntilEndOfGameCommand` ne concerne que KSA013 T.P.K., porté à part. |
 | R-F18 | Conforme | Durée (R-D26), sorts de construction non bloqués (R-E18) et `SkipBuildPhase` limité à `BuildPhase_a` : conforme. Détail : la salle rendue à la main perd aussi sa marque `undoBuild`. |
 | R-F19 | Conforme | Report au tour suivant corrigé (R-D27) ; la condition n'est plus reverifiée à la résolution (R-E17). Oracle 6 sur 6. |
-| IA-O08 | Accepté | Mesuré à nouveau sur le stress (93 traces, 45238 requêtes) : 134 écarts. 120 sont dans s16-p4 et s20-p2 (états déjà divergents). Les 14 restants sont isolés (0,03 %). Corrigé en route : pendant une Spell Battle, `active_entrance_hero` prenait le répondant courant pour le joueur actif (Teleportation jouable côté Godot seulement : 12 cas devenus 3). Cause non établie pour les 14 cas restants (Freeze et Giant Size dans la fenêtre qui suit la mort d'un héros, un Dark Altar au tour 1). Aucun REFUS ni écart d'état dans ces traces : seuls les ensembles de coups légaux diffèrent, à des instants où l'oracle est entre deux étapes. |
+| IA-O08 | Accepté | Mesuré à nouveau sur le stress (93 traces, 45238 requêtes) : 134 écarts. 120 sont dans s16-p4 et s20-p2 (états déjà divergents). Les 14 restants sont isolés (0,03 %). Corrigé en route : pendant une Spell Battle, `active_entrance_hero` prenait le répondant courant pour le joueur actif (Teleportation jouable côté Godot seulement : 12 cas devenus 3). Cause non établie pour les 14 cas restants (Freeze et Giant Size dans la fenêtre qui suit la mort d'un héros, un Dark Altar au tour 1). Aucun REFUS ni écart d'état dans ces traces : seuls les ensembles de coups légaux diffèrent, à des instants où l'oracle est entre deux étapes. **2026-11-12 (S9)**, stress 93/93 avec `--ai-agreement` : usableSet 46866/46885, 19 écarts, 5 mutations d'état par les requêtes IA (s19-p4, s20-p4, s21-p4, s33-p2, s36-p3 ; pas de mesure de référence sans `--ai-agreement` pour dire si elles sont nouvelles). Classes : (a) 10 dans la fenêtre qui suit la mort d'un héros (oracle en `AdventurePhase_c` sans héros actif, au milieu d'une décision) : Godot propose des sorts visant un héros (Teleportation BMA053, BMA040, BMA045, BMA046, BMA047, BMA052) ; (b) 4 avant l'entrée du héros (`AdventurePhase_b`) : Teleportation godotOnly s10-p3@111, oracleOnly s18-p3@441, BMA044 oracleOnly s25-p3@258-267 ; (c) 2 en construction : Dark Altar au tour 1 (s20-p3@57, après la dernière pose), BMA050 pendant une Spell Battle (s24-p2@120) ; (d) s16-p4@627 : Dracolich Lair et Dark Altar oracleOnly dans une Spell Battle d'`AdventurePhase_b` sans héros. Rien corrigé : aucune n'est confirmée par le C# sans risque pour les comptes. Différence connue, invisible pour l'oracle : l'APK fait deux tirages d'IA après la mort d'un héros (`AdventurePhase_c` puis `_b`), Godot un seul (même `AI._window_key`). |
 | IA-H18 | Corrigé | Cause : `room_damage_with_modifiers` laissait une salle posée ce tour (face cachée, `PendingToBeBuilt`) donner son bonus passif à ses voisines (Dizzygas +2 à la salle Trap suivante), alors que `Boss.GetPassiveDamage` ne parcourt que `DungeonActiveRooms`. L'IA surestimait les dégâts de son donjon en phase de construction (s26-p4 : Open Grave 4 au lieu de 2) et jugeait Princess in Peril éligible. |
 | IA-H60 | Corrigé | `BoardUI` donne à une IA hors tour la fenêtre d'avant l'entrée du héros (aucun héros en cours, pile vide) : une capacité tirée par `ApkAI.abilities`, une fois par fenêtre (`AI._window_key` contient le joueur actif), jamais un sort hors APK ni un coup nocif. Boucle d'affichage seulement : l'oracle ne la mesure pas ; non vérifié en partie. |
 | G-07 | Corrigé | Les 41 `description` des héros hidden-heroes de `cards.json` sont vidées (le `Description` de l'APK est vide, le texte est imprimé sur l'image ; aucun lecteur ne les affichait). |
@@ -3200,9 +3200,10 @@ Partiels ou ouverts :
 - B18 : cause de l'écart de luminosité non établie (`OneOpponentDetail.cs:71-77`, `ChallengerDetail.cs:61`).
 - B25 : courbe du carrousel portée (`CarrouselDragBehavior.cs:109-121`), pas le glissé continu.
 - B29 : `GO_FAST` ne dépend plus de la vitesse de jeu ; 0,55 et 0,45 restent sans origine dans le C#.
-- M4 : les 0,5 s par coup d'IA en construction ne sont pas modifiées.
-- B35 : les pas et la durée restent instantanés pour un donjon hors écran.
-- Stress : s16-p4 diverge à 606 (cause inconnue) ; s20-p2 et s28-p3 sont des artefacts du harnais.
+- M4 : corrigé le 2026-11-12 (S9, IA-H64) : plus d'attente de 0,5 s / 0,2 s par coup d'IA.
+- B35 : durée corrigée le 2026-11-12 : un pas dans un donjon hors écran tient 1,0 x vitesse (`BoardUI._hidden_step_sounds`, `HeroCrossingBehavior.cs:67-68`) ; toujours sans pion.
+- B7 : reporté (seul changement qui touche la légalité).
+- Stress : 93/93 au 2026-11-12 (s16-p4 repasse ; s20-p2 et s28-p3 corrigés dans le harnais).
 
 Mesures finales sur le code définitif : `run_godot_tests.py` 23/23 ; `apk.py --ai-agreement` 6/6 ; `image_diff.py` 0/149. Mesurés juste avant les derniers correctifs d'interface (sons de CONTINUE et PLAY BOSS, repère du clic), qui ne touchent ni le moteur ni l'IA : `--seeds 4 5 6 7 --players 2 3 4` 12/12 ; `--decks BaseDeck,PlayerChoice,HiddenHeros,ToolsHeroKind` 6/6 ; `--tutorial` 3/3 ; stress (seeds 10-40) 90/93 ; couverture 103/19/1.
 

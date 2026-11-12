@@ -608,9 +608,11 @@ func _on_phase(s: Dictionary, i := 0) -> void:
 			# un SORT joue entre-temps depend du joueur actif (Trepidation de la cible, s35-p2@233 : Godot ne doit pas avoir deja passe la main) ;
 			# le « pass » est alors differe (_pass_idle). Sans sort dans la fenetre, on passe tout de suite : un heros ajoute par une capacite
 			# (Zombie Prison, s24-p4@266) ne doit pas entrer, ChooseNextActiveHero (AdventurePhase_b) ayant deja designe personne.
+			# Meme report pour une capacite de salle du joueur actif lui-meme (UseAbility d'AdventurePhase_b sans heros, AIPlayerInteraction.cs:105-107) :
+			# passer d'abord terminerait le tour Godot avant elle (Dracolich Lair, s20-p2@677, s28-p3@329). Elle vise ses adversaires, son entree reste vide.
 			if s["activeHero"] == null and s["activePlayer"] != null:
 				var ap := int(s["activePlayer"]) - 1
-				if _window_has_spell(i):
+				if _window_has_spell(i, ap):
 					_idle_pid = ap
 				elif str(run.G.get("phase", "")) == "adventure" and run.active_player() == ap and _adventure_idle(ap):
 					_auto_resolve(s)
@@ -622,14 +624,14 @@ func _on_phase(s: Dictionary, i := 0) -> void:
 			_adv_step(s)
 
 
-## Un sort est-il joue avant le prochain NextStep execute (fenetre de sorts du joueur actif de l'oracle) ?
-func _window_has_spell(i: int) -> bool:
+## Un sort (de n'importe qui) ou une capacite de salle du joueur actif `ap` est-il joue avant le prochain NextStep execute (fenetre du joueur actif de l'oracle) ?
+func _window_has_spell(i: int, ap := -1) -> bool:
 	for k in range(i + 1, _steps.size()):
 		var n: Dictionary = _steps[k]
 		var nd: Dictionary = n["detail"] if n.get("detail") is Dictionary else {}
 		if str(n["kind"]) == "phase" and nd.get("executed", true) != false:
 			return false
-		if str(n["kind"]) == "action" and str(nd.get("action", "")) == "playSpell":
+		if str(n["kind"]) == "action" and (str(nd.get("action", "")) == "playSpell" or (str(nd.get("action", "")) == "playRoomAbility" and int(nd.get("player", 0)) - 1 == ap)):
 			return true
 	return false
 
