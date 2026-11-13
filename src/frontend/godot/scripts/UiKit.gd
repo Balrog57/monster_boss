@@ -249,6 +249,32 @@ static func tween_carousel(tw: Tween, node: Object, prop: String, to: Variant) -
 	var from: Variant = node.get_indexed(prop)
 	return tw.tween_method(func(x: float): node.set_indexed(prop, to if x >= 1.0 else lerp(from, to, 1.0 - pow(0.8, x * CAROUSEL_FRAMES))), 0.0, 1.0, CAROUSEL_FRAMES / 60.0)
 
+## Math.Round de .NET : arrondi au pair le plus proche sur les .5 (CarrouselDragBehavior.cs:57, CarrouselComponent.cs:98).
+static func round_even(x: float) -> int:
+	var f := floori(x)
+	var d := x - float(f)
+	if d > 0.5 + 1e-6:
+		return f + 1
+	if d < 0.5 - 1e-6:
+		return f
+	return f if f % 2 == 0 else f + 1
+
+## Nombre d'images de DoCarouselIndexAnimation (CarrouselDragBehavior.cs:109-121) pour un ecart `d` : l'indice garde 80 % de l'ecart a chaque image, et se cale
+## a l'image ou l'ecart (avant la mise a jour) est <= 0,05. 0 si l'ecart y est deja.
+static func carousel_frames(d: float) -> int:
+	d = absf(d)
+	return 0 if d <= 0.05 else int(ceilf(log(0.05 / d) / log(0.8)))
+
+## L'indice d'un carrousel va de `from` a `to` par ce retour : `setter(valeur)` a chaque image, valeur finale exacte. Rend le Tween (null si l'ecart est deja <= 0,05 : calage immediat).
+static func tween_index(node: Node, from: float, to: float, setter: Callable) -> Tween:
+	var n := carousel_frames(to - from)
+	if n == 0:
+		setter.call(to)
+		return null
+	var tw := node.create_tween()
+	tw.tween_method(func(x: float): setter.call(to if x >= 1.0 else to - (to - from) * pow(0.8, x * float(n))), 0.0, 1.0, float(n) / 60.0)
+	return tw
+
 ## Equivalent de `tween_property(node, prop, to, dur)` avec un BackEase d'amplitude `amp` (a chainer avec .set_delay).
 static func tween_back(tw: Tween, node: Object, prop: String, to: Variant, dur: float, amp: float, ease_out: bool) -> MethodTweener:
 	var from: Variant = node.get_indexed(prop)

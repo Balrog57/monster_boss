@@ -289,7 +289,7 @@ const TOWN_SCROLL_S := 0.7               # defilement de la colonne HEROES IN TO
 const BAIT_FLY := 1.0                   # vol d'une carte de heros depuis la ville jusqu'a l'entree du donjon, x vitesse (VerticalScrollQueueComponent.cs:261-262) ; la plaque BAIT PHASE dure tant que les vols (chacun apres le precedent) puis le reordonnancement de la ville (0,5 x vitesse)
 const WINDOW_ADVENTURE := 3.0
 const WINDOW_STACK := 6.0
-const PASS_FAST := 0.45                  # rien a jouer : le siege humain passe presque tout de suite (colle Godot, sans origine C# : l'APK n'a pas d'attente ici ; valeur non verifiable)
+const PASS_FAST := 0.45                  # SEUL delai sans origine C# : un siege humain d'une partie a plusieurs humains sur le meme ecran (`_apk_flow` faux : hotseat de Godot, voir les tests `humans` > 1) qui n'a rien a jouer passe apres 0,45 s. L'APK n'a aucune attente de ce genre : GamePlayPaPScene.OnUserInteractionModeFinished (cs:109-116) enchaine la meme barre de 3 s (CreateWaitAndMoveHeroToNextSlotTask) que GamePlayBaseScene.cs:861-871 ; solo et en ligne, la valeur est 0 (voir `want` dans _auto_pass). L'ancien GO_FAST (0,55) est supprime.
 const HAND_UPPER := 797.0                # CardExtractBehavior.cs:ResolveDependencies : limite haute de la main (972 - 450/2 + 50) ; au-dessus la carte est extraite, en dessous elle retourne dans la main
 const NOTICE_HOLD := 3.5                 # bulle « HAS PLAYED A » : fondu d'entree 0,5 s + 3,0 s (BubblesPlayerEmitter.cs:22) ; la salle reste agrandie pendant ce temps (deduit des captures APK)
 const WARN_TIME := 0.5                   # bulle « YOU CAN BUILD A ROOM » (HideWhenTouchBehavior.cs:36-37) : entree et sortie de 0,5 s, fermee par un appui hors de la bulle une fois entree
@@ -489,17 +489,18 @@ func _make_lane(idx: int) -> Dictionary:
 	return L
 
 func _build_frame() -> void:
-	# Colonnes laterales en pierre sombre + traits dores, barres haute et basse.
-	for x in [0.0, 1708.0]:
-		var w: float = 183.0 if x == 0.0 else 212.0
-		var side := Vp.LEFT if x == 0.0 else Vp.RIGHT # colonnes collees aux bords de la fenetre (TopLeftPanelEntity / OneOpponentDetail : EdgeAlignmentComponent)
-		var panel := _rect(self, Color(UiKit.SIDE_PANELS, 0.85), Vector2(x, 0), Vector2(w, 1080)) # CreateColorPanel(SidePanelsBackColor, 0,85) : TopLeftPanelEntity.cs:110, OneOpponentDetail.cs:71
+	# Barre haute PUIS colonnes laterales PUIS barre basse : dans l'APK les barres sont sur les couches Alpha / Opaque (CreateInGameTopBar / BottomBar, ControlsFactory.cs:149-175), les panneaux et leurs traits
+	# sur SidePanelLayer, enregistree apres : les panneaux se melangent par-dessus les barres (B18 : le trait dore de la barre haute disparait sous OneOpponentDetail, qui commence a y 60).
+	_img(self, UI_DIR + "bg_top.webp", Vector2(0, 0), Vector2(1920, 77)) # alignement haut, sans decalage ; trait dore sur les rangees 61-62 des frames APK (mediane de 42 paires)
+	# TopLeftPanelEntity (183 x 1080 des y 0) ; colonne de droite : OneOpponentDetail 211 x 427 en y 60 (Margin 60) puis ChallengerDetail 211 x 597 collee en bas (y 483), x 1709 :
+	# une seule bande de 60 a 1080 (le recouvrement de 4 rangees ajoute 0,2 niveau).
+	for r in [Rect2(0, 0, 183, 1080), Rect2(1709, 60, 211, 1020)]:
+		var panel := _rect(self, Color(UiKit.SIDE_PANELS, 0.85), r.position, r.size) # CreateColorPanel(SidePanelsBackColor, 0,85) : TopLeftPanelEntity.cs:110, OneOpponentDetail.cs:71, ChallengerDetail.cs:61
 		panel.material = UiKit.premult_mat() # Wave melange la teinte en alpha premultiplie : sortie = C + 0,15 x fond (regression sur les frames APK : pente 0,15, ordonnee (23,8 ; 10 ; 24,2) = #180a18)
-		Vp.edge(panel, side)
+		Vp.edge(panel, Vp.LEFT if r.position.x == 0.0 else Vp.RIGHT) # colonnes collees aux bords de la fenetre (EdgeAlignmentComponent)
 	Vp.edge(_img(self, UI_DIR + "vertical_line.webp", Vector2(183, 0)), Vp.LEFT)
 	Vp.edge(_img(self, UI_DIR + "vertical_line.webp", Vector2(1707, 0)), Vp.RIGHT)
-	_img(self, UI_DIR + "bg_top.webp", Vector2(0, 1), Vector2(1920, 77)) # trait dore a y 62 sur les frames APK (ligne de la texture : rangee 61)
-	_img(self, UI_DIR + "bg_bottom.webp", Vector2(0, 953), Vector2(1920, 127))
+	_img(self, UI_DIR + "bg_bottom.webp", Vector2(0, 953), Vector2(1920, 127)) # contrairement a bg_top, la barre basse reste PAR-DESSUS les panneaux sur les frames APK (colonne droite : 34 au lieu de 16 vers y 1000)
 
 func _build_left() -> void:
 	var n0 := get_child_count()
@@ -723,7 +724,7 @@ func _build_top() -> void:
 	top_menu_btn.pressed.connect(_on_menu_pressed)
 	# bt_options / bt_options_pressed (ControlsFactory.CreateInGameOptionsButton, cs:209-219) : sprite 211 x 86 colle au bord droit de la colonne (x 1709), engrenage dessine dedans ;
 	# le bouton garde sa zone de clic de 56 x 56 sur l'engrenage, le sprite est son enfant.
-	var gear := _img(top_menu_btn, UI_DIR + "bt_options.webp", Vector2(1710.0, -2.0) - top_menu_btn.position, Vector2(211, 86))
+	var gear := _img(top_menu_btn, UI_DIR + "bt_options.webp", Vector2(1710.0, 0.0) - top_menu_btn.position, Vector2(211, 86))
 	top_menu_btn.button_down.connect(func(): gear.texture = _tex(UI_DIR + "bt_options_pressed.webp"))
 	top_menu_btn.button_up.connect(func(): gear.texture = _tex(UI_DIR + "bt_options.webp"))
 	add_child(top_menu_btn)
@@ -6233,6 +6234,7 @@ func _confirm_quit() -> void:
 # Zooms de pile et carrousel central (CardZoomComponent + SlotDetailEntity + CarrouselVerticalComponent ; MiddleCarrouselEntity)
 # ---------------------------------------------------------------------------------------------------------------------
 
+const STACK_DRAG := 0.004                                     # CarrouselDragBehavior.cs:69 : 0,004 indice par pixel (1 px virtuel = 1 px a 1920 x 1080, quelle que soit l'echelle de l'entite)
 const STACK_Y := [-700.0, 0.0, 140.0, 175.0, 210.0, 245.0]   # CarrouselVerticalComponent.cs:44-51 : la carte choisie en 1, la precedente s'enfuit vers le haut en 0
 const STACK_K := [1.4, 1.2, 1.0, 1.0, 1.0, 1.0]
 const STACK_A := [0.0, 1.0, 0.8, 0.6, 0.4, 0.0]
@@ -6318,14 +6320,14 @@ func _zoom_stack_input(event: InputEvent) -> bool:
 				return true
 			if not mb.pressed and st.has("drag"):
 				st.erase("drag")
-				_zoom_stack_snap(roundf(float(st["idx"])))
+				_zoom_stack_snap(float(UiKit.round_even(float(st["idx"])))) # Released : Math.Round (CarrouselDragBehavior.cs:57)
 				return true
 		elif mb.pressed and (mb.button_index == MOUSE_BUTTON_WHEEL_UP or mb.button_index == MOUSE_BUTTON_WHEEL_DOWN) and rect.has_point(mb.position):
 			_zoom_stack_snap(clampf(roundf(float(st["idx"])) + (1.0 if mb.button_index == MOUSE_BUTTON_WHEEL_DOWN else -1.0), 0.0, float(n - 1)))
 			return true
 	elif event is InputEventMouseMotion and st.has("drag"):
 		var d: Dictionary = st["drag"]
-		st["idx"] = clampf(float(d["i0"]) - ((event as InputEventMouseMotion).position.y - float(d["y"])) / (STACK_Y[2] * float(st["k"])), 0.0, float(n - 1))
+		st["idx"] = clampf(float(d["i0"]) - ((event as InputEventMouseMotion).position.y - float(d["y"])) * STACK_DRAG, 0.0, float(n - 1)) # l'indice suit le pointeur (CarrouselDragBehavior.cs:59-69)
 		_zoom_stack_layout()
 		return true
 	return false
@@ -6337,9 +6339,9 @@ func _zoom_stack_snap(target: float) -> void:
 		st["idx"] = target
 		_zoom_stack_layout()
 		return
-	zoom.create_tween().tween_method(func(v: float):
+	UiKit.tween_index(zoom, float(st["idx"]), target, func(v: float): # DoCarouselIndexAnimation (cs:109-121) : 20 % de l'ecart par image, calage a 0,05
 		st["idx"] = v
-		_zoom_stack_layout(), float(st["idx"]), target, 0.15)
+		_zoom_stack_layout())
 
 ## Bordure de capacite sur une carte zoomee (CardAttributesComponent.UpdateRoomAbilityBorder) : un appui dessus resout la capacite (_input). `host` = la carte, `zc` sa taille hors cadre.
 func _zoom_ability(host: Control, zc: Vector2, pad: float, di: int, cands: Array) -> void:

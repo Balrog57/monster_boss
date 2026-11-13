@@ -154,6 +154,10 @@ func _clear() -> void:
 	board = null
 	_tiles_live = false
 	_count_live = false
+	if _ctw != null:
+		_ctw.kill() # le retour du carrousel ne doit plus toucher des eventails liberes
+	_cfans.clear()
+	_cmode = 0
 
 func _deck_playable(id: String) -> bool:
 	for d in APK_DECKS:
@@ -510,106 +514,174 @@ func _count_back(mode: String) -> void:
 		_: show_menu()
 
 var _count_live := false # ecran « HOW MANY PLAYERS? » affiche : le carrousel reagit aux fleches et au glisser
-var _cdrag := false # glisser en cours sur le carrousel
+const COUNT_BASE := Vector2(960.0, 626.0)   # centre du carrousel (PlayerNumberSelectionEntity) ; cartes de cote calees sur la frame APK au pixel pres (decalage mesure par recouvrement des 3 eventails : -378 / +382 et y -31 au lieu des +-380 / -30 du C#, rotations et pivot des cartes)
+const COUNT_SLOTS := [Vector2(0, 120), Vector2(-378, -31), Vector2(0, 0), Vector2(382, -31), Vector2(0, 120)] # CarrouselInfiniteComponent.InitializeValues : positions, echelles, ordres, opacites des 5 rangs
+const COUNT_SCALES := [0.0, 0.7, 0.77, 0.7, 0.0]
+const COUNT_ORDERS := [1.0, 0.9, 0.0, 0.9, 1.0]
+const COUNT_OPAC := [0.0, 1.0, 1.0, 1.0, 0.0]
+const COUNT_DRAG := 0.004 # CarrouselDragBehavior.cs:59-118 : 0,004 indice par pixel ; 1 px virtuel = 1 px a 1920 x 1080 (StretchMode.Uniform sur 1440 x 1080, Game.cs:26-49)
+const COUNT_TAP_SLOP := 16.0 # un appui qui bouge moins est un tap (TouchTap) : MoveLeft / MoveRight selon le cote (PlayerNumberSelectionEntity.cs:85-103)
+var _cfans: Array = [] # un eventail par carte de la liste de l'APK (la couronne x 2 : 2, 3, 4, 2, 3, 4)
+var _cidx := 0.0 # CarrouselComponent.Index : flottant, circulaire sur _cfans.size()
+var _clast := 0 # lastIndex : dernier indice arrondi, il declenche le son et la selection
+var _cmode := 0 # CarrouselDragStates : 0 repos (Pressed), 1 glisser (Draggin), 2 retour anime (Released / MoveLeft / MoveRight)
 var _cdrag_x := 0.0
-var _cdrag_steps := 0 # pas deja faits depuis l'appui
+var _cdrag_i0 := 0.0
+var _ctw: Tween
+var _cgold: Label
+var _cgold_bg: TextureRect
 
-## Un pas du carrousel (CarrouselComponent.cs:118-133 : l'indice grandit = ui_shuffle_left, il baisse = ui_shuffle_right ; anneau circulaire).
+## Fleche gauche / droite (CarrouselDragBehavior.cs:74-85) : seulement au repos, une touche maintenue enchaine les pas.
 func _count_step(d: int) -> void:
-	var ring := _count_ring()
-	players = int(ring[(ring.find(players) + d + ring.size()) % ring.size()])
-	AudioManager.play_sfx("ui_shuffle_left" if d > 0 else "ui_shuffle_right")
-	_draw_fans(true)
+	if _cmode == 0:
+		_count_move(d)
 
-## CarrouselDragBehavior.cs:59-118 : glisser = 0,004 indice par pixel (virtuel 1440 -> 0,003 ici), l'indice arrondi change a chaque demi-pas ; la zone est le RectangleCollider 1200 x 400 du carrousel.
+## MoveLeft / MoveRight : l'indice bouge de 0,01 puis revient a l'entier du dessous / du dessus (cs:86-103).
+func _count_move(d: int) -> void:
+	_cmode = 2
+	_count_set(_cidx + 0.01 * float(d))
+	_count_settle(int(ceilf(_cidx)) if d > 0 else int(floorf(_cidx)))
+
+## DoCarouselIndexAnimation (cs:109-121) : l'indice tend vers `dest` de 20 % de l'ecart par image, calage a 0,05 ; puis retour au repos.
+func _count_settle(dest: int) -> void:
+	_ctw = UiKit.tween_index(self, _cidx, float(dest), _count_set)
+	if _ctw == null:
+		_cmode = 0
+	else:
+		_ctw.finished.connect(func(): _cmode = 0)
+
+## CarrouselDragBehavior.cs:59-118 : appui dans le collider 1200 x 400 = l'indice suit le pointeur (0,004 par pixel) ; relache = retour a l'entier le plus proche ;
+## un tap sur le cote gauche / droit (a plus de 1/6 de la largeur du centre) = un pas.
 func _count_drag(ev: InputEvent) -> void:
 	var rect := Rect2(360, 425, 1200, 400)
+	if not (ev is InputEventMouse):
+		return
+	var p: Vector2 = (make_input_local(ev) as InputEventMouse).position # repere de la maquette 1920 x 1080
 	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
-		_cdrag = ev.pressed and rect.has_point(get_local_mouse_position()) and not _fading
-		_cdrag_x = get_local_mouse_position().x
-		_cdrag_steps = 0
-	elif ev is InputEventMouseMotion and _cdrag:
-		var want := int(roundf((_cdrag_x - get_local_mouse_position().x) * 0.003))
-		while _cdrag_steps != want:
-			var d := 1 if want > _cdrag_steps else -1
-			_cdrag_steps += d
-			_count_step(d)
+		if ev.pressed:
+			if _cmode == 0 and not _fading and rect.has_point(p):
+				_cmode = 1
+				_cdrag_x = p.x
+				_cdrag_i0 = _cidx
+		elif _cmode == 1:
+			_cmode = 2
+			if absf(p.x - _cdrag_x) < COUNT_TAP_SLOP and absf(p.x - COUNT_BASE.x) > rect.size.x / 6.0:
+				_count_move(1 if p.x > COUNT_BASE.x else -1)
+			else:
+				_count_settle(UiKit.round_even(_cidx))
+	elif ev is InputEventMouseMotion and _cmode == 1:
+		_count_set(_cdrag_i0 + (_cdrag_x - p.x) * COUNT_DRAG)
+
+## CarrouselComponent.Index (cs:30-47) : modulo la taille de la liste, puis UpdateValues (cs:98-141) : le son et la selection suivent l'indice ARRONDI.
+func _count_set(v: float) -> void:
+	if _cfans.is_empty():
+		return
+	_cidx = fposmod(v, float(_cfans.size()))
+	var r := UiKit.round_even(_cidx)
+	if r != _clast:
+		AudioManager.play_sfx("ui_shuffle_left" if r > _clast else "ui_shuffle_right") # cs:123-131 (le passage 5 -> 0 de la couronne joue donc _right, comme l'APK)
+		_clast = r
+		_count_select(r)
+	_count_layout()
+
+## IndexChanged (PlayerNumberSelectionEntity.cs:65-81) : la carte `r` est choisie (Select), les autres rendues ternes (UnSelect) ; chiffre dore au centre.
+func _count_select(r: int) -> void:
+	var ring := _count_ring()
+	if r < _cfans.size():
+		players = int(ring[r % ring.size()])
+		_cgold.text = str(players)
+	for j in _cfans.size():
+		var old: Control = _cfans[j]
+		var sel := j == r
+		if bool(old.get_meta("sel")) == sel:
+			continue
+		var f := _count_make(j, sel, float(old.get_meta("u")))
+		f.z_index = old.z_index
+		dyn_root.add_child(f)
+		dyn_root.remove_child(old)
+		old.queue_free()
+		_cfans[j] = f
+		var tw := f.create_tween() # ScaleEffectBehavior 0,3 s : 0,7 -> 1 a la selection, 1 -> 0,7 sinon ; chiffre lateral en fondu de 0,1 s (PlayerNumberDeckEntity.cs:62-63)
+		tw.tween_method(func(u: float):
+			f.set_meta("u", u)
+			_count_layout(), float(f.get_meta("u")), 1.0 if sel else 0.7, 0.3)
+		if not sel:
+			var num: Control = f.get_node("Num")
+			num.modulate.a = 0.0
+			num.create_tween().tween_property(num, "modulate:a", 1.0, 0.1)
+
+## Place les 4 cartes visibles (CarrouselComponent.UpdateValues + ApplyEffects) : position, echelle, ordre et opacite interpoles entre deux rangs voisins.
+func _count_layout() -> void:
+	var n := _cfans.size()
+	if n == 0:
+		return
+	var base := int(_cidx)
+	var dec := 1.0 - (_cidx - float(base)) # decIndex
+	for f in _cfans:
+		(f as Control).visible = false
+	for e in 4:
+		var f: Control = _cfans[posmod(base - 1 + e, n)] # cardIndex = (int)index + 1 - 2
+		f.visible = true
+		f.position = COUNT_BASE + (COUNT_SLOTS[e] as Vector2).lerp(COUNT_SLOTS[e + 1], dec)
+		f.scale = Vector2.ONE * lerpf(COUNT_SCALES[e], COUNT_SCALES[e + 1], dec) * float(f.get_meta("u")) / float(f.get_meta("nat"))
+		f.modulate.a = lerpf(COUNT_OPAC[e], COUNT_OPAC[e + 1], dec)
+		f.z_index = roundi((1.0 - lerpf(COUNT_ORDERS[e], COUNT_ORDERS[e + 1], dec)) * 10.0) # LocalDrawOrder : le plus petit est devant
+
+## Un eventail de la liste : choisi (ouvert, 300,7 px de haut a l'echelle 0,77) ou terne (ferme, 190 px a 0,7 x 0,7), avec le chiffre blanc au-dessus.
+func _count_make(j: int, sel: bool, u: float) -> Control:
+	var ring := _count_ring()
+	var n: int = int(ring[j % ring.size()])
+	var f := _fan(Vector2.ZERO, 300.7 if sel else 190.0, FANS[n], sel)
+	f.set_meta("fan", n)
+	f.set_meta("sel", sel)
+	f.set_meta("u", u) # echelle de l'eventail lui-meme (ScaleEffectBehavior, 0,7 -> 1)
+	f.set_meta("nat", 0.77 if sel else 0.49) # echelle totale (rang x eventail) a laquelle ses pixels ont ete mesures
+	if not sel:
+		var num := _lbl(str(n), 32, Color.WHITE, Vector2(-36, -181), Vector2(80, 44), FONT_A) # arcadepix blanc (PlayerNumberDeckEntity.cs:66) ; 32 px donne l'encre 21 x 21 mesuree sur la capture APK (a 42 px : 28 x 28)
+		num.name = "Num"
+		f.add_child(num)
+	return f
 
 ## Nombres proposes : 2-4, plus 5-6 quand Crash Landing est coche.
 func _count_ring() -> Array:
 	return [2, 3, 4, 5, 6] if Match.max_players(_active_sets()) >= 5 else [2, 3, 4]
 
-## Carrousel (4 | 2 | 3, ou 6 | 2 | 3 ... avec 5-6) : l'eventail du centre est le choix courant (colore), les autres sont ternes.
-## `animate` : changement de selection (CarrouselComponent : les eventails glissent vers leur nouvelle place, CarrouselDragBehavior lerp 0,2 par image ;
-## l'eventail choisi grossit de 0,7 a 1 en 0,3 s, ScaleEffectBehavior ; chiffres lateraux en fondu de 0,1 s, PlayerNumberDeckEntity.cs:62-63).
-func _draw_fans(animate: bool = false) -> void:
-	var old := {} # n -> racine de l'eventail avant le changement
+## Carrousel (4 | 2 | 3, ou 6 | 2 | 3 ... avec 5-6) : l'eventail du centre est le choix courant (colore), les autres sont ternes. La liste est celle de l'APK
+## (PlayerNumberSelectionEntity : 2, 3, 4, 2, 3, 4) ; l'indice flottant `_cidx` place chaque eventail a chaque changement (voir _count_layout).
+func _draw_fans() -> void:
+	if _ctw != null:
+		_ctw.kill()
+	_cmode = 0
 	for c in dyn_root.get_children():
-		if c.has_meta("fan"):
-			old[int(c.get_meta("fan"))] = c
 		dyn_root.remove_child(c)
-		if not (animate and c.has_meta("fan")):
-			c.queue_free()
+		c.queue_free()
 	var ring := _count_ring()
-	var i := ring.find(players)
-	var k := ring.size()
-	var shown := {}
-	for slot in [[ring[(i + k - 1) % k], 581.0, 190.0], [players, 960.0, 300.7], [ring[(i + 1) % k], 1341.0, 190.0]]:
-		var n: int = slot[0]
-		var cx: float = slot[1]
-		var sel: bool = n == players
-		var fan := _fan(Vector2(cx, 626 if sel else 595), slot[2], FANS[n], sel)
-		fan.set_meta("fan", n)
-		dyn_root.add_child(fan)
-		shown[n] = true
-		if animate:
-			var final_pos := fan.position
-			if old.has(n):
-				var o: Control = old[n]
-				var ratio: float = float(o.get_meta("h")) / float(slot[2])
-				fan.position = o.position
-				fan.scale = Vector2.ONE * ratio
-			else: # arrive du 4e emplacement : echelle 0, plus bas (CarrouselInfiniteComponent.positions[0] = (0, 120))
-				fan.position = Vector2(958.0, 720.0)
-				fan.scale = Vector2.ZERO
-			if sel:
-				fan.scale *= 0.7 # ScaleEffectBehavior(MinScale 0,7 -> 1)
-			var tw := fan.create_tween().set_parallel(true)
-			UiKit.tween_carousel(tw, fan, "position", final_pos) # lerp 0,2 par image (CarrouselDragBehavior.cs:109-121)
-			tw.tween_property(fan, "scale", Vector2.ONE, 0.3)
-		fan.set_meta("h", slot[2])
-		if sel:
-			dyn_root.add_child(_tex("navigation/bg_number.webp", Vector2(921.5, 367.9))) # PlayerNumberSelectionEntity.cs:55-60 : centre (960 ; 626,4 - 220), 77 x 77
-			dyn_root.add_child(_lbl(str(n), 63, GOLD, Vector2(918.5, 365.9), Vector2(77, 77), FONT_A))
-		else:
-			var num := _lbl(str(n), 32, Color.WHITE, Vector2(cx - 36, 414), Vector2(80, 44), FONT_A) # arcadepix blanc (PlayerNumberDeckEntity.cs:66) ; 32 px donne l'encre 21 x 21 mesuree sur la capture APK (a 42 px : 28 x 28)
-			dyn_root.add_child(num)
-			if animate:
-				num.modulate.a = 0.0
-				num.create_tween().tween_property(num, "modulate:a", 1.0, 0.1)
-			var pick := func():
-				players = n
-				_draw_fans(true)
-			# CarrouselComponent.cs:123-131 : l'indice grandit (voisin de droite) = ui_shuffle_left, il baisse = ui_shuffle_right
-			dyn_root.add_child(_hit(Vector2(cx - 110, 480), Vector2(220, 240), pick, "ui_shuffle_right" if cx < 960.0 else "ui_shuffle_left"))
-	for n in old: # eventail sorti du carrousel : il rentre vers le 4e emplacement puis disparait
-		if shown.has(n):
-			continue
-		var gone: Control = old[n]
-		dyn_root.add_child(gone)
-		var tw2 := gone.create_tween().set_parallel(true)
-		UiKit.tween_carousel(tw2, gone, "position", Vector2(958.0, 720.0))
-		UiKit.tween_carousel(tw2, gone, "scale", Vector2.ZERO)
-		tw2.chain().tween_callback(gone.queue_free)
+	_cidx = float(ring.find(players))
+	_clast = int(_cidx)
+	_cfans.clear()
+	for j in ring.size() * 2:
+		var f := _count_make(j, j == _clast, 1.0 if j == _clast else 0.7)
+		dyn_root.add_child(f)
+		_cfans.append(f)
+	_cgold_bg = _tex("navigation/bg_number.webp", Vector2(921.5, 367.9)) # PlayerNumberSelectionEntity.cs:55-60 : centre (960 ; 626,4 - 220), 77 x 77
+	_cgold_bg.z_index = 20
+	dyn_root.add_child(_cgold_bg)
+	_cgold = _lbl(str(players), 63, GOLD, Vector2(918.5, 365.9), Vector2(77, 77), FONT_A)
+	_cgold.z_index = 20
+	dyn_root.add_child(_cgold)
+	_count_layout()
 
 ## Entree de l'ecran : PlayerNumberScene.Start -> HideNumber (0,1 s) puis ScaleIn 0,7 -> 1 (0,3 s, CubicEase) puis ExpandTask (0,3 s, BackEase Out 0,6)
 ## (PlayerNumberScene.cs:60 ; PlayerNumberDeckEntity.cs:68,73-82 ; ControlsFactory.cs:408-420).
 func _fan_entry() -> void:
 	for f in dyn_root.get_children():
-		if not f.has_meta("fan") or int(f.get_meta("fan")) != players:
+		if not f.has_meta("sel") or not bool(f.get_meta("sel")):
 			continue
-		f.scale = Vector2.ONE * 0.7
-		f.create_tween().tween_property(f, "scale", Vector2.ONE, 0.3).set_delay(0.1).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+		f.set_meta("u", 0.7) # l'eventail choisi grossit de 0,7 a 1 (ScaleEffectBehavior : _count_layout lit « u »)
+		_count_layout()
+		f.create_tween().tween_method(func(u: float):
+			f.set_meta("u", u)
+			_count_layout(), 0.7, 1.0, 0.3).set_delay(0.1).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 		var tw := f.create_tween().set_parallel(true)
 		for t in f.get_children():
 			if not t.has_meta("close"):

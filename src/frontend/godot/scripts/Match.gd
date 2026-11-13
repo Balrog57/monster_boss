@@ -520,6 +520,47 @@ static func wiki_active(G: Dictionary) -> bool:
 			return true
 	return false
 
+## Pose la salle de main `idx` face cachee (emplacement `slot`, -1 = entree du donjon), sans faire avancer la phase.
+func _place_room(pid: int, idx: int, slot: int) -> void:
+	var p: Dictionary = G["players"][pid]
+	var card: Dictionary = (p["hand"] as Array).pop_at(idx)
+	# Toujours face cachee : l'APK revele en BuildPhase_b et ne declenche
+	# "quand tu construis cette salle" qu'a ce moment-la (endPhaseBuild).
+	card["faceDown"] = true
+	card["builtThisTurn"] = true
+	card["undoBuild"] = int(p.get("buildsThisTurn", 0)) + 1 # reprise possible jusqu'au DONE (rang de la pose : la plus ancienne part d'abord)
+	if ThkAbilities.active(G):
+		IodAbilities.stamp_built(G, pid, card) # IOD018 Stolen Blueprints : une salle posee apres son usage est detruite en fin de tour
+	var dungeon: Array = p["dungeon"]
+	if slot >= 0 and slot < dungeon.size():
+		(dungeon[slot] as Array).append(card)
+		_log("Joueur %d améliore l'emplacement %d avec %s." % [pid, slot + 1, str(card.get("name", "?"))], "Joueur %d améliore l'emplacement %d (face cachée)." % [pid, slot + 1], [pid])
+	else:
+		TnlAbilities.insert_slot(G, pid, card) # DungeonSlot fixes cote APK : les effets indexes par emplacement (Freeze, Sabotage!, Crushinator...) glissent avec leur salle
+		_log("Joueur %d place %s face cachée." % [pid, str(card.get("name", "?"))], "Joueur %d place une salle face cachée." % pid, [pid])
+	p["buildsThisTurn"] = int(p.get("buildsThisTurn", 0)) + 1
+
+## B7 (AIPlayerInteraction.cs:86-101, 165-186) : en BuildPhase_a l'IA du tour joue sa capacite PUIS pose la salle choisie sur l'etat d'avant ; la transaction
+## n'est executee qu'au NextStep suivant (GameBoard.cs:306-314), donc apres la pose. Appele juste avant l'execution de la pile. Un humain attend la fin de la
+## Spell Battle : rien pour lui. Les autres IA ont repondu avant la pose dans l'APK (OnAbilityApplyRequest est synchrone), comme ici.
+func _ai_build_before_resolve() -> void:
+	if str(G.get("phase", "")) != CardDB.PHASE["BUILD"] or G.has("buildWindow") or G.has("forcedBuild") or not bool(G.get("autoAI", true)):
+		return
+	var pid := int(G.get("stackActivePlayer", -1))
+	var p: Dictionary = (G["players"] as Dictionary).get(pid, {}) as Dictionary
+	if p.is_empty() or not bool(p.get("isAI", false)):
+		return
+	var pre := AI.take_pre_build(self, pid)
+	if pre.is_empty() or int(pre["turn"]) != int(G.get("turn", 0)):
+		return
+	if not (G.get("stack", []) as Array).any(func(e): return int((e as Dictionary).get("playerId", -1)) == pid):
+		return
+	var idx: int = (p["hand"] as Array).find(pre["card"])
+	var slot := int((pre["args"] as Array)[0]) if not (pre["args"] as Array).is_empty() else -1
+	if idx < 0 or BossEngine.is_build_blocked(G) or int(p.get("buildsThisTurn", 0)) >= 1 + BossEngine.extra_builds_for(G, pid) or not BossEngine.can_build_room(p, G, pid, idx, slot):
+		return
+	_place_room(pid, idx, slot)
+
 static func undo_build_on(p: Dictionary, ui: int) -> Dictionary:
 	var ud: Array = p["dungeon"]
 	var ustack: Array = ud[ui]
@@ -652,25 +693,9 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 			# Cible optionnelle : index d'emplacement pour recouvrir une salle
 			# existante (salle avancee), sinon la salle va a l'entree du donjon.
 			var slot := int(move["args"][1]) if move["args"].size() > 1 and move["args"][1] != null else -1
-			var hand: Array = p["hand"]
-			if idx < 0 or idx >= hand.size():
+			if idx < 0 or idx >= (p["hand"] as Array).size():
 				return false
-			var card: Dictionary = hand.pop_at(idx)
-			# Toujours face cachee : l'APK revele en BuildPhase_b et ne declenche
-			# "quand tu construis cette salle" qu'a ce moment-la (endPhaseBuild).
-			card["faceDown"] = true
-			card["builtThisTurn"] = true
-			card["undoBuild"] = int(p.get("buildsThisTurn", 0)) + 1 # reprise possible jusqu'au DONE (rang de la pose : la plus ancienne part d'abord)
-			if ThkAbilities.active(G):
-				IodAbilities.stamp_built(G, pid, card) # IOD018 Stolen Blueprints : une salle posee apres son usage est detruite en fin de tour
-			var dungeon: Array = p["dungeon"]
-			if slot >= 0 and slot < dungeon.size():
-				(dungeon[slot] as Array).append(card)
-				_log("Joueur %d améliore l'emplacement %d avec %s." % [pid, slot + 1, str(card.get("name", "?"))], "Joueur %d améliore l'emplacement %d (face cachée)." % [pid, slot + 1], [pid])
-			else:
-				TnlAbilities.insert_slot(G, pid, card) # DungeonSlot fixes cote APK : les effets indexes par emplacement (Freeze, Sabotage!, Crushinator...) glissent avec leur salle
-				_log("Joueur %d place %s face cachée." % [pid, str(card.get("name", "?"))], "Joueur %d place une salle face cachée." % pid, [pid])
-			p["buildsThisTurn"] = int(p.get("buildsThisTurn", 0)) + 1
+			_place_room(pid, idx, slot)
 			if bool(G.get("setupBuild", false)):
 				_setup_progress()
 			elif _can_build_again(pid) or not bool(p.get("isAI", false)):
@@ -933,6 +958,8 @@ func _resolve_choice_body(pid: int, index: int) -> void:
 		var fr := RoomAbilities._find_room_by_uid(p, int(pc["roomUid"]))
 		if not fr.is_empty():
 			(fr[2] as Dictionary).erase("usedThisTurn")
+	if index < 0 and pc.get("aiStale") is Dictionary: # B10 : cible perimee de l'IA, appliquee sans revalidation comme le C#
+		RoomAbilities.apply_stale_target(G, pid, str(pc.get("bossName", "")), pc["aiStale"])
 	var finish_dead := false # des degats viennent d'etre infliges au heros actif : il meurt apres la remise a zero du choix
 	match kind:
 		"recover-card":
@@ -2039,6 +2066,7 @@ func _retarget_stack_effect(effect: Dictionary) -> bool:
 	return false
 
 func _resolve_pending_stack() -> void:
+	_ai_build_before_resolve()
 	var stack: Array = G.get("stack", [])
 	while not stack.is_empty():
 		var effect: Dictionary = stack.pop_front() # index 0 = prochain a se resoudre (NextStep : PendingAbilityTransactions.First())
@@ -2218,6 +2246,15 @@ func _targeting_pick(index: int) -> void:
 		return
 	var o: Dictionary = opts[index]
 	(e["picks"] as Array).append(_opt_sig(o))
+	if str(pc.get("type", "")) in ["dracolich-discard", "kitchen-discard"]: # cibles en main, dans l'ordre d'execution (voir _built_hand_target)
+		var tpid := int(pc.get("playerId", 0))
+		var hand: Array = ((G["players"] as Dictionary)[tpid] as Dictionary).get("hand", [])
+		var cards: Array = (o.get("handIndices", []) as Array).map(func(hi): return hand[int(hi)]) if o.has("handIndices") else [o.get("card", {})]
+		var want: Array = ApkAI._t_cards(AI._sel.get(AI._key(self, tpid), {}), 0, 0) # ordre de designation de l'IA (CheckBMA013 : la moins precieuse d'abord)
+		if want.size() == cards.size() and want.all(func(w): return cards.any(func(c): return int((c as Dictionary).get("_uid", -1)) == int((w as Dictionary).get("_uid", -2)))):
+			cards = want
+		if cards.all(func(c): return (c as Dictionary).has("_uid")): # UniqueID de l'APK ; sans lui (etats de test, harnais) rien n'est suivi
+			e["handUids"] = cards.map(func(c): return int((c as Dictionary)["_uid"]))
 	if o.has("roomIndex") and not (e.get("target", {}) as Dictionary).has("roomIndex"):
 		var t := {"roomIndex": int(o["roomIndex"])} # cible publique visible sur la pile (les cartes de la main restent privees)
 		if o.has("targetPlayerId"):
@@ -2240,8 +2277,36 @@ func _enqueue_ability(e: Dictionary) -> void:
 		G["buildWindow"] = _window_auto_passed() # une capacite relance la Spell Battle : tout le monde doit re-passer
 	_reopen_stack_window(pid)
 
+## B7 : Dracolich Lair / Witch's Kitchen dont une cible en main a ete posee entre la mise en file et l'execution (pose de l'IA, _ai_build_before_resolve).
+## Boss.BuildRoom n'annule aucune transaction ; Effect.Execute defausse les cibles dans l'ordre (DiscardTargetRoomFromHand) et GameBoard.DiscardFromHand leve
+## sur la premiere absente de la main (GameBoard.cs:589-621) : les precedentes restent defaussees, la suite (pioche, recuperation) ne se fait pas, et
+## IsEffectApplied reste faux (Ability.cs:129-136, OncePerTurn rendu). null si rien de tel.
+func _built_hand_target(e: Dictionary) -> Variant:
+	var uids: Array = e.get("handUids", [])
+	if uids.is_empty():
+		return null
+	var pid := int(e.get("playerId", 0))
+	var p: Dictionary = G["players"][pid]
+	var hand: Array = p.get("hand", [])
+	var at := func(uid): return hand.find_custom(func(c): return int((c as Dictionary).get("_uid", -1)) == int(uid))
+	var built := func(uid): return (p.get("dungeon", []) as Array).any(func(st): return (st as Array).any(func(c): return int((c as Dictionary).get("_uid", -1)) == int(uid)))
+	if not uids.any(func(u): return at.call(u) < 0 and built.call(u)):
+		return null # cible defaussee ou partie ailleurs : RemovePendingTransactionsByTarget a annule la transaction (chemin habituel)
+	for u in uids:
+		var hi: int = at.call(u)
+		if hi < 0:
+			break
+		var card: Dictionary = hand.pop_at(hi)
+		BossEngine.discard_room_to_pile(G.get("decks", {}), card)
+		Minibosses.on_hand_discard(G, pid, card) # RMB017 Imp Hoard
+		_log("%s : %s defaussee." % [str((e.get("card", {}) as Dictionary).get("name", "?")), str(card.get("name", "?"))])
+	return "hand target was built"
+
 ## AbilityTransaction.Run : d'abord sur une copie (une cible disparue annule la transaction sans effet), puis sur l'etat reel.
 func _run_ability_entry(e: Dictionary) -> Variant:
+	var stale = _built_hand_target(e)
+	if stale != null:
+		return stale
 	var sm := Match.new()
 	sm.G = G.duplicate(true)
 	var chk = _exec_entry(sm, e, true)

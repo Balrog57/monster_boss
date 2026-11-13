@@ -1278,6 +1278,65 @@ static func take_searched_room(G: Dictionary, player_id: int, option: Dictionary
 	_log(G, "%s: %s recherche, construction forcee." % [label, str(card.get("name", "?"))])
 	return card
 
+## B10 : cible perimee rendue par le cache de TriggerCalculator (ApkAI._tc_call : `selectedTargets[0]` d'une ancienne liste quand CheckXXX ne trouve rien), du bon type
+## mais hors des options. Le C# l'applique sans revalider (AbilityTransaction.cs:183-204, puis Run) et deplace la carte depuis sa zone du moment :
+## PlaceAtDungeonEntrance -> GameBoard.RemoveHeroFromGame (pioche, ville, entree, ames, blessures : GameBoard.cs:694-749) ; PutCardInHand ->
+## RemoveRoomOrSpellFromGame (pioche, defausse, main de n'importe qui : GameBoard.cs:624-690), la carte arrive en main meme si elle n'a ete trouvee nulle part.
+## Renvoie vrai si la carte a ete appliquee.
+static func apply_stale_target(G: Dictionary, player_id: int, boss_name: String, card: Dictionary) -> bool:
+	var p := _player(G, player_id)
+	var decks: Dictionary = G.get("decks", {})
+	match boss_name:
+		"Mimic Vault", "Seducia":
+			if not card.has("hp") or bool(card.get("isRoom", false)):
+				return false
+			var piles: Array = [decks.get("heroes", []), decks.get("epics", []), G.get("town", [])]
+			for q in (G.get("players", {}) as Dictionary):
+				piles.append((G["players"][q] as Dictionary).get("entrance", []))
+			for pile in piles:
+				_erase_same(pile, card)
+			for q in (G.get("players", {}) as Dictionary):
+				for key in ["souls", "wounds"]:
+					var lst: Array = (G["players"][q] as Dictionary).get(key, [])
+					for i in range(lst.size() - 1, -1, -1):
+						if is_same((lst[i] as Dictionary).get("hero"), card):
+							lst.remove_at(i)
+			_erase_same(decks.get("heroDiscard", []), card)
+			var entrance: Array = p.get("entrance", []) as Array
+			p["entrance"] = entrance
+			entrance.append(card)
+			_log(G, "%s: %s moved to your entrance (stale AI target)." % [boss_name, str(card.get("name", "?"))])
+			return true
+		"King Croak", "Cleopatra", "Draculord":
+			if not bool(card.get("isRoom", false)) and not (boss_name == "Draculord" and bool(card.get("isSpell", false))):
+				return false # BuildRoomBy exige une Room (King Croak, Cleopatra) ; un heros leve dans RemoveRoomOrSpellFromGame (Draculord)
+			var found := false
+			var piles: Array = [decks.get("rooms", []), decks.get("roomDiscard", []), decks.get("spells", []), decks.get("spellDiscard", [])]
+			for q in (G.get("players", {}) as Dictionary):
+				piles.append((G["players"][q] as Dictionary).get("hand", []))
+			for pile in piles:
+				if _erase_same(pile, card):
+					found = true
+					break
+			var hand: Array = p.get("hand", []) as Array
+			p["hand"] = hand
+			# shortcut: hors de toute zone (salle d'un donjon) le C# met le MEME objet en main ; Godot garde l'etat de pose sur la carte, donc une copie.
+			hand.append(card if found else card.duplicate(true))
+			if boss_name != "Draculord":
+				var forced: Array = G.get("forcedBuilds", []) as Array
+				G["forcedBuilds"] = forced
+				forced.append({"playerId": player_id, "cardId": str(card.get("id", ""))}) # BuildRoomBy : ForcedToBuildRoom + PendingExtraBuiltTurns
+			_log(G, "%s: %s put into your hand (stale AI target)%s." % [boss_name, str(card.get("name", "?")), "" if boss_name == "Draculord" else ", construction forcee"])
+			return true
+	return false
+
+## Retire `card` de `pile` par identite (deux exemplaires d'une meme carte sont egaux en contenu). Vrai si elle y etait.
+static func _erase_same(pile: Array, card: Dictionary) -> bool:
+	var at := pile.find_custom(func(c): return is_same(c, card))
+	if at >= 0:
+		pile.remove_at(at)
+	return at >= 0
+
 ## BMA004 Robobo : chaque adversaire detruit une salle de son choix (BossOpponents + ChooseAndDestroyRoom).
 ## Ordre = PlayerId croissant (GameBoard.GetOpponents), adversaires elimines exclus.
 static func _robobo(G: Dictionary, player_id: int) -> Variant:

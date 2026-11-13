@@ -5637,6 +5637,10 @@ func _extra_checks() -> void:
 	await _check_choice_target()
 	await _check_drag_and_zoom()
 	await _check_zoom_gestures()
+	await _check_stack_drag()
+	await _check_count_carousel()
+	await _check_pass_fast()
+	await _check_side_panels()
 	await _check_done_and_warning()
 	await _check_review_fixes()
 	await _check_turn_order()
@@ -6573,3 +6577,146 @@ func _tut_hit(ov, probed: Dictionary) -> void:
 	await _click_at(board._zoom.get_global_transform() * ab.get_center())
 	await _tut_pump(ov, 0.3)
 	_check(not ov._hit_state(), "tutoriel : le tap sur la capacite n'a pas frappe le heros")
+
+## Temps de jeu (somme des delta d'image, comme les tweens) jusqu'a ce que `cond` soit vrai ; -1 si `max_s` depasse. Jamais l'horloge murale : une image lente la decale.
+func _game_until(cond: Callable, max_s: float) -> float:
+	var tg := 0.0
+	while not cond.call():
+		if tg > max_s:
+			return -1.0
+		await get_tree().process_frame
+		tg += get_process_delta_time()
+	return tg
+
+## B25 : carrousel « HOW MANY PLAYERS? » (CarrouselInfiniteComponent + CarrouselDragBehavior.cs:59-121) : l'indice suit le pointeur a 0,004 / px, le retour tend a 20 % de l'ecart par image,
+## le son et la selection suivent l'indice arrondi, la liste est celle de l'APK (2, 3, 4, 2, 3, 4) et boucle.
+func _check_count_carousel() -> void:
+	_tag = "[carrousel-joueurs]"
+	AudioManager.rec_enabled = true
+	# valeurs pures : Math.Round au pair, nombre d'images du retour (0,8^k x ecart <= 0,05)
+	_check(UiKit.round_even(0.5) == 0 and UiKit.round_even(1.5) == 2 and UiKit.round_even(2.5) == 2 and UiKit.round_even(-0.5) == 0 and UiKit.round_even(2.51) == 3 and UiKit.round_even(5.4) == 5, "carrousel : Math.Round (arrondi au pair)")
+	_check(UiKit.carousel_frames(1.0) == 14 and UiKit.carousel_frames(0.4) == 10 and UiKit.carousel_frames(0.05) == 0 and UiKit.carousel_frames(0.06) == 1 and UiKit.carousel_frames(-0.5) == 11, "carrousel : images du retour (14 pour 1,0, 10 pour 0,4, 0 sous 0,05)")
+	var main = load("res://godot/scenes/Main.tscn").instantiate()
+	add_child(main)
+	await _wait(0.3)
+	main.show_solo_count()
+	await _wait(0.5)
+	if not _check(main._cfans.size() == 6 and main.players == 2 and is_zero_approx(main._cidx), "carrousel : liste de 6 eventails (2, 3, 4, 2, 3, 4) et indice 0 a l'ouverture (%d, %d, %s)" % [main._cfans.size(), main.players, str(main._cidx)]):
+		main.queue_free()
+		return
+	var nums: Array = main._cfans.map(func(f): return int((f as Control).get_meta("fan")))
+	_check(nums == [2, 3, 4, 2, 3, 4], "carrousel : ordre de la liste %s" % str(nums))
+	var f0: Control = main._cfans[0]
+	var f1: Control = main._cfans[1]
+	var f5: Control = main._cfans[5]
+	_check(f0.position.is_equal_approx(Vector2(960.0, 626.0)) and f1.position.is_equal_approx(Vector2(1342.0, 595.0)) and f5.position.is_equal_approx(Vector2(582.0, 595.0)), "carrousel : rangs au repos (centre, droite, gauche) : %s %s %s" % [f0.position, f1.position, f5.position])
+	var y := 600.0
+	var x0 := 960.0
+	# glisser de 100 px vers la gauche : indice 0,4, tout suit le pointeur (decIndex 0,6 entre les rangs 1 et 2)
+	await _mouse(Vector2(x0, y), true, false)
+	await _mouse(Vector2(x0 - 50.0, y), false, true, MOUSE_BUTTON_MASK_LEFT)
+	await _mouse(Vector2(x0 - 100.0, y), false, true, MOUSE_BUTTON_MASK_LEFT)
+	_check(absf(main._cidx - 0.4) < 1e-4, "carrousel : l'indice suit le pointeur a 0,004 par pixel (%s au lieu de 0,4)" % str(main._cidx))
+	_check(f0.position.is_equal_approx(Vector2(960.0 - 378.0 * 0.4, 626.0 - 31.0 * 0.4)) and absf(f0.modulate.a - 1.0) < 1e-4, "carrousel : la carte du centre suit (%s)" % f0.position)
+	_check(main.players == 2 and main._cmode == 1, "carrousel : sous la moitie, le choix ne change pas")
+	var m0: int = AudioManager.rec.size()
+	await _mouse(Vector2(x0 - 100.0, y), false, false)
+	var t := await _game_until(func(): return main._cmode == 0, 3.0) # retour a l'entier : 10 images de 1/60 s
+	_check(t >= 0.0 and t <= 10.0 / 60.0 + 0.25 and is_zero_approx(main._cidx) and main.players == 2, "carrousel : retour a 0 en %.2f s de jeu (indice %s)" % [t, str(main._cidx)])
+	_check(AudioManager.rec.slice(m0).filter(func(e): return str(e).begins_with("sfx:ui_shuffle")).is_empty(), "carrousel : pas de son quand l'indice arrondi ne change pas")
+	# glisser de 300 px : indice 1,2 -> le 3 est choisi des 0,5, son _left, retour a 1
+	m0 = AudioManager.rec.size()
+	await _mouse(Vector2(x0, y), true, false)
+	await _mouse(Vector2(x0 - 300.0, y), false, true, MOUSE_BUTTON_MASK_LEFT)
+	_check(absf(main._cidx - 1.2) < 1e-4 and main.players == 3 and (main._cfans[1] as Control).get_meta("sel") and not (main._cfans[0] as Control).get_meta("sel"), "carrousel : le 3 est choisi des que l'indice arrondi passe a 1 (indice %s, joueurs %d)" % [str(main._cidx), main.players])
+	await _mouse(Vector2(x0 - 300.0, y), false, false)
+	t = await _game_until(func(): return main._cmode == 0, 3.0)
+	_check(t >= 0.0 and is_equal_approx(main._cidx, 1.0) and (main._cfans[1] as Control).position.is_equal_approx(Vector2(960.0, 626.0)), "carrousel : retour a 1, la carte du 3 au centre (%s)" % str(main._cidx))
+	_check(AudioManager.rec.slice(m0).filter(func(e): return str(e).begins_with("sfx:ui_shuffle")) == ["sfx:ui_shuffle_left"], "carrousel : un seul son ui_shuffle_left, vu %s" % str(AudioManager.rec.slice(m0)))
+	# glisser vers la droite depuis 1 : indice -0,6 -> 5,4 (la liste boucle), le 4 est choisi
+	await _mouse(Vector2(x0, y), true, false)
+	await _mouse(Vector2(x0 + 400.0, y), false, true, MOUSE_BUTTON_MASK_LEFT)
+	_check(absf(main._cidx - 5.4) < 1e-4 and main.players == 4, "carrousel : la liste boucle (indice %s, joueurs %d)" % [str(main._cidx), main.players])
+	await _mouse(Vector2(x0 + 400.0, y), false, false)
+	await _game_until(func(): return main._cmode == 0, 3.0)
+	_check(is_equal_approx(main._cidx, 5.0) and main.players == 4, "carrousel : retour a 5 (4 joueurs)")
+	# tap sur le cote droit (plus d'un sixieme de la largeur du centre) : un pas, de 5 vers 6 = 0 ; la selection passe par « aucune » (indice arrondi 6) comme l'APK
+	m0 = AudioManager.rec.size()
+	await _mouse(Vector2(1400.0, y), true, false)
+	await _mouse(Vector2(1400.0, y), false, false)
+	t = await _game_until(func(): return main._cmode == 0, 3.0)
+	_check(t >= 0.0 and is_zero_approx(main._cidx) and main.players == 2, "carrousel : un tap a droite avance d'un pas en bouclant (indice %s, joueurs %d)" % [str(main._cidx), main.players])
+	_check(AudioManager.rec.slice(m0).filter(func(e): return str(e).begins_with("sfx:ui_shuffle")) == ["sfx:ui_shuffle_left", "sfx:ui_shuffle_right"], "carrousel : tap 5 -> 0 : _left puis _right au bouclage, vu %s" % str(AudioManager.rec.slice(m0)))
+	# fleche gauche : un pas vers l'arriere (0 -> 5), ignoree pendant le retour
+	main._count_step(-1)
+	main._count_step(1) # ignoree : le retour est en cours
+	await _game_until(func(): return main._cmode == 0, 3.0)
+	_check(is_equal_approx(main._cidx, 5.0) and main.players == 4, "carrousel : fleche gauche = un pas, une 2e touche pendant le retour est ignoree (indice %s)" % str(main._cidx))
+	# un appui hors du collider 1200 x 400 ne fait rien
+	await _mouse(Vector2(200.0, 200.0), true, false)
+	_check(main._cmode == 0, "carrousel : un appui hors du collider ne prend pas la main")
+	await _mouse(Vector2(200.0, 200.0), false, false)
+	main.queue_free()
+	await get_tree().process_frame
+
+## B25 : le zoom d'une pile (CarrouselVerticalComponent + CarrouselDragBehavior vertical, SlotDetailEntity.cs:77-101) : 0,004 par pixel quelle que soit l'echelle, retour a 20 % par image.
+func _check_stack_drag() -> void:
+	_tag = "[pile-glisser]"
+	await _new_game()
+	var me: Dictionary = gm.G["players"][0]
+	var r: Dictionary = (CardDB.rooms[0] as Dictionary).duplicate(true)
+	r["faceDown"] = false
+	(me["dungeon"] as Array).append([r, r.duplicate(true), r.duplicate(true)])
+	board.refresh()
+	for i in 3:
+		await get_tree().process_frame
+	board.skip_animations = false
+	board._slot_zoom(0, (me["dungeon"] as Array).size() - 1)
+	await _wait(0.6)
+	if not _check(board._zoom != null and board._zoom.has_meta("stack"), "pile : le zoom de la pile ne s'ouvre pas"):
+		return
+	var st: Dictionary = board._zoom.get_meta("stack")
+	var c: Vector2 = ((st["rect"] as Rect2).get_center())
+	var m0: int = AudioManager.rec.size()
+	await _mouse(c, true, false)
+	await _mouse(c - Vector2(0, 50.0), false, true, MOUSE_BUTTON_MASK_LEFT) # 50 px vers le haut : indice 0,2
+	await _mouse(c - Vector2(0, 100.0), false, true, MOUSE_BUTTON_MASK_LEFT)
+	_check(absf(float(st["idx"]) - 0.4) < 1e-4, "pile : l'indice suit le pointeur a 0,004 par pixel (%s au lieu de 0,4)" % str(st["idx"]))
+	await _mouse(c - Vector2(0, 100.0), false, false)
+	var t := await _game_until(func(): return is_zero_approx(float(st["idx"])), 3.0) # retour a 0 : 10 images
+	_check(t >= 0.0 and t <= 10.0 / 60.0 + 0.25, "pile : retour a la carte 0 en %.2f s de jeu (10 images attendues, pas 0,15 s fixe)" % t)
+	await _mouse(c, true, false)
+	await _mouse(c - Vector2(0, 300.0), false, true, MOUSE_BUTTON_MASK_LEFT) # 1,2 -> arrondi 1
+	await _mouse(c - Vector2(0, 300.0), false, false)
+	t = await _game_until(func(): return is_equal_approx(float(st["idx"]), 1.0), 3.0)
+	_check(t >= 0.0 and AudioManager.rec.slice(m0).filter(func(e): return str(e).begins_with("sfx:ui_shuffle")) == ["sfx:ui_shuffle_left"], "pile : la carte 1 est choisie avec un son ui_shuffle_left, vu %s" % str(AudioManager.rec.slice(m0)))
+	board.skip_animations = true
+
+## B29 : l'ancien GO_FAST n'existe plus ; PASS_FAST ne sert que hors du flux de l'APK (plusieurs humains sur le meme ecran) ; solo et en ligne, aucune attente apres la barre de 3 s.
+func _check_pass_fast() -> void:
+	_tag = "[pass-fast]"
+	await _new_game()
+	var consts: Dictionary = board.get_script().get_script_constant_map()
+	_check(not consts.has("GO_FAST") and is_equal_approx(float(consts["PASS_FAST"]), 0.45), "B29 : GO_FAST supprime, PASS_FAST = 0,45 s (hotseat seulement)")
+	_check(board._apk_flow(), "B29 : un seul humain hors ligne = flux de l'APK (PASS_FAST jamais lu)")
+	_check(is_equal_approx(float(consts["WINDOW_ADVENTURE"]), 3.0) and is_equal_approx(float(consts["WINDOW_STACK"]), 6.0), "B29 : barres de 3 s (aventure) et 6 s (pile), seules attentes du flux de l'APK")
+
+## B18 : colonnes laterales (CreateColorPanel(SidePanelsBackColor, 0,85) : TopLeftPanelEntity.cs:110, OneOpponentDetail.cs:71, ChallengerDetail.cs:61). Mesure sur 42 frames APK : fond identique a 0 niveau pres ;
+## l'ecart de luminosite etait en haut de la colonne droite : le panneau (des y 60) est PAR-DESSUS la barre haute (SidePanelLayer apres la couche Alpha), qui est a y 0, et la plaque de l'engrenage a y 0.
+func _check_side_panels() -> void:
+	_tag = "[panneaux-lateraux]"
+	await _new_game()
+	var panels: Array = board.get_children().filter(func(c): return c is ColorRect and (c as ColorRect).material == UiKit.premult_mat())
+	if not _check(panels.size() == 2, "panneaux lateraux : %d panneaux a fusion premultipliee (2 attendus)" % panels.size()):
+		return
+	_check(is_equal_approx((panels[0] as ColorRect).color.a, 0.85) and (panels[0] as ColorRect).color.is_equal_approx(Color(UiKit.SIDE_PANELS, 0.85)), "panneaux lateraux : #180a18 a 0,85")
+	_check(Rect2((panels[0] as ColorRect).position, (panels[0] as ColorRect).size) == Rect2(0, 0, 183, 1080), "panneau gauche : 183 x 1080 en (0, 0) (%s)" % str((panels[0] as ColorRect).get_rect()))
+	var right := panels[1] as ColorRect
+	_check(Rect2(right.position.x - Vp.shift_right(), right.position.y, right.size.x, right.size.y) == Rect2(1709, 60, 211, 1020), "panneau droit : OneOpponentDetail + ChallengerDetail, 211 de large des y 60 (%s)" % str(right.get_rect()))
+	var bars: Array = board.get_children().filter(func(c): return c is TextureRect and (c as TextureRect).texture != null and str((c as TextureRect).texture.resource_path).ends_with("/bg_top.webp"))
+	if _check(bars.size() == 1, "barre haute : %d" % bars.size()):
+		_check((bars[0] as Control).position == Vector2.ZERO, "barre haute : en (0, 0) sans decalage (CreateInGameTopBar), pas (0, 1) : %s" % str((bars[0] as Control).position))
+		_check((bars[0] as Control).get_index() < right.get_index(), "barre haute dessous le panneau droit (couche Alpha avant SidePanelLayer)")
+	var gear: Array = board.find_children("*", "TextureRect", true, false).filter(func(c): return (c as TextureRect).texture != null and str((c as TextureRect).texture.resource_path).ends_with("/bt_options.webp"))
+	if _check(gear.size() == 1, "plaque de l'engrenage : %d" % gear.size()):
+		_check(is_zero_approx((gear[0] as Control).get_global_rect().position.y), "plaque de l'engrenage : haut a y 0 (frames APK : gris jusqu'a la rangee 60), pas y -2 (%s)" % str((gear[0] as Control).get_global_rect().position.y))

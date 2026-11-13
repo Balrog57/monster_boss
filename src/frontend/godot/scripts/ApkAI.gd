@@ -1456,7 +1456,7 @@ static func choose(G: Dictionary, pid: int, pc: Dictionary, rng: RandomNumberGen
 			if (_same(ov, pre["val"]) if ov is Dictionary else ov == pre["val"]):
 				return _out(i)
 		if pre["val"] == null:
-			return _out(-1)
+			return {"idx": -1, "shuf": false, "stale": pre["stale"]} if pre.has("stale") else _out(-1)
 	if TR_ACTIVATED.has(name):
 		return _tr_activated(x, pc, opts, sel, name)
 	var okey := _tc_owner(pc, name)
@@ -1497,6 +1497,9 @@ const TC_SHAPE := {
 	"Specter's Sanctum": ["A", true], "Vampire Bordello": ["A", false], "Robobo": ["A", false], "Cerebellus": ["A", true], "Dark Laboratory": ["A", true],
 	"Succubus Spa": ["S", true],
 }
+## B10 : cartes dont une cible perimee hors des options est appliquee par le C# (commandes sans revalidation). Robobo n'y est pas : CheckBMA004 trouve toujours une
+## salle quand RoomInDungeon a des cibles (AIHelper.GetTargetTargets filtre l'appel), donc jamais de liste perimee.
+const STALE_APPLIED := ["Mimic Vault", "Seducia", "King Croak", "Cleopatra", "Draculord"]
 ## Niveaux de boss : le proprietaire (`AbilityOwner`) est la carte boss ; les autres sont des salles, reconnues par le `roomUid` du choix.
 const TC_BOSS := ["Draculord", "Xyzax", "King Croak", "Cleopatra", "Robobo", "Cerebellus", "Seducia", "Gorgona", "The Brothers Wise", "Kaw'nee"]
 
@@ -1569,7 +1572,10 @@ static func _tc_call(x: Dictionary, pc: Dictionary, opts: Array, name: String, o
 	var i := _tc_find(opts, ret)
 	if name == "Xyzax" and commit:
 		memo["Xyzax"] = {"list": ret.map(func(r): return (r as Dictionary).get("card")).filter(func(c): return c != null), "shuf": shuf}
-	return _out(i, shuf and i >= 0)
+	var out := _out(i, shuf and i >= 0)
+	if i < 0 and STALE_APPLIED.has(name) and not ret.is_empty() and (ret[0] as Dictionary).get("card") is Dictionary:
+		out["stale"] = (ret[0] as Dictionary)["card"] # B10 : carte d'une ancienne liste, hors des options ; RoomAbilities.apply_stale_target juge le type
+	return out
 
 ## GameBoard.RevealAllRoomCards -> EnqueueAbilityTransaction -> ResolveTargets : l'APK designe la cible de chaque declencheur A LA MISE EN FILE, avant tout effet,
 ## et les salles encore en attente (la sienne comprise) ne comptent pas. Match._build_reveal_queue appelle ceci a cet instant (salle encore face cachee) ;
@@ -1598,7 +1604,10 @@ static func reveal_target(G: Dictionary, pid: int, room: Dictionary, memo: Dicti
 	if res == null:
 		return {}
 	var idx := int((res as Dictionary)["idx"])
-	return {"key": key, "val": null if idx < 0 else (opts[idx] as Dictionary)[key]}
+	var out := {"key": key, "val": null if idx < 0 else (opts[idx] as Dictionary)[key]}
+	if (res as Dictionary).has("stale"):
+		out["stale"] = res["stale"]
+	return out
 
 # --- outils ----------------------------------------------------------------------------------------------------------------
 

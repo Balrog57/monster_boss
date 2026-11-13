@@ -1254,6 +1254,183 @@ func _t_apk_triggers() -> void:
 	_ok.call(_choose(G, 0, {"type": "tnl-pick", "bossName": "Un boss wiki", "options": [{"ai": 1.0}]}) == null, "carte hors APK : pas d'avis (AiWiki garde la main)")
 
 ## Lot IA du 2026-11-03 (liste d'ecarts M3, M10-M12, B8, B9, B11-B13).
+func _no_resume(pc: Dictionary) -> Dictionary:
+	pc["resume"] = false # le choix ne referme pas la phase BUILD (sinon leurre et aventure brouillent l'etat verifie)
+	return pc
+
+func _uid_room(uid: int, id: String, type := "monster", treasures := [1], dmg := 1, adv := false) -> Dictionary:
+	var r := _plain(id, type, treasures, dmg, adv)
+	r["_uid"] = uid
+	return r
+
+## B7 (AIPlayerInteraction.cs:86-101, 165-186 ; GameBoard.cs:306-314) : l'IA du tour joue sa capacite, pose la salle choisie sur l'etat d'avant, puis la pile s'execute.
+func _t_b7_build_before_resolve() -> void:
+	var run_ai0 := func(m: Node, g: Dictionary) -> void: # pilotage de l'IA du siege 0 jusqu'a la Spell Battle (ses choix de cibles compris)
+		for k in 12:
+			var pc: Dictionary = g.get("pendingChoice", {})
+			if not pc.is_empty() and int(pc.get("playerId", -1)) == 0:
+				m.apply_move(0, AI.pick_move(m, 0))
+			elif (g.get("stack", []) as Array).is_empty() and pc.is_empty():
+				m._drive_ai()
+			else:
+				break
+	# Dracolich Lair : cibles [A, B] (la moins precieuse d'abord), la pose prend B -> A defaussee, exception sur B : pas de recuperation, OncePerTurn rendu
+	var G := _G([_player(0, "BMA001", [_room("BMA013")]), _player(1, "BMA002")], ["base"])
+	G["turn"] = 3
+	G["phase"] = "build"
+	G["activePlayer"] = 0
+	(G["players"][0] as Dictionary)["isAI"] = true
+	var a := _uid_room(101, "A", "monster", [1], 1)
+	var b := _uid_room(102, "B", "monster", [1], 2)
+	var c := _uid_room(103, "C", "monster", [1], 6)
+	_hand(G, 0).append_array([a, b])
+	(G["decks"]["roomDiscard"] as Array).append(c)
+	var m := _match(G)
+	run_ai0.call(m, G)
+	var st: Array = G.get("stack", [])
+	var queued: bool = st.size() == 1 and str((st[0] as Dictionary).get("type", "")) == "ability" and ((st[0] as Dictionary).get("handUids", []) as Array) == [101, 102]
+	_ok.call(queued and _hand(G, 0).size() == 2 and int(G.get("activePlayer", -1)) == 1, "B7 Dracolich Lair : capacite en file, cibles [A, B] dans l'ordre de l'IA, rien pose avant la fin de la Spell Battle : %s" % str(st.map(func(e): return (e as Dictionary).get("handUids"))))
+	m.apply_move(1, _mv("pass"))
+	var dun: Array = G["players"][0]["dungeon"]
+	var b_built: bool = dun.any(func(s2): return (s2 as Array).has(b) and bool(b.get("faceDown", false)))
+	var lair: Dictionary = BossEngine.active_room(dun.filter(func(s2): return str(((s2 as Array)[0] as Dictionary).get("id", "")) == "BMA013")[0])
+	_ok.call(b_built and (G["decks"]["roomDiscard"] as Array).has(a) and (G["decks"]["roomDiscard"] as Array).has(c) and not _hand(G, 0).has(c) and not bool(lair.get("usedThisTurn", false)) and (G.get("stack", []) as Array).is_empty(),
+		"B7 Dracolich Lair : B posee avant l'execution, A defaussee, C reste en defausse, OncePerTurn libre (hand=%s)" % str(_hand(G, 0).map(func(x): return x["id"])))
+	m.queue_free()
+	# Witch's Kitchen : seule Monster batissable = cible de la capacite ET salle posee -> exception sur la 1re cible : ni defausse ni pioche
+	var G2 := _G([_player(0, "BMA001", [_room("BMA024"), _plain("d1")]), _player(1, "BMA002")], ["base"])
+	G2["turn"] = 3
+	G2["phase"] = "build"
+	G2["activePlayer"] = 0
+	(G2["players"][0] as Dictionary)["isAI"] = true
+	var x := _uid_room(201, "X", "monster", [1], 1)
+	var y := _uid_room(202, "Y", "monster", [2], 5, true) # avancee sans emplacement compatible : pas batissable
+	_hand(G2, 0).append_array([x, y])
+	var sp := _spell("BMA048")
+	sp["_uid"] = 301
+	(G2["decks"]["spells"] as Array).append(sp)
+	var m2 := _match(G2)
+	run_ai0.call(m2, G2)
+	var st2: Array = G2.get("stack", [])
+	_ok.call(st2.size() == 1 and ((st2[0] as Dictionary).get("handUids", []) as Array) == [201], "B7 Witch's Kitchen : capacite en file sur X : %s" % str(st2.map(func(e): return (e as Dictionary).get("handUids"))))
+	m2.apply_move(1, _mv("pass"))
+	var dun2: Array = G2["players"][0]["dungeon"]
+	var kitchen: Dictionary = BossEngine.active_room(dun2.filter(func(s2): return str(((s2 as Array)[0] as Dictionary).get("id", "")) == "BMA024")[0])
+	_ok.call(dun2.any(func(s2): return (s2 as Array).has(x)) and _hand(G2, 0) == [y] and (G2["decks"]["spells"] as Array).has(sp) and (G2["decks"]["roomDiscard"] as Array).is_empty() and not bool(kitchen.get("usedThisTurn", false)),
+		"B7 Witch's Kitchen : X posee, Y gardee, aucun sort pioche, OncePerTurn libre")
+	m2.queue_free()
+	# Un humain ne pose rien pendant la Spell Battle : meme scenario, siege humain, la capacite s'execute normalement
+	var G3 := _G([_player(0, "BMA001", [_room("BMA024"), _plain("d1")]), _player(1, "BMA002")], ["base"])
+	G3["turn"] = 3
+	G3["phase"] = "build"
+	G3["activePlayer"] = 0
+	var x3 := _uid_room(211, "X", "monster", [1], 1)
+	_hand(G3, 0).append(x3)
+	(G3["decks"]["spells"] as Array).append(_spell("BMA048"))
+	var m3 := _match(G3)
+	m3.apply_move(0, _mv("activateRoom", [0]))
+	_ok.call(not m3.legal_moves(1).is_empty() and not m3.legal_moves(0).any(func(mv): return str((mv as Dictionary)["type"]) == "buildRoom"), "B7 : construire pendant la Spell Battle reste interdit aux humains")
+	m3.apply_move(1, _mv("pass"))
+	_ok.call((G3["decks"]["roomDiscard"] as Array).has(x3) and _hand(G3, 0).size() == 1 and bool(_hand(G3, 0)[0].get("isSpell", false)), "B7 : siege humain, Witch's Kitchen defausse X et pioche un sort")
+	m3.queue_free()
+
+## B10 : cible perimee du bon type rendue par le cache de TriggerCalculator (CheckXXX sans candidat -> selectedTargets[0] d'une ancienne liste) : le C# l'applique
+## depuis sa zone du moment (RemoveHeroFromGame, RemoveRoomOrSpellFromGame). `S` = ancienne liste semee dans la memoire du siege.
+func _t_b10_stale_targets() -> void:
+	var seed_cache := func(m: Node, card: Dictionary, r := "") -> void:
+		AI.memo_of(m, 0)["tc"] = {"R": r, "I": 0, "S": [[{"card": card}], [{"targetPlayerId": 0, "roomIndex": -1}]]}
+	var resolve := func(m: Node) -> bool:
+		var mv = AI.pick_move(m, 0)
+		return mv != null and str(mv["type"]) == "resolveChoice" and int(mv["args"][0]) == -1 and m.apply_move(0, mv)
+	# Mimic Vault : aucun heros de la ville que notre donjon tue -> le heros d'une ancienne liste, maintenant a l'entree du joueur 1
+	var G := _g3()
+	(G["players"][0] as Dictionary)["isAI"] = true
+	(G["players"][0]["dungeon"] as Array).append([_plain("d", "monster", [1], 4)])
+	G["town"] = [_hero_hp("TNL073", 9), _hero_hp("TNL073", 8)]
+	var old := _hero_hp("TNL073", 3)
+	(G["players"][1]["entrance"] as Array).append(old)
+	var pc: Dictionary = RoomAbilities._mimic_vault(G, G["players"][0], 0)
+	pc["roomUid"] = 11
+	pc["resume"] = false # le choix ne referme pas la phase (sinon le leurre vide la ville)
+	G["pendingChoice"] = pc
+	var town0: Array = (G["town"] as Array).duplicate() # le pilotage IA qui suit le choix peut finir la phase (leurre)
+	var m := _match(G)
+	seed_cache.call(m, old)
+	_ok.call(resolve.call(m) and (G["players"][0]["entrance"] as Array).has(old) and not (G["players"][1]["entrance"] as Array).has(old),
+		"B10 Mimic Vault : le heros perime passe de l'entree du joueur 1 a la notre (RemoveHeroFromGame)")
+	# meme cible figee a la revelation (reveal_target) puis rejouee par choose
+	var memo := {"tc": {"R": "", "I": 0, "S": [[{"card": old}], []]}}
+	G["town"] = town0
+	var pre := ApkAI.reveal_target(G, 0, {"id": "BMA036", "_tuid": 12}, memo, true)
+	var pc_r := {"bossName": "Mimic Vault", "roomUid": 12, "apkPre": pre, "options": [{"card": town0[0]}, {"card": town0[1]}]}
+	var r_rev = ApkAI.choose(G, 0, pc_r, RandomNumberGenerator.new(), {}, {})
+	_ok.call(pre.get("val") == null and is_same(pre.get("stale"), old) and r_rev != null and int(r_rev["idx"]) == -1 and is_same(r_rev.get("stale"), old), "B10 Mimic Vault (revelation) : la cible perimee figee est rejouee")
+	m.queue_free()
+	# Seducia : aucun heros a notre portee -> le heros perime quitte les ames du joueur 1 pour notre entree
+	var G2 := _g3()
+	(G2["players"][0] as Dictionary)["isAI"] = true
+	G2["town"] = [_hero_hp("TNL073", 9)]
+	(G2["decks"]["heroes"] as Array).append(_hero_hp("TNL073", 9))
+	var dead := _hero_hp("TNL073", 2)
+	(G2["players"][1]["souls"] as Array).append(CardDB.soul_entry(dead))
+	G2["pendingChoice"] = _no_resume(RoomAbilities._seducia(G2, 0))
+	var m2 := _match(G2)
+	seed_cache.call(m2, dead)
+	_ok.call(resolve.call(m2) and (G2["players"][0]["entrance"] as Array).has(dead) and (G2["players"][1]["souls"] as Array).is_empty(), "B10 Seducia : heros perime retire des ames du joueur 1, place a notre entree")
+	m2.queue_free()
+	# Seducia avec une salle perimee (mauvais type) : PlaceAtDungeonEntrance.Target1 reste nul -> abandon, rien ne bouge
+	var G2b := _g3()
+	(G2b["players"][0] as Dictionary)["isAI"] = true
+	G2b["town"] = [_hero_hp("TNL073", 9)]
+	(G2b["decks"]["heroes"] as Array).append(_hero_hp("TNL073", 9))
+	var room_b := _plain("rb")
+	_hand(G2b, 1).append(room_b)
+	G2b["pendingChoice"] = _no_resume(RoomAbilities._seducia(G2b, 0))
+	var m2b := _match(G2b)
+	seed_cache.call(m2b, room_b)
+	_ok.call(resolve.call(m2b) and _hand(G2b, 1) == [room_b] and (G2b["players"][0]["entrance"] as Array).is_empty(), "B10 Seducia : cible perimee d'un autre type -> abandon")
+	m2b.queue_free()
+	# King Croak : aucune salle avancee batissable -> la salle perimee (main du joueur 1) arrive dans notre main, construction forcee de ce numero
+	var G3 := _g3()
+	(G3["players"][0] as Dictionary)["isAI"] = true
+	(G3["players"][0]["dungeon"] as Array).append([_plain("d", "monster", [1], 1)])
+	(G3["decks"]["rooms"] as Array).append_array([_plain("adv1", "monster", [2], 4, true), _plain("adv2", "monster", [2], 5, true)])
+	var stale_room := _plain("stale", "monster", [1], 2)
+	_hand(G3, 1).append(stale_room)
+	G3["pendingChoice"] = _no_resume(RoomAbilities._search_advanced_choice(G3, 0, "monster", "King Croak"))
+	var m3 := _match(G3)
+	seed_cache.call(m3, stale_room)
+	var ok3: bool = resolve.call(m3)
+	var placed := func(g: Dictionary, card: Dictionary) -> bool: # en main, ou deja posee par le tour de construction force que le pilotage IA enchaine
+		return _hand(g, 0).has(card) or ((g["players"][0] as Dictionary)["dungeon"] as Array).any(func(st): return (st as Array).has(card))
+	var forced := func(g: Dictionary) -> bool:
+		return (g.get("forcedBuilds", []) as Array).size() == 1 or str(g.get("log", [])).contains("tour de construction supplementaire") # le tour force a ete ouvert (Match._start_forced_build)
+	_ok.call(ok3 and placed.call(G3, stale_room) and _hand(G3, 1).is_empty() and forced.call(G3), "B10 King Croak : salle perimee prise dans la main du joueur 1, construction forcee")
+	m3.queue_free()
+	# Cleopatra : la salle perimee est dans la defausse
+	var G4 := _g3()
+	(G4["players"][0] as Dictionary)["isAI"] = true
+	(G4["players"][0]["dungeon"] as Array).append([_plain("d", "monster", [1], 1)])
+	(G4["decks"]["rooms"] as Array).append_array([_plain("t1", "trap", [2], 4, true), _plain("t2", "trap", [2], 5, true)])
+	var stale_trap := _plain("st", "trap", [1], 2)
+	(G4["decks"]["roomDiscard"] as Array).append(stale_trap)
+	G4["pendingChoice"] = _no_resume(RoomAbilities._search_advanced_choice(G4, 0, "trap", "Cleopatra"))
+	var m4 := _match(G4)
+	seed_cache.call(m4, stale_trap)
+	_ok.call(resolve.call(m4) and placed.call(G4, stale_trap) and not (G4["decks"]["roomDiscard"] as Array).has(stale_trap) and forced.call(G4), "B10 Cleopatra : salle perimee prise dans la defausse")
+	m4.queue_free()
+	# Draculord : CheckBMA001 trouve toujours une carte quand il y a des options ; cache seme (R = Draculord) pour exercer PutCardInHand depuis la pioche de sorts
+	var G5 := _g3()
+	(G5["players"][0] as Dictionary)["isAI"] = true
+	_hand(G5, 1).append_array([_plain("o1"), _plain("o2")])
+	var stale_spell := _spell("BMA048")
+	(G5["decks"]["spells"] as Array).append(stale_spell)
+	G5["pendingChoice"] = _no_resume(RoomAbilities._draculord(G5, 0))
+	var m5 := _match(G5)
+	seed_cache.call(m5, stale_spell, "boss:Draculord")
+	_ok.call(resolve.call(m5) and _hand(G5, 0).has(stale_spell) and (G5["decks"]["spells"] as Array).is_empty() and _hand(G5, 1).size() == 2, "B10 Draculord : sort perime tire de la pioche, la main adverse intacte")
+	m5.queue_free()
+
 func _t_apk_ai_gaps() -> void:
 	# M3 : chaque resolution de pile est un NextStep, donc un nouvel appel d'UseAbility (GamePlayBaseScene.cs:864-871)
 	var G := _G([_player(0, "BMA001", [_plain("d1")]), _player(1, "BMA002")], ["base"])
@@ -1272,21 +1449,8 @@ func _t_apk_ai_gaps() -> void:
 	_ok.call(first != null and str(first["type"]) == "playSpell" and (again == null or str(again["type"]) != "playSpell") and after != null and str(after["type"]) == "playSpell",
 		"M3 : la capacite est jouee, pas deux fois dans la meme fenetre, de nouveau apres une resolution de pile")
 	m.queue_free()
-	# B7 (IA-H67) : UseAbility() et BuildRoom() sont evaluees ensemble, sur l'etat d'avant la capacite (AIPlayerInteraction.cs:86-101) ; la salle choisie reste la meme apres elle
-	var G1 := _G([_player(0, "BMA001", [_plain("d1")]), _player(1, "BMA002")], ["base"])
-	G1["turn"] = 3
-	G1["phase"] = "build"
-	G1["activePlayer"] = 0
-	for i in 5:
-		_hand(G1, 1).append(_plain("o%d" % i))
-	_hand(G1, 0).append(_plain("low", "monster", [1], 1))
-	_hand(G1, 0).append(_spell("BMA048"))
-	var m1 := _match(G1)
-	var cap = AI.pick_move(m1, 0)
-	_hand(G1, 0).insert(0, _plain("high", "monster", [1], 6)) # ce que la capacite aurait pioche : la salle choisie avant ne change pas
-	var bld = AI.pick_move(m1, 0)
-	_ok.call(cap != null and str(cap["type"]) == "playSpell" and bld != null and str(bld["type"]) == "buildRoom" and str((_hand(G1, 0)[int(bld["args"][0])] as Dictionary)["id"]) == "low", "B7 : la salle est choisie avec la capacite, sur l'etat d'avant elle")
-	m1.queue_free()
+	_t_b7_build_before_resolve()
+	_t_b10_stale_targets()
 	# M11 : All-Seeing Eye annule le sort que l'IA a designe (CheckBMA025), pas le dernier de la pile ; un humain annule toujours le dernier
 	var G2 := _G([_player(0, "BMA001"), _player(1, "BMA002"), _player(2, "BMA003", [_room("BMA025")])], ["base"])
 	G2["turn"] = 3

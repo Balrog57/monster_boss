@@ -26,8 +26,9 @@ static var _used: Dictionary = {}
 ## `AIPlayerInteraction.abilitySelected` : la capacite que l'IA a tiree en dernier (entree de ApkAI.abilities, cibles preregles), par partie et par joueur. Les choix
 ## ouverts ensuite par cette capacite (Dracolich Lair, Dark Altar...) lisent ces cibles (StatisticAI : GetSelectedTargets avant TriggerCalculator).
 static var _sel: Dictionary = {}
-## Construction choisie AVANT la capacite (AIPlayerInteraction.cs:86-101 : UseAbility() et BuildRoom() evaluees sur le meme etat), rejouee apres elle :
-## "<partie>:<joueur>" -> {"win": fenetre, "card": salle, "slot": args du coup}.
+## Construction choisie AVANT la capacite (AIPlayerInteraction.cs:86-101 : UseAbility() et BuildRoom() evaluees sur le meme etat) et posee AVANT que la pile ne
+## s'execute (B7 : liste d'actions jouee d'un trait, GameBoard.NextStep execute les transactions ensuite, GameBoard.cs:306-314) : Match._ai_build_before_resolve.
+## "<partie>:<joueur>" -> {"turn": tour, "card": salle, "args": emplacement du coup}.
 static var _pre_build: Dictionary = {}
 ## Liste calculee au premier choix d'une carte a plusieurs choix (Xyzax), par partie et par joueur.
 static var _memo: Dictionary = {}
@@ -36,6 +37,12 @@ static var last_choice_shuf := false
 
 static func _key(match_obj, pid: int) -> String:
 	return "%d:%d" % [match_obj.get_instance_id(), pid]
+
+## Construction preparee par l'IA avant sa capacite (voir _pre_build), retiree de la memoire. {} = aucune.
+static func take_pre_build(match_obj, pid: int) -> Dictionary:
+	var pre: Dictionary = _pre_build.get(_key(match_obj, pid), {}) as Dictionary
+	_pre_build.erase(_key(match_obj, pid))
+	return pre
 
 ## Oublie la memoire de l'IA d'une partie (identifiant d'instance reutilisable, serveur de longue duree).
 static func forget(match_obj) -> void:
@@ -106,6 +113,8 @@ static func pick_move(match_obj, pid: int, commit := true):
 			for m in moves:
 				if int((m as Dictionary)["args"][0]) == int((ch as Dictionary)["idx"]):
 					last_choice_shuf = bool((ch as Dictionary)["shuf"])
+					if commit and (ch as Dictionary).has("stale") and bool(match_obj.G.get("autoAI", true)):
+						pc["aiStale"] = ch["stale"] # B10 : Match._resolve_choice_body applique la cible perimee (le harnais, autoAI faux, rejoue l'oracle)
 					if trace.is_valid():
 						trace.call(match_obj, pid, moves, m)
 					return m
@@ -154,21 +163,14 @@ static func pick_move(match_obj, pid: int, commit := true):
 						var pre := int(ApkAI.plan(match_obj.G, pid, builds)["pick"])
 						if pre >= 0:
 							var pargs: Array = (builds[pre] as Dictionary)["args"]
-							_pre_build[wkey] = {"win": win, "card": (p["hand"] as Array)[int(pargs[0])], "args": pargs.slice(1)}
+							_pre_build[wkey] = {"turn": int(match_obj.G.get("turn", 0)), "card": (p["hand"] as Array)[int(pargs[0])], "args": pargs.slice(1)}
 	# AIPlayerInteraction.InternalDoPlayerActions : une capacite d'abord (UseAbility), PUIS la construction (BuildRoom) ; les deux ne se comparent jamais.
 	if not builds.is_empty() and (best == null or str((best as Dictionary).get("type", "")) in ["passBuild", "pass", "adventureNext", "resolveNextHero"]):
 		var plan := ApkAI.plan(match_obj.G, pid, builds)
 		if int(plan["pick"]) >= 0:
 			best = builds[int(plan["pick"])]
-		var pre: Dictionary = _pre_build.get(_key(match_obj, pid), {}) as Dictionary
-		if commit and not pre.is_empty():
-			_pre_build.erase(_key(match_obj, pid))
-			if str(pre["win"]) == _window_key(match_obj.G): # meme fenetre : la capacite jouee ne change pas le choix deja fait, tant que la salle est encore la
-				for m in builds:
-					var margs: Array = (m as Dictionary)["args"]
-					if ApkAI._same((p["hand"] as Array)[int(margs[0])], pre["card"]) and margs.slice(1) == pre["args"]:
-						best = m
-						break
+		if commit:
+			_pre_build.erase(_key(match_obj, pid)) # capacite abandonnee avant la pile : l'etat n'a pas change, le meme plan redonne la meme salle
 	if trace.is_valid():
 		trace.call(match_obj, pid, moves, best)
 	return best

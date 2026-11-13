@@ -185,8 +185,9 @@ func _menus() -> void:
 	main_scene.show_menu() # l'APK montre le menu 2x2 (l'ecran titre TAP TO START est celui d'avant)
 	await _wait(0.4)
 	await _shot("menu_main_single_multiplayer_options_store")
+	main_scene.use_extensions = false # la frame APK n'a pas le bandeau wiki « 5-6 players: tick Crash Landing » (Main.show_solo_count, seulement avec use_extensions)
 	main_scene.show_solo_count()
-	await _wait(0.4)
+	await _wait(2.0) # l entree (eventail choisi 0,4 s, cartes ouvertes a 0,7 s) avance par image : au chargement (~1 i/s) 0,4 s reelle n en montre qu une partie ; la frame APK est l etat pose
 	await _shot("menu_player_count_carousel_4_left_2_center_3_right")
 	main_scene.show_options()
 	await _wait(0.4)
@@ -259,8 +260,9 @@ func _lot3_shots() -> void:
 	main_scene = load("res://godot/scenes/Main.tscn").instantiate()
 	add_child(main_scene)
 	await _wait(0.5)
+	main_scene.use_extensions = false # la frame APK n'a pas le bandeau wiki « 5-6 players: tick Crash Landing » (Main.show_solo_count, seulement avec use_extensions)
 	main_scene.show_solo_count()
-	await _wait(0.4)
+	await _wait(2.0) # idem ligne 189 : attendre l etat pose
 	await _shot("menu_player_count_carousel_4_left_2_center_3_right")
 	main_scene.players = 3
 	main_scene._draw_fans()
@@ -967,6 +969,14 @@ func _hand_span() -> String:
 		x1 = maxf(x1, r.end.x)
 	return "%d cartes x %d..%d" % [_hand_cards().size(), x0, x1]
 
+## Attend la fin des vols de pioche (DrawnCard : 0,5 s d'entree + 0,5 s de retournement + 2 s d'attente + atterrissage, par image donc lent au chargement).
+func _draws_done(max_s := 20.0) -> void:
+	var t := 0.0
+	while t < max_s and not get_tree().get_nodes_in_group("drawn_card").is_empty():
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	await _settle()
+
 func _settle(n: int = 5) -> void:
 	board.refresh()
 	await _frames(n)
@@ -1382,6 +1392,7 @@ func _phases() -> void:
 		var ok := await _done_until(func(): return _phase() == "build" and not bool(gm.G.get("setupBuild", false)) and int(_me().get("buildsThisTurn", 0)) == 0 and gm.G.get("buildWindow") == null and not _plain_build().is_empty(), 25.0)
 		board.set_process(false)
 		await _wait(2.5) # fin de l'animation de pioche du debut de tour
+		await _draws_done() # la carte piochee reste 2 s au centre puis rejoint la main : la frame APK est prise apres
 		await _settle()
 		print("PHASE-DBG t2 build ok=", ok, " turn=", gm.G.get("turn"), " town=", (gm.G["town"] as Array).size())
 		await _shot("build_t2_first_room_revealed_succubus_spa_both_dungeons_2heroes_town_5card_hand")
@@ -1389,6 +1400,7 @@ func _phases() -> void:
 		gm.apply_move(0, mv)
 		board.refresh()
 		await _wait(0.9)
+		await _draws_done()
 		await _shot("build_room_placed_facedown_done_button")
 		# DONE : l'IA construit, fenetre de sorts (2e DONE), revelation, aventure
 		var got := await _done_until(func(): return _phase() == "adventure", 30.0)
