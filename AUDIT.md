@@ -3315,3 +3315,105 @@ Méthode identique (APK dans BlueStacks en GAME SPEED NORMAL, export web dans Ch
 - **La seconde d'écart après DONE : non portée, non expliquée par le code.** Deux lectures complètes de la chaîne (`DoneButtonEntity.cs:160-193`, `GameBoard.NextStep` passes A à D, `CardStackSlotComponent.cs:196-296`, `VerticalScrollQueueComponent.cs:225-275`) donnent environ 1,4 s entre DONE et le premier vol (fondu du bouton 0,15 s, salle de l'IA 0,3 s, retournement 0,5 + 0,3 s), contre 2,7 s filmées ; aucune attente ne comble l'écart. Remesuré sur une passe sans salle à nous : 1,5 à 2,0 s. Pas de zoom avant le retournement dans le code (la salle en attente est créée à l'échelle 0,5 puis ramenée à 0,37 après le retournement). Candidat non vérifié : le coût propre à l'émulateur, `GameBoard.NextStep` écrit son journal en JSON à chaque passe (`GameBoard.cs:304`), quatre passes ici. Le portage reste à 0,8 s + vols : c'est ce que dit le code.
 
 Mesuré le 2026-11-12 sur ce code : `run_godot_tests.py` 23/23 (limite de la suite `ui smoke` portée à 600 s : elle dure 275 à 310 s) ; `apk.py --ai-agreement` 6/6, `--seeds 4 5 6 7 --players 2 3 4` 12/12, `--decks BaseDeck,PlayerChoice,HiddenHeros,ToolsHeroKind` 6/6, `--tutorial` 3/3. Export web refait : `web_smoke.py --serve` OK (40 images/s) ; `web_online_smoke.py` `solo`, `ext` et `p5` OK. Réglage GAME SPEED de l'APK remis sur FAST. Non testé : 4 joueurs au leurre, un vrai salon en ligne avec héros partant vers un donjon non affiché.
+
+## APK filmé à 60 i/s : délais après DONE, fin de partie, mort du héros (2026-11-12)
+
+### Méthode
+
+- APK 2.2.6 dans BlueStacks (instance `Nougat32`), piloté par `HD-Adb`, filmé par `screenrecord` : horodatages réels, 60 i/s pendant les animations, ± 0,03 s sur chaque durée. Parties solo à 2 joueurs, vitesse NORMAL.
+- Films et index dans `docs/reference/apk_film_2026-11-12/` (local, non versionné).
+- Trois passes de film, plus deux lectures du C# décompilé pour expliquer les mesures.
+- Les parties à 3 et 4 joueurs sont payantes dans l'APK : aucun film. Ces cas sont couverts par le C# et par des contrôles du portage.
+
+### Délai entre DONE et le départ du premier héros
+
+| Étape | APK filmé | Portage après correction |
+|---|---|---|
+| Fondu du bouton DONE | 0,12-0,15 s | `DONE_FADE_S` 0,15 |
+| Attente avant le fondu de la salle posée par l'IA après moi | 0,25-0,40 s | `LATE_BUILD_WAIT_S` 0,3 (nouveau) |
+| Fondu de cette salle | 0,28-0,30 s | `LATE_BUILD_FADE_S` 0,3 |
+| Temps mort avant le retournement | 0,43-0,58 s (0,50 s quand l'IA a posé avant moi) | `DONE_IDLE_S` 0,5 (nouveau) |
+| Retournement, puis retour à la taille | 0,48 + 0,33 s | `REVEAL_S` 0,8 |
+| Fin de la révélation vers la plaque BAIT | 0,30 s | `REVEAL_TO_BAIT_S` 0,3 (nouveau) |
+| Plaque BAIT vers le départ du premier héros | 0,08 s | `STEP_POLLS_S` 0,08 (était 0,15) |
+
+Totaux :
+
+- IA qui pose après moi : film 2,32 à 2,43 s, portage 2,43 s.
+- IA qui a posé avant moi : film 1,87 s, portage 1,83 s.
+- Avant correction, le portage donnait 1,40 s et 1,10 s.
+- Tour 1 : fondu de DONE, puis 0,15 s avant le retournement d'ouverture (`OPENING_WAIT_S`, nouveau).
+
+Aucune de ces attentes ne dépend du réglage de vitesse. Le C# ne contient aucune attente écrite pour le temps mort ni pour les 0,30 s : c'est le film qui fait foi. Les 2,7 s relevés le 2026-11-11 venaient du tutoriel (2,30 s mesurées ici, le tutoriel ajoute ses propres attentes).
+
+Le fondu de chaque salle posée en retard a son propre instant de départ (`_late_at`, calculé dans `_pre_reveal`).
+
+### Écran de fin
+
+- APK : le moteur ne s'arrête pas en cours de tour. Après le coup fatal, il déroule les pas restants. `CreateCheckEndOfGameTask` (`GamePlayBaseScene.cs:1054-1080`) n'affiche LoseScene au pas `EndOfTurnPhase` que si tous les humains sont morts ; sinon l'écran arrive au pas `EndOfGame` suivant (`GameBoard.cs:441-459`).
+- Film g2_t9 (défaite, 2 joueurs) : 3,9 s entre la fin de la secousse du boss et LoseScene = pierre tombale 0,5 s + carte du héros effacée 0,5 s + 5 pas vides à environ 0,58 s chacun. Recoupé sur f12 (2 pas : 1,1 s mesurées pour 1,16 s calculées).
+- Portage avant correction : écran de fin dès la fin de la dernière traversée, soit environ 3,9 s trop tôt.
+- Correction : `_arm_over_delay` horodate `_over_after_ms` à la fin de chaque traversée (mort du héros, coup au boss) ; pour un donjon non affiché, l'horodatage est posé au départ, `lead` valant la durée de la traversée. `_show_gameover` attend cette échéance, hors ligne seulement.
+- Délai = `TOMBSTONE_S` (0,5, si le boss vient de mourir) + `HERO_CARD_FADE_S` (0,5) + n × `APK_STEP_S` (0,58) + k × `FOE_SWAP_S` (1,0), avec :
+  - n = 1 + 2 × (joueurs vivants après ce donjon dans `buildOrder`) + 2, plus 1 si la fin n'est pas « tous les humains morts » ;
+  - k = nombre de changements de donjon affiché.
+- Limite assumée : `APK_STEP_S` est une moyenne mesurée (commentaire `shortcut:` dans le code), le C# ne contient pas d'attente écrite. La victoire n'a pas pu être filmée : sa formule (un pas de plus) vient du C# seul.
+- Après la mort du joueur, les héros de l'IA avancent avec la barre de 3 s (`WINDOW_ADVENTURE`), comme dans l'APK (`GamePlayBaseScene.cs:924-951`). Avant, ils passaient sans barre.
+
+### Héros : coup au boss et mort
+
+- Coup au boss : dans le film (g2_t1), le héros reste opaque jusqu'au contact et disparaît dans l'image où le boss est frappé, 0,5 s après son départ. Le C# écrit un fondu de 0,5 s (`HeroCrossingBehavior.cs:106-118`) qui se termine en une image.
+- Portage : le fondu est supprimé. Le héros disparaît au contact, qui arrive après max(0,5 × vitesse ; 0,5 s) : le déplacement dure 0,5 × vitesse, mais le fondu du cœur (0,5 s, hors vitesse, `HeroesQueueComponent.cs:166`) court en parallèle dans la même étape et le coup attend la fin des deux. Au réglage FAST le coup arrive donc à 0,5 s et non à 0,25 s (vérifié par `_check_speeds`).
+- Mort du héros : sur 4 morts filmées, le héros disparaît d'une image à l'autre après le saut, sans fondu (le C# écrit 0,7 s, `HeroCrossingBehavior.cs:94,99`). Portage : disparition d'un coup après le saut ; l'attente de 0,7 × vitesse avant la suite est conservée.
+- Conformes sans changement : fondu du cœur 0,5 s ; saut 0,5 s ; icône d'âme en fondu de 0,5 s démarrant 0,68 s après la disparition ; chiffre du cœur en fondu croisé 0,25 + 0,25 s ; goutte de blessure 0,5 s ; pierre tombale 0,5 s.
+
+### Conformes sans changement (mesurés)
+
+- Aventure : 4,15 à 4,18 s par salle (marche 1,0 s × vitesse + barre de 3 s).
+- Fenêtre de sort : 6,08 s après mon sort (`WINDOW_STACK` 6,0). Avec plusieurs cibles possibles, le choix de cible s'ouvre avant la pile et la barre de 6 s démarre ensuite (`GameBoard.cs:1317-1332`, `AbilityTransaction.cs:165-216`). Le portage fait de même.
+- Bandeau LEVEL UP : environ 1,9 s filmées pour 2,1 s (`LEVELUP_S`, 0,6 + 1,0 + 0,5 dans `LevelUpBanner.cs:144-161`) ; il ne reste pas pendant le choix.
+- Salle posée : retournement face cachée 0,5 s, sans fondu ; l'ancienne salle reste visible sous une salle posée par-dessus (portage : `DungeonSlot.add_under_cards`).
+
+### Contrôles ajoutés à `ui_smoke.gd`
+
+- `done_to_bait_3`, `done_to_bait_6` (`_check_done_to_bait`, attentes recalculées à partir des constantes).
+- `late_fades_3j`, `late_fades_4j` (`_check_late_fades`).
+- `opening_wait_low`.
+- `_check_speeds` : rejoue le leurre (`_check_done_to_bait`) et le délai de l'écran de fin (`_check_gameover_delay`) aux vitesses 1,5 et 0,5.
+- `gameover_hidden_3j`, `gameover_hidden_4j` (`_check_gameover_hidden`).
+- `_check_gameover_delay` : délai de l'écran de fin (`gameover_delay_souls`, `gameover_delay_death`).
+- `_check_ai_window_after_death` (barre de 3 s après ma mort) et `_check_ai_window_post_damage`.
+- `hidden_hurt` (`_check_hidden_hurt`).
+- `hero_death_vanish`.
+- `flip_over_old`.
+- `spell_choice_then_bar_<n>` (`_check_spell_choice_then_bar`).
+
+Correction du test : le contrôle `bait-4p` échouait environ une fois sur trois dans la suite complète (« la construction du tour 1 n'a pas été atteinte »). Cause probable, dans le test : pendant la mise en place d'une partie, `_act_simple` pouvait jouer le tour 1 avant que la condition d'arrêt de `_new_game` soit vue. `_act_simple` n'agit plus en phase de construction sans choix en attente. La cause est établie par le code et par le même symptôme sur `_check_late_fades`, pas par une reproduction sur `bait-4p` ; elle est confirmée par la répétition (voir les résultats ci-dessous).
+
+### Non filmé
+
+- Victoire (le jeu a cessé de répondre aux glisser-déposer en cours de partie), sort joué par l'IA (aucun en deux parties), héros de l'IA restants après la mort du joueur.
+- Dans le film, environ 0,8 s séparent le lâcher d'un sort à plusieurs cibles de l'ouverture du choix ; le portage ouvre le choix dans la même image. Cause côté APK non établie, rien changé.
+- Parties à 3 et 4 joueurs : payantes dans l'APK.
+
+### Résultats de vérification
+
+Mesuré le 2026-11-13 sur ce code :
+
+- Suites Godot : 24/24 (nouvelle suite « soak graine Crash Landing 6 joueurs (garde IA) »).
+- `ui_smoke` : 5 passages complets d'affilée `UISMOKE OK` (336,6 à 337,1 s).
+- Oracle APK : `--ai-agreement` 6/6 (initialisation 6/6, dont 2/2 avec mulligan), `--seeds 4 5 6 7 --players 2 3 4` 12/12, `--decks` 6/6, `--tutorial` 3/3.
+- Export web, `web_smoke` OK (démarrage 4,2 s, 39 i/s rAF sur le plateau).
+- En ligne : solo terminé en 396 s, extensions en 458 s, 5 joueurs (`--speed fast`) en 661 s ; aucun problème, aucun coup refusé.
+
+### Corrigé pendant la vérification
+
+- **Blocage moteur, graine 3574345357 (Crash Landing, 6 joueurs).** `Match._drive_ai` coupait le pilotage des IA après 64 tours de boucle, une garde sans équivalent dans l'APK. À 6 joueurs, chaque sort coûte 6 tours (le lancer, puis les passes des 5 autres) : au tour 5, une dizaine de sorts ont épuisé la garde juste avant la dernière passe, et rien ne relançait le pilotage. La garde vaut maintenant 32 tours par joueur (64 à 2 joueurs, inchangé). La graine est ajoutée aux graines bloquées, et 20 parties Crash Landing à 5-6 joueurs sur graines aléatoires vont au bout. Limite : 32 par joueur reste une estimation (commentaire `shortcut:`).
+- **Trois contrôles instables de `ui_smoke`, causés par la mesure et non par le jeu.**
+  - `boss-flip` mesurait en horloge murale, et une image lente après le DONE faussait le chiffre. Il mesure maintenant en temps de jeu, et les attentes d'état se font par sondage.
+  - `spell-drop` lisait la position une image trop tard, la carte déjà en route vers la pile.
+  - `bait-4p` lisait la colonne une image après la fin de la plaque, alors que la descente démarre deux images plus tard (environ 33 ms, invisible).
+  - Les échecs du tutoriel n'étaient qu'une cascade : sa boucle s'arrête dès qu'un échec antérieur existe.
+- **Contrôle instable de `online_test`** (« pause d'aventure : aucune décision jouée à l'échéance »). Il comparait la taille du journal, plafonné à 60 entrées (`Match.gd:244`). Il compare maintenant l'état de la partie hors journal.
+
+Non vérifié : sous une charge CPU très forte (8 processus saturants), deux autres contrôles de `boss-flip` basculent encore.

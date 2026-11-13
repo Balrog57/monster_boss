@@ -65,7 +65,7 @@ var ai_step_mode := false
 var ai_step_budget_us := 4000 # un coup au moins par image ; ~un quart d'image a 60 fps
 var _ai_pending := false
 var stack_steps := 0 # resolutions de pile de la partie : fait avancer la fenetre de decision des IA (GamePlayBaseScene.cs:864-871)
-var _ai_guard := 0 # garde de 64 tours de boucle, cumulee sur les images d'un meme pilotage
+var _ai_guard := 0 # garde de 32 tours de boucle par siege (voir _drive_ai), cumulee sur les images d'un meme pilotage
 var _ai_lock_later: Array = [] # [pid, type] du coup humain dont _lock_undo attend la fin du pilotage (en synchrone il passait apres l'IA)
 
 ## PREDELETE et non _exit_tree : le serveur headless n'ajoute jamais la partie a l'arbre (GameRoom.dispose fait free()).
@@ -1768,7 +1768,11 @@ func _drive_ai() -> void:
 	_ai_driving = true
 	var t0 := Time.get_ticks_usec()
 	var played := false
-	while _ai_guard < 64:
+	# Garde anti-boucle (sans equivalent APK, ou l'IA joue a chaque pas) : chaque sort lance coute un tour par siege (lancer + passes des autres), donc
+	# une garde fixe de 64 coupait des phases de construction legitimes a 6 joueurs (graine 3574345357) et plus rien ne relancait le pilotage.
+	# shortcut: 32 tours par siege est une estimation, pas une borne ; si un soak la reatteint, compter les coups sans progres au lieu des tours.
+	var guard_max := 32 * maxi(2, (G.get("players", {}) as Dictionary).size())
+	while _ai_guard < guard_max:
 		if G.get("gameOver") != null or G.get("pendingChoice", {}) != {}:
 			break
 		if str(G.get("phase", "")) != CardDB.PHASE["BUILD"]:

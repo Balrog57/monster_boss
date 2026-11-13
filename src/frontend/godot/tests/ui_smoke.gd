@@ -1460,8 +1460,10 @@ func _new_game(n_players: int = 2, seed_v: int = 424242) -> void:
 		if str(G.get("phase", "")) == "build" and (G.get("pendingChoice", {}) as Dictionary).is_empty() and int((G["players"][0] as Dictionary).get("buildsThisTurn", 0)) == 0 and not gm.legal_moves(0).is_empty():
 			return
 		await _wait(0.05)
-		_act_simple()
-	_fail("partie neuve : la construction du tour 1 n'a pas ete atteinte")
+		if str(gm.G.get("phase", "")) != "build" or not (gm.G.get("pendingChoice", {}) as Dictionary).is_empty(): # en construction sans choix : on attend l'IA, sans jouer (un coup de _act_simple ici consommait le tour 1 et la condition ne revenait jamais)
+			_act_simple()
+	var Gf: Dictionary = gm.G
+	_fail("partie neuve : la construction du tour 1 n'a pas ete atteinte (phase %s, choix %s, constructions %s, coups %d, graine %d, %d joueurs, boss %s, vitesse %s)" % [str(Gf.get("phase", "")), str(Gf.get("pendingChoice", {})).left(120), str((Gf["players"][0] as Dictionary).get("buildsThisTurn", 0)), gm.legal_moves(0).size(), seed_v, n_players, str(((Gf["players"][0] as Dictionary).get("boss", {}) as Dictionary).get("id", "")) if (Gf["players"][0] as Dictionary).get("boss") != null else "aucun", str(Engine.time_scale)])
 
 ## Apres un sort / une capacite : la pile (Spell Battle) et les choix en attente se vident (l'IA repond, l'humain passe).
 func _drain() -> void:
@@ -1836,7 +1838,11 @@ func _check_boss_flip() -> void:
 	var back_tex: Texture2D = load(CardDB.card_image("", "back-boss"))
 	_check(not board._boss_ready and bc.size() >= 8 and not board._confirm_btn.visible, "sequence : la rotation ne doit pas etre finie au depart")
 	_check(bc.all(func(c): return (c as CardUI).texture_rect.texture != back_tex), "sequence : les cartes sont d'abord face visible (attente de 0,5 s)")
-	await _wait(1.2) # 0,5 s + retournement de 0,5 s
+	await _wait(1.2) # 0,5 s + retournement de 0,5 s ; minuteur et tweens ne progressent pas du meme pas sous charge : on attend l'etat (rotation pas finie) au lieu de se fier au seul minuteur
+	for _k in 200:
+		if board._boss_ready or bc.all(func(c): return (c as CardUI).texture_rect.texture == back_tex):
+			break
+		await get_tree().process_frame
 	_check(not board._boss_ready and bc.all(func(c): return (c as CardUI).texture_rect.texture == back_tex), "sequence : toutes les cartes doivent etre face cachee pendant la rotation")
 	var sels := {}
 	var frames := 0
@@ -1851,8 +1857,12 @@ func _check_boss_flip() -> void:
 	_check(sels.size() >= 8, "sequence : la rotation n'a parcouru que %d cartes" % sels.size())
 	_check(gm.G["players"][0].get("boss") == null, "sequence : un appui pendant la rotation a valide le boss")
 	await _wait(0.4)
-	_check(str((bc[board._boss_sel] as CardUI).card_dict.get("id", "")) == want and (bc[board._boss_sel] as CardUI).texture_rect.texture != back_tex, "sequence : arret sur le boss tire, face visible")
-	_check(bc.filter(func(c): return (c as CardUI).texture_rect.texture == back_tex).size() == bc.size() - 1, "sequence : les autres cartes restent face cachee")
+	for _k in 200: # idem : le retournement de la carte du boss est un tween, le minuteur de 0,4 s peut finir avant lui sous charge
+		if (bc[board._boss_sel] as CardUI).texture_rect.texture != back_tex:
+			break
+		await get_tree().process_frame
+	_check(str((bc[board._boss_sel] as CardUI).card_dict.get("id", "")) == want and (bc[board._boss_sel] as CardUI).texture_rect.texture != back_tex, "sequence : arret sur le boss tire, face visible (sel %d, id %s, voulu %s, face cachee %s, scale %s)" % [board._boss_sel, str((bc[board._boss_sel] as CardUI).card_dict.get("id", "")), want, (bc[board._boss_sel] as CardUI).texture_rect.texture == back_tex, str((bc[board._boss_sel] as CardUI).scale)])
+	_check(bc.filter(func(c): return (c as CardUI).texture_rect.texture == back_tex).size() == bc.size() - 1, "sequence : les autres cartes restent face cachee (%d face cachee sur %d)" % [bc.filter(func(c): return (c as CardUI).texture_rect.texture == back_tex).size(), bc.size()])
 	_check(board._confirm_btn.visible and board._carousel_text.text.contains(str((bc[board._boss_sel] as CardUI).card_dict.get("name", "")).to_upper()), "sequence : bouton et nom du boss attendus apres l'arret")
 	# I-06 : le seul LongTouchBehavior de l'APK (CardCarrouselEntity.cs:124) : 1,0 s sans AUCUN mouvement ouvre le detail de la carte (CardDetailEntity), tout mouvement l'annule
 	var sel_c := bc[board._boss_sel] as CardUI
@@ -1907,16 +1917,36 @@ func _check_boss_flip() -> void:
 	# E4 / E5 : DONE du tour 1 (Setup_c) : plaque masquee, les premieres salles se retournent avant la pioche ; puis la plaque BUILD revient et la pioche part (BeginningOfTurn)
 	Engine.time_scale = 1.0 # les durees de l'APK sont mesurees en temps reel
 	var t_end := Time.get_ticks_msec() + 20000
+	var m_open: int = AudioManager.rec.size()
+	var t_open := Time.get_ticks_msec()
+	var tg := 0.0 # temps de jeu ecoule depuis le DONE (somme des delta d'image, comme les tweens du board)
 	while str(gm.G["phase"]) == "setup" and Time.get_ticks_msec() < t_end:
+		m_open = AudioManager.rec.size()
+		t_open = Time.get_ticks_msec()
+		tg = 0.0
 		_act_simple()
 		await get_tree().process_frame
+		tg += get_process_delta_time()
 	await get_tree().process_frame
+	tg += get_process_delta_time()
 	await get_tree().process_frame
+	tg += get_process_delta_time()
 	if _check(str(gm.G["phase"]) == "build", "ouverture : la phase de construction n'a pas commence (phase %s)" % str(gm.G["phase"])):
-		await _wait(0.6)
+		# borne BASSE : le retournement d'ouverture ne part pas avant le fondu de DONE puis l'attente (APK filme le 2026-11-12, f03)
+		# temps de jeu (somme des delta d'image), comme les tweens du board : en horloge murale une image lente sous charge decale la mesure (le tween credite le delta de l'image du DONE)
+		var t_flip := -1.0
+		while tg < 8.0:
+			if AudioManager.rec.slice(m_open).has("sfx:ui_card_slide_up"):
+				t_flip = tg
+				break
+			await get_tree().process_frame
+			tg += get_process_delta_time()
+		_check(t_flip >= board.DONE_FADE_S + board.OPENING_WAIT_S - 0.1 and t_flip <= board.DONE_FADE_S + board.OPENING_WAIT_S + 0.5, "ouverture : le retournement part a %.2f s apres le DONE au lieu de %.2f s" % [t_flip, board.DONE_FADE_S + board.OPENING_WAIT_S])
+		_cov("opening_wait_low")
+		await _wait(0.6 - float(Time.get_ticks_msec() - t_open) / 1000.0)
 		_check(board.phase_banner.texture == null, "ouverture : aucune plaque pendant la revelation du tour 1 (Setup_c)")
 		_check(board._deal_hold and get_tree().get_nodes_in_group("drawn_card").is_empty(), "ouverture : la pioche attend la fin du retournement des salles")
-		await _wait(0.9)
+		await _wait(0.7) # DONE 0,15 s + attente 0,15 s + retournement 0,8 s = 1,1 s depuis le DONE (APK filme le 2026-11-12)
 		_check(board.phase_banner.texture != null and not board._deal_hold, "ouverture : la plaque BUILD revient apres le retournement")
 		_check(get_tree().get_nodes_in_group("drawn_card").size() >= 1, "ouverture : la pioche du tour 1 part apres le retournement")
 		_cov("opening_reveal_before_draw")
@@ -2015,6 +2045,293 @@ func _check_ai_entry_window() -> void:
 	_check((foe["entrance"] as Array).is_empty() and not board._win_bar.visible, "fenetre d'entree IA : le heros n'est pas entre a la fin de la barre")
 	_cov("window_ai_entry")
 
+## Tous les humains elimines : la barre de 3 s precede quand meme l'entree puis chaque pas des heros de l'IA (GamePlayBaseScene.cs:924-951).
+func _check_ai_window_after_death() -> void:
+	_tag = "[ai-window-dead]"
+	if not _check(await _adventure_window_setup() >= 0, "barre IA apres ma mort : Giant Size introuvable"):
+		return
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	var foe: Dictionary = G["players"][1]
+	me["eliminated"] = true
+	me["manuallyKilled"] = true
+	(foe["entrance"] as Array).append((me["entrance"] as Array).pop_back())
+	G["adventure"] = {}
+	G["adventurePausePassed"] = {}
+	G["activePlayer"] = 1
+	board.refresh()
+	board._process(1.0)
+	board._process(1.0)
+	_check(board._win_bar.visible and G["adventure"].is_empty() and absf(board._win_bar.frac - (1.0 - 2.0 / 3.0)) < 0.08, "barre IA apres ma mort : barre d'entree absente ou IA deja avancee (frac %.2f)" % board._win_bar.frac)
+	board._process(1.0)
+	board._process(0.5)
+	_check((foe["entrance"] as Array).is_empty() and not board._win_bar.visible, "barre IA apres ma mort : le heros n'est pas entre a la fin de la barre")
+	_cov("window_ai_after_death")
+
+## Barre de 3 s apres ma mort, pause post-damage : un heros de l'IA est en pause dans une salle, la barre dure 3 s puis le pas avance.
+func _check_ai_window_post_damage() -> void:
+	_tag = "[ai-window-damage]"
+	if not _check(await _adventure_window_setup() >= 0, "barre IA post-damage : Giant Size introuvable"):
+		return
+	var G: Dictionary = gm.G
+	var me: Dictionary = G["players"][0]
+	var foe: Dictionary = G["players"][1]
+	me["eliminated"] = true
+	me["manuallyKilled"] = true
+	var room: Dictionary = (BossEngine.active_room((me["dungeon"] as Array)[0]) as Dictionary).duplicate(true)
+	room["faceDown"] = false
+	(foe["dungeon"] as Array).push_front([room])
+	var hero: Dictionary = (me["entrance"] as Array).pop_back()
+	G["adventure"] = {"playerId": 1, "hero": hero, "roomIndex": 0, "hp": 12, "pause": "post-damage"}
+	G["adventurePausePassed"] = {}
+	G["activePlayer"] = 1
+	board.refresh()
+	board._process(1.0)
+	board._process(1.0)
+	_check(board._win_bar.visible and str(G["adventure"].get("pause")) == "post-damage" and absf(board._win_bar.frac - (1.0 - 2.0 / 3.0)) < 0.08, "barre IA post-damage : barre absente ou pas deja avance a 2 s (frac %.2f, pause %s)" % [board._win_bar.frac, str(G["adventure"].get("pause"))])
+	board._process(1.0)
+	board._process(0.2)
+	board._process(0.2)
+	_check(not board._win_bar.visible and str(G["adventure"].get("pause")) != "post-damage", "barre IA post-damage : le pas n'avance pas apres 3 s (pause %s)" % str(G["adventure"].get("pause")))
+	_cov("window_ai_post_damage")
+
+## Attend l'arrivee de `want` dans AudioManager.rec apres l'indice m ; rend les secondes ecoulees depuis t0 (ms), -1 si absent.
+func _rec_at(m: int, want: String, t0: int) -> float:
+	while Time.get_ticks_msec() - t0 < 8000:
+		if AudioManager.rec.slice(m).has(want):
+			return float(Time.get_ticks_msec() - t0) / 1000.0
+		await get_tree().process_frame
+	return -1.0
+
+## Coup au boss dans un donjon hors ecran : la voix hurt part 0,5 x vitesse apres le son de deplacement (pas 1,0).
+func _check_hidden_hurt() -> void:
+	for spd in [1.0, 1.5]:
+		_tag = "[hidden-hurt x%.1f]" % spd
+		await _new_game()
+		Engine.time_scale = 1.0
+		board.set_process(false)
+		board.skip_animations = false
+		board._speed = spd
+		var G: Dictionary = gm.G
+		var boss_id: String = str(((G["players"][0] as Dictionary)["boss"] as Dictionary).get("id", ""))
+		var m: int = AudioManager.rec.size()
+		var t0 := Time.get_ticks_msec()
+		board._hidden_crossing_sounds({"pid": 0, "killed": false})
+		var tm: float = await _rec_at(m, "sfx:char_hero_move", t0)
+		var th: float = await _rec_at(m, "sfx:" + AudioManager.boss_voice(boss_id, "hurt"), t0)
+		_check(tm >= 0.0 and th >= 0.0 and absf((th - tm) - 0.5 * spd) < 0.15, "donjon cache : hurt %.2f s apres le deplacement au lieu de %.2f s" % [th - tm, 0.5 * spd])
+		_cov("hidden_hurt_x%.1f" % spd)
+	board._speed = board._speed_factor()
+
+## Ecran de fin, derniere traversee dans un donjon hors ecran (3 et 4 joueurs) : horodatage pose au depart, valeurs de n (pas restants) et k (changements de donjon affiche) a deux configurations.
+func _check_gameover_hidden() -> void:
+	# n : 1 + 2 x vivants apres lui + 2 (+ 1 si les humains ne sont pas tous morts) ; k : donjons affiches successivement differents (FOE_SWAP_S chacun)
+	var cfgs := [{"n_players": 3, "order": [0, 1, 2], "pid": 2, "foe": 1, "out": true, "steps": 3, "swaps": 0}, {"n_players": 4, "order": [3, 1, 2, 0], "pid": 3, "foe": 2, "out": false, "steps": 10, "swaps": 2}]
+	for cfg in cfgs:
+		_tag = "[gameover-hidden %dj]" % int(cfg["n_players"])
+		await _new_game(int(cfg["n_players"]))
+		Engine.time_scale = 1.0
+		board.set_process(false)
+		board.skip_animations = false
+		board._speed = 1.0
+		var G: Dictionary = gm.G
+		var pid := int(cfg["pid"])
+		G["buildOrder"] = cfg["order"]
+		G["phase"] = "adventure"
+		_reveal_all(G)
+		if bool(cfg["out"]):
+			for q in [0, pid]:
+				(G["players"][q] as Dictionary)["eliminated"] = true
+				(G["players"][q] as Dictionary)["manuallyKilled"] = true
+		board.refresh()
+		await _wait(0.3)
+		if not _check(pid != board.view_pid and pid != board.foe_pid and board.foe_pid == int(cfg["foe"]), "donjon cache : pid %d doit etre hors ecran (vue %d, adversaire %d)" % [pid, board.view_pid, board.foe_pid]):
+			continue
+		var want: float = 0.5 * board._speed + (board.TOMBSTONE_S if bool(cfg["out"]) else 0.0) + board.HERO_CARD_FADE_S + float(cfg["steps"]) * board.APK_STEP_S + float(cfg["swaps"]) * board.FOE_SWAP_S
+		G["gameOver"] = {"winner": 0 if not bool(cfg["out"]) else pid, "reason": "souls" if not bool(cfg["out"]) else "wounds"}
+		G["phase"] = "end"
+		var t0 := Time.get_ticks_msec()
+		board._hidden_crossing_sounds({"pid": pid, "killed": false})
+		var got := float(board._over_after_ms - t0) / 1000.0
+		_check(absf(got - want) < 0.15, "donjon cache %dj : horodatage de l'ecran de fin a %.2f s au lieu de %.2f s (n = %d, k = %d)" % [int(cfg["n_players"]), got, want, int(cfg["steps"]), int(cfg["swaps"])])
+		board.refresh()
+		_check(board._gameover == null, "donjon cache %dj : l'ecran de fin ne doit pas apparaitre avant le delai" % int(cfg["n_players"]))
+		if want < 4.0: # config courte : on attend vraiment l'apparition
+			await _wait(want - 0.5)
+			_check(board._gameover == null, "donjon cache %dj : l'ecran de fin apparait avant %.2f s" % [int(cfg["n_players"]), want])
+			await _wait(1.0)
+			_check(board._gameover != null, "donjon cache %dj : l'ecran de fin n'est pas apparu apres %.2f s" % [int(cfg["n_players"]), want])
+		_cov("gameover_hidden_%dj" % int(cfg["n_players"]))
+	board._speed = board._speed_factor()
+
+## Plusieurs IA posent apres mon DONE (3 et 4 joueurs) : chaque salle posee en retard a son propre depart de fondu, espace de LATE_BUILD_WAIT_S + LATE_BUILD_FADE_S (+ FOE_SWAP_S si le donjon affiche change),
+## et le retournement ne commence qu'DONE_IDLE_S apres le dernier fondu.
+func _check_late_fades() -> void:
+	for n in [3, 4]:
+		_tag = "[late-fades %dj]" % n
+		var found := false
+		for sd in range(424264, 424284):
+			await _new_game(n, sd)
+			if (gm.G.get("buildOrder", []) as Array)[0] != 0:
+				continue
+			Engine.time_scale = 1.0
+			board.set_process(false)
+			board.skip_animations = false
+			board._speed = 1.0
+			for q in gm.G["players"]:
+				var p: Dictionary = gm.G["players"][q]
+				p["hand"] = (p["hand"] as Array).filter(func(c): return bool((c as Dictionary).get("isRoom", false)))
+			board.refresh()
+			var bi := -1
+			for i in ((gm.G["players"][0] as Dictionary)["hand"] as Array).size():
+				if gm.can_build_room_at(0, i, ((gm.G["players"][0] as Dictionary)["dungeon"] as Array).size()):
+					bi = i
+					break
+			if bi < 0 or not _drag_card(bi, _room_drop_pos(bi)): # DONE n'est offert qu'apres ma pose
+				continue
+			board._on_pass_pressed() # DONE!
+			var ats: Array = []
+			for v in board._late_at.values():
+				if not ats.any(func(a): return absf(float(a) - float(v)) < 0.001):
+					ats.append(float(v))
+			if ats.size() < 2:
+				continue
+			ats.sort()
+			found = true
+			var base: float = board.DONE_FADE_S + board.LATE_BUILD_WAIT_S
+			var ok := absf(float(ats[0]) - base) < 0.001 or absf(float(ats[0]) - base - board.FOE_SWAP_S) < 0.001 or absf(float(ats[0]) - base - 2.0 * board.FOE_SWAP_S) < 0.001
+			_check(ok, "fondus tardifs %dj : 1er fondu a %.2f s, attendu %.2f s (+ k x %.1f)" % [n, ats[0], base, board.FOE_SWAP_S])
+			var step: float = board.LATE_BUILD_WAIT_S + board.LATE_BUILD_FADE_S
+			for i in range(1, ats.size()):
+				var d: float = float(ats[i]) - float(ats[i - 1]) - step
+				_check(absf(d) < 0.001 or absf(d - board.FOE_SWAP_S) < 0.001 or absf(d - 2.0 * board.FOE_SWAP_S) < 0.001, "fondus tardifs %dj : ecart %.2f s entre deux fondus, attendu %.2f s (+ k x %.1f)" % [n, float(ats[i]) - float(ats[i - 1]), step, board.FOE_SWAP_S])
+			_check(absf(board._reveal_wait - (float(ats[ats.size() - 1]) + board.LATE_BUILD_FADE_S + board.DONE_IDLE_S)) < 0.001, "fondus tardifs %dj : retournement a %.2f s, attendu %.2f s (fin du dernier fondu + DONE_IDLE_S)" % [n, board._reveal_wait, float(ats[ats.size() - 1]) + board.LATE_BUILD_FADE_S + board.DONE_IDLE_S])
+			_cov("late_fades_%dj" % n)
+			break
+		_check(found, "fondus tardifs %dj : aucune graine ou 2 IA posent apres mon DONE" % n)
+
+## Fin de partie : l'APK deroule les pas restants avant l'ecran de fin (3,9 s sur g2_t9 : tombe 0,5 + carte 0,5 + 5 pas de 0,58 s) ; le heros disparait au contact, sans fondu (g2_t1).
+func _check_gameover_delay(spd := 1.0) -> void: # spd : le delai de l'ecran de fin est hors vitesse, la traversee vers le boss dure 0,5 x vitesse
+	_tag = "[gameover-delay]" if spd == 1.0 else "[gameover-delay x%.1f]" % spd
+	for souls in [false, true]:
+		await _new_game()
+		Engine.time_scale = 1.0
+		board.set_process(false)
+		board.skip_animations = false
+		board._speed = spd
+		var G: Dictionary = gm.G
+		var me: Dictionary = G["players"][0]
+		G["buildOrder"] = [0, 1]
+		G["phase"] = "adventure" # (en phase d'aventure aucun ecran de fin avant la traversee)
+		for q in G["players"]:
+			for st in (G["players"][q]["dungeon"] as Array):
+				(BossEngine.active_room(st) as Dictionary)["faceDown"] = false
+		G.erase("adventure")
+		(me["entrance"] as Array).clear()
+		if not souls:
+			me["eliminated"] = true
+			me["manuallyKilled"] = true
+		board.refresh()
+		await _wait(0.3)
+		var boss_id: String = str(((me["boss"] as Dictionary) if me["boss"] != null else {}).get("id", ""))
+		var m: int = AudioManager.rec.size()
+		board._hero_pawn = null
+		var t_a := Time.get_ticks_msec()
+		board._play_hero_crossing_animation({"pid": 0, "hero": (CardDB.heroes[0] as Dictionary).duplicate(true), "initialHp": 4, "killed": false, "deathIndex": -1})
+		G["phase"] = "end"
+		G["gameOver"] = {"winner": 1 if not souls else 0, "reason": "wounds" if not souls else "souls"}
+		var th: float = await _rec_at(m, "sfx:" + AudioManager.boss_voice(boss_id, "hurt"), t_a)
+		var t_hit: float = maxf(0.5 * spd, 0.5) # le coeur s'estompe 0,5 s hors vitesse en parallele du deplacement (HeroesQueueComponent.cs:166) : la traversee dure le plus long des deux
+		_check(th >= 0.0 and th < t_hit + 0.15, "coup au boss : la voix hurt part a %.2f s, attendue des le contact (%.2f s), sans fondu du heros" % [th, t_hit])
+		await _wait_anim()
+		if souls: # boss vivant : traversee = deplacement de 0,5 x vitesse (ou le fondu du coeur, 0,5 s hors vitesse, s'il dure plus), le heros disparait d'un coup
+			_check(absf(float(Time.get_ticks_msec() - t_a) / 1000.0 - maxf(0.5 * spd, 0.5)) < 0.2, "traversee vers le boss (vitesse %.1f) : %.2f s au lieu de %.2f s" % [spd, float(Time.get_ticks_msec() - t_a) / 1000.0, maxf(0.5 * spd, 0.5)])
+		_check(board._gameover == null, "fin de partie : l'ecran de fin ne doit pas apparaitre des la fin de la traversee")
+		var t1 := Time.get_ticks_msec()
+		var want: float = (board.TOMBSTONE_S if not souls else 0.0) + board.HERO_CARD_FADE_S + (5.0 if not souls else 6.0) * board.APK_STEP_S
+		var dt := -1.0
+		while Time.get_ticks_msec() - t1 < 9000:
+			await get_tree().process_frame
+			if board._gameover != null:
+				dt = (Time.get_ticks_msec() - t1) / 1000.0
+				break
+		_check(absf(dt - want) < 0.25, "fin de partie (%s) : bandeau a %.2f s apres la traversee au lieu de %.2f s" % ["ames" if souls else "ma mort", dt, want])
+		_cov("gameover_delay_%s%s" % ["souls" if souls else "death", "" if spd == 1.0 else "_x%.1f" % spd])
+	board._speed = board._speed_factor()
+
+## Mort d'un heros : apres le saut il disparait d'une image a l'autre (jamais semi-transparent), puis la fin de la traversee arrive 0,7 x vitesse plus tard (APK filme, g2_t1 a 77,936 ; HeroCrossingBehavior.cs:94,99).
+func _check_hero_death_vanish() -> void:
+	_tag = "[hero-death-vanish]"
+	for spd in [1.0, 1.5]:
+		await _new_game()
+		Engine.time_scale = 1.0
+		board.set_process(false)
+		board.skip_animations = false
+		board._speed = spd
+		board._hero_pawn = null
+		var layer: Node = board.hero_crossing_layer
+		board._play_hero_crossing_animation({"pid": 0, "hero": (CardDB.heroes[0] as Dictionary).duplicate(true), "initialHp": 4, "killed": true, "deathIndex": -1, "path": []})
+		var pawn := layer.get_child(layer.get_child_count() - 1) as Control
+		var t_a := Time.get_ticks_msec()
+		var t_off := -1.0
+		var t_end := -1.0
+		var partial := false
+		while Time.get_ticks_msec() - t_a < 6000:
+			await get_tree().process_frame
+			var now := float(Time.get_ticks_msec() - t_a) / 1000.0
+			if is_instance_valid(pawn):
+				var a := pawn.modulate.a
+				partial = partial or (a > 0.001 and a < 0.999)
+				if a <= 0.001 and t_off < 0.0:
+					t_off = now
+			if not board._animating_hero:
+				t_end = now
+				break
+		_check(not partial, "mort du heros (x%.1f) : le pion passe par une opacite intermediaire (fondu), attendu une disparition d'un coup" % spd)
+		var t_jump: float = 0.5 + 0.5 * spd # fondu du coeur 0,5 s puis saut de 0,5 x vitesse
+		_check(t_off >= 0.0 and absf(t_off - t_jump) < 0.15, "mort du heros (x%.1f) : disparition a %.2f s, attendue a la fin du saut (%.2f s)" % [spd, t_off, t_jump])
+		_check(t_end >= 0.0 and absf((t_end - t_off) - 0.7 * spd) < 0.15, "mort du heros (x%.1f) : fin de traversee %.2f s apres la disparition, attendue %.2f s" % [spd, t_end - t_off, 0.7 * spd])
+		_cov("hero_death_vanish")
+	board._speed = board._speed_factor()
+
+## Salle posee sur une autre : la carte se retourne face cachee en 0,5 s et l'ancienne salle reste visible derriere elle (g3_c 16,75-17,19 ; DungeonSlot.add_under_cards).
+func _check_flip_over_old() -> void:
+	_tag = "[flip-over-old]"
+	await _new_game()
+	board.skip_animations = true
+	var rooms: Array = CardDB.rooms.filter(func(r): return not bool(r.get("advanced", r.get("isAdvanced", false))))
+	var old_r: Dictionary = (rooms[0] as Dictionary).duplicate(true)
+	var new_r: Dictionary = (rooms[1] as Dictionary).duplicate(true)
+	old_r["faceDown"] = false
+	new_r["faceDown"] = true
+	(gm.G["players"][0] as Dictionary)["dungeon"] = [[old_r, new_r]]
+	board.refresh()
+	await get_tree().process_frame
+	var slot: DungeonSlot = null
+	for sl in board._dungeon_slots:
+		if (sl as DungeonSlot).current_stack.size() == 2:
+			slot = sl
+	if not _check(slot != null, "retournement : aucun emplacement avec une pile de 2 salles"):
+		return
+	var holder := slot.card_container.get_child(0) as Control
+	var top := holder.get_child(0) as CardUI
+	slot._flip_down(top, new_r, holder)
+	await _wait(0.25) # mi-retournement : la face visible vient de se fermer
+	var under := slot.get_children().filter(func(c): return c is CardUI and c.is_in_group("under_card") and not c.is_queued_for_deletion()) # (l'ombre de la salle en attente est aussi du groupe)
+	_check(under.size() == 1, "retournement : %d salles recouvertes dessinees (1 attendue)" % under.size())
+	if not under.is_empty():
+		var u := under[0] as CardUI
+		_check(u.is_visible_in_tree() and u.modulate.a > 0.99 and str(u.card_dict.get("id", "")) == str(old_r.get("id", "")), "retournement : l'ancienne salle n'est pas visible sous la carte")
+		_check(u.get_index() < slot.card_container.get_index(), "retournement : l'ancienne salle doit etre derriere la carte qui se retourne")
+	_check(top.scale.x < 1.0, "retournement : la carte n'est pas en cours de retournement (echelle %.2f)" % top.scale.x)
+	_cov("flip_over_old")
+
+## Vitesses Slow (x1,5) et Fast (x0,5) : delais DONE -> plaque BAIT / 1er vol et ecran de fin identiques a Normal, vols et traversee proportionnels a la vitesse.
+func _check_speeds() -> void:
+	for spd in [1.5, 0.5]:
+		await _check_done_to_bait(spd)
+		await _check_gameover_delay(spd)
+
 ## Les animations (tweens du plateau, lambdas) peuvent s'executer apres la liberation du noeud vise, car refresh() reconstruit les salles et les pions :
 ## aucune ne doit produire d'erreur (« Lambda capture ... was freed », appel sur un objet libere). Le ErrLogger de la campagne les compte.
 ## B21 : le pion du heros entre a la moitie de l'echelle finale (0,39 contre 0,78) et son coeur suit (-150 x echelle du personnage).
@@ -2112,6 +2429,51 @@ func _check_stack_hold() -> void:
 			board._process(0.5)
 		_check((G.get("stack", []) as Array).is_empty() and board._stack_ui == null, "pile : la carte est encore affichee a 8 s (effet jamais applique)")
 		_cov("stack_hold")
+
+## Sort a plusieurs cibles : le choix s'ouvre AVANT l'entree dans la fenetre de sort, la barre de 6 s ne demarre qu'une fois le choix fait (GameBoard.cs:1317-1332, AbilityTransaction.cs:165-216,
+## GamePlayBaseScene.cs:631-652 ; film g2_t6) ; une seule cible : pas de choix, barre au lacher. Soul Harvest (BMA052) avec 2 ames, puis avec 1.
+func _check_spell_choice_then_bar() -> void:
+	for souls_n in [2, 1]:
+		_tag = "[spell-choice %d ame%s]" % [souls_n, "s" if souls_n > 1 else ""]
+		await _new_game()
+		board.set_process(false)
+		board.win_time_scale = 1.0
+		var G: Dictionary = gm.G
+		var me: Dictionary = G["players"][0]
+		me["hand"] = (me["hand"] as Array).filter(func(c): return bool((c as Dictionary).get("isRoom", false)))
+		me["souls"] = []
+		for i in souls_n:
+			(me["souls"] as Array).append({"souls": 1, "name": "Hero %d" % i, "class": "fighter", "faceDown": true, "hero": (CardDB.heroes[i] as Dictionary).duplicate(true)})
+		(me["hand"] as Array).append(_spell_proto("BMA052"))
+		var idx: int = (me["hand"] as Array).size() - 1
+		var mvs := gm.legal_moves(0).filter(func(m): return m["type"] == "playSpell" and int(m["args"][0]) == idx)
+		if not _check(idx >= 0 and mvs.size() == souls_n, "Soul Harvest : %d coups pour %d ames" % [mvs.size(), souls_n]):
+			continue
+		board.refresh()
+		_check(_drag_card(idx, Vector2(960, 420)), "glisser de Soul Harvest impossible")
+		await get_tree().process_frame # aucune attente entre le lacher et le choix : ouverture dans la meme image
+		var st: Array = G.get("stack", [])
+		if souls_n > 1:
+			_check(board._popup_kind == "target" and board._popup != null, "choix de cible non ouvert au lacher (popup '%s')" % board._popup_kind)
+			board._process(0.5)
+			_check(st.is_empty() and not board._win_bar_on and not board._win_bar.visible, "choix ouvert : la pile doit etre vide et la barre absente (pile %d, barre %s)" % [st.size(), board._win_bar_on])
+			for i in 14: # 7 s de choix ouvert : rien ne demarre
+				board._process(0.5)
+			_check((G.get("stack", []) as Array).is_empty() and not board._win_bar_on, "choix ouvert 7 s : la pile ou la barre est apparue")
+			board._do(mvs[0]) # = le rappel de l'entree choisie (_hand_entry)
+			board._process(0.0)
+		else:
+			_check(board._popup_kind == "" and board._tgt.is_empty(), "une seule cible : aucun choix attendu (popup '%s')" % board._popup_kind)
+			board._process(0.0)
+		st = G.get("stack", [])
+		_check(st.size() == 1 and str((st[0] as Dictionary)["card"]["id"]) == "BMA052" and board._win_bar_on and board._win_bar.visible, "apres le choix : le sort doit etre sur la pile avec la barre visible (pile %d, barre %s)" % [st.size(), board._win_bar_on])
+		for i in 11: # 5,5 s : le sort n'est pas resolu (borne basse de WINDOW_STACK = 6 s)
+			board._process(0.5)
+		_check(not (G.get("stack", []) as Array).is_empty() and board._win_bar_on, "le sort est resolu avant 6 s (borne basse de WINDOW_STACK)")
+		for i in 4:
+			board._process(0.5)
+		_check((G.get("stack", []) as Array).is_empty(), "le sort n'est pas resolu apres la barre de 6 s")
+		_cov("spell_choice_then_bar_%d" % souls_n)
 
 func _spell_proto(id: String) -> Dictionary:
 	for sp in CardDB.spells:
@@ -2267,7 +2629,7 @@ func _check_spell_drop_parity() -> void:
 		board._drag["pull"] = false
 		board._drag_move(at)
 		board._drag_end(at)
-	await get_tree().process_frame
+	# pas d'attente d'image : le glissement part du point de depot et une image lente (charge, temps accelere) l'avancerait deja trop loin
 	_check((me["hand"] as Array).size() == n0 - 1, "sort lache sur sa cible : il doit etre joue")
 	if _check(board._stack_ui != null and is_instance_valid(board._stack_ui) and board._stack_ui.get_child_count() > 0, "sort joue : la pile n'est pas affichee"):
 		var z := board._stack_ui.get_child(0) as Control
@@ -2569,6 +2931,10 @@ func _check_bait_4p() -> void:
 	_check(dt_end >= board._bait_delay + t, "leurre 4j : la plaque finit a %.2f s, avant la fin du dernier pas (%.2f s)" % [dt_end, board._bait_delay + t])
 	await get_tree().process_frame
 	sb = board._town_scroll.get_v_scroll_bar()
+	# _town_restore attend 2 images avant de lancer la descente : sous charge (delta plafonne) elle finit un peu apres la plaque ; seul l'etat final compte ici
+	var t_down := Time.get_ticks_msec()
+	while board._town_scroll.scroll_vertical != int(sb.max_value - sb.page) and Time.get_ticks_msec() - t_down < 3000:
+		await get_tree().process_frame
 	_check(board.town_container.get_child_count() == 5 and board._town_scroll.scroll_vertical == int(sb.max_value - sb.page) and board._town_scroll.scroll_vertical > 0,
 		"leurre 4j : 5 heros restants, la colonne doit finir en bas (%d heros, sv %d / %d)" % [board.town_container.get_child_count(), board._town_scroll.scroll_vertical, int(sb.max_value - sb.page)])
 	_cov("bait_4p_order")
@@ -2578,11 +2944,11 @@ func _check_bait_4p() -> void:
 
 ## DONE -> 1er vol du leurre, solo a 2 joueurs, l'IA construit apres moi (APK, hors vitesse) : DONE s'efface (0,15 s, DoneButtonEntity.cs:179-193), la salle
 ## de l'IA apparait en fondu (0,3 s, CardEntity.cs:69), les salles se revelent (glissade nulle pour une nouvelle pile + retournement 0,5 + taille 0,3),
-## ~10 images d'attente (0,15 s), puis le 1er pas du leurre : defilement de la colonne (0,7 s) s'il y a 5 heros ou plus (VerticalScrollQueueComponent.cs:212-223), rien sinon.
-func _check_done_to_bait() -> void:
+## temps mort de 0,5 s apres le fondu, 0,3 s entre la fin de la revelation et la plaque BAIT, 0,08 s plaque -> depart (APK filme le 2026-11-12), puis le 1er pas du leurre : defilement de la colonne (0,7 s) s'il y a 5 heros ou plus (VerticalScrollQueueComponent.cs:212-223), rien sinon.
+func _check_done_to_bait(spd := 1.0) -> void: # spd : reglage de vitesse (1,0 Normal, 1,5 Slow, 0,5 Fast) ; les delais DONE -> 1er vol sont hors vitesse, l'ecart entre deux vols suit la vitesse
 	var pool: Array = CardDB.heroes.filter(func(h): return CardDB.hero_lure(h as Dictionary) == "treasures" and not (h as Dictionary).has("treasures"))
 	for n_town in [6, 3]:
-		_tag = "[done-to-bait %d]" % n_town
+		_tag = "[done-to-bait %d%s]" % [n_town, "" if spd == 1.0 else " x%.1f" % spd]
 		for sd in range(424242, 424262): # une partie ou je construis le premier (ordre d'XP des boss, GameBoardExtensions.cs:115-119)
 			await _new_game(2, sd)
 			if (gm.G.get("buildOrder", []) as Array) == [0, 1]:
@@ -2590,7 +2956,7 @@ func _check_done_to_bait() -> void:
 		Engine.time_scale = 1.0
 		board.set_process(false)
 		board.skip_animations = false
-		board._speed = 1.0
+		board._speed = spd
 		var G: Dictionary = gm.G
 		var me: Dictionary = G["players"][0]
 		var ai: Dictionary = G["players"][1]
@@ -2622,15 +2988,32 @@ func _check_done_to_bait() -> void:
 			return
 		var late: Array = board._foe_slots.filter(func(sl): return (sl as Control).get_children().any(func(c): return c is CardUI and (c as CardUI).modulate.a == 0.0))
 		_check(late.size() == 1, "DONE -> leurre : la salle posee par l'IA doit apparaitre en fondu (%d en fondu)" % late.size())
-		var want := 0.15 + 0.3 + 0.8 + 0.15 + (0.7 if n_town >= 5 else 0.0)
+		var want: float = board.DONE_FADE_S + board.LATE_BUILD_WAIT_S + board.LATE_BUILD_FADE_S + board.DONE_IDLE_S + board.REVEAL_S + board.REVEAL_TO_BAIT_S + board.STEP_POLLS_S + (0.7 if n_town >= 5 else 0.0) # 0,15 + 0,3 + 0,3 + 0,5 + 0,8 + 0,3 + 0,08 (APK filme le 2026-11-12, g2_t1, g2_t3, g2_t5)
+		if late.size() == 1: # le fondu de la salle de l'IA demarre apres DONE_FADE_S + LATE_BUILD_WAIT_S et finit avant le retournement (apres DONE_IDLE_S)
+			var lcard: CardUI = (late[0] as Control).get_children().filter(func(c): return c is CardUI)[0]
+			var t_start: float = board.DONE_FADE_S + board.LATE_BUILD_WAIT_S
+			await _wait(t_start - 0.1 - float(Time.get_ticks_msec() - t0) / 1000.0)
+			_check(lcard.modulate.a == 0.0, "DONE -> leurre : la salle de l'IA ne doit pas commencer son fondu avant %.2f s" % t_start)
+			await _wait(t_start + board.LATE_BUILD_FADE_S + 0.1 - float(Time.get_ticks_msec() - t0) / 1000.0)
+			_check(lcard.modulate.a == 1.0,"DONE -> leurre : le fondu de la salle de l'IA doit etre fini avant le retournement")
 		var dt := -1.0
+		var tp := -1.0 # instant de la plaque BAIT (le BUILD de la revelation est remplace)
 		while Time.get_ticks_msec() - t0 < 6000:
 			await get_tree().process_frame
+			if tp < 0.0 and absf(board.phase_banner.position.y - board.PHASE_BANNER_Y) > 2.0: # la plaque BAIT commence son saut (la texture ne change que 0,5 s plus tard, _set_phase_banner)
+				tp = (Time.get_ticks_msec() - t0) / 1000.0
 			if board.hero_crossing_layer.get_children().any(func(g): return (g as Control).visible and not g.is_queued_for_deletion()):
 				dt = (Time.get_ticks_msec() - t0) / 1000.0
 				break
-		_check(absf(dt - want) < 0.25, "DONE -> leurre (%d heros) : 1er vol a %.2f s au lieu de %.2f s" % [n_town, dt, want])
-		_cov("done_to_bait_%d" % n_town)
+		_check(absf(dt - want) < 0.25, "DONE -> leurre (%d heros, vitesse %.1f) : 1er vol a %.2f s au lieu de %.2f s" % [n_town, spd, dt, want])
+		_check(absf(tp - (want - board.STEP_POLLS_S - (board.TOWN_SCROLL_S if n_town >= 5 else 0.0))) < 0.25, "DONE -> plaque BAIT (%d heros, vitesse %.1f) : a %.2f s, hors vitesse attendu %.2f s" % [n_town, spd, tp, want - board.STEP_POLLS_S - (board.TOWN_SCROLL_S if n_town >= 5 else 0.0)])
+		if n_town == 3: # les vols suivent la vitesse (VerticalScrollQueueComponent.cs:261-262) : chaque pas du plan dure BAIT_FLY x vitesse (ville de 3 : aucun defilement)
+			var ts: Array = board._bait_plan.values().map(func(s): return float((s as Array)[0]))
+			ts.sort()
+			_check(ts.size() >= 2, "DONE -> leurre (vitesse %.1f) : %d pas de vol au plan, 2 au moins attendus" % [spd, ts.size()])
+			for i in range(1, ts.size()):
+				_check(absf((float(ts[i]) - float(ts[i - 1])) - board.BAIT_FLY * spd) < 0.001, "DONE -> leurre (vitesse %.1f) : vol %d a %.2f s apres le precedent au lieu de %.2f s" % [spd, i + 1, float(ts[i]) - float(ts[i - 1]), board.BAIT_FLY * spd])
+		_cov("done_to_bait_%d%s" % [n_town, "" if spd == 1.0 else "_x%.1f" % spd])
 		board._speed = board._speed_factor()
 
 func _check_windows() -> void:
@@ -5238,6 +5621,16 @@ func _extra_checks() -> void:
 	await _check_freed_targets()
 	_check_pawn_scale()
 	await _check_ai_entry_window()
+	await _check_ai_window_after_death()
+	await _check_ai_window_post_damage()
+	await _check_gameover_delay()
+	await _check_hero_death_vanish()
+	await _check_flip_over_old()
+	await _check_spell_choice_then_bar()
+	await _check_gameover_hidden()
+	await _check_hidden_hurt()
+	await _check_late_fades()
+	await _check_speeds()
 	await _check_window_clock()
 	await _check_single_click()
 	await _check_viewport()

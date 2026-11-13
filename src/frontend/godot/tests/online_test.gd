@@ -1294,11 +1294,16 @@ func _scenario_adventure_expiry() -> void:
 	if not _expect(room != null, "pause d'aventure : introuvable a 2 humains"):
 		return
 	_expect(room.adventure_timeout_ms == 10000, "pause d'aventure : delai de 10 s attendu")
-	var log_before := (room.m.G.get("log", []) as Array).size()
+	# etat hors journal : le journal est plafonne a 60 entrees (Match._log), sa taille ne prouve rien
+	var g0: Dictionary = room.m.G.duplicate()
+	g0.erase("log")
+	var state_before := str(g0)
 	room.deadline_ms = GameRoom._now() - 1
 	room.tick()
 	_expect(str(room.m.G.get("log", [])).contains("pas répondu à temps"), "pause d'aventure : prise de relais non journalisee")
-	_expect((room.m.G.get("log", []) as Array).size() > log_before, "pause d'aventure : aucune decision jouee a l'echeance")
+	var g1: Dictionary = room.m.G.duplicate()
+	g1.erase("log")
+	_expect(str(g1) != state_before, "pause d'aventure : aucune decision jouee a l'echeance")
 	for i in 2:
 		_expect(not bool(room.seats[i]["auto"]), "pause d'aventure : le siege %d connecte ne doit pas passer en auto" % i)
 	_expect(room.deadline_ms == 0 or room.deadline_ms > GameRoom._now(), "pause d'aventure : un nouveau delai doit courir (ou personne n'est attendu)")

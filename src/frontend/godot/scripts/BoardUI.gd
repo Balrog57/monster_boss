@@ -155,6 +155,8 @@ var _dungeon_slots: Array = []           # ordre visuel : 0 = fond a gauche, 4 =
 var _foe_slots: Array = []
 var _ai_timer: float = 0.0
 var _animating_hero: bool = false
+var _over_after_ms := 0                  # ms (Time.get_ticks_msec) avant lesquels l'ecran de fin n'apparait pas : pas restants du moteur de l'APK (_arm_over_delay), hors ligne
+var _over_timer := false                 # une minuterie de rappel est deja armee pour _over_after_ms
 var spread_ai := false # vrai (Main, banc --ui) : le pilotage IA de Match se fait par tranches d'une image au lieu d'un seul appel
 var skip_animations: bool = DisplayServer.get_name() == "headless" # le smoke test le passe a false
 var _over_sting_played: bool = false
@@ -247,7 +249,8 @@ var _lvl_seen := {}                      # pid -> « monte de niveau » deja vu 
 var _pass_snap := {}                     # mon DONE (hors ligne) : pid -> piles affichees a cet instant (_pile_key) ; {} = pas de DONE en attente de la phase suivante
 var _pass_pid := -1                      # siege qui a appuye sur DONE
 var _pass_foe := -1                      # adversaire affiche a ce moment
-var _late_off := {}                      # "pid:salle" -> decalage d'attente des salles posees par une IA apres mon DONE (jamais affichees face cachee), ce refresh seulement
+var _late_at := {}                       # "pid:salle" -> s apres le refresh ou demarre le fondu d'entree de la salle posee en retard (_pre_reveal), ce refresh seulement
+var _late_off := {}                     # "pid:salle" -> decalage d'attente des salles posees par une IA apres mon DONE (jamais affichees face cachee), ce refresh seulement
 var _reveal_wait := 0.0                  # s avant le retournement des salles, ce refresh seulement (DONE, constructions IA suivantes)
 var _lvl_wait := 0.0                     # s avant la banniere LEVEL UP, ce refresh seulement (apres la revelation)
 # Carrousel du choix du boss
@@ -271,9 +274,16 @@ const REVEAL_S := 0.8                    # retournement 0,5 s + retour a la tail
 # DONE -> 1er vol du leurre, termes hors vitesse que le moteur (synchrone) n'a pas : voir _pre_reveal
 const DONE_FADE_S := 0.15                # DONE s'efface (FadeBehavior 0,15 s, DoneButtonEntity.cs:93,179-193) avant le pas suivant
 const LATE_BUILD_FADE_S := 0.3           # salle posee par une IA apres mon DONE : fondu d'entree attendu (CardEntity.cs:69 ; CardStackSlotComponent.cs:119-123,175)
-const FOE_SWAP_S := 1.0                  # le donjon de l'IA suivante remplace celui affiche (CreateChangeVisibleOpponentDungeon, GamePlayBaseScene.cs:1024-1028 : fondu sortant puis entrant du cadre, FadeBehavior 0,5 s chacun, DungeonFrameEntity.cs:236 ; GamePlaySPScene.cs:93-101)
+const TOMBSTONE_S := 0.5                 # pierre tombale du boss mort (DungeonFrameEntity.cs:298), hors vitesse ; ecran de fin retarde : voir _arm_over_delay
+const HERO_CARD_FADE_S := 0.5            # fondu de la carte du heros (HeroCardEntity.cs:60), hors vitesse
+const APK_STEP_S := 0.58                 # shortcut: cout d'un NextStep vide mesure sur g2_t9 et recoupe sur f12 ; a recaler si un 2e film de fin le contredit
+const FOE_SWAP_S := 1.0                 # le donjon de l'IA suivante remplace celui affiche (CreateChangeVisibleOpponentDungeon, GamePlayBaseScene.cs:1024-1028 : fondu sortant puis entrant du cadre, FadeBehavior 0,5 s chacun, DungeonFrameEntity.cs:236 ; GamePlaySPScene.cs:93-101)
 const LEVELUP_S := 2.1                   # LevelUpBanner.CreateShowTask (cs:144-161) : 0,6 + 1,0 + 0,5, apres la revelation (pas BaitPhase, GameBoard.cs:953-956)
-const STEP_POLLS_S := 0.15               # ~10 attentes d'une image (CreateWaitConditionTask / AndWaitConditionActively) entre DONE et le 1er vol, a 60 i/s
+const STEP_POLLS_S := 0.08               # plaque BAIT -> depart du 1er heros : 0,08 s (APK filme le 2026-11-12, docs/reference/apk_film_2026-11-12 (f12, f11, f03)), hors vitesse
+const DONE_IDLE_S := 0.5                 # temps mort ecran fixe apres le fondu de DONE, avant le retournement, tours 2+ (APK filme le 2026-11-12, docs/reference/apk_film_2026-11-12 (f12, f11, f03)), hors vitesse
+const LATE_BUILD_WAIT_S := 0.3           # attente avant le fondu d'entree de chaque salle posee en retard par une IA apres mon DONE (APK filme le 2026-11-12, docs/reference/apk_film_2026-11-12 (g2_t1, g2_t3, g2_t5)), hors vitesse
+const REVEAL_TO_BAIT_S:= 0.3            # fin de la revelation -> plaque BAIT (APK filme le 2026-11-12, docs/reference/apk_film_2026-11-12 (f12, f11, f03)), hors vitesse
+const OPENING_WAIT_S := 0.15             # tour 1 : apres le fondu de DONE, attente avant le retournement d'ouverture (APK filme le 2026-11-12, docs/reference/apk_film_2026-11-12 (f12, f11, f03)), hors vitesse
 const SLIDE_PX_S := 1440.0               # MovePendingRoomToRightPlace : |decalage| / VirtualWidth s (cs:222 ; VirtualWidth = 1440, Game.cs:26,49)
 const TOWN_SCROLL_S := 0.7               # defilement de la colonne HEROES IN TOWN : lerp 0,2 / image de l'APK (non lie a la vitesse, ~0,7 s) rendu par un tween de 0,7 s (VerticalScrollQueueComponent.cs:212-223,277-284)
 const BAIT_FLY := 1.0                   # vol d'une carte de heros depuis la ville jusqu'a l'entree du donjon, x vitesse (VerticalScrollQueueComponent.cs:261-262) ; la plaque BAIT PHASE dure tant que les vols (chacun apres le precedent) puis le reordonnancement de la ville (0,5 x vitesse)
@@ -739,6 +749,7 @@ func _build_top() -> void:
 
 func setup(p_gm: GameManager, p_exit_cb: Callable) -> void:
 	game_manager = p_gm
+	_over_after_ms = 0
 	game_manager.ai_step_mode = spread_ai and not _is_online()
 	_speed = _speed_factor() # _ready() tourne avant setup() : en ligne le facteur ne se connait qu'ici
 	on_exit_callback = p_exit_cb
@@ -1291,6 +1302,20 @@ func _auto_pass(delta: float) -> bool:
 			return true # l'IA n'avance pas pendant la fenetre
 		_win_hide()
 		return false
+	# Tous les humains elimines : la barre de 3 s precede quand meme chaque pas des heros de l'IA (GamePlayBaseScene.cs:924-951 : seules conditions = joueur actif vivant et heros en jeu)
+	if apk and not stack_open and phase == "adventure" and not pids.is_empty() and pids.all(func(h): return bool(((G["players"] as Dictionary)[h] as Dictionary).get("eliminated", false))) \
+			and (str(pause) == "post-damage" or (adv.is_empty() and game_manager.legal_moves(act).any(func(m): return str((m as Dictionary).get("type", "")) in GO_TYPES))):
+		var okey := JSON.stringify(["ai-solo", G.get("turn"), act, adv.get("roomIndex"), pause, (((G["players"] as Dictionary)[act] as Dictionary).get("entrance", []) as Array).size()])
+		if okey != _win_sig:
+			_win_sig = okey
+			_win_t = 0.0
+		_win_t += _win_dt(delta)
+		var owant: float = WINDOW_ADVENTURE * win_time_scale
+		if _win_t < owant:
+			_win_show(owant, false)
+			return true
+		_win_hide()
+		return false
 	for pid in pids:
 		var moves: Array = _my_moves(int(pid))
 		if moves.is_empty():
@@ -1454,6 +1479,7 @@ func refresh() -> void:
 
 	var G: Dictionary = game_manager.G
 	_late_off = {}
+	_late_at = {}
 	_reveal_wait = 0.0
 	_lvl_wait = 0.0
 	DungeonSlot.reveal_delay = 0.0
@@ -2425,7 +2451,7 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 					if late: # elle apparait face cachee en fondu de 0,3 s (CardStackSlotComponent.cs:119-123), juste avant la revelation
 						room_ui.modulate.a = 0.0
 						var ftw: Tween = room_ui.create_tween()
-						ftw.tween_interval(maxf(_reveal_wait - LATE_BUILD_FADE_S, 0.0))
+						ftw.tween_interval(float(_late_at.get(fk, 0.0))) # demarre apres l'attente propre a cette salle (_pre_reveal), le temps mort DONE_IDLE_S vient apres le fondu
 						ftw.tween_property(room_ui, "modulate:a", 1.0, LATE_BUILD_FADE_S)
 					if trigger:
 						_show_notice("ROOM ABILITY", r, {}, foe_pid)
@@ -3006,7 +3032,11 @@ func _refresh_phase_banner(phase: String) -> void:
 		pre = _pre_reveal()
 	if (bait or opening) and (_rooms_to_reveal() or bool(pre[1])):
 		reveal = REVEAL_S + maxf(_foe_slide_s(), float(pre[2]))
-	var banner_at: float = float(pre[0]) + reveal
+	if opening and reveal > 0.0: # tour 1 : fondu de DONE puis attente avant le retournement (APK filme le 2026-11-12, docs/reference/apk_film_2026-11-12 (f12, f11, f03))
+		_reveal_wait = DONE_FADE_S + OPENING_WAIT_S
+		DungeonSlot.reveal_delay = _reveal_wait
+		reveal += _reveal_wait
+	var banner_at: float = float(pre[0]) + reveal + (REVEAL_TO_BAIT_S if bait and float(pre[0]) > 0.0 else 0.0) # + 0,3 s revelation -> plaque BAIT (APK filme le 2026-11-12, docs/reference/apk_film_2026-11-12 (f12, f11, f03))
 	if bait:
 		# DONE, constructions des IA suivantes, revelation (BuildPhase_b), puis au pas BaitPhase la banniere LEVEL UP, enfin les vols (pas sequentiels, GamePlayBaseScene.cs:838-878)
 		_reveal_wait = float(pre[0])
@@ -3087,7 +3117,7 @@ func _pre_reveal() -> Array:
 		return [0.0, false, 0.0]
 	var players: Dictionary = game_manager.G.get("players", {})
 	var order: Array = game_manager.G.get("buildOrder", [])
-	var wait := DONE_FADE_S
+	var wait := DONE_FADE_S # puis par salle posee en retard LATE_BUILD_WAIT_S + son fondu, enfin le temps mort DONE_IDLE_S (APK filme le 2026-11-12, docs/reference/apk_film_2026-11-12 (f12, f11, f03, g2_t1, g2_t3, g2_t5))
 	var any := false
 	var slide := 0.0
 	var shown := _pass_foe
@@ -3110,7 +3140,7 @@ func _pre_reveal() -> Array:
 				news.append(di)
 		if news.is_empty():
 			continue
-		wait += LATE_BUILD_FADE_S
+		wait += LATE_BUILD_WAIT_S + LATE_BUILD_FADE_S
 		any = true
 		var pend := dun.duplicate(true) # le donjon tel qu'affiche apres la pose : ces salles face cachee (decalage de DungeonSlot.fly_pending)
 		for di in news:
@@ -3118,8 +3148,9 @@ func _pre_reveal() -> Array:
 		for di in news:
 			var off := float(dun.size() - 1 - di - mini(4, BossEngine.apk_dungeon_size(pend))) * 140.0
 			_late_off["%d:%d" % [q, di]] = off
+			_late_at["%d:%d" % [q, di]] = wait - LATE_BUILD_FADE_S
 			slide = maxf(slide, absf(off) / SLIDE_PX_S)
-	return [wait, any, slide]
+	return [wait + DONE_IDLE_S, any, slide]
 
 ## Un boss monte de niveau a cette revelation (meme condition que _track_levelup, qui joue la banniere) : l'APK la joue, tous donjons confondus, avant les vols.
 func _levelup_new() -> bool:
@@ -3417,12 +3448,15 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 		tw.tween_callback(func(): _play_sfx("char_hero_death")) # HeroCrossingBehavior.cs:98
 		tw.tween_property(pawn, "position:y", pawn.position.y + (-200.0 + 40.0) * ky, 0.5 * _speed).set_trans(Tween.TRANS_CIRC).set_ease(Tween.EASE_OUT) # HeroCrossingBehavior.cs:93,95-98
 		tw.tween_callback(func(): _set_focus(pid, -1)) # ScaleOutAllSlotsTopRoom, en meme temps que la chute (HeroCrossingBehavior.cs:99)
-		tw.tween_property(pawn, "modulate:a", 0.0, 0.7 * _speed) # fondu lineaire (HeroCrossingBehavior.cs:94,99)
-		tw.parallel().tween_property(pawn, "position:y", pawn.position.y + (400.0 + 40.0) * ky, 0.7 * _speed).set_trans(Tween.TRANS_CIRC).set_ease(Tween.EASE_IN) # HeroCrossingBehavior.cs:99-102
+		tw.tween_callback(func(): # le heros disparait d'un coup apres le saut, sans fondu de 0,7 s (APK filme le 2026-11-12, g2_t1 a 77,936 ; HeroCrossingBehavior.cs:94,99)
+			if is_instance_valid(pawn):
+				pawn.modulate.a = 0.0)
+		tw.tween_property(pawn, "position:y", pawn.position.y + (400.0 + 40.0) * ky, 0.7 * _speed).set_trans(Tween.TRANS_CIRC).set_ease(Tween.EASE_IN) # attente de 0,7 s conservee (HeroCrossingBehavior.cs:99-102)
 		tw.tween_callback(func():
 			if is_instance_valid(pawn):
 				pawn.queue_free()
 			_animating_hero = false
+			_arm_over_delay(pid, false)
 			refresh()
 		)
 	else:
@@ -3434,8 +3468,10 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 		tw.tween_property(pawn, "global_position:x", boss_pos.x, 0.5 * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		tw.parallel().tween_property(pawn, "global_position:y", boss_pos.y, 0.5 * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 		tw.parallel().tween_property(pawn.get_node("HeroHeart"), "modulate:a", 0.0, 0.5) # HeroesQueueComponent.cs:166 : HeartFadeBehavior.CreateFadeOutTask, 0,5 s sans vitesse, en parallele du deplacement
-		tw.tween_callback(func(): _play_sfx("char_hero_attack")) # HeroCrossingBehavior.cs:117
-		tw.tween_property(pawn, "modulate:a", 0.0, 0.5 * _speed)
+		tw.tween_callback(func(): # le heros disparait d'un coup au contact, sans fondu de 0,5 s (APK filme le 2026-11-12, docs/reference/apk_film_2026-11-12 (g2_t1))
+			if is_instance_valid(pawn):
+				pawn.modulate.a = 0.0
+			_play_sfx("char_hero_attack")) # HeroCrossingBehavior.cs:117
 		tw.tween_callback(func():
 			# CreateBossHitAnimationTask (DungeonFrameEntity.cs:489-496) : apres le fondu du heros, calque additif + secousse + son
 			if is_instance_valid(boss_sprite):
@@ -3453,6 +3489,7 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 			if is_instance_valid(pawn):
 				pawn.queue_free()
 			_animating_hero = false
+			_arm_over_delay(pid, bool(pl_dict.get("eliminated", false)))
 			refresh()
 		)
 
@@ -3461,16 +3498,18 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 func _hidden_crossing_sounds(lhf: Dictionary) -> void:
 	var pid := int(lhf.get("pid", 0))
 	var tw := create_tween()
+	var gone := bool(((game_manager.G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary).get("eliminated", false))
 	if bool(lhf.get("killed", false)):
+		_arm_over_delay(pid, false, 0.5) # fin de partie : memes pas restants qu'a l'ecran (GamePlayBaseScene.cs:1054-1080)
 		tw.tween_interval(0.5) # fondu du coeur (HeroesQueueComponent.cs:171) puis JumpAndFade
 		tw.tween_callback(func(): _play_sfx("char_hero_death"))
 		return
+	_arm_over_delay(pid, gone, 0.5 * _speed)
 	tw.tween_callback(func(): _play_sfx("char_hero_move"))
 	tw.tween_interval(0.5 * _speed)
-	tw.tween_callback(func(): _play_sfx("char_hero_attack"))
-	tw.tween_interval(0.5 * _speed)
+	tw.tween_callback(func(): _play_sfx("char_hero_attack")) # pas de fondu apres le contact (APK filme le 2026-11-12, docs/reference/apk_film_2026-11-12 (g2_t1))
 	tw.tween_callback(func():
-		var boss = ((game_manager.G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary).get("boss")
+		var boss =((game_manager.G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary).get("boss")
 		_play_sfx(AudioManager.boss_voice(str((boss as Dictionary).get("id", "")) if boss is Dictionary else "", "hurt")))
 
 ## Pas d'un heros dans un donjon hors ecran : memes sons que _animate_step (intro a l'entree, char_hero_move au depart puis a l'arrivee avec le son de la salle, 1,0 x vitesse plus tard).
@@ -6061,10 +6100,42 @@ func _all_humans_dead(G: Dictionary) -> bool:
 			n += 1
 	return n > 0
 
+## Fin de traversee d'un heros : si la partie est finie, horodate l'instant d'affichage de l'ecran de fin = pas restants du moteur de l'APK (_b du donjon, 2 par joueur vivant apres lui,
+## _a final + EndOfTurnPhase, EndOfGame sauf si tous les humains sont morts ; GamePlayBaseScene.cs:1054-1080, GameBoard.cs:441-459 ; APK filme le 2026-11-12, docs/reference/apk_film_2026-11-12 (g2_t9, f12)).
+func _arm_over_delay(pid: int, boss_died: bool, lead := 0.0) -> void: # lead : s restantes de la traversee elle-meme (donjon hors ecran : aucun pion, l'horodatage est pose au depart)
+	var G: Dictionary = game_manager.G
+	var players: Dictionary = G.get("players", {})
+	var humans_out := true
+	for q in players:
+		if not bool((players[q] as Dictionary).get("isAI", false)) and not bool((players[q] as Dictionary).get("eliminated", false)):
+			humans_out = false
+	if _is_online() or (G.get("gameOver") == null and not humans_out):
+		return
+	var order: Array = G.get("buildOrder", [])
+	var after := 0
+	var swaps := 0
+	var shown := foe_pid
+	for k in range(order.find(pid) + 1, order.size()):
+		var q := int(order[k])
+		if players.has(q) and not bool((players[q] as Dictionary).get("eliminated", false)):
+			after += 1
+			if q != view_pid and q != shown:
+				swaps += 1
+				shown = q
+	var n := 1 + 2 * after + 2 + (0 if humans_out else 1)
+	_over_after_ms = Time.get_ticks_msec() + int(1000.0 * (lead + (TOMBSTONE_S if boss_died else 0.0) + HERO_CARD_FADE_S + n * APK_STEP_S + swaps * FOE_SWAP_S))
+
 ## Fin de partie (WinnerScene / LoseScene) : bandeau noir, boss gagnant, cristaux, OK -> retour a l'ecran titre.
 func _show_gameover(G: Dictionary) -> void:
 	if _animating_hero or (_gameover != null and is_instance_valid(_gameover)):
 		return # la derniere traversee se joue d'abord (refresh a sa fin)
+	if not _is_online() and Time.get_ticks_msec() < _over_after_ms: # l'APK deroule les pas restants avant LoseScene / WinnerScene (GamePlayBaseScene.cs:1054-1080, GameBoard.cs:441-459)
+		if not _over_timer:
+			_over_timer = true
+			get_tree().create_timer(float(_over_after_ms - Time.get_ticks_msec()) / 1000.0).timeout.connect(func():
+				_over_timer = false
+				refresh())
+		return
 	_win_hide()
 	_warn_hide()
 	_drag_clear()

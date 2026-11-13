@@ -38,6 +38,8 @@ SUITES = [
     # Parties qui bouclaient sans fin (graines fixes) : Tomb of Terrors reprenant sa propre carte (le soak choisissait l'option 0), puis Respawn + Arcane Crypt.
     ("soak graines bloquees", T + "Soak.tscn", "SOAK OK", ["--", f"--sets={SOAK_ALL}", "--players=4", "--runs=1", "--seed=1266755014", "--ship-all"]),
     ("soak graine Respawn + Arcane Crypt", T + "Soak.tscn", "SOAK OK", ["--", f"--sets={SOAK_ALL}", "--players=2", "--runs=1", "--seed=3204597387", "--ship-all"]),
+    # Crash Landing a 6 : une phase de construction riche en sorts (5 passes par sort) epuisait la garde fixe de Match._drive_ai.
+    ("soak graine Crash Landing 6 joueurs (garde IA)", T + "Soak.tscn", "SOAK OK", ["--", "--sets=crash-landing", "--players=6", "--runs=1", "--seed=3574345357"]),
     # Dark Laboratory + Omega : ApkAI._select_spell_to_discard (defausse de sort choisie dans les options).
     ("soak graine Dark Laboratory + Omega", T + "Soak.tscn", "SOAK OK", ["--", f"--sets={SOAK_ALL}", "--players=4", "--runs=1", "--seed=1058539585", "--ship-all"]),
     ("online", T + "OnlineTest.tscn", "ONLINE OK", []),
