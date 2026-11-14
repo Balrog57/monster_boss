@@ -1334,6 +1334,35 @@ func _t_b7_build_before_resolve() -> void:
 	_ok.call((G3["decks"]["roomDiscard"] as Array).has(x3) and _hand(G3, 0).size() == 1 and bool(_hand(G3, 0)[0].get("isSpell", false)), "B7 : siege humain, Witch's Kitchen defausse X et pioche un sort")
 	m3.queue_free()
 
+## B7 : les _uid sont numerotes par paquet (salles et sorts repartent de 1, Match.gd:156/162) ; Dracolich Lair avortee ne defausse que des salles de la main
+## (GameBoard.DiscardFromHand cherche une Room dans RoomsInHand, GameBoard.cs:595-607). Graine soak 2117355545 : Fear (meme _uid que la salle posee) partait en roomDiscard.
+func _t_b7_built_target_uid_shared_with_spell() -> void:
+	var G := _G([_player(0, "BMA001", [_room("BMA013")]), _player(1, "BMA002")], ["base"])
+	G["turn"] = 3
+	G["phase"] = "build"
+	G["activePlayer"] = 0
+	(G["players"][0] as Dictionary)["isAI"] = true
+	var a := _uid_room(101, "A", "monster", [1], 1)
+	var b := _uid_room(102, "B", "monster", [1], 2)
+	var fear := _spell("BMA045")
+	fear["_uid"] = 102 # meme numero que B, la salle que l'IA pose avant l'execution
+	_hand(G, 0).append_array([a, b, fear])
+	(G["decks"]["roomDiscard"] as Array).append(_uid_room(103, "C", "monster", [1], 6))
+	var m := _match(G)
+	for k in 12:
+		var pc: Dictionary = G.get("pendingChoice", {})
+		if not pc.is_empty() and int(pc.get("playerId", -1)) == 0:
+			m.apply_move(0, AI.pick_move(m, 0))
+		elif (G.get("stack", []) as Array).is_empty() and pc.is_empty():
+			m._drive_ai()
+		else:
+			break
+	m.apply_move(1, _mv("pass"))
+	var rd: Array = G["decks"]["roomDiscard"]
+	_ok.call(_hand(G, 0).has(fear) and not rd.has(fear) and rd.has(a) and not rd.any(func(c): return bool((c as Dictionary).get("isSpell", false))),
+		"B7 Dracolich Lair avortee : le sort de meme _uid que la salle posee reste en main (hand=%s, roomDiscard=%s)" % [str(_hand(G, 0).map(func(x): return x["id"])), str(rd.map(func(x): return x["id"]))])
+	m.queue_free()
+
 ## B10 : cible perimee du bon type rendue par le cache de TriggerCalculator (CheckXXX sans candidat -> selectedTargets[0] d'une ancienne liste) : le C# l'applique
 ## depuis sa zone du moment (RemoveHeroFromGame, RemoveRoomOrSpellFromGame). `S` = ancienne liste semee dans la memoire du siege.
 func _t_b10_stale_targets() -> void:
@@ -1450,6 +1479,7 @@ func _t_apk_ai_gaps() -> void:
 		"M3 : la capacite est jouee, pas deux fois dans la meme fenetre, de nouveau apres une resolution de pile")
 	m.queue_free()
 	_t_b7_build_before_resolve()
+	_t_b7_built_target_uid_shared_with_spell()
 	_t_b10_stale_targets()
 	# M11 : All-Seeing Eye annule le sort que l'IA a designe (CheckBMA025), pas le dernier de la pile ; un humain annule toujours le dernier
 	var G2 := _G([_player(0, "BMA001"), _player(1, "BMA002"), _player(2, "BMA003", [_room("BMA025")])], ["base"])

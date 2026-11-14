@@ -2288,7 +2288,8 @@ func _built_hand_target(e: Dictionary) -> Variant:
 	var pid := int(e.get("playerId", 0))
 	var p: Dictionary = G["players"][pid]
 	var hand: Array = p.get("hand", [])
-	var at := func(uid): return hand.find_custom(func(c): return int((c as Dictionary).get("_uid", -1)) == int(uid))
+	# _uid numerote par paquet (salles et sorts repartent de 1) : seules les salles de la main comptent, comme DiscardFromHand (RoomsInHand, GameBoard.cs:597-607)
+	var at := func(uid): return hand.find_custom(func(c): return bool((c as Dictionary).get("isRoom", false)) and int((c as Dictionary).get("_uid", -1)) == int(uid))
 	var built := func(uid): return (p.get("dungeon", []) as Array).any(func(st): return (st as Array).any(func(c): return int((c as Dictionary).get("_uid", -1)) == int(uid)))
 	if not uids.any(func(u): return at.call(u) < 0 and built.call(u)):
 		return null # cible defaussee ou partie ailleurs : RemovePendingTransactionsByTarget a annule la transaction (chemin habituel)
