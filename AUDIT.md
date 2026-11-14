@@ -3417,6 +3417,33 @@ Mesuré le 2026-11-13 sur ce code :
 
 Non vérifié : sous une charge CPU très forte (8 processus saturants), deux autres contrôles de `boss-flip` basculent encore.
 
+### Écran de fin recalé sur trois films (2026-11-14)
+
+Films revus image par image (pts réels, différences par région) : g2_t9 (défaite), `apk_film_2026-11-14/h3_victory_s16.mp4` (victoire) et `h1_s5.mp4` (héros de l'IA après ma mort).
+
+| Fin | Repère | Film | Portage avant | Portage après |
+|---|---|---|---|---|
+| Défaite g2_t9 (n = 5) | coup → bandeau | 4,333 s | 4,336 s | 4,26 s |
+| Victoire h3 (n = 4, un 2e Clerc en file) | flash du coup → bandeau | 4,112 s | 3,76 s | 4,16 s |
+| Héros de l'IA h1 (n = 3) | début du fondu du cœur → bandeau | 3,733 s | 3,94 s | 3,82 s |
+
+- L'ordre de construction est l'XP décroissant (`Match.gd`, et h1 le confirme : mon donjon passe avant celui de l'IA). L'INDEX du 2026-11-14 place King Croak en premier : c'est faux, d'où n = 6 au lieu de 4 dans son calcul.
+- Règle unique : délai = pierre tombale 0,5 (boss mort) + sortie de la carte du héros 0,3 + 0,5 par héros encore en file + n × 0,605 + k × 1,0. La formule de n ne change pas.
+  - Le fondu de la carte vaut 0,3 s (`CardEntity.cs:69`), pas 0,5 s : `HeroCardEntity.cs:60` est le fondu du personnage. Film : 0,31 s sur g2_t9, 0,32 s sur le 2e Clerc de h3.
+  - À la mort du boss, la file est vidée (`GameBoard.cs:1069-1072`) et chaque carte sort par `ShiftAndRemoveFirstHero` (`HeroesQueueComponent.cs:285-317`). Tant qu'une carte suit, elle glisse pendant 0,5 s, puis la dernière s'efface en 0,3 s. Sur h3, cette phase dure 0,80 s. Le portage reçoit le nombre de cartes restantes dans `lastHeroFight.queued`.
+  - `APK_STEP_S` passe de 0,58 à 0,605 s, ajusté sur les trois films (écart de 0,08 s au plus). Le C# n'écrit aucune attente : la valeur reste une mesure (commentaire `shortcut:`).
+- L'échéance de l'écran de fin est une `SceneTreeTimer` (temps de jeu), et non plus `Time.get_ticks_msec`.
+- Mort du héros, relue sur h1 : déplacement 84,61-85,61, fondu du cœur jusqu'à 86,11, saut 86,11-86,61, puis chute avec fondu 86,61-87,31 (`HeroCrossingBehavior.cs:91-103`). La carte quitte la file à 87,83. Les durées du portage sont conformes.
+
+Non changé :
+
+- Fondu du héros au contact du boss. Sur h3, le héros s'efface en 0,5 s et le coup arrive 0,52 s après le contact. Sur g2_t9 et g2_t1, il reste opaque et disparaît au coup. Le C# écrit ce fondu (`HeroCrossingBehavior.cs:117`). La différence tient peut-être au donjon (haut ou bas), mais une seule mesure ne suffit pas à trancher. Mesuré depuis le contact, la victoire du portage arrive donc environ 0,47 s avant le film (4,16 contre 4,63 s).
+- Sur h1, le héros mort paraît semi-transparent pendant sa chute (86,85-86,93), alors que le portage le fait disparaître d'un coup à la fin du saut. Ce film contredit la lecture de g2_t1 du 2026-11-12, mais ce n'est qu'un film. La durée totale est inchangée.
+- Le donjon hors écran (`_hidden_crossing_sounds`) garde ses avances (`lead`) de 0,5 s, qui ne comptent pas l'attente de 0,436 s ni le saut et la chute.
+- Le recoupement f12 du 2026-11-12 (2 pas, 1,1 s) donne maintenant 1,21 s.
+
+Contrôles : `_check_gameover_delay` couvre quatre cas (`death`, `victory` nouveau, `ai_after` nouveau, `souls`), en temps de jeu. À la vitesse normale, il compare aussi au film, à ±0,12 s (0,1 s plus une image). `_check_gameover_hidden` lit `_over_wait.time_left` et ajoute une carte en file. `hero_death_vanish` mesure en temps de jeu.
+
 ## Partiels B7, B10, B18, B25, B29 (2026-11-13)
 
 Détail par point dans « Écarts Godot / APK, relecture du 2026-11-03 », section « Partiels ou ouverts ».
@@ -3450,3 +3477,5 @@ Vérification : `--only=notice_ai_duration` OK ; suite d'interface seule OK (342
 Trouvé pendant la vérification, non corrigé dans ce commit :
 - Le soak à graine aléatoire `--seed=2117355545 --players=3 --sets=players-choice,players-choice-wiki` perd un sort (32 → 31). Il échoue sur de938d6 et passe sur 883bfcd : régression du lot B7/B10, corrigée dans le commit suivant. Cause : les `_uid` sont numérotés par paquet (salles et sorts repartent de 1, `Match.gd:156,162`) ; `Match._built_hand_target` cherchait la cible de Dracolich Lair dans la main par le seul `_uid` et défaussait le sort Fear de même numéro dans `roomDiscard` (pas 534, tour 9). Correction : seules les salles de la main comptent, comme `GameBoard.DiscardFromHand` (`RoomsInHand`, `GameBoard.cs:597-607`). Test : `goldens_ai._t_b7_built_target_uid_shared_with_spell` (échoue sans la correction). Les autres recherches du lot passent par l'objet (`_ai_build_before_resolve`) ou n'utilisent pas `_uid` (`apply_stale_target`) ; le reste du code n'a pas été passé en revue pour ce conflit. Vérification : `run_godot_tests.py` 24/24 (goldens 2453/0) ; suite d'interface 5 passages OK (343 s) ; oracle 6/6, 12/12, 6/6, tutoriel 3/3 ; soaks `--runs=20` sur players-choice + wiki, all packs et base OK ; export web et `web_smoke.py` OK ; `web_online_smoke.py` solo 370 s, ext 467 s, p5 616 s, aucun coup illégal.
 - Deux passages de `run_godot_tests.py` ont vu la suite d'interface s'arrêter sans message juste après les parties (après « seed=31 », avant les menus en ligne), sans TIMEOUT. Elle passe seule et dans un troisième passage complet ; journaux Godot déjà tournés, cause non établie. Pas revu ensuite sur 7 passages (suites + 5 passages seuls + passage précédent).
+
+Vérification du lot écran de fin (2026-11-14) : `run_godot_tests.py` 24/24 ; suite d'interface 5 passages OK (375-381 s) ; `--only=gameover_delay` 5 passages OK, victoire 4,153-4,159 s pour 4,112 s filmées ; oracle 6/6, 12/12, 6/6, tutoriel 3/3 ; `image_diff.py --capture --check` 0/149 ; export web et `web_smoke.py` OK ; `web_online_smoke.py` solo 328 s, ext 331 s, p5 809 s, aucun coup illégal.

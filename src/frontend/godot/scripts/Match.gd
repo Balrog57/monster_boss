@@ -2601,6 +2601,7 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 		entrance.remove_at(at)
 	elif not entrance.is_empty():
 		entrance.pop_front()
+	var queued := entrance.size() # cartes encore en file avant une eventuelle elimination (affichage : leur sortie retarde l'ecran de fin, BoardUI._arm_over_delay)
 
 	BossEngine.spend_hero_health_bonus(G, hero) # BMA041 : le +3 ne survit pas a la fin de l'aventure du heros (Zombie Prison le ressuscite a PV de base)
 	SpellEffects._effects(G)["teleportHero"] = null # Teleportation jouee sur un heros qui n'a pas avance depuis : sans objet
@@ -2664,6 +2665,7 @@ func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -
 		"initialHp": BossEngine.hero_hp(hero),
 		"killed": (hp <= 0 and not returned),
 		"deathIndex": death_index,
+		"queued": queued,
 	}
 	BossEngine.refresh_alive(G) # une blessure ajoutee apres la premiere verification (TNL100 Necromancer) : IsAlive est deja faux
 	if bool(p.get("eliminated", false)):

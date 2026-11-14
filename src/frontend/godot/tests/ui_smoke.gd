@@ -2125,8 +2125,8 @@ func _check_hidden_hurt() -> void:
 
 ## Ecran de fin, derniere traversee dans un donjon hors ecran (3 et 4 joueurs) : horodatage pose au depart, valeurs de n (pas restants) et k (changements de donjon affiche) a deux configurations.
 func _check_gameover_hidden() -> void:
-	# n : 1 + 2 x vivants apres lui + 2 (+ 1 si les humains ne sont pas tous morts) ; k : donjons affiches successivement differents (FOE_SWAP_S chacun)
-	var cfgs := [{"n_players": 3, "order": [0, 1, 2], "pid": 2, "foe": 1, "out": true, "steps": 3, "swaps": 0}, {"n_players": 4, "order": [3, 1, 2, 0], "pid": 3, "foe": 2, "out": false, "steps": 10, "swaps": 2}]
+	# n : 1 + 2 x vivants apres lui + 2 (+ 1 si les humains ne sont pas tous morts) ; k : donjons affiches successivement differents (FOE_SWAP_S chacun) ; q : heros encore en file (QUEUE_SHIFT_S chacun)
+	var cfgs := [{"n_players": 3, "order": [0, 1, 2], "pid": 2, "foe": 1, "out": true, "steps": 3, "swaps": 0, "queued": 1}, {"n_players": 4, "order": [3, 1, 2, 0], "pid": 3, "foe": 2, "out": false, "steps": 10, "swaps": 2, "queued": 0}]
 	for cfg in cfgs:
 		_tag = "[gameover-hidden %dj]" % int(cfg["n_players"])
 		await _new_game(int(cfg["n_players"]))
@@ -2147,12 +2147,11 @@ func _check_gameover_hidden() -> void:
 		await _wait(0.3)
 		if not _check(pid != board.view_pid and pid != board.foe_pid and board.foe_pid == int(cfg["foe"]), "donjon cache : pid %d doit etre hors ecran (vue %d, adversaire %d)" % [pid, board.view_pid, board.foe_pid]):
 			continue
-		var want: float = 0.5 * board._speed + (board.TOMBSTONE_S if bool(cfg["out"]) else 0.0) + board.HERO_CARD_FADE_S + float(cfg["steps"]) * board.APK_STEP_S + float(cfg["swaps"]) * board.FOE_SWAP_S
+		var want: float = 0.5 * board._speed + (board.TOMBSTONE_S if bool(cfg["out"]) else 0.0) + board.HERO_CARD_FADE_S + int(cfg["queued"]) * board.QUEUE_SHIFT_S + float(cfg["steps"]) * board.APK_STEP_S + float(cfg["swaps"]) * board.FOE_SWAP_S
 		G["gameOver"] = {"winner": 0 if not bool(cfg["out"]) else pid, "reason": "souls" if not bool(cfg["out"]) else "wounds"}
 		G["phase"] = "end"
-		var t0 := Time.get_ticks_msec()
-		board._hidden_crossing_sounds({"pid": pid, "killed": false})
-		var got := float(board._over_after_ms - t0) / 1000.0
+		board._hidden_crossing_sounds({"pid": pid, "killed": false, "queued": int(cfg["queued"])})
+		var got: float = board._over_wait.time_left if board._over_wait != null else -1.0
 		_check(absf(got - want) < 0.15, "donjon cache %dj : horodatage de l'ecran de fin a %.2f s au lieu de %.2f s (n = %d, k = %d)" % [int(cfg["n_players"]), got, want, int(cfg["steps"]), int(cfg["swaps"])])
 		board.refresh()
 		_check(board._gameover == null, "donjon cache %dj : l'ecran de fin ne doit pas apparaitre avant le delai" % int(cfg["n_players"]))
@@ -2210,53 +2209,71 @@ func _check_late_fades() -> void:
 			break
 		_check(found, "fondus tardifs %dj : aucune graine ou 2 IA posent apres mon DONE" % n)
 
-## Fin de partie : l'APK deroule les pas restants avant l'ecran de fin (3,9 s sur g2_t9 : tombe 0,5 + carte 0,5 + 5 pas de 0,58 s) ; le heros disparait au contact, sans fondu (g2_t1).
+## Fin de partie : l'APK deroule les pas restants avant l'ecran de fin = tombe 0,5 (boss mort) + sortie des cartes de la file (0,3 s, + 0,5 s par heros encore en file) + n pas de APK_STEP_S.
+## Trois fins filmees (temps de jeu, somme des delta) : g2_t9 defaite 4,333 s du coup au bandeau ; h3 victoire 4,112 s du coup (flash) au bandeau, un 2e heros en file ;
+## h1 heros de l'IA mort apres ma mort 3,733 s du debut du fondu du coeur au bandeau (docs/reference/apk_film_2026-11-12, apk_film_2026-11-14). Plus « ames » (non filme : formule).
+## Le heros disparait au contact, sans fondu (g2_t1, g2_t9 ; h3 montre un fondu de 0,5 s, non retenu : une seule mesure).
 func _check_gameover_delay(spd := 1.0) -> void: # spd : le delai de l'ecran de fin est hors vitesse, la traversee vers le boss dure 0,5 x vitesse
-	_tag = "[gameover-delay]" if spd == 1.0 else "[gameover-delay x%.1f]" % spd
-	for souls in [false, true]:
+	var cases := [
+		{"name": "death", "pid": 0, "killed": false, "out": [0], "winner": 1, "queued": 0, "steps": 5, "tomb": true, "film": 4.333, "from_hit": true},
+		{"name": "victory", "pid": 1, "killed": false, "out": [1], "winner": 0, "queued": 1, "steps": 4, "tomb": true, "film": 4.112, "from_hit": true},
+		{"name": "ai_after", "pid": 1, "killed": true, "out": [0], "winner": 1, "queued": 0, "steps": 3, "tomb": false, "film": 3.733, "from_hit": false},
+		{"name": "souls", "pid": 0, "killed": false, "out": [], "winner": 0, "queued": 0, "steps": 6, "tomb": false, "film": -1.0, "from_hit": true},
+	]
+	for c in cases:
+		_tag = "[gameover-delay %s]" % c["name"] if spd == 1.0 else "[gameover-delay %s x%.1f]" % [c["name"], spd]
 		await _new_game()
 		Engine.time_scale = 1.0
 		board.set_process(false)
 		board.skip_animations = false
 		board._speed = spd
 		var G: Dictionary = gm.G
-		var me: Dictionary = G["players"][0]
-		G["buildOrder"] = [0, 1]
+		var pid := int(c["pid"])
+		var pl: Dictionary = G["players"][pid]
+		G["buildOrder"] = [0, 1] # comme l'APK filme : mon donjon d'abord (XP decroissant), celui de l'IA ensuite
 		G["phase"] = "adventure" # (en phase d'aventure aucun ecran de fin avant la traversee)
 		for q in G["players"]:
 			for st in (G["players"][q]["dungeon"] as Array):
 				(BossEngine.active_room(st) as Dictionary)["faceDown"] = false
+			(G["players"][q]["entrance"] as Array).clear()
 		G.erase("adventure")
-		(me["entrance"] as Array).clear()
-		if not souls:
-			me["eliminated"] = true
-			me["manuallyKilled"] = true
+		for q in c["out"]:
+			(G["players"][q] as Dictionary)["eliminated"] = true
+			(G["players"][q] as Dictionary)["manuallyKilled"] = true
 		board.refresh()
 		await _wait(0.3)
-		var boss_id: String = str(((me["boss"] as Dictionary) if me["boss"] != null else {}).get("id", ""))
+		var boss_id: String = str(((pl["boss"] as Dictionary) if pl["boss"] != null else {}).get("id", ""))
 		var m: int = AudioManager.rec.size()
 		board._hero_pawn = null
-		var t_a := Time.get_ticks_msec()
-		board._play_hero_crossing_animation({"pid": 0, "hero": (CardDB.heroes[0] as Dictionary).duplicate(true), "initialHp": 4, "killed": false, "deathIndex": -1})
+		board._play_hero_crossing_animation({"pid": pid, "hero": (CardDB.heroes[0] as Dictionary).duplicate(true), "initialHp": 4, "killed": bool(c["killed"]), "deathIndex": -1, "path": [], "queued": int(c["queued"])})
 		G["phase"] = "end"
-		G["gameOver"] = {"winner": 1 if not souls else 0, "reason": "wounds" if not souls else "souls"}
-		var th: float = await _rec_at(m, "sfx:" + AudioManager.boss_voice(boss_id, "hurt"), t_a)
-		var t_hit: float = maxf(0.5 * spd, 0.5) # le coeur s'estompe 0,5 s hors vitesse en parallele du deplacement (HeroesQueueComponent.cs:166) : la traversee dure le plus long des deux
-		_check(th >= 0.0 and th < t_hit + 0.15, "coup au boss : la voix hurt part a %.2f s, attendue des le contact (%.2f s), sans fondu du heros" % [th, t_hit])
-		await _wait_anim()
-		if souls: # boss vivant : traversee = deplacement de 0,5 x vitesse (ou le fondu du coeur, 0,5 s hors vitesse, s'il dure plus), le heros disparait d'un coup
-			_check(absf(float(Time.get_ticks_msec() - t_a) / 1000.0 - maxf(0.5 * spd, 0.5)) < 0.2, "traversee vers le boss (vitesse %.1f) : %.2f s au lieu de %.2f s" % [spd, float(Time.get_ticks_msec() - t_a) / 1000.0, maxf(0.5 * spd, 0.5)])
-		_check(board._gameover == null, "fin de partie : l'ecran de fin ne doit pas apparaitre des la fin de la traversee")
-		var t1 := Time.get_ticks_msec()
-		var want: float = (board.TOMBSTONE_S if not souls else 0.0) + board.HERO_CARD_FADE_S + (5.0 if not souls else 6.0) * board.APK_STEP_S
-		var dt := -1.0
-		while Time.get_ticks_msec() - t1 < 9000:
+		G["gameOver"] = {"winner": int(c["winner"]), "reason": "souls" if c["name"] == "souls" else "wounds"}
+		var hurt := "sfx:" + AudioManager.boss_voice(boss_id, "hurt")
+		var tg := 0.0 # temps de jeu depuis le depart de la traversee
+		var t_hit := -1.0
+		var t_end := -1.0
+		var t_over := -1.0
+		while tg < 12.0:
 			await get_tree().process_frame
+			tg += get_process_delta_time()
+			if t_hit < 0.0 and AudioManager.rec.slice(m).has(hurt):
+				t_hit = tg
+			if t_end < 0.0 and not board._animating_hero:
+				t_end = tg
+				_check(board._gameover == null, "l'ecran de fin ne doit pas apparaitre des la fin de la traversee")
 			if board._gameover != null:
-				dt = (Time.get_ticks_msec() - t1) / 1000.0
+				t_over = tg
 				break
-		_check(absf(dt - want) < 0.25, "fin de partie (%s) : bandeau a %.2f s apres la traversee au lieu de %.2f s" % ["ames" if souls else "ma mort", dt, want])
-		_cov("gameover_delay_%s%s" % ["souls" if souls else "death", "" if spd == 1.0 else "_x%.1f" % spd])
+		if not bool(c["killed"]):
+			var t_contact: float = maxf(0.5 * spd, 0.5) # le coeur s'estompe 0,5 s hors vitesse en parallele du deplacement (HeroesQueueComponent.cs:166) : la traversee dure le plus long des deux
+			_check(t_hit >= 0.0 and absf(t_hit - t_contact) < 0.1, "coup au boss : la voix hurt part a %.2f s, attendue des le contact (%.2f s), sans fondu du heros" % [t_hit, t_contact])
+		var want: float = (board.TOMBSTONE_S if bool(c["tomb"]) else 0.0) + board.HERO_CARD_FADE_S + int(c["queued"]) * board.QUEUE_SHIFT_S + int(c["steps"]) * board.APK_STEP_S
+		_check(t_end >= 0.0 and t_over >= 0.0 and absf((t_over - t_end) - want) < 0.1, "bandeau %.2f s apres la fin de la traversee au lieu de %.2f s" % [t_over - t_end, want])
+		if spd == 1.0 and float(c["film"]) > 0.0: # APK filme : +-0,1 s, plus une image de mesure
+			var got: float = t_over - (t_hit if bool(c["from_hit"]) else 0.0)
+			_check(t_over >= 0.0 and absf(got - float(c["film"])) < 0.12, "bandeau a %.2f s %s au lieu de %.2f s (film)" % [got, "du coup" if bool(c["from_hit"]) else "du fondu du coeur", float(c["film"])])
+			print("UISMOKE %s film %.3f s, portage %.3f s" % [_tag, float(c["film"]), got])
+		_cov("gameover_delay_%s%s" % [c["name"], "" if spd == 1.0 else "_x%.1f" % spd])
 	board._speed = board._speed_factor()
 
 ## Mort d'un heros : apres le saut il disparait d'une image a l'autre (jamais semi-transparent), puis la fin de la traversee arrive 0,7 x vitesse plus tard (APK filme, g2_t1 a 77,936 ; HeroCrossingBehavior.cs:94,99).
@@ -2272,13 +2289,13 @@ func _check_hero_death_vanish() -> void:
 		var layer: Node = board.hero_crossing_layer
 		board._play_hero_crossing_animation({"pid": 0, "hero": (CardDB.heroes[0] as Dictionary).duplicate(true), "initialHp": 4, "killed": true, "deathIndex": -1, "path": []})
 		var pawn := layer.get_child(layer.get_child_count() - 1) as Control
-		var t_a := Time.get_ticks_msec()
+		var now := 0.0 # temps de jeu (somme des delta), comme les tweens du board
 		var t_off := -1.0
 		var t_end := -1.0
 		var partial := false
-		while Time.get_ticks_msec() - t_a < 6000:
+		while now < 6.0:
 			await get_tree().process_frame
-			var now := float(Time.get_ticks_msec() - t_a) / 1000.0
+			now += get_process_delta_time()
 			if is_instance_valid(pawn):
 				var a := pawn.modulate.a
 				partial = partial or (a > 0.001 and a < 0.999)
