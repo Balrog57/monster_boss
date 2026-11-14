@@ -1482,6 +1482,15 @@ func _scenario_host_public() -> void:
 	_expect(Server._clean_name("Al" + char(0x61C) + char(0x2028) + char(0x2029) + char(0x2060) + char(0x2064) + char(0xAD) + "ice") == "Alice", "nom : points de code invisibles non retires")
 	_expect(Server._clean_name(char(0x202E) + char(7)) == "Joueur", "nom : vide apres nettoyage -> Joueur")
 	_expect(Server._sane_title("A" + char(0x61C) + char(0x2029) + char(0x2062) + char(0xAD) + "B") == "AB", "titre : U+061C / 2029 / 2062 / 00AD")
+	var junk := [0x7F, 0x85, 0x600, 0x605, 0x6DD, 0x70F, 0x890, 0x8E2, 0x180E, 0x2028, 0x2029, 0x202E, 0xE000, 0xF8FF, 0xFEFF, 0xFFFB, 0x110BD, 0x13430, 0x1D173, 0xE0001, 0xE0020, 0xE007F, 0xF0000, 0x10FFFD]
+	var all_junk := ""
+	for cp in junk:
+		var one := char(cp)
+		_expect(Server._sane_title("a" + one + "b") == "ab", "titre : U+%X doit etre retire" % cp)
+		all_junk += one
+	_expect(Server._sane_title(all_junk) == "" and Server._clean_title(all_junk, "Zed") == "Zed's game", "titre : que des invisibles -> titre par defaut")
+	var keep := "Café Été 🐉 中文 ال"
+	_expect(Server._sane_title(keep) == keep, "titre : accents / emoji / CJK intacts")
 	server.seat_grace_s = 1
 	server.gc_interval_ms = 100
 	var host := await _create_raw({"name": "Hote" + char(0x2028) + "X", "players": 3, "sets": [], "public": true, "title": ""})

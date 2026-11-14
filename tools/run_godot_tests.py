@@ -85,4 +85,5 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    sys.stdout.reconfigure(errors="replace")  # console cp1252 : un U+FFFD dans la sortie d'une suite ne doit pas planter le rapport
     sys.exit(main())

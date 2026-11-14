@@ -249,8 +249,18 @@ static func _clean_name(v) -> String:
 	var n := _sane_title(str(v)) # meme nettoyage que les titres (le nom apparait dans la liste publique et dans le titre par defaut) ; 25 caracteres comme l'APK (OnlinePanelEntity)
 	return n if n != "" else "Joueur"
 
-## Titre de salon public (affiche dans la liste de tout le monde) : texte seulement, 25 caracteres au plus. Les caracteres de controle,
-## les formats invisibles (Cc, Cf, Zl, Zp : U+00AD, 061C, 200B-200F, 2028-202E, 2060-206F, FEFF...) sont retires : ils falsifieraient l'affichage.
+## Plages Cc, Cf, Zl, Zp, Co et substituts (UnicodeData.txt, Unicode 16.0) retirees des titres et des noms : ils falsifieraient l'affichage.
+## Godot 4.7 n'expose pas la categorie generale (TextServer n'a que is_valid_letter & co) : table explicite.
+## Les substituts sont dans la table par prudence ; un String Godot (UTF-32) n en porte pas (char(0xD800) ne donne pas le point de code), donc pas de test.
+## shortcut: Cn (non assignes) non filtres, a ajouter si l'affichage les montre.
+const _STRIPPED := [
+	[0, 0x1F], [0x7F, 0x9F], [0xAD, 0xAD], [0x600, 0x605], [0x61C, 0x61C], [0x6DD, 0x6DD], [0x70F, 0x70F], [0x890, 0x891], [0x8E2, 0x8E2],
+	[0x180E, 0x180E], [0x200B, 0x200F], [0x2028, 0x202E], [0x2060, 0x206F], [0xD800, 0xF8FF], [0xFEFF, 0xFEFF], [0xFFF9, 0xFFFB],
+	[0x110BD, 0x110BD], [0x110CD, 0x110CD], [0x13430, 0x1343F], [0x1BCA0, 0x1BCA3], [0x1D173, 0x1D17A], [0xE0001, 0xE0001], [0xE0020, 0xE007F],
+	[0xF0000, 0xFFFFD], [0x100000, 0x10FFFD],
+]
+
+## Titre de salon public (affiche dans la liste de tout le monde) : texte seulement, 25 caracteres au plus, sans les plages de _STRIPPED.
 ## Renvoie "" si rien ne reste.
 static func _sane_title(v) -> String:
 	if not (v is String):
@@ -258,9 +268,13 @@ static func _sane_title(v) -> String:
 	var t := ""
 	for ch in (v as String):
 		var cp := ch.unicode_at(0)
-		if cp < 32 or (cp >= 127 and cp < 160) or cp == 0xAD or cp == 0x61C or (cp >= 0x200B and cp <= 0x200F) or (cp >= 0x2028 and cp <= 0x202E) or (cp >= 0x2060 and cp <= 0x206F) or cp == 0xFEFF:
-			continue # shortcut: Cf rares (U+0600-0605, 06DD, 070F, 180E, E0001, E0020-E007F) non filtres, a ajouter si l'affichage les montre
-		t += ch
+		var bad := false
+		for r in _STRIPPED:
+			if cp >= r[0] and cp <= r[1]:
+				bad = true
+				break
+		if not bad:
+			t += ch
 	return t.strip_edges().left(TITLE_MAX).strip_edges()
 
 ## Titre de creation : defaut « <hote>'s game » si vide.

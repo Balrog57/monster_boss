@@ -4616,6 +4616,59 @@ func _check_public_lobby() -> void:
 
 ## Partie en ligne a 3 humains contre un VRAI serveur : bulle « IS PLAYING! » des adversaires attendus, bulle « HAS PLAYED A... » d'un coup distant,
 ## message « X has left the game. » quand un adversaire part (il en reste un autre), puis fin de partie quand le dernier adversaire part.
+## Onglet web en arriere-plan (requestAnimationFrame suspendu) : au retour, l'etat qui ouvre MA defausse d'ouverture arrive dans une image de ~25 s.
+## Les minuteries du bandeau (_disc_intro) creees dans cette image expirent aussitot, avant l'heure d'arrivee de leur carte : sans rien d'autre, la main
+## doit quand meme finir par afficher ses 7 cartes (defaut vu en ligne : les 2 sorts manquaient jusqu'au premier clic).
+func _check_disc_after_sleep() -> void:
+	_tag = "[disc-after-sleep]"
+	await _teardown()
+	Engine.time_scale = 1.0
+	var loc := GameManager.new() # moteur local : fabrique les etats que le serveur diffuserait (2 humains, siege 1 = moi)
+	add_child(loc)
+	loc.start_new_game(2, 2, ["base"])
+	var cli := OnlineClient.new() # jamais connecte : on lui pose les etats a la main
+	add_child(cli)
+	cli.current_G = loc.G.duplicate(true)
+	gm = OnlineGameManager.new()
+	add_child(gm)
+	gm.setup_online(cli, 1)
+	board = load("res://godot/scenes/Board.tscn").instantiate()
+	board.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(board)
+	board.skip_animations = false
+	board.setup(gm, func(): pass)
+	var push := func():
+		cli.current_G = loc.G.duplicate(true)
+		cli.state_received.emit()
+	await _wait(0.3)
+	for pid in [0, 1]:
+		var pk: Array = loc.legal_moves(pid).filter(func(m): return m["type"] == "pickBoss")
+		if pk.size() > 0:
+			loc.apply_move(pid, pk[0])
+	push.call() # boss choisis, main donnee : c'est la defausse du siege 0 (la donne de 7 cartes joue chez moi)
+	for _k in 200:
+		await _wait(0.05)
+		if not board._flow_busy():
+			break
+	_check(_hand_hidden() == 0 and _hand_cards().size() == 7, "precondition : main de 7 cartes visible apres la donne (%d cachees sur %d)" % [_hand_hidden(), _hand_cards().size()])
+	loc.apply_move(0, {"type": "openingDiscard", "args": [0, 1]})
+	if not _check(str((loc.G.get("pendingChoice", {}) as Dictionary).get("type", "")) == "opening-discard" and int(loc.G["pendingChoice"]["playerId"]) == 1, "precondition : defausse du siege 1 attendue"):
+		await _teardown()
+		loc.queue_free()
+		cli.queue_free()
+		return
+	OS.delay_msec(1500) # onglet en arriere-plan : l'image suivante recoit un delta de 1,5 s (plus que le 0,98 s de la derniere carte du bandeau)
+	await get_tree().process_frame
+	push.call() # l'etat attendu arrive dans cette longue image, comme au retour au premier plan
+	await _wait(2.0) # aucune interaction
+	_check(board._is_opening_discard_for_me(), "defausse : le bandeau du siege 1 n'est pas ouvert")
+	_check(_hand_cards().size() == 7 and _hand_hidden() == 0, "defausse apres retour au premier plan : %d carte(s) cachee(s) sur %d sans interaction (draw_hide %s, disc_shown %s, timers %s)" % [_hand_hidden(), _hand_cards().size(), str(board._draw_hide), str(board._disc_shown.keys()), str(board._disc_timers.keys())])
+	_cov("disc_after_sleep")
+	await _teardown()
+	loc.queue_free()
+	cli.queue_free()
+	await get_tree().process_frame
+
 func _check_online_game() -> void:
 	_tag = "[online-game]"
 	await _teardown()
@@ -5695,6 +5748,7 @@ func _extra_checks() -> void:
 	await _check_online_menus()
 	await _check_l6_l7()
 	await _check_public_lobby()
+	await _check_disc_after_sleep()
 	await _check_online_game()
 	await _check_gameover_banner()
 	await _check_apk_particles()

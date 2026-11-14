@@ -2002,7 +2002,7 @@ Quatre lots, chacun validé par `python tools/run_godot_tests.py` (14/14) et, po
 | N-B11 | Corrigé | Quitter le plateau en ligne envoie `leave` et oublie la session : créer ou rejoindre un salon fonctionne ensuite. |
 | N-B15 | Corrigé (APK) | Au délai dépassé, l'IA ne joue que la décision expirée (DONE automatique en construction) ; `auto` permanent seulement pour un joueur parti ou sans liaison. Délai par défaut 70 s (`GamePlayBaseScene.cs:272`). |
 | N-B16 | Corrigé | En construction, le délai appartient à la fenêtre de décision : pose et reprise ne le repoussent plus, `resume` non plus. |
-| S-11 (N-B01, N-B03) | Corrigé (APK) | Défaite comptée au démarrage de la partie en ligne, annulée en cas de victoire. Victoire par désertion non portée (le siège passe à l'IA). |
+| S-11 (N-B01, N-B03) | Corrigé (APK) | Défaite comptée au démarrage de la partie en ligne, annulée en cas de victoire. Victoire par désertion portée depuis : voir N-A40, N-A41. |
 | W-18 | Partiel | Chrome 150, Firefox 146 et WebKit (Playwright) vérifiés le 2026-10-28 sur le build déployé : chargement, menus, plateau OK. Reste le vrai Safari (aucun appareil Apple ici). |
 | IA-G47 | Ouvert (Moyenne) | L'APK choisit la salle avant de résoudre la capacité ; non corrigé, non mesurable par l'oracle. |
 
@@ -3479,3 +3479,51 @@ Trouvé pendant la vérification, non corrigé dans ce commit :
 - Deux passages de `run_godot_tests.py` ont vu la suite d'interface s'arrêter sans message juste après les parties (après « seed=31 », avant les menus en ligne), sans TIMEOUT. Elle passe seule et dans un troisième passage complet ; journaux Godot déjà tournés, cause non établie. Pas revu ensuite sur 7 passages (suites + 5 passages seuls + passage précédent).
 
 Vérification du lot écran de fin (2026-11-14) : `run_godot_tests.py` 24/24 ; suite d'interface 5 passages OK (375-381 s) ; `--only=gameover_delay` 5 passages OK, victoire 4,153-4,159 s pour 4,112 s filmées ; oracle 6/6, 12/12, 6/6, tutoriel 3/3 ; `image_diff.py --capture --check` 0/149 ; export web et `web_smoke.py` OK ; `web_online_smoke.py` solo 328 s, ext 331 s, p5 809 s, aucun coup illégal.
+
+## Multijoueur : salons, filtres et essais en navigateur (2026-11-14)
+
+Inventaire du multijoueur (salons publics et privés, sans WORLDWIDE), puis les points ouverts un par un.
+
+**M1, `pass` refusés à 5-6 joueurs : course bénigne, pas de correction.** Mesuré sur 4 parties en ligne : à 5 joueurs, 2, 0 et 0 refus ; à 6 joueurs, 1 `pickBoss` refusé. Le coup part alors qu'il est légal dans le dernier état reçu, mais le minuteur du serveur vient de lever la pause. L'état suivant reprend la main, et les 4 parties vont au bout. Aucun message n'est affiché pendant la partie : `request_error` n'est branché qu'en salle d'attente (`OnlineMenus.gd`). Les doubles envois d'avant ont disparu avec `OnlineClient.move_in_flight()` (320027f). Le seuil du script reste à 5 refus.
+
+**M3a, plafond de salons par source : accepté sans changement.** nginx borne déjà chaque IP à 20 liaisons et 5 ouvertures/s (N-A72), et le serveur à 200 salons.
+
+**M3b, titre de salon : corrigé.** `Server._sane_title` retire désormais tous les caractères de contrôle, de format invisibles (Cf), séparateurs de ligne et de paragraphe, et d'usage privé, à partir d'une table de plages (`_STRIPPED`). Les plages ont été recoupées avec la base Unicode 16.0 de Python : elles correspondent, avec en plus U+2065 (non attribué) et D800-DFFF (impossibles dans une String Godot), sans effet. Un titre vidé par le filtre reprend le titre par défaut. Les accents, emoji, CJK et l'arabe passent intacts. Test : `online_test._scenario_host_public`, 24 caractères retirés ; il donne 19 ECHEC avec l'ancien filtre. `PROTOCOL.md` décrit le filtre par catégorie.
+
+**Lanceur de tests.** `run_godot_tests.py` plantait (UnicodeEncodeError) quand la sortie d'une suite contenait un caractère que la console cp1252 ne sait pas écrire. Il le remplace maintenant (`sys.stdout.reconfigure(errors="replace")`).
+
+**Scénarios navigateur ajoutés à `tools/web_online_smoke.py`.** Ils se lancent avec `--scenario`, hors de `all` :
+- `leave3` : 3 humains, l'un ferme son onglet. Les deux autres valident « X has left the game. » une seule fois, le siège reste `left`, et la partie va au bout. Le serveur est lancé avec `--abandon-grace=15`. 3 passages OK, de 444 à 486 s.
+- `hostpass` : l'hôte quitte la salle d'attente, le siège 1 devient hôte et lance la partie, et le siège 0 passe à l'IA. 4 passages OK.
+  - Le tout premier passage a échoué : le clic sur la flèche n'a pas fait quitter la salle. Dans ce même passage, les clics sur les avatars avaient déjà été perdus pour les trois joueurs (portraits identiques, contre trois portraits différents ensuite).
+  - Le passage perdait donc des clics dès le début, avant la salle d'attente. La flèche est un `TextureButton` simple, et la salle ne se reconstruit pas aux mises à jour du salon (`_on_lobby_changed` → `_update_waiting`). Cause non établie au-delà.
+- `background` : l'onglet de Bob est masqué pendant `--turn-timeout` + 8 s pendant sa construction. Le serveur joue une décision pour lui à chaque délai, et au retour Bob rejoue sans aucun coup refusé. 3 passages OK.
+  - Le Chromium sans tête n'a pas de vrai onglet masqué : le script suspend `requestAnimationFrame` et émet `visibilitychange`.
+
+**M2, salon réel à deux onglets dans le navigateur intégré, vitesse NORMAL.** Création, jonction par code, tirage du boss, défausse d'ouverture, construction de mise en place et du tour 2, révélation, ordre de construction par XP, aventure.
+- **Conformes :**
+  - Le donjon adverse reste face cachée jusqu'à la révélation.
+  - La bulle « IS PLAYING! » est sans nom, comme dans l'APK (`BubblesFactory.cs:20-23`).
+  - La salle d'attente montre 4 lignes à 2 joueurs (`n_rows = max(4, …)`).
+  - Les salles avancées sont grisées tant qu'elles n'ont rien sur quoi se poser.
+  - Le serveur passe le tour d'un joueur absent à l'expiration du délai de 70 s.
+- **Défaut trouvé et corrigé :** après un retour au premier plan, le bandeau « SELECT 2 CARDS TO DISCARD » de Bob n'affichait que ses 5 salles. Ses 2 sorts sont restés invisibles environ 25 s, jusqu'à un clic.
+  - Cause (`BoardUI._disc_intro`) : chaque carte du bandeau entre à une heure fixe, et une seule minuterie `SceneTree` est posée par carte (`_disc_timers`). Or cette minuterie avance avec le delta d'image.
+  - Au retour d'un onglet en arrière-plan, l'image dure environ 25 s : la minuterie tout juste posée expire avant l'heure d'entrée. La carte reste cachée, et `_disc_timers` empêchait d'en poser une autre.
+  - Correction : le rappel libère `_disc_timers[r]`, et le refresh suivant repose une minuterie pour le temps qui reste.
+  - Test : `ui_smoke._check_disc_after_sleep`. Les états sont poussés à un `OnlineGameManager` réel, et une image de 1,5 s est forcée au moment de la défausse. Le test échoue avant la correction (2 puis 1 carte cachée) et passe 3 fois sur 3 après.
+- **Non vu en M2 :** la fin de partie. Avec deux onglets dans un seul volet, l'onglet caché ne traite rien, et chaque fenêtre de sort attend son délai. La fin de partie en ligne est couverte par les parties automatisées (solo, ext, p5, leave3).
+
+**Note périmée corrigée :** la ligne S-11 du tableau des corrections disait la victoire par désertion « non portée ». Elle est portée depuis (N-A40, N-A41).
+
+**Vérification du lot (2026-11-14/15)**, sur l'export reconstruit avec la correction du bandeau :
+- `run_godot_tests.py` : 24/24.
+- Suite d'interface : 5 passages OK (379,8-380,0 s).
+- Oracle : 6/6, 12/12, 6/6, tutoriel 3/3.
+- `image_diff.py --capture --check` : 0/149.
+- Export web et `web_smoke.py` : OK.
+- `web_online_smoke.py` : solo 393 s, ext 344 s, p5 1001 s (un `pass` refusé chez Alice et un chez Bob, sous le seuil de 5, comme M1). `hostpass` OK en 42 s ; `leave3` OK en 585 s, sans refus.
+- `background` : échec au premier passage. Un `pass` de Bob a été refusé quelque part entre le masquage et la fin de partie, environ 150 s de jeu. Ce passage n'était pas tracé, et le moment exact du refus n'est pas connu.
+  - Le rejeu au retour de l'onglet n'est donc ni établi ni exclu.
+  - Cinq passages tracés ensuite (`BM_TRACE`) : OK, aucun refus. Avec les 3 passages de l'agent, cela fait 1 refus sur 9 passages.
+  - Cause non établie. Si le cas revient, la trace `BM_TRACE` dira s'il suit le retour de l'onglet.

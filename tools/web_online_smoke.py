@@ -19,6 +19,14 @@ Usage (le serveur et le site sont lances par le script) :
     python tools/web_online_smoke.py --scenario all                    # les scenarios de la liste SCENARIOS
 Scenarios scriptes : rematch (N-B11 : nouveau salon apres la fin / apres un depart), drop (coupure de liaison puis onglet ferme en jeu), multi (2 salons en meme temps
 et joins refuses), closed (paquet ferme refuse par le serveur).
+Scenarios de parcours reel (a nommer avec --scenario ; absents de `all`, qui garde sa duree) :
+  leave3     3 humains, l'un ferme son onglet en pleine partie : les deux autres voient « X has left the game. » une fois, le siege passe a l'IA, la partie va au bout
+             (le serveur est lance avec --abandon-grace=15 au lieu de 120 s) ;
+  hostpass   3 humains en salle d'attente, l'hote la quitte (fleche) : le siege 1 devient hote, lance, la partie demarre pour les deux restants (siege libre = IA) ;
+  background un humain passe en arriere-plan quand la partie l'attend, plus longtemps que --turn-timeout, puis revient : le serveur joue sans lui, il se resynchronise
+             et rejoue sans coup refuse. Un navigateur sans tete n'a pas d'onglet masque reel (visibilityState reste visible, rAF continue ; Page.setWebLifecycleState
+             est sans effet) : le script reproduit ce que fait un vrai onglet masque, requestAnimationFrame suspendu (le Godot web ne traite plus les trames, qui
+             s'accumulent) et visibilitychange hidden / visible ; timers non limites, pagehide non emis (un vrai navigateur ne l'emet pas au simple changement d'onglet).
 Options : --browser chromium|firefox, --shots DIR (captures), --shot-every N, --speed slow|normal|fast, --max-secs, --turn-timeout.
 """
 import argparse
@@ -56,6 +64,7 @@ ALLOW_ONLINE = [r"WebSocket connection to .* failed", r"\[net\] "]
 class Stack:
     def __init__(self, web_port=8090, ws_port=8091, turn_timeout=8, adventure_timeout=3, bot_delay=150, extra=(), log_dir=None, quiet=True):
         self.web_port, self.ws_port = web_port, ws_port
+        self.turn_timeout = turn_timeout
         self.args = ["--port=%d" % ws_port, "--turn-timeout=%d" % turn_timeout, "--adventure-timeout=%d" % adventure_timeout,
                      "--bot-delay=%d" % bot_delay, *extra]
         self.log_path = os.path.join(log_dir or SHOTS_DEFAULT, "server.log")
@@ -223,6 +232,8 @@ class Client:
         self.gone = False       # page fermee volontairement (deconnexion en cours de partie)
         self.log_from = 0       # console_problems() ne regarde que les messages apres cet index (parties successives)
         self.log_lines = []
+        self.paused = False     # onglet « masque » (scenario background) : act() et dismiss() n'agissent pas
+        self.msgs = 0           # messages « has left the game. » valides par un clic OK
         self.page.on("console", lambda m: self.logs.append((m.type, m.text, self.mark)))
         self.page.on("pageerror", lambda e: self.logs.append(("pageerror", str(e), self.mark)))
         self.page.on("crash", lambda: self.logs.append(("crash", "page crashed", self.mark)))
@@ -522,15 +533,16 @@ class Client:
 
     def dismiss(self):
         """OK du message « X has left the game. » (fenetre modale : sans lui les clics suivants tombent dans le vide)."""
-        if self.msg_pending and not self.gone:
+        if self.msg_pending and not self.gone and not self.paused:
             self.msg_pending = False
+            self.msgs += 1
             self.shot("msg_%s" % self.name)
             self.click(960, 604, 1.0, "msg_ok")
 
     def act(self, build_limit=2):
         """Une decision par appel (au plus une toutes les 2,5 s) : boss, defausse d'ouverture, pose, DONE / PASS. Renvoie le nom de l'action ou ''."""
         st = self.state
-        if not st or st["view"].get("gameOver") is not None or self.closed:
+        if not st or st["view"].get("gameOver") is not None or self.closed or self.paused:
             return ""
         now = time.time()
         if now - getattr(self, "_t_act", 0) < 2.5 or now - self.t_state < 0.8:
@@ -570,6 +582,24 @@ class Client:
             self._t_act = time.time()
             self.actions[action] += 1
         return action
+
+    HIDE_JS = ("(function(){if(window.__bg)return 0;var o=window.requestAnimationFrame,q=[];window.__bg={o:o,q:q};window.requestAnimationFrame=function(f){q.push(f);return q.length;};"
+               "Object.defineProperty(document,'visibilityState',{configurable:true,get:function(){return 'hidden';}});Object.defineProperty(document,'hidden',{configurable:true,get:function(){return true;}});"
+               "document.dispatchEvent(new Event('visibilitychange'));return 1;})()")
+    SHOW_JS = ("(function(){var b=window.__bg;if(!b)return -1;window.__bg=null;window.requestAnimationFrame=b.o;delete document.visibilityState;delete document.hidden;"
+               "var n=b.q.length;b.q.forEach(function(f){b.o.call(window,f);});document.dispatchEvent(new Event('visibilitychange'));return n;})()")
+
+    def hide_tab(self):
+        """Onglet masque comme un vrai navigateur : plus d'image animee (le Godot web n'avance plus), visibilitychange. Renvoie le nombre de rappels rAF retenus (0 = pas suspendu)."""
+        self.paused = True
+        self.page.evaluate(self.HIDE_JS)
+        self.wait(1.5)
+        return self.page.evaluate("window.__bg.q.length")
+
+    def show_tab(self):
+        n = self.page.evaluate(self.SHOW_JS)
+        self.paused = False
+        return n
 
     def leave_board(self):
         """Fin de partie : OK du bandeau (retour au titre). Sinon menu en jeu -> QUIT GAME -> QUIT."""
@@ -910,7 +940,125 @@ def scn_closed(run, max_s, speed, shots_every):
     return dict(done=True, problems=probs, errors=c.errors)
 
 
+def scn_leave3(run, max_s, speed, shots_every):
+    """3 humains : a 25 s l'un ferme son onglet. Les deux autres voient « has left the game. » (1 fois), le siege passe a l'IA, la partie va au bout."""
+    cs = run.spawn(3, tag="l3_")
+    ev = {"close": None}
+
+    def hook(t):
+        if t > 25 and ev["close"] is None and all(c.state for c in cs):
+            ev["close"] = round(t)
+            cs[2].shot("before_close")
+            cs[2].page.close()
+            cs[2].gone = True
+
+    res = one_game(run, cs, dict(seats=3, humans=3), max_s, speed, shots_every, False, "g", hook)
+    res["closed_at"] = ev["close"]
+    if ev["close"] is None:
+        res["problems"].append("la fermeture d'onglet n'a pas eu lieu")
+    for c in cs[:2]:
+        if c.msgs != 1:
+            res["problems"].append("%s : %d message(s) « has left the game. » valide(s), 1 attendu" % (c.name, c.msgs))
+        st = c.state or {}
+        s2 = (st.get("seats") or [{}, {}, {}])[2]
+        # le siege parti reste `left` / non connecte ; l'IA le joue cote serveur (drapeau `auto`, non diffuse) : la partie doit donc aller au bout
+        if not s2.get("left") or s2.get("connected"):
+            res["problems"].append("%s : siege 2 pas marque parti dans le dernier etat (%s)" % (c.name, s2))
+    return res
+
+
+def scn_hostpass(run, max_s, speed, shots_every):
+    """3 humains en salle d'attente, l'hote (siege 0) la quitte : le siege 1 devient hote et lance ; la partie demarre pour lui et le siege 2, le siege 0 devient IA."""
+    cs = run.spawn(3, tag="hp_")
+    for c in cs:
+        c.reset_game()
+    mark = len(run.stack.server_errors())
+    t0 = time.time()
+    code = open_room(cs, dict(seats=3, humans=3), speed)
+    probs = []
+    cs[1].wait(1.5)
+    cs[0].shot("before_leave")
+    cs[0].leave_waiting()
+    cs[0].shot("after_leave")
+    cs[0].gone = True
+    cs[1].wait(3)
+    live = cs[1:]
+    for c in live:
+        if int((c.lobby or {}).get("host", -1)) != 1:
+            probs.append("%s : hote annonce %s, siege 1 attendu" % (c.name, (c.lobby or {}).get("host")))
+    if cs[0].session():
+        probs.append("l'ancien hote garde une session de siege apres avoir quitte")
+    cs[1].shot("new_host")
+    cs[1].start_game()
+    cs[1].wait(4)
+    for c in live:
+        if not c.state:
+            probs.append("%s : aucune partie recue apres le lancement par le nouvel hote" % c.name)
+    s0 = ((live[0].state or {}).get("seats") or [{}])[0]
+    if live[0].state and not s0.get("bot"):
+        probs.append("siege 0 laisse par l'hote : pas passe a l'IA (%s)" % s0)
+    dur, _ = play(live, 40, shots_every, "g")  # quelques decisions suffisent : la partie n'est pas menee au bout
+    res = summarize(live, dur, True, run.stack, mark)
+    res["problems"] = probs + res["problems"]
+    res["code"], res["secs_total"] = code, round(time.time() - t0)
+    for c in live:
+        c.leave_board()
+    return res
+
+
+def scn_background(run, max_s, speed, shots_every):
+    """2 humains : quand la partie attend Bob (construction), son onglet passe en arriere-plan plus longtemps que --turn-timeout ; le serveur joue sans lui ; il revient et rejoue."""
+    cs = run.spawn(2, tag="bg_")
+    b = cs[1]
+    hold = run.stack.turn_timeout + 8
+    ev = {"hid": None, "back": None}
+    snap = {}
+    illegals = lambda: sum(e.get("code") == "illegal" for e in b.errors)  # noqa: E731
+
+    def sig(st):
+        """Etat de jeu de Bob : le serveur joue pour lui une decision par --turn-timeout (une salle, puis DONE), la phase peut donc rester `build` un moment."""
+        v = st["view"]
+        me = (v.get("players") or {}).get(str(st["seat"])) or {}
+        return (v.get("turn"), v.get("phase"), me.get("buildsThisTurn"), len(me.get("hand") or []), sum(len(x) for x in me.get("dungeon") or []), (v.get("adventure") or {}).get("roomIndex"))
+
+    def hook(t):
+        st = b.state
+        if ev["hid"] is None and st and t > 15 and st["view"].get("phase") == "build" and b.sent_moves >= 2 and int(st["seat"]) in [int(x) for x in st.get("awaited") or []]:
+            snap.update(sig=sig(st), n=b.n_state, moves=b.sent_moves, ill=illegals(), ws=b.ws_closed)
+            snap["q"] = b.hide_tab()
+            ev["hid"] = round(t)
+            snap["t"] = time.time()
+        elif ev["hid"] is not None and ev["back"] is None and time.time() - snap["t"] > hold:
+            snap["after"] = dict(sig=sig(b.state), n=b.n_state)
+            snap["resumed"] = b.show_tab()
+            ev["back"] = round(t)
+            snap["moves_back"] = b.sent_moves
+
+    res = one_game(run, cs, dict(seats=2, humans=2), max_s, speed, shots_every, False, "g", hook)
+    snap.pop("t", None)
+    res.update(hidden_at=ev["hid"], back_at=ev["back"], snap=snap)
+    if ev["hid"] is None:
+        res["problems"].append("l'onglet n'a jamais ete masque (siege 1 jamais attendu en construction)")
+    elif ev["back"] is None:
+        res["problems"].append("partie finie avant le retour de l'onglet")
+    else:
+        if not snap["q"]:
+            res["problems"].append("masquage inefficace : la boucle du moteur tourne encore (rAF non intercepte)")
+        a = snap["after"]
+        if a["sig"] == snap["sig"] or a["n"] <= snap["n"]:
+            res["problems"].append("la partie n'a pas avance pendant l'absence : %s -> %s" % ((snap["sig"], snap["n"]), a))
+        if b.ws_closed != snap["ws"]:
+            res["problems"].append("liaison fermee pendant l'absence")
+        if b.sent_moves <= snap["moves_back"]:
+            res["problems"].append("l'onglet de retour n'a joue aucun coup (gele ?)")
+        if illegals() - snap["ill"]:
+            res["problems"].append("%d coup(s) refuse(s) de l'onglet entre le masquage et la fin (coups rejoues ?)" % (illegals() - snap["ill"]))
+    return res
+
+
 EXTRA = {"rematch": scn_rematch, "drop": scn_drop, "multi": scn_multi, "closed": scn_closed}
+# A nommer avec --scenario, hors de `all` (ils en allongeraient la duree).
+ON_DEMAND = {"leave3": scn_leave3, "hostpass": scn_hostpass, "background": scn_background}
 
 
 def main():
@@ -918,7 +1066,7 @@ def main():
     ap.add_argument("--players", type=int, help="nombre de sieges du salon (2-6) : partie ad hoc")
     ap.add_argument("--bots", type=int, default=0, help="sieges d'IA parmi --players (les autres sont des humains, un navigateur chacun)")
     ap.add_argument("--packs", default="", help="paquets (players-choice,hidden-heroes,next-level,crash-landing)")
-    ap.add_argument("--scenario", default="", help="nom d'un scenario (%s) ou `all`" % ",".join(list(SCENARIOS) + list(EXTRA)))
+    ap.add_argument("--scenario", default="", help="nom d'un scenario (%s) ou `all`" % ",".join(list(SCENARIOS) + list(EXTRA) + list(ON_DEMAND)))
     ap.add_argument("--browser", default="chromium", choices=["chromium", "firefox"])
     ap.add_argument("--size", default="960x540", help="fenetre de chaque navigateur")
     ap.add_argument("--shots", default=SHOTS_DEFAULT)
@@ -936,7 +1084,7 @@ def main():
         specs = dict(SCENARIOS)
         specs.update(EXTRA)
     elif a.scenario:
-        specs = {a.scenario: (SCENARIOS.get(a.scenario) or EXTRA[a.scenario])}
+        specs = {a.scenario: (SCENARIOS.get(a.scenario) or EXTRA.get(a.scenario) or ON_DEMAND[a.scenario])}
     elif a.players:
         packs = [p for p in a.packs.split(",") if p]
         specs = {"p%d" % a.players: dict(seats=a.players, humans=a.players - a.bots, packs=packs, wiki=bool(packs) or a.players >= 5)}
@@ -944,7 +1092,8 @@ def main():
         ap.error("--players ou --scenario")
     from playwright.sync_api import sync_playwright
     w, h = (int(v) for v in a.size.split("x"))
-    stack = Stack(a.web_port, a.ws_port, a.turn_timeout, a.adventure_timeout, a.bot_delay, log_dir=a.shots)
+    extra = ["--abandon-grace=15"] if "leave3" in specs else []  # sans cela un onglet ferme n'est declare parti qu'apres 120 s
+    stack = Stack(a.web_port, a.ws_port, a.turn_timeout, a.adventure_timeout, a.bot_delay, extra=extra, log_dir=a.shots)
     stack.start()
     bad = 0
     try:

@@ -2655,6 +2655,7 @@ func _disc_intro(disp: Array) -> void:
 				var t0 := _disc_t0
 				get_tree().create_timer(float(at - now) / 1000.0).timeout.connect(func():
 					if _disc_t0 == t0 and _is_opening_discard_for_me():
+						_disc_timers.erase(r) # la minuterie suit le delta d'image : une longue image (onglet web en arriere-plan) la vide avant `at`, ce refresh la repose
 						refresh())
 
 ## Carte choisie dans le selecteur (defausse d'ouverture) : bordure YellowGlow (CardSelectorComponent.cs:137) = particules (CardBorderBehavior.cs:48-50 Emit = true).
