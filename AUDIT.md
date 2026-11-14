@@ -3428,3 +3428,25 @@ Captures de comparaison (`tests/capture_screens.gd`), trois paires au-dessus du 
 Mesures sur l'arbre commité : `run_godot_tests.py` 24/24 (goldens 2452/0) ; suite d'interface 5 passages OK (343 s chacun) ; `apk.py --ai-agreement` 6/6, `--seeds 4 5 6 7 --players 2 3 4` 12/12, `--decks BaseDeck,PlayerChoice,HiddenHeros,ToolsHeroKind` 6/6, `--tutorial` 3/3 ; `image_diff.py --capture --check` 0/149 ; export web et `web_smoke.py` OK (démarrage 4,4 s, 34 i/s) ; `web_online_smoke.py` solo 370 s, ext 377 s, p5 750 s, aucun coup illégal.
 
 Non vérifié : l'oracle tourne sans `autoAI` et ne voit donc pas les chemins B7 / B10 (couverts par les goldens et les soaks seulement) ; carrousel glissé à la vraie souris et dans une fenêtre plus étroite que 16:9 ; pose de salle de l'IA observée à l'écran pendant la résolution de la pile.
+
+## APK filmé : sort joué par l'IA (2026-11-14)
+
+Films dans `docs/reference/apk_film_2026-11-13/` (local, non versionné, INDEX.md) : 4 parties solo à 2 joueurs, vitesse NORMAL, 4 défaites. Deux sorts de l'IA filmés (King Croak) : Freeze en phase d'aventure, Zombie Attack en phase de construction.
+
+| Étape | APK filmé | Portage |
+|---|---|---|
+| Carte au centre et barre de fenêtre | même image | conforme |
+| Notice « HAS PLAYED A SPELL », fondu d'entrée | 0,50 / 0,52 s | 0,5 s, conforme |
+| Notice visible au total (début du fondu → disparition) | 2,95 / 2,97 s, disparition d'une image à l'autre | **corrigé** : 4,0 s (3,0 s + fondu de sortie 0,5 s) → 2,95 s sans fondu (`BoardUI.NOTICE_SHOW_S`) |
+| Barre de fenêtre, apparition → départ de la carte | 6,03 / 6,07 s | `WINDOW_STACK` 6,0, conforme |
+| Départ de la carte → effet (glace de Freeze) | 0,50 s | non vérifié |
+
+Le C# (`BubblesPlayerEmitter.cs:117-118`) écrit 3,0 s puis un fondu de sortie de 0,5 s ; comme pour la mort du héros, le fondu de sortie finit en une image dans l'APK, et le film fait foi. Disparition vérifiée image par image sur le film de Freeze (opaque jusqu'à 124,91 s, absente à l'image suivante). `NOTICE_HOLD` (tenue de la salle agrandie pendant la bulle d'une capacité de salle) est inchangé : non filmé. Contrôle : `ui_smoke._check_notice_ai_duration` (`notice_ai_duration`), qui échoue avec l'ancienne durée.
+
+Toujours non filmés : la victoire (deux parties arrêtées à 9 âmes, le « pas de plus » de l'écran de victoire reste tiré du C# seul) et les héros de l'IA après ma mort (segments de film corrompus par l'arrêt forcé de `screenrecord`).
+
+Vérification : `--only=notice_ai_duration` OK ; suite d'interface seule OK (342,9 s) ; `image_diff.py --capture --check` 0/149.
+
+Trouvé pendant la vérification, non corrigé dans ce commit :
+- Le soak à graine aléatoire `--seed=2117355545 --players=3 --sets=players-choice,players-choice-wiki` perd un sort (32 → 31). Il échoue sur de938d6 et passe sur 883bfcd : régression du lot B7/B10, en cours de correction.
+- Deux passages de `run_godot_tests.py` ont vu la suite d'interface s'arrêter sans message juste après les parties (après « seed=31 », avant les menus en ligne), sans TIMEOUT. Elle passe seule et dans un troisième passage complet ; journaux Godot déjà tournés, cause non établie.

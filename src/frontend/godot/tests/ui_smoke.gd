@@ -4992,6 +4992,30 @@ func _check_effects() -> void:
 	board.skip_animations = true
 	_cov("effects")
 
+## Notice « HAS PLAYED A SPELL » : 2,95 s filmees depuis le debut du fondu d'entree, disparition d'une image a l'autre (temps de jeu = somme des delta).
+func _check_notice_ai_duration() -> void:
+	_tag = "[notice-ai-duration]"
+	await _new_game()
+	board.set_process(false)
+	board.skip_animations = false
+	board._notice_reset()
+	board._notice_ai(1, {"type": "playSpell", "args": []})
+	var t := 0.0
+	var a_285 := -1.0
+	var a_305 := -1.0
+	while t < 3.05:
+		await get_tree().process_frame
+		t += get_process_delta_time() * Engine.time_scale
+		var nt = board._ui_layer.find_child("Notice", true, false)
+		var a: float = (nt as Control).modulate.a if nt != null and is_instance_valid(nt) and not nt.is_queued_for_deletion() else 0.0
+		if t <= 2.85:
+			a_285 = a
+		a_305 = a
+	_check(a_285 > 0.8, "notice adverse : alpha %.2f a 2,85 s (attendu > 0,8)" % a_285)
+	_check(a_305 == 0.0, "notice adverse : encore visible a 3,05 s (alpha %.2f ; film : disparue a 2,95 s)" % a_305)
+	board.skip_animations = true
+	_cov("notice_ai_duration")
+
 ## Emetteurs ApkParticles qui emettent sous `root`.
 func _emitting(root: Node) -> Array:
 	return root.find_children("*", "ApkParticles", true, false).filter(func(e): return (e as ApkParticles).emitting)
@@ -5663,6 +5687,7 @@ func _extra_checks() -> void:
 	await _check_tut_levelup()
 	await _check_tut_decks()
 	await _check_effects()
+	await _check_notice_ai_duration()
 	await _check_crossing_ui()
 	await _check_audio()
 	_tag = "[base]"

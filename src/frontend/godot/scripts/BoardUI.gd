@@ -291,7 +291,8 @@ const WINDOW_ADVENTURE := 3.0
 const WINDOW_STACK := 6.0
 const PASS_FAST := 0.45                  # SEUL delai sans origine C# : un siege humain d'une partie a plusieurs humains sur le meme ecran (`_apk_flow` faux : hotseat de Godot, voir les tests `humans` > 1) qui n'a rien a jouer passe apres 0,45 s. L'APK n'a aucune attente de ce genre : GamePlayPaPScene.OnUserInteractionModeFinished (cs:109-116) enchaine la meme barre de 3 s (CreateWaitAndMoveHeroToNextSlotTask) que GamePlayBaseScene.cs:861-871 ; solo et en ligne, la valeur est 0 (voir `want` dans _auto_pass). L'ancien GO_FAST (0,55) est supprime.
 const HAND_UPPER := 797.0                # CardExtractBehavior.cs:ResolveDependencies : limite haute de la main (972 - 450/2 + 50) ; au-dessus la carte est extraite, en dessous elle retourne dans la main
-const NOTICE_HOLD := 3.5                 # bulle « HAS PLAYED A » : fondu d'entree 0,5 s + 3,0 s (BubblesPlayerEmitter.cs:22) ; la salle reste agrandie pendant ce temps (deduit des captures APK)
+const NOTICE_SHOW_S := 2.95             # bulle « HAS PLAYED A » filmee : film 2026-11-13, 2,95-2,97 s depuis le debut du fondu d'entree, sans fondu de sortie ; le C# (BubblesPlayerEmitter.cs:117-118) ecrit 3,0 s + fondu 0,5 s mais le film fait foi
+const NOTICE_HOLD := 3.5                 # (la bulle elle-meme tient 2,95 s filmees (NOTICE_SHOW_S) ; la tenue de la salle n'est pas filmee) bulle « HAS PLAYED A » : fondu d'entree 0,5 s + 3,0 s (BubblesPlayerEmitter.cs:22) ; la salle reste agrandie pendant ce temps (deduit des captures APK)
 const WARN_TIME := 0.5                   # bulle « YOU CAN BUILD A ROOM » (HideWhenTouchBehavior.cs:36-37) : entree et sortie de 0,5 s, fermee par un appui hors de la bulle une fois entree
 const TEX_PASS := UI_DIR + "pass_button.webp"
 const TEX_DONE := UI_DIR + "done_button_unlimited.webp"
@@ -5513,7 +5514,7 @@ func _owner_badge(pid: int, cx: float) -> Control:
 	ring.add_child(pic)
 	return ring
 
-## « <adversaire> HAS PLAYED A SPELL / ROOM ABILITY » : notice sombre en haut a droite (BubblesFactory.CreatePlayBubble), 2,5 s.
+## « <adversaire> HAS PLAYED A SPELL / ROOM ABILITY » : notice sombre en haut a droite (BubblesFactory.CreatePlayBubble), 2,95 s filmees.
 func _notice_ai(pid: int, mv: Dictionary, shown = null) -> void:
 	if pid == _my_pid():
 		return
@@ -5662,8 +5663,7 @@ func _show_notice(what: String, card = null, spot := {}, pid := -1, against := [
 	tw.tween_property(n, "modulate:a", 1.0, 0.5) # fondu d'entree 0,5 s (BubbleEntity.cs:67,83)
 	if not skip_animations:
 		tw.tween_callback(_pulse_rings.bind(n, UI_DIR + "action_bubble_effect.webp", Vector2(236, 132), Vector2(117, 68), 4)) # BubbleEntity.cs:CreateShowTask : PulseBehavior(action_bubble_effect, 4)
-	tw.tween_interval(3.0) # PLAY_BUBBLE_TIME (BubblesPlayerEmitter.cs:22,117)
-	tw.tween_property(n, "modulate:a", 0.0, 0.5) # fondu de sortie 0,5 s (BubbleEntity.cs:67 ; BubblesPlayerEmitter.cs:118)
+	tw.tween_interval(NOTICE_SHOW_S - 0.5) # disparition d'une image a l'autre, sans fondu de sortie (voir NOTICE_SHOW_S)
 	tw.tween_callback(func():
 		n.queue_free()
 		_notice_cur.erase(pid)
