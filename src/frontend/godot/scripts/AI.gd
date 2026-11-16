@@ -27,7 +27,7 @@ static var _used: Dictionary = {}
 ## ouverts ensuite par cette capacite (Dracolich Lair, Dark Altar...) lisent ces cibles (StatisticAI : GetSelectedTargets avant TriggerCalculator).
 static var _sel: Dictionary = {}
 ## Construction choisie AVANT la capacite (AIPlayerInteraction.cs:86-101 : UseAbility() et BuildRoom() evaluees sur le meme etat) et posee AVANT que la pile ne
-## s'execute (B7 : liste d'actions jouee d'un trait, GameBoard.NextStep execute les transactions ensuite, GameBoard.cs:306-314) : Match._ai_build_before_resolve.
+## s'execute (B7 : liste d'actions jouee d'un trait, GameBoard.NextStep execute les transactions ensuite, GameBoard.cs:306-314).
 ## "<partie>:<joueur>" -> {"turn": tour, "card": salle, "args": emplacement du coup}.
 static var _pre_build: Dictionary = {}
 ## Liste calculee au premier choix d'une carte a plusieurs choix (Xyzax), par partie et par joueur.
@@ -37,6 +37,10 @@ static var last_choice_shuf := false
 
 static func _key(match_obj, pid: int) -> String:
 	return "%d:%d" % [match_obj.get_instance_id(), pid]
+
+static func has_pre_build(match_obj, pid: int) -> bool:
+	var pre: Dictionary = _pre_build.get(_key(match_obj, pid), {})
+	return not pre.is_empty() and int(pre["turn"]) == int(match_obj.G.get("turn", 0))
 
 ## Construction preparee par l'IA avant sa capacite (voir _pre_build), retiree de la memoire. {} = aucune.
 static func take_pre_build(match_obj, pid: int) -> Dictionary:

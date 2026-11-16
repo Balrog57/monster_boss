@@ -2103,9 +2103,9 @@ func _rec_at(m: int, want: String, t0: int) -> float:
 		await get_tree().process_frame
 	return -1.0
 
-## Coup au boss dans un donjon hors ecran : la voix hurt part 0,5 x vitesse apres le son de deplacement (pas 1,0).
+## Coup au boss hors ecran : attaque au contact, puis voix hurt apres le fondu.
 func _check_hidden_hurt() -> void:
-	for spd in [1.0, 1.5]:
+	for spd in [0.5, 1.0, 1.5]:
 		_tag = "[hidden-hurt x%.1f]" % spd
 		await _new_game()
 		Engine.time_scale = 1.0
@@ -2118,8 +2118,10 @@ func _check_hidden_hurt() -> void:
 		var t0 := Time.get_ticks_msec()
 		board._hidden_crossing_sounds({"pid": 0, "killed": false})
 		var tm: float = await _rec_at(m, "sfx:char_hero_move", t0)
+		var ta: float = await _rec_at(m, "sfx:char_hero_attack", t0)
 		var th: float = await _rec_at(m, "sfx:" + AudioManager.boss_voice(boss_id, "hurt"), t0)
-		_check(tm >= 0.0 and th >= 0.0 and absf((th - tm) - 0.5 * spd) < 0.15, "donjon cache : hurt %.2f s apres le deplacement au lieu de %.2f s" % [th - tm, 0.5 * spd])
+		_check(tm >= 0.0 and ta >= 0.0 and absf((ta - tm) - 0.5 * spd) < 0.15, "donjon cache : attaque %.2f s apres le deplacement au lieu de %.2f s" % [ta - tm, 0.5 * spd])
+		_check(ta >= 0.0 and th >= 0.0 and absf((th - ta) - 0.5 * spd) < 0.15, "donjon cache : hurt %.2f s apres l'attaque au lieu de %.2f s" % [th - ta, 0.5 * spd])
 		_cov("hidden_hurt_x%.1f" % spd)
 	board._speed = board._speed_factor()
 
@@ -2147,7 +2149,7 @@ func _check_gameover_hidden() -> void:
 		await _wait(0.3)
 		if not _check(pid != board.view_pid and pid != board.foe_pid and board.foe_pid == int(cfg["foe"]), "donjon cache : pid %d doit etre hors ecran (vue %d, adversaire %d)" % [pid, board.view_pid, board.foe_pid]):
 			continue
-		var want: float = 0.5 * board._speed + (board.TOMBSTONE_S if bool(cfg["out"]) else 0.0) + board.HERO_CARD_FADE_S + int(cfg["queued"]) * board.QUEUE_SHIFT_S + float(cfg["steps"]) * board.APK_STEP_S + float(cfg["swaps"]) * board.FOE_SWAP_S
+		var want: float = board._speed + (board.TOMBSTONE_S + board.BOSS_DEATH_VOICE_S if bool(cfg["out"]) else 0.0) + board.HERO_CARD_FADE_S + int(cfg["queued"]) * board.QUEUE_SHIFT_S + float(cfg["steps"]) * board.APK_STEP_S + float(cfg["swaps"]) * board.FOE_SWAP_S
 		G["gameOver"] = {"winner": 0 if not bool(cfg["out"]) else pid, "reason": "souls" if not bool(cfg["out"]) else "wounds"}
 		G["phase"] = "end"
 		board._hidden_crossing_sounds({"pid": pid, "killed": false, "queued": int(cfg["queued"])})
@@ -2265,8 +2267,8 @@ func _check_gameover_delay(spd := 1.0) -> void: # spd : le delai de l'ecran de f
 				t_over = tg
 				break
 		if not bool(c["killed"]):
-			var t_contact: float = maxf(0.5 * spd, 0.5) # le coeur s'estompe 0,5 s hors vitesse en parallele du deplacement (HeroesQueueComponent.cs:166) : la traversee dure le plus long des deux
-			_check(t_hit >= 0.0 and absf(t_hit - t_contact) < 0.1, "coup au boss : la voix hurt part a %.2f s, attendue des le contact (%.2f s), sans fondu du heros" % [t_hit, t_contact])
+			var hit_after: float = spd # deplacement 0,5 x vitesse, puis fondu 0,5 x vitesse (HeroCrossingBehavior.cs:106-118)
+			_check(t_hit >= 0.0 and absf(t_hit - hit_after) < 0.1, "coup au boss : la voix hurt part a %.2f s au lieu de %.2f s, apres le fondu du heros" % [t_hit, hit_after])
 		var want: float = (board.TOMBSTONE_S if bool(c["tomb"]) else 0.0) + board.HERO_CARD_FADE_S + int(c["queued"]) * board.QUEUE_SHIFT_S + int(c["steps"]) * board.APK_STEP_S
 		_check(t_end >= 0.0 and t_over >= 0.0 and absf((t_over - t_end) - want) < 0.1, "bandeau %.2f s apres la fin de la traversee au lieu de %.2f s" % [t_over - t_end, want])
 		if spd == 1.0 and float(c["film"]) > 0.0: # APK filme : +-0,1 s, plus une image de mesure
@@ -2276,39 +2278,36 @@ func _check_gameover_delay(spd := 1.0) -> void: # spd : le delai de l'ecran de f
 		_cov("gameover_delay_%s%s" % [c["name"], "" if spd == 1.0 else "_x%.1f" % spd])
 	board._speed = board._speed_factor()
 
-## Mort d'un heros : apres le saut il disparait d'une image a l'autre (jamais semi-transparent), puis la fin de la traversee arrive 0,7 x vitesse plus tard (APK filme, g2_t1 a 77,936 ; HeroCrossingBehavior.cs:94,99).
-func _check_hero_death_vanish() -> void:
-	_tag = "[hero-death-vanish]"
-	for spd in [1.0, 1.5]:
-		await _new_game()
-		Engine.time_scale = 1.0
-		board.set_process(false)
-		board.skip_animations = false
-		board._speed = spd
-		board._hero_pawn = null
-		var layer: Node = board.hero_crossing_layer
-		board._play_hero_crossing_animation({"pid": 0, "hero": (CardDB.heroes[0] as Dictionary).duplicate(true), "initialHp": 4, "killed": true, "deathIndex": -1, "path": []})
-		var pawn := layer.get_child(layer.get_child_count() - 1) as Control
-		var now := 0.0 # temps de jeu (somme des delta), comme les tweens du board
-		var t_off := -1.0
-		var t_end := -1.0
-		var partial := false
-		while now < 6.0:
-			await get_tree().process_frame
-			now += get_process_delta_time()
-			if is_instance_valid(pawn):
-				var a := pawn.modulate.a
-				partial = partial or (a > 0.001 and a < 0.999)
-				if a <= 0.001 and t_off < 0.0:
-					t_off = now
-			if not board._animating_hero:
-				t_end = now
-				break
-		_check(not partial, "mort du heros (x%.1f) : le pion passe par une opacite intermediaire (fondu), attendu une disparition d'un coup" % spd)
-		var t_jump: float = 0.5 + 0.5 * spd # fondu du coeur 0,5 s puis saut de 0,5 x vitesse
-		_check(t_off >= 0.0 and absf(t_off - t_jump) < 0.15, "mort du heros (x%.1f) : disparition a %.2f s, attendue a la fin du saut (%.2f s)" % [spd, t_off, t_jump])
-		_check(t_end >= 0.0 and absf((t_end - t_off) - 0.7 * spd) < 0.15, "mort du heros (x%.1f) : fin de traversee %.2f s apres la disparition, attendue %.2f s" % [spd, t_end - t_off, 0.7 * spd])
-		_cov("hero_death_vanish")
+## HeroCrossingBehavior.cs:91-118 et films h1/h3 : fondu pendant la chute ou apres l'arrivee sur le boss.
+func _check_hero_crossing_fades() -> void:
+	for spd in [0.5, 1.0, 1.5]:
+		await _check_hero_crossing_fade(float(spd), true)
+		await _check_hero_crossing_fade(float(spd), false)
+
+func _check_hero_crossing_fade(spd: float, killed: bool) -> void:
+	_tag = "[hero-crossing-fade]"
+	await _new_game()
+	Engine.time_scale = 1.0
+	board.set_process(false)
+	board.skip_animations = false
+	board._speed = spd
+	board._hero_pawn = null
+	var layer: Node = board.hero_crossing_layer
+	var pid: int = board.foe_pid if killed else board.view_pid
+	board._play_hero_crossing_animation({"pid": pid, "hero": (CardDB.heroes[0] as Dictionary).duplicate(true), "initialHp": 4, "killed": killed, "deathIndex": -1, "path": []})
+	var pawn := layer.get_child(layer.get_child_count() - 1) as Control
+	var now := 0.0
+	var fade_at := -1.0
+	while now < 6.0 and board._animating_hero:
+		await get_tree().process_frame
+		now += get_process_delta_time()
+		if fade_at < 0.0 and is_instance_valid(pawn) and pawn.modulate.a > 0.001 and pawn.modulate.a < 0.999:
+			fade_at = now
+	var expected_fade := 0.5 * spd + (0.5 if killed else 0.0)
+	var expected_end := expected_fade + (0.7 if killed else 0.5) * spd
+	_check(fade_at >= 0.0 and absf(fade_at - expected_fade) < 0.12, "heros (mort=%s x%.1f) : debut du fondu %.2f s au lieu de %.2f s" % [str(killed), spd, fade_at, expected_fade])
+	_check(absf(now - expected_end) < 0.12, "heros (mort=%s x%.1f) : fin a %.2f s au lieu de %.2f s" % [str(killed), spd, now, expected_end])
+	_cov("hero_crossing_fade")
 	board._speed = board._speed_factor()
 
 ## Salle posee sur une autre : la carte se retourne face cachee en 0,5 s et l'ancienne salle reste visible derriere elle (g3_c 16,75-17,19 ; DungeonSlot.add_under_cards).
@@ -2467,17 +2466,36 @@ func _check_spell_choice_then_bar() -> void:
 		if not _check(idx >= 0 and mvs.size() == souls_n, "Soul Harvest : %d coups pour %d ames" % [mvs.size(), souls_n]):
 			continue
 		board.refresh()
+		board.skip_animations = souls_n == 1
 		_check(_drag_card(idx, Vector2(960, 420)), "glisser de Soul Harvest impossible")
-		await get_tree().process_frame # aucune attente entre le lacher et le choix : ouverture dans la meme image
+		await get_tree().process_frame
 		var st: Array = G.get("stack", [])
 		if souls_n > 1:
 			_check(board._popup_kind == "target" and board._popup != null, "choix de cible non ouvert au lacher (popup '%s')" % board._popup_kind)
+			var band := board._popup.get_node_or_null("Band") as Control
+			var cards: Array = board._popup.get_children().filter(func(c): return c is CardUI)
+			if not _check(band != null and cards.size() == 2, "Soul Harvest doit proposer deux cartes de heros"):
+				continue
+			_check(cards[0].card_dict.get("id") == CardDB.heroes[0].get("id") and cards[1].card_dict.get("id") == CardDB.heroes[1].get("id"), "Soul Harvest montre les mauvaises cartes")
+			_check(band.scale.y < 1.0 and not cards[0].visible and not cards[1].visible, "le bandeau doit s'ouvrir avant l'arrivee des cibles")
+			await _wait(0.3)
+			_check(not cards[0].visible and not cards[1].visible, "les cibles apparaissent pendant l'ouverture du bandeau")
+			var confirm := board._popup.get_node("CardsContinue") as Button
+			_check(confirm.disabled, "le bouton du selecteur est actif avant l'arrivee des cibles")
+			await _wait(0.9)
+			_check(cards[0].visible and cards[1].visible and is_equal_approx(band.scale.y, 1.0), "les deux cibles n'ont pas rejoint le bandeau")
 			board._process(0.5)
 			_check(st.is_empty() and not board._win_bar_on and not board._win_bar.visible, "choix ouvert : la pile doit etre vide et la barre absente (pile %d, barre %s)" % [st.size(), board._win_bar_on])
 			for i in 14: # 7 s de choix ouvert : rien ne demarre
 				board._process(0.5)
 			_check((G.get("stack", []) as Array).is_empty() and not board._win_bar_on, "choix ouvert 7 s : la pile ou la barre est apparue")
-			board._do(mvs[0]) # = le rappel de l'entree choisie (_hand_entry)
+			var target: Vector2 = (cards[0] as Control).get_global_rect().get_center() - Vector2(95, 0)
+			await _mouse(target, true, false)
+			await _mouse(target, false, false)
+			_check(confirm.text == "CONTINUE" and (G.get("stack", []) as Array).is_empty(), "selection de cible non confirmee ou sort deja en pile")
+			var confirm_at := confirm.get_global_rect().get_center()
+			await _mouse(confirm_at, true, false)
+			await _mouse(confirm_at, false, false)
 			board._process(0.0)
 		else:
 			_check(board._popup_kind == "" and board._tgt.is_empty(), "une seule cible : aucun choix attendu (popup '%s')" % board._popup_kind)
@@ -2499,6 +2517,37 @@ func _spell_proto(id: String) -> Dictionary:
 			c["isSpell"] = true
 			return c
 	return {}
+
+func _check_freeze_stack_timing() -> void:
+	_tag = "[freeze-stack-timing]"
+	await _adventure_window_setup()
+	var index := _take_spell("BMA046")
+	var moves: Array = gm.legal_moves(0).filter(func(m):
+		return m["type"] == "playSpell" and int(m["args"][0]) == index and int(m["args"][1].get("targetPlayerId", 0)) == 0 and int(m["args"][1].get("roomIndex", -1)) == 0)
+	if not _check(moves.size() == 1, "Freeze : cible manquante dans mon donjon"):
+		return
+	board.skip_animations = false
+	board._do(moves[0])
+	if not _check(board._stack_ui != null, "Freeze : carte absente de la bataille de sorts"):
+		return
+	gm._resolve_pending_stack()
+	board.refresh()
+	_check(BossEngine.is_room_deactivated(gm.G, 0, 0), "Freeze : la salle doit etre desactivee des la resolution")
+	await get_tree().process_frame
+	var slots: Array = board._dungeon_slots.filter(func(s): return s.slot_index == 0 and not s.current_stack.is_empty())
+	if not _check(slots.size() == 1, "Freeze : emplacement 0 absent du plateau"):
+		return
+	var slot: DungeonSlot = slots[0]
+	var ice := slot.find_child("Frozen", true, false) as Control
+	if not _check(ice != null, "Freeze : voile absent"):
+		return
+	await _wait(0.32)
+	_check(board._ui_layer.get_node_or_null("StackGone") == null and ice.modulate.a == 0.0, "Freeze : glace visible moins de 0,5 s apres la disparition de la carte")
+	await _wait(0.44)
+	_check(ice.modulate.a > 0.0 and ice.modulate.a < 0.95, "Freeze : fondu absent ou deja acheve")
+	await _wait(0.55)
+	_check(ice.modulate.a > 0.98, "Freeze : le voile doit finir opaque")
+	_cov("freeze_stack_timing")
 
 func _log_has(G: Dictionary, needle: String) -> bool:
 	return (G["log"] as Array).any(func(e): return needle in Match.log_text(e))
@@ -5068,21 +5117,37 @@ func _check_notice_ai_duration() -> void:
 	await _new_game()
 	board.set_process(false)
 	board.skip_animations = false
-	board._notice_reset()
-	board._notice_ai(1, {"type": "playSpell", "args": []})
-	var t := 0.0
-	var a_285 := -1.0
-	var a_305 := -1.0
-	while t < 3.05:
-		await get_tree().process_frame
-		t += get_process_delta_time() * Engine.time_scale
-		var nt = board._ui_layer.find_child("Notice", true, false)
-		var a: float = (nt as Control).modulate.a if nt != null and is_instance_valid(nt) and not nt.is_queued_for_deletion() else 0.0
-		if t <= 2.85:
-			a_285 = a
-		a_305 = a
-	_check(a_285 > 0.8, "notice adverse : alpha %.2f a 2,85 s (attendu > 0,8)" % a_285)
-	_check(a_305 == 0.0, "notice adverse : encore visible a 3,05 s (alpha %.2f ; film : disparue a 2,95 s)" % a_305)
+	for type in ["playSpell", "activateRoom"]:
+		board._notice_reset()
+		board._notice_ai(1, {"type": type, "args": []})
+		var t := 0.0
+		var a_285 := -1.0
+		var a_305 := -1.0
+		while t < 3.05:
+			await get_tree().process_frame
+			t += get_process_delta_time() * Engine.time_scale
+			var nt = board._ui_layer.find_child("Notice", true, false)
+			var a: float = (nt as Control).modulate.a if nt != null and is_instance_valid(nt) and not nt.is_queued_for_deletion() else 0.0
+			if t <= 2.85:
+				a_285 = a
+			a_305 = a
+		_check(a_285 > 0.8, "notice adverse %s : alpha %.2f a 2,85 s (attendu > 0,8)" % [type, a_285])
+		_check(a_305 == 0.0, "notice adverse %s : encore visible a 3,05 s (alpha %.2f)" % [type, a_305])
+	var room: Dictionary = CardDB.rooms.filter(func(c): return c["id"] == "BMA011")[0].duplicate(true) # Specter's Sanctum (g2_t3)
+	room["faceDown"] = true
+	gm.G["players"][board.foe_pid]["dungeon"] = [[room]]
+	board.refresh()
+	await get_tree().process_frame
+	room["faceDown"] = false
+	board.refresh()
+	var shown: CardUI
+	for child in (board._foe_slots.back() as Control).get_children():
+		if child is CardUI and child.card_dict.get("id") == "BMA011":
+			shown = child
+	if _check(is_instance_valid(shown) and shown.scale.y > 1.3, "salle revelee : la carte doit partir de la taille agrandie"):
+		await _wait(1.1)
+		var notice: Control = board._ui_layer.find_child("Notice", true, false)
+		_check(is_equal_approx(shown.scale.y, 1.0) and is_instance_valid(notice) and notice.modulate.a > 0.8, "la salle doit avoir repris sa taille alors que la notice reste visible")
 	board.skip_animations = true
 	_cov("notice_ai_duration")
 
@@ -5718,9 +5783,10 @@ func _extra_checks() -> void:
 	await _check_ai_window_after_death()
 	await _check_ai_window_post_damage()
 	await _check_gameover_delay()
-	await _check_hero_death_vanish()
+	await _check_hero_crossing_fades()
 	await _check_flip_over_old()
 	await _check_spell_choice_then_bar()
+	await _check_freeze_stack_timing()
 	await _check_gameover_hidden()
 	await _check_hidden_hurt()
 	await _check_late_fades()

@@ -3,6 +3,95 @@
 Source de vérité : `apk-original/decompiled/DBMGame/` (560 `.cs`, ilspycmd) + assets `apk-original/boss-monster-2-2-6/`.
 Cible : `src/frontend/` (Godot 4.7, GL Compatibility, export Web sans threads) + `src/frontend/godot/server/` (serveur WS headless).
 
+## Clôture de la parité (2026-11-16)
+
+Référence de départ `37b7768`, avec l’exclusion locale des textures de cartes Tools of Hero-Kind dans le préréglage Web. Les résultats des 14–15 novembre restent historiques. B18 et B25 ont été corrigés le 13, B29 est clos, la collision d’identifiants de Dracolich Lair est corrigée par `a22e44a`, et `526bb7f` recale l’écran de fin sur trois films. Les écarts de fondu et de chute du héros ci-dessous concernent les mouvements eux-mêmes.
+
+Relance sur la référence de départ. Suites Godot 24/24. Oracle de base 6/6 avec accord `usableSet` à 2 121/2 121, campagne étendue 12/12, paquets APK 6/6, tutoriel 3/3. Captures régénérées, 0 dépassement sur 149 paires et aucune capture manquante.
+
+| Point à suivre | Scénario et preuve actuelle | Contrôle de clôture |
+|---|---|---|
+| B7, ordre entre pose de l’IA et réponse humaine | Corrigé le 16, voir le détail ci-dessous. | Goldens de Dracolich Lair et Witch’s Kitchen sur le premier choix humain et la résolution. |
+| B10, cible qui change de zone | 36 parties Godot à 2–4 joueurs, graines 1–12, paquets Player’s Choice et Hidden Heroes. Deux caches périmés atteints par des coups légaux, King Croak (4 joueurs, graine 5, tour 6, `BMA051`) et Seducia (4 joueurs, graine 12, tour 9, `BMA050`). Les deux cartes sont des sorts, rejetés par le type de la capacité. Dans 24 traces de l’oracle APK, 35 résolutions de première cible pour les cinq cartes B10 et aucun héros choisi dans une autre entrée ni salle choisie déjà en donjon. | Cas de duplication ou d’annulation d’une transaction sur le héros toujours sans reproduction normale. Goldens existants conservés. |
+| The Next Level et Crash Landing | Recoupé avec les livrets, en particulier TNL p. 8, 11 et 17 pour la préparation, les héros et les variantes, et CRL p. 2 pour la fin de tour, le départage à l’XP et la répartition des Explorateurs à 5–6. | Suites dédiées relancées, 443 assertions TNL et 287 CRL, aucun échec. La recette navigateur à 5–6 reste dans le lot salons. |
+| Choix d’un sort à cibles multiples | Le choix de Soul Harvest affiche les cartes des héros. Comparaison à trois cibles avec `g2_t6` détaillée ci-dessous. Godot ouvre le bandeau et fait entrer les cartes environ 0,75 à 0,82 s plus tôt dans le scénario mesuré. | `spell_choice_then_bar` vérifie les héros, le bouton désactivé avant leur arrivée et la pile ouverte après confirmation. Une cible unique reste automatique. La mise en attente visuelle du sort avant l’ouverture du bandeau reste à porter. |
+| Freeze et notice d’une capacité de salle | Freeze en aventure, glace visible 0,50 s après le départ de la carte dans le film du 13. La sonde Godot fenêtrée mesurait −0,091 s avant correction et +0,504 s ensuite. Avec Specter’s Sanctum, le film APK montre la salle revenir à sa taille normale pendant la notice. Le maintien de 3,5 s côté Godot a été supprimé. | `freeze_stack_timing` et `notice_ai_duration` vérifient respectivement le fondu et le retour de la salle à taille normale pendant les 2,95 s de la notice. |
+| Fondu au contact du boss, chute du héros et donjon hors écran | La relecture de `h3` (50,85–51,45 s) et `h1` (86,55–87,15 s) corrobore les fondus du C# (`HeroCrossingBehavior.cs:91-118`). `g2_t1` vers 91,78–91,88 s paraît couper le héros du donjon du bas. Aucun branchement sur la visibilité dans les tâches C# de déplacement et de fondu. | Godot suit la séquence commune du C# et les deux films où le fondu est observable. Contrôles aux trois vitesses, limites de la comparaison entre films ci-dessous. |
+| Tutoriel complet, entrées et audio | Les 19 étapes passent dans `UiSmoke`. Sur l’export Chromium en 4:3, le parcours tactile va de la proposition de tutoriel au LEVEL UP et à l’aventure suivante. Le refus de défausse, les gestes guidés et les choix de carrousel ont été exercés. Les raccords du menu et du donjon ont été comparés sur les sorties audio APK et Chromium. | Contrôler l’écoute et la reprise audio sur Safari natif. |
+| Salons et onglets réels | Crash Landing à 5 et 6 et partie avec tous les paquets terminés avec le client de recette, résultat commun et aucun défaut de filtrage détecté. Chrome natif a confirmé un retour d’onglet pendant une construction, voir le détail ci-dessous. | Étendre le contrôle de masquage à Firefox et Safari. Refaire les refus tracés avec les délais de production si le cas revient. |
+| Safari et déploiement | Recette Safari et passage dans le conteneur nginx documentés dans `deploy/DEPLOYMENT.md`. Le test du pack couvre Chromium, Firefox et le chargement des 296 faces depuis le PCK. Aucun Mac, iPhone ou iPad disponible pour cette passe. | Exécuter la recette sur Safari natif dès qu’un appareil Apple ou un environnement Safari distant est disponible. |
+
+### B7, pose de l’IA avant la réponse humaine
+
+Dans l’APK, `AIPlayerInteraction.cs:86-101,149-186` prépare la capacité et la construction sur le même état, puis exécute leurs actions dans cet ordre. `GameBoard.cs:751-783` notifie les IA, dont `InvokeCallback` est synchrone en solo (`AIPlayerInteraction.cs:224-240`). Après ces réponses, la salle est posée. `GameBoard.cs:306-314` exécute les transactions au pas suivant et `RoomInDungeon.cs:76-100` exclut du ciblage les emplacements dont la salle attend sa révélation.
+
+Avant correction, Dracolich Lair ouvrait la réponse humaine avec la salle B encore en main. Le cas Witch’s Kitchen à trois sièges laissait le joueur humain répondre avant la seconde IA et lui proposait l’ancienne salle comme cible de Freeze. Les trois assertions échouent sur `37b7768`. Avec la correction, une pose préparée pendant le tour de construction attend les réponses des autres IA, puis utilise la pose face cachée existante avant de donner la main à l’humain. Si la pile se termine sans réponse humaine, la pose reste traitée avant la résolution. Le golden joue Freeze sur la cuisine encore ciblable et vérifie l’effet, la fin de la pile et l’absence de pioche pour Witch’s Kitchen. La collision salle/sort de même `_uid` et le cas du constructeur humain restent couverts.
+
+L’oracle rejoue les décisions et compare les états. Le golden B7 couvre le passage de main à l’humain et ses cibles légales.
+
+Relance après correction. Suites Godot 24/24, dont les soaks TNL et Crash Landing à 5–6 joueurs. Oracle 6/6, 12/12, 6/6 et tutoriel 3/3, avec le même accord `usableSet`. Captures régénérées, 0 dépassement sur 149 paires et aucune capture manquante. Export Web reconstruit et test de fumée Chromium OK. Le scénario B7 lui-même a été reproduit dans Godot par le golden à deux et trois sièges, avec le C# comme preuve de l’ordre d’origine.
+
+### Traversée du héros et son du donjon hors écran
+
+Le cœur s’efface pendant 0,5 s. À la mort du héros, son saut dure 0,5 × vitesse et sa chute avec fondu 0,7 × vitesse. Lorsqu’il atteint le boss, son déplacement et son fondu durent chacun 0,5 × vitesse. Le son d’attaque part au contact, la voix du boss après le fondu. Le donjon hors écran reprend ces délais, y compris la voix de mort après la secousse. Les anciens films où le héros disparaît d’une image à l’autre restent un écart entre observations, sans cause établie.
+
+Le nouveau contrôle d’opacité échoue huit fois sur l’ancienne animation et passe après correction pour la chute et l’arrivée sur le boss aux trois vitesses. Le contrôle audio utilise les événements du moteur, pas un enregistrement du son de l’APK hors écran. Les clips Godot reposent sur des états de test et les films APK sur des parties enregistrées.
+
+### Version de recette `fcf09a92`
+
+Images Web et serveur construites sur le homelab à partir de `fcf09a929374c4e8966ab2bab70521d5827a5740` (`codex/recette-portage-2026-11-16`). Pile isolée sur une adresse de boucle locale. `nginx -t`, WASM gzip avec type `application/wasm`, et `/ws` en HTTP 101. Retour à la paire d’images précédente puis restauration du candidat, avec confirmation par les empreintes différentes des PCK et le même contrôle WebSocket. Le premier essai de retour recevait un 502 au démarrage ; le rejeu attend que Godot annonce son écoute et confirme le 101.
+
+Le PCK Linux de recette (`646575d00e1db526aa00e2caada9e48c8bcadc621825f33dc68ecc507c199028`) charge les 296 faces, 7 variantes et 5 dos attendus. Les trois PNG d’atlas BMFont du manifeste source sont présents dans les textures des polices compilées et y ont été vérifiés. L’export Windows du même commit a passé les tests de fumée Chromium et Firefox, ainsi que l’entrée tactile du tutoriel en 4:3. Comparaison d’images Godot après les fondus : 0 dépassement sur 149 paires, aucune capture manquante.
+
+Après les fondus, les 24 suites Godot passent sur l’ensemble des relances. Le passage Windows donne 22/24, dont la suite d’interface avec les 19 étapes du tutoriel, avec deux délais dépassés. En reprises isolées sur l’image serveur Linux du même commit, les goldens passent (2 456 assertions, zéro échec) et le soak Crash Landing + The Next Level termine à 5 et 6 places. La graine Windows interrompue `534072171` termine également sous Linux en 2 108 pas. L’oracle passe à nouveau ses 27 traces (6 de base, 12 étendues, 6 par paquets et 3 de tutoriel).
+
+Sous Chromium, capture de 35,04 s de la musique du menu à travers WebAudio. Autour du raccord mesuré à 29,19 s, le plus long creux sous le seuil RMS de l’analyse dure 20 ms. Le test avec le client Linux extrait vérifie aussi le pseudo personnalisé après rechargement dans le même contexte Web. Sous Firefox, le signal WebAudio apparaît après interaction, et la vérification du profil s’arrête avant la création du salon. Le glissement à la souris du carrousel des extensions a servi à la partie avec les cinq paquets. L’écoute humaine, le raccord en partie et le parcours complet du tutoriel au tactile restent à faire.
+
+Les parties navigateur ont utilisé le serveur Godot Windows du même commit via le proxy du harnais. Les rejeux à cinq et six ainsi que la partie avec les cinq paquets ont utilisé le client extrait de l’image nginx. Les premiers scénarios ont débuté sur l’export Windows. Une sonde séparée sur la pile Docker, via `/ws` de nginx, a créé un salon Crash Landing à six places, joint deux clients par code, transféré l’hôte, démarré la partie et repris le même siège après coupure. Elle a vérifié le masquage des mains adverses dans les vues des deux joueurs.
+
+| Scénario navigateur | Résultat |
+|---|---|
+| Crash Landing à 5, deux humains | Avec le client Linux extrait, partie terminée en 439 s, vainqueur identique au tour 6, aucune fuite détectée ni coup refusé. Avec l’export Windows, 636 s, résultat commun au tour 7, trois `pass` refusés en aventure, puis reprise du jeu. |
+| Crash Landing à 6, deux humains | Rejeu terminé en 786 s, vainqueur identique au tour 9, aucune fuite détectée. Un `pass` refusé à la fermeture d’une réponse de construction au tour 3. La partie continue jusqu’au résultat commun. |
+| Base et les quatre extensions livrées, deux humains à trois places | Premier essai arrêté à la jonction. Rejeu terminé en 380 s, résultat identique au tour 6, aucune fuite détectée. Un `pass` refusé à la fermeture d’une pause avant la sortie du héros. |
+| Transfert d’hôte, Chromium | Les deux autres joueurs récupèrent le salon et démarrent la partie, 40 s de jeu sans problème signalé. |
+| Coupure des deux connexions, Firefox | Deux nouvelles connexions, sièges 0 et 1 conservés. Rejeu via les commandes du plateau, aucun refus détecté. |
+| Onglet réellement masqué | Chrome natif avec contrôle direct et le client Linux extrait. Le navigateur passe à `hidden` pendant que le siège 0 est attendu en construction. Après 16 s (délai serveur 8 s), il revient à `visible`. Neuf états ont été reçus pendant l’absence. Le serveur confirme le coup suivant, sur le même siège et la même connexion, sans refus pendant la transition. Le lanceur Playwright maintenait auparavant l’état `visible`. |
+
+`BM_TRACE` montre également à 12:29:42 un `pass#66` de Carol en aventure au tour 5 de la première partie à six. Le coup part avec `post-damage` et `awaited=[0,1,2]` dans l’état client. Lors du refus reçu 658 ms après l’envoi, `awaited` est vide et le serveur ne propose plus le passage. Le harnais accélère les pauses d’aventure à 1 s (10 s par défaut). Ce motif se produit pendant des parties ordinaires de la recette, sans changement d’onglet. La première partie à six a atteint la limite de 950 s après réception d’états au tour 8 sur les trois clients.
+
+Les preuves de cette relance sont dans `tools/.cache/parity-remaining-2026-11-16/` (local). Cela comprend les rapports `web-p5-retry.log`, `web-p6-retry.log`, `web-ext.log`, `real-tab-game.log`, les traces horodatées, `staging-asset-receipt.json` et `staging-rollback.log`. La recette sur Safari natif reste à exécuter.
+
+Diffusion publique : le livret TNL autorise la reproduction non commerciale de ce livret (page de copyright). Les documents et le manifeste disponibles n’établissent pas d’autorisation de redistribution des visuels des cartes, des sprites, de l’audio et des autres assets concernés.
+
+### Reprise du minutage
+
+Le sélecteur d’origine ouvre le bandeau en 0,5 s (`MiddleCarouselAnimationBehavior.cs`) et ajoute les cartes après son fondu de 0,1 s et son délai de 0,5 s (`CarouselSelectorEntity.cs`, `CarouselSelectorShowComponent.cs`). `AddCarouselCardsBehavior.cs` ajoute le rang `i` quand la progression cubique dépasse `i / nombre`. Le test Godot effectue le choix puis clique sur CONTINUE, avec la pile vide jusque-là.
+
+Le contrôle Freeze se limite au volet visuel qui suit la résolution d’une bataille de sorts en aventure. L’état désactivé et la légalité des actions sont appliqués à la résolution. Le lancement du fondu est daté par emplacement, de sorte qu’un rafraîchissement de l’interface reprend le délai ou le fondu déjà engagé. La sonde chronométrée reproduit l’effet avec un sort du joueur et une salle visible, contre un lancement de l’IA dans le film APK. La mesure ne tranche pas les autres contextes de résolution.
+
+Firefox a créé les deux profils, rejoint le salon et relu `profile.cfg` dans IndexedDB après rechargement, avec le pseudo attendu. La nouvelle jonction par l’interface après rechargement n’a pas abouti dans ce scénario. Les contrôles ciblés et les preuves de reprise sont dans le même dossier local, sous les noms `timing-*.log`.
+
+Tutoriel tactile sur l’export Web reconstruit, Chromium en 960 × 720, un point de contact. Défausse interdite avec rappel de King Croak, défausse autorisée et CONTINUE, poses de Construction Zone, Golem Factory et Bottomless Pit, activation de la salle et glisser d’Assassin sur le Mage. Au LEVEL UP, le carrousel a permis de prendre Beast Menagerie et de le poser sur Golem Factory. La phase d’aventure suivante a commencé sans surcouche de tutoriel. Captures dans `touch-journey/`, notamment `wrong-discard.png`, `spell-stack.png`, `level-choice.png` et `after-tutorial.png`.
+
+L’enregistrement WebAudio de la musique en partie a identifié la piste APK `music_dungeon_v3.mp3` par corrélation de la forme d’onde. Premier essai, creux de 330 ms sous le seuil RMS, période mesurée de 118,186 s. Rejeu dans une partie avec un humain et un bot, période de 117,928 s, aucun bloc de 10 ms sous le seuil au raccord. Le fichier MP3 du portage est identique à celui de l’APK et sa jonction PCM décodée ne contient pas ce creux. Le premier résultat n’est pas reproduit sur ce rejeu. L’écoute comparée avec la sortie audio de l’APK reste ouverte.
+
+Contrôles du lot. Le passage Windows passe 23/24 suites et atteint le délai de 600 s dans la suite d’interface. La reprise de cette suite avec les quatre fichiers du lot montés sur l’image Linux de recette passe en 393 s, avec les 19 étapes du tutoriel et les nouveaux contrôles. Les 27 traces APK sont rejouées après les changements. Les trois comparaisons de menus dépassées lors de la capture concurrente repassent avec une recapture des menus en ligne. Bilan 0/149, seuils d’origine. L’export Windows reconstruit passe le test de fumée Chromium. Sous Firefox, trois interactions du parcours standard sont manquées deux fois, et le parcours passe en espaçant ses clics de 950 ms de plus. Le build de recette `fcf09a92` passe le scénario standard sur la même machine.
+
+Les notices des deux livrets officiels limitent la reproduction autorisée à leur propre texte et présentation pour un usage non commercial. Aucune mention couvrant les assets du portage numérique n’a été trouvée dans les sources de l’éditeur consultées. [Livret de base](https://www.brotherwisegames.com/s/BossMonsterRules10thAnniversary.pdf) · [The Next Level](https://static1.squarespace.com/static/6508a57d4f618044bb0f8544/t/654bad9689e0ee1a7d8db216/1699458459665/Boss_Monster_Next_Level_Rulebook.pdf)
+
+### Comparaisons de fin de passe
+
+**Soul Harvest, trois cibles.** Dans `g2_t6.mp4`, le sort atteint sa position d’attente en haut à gauche vers 12,98 s. Le bandeau commence à apparaître à 13,80 s (+0,82 s), les cartes entrent vers 14,50 s (+1,52 s) et les trois sont présentées vers 14,80 s. Le joueur sélectionne The Fool vers 23,4 s. Le sort rejoint la pile et la barre s’ouvre après CONTINUE, vers 25 s. Sur Godot fenêtré, avec trois entrées d’âmes, le bandeau commence à +0,073 s et les cartes atteignent le bord du bandeau à +0,698 s, +0,832 s et +1,011 s. Cliquer sur un héros laisse la pile vide. CONTINUE y place le sort. L’écart se concentre donc avant l’ouverture du sélecteur. La mesure APK part de la mise en attente visible de la carte. La sonde Godot part du traitement du lâcher.
+
+**Agrandissement, Specter’s Sanctum.** Dans `g2_t3.mp4`, la face se stabilise agrandie vers 78,10 s, reprend sa taille vers 78,45–78,50 s, et la notice « ROOM ABILITY AGAINST » est encore visible à 80,50 s. Cette séquence correspond à `CreateFlipUpTopRoomTask` dans `CardStackSlotComponent.cs`, qui enchaîne le retour à taille normale après le retournement. Après suppression du maintien, la sonde Godot mesure la réduction de +0,506 s à +0,772 s depuis la révélation, et la disparition de la notice vers +2,935 s. Le contrôle de l’état à 1,1 s échoue avant correction et passe ensuite, carte à taille normale et notice opaque.
+
+**Raccords audio.** Sortie réelle de l’APK 2.2.6 dans BlueStacks, capturée en WASAPI sur le processus de l’émulateur avec NAudio 3.3.0. Corrélation du début et de la fin avec les MP3 du dépôt. Pour le menu, écart des repères de 98,5 ms côté APK et 37,0 ms côté Chromium. Pour le donjon, 78,5 ms et 32,8 ms. Les plus longs creux, par blocs de 10 ms à RMS inférieur à 0,0005, sont respectivement de 80 et 20 ms pour le menu, puis 60 et 0 ms pour le donjon. Le premier creux Chromium de 330 ms reste une observation isolée. Les chiffres décrivent les signaux capturés sur ces deux chaînes audio.
+
+Captures et mesures de cette passe dans `tools/.cache/final-apk-parity/` (local), dont `audio-comparison.log`, `godot-visual-checked.log` et les planches tirées des films. Les sources du portage et l’audit sont seuls destinés au dépôt.
+
+Après correction de la taille, le contrôle ciblé `notice_ai_duration` passe. Les 27 traces de l’oracle sont rejouées, les captures régénérées donnent 0 dépassement sur 149 paires et le nouvel export Web passe le test de fumée sous Chromium.
+
 ## Légende
 
 - **Présent ?** : `Oui` / `Non (vérifié absent)` / `Non vérifié (accès manquant)` / `N/A` (rien à porter, preuve donnée).
@@ -3448,6 +3537,8 @@ Contrôles : `_check_gameover_delay` couvre quatre cas (`death`, `victory` nouve
 
 Détail par point dans « Écarts Godot / APK, relecture du 2026-11-03 », section « Partiels ou ouverts ».
 
+Le reste de B7 a été corrigé le 2026-11-16. Voir « B7, pose de l’IA avant la réponse humaine » en tête d’audit.
+
 Captures de comparaison (`tests/capture_screens.gd`), trois paires au-dessus du seuil avant correction, aucun seuil relâché :
 - `build_room_placed_facedown_done_button` et `build_done_button_green_after_playing_room_t4` : capture prise pendant le vol de la carte piochée ; la capture attend maintenant la fin des cartes du groupe `drawn_card` (`_draws_done`).
 - `menu_player_count_carousel_4_left_2_center_3_right` : capture prise pendant l'animation d'entrée du carrousel (attente portée à 2,0 s) et bandeau des extensions wiki affiché, absent de l'APK (`use_extensions = false` avant `show_solo_count`). Les rangs latéraux sont recalés d'un pixel sur les frames de l'APK (`Main.COUNT_SLOTS` -378 / +382, y -31, au lieu de ±380 / -30 dans le C#), commenté dans `Main.gd`.
@@ -3468,7 +3559,7 @@ Films dans `docs/reference/apk_film_2026-11-13/` (local, non versionné, INDEX.m
 | Barre de fenêtre, apparition → départ de la carte | 6,03 / 6,07 s | `WINDOW_STACK` 6,0, conforme |
 | Départ de la carte → effet (glace de Freeze) | 0,50 s | non vérifié |
 
-Le C# (`BubblesPlayerEmitter.cs:117-118`) écrit 3,0 s puis un fondu de sortie de 0,5 s ; comme pour la mort du héros, le fondu de sortie finit en une image dans l'APK, et le film fait foi. Disparition vérifiée image par image sur le film de Freeze (opaque jusqu'à 124,91 s, absente à l'image suivante). `NOTICE_HOLD` (tenue de la salle agrandie pendant la bulle d'une capacité de salle) est inchangé : non filmé. Contrôle : `ui_smoke._check_notice_ai_duration` (`notice_ai_duration`), qui échoue avec l'ancienne durée.
+Le C# (`BubblesPlayerEmitter.cs:117-118`) écrit 3,0 s puis un fondu de sortie de 0,5 s ; comme pour la mort du héros, le fondu de sortie finit en une image dans l'APK, et le film fait foi. Disparition vérifiée image par image sur le film de Freeze (opaque jusqu'à 124,91 s, absente à l'image suivante). La tenue de salle est documentée dans « Comparaisons de fin de passe ». Contrôle : `ui_smoke._check_notice_ai_duration` (`notice_ai_duration`), qui échoue avec l'ancienne durée.
 
 Toujours non filmés : la victoire (deux parties arrêtées à 9 âmes, le « pas de plus » de l'écran de victoire reste tiré du C# seul) et les héros de l'IA après ma mort (segments de film corrompus par l'arrêt forcé de `screenrecord`).
 

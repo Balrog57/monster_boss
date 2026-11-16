@@ -1289,7 +1289,8 @@ func _t_b7_build_before_resolve() -> void:
 	run_ai0.call(m, G)
 	var st: Array = G.get("stack", [])
 	var queued: bool = st.size() == 1 and str((st[0] as Dictionary).get("type", "")) == "ability" and ((st[0] as Dictionary).get("handUids", []) as Array) == [101, 102]
-	_ok.call(queued and _hand(G, 0).size() == 2 and int(G.get("activePlayer", -1)) == 1, "B7 Dracolich Lair : capacite en file, cibles [A, B] dans l'ordre de l'IA, rien pose avant la fin de la Spell Battle : %s" % str(st.map(func(e): return (e as Dictionary).get("handUids"))))
+	_ok.call(queued and _hand(G, 0) == [a] and bool(b.get("faceDown", false)) and int(G.get("activePlayer", -1)) == 1,
+		"B7 Dracolich Lair : cibles [A, B] en file, B deja posee face cachee avant la reponse humaine")
 	m.apply_move(1, _mv("pass"))
 	var dun: Array = G["players"][0]["dungeon"]
 	var b_built: bool = dun.any(func(s2): return (s2 as Array).has(b) and bool(b.get("faceDown", false)))
@@ -1298,14 +1299,16 @@ func _t_b7_build_before_resolve() -> void:
 		"B7 Dracolich Lair : B posee avant l'execution, A defaussee, C reste en defausse, OncePerTurn libre (hand=%s)" % str(_hand(G, 0).map(func(x): return x["id"])))
 	m.queue_free()
 	# Witch's Kitchen : seule Monster batissable = cible de la capacite ET salle posee -> exception sur la 1re cible : ni defausse ni pioche
-	var G2 := _G([_player(0, "BMA001", [_room("BMA024"), _plain("d1")]), _player(1, "BMA002")], ["base"])
+	var G2 := _G([_player(0, "BMA001", [_room("BMA024"), _plain("d1", "monster", [4])]), _player(1, "BMA002"), _player(2, "BMA008")], ["base"])
 	G2["turn"] = 3
 	G2["phase"] = "build"
 	G2["activePlayer"] = 0
 	(G2["players"][0] as Dictionary)["isAI"] = true
-	var x := _uid_room(201, "X", "monster", [1], 1)
-	var y := _uid_room(202, "Y", "monster", [2], 5, true) # avancee sans emplacement compatible : pas batissable
+	(G2["players"][2] as Dictionary)["isAI"] = true
+	var x := _uid_room(201, "X", "monster", [4], 4, true)
+	var y := _uid_room(202, "Y", "monster", [], 5, true) # avancee sans emplacement compatible : pas batissable
 	_hand(G2, 0).append_array([x, y])
+	_hand(G2, 1).append(_spell("BMA046")) # Freeze : d1 cesse d'etre ciblable une fois recouverte
 	var sp := _spell("BMA048")
 	sp["_uid"] = 301
 	(G2["decks"]["spells"] as Array).append(sp)
@@ -1313,7 +1316,17 @@ func _t_b7_build_before_resolve() -> void:
 	run_ai0.call(m2, G2)
 	var st2: Array = G2.get("stack", [])
 	_ok.call(st2.size() == 1 and ((st2[0] as Dictionary).get("handUids", []) as Array) == [201], "B7 Witch's Kitchen : capacite en file sur X : %s" % str(st2.map(func(e): return (e as Dictionary).get("handUids"))))
-	m2.apply_move(1, _mv("pass"))
+	var response: Array = m2.legal_moves(1)
+	_ok.call(bool((G2.get("stackPassed", {}) as Dictionary).get(2, false)) and int(G2.get("activePlayer", -1)) == 1,
+		"B7 Witch's Kitchen : l'autre IA repond avant l'humain meme avec moins d'XP")
+	var freeze_kitchen := _mv("playSpell", [0, {"targetPlayerId": 0, "roomIndex": 0}])
+	_ok.call(not response.has(_mv("playSpell", [0, {"targetPlayerId": 0, "roomIndex": 1}])) and response.has(freeze_kitchen),
+		"B7 Witch's Kitchen : Freeze peut viser la cuisine, plus la salle recouverte")
+	var freeze_played: bool = m2.apply_move(1, freeze_kitchen)
+	m2.apply_move(0, _mv("pass"))
+	m2.apply_move(2, _mv("pass"))
+	_ok.call(freeze_played and BossEngine.is_room_deactivated(G2, 0, 0) and (G2.get("stack", []) as Array).is_empty(),
+		"B7 Witch's Kitchen : la reponse humaine Freeze est jouee et la pile se resout")
 	var dun2: Array = G2["players"][0]["dungeon"]
 	var kitchen: Dictionary = BossEngine.active_room(dun2.filter(func(s2): return str(((s2 as Array)[0] as Dictionary).get("id", "")) == "BMA024")[0])
 	_ok.call(dun2.any(func(s2): return (s2 as Array).has(x)) and _hand(G2, 0) == [y] and (G2["decks"]["spells"] as Array).has(sp) and (G2["decks"]["roomDiscard"] as Array).is_empty() and not bool(kitchen.get("usedThisTurn", false)),

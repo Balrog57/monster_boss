@@ -541,9 +541,8 @@ func _place_room(pid: int, idx: int, slot: int) -> void:
 	p["buildsThisTurn"] = int(p.get("buildsThisTurn", 0)) + 1
 
 ## B7 (AIPlayerInteraction.cs:86-101, 165-186) : en BuildPhase_a l'IA du tour joue sa capacite PUIS pose la salle choisie sur l'etat d'avant ; la transaction
-## n'est executee qu'au NextStep suivant (GameBoard.cs:306-314), donc apres la pose. Appele juste avant l'execution de la pile. Un humain attend la fin de la
-## Spell Battle : rien pour lui. Les autres IA ont repondu avant la pose dans l'APK (OnAbilityApplyRequest est synchrone), comme ici.
-func _ai_build_before_resolve() -> void:
+## n'est executee qu'au NextStep suivant (GameBoard.cs:306-314). La pose suit les reponses synchrones des IA et precede la reponse humaine.
+func _place_prepared_ai_room() -> void:
 	if str(G.get("phase", "")) != CardDB.PHASE["BUILD"] or G.has("buildWindow") or G.has("forcedBuild") or not bool(G.get("autoAI", true)):
 		return
 	var pid := int(G.get("stackActivePlayer", -1))
@@ -846,12 +845,7 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 				sp[str(pid)] = true
 				sp[pid] = true
 				G["stackPassed"] = sp
-				if _stack_all_responders_passed():
-					_resolve_pending_stack()
-				else:
-					var next := _next_stack_responder()
-					if next >= 0:
-						G["activePlayer"] = next
+				_continue_stack_window()
 				return true
 
 			if bool(G.get("setupBuild", false)):
@@ -2010,25 +2004,27 @@ func _reopen_stack_window(pid: int) -> void:
 	G["stackPassed"] = sp
 	if not (G.get("pendingChoice", {}) as Dictionary).is_empty():
 		return # le joueur garde la main le temps de son choix, puis passe
-	var next := _next_stack_responder()
-	if next >= 0:
-		G["activePlayer"] = next
-	else:
+	_continue_stack_window()
+
+func _continue_stack_window() -> void:
+	var build_pid := int(G.get("stackActivePlayer", -1))
+	var builder: Dictionary = G["players"].get(build_pid, {})
+	var prepared_build := bool(G.get("autoAI", true)) and bool(builder.get("isAI", false)) and AI.has_pre_build(self, build_pid)
+	var passed: Dictionary = G.get("stackPassed", {})
+	var human := -1
+	for pid in _stack_response_order():
+		if bool(passed.get(str(pid), false)) or bool(passed.get(pid, false)):
+			continue
+		if not prepared_build or bool(G["players"][pid].get("isAI", false)):
+			G["activePlayer"] = pid
+			return
+		if human < 0:
+			human = int(pid)
+	if human < 0:
 		_resolve_pending_stack()
-
-func _next_stack_responder() -> int:
-	var passed: Dictionary = G.get("stackPassed", {})
-	for pid in _stack_response_order():
-		if not bool(passed.get(str(pid), false)) and not bool(passed.get(pid, false)):
-			return int(pid)
-	return -1
-
-func _stack_all_responders_passed() -> bool:
-	var passed: Dictionary = G.get("stackPassed", {})
-	for pid in _stack_response_order():
-		if not bool(passed.get(str(pid), false)) and not bool(passed.get(pid, false)):
-			return false
-	return true
+	else:
+		_place_prepared_ai_room()
+		G["activePlayer"] = human
 
 static var _tuid_seq := 0
 
@@ -2066,7 +2062,7 @@ func _retarget_stack_effect(effect: Dictionary) -> bool:
 	return false
 
 func _resolve_pending_stack() -> void:
-	_ai_build_before_resolve()
+	_place_prepared_ai_room()
 	var stack: Array = G.get("stack", [])
 	while not stack.is_empty():
 		var effect: Dictionary = stack.pop_front() # index 0 = prochain a se resoudre (NextStep : PendingAbilityTransactions.First())
@@ -2277,7 +2273,7 @@ func _enqueue_ability(e: Dictionary) -> void:
 		G["buildWindow"] = _window_auto_passed() # une capacite relance la Spell Battle : tout le monde doit re-passer
 	_reopen_stack_window(pid)
 
-## B7 : Dracolich Lair / Witch's Kitchen dont une cible en main a ete posee entre la mise en file et l'execution (pose de l'IA, _ai_build_before_resolve).
+## B7 : Dracolich Lair / Witch's Kitchen dont une cible en main a ete posee entre la mise en file et l'execution (pose de l'IA, _place_prepared_ai_room).
 ## Boss.BuildRoom n'annule aucune transaction ; Effect.Execute defausse les cibles dans l'ordre (DiscardTargetRoomFromHand) et GameBoard.DiscardFromHand leve
 ## sur la premiere absente de la main (GameBoard.cs:589-621) : les precedentes restent defaussees, la suite (pioche, recuperation) ne se fait pas, et
 ## IsEffectApplied reste faux (Ability.cs:129-136, OncePerTurn rendu). null si rien de tel.

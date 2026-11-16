@@ -1,5 +1,7 @@
 class_name CardUI
 extends Control
+
+const FROZEN_FADE_S := 0.5
 ## Composant visuel d'une carte Boss Monster (Card.tscn).
 
 const CardData = preload("res://godot/scripts/CardData.gd")
@@ -102,7 +104,7 @@ func set_face_down_scale() -> void:
 
 ## Retournement d'une salle qui vient d'etre revelee (APK CreateFlipUpTopRoomTask, CardStackSlotComponent.cs:274-296, tous les joueurs en meme temps) : la salle en attente est a l'echelle 0,5
 ## (:139-140), elle se retourne en 0,5 s (FlipCardBehavior, CardEntity.cs:72, sans EasingFunction : pitch lineaire donc largeur en cosinus) puis reprend sa taille en 0,3 s (ScaleOut, CardEntity.cs:71, lineaire).
-func flip_in(duration := 0.5, hold := 0.0, delay := 0.0) -> void:
+func flip_in(duration := 0.5, delay := 0.0) -> void:
 	if delay <= 0.0:
 		AudioManager.play_sfx("ui_card_slide_up") # FlipCardBehavior.cs:113 (CardStackSlotComponent.cs:283 : CreateFaceUpTask de la salle revelee)
 	var target := _rest_scale
@@ -122,14 +124,12 @@ func flip_in(duration := 0.5, hold := 0.0, delay := 0.0) -> void:
 	tw.tween_property(self, "scale:x", 0.0, duration / 2.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	tw.tween_callback(back.queue_free)
 	tw.tween_property(self, "scale:x", big.x, duration / 2.0).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-	if hold > 0.0: # salle a declencheur de construction : elle reste agrandie pendant la bulle de capacite de l'adversaire
-		tw.tween_interval(hold)
 	tw.tween_property(self, "scale", target, 0.3)
 
 ## Gel de l'APK (Freeze) : voile de glace (frozzen_card) par-dessus la salle ; animate : il apparait en fondu lineaire de 0,5 s (CardStackSlotComponent.cs:102 ; DungeonFrameEntity.cs:341),
 ## et s'efface de la meme facon au degel (CardStackSlotComponent.cs:98 CreateFadeOutTask, meme FadeBehavior de 0,5 s). L'appelant passe animate = (le gel vient de changer).
 ## Il grossit avec la salle ou se trouve le heros (1 -> 1,35, CubicEase, DungeonFrameEntity.cs:336-340) : ici il est enfant de la salle, qui grossit deja (BoardUI._apply_focus).
-func set_frozen(on: bool, animate := false) -> void:
+func set_frozen(on: bool, animate := false, onset_ms := -1) -> void:
 	if (on or animate) and _frozen == null:
 		_frozen = TextureRect.new()
 		_frozen.texture = load("res://assets/ui/ingame/frozzen_card.webp")
@@ -141,9 +141,11 @@ func set_frozen(on: bool, animate := false) -> void:
 		_frozen.position = Vector2(-6, -6) * k
 		_frozen.size = default_size + Vector2(12, 12) * k
 		add_child(_frozen)
-		if on and animate:
-			_frozen.modulate.a = 0.0
-			_frozen.create_tween().tween_property(_frozen, "modulate:a", 1.0, 0.5)
+		if on and (animate or onset_ms >= 0):
+			var elapsed := float(Time.get_ticks_msec() - onset_ms) / 1000.0 if onset_ms >= 0 else 0.0
+			_frozen.modulate.a = clampf(elapsed / FROZEN_FADE_S, 0.0, 1.0)
+			if elapsed < FROZEN_FADE_S:
+				_frozen.create_tween().tween_property(_frozen, "modulate:a", 1.0, FROZEN_FADE_S - maxf(elapsed, 0.0)).set_delay(maxf(-elapsed, 0.0))
 	if _frozen == null:
 		return
 	if on or not animate:
@@ -152,7 +154,7 @@ func set_frozen(on: bool, animate := false) -> void:
 		var ghost := _frozen
 		_frozen = null
 		var tw := ghost.create_tween()
-		tw.tween_property(ghost, "modulate:a", 0.0, 0.5)
+		tw.tween_property(ghost, "modulate:a", 0.0, FROZEN_FADE_S)
 		tw.tween_callback(ghost.queue_free)
 
 func _ready() -> void:

@@ -200,6 +200,7 @@ var _press := {}                         # appui sur une carte de la main : {car
 var _drag := {}                          # glisser en cours : {idx, preview, frames}
 var _zoom: Control                       # zoom de carte (appui sur un heros de la ville / une pile, LEVEL UP, notice, carrousel du boss)
 var _stack_sig := ""
+var _freeze_veil_starts := {}
 var _pass_tw: Tween                      # fondu du bouton PASS TURN / DONE! (voir _set_pass_visible)
 var _pass_want := false
 var _stack_keys: Array = []              # cartes de la pile au dernier affichage : celles qui arrivent sont animees (_refresh_stack_cards)
@@ -274,6 +275,7 @@ const REVEAL_S := 0.8                    # retournement 0,5 s + retour a la tail
 const DONE_FADE_S := 0.15                # DONE s'efface (FadeBehavior 0,15 s, DoneButtonEntity.cs:93,179-193) avant le pas suivant
 const LATE_BUILD_FADE_S := 0.3           # salle posee par une IA apres mon DONE : fondu d'entree attendu (CardEntity.cs:69 ; CardStackSlotComponent.cs:119-123,175)
 const TOMBSTONE_S := 0.5                 # pierre tombale du boss mort (DungeonFrameEntity.cs:298), hors vitesse ; ecran de fin retarde : voir _arm_over_delay
+const BOSS_DEATH_VOICE_S := 10.0 * PI / 72.0 # DungeonFrameEntity.cs:489-519 : secousse avant la voix de mort
 const HERO_CARD_FADE_S := 0.3            # la carte du heros quitte la file d'entree : FadeBehavior de la carte 0,3 s (CardEntity.cs:69 ; ShiftAndRemoveFirstHero, HeroesQueueComponent.cs:285-317), hors vitesse
 const QUEUE_SHIFT_S := 0.5               # par heros encore en file (file videe a la mort du boss, GameBoard.cs:1069-1072) : la carte suivante glisse 0,5 s pendant le fondu, puis s'efface a son tour (HeroesQueueComponent.cs:298-305)
 const APK_STEP_S := 0.605                # shortcut: cout moyen d'un NextStep, ajuste sur trois fins filmees (g2_t9, h3, h1 : ecart <= 0,08 s) ; le C# n'a pas d'attente ecrite, a recaler si un 4e film le contredit
@@ -289,10 +291,11 @@ const TOWN_SCROLL_S := 0.7               # defilement de la colonne HEROES IN TO
 const BAIT_FLY := 1.0                   # vol d'une carte de heros depuis la ville jusqu'a l'entree du donjon, x vitesse (VerticalScrollQueueComponent.cs:261-262) ; la plaque BAIT PHASE dure tant que les vols (chacun apres le precedent) puis le reordonnancement de la ville (0,5 x vitesse)
 const WINDOW_ADVENTURE := 3.0
 const WINDOW_STACK := 6.0
+const STACK_FADE_OUT_S := 0.1
+const FREEZE_AFTER_STACK_S := 0.5 # shortcut: mesure sur Freeze en aventure, film APK du 13 novembre ; recaler si un autre film etablit un delai different
 const PASS_FAST := 0.45                  # SEUL delai sans origine C# : un siege humain d'une partie a plusieurs humains sur le meme ecran (`_apk_flow` faux : hotseat de Godot, voir les tests `humans` > 1) qui n'a rien a jouer passe apres 0,45 s. L'APK n'a aucune attente de ce genre : GamePlayPaPScene.OnUserInteractionModeFinished (cs:109-116) enchaine la meme barre de 3 s (CreateWaitAndMoveHeroToNextSlotTask) que GamePlayBaseScene.cs:861-871 ; solo et en ligne, la valeur est 0 (voir `want` dans _auto_pass). L'ancien GO_FAST (0,55) est supprime.
 const HAND_UPPER := 797.0                # CardExtractBehavior.cs:ResolveDependencies : limite haute de la main (972 - 450/2 + 50) ; au-dessus la carte est extraite, en dessous elle retourne dans la main
 const NOTICE_SHOW_S := 2.95             # bulle « HAS PLAYED A » filmee : film 2026-11-13, 2,95-2,97 s depuis le debut du fondu d'entree, sans fondu de sortie ; le C# (BubblesPlayerEmitter.cs:117-118) ecrit 3,0 s + fondu 0,5 s mais le film fait foi
-const NOTICE_HOLD := 3.5                 # (la bulle elle-meme tient 2,95 s filmees (NOTICE_SHOW_S) ; la tenue de la salle n'est pas filmee) bulle « HAS PLAYED A » : fondu d'entree 0,5 s + 3,0 s (BubblesPlayerEmitter.cs:22) ; la salle reste agrandie pendant ce temps (deduit des captures APK)
 const WARN_TIME := 0.5                   # bulle « YOU CAN BUILD A ROOM » (HideWhenTouchBehavior.cs:36-37) : entree et sortie de 0,5 s, fermee par un appui hors de la bulle une fois entree
 const TEX_PASS := UI_DIR + "pass_button.webp"
 const TEX_DONE := UI_DIR + "done_button_unlimited.webp"
@@ -1480,6 +1483,7 @@ func refresh() -> void:
 		return
 
 	var G: Dictionary = game_manager.G
+	_track_freeze_veil(G)
 	_late_off = {}
 	_late_at = {}
 	_reveal_wait = 0.0
@@ -1546,6 +1550,7 @@ func refresh() -> void:
 		if di >= 0 and di < n:
 			slot.slot_index = di
 			slot.skip_anim = skip_animations
+			slot.freeze_onset_ms = int(_freeze_veil_starts.get(Vector2i(view_pid, di), -1))
 			slot.set_stack(dungeon[di])
 		else:
 			slot.slot_index = n
@@ -2431,7 +2436,7 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 				room_ui.card_clicked.connect(func(_d): _slot_zoom(fpid, di)) # clic sans appui long : zoom de la pile
 				var fz: bool = BossEngine.is_room_deactivated(game_manager.G, foe_pid, di)
 				var fk := "%d:%d" % [foe_pid, di] # par salle (indice du moteur), pas par noeud : les salles glissent d'un noeud a l'autre quand le donjon grandit
-				room_ui.set_frozen(fz, fz != bool(prev_frozen.get(fk, false)) and not skip_animations)
+				room_ui.set_frozen(fz, fz != bool(prev_frozen.get(fk, false)) and not skip_animations, int(_freeze_veil_starts.get(Vector2i(foe_pid, di), -1)))
 				_foe_frozen[fk] = fz
 				room_ui.set_face_down_scale()
 				var fd: bool = room_ui.card_data != null and room_ui.card_data.face_down
@@ -2441,21 +2446,18 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 						room_ui.add_heart(fdmg) # CardStackSlotComponent.cs:148 : degats courants de la salle du dessus, en or, quand ils different de l'imprime
 				var late: bool = _late_off.has(fk) and not bool(prev_down.get(fk, false)) # posee par l'IA apres mon DONE : jamais affichee face cachee (_pre_reveal)
 				if (bool(prev_down.get(fk, false)) or late) and not fd and not skip_animations:
-					# revelation : la salle adverse se retourne. Si elle declenche « when you build... », la bulle ROOM ABILITY de l'adversaire s'affiche
-					# (GamePlayBaseScene.cs:668 : Gameboard_AbilityApplyRequest pour toute capacite) et, sur les captures APK (notice_opponent_has_played_a_room_ability_*,
-					# ability_opponent_dark_lab_*), la salle reste agrandie (0,5 : CardStackSlotComponent.cs:138-141, ScaleBehavior.MaxScale 0,5 CardsFactory.cs:101) pendant la bulle.
-					var trigger: bool = str((r as Dictionary).get("description", "")).to_lower().begins_with("when you build")
+					# g2_t3 : Specter's Sanctum reprend sa taille apres le retournement, pendant que la notice reste visible.
 					fly_off = float(_late_off[fk] if late else _foe_pend_off.get(fk, 0.0)) # MovePendingRoomToRightPlace (cs:210-233) precede le retournement : la salle glisse de sa place d'attente a la sienne (|decalage| / SLIDE_PX_S s, hors vitesse)
 					_foe_pend_off.erase(fk)
 					if fly_off != 0.0:
 						fly_ui = room_ui
-					room_ui.flip_in(0.5, NOTICE_HOLD if trigger else 0.0, _reveal_wait + absf(fly_off) / SLIDE_PX_S) # apres DONE et les poses des IA suivantes (_pre_reveal)
+					room_ui.flip_in(0.5, _reveal_wait + absf(fly_off) / SLIDE_PX_S) # apres DONE et les poses des IA suivantes (_pre_reveal)
 					if late: # elle apparait face cachee en fondu de 0,3 s (CardStackSlotComponent.cs:119-123), juste avant la revelation
 						room_ui.modulate.a = 0.0
 						var ftw: Tween = room_ui.create_tween()
 						ftw.tween_interval(float(_late_at.get(fk, 0.0))) # demarre apres l'attente propre a cette salle (_pre_reveal), le temps mort DONE_IDLE_S vient apres le fondu
 						ftw.tween_property(room_ui, "modulate:a", 1.0, LATE_BUILD_FADE_S)
-					if trigger:
+					if str((r as Dictionary).get("description", "")).to_lower().begins_with("when you build"):
 						_show_notice("ROOM ABILITY", r, {}, foe_pid)
 				if fd and not bool(prev_down.get(fk, false)) and old_pid == foe_pid and not skip_animations: # (nouvelle pile, ou salle posee par-dessus une pile visible : seul ce dernier cas a un decalage d'attente non nul)
 					fly_ui = room_ui # M13 : salle adverse posee en attente, posee a sa place d'attente (cadre du haut seulement) une fois dans l'arbre ; elle glisse a sa place a la revelation
@@ -2641,7 +2643,7 @@ func _disc_intro(disp: Array) -> void:
 		var cu := disp[r] as Control
 		if _disc_shown.has(r):
 			continue
-		var at := _disc_t0 + roundi((0.5 + 1.0 - pow(1.0 - float(r) / float(n), 1.0 / 3.0)) * 1000.0)
+		var at := _disc_t0 + roundi((0.5 + _carousel_card_delay(r, n)) * 1000.0)
 		if now >= at:
 			_disc_shown[r] = true
 			var target := cu.position
@@ -3451,10 +3453,8 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 		tw.tween_callback(func(): _play_sfx("char_hero_death")) # HeroCrossingBehavior.cs:98
 		tw.tween_property(pawn, "position:y", pawn.position.y + (-200.0 + 40.0) * ky, 0.5 * _speed).set_trans(Tween.TRANS_CIRC).set_ease(Tween.EASE_OUT) # HeroCrossingBehavior.cs:93,95-98
 		tw.tween_callback(func(): _set_focus(pid, -1)) # ScaleOutAllSlotsTopRoom, en meme temps que la chute (HeroCrossingBehavior.cs:99)
-		tw.tween_callback(func(): # le heros disparait d'un coup apres le saut, sans fondu de 0,7 s (APK filme le 2026-11-12, g2_t1 a 77,936 ; HeroCrossingBehavior.cs:94,99)
-			if is_instance_valid(pawn):
-				pawn.modulate.a = 0.0)
-		tw.tween_property(pawn, "position:y", pawn.position.y + (400.0 + 40.0) * ky, 0.7 * _speed).set_trans(Tween.TRANS_CIRC).set_ease(Tween.EASE_IN) # attente de 0,7 s conservee (HeroCrossingBehavior.cs:99-102)
+		tw.tween_property(pawn, "position:y", pawn.position.y + (400.0 + 40.0) * ky, 0.7 * _speed).set_trans(Tween.TRANS_CIRC).set_ease(Tween.EASE_IN)
+		tw.parallel().tween_property(pawn, "modulate:a", 0.0, 0.7 * _speed) # JumpAndFade : le film h1 montre le heros encore visible pendant la chute
 		tw.tween_callback(func():
 			if is_instance_valid(pawn):
 				pawn.queue_free()
@@ -3467,14 +3467,12 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 		# MoveToBossAndFade (HeroCrossingBehavior.cs:106-118) : 0,5 x vitesse, X en CubicEase EaseOut et Y en EaseIn (:111-116), les salles reprennent leur taille en meme temps (:111), puis fondu 0,5 x vitesse (:117)
 		tw.tween_callback(func():
 			_set_focus(pid, -1)
-			_play_sfx("char_hero_move")) # HeroCrossingBehavior.cs:111
+			_play_sfx("char_hero_move")
+			pawn.create_tween().tween_property(pawn.get_node("HeroHeart"), "modulate:a", 0.0, 0.5)) # le coeur fond en parallele de toute la sequence, hors vitesse
 		tw.tween_property(pawn, "global_position:x", boss_pos.x, 0.5 * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 		tw.parallel().tween_property(pawn, "global_position:y", boss_pos.y, 0.5 * _speed).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-		tw.parallel().tween_property(pawn.get_node("HeroHeart"), "modulate:a", 0.0, 0.5) # HeroesQueueComponent.cs:166 : HeartFadeBehavior.CreateFadeOutTask, 0,5 s sans vitesse, en parallele du deplacement
-		tw.tween_callback(func(): # le heros disparait d'un coup au contact, sans fondu de 0,5 s (APK filme le 2026-11-12, docs/reference/apk_film_2026-11-12 (g2_t1))
-			if is_instance_valid(pawn):
-				pawn.modulate.a = 0.0
-			_play_sfx("char_hero_attack")) # HeroCrossingBehavior.cs:117
+		tw.tween_callback(func(): _play_sfx("char_hero_attack"))
+		tw.tween_property(pawn, "modulate:a", 0.0, 0.5 * _speed) # MoveToBossAndFade : fondu observe dans h3 avant le flash du boss
 		tw.tween_callback(func():
 			# CreateBossHitAnimationTask (DungeonFrameEntity.cs:489-496) : apres le fondu du heros, calque additif + secousse + son
 			if is_instance_valid(boss_sprite):
@@ -3486,7 +3484,7 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 		if bool(pl_dict.get("eliminated", false)): # DungeonFrameEntity.cs:495,512-519 : boss mort, la voix de mort part apres la secousse (0,44 s), avec la pierre tombale
 			var pl_boss = pl_dict.get("boss")
 			var dead_voice := AudioManager.boss_voice(str((pl_boss as Dictionary).get("id", "")) if pl_boss != null else "", "death")
-			tw.tween_interval(10.0 * PI / 72.0)
+			tw.tween_interval(BOSS_DEATH_VOICE_S)
 			tw.tween_callback(func(): _play_sfx(dead_voice))
 		tw.tween_callback(func():
 			if is_instance_valid(pawn):
@@ -3503,17 +3501,21 @@ func _hidden_crossing_sounds(lhf: Dictionary) -> void:
 	var tw := create_tween()
 	var gone := bool(((game_manager.G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary).get("eliminated", false))
 	if bool(lhf.get("killed", false)):
-		_arm_over_delay(pid, false, 0.5, int(lhf.get("queued", 0))) # fin de partie : memes pas restants qu'a l'ecran (GamePlayBaseScene.cs:1054-1080)
+		_arm_over_delay(pid, false, 0.5 + 1.2 * _speed, int(lhf.get("queued", 0))) # fondu du coeur, saut et chute
 		tw.tween_interval(0.5) # fondu du coeur (HeroesQueueComponent.cs:171) puis JumpAndFade
 		tw.tween_callback(func(): _play_sfx("char_hero_death"))
 		return
-	_arm_over_delay(pid, gone, 0.5 * _speed, int(lhf.get("queued", 0)))
+	_arm_over_delay(pid, gone, _speed + (BOSS_DEATH_VOICE_S if gone else 0.0), int(lhf.get("queued", 0)))
+	var boss = ((game_manager.G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary).get("boss")
+	var boss_id := str((boss as Dictionary).get("id", "")) if boss is Dictionary else ""
 	tw.tween_callback(func(): _play_sfx("char_hero_move"))
 	tw.tween_interval(0.5 * _speed)
-	tw.tween_callback(func(): _play_sfx("char_hero_attack")) # pas de fondu apres le contact (APK filme le 2026-11-12, docs/reference/apk_film_2026-11-12 (g2_t1))
-	tw.tween_callback(func():
-		var boss =((game_manager.G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary).get("boss")
-		_play_sfx(AudioManager.boss_voice(str((boss as Dictionary).get("id", "")) if boss is Dictionary else "", "hurt")))
+	tw.tween_callback(func(): _play_sfx("char_hero_attack"))
+	tw.tween_interval(0.5 * _speed)
+	tw.tween_callback(func(): _play_sfx(AudioManager.boss_voice(boss_id, "hurt")))
+	if gone:
+		tw.tween_interval(BOSS_DEATH_VOICE_S)
+		tw.tween_callback(func(): _play_sfx(AudioManager.boss_voice(boss_id, "death")))
 
 ## Pas d'un heros dans un donjon hors ecran : memes sons que _animate_step (intro a l'entree, char_hero_move au depart puis a l'arrivee avec le son de la salle, 1,0 x vitesse plus tard).
 func _hidden_step_sounds(pid: int, from_room: int, to_room: int) -> void:
@@ -3923,8 +3925,9 @@ func _popup_list(kind: String, title: String, entries: Array, cancel_cb: Callabl
 ## `pick_cb(ordre)` recoit l'ordre final des items de gauche a droite. Un appui relache hors du bandeau annule quand le choix est annulable (MiddleCarouselShowComponent.cs:74).
 func _popup_cards(kind: String, title: String, items: Array, skip_cb: Callable = Callable(), pick := 1, pick_cb: Callable = Callable(), swap := false) -> void:
 	var pop := _popup_begin(kind, 0.0)
-	_carousel_band(pop)
-	_img(pop, UI_DIR + "top_globe.webp", Vector2(PLAY_CX - 440, 150)) # levelup_14 : bulle x 510..1430
+	var band := _carousel_band(pop)
+	var globe := _img(pop, UI_DIR + "top_globe.webp", Vector2(PLAY_CX - 440, 150)) # levelup_14 : bulle x 510..1430
+	var animate := kind == "target" and not skip_animations
 	var fs := 26 if title.length() <= 44 else 21
 	var wrapped := ""
 	var line := ""
@@ -3946,6 +3949,16 @@ func _popup_cards(kind: String, title: String, items: Array, skip_cb: Callable =
 	var cards: Array = []
 	var btn := Button.new()
 	btn.name = "CardsContinue"
+	if animate: # CarouselSelectorEntity et CarouselSelectorShowComponent : fondu du selecteur de 0,1 s, puis 0,5 s avant les cartes
+		band.scale.y = 0.0
+		band.create_tween().tween_property(band, "scale:y", 1.0, 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+		globe.hide()
+		tl.hide()
+		btn.disabled = true
+		pop.create_tween().tween_callback(func():
+			globe.show()
+			tl.show()
+			btn.disabled = false).set_delay(0.6)
 	var update := func():
 		var sel: Array = st["sel"]
 		for k in cards.size():
@@ -3973,6 +3986,14 @@ func _popup_cards(kind: String, title: String, items: Array, skip_cb: Callable =
 			cu.border.visible = false # comme la defausse d'ouverture (tut_26) : pas de filet gris autour des cartes du bandeau
 		cu.mouse_entered.disconnect(cu._on_mouse_entered) # pas de grossissement au survol : le halo dit « choisie »
 		cu.mouse_exited.disconnect(cu._on_mouse_exited)
+		if animate:
+			var destination := cu.position
+			cu.hide()
+			cu.position = Vector2(DISCARD_CX - sz.x / 2.0, 1080.0 + DISCARD_TOP)
+			cu.create_tween().tween_callback(func():
+				cu.show()
+				CardUI.lerp_vers(cu, "position", destination)
+				_play_sfx("ui_card_slide_general")).set_delay(0.6 + _carousel_card_delay(i, n))
 		var idx := i
 		cu.card_clicked.connect(func(_d):
 			var sel: Array = st["sel"]
@@ -4019,6 +4040,10 @@ func _popup_cards(kind: String, title: String, items: Array, skip_cb: Callable =
 				skip_cb.call())
 	update.call()
 
+## AddCarouselCardsBehavior : le rang entre quand CubicEase Out(t / 1 s) depasse rang / nombre.
+static func _carousel_card_delay(rank: int, count: int) -> float:
+	return 1.0 - pow(1.0 - float(rank) / float(count), 1.0 / 3.0)
+
 ## Carte d'une entree de choix (propre a l'entree, ou portee par la cible du coup : sort sur une carte, ame, pile...) ; {} si aucune.
 func _entry_card(e: Dictionary) -> Dictionary:
 	var c = e.get("card")
@@ -4026,9 +4051,17 @@ func _entry_card(e: Dictionary) -> Dictionary:
 		return c
 	var a: Array = (e.get("mv", {}) as Dictionary).get("args", [])
 	if a.size() > 1 and a[1] is Dictionary:
-		var tc = (a[1] as Dictionary).get("card")
+		var target: Dictionary = a[1]
+		var tc = target.get("card")
 		if tc is Dictionary and not (tc as Dictionary).is_empty():
 			return tc
+		if target.has("soulIndex"): # HeroInScorekeep : le selecteur APK presente le heros, pas l'entree de score face cachee.
+			var players: Dictionary = game_manager.G.get("players", {})
+			var owner: Dictionary = players.get(int(target.get("targetPlayerId", _my_pid())), {})
+			var souls: Array = owner.get("souls", [])
+			var index := int(target["soulIndex"])
+			if index >= 0 and index < souls.size():
+				return (souls[index] as Dictionary).get("hero", {})
 	return {}
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -5345,6 +5378,19 @@ func _zoom_hide() -> void:
 	if hand_layer != null:
 		hand_layer.modulate = Color.WHITE
 
+func _track_freeze_veil(G: Dictionary) -> void:
+	if skip_animations:
+		_freeze_veil_starts.clear()
+		return
+	var now := Time.get_ticks_msec()
+	for spot: Vector2i in _freeze_veil_starts.keys():
+		if now >= int(_freeze_veil_starts[spot]) + roundi(CardUI.FROZEN_FADE_S * 1000.0) or not BossEngine.is_room_deactivated(G, spot.x, spot.y):
+			_freeze_veil_starts.erase(spot)
+	if G.get("phase") == "adventure" and _stack_ui != null and (G.get("stack", []) as Array).is_empty():
+		for spot: Vector2i in _stack_ui.get_meta("freeze_targets", []):
+			if BossEngine.is_room_deactivated(G, spot.x, spot.y):
+				_freeze_veil_starts[spot] = now + roundi((STACK_FADE_OUT_S + FREEZE_AFTER_STACK_S) * 1000.0)
+
 ## Pile de sorts (Spell Battle) : les sorts en attente au centre de l'ecran, dans leur cadre noir (la barre de temps est au-dessus).
 func _refresh_stack_cards(G: Dictionary) -> void:
 	var stack: Array = G.get("stack", [])
@@ -5367,7 +5413,7 @@ func _refresh_stack_cards(G: Dictionary) -> void:
 			var gone := _stack_ui
 			gone.name = "StackGone"
 			var gt := gone.create_tween()
-			gt.tween_property(gone, "modulate:a", 0.0, 0.1)
+			gt.tween_property(gone, "modulate:a", 0.0, STACK_FADE_OUT_S)
 			gt.tween_callback(gone.queue_free)
 		else:
 			_ui_layer.remove_child(_stack_ui)
@@ -5379,6 +5425,12 @@ func _refresh_stack_cards(G: Dictionary) -> void:
 	_stack_ui.name = "StackCards"
 	_stack_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_stack_ui.size = Vector2(1920, 1080)
+	var freeze_targets: Array[Vector2i] = []
+	for entry: Dictionary in stack:
+		if str((entry.get("card", {}) as Dictionary).get("id", "")) == "BMA046":
+			var target: Dictionary = entry.get("target", {})
+			freeze_targets.append(Vector2i(int(target.get("targetPlayerId", entry.get("playerId", -1))), int(target.get("roomIndex", -1))))
+	_stack_ui.set_meta("freeze_targets", freeze_targets)
 	_ui_layer.add_child(_stack_ui)
 	if not skip_animations and old_keys.is_empty(): # ... et entre en fondu de 0,1 s (cs:SpellBattleShowComponent)
 		_stack_ui.modulate.a = 0.0

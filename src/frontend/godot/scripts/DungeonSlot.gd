@@ -56,6 +56,7 @@ func set_stack(stack: Array) -> void:
 	_update_view()
 
 var skip_anim := false ## BoardUI.skip_animations : le refresh ne reconstruit plus la salle, un retournement ou un vol commence reste donc visible
+var freeze_onset_ms := -1
 var _view_key_seen: Array = [] ## copie de ce qu'_update_view a affiche (cle de _view_key)
 var _shown_ids: Array = [] ## ids des 2 salles du dessus au dernier affichage (CardStackSlotComponent.UpdateValues : RoomStack.Take(2), le dessus d'abord)
 var _shown_pid := -1 ## joueur affiche la derniere fois : les fondus ne valent que pour une meme pile qui change, pas pour un changement de joueur ni le premier affichage
@@ -142,7 +143,7 @@ func _update_view() -> void:
 				zoom_stack.emit(slot_index))
 		var frozen: bool = game_manager != null and BossEngine.is_room_deactivated(game_manager.G, player_id, slot_index)
 		var fkey := "%d:%d" % [player_id, slot_index]
-		card_ui.set_frozen(frozen, frozen != frozen_seen.has(fkey) and _animated())
+		card_ui.set_frozen(frozen, frozen != frozen_seen.has(fkey) and _animated(), freeze_onset_ms)
 		if frozen:
 			frozen_seen[fkey] = true
 		else:
@@ -154,7 +155,7 @@ func _update_view() -> void:
 			if card_ui.card_data.card_type in ["monster", "trap"] and dmg != int(active_room.get("damage", 0)):
 				card_ui.add_heart(dmg) # CardStackSlotComponent.cs:148 : degats courants de la salle du dessus quand ils different de l'imprime
 		if _was_down and not down and _animated():
-			card_ui.flip_in(0.5, 0.0, reveal_delay)
+			card_ui.flip_in(0.5, reveal_delay)
 		if down and not _was_down and _animated():
 			_flip_down(card_ui, active_room, holder) # B22 : la salle posee se retourne face cachee (BuildRoomHandSceneBehavior.cs:182)
 		_was_down = down
