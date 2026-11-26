@@ -183,7 +183,7 @@ var win_time_scale := 1.0                # tests : raccourcit les fenetres chron
 var _win_t := 0.0
 var _win_sig := ""
 var _stk_hold := false                  # pile de sorts encore dans sa fenetre de 6 s : l'IA ne peut qu'y repondre, pas passer (_auto_pass)
-var _last_ms := 0                        # horloge reelle du dernier _process : Godot plafonne delta a ~0,13 s par image (web a quelques i/s)
+var _last_process_us := 0
 var _border_prev: Dictionary = {}      # style de cadre de chaque carte de la main au dernier affichage (cle « indice:id ») : le fondu repart de la ou il en etait
 var _grey_prev: Dictionary = {}              # main : cle "index:id" -> {g: grise ?, t: ms du dernier changement} (fondu de grisage, voir _refresh_hand)
 var _hand_stale := false                 # un refresh() a ete saute pendant un appui sur une carte de la main (voir _refresh_hand)
@@ -196,6 +196,10 @@ var _done_dl := 0                        # echeance (ms) de la barre ; _done_tot
 var _done_total := 1.0
 var _pulse_t := 0.0                      # temps depuis l'apparition du bouton PASS TURN / DONE! (pulsation toutes les 5 s)
 var _gameover: Control
+var _keep_defeat_phase_banner := false
+var _terminal_sidebar_deferred := false
+var _terminal_crossing_pending := false
+var _terminal_sidebar_timer_pending := false
 var _press := {}                         # appui sur une carte de la main : {card, idx, pos} (arme le glisser)
 var _drag := {}                          # glisser en cours : {idx, preview, frames}
 var _zoom: Control                       # zoom de carte (appui sur un heros de la ville / une pile, LEVEL UP, notice, carrousel du boss)
@@ -252,6 +256,9 @@ var _pass_foe := -1                      # adversaire affiche a ce moment
 var _late_at := {}                       # "pid:salle" -> s apres le refresh ou demarre le fondu d'entree de la salle posee en retard (_pre_reveal), ce refresh seulement
 var _late_off := {}                     # "pid:salle" -> decalage d'attente des salles posees par une IA apres mon DONE (jamais affichees face cachee), ce refresh seulement
 var _reveal_wait := 0.0                  # s avant le retournement des salles, ce refresh seulement (DONE, constructions IA suivantes)
+var _early_reveal_slide := -1.0
+var _levelup_upgrade_slot := -1
+var _levelup_upgrade_at := 0.0
 var _lvl_wait := 0.0                     # s avant la banniere LEVEL UP, ce refresh seulement (apres la revelation)
 # Carrousel du choix du boss
 var _boss_sel := 0
@@ -1112,15 +1119,22 @@ func _process(delta: float) -> void:
 		return # les IA n'ont pas fini leur construction : ni minuterie ni coup du joueur tant que le plateau est perime
 	_refresh_flush() # le refresh retenu pendant le pilotage IA par images
 	_warm_step()
-	# Godot plafonne delta (~0,13 s) quand les images sont lentes (web, onglet en arriere-plan) : les fenetres chronometrees (APK : horloge reelle)
-	# et l'IA suivent donc l'horloge murale si elle avance plus vite (au plus 1 s par image : un onglet endormi ne vide pas la barre d'un coup).
-	var now := Time.get_ticks_msec()
-	var dt: float = maxf(delta, minf(float(now - _last_ms) / 1000.0, 1.0)) if _last_ms > 0 else delta
-	_last_ms = now
+	# Compense le plafonnement de delta quand une image est lente. En cadence normale,
+	# utiliser le delta seul évite de cumuler les arrondis de deux horloges.
+	var now := Time.get_ticks_usec()
+	var frame_cap := float(Engine.max_physics_steps_per_frame) / Engine.physics_ticks_per_second
+	var dt := delta
+	if _last_process_us > 0:
+		var elapsed := float(now - _last_process_us) / 1_000_000.0
+		if elapsed > frame_cap:
+			dt = maxf(delta, minf(elapsed, 1.0))
+	_last_process_us = now
 	if not _tg("run"):
 		return # tutoriel : une scene est affichee (le jeu est fige derriere, GamePlayTutScene.cs:135) ou une consigne attend le joueur
 	if _animating_hero or _bait_active():
 		return # le heros ne part qu'une fois tous les heros arrives a leur donjon
+	if _last_phase == "adventure" and _apk_flow() and _phase_tw != null and _phase_tw.is_running():
+		return # La première fenêtre suit la transition de la plaque Aventure.
 	if _modal_open() and not _is_online():
 		return # menu / regles ouverts : la partie locale est en pause
 	if _auto_pass(dt):
@@ -1487,6 +1501,7 @@ func refresh() -> void:
 	_late_off = {}
 	_late_at = {}
 	_reveal_wait = 0.0
+	_levelup_upgrade_slot = -1
 	_lvl_wait = 0.0
 	DungeonSlot.reveal_delay = 0.0
 	if _zoom == null or not _zoom.has_meta("levelup"): # le zoom de LEVEL UP survit aux refresh (l'IA joue, state_changed) jusqu'au clic suivant
@@ -1511,6 +1526,11 @@ func refresh() -> void:
 	var lhf = G.get("lastHeroFight")
 	if lhf != null and lhf is Dictionary and not _animating_hero:
 		G.erase("lastHeroFight")
+		var fight_pid := int(lhf.get("pid", -1))
+		var fight_player: Dictionary = (G.get("players", {}) as Dictionary).get(fight_pid, {})
+		if not skip_animations and fight_pid in [view_pid, foe_pid] and G.get("gameOver") != null and bool(fight_player.get("eliminated", false)) and not bool(lhf.get("killed", false)):
+			_terminal_sidebar_deferred = true
+			_terminal_crossing_pending = true
 		_play_hero_crossing_animation(lhf)
 	_track_adventure(G)
 
@@ -1531,13 +1551,29 @@ func refresh() -> void:
 			foe_dict["boss"] = null
 
 	_refresh_phase_banner(phase)
+	if phase == "build" and not skip_animations and not _pass_snap.is_empty() and G.has("revealQueue") and _rooms_to_reveal():
+		var choice: Dictionary = G.get("pendingChoice", {})
+		var owner: Dictionary = G["players"].get(int(choice.get("playerId", -1)), {})
+		if bool(owner.get("isAI", false)) and bool(G.get("autoAI", true)):
+			# Le choix IA interrompt BUILD pendant le retournement. Les autres
+			# contrôles se rafraîchissent, mais le leurre doit attendre la carte.
+			_reveal_wait = float(_pre_reveal()[0])
+			DungeonSlot.reveal_delay = _reveal_wait
+			_early_reveal_slide = maxf(_early_reveal_slide, _foe_slide_s())
 	_track_hand_draw(G, p, phase) # avant _refresh_town (la ville attend les cartes en vol) et avant _refresh_hand : les cartes piochees sont cachees des la reconstruction de la main
 	_refresh_lane_badges(1, p)
 	_refresh_lane_badges(0, foe_dict)
 	_track_levelup(G)
-	_refresh_sidebar(G, p, foe_dict)
+	if _terminal_sidebar_deferred:
+		if not _terminal_crossing_pending and not _terminal_sidebar_timer_pending:
+			# La salle de boss a commencé son fondu RIP après l'impact. L'APK révèle le nouveau score après cette animation (s16, x5 visible après le fondu RIP).
+			_terminal_sidebar_timer_pending = true
+			get_tree().create_timer(0.6).timeout.connect(_finish_terminal_sidebar_refresh)
+	else:
+		_refresh_sidebar(G, p, foe_dict)
 	_refresh_town(G)
-	_refresh_boss_platforms(p, foe_dict)
+	if not _terminal_sidebar_deferred or not _terminal_crossing_pending:
+		_refresh_boss_platforms(p, foe_dict)
 	_refresh_entrances(p, foe_dict)
 
 	# Donjon du joueur : salles alignees a droite (la plus recente = la plus a gauche, a l'entree).
@@ -1597,6 +1633,12 @@ func refresh() -> void:
 		_drag_refresh()
 	_extract_resume()
 
+func _finish_terminal_sidebar_refresh() -> void:
+	_terminal_sidebar_deferred = false
+	_terminal_crossing_pending = false
+	_terminal_sidebar_timer_pending = false
+	refresh()
+
 func _carousel_active(G: Dictionary, phase: String) -> bool:
 	return G.get("gameOver") == null and (_boss_pending(G) or _is_opening_discard_for_me())
 
@@ -1637,7 +1679,7 @@ func _refresh_overlay(G: Dictionary, phase: String) -> void:
 	_dim_all.visible = intro and boss_pick
 	if intro:
 		_dim.visible = false
-	phase_banner.visible = not over and not discard and not intro
+	phase_banner.visible = (not over or _keep_defeat_phase_banner) and not discard and not intro
 	phase_banner.modulate.a = 0.25 if full and not intro else 1.0
 	top_menu_btn.modulate = Color(0.3, 0.3, 0.3, 1.0) if intro and boss_pick else Color(1, 1, 1, 0.25 if full and not intro else 1.0) # tut_16 : l'engrenage est a 0,30 de sa luminosite (77 / 255)
 	_bubble.visible = discard
@@ -2445,7 +2487,27 @@ func _refresh_foe_dungeon(foe: Dictionary) -> void:
 					if fdmg != int(r.get("damage", 0)):
 						room_ui.add_heart(fdmg) # CardStackSlotComponent.cs:148 : degats courants de la salle du dessus, en or, quand ils different de l'imprime
 				var late: bool = _late_off.has(fk) and not bool(prev_down.get(fk, false)) # posee par l'IA apres mon DONE : jamais affichee face cachee (_pre_reveal)
-				if (bool(prev_down.get(fk, false)) or late) and not fd and not skip_animations:
+				if di == _levelup_upgrade_slot and not fd:
+					var pile: Array = dungeon[di]
+					var base_ui = _card_scene.instantiate()
+					base_ui.default_size = DungeonSlot.CARD_SIZE
+					base_ui.custom_minimum_size = DungeonSlot.CARD_SIZE
+					base_ui.set_meta("fit", DungeonSlot.CARD_SIZE)
+					slot_ctrl.add_child(base_ui)
+					slot_ctrl.move_child(base_ui, room_ui.get_index())
+					base_ui.position = room_ui.position
+					base_ui.setup(pile[pile.size() - 2])
+					base_ui.add_lane_badge()
+					base_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+					base_ui.flip_in(0.5, _reveal_wait)
+					room_ui.flip_in(0.5, _levelup_upgrade_at + LATE_BUILD_FADE_S)
+					room_ui.modulate.a = 0.0
+					var upgrade: Tween = room_ui.create_tween()
+					upgrade.tween_interval(_levelup_upgrade_at)
+					upgrade.tween_property(room_ui, "modulate:a", 1.0, LATE_BUILD_FADE_S)
+					upgrade.tween_interval(REVEAL_S)
+					upgrade.tween_callback(base_ui.queue_free)
+				elif (bool(prev_down.get(fk, false)) or late) and not fd and not skip_animations:
 					# g2_t3 : Specter's Sanctum reprend sa taille apres le retournement, pendant que la notice reste visible.
 					fly_off = float(_late_off[fk] if late else _foe_pend_off.get(fk, 0.0)) # MovePendingRoomToRightPlace (cs:210-233) precede le retournement : la salle glisse de sa place d'attente a la sienne (|decalage| / SLIDE_PX_S s, hors vitesse)
 					_foe_pend_off.erase(fk)
@@ -3037,6 +3099,9 @@ func _refresh_phase_banner(phase: String) -> void:
 		pre = _pre_reveal()
 	if (bait or opening) and (_rooms_to_reveal() or bool(pre[1])):
 		reveal = REVEAL_S + maxf(_foe_slide_s(), float(pre[2]))
+	if bait and _early_reveal_slide >= 0.0:
+		reveal = maxf(reveal, REVEAL_S + _early_reveal_slide)
+		_early_reveal_slide = -1.0
 	if opening and reveal > 0.0: # tour 1 : fondu de DONE puis attente avant le retournement (APK filme le 2026-11-12, docs/reference/apk_film_2026-11-12 (f12, f11, f03))
 		_reveal_wait = DONE_FADE_S + OPENING_WAIT_S
 		DungeonSlot.reveal_delay = _reveal_wait
@@ -3048,7 +3113,14 @@ func _refresh_phase_banner(phase: String) -> void:
 		DungeonSlot.reveal_delay = _reveal_wait
 		_lvl_wait = banner_at
 		_bait_t0 = Time.get_ticks_msec()
-		_bait_delay = banner_at + (LEVELUP_S if _levelup_new() else 0.0) + STEP_POLLS_S
+		var levelup := _levelup_new()
+		_bait_delay = banner_at + (LEVELUP_S if levelup else 0.0) + STEP_POLLS_S
+		if levelup:
+			_levelup_upgrade_slot = _pending_levelup_upgrade()
+			if _levelup_upgrade_slot >= 0:
+				_levelup_upgrade_at = _lvl_wait + LEVELUP_S + LATE_BUILD_WAIT_S
+				banner_at = _levelup_upgrade_at + LATE_BUILD_FADE_S + REVEAL_S + REVEAL_TO_BAIT_S
+				_bait_delay = banner_at + STEP_POLLS_S
 		_town_hold = not _bait_plan.is_empty() # la colonne garde chaque heros jusqu'au depart de son vol (VerticalScrollQueueComponent.CreateAssignHeroesTask) ; _town_release la remet a jour apres le dernier
 		if _town_hold:
 			var left := town_container.get_child_count() - _bait_plan.size()
@@ -3156,6 +3228,23 @@ func _pre_reveal() -> Array:
 			_late_at["%d:%d" % [q, di]] = wait - LATE_BUILD_FADE_S
 			slide = maxf(slide, absf(off) / SLIDE_PX_S)
 	return [wait + DONE_IDLE_S, any, slide]
+
+## Le rafraîchissement différé peut recevoir d'un coup la première salle et l'amélioration forcée.
+func _pending_levelup_upgrade() -> int:
+	if _is_online() or foe_pid < 0 or foe_pid != _pass_foe or not _lvl_seen.has(foe_pid) or bool(_lvl_seen[foe_pid]):
+		return -1
+	var foe: Dictionary = game_manager.G["players"][foe_pid]
+	if not bool(foe.get("leveledUp", false)):
+		return -1
+	var before: Array = _pass_snap.get(foe_pid, [])
+	var dungeon: Array = foe.get("dungeon", [])
+	for di in mini(before.size(), dungeon.size()):
+		var pile: Array = dungeon[di]
+		if pile.size() < 2 or not bool(_foe_down.get("%d:%d" % [foe_pid, di], false)):
+			continue
+		if _pile_key(pile.slice(0, pile.size() - 1)) == before[di]:
+			return di
+	return -1
 
 ## Un boss monte de niveau a cette revelation (meme condition que _track_levelup, qui joue la banniere) : l'APK la joue, tous donjons confondus, avant les vols.
 func _levelup_new() -> bool:
@@ -3491,6 +3580,8 @@ func _play_hero_crossing_animation(lhf: Dictionary) -> void:
 				pawn.queue_free()
 			_animating_hero = false
 			_arm_over_delay(pid, bool(pl_dict.get("eliminated", false)), 0.0, int(lhf.get("queued", 0)))
+			if _terminal_sidebar_deferred:
+				_terminal_crossing_pending = false
 			refresh()
 		)
 
@@ -5000,6 +5091,7 @@ func _on_pass_pressed() -> void:
 	else:
 		_pass_pid = _my_pid()
 		_pass_foe = foe_pid
+		_early_reveal_slide = -1.0
 		_pass_snap = {}
 		for q in game_manager.G["players"]:
 			_pass_snap[q] = ((game_manager.G["players"][q] as Dictionary).get("dungeon", []) as Array).map(_pile_key)
@@ -6194,7 +6286,6 @@ func _show_gameover(G: Dictionary) -> void:
 	_warn_hide()
 	_drag_clear()
 	_zoom_hide()
-	phase_banner.visible = false # APK : plus de bandeau de phase sur l'ecran de fin
 	var w := int((G["gameOver"] as Dictionary).get("winner", -1)) if G.get("gameOver") != null else -1 # -1 : defaite des humains, partie en cours
 	var players: Dictionary = G.get("players", {})
 	var boss = (players[w] as Dictionary).get("boss") if players.has(w) else null
@@ -6207,6 +6298,13 @@ func _show_gameover(G: Dictionary) -> void:
 		else:
 			AudioManager.play_sting("sting_player_lose") # LoseScene.cs:21 (PlayWithMusicFade)
 	var lose: bool = w < 0 or ((_apk_flow() or _is_online()) and w != _my_pid())
+	var adventure_banner := _tex(PHASE_BANNERS["adventure"])
+	# La défaite solo laisse la plaque d'aventure visible sous le voile.
+	_keep_defeat_phase_banner = lose and not _is_online() and _apk_flow() and (
+		str(G.get("phase", "")) == "adventure" or phase_banner.texture == adventure_banner)
+	phase_banner.visible = _keep_defeat_phase_banner
+	if _keep_defeat_phase_banner:
+		phase_banner.texture = adventure_banner
 	_gameover = GameOverBanner.new()
 	_gameover.z_index = 90
 	add_child(_gameover)

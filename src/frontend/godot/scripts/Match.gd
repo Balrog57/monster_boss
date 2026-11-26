@@ -761,28 +761,9 @@ func _apply_move_core(pid: int, move: Dictionary) -> bool:
 			return true
 		"activateRoom":
 			var ri := int(move["args"][0])
-			var in_battle := not (G.get("stack", []) as Array).is_empty()
-			var act_room = BossEngine.active_room((p["dungeon"] as Array)[ri]) if ri >= 0 and ri < (p["dungeon"] as Array).size() else null
-			var act_rid := str((act_room as Dictionary).get("id", "")) if act_room != null else ""
-			if act_rid != "BMA025":
-				# GameBoard.PlayRoomAbility -> EnqueueAbilityTransaction : IsActivatedByUser ouvre une Spell Battle (OnAbilityApplyRequest). Les cibles se resolvent d'abord
-				# (AbilityTransaction.ResolveTargets, l'activateur choisit), puis la capacite attend la reponse de chaque autre joueur et se resout avec la pile ;
-				# OncePerTurn (IsEffectApplied) n'est pose qu'a l'execution. All-Seeing Eye (CancelSpellAbility) se place DEVANT le sort qu'elle annule : immediate, plus bas.
-				_log("Joueur %d active la capacité de %s." % [pid, str((act_room as Dictionary).get("name", "?"))])
-				_advance_targeting(RoomAbilities.make_entry(G, pid, ri, int(move["args"][1]) if move["args"].size() > 1 else -1))
-				return true
-			var err = RoomAbilities.activate_room_ability(G, pid, ri, int(move["args"][1]) if move["args"].size() > 1 else -1)
-			if err != null:
-				_log(str(err))
-				return false
-			if G.has("buildWindow"):
-				G["buildWindow"] = _window_auto_passed()
-			# Une capacite activee pendant une Spell Battle la relance (IsActivatedByUser : PendingSpellBattlePlayers = tous).
-			# All-Seeing Eye garde sa propre reprise de main (RoomAbilities.stack_return_control).
-			if in_battle and act_rid != "BMA025":
-				_reopen_stack_window(pid)
-			elif not in_battle:
-				_finish_hero_if_dead()
+			var entry := RoomAbilities.make_entry(G, pid, ri, int(move["args"][1]) if move["args"].size() > 1 else -1)
+			_log("Joueur %d active la capacité de %s." % [pid, str(entry["card"].get("name", "?"))])
+			_advance_targeting(entry)
 			return true
 		"useItem": # Tools of Hero-Kind : capacite de Boss d'un Objet face visible (comme une capacite de salle, voir ThkAbilities.use_moves)
 			var in_battle3 := not (G.get("stack", []) as Array).is_empty()
@@ -956,6 +937,14 @@ func _resolve_choice_body(pid: int, index: int) -> void:
 		RoomAbilities.apply_stale_target(G, pid, str(pc.get("bossName", "")), pc["aiStale"])
 	var finish_dead := false # des degats viennent d'etre infliges au heros actif : il meurt apres la remise a zero du choix
 	match kind:
+		"reveal-target":
+			var reveal_queue: Array = G.get("revealQueue", [])
+			var queue_index := int(pc.get("queueIndex", -1))
+			if queue_index >= 0 and queue_index < reveal_queue.size():
+				var reveal_entry: Dictionary = reveal_queue[queue_index]
+				var target_key := str(pc.get("targetKey", "card"))
+				var val = (opts[index] as Dictionary).get(target_key) if index >= 0 else null
+				reveal_entry["pre"] = {"key": target_key, "val": val}
 		"recover-card":
 			if index >= 0:
 				var got = RoomAbilities.take_discard_card(G, p, opts[index])
@@ -977,18 +966,11 @@ func _resolve_choice_body(pid: int, index: int) -> void:
 			if index >= 0:
 				var card: Dictionary = (opts[index] as Dictionary).get("card", {})
 				var hand: Array = p.get("hand", []) as Array
-				var at := hand.find(card)
-				if at >= 0:
-					hand.remove_at(at)
-				p["hand"] = hand
-				var decks: Dictionary = G.get("decks", {})
-				var pile: Array = decks.get("spellDiscard", [])
-				decks["spellDiscard"] = pile
-				CardDB.discard_add(pile, card)
-				Minibosses.on_hand_discard(G, pid, card) # RMB017 Imp Hoard
-				# All-Seeing Eye : le sort defausse paie l'annulation du dernier sort adverse.
-				if bool(pc.get("thenCancel", false)):
-					RoomAbilities.cancel_last_opponent_spell(G, pid, "All-Seeing Eye")
+				if hand.has(card):
+					RoomAbilities._discard_hand_card(G, p, card)
+					# All-Seeing Eye : le sort défaussé paie l'annulation du dernier sort adverse.
+					if bool(pc.get("thenCancel", false)):
+						RoomAbilities.cancel_last_opponent_spell(G, pid, "All-Seeing Eye")
 		"revive-hero":
 			if index >= 0:
 				RoomAbilities.zombie_prison_send_back(G, opts[index])
@@ -999,7 +981,10 @@ func _resolve_choice_body(pid: int, index: int) -> void:
 			if index >= 0:
 				RoomAbilities.dracolich_discard(G, pid, opts[index], pc.get("pileOptions", []))
 		"pick-hero":
-			if index >= 0:
+			if pc.has("revealEntry"):
+				var reveal_entry: Dictionary = pc["revealEntry"]
+				reveal_entry["selectedHero"] = opts[index]["card"] if index >= 0 else null
+			elif index >= 0:
 				var o: Dictionary = opts[index]
 				var ti := int(o.get("townIndex", o.get("index", -1)))
 				var town: Array = G.get("town", [])
@@ -1025,8 +1010,11 @@ func _resolve_choice_body(pid: int, index: int) -> void:
 				if target_pid >= 0 and G["players"].has(target_pid) and action == "steal-random":
 					RoomAbilities.steal_random_card(G, pid, target_pid, str(pc.get("bossName", "")))
 				elif target_pid >= 0 and G["players"].has(target_pid) and (action == "discard-spell" or action == "discard-room"):
-					# C# DiscardRandomCardFromHand(1, Spell|Room) sur l'adversaire choisi
-					RoomAbilities._discard_random_from(G, target_pid, action == "discard-spell", str(pc.get("bossName", "")), pid)
+					if action == "discard-room" and str(pc.get("bossName", "")) == "Torture Chamber" and pc.has("sourceRoomUid"):
+						RoomAbilities.resolve_torture_chamber_choice(G, pid, int(pc["sourceRoomUid"]), target_pid)
+					else:
+						# C# DiscardRandomCardFromHand(1, Spell|Room) sur l'adversaire choisi
+						RoomAbilities._discard_random_from(G, target_pid, action == "discard-spell", str(pc.get("bossName", "")), pid)
 		"steal-card":
 			if index >= 0:
 				var o: Dictionary = opts[index]
@@ -1139,9 +1127,12 @@ func _resolve_choice_body(pid: int, index: int) -> void:
 				var ro: Dictionary = opts[index]
 				var target_pid := int(ro.get("targetPlayerId", -1))
 				var picked: Array = (pc.get("picked", []) as Array).duplicate()
+				var pend: Dictionary = {}
 				if str(pc.get("step", "")) == "order":
 					picked.append(int(ro.get("roomIndex", -1)))
-				var more = RoomAbilities.rearrange_choice(G, int(pc.get("playerId", pid)), target_pid, picked, pc.get("pend", {}) as Dictionary)
+					pend = pc.get("pend", {})
+				# Le sélecteur APK réénumère les salles après le choix manuel du boss.
+				var more = RoomAbilities.rearrange_choice(G, int(pc.get("playerId", pid)), target_pid, picked, pend)
 				if more != null:
 					G["pendingChoice"] = more
 					state_changed.emit()
@@ -1150,8 +1141,15 @@ func _resolve_choice_body(pid: int, index: int) -> void:
 	# Reprend la file de choix en attente, sinon on repart d'un etat propre.
 	var raw_queue = G.get("choiceQueue", [])
 	var queue: Array = raw_queue if raw_queue is Array else []
-	if not queue.is_empty():
-		G["pendingChoice"] = queue.pop_front()
+	while not queue.is_empty():
+		var queued: Dictionary = queue.pop_front()
+		if queued.get("type") == "discard-spell":
+			var owner: Dictionary = G["players"][int(queued["playerId"])]
+			queued["options"] = RoomAbilities._hand_spell_options(owner)
+			if (queued["options"] as Array).is_empty():
+				continue
+		G["pendingChoice"] = queued
+		break
 	G["choiceQueue"] = queue
 	if _replay:
 		return # rejeu d'un choix deja fait (cibles d'une capacite en file) : ni reprise de phase ni IA
@@ -1614,8 +1612,17 @@ func _build_window_progress() -> void:
 ## BuildPhase_b : revelation groupee + level-up, puis BAIT et ADVENTURE.
 ## Idempotent : appele aussi apres la resolution d'un choix suspendu en phase BUILD.
 func _close_build_phase() -> void:
+	G["deferRevealEffects"] = true
 	if _reveal_and_level_up():
 		return
+	if bool(G.get("revealEffectsPending", false)):
+		if not bool(G.get("apkTraceMode", false)):
+			resolve_reveal_effects()
+		return
+	G.erase("deferRevealEffects")
+	_continue_build_phase_after_reveal()
+
+func _continue_build_phase_after_reveal() -> void:
 	if _start_forced_build():
 		return
 	if G.erase("setupForced"):
@@ -1702,6 +1709,51 @@ func _reveal_and_level_up() -> bool:
 	if not G.has("revealQueue"):
 		G["revealQueue"] = _build_reveal_queue()
 	var queue: Array = G["revealQueue"]
+	if bool(G.get("revealEffectsPending", false)):
+		return false
+	if not bool(G.get("revealTargetsPrepared", false)):
+		var cursor := int(G.get("revealTargetCursor", 0))
+		while cursor < queue.size():
+			var target_entry: Dictionary = queue[cursor]
+			if str(target_entry.get("kind", "")) == "room" and (target_entry.get("pre", {}) as Dictionary).is_empty():
+				var spec := ApkAI.reveal_target_spec(G, int(target_entry["pid"]), target_entry["room"])
+				var options: Array = spec.get("options", [])
+				var pid := int(target_entry["pid"])
+				if options.size() > 1 and not bool((G["players"][pid] as Dictionary).get("isAI", false)) and not bool(G.get("apkTraceMode", false)):
+					G["revealTargetCursor"] = cursor + 1
+					G["pendingChoice"] = {"type": "reveal-target", "playerId": pid,
+						"bossName": str(spec.get("name", "")), "message": "%s: choose a target" % str(spec.get("name", "")),
+						"options": options, "queueIndex": cursor, "targetKey": str(spec.get("key", "card")), "resume": true}
+					return true
+			cursor += 1
+		G["revealTargetCursor"] = cursor
+		G["revealTargetsPrepared"] = true
+	if queue.is_empty():
+		G.erase("revealQueue")
+		G.erase("revealTargetCursor")
+		G.erase("revealTargetsPrepared")
+		return false
+	if bool(G.get("deferRevealEffects", false)):
+		G["revealEffectsPending"] = true
+		return false
+	return _resolve_reveal_effect_queue()
+
+## GameBoard.NextStep : les transactions de révélation n'exécutent leurs effets qu'après la résolution des cibles.
+func resolve_reveal_effects() -> void:
+	G.erase("revealEffectScheduled")
+	if not bool(G.get("revealEffectsPending", false)) or not (G.get("pendingChoice", {}) as Dictionary).is_empty():
+		return
+	if _resolve_reveal_effect_queue():
+		return
+	G.erase("revealEffectsReady")
+	G.erase("revealEffectsPending")
+	G.erase("deferRevealEffects")
+	if _replay:
+		return
+	_continue_build_phase_after_reveal()
+
+func _resolve_reveal_effect_queue() -> bool:
+	var queue: Array = G.get("revealQueue", [])
 	while not queue.is_empty():
 		var it: Dictionary = queue.pop_front()
 		var pid := int(it["pid"])
@@ -1710,18 +1762,75 @@ func _reveal_and_level_up() -> bool:
 			"room":
 				choice = RoomAbilities.on_build_room(G, pid, it["room"])
 				if choice != null:
-					choice["roomUid"] = RoomAbilities.room_uid(it["room"]) # proprietaire du cache de TriggerCalculator (ApkAI._tc_call)
+					var pre: Dictionary = it.get("pre", {})
+					if not pre.is_empty():
+						var target_key := str(pre.get("key", "card"))
+						var target_val = pre.get("val")
+						var options: Array = choice.get("options", [])
+						var selected := -1 if target_val == null else -2
+						for oi in options.size():
+							var option: Dictionary = options[oi]
+							if option.get(target_key) == target_val or (target_val is Dictionary and ApkAI._same(option.get(target_key), target_val)):
+								selected = oi
+								break
+						if selected >= -1:
+							G["pendingChoice"] = choice
+							var was_replay := _replay
+							_replay = true
+							_resolve_choice(pid, selected)
+							_replay = was_replay
+							choice = null
+					else:
+						choice["roomUid"] = RoomAbilities.room_uid(it["room"])
 			"another":
 				RoomAbilities.run_another_room_trigger(G, pid, it["room"])
 			"levelup":
 				choice = RoomAbilities.process_level_up(G, pid, {}, it.get("pend", {}) as Dictionary)
+				if choice != null and bool(G.get("apkTraceMode", false)):
+					choice = _apply_recorded_levelup_card_targets(choice, pid, int(it.get("ownerOid", -1)))
 		if choice != null:
 			if not (it.get("pre", {}) as Dictionary).is_empty():
 				choice["apkPre"] = it["pre"]
 			G["pendingChoice"] = choice
 			return true
 	G.erase("revealQueue")
+	G.erase("revealTargetCursor")
+	G.erase("revealTargetsPrepared")
 	return false
+
+## Rejoue les cibles carte de ResolveTargets, enregistrées avant le NextStep, sur le choix du level-up.
+func _apply_recorded_levelup_card_targets(choice: Variant, pid: int, owner_oid: int) -> Variant:
+	if not choice is Dictionary or owner_oid < 0:
+		return choice
+	var events: Array = (G.get("apkTraceResolveTargets", {}) as Dictionary).get(str(owner_oid), [])
+	for event_value in events:
+		var event: Dictionary = event_value
+		if int(event.get("targetId", 0)) != 1:
+			continue
+		for target_value in event.get("chosen", []):
+			var target: Dictionary = target_value if target_value is Dictionary else {}
+			var options: Array = choice.get("options", []) if choice is Dictionary else []
+			var selected := -1
+			for oi in options.size():
+				var option: Dictionary = options[oi]
+				var card: Dictionary = option.get("card", {}) if option.get("card") is Dictionary else {}
+				if target.has("id") and int(card.get("_oid", -1)) == int(target["id"]):
+					selected = oi
+					break
+			if selected < 0:
+				continue
+			G["pendingChoice"] = choice
+			var was_replay := _replay
+			_replay = true
+			_resolve_choice(pid, selected)
+			_replay = was_replay
+			choice = G.get("pendingChoice", {})
+			if (choice as Dictionary).is_empty():
+				var queued: Array = G.get("choiceQueue", [])
+				if not queued.is_empty():
+					choice = queued.pop_front()
+					G["choiceQueue"] = queued
+	return null if choice is Dictionary and choice.is_empty() else choice
 
 ## Emplacements dont la salle est encore face cachee (PendingToBeBuilt), par joueur : {str(pid): [index Godot]}.
 func _pending_slots() -> Dictionary:
@@ -1743,11 +1852,11 @@ func _pending_slots() -> Dictionary:
 func _build_reveal_queue() -> Array:
 	var out: Array = []
 	var by_pid := {}
-	var order: Array = CardDB.order_by_xp(G["players"])
-	# C# : RevealAllRoomCards parcourt Players (ordre des sieges : cles de G.players, ou `G.apkSeats` du harnais, ou pid = PlayerId - 1), la file reste triee par PlayerId.
+	# C# : RevealAllRoomCards parcourt Players dans l'ordre des sieges, pas l'ordre XP.
 	var seats: Array = G["players"].keys()
 	seats.sort()
-	for pid in G.get("apkSeats", seats):
+	var seat_order: Array = G.get("apkSeats", seats)
+	for pid in seat_order:
 		var p: Dictionary = (G["players"] as Dictionary).get(pid, {})
 		if p.is_empty() or p.get("eliminated", false):
 			continue
@@ -1758,7 +1867,8 @@ func _build_reveal_queue() -> Array:
 			if room == null or not (room as Dictionary).get("faceDown", false):
 				continue
 			var r: Dictionary = room
-			mine.append({"pid": int(pid), "kind": "room", "room": r, "pre": ApkAI.reveal_target(G, int(pid), r, AI.memo_of(self, int(pid)), true)}) # cible figee a la mise en file (C#)
+			var pre := ApkAI.reveal_target(G, int(pid), r, AI.memo_of(self, int(pid)), true) if bool(p.get("isAI", false)) or bool(G.get("apkTraceMode", false)) else {}
+			mine.append({"pid": int(pid), "kind": "room", "room": r, "pre": pre}) # cible figee a la mise en file (C#)
 			for o in RoomAbilities.another_room_triggers(G, int(pid)): # avant faceDown=false : la salle compte comme « en attente » (C#)
 				mine.append({"pid": int(pid), "kind": "another", "room": o})
 			r["faceDown"] = false
@@ -1768,10 +1878,15 @@ func _build_reveal_queue() -> Array:
 			if dun.size() >= 5 and not bool((BossEngine.active_room(dun[0]) as Dictionary).get("faceDown", false)) and not p.get("leveledUp", false):
 				p["leveledUp"] = true
 				_log("Joueur %s EST MONTÉ EN NIVEAU !" % str(pid))
-				mine.append({"pid": int(pid), "kind": "levelup", "pend": _pending_slots()}) # EnqueueAbilityTransaction resout les cibles ici : les joueurs traites apres ont encore des emplacements en attente (X-M30)
+				mine.append({"pid": int(pid), "kind": "levelup", "pend": _pending_slots(), "ownerOid": int((p.get("boss", {}) as Dictionary).get("_oid", -1))}) # EnqueueAbilityTransaction resout les cibles ici : les joueurs traites apres ont encore des emplacements en attente (X-M30)
 		mine.reverse()
 		by_pid[pid] = mine
-	for pid in order:
+	# Les providers sont résolus pendant le parcours Players ci-dessus; les transactions
+	# sont ensuite ordonnées par EnqueueAbilityTransaction : joueur actif d'abord,
+	# sinon PlayerId croissant. BuildPhase_b désactive ActivePlayer avant la révélation.
+	var transaction_order: Array = G["players"].keys()
+	transaction_order.sort()
+	for pid in transaction_order:
 		out.append_array(by_pid.get(pid, []))
 	if Minibosses.active(G): # toutes les salles sont revelees : les minibosses sautent sur les nouveaux sommets, puis paient 1 Coin (sinon defausses)
 		Minibosses.normalize(G)
@@ -1975,7 +2090,7 @@ func _stack_insert_index(entry: Dictionary, counter_target_idx: int) -> int:
 	for i in stack.size():
 		var t: Dictionary = stack[i]
 		var tp := int(t.get("playerId", -1))
-		if tp != active and _player_rank(tp) >= rank and str((t.get("card", {}) as Dictionary).get("id", "")) != "BMA043":
+		if tp != active and _player_rank(tp) >= rank and not t.has("cancelStackId") and str((t.get("card", {}) as Dictionary).get("id", "")) != "BMA043":
 			return i
 	return stack.size()
 
@@ -2147,7 +2262,36 @@ func _resolve_pending_stack() -> void:
 	G["stack"] = []
 	stack_steps += 1 # chaque resolution de pile est un NextStep : les IA rappellent DoPlayerActions (AI._window_key)
 	RoomAbilities.stack_return_control(G)
+	_resume_skipped_hero_teleport()
 	_finish_hero_if_dead()
+
+## BMA053 peut viser le heros que Trepidation a retire de l'entree, tant que l'APK n'a pas encore traite AdventurePhase_c.
+## MoveHeroToRelativeSlot(5) le place a la premiere salle; le pas AdventurePhase_c suivant commencera a la salle d'apres.
+func _resume_skipped_hero_teleport() -> void:
+	var skipped: Variant = G.get("apkSkippedHeroCard")
+	if not skipped is Dictionary or not (G.get("adventure", {}) as Dictionary).is_empty():
+		return
+	var hero: Dictionary = skipped
+	var pid := int(G.get("apkSkippedHero", -1))
+	var eff := SpellEffects._effects(G)
+	if pid < 0 or str(eff.get("teleportHero", "")) != str(hero.get("id", "")):
+		return
+	var player: Dictionary = (G.get("players", {}) as Dictionary).get(pid, {}) as Dictionary
+	if player.is_empty() or player.get("eliminated", false):
+		return
+	var entrance: Array = player.get("entrance", []) as Array
+	if not entrance.has(hero):
+		entrance.push_front(hero)
+	var hp := BossEngine.hero_health_with_modifiers(G, hero)
+	if TnlAbilities.active(G) or Minibosses.active(G):
+		hp += TnlAbilities.on_hero_start(G, pid, hero)
+	if ThkAbilities.active(G):
+		hp += ThkAbilities.on_hero_start(G, pid, hero, hp)
+	G["adventure"] = {"playerId": pid, "hero": hero, "roomIndex": -1, "hp": hp, "pause": null}
+	if ThkAbilities.active(G):
+		ThkAbilities.sync_hero(G)
+	G.erase("apkSkippedHero")
+	G.erase("apkSkippedHeroCard")
 
 # --- capacites de salle en file (R-D67) : cibles choisies a la mise en file, execution avec la pile ---
 
@@ -2190,8 +2334,14 @@ const DEFERRED_CHOICES := ["uncover-room", "uncover-own-room"]
 
 ## Applique les cibles memorisees de `e` a `mt` : le moteur `mt` execute la capacite puis rejoue chaque choix. Renvoie null ou la raison de l'echec.
 func _exec_entry(mt: Match, e: Dictionary, queued: bool) -> Variant:
+	if e.has("cancelStackId"):
+		if mt._stack_index_of(str(e["cancelStackId"])) < 0:
+			return "target spell left the stack"
+		mt.G["aseTarget"] = {"playerId": e["playerId"], "stackId": e["cancelStackId"], "queued": true}
 	var err = Minibosses.run_entry(mt.G, e) if e.has("rmb") else (RoomAbilities.run_queued(mt.G, e) if queued else RoomAbilities.start_queued(mt.G, e))
 	if err != null:
+		if e.has("cancelStackId"):
+			mt.G.erase("aseTarget")
 		return err
 	mt._replay = true
 	var gone := false
@@ -2205,6 +2355,8 @@ func _exec_entry(mt: Match, e: Dictionary, queued: bool) -> Variant:
 			break
 		mt._resolve_choice(int(pc.get("playerId", e.get("playerId", 0))), at)
 	mt._replay = false
+	if e.has("cancelStackId"):
+		mt.G.erase("aseTarget")
 	return "target gone" if gone else null
 
 ## Mise en file (ResolveTargets) : rejoue la capacite sur une COPIE de l'etat avec les cibles deja choisies ; le prochain choix ouvert devient le choix de
@@ -2268,7 +2420,8 @@ func _enqueue_ability(e: Dictionary) -> void:
 	if astack.is_empty():
 		G["stackActivePlayer"] = active_player()
 	G["stackReturnPlayer"] = pid
-	astack.insert(_stack_insert_index(e, -1), e)
+	var counter_target := _stack_index_of(str(e["cancelStackId"])) if e.has("cancelStackId") else -1
+	astack.insert(_stack_insert_index(e, counter_target), e)
 	if G.has("buildWindow"):
 		G["buildWindow"] = _window_auto_passed() # une capacite relance la Spell Battle : tout le monde doit re-passer
 	_reopen_stack_window(pid)
@@ -2344,6 +2497,7 @@ func _init_adventure_phase() -> void:
 		(G["players"][bp] as Dictionary).erase("buildLimit")
 	G.erase("afterHero")
 	G.erase("apkSkippedHero")
+	G.erase("apkSkippedHeroCard")
 	G["adventure"] = {}
 	G["adventurePausePassed"] = {}
 	var xp: Array = CardDB.order_by_xp(G["players"])
@@ -2572,6 +2726,7 @@ func _sync_alive() -> void:
 
 func _advance_adventure_player() -> void:
 	G.erase("apkSkippedHero")
+	G.erase("apkSkippedHeroCard")
 	var all_acted := true
 	for pid in G["players"]:
 		var pl: Dictionary = G["players"][pid]
@@ -2588,6 +2743,14 @@ func _advance_adventure_player() -> void:
 	var nxt := _next_xp_active_player(active_player())
 	if nxt >= 0:
 		G["activePlayer"] = nxt
+
+## Consomme le marqueur de Trepidation au NextStep qui traite le heros actif, si BMA053 ne l'a pas restaure.
+func consume_trepidation_skip(pid: int) -> bool:
+	if int(G.get("apkSkippedHero", -1)) != pid or not (G.get("adventure", {}) as Dictionary).is_empty():
+		return false
+	G.erase("apkSkippedHero")
+	G.erase("apkSkippedHeroCard")
+	return true
 
 func _finish_hero(pid: int, hero: Dictionary, hp: int, death_room: Dictionary) -> void:
 	var p: Dictionary = G["players"][pid]
@@ -2682,6 +2845,8 @@ func _hero_died_trigger(pid: int, death_room: Dictionary) -> void:
 func _check_end_or_next_turn() -> void:
 	# Phase 5 : END (Fin de tour et conditions de victoire)
 	G["phase"] = CardDB.PHASE["END"]
+	# L'APK réactive les salles avant CheckEndOfGame, même au dernier tour.
+	(SpellEffects._effects(G).get("deactivatedRooms", []) as Array).clear()
 
 	if CardDB.big_game(G) or Variants.has(G, "unlimited"):
 		_check_end_big_game()

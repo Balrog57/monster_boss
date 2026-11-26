@@ -17,6 +17,7 @@ func run(ok: Callable, h: Node) -> void:
 	_t_mulligan_unbounded()
 	_t_turn_draw_by_xp()
 	_t_reveal_all_rooms_seat_order()
+	_t_reveal_recover_target_matches_late_decision()
 	_t_spell_discarded_at_cast()
 	_t_is_alive_live()
 	_t_sync_alive_in_adventure()
@@ -24,6 +25,10 @@ func run(ok: Callable, h: Node) -> void:
 	_t_destroy_room_discards_before_trigger()
 	_t_hidden_heroes_text()
 	_t_tutorial_hands()
+	_t_trace_start_without_held_setup()
+	_t_setup_extra_build_reveal_boundary()
+	_t_trace_snap_keeps_first_turn_boundary()
+	_t_ai_measures_before_build_reveal()
 	_t_random_pick_uses_game_dbm()
 
 # --- fabrique d'etats minimaux ----------------------------------------------------------------------
@@ -200,10 +205,158 @@ func _t_reveal_all_rooms_seat_order() -> void:
 			lv = it
 	_ok.call(not lv.is_empty() and not (lv.get("pend", {}) as Dictionary).has("0"),
 		"RevealAllRoomCards : le siege 0 (traite avant Hellcow) n'a plus de salle en attente (file %s, pend %s)" % [str(kinds), str(lv.get("pend"))])
-	# la file reste triee par PlayerId (XP decroissant) : le joueur 1 d'abord
+	# la file suit Players / ordre des sieges, independamment de l'XP : le joueur 0 d'abord
 	var first_pid := int((queue[0] as Dictionary)["pid"]) if not queue.is_empty() else -1
-	_ok.call(first_pid == 1, "RevealAllRoomCards : la file de resolution reste triee par XP (premier : joueur %d)" % first_pid)
+	_ok.call(first_pid == 0, "RevealAllRoomCards : la file de resolution suit les sieges, pas l'XP (premier : joueur %d)" % first_pid)
 	m.queue_free()
+	# ResolveTargets est appelé pendant le parcours Players; au NextStep, EnqueueAbilityTransaction
+	# place ensuite les transactions non actives par PlayerId croissant.
+	var x := _player(0, "BMA002", [_room("X1"), _room("X2"), _room("X3"), _room("X4"), _room("X5")])
+	var c := _player(1, "BMA005", [_room("C1"), _room("C2"), _room("C3"), _room("C4"), _room("C5")])
+	(x["dungeon"][0][0] as Dictionary)["faceDown"] = true
+	(c["dungeon"][0][0] as Dictionary)["faceDown"] = true
+	var G2 := _G([x, c])
+	G2["apkSeats"] = [1, 0] # ordre de déclenchement inverse de la priorité d'exécution
+	var m2 := _match(G2)
+	var levelup_pids: Array = []
+	for it in m2._build_reveal_queue():
+		if str((it as Dictionary).get("kind", "")) == "levelup":
+			levelup_pids.append(int((it as Dictionary)["pid"]))
+	_ok.call(levelup_pids == [0, 1], "EnqueueAbilityTransaction : Xyzax (PlayerId 1) s'exécute avant Cerebellus (PlayerId 2), même si Players est parcouru dans l'ordre inverse")
+	m2.queue_free()
+
+
+## Monstrous Monument : ResolveTarget precede l'ouverture du recover-card dans le NextStep de révélation.
+## Les deux traces ciblées ont des instances différentes, mais le même provider, propriétaire et ordre.
+func _t_reveal_recover_target_matches_late_decision() -> void:
+	var trace_script = load("res://godot/scripts/ApkParityTrace.gd")
+	var trace = trace_script.new()
+	trace._index_cards()
+	var provider_a := _room("BMA037", "monster")
+	provider_a["_oid"] = 96
+	var provider_b := _room("BMA037", "monster")
+	provider_b["_oid"] = 97 # deuxième instance, même code et même propriétaire joueur
+	var player := _player(2, "BMA004", [provider_a, provider_b])
+	(player["boss"] as Dictionary)["_oid"] = 133
+	var G := _G([player])
+	var room_a_uid := RoomAbilities.room_uid(provider_a)
+	var room_b_uid := RoomAbilities.room_uid(provider_b)
+	var run = trace_script.get("ApkMatch").new()
+	host.add_child(run)
+	run.G = G
+	run._replay = true
+	trace.run = run
+	var card_a := _card(CardDB.rooms, "BMA019")
+	card_a["_oid"] = 56
+	var card_b := _card(CardDB.rooms, "BMA015")
+	card_b["_oid"] = 59
+	(G["decks"] as Dictionary)["roomDiscard"] = [card_a, card_b]
+	var options := RoomAbilities.discard_card_options(G, "monster")
+	var pc := {"type": "recover-card", "playerId": 2, "bossName": "Monstrous Monument",
+		"roomUid": room_a_uid, "options": options}
+	var owner_a := {"s": {"detail": {"decision": "resolveTarget", "targetId": 1, "player": 3,
+		"owner": {"id": 96, "card": "BMA037"}, "chosen": [{"id": 56, "card": "BMA019"}]}}}
+	var owner_b := {"s": {"detail": {"decision": "resolveTarget", "targetId": 1, "player": 3,
+		"owner": {"id": 97, "card": "BMA037"}, "chosen": [{"id": 56, "card": "BMA019"}]}}}
+	_ok.call(trace._late_matches_reveal_recover_choice(owner_a, pc),
+		"BMA037#96 ne rapproche que son recover-card via roomUid")
+	_ok.call(not trace._late_matches_reveal_recover_choice(owner_b, pc),
+		"BMA037#97 ne consomme pas le prompt de l'autre BMA037, même joueur et même option")
+	pc["roomUid"] = room_b_uid
+	var owner_b_card_b := owner_b.duplicate(true)
+	((owner_b_card_b["s"] as Dictionary)["detail"] as Dictionary)["chosen"] = [{"id": 59, "card": "BMA015"}]
+	_ok.call(trace._late_matches_reveal_recover_choice(owner_b_card_b, pc),
+		"BMA037#97 est relié à son propre roomUid et à sa propre instance choisie")
+	pc["roomUid"] = room_a_uid
+	var owner_target := {"s": {"detail": {"decision": "resolveTarget", "targetId": 2, "player": 3,
+		"owner": {"id": 96, "card": "BMA037"}, "chosen": [{"id": 133, "card": "BMA004"}]}}}
+	_ok.call(not trace._late_matches_reveal_recover_choice(owner_target, pc),
+		"ResolveTarget t2 BossOwner de BMA037 reste distinct du recover-card")
+	var other_provider := {"s": {"detail": {"decision": "resolveTarget", "targetId": 1, "player": 3,
+		"owner": {"id": 96, "card": "BMA010"}, "chosen": [{"id": 56, "card": "BMA019"}]}}}
+	_ok.call(not trace._late_matches_reveal_recover_choice(other_provider, pc),
+		"une cible d'un autre provider ne consomme pas le recover-card Monstrous Monument")
+
+	# Le flush generique ne doit pas appliquer BMA037#97 au recover-card deja ouvert par BMA037#96.
+	var provider_flush_a := _room("BMA037", "monster")
+	provider_flush_a["_oid"] = 96
+	var provider_flush_b := _room("BMA037", "monster")
+	provider_flush_b["_oid"] = 97
+	var flush_player := _player(2, "BMA004", [provider_flush_a, provider_flush_b])
+	(flush_player["boss"] as Dictionary)["_oid"] = 133
+	var flush_G := _G([flush_player])
+	var flush_run = trace_script.get("ApkMatch").new()
+	host.add_child(flush_run)
+	flush_run.G = flush_G
+	flush_run._replay = true
+	var flush_trace = trace_script.new()
+	flush_trace._index_cards()
+	flush_trace.run = flush_run
+	var flush_card := _card(CardDB.rooms, "BMA019")
+	flush_card["_oid"] = 56
+	var flush_card_other := _card(CardDB.rooms, "BMA015")
+	flush_card_other["_oid"] = 59
+	flush_G["decks"]["roomDiscard"] = [flush_card, flush_card_other]
+	var flush_options: Array = RoomAbilities.discard_card_options(flush_G, "monster")
+	var flush_pc_a := {"type": "recover-card", "playerId": 2, "bossName": "Monstrous Monument",
+		"roomUid": RoomAbilities.room_uid(provider_flush_a), "options": flush_options}
+	var flush_pc_b := flush_pc_a.duplicate(true)
+	flush_pc_b["roomUid"] = RoomAbilities.room_uid(provider_flush_b)
+	var flush_t1_b := {"seq": 110, "kind": "decision", "depth": 0, "turn": 1, "phase": "BuildPhase_a",
+		"spellBattle": false, "activePlayer": 3, "detail": {"decision": "resolveTarget", "player": 3, "targetId": 1,
+			"owner": {"id": 97, "card": "BMA037"}, "chosen": [{"id": 56, "card": "BMA019"}]}}
+	var flush_t2_b := {"seq": 111, "kind": "decision", "depth": 0, "turn": 1, "phase": "BuildPhase_a",
+		"spellBattle": false, "activePlayer": 3, "detail": {"decision": "resolveTarget", "player": 3, "targetId": 2,
+			"owner": {"id": 97, "card": "BMA037"}, "chosen": [{"id": 133, "card": "BMA004"}]}}
+	flush_G["pendingChoice"] = flush_pc_a.duplicate(true)
+	flush_trace._on_decision_now(0, flush_t1_b)
+	var hand_before_flush: Array = flush_G["players"][2]["hand"].duplicate(true)
+	flush_trace._flush_late() # appel generique, sans filtre reveal_recover_only
+	_ok.call(flush_trace._late.size() == 1 and flush_G["players"][2]["hand"] == hand_before_flush
+		and (flush_G["decks"]["roomDiscard"] as Array).any(func(c): return int((c as Dictionary).get("_oid", -1)) == 56),
+		"le flush generique garde BMA037#97 sans l'appliquer au recover-card de BMA037#96")
+	# Le t2 automatique ne peut pas non plus consommer le prompt de salle t1.
+	flush_trace._late.append({"s": flush_t2_b, "age": 0})
+	flush_trace._flush_late()
+	_ok.call(flush_trace._late.size() == 2 and flush_G["players"][2]["hand"] == hand_before_flush,
+		"le flush generique laisse t2 BossOwner distinct de recover-card/t1")
+	flush_G["pendingChoice"] = flush_pc_b
+	flush_trace._flush_late()
+	var flush_hand: Array = flush_G["players"][2]["hand"]
+	var flush_recovered := flush_hand.filter(func(c): return int((c as Dictionary).get("_oid", -1)) == 56)
+	_ok.call(flush_recovered.size() == 1 and (flush_G["decks"]["roomDiscard"] as Array).all(func(c): return int((c as Dictionary).get("_oid", -1)) != 56)
+		and flush_trace._late.size() == 1,
+		"le flush generique applique une fois t1 au provider BMA037 correct, sans consommer t2")
+	flush_run.queue_free()
+
+	# Cycle complet du rejeu : le C# journalise t1/t2 avant le NextStep; le reveal ouvre ensuite
+	# le recover-card; seul t1 est appliqué pendant le dispatch, puis la durée restante est consommée.
+	var step_t1 := {"seq": 111, "kind": "decision", "depth": 0, "turn": 1, "phase": "BuildPhase_a",
+		"spellBattle": false, "activePlayer": 3, "detail": {"decision": "resolveTarget", "player": 3, "targetId": 1,
+			"owner": {"id": 96, "card": "BMA037"}, "chosen": [{"id": 56, "card": "BMA019"}]}}
+	var step_t2 := {"seq": 112, "kind": "decision", "depth": 0, "turn": 1, "phase": "BuildPhase_a",
+		"spellBattle": false, "activePlayer": 3, "detail": {"decision": "resolveTarget", "player": 3, "targetId": 2,
+			"owner": {"id": 96, "card": "BMA037"}, "chosen": [{"id": 133, "card": "BMA004"}]}}
+	var bait_step := {"seq": 114, "kind": "phase", "depth": 0, "turn": 1, "phase": "BaitPhase", "nextPhase": "AdventurePhase_a",
+		"spellBattle": false, "activePlayer": 3, "activeHero": null, "detail": {"why": "nextStep", "executed": true}}
+	trace._steps = [step_t1, step_t2, bait_step]
+	trace._on_decision(0, step_t1)
+	trace._on_decision(1, step_t2)
+	trace._age_late() # une phase antérieure a vieilli les décisions; le NextStep doit maintenant ouvrir le choix avant de les expirer
+	_ok.call(trace._late.size() == 2 and (G.get("pendingChoice", {}) as Dictionary).is_empty(),
+		"les deux cibles de BMA037 restent en attente avant l'ouverture du prompt")
+	G["revealEffectsPending"] = true
+	G["revealEffectsReady"] = true
+	G["revealQueue"] = [{"kind": "room", "pid": 2, "room": provider_a}]
+	trace._dispatch_step_with_late(bait_step, 2)
+	var recovered: Array = (G["players"][2]["hand"] as Array).filter(func(c): return int((c as Dictionary).get("_oid", -1)) == 56)
+	_ok.call(recovered.size() == 1 and (G["decks"]["roomDiscard"] as Array).all(func(c): return int((c as Dictionary).get("_oid", -1)) != 56),
+		"le dispatch ouvre puis résout une seule fois le recover-card de BMA037#96 avant aging")
+	_ok.call((trace.stats["skippedBy"]["noChoice-late:resolveTarget:t1"] as Dictionary)["replayed"] == 1,
+		"la cible t1 tardive est comptée rejouée une seule fois")
+	_ok.call((trace.stats["skippedBy"]["noChoice-late:resolveTarget:t2"] as Dictionary)["replayed"] == 0,
+		"la cible t2 BossOwner reste ignorée et distincte après le flush")
+	run.queue_free()
 
 # --- R-D68 : un sort quitte la main pour la defausse AU LANCEMENT (GameBoard.OnAbilityApplyRequest) -------------
 
@@ -352,6 +505,115 @@ func _t_tutorial_hands() -> void:
 	ai_rooms.sort()
 	_ok.call(ai_rooms == ["BMA009", "BMA010", "BMA019", "BMA020", "BMA021"], "tutoriel : main d'ouverture de l'IA = 010 020 019 009 021 (obtenu %s)" % str(ai_rooms))
 	gm.queue_free()
+
+## Le rejeu tutoriel peut atteindre BeginningOfTurn apres la Construction Zone sans que _start_turn ait ete appele auparavant.
+## ApkMatch doit donc demarrer le tour quand l'oracle l'autorise, meme sans appel retenu.
+func _t_trace_start_without_held_setup() -> void:
+	var trace_script = load("res://godot/scripts/ApkParityTrace.gd")
+	var run = trace_script.get("ApkMatch").new()
+	host.add_child(run)
+	var p0 := _player(0, "BMA001")
+	var p1 := _player(1, "BMA002")
+	var G := _G([p0, p1])
+	G["turn"] = 0
+	G["decks"]["rooms"] = [_room("DRAW")]
+	G["decks"]["heroes"] = []
+	G["decks"]["epics"] = []
+	G["setupForced"] = true
+	run.G = G
+	run.release_start()
+	_ok.call(int(G["turn"]) == 1 and _ids(p0["hand"]) == ["DRAW"] and (p1["hand"] as Array).is_empty() and not G.has("setupForced"),
+		"ApkMatch : BeginningOfTurn consomme une fois le start retenu et setupForced (tour %d, mains %s/%s, setupForced=%s)" % [int(G["turn"]), str(_ids(p0["hand"])), str(_ids(p1["hand"])), str(G.has("setupForced"))])
+	run.queue_free()
+
+## La reveal de l'ExtraBuild de setup doit se résoudre au Setup_c suivant, sans consommer un ResolveTarget encore attendu.
+func _t_setup_extra_build_reveal_boundary() -> void:
+	var trace_script = load("res://godot/scripts/ApkParityTrace.gd")
+	var trace = trace_script.new()
+	var run = trace_script.get("ApkMatch").new()
+	host.add_child(run)
+	var p0 := _player(0, "BMA003", [_room("BMA016")])
+	var room: Dictionary = (p0["dungeon"][0] as Array)[0]
+	room["_oid"] = 42
+	room["faceDown"] = true
+	var G := _G([p0, _player(1, "BMA006")])
+	G["setupForced"] = true
+	G["deferRevealEffects"] = true
+	run.G = G
+	var reveal_queue: Array = run._build_reveal_queue()
+	G["revealEffectsPending"] = true
+	G["revealQueue"] = reveal_queue
+	run._replay = true
+	trace.run = run
+	trace._arm_setup_reveal_if_pending()
+	_ok.call(bool(G.get("revealEffectsReady", false)), "ExtraBuild setup : la file BMA016 devient prête pour Setup_c")
+	run.resolve_reveal_effects()
+	_ok.call(not G.has("revealQueue") and not G.get("revealEffectsPending", false)
+		and not G.get("deferRevealEffects", false) and not bool(room.get("faceDown", false)),
+		"Setup_c : transaction de révélation BMA016 résolue et marqueurs différés nettoyés")
+
+	var provider := _room("BMA037", "monster")
+	provider["_oid"] = 96
+	G["revealQueue"] = [{"kind": "room", "pid": 0, "room": provider}]
+	G["revealEffectsPending"] = true
+	G["revealEffectsReady"] = true
+	trace._steps = [
+		{"seq": 12, "kind": "phase", "phase": "Setup_c", "detail": {"executed": true}},
+		{"seq": 13, "kind": "decision", "phase": "Setup_c", "detail": {"decision": "resolveTarget", "targetId": 1, "owner": {"card": "BMA037"}}},
+		{"seq": 14, "kind": "phase", "phase": "BeginningOfTurn", "detail": {"executed": true}},
+	]
+	trace._dispatch_step_with_late(trace._steps[0], 0)
+	_ok.call((G["revealQueue"] as Array).size() == 1
+		and str((((G["revealQueue"] as Array)[0] as Dictionary)["room"] as Dictionary).get("id", "")) == "BMA037",
+		"dispatch Setup_c : le resolveTarget BMA037 du step suivant conserve le provider dans la file")
+	run.queue_free()
+
+## Le rejeu peut repasser par _init_adventure_phase avant que l'oracle ait rejoint son tour; préserver le premier checkpoint Bait.
+func _t_trace_snap_keeps_first_turn_boundary() -> void:
+	var trace_script = load("res://godot/scripts/ApkParityTrace.gd")
+	var run = trace_script.get("ApkMatch").new()
+	host.add_child(run)
+	var G := {"turn": 1}
+	run.G = G
+	var sample := {"discardSpells": 1}
+	run.snap = func(): return sample.duplicate(true)
+	run._snap("bait")
+	sample["discardSpells"] = 2
+	run._snap("bait")
+	_ok.call(int(run.snaps["bait:0"]["discardSpells"]) == 1,
+		"ApkMatch : un second passage interne ne remplace pas le premier checkpoint du tour")
+	G["turn"] = 2
+	run._snap("bait")
+	_ok.call(int(run.snaps["bait:1"]["discardSpells"]) == 2,
+		"ApkMatch : chaque tour garde son checkpoint distinct")
+	run.queue_free()
+
+
+func _t_ai_measures_before_build_reveal() -> void:
+	var trace_script = load("res://godot/scripts/ApkParityTrace.gd")
+	var trace = trace_script.new()
+	var run = trace_script.get("ApkMatch").new()
+	host.add_child(run)
+	var room := _room("BMA038")
+	room["_oid"] = 42
+	room["faceDown"] = true
+	var G := _G([_player(0, "BMA003", [room]), _player(1, "BMA006")])
+	G["apkTraceMode"] = true
+	G["deferRevealEffects"] = true
+	G["autoAI"] = false
+	run.G = G
+	run.measure_ai = true
+	run._reveal_and_level_up()
+	var live_hash := hash(G)
+	trace.run = run
+	trace._ai_measure_choice({"afterSeq": 19, "turn": 0, "phase": "BuildPhase_a", "player": 1,
+		"activePlayer": null, "spellBattle": false, "usable": [], "eligible": [], "chosen": -1})
+	var result: Dictionary = trace._ai.get("usableSet", {})
+	_ok.call(result.get("n") == 1 and result.get("agree") == 1,
+		"Fin de BuildPhase_a : la mesure IA utilise la salle encore face cachée")
+	_ok.call(not bool(room["faceDown"]) and hash(run.G) == live_hash and trace._ai_mut == 0,
+		"La mesure IA conserve l’état révélé du rejeu")
+	run.queue_free()
 
 # --- R-D15 : les tirages « au hasard » en cours de partie passent par le generateur de la partie ---------------------------------
 

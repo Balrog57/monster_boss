@@ -96,6 +96,7 @@ func _ready() -> void:
 	_t_choice_draculord()
 	_t_choice_robobo()
 	_t_choice_cleopatra_forced_build()
+	_t_search_advanced_preserves_apk_pile_order()
 	_t_room_damage_goblin_dizzygas_target_type()
 	_t_build_specters_sanctum_choice_discards()
 	_t_specters_sanctum_offers_all_opponents()
@@ -116,6 +117,7 @@ func _ready() -> void:
 	_t_minotaur_maze_sends_hero_back()
 	_t_maze_locked_by_trap_master()
 	_t_reveal_levelup_before_room_trigger()
+	_t_reveal_seat_order_before_cerebellus_draw()
 	_t_witchs_kitchen_choice()
 	_t_died_brainsucker_once_per_turn()
 	_t_pit_kill_no_death_trigger_on_next_room()
@@ -151,6 +153,7 @@ func _ready() -> void:
 	_t_apk_advanced_room_not_over_pending_slot()
 	_t_apk_pending_or_frozen_room_cannot_activate()
 	_t_apk_teleportation_restarts_dungeon()
+	_t_apk_trepidation_then_teleportation()
 	_t_apk_seducia_human_cannot_pass()
 
 	CardDB.ship_all = true # les suites suivantes testent aussi les paquets FERMES (CardDB.SHIPPED_SETS) ; les tests ci-dessus tournent en mode livre ; goldens_decks._t_closed_sets_shut bascule lui-meme en mode livre puis restaure
@@ -241,9 +244,12 @@ func _t_ten_souls_wins_under_five_wounds() -> void:
 		"decks": {"heroes": [], "epics": [], "rooms": [], "roomDiscard": [], "spellDiscard": [], "heroDiscard": []},
 		"town": [], "phase": "end", "gameOver": null, "turn": 1, "log": [],
 	}
+	(SpellEffects._effects(m.G)["deactivatedRooms"] as Array).append({"playerId": 1, "roomIndex": 0})
+	_ok(BossEngine.is_room_deactivated(m.G, 1, 0), "Freeze actif avant la fin du dernier tour")
 	m._check_end_or_next_turn()
 	var go = m.G.get("gameOver")
 	_ok(go != null and int((go as Dictionary).get("winner", -1)) == 0, "10 ames gagne (attendu joueur 0)")
+	_ok(not BossEngine.is_room_deactivated(m.G, 1, 0), "Freeze expire même si la partie se termine")
 
 ## GameBoard.cs:983-996 : seuls les joueurs IsAlive comptent pour les 10 ames ; un joueur tue manuellement (IsManuallyKilled) ne gagne pas.
 func _t_manual_kill_excluded_from_ten_souls() -> void:
@@ -1034,10 +1040,13 @@ func _t_choice_all_seeing_eye() -> void:
 	_ok((pc.get("options", []) as Array).size() == 2, "les 2 sorts de la main sont proposes")
 	_ok(_choice_moves(m, 0) == [0, 1] and m.legal_moves(1).is_empty(), "seul le proprietaire resout")
 	_ok(m.apply_move(0, {"type": "resolveChoice", "args": [1]}), "resolveChoice applique")
+	_ok(_hand_ids(0, m) == ["S1", "S2"] and (m.G["stack"] as Array).size() == 2,
+		"All-Seeing Eye attend les réponses devant le sort ciblé")
+	_ok(m.apply_move(1, {"type": "pass", "args": []}), "le lanceur peut répondre à All-Seeing Eye")
 	_ok(_hand_ids(0, m) == ["S1"], "S2 est defausse")
 	_ok((m.G["stack"] as Array).is_empty(), "le sort adverse est retire de la pile")
 	_ok((m.G["decks"]["spellDiscard"] as Array).size() == 2, "sort defausse + sort annule en defausse")
-	_ok(int(m.G.get("activePlayer", -1)) == 1, "la main revient au lanceur du sort")
+	_ok(int(m.G.get("activePlayer", -1)) == 0, "la main revient au joueur de phase")
 	_ok(str(m.G.get("phase", "")) == "build", "la phase BUILD reste ouverte")
 	_ok(bool(BossEngine.active_room((p0["dungeon"] as Array)[0]).get("usedThisTurn", false)), "une fois par tour")
 	m.queue_free()
@@ -1305,6 +1314,31 @@ func _t_choice_cleopatra_forced_build() -> void:
 	_ok(_card_ids((G1["players"][0] as Dictionary)["hand"] as Array) == ["Solo"] and (G1["forcedBuilds"] as Array).size() == 1,
 		"Solo en main + construction forcee")
 
+## RoomInDeck walks the APK queue from its head; Godot stores the draw end at Array.back().
+func _t_search_advanced_preserves_apk_pile_order() -> void:
+	var G := _levelup_G("BMA007", 5)
+	(G["decks"]["rooms"] as Array).append_array([
+		_room("BMA032-78", "trap", true, [1]), _room("BMA025-61", "trap", true, [1]),
+		_room("BMA032-79", "trap", true, [1]), _room("BMA031-76", "trap", true, [1])])
+	var discard_high := _room("BMA032-78-discard-high", "trap", true, [1])
+	discard_high["_oid"] = 20
+	var discard_low := _room("BMA032-78-discard-low", "trap", true, [1])
+	discard_low["_oid"] = 10
+	(G["decks"]["roomDiscard"] as Array).append_array([discard_low, discard_high])
+	var choice: Dictionary = RoomAbilities._search_advanced_choice(G, 0, "trap", "Cleopatra")
+	var options: Array = choice.get("options", [])
+	var ids: Array = []
+	var indices: Array = []
+	var piles: Array = []
+	for option in options:
+		ids.append(str(((option as Dictionary)["card"] as Dictionary).get("id", "")))
+		indices.append(int((option as Dictionary).get("pileIndex", -1)))
+		piles.append(str((option as Dictionary).get("pile", "")))
+	_ok(ids == ["BMA031-76", "BMA032-79", "BMA025-61", "BMA032-78", "BMA032-78-discard-low", "BMA032-78-discard-high"],
+		"Cleopatra : ordre APK depuis le sommet, pioche puis defausse (%s)" % str(ids))
+	_ok(indices == [3, 2, 1, 0, 0, 1] and piles == ["deck", "deck", "deck", "deck", "discard", "discard"],
+		"Cleopatra : indices de resolution coherents avec l'ordre expose")
+
 ## BMA015 / BMA029 : le type filtre (Monster / Trap) est celui de la salle CIBLE, pas de la salle source
 ## (C# AdjacentsRoom[Monster] / NextRoom[Trap] + DealDamageToRoom). Index Godot 0 = entree du heros.
 func _t_room_damage_goblin_dizzygas_target_type() -> void:
@@ -1451,6 +1485,25 @@ func _t_room_torture_chamber_discards_room() -> void:
 	_ok(h.size() == 1 and bool((h[0] as Dictionary).get("isSpell", false)), "l'adversaire defausse sa SALLE (le sort reste)")
 	_ok((G["decks"]["roomDiscard"] as Array).size() == 2 and (G["players"][0]["dungeon"] as Array).is_empty(),
 		"salle detruite + salle defaussee en defausse de salles")
+	# With several opponents, the APK resolves the target before executing DestroyRoom.
+	var G2 := _ability_G("BMA038")
+	var p0: Dictionary = G2["players"][0]
+	p0["dungeon"] = [[_room("BMA031", "trap", true, [1])], [_room("BMA038", "trap", false, [1])]]
+	(G2["decks"]["roomDiscard"] as Array).append(_room("BMA009", "trap", false, [1]))
+	(G2["players"][1] as Dictionary)["hand"] = [_room("R1", "trap", false, [1])]
+	var p2: Dictionary = (G2["players"][1] as Dictionary).duplicate(true)
+	p2["id"] = 2
+	G2["players"][2] = p2
+	RoomAbilities._torture_chamber(G2, 0, 1)
+	_ok(str((G2["pendingChoice"] as Dictionary).get("bossName", "")) == "Torture Chamber"
+		and str(BossEngine.active_room((p0["dungeon"] as Array)[1]).get("id", "")) == "BMA038"
+		and (p0["hand"] as Array).is_empty(), "choix adverse : BMA038 reste en place jusqu'a la resolution")
+	var m2 = _match_with_spell()
+	m2.G = G2
+	_ok(m2.apply_move(0, {"type": "resolveChoice", "args": [0]}), "choix adverse Torture Chamber resolu")
+	_ok((p0["dungeon"] as Array).size() == 1 and (p0["hand"] as Array).size() == 2
+		and (G2["decks"]["roomDiscard"] as Array).is_empty(), "DestroyRoom, defausse adverse, puis trigger Recycling Center")
+	m2.queue_free()
 
 ## R-F53 : avec deux Torture Chambers, l'activation detruit la salle ACTIVEE (l'autre reste), pas la premiere trouvee.
 func _t_room_torture_chamber_activated_slot() -> void:
@@ -1997,6 +2050,55 @@ func _t_reveal_levelup_before_room_trigger() -> void:
 	_ok(m._reveal_and_level_up(), "la revelation ouvre un choix")
 	_ok(str((G["pendingChoice"] as Dictionary).get("bossName", "")) == "Cerebellus", "le level-up (Cerebellus) passe avant la Dark Laboratory")
 
+## Tous les ResolveTarget de la révélation doivent être présentés avant le premier effet, même si Cerebellus est le premier siège.
+func _t_reveal_seat_order_before_cerebellus_draw() -> void:
+	var G := _levelup_G("BMA005", 5)
+	var cerebellus: Dictionary = G["players"][0]
+	cerebellus["boss"]["xp"] = 1 # inverse l'ordre XP pour distinguer Players de order_by_xp
+	cerebellus["isAI"] = true
+	((((cerebellus["dungeon"] as Array)[4] as Array)[0] as Dictionary))["faceDown"] = true
+	var nested: Dictionary = G["players"][1]
+	nested["boss"] = {"id": "BMA001", "name": "Other", "xp": 1000}
+	nested["isAI"] = false
+	nested["dungeon"] = [[_room("BMA036", "trap", false, [1])]]
+	((((nested["dungeon"] as Array)[0] as Array)[0] as Dictionary))["faceDown"] = true
+	G["apkSeats"] = [0, 1]
+	G["deferRevealEffects"] = true
+	G["town"] = [{"id": "H1", "name": "Fighter"}, {"id": "H2", "name": "The Fool"}]
+	(G["decks"]["spells"] as Array).append_array([
+		{"id": "S1", "name": "Spell 1", "isSpell": true},
+		{"id": "S2", "name": "Spell 2", "isSpell": true},
+		{"id": "S3", "name": "Spell 3", "isSpell": true},
+	])
+	var m = Match.new()
+	add_child(m)
+	m.G = G
+	m._replay = true
+	_ok(m._reveal_and_level_up() and G["pendingChoice"].get("type") == "reveal-target"
+		and G["pendingChoice"].get("bossName") == "Mimic Vault",
+		"le choix de cible Mimic Vault précède l'exécution des transactions révélées")
+	_ok((cerebellus["hand"] as Array).is_empty() and (G["decks"]["spells"] as Array).size() == 3,
+		"Cerebellus n'exécute aucun effet tant que les choix de cible restent ouverts")
+	G["revealEffectsReady"] = true
+	m._resolve_choice(1, 0)
+	_ok(not m._reveal_and_level_up() and G.get("revealEffectsPending", false)
+		and (G["decks"]["spells"] as Array).size() == 3,
+		"la file de transactions attend NextStep après tous les choix de cible")
+	m.resolve_reveal_effects()
+	_ok(G["pendingChoice"].get("bossName") == "Cerebellus" and G.get("revealEffectsReady", false),
+		"NextStep exécute Cerebellus dans l'ordre des sièges et conserve la barrière au choix t2")
+	_ok((cerebellus["hand"] as Array).size() == 3 and (G["decks"]["spells"] as Array).is_empty(),
+		"les trois sorts ne deviennent visibles qu'au début de l'exécution des effets")
+	_ok(nested["entrance"].is_empty() and G["town"].size() == 2,
+		"la cible Mimic reste figée sans exécuter son effet avant Cerebellus")
+	m._resolve_choice(0, 0)
+	m.resolve_reveal_effects()
+	_ok(nested["entrance"] == [{"id": "H1", "name": "Fighter"}]
+		and G["town"] == [{"id": "H2", "name": "The Fool"}]
+		and not G.get("revealEffectsPending", false) and not G.has("revealEffectsReady"),
+		"Mimic Vault applique sa cible déjà résolue après le t2 de Cerebellus")
+	m.queue_free()
+
 ## Bottomless Pit detruit son slot en tuant le heros : plus de salle pour la mort (TopRoom == null), la salle suivante (Golem Factory) ne se declenche pas.
 func _t_pit_kill_no_death_trigger_on_next_room() -> void:
 	var m = Match.new()
@@ -2158,6 +2260,8 @@ func _t_vampire_bordello_choice_flips_whole_hero() -> void:
 	m._resolve_choice(0, 1)
 	_ok(CardDB.total_wounds(p) == 1 and CardDB.total_souls(p) == 2 and (p["wounds"] as Array).size() == 1,
 		"l'epique choisi est retourne en entier : -2 blessures, +2 ames ; H1 reste blesse")
+	_ok((p["souls"] as Array).all(func(s): return s.get("epic", false) and s.get("hero") == h2),
+		"Vampire Bordello conserve le type épique du héros pour Zombie Attack")
 	m.queue_free()
 	# Un seul heros vivant : retourne d'office (TryToAutoresolve).
 	var G2 := _ability_G("BMA014")
@@ -2496,6 +2600,57 @@ func _t_apk_teleportation_targets_active_hero() -> void:
 	m.G["adventure"]["playerId"] = 1
 	_ok(targets.call().is_empty(), "le heros actif est dans le donjon d'un autre joueur : aucune cible")
 	m.queue_free()
+
+## Trepidation garde son heros designe comme cible BMA053 jusqu'a AdventurePhase_c ; sans Teleportation, il reste saute.
+func _t_apk_trepidation_then_teleportation() -> void:
+	var m = _match_with_spell()
+	m.G["autoAI"] = false
+	m.G["phase"] = CardDB.PHASE["ADVENTURE"]
+	m.G["activePlayer"] = 0
+	var p0: Dictionary = m.G["players"][0]
+	p0["hand"] = [{"id": "BMA053", "name": "Teleportation", "isSpell": true, "category": 1}]
+	(p0["dungeon"] as Array).append([_room("T2", "trap", false, [1])])
+	p0["entrance"] = [{"id": "H1", "name": "H1", "hp": 4}, {"id": "H2", "name": "H2", "hp": 4}]
+	(m.G["players"][1] as Dictionary)["isAI"] = false
+	SpellEffects.cast_spell(m.G, 1, {"id": "BMA054", "name": "Trepidation"}, {"targetPlayerId": 0})
+	var skipped: Dictionary = m.G["apkSkippedHeroCard"]
+	_ok(str(skipped.get("id", "")) == "H1" and ((m.G["players"][0] as Dictionary)["entrance"] as Array).size() == 1,
+		"Trepidation retire H1 de l'entree mais le conserve comme heros actif")
+	var teleport_move: Dictionary = {}
+	for mv in m.legal_moves(0):
+		if str((mv as Dictionary).get("type", "")) == "playSpell" and str((((mv as Dictionary)["args"] as Array)[1] as Dictionary).get("heroId", "")) == "H1":
+			teleport_move = mv
+	_ok(not teleport_move.is_empty(), "BMA053 reste jouable sur le heros actif saute par Trepidation")
+	if not teleport_move.is_empty():
+		_ok(m.apply_move(0, teleport_move), "BMA053 est joue sur H1")
+		_pass_all(m)
+		var adv: Dictionary = m.G.get("adventure", {})
+		_ok(adv.get("hero", {}).get("id", "") == "H1" and int(adv.get("roomIndex", -9)) == -1
+			and ((m.G["players"][0] as Dictionary)["entrance"] as Array).has(skipped),
+			"Teleportation restaure H1 avant son pas AdventurePhase_c")
+		_ok(not m.consume_trepidation_skip(0) and not (m.G.get("adventure", {}) as Dictionary).is_empty(),
+			"le NextStep ne consomme pas Trepidation si BMA053 a restaure le heros")
+		var advanced := false
+		for mv in m.legal_moves(0):
+			if str((mv as Dictionary).get("type", "")) == "adventureNext":
+				advanced = m.apply_move(0, mv)
+				break
+		adv = m.G.get("adventure", {})
+		_ok(advanced and int(adv.get("roomIndex", -9)) == 1 and int(adv.get("hp", -9)) == 3,
+			"MoveHeroToRelativeSlot puis ProccessActiveHero sautent la premiere salle")
+	m.queue_free()
+
+	var skipped_match = _match_with_spell()
+	skipped_match.G["phase"] = CardDB.PHASE["ADVENTURE"]
+	skipped_match.G["activePlayer"] = 0
+	(skipped_match.G["players"][0] as Dictionary)["entrance"] = [{"id": "H1"}, {"id": "H2"}]
+	SpellEffects.cast_spell(skipped_match.G, 1, {"id": "BMA054", "name": "Trepidation"}, {"targetPlayerId": 0})
+	var consumed: bool = skipped_match.consume_trepidation_skip(0)
+	_ok((skipped_match.G.get("adventure", {}) as Dictionary).is_empty()
+		and ((skipped_match.G["players"][0] as Dictionary)["entrance"] as Array) == [{"id": "H2"}]
+		and not skipped_match.G.has("apkSkippedHeroCard") and consumed,
+		"sans BMA053, H1 reste saute et le marqueur transitoire est nettoye")
+	skipped_match.queue_free()
 
 ## BMA050 Motivation : OpponnentDungeonSizeMoreThan(1) (Conditions/OpponnentDungeonSizeMoreThan.cs) = un adversaire en vie a au moins 1 salle (Boss.DungeonSize,
 ## hors salle en attente) de plus que le lanceur. Le C# la verifie a la legalite (Ability.CheckConditions), pas seulement a l'effet.

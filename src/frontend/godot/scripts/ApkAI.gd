@@ -745,7 +745,9 @@ static func _against(x: Dictionary, e: Dictionary) -> Array:
 				if str((s as Dictionary).get("id", "")) == str(tg.get("stackId", "")):
 					return [int((s as Dictionary).get("playerId", -1))]
 			return []
-		"BMA048", "BMA049", "KSA013":
+		"KSA013": # AddSoulsToBossIfTreasures.SetTarget conserve le premier boss seulement.
+			return [int(tg.get("targetPlayerId", caster))]
+		"BMA048", "BMA049":
 			return prio_players(G)
 	return prio_players(G) if not AB_SPELLS.has(id) else []
 
@@ -960,7 +962,7 @@ static func _chk_055(x: Dictionary) -> Variant:
 		for i in souls.size():
 			var e: Dictionary = souls[i]
 			var h = e.get("hero")
-			if bool(e.get("epic", false)) and h is Dictionary and not bool(e.get("tpk", false)) and not heroes.any(func(o): return is_same(o, h)):
+			if h is Dictionary and bool(h.get("epic", e.get("epic", false))) and not bool(e.get("tpk", false)) and not heroes.any(func(o): return is_same(o, h)):
 				heroes.append(h)
 				first_idx.append(i)
 		var order: Array = range(heroes.size())
@@ -1011,7 +1013,9 @@ static func _chk_009(x: Dictionary, g: int) -> Variant:
 	elif room2 == null and spell != null:
 		pick = spell
 	elif room2 != null and spell != null:
-		pick = room2 if rng.randi_range(0, 1) == 1 else spell
+		var wave_state: Dictionary = x.get("waveState", {})
+		var choose_room := _wave_next_bool(wave_state) if not wave_state.is_empty() else rng.randi_range(0, 1) == 1
+		pick = room2 if choose_room else spell
 	if pick == null:
 		return null
 	return _res([[0, 0, [altar]], [1, 0, [pick]], [1, 1, [_boss_of(G, int(x["pid"]))]]], null, spell != null)
@@ -1227,8 +1231,10 @@ static func _chk_025(x: Dictionary, _g: int) -> Variant:
 		var id := str((ed.get("card", {}) as Dictionary).get("id", ""))
 		var direct: Array = []
 		match id: # GetCommandTargets() : cibles qui SONT des boss (pas leurs proprietaires)
-			"BMA048", "BMA049", "KSA013":
+			"BMA048", "BMA049":
 				direct = prio_players(G)
+			"KSA013":
+				direct = _against(x, ed)
 			"BMA050", "BMA051", "BMA052":
 				direct = [int(ed.get("playerId", -1))]
 			"BMA054":
@@ -1352,15 +1358,35 @@ static func _room_check(x: Dictionary, id: String, g: int) -> Variant:
 		"BMA039": return _chk_039(x, g)
 	return null
 
+## WaveEngine.Random.NextBool débite un mot de 32 bits du générateur xorshift par bits successifs.
+static func _wave_next_bool(state: Dictionary) -> bool:
+	var mask := int(state["bitMask"])
+	if mask == 0:
+		var first := int(state["x"])
+		var last := int(state["w"])
+		var mixed := (first ^ (first << 11)) & 0xffffffff
+		var word := last ^ (last >> 19) ^ mixed ^ (mixed >> 8)
+		state["x"] = state["y"]
+		state["y"] = state["z"]
+		state["z"] = last
+		state["w"] = word
+		state["bitBuffer"] = word
+		mask = 0x80000000
+	else:
+		mask >>= 1
+	state["bitMask"] = mask
+	return (int(state["bitBuffer"]) & mask) == 0
+
 ## GetUsableAbilities + CalculateAbilityStatistics : les capacites ELIGIBLES du joueur `pid` (cartes de l'APK), dans l'ordre du C# (salles du fond a l'entree, puis
 ## sorts de la main). `moves` = coups legaux de Godot (= CanPlayerPlayAbility). Une entree : {kind: "room"|"spell", idx: index de main / de pile, card, t: cibles
 ## preregles [[effet, fournisseur, [cartes]]], move: coup Godot qui porte cette cible (null si Godot ne la propose pas), shuf: la cible vient d'un tirage}.
 ## Lecture seule sur `G`. `rng` : tirages internes (Shuffle, NextBool).
-static func abilities(G: Dictionary, pid: int, moves: Array, rng: RandomNumberGenerator, dbm: DbmRandom = null) -> Array:
+static func abilities(G: Dictionary, pid: int, moves: Array, rng: RandomNumberGenerator, dbm: DbmRandom = null, wave_state: Dictionary = {}) -> Array:
 	var out: Array = []
 	if not (G["players"] as Dictionary).has(pid):
 		return out
 	var x := _ctx(G, pid, moves, rng, dbm)
+	x["waveState"] = wave_state.duplicate()
 	var p: Dictionary = x["p"]
 	var spell_mv: Dictionary = {}
 	var room_mv: Dictionary = {}
@@ -1582,8 +1608,25 @@ static func _tc_call(x: Dictionary, pc: Dictionary, opts: Array, name: String, o
 ## `choose` rejoue ce resultat. Rend {} (rien de fige) ou {"key": cle de l'option, "val": valeur} (val null = ne rien designer). Mimic Vault / Specter's Sanctum.
 static func reveal_target(G: Dictionary, pid: int, room: Dictionary, memo: Dictionary = {}, commit := false) -> Dictionary:
 	var x := _ctx(G, pid, [], RandomNumberGenerator.new())
-	var opts: Array = []
+	var spec := reveal_target_spec(G, pid, room)
+	var opts: Array = spec.get("options", [])
 	var res: Variant = null
+	var key := str(spec.get("key", "card"))
+	var name := str(spec.get("name", ""))
+	if opts.size() > 1: # un seul candidat : pris tel quel (SingleTargetProvider), le cache n'est pas appele
+		var pc := {"bossName": name, "roomUid": RoomAbilities.room_uid(room)}
+		res = _tc_call(x, pc, opts, name, _tc_owner(pc, name), memo, commit)
+	if res == null:
+		return {}
+	var idx := int((res as Dictionary)["idx"])
+	var out := {"key": key, "val": null if idx < 0 else (opts[idx] as Dictionary)[key]}
+	if (res as Dictionary).has("stale"):
+		out["stale"] = res["stale"]
+	return out
+
+## Options des providers de cible des capacités « à la révélation » (distinctes de l'exécution de l'effet).
+static func reveal_target_spec(G: Dictionary, pid: int, room: Dictionary) -> Dictionary:
+	var opts: Array = []
 	var key := "card"
 	var name := ""
 	match str(room.get("id", "")):
@@ -1598,16 +1641,7 @@ static func reveal_target(G: Dictionary, pid: int, room: Dictionary, memo: Dicti
 			key = "targetPlayerId"
 			for q in opponents(G, pid):
 				opts.append({"targetPlayerId": int(q)})
-	if opts.size() > 1: # un seul candidat : pris tel quel (SingleTargetProvider), le cache n'est pas appele
-		var pc := {"bossName": name, "roomUid": RoomAbilities.room_uid(room)}
-		res = _tc_call(x, pc, opts, name, _tc_owner(pc, name), memo, commit)
-	if res == null:
-		return {}
-	var idx := int((res as Dictionary)["idx"])
-	var out := {"key": key, "val": null if idx < 0 else (opts[idx] as Dictionary)[key]}
-	if (res as Dictionary).has("stale"):
-		out["stale"] = res["stale"]
-	return out
+	return {"key": key, "name": name, "options": opts}
 
 # --- outils ----------------------------------------------------------------------------------------------------------------
 

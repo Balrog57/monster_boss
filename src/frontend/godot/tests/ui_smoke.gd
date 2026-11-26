@@ -4888,6 +4888,7 @@ func _check_gameover_banner() -> void:
 	var gb = board._gameover
 	if _check(gb != null and is_instance_valid(gb), "fin : bandeau absent"):
 		_check(gb.title_label.text == str((boss as Dictionary).get("name", "")), "fin : nom du vainqueur %s" % gb.title_label.text)
+		_check(not board.phase_banner.visible, "victoire : la plaque de phase doit rester masquée")
 		_check(gb.get_node_or_null("WinnerText") != null and gb.get_node_or_null("BossSprite") != null, "fin : « IS THE WINNER! » ou boss absent")
 		_check(gb._crystals.size() == 10, "fin : %d cristaux (10 attendus)" % gb._crystals.size())
 		var p0: Vector2 = (gb._crystals[0] as Control).position
@@ -4905,6 +4906,14 @@ func _check_gameover_banner() -> void:
 	await _new_game()
 	board.set_process(false)
 	G = gm.G
+	for player in G["players"].values():
+		for slot in player["dungeon"]:
+			var room = BossEngine.active_room(slot)
+			if room != null:
+				room["faceDown"] = false
+	G["phase"] = "adventure"
+	board.refresh()
+	G["phase"] = "end"
 	G["gameOver"] = {"winner": 1, "reason": "wounds"}
 	m0 = AudioManager.rec.size()
 	board.refresh()
@@ -4914,6 +4923,7 @@ func _check_gameover_banner() -> void:
 	_check(ev.has("sting:sting_player_lose") and not ev.any(func(e): return str(e).begins_with("sfx:boss_")), "fin perdue : sting_player_lose seul attendu (LoseScene.cs:21, pas de voix), vu %s" % str(ev))
 	gb = board._gameover
 	_check(gb != null and gb.title_label.text.contains("YOU LOSE") and gb.get_node_or_null("Tombstone") != null, "fin : ecran perdu (YOU LOSE + tombe) absent")
+	_check(board.phase_banner.visible and board.phase_banner.texture != null and board.phase_banner.texture.resource_path.ends_with("/adventure_phase.webp"), "défaite solo : plaque ADVENTURE absente sous le voile")
 	_cov("gameover_banner")
 	# boss elimine : pierre tombale
 	await _new_game()

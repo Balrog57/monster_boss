@@ -357,7 +357,7 @@ static func _trepidation(G: Dictionary, caster_id: int, _card: Dictionary, targe
 	# ProccessActiveHero (ForceSkipAdventure) RETIRE DU JEU (RemoveHeroFromGame) ; les suivants restent a l'entree.
 	if str(G.get("phase", "")) == CardDB.PHASE["ADVENTURE"] and (G.get("adventure", {}) as Dictionary).is_empty() and not bool(G.get("afterHero", false)) \
 			and int(G.get("stackActivePlayer", G.get("activePlayer", -1))) == tid and not (victim.get("entrance", []) as Array).is_empty():
-		(victim["entrance"] as Array).pop_front()
+		G["apkSkippedHeroCard"] = (victim["entrance"] as Array).pop_front()
 		G["apkSkippedHero"] = tid # l'APK garde ce heros actif jusqu'a ProccessActiveHero : la fenetre d'interaction humaine reste ouverte (Match.apk_active_hero)
 	return true
 

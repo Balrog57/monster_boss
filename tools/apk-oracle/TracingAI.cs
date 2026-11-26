@@ -1,3 +1,4 @@
+using System.Reflection;
 using DBMGameModel;
 using DBMGameModel.Logic;
 using DBMGameModel.Logic.Abilities;
@@ -71,6 +72,10 @@ sealed class TracingAI : AIPlayerInteraction
     {
         int s = Trace.Begin();
         int draws0 = RandomProvider.NumberOfCallsToNext; // trace seulement : la cible vient-elle d'un Shuffle() (TriggerCalculator) ?
+        var owner = target.Ability?.AbilityOwner as LogicCardBase;
+        var discardBefore = owner?.CardNumber == "BMA002" && target.UniqueID == 1
+            ? new { rooms = gameboard.DiscardPileRooms.Select(Trace.C).ToArray(), spells = gameboard.DiscardPileSpells.Select(Trace.C).ToArray() }
+            : null;
         base.InternalResolveTarget(target, r =>
         {
             int draws = RandomProvider.NumberOfCallsToNext - draws0;
@@ -80,8 +85,8 @@ sealed class TracingAI : AIPlayerInteraction
             Trace.Add(s, "decision", new
             {
                 decision = "resolveTarget", player = playerOwner.PlayerId, targetId = target.UniqueID, amount = target.TargetsAmount,
-                owner = (target.Ability?.AbilityOwner as LogicCardBase) is LogicCardBase o ? Trace.C(o) : null,
-                chosen = list?.Cast<LogicCardBase>().Select(Trace.C).ToArray(), shuffled, draws, n0 = draws0,
+                owner = owner != null ? Trace.C(owner) : null,
+                chosen = list?.Cast<LogicCardBase>().Select(Trace.C).ToArray(), shuffled, draws, n0 = draws0, discardBefore,
             });
         }, canBeCanceled);
     }
@@ -93,6 +98,9 @@ sealed class TracingAI : AIPlayerInteraction
 // capacites eligibles (carte + cibles preregles par SetSelectedTargets) avant le tirage. AIHelper est internal : GetUsableAbilities est recopie (AIHelper.cs:20-31).
 sealed class TracingBrain : AIBrain
 {
+    static readonly FieldInfo[] WaveStateFields = new[] { "x", "y", "z", "w", "bitBuffer", "bitMask" }
+        .Select(name => typeof(WaveEngine.Framework.Services.Random).GetField(name, BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new MissingFieldException("WaveEngine Random", name)).ToArray();
     readonly FixedAI inner = new FixedAI();
 
     public DeckType SelectWhereToDrawFrom(GameBoard g, Boss p) => inner.SelectWhereToDrawFrom(g, p);
@@ -105,6 +113,7 @@ sealed class TracingBrain : AIBrain
     public AbilitySelectedInformation SelectAbilityToUse(GameBoard gameState, Boss player)
     {
         int draws0 = RandomProvider.NumberOfCallsToNext; // tirages du generateur partage consommes par les Shuffle() des CheckXXX (le rejeu Godot les rejoue)
+        var waveState = WaveStateFields.ToDictionary(field => field.Name, field => (uint)field.GetValue(WaveServices.Random));
         var usable = new List<Ability>();
         usable.AddRange(player.DungeonActiveRooms.Where(d => d.CanPlayerPlayAbility(gameState)).Select(d => d.Ability));
         usable.AddRange(player.SpellsInHand.Where(s => s.CanPlayerPlayAbility(gameState)).Select(s => s.Ability));
@@ -124,7 +133,7 @@ sealed class TracingBrain : AIBrain
             }
         }
         var eligible = (list ?? new()).Select(t => Describe(t.Item2));
-        TracingAI.Trace.AbilityChoice(player, usable.Select(a => (LogicCardBase)a.AbilityOwner), eligible, list == null ? -1 : list.FindIndex(t => t.Item2 == result), RandomProvider.NumberOfCallsToNext - draws0, draws0);
+        TracingAI.Trace.AbilityChoice(player, usable.Select(a => (LogicCardBase)a.AbilityOwner), eligible, list == null ? -1 : list.FindIndex(t => t.Item2 == result), RandomProvider.NumberOfCallsToNext - draws0, draws0, waveState);
         return result;
     }
 

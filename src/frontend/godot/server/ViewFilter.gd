@@ -7,16 +7,17 @@ extends RefCounted
 ## Liste blanche : une cle de G inconnue n'est PAS emise ; le test online echoue pour la classer ici.
 
 ## Cles de G publiques, recopiees telles quelles.
-const PUBLIC_KEYS := ["activePlayer", "adventure", "adventurePausePassed", "afterHero", "apkSkippedHero", "autoAI", "buildIndex",
+const PUBLIC_KEYS := ["activePlayer", "adventure", "adventurePausePassed", "afterHero", "apkSkippedHero", "apkSkippedHeroCard", "autoAI", "buildIndex",
 	"buildOrder", "buildWindow", "effects", "forcedBuild", "gameOver", "itemQueue", "kingVote", "townItems", "lastHeroFight", "luredThisTurn",
 	"mandoQueue", "mulliganPending", "numPlayers", "phase", "roboboQueue", "sets", "setupBuild", "setupForced", "setupReveal", "stack",
 	"stackActivePlayer", "stackPassed", "stackReturnPlayer", "tnlEndPending", "tnlGiftBuilt", "town", "turn", "variants", "xpOrder"]
 ## Cles traitees a part (filtrees) ou volontairement jamais emises (revealQueue, forcedBuilds, forcedRandom, aiTargets*).
-## apkSkippedHero est publique : numero de siege pose par Trepidation (sort face visible) ; Match.apk_active_hero() la lit cote client en ligne.
+## apkSkippedHero / apkSkippedHeroCard sont publics : Trepidation est visible; la carte n'existe que si un heros actif visible a ete retire de l'entree.
 const FILTERED_KEYS := ["decks", "players", "bossPicks", "pendingChoice", "choiceQueue", "log", "logs"]
 ## aseTarget (sort que l'IA All-Seeing Eye annule, AI.remember), aiMayCancel (harnais d'oracle), iodFlame / rmbReplay / lincolnReveal (drapeaux internes au moteur, poses puis effaces dans un meme coup) : aucun lecteur cote client.
 const DROPPED_KEYS := ["_deathRoom", "revealQueue", "forcedBuilds", "forcedRandom", "aiTargetsAllBosses", "apkSeats", "aiTargetsAnyRoomType", "aiMayCancel", "iodFlame", "rmbReplay", "lincolnReveal",
-	"dbm", "bossOrder", "humanBoss", "aiBossOrder", "aiBossSeats", "aseTarget"] # generateur de la partie et tirage des boss : jamais emis
+	"dbm", "bossOrder", "humanBoss", "aiBossOrder", "aiBossSeats", "aseTarget",
+	"apkTraceMode", "apkTraceResolveTargets", "deferRevealEffects", "revealEffectsReady", "revealTargetCursor", "revealTargetsPrepared", "revealEffectsPending"] # champs de trace et de transaction internes : jamais emis
 const SECRET_PILES := ["rooms", "spells", "heroes", "epics", "items"]
 ## Cles de joueur publiques (coins, rmbBoss, tnlBoss... : tout ce qui est pose devant le joueur). Liste blanche aussi :
 ## une cle de joueur inconnue n'est pas emise aux adversaires (le siege lui-meme voit tout son joueur).

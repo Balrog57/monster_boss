@@ -30,12 +30,12 @@ sealed class Trace
     public int Depth { get => depth; set => depth = value; }
     public int Seq => seq;
 
-    public void AbilityChoice(Boss player, IEnumerable<LogicCardBase> usable, IEnumerable<object> eligible, int chosen, int draws, int n0)
+    public void AbilityChoice(Boss player, IEnumerable<LogicCardBase> usable, IEnumerable<object> eligible, int chosen, int draws, int n0, Dictionary<string, uint> waveState)
     {
         abilityChoices.Add(new
         {
             afterSeq = seq, player = player.PlayerId, turn = board.NumberOfTurns, phase = board.CurrentGamePhase.ToString(), spellBattle = board.IsSpellBattleActive,
-            activePlayer = board.ActivePlayer?.PlayerId, usable = usable.Select(C).ToArray(), eligible = eligible.ToArray(), chosen, draws, n0,
+            activePlayer = board.ActivePlayer?.PlayerId, usable = usable.Select(C).ToArray(), eligible = eligible.ToArray(), chosen, draws, n0, waveState,
         });
         rnMark = RandomProvider.NumberOfCallsToNext;
     }

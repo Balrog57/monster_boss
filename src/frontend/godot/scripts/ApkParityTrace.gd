@@ -26,6 +26,8 @@ class ApkMatch extends Match:
 	var held := false
 	var snap: Callable = Callable()
 	var snaps: Dictionary = {}
+	var measure_ai := false
+	var before_build_reveal: Dictionary = {}
 
 	func _start_turn() -> void:
 		if hold_start:
@@ -49,9 +51,16 @@ class ApkMatch extends Match:
 		_snap("bait")
 		super._init_adventure_phase()
 
+	func _build_reveal_queue() -> Array:
+		if measure_ai and G.get("phase") == "build":
+			before_build_reveal = G.duplicate(true)
+		return super._build_reveal_queue()
+
 	func _snap(tag: String) -> void:
 		if snap.is_valid():
-			snaps["%s:%d" % [tag, maxi(0, int(G.get("turn", 0)) - 1)]] = snap.call()
+			var key := "%s:%d" % [tag, maxi(0, int(G.get("turn", 0)) - 1)]
+			if not snaps.has(key):
+				snaps[key] = snap.call() # un second passage interne ne remplace pas le checkpoint oracle de ce tour
 
 	## HeroDiesInThisRoom : l'oracle met la transaction en file pendant ProccessActiveHero (l'ame est deja ajoutee) et ne
 	## l'execute qu'au NextStep suivant. On retient donc le declencheur jusqu'au step oracle suivant (ou la fin de tour).
@@ -72,9 +81,9 @@ class ApkMatch extends Match:
 
 	func release_start() -> void:
 		hold_start = false
-		if held:
-			held = false
-			_start_turn()
+		held = false
+		G.erase("setupForced") # le lancement différé consomme aussi le marqueur consommé après BuildPhase_b dans le flux autonome
+		_start_turn()
 
 
 var run: ApkMatch
@@ -219,6 +228,16 @@ func replay(trace: Dictionary) -> Dictionary:
 			"leveledUp": false, "buildsThisTurn": 0, "isAI": false, "entrance": [],
 		}
 	_steps = trace["steps"]
+	var trace_targets: Dictionary = {}
+	for step in _steps:
+		var detail: Dictionary = step.get("detail", {}) if step.get("detail") is Dictionary else {}
+		var owner: Dictionary = detail.get("owner", {}) if detail.get("owner") is Dictionary else {}
+		if str(step.get("kind", "")) != "decision" or str(detail.get("decision", "")) != "resolveTarget" or not owner.has("id"):
+			continue
+		var owner_key := str(int(owner["id"]))
+		if not trace_targets.has(owner_key):
+			trace_targets[owner_key] = []
+		(trace_targets[owner_key] as Array).append(detail)
 	_ach = trace.get("abilityChoices", []) # choix d'IA oracle (UseAbility) : ensemble des capacites eligibles + tirage, voir _ai_measure_choice
 	_ach_pos = 0
 	# Pioches : celles de l'oracle APRES la distribution d'ouverture (AvoidMulliganCondition remelange le
@@ -236,6 +255,7 @@ func replay(trace: Dictionary) -> Dictionary:
 		orders = {"rooms": initial["deckRooms"], "spells": initial["deckSpells"], "heroes": initial["deckHeroes"]}
 	run = ApkMatch.new()
 	run.snap = project
+	run.measure_ai = _ai_on
 	run.G = {
 		"players": players, "bossPicks": [], "numPlayers": players.size(),
 		"xpOrder": CardDB.order_by_xp(players),
@@ -251,6 +271,8 @@ func replay(trace: Dictionary) -> Dictionary:
 		"stack": [], "stackPassed": {}, "pendingChoice": {}, "choiceQueue": [], "roboboQueue": [], "itemQueue": [],
 	}
 	run.G["apkSeats"] = (initial["bosses"] as Array).map(func(b): return int((b as Dictionary)["playerId"]) - 1) # Players = ordre des sieges de l'oracle
+	run.G["apkTraceMode"] = true # les effets des transactions de revelation attendent le NextStep BuildPhase_b
+	run.G["apkTraceResolveTargets"] = trace_targets # ResolveTargets des level-ups en file, rejoues avant l'effet au NextStep
 	run.G["aiTargetsAllBosses"] = true # T.P.K. : l'IA de l'oracle designe tous les joueurs (SpellTargeting "tpk-player")
 	run.G["aiMayCancel"] = true # Seducia : l'IA de l'oracle peut ne rien designer (Match.legal_moves, choix `aiCancel`)
 	run.G["aiTargetsAnyRoomType"] = true # Giant Size : l'IA de l'oracle peut viser une salle Trap (AbilityCalculator.CheckBMA040And047, sans revalidation)
@@ -277,24 +299,28 @@ func replay(trace: Dictionary) -> Dictionary:
 		# et un remelange de pioche qu'ils declenchent doit tirer dans DbmRandom comme l'APK (sinon `randi` : s16-p4@593, Recycling Center).
 		_dbm_at(int(s.get("rn0", 0)))
 		_ai_flush_choices(int(s["seq"]))
-		run.release_death()
 		# Un meme exemplaire peut etre perdu, recupere puis re-perdu : on ne propose que les pertes a venir (seq >= step courant), et proches
 		# (l'execution suit son journal de decisions de 1 a 2 steps) : une perte lointaine ne doit pas etre jouee par un declencheur anterieur.
-		run.G["forcedRandom"] = _losses.filter(func(e): return int((e as Array)[1]) >= int(s["seq"]) and int((e as Array)[1]) <= int(s["seq"]) + 4).map(func(e): return (e as Array)[0])
+		var seq := int(s["seq"])
+		var forced_random := _losses.filter(func(e): return int(e[1]) >= seq and int(e[1]) <= seq + 4).map(func(e): return e[0])
+		if run.held_death.any(func(e): return e[1].get("id") == "BMA012"):
+			# Les décisions de dégâts passifs peuvent séparer la mort du NextStep qui exécute le vol.
+			for k in range(i, _steps.size()):
+				var next: Dictionary = _steps[k]
+				if next["kind"] == "phase" and next["detail"].get("executed", true):
+					var resolved_seq := int(next["seq"])
+					run.G["forcedRandom"] = _losses.filter(func(e): return int(e[1]) == resolved_seq).map(func(e): return e[0])
+					break
+		run.release_death()
+		run.G["forcedRandom"] = forced_random
 		if str(s["kind"]) == "phase":
 			_release_held()
 			_flush_late()
-			_age_late()
 		# Les decisions de revelation (BuildPhase_a puis _b) peuvent rester en attente a travers le NextStep de B.
 		if str(s["kind"]) != "decision" and not (str(s["kind"]) == "phase" and str(s["phase"]) in ["BuildPhase_a", "BuildPhase_b"]):
 			_deferred.clear()
-		match str(s["kind"]):
-			"phase":
-				_on_phase(s, i)
-			"action":
-				_on_action(i, s)
-			"decision":
-				_on_decision(i, s)
+		_dispatch_step_with_late(s, i)
+		_arm_setup_reveal_if_pending()
 		run.G.erase("dbm")
 		proj[str(int(s["seq"]))] = project()
 		_dbg(s)
@@ -317,12 +343,25 @@ func _dbg(s: Dictionary) -> void:
 		if a.begins_with("--dbg="):
 			var r := a.substr(6).split("-")
 			var q := int(s["seq"])
-			if q >= int(r[0]) and q <= int(r[1]):
+			var hi := int(r[1]) if r.size() > 1 else int(r[0])
+			if q >= int(r[0]) and q <= hi:
 				var G: Dictionary = run.G
 				var adv: Dictionary = G.get("adventure", {})
 				print("DBG %d %s %s ph=%s act=%d%s adv=%s eff=%s pc=%s ent=%s log=%s" % [q, s["kind"], str(s.get("detail", {})).substr(0, 90), G.get("phase"), run.active_player() + 1,
 					(" forced=" + str(G["forcedBuild"]) if G.has("forcedBuild") else "") + (" window" if G.has("buildWindow") else ""),
 					str(adv.get("hp", "-")) + "@" + str(adv.get("roomIndex", "-")), _eff(), _pcs(), _ents(), str((G["log"] as Array).slice(-_dbg_log()))])
+				if q == hi and str((s.get("detail", {}) as Dictionary).get("owner", {}).get("card", "")) == "BMA002":
+					var od: Dictionary = s.get("detail", {})
+					var oracle_spells := ((od.get("discardBefore", {}) as Dictionary).get("spells", []) as Array) if od.get("discardBefore") is Dictionary else []
+					var memo_dbg: Array = []
+					for pid in (G.get("players", {}) as Dictionary):
+						var md: Dictionary = AI._memo.get(AI._key(run, int(pid)), {})
+						var ml: Array = (md.get("Xyzax", {}) as Dictionary).get("list", [])
+						if not ml.is_empty():
+							memo_dbg.append({"pid": int(pid), "list": ml.map(func(c): return str((c as Dictionary).get("id", "?")))})
+					var oracle_ids := oracle_spells.map(func(c): return "%s#%s" % [str((c as Dictionary).get("card", "?")), str((c as Dictionary).get("id", "?"))])
+					var godot_ids := ((G.get("decks", {}) as Dictionary).get("spellDiscard", []) as Array).map(func(c): return "%s#%s" % [str((c as Dictionary).get("id", "?")), str((c as Dictionary).get("_oid", "?"))])
+					print("DBG-XYZAX seq=%d oracle=%s godotDiscard=%s memo=%s" % [q, str(oracle_ids), str(godot_ids), str(memo_dbg)])
 
 
 ## `--dbglog=N` : nombre de lignes de journal Godot affichees par `--dbg` (3 par defaut).
@@ -581,6 +620,12 @@ func _on_phase(s: Dictionary, i := 0) -> void:
 	# NextStep() de l'oracle sorti sans executer de phase (fin de duel de sorts) : rien a rejouer.
 	if (s.get("detail", {}) as Dictionary).get("executed", true) == false:
 		return
+	if str(s.get("phase", "")) == "BuildPhase_b":
+		if not bool(run.G.get("revealEffectsPending", false)):
+			run.G["deferRevealEffects"] = true
+			run._reveal_and_level_up()
+		if bool(run.G.get("revealEffectsPending", false)):
+			run.G["revealEffectsReady"] = true
 	if _ahead(s):
 		if str(s["phase"]) in ["AdventurePhase_c"]:
 			_refus(s, "adventureNext", int(s["activePlayer"]) - 1 if s["activePlayer"] != null else -1, "Godot a deja termine ce tour (il est au tour %d, l'oracle au tour %d)" % [int(run.G.get("turn", 0)) - 1, int(s["turn"])])
@@ -601,18 +646,17 @@ func _on_phase(s: Dictionary, i := 0) -> void:
 			elif str(s["nextPhase"]) == "BuildPhase_b":
 				_sync_build(-1, s)
 		"ExtraBuildPhase":
-			_extra_pid = int(s["activePlayer"]) - 1 # Godot a ouvert le tour de construction supplementaire (forcedBuild) : refermer s'il n'est pas joue
-			_note(s, "NOTE", "ExtraBuildPhase : tour supplementaire (forcedBuild cote Godot)")
+			_extra_pid = int(s["activePlayer"]) - 1 # joueur vise par l'oracle; le port ouvre forcedBuild seulement si une salle est constructible
+			_note(s, "NOTE", "ExtraBuildPhase oracle : tour supplementaire (Godot l'ouvre si une salle est constructible)")
 		"AdventurePhase_b":
 			# Plus de heros pour ce joueur : Godot attend son "pass". L'oracle le garde actif jusqu'au NextStep suivant (AdventurePhase_a) :
 			# un SORT joue entre-temps depend du joueur actif (Trepidation de la cible, s35-p2@233 : Godot ne doit pas avoir deja passe la main) ;
 			# le « pass » est alors differe (_pass_idle). Sans sort dans la fenetre, on passe tout de suite : un heros ajoute par une capacite
 			# (Zombie Prison, s24-p4@266) ne doit pas entrer, ChooseNextActiveHero (AdventurePhase_b) ayant deja designe personne.
-			# Meme report pour une capacite de salle du joueur actif lui-meme (UseAbility d'AdventurePhase_b sans heros, AIPlayerInteraction.cs:105-107) :
-			# passer d'abord terminerait le tour Godot avant elle (Dracolich Lair, s20-p2@677, s28-p3@329). Elle vise ses adversaires, son entree reste vide.
+			# Une capacite de salle peut aussi partir d'un autre siege avant ce NextStep (Zombie Prison, s226-p4@1559).
 			if s["activeHero"] == null and s["activePlayer"] != null:
 				var ap := int(s["activePlayer"]) - 1
-				if _window_has_spell(i, ap):
+				if _window_has_action(i):
 					_idle_pid = ap
 				elif str(run.G.get("phase", "")) == "adventure" and run.active_player() == ap and _adventure_idle(ap):
 					_auto_resolve(s)
@@ -624,14 +668,68 @@ func _on_phase(s: Dictionary, i := 0) -> void:
 			_adv_step(s)
 
 
-## Un sort (de n'importe qui) ou une capacite de salle du joueur actif `ap` est-il joue avant le prochain NextStep execute (fenetre du joueur actif de l'oracle) ?
-func _window_has_spell(i: int, ap := -1) -> bool:
+## RevealAllRoomCards peut résoudre les providers t1 des salles mises en file après BuildPhase_b.
+## Seuls les resolveTarget t1 dont le propriétaire est encore dans la file de révélation gardent
+## la transaction ouverte; les t2 et les providers d'autres transactions ne la bloquent pas.
+func _has_reveal_target_before_next_phase(from_index: int) -> bool:
+	var reveal_owners: Dictionary = {}
+	for queued in run.G.get("revealQueue", []):
+		var item: Dictionary = queued
+		if str(item.get("kind", "")) == "room":
+			var room: Dictionary = item.get("room", {})
+			var owner_id := str(room.get("id", ""))
+			if not owner_id.is_empty():
+				reveal_owners[owner_id] = true
+	if reveal_owners.is_empty():
+		return false
+	for k in range(from_index, _steps.size()):
+		var step: Dictionary = _steps[k]
+		if k > from_index and str(step.get("kind", "")) == "phase":
+			break
+		var detail: Dictionary = step.get("detail", {}) if step.get("detail") is Dictionary else {}
+		if str(step.get("kind", "")) == "decision" and str(detail.get("decision", "")) == "resolveTarget" \
+			and int(detail.get("targetId", 0)) == 1 \
+			and reveal_owners.has(str((detail.get("owner", {}) as Dictionary).get("card", ""))):
+			return true
+	return false
+
+
+## NextStep peut ouvrir un choix de reveal après la décision oracle; ne flusher/expirer
+## les cibles tardives qu'après résolution du NextStep et dispatch de la phase.
+func _dispatch_step_with_late(s: Dictionary, i: int) -> void:
+	if bool(run.G.get("revealEffectsReady", false)) and bool(run.G.get("revealEffectsPending", false)) \
+		and not (str(s["kind"]) == "phase" and str(s["phase"]) == "BuildPhase_b") \
+		and not _has_reveal_target_before_next_phase(i):
+		run.resolve_reveal_effects() # NextStep: après le dernier provider t1, avant les choix d'effet
+	match str(s["kind"]):
+		"phase":
+			_on_phase(s, i)
+		"action":
+			_on_action(i, s)
+		"decision":
+			_on_decision(i, s)
+	# Le dispatch/NextStep peut ouvrir le prompt de la salle dont le ResolveTarget a été journalisé avant.
+	_flush_late(true)
+	if str(s["kind"]) == "phase":
+		_age_late()
+
+
+## Une salle construite pendant l'ExtraBuild de mise en place est révélée au Setup_c suivant.
+## La file est différée par _close_build_phase (qui sert aussi à fermer cet ExtraBuild) ; la rendre prête
+## maintenant laisse _dispatch_step_with_late la résoudre au prochain NextStep, après ses éventuels ResolveTarget.
+func _arm_setup_reveal_if_pending() -> void:
+	if bool(run.G.get("setupForced", false)) and bool(run.G.get("revealEffectsPending", false)):
+		run.G["revealEffectsReady"] = true
+
+
+## L'oracle laisse encore jouer des sorts ou capacites avant le prochain NextStep execute.
+func _window_has_action(i: int) -> bool:
 	for k in range(i + 1, _steps.size()):
 		var n: Dictionary = _steps[k]
 		var nd: Dictionary = n["detail"] if n.get("detail") is Dictionary else {}
 		if str(n["kind"]) == "phase" and nd.get("executed", true) != false:
 			return false
-		if str(n["kind"]) == "action" and (str(nd.get("action", "")) == "playSpell" or (str(nd.get("action", "")) == "playRoomAbility" and int(nd.get("player", 0)) - 1 == ap)):
+		if str(n["kind"]) == "action" and str(nd.get("action", "")) in ["playSpell", "playRoomAbility"]:
 			return true
 	return false
 
@@ -640,9 +738,18 @@ func _window_has_spell(i: int, ap := -1) -> bool:
 func _pass_idle(s: Dictionary) -> void:
 	var ap := _idle_pid
 	_idle_pid = -1
-	if ap >= 0 and str(run.G.get("phase", "")) == "adventure" and run.active_player() == ap and _adventure_idle(ap):
+	if ap >= 0 and str(run.G.get("phase", "")) == "adventure" and run.active_player() == ap and (run.G.get("adventure", {}) as Dictionary).is_empty():
 		_auto_resolve(s)
-		_apply_type(ap, "pass", s)
+		if str(run.G.get("phase", "")) != "adventure" or run.active_player() != ap:
+			return
+		if run._has_entrance_hero(ap):
+			# ChooseNextActiveHero a deja choisi une file vide. Un heros ressuscite ensuite attend le prochain tour.
+			var player: Dictionary = run.G["players"][ap]
+			player["passed"] = true
+			player["hasActed"] = true
+			run._advance_adventure_player()
+		else:
+			_apply_type(ap, "pass", s)
 
 
 ## ExtraBuildPhase : l'oracle l'a refermee sans que son IA construise (pas d'action) : Godot attend encore le coup du joueur.
@@ -739,6 +846,10 @@ func _adv_step(s: Dictionary) -> void:
 	if str(run.G.get("phase", "")) != "adventure":
 		_refus(s, "adventureNext", pid, "Godot n'est pas en ADVENTURE")
 		return
+	# Un NextStep AdventurePhase_c execute consomme ForceSkipAdventure. Le pas execute:false (fermeture de la Spell Battle) a deja retourne plus haut.
+	# Si BMA053 a restaure le heros, Match refuse la consommation et laisse le parcours teleporte intact.
+	if s["activeHero"] == null:
+		run.consume_trepidation_skip(pid)
 	_auto_resolve(s)
 	# Trepidation (Boss.ForceSkipAdventure) : ProccessActiveHero « saute » le heros (pas d'entree, flag3) et sort en AdventurePhase_c
 	# sans heros ; Godot ne l'a jamais fait entrer (_has_entrance_hero) : rien a rejouer, le `pass` vient au AdventurePhase_b suivant.
@@ -803,8 +914,7 @@ func _on_action(i: int, s: Dictionary) -> void:
 			# choix Godot tout de suite), puis l'activation est une entree de pile resolue par la derniere « passe ». `_held` ne garde que ces decisions (cibles perimees).
 			_release_held()
 			_ability(i, s, d, pid)
-			if str((d["room"] as Dictionary)["card"]) != "BMA025": # All-Seeing Eye : sa transaction passe devant le sort, ses choix s'ouvrent tout de suite
-				_held = {"i": i, "s": s, "d": d, "pid": pid, "decs": []}
+			_held = {"i": i, "s": s, "d": d, "pid": pid, "decs": []}
 		"playSpell":
 			_spell(i, s, d, pid)
 		"spellBattleReady":
@@ -1162,10 +1272,37 @@ func _on_decision_now(_i: int, s: Dictionary, age := -1) -> void:
 	# la resout : l'IA « decide » une cible a chaque fois). Aucun choix de joueur : ne jamais les rapprocher d'un choix Godot ouvert, et
 	# ce ne sont pas des decisions de revelation (la fenetre de sorts avant la revelation reste ouverte : Jackpot Stash la precede, s23-p2@330).
 	if str((d.get("owner", {}) as Dictionary).get("card", "")) in ["BMA015", "BMA029"]:
+		stats["passiveSkipped"] += 1 # Requete de degats, pas un choix de joueur ni une activation distincte.
 		return
-	if not bool(s.get("spellBattle", false)):
-		_close_window(s) # decision hors Spell Battle = la revelation a commence : la fenetre de sorts est close
 	var pc: Dictionary = G.get("pendingChoice", {})
+	var oracle_chosen := _oids(d.get("chosen"))
+	var hold_xyzax_for_darklab := kind == "resolveTarget" and int(d.get("targetId", 0)) == 1 and int(d.get("amount", 0)) == 2 and oracle_chosen.size() == 2 \
+		and str((d.get("owner", {}) as Dictionary).get("card", "")) == "BMA002" and str(pc.get("bossName", "")) == "Dark Laboratory"
+	if not bool(s.get("spellBattle", false)) and not hold_xyzax_for_darklab:
+		if int(s["seq"]) == 437 and OS.get_cmdline_user_args().has("--dbg=437"):
+			print("DBG-XYZAX-CLOSE before stack=%s discard=%s pc=%s/%s" % [str((G.get("stack", []) as Array).map(func(e): return str((e as Dictionary).get("card", {}).get("id", "?")))), str((G.get("decks", {}) as Dictionary).get("spellDiscard", []).map(func(c): return str((c as Dictionary).get("id", "?")))), str((G.get("pendingChoice", {}) as Dictionary).get("type", "")), str((G.get("pendingChoice", {}) as Dictionary).get("bossName", ""))])
+		_close_window(s) # decision hors Spell Battle = la revelation a commence : la fenetre de sorts est close
+		if int(s["seq"]) == 437 and OS.get_cmdline_user_args().has("--dbg=437"):
+			print("DBG-XYZAX-CLOSE after stack=%s discard=%s pc=%s/%s" % [str((G.get("stack", []) as Array).map(func(e): return str((e as Dictionary).get("card", {}).get("id", "?")))), str((G.get("decks", {}) as Dictionary).get("spellDiscard", []).map(func(c): return str((c as Dictionary).get("id", "?")))), str((G.get("pendingChoice", {}) as Dictionary).get("type", "")), str((G.get("pendingChoice", {}) as Dictionary).get("bossName", ""))])
+	if hold_xyzax_for_darklab and not _ai_xyzax_premeasured.has(pid):
+		if not d.has("n0") or d.get("n0") == null or int(d.get("n0", -1)) < 0:
+			_ai_unavail("targetShuffle:Xyzax:missingRngState")
+			_ai_xyzax_pending[pid] = {"unavailable": true}
+			_ai_xyzax_premeasured[pid] = true
+		else:
+			var pre_opts: Array = RoomAbilities.discard_card_options(G, "any")
+			var pre_pc := {"type": "recover-card", "playerId": pid, "bossName": "Xyzax", "remaining": 2, "options": pre_opts}
+			var first_idx := pre_opts.find_custom(func(o): return int((o.get("card", {}) as Dictionary).get("_oid", -1)) == int((oracle_chosen[0] if not oracle_chosen.is_empty() else -1)))
+			if first_idx >= 0:
+				var saved_pc: Dictionary = pc
+				G["pendingChoice"] = pre_pc
+				_ai_choice(pid, pre_pc, first_idx, s, "target")
+				G["pendingChoice"] = saved_pc
+				_ai_xyzax_premeasured[pid] = true
+			else:
+				_ai_unavail("targetShuffle:Xyzax:preDarkLabNoOption")
+				_ai_xyzax_pending[pid] = {"unavailable": true}
+				_ai_xyzax_premeasured[pid] = true
 	if kind == "chooseDraw":
 		# BMA023 : la decision oracle precede le step BeginningOfTurn (Godot n'a pas encore ouvert son choix) -> retenue (_late).
 		if str(pc.get("type", "")) != "draw-type" or int(pc.get("playerId", -1)) != pid:
@@ -1208,6 +1345,15 @@ func _on_decision_now(_i: int, s: Dictionary, age := -1) -> void:
 	# un autre ordre que l'oracle. La decision attend donc le choix de sa carte (_late) au lieu de resoudre celui-ci.
 	var owner_name := _card_name(str((d.get("owner", {}) as Dictionary).get("card", "")))
 	var pc_name := str(pc.get("bossName", ""))
+	# Le nom du provider ne distingue pas deux exemplaires de la meme salle. Pour un choix
+	# recover-card rattache a une roomUid, conserver tout t1 qui ne vise pas cette instance.
+	if kind == "resolveTarget" and int(d.get("targetId", 0)) == 1 \
+		and str(pc.get("type", "")) == "recover-card" and pc.has("roomUid") \
+		and not _late_targets_reveal_recover_provider({"s": s}, pc):
+		_skip("otherCardChoice", s)
+		if age < 2 and not oracle_chosen.is_empty():
+			_late.append({"s": s, "age": maxi(age, 0)})
+		return
 	if kind == "resolveTarget" and owner_name != "" and pc_name != "" and pc_name != owner_name and _is_card_name(pc_name):
 		_skip("otherCardChoice", s)
 		if age < 2 and not chosen.is_empty():
@@ -1234,7 +1380,10 @@ func _on_decision_now(_i: int, s: Dictionary, age := -1) -> void:
 		if not direct:
 			_skip("implicitTargetNoOption", s)
 			return
+	var xyzax_pair := pc_name == "Xyzax" and chosen.size() == 2 and int(pc.get("remaining", 1)) == 2
 	var m := _match_options(opts, pid, chosen, d.get("chosen"))
+	if xyzax_pair:
+		m = _match_options(opts, pid, chosen.slice(0, 1), d["chosen"].slice(0, 1))
 	if Array(OS.get_cmdline_user_args()).any(func(a): return a.begins_with("--dbg=")):
 		print("DBGM seq=%d chosen=%s m=%s pc=%s" % [int(s["seq"]), str(chosen), str(m), _pcs()])
 	var pick: int = m["pick"]
@@ -1277,10 +1426,12 @@ func _on_decision_now(_i: int, s: Dictionary, age := -1) -> void:
 	_apply_move(pid, {"type": "resolveChoice", "args": [pick]}, s, "resolveChoice(%s)" % ptype)
 	# Xyzax : une seule decision oracle designe 2 cartes ; Godot pose un 2e choix « recover-card » pour la suivante.
 	var pc2: Dictionary = G.get("pendingChoice", {})
-	if ptype == "recover-card" and chosen.size() > 1 and str(pc2.get("type", "")) == "recover-card" and int(pc2.get("playerId", -1)) == pid:
-		var m2 := _match_options(pc2.get("options", []), pid, chosen, d.get("chosen"))
-		if int(m2["pick"]) >= 0:
-			_apply_move(pid, {"type": "resolveChoice", "args": [int(m2["pick"])]}, s, "resolveChoice(recover-card)")
+	if xyzax_pair and pc2.get("bossName") == "Xyzax" and int(pc2.get("remaining", 0)) == 1 and int(pc2.get("playerId", -1)) == pid:
+		var second_opts: Array = pc2.get("options", [])
+		var second := second_opts.find_custom(func(o): return _refs(o, pid).has(chosen[1]))
+		if second >= 0:
+			_ai_choice(pid, pc2, second, s, "target")
+			_apply_move(pid, {"type": "resolveChoice", "args": [second]}, s, "resolveChoice(recover-card)")
 
 
 ## KSA002 Hellcow : `chosen` = salles dans l'ordre des slots (Dungeon[0] = fond). Etape « dungeon » : le joueur qui possede la 1re salle.
@@ -1345,7 +1496,7 @@ func _abort_trigger(s: Dictionary, d: Dictionary, pid: int, boss_name: String) -
 
 
 ## Rejoue les decisions en retard des qu'un choix Godot du bon joueur est ouvert.
-func _flush_late() -> void:
+func _flush_late(reveal_recover_only := false) -> void:
 	for _k in 6:
 		var pc: Dictionary = run.G.get("pendingChoice", {})
 		if pc.is_empty() or _late.is_empty():
@@ -1354,12 +1505,66 @@ func _flush_late() -> void:
 		for e in _late.duplicate():
 			if int((((e as Dictionary)["s"] as Dictionary)["detail"] as Dictionary)["player"]) - 1 != int(pc.get("playerId", -1)):
 				continue
+			# Une recover-card liee a une salle ne peut consommer que le ResolveTarget t1 de cette instance.
+			# Appliquer le garde ici aussi protege le flush generique pre-phase, pas seulement le flush reveal cible.
+			if str(pc.get("type", "")) == "recover-card" and pc.has("roomUid") \
+				and not _late_targets_reveal_recover_provider(e, pc):
+				continue
+			if reveal_recover_only and not _late_matches_reveal_recover_choice(e, pc):
+				continue
 			_late.erase(e)
 			_on_decision_now(0, e["s"], int((e as Dictionary)["age"]))
 			if str(run.G.get("pendingChoice", {})) != key:
 				break # le choix a ete resolu : le suivant (autre type d'options) peut convenir a une autre decision retenue
 		if str(run.G.get("pendingChoice", {})) == key:
 			return
+
+
+## La cible t1 doit provenir du meme provider et désigner une carte offerte par recover-card.
+## Les autres providers de la capacité (p. ex. BossOwner/t2) restent des décisions ignorées.
+func _late_matches_reveal_recover_choice(entry: Dictionary, pc: Dictionary) -> bool:
+	if not _late_targets_reveal_recover_provider(entry, pc):
+		return false
+	var detail: Dictionary = ((entry.get("s", {}) as Dictionary).get("detail", {}) as Dictionary)
+	var chosen := _oids(detail.get("chosen"))
+	if chosen.is_empty():
+		return false
+	for option in pc.get("options", []):
+		var card: Dictionary = (option as Dictionary).get("card", {})
+		if chosen.has(int(card.get("_oid", -1))):
+			return true
+	return false
+
+
+## Verify owner identity separately from option availability so the normal abort path still handles
+## an invalid target from the correct room provider.
+func _late_targets_reveal_recover_provider(entry: Dictionary, pc: Dictionary) -> bool:
+	if str(pc.get("type", "")) != "recover-card":
+		return false
+	var step: Dictionary = entry.get("s", {})
+	var detail: Dictionary = step.get("detail", {})
+	if str(detail.get("decision", "")) != "resolveTarget" or int(detail.get("targetId", 0)) != 1:
+		return false
+	if int(detail.get("player", 0)) - 1 != int(pc.get("playerId", -1)):
+		return false
+	var owner: Dictionary = detail.get("owner", {})
+	var owner_name := _card_name(str(owner.get("card", "")))
+	if owner_name.is_empty() or owner_name != str(pc.get("bossName", "")):
+		return false
+	var player: Dictionary = run.G.get("players", {}).get(int(pc.get("playerId", -1)), {})
+	var room_uid := int(pc.get("roomUid", -1))
+	if player.is_empty() or room_uid < 0:
+		return false
+	var found := RoomAbilities._find_room_by_uid(player, room_uid)
+	if found.size() < 3:
+		return false
+	var provider: Dictionary = found[2]
+	# detail.owner.id is LogicCardBase.UniqueID in the APK trace; roomUid is only a
+	# Godot-local locator. Resolve it and compare the preserved oracle instance id (_oid).
+	if str(provider.get("id", "")) != str(owner.get("card", "")) \
+		or int(provider.get("_oid", -1)) != int(owner.get("id", -2)):
+		return false
+	return true
 
 
 func _age_late() -> void:
@@ -1515,12 +1720,18 @@ var _ai_unav: Dictionary = {}
 var _ai_mut := 0
 ## Joueurs dont l'oracle a tire une capacite dans une fenetre que Godot a deja fusionnee (BuildPhase_a oracle, aventure Godot) : ses cibles preregles ne sont pas mesurables (IA-H70).
 var _ai_nosel: Dictionary = {}
+## Xyzax expose une paire oracle comme deux pendingChoice Godot successifs. Les deux mesures
+## doivent rester une seule decision dans le rapport (la mesure de AI.pick_move reste faite pour chaque prompt).
+var _ai_xyzax_pending: Dictionary = {}
+var _ai_xyzax_premeasured: Dictionary = {}
 
 
 func _ai_init() -> void:
 	var args := OS.get_cmdline_user_args()
 	_ai_on = args.has("--ai-agreement")
 	_ai_nosel.clear()
+	_ai_xyzax_pending.clear()
+	_ai_xyzax_premeasured.clear()
 	AI._sel.clear() # abilitySelected / listes memorisees d'une partie precedente
 	AI._memo.clear()
 	for a in args:
@@ -1831,16 +2042,25 @@ func _ai_measure_choice(rec: Dictionary) -> void:
 	var rng_state := run.rng.state
 	var scratch := RandomNumberGenerator.new()
 	scratch.seed = 12345
+	var live := run.G
+	# Le dernier passage BUILD retourne les salles côté Godot avant le NextStep
+	# BuildPhase_b de l'oracle. Les appels d'IA intermédiaires voient encore les poses cachées.
+	if str(rec["phase"]) == "BuildPhase_a" and rec.get("activePlayer") == null \
+			and bool(live.get("revealEffectsPending", false)) and not bool(live.get("revealEffectsReady", false)) \
+			and run.before_build_reveal.get("turn") == live.get("turn"):
+		G = run.before_build_reveal.duplicate(true)
+		run.G = G
 	var moves: Array = run._stack_response_moves(G["players"][pid], pid, stack.size()) if not stack.is_empty() else run.legal_moves(pid)
+	run.G = live
 	if rec.get("activePlayer") != null and int(rec["activePlayer"]) != int(rec["player"]): # IsPlayerBuildTurn : seul le joueur actif de l'oracle construit (Godot a deja passe au suivant apres un DONE)
 		moves = moves.filter(func(m): return str((m as Dictionary).get("type", "")) != "buildRoom")
 	var off_turn: bool = rec.get("activePlayer") != null and int(rec["activePlayer"]) != int(rec["player"])
 	if off_turn:
 		ApkAI.not_build_turn = pid # Motivation (CheckBMA050) : IsPlayerBuildTurn faux cote oracle alors que Godot est deja passe au joueur suivant
-	var opts: Array = ApkAI.abilities(G, pid, moves, scratch, ApkAI.dbm_copy(G))
+	var opts: Array = ApkAI.abilities(G, pid, moves, scratch, ApkAI.dbm_copy(G), rec.get("waveState", {}))
 	ApkAI.not_build_turn = -1
 	run.rng.state = rng_state
-	AI.remember(run, pid, null) # abilitySelected : remplace a chaque UseAbility (null si l'oracle ne tire rien)
+	var selected: Variant = null
 	# Diagnostic de legalite : cartes jouables (CanPlayerPlayAbility) cote oracle / coups legaux Godot, avant les CheckXXX.
 	var gp: Dictionary = G["players"][pid]
 	var u_g := {}
@@ -1899,13 +2119,15 @@ func _ai_measure_choice(rec: Dictionary) -> void:
 			for e in opts:
 				if int(((e as Dictionary)["card"] as Dictionary).get("_oid", -1)) == int(oc["id"]):
 					ge = e
-			AI.remember(run, pid, ge) # l'oracle a tire cette capacite : ses cibles preregles servent aux choix qu'elle ouvre (AIPlayerInteraction.InternalResolveTarget)
+			selected = ge
 			var shuffled: bool = ["BMA040", "BMA047", "BMA009"].has(code)
 			var ot := _ai_norm_targets(((elig[ci] as Dictionary)["targets"] as Array), true)
 			var gt := _ai_norm_targets((ge["t"] as Array), false)
 			var ttype := ("spellTarget" if kind == "spell" else "activateTarget") + ("Shuffle" if shuffled else "")
 			_ai_rec(ttype, ot == gt, s, pid, 2, "%s %s" % [code, ot], "%s %s" % [code, gt], ttype + ":" + code)
 	_ai_guard(h)
+	# Le rejeu retient les cibles de la capacité tirée après la mesure en lecture seule.
+	AI.remember(run, pid, selected)
 
 
 ## Le joueur n'a rien joue (passBuild/pass rejoue par le harnais) : AI.pick_move proposerait-il un coup actif ?
@@ -1954,6 +2176,12 @@ func _ai_choice(pid: int, pc: Dictionary, pick: int, s: Dictionary, type: String
 func _ai_choice_measure(pid: int, pc: Dictionary, pick: int, s: Dictionary, type: String) -> void:
 	if not _ai_on:
 		return
+	if str(pc.get("bossName", "")) == "Xyzax" and str(pc.get("type", "")) == "recover-card" and int(pc.get("remaining", 0)) == 2 and _ai_xyzax_premeasured.has(pid):
+		_ai_xyzax_premeasured.erase(pid)
+		return
+	if str(pc.get("bossName", "")) == "Xyzax" and str(pc.get("type", "")) == "recover-card" and int(pc.get("remaining", 0)) == 1 and _ai_xyzax_pending.has(pid) and bool((_ai_xyzax_pending[pid] as Dictionary).get("unavailable", false)):
+		_ai_xyzax_pending.erase(pid)
+		return
 	var opts: Array = pc.get("options", [])
 	if pick >= opts.size() or (pick < 0 and type != "target"):
 		_ai_unavail(type)
@@ -1964,7 +2192,16 @@ func _ai_choice_measure(pid: int, pc: Dictionary, pick: int, s: Dictionary, type
 	var h := hash(run.G)
 	var rng_state := run.rng.state
 	AI.last_choice_shuf = false
+	var dbg_xyzax_measure := false
+	for dbg_arg in OS.get_cmdline_user_args():
+		if str(dbg_arg) == "--dbg=437":
+			dbg_xyzax_measure = str(pc.get("bossName", "")) == "Xyzax" and int(s["seq"]) == 437
+			break
+	if dbg_xyzax_measure:
+		print("DBG-XYZAX-MEASURE before-pick remaining=%d discard=%s" % [int(pc.get("remaining", 0)), str((run.G.get("decks", {}) as Dictionary).get("spellDiscard", []).map(func(c): return str((c as Dictionary).get("id", "?"))))])
 	var mv = AI.pick_move(run, pid, false)
+	if dbg_xyzax_measure:
+		print("DBG-XYZAX-MEASURE after-pick remaining=%d discard=%s" % [int(pc.get("remaining", 0)), str((run.G.get("decks", {}) as Dictionary).get("spellDiscard", []).map(func(c): return str((c as Dictionary).get("id", "?"))))])
 	run.rng.state = rng_state
 	if mv == null or str((mv as Dictionary).get("type", "")) != "resolveChoice":
 		_ai_unavail(type)
@@ -1987,11 +2224,48 @@ func _ai_choice_measure(pid: int, pc: Dictionary, pick: int, s: Dictionary, type
 		rtype = "targetPass" if pick < 0 else ("targetShuffle" if (AI.last_choice_shuf or (det is Dictionary and bool((det as Dictionary).get("shuffled", false)))) else "target")
 	if type == "target" and det is Dictionary and bool((det as Dictionary).get("shuffled", false)) and not AI.last_choice_shuf: # diagnostic : tirage de l'oracle que Godot ne fait pas
 		(_ai_by.get_or_add("shuffleOracleOnly:%s[%s]" % [ptype, str(pc.get("bossName", ""))], {"n": 0, "agree": 0}))["n"] += 1
-	_ai_rec(rtype, agree, s, pid, keys.size() + (1 if pick < 0 else 0), "option %d %s" % [pick, ko], "option %d %s" % [gi, kg],
-		"%s:%s[%s]" % [rtype, ptype, str(pc.get("bossName", ""))], tie)
+	var choices := keys.size() + (1 if pick < 0 else 0)
+	var by := "%s:%s[%s]" % [rtype, ptype, str(pc.get("bossName", ""))]
+	var oracle := "option %d %s" % [pick, ko]
+	var godot := "option %d %s" % [gi, kg]
+	var is_xyzax := str(pc.get("bossName", "")) == "Xyzax" and ptype == "recover-card"
+	if is_xyzax and int(pc.get("remaining", 0)) == 2:
+		# _tr_002 a deja calcule la paire complete dans le memo pendant ce pick_move
+		# de mesure. La conserver evite de reconstruire la paire a partir des deux
+		# prompts, dont le second est ouvert apres l'application du premier choix oracle.
+		var memo: Dictionary = AI._memo.get(AI._key(run, pid), {})
+		var pair: Array = (memo.get("Xyzax", {}) as Dictionary).get("list", [])
+		var pair_text := ""
+		if not pair.is_empty():
+			pair_text = "paire [" + ",".join(pair.map(func(c): return str((c as Dictionary).get("id", "?")))) + "]"
+		# Retenir le premier élément sans l'ajouter encore au rapport : le second prompt
+		# porte la même décision oracle et sera agrégé juste après.
+		_ai_xyzax_pending[pid] = {"agree": agree, "tie": tie, "choices": choices, "oracle": oracle, "godot": godot,
+			"godot_pair": pair_text, "rtype": rtype, "by": by, "s": s.duplicate(true)}
+	elif is_xyzax and int(pc.get("remaining", 0)) == 1 and _ai_xyzax_pending.has(pid):
+		var first: Dictionary = _ai_xyzax_pending[pid]
+		_ai_xyzax_pending.erase(pid)
+		var godot_pair_report := str(first.get("godot_pair", ""))
+		if godot_pair_report == "":
+			godot_pair_report = str(first["godot"]) + "; " + godot
+		_ai_rec(rtype, bool(first["agree"]) and agree, s, pid, maxi(int(first["choices"]), choices),
+			str(first["oracle"]) + "; " + oracle, godot_pair_report, by,
+			bool(first["tie"]) and tie)
+	else:
+		_ai_rec(rtype, agree, s, pid, choices, oracle, godot, by, tie)
 	_ai_guard(h)
 	AI.pick_move(run, pid, true) # le C# a appele le cache de TriggerCalculator : la reponse est maintenant definitive (memo["tc"])
 	run.rng.state = rng_state
+	if str(pc.get("bossName", "")) == "Xyzax":
+		for a in OS.get_cmdline_user_args():
+			if str(a).begins_with("--dbg=") and int(str(a).substr(6).split("-")[0]) == int(s["seq"]):
+				var md: Dictionary = AI._memo.get(AI._key(run, pid), {})
+				var ml: Array = (md.get("Xyzax", {}) as Dictionary).get("list", [])
+				var dc: Array = (run.G.get("decks", {}) as Dictionary).get("spellDiscard", [])
+				var dc_ids := dc.map(func(c): return "%s#%s" % [str((c as Dictionary).get("id", "?")), str((c as Dictionary).get("_oid", "?"))])
+				var ml_ids := ml.map(func(c): return "%s#%s" % [str((c as Dictionary).get("id", "?")), str((c as Dictionary).get("_oid", "?"))])
+				print("DBG-XYZAX-MEASURE seq=%d remaining=%d discard=%s memo=%s" % [int(s["seq"]), int(pc.get("remaining", 0)), str(dc_ids), str(ml_ids)])
+				break
 
 
 ## Un `spellBattleReady` est « propre » (fin de l'action du joueur) quand l'action IA precedente de meme profondeur est un sort / une capacite de ce

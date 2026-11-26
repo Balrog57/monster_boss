@@ -35,6 +35,7 @@ func run(ok: Callable, h: Node) -> void:
 	_t_room_hypercube()
 	_t_room_omega_42()
 	_t_room_omega_42_choices()
+	_t_ai_omega_mimic_refusal()
 	_t_uncover_crash_site()
 	_t_uncover_caged_gundarf()
 	_t_uncover_caged_gundarf_modifiers()
@@ -837,6 +838,89 @@ func _t_room_omega_42_choices() -> void:
 	_ok.call(str(q0["hand"][0]["id"]) == "in_discard", "CRL012 : Crash Site recupere la salle avancee choisie")
 	m.queue_free()
 	m2.queue_free()
+
+## CRL012 : une cible Mimic explicitement refusee ne doit pas faire reboucler l'IA.
+func _t_ai_omega_mimic_refusal() -> void:
+	var omega := _real("CRL012")
+	var mimic := _real("BMA036")
+	var alternative := _real("BMA011")
+	omega["_uid"] = 101
+	mimic["_uid"] = 102
+	alternative["_uid"] = 103
+	omega["_tuid"] = 201
+	mimic["_tuid"] = 202
+	alternative["_tuid"] = 203
+	var discarded := _room("adv1", "monster", [2], 3, true)
+	discarded["_uid"] = 201
+	var p0 := _player(0, "BMA001", [omega, mimic, alternative])
+	p0["isAI"] = true
+	(p0["hand"] as Array).append_array([discarded, _room("adv2", "trap", [2], 3, true)])
+	var G := _G([p0, _player(1, "BMA002")])
+	G["phase"] = "build"
+	G["activePlayer"] = 0
+	for i in 2:
+		var hero := _hero("CRL018")
+		hero["hp"] = 20
+		(G["town"] as Array).append(hero)
+	var m := _match(G)
+	G["pendingChoice"] = {"type": "omega-refire", "playerId": 0, "options": [
+		{"roomIndex": 1, "mode": "build", "card": mimic}, {"roomIndex": 2, "mode": "build", "card": alternative}]}
+	var refire_choice = AI.pick_move(m, 0)
+	_ok.call(refire_choice != null and int((refire_choice as Dictionary)["args"][0]) == 0
+		and int(AI._omega_pending.get(AI._key(m, 0), {}).get("uid", -1)) == 102,
+		"CRL012 : l'IA choisit Mimic au refire et conserve son UID")
+	G["pendingChoice"] = {"type": "omega-discard", "playerId": 0,
+		"omega": {"roomIndex": 1, "mode": "build", "card": mimic},
+		"options": [{"card": discarded, "handIndex": 0}]}
+	var discard_move = AI.pick_move(m, 0)
+	_ok.call(discard_move != null and str((discard_move as Dictionary).get("type", "")) == "resolveChoice"
+		and str(AI._omega_pending.get(AI._key(m, 0), {}).get("id", "")) == "BMA036",
+		"CRL012 : l'IA memorise la cible Mimic choisie a travers le choix de defausse")
+	var mimic_choice: Dictionary = RoomAbilities._mimic_vault(G, p0, 0)
+	mimic_choice["targeting"] = true
+	mimic_choice["entry"] = {"card": omega, "picks": [Match._opt_sig({"card": discarded})]}
+	_ok.call(((mimic_choice["entry"].get("target", {}) as Dictionary).is_empty())
+		and (mimic_choice["entry"]["picks"] as Array) == ["{card:U201,}"],
+		"CRL012/Mimic : picks peut identifier la salle avancee defaussee, pas la cible rejouee")
+	G["pendingChoice"] = mimic_choice
+	var declined = AI.pick_move(m, 0)
+	_ok.call(declined != null and str((declined as Dictionary).get("type", "")) == "resolveChoice"
+		and int((declined as Dictionary)["args"][0]) == -1
+		and (AI._omega_refused.get(AI._key(m, 0), {}).get("uids", []) as Array).has(102)
+		and not AI._omega_pending.has(AI._key(m, 0)),
+		"CRL012/Mimic : aucun heros viable -> l'IA refuse la cible et mémorise cette salle")
+	G["phase"] = "adventure"
+	AI.pick_move(m, 0, false)
+	_ok.call(AI._omega_refused.has(AI._key(m, 0)), "CRL012 : une evaluation commit=false ne modifie pas le refus")
+	G["phase"] = "build"
+	G["pendingChoice"] = {"type": "omega-refire", "playerId": 0, "options": [
+		{"roomIndex": 1, "mode": "build", "card": mimic}, {"roomIndex": 2, "mode": "build", "card": alternative}]}
+	var refire = AI.pick_move(m, 0)
+	_ok.call(refire != null and int((refire as Dictionary)["args"][0]) == 1,
+		"CRL012/Mimic : la cible refusee est exclue, une autre cible utile reste choisissable")
+	G["pendingChoice"] = {}
+	_ok.call(AI._score_activate_room(0, p0, G, 0, AI._key(m, 0)) >= AiWiki.BUILD_FIRST,
+		"CRL012 : une autre cible utile autorise encore l'activation")
+	(p0["dungeon"] as Array).remove_at(2)
+	_ok.call(AI._score_activate_room(0, p0, G, 0, AI._key(m, 0)) < 0.0,
+		"CRL012 : toutes les cibles restantes sont refusees, l'activation est bloquee")
+	var next_move = AI.pick_move(m, 0)
+	_ok.call(next_move != null and str((next_move as Dictionary).get("type", "")) != "activateRoom",
+		"CRL012 : avec toutes les cibles refusees, l'IA choisit construction/passe")
+	G["turn"] = int(G["turn"]) + 1
+	AI.pick_move(m, 0)
+	_ok.call(not AI._omega_refused.has(AI._key(m, 0)) and AI._score_activate_room(0, p0, G, 0, AI._key(m, 0)) >= AiWiki.BUILD_FIRST,
+		"CRL012 : le refus est oublie et la cible redevient autorisee au tour suivant")
+	var ai_key := AI._key(m, 0)
+	AI._omega_refused.erase(ai_key)
+	AI._omega_pending[ai_key] = {"turn": int(G["turn"]) - 1, "uid": 102, "id": "BMA036"}
+	G["pendingChoice"] = {"type": "recover-card", "playerId": 0, "options": [{"card": discarded}]}
+	AI.pick_move(m, 0, false)
+	_ok.call(AI._omega_pending.has(ai_key), "CRL012 : commit=false ne purge pas un contexte Omega perime")
+	AI.pick_move(m, 0)
+	_ok.call(not AI._omega_pending.has(ai_key), "CRL012 : commit=true purge un contexte provisoire d'un tour precedent")
+	AI.forget(m)
+	m.queue_free()
 
 # --- salles « uncover » (declenchees par BossEngine.destroy_room) ----------------------------------------------------
 

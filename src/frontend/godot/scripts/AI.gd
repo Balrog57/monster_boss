@@ -32,6 +32,10 @@ static var _sel: Dictionary = {}
 static var _pre_build: Dictionary = {}
 ## Liste calculee au premier choix d'une carte a plusieurs choix (Xyzax), par partie et par joueur.
 static var _memo: Dictionary = {}
+## Une cible CRL012 dont le choix Mimic Vault a ete explicitement abandonne faute de heros viable, par partie/joueur/tour.
+static var _omega_refused: Dictionary = {}
+## Cible choisie par Omega, conservee jusqu'a la resolution de son effet rejoue.
+static var _omega_pending: Dictionary = {}
 ## Mesure seulement : la derniere reponse a un choix venait-elle d'un tirage (`Shuffle()`) ?
 static var last_choice_shuf := false
 
@@ -51,7 +55,7 @@ static func take_pre_build(match_obj, pid: int) -> Dictionary:
 ## Oublie la memoire de l'IA d'une partie (identifiant d'instance reutilisable, serveur de longue duree).
 static func forget(match_obj) -> void:
 	var prefix := "%d:" % match_obj.get_instance_id()
-	for d in [_sel, _used, _pre_build, _memo]:
+	for d in [_sel, _used, _pre_build, _memo, _omega_refused, _omega_pending]:
 		for k in (d as Dictionary).keys():
 			if str(k).begins_with(prefix):
 				(d as Dictionary).erase(k)
@@ -85,6 +89,15 @@ static func _window_key(G: Dictionary, steps := 0) -> String:
 
 ## Choisit le meilleur coup légal parmi les options offertes. `commit` = false : question de mesure, sans memoriser la fenetre de decision.
 static func pick_move(match_obj, pid: int, commit := true):
+	var state_key := _key(match_obj, pid)
+	var phase := str(match_obj.G.get("phase", ""))
+	var turn := int(match_obj.G.get("turn", 0))
+	var refusal: Dictionary = _omega_refused.get(state_key, {})
+	var omega_pending: Dictionary = _omega_pending.get(state_key, {})
+	if commit and (phase != "build" or (not refusal.is_empty() and int(refusal.get("turn", -1)) != turn)
+		or (not omega_pending.is_empty() and int(omega_pending.get("turn", -1)) != turn)):
+		_omega_refused.erase(state_key) # oubli a la fin de la construction / au tour suivant
+		_omega_pending.erase(state_key)
 	var moves: Array = match_obj.legal_moves(pid).filter(func(m): return str((m as Dictionary).get("type", "")) != "undoBuild") # reprise de pose : coup d'humain, l'IA n'en use jamais
 	if moves.is_empty():
 		return null
@@ -102,6 +115,14 @@ static func pick_move(match_obj, pid: int, commit := true):
 			trace.call(match_obj, pid, moves, pick)
 		return pick
 	var pc: Dictionary = match_obj.G.get("pendingChoice", {})
+	var omega_context: Dictionary = _omega_pending.get(state_key, {})
+	var omega_chain_choice := str(pc.get("type", "")) in ["omega-refire", "omega-discard"] \
+		or (str(pc.get("type", "")) == "pick-hero" and str(pc.get("bossName", "")) == "Mimic Vault"
+			and bool(pc.get("targeting", false)) and str((((pc.get("entry", {}) as Dictionary).get("card", {}) as Dictionary).get("id", ""))) == "CRL012")
+	if commit and not omega_context.is_empty() and int(omega_context.get("turn", -1)) == turn and not omega_chain_choice:
+		_omega_pending.erase(state_key) # effet termine, annule ou poursuivi par un autre choix
+	if commit and str(pc.get("type", "")) == "omega-discard":
+		_remember_omega_target(match_obj, pid, pc.get("omega", {}) as Dictionary)
 	if str(pc.get("type", "")) == "draw-type" and int(pc.get("playerId", -1)) == pid: # StatisticAI.SelectWhereToDrawFrom : rng <= p -> pioche de salles
 		var want := "rooms" if match_obj.rng.randf() <= ApkAI.draw_room_probability(match_obj.G, p, pid) else "spells"
 		for m in moves:
@@ -114,6 +135,9 @@ static func pick_move(match_obj, pid: int, commit := true):
 	if str(pc.get("type", "")) != "" and str((moves[0] as Dictionary).get("type", "")) == "resolveChoice" and int(pc.get("playerId", -1)) == pid:
 		var ch: Variant = ApkAI.choose(match_obj.G, pid, pc, match_obj.rng, _sel.get(_key(match_obj, pid), {}), memo_of(match_obj, pid), commit)
 		if ch != null:
+			if commit and str(pc.get("type", "")) == "pick-hero" and str(pc.get("bossName", "")) == "Mimic Vault" \
+				and bool(pc.get("targeting", false)) and int((ch as Dictionary).get("idx", -1)) < 0:
+				_remember_omega_mimic_refusal(match_obj, pid, pc)
 			for m in moves:
 				if int((m as Dictionary)["args"][0]) == int((ch as Dictionary)["idx"]):
 					last_choice_shuf = bool((ch as Dictionary)["shuf"])
@@ -175,6 +199,21 @@ static func pick_move(match_obj, pid: int, commit := true):
 			best = builds[int(plan["pick"])]
 		if commit:
 			_pre_build.erase(_key(match_obj, pid)) # capacite abandonnee avant la pile : l'etat n'a pas change, le meme plan redonne la meme salle
+	if commit and str(pc.get("type", "")) == "omega-refire" and best is Dictionary \
+		and str((best as Dictionary).get("type", "")) == "resolveChoice":
+		var choice_index := int((best as Dictionary).get("args", [-1])[0])
+		var choices: Array = pc.get("options", []) as Array
+		if choice_index >= 0 and choice_index < choices.size():
+			_remember_omega_target(match_obj, pid, choices[choice_index] as Dictionary)
+	if commit and best is Dictionary and str((best as Dictionary).get("type", "")) == "activateRoom":
+		var room_index := int((best as Dictionary).get("args", [-1])[0])
+		var dungeon: Array = p.get("dungeon", []) as Array
+		if room_index >= 0 and room_index < dungeon.size():
+			var room = BossEngine.active_room(dungeon[room_index])
+			if room is Dictionary and str((room as Dictionary).get("id", "")) == "CRL012":
+				var targets := _omega_target_options(match_obj.G, p, pid)
+				if targets.size() == 1 and str(((targets[0] as Dictionary).get("card", {}) as Dictionary).get("id", "")) == "BMA036":
+					_remember_omega_target(match_obj, pid, targets[0])
 	if trace.is_valid():
 		trace.call(match_obj, pid, moves, best)
 	return best
@@ -190,7 +229,7 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 	match mtype:
 		"resolveChoice", "resolveLevelUpChoice":
 			# Résolution immédiate des choix obligatoires ; l'option est départagée par _score_choice.
-			return 1000.0 + _score_choice(G, p, pid, int(args[0]) if not args.is_empty() else -1, _sel.get(_key(match_obj, pid), {}))
+			return 1000.0 + _score_choice(G, p, pid, int(args[0]) if not args.is_empty() else -1, _sel.get(_key(match_obj, pid), {}), _key(match_obj, pid))
 
 		"pickBoss":
 			var bid := str(args[0]) if not args.is_empty() else ""
@@ -235,7 +274,7 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 				return _score_apk_ability(match_obj, pid, move)
 			if not (G.get("stack", []) as Array).is_empty():
 				return -50.0 # Spell Battle : l'IA n'active que All-Seeing Eye (APK, ci-dessus) ; aucune capacite de salle wiki en reponse
-			return _score_activate_room(room_idx, p, G, pid)
+			return _score_activate_room(room_idx, p, G, pid, _key(match_obj, pid))
 
 		"useHandRoom":
 			# CRL007 Frostman Lander (hors APK, heuristique maison) : seulement contre la salle avancee d'un adversaire dont un heros est la.
@@ -270,7 +309,7 @@ static func score_move(match_obj, pid: int, move: Dictionary) -> float:
 
 ## Note les options d'un pendingChoice. Les choix de l'APK (TriggerCalculator, cibles de capacites) viennent de ApkAI.choose (pick_move l'appelle directement avec le
 ## RNG de la partie ; ici un RNG fixe, pour comparer deux options sans tirer). Reste : les choix des cartes wiki (heuristiques maison).
-static func _score_choice(G: Dictionary, p: Dictionary, pid: int, idx: int, sel: Dictionary = {}) -> float:
+static func _score_choice(G: Dictionary, p: Dictionary, pid: int, idx: int, sel: Dictionary = {}, match_key: String = "") -> float:
 	var pc: Dictionary = G.get("pendingChoice", {})
 	var opts: Array = pc.get("options", [])
 	var scratch := RandomNumberGenerator.new()
@@ -297,6 +336,8 @@ static func _score_choice(G: Dictionary, p: Dictionary, pid: int, idx: int, sel:
 				fits = fits or BossEngine.can_build_room(p, G, pid, hi, ti)
 			return (0.0 if fits else 50.0) - TnlAbilities._ai_value(card)
 		"omega-refire": # CRL012 : l'effet de construction / decouverte qui rapporte le plus
+			if _omega_uid_refused(G, pid, match_key, int(card.get("_uid", -1))):
+				return -1000.0
 			return AiWiki.refire_value(card)
 		"tnl-pick": # The Next Level : chaque option porte son poids (`ai`) ; defausser / detruire = le moins precieux d'abord
 			return float(o.get("ai", 0.0))
@@ -345,7 +386,7 @@ static func _score_spell(spell: Dictionary, target: Dictionary, p: Dictionary, G
 			return 20.0
 
 ## Scoring d'activation des salles wiki (les salles de l'APK passent par ApkAI.abilities : AbilityCalculator.cs).
-static func _score_activate_room(room_idx: int, p: Dictionary, G: Dictionary, _pid: int) -> float:
+static func _score_activate_room(room_idx: int, p: Dictionary, G: Dictionary, _pid: int, match_key: String = "") -> float:
 	var dungeon: Array = p.get("dungeon", [])
 	if room_idx < 0 or room_idx >= dungeon.size():
 		return -20.0
@@ -357,7 +398,14 @@ static func _score_activate_room(room_idx: int, p: Dictionary, G: Dictionary, _p
 	match rid:
 		"CRL012": # The Omega 42 (hors APK) : rejouer un effet coute une salle avancee, a ne faire qu'avec une carte avancee dont on n'a pas l'usage
 			var adv_n: int = (p.get("hand", []) as Array).filter(func(c): return bool((c as Dictionary).get("advanced", false))).size()
-			return AiWiki.BUILD_FIRST if phase == "build" and adv_n >= 1 and (adv_n >= 2 or AiWiki.dead_advanced(G, p, _pid) >= 1) else -5.0
+			if phase != "build" or adv_n < 1 or (adv_n < 2 and AiWiki.dead_advanced(G, p, _pid) < 1):
+				return -5.0
+			if _omega_has_refusals(G, _pid, match_key):
+				for option in _omega_target_options(G, p, _pid):
+					if not _omega_uid_refused(G, _pid, match_key, int(((option as Dictionary).get("card", {}) as Dictionary).get("_uid", -1))):
+						return AiWiki.BUILD_FIRST
+				return -5.0 # toutes les cibles rejouables ont ete refusees par Mimic Vault
+			return AiWiki.BUILD_FIRST
 		_:
 			if rid.begins_with("TNL"):
 				return TnlAbilities.score_activate(G, p, _pid, rid, room_idx)
@@ -366,6 +414,56 @@ static func _score_activate_room(room_idx: int, p: Dictionary, G: Dictionary, _p
 			if rid.begins_with("THK"):
 				return ThkAbilities.score_activate(G, p, _pid, rid)
 			return 5.0
+
+static func _remember_omega_mimic_refusal(match_obj, pid: int, pc: Dictionary) -> void:
+	var entry: Dictionary = pc.get("entry", {}) as Dictionary
+	if str(((entry.get("card", {}) as Dictionary).get("id", ""))) != "CRL012":
+		return
+	var key := _key(match_obj, pid)
+	var pending: Dictionary = _omega_pending.get(key, {})
+	var turn := int(match_obj.G.get("turn", 0))
+	if int(pending.get("turn", -1)) != turn or str(pending.get("id", "")) != "BMA036":
+		return
+	var picked_uid := int(pending.get("uid", -1))
+	if picked_uid < 0:
+		return
+	var refused: Dictionary = _omega_refused.get(key, {})
+	var uids: Array = refused.get("uids", []) as Array if int(refused.get("turn", -1)) == turn else []
+	if not uids.has(picked_uid):
+		uids.append(picked_uid)
+	_omega_refused[key] = {"turn": turn, "uids": uids}
+	_omega_pending.erase(key)
+
+static func _remember_omega_target(match_obj, pid: int, option: Dictionary) -> void:
+	var card: Dictionary = option.get("card", {}) as Dictionary
+	var uid := int(card.get("_uid", -1))
+	if uid >= 0:
+		_omega_pending[_key(match_obj, pid)] = {"turn": int(match_obj.G.get("turn", 0)), "uid": uid,
+			"id": str(card.get("id", "")), "mode": str(option.get("mode", "build"))}
+
+static func _omega_has_refusals(G: Dictionary, pid: int, match_key: String) -> bool:
+	var refused: Dictionary = _omega_refused.get(match_key, {})
+	return int(refused.get("turn", -1)) == int(G.get("turn", 0)) and not (refused.get("uids", []) as Array).is_empty()
+
+static func _omega_uid_refused(G: Dictionary, pid: int, match_key: String, uid: int) -> bool:
+	if uid < 0 or not _omega_has_refusals(G, pid, match_key):
+		return false
+	return (_omega_refused[match_key].get("uids", []) as Array).has(uid)
+
+static func _omega_target_options(G: Dictionary, p: Dictionary, pid: int) -> Array:
+	var targets: Array = []
+	for i in (p.get("dungeon", []) as Array).size():
+		var room = BossEngine.active_room((p["dungeon"] as Array)[i])
+		if room == null or bool((room as Dictionary).get("faceDown", false)) or BossEngine.is_room_deactivated(G, pid, i):
+			continue
+		var rd: Dictionary = room
+		if TnlAbilities.no_text(rd):
+			continue
+		if RoomAbilities.has_build_effect(rd) and (str(rd.get("id", "")) != "KSA010" or ThkAbilities.active(G)):
+			targets.append({"roomIndex": i, "mode": "build", "card": rd})
+		if RoomAbilities.has_uncover_effect(rd):
+			targets.append({"roomIndex": i, "mode": "uncover", "card": rd})
+	return targets
 
 ## Sort / capacite d'une carte de l'APK : 20 si sa carte est dans l'ensemble des capacites eligibles (ApkAI.abilities), -50 sinon. Le choix, lui, est un tirage
 ## uniforme dans pick_move ; ce score ne sert qu'aux appelants qui refusent un coup « nocif » (< 0).

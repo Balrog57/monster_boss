@@ -111,6 +111,8 @@ def run(args):
         t0 = time.time()
         page.goto(args.url)
         page.wait_for_function("document.querySelector('canvas') && document.querySelector('canvas').width > 0", timeout=120000)
+        # Le canvas existe pendant le téléchargement. Le shell Godot retire ce voile après le démarrage du moteur.
+        page.locator("#status").wait_for(state="detached", timeout=120000)
         page.evaluate("window.__f=[];(function f(t){window.__f.push(t);requestAnimationFrame(f)})(0)")
         page.wait_for_timeout(4000)
         if page.evaluate("typeof AudioContext === 'undefined' && typeof webkitAudioContext === 'undefined'"):

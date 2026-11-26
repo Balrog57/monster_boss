@@ -1,6 +1,6 @@
 extends Node
 ## Soak : parties IA-vs-IA a 2, 3 et 4 joueurs (5 et 6 avec --sets=crash-landing). Scène exécutée en headless avec autoloads.
-## Usage : godot --headless --path src/frontend res://godot/tests/Soak.tscn [-- --players=3] [--runs=10]
+## Usage : godot --headless --path src/frontend res://godot/tests/Soak.tscn [-- --players=3] [--runs=10] [--max-steps=8000]
 ## Sans argument : 3 parties a 2, puis a 3, puis a 4 joueurs. --players=N ou N,M : ces nombres seuls (5-6 : exigent --sets=crash-landing, sinon echec) ; --runs=K : K parties par nombre de joueurs.
 ## Plafond de pas : une partie a 4 joueurs en demande ~1300 (chaque salle franchie ouvre 2 fenetres de pause que tous les joueurs
 ## passent), donc 500 coupait des parties qui progressaient ; 4000 ne coupe que de vraies boucles. A 5-6 joueurs (une partie dure ~9 tours de 5-6
@@ -46,6 +46,8 @@ func _ready() -> void:
 			_fixed_seed = int(a.substr(len("--seed=")))
 		elif a.begins_with("--runs="):
 			runs = maxi(1, int(a.substr(len("--runs="))))
+		elif a.begins_with("--max-steps="):
+			_max_steps_override = maxi(1, int(a.substr(len("--max-steps="))))
 	for n in counts:
 		for _r in runs:
 			if not _play(n):
@@ -56,6 +58,7 @@ func _ready() -> void:
 	get_tree().quit(0)
 
 var _fixed_seed := -1
+var _max_steps_override := -1
 var _replay := "" # arguments pour rejouer la partie en cours (graine, joueurs, paquets)
 
 ## Une partie IA-vs-IA a n joueurs ; false (et diagnostic) si elle cale ou depasse MAX_STEPS.
@@ -85,7 +88,7 @@ func _play(n_players: int) -> bool:
 		return false
 	var spells_total := _spell_uids(m.G).size()
 	var steps := 0
-	var max_steps := MAX_STEPS_BIG if n_players >= 5 else MAX_STEPS
+	var max_steps := _max_steps_override if _max_steps_override > 0 else (MAX_STEPS_BIG if n_players >= 5 else MAX_STEPS)
 	while m.G.get("gameOver") == null and steps < max_steps:
 		var acted := false
 		var phase: String = m.G["phase"]

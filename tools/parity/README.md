@@ -253,6 +253,8 @@ Pas de plafond numerique par classe. Classes connues : `noChoice-dropped:resolve
 (`skipWarnings`, avertissement console, `WARN_SKIP_KEYS` dans `apk.py`) mais ne fait pas echouer, tant que la classification n'est pas tranchee ;
 l'exemption est PAR CLE : toute autre cle `otherCardChoice:*` fait echouer la trace.
 
+Depuis le 25 novembre 2026, les proprietaires passifs BMA015 (Goblin Armory) et BMA029 (Dizzygas Hallway) sont aussi ajoutes a `passiveSkipped` avant leur retour anticipe. Comme BMA020, ces nombres mesurent des requetes repetees de calcul des degats, pas des activations distinctes ni des choix de joueur. Les totaux historiques ci-dessus restent ceux des executions d'origine.
+
 ## Accord de l'IA (`--ai-agreement`, lot 1.2)
 
 ```bash
@@ -540,3 +542,26 @@ et doit rendre la meme trace (la partie du tutoriel n'en depend pas). Non mesure
 - `chooseDraw` (Haunted Library, BMA023) est rejoue par le harnais (choix Godot `draw-type`) mais ne figure dans aucune trace des graines 1-80 (BMA023 et BMA033 ne sont jamais distribuees : `CardInfoService.notInGameCards`, ecartees des pioches de `new_match`) : le chemin n'est couvert que par un golden. `undoBuildRoom` n'apparait pas non plus ; il serait un REFUS.
 - Les decisions `resolveTarget` internes aux capacites (cibles d'IA) ne sont transmises que si Godot
   a un choix en attente correspondant ; l'appariement oracle->option est heuristique (`_refs`).
+
+## Soak CRL012 / Mimic Vault (2026-11-25)
+
+Le soak Godot a révélé une boucle de décision avec l’extension Crash Landing : CRL012 The Omega 42 rejouait l’effet de BMA036 Mimic Vault, puis l’IA refusait correctement le choix faute de héros tuable. Comme l’effet ne s’exécutait pas, `usedThisTurn` restait faux et l’IA retentait Omega avec les mêmes données. CRL012 n’existe pas dans l’APK 2.2.6 : ce cas ne constitue pas une divergence démontrée du jeu de base.
+
+Correction dans `AI.gd` : mémoriser provisoirement l’UID de la salle choisie par Omega, puis, après un refus de Mimic, éviter cette cible pour le tour courant. Les autres cibles Omega restent choisissables; si aucune ne reste, l’IA choisit construction/passe. La mémoire expire avec la phase/le tour et `pick_move(commit=false)` ne la modifie pas. Le moteur de règles et `OncePerTurn` restent inchangés. Le golden `_t_ai_omega_mimic_refusal` couvre le contexte des choix `omega-refire` / `omega-discard`, le refus, une autre cible utile, l’absence de cible restante, l’expiration et l’absence de mutation en mode mesure.
+
+Vérifications après correction :
+
+- `Goldens.tscn` : **2 489 réussis, 0 échec** (`GOLDENS OK`).
+- Soak ciblé, graine `4238441970`, 2 joueurs, `iod,crash-landing`, `--ship-all`, plafond 8 000 : fin normale en **285 pas**, tour 11, victoire du joueur 1 (`SOAK OK`).
+- `git diff --check` : aucune erreur.
+- `python tools/run_godot_tests.py` : plusieurs sous-suites ont passé, dont coverage, soaks de base/paquets et Crash Landing à 5–6 joueurs. Le contrôle suivant (`crash-landing,hidden-heroes,tools`, 5–6 joueurs, deux runs) est resté sans sortie et sans consommation CPU pendant plus de deux minutes; processus arrêté. **Runner complet incomplet**, ce n’est pas un résultat vert ni un échec attribué à CRL012.
+
+## Accord Xyzax / Dark Laboratory (2026-11-25)
+
+Sur `s32-p3@437`, Xyzax (BMA002) désigne BMA050 puis BMA045 dans la défausse de sorts. Dark Laboratory (BMA022) avait déjà ouvert son choix de défausse, mais l’effet BMA043 n’est résolu qu’à `seq 440`. Le C# fixe la sélection de Xyzax à l’activation (`TriggerCalculator.CheckBMA002`, ligne 398) et mémorise immédiatement la cible de Dark Laboratory (`CheckBMA022`, lignes 219–225). Le rejeu fermait la fenêtre de sorts à `seq 437`, appliquait BMA043 trop tôt, puis mesurait Xyzax sur la défausse modifiée.
+
+Correction limitée au harnais `ApkParityTrace.gd` : pour cette décision précise (`resolveTarget`, `targetId=1`, deux cibles, propriétaire BMA002), conserver le choix Dark Laboratory en attente et mesurer une paire Xyzax synthétique sur la défausse pré-effet; restaurer aussitôt le choix en attente. La paire des deux prompts Godot est comptée comme une décision. Si la première cible oracle n’existe pas dans les options pré-effet, le rapport classe `targetShuffle:Xyzax:preDarkLabNoOption`; si la trace ne contient pas `n0`, il classe `targetShuffle:Xyzax:missingRngState`. Dans les deux cas, les deux prompts sont écartés ensemble de la mesure, et la décision Oracle est tout de même rejouée. Le moteur de règles et l’IA du jeu ne changent pas.
+
+La trace historique d’octobre `out/base/s10_40/oracle-s32-p3.json` ne contenait pas le compteur de RNG `detail.n0` ni `discardBefore`; elle ne permettait donc pas de rejouer cette décision aléatoire au bon état RNG. Le garde-fou a été vérifié dessus : `missingRngState` vaut 1 et aucune paire Xyzax partielle n’est comptée. Cette trace diverge toutefois au contrôle d’état `seq 602` (120/181 contrôles, 37 refus); les résultats de parité ci-dessous proviennent donc de la trace instrumentée complète, conservée dans `tools/parity/out/xyzax-rng-audit-2026-11-25/oracle-s32-p3.json` (graine 32, `n0=133`, défausse pré-effet incluse). Commande de rejeu/rapport : `APK_PARITY_OUT=<ce dossier> python tools/parity/apk.py --skip-gen --ai-agreement --no-init-parity`.
+
+Résultats de cette trace instrumentée : **183/183 contrôles d’état**, 0 refus, 0 divergence d’état; choix Xyzax **[BMA050, BMA045] = [BMA050, BMA045]**; `targetShuffle` **4/4**, dont `targetShuffle:recover-card[Xyzax]` **1/1**; mutations de l’état par les requêtes IA : **0**. Le relevé IA total est 1 411/1 412; l’unique autre différence est un choix récupéré dans Dark Altar à `seq 504`, signalé par le rapport comme indifférent. Le résultat Xyzax a été rejoué depuis le trace instrumenté après revue des deux garde-fous.

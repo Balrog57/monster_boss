@@ -287,8 +287,7 @@ func _t_levelup_hellcow() -> void:
 	m.queue_free()
 	_t_levelup_hellcow_pending()
 
-## X-M30 (GameBoard.RevealAllRoomCards:928-967) : EnqueueAbilityTransaction resout les cibles de Hellcow AU MOMENT du level-up, pendant la boucle sur Players. Un joueur
-## traite apres lui a encore son emplacement construit ce tour PendingToBeBuilt : DungeonSize l'ignore et RoomInDungeon (!PendingToBeBuilt) aussi.
+## La mise en file précède la révélation du dernier siège. L'IA de l'APK inclut quand même son TopRoom dans l'ordre choisi.
 func _t_levelup_hellcow_pending() -> void:
 	var p0 := _player(0, "KSA002", [_room("A", "trap", [1]), _room("B", "trap", [1]), _room("C", "trap", [1]), _room("D", "trap", [1]), _room("E", "trap", [1])])
 	p0["isAI"] = true
@@ -306,7 +305,8 @@ func _t_levelup_hellcow_pending() -> void:
 		"KSA002 X-M30 : a l'instant du level-up, seul l'emplacement de l'adversaire traite apres est en attente (obtenu %s)" % str(lv.get("pend")))
 	var pend: Dictionary = lv.get("pend", {})
 	var c = RoomAbilities.process_level_up(G, 0, {}, pend)
-	_ok.call(c != null and c["step"] == "dungeon" and (c["options"] as Array).size() == 2, "KSA002 X-M30 : les deux donjons restent ciblables")
+	_ok.call(c != null and c["step"] == "dungeon" and (c["options"] as Array).size() == 2 and not c.has("pend"),
+		"KSA002 IA : le choix inclut les salles révélées après la mise en file")
 	var c2 = RoomAbilities.rearrange_choice(G, 0, 1, [], pend)
 	var idxs: Array = []
 	for o in (c2["options"] as Array):
@@ -314,7 +314,17 @@ func _t_levelup_hellcow_pending() -> void:
 	idxs.sort()
 	_ok.call(c2 != null and idxs == [1, 2], "KSA002 X-M30 : la salle en attente de l'adversaire n'est pas proposee (obtenu %s)" % str(idxs))
 	var cold = RoomAbilities.rearrange_choice(G, 0, 1, [], {})
-	_ok.call((cold["options"] as Array).size() == 3, "KSA002 sans instantane : tout est revele, 3 salles (ancien comportement de Godot)")
+	_ok.call((cold["options"] as Array).size() == 3, "KSA002 IA : les trois salles révélées peuvent être réordonnées")
+	p0["isAI"] = false
+	G["autoAI"] = true
+	var human = RoomAbilities.process_level_up(G, 0, {}, pend)
+	G["pendingChoice"] = human
+	var opponent := _option_of(human, "Z")
+	_ok.call(opponent >= 0, "KSA002 humain : le donjon adverse est disponible au choix du boss")
+	if opponent >= 0:
+		m._resolve_choice(0, opponent)
+		var after_boss: Dictionary = G["pendingChoice"]
+		_ok.call(_option_of(after_boss, "X") >= 0, "KSA002 humain : la salle révélée est proposée après le choix du boss")
 	G["pendingChoice"] = c2
 	m._resolve_choice(0, 0) # Z (index Godot 2 = emplacement C# 0) d'abord ; Y est place d'office
 	var ids: Array = []

@@ -24,6 +24,7 @@ SUITES = [
     ("soak shipped packs", T + "Soak.tscn", "SOAK OK", ["--", "--sets=players-choice,hidden-heroes,next-level,crash-landing", "--runs=3"]),
     ("soak The Next Level", T + "Soak.tscn", "SOAK OK", ["--", "--sets=next-level", "--runs=4"]),
     ("soak Minibosses", T + "Soak.tscn", "SOAK OK", ["--", "--sets=minibosses", "--runs=4", "--ship-all"]),
+    ("soak Respawn + Dark Laboratory", T + "Soak.tscn", "SOAK OK", ["--", "--sets=minibosses", "--players=3", "--runs=1", "--seed=924676852", "--ship-all"]),
     ("soak Tools of Hero-Kind (wiki)", T + "Soak.tscn", "SOAK OK", ["--", "--sets=tools-wiki", "--runs=4", "--ship-all"]),
     ("soak Implements of Destruction (wiki)", T + "Soak.tscn", "SOAK OK", ["--", "--sets=iod,crash-landing", "--runs=4", "--ship-all"]),
     ("soak Player's Choice (wiki)", T + "Soak.tscn", "SOAK OK", ["--", "--sets=players-choice,players-choice-wiki", "--runs=4", "--ship-all"]),

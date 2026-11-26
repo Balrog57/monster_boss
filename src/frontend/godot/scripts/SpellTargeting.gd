@@ -396,6 +396,8 @@ static func active_entrance_hero(G: Dictionary, me: Dictionary, pid: int) -> Var
 	var real_active := int(G.get("stackActivePlayer", G.get("activePlayer", -1))) if not st.is_empty() else int(G.get("activePlayer", -1))
 	if real_active != pid:
 		return null
+	if int(G.get("apkSkippedHero", -1)) == pid and G.get("apkSkippedHeroCard") is Dictionary:
+		return G["apkSkippedHeroCard"]
 	if ((G.get("effects", {}) as Dictionary).get("skipAdventure", []) as Array).has(pid):
 		return null
 	var ent: Array = me.get("entrance", [])

@@ -181,6 +181,13 @@ static func make_entry(G: Dictionary, player_id: int, room_index: int, other_roo
 	var uid := room_uid(r)
 	var e := {"id": "ability-%s-%d" % [str(r.get("id", "")), uid], "type": "ability", "playerId": player_id,
 		"card": r.duplicate(), "target": {}, "picks": [], "resolved": false, "roomUid": uid}
+	if r.get("id") == "BMA025":
+		var preferred: Dictionary = G.get("aseTarget", {})
+		var stack: Array = G.get("stack", [])
+		var index := _last_opponent_spell_index(G, player_id)
+		if index >= 0:
+			e["cancelStackId"] = preferred.get("stackId", stack[index]["id"]) if preferred.get("playerId") == player_id else stack[index]["id"]
+		G.erase("aseTarget")
 	if other_room_index >= 0 and other_room_index < dungeon.size():
 		e["otherUid"] = room_uid(BossEngine.active_room(dungeon[other_room_index]))
 	return e
@@ -374,12 +381,16 @@ static func cancel_last_opponent_spell(G: Dictionary, player_id: int, label: Str
 		return
 	var stack: Array = G["stack"]
 	var e: Dictionary = stack[i]
-	stack.remove_at(i)
+	if bool(ase.get("queued", false)):
+		e["canceled"] = true
+	else:
+		stack.remove_at(i)
 	var card: Dictionary = e.get("card", {})
 	# Le sort est deja en defausse depuis son lancement (Match, playSpell : GameBoard.OnAbilityApplyRequest).
 	_log(G, "%s: %s annule." % [label, str(card.get("name", "?"))])
 	# Meme reprise que le Counterspell.
-	stack_return_control(G)
+	if not bool(ase.get("queued", false)):
+		stack_return_control(G)
 
 ## Rend la main apres un Counterspell / une annulation / la resolution de la pile.
 ## Pile vide = Spell Battle terminee (GameBoard.NextStep : IsSpellBattleActive=false, le flux de phase
@@ -507,18 +518,35 @@ static func _crushinator(G: Dictionary, p: Dictionary, player_id: int, room_inde
 ## (BossOpponent : tout adversaire, meme sans salle en main ; un seul adversaire = cible automatique).
 static func _torture_chamber(G: Dictionary, player_id: int, room_index: int):
 	var p := _player(G, player_id)
-	var d = BossEngine.destroy_room(p, room_index, G)
-	BossEngine.discard_room_to_pile(G.get("decks", {}), d)
 	var opps := opponents_with(G, player_id)
 	if opps.size() == 1:
-		_discard_random_from(G, int((opps[0] as Dictionary)["playerId"]), false, "Torture Chamber", player_id)
+		_resolve_torture_chamber(G, player_id, room_index, int((opps[0] as Dictionary)["playerId"]))
 	elif opps.size() > 1:
 		var opts: Array = []
 		for o in opps:
 			opts.append({"targetPlayerId": int((o as Dictionary)["playerId"])})
 		enqueue_pending(G, {"type": "pick-opponent", "action": "discard-room", "resume": false, "playerId": player_id,
-			"bossName": "Torture Chamber", "message": "Torture Chamber: choose an opponent to discard a random Room", "options": opts})
+			"bossName": "Torture Chamber", "message": "Torture Chamber: choose an opponent to discard a random Room", "options": opts,
+			"sourceRoomUid": room_uid(BossEngine.active_room((p.get("dungeon", []) as Array)[room_index]))})
 	return null
+
+## C# resolves the target while the source room still exists, then runs DestroyRoom and the random discard;
+## only after the transaction does WhenAnotherRoomIsDestroyed run (which may reshuffle the discard pile).
+static func _resolve_torture_chamber(G: Dictionary, player_id: int, room_index: int, target_pid: int) -> void:
+	var p := _player(G, player_id)
+	var d = BossEngine.destroy_room(p, room_index, G, false)
+	BossEngine.discard_room_to_pile(G.get("decks", {}), d)
+	_discard_random_from(G, target_pid, false, "Torture Chamber", player_id)
+	if d is Dictionary:
+		BossEngine._on_other_room_destroyed(G, p, d, true)
+
+## Resume a multi-opponent Torture Chamber only after the public target choice, revalidating its source instance.
+static func resolve_torture_chamber_choice(G: Dictionary, player_id: int, source_uid: int, target_pid: int) -> void:
+	var p := _player(G, player_id)
+	var found := _find_room_by_uid(p, source_uid)
+	if found.is_empty() or not bool(found[1]) or str((found[2] as Dictionary).get("id", "")) != "BMA038" or target_pid == player_id:
+		return
+	_resolve_torture_chamber(G, player_id, int(found[0]), target_pid)
 
 ## BMA013 Dracolich Lair : defausse 2 salles de la main (choix du joueur) puis recupere une salle de la defausse.
 ## C# (data.json BMA013) : RoomInHand(AllRequired=True, 2) puis RoomInDeck(1, DiscardPile). Ability.CheckConditions
@@ -852,24 +880,26 @@ static func steal_random_card(G: Dictionary, thief_pid: int, victim_pid: int, la
 static func _mimic_vault(G: Dictionary, p: Dictionary, player_id: int) -> Variant:
 	var town: Array = G.get("town", []) as Array
 	G["town"] = town
-	var ordinary: Array = []
-	for i in town.size():
-		if not bool((town[i] as Dictionary).get("epic", false)):
-			ordinary.append({"card": town[i], "townIndex": i})
+	var ordinary := mimic_vault_options(town)
 	if ordinary.is_empty():
 		return null
 	if ordinary.size() == 1:
 		var o: Dictionary = ordinary[0]
-		var ti := int(o["townIndex"])
-		var hero: Dictionary = town[ti]
-		town.remove_at(ti)
-		var entrance: Array = p.get("entrance", []) as Array
+		var hero: Dictionary = town.pop_at(int(o["townIndex"]))
+		var entrance: Array = p.get("entrance", [])
 		entrance.append(hero)
 		p["entrance"] = entrance
 		_log(G, "Mimic Vault: %s moved to your entrance." % str(hero.get("name", "?")))
 		return null
 	return {"type": "pick-hero", "playerId": player_id, "bossName": "Mimic Vault",
 		"message": "Mimic Vault: choose an ordinary Hero in town", "options": ordinary}
+
+static func mimic_vault_options(town: Array) -> Array:
+	var ordinary: Array = []
+	for i in town.size():
+		if not bool((town[i] as Dictionary).get("epic", false)):
+			ordinary.append({"card": town[i], "townIndex": i})
+	return ordinary
 
 ## BMA037 Monstrous Monument : recupere une salle Monster de la defausse.
 static func _monstrous_monument(G: Dictionary, p: Dictionary, player_id: int) -> Variant:
@@ -1097,6 +1127,10 @@ static func _apk_level_up(G: Dictionary, player_id: int, p: Dictionary, lu: Dict
 			return {"type": "steal-hero", "playerId": player_id, "optional": bool(lu.get("canAvoid", false)),
 				"bossName": "Kaw'nee", "message": "Kaw'nee: choose an ordinary Hero in an opponent's scorekeeping area", "options": opts}
 		"RearrangeDungeon": # KSA002 Hellcow : n'importe quel donjon, ordre des salles (toutes) au choix
+			# TriggerCalculator.CheclKSA002 lit TopRoom sans filtrer PendingToBeBuilt.
+			# Le rejeu fournit les choix de cette IA, même si ses sièges sont pilotés par le harnais.
+			if bool(p.get("isAI", false)) or not bool(G.get("autoAI", true)):
+				return rearrange_choice(G, player_id, -1, [])
 			return rearrange_choice(G, player_id, -1, [], pend)
 		"CopyLevelUp": # CRL002 Klonos
 			return _klonos(G, player_id)
@@ -1242,7 +1276,10 @@ static func _search_advanced_choice(G: Dictionary, player_id: int, room_type: St
 	for entry in [["rooms", "deck"], ["roomDiscard", "discard"]]:
 		var pile: Array = decks.get(entry[0], [])
 		decks[entry[0]] = pile
-		for i in pile.size():
+		# RoomInDeck enumerates DeckRooms from its head (Godot pop_back means reverse array
+		# order); the sorted discard List keeps its normal 0-to-end order.
+		var indices: Array = range(pile.size() - 1, -1, -1) if entry[0] == "rooms" else range(pile.size())
+		for i in indices:
 			var c: Dictionary = pile[i]
 			if bool(c.get("advanced", false)) and str(c.get("type", "")) == room_type:
 				options.append({"card": c, "pile": entry[1], "pileIndex": i})

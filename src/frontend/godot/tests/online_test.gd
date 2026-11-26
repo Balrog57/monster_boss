@@ -152,12 +152,19 @@ func _check_g_keys_classified() -> void:
 			missing.append("%s (%s)" % [k, keys[k]])
 	_expect(missing.is_empty(), "cles de G non classees dans ViewFilter (PUBLIC_KEYS / FILTERED_KEYS / DROPPED_KEYS) : %s" % ", ".join(missing))
 
-## Regression : apkSkippedHero (Trepidation) doit survivre a la vue d'un siege, sinon Match.apk_active_hero() grise tout cote client en ligne.
+## Regression : les marqueurs Trepidation et le heros retire mais encore actif doivent survivre a la vue des sieges en ligne.
 func _check_apk_skipped_hero_view() -> void:
-	var g := {"players": {0: {"id": 0}, 1: {"id": 1}}, "apkSkippedHero": 1, "phase": "build"}
+	var hero := {"id": "H1", "name": "Visible Hero", "hp": 4}
+	var g := {"players": {0: {"id": 0}, 1: {"id": 1}}, "apkSkippedHero": 1, "apkSkippedHeroCard": hero, "phase": "adventure"}
 	for seat in [0, 1]:
 		var v := ViewFilter.for_seat(g, seat)
 		_expect(v.has("apkSkippedHero") and int(v["apkSkippedHero"]) == 1, "apkSkippedHero perdu dans la vue du siege %d : %s" % [seat, str(v.get("apkSkippedHero"))])
+		_expect(v.has("apkSkippedHeroCard") and v["apkSkippedHeroCard"] == hero,
+			"apkSkippedHeroCard perdu dans la vue du siege %d : %s" % [seat, str(v.get("apkSkippedHeroCard"))])
+	g.erase("apkSkippedHeroCard") # sans cible active conservee, le champ optionnel ne doit pas apparaitre.
+	for seat in [0, 1]:
+		_expect(not ViewFilter.for_seat(g, seat).has("apkSkippedHeroCard"),
+			"apkSkippedHeroCard expose sans heros actif au siege %d" % seat)
 
 ## Une partie IA-vs-IA a 3 joueurs (graine `rng_seed`) ; renvoie le nombre de vues verifiees.
 func _filter_game(sets: Array, rng_seed: int, players: int = 3) -> int:

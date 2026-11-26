@@ -344,7 +344,7 @@ static func heal_one_wound(player: Dictionary, hero = null):
 		if (wounds[i] as Dictionary).get("hero") == hero:
 			wounds.remove_at(i)
 	for _k in hero_souls(hero):
-		last = {"souls": 1, "name": hero.get("name", ""), "class": hero.get("class", ""), "faceDown": true, "hero": hero}
+		last = CardDB.soul_entry(hero)
 		souls.append(last)
 	return last
 
@@ -627,7 +627,7 @@ static func destroy_room(player: Dictionary, room_index: int, G: Dictionary = {}
 
 ## GameBoard.DestroyRoom -> CheckTriggerInDungeon<WhenAnotherRoomIsDestroyed> : chaque BMA031 Recycling Center
 ## actif du donjon (la salle detruite n'y est plus) fait piocher 2 salles a son proprietaire (DrawCards 2 Room).
-static func _on_other_room_destroyed(G: Dictionary, player: Dictionary, destroyed: Dictionary) -> void:
+static func _on_other_room_destroyed(G: Dictionary, player: Dictionary, destroyed: Dictionary, already_discarded := false) -> void:
 	var dungeon: Array = player.get("dungeon", [])
 	for i in dungeon.size():
 		var top = active_room(dungeon[i])
@@ -637,7 +637,7 @@ static func _on_other_room_destroyed(G: Dictionary, player: Dictionary, destroye
 			continue
 		# DestroyRoom defausse la salle AVANT le declencheur : elle fait partie des defausses remelangees si la pioche est vide.
 		# Les appelants la defaussent apres coup : le drapeau rend leur discard_room_to_pile sans effet.
-		if not destroyed.has("pileEarly"):
+		if not already_discarded and not destroyed.has("pileEarly"):
 			discard_room_to_pile(G.get("decks", {}) as Dictionary, destroyed)
 			destroyed["pileEarly"] = true
 		# DrawRooms : pioche vide => defausses remelangees (GameBoard.cs:529-545, 1335-1349), puis la suite de la pioche.

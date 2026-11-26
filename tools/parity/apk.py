@@ -653,7 +653,7 @@ def main():
         top = " ".join(f"{k}={v}" for k, v in sorted(a["cards"].items(), key=lambda kv: -kv[1])[:4])
         worst = " ".join(f"{k}={v}" for k, v in sorted(a["traces"].items(), key=lambda kv: -kv[1])[:3])
         print(f"  {key:<38} {a['n']:>5} (distinct {a['distinct']:>4}, rejoue apres {a['replayed']:>3})  cartes@action: {top}  traces: {worst}")
-    print(f"  decisions passives BMA020 comptees a part (passiveSkipped) : {report['passiveSkipped']}")
+    print(f"  decisions passives comptees a part (passiveSkipped) : {report['passiveSkipped']}")
     print(f"  playSpell dont la cible oracle n'est dans aucune variante Godot (cands[0] joue) : {report['spellTargetUnmatched']}")
     print()
     if ai:

@@ -975,6 +975,12 @@ func _t_apk_spell_battle() -> void:
 	_ok.call(o2.size() == 1 and str((o2[0]["card"] as Dictionary)["id"]) == "BMA025" and discarded == "BMA048", "All-Seeing Eye : un Jeopardy adverse nous vise -> on defausse NOTRE Jeopardy d'abord")
 	G2["stack"] = [{"id": "spell-z", "type": "spell", "playerId": 0, "card": _spell("BMA050"), "target": {}, "resolved": false}]
 	_ok.call(ApkAI.abilities(G2, 1, m2.legal_moves(1), rng).is_empty(), "All-Seeing Eye : un sort adverse qui ne designe pas notre boss -> non")
+	var tpk := {"id": "spell-tpk", "type": "spell", "playerId": 0, "card": _spell("KSA013"),
+		"target": {"targetPlayerId": 0}, "resolved": false}
+	G2["stack"] = [tpk]
+	_ok.call(ApkAI.abilities(G2, 1, m2.legal_moves(1), rng).is_empty(), "All-Seeing Eye : T.P.K. vise uniquement son boss cible")
+	tpk["target"]["targetPlayerId"] = 1
+	_ok.call(ApkAI.abilities(G2, 1, m2.legal_moves(1), rng).size() == 1, "All-Seeing Eye : T.P.K. est contré si le boss est effectivement ciblé")
 	m.queue_free()
 	m2.queue_free()
 
